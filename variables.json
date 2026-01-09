@@ -79,7 +79,7 @@
     "$value": 96,
     "$type": "number"
   },
-  "0000000000": {
+  "0000000": {
     "$value": 0,
     "$type": "number"
   },
@@ -2016,5 +2016,13 @@
       },
       "$type": "typography"
     }
+  },
+  "BORRAR": {
+    "$value": 0,
+    "$type": "number"
+  },
+  "0000000000": {
+    "$value": 0,
+    "$type": "number"
   }
 }
