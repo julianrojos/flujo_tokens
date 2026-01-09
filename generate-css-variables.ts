@@ -17,24 +17,65 @@ type TokenData = {
 };
 
 /**
+ * Interfaz para objetos de sombra
+ */
+interface ShadowObject {
+  type?: 'DROP_SHADOW' | 'INNER_SHADOW';
+  color?: {
+    r: number;
+    g: number;
+    b: number;
+    a?: number;
+  };
+  offset?: {
+    x: number;
+    y: number;
+  };
+  radius?: number;
+  spread?: number;
+}
+
+/**
+ * Interfaz para objetos de alias de variables
+ */
+interface VariableAliasObject {
+  type: 'VARIABLE_ALIAS';
+  id?: string;
+}
+
+/**
+ * Type guard para verificar si un valor es un objeto plano (no array, no null)
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Type guard para verificar si un objeto es un VariableAliasObject
+ */
+function isVariableAlias(value: unknown): value is VariableAliasObject {
+  return isPlainObject(value) && 'type' in value && value.type === 'VARIABLE_ALIAS';
+}
+
+/**
  * Convierte un nombre a kebab-case
  */
 function toKebabCase(name: string): string {
   // Reemplaza guiones existentes con espacios temporales
   let result = name.replace(/-/g, ' ');
-  
+
   // Inserta guiones antes de mayúsculas (excepto al inicio)
   result = result.replace(/([a-z])([A-Z])/g, '$1-$2');
-  
+
   // Convierte a minúsculas
   result = result.toLowerCase();
-  
+
   // Reemplaza espacios y guiones múltiples con un solo guión
   result = result.replace(/[\s-]+/g, '-');
-  
+
   // Elimina guiones al inicio y final
   result = result.replace(/^-+|-+$/g, '');
-  
+
   return result;
 }
 
@@ -44,7 +85,7 @@ function toKebabCase(name: string): string {
  * que pueden no estar presentes en el JSON exportado
  */
 function findTokenById(tokensData: TokenData, targetId: string, currentPath: string[] = []): string[] | null {
-  if (typeof tokensData !== 'object' || tokensData === null || Array.isArray(tokensData)) {
+  if (!isPlainObject(tokensData)) {
     return null;
   }
 
@@ -52,7 +93,8 @@ function findTokenById(tokensData: TokenData, targetId: string, currentPath: str
   for (const key of keys) {
     if (key.startsWith('$')) {
       // Verificar si es un metadato $id que coincida
-      if (key === '$id' && (tokensData as any)[key] === targetId) {
+      const keyValue = tokensData[key];
+      if (key === '$id' && typeof keyValue === 'string' && keyValue === targetId) {
         return currentPath;
       }
       continue;
@@ -61,12 +103,12 @@ function findTokenById(tokensData: TokenData, targetId: string, currentPath: str
     const newPath = [...currentPath, key];
     const value = tokensData[key];
 
-    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    if (isPlainObject(value)) {
       // Verificar si este token tiene un $id que coincida
-      if ('$id' in value && (value as any).$id === targetId) {
+      if ('$id' in value && typeof value.$id === 'string' && value.$id === targetId) {
         return newPath;
       }
-      
+
       // Buscar recursivamente
       const found = findTokenById(value as TokenData, targetId, newPath);
       if (found) {
@@ -84,12 +126,12 @@ function findTokenById(tokensData: TokenData, targetId: string, currentPath: str
  * En el formato W3C Design Tokens estándar, las referencias se hacen con {token.path}
  */
 function processVariableAlias(
-  aliasObj: any, 
-  currentPath: string[], 
+  aliasObj: unknown,
+  currentPath: string[],
   tokensData?: TokenData
 ): string {
   // Si es un objeto con type: "VARIABLE_ALIAS", intentamos manejarlo
-  if (aliasObj && typeof aliasObj === 'object' && aliasObj.type === 'VARIABLE_ALIAS') {
+  if (isVariableAlias(aliasObj)) {
     // Si tiene un id, intentamos resolverlo
     if (aliasObj.id && tokensData) {
       const tokenPath = findTokenById(tokensData, aliasObj.id);
@@ -126,21 +168,24 @@ function processVariableAlias(
 /**
  * Convierte un shadow object a formato CSS
  */
-function processShadow(shadowObj: any): string {
-  if (!shadowObj || typeof shadowObj !== 'object') {
+function processShadow(shadowObj: unknown): string {
+  if (!isPlainObject(shadowObj)) {
     return JSON.stringify(shadowObj);
   }
 
-  const type = shadowObj.type || 'DROP_SHADOW';
-  const color = shadowObj.color || { r: 0, g: 0, b: 0, a: 1 };
-  const offset = shadowObj.offset || { x: 0, y: 0 };
-  const radius = shadowObj.radius || 0;
-  const spread = shadowObj.spread || 0;
+  const shadow = shadowObj as ShadowObject;
+  const type = shadow.type || 'DROP_SHADOW';
+  const color = shadow.color || { r: 0, g: 0, b: 0, a: 1 };
+  const offset = shadow.offset || { x: 0, y: 0 };
+  const radius = shadow.radius || 0;
+  const spread = shadow.spread || 0;
 
   // Convertir color RGBA
-  const r = Math.round((color.r || 0) * 255);
-  const g = Math.round((color.g || 0) * 255);
-  const b = Math.round((color.b || 0) * 255);
+  // Detectar si los valores están normalizados (0-1) o en formato 0-255
+  const isNormalized = (color.r || 0) <= 1 && (color.g || 0) <= 1 && (color.b || 0) <= 1;
+  const r = isNormalized ? Math.round((color.r || 0) * 255) : Math.round(color.r || 0);
+  const g = isNormalized ? Math.round((color.g || 0) * 255) : Math.round(color.g || 0);
+  const b = isNormalized ? Math.round((color.b || 0) * 255) : Math.round(color.b || 0);
   const a = color.a !== undefined ? color.a : 1;
 
   const rgba = `rgba(${r}, ${g}, ${b}, ${a})`;
@@ -156,12 +201,14 @@ function processShadow(shadowObj: any): string {
 
 /**
  * Procesa el valor según su tipo según formato W3C Design Tokens
+ * @param visitedRefs - Set de referencias visitadas para detectar ciclos
  */
 function processValue(
   value: TokenValueType | TokenValueType[],
   varType?: string,
   currentPath: string[] = [],
-  tokensData?: TokenData
+  tokensData?: TokenData,
+  visitedRefs: Set<string> = new Set()
 ): string {
   // Si es null o undefined
   if (value === null || value === undefined) {
@@ -183,10 +230,10 @@ function processValue(
   if (typeof value === 'object') {
     // Verificar si es una referencia VARIABLE_ALIAS
     // Nota: value ya se verificó que es un objeto (no null) en la línea anterior
-    if ('type' in value && value.type === 'VARIABLE_ALIAS') {
+    if (isVariableAlias(value)) {
       return processVariableAlias(value, currentPath, tokensData);
     }
-    
+
     // Si es un objeto de referencia W3C (formato {token.path})
     // Esto se maneja como string en el JSON
     return JSON.stringify(value);
@@ -198,11 +245,20 @@ function processValue(
     if (value.startsWith('{') && value.endsWith('}')) {
       // Convertir {token.path} a var(--token-path)
       const tokenPath = value.slice(1, -1);
+
       // Validar que el path no esté vacío
       if (tokenPath.trim().length === 0) {
         console.warn(`⚠️  Referencia W3C vacía encontrada en ${currentPath.join('.')}`);
         return value; // Devolver el valor original si está mal formado
       }
+
+      // Detectar referencias circulares
+      const refKey = tokenPath;
+      if (visitedRefs.has(refKey)) {
+        console.warn(`⚠️  Referencia circular detectada: ${refKey} en ${currentPath.join('.')}`);
+        return `/* circular-ref: ${refKey} */`;
+      }
+
       // Convertir puntos a guiones y validar el resultado
       const cssPath = tokenPath.replace(/\./g, '-');
       // Validar que el nombre resultante sea válido
@@ -213,23 +269,23 @@ function processValue(
       }
       return `var(${varName})`;
     }
-    
+
     // Si es un color rgba o rgb, lo mantenemos
     if (value.startsWith('rgba') || value.startsWith('rgb(')) {
       return value;
     }
-    
+
     // Si es un color hexadecimal, lo mantenemos
     if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) {
       return value;
     }
-    
+
     // Si el tipo es string, lo envolvemos en comillas (escapando comillas internas)
     if (varType === 'string') {
       const escapedValue = value.replace(/"/g, '\\"');
       return `"${escapedValue}"`;
     }
-    
+
     return value;
   }
 
@@ -296,7 +352,7 @@ function generateCssVars(
     const newPrefix = prefix
       ? `${prefix}-${toKebabCase(key)}`
       : toKebabCase(key);
-    
+
     const newPath = [...currentPath, key];
 
     const value = obj[key];
@@ -305,7 +361,7 @@ function generateCssVars(
       // Si tiene $value, es un token final según formato W3C Design Tokens
       if ('$value' in value) {
         const tokenValue = value as TokenValue;
-        
+
         try {
           // Procesar el valor según su tipo (puede ser string, number, boolean, object, array)
           // IMPORTANTE: Siempre pasar tokensData (objeto raíz completo) para que findTokenById pueda buscar en todo el árbol
@@ -316,13 +372,13 @@ function generateCssVars(
             tokensData
           );
           const varName = `--${newPrefix}`;
-          
+
           // Validar nombre de variable
           if (!isValidCssVariableName(varName)) {
             console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
             continue;
           }
-          
+
           result.push(`  ${varName}: ${varValue};`);
         } catch (error) {
           console.warn(`⚠️  Advertencia: Error procesando ${newPrefix}: ${error instanceof Error ? error.message : error}`);
@@ -336,13 +392,13 @@ function generateCssVars(
     } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       // Valor primitivo directo (no es formato W3C estándar, pero lo soportamos)
       const varName = `--${newPrefix}`;
-      
+
       // Validar nombre de variable
       if (!isValidCssVariableName(varName)) {
         console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
         continue;
       }
-      
+
       result.push(`  ${varName}: ${value};`);
     }
   }
@@ -356,20 +412,20 @@ function generateCssVars(
  */
 function extractCssVariables(cssContent: string): Map<string, string> {
   const variables = new Map<string, string>();
-  
+
   // Buscar el bloque :root { ... }
   // Usar un enfoque más robusto que maneje llaves anidadas
   const rootStart = cssContent.indexOf(':root');
   if (rootStart === -1) {
     return variables;
   }
-  
+
   // Encontrar la llave de apertura después de :root
   let braceStart = cssContent.indexOf('{', rootStart);
   if (braceStart === -1) {
     return variables;
   }
-  
+
   // Encontrar la llave de cierre correspondiente (manejar llaves anidadas)
   let braceCount = 0;
   let braceEnd = braceStart;
@@ -384,11 +440,11 @@ function extractCssVariables(cssContent: string): Map<string, string> {
       }
     }
   }
-  
+
   let rootContent: string;
   if (braceCount !== 0) {
     // Llaves no balanceadas, usar método simple
-    const rootMatch = cssContent.match(/:root\s*\{([^}]+)\}/s);
+    const rootMatch = cssContent.match(/:root\s*\{([\s\S]+?)\}/);
     if (!rootMatch) {
       return variables;
     }
@@ -396,22 +452,88 @@ function extractCssVariables(cssContent: string): Map<string, string> {
   } else {
     rootContent = cssContent.substring(braceStart + 1, braceEnd);
   }
-  
-  // Regex mejorado que maneja valores con punto y coma, funciones CSS, etc.
-  // Busca --nombre: valor; donde valor puede contener funciones CSS, strings, etc.
-  // Mejorado para manejar valores complejos como var(), calc(), rgba(), etc.
-  const regex = /--([a-zA-Z0-9_-]+):\s*([^;]+?);/g;
-  let match;
-  
-  while ((match = regex.exec(rootContent)) !== null) {
-    const name = match[1];
-    const value = match[2].trim();
-    // Validar que el nombre sea válido antes de agregarlo
-    if (isValidCssVariableName(`--${name}`)) {
+
+  // Parsear variables manualmente para manejar valores complejos
+  // que pueden contener punto y coma dentro de strings o funciones
+  let i = 0;
+  while (i < rootContent.length) {
+    // Saltar espacios en blanco
+    while (i < rootContent.length && /\s/.test(rootContent[i])) {
+      i++;
+    }
+
+    // Buscar inicio de variable (--)
+    if (i >= rootContent.length || rootContent.substring(i, i + 2) !== '--') {
+      i++;
+      continue;
+    }
+
+    // Extraer nombre de variable
+    const nameStart = i + 2;
+    let nameEnd = nameStart;
+    while (nameEnd < rootContent.length && /[a-zA-Z0-9_-]/.test(rootContent[nameEnd])) {
+      nameEnd++;
+    }
+    const name = rootContent.substring(nameStart, nameEnd);
+
+    // Buscar dos puntos
+    i = nameEnd;
+    while (i < rootContent.length && /\s/.test(rootContent[i])) {
+      i++;
+    }
+    if (i >= rootContent.length || rootContent[i] !== ':') {
+      continue;
+    }
+    i++; // Saltar ':'
+
+    // Extraer valor (hasta encontrar ';' que no esté dentro de strings o funciones)
+    while (i < rootContent.length && /\s/.test(rootContent[i])) {
+      i++;
+    }
+
+    const valueStart = i;
+    let depth = 0;
+    let inString = false;
+    let stringChar = '';
+
+    while (i < rootContent.length) {
+      const char = rootContent[i];
+
+      // Manejar strings
+      if ((char === '"' || char === "'") && (i === 0 || rootContent[i - 1] !== '\\')) {
+        if (!inString) {
+          inString = true;
+          stringChar = char;
+        } else if (char === stringChar) {
+          inString = false;
+        }
+      }
+
+      // Manejar paréntesis (funciones CSS)
+      if (!inString) {
+        if (char === '(') {
+          depth++;
+        } else if (char === ')') {
+          depth--;
+        } else if (char === ';' && depth === 0) {
+          // Encontramos el final del valor
+          break;
+        }
+      }
+
+      i++;
+    }
+
+    const value = rootContent.substring(valueStart, i).trim();
+
+    // Validar y agregar variable
+    if (name && value && isValidCssVariableName(`--${name}`)) {
       variables.set(name, value);
     }
+
+    i++; // Saltar ';'
   }
-  
+
   return variables;
 }
 
@@ -454,7 +576,7 @@ function main(): void {
     }
 
     // Parsear JSON en formato W3C Design Tokens
-    let data: { $schema?: string; Tokens?: TokenData; [key: string]: unknown };
+    let data: { $schema?: string; Tokens?: TokenData;[key: string]: unknown };
     try {
       data = JSON.parse(fileContent);
     } catch (error) {
@@ -467,12 +589,12 @@ function main(): void {
           .substring(firstBrace, translationStart)
           .trim()
           .replace(/,\s*$/, '');
-        
+
         // Asegurarse de que termine con }
         const cleanedContent = jsonContent.endsWith('}')
           ? jsonContent
           : `${jsonContent}\n}`;
-        
+
         try {
           data = JSON.parse(cleanedContent);
         } catch (parseError) {
@@ -511,7 +633,7 @@ function main(): void {
       console.error('❌ Error: El JSON no contiene una estructura de tokens válida en formato W3C Design Tokens');
       process.exit(1);
     }
-    
+
     // Eliminar propiedades de metadatos del formato W3C ($schema, Translations, etc.)
     if ('$schema' in tokensData) {
       delete tokensData.$schema;
@@ -544,7 +666,7 @@ function main(): void {
     // Mostrar resumen de cambios
     console.log(`\n✅ Archivo variables.css regenerado completamente`);
     console.log(`   📊 Total de variables: ${cssVars.length}`);
-    
+
     if (previousVariables.size > 0) {
       // Encontrar variables eliminadas
       const removedVariables: string[] = [];
@@ -553,7 +675,7 @@ function main(): void {
           removedVariables.push(name);
         }
       });
-      
+
       // Encontrar variables nuevas
       const addedVariables: string[] = [];
       newVariables.forEach((value, name) => {
@@ -561,7 +683,7 @@ function main(): void {
           addedVariables.push(name);
         }
       });
-      
+
       // Encontrar variables modificadas (mismo nombre, diferente valor)
       const modifiedVariables: Array<{ name: string; oldValue: string; newValue: string }> = [];
       newVariables.forEach((newValue, name) => {
@@ -572,7 +694,7 @@ function main(): void {
           }
         }
       });
-      
+
       if (removedVariables.length > 0) {
         console.log(`   🗑️  Variables eliminadas: ${removedVariables.length}`);
         if (removedVariables.length <= 10) {
@@ -586,7 +708,7 @@ function main(): void {
           console.log(`      ... y ${removedVariables.length - 10} más`);
         }
       }
-      
+
       if (addedVariables.length > 0) {
         console.log(`   ➕ Variables añadidas: ${addedVariables.length}`);
         if (addedVariables.length <= 10) {
@@ -600,7 +722,7 @@ function main(): void {
           console.log(`      ... y ${addedVariables.length - 10} más`);
         }
       }
-      
+
       if (modifiedVariables.length > 0) {
         console.log(`   🔄 Variables modificadas: ${modifiedVariables.length}`);
         if (modifiedVariables.length <= 10) {
@@ -618,12 +740,12 @@ function main(): void {
           console.log(`      ... y ${modifiedVariables.length - 10} más`);
         }
       }
-      
+
       if (removedVariables.length === 0 && addedVariables.length === 0 && modifiedVariables.length === 0) {
         console.log(`   ✓ Sin cambios (todas las variables se mantienen igual)`);
       }
     }
-    
+
     console.log(`\n📝 Archivo guardado en: ${cssPath}`);
   } catch (error) {
     console.error('❌ Error al generar variables CSS:');
