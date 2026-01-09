@@ -182,7 +182,8 @@ function processValue(
   // Si es un objeto
   if (typeof value === 'object') {
     // Verificar si es una referencia VARIABLE_ALIAS
-    if (value && typeof value === 'object' && 'type' in value && value.type === 'VARIABLE_ALIAS') {
+    // Nota: value ya se verificó que es un objeto (no null) en la línea anterior
+    if ('type' in value && value.type === 'VARIABLE_ALIAS') {
       return processVariableAlias(value, currentPath, tokensData);
     }
     
@@ -490,7 +491,8 @@ function main(): void {
         }
         try {
           data = JSON.parse(cleaned);
-        } catch {
+        } catch (parseError) {
+          // Si el parse del contenido limpiado también falla, lanzar el error original
           throw error;
         }
       }
