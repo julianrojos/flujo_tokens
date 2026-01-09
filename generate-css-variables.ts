@@ -39,23 +39,86 @@ function toKebabCase(name: string): string {
 }
 
 /**
+ * Busca un token que tenga un metadato $id que coincida con el targetId
+ * Nota: Los IDs de VARIABLE_ALIAS suelen ser referencias a variables de Figma
+ * que pueden no estar presentes en el JSON exportado
+ */
+function findTokenById(tokensData: TokenData, targetId: string, currentPath: string[] = []): string[] | null {
+  if (typeof tokensData !== 'object' || tokensData === null || Array.isArray(tokensData)) {
+    return null;
+  }
+
+  const keys = Object.keys(tokensData);
+  for (const key of keys) {
+    if (key.startsWith('$')) {
+      // Verificar si es un metadato $id que coincida
+      if (key === '$id' && (tokensData as any)[key] === targetId) {
+        return currentPath;
+      }
+      continue;
+    }
+
+    const newPath = [...currentPath, key];
+    const value = tokensData[key];
+
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      // Verificar si este token tiene un $id que coincida
+      if ('$id' in value && (value as any).$id === targetId) {
+        return newPath;
+      }
+      
+      // Buscar recursivamente
+      const found = findTokenById(value as TokenData, targetId, newPath);
+      if (found) {
+        return found;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Convierte un objeto de referencia VARIABLE_ALIAS a formato W3C Design Tokens
  * Nota: Las referencias VARIABLE_ALIAS con ID necesitan resolverse a rutas de tokens.
  * En el formato W3C Design Tokens estándar, las referencias se hacen con {token.path}
  */
-function processVariableAlias(aliasObj: any, currentPath: string[]): string {
+function processVariableAlias(
+  aliasObj: any, 
+  currentPath: string[], 
+  tokensData?: TokenData
+): string {
   // Si es un objeto con type: "VARIABLE_ALIAS", intentamos manejarlo
   if (aliasObj && typeof aliasObj === 'object' && aliasObj.type === 'VARIABLE_ALIAS') {
-    // Si tiene un id, intentamos generar una referencia
-    // Nota: Idealmente esto debería resolverse al path completo del token referenciado
-    // Por ahora, generamos una referencia genérica que el usuario puede ajustar
-    if (aliasObj.id) {
-      console.warn(`⚠️  Referencia VARIABLE_ALIAS encontrada en ${currentPath.join('.')} con ID: ${aliasObj.id}`);
-      console.warn(`   Considera convertir esto a formato W3C: {token.path}`);
+    // Si tiene un id, intentamos resolverlo
+    if (aliasObj.id && tokensData) {
+      const tokenPath = findTokenById(tokensData, aliasObj.id);
+      if (tokenPath) {
+        // Convertir la ruta a formato CSS variable
+        const cssPath = tokenPath.map(toKebabCase).join('-');
+        return `var(--${cssPath})`;
+      } else {
+        // No se encontró el token referenciado
+        // Esto es común cuando los IDs son referencias a variables de Figma que no están en el JSON
+        // Mostrar un warning informativo (no es un error, solo información)
+        // El código seguirá funcionando, pero la referencia no será correcta
+        console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${currentPath.join('.')} con ID: ${aliasObj.id}`);
+        console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
+        console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
+        // Generar un placeholder que no sea una referencia circular
+        // Usar un nombre genérico basado en el ID para evitar auto-referencias
+        let placeholderName = aliasObj.id.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+        // Limpiar guiones múltiples y al inicio/final
+        placeholderName = placeholderName.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        // Si después de limpiar está vacío o solo tiene guiones, usar un fallback
+        if (!placeholderName || placeholderName === '-') {
+          placeholderName = 'unknown';
+        }
+        return `var(--unresolved-${placeholderName})`;
+      }
     }
-    // Generamos una referencia CSS válida (aunque no sea la referencia correcta)
-    // El usuario deberá actualizar estas referencias manualmente o con un mapeo de IDs
-    return `var(--${currentPath.join('-')})`;
+    // Si no tiene ID o no hay tokensData, generar referencia genérica
+    return `var(--${currentPath.map(toKebabCase).join('-')})`;
   }
   return JSON.stringify(aliasObj);
 }
@@ -97,7 +160,8 @@ function processShadow(shadowObj: any): string {
 function processValue(
   value: TokenValueType | TokenValueType[],
   varType?: string,
-  currentPath: string[] = []
+  currentPath: string[] = [],
+  tokensData?: TokenData
 ): string {
   // Si es null o undefined
   if (value === null || value === undefined) {
@@ -119,7 +183,7 @@ function processValue(
   if (typeof value === 'object') {
     // Verificar si es una referencia VARIABLE_ALIAS
     if (value && typeof value === 'object' && 'type' in value && value.type === 'VARIABLE_ALIAS') {
-      return processVariableAlias(value, currentPath);
+      return processVariableAlias(value, currentPath, tokensData);
     }
     
     // Si es un objeto de referencia W3C (formato {token.path})
@@ -132,8 +196,21 @@ function processValue(
     // Si es una referencia a otro token (formato W3C: {token.path})
     if (value.startsWith('{') && value.endsWith('}')) {
       // Convertir {token.path} a var(--token-path)
-      const tokenPath = value.slice(1, -1).replace(/\./g, '-');
-      return `var(--${tokenPath})`;
+      const tokenPath = value.slice(1, -1);
+      // Validar que el path no esté vacío
+      if (tokenPath.trim().length === 0) {
+        console.warn(`⚠️  Referencia W3C vacía encontrada en ${currentPath.join('.')}`);
+        return value; // Devolver el valor original si está mal formado
+      }
+      // Convertir puntos a guiones y validar el resultado
+      const cssPath = tokenPath.replace(/\./g, '-');
+      // Validar que el nombre resultante sea válido
+      const varName = `--${cssPath}`;
+      if (!isValidCssVariableName(varName)) {
+        console.warn(`⚠️  Referencia W3C genera nombre inválido: ${varName} en ${currentPath.join('.')}`);
+        return value; // Devolver el valor original si genera un nombre inválido
+      }
+      return `var(${varName})`;
     }
     
     // Si es un color rgba o rgb, lo mantenemos
@@ -165,10 +242,31 @@ function processValue(
 
 /**
  * Valida que un nombre de variable CSS sea válido
+ * Según la especificación CSS, los nombres de variables personalizadas pueden contener:
+ * - Letras (a-z, A-Z)
+ * - Números (0-9)
+ * - Guiones (-)
+ * - Guiones bajos (_)
+ * - Caracteres Unicode escapados
+ * Pero NO pueden empezar con un número o dos guiones seguidos de un número
  */
 function isValidCssVariableName(name: string): boolean {
   // Los nombres de variables CSS deben empezar con -- y seguir con letras, números, guiones o guiones bajos
-  return /^--[a-zA-Z0-9_-]+$/.test(name);
+  // No pueden empezar con un número después de --
+  if (!name.startsWith('--')) {
+    return false;
+  }
+  // Validar que después de -- no empiece con un número
+  const afterDashes = name.slice(2);
+  if (afterDashes.length === 0) {
+    return false;
+  }
+  // No puede empezar con un número
+  if (/^\d/.test(afterDashes)) {
+    return false;
+  }
+  // Solo puede contener letras, números, guiones y guiones bajos
+  return /^[a-zA-Z0-9_-]+$/.test(afterDashes);
 }
 
 /**
@@ -178,7 +276,8 @@ function generateCssVars(
   obj: TokenData,
   prefix: string = '',
   result: string[] = [],
-  currentPath: string[] = []
+  currentPath: string[] = [],
+  tokensData?: TokenData
 ): string[] {
   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
     return result;
@@ -208,10 +307,12 @@ function generateCssVars(
         
         try {
           // Procesar el valor según su tipo (puede ser string, number, boolean, object, array)
+          // IMPORTANTE: Siempre pasar tokensData (objeto raíz completo) para que findTokenById pueda buscar en todo el árbol
           const varValue = processValue(
             tokenValue.$value,
             tokenValue.$type,
-            newPath
+            newPath,
+            tokensData
           );
           const varName = `--${newPrefix}`;
           
@@ -228,7 +329,8 @@ function generateCssVars(
         }
       } else {
         // Es un objeto anidado (grupo de tokens), continuar recursivamente
-        generateCssVars(value as TokenData, newPrefix, result, newPath);
+        // IMPORTANTE: Siempre pasar tokensData (objeto raíz completo) para mantener consistencia
+        generateCssVars(value as TokenData, newPrefix, result, newPath, tokensData);
       }
     } else if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
       // Valor primitivo directo (no es formato W3C estándar, pero lo soportamos)
@@ -249,28 +351,64 @@ function generateCssVars(
 
 /**
  * Extrae los nombres y valores de las variables CSS de un archivo CSS
- * Mejorado para manejar valores que pueden contener punto y coma
+ * Mejorado para manejar valores que pueden contener punto y coma, funciones CSS, etc.
  */
 function extractCssVariables(cssContent: string): Map<string, string> {
   const variables = new Map<string, string>();
   
   // Buscar el bloque :root { ... }
-  const rootMatch = cssContent.match(/:root\s*\{([^}]+)\}/s);
-  if (!rootMatch) {
+  // Usar un enfoque más robusto que maneje llaves anidadas
+  const rootStart = cssContent.indexOf(':root');
+  if (rootStart === -1) {
     return variables;
   }
   
-  const rootContent = rootMatch[1];
+  // Encontrar la llave de apertura después de :root
+  let braceStart = cssContent.indexOf('{', rootStart);
+  if (braceStart === -1) {
+    return variables;
+  }
   
-  // Regex mejorado que maneja valores con punto y coma escapados o en strings
-  // Busca --nombre: valor; donde valor puede contener casi cualquier cosa excepto ; no escapado
+  // Encontrar la llave de cierre correspondiente (manejar llaves anidadas)
+  let braceCount = 0;
+  let braceEnd = braceStart;
+  for (let i = braceStart; i < cssContent.length; i++) {
+    if (cssContent[i] === '{') {
+      braceCount++;
+    } else if (cssContent[i] === '}') {
+      braceCount--;
+      if (braceCount === 0) {
+        braceEnd = i;
+        break;
+      }
+    }
+  }
+  
+  let rootContent: string;
+  if (braceCount !== 0) {
+    // Llaves no balanceadas, usar método simple
+    const rootMatch = cssContent.match(/:root\s*\{([^}]+)\}/s);
+    if (!rootMatch) {
+      return variables;
+    }
+    rootContent = rootMatch[1];
+  } else {
+    rootContent = cssContent.substring(braceStart + 1, braceEnd);
+  }
+  
+  // Regex mejorado que maneja valores con punto y coma, funciones CSS, etc.
+  // Busca --nombre: valor; donde valor puede contener funciones CSS, strings, etc.
+  // Mejorado para manejar valores complejos como var(), calc(), rgba(), etc.
   const regex = /--([a-zA-Z0-9_-]+):\s*([^;]+?);/g;
   let match;
   
   while ((match = regex.exec(rootContent)) !== null) {
     const name = match[1];
     const value = match[2].trim();
-    variables.set(name, value);
+    // Validar que el nombre sea válido antes de agregarlo
+    if (isValidCssVariableName(`--${name}`)) {
+      variables.set(name, value);
+    }
   }
   
   return variables;
@@ -381,7 +519,7 @@ function main(): void {
     }
 
     console.log('🔄 Generando variables CSS desde variables.json (formato W3C Design Tokens)...');
-    const cssVars = generateCssVars(tokensData);
+    const cssVars = generateCssVars(tokensData, '', [], [], tokensData);
 
     // Extraer nombres y valores de variables nuevas
     const newVariables = new Map<string, string>();
