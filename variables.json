@@ -83,7 +83,7 @@
     "$value": 0,
     "$type": "number"
   },
-  "Borrar": {
+  "Borrar_2": {
     "$value": "cadena_borrar",
     "$type": "string"
   },
@@ -2044,5 +2044,9 @@
   "00000000": {
     "$value": 0,
     "$type": "number"
+  },
+  "Borrar": {
+    "$value": "cadena_borrar",
+    "$type": "string"
   }
 }
