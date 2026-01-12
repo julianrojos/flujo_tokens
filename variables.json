@@ -83,6 +83,10 @@
     "$value": 0,
     "$type": "number"
   },
+  "Borrar": {
+    "$value": "cadena_borrar",
+    "$type": "string"
+  },
   "Primary": {
     "50": {
       "$value": "#e5f2ff",
