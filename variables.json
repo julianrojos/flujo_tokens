@@ -1813,17 +1813,6 @@
             }
           }
         }
-      },
-      "DELETE_3": {
-        "type": "string",
-        "value": "BORRAR",
-        "description": "",
-        "$extensions": {
-          "mode": {
-            "Mode 1": "BORRAR",
-            "Default": "BORRAR"
-          }
-        }
       }
     }
   },
@@ -2259,7 +2248,7 @@
         "typography",
         "_typographyPrimitives"
       ],
-      "createdAt": "2026-01-13T18:42:26.972Z"
+      "createdAt": "2026-01-13T18:46:18.345Z"
     }
   }
 }
