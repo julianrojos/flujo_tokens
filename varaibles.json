@@ -1814,7 +1814,7 @@
           }
         }
       },
-      "DELETE": {
+      "DELETE_2": {
         "type": "string",
         "value": "BORRAR",
         "description": "",
@@ -2259,7 +2259,7 @@
         "typography",
         "_typographyPrimitives"
       ],
-      "createdAt": "2026-01-13T18:35:16.099Z"
+      "createdAt": "2026-01-13T18:36:21.841Z"
     }
   }
 }
