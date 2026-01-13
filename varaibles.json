@@ -2156,6 +2156,95 @@
       }
     }
   },
+  "Typography-styles": {
+    "H6": {
+      "Semi Bold": {
+        "type": "typography",
+        "value": {
+          "fontFamily": "{typography.font.family.heading}",
+          "fontWeight": 600,
+          "fontStyle": "normal",
+          "fontSize": "{typography.font.fontSize.4xl}",
+          "lineHeight": "{typography.font.lineHeight.relaxed}",
+          "letterSpacing": "-1%",
+          "paragraphSpacing": "0",
+          "paragraphIndent": "0",
+          "textDecoration": "NONE",
+          "textCase": "ORIGINAL"
+        },
+        "description": "",
+        "$extensions": {
+          "styleId": "S:4f48738bb20a460a7548a1cf2f7b5aa2be71a02c,"
+        }
+      }
+    },
+    "Paragraph L": {
+      "Medium": {
+        "type": "typography",
+        "value": {
+          "fontFamily": "Inter",
+          "fontWeight": 500,
+          "fontStyle": "normal",
+          "fontSize": "18px",
+          "lineHeight": "28px",
+          "letterSpacing": "0%",
+          "paragraphSpacing": "0",
+          "paragraphIndent": "0",
+          "textDecoration": "NONE",
+          "textCase": "ORIGINAL"
+        },
+        "description": "",
+        "$extensions": {
+          "styleId": "S:8c352b0bcfe61e658325f013280c34df1f2fedc6,"
+        }
+      }
+    },
+    "Paragraph M": {
+      "Regular": {
+        "type": "typography",
+        "value": {
+          "fontFamily": "Inter",
+          "fontWeight": 400,
+          "fontStyle": "normal",
+          "fontSize": "16px",
+          "lineHeight": "24px",
+          "letterSpacing": "0%",
+          "paragraphSpacing": "0",
+          "paragraphIndent": "0",
+          "textDecoration": "NONE",
+          "textCase": "ORIGINAL"
+        },
+        "description": "",
+        "$extensions": {
+          "styleId": "S:17fbbc696a3e8cc8a445feba3f94f18b018d6fd2,"
+        }
+      }
+    },
+    "Paragraph S": {
+      "Medium": {
+        "type": "typography",
+        "value": {
+          "fontFamily": "{typography.font.family.body}",
+          "fontWeight": 500,
+          "fontStyle": "normal",
+          "fontSize": "{typography.font.fontSize.lg}",
+          "lineHeight": "{typography.font.lineHeight.tight}",
+          "letterSpacing": "0%",
+          "paragraphSpacing": "0",
+          "paragraphIndent": "0",
+          "textDecoration": "NONE",
+          "textCase": "ORIGINAL"
+        },
+        "description": "",
+        "$extensions": {
+          "styleId": "S:17a48ec13e039db6dcbac78d203b4ffc36852125,"
+        }
+      }
+    }
+  },
+  "Grid-styles": {},
+  "Effect-styles": {},
+  "Color-styles": {},
   "$extensions": {
     "tokens-bruecke-meta": {
       "useDTCGKeys": false,
@@ -2170,7 +2259,7 @@
         "typography",
         "_typographyPrimitives"
       ],
-      "createdAt": "2026-01-13T18:33:57.531Z"
+      "createdAt": "2026-01-13T18:35:16.099Z"
     }
   }
 }
