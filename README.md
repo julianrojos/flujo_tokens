@@ -86,3 +86,7 @@ Si encuentras errores al ejecutar el script:
 2. Asegúrate de tener Node.js instalado: `node --version`
 3. Reinstala las dependencias: `rm -rf node_modules package-lock.json && npm install`
 
+## Notas:
+- Plugin: TokensBrücke
+- https://github.com/julianrojos/flujo_tokens
+
