@@ -1,0 +1,203 @@
+{
+  "$description": "colors",
+  "backgroundcolors": {
+    "background01": {
+      "$value": "{Colorprimitives.neutral.0}",
+      "$type": "color"
+    },
+    "background02": {
+      "$value": "{Colorprimitives.neutral.50}",
+      "$type": "color"
+    },
+    "background03": {
+      "$value": "{Colorprimitives.neutral.100}",
+      "$type": "color"
+    },
+    "background04": {
+      "$value": "{Colorprimitives.neutral.200}",
+      "$type": "color"
+    },
+    "background05": {
+      "$value": "{Colorprimitives.neutral.300}",
+      "$type": "color"
+    },
+    "background06": {
+      "$value": "{Colorprimitives.neutral.400}",
+      "$type": "color"
+    }
+  },
+  "bordercolors": {
+    "primary": {
+      "border100": {
+        "$value": "{Colorprimitives.primary.500}",
+        "$type": "color"
+      },
+      "border200": {
+        "$value": "{Colorprimitives.primary.600P}",
+        "$type": "color"
+      },
+      "border300": {
+        "$value": "{Colorprimitives.primary.700}",
+        "$type": "color"
+      },
+      "border400": {
+        "$value": "{Colorprimitives.primary.800}",
+        "$type": "color"
+      },
+      "border500": {
+        "$value": "{Colorprimitives.primary.900}",
+        "$type": "color"
+      },
+      "border600": {
+        "$value": "{Colorprimitives.primary.950}",
+        "$type": "color"
+      }
+    },
+    "neutral": {
+      "border100": {
+        "$value": "{Colorprimitives.neutral.200}",
+        "$type": "color"
+      },
+      "border200": {
+        "$value": "{Colorprimitives.neutral.300}",
+        "$type": "color"
+      },
+      "border300": {
+        "$value": "{Colorprimitives.neutral.400}",
+        "$type": "color"
+      },
+      "border400": {
+        "$value": "{Colorprimitives.neutral.500}",
+        "$type": "color"
+      },
+      "border500": {
+        "$value": "{Colorprimitives.neutral.600}",
+        "$type": "color"
+      },
+      "border600": {
+        "$value": "{Colorprimitives.neutral.700}",
+        "$type": "color"
+      }
+    }
+  },
+  "foregroundcolors": {
+    "foreground01": {
+      "$value": "{Colorprimitives.neutral.950}",
+      "$type": "color"
+    },
+    "foreground02": {
+      "$value": "{Colorprimitives.neutral.900}",
+      "$type": "color"
+    },
+    "foreground03": {
+      "$value": "{Colorprimitives.neutral.800}",
+      "$type": "color"
+    },
+    "foreground04": {
+      "$value": "{Colorprimitives.neutral.700}",
+      "$type": "color"
+    },
+    "foreground05": {
+      "$value": "{Colorprimitives.neutral.600}",
+      "$type": "color"
+    },
+    "foreground06": {
+      "$value": "{Colorprimitives.neutral.500}",
+      "$type": "color"
+    }
+  },
+  "semanticcolors": {
+    "primary": {
+      "semanticPrimary950": {
+        "$value": "{colors.primary.950}",
+        "$type": "color"
+      },
+      "semanticPrimary900": {
+        "$value": "{colors.primary.900}",
+        "$type": "color"
+      },
+      "semanticPrimary800": {
+        "$value": "{colors.primary.800}",
+        "$type": "color"
+      },
+      "semanticPrimary700": {
+        "$value": "{colors.primary.700}",
+        "$type": "color"
+      },
+      "semanticPrimary600": {
+        "$value": "{colors.primary.600}",
+        "$type": "color"
+      },
+      "semanticPrimary500": {
+        "$value": "{colors.primary.500}",
+        "$type": "color"
+      },
+      "semanticPrimary400": {
+        "$value": "{colors.primary.400}",
+        "$type": "color"
+      },
+      "semanticPrimary300": {
+        "$value": "{colors.primary.300}",
+        "$type": "color"
+      },
+      "semanticPrimary200": {
+        "$value": "{colors.primary.200}",
+        "$type": "color"
+      },
+      "semanticPrimary100": {
+        "$value": "{colors.primary.100}",
+        "$type": "color"
+      },
+      "semanticPrimary50": {
+        "$value": "{colors.primary.50}",
+        "$type": "color"
+      }
+    },
+    "success": {
+      "semanticSuccess950": {
+        "$value": "{Colorprimitives.green.950}",
+        "$type": "color"
+      },
+      "semanticSuccess900": {
+        "$value": "{Colorprimitives.green.900}",
+        "$type": "color"
+      },
+      "semanticSuccess800": {
+        "$value": "{Colorprimitives.green.800}",
+        "$type": "color"
+      },
+      "semanticSuccess700": {
+        "$value": "{Colorprimitives.green.700}",
+        "$type": "color"
+      },
+      "semanticSuccess600": {
+        "$value": "{Colorprimitives.green.600}",
+        "$type": "color"
+      },
+      "semanticSuccess500": {
+        "$value": "{Colorprimitives.green.500}",
+        "$type": "color"
+      },
+      "semanticSuccess400": {
+        "$value": "{Colorprimitives.green.400}",
+        "$type": "color"
+      },
+      "semanticSuccess300": {
+        "$value": "{Colorprimitives.green.300}",
+        "$type": "color"
+      },
+      "semanticSuccess200": {
+        "$value": "{Colorprimitives.green.200}",
+        "$type": "color"
+      },
+      "semanticSuccess100": {
+        "$value": "{Colorprimitives.green.100}",
+        "$type": "color"
+      },
+      "semanticSuccess50": {
+        "$value": "{Colorprimitives.green.50}",
+        "$type": "color"
+      }
+    }
+  }
+}
