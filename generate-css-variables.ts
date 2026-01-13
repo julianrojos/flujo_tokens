@@ -542,8 +542,8 @@ function extractCssVariables(cssContent: string): Map<string, string> {
  */
 function main(): void {
   try {
-    const jsonPath = join(process.cwd(), 'variables.json');
-    const cssPath = join(process.cwd(), 'variables.css');
+    const jsonPath = join(process.cwd(), 'src', 'variables.json');
+    const cssPath = join(process.cwd(), 'src', 'variables.css');
 
     // Validar que el archivo JSON existe
     if (!existsSync(jsonPath)) {
