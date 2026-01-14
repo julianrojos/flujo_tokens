@@ -219,6 +219,17 @@
           "Default": "96px"
         }
       }
+    },
+    "BORRAR_1": {
+      "type": "string",
+      "value": "borrar_1",
+      "description": "",
+      "$extensions": {
+        "mode": {
+          "Mode 1": "borrar_1",
+          "Default": "borrar_1"
+        }
+      }
     }
   },
   "_colorPrimitives": {
@@ -2248,7 +2259,7 @@
         "typography",
         "_typographyPrimitives"
       ],
-      "createdAt": "2026-01-13T18:46:18.345Z"
+      "createdAt": "2026-01-14T08:01:51.352Z"
     }
   }
 }
