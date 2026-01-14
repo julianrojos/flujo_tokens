@@ -220,14 +220,14 @@
         }
       }
     },
-    "BORRAR_2": {
+    "BORRAR_3": {
       "type": "string",
-      "value": "borrar_2",
+      "value": "borrar_3",
       "description": "",
       "$extensions": {
         "mode": {
-          "Mode 1": "borrar_2",
-          "Default": "borrar_3"
+          "Mode 1": "borrar_3",
+          "Default": "borrar_4"
         }
       }
     }
@@ -2259,7 +2259,7 @@
         "typography",
         "_typographyPrimitives"
       ],
-      "createdAt": "2026-01-14T08:09:36.109Z"
+      "createdAt": "2026-01-14T09:08:41.712Z"
     }
   }
 }
