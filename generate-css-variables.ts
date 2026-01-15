@@ -80,6 +80,7 @@ function isModeKey(key: string): boolean {
 
 function toKebabCase(name: string): string {
     let result = name.replace(/-/g, ' ');
+    result = result.replace(/[\\/]+/g, ' ');
     result = result.replace(/([a-z])([A-Z])/g, '$1-$2');
     result = result.toLowerCase();
     result = result.replace(/[\s-]+/g, '-');
@@ -102,6 +103,7 @@ function buildPathKey(segments: string[]): string {
     return segments
         .filter(segment => segment && !isModeKey(segment))
         .join('.')
+        .replace(/[\\/]+/g, '.')
         .replace(/\s+/g, '.');
 }
 
@@ -398,18 +400,14 @@ function processValue(
                 .split('.')
                 .map(toKebabCase)
                 .join('-');
-            const varName = `--${cssPath}`;
-
-            if (!isValidCssVariableName(varName)) {
-                console.warn(
-                    `⚠️  Invalid W3C reference ${match} generates invalid name ${varName} at ${currentPath.join('.')}`
-                );
-                summary.invalidNames.push(`${currentPath.join('.')} (Ref to invalid name: ${varName})`);
-                return match;
-            }
+            const varName = `--broken-ref-${cssPath || 'unknown'}`;
 
             console.warn(`⚠️  Unresolved W3C reference ${match} at ${currentPath.join('.')}`);
             summary.unresolvedRefs.push(`${currentPath.join('.')} (Ref: ${tokenPath})`);
+            if (!isValidCssVariableName(varName)) {
+                summary.invalidNames.push(`${currentPath.join('.')} (Ref to invalid name: ${varName})`);
+                return match;
+            }
             return `var(${varName})`;
         });
     }
