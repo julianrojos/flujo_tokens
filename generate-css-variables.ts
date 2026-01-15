@@ -107,14 +107,6 @@ function normalizePathKey(pathKey: string): string {
     return pathKey.toLowerCase();
 }
 
-/**
- * Aggressive normalization for fuzzy matching (lowercase and strip common delimiters).
- * Use carefully: collisions are recorded and skipped when detected.
- */
-function fuzzyNormalizePathKey(pathKey: string): string {
-    return pathKey.toLowerCase().replace(/[-_.]/g, '');
-}
-
 function buildVisitedRefSet(pathSegments: string[]): Set<string> {
     const exactPath = pathSegments.join('.');
     const normalizedPath = normalizePathKey(exactPath);
@@ -161,7 +153,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
 function hasCircularDependency(
     startPath: string,
     exactValueMap?: Map<string, TokenValue>,
-    fuzzyValueMap?: Map<string, TokenValue>,
+    normalizedValueMap?: Map<string, TokenValue>,
     visited: Set<string> = new Set()
 ): boolean {
     const normalizedPath = normalizePathKey(startPath);
@@ -173,7 +165,7 @@ function hasCircularDependency(
     const token =
         exactValueMap?.get(startPath) ||
         (normalizedPath !== startPath ? exactValueMap?.get(normalizedPath) : undefined) ||
-        (normalizedPath ? fuzzyValueMap?.get(normalizedPath) : undefined);
+        (normalizedPath ? normalizedValueMap?.get(normalizedPath) : undefined);
     if (!token) {
         return false;
     }
@@ -186,7 +178,7 @@ function hasCircularDependency(
     collectRefsFromValue(token.$value, nestedRefs);
 
     for (const ref of nestedRefs) {
-        if (hasCircularDependency(ref, exactValueMap, fuzzyValueMap, nextVisited)) {
+        if (hasCircularDependency(ref, exactValueMap, normalizedValueMap, nextVisited)) {
             return true;
         }
     }
@@ -295,10 +287,10 @@ function processValue(
     tokensData?: Record<string, any>,
     visitedRefs: Set<string> = new Set(),
     exactRefMap?: Map<string, string>,
-    fuzzyRefMap?: Map<string, string>,
+    normalizedRefMap?: Map<string, string>,
     exactValueMap?: Map<string, TokenValue>,
-    fuzzyValueMap?: Map<string, TokenValue>,
-    fuzzyCollisionKeys?: Set<string>
+    normalizedValueMap?: Map<string, TokenValue>,
+    collisionKeys?: Set<string>
 ): string {
     if (value === null || value === undefined) {
         return 'null';
@@ -369,7 +361,7 @@ function processValue(
 
             // Detect Deep Cycles
             // Try Exact Value Map first, then Fuzzy
-            if (hasCircularDependency(tokenPath, exactValueMap, fuzzyValueMap, new Set(visitedRefs))) {
+            if (hasCircularDependency(tokenPath, exactValueMap, normalizedValueMap, new Set(visitedRefs))) {
                 console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
                 summary.circularDeps++;
                 return `/* circular-ref: ${tokenPath} */`;
@@ -383,8 +375,8 @@ function processValue(
 
             // Resolution Strategy: Exact Match -> Fuzzy Match
             let mappedVarName = exactRefMap?.get(tokenPath);
-            if (!mappedVarName && !fuzzyCollisionKeys?.has(normalizedTokenPath)) {
-                mappedVarName = fuzzyRefMap?.get(normalizedTokenPath);
+            if (!mappedVarName && !collisionKeys?.has(normalizedTokenPath)) {
+                mappedVarName = normalizedRefMap?.get(normalizedTokenPath);
             }
 
             if (mappedVarName) {
@@ -423,10 +415,10 @@ function collectTokenMaps(
     prefix: string[] = [],
     currentPath: string[] = [],
     exactRefMap: Map<string, string>,
-    fuzzyRefMap: Map<string, string>,
+    normalizedRefMap: Map<string, string>,
     exactValueMap: Map<string, TokenValue>,
-    fuzzyValueMap: Map<string, TokenValue>,
-    fuzzyCollisionKeys: Set<string>,
+    normalizedValueMap: Map<string, TokenValue>,
+    collisionKeys: Set<string>,
     depth = 0
 ): void {
     if (depth > MAX_DEPTH) {
@@ -450,22 +442,22 @@ function collectTokenMaps(
             }
         }
 
-        // Populate Fuzzy Maps (Fallback)
+        // Populate Normalized Maps (Fallback)
         if (normalizedKey) {
-            if (!fuzzyRefMap.has(normalizedKey)) {
-                fuzzyRefMap.set(normalizedKey, varName);
-                fuzzyValueMap.set(normalizedKey, obj as TokenValue);
+            if (!normalizedRefMap.has(normalizedKey)) {
+                normalizedRefMap.set(normalizedKey, varName);
+                normalizedValueMap.set(normalizedKey, obj as TokenValue);
             } else {
                 // Optimization: Only warn if it's NOT an exact-match collision (which handles itself)
                 // and implies a "different casing" collision.
-                const existing = fuzzyRefMap.get(normalizedKey);
+                const existing = normalizedRefMap.get(normalizedKey);
                 if (existing !== varName) {
                     // This is the "silent loss" scenario mentioned. We log it but allow exact map to save the day for specific refs.
-                    // But fuzzy lookups will still only find the first one.
-                    console.warn(`ℹ️  Fuzzy collision: ${tokenPathKey} normalized to same key as existing token.`);
-                    fuzzyCollisionKeys.add(normalizedKey);
+                    // Normalized lookups will still only find the first one.
+                    console.warn(`ℹ️  Normalized collision: ${tokenPathKey} normalized to same key as existing token.`);
+                    collisionKeys.add(normalizedKey);
                 } else {
-                    console.warn(`ℹ️  Duplicate token for fuzzy key ${normalizedKey} at ${tokenPathKey}`);
+                    console.warn(`ℹ️  Duplicate token for normalized key ${normalizedKey} at ${tokenPathKey}`);
                 }
             }
         }
@@ -492,10 +484,10 @@ function collectTokenMaps(
             [...prefix, normalizedKey],
             [...currentPath, key],
             exactRefMap,
-            fuzzyRefMap,
+            normalizedRefMap,
             exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys,
+            normalizedValueMap,
+            collisionKeys,
             depth + 1
         );
     }
@@ -506,10 +498,10 @@ function collectTokenMaps(
             prefix,
             [...currentPath, modeDefault],
             exactRefMap,
-            fuzzyRefMap,
+            normalizedRefMap,
             exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys,
+            normalizedValueMap,
+            collisionKeys,
             depth + 1
         );
     } else if (modeAny) {
@@ -518,10 +510,10 @@ function collectTokenMaps(
             prefix,
             [...currentPath, modeAny],
             exactRefMap,
-            fuzzyRefMap,
+            normalizedRefMap,
             exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys,
+            normalizedValueMap,
+            collisionKeys,
             depth + 1
         );
     }
@@ -727,10 +719,10 @@ function flattenTokens(
     tokensData?: Record<string, any>,
     currentPath: string[] = [],
     exactRefMap?: Map<string, string>,
-    fuzzyRefMap?: Map<string, string>,
+    normalizedRefMap?: Map<string, string>,
     exactValueMap?: Map<string, TokenValue>,
-    fuzzyValueMap?: Map<string, TokenValue>,
-    fuzzyCollisionKeys?: Set<string>,
+    normalizedValueMap?: Map<string, TokenValue>,
+    collisionKeys?: Set<string>,
     depth = 0
 ): string[] {
     if (depth > MAX_DEPTH) {
@@ -759,10 +751,10 @@ function flattenTokens(
             tokensData,
             visitedRefs,
             exactRefMap,
-            fuzzyRefMap,
+            normalizedRefMap,
             exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys
+            normalizedValueMap,
+            collisionKeys
         );
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
@@ -809,10 +801,10 @@ function flattenTokens(
                 tokensData,
                 visitedRefs,
                 exactRefMap,
-                fuzzyRefMap,
+                normalizedRefMap,
                 exactValueMap,
-                fuzzyValueMap,
-                fuzzyCollisionKeys
+                normalizedValueMap,
+                collisionKeys
             );
             collectedVars.push(`  ${varName}: ${processedValue};`);
             summary.successCount++;
@@ -825,10 +817,10 @@ function flattenTokens(
                 tokensData,
                 [...currentPath, key],
                 exactRefMap,
-                fuzzyRefMap,
+                normalizedRefMap,
                 exactValueMap,
-                fuzzyValueMap,
-                fuzzyCollisionKeys,
+                normalizedValueMap,
+                collisionKeys,
                 depth + 1
             );
         }
@@ -842,10 +834,10 @@ function flattenTokens(
             tokensData,
             [...currentPath, modeDefault],
             exactRefMap,
-            fuzzyRefMap,
+            normalizedRefMap,
             exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys,
+            normalizedValueMap,
+            collisionKeys,
             depth + 1
         );
     } else if (modeAny) {
@@ -856,10 +848,10 @@ function flattenTokens(
             tokensData,
             [...currentPath, modeAny],
             exactRefMap,
-            fuzzyRefMap,
+            normalizedRefMap,
             exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys,
+            normalizedValueMap,
+            collisionKeys,
             depth + 1
         );
     }
@@ -884,10 +876,10 @@ async function main() {
     console.log('🔄 Transformando a variables CSS...');
     const cssLines: string[] = [];
     const exactRefMap = new Map<string, string>();
-    const fuzzyRefMap = new Map<string, string>();
+    const normalizedRefMap = new Map<string, string>();
     const exactValueMap = new Map<string, TokenValue>();
-    const fuzzyValueMap = new Map<string, TokenValue>();
-    const fuzzyCollisionKeys = new Set<string>();
+    const normalizedValueMap = new Map<string, TokenValue>();
+    const normalizedCollisionKeys = new Set<string>();
 
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -909,10 +901,10 @@ async function main() {
             [normalizedFileName],
             [fileName],
             exactRefMap,
-            fuzzyRefMap,
+            normalizedRefMap,
             exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys
+            normalizedValueMap,
+            normalizedCollisionKeys
         );
     }
 
@@ -925,10 +917,10 @@ async function main() {
             combinedTokens,
             [fileName],
             exactRefMap,
-            fuzzyRefMap,
+            normalizedRefMap,
             exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys
+            normalizedValueMap,
+            normalizedCollisionKeys
         );
     }
 
