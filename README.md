@@ -43,7 +43,7 @@ npm run generate
 npx tsx generate-css-variables.ts
 ```
 
-### Opción 3: Modo watch (regenera automáticamente al cambiar variables.json)
+### Opción 3: Modo watch (regenera automáticamente al cambiar archivos en FigmaJsons)
 
 ```bash
 npm run watch
@@ -51,19 +51,20 @@ npm run watch
 
 ## 📁 Archivos
 
-- `variables.json` - Archivo de entrada con los tokens de diseño
-- `variables.css` - Archivo de salida con las custom properties CSS generadas
+- `FigmaJsons/*.json` - Archivos de entrada con los tokens de diseño
+- `src/variables.css` - Archivo de salida con las custom properties CSS generadas
 - `generate-css-variables.ts` - Script TypeScript que procesa el JSON y genera el CSS
 
 ## 🔧 Funcionamiento
 
 El script:
 
-1. Lee el archivo `variables.json`
-2. Procesa la estructura de tokens (excluyendo la sección "Translations")
+1. Lee y combina todos los JSON dentro de `FigmaJsons`
+2. Procesa la estructura de tokens (excluyendo metadatos como `Translations`)
 3. Convierte los nombres a kebab-case para las variables CSS
-4. Genera custom properties en el selector `:root`
-5. Guarda el resultado en `variables.css`
+4. Resuelve referencias W3C y `VARIABLE_ALIAS` cuando es posible
+5. Genera custom properties en el selector `:root`
+6. Guarda el resultado en `src/variables.css` y reporta cambios respecto al archivo anterior
 
 ## 📝 Ejemplo de uso
 
@@ -82,11 +83,10 @@ Después de ejecutar el script, puedes usar las variables CSS generadas en tu c�
 
 Si encuentras errores al ejecutar el script:
 
-1. Verifica que `variables.json` tenga un formato JSON válido
+1. Verifica que los JSON en `FigmaJsons` tengan un formato JSON válido
 2. Asegúrate de tener Node.js instalado: `node --version`
 3. Reinstala las dependencias: `rm -rf node_modules package-lock.json && npm install`
 
 ## Notas:
 - Plugin: TokensBrücke
 - https://github.com/julianrojos/flujo_tokens
-
