@@ -1,6 +1,6 @@
 # Generador de Custom Properties CSS
 
-Este proyecto contiene un script TypeScript que genera custom properties de CSS a partir de los tokens definidos en `variables.json`.
+Este proyecto contiene un script TypeScript que genera custom properties de CSS a partir de los tokens definidos en `FigmaJsons`.
 
 ## 📋 Requisitos
 
