@@ -8,6 +8,8 @@ const __dirname = path.dirname(__filename);
 // --- Configuration ---
 const JSON_DIR = path.resolve(__dirname, 'FigmaJsons');
 const OUTPUT_FILE = path.resolve(__dirname, 'output/variables.css');
+const MAX_DEPTH = 50;
+const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 
 // --- Types ---
 
@@ -48,6 +50,7 @@ interface ExecutionSummary {
     unresolvedRefs: string[];
     invalidNames: string[];
     circularDeps: number;
+    depthLimitHits: number;
 }
 
 const summary: ExecutionSummary = {
@@ -55,7 +58,8 @@ const summary: ExecutionSummary = {
     successCount: 0,
     unresolvedRefs: [],
     invalidNames: [],
-    circularDeps: 0
+    circularDeps: 0,
+    depthLimitHits: 0
 };
 
 // --- Helper Functions ---
@@ -97,11 +101,27 @@ function buildPathKey(segments: string[]): string {
 }
 
 /**
- * Normalizes a path key to lowercase and removes delimiters for loose matching.
- * e.g. "Color-Primitives" -> "colorprimitives", "color_primitives" -> "colorprimitives"
+ * Normalizes a path key to lowercase (preserves delimiters to avoid over-collapsing distinct tokens).
  */
 function normalizePathKey(pathKey: string): string {
-    return pathKey.toLowerCase().replace(/[-_]/g, '');
+    return pathKey.toLowerCase();
+}
+
+/**
+ * Aggressive normalization for fuzzy matching (lowercase and strip common delimiters).
+ * Use carefully: collisions are recorded and skipped when detected.
+ */
+function fuzzyNormalizePathKey(pathKey: string): string {
+    return pathKey.toLowerCase().replace(/[-_.]/g, '');
+}
+
+function buildVisitedRefSet(pathSegments: string[]): Set<string> {
+    const exactPath = pathSegments.join('.');
+    const normalizedPath = normalizePathKey(exactPath);
+    const visited = new Set<string>();
+    if (exactPath) visited.add(exactPath);
+    if (normalizedPath && normalizedPath !== exactPath) visited.add(normalizedPath);
+    return visited;
 }
 
 /**
@@ -140,26 +160,33 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
  */
 function hasCircularDependency(
     startPath: string,
-    valueMap: Map<string, TokenValue>,
+    exactValueMap?: Map<string, TokenValue>,
+    fuzzyValueMap?: Map<string, TokenValue>,
     visited: Set<string> = new Set()
 ): boolean {
-    const lookupKey = valueMap.has(startPath) ? startPath : normalizePathKey(startPath);
+    const normalizedPath = normalizePathKey(startPath);
+    const lookupKey = normalizedPath || startPath;
     if (visited.has(lookupKey)) {
         return true;
     }
 
-    const token = valueMap.get(lookupKey);
+    const token =
+        exactValueMap?.get(startPath) ||
+        (normalizedPath !== startPath ? exactValueMap?.get(normalizedPath) : undefined) ||
+        (normalizedPath ? fuzzyValueMap?.get(normalizedPath) : undefined);
     if (!token) {
         return false;
     }
 
-    visited.add(lookupKey);
+    const nextVisited = new Set(visited);
+    nextVisited.add(lookupKey);
+    if (normalizedPath && normalizedPath !== lookupKey) nextVisited.add(normalizedPath);
 
     const nestedRefs = new Set<string>();
     collectRefsFromValue(token.$value, nestedRefs);
 
     for (const ref of nestedRefs) {
-        if (hasCircularDependency(ref, valueMap, new Set(visited))) {
+        if (hasCircularDependency(ref, exactValueMap, fuzzyValueMap, nextVisited)) {
             return true;
         }
     }
@@ -302,9 +329,10 @@ function processValue(
     if (typeof value === 'string') {
         // Regex to find all {token.path} references
         const refRegex = /\{([A-Za-z0-9_.-]+)\}/g;
+        const refDetector = /\{([A-Za-z0-9_.-]+)\}/; // non-global to avoid lastIndex side-effects
 
         // If no references, return as is (with simple string quoting if needed)
-        if (!refRegex.test(value)) {
+        if (!refDetector.test(value)) {
             // Preserve RGB/RGBA colors
             if (value.startsWith('rgba') || value.startsWith('rgb(')) {
                 return value;
@@ -322,9 +350,7 @@ function processValue(
             return value;
         }
 
-        // Reset regex state
-        refRegex.lastIndex = 0;
-
+        refRegex.lastIndex = 0; // reset before replace
         return value.replace(refRegex, (match, tokenPath) => {
             tokenPath = tokenPath.trim();
             if (!tokenPath) {
@@ -343,10 +369,7 @@ function processValue(
 
             // Detect Deep Cycles
             // Try Exact Value Map first, then Fuzzy
-            const targetValueMap = exactValueMap?.has(tokenPath) ? exactValueMap : fuzzyValueMap;
-            const targetKey = exactValueMap?.has(tokenPath) ? tokenPath : normalizedTokenPath;
-
-            if (targetValueMap && hasCircularDependency(targetKey, targetValueMap, new Set(visitedRefs))) {
+            if (hasCircularDependency(tokenPath, exactValueMap, fuzzyValueMap, new Set(visitedRefs))) {
                 console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
                 summary.circularDeps++;
                 return `/* circular-ref: ${tokenPath} */`;
@@ -403,8 +426,15 @@ function collectTokenMaps(
     fuzzyRefMap: Map<string, string>,
     exactValueMap: Map<string, TokenValue>,
     fuzzyValueMap: Map<string, TokenValue>,
-    fuzzyCollisionKeys: Set<string>
+    fuzzyCollisionKeys: Set<string>,
+    depth = 0
 ): void {
+    if (depth > MAX_DEPTH) {
+        console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
+        summary.depthLimitHits++;
+        return;
+    }
+
     if (obj && typeof obj === 'object' && '$value' in obj) {
         const tokenPathKey = buildPathKey(currentPath);
         const normalizedKey = normalizePathKey(tokenPathKey);
@@ -434,6 +464,8 @@ function collectTokenMaps(
                     // But fuzzy lookups will still only find the first one.
                     console.warn(`ℹ️  Fuzzy collision: ${tokenPathKey} normalized to same key as existing token.`);
                     fuzzyCollisionKeys.add(normalizedKey);
+                } else {
+                    console.warn(`ℹ️  Duplicate token for fuzzy key ${normalizedKey} at ${tokenPathKey}`);
                 }
             }
         }
@@ -463,7 +495,8 @@ function collectTokenMaps(
             fuzzyRefMap,
             exactValueMap,
             fuzzyValueMap,
-            fuzzyCollisionKeys
+            fuzzyCollisionKeys,
+            depth + 1
         );
     }
 
@@ -476,7 +509,8 @@ function collectTokenMaps(
             fuzzyRefMap,
             exactValueMap,
             fuzzyValueMap,
-            fuzzyCollisionKeys
+            fuzzyCollisionKeys,
+            depth + 1
         );
     } else if (modeAny) {
         collectTokenMaps(
@@ -487,7 +521,8 @@ function collectTokenMaps(
             fuzzyRefMap,
             exactValueMap,
             fuzzyValueMap,
-            fuzzyCollisionKeys
+            fuzzyCollisionKeys,
+            depth + 1
         );
     }
 }
@@ -528,6 +563,9 @@ function extractCssVariables(cssContent: string): Map<string, string> {
     } else {
         rootContent = cssContent.substring(braceStart + 1, braceEnd);
     }
+
+    // Strip comments only inside :root content
+    rootContent = rootContent.replace(/\/\*[\s\S]*?\*\//g, '');
 
     let i = 0;
     while (i < rootContent.length) {
@@ -590,7 +628,8 @@ function extractCssVariables(cssContent: string): Map<string, string> {
         }
 
         const valueParsed = rootContent.substring(valueStart, i).trim();
-        if (name && valueParsed && isValidCssVariableName(`--${name}`)) {
+        const valueIsSane = valueParsed.length > 0 && !/[\r\n]/.test(valueParsed) && valueParsed === valueParsed.trim();
+        if (name && valueIsSane && isValidCssVariableName(`--${name}`)) {
             variables.set(name, valueParsed);
         }
 
@@ -622,6 +661,9 @@ function readAndCombineJsons(dir: string): Record<string, any> {
                 try {
                     json = JSON.parse(fileContent);
                 } catch (error) {
+                    if (!ALLOW_JSON_REPAIR) {
+                        throw error;
+                    }
                     // Try to repair common Figma export issues (like extra "Translations" section)
                     const translationStart = fileContent.indexOf('"Translations"');
                     if (translationStart > 0) {
@@ -688,16 +730,27 @@ function flattenTokens(
     fuzzyRefMap?: Map<string, string>,
     exactValueMap?: Map<string, TokenValue>,
     fuzzyValueMap?: Map<string, TokenValue>,
-    fuzzyCollisionKeys?: Set<string>
+    fuzzyCollisionKeys?: Set<string>,
+    depth = 0
 ): string[] {
+    if (depth > MAX_DEPTH) {
+        console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
+        summary.depthLimitHits++;
+        return collectedVars;
+    }
+
     if (obj && typeof obj === 'object' && '$value' in obj) {
         summary.totalTokens++;
         const rawValue = (obj as TokenValue).$value;
         const varType = (obj as TokenValue).$type;
 
+        if (rawValue === undefined) {
+            console.warn(`⚠️  Token sin $value en ${currentPath.join('.')}, se omite`);
+            return collectedVars;
+        }
+
         // FIX: initialize visited with BOTH exact and normalized to catch self-refs regardless of casing
-        const exactPath = currentPath.join('.');
-        const visitedRefs = new Set([exactPath, normalizePathKey(exactPath)]);
+        const visitedRefs = buildVisitedRefSet(currentPath);
 
         const resolvedValue = processValue(
             rawValue,
@@ -741,26 +794,14 @@ function flattenTokens(
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-            // Handle raw values that aren't strict token objects if needed (fallback)
-            // But usually tokens have $value.
-            // If this branch is hit, it means structure is loose.
-            // We treat it as token value for backward compat?
-            // Actually script previously supported deep recursion.
-            // But "value" here is just a value.
-            // Let's assume this path handles legacy "simple key-value" style if present,
-            // or maybe just continues recursion if it's an object?
-            // Ah, previous code: if (typeof value === 'string'...)
-            // See original lines 591...
-            // It treats them as implicit tokens?
-            // Yes, let's keep that logic for safety.
-
+            // Legacy support: handle loose key-value tokens without $value wrapper
             const varName = `--${[...prefix, normalizedKey].filter(p => p).join('-')}`;
             if (!isValidCssVariableName(varName)) {
                 console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
                 continue;
             }
             summary.totalTokens++;
-            const visitedRefs = new Set([[...currentPath, key].join('.')]);
+            const visitedRefs = buildVisitedRefSet([...currentPath, key]);
             const processedValue = processValue(
                 value as any, // Cast as it might be string/number/boolean
                 undefined,
@@ -776,20 +817,21 @@ function flattenTokens(
             collectedVars.push(`  ${varName}: ${processedValue};`);
             summary.successCount++;
             continue;
+        } else {
+            flattenTokens(
+                value,
+                [...prefix, normalizedKey],
+                collectedVars,
+                tokensData,
+                [...currentPath, key],
+                exactRefMap,
+                fuzzyRefMap,
+                exactValueMap,
+                fuzzyValueMap,
+                fuzzyCollisionKeys,
+                depth + 1
+            );
         }
-
-        flattenTokens(
-            value,
-            [...prefix, normalizedKey],
-            collectedVars,
-            tokensData,
-            [...currentPath, key],
-            exactRefMap,
-            fuzzyRefMap,
-            exactValueMap,
-            fuzzyValueMap,
-            fuzzyCollisionKeys
-        );
     }
 
     if (modeDefault) {
@@ -803,7 +845,8 @@ function flattenTokens(
             fuzzyRefMap,
             exactValueMap,
             fuzzyValueMap,
-            fuzzyCollisionKeys
+            fuzzyCollisionKeys,
+            depth + 1
         );
     } else if (modeAny) {
         flattenTokens(
@@ -816,7 +859,8 @@ function flattenTokens(
             fuzzyRefMap,
             exactValueMap,
             fuzzyValueMap,
-            fuzzyCollisionKeys
+            fuzzyCollisionKeys,
+            depth + 1
         );
     }
 
@@ -826,6 +870,14 @@ function flattenTokens(
 // --- Main Execution ---
 
 async function main() {
+    // Reset summary in case this module runs multiple times in the same process
+    summary.totalTokens = 0;
+    summary.successCount = 0;
+    summary.unresolvedRefs = [];
+    summary.invalidNames = [];
+    summary.circularDeps = 0;
+    summary.depthLimitHits = 0;
+
     console.log('📖 Leyendo archivos JSON...');
     const combinedTokens = readAndCombineJsons(JSON_DIR);
 
@@ -888,8 +940,13 @@ async function main() {
         fs.mkdirSync(destDir, { recursive: true });
     }
 
-    fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
-    console.log(`\n✅ Archivo variables.css regenerado completamente`);
+    try {
+        fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
+        console.log(`\n✅ Archivo variables.css regenerado completamente`);
+    } catch (err) {
+        console.error(`❌ No se pudo escribir ${OUTPUT_FILE}:`, err);
+        process.exit(1);
+    }
 
     // Summary Report
     console.log('\n========================================');
