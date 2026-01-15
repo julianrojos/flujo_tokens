@@ -1,0 +1,113 @@
+{
+  "$description": "radius",
+  "radiusXxxs": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.2}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.2}",
+      "$type": "dimension"
+    }
+  },
+  "radiusXxs": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.4}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.4}",
+      "$type": "dimension"
+    }
+  },
+  "radiusXs": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.6}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.6}",
+      "$type": "dimension"
+    }
+  },
+  "radiusS": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.8}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.8}",
+      "$type": "dimension"
+    }
+  },
+  "radiusM": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.10}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.10}",
+      "$type": "dimension"
+    }
+  },
+  "radiusL": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.12}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.12}",
+      "$type": "dimension"
+    }
+  },
+  "radiusXl": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.16}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.16}",
+      "$type": "dimension"
+    }
+  },
+  "radiusXxl": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.20}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.20}",
+      "$type": "dimension"
+    }
+  },
+  "radiusXxxl": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.32}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.32}",
+      "$type": "dimension"
+    }
+  },
+  "radiusXxxxl": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.48}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.48}",
+      "$type": "dimension"
+    }
+  },
+  "radiusMax": {
+    "modeMode1": {
+      "$value": "1000px",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "1000px",
+      "$type": "dimension"
+    }
+  }
+}
