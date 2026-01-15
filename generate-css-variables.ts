@@ -1,9 +1,13 @@
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- Configuration ---
-const JSON_DIR = './FigmaJsons';
-const OUTPUT_FILE = './src/variables.css';
+const JSON_DIR = path.resolve(__dirname, 'FigmaJsons');
+const OUTPUT_FILE = path.resolve(__dirname, 'src/variables.css');
 
 // --- Helper Functions ---
 
