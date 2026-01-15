@@ -125,11 +125,5 @@
         "$type": "dimension"
       }
     }
-  },
-  "borrr": {
-    "borrar1": {
-      "$value": "borrar-2",
-      "$type": "string"
-    }
   }
 }
