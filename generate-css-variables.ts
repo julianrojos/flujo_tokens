@@ -124,8 +124,8 @@ function buildVisitedRefSet(pathSegments: string[]): Set<string> {
  */
 function collectRefsFromValue(value: unknown, refs: Set<string>): void {
     if (typeof value === 'string') {
-        // Match all occurrences of {token.path} in the string
-        const matches = value.match(/\{([A-Za-z0-9_.-]+)\}/g);
+        // Match all occurrences of {token.path} in the string (allowing spaces and slashes)
+        const matches = value.match(/\{([A-Za-z0-9_./\s-]+)\}/g);
         if (matches) {
             matches.forEach(match => {
                 const tokenPath = match.slice(1, -1).trim();
@@ -289,7 +289,7 @@ function processValue(
     refMap?: Map<string, string>,
     valueMap?: Map<string, TokenValue>,
     collisionKeys?: Set<string>
-): string {
+): string | null {
     if (value === null || value === undefined) {
         return 'null';
     }
@@ -309,17 +309,15 @@ function processValue(
         if (isVariableAlias(value)) {
             return processVariableAlias(summary, value, currentPath, tokensData);
         }
-        try {
-            return JSON.stringify(value);
-        } catch {
-            return String(value);
-        }
+        console.warn(`⚠️  Token compuesto no soportado en ${currentPath.join('.')}, se omite`);
+        summary.unresolvedRefs.push(`${currentPath.join('.')} (Composite object skipped)`);
+        return null;
     }
 
     if (typeof value === 'string') {
         // Regex to find all {token.path} references
-        const refRegex = /\{([A-Za-z0-9_.-]+)\}/g;
-        const refDetector = /\{([A-Za-z0-9_.-]+)\}/; // non-global to avoid lastIndex side-effects
+        const refRegex = /\{([A-Za-z0-9_./\s-]+)\}/g;
+        const refDetector = /\{([A-Za-z0-9_./\s-]+)\}/; // non-global to avoid lastIndex side-effects
 
         // If no references, return as is (with simple string quoting if needed)
         if (!refDetector.test(value)) {
@@ -750,6 +748,9 @@ function flattenTokens(
             valueMap,
             collisionKeys
         );
+        if (resolvedValue === null) {
+            return collectedVars;
+        }
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
         if (!isValidCssVariableName(varName)) {
@@ -799,6 +800,9 @@ function flattenTokens(
                 valueMap,
                 collisionKeys
             );
+            if (processedValue === null) {
+                continue;
+            }
             collectedVars.push(`  ${varName}: ${processedValue};`);
             summary.successCount++;
             continue;
