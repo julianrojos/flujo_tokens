@@ -4,29 +4,13 @@
     "modeMode1": {
       "inter": {
         "$value": "Inter",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:16",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "STRING"
-          }
-        }
+        "$type": "string"
       }
     },
     "modeDefault": {
       "inter": {
         "$value": "Inter",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:16",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "STRING"
-          }
-        }
+        "$type": "string"
       }
     }
   },
@@ -34,107 +18,37 @@
     "modeMode1": {
       "bold": {
         "$value": "Bold",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:15",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "STRING"
-          }
-        }
+        "$type": "string"
       },
       "semiBold": {
         "$value": "String value",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25318:3",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "STRING",
-            "scopes": [
-              "ALL_SCOPES"
-            ]
-          }
-        }
+        "$type": "string"
       },
       "medium": {
         "$value": "Medium",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:13",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "STRING"
-          }
-        }
+        "$type": "string"
       },
       "regular": {
         "$value": "Regular",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:12",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "STRING"
-          }
-        }
+        "$type": "string"
       }
     },
     "modeDefault": {
       "bold": {
         "$value": "Bold",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:15",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "STRING"
-          }
-        }
+        "$type": "string"
       },
       "semiBold": {
         "$value": "Semi Bold",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25318:3",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "STRING",
-            "scopes": [
-              "ALL_SCOPES"
-            ]
-          }
-        }
+        "$type": "string"
       },
       "medium": {
         "$value": "Medium",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:13",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "STRING"
-          }
-        }
+        "$type": "string"
       },
       "regular": {
         "$value": "Regular",
-        "$type": "string",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:12",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "STRING"
-          }
-        }
+        "$type": "string"
       }
     }
   },
@@ -142,395 +56,109 @@
     "modeMode1": {
       "size11": {
         "$value": "11px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:292",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size12": {
         "$value": "12px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:302",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size13": {
         "$value": "13px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:301",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size14": {
         "$value": "14px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:295",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size16": {
         "$value": "16px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:304",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size18": {
         "$value": "18px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:293",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size20": {
         "$value": "20px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:290",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size24": {
         "$value": "24px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:289",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size28": {
         "$value": "28px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:288",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size36": {
         "$value": "36px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:282",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size48": {
         "$value": "48px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:286",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size60": {
         "$value": "60px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:283",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size72": {
         "$value": "72px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:291",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       }
     },
     "modeDefault": {
       "size11": {
         "$value": "11px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:292",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size12": {
         "$value": "12px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:302",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size13": {
         "$value": "13px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:301",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size14": {
         "$value": "14px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:295",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size16": {
         "$value": "16px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:304",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size18": {
         "$value": "18px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:293",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size20": {
         "$value": "20px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:290",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size24": {
         "$value": "24px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:289",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size28": {
         "$value": "28px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:288",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size36": {
         "$value": "36px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:282",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size48": {
         "$value": "48px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:286",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size60": {
         "$value": "60px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:283",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "size72": {
         "$value": "72px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:291",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "WIDTH_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       }
     }
   },
@@ -538,305 +166,85 @@
     "modeMode1": {
       "lineheight16": {
         "$value": "16px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:337",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight20": {
         "$value": "20px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:336",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight24": {
         "$value": "24px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:335",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight28": {
         "$value": "28px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:333",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight32": {
         "$value": "32px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:334",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight36": {
         "$value": "36px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:332",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight44": {
         "$value": "44px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:329",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight60": {
         "$value": "60px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:328",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight72": {
         "$value": "72px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:331",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight80": {
         "$value": "80px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:330",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25056:1",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       }
     },
     "modeDefault": {
       "lineheight16": {
         "$value": "16px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:337",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight20": {
         "$value": "20px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:336",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight24": {
         "$value": "24px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:335",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight28": {
         "$value": "28px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:333",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight32": {
         "$value": "32px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:334",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight36": {
         "$value": "36px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:332",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight44": {
         "$value": "44px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:329",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight60": {
         "$value": "60px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:328",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight72": {
         "$value": "72px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:331",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       },
       "lineheight80": {
         "$value": "80px",
-        "$type": "dimension",
-        "$extensions": {
-          "com.figma": {
-            "variableId": "VariableID:25057:330",
-            "collectionId": "VariableCollectionId:25056:164",
-            "modeId": "25318:7",
-            "resolvedType": "FLOAT",
-            "scopes": [
-              "LINE_HEIGHT"
-            ]
-          }
-        }
+        "$type": "dimension"
       }
     }
   }

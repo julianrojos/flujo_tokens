@@ -2,354 +2,112 @@
   "$description": "radius",
   "radiusXxxs": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.2}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:207",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.2}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.2}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:207",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.2}",
+      "$type": "dimension"
     }
   },
   "radiusXxs": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.4}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:209",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.4}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.4}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:209",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.4}",
+      "$type": "dimension"
     }
   },
   "radiusXs": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.6}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:203",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.6}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.6}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:203",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.6}",
+      "$type": "dimension"
     }
   },
   "radiusS": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.8}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:208",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.8}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.8}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:208",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.8}",
+      "$type": "dimension"
     }
   },
   "radiusM": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.10}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:205",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.10}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.10}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:205",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.10}",
+      "$type": "dimension"
     }
   },
   "radiusL": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.12}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:201",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.12}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.12}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:201",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.12}",
+      "$type": "dimension"
     }
   },
   "radiusXl": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.16}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:204",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.16}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.16}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:204",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.16}",
+      "$type": "dimension"
     }
   },
   "radiusXxl": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.20}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:206",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.20}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.20}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:206",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.20}",
+      "$type": "dimension"
     }
   },
   "radiusXxxl": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.32}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:202",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.32}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.32}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:202",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.32}",
+      "$type": "dimension"
     }
   },
   "radiusXxxxl": {
     "modeMode1": {
-      "$value": "{spacingPrimitives.48}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:200",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.48}",
+      "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "{spacingPrimitives.48}",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:200",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$value": "{Numberprimitives.48}",
+      "$type": "dimension"
     }
   },
   "radiusMax": {
     "modeMode1": {
       "$value": "1000px",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:198",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25038:0",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$type": "dimension"
     },
     "modeDefault": {
       "$value": "1000px",
-      "$type": "dimension",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:25038:198",
-          "collectionId": "VariableCollectionId:25038:179",
-          "modeId": "25318:2",
-          "resolvedType": "FLOAT",
-          "scopes": [
-            "CORNER_RADIUS"
-          ]
-        }
-      }
+      "$type": "dimension"
     }
   }
 }
