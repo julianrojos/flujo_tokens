@@ -109,6 +109,13 @@ function normalizePathKey(pathKey: string): string {
     return pathKey.toLowerCase();
 }
 
+/**
+ * Canonicalizes a token path by replacing slashes/backslashes and whitespace with dots.
+ */
+function canonicalizeRefPath(pathKey: string): string {
+    return pathKey.trim().replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
+}
+
 function buildVisitedRefSet(pathSegments: string[]): Set<string> {
     const exactPath = pathSegments.join('.');
     const normalizedPath = normalizePathKey(exactPath);
@@ -130,8 +137,9 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
             matches.forEach(match => {
                 const tokenPath = match.slice(1, -1).trim();
                 if (tokenPath) {
-                    refs.add(tokenPath);
-                    refs.add(normalizePathKey(tokenPath));
+                    const canonical = canonicalizeRefPath(tokenPath);
+                    refs.add(canonical);
+                    refs.add(normalizePathKey(canonical));
                 }
             });
         }
@@ -318,6 +326,7 @@ function processValue(
         // Regex to find all {token.path} references
         const refRegex = /\{([A-Za-z0-9_./\s-]+)\}/g;
         const refDetector = /\{([A-Za-z0-9_./\s-]+)\}/; // non-global to avoid lastIndex side-effects
+        const seenInValue = new Set<string>();
 
         // If no references, return as is (with simple string quoting if needed)
         if (!refDetector.test(value)) {
@@ -347,29 +356,33 @@ function processValue(
                 return match;
             }
 
-            const normalizedTokenPath = normalizePathKey(tokenPath);
+            const canonicalPath = canonicalizeRefPath(tokenPath);
+            const normalizedTokenPath = normalizePathKey(canonicalPath);
 
-            if (visitedRefs.has(normalizedTokenPath)) {
-                console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${currentPath.join('.')}`);
-                summary.circularDeps++;
-                return `/* circular-ref: ${tokenPath} */`;
-            }
+            if (!seenInValue.has(normalizedTokenPath)) {
+                if (visitedRefs.has(normalizedTokenPath)) {
+                    console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${currentPath.join('.')}`);
+                    summary.circularDeps++;
+                    return `/* circular-ref: ${tokenPath} */`;
+                }
 
-            // Detect Deep Cycles using normalized map
-            if (hasCircularDependency(tokenPath, valueMap, new Set(visitedRefs))) {
-                console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
-                summary.circularDeps++;
-                return `/* circular-ref: ${tokenPath} */`;
-            }
+                // Detect Deep Cycles using normalized map
+                if (hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs))) {
+                    console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
+                    summary.circularDeps++;
+                    return `/* circular-ref: ${tokenPath} */`;
+                }
 
-            // Add to visited AFTER cycle check passes
-            visitedRefs.add(normalizedTokenPath);
-            if (tokenPath !== normalizedTokenPath) {
-                visitedRefs.add(tokenPath); // Track exact path too
+                // Add to visited AFTER cycle check passes
+                visitedRefs.add(normalizedTokenPath);
+                if (canonicalPath !== normalizedTokenPath) {
+                    visitedRefs.add(canonicalPath); // Track exact path too
+                }
+                seenInValue.add(normalizedTokenPath);
             }
 
             // Resolution Strategy: Exact Match -> Normalized Match
-            let mappedVarName = refMap?.get(tokenPath);
+            let mappedVarName = refMap?.get(canonicalPath);
             if (!mappedVarName && !collisionKeys?.has(normalizedTokenPath)) {
                 mappedVarName = refMap?.get(normalizedTokenPath);
             }
@@ -378,7 +391,7 @@ function processValue(
                 return `var(${mappedVarName})`;
             }
 
-            const cssPath = tokenPath
+            const cssPath = canonicalPath
                 .split('.')
                 .map(toKebabCase)
                 .join('-');
