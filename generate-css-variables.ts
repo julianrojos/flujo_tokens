@@ -408,6 +408,7 @@ function processValue(
 }
 
 function collectTokenMaps(
+    summary: ExecutionSummary,
     obj: any,
     prefix: string[] = [],
     currentPath: string[] = [],
@@ -465,6 +466,7 @@ function collectTokenMaps(
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
         collectTokenMaps(
+            summary,
             value,
             [...prefix, normalizedKey],
             [...currentPath, key],
@@ -477,6 +479,7 @@ function collectTokenMaps(
 
     if (modeDefault) {
         collectTokenMaps(
+            summary,
             obj[modeDefault],
             prefix,
             [...currentPath, modeDefault],
@@ -487,6 +490,7 @@ function collectTokenMaps(
         );
     } else if (modeAny) {
         collectTokenMaps(
+            summary,
             obj[modeAny],
             prefix,
             [...currentPath, modeAny],
@@ -875,6 +879,7 @@ async function main() {
         // We include the filename in the prefix (namespace)
         const normalizedFileName = toKebabCase(fileName);
         collectTokenMaps(
+            summary,
             fileContent,
             [normalizedFileName],
             [fileName],
