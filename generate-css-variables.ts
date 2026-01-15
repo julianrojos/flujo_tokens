@@ -783,7 +783,7 @@ function flattenTokens(
             collisionKeys
         );
         if (resolvedValue === null) {
-            continue;
+            return collectedVars;
         }
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
