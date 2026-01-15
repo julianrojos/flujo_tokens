@@ -357,8 +357,7 @@ function processValue(
                 return `/* circular-ref: ${tokenPath} */`;
             }
 
-            // Detect Deep Cycles
-            // Try Exact Value Map first, then Fuzzy
+            // Detect Deep Cycles using normalized map
             if (hasCircularDependency(tokenPath, valueMap, new Set(visitedRefs))) {
                 console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
                 summary.circularDeps++;
@@ -371,7 +370,7 @@ function processValue(
                 visitedRefs.add(tokenPath); // Track exact path too
             }
 
-            // Resolution Strategy: Exact Match -> Fuzzy Match
+            // Resolution Strategy: Exact Match -> Normalized Match
             let mappedVarName = refMap?.get(tokenPath);
             if (!mappedVarName && !collisionKeys?.has(normalizedTokenPath)) {
                 mappedVarName = refMap?.get(normalizedTokenPath);
@@ -733,7 +732,7 @@ function flattenTokens(
             return collectedVars;
         }
 
-        // FIX: initialize visited with BOTH exact and normalized to catch self-refs regardless of casing
+        // Initialize visited with both exact and normalized paths to catch self-refs regardless of casing
         const visitedRefs = buildVisitedRefSet(currentPath);
 
         const resolvedValue = processValue(
