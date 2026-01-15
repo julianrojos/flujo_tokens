@@ -391,7 +391,20 @@ function readAndCombineJsons(dir: string): Record<string, any> {
                             throw error; // Throw original error if repair fails
                         }
                     } else {
-                        throw error;
+                        // Try to fix malformed JSON by wrapping or closing braces
+                        let cleaned = fileContent.trim();
+                        if (!cleaned.startsWith('{')) {
+                            cleaned = `{${cleaned}`;
+                        }
+                        if (!cleaned.endsWith('}')) {
+                            cleaned = `${cleaned}}`;
+                        }
+                        try {
+                            console.warn(`⚠️  JSON reparado en ${file}; revisa el export si es posible.`);
+                            json = JSON.parse(cleaned);
+                        } catch {
+                            throw error;
+                        }
                     }
                 }
 
@@ -412,21 +425,6 @@ function readAndCombineJsons(dir: string): Record<string, any> {
         }
     }
     return combined;
-}
-
-/**
- * Transforms a W3C Design Token value to a CSS variable value.
- * Handles alias replacement e.g., "{Colorprimitives.neutral.0}" -> "var(--Colorprimitives-neutral-0)"
- */
-function transformValue(value: string): string {
-    if (typeof value !== 'string') return value;
-
-    // Regex to find aliases like {collection.group.token}
-    return value.replace(/\{([^}]+)\}/g, (match, aliasContent) => {
-        // Replace dots with dashes in the alias path to match CSS variable naming convention
-        const cssVarName = aliasContent.replace(/\./g, '-');
-        return `var(--${cssVarName})`;
-    });
 }
 
 /**
@@ -471,6 +469,18 @@ function flattenTokens(
 
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            const varName = `--${[...prefix, normalizedKey].filter(p => p).join('-')}`;
+            if (!isValidCssVariableName(varName)) {
+                console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
+                continue;
+            }
+            // Process the value to handle aliases, colors, and proper escaping
+            const visitedRefs = new Set([[...currentPath, key].join('.')]);
+            const processedValue = processValue(value, undefined, [...currentPath, key], tokensData, visitedRefs);
+            collectedVars.push(`  ${varName}: ${processedValue};`);
+            continue;
+        }
         flattenTokens(
             value,
             [...prefix, normalizedKey],
