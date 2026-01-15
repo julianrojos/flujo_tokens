@@ -99,7 +99,10 @@ function isValidCssVariableName(name: string): boolean {
 }
 
 function buildPathKey(segments: string[]): string {
-    return segments.filter(segment => segment && !isModeKey(segment)).join('.');
+    return segments
+        .filter(segment => segment && !isModeKey(segment))
+        .join('.')
+        .replace(/\s+/g, '.');
 }
 
 /**
@@ -779,7 +782,7 @@ function flattenTokens(
             collisionKeys
         );
         if (resolvedValue === null) {
-            return collectedVars;
+            continue;
         }
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
