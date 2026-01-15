@@ -164,7 +164,6 @@ function hasCircularDependency(
 
     const token =
         exactValueMap?.get(startPath) ||
-        (normalizedPath !== startPath ? exactValueMap?.get(normalizedPath) : undefined) ||
         (normalizedPath ? normalizedValueMap?.get(normalizedPath) : undefined);
     if (!token) {
         return false;
@@ -620,7 +619,10 @@ function extractCssVariables(cssContent: string): Map<string, string> {
         }
 
         const valueParsed = rootContent.substring(valueStart, i).trim();
-        const valueIsSane = valueParsed.length > 0 && !/[\r\n]/.test(valueParsed) && valueParsed === valueParsed.trim();
+        const valueIsSane =
+            valueParsed.length > 0 &&
+            !/[\r\n\x00-\x1F]/.test(valueParsed) &&
+            valueParsed === valueParsed.trim();
         if (name && valueIsSane && isValidCssVariableName(`--${name}`)) {
             variables.set(name, valueParsed);
         }
@@ -949,6 +951,7 @@ async function main() {
     console.log(`Dependencias Circ.:  ${summary.circularDeps}`);
     console.log(`Refs no resueltas:   ${summary.unresolvedRefs.length}`);
     console.log(`Nombres inválidos:   ${summary.invalidNames.length}`);
+    console.log(`Límite profundidad:  ${summary.depthLimitHits}`);
     console.log('========================================');
 
     if (summary.unresolvedRefs.length > 0) {
