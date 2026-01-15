@@ -319,6 +319,9 @@ function processValue(
     }
 
     if (typeof value === 'object') {
+        if (varType === 'shadow' && !isVariableAlias(value)) {
+            return processShadow(value);
+        }
         if (isVariableAlias(value)) {
             return processVariableAlias(summary, value, currentPath, tokensData);
         }
