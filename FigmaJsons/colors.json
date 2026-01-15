@@ -1,7 +1,7 @@
 {
   "$description": "colors",
   "backgroundcolors": {
-    "modeMode1": {
+    "modeDefault": {
       "background01": {
         "$value": "{Colorprimitives.neutral.0}",
         "$type": "color"
@@ -27,7 +27,7 @@
         "$type": "color"
       }
     },
-    "modeDefault": {
+    "modeMode1": {
       "background01": {
         "$value": "{Colorprimitives.neutral.0}",
         "$type": "color"
@@ -55,7 +55,7 @@
     }
   },
   "bordercolors": {
-    "modeMode1": {
+    "modeDefault": {
       "primary": {
         "border100": {
           "$value": "{Colorprimitives.primary.500}",
@@ -109,7 +109,7 @@
         }
       }
     },
-    "modeDefault": {
+    "modeMode1": {
       "primary": {
         "border100": {
           "$value": "{Colorprimitives.primary.500}",
@@ -165,7 +165,7 @@
     }
   },
   "foregroundcolors": {
-    "modeMode1": {
+    "modeDefault": {
       "foreground01": {
         "$value": "{Colorprimitives.neutral.950}",
         "$type": "color"
@@ -191,7 +191,7 @@
         "$type": "color"
       }
     },
-    "modeDefault": {
+    "modeMode1": {
       "foreground01": {
         "$value": "{Colorprimitives.neutral.950}",
         "$type": "color"
@@ -219,7 +219,7 @@
     }
   },
   "semanticcolors": {
-    "modeMode1": {
+    "modeDefault": {
       "primary": {
         "semanticPrimary950": {
           "$value": "{Colorprimitives.primary.950}",
@@ -313,14 +313,14 @@
         }
       }
     },
-    "modeDefault": {
+    "modeMode1": {
       "primary": {
         "semanticPrimary950": {
-          "$value": "{colors.primary.950}",
+          "$value": "{Colorprimitives.primary.950}",
           "$type": "color"
         },
         "semanticPrimary900": {
-          "$value": "{colors.primary.900}",
+          "$value": "{Colorprimitives.primary.900}",
           "$type": "color"
         },
         "semanticPrimary800": {
