@@ -445,6 +445,23 @@ function collectTokenMaps(
                 }
             }
         }
+        // Also store relative path (without filename) to resolve local refs like {token}
+        const relativePathKey = buildPathKey(currentPath.slice(1));
+        const relativeNormalizedKey = normalizePathKey(relativePathKey);
+        if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
+            if (!refMap.has(relativeNormalizedKey)) {
+                refMap.set(relativeNormalizedKey, varName);
+                valueMap.set(relativeNormalizedKey, obj as TokenValue);
+            } else {
+                const existingRel = refMap.get(relativeNormalizedKey);
+                if (existingRel !== varName) {
+                    console.warn(`ℹ️  Normalized collision (relative): ${relativePathKey} normalized to same key as existing token.`);
+                    collisionKeys.add(relativeNormalizedKey);
+                } else {
+                    console.warn(`ℹ️  Duplicate token for normalized key ${relativeNormalizedKey} at ${relativePathKey}`);
+                }
+            }
+        }
         return;
     }
 
