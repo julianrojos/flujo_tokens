@@ -1,0 +1,85 @@
+{
+  "$description": "_Typography",
+  "font": {
+    "family": {
+      "nunitosans": {
+        "$value": "Nunito Sans",
+        "$type": "string"
+      },
+      "lora": {
+        "$value": "Lora",
+        "$type": "string"
+      }
+    },
+    "size": {
+      "size10": {
+        "$value": "{Primitives.numbers.10}",
+        "$type": "dimension"
+      },
+      "size12": {
+        "$value": "{Primitives.numbers.12}",
+        "$type": "dimension"
+      },
+      "size14": {
+        "$value": "{Primitives.numbers.14}",
+        "$type": "dimension"
+      },
+      "size16": {
+        "$value": "{Primitives.numbers.16}",
+        "$type": "dimension"
+      },
+      "size18": {
+        "$value": "{Primitives.numbers.18}",
+        "$type": "dimension"
+      },
+      "size20": {
+        "$value": "{Primitives.numbers.20}",
+        "$type": "dimension"
+      },
+      "size24": {
+        "$value": "{Primitives.numbers.24}",
+        "$type": "dimension"
+      },
+      "size28": {
+        "$value": "{Primitives.numbers.28}",
+        "$type": "dimension"
+      },
+      "size32": {
+        "$value": "{Primitives.numbers.32}",
+        "$type": "dimension"
+      },
+      "size40": {
+        "$value": "{Primitives.numbers.40}",
+        "$type": "dimension"
+      }
+    },
+    "weight": {
+      "regular": {
+        "$value": "Regular",
+        "$type": "string"
+      },
+      "semibold": {
+        "$value": "Semibold",
+        "$type": "string"
+      },
+      "bold": {
+        "$value": "Bold",
+        "$type": "string"
+      }
+    },
+    "lineHeight": {
+      "lineHeight76": {
+        "$value": "{Primitives.numbers.76}",
+        "$type": "dimension"
+      },
+      "lineHeight44": {
+        "$value": "{Primitives.numbers.44}",
+        "$type": "dimension"
+      },
+      "lineHeight36": {
+        "$value": "{Primitives.numbers.36}",
+        "$type": "dimension"
+      }
+    }
+  }
+}
