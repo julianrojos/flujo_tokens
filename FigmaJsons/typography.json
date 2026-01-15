@@ -127,8 +127,8 @@
     }
   },
   "borrr": {
-    "borrar": {
-      "$value": "borrar",
+    "borrar1": {
+      "$value": "borrar-2",
       "$type": "string"
     }
   }
