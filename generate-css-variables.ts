@@ -53,14 +53,16 @@ interface ExecutionSummary {
     depthLimitHits: number;
 }
 
-const summary: ExecutionSummary = {
-    totalTokens: 0,
-    successCount: 0,
-    unresolvedRefs: [],
-    invalidNames: [],
-    circularDeps: 0,
-    depthLimitHits: 0
-};
+function createSummary(): ExecutionSummary {
+    return {
+        totalTokens: 0,
+        successCount: 0,
+        unresolvedRefs: [],
+        invalidNames: [],
+        circularDeps: 0,
+        depthLimitHits: 0
+    };
+}
 
 // --- Helper Functions ---
 
@@ -152,8 +154,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
  */
 function hasCircularDependency(
     startPath: string,
-    exactValueMap?: Map<string, TokenValue>,
-    normalizedValueMap?: Map<string, TokenValue>,
+    valueMap?: Map<string, TokenValue>,
     visited: Set<string> = new Set()
 ): boolean {
     const normalizedPath = normalizePathKey(startPath);
@@ -162,9 +163,7 @@ function hasCircularDependency(
         return true;
     }
 
-    const token =
-        exactValueMap?.get(startPath) ||
-        (normalizedPath ? normalizedValueMap?.get(normalizedPath) : undefined);
+    const token = valueMap?.get(startPath) || (normalizedPath ? valueMap?.get(normalizedPath) : undefined);
     if (!token) {
         return false;
     }
@@ -177,7 +176,7 @@ function hasCircularDependency(
     collectRefsFromValue(token.$value, nestedRefs);
 
     for (const ref of nestedRefs) {
-        if (hasCircularDependency(ref, exactValueMap, normalizedValueMap, nextVisited)) {
+        if (hasCircularDependency(ref, valueMap, nextVisited)) {
             return true;
         }
     }
@@ -223,6 +222,7 @@ function findTokenById(
 }
 
 function processVariableAlias(
+    summary: ExecutionSummary,
     aliasObj: unknown,
     currentPath: string[],
     tokensData?: Record<string, any>
@@ -280,15 +280,14 @@ function processShadow(shadowObj: unknown): string {
 }
 
 function processValue(
+    summary: ExecutionSummary,
     value: TokenValue['$value'],
     varType?: string,
     currentPath: string[] = [],
     tokensData?: Record<string, any>,
     visitedRefs: Set<string> = new Set(),
-    exactRefMap?: Map<string, string>,
-    normalizedRefMap?: Map<string, string>,
-    exactValueMap?: Map<string, TokenValue>,
-    normalizedValueMap?: Map<string, TokenValue>,
+    refMap?: Map<string, string>,
+    valueMap?: Map<string, TokenValue>,
     collisionKeys?: Set<string>
 ): string {
     if (value === null || value === undefined) {
@@ -308,7 +307,7 @@ function processValue(
 
     if (typeof value === 'object') {
         if (isVariableAlias(value)) {
-            return processVariableAlias(value, currentPath, tokensData);
+            return processVariableAlias(summary, value, currentPath, tokensData);
         }
         try {
             return JSON.stringify(value);
@@ -360,7 +359,7 @@ function processValue(
 
             // Detect Deep Cycles
             // Try Exact Value Map first, then Fuzzy
-            if (hasCircularDependency(tokenPath, exactValueMap, normalizedValueMap, new Set(visitedRefs))) {
+            if (hasCircularDependency(tokenPath, valueMap, new Set(visitedRefs))) {
                 console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
                 summary.circularDeps++;
                 return `/* circular-ref: ${tokenPath} */`;
@@ -373,9 +372,9 @@ function processValue(
             }
 
             // Resolution Strategy: Exact Match -> Fuzzy Match
-            let mappedVarName = exactRefMap?.get(tokenPath);
+            let mappedVarName = refMap?.get(tokenPath);
             if (!mappedVarName && !collisionKeys?.has(normalizedTokenPath)) {
-                mappedVarName = normalizedRefMap?.get(normalizedTokenPath);
+                mappedVarName = refMap?.get(normalizedTokenPath);
             }
 
             if (mappedVarName) {
@@ -413,10 +412,8 @@ function collectTokenMaps(
     obj: any,
     prefix: string[] = [],
     currentPath: string[] = [],
-    exactRefMap: Map<string, string>,
-    normalizedRefMap: Map<string, string>,
-    exactValueMap: Map<string, TokenValue>,
-    normalizedValueMap: Map<string, TokenValue>,
+    refMap: Map<string, string>,
+    valueMap: Map<string, TokenValue>,
     collisionKeys: Set<string>,
     depth = 0
 ): void {
@@ -431,25 +428,15 @@ function collectTokenMaps(
         const normalizedKey = normalizePathKey(tokenPathKey);
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
-        // Populate Exact Maps
-        if (tokenPathKey) {
-            if (!exactRefMap.has(tokenPathKey)) {
-                exactRefMap.set(tokenPathKey, varName);
-                exactValueMap.set(tokenPathKey, obj as TokenValue);
-            } else {
-                console.warn(`⚠️  Duplicate exact token path: ${tokenPathKey}`);
-            }
-        }
-
-        // Populate Normalized Maps (Fallback)
+        // Populate Normalized Map (case-insensitive)
         if (normalizedKey) {
-            if (!normalizedRefMap.has(normalizedKey)) {
-                normalizedRefMap.set(normalizedKey, varName);
-                normalizedValueMap.set(normalizedKey, obj as TokenValue);
+            if (!refMap.has(normalizedKey)) {
+                refMap.set(normalizedKey, varName);
+                valueMap.set(normalizedKey, obj as TokenValue);
             } else {
                 // Optimization: Only warn if it's NOT an exact-match collision (which handles itself)
                 // and implies a "different casing" collision.
-                const existing = normalizedRefMap.get(normalizedKey);
+                const existing = refMap.get(normalizedKey);
                 if (existing !== varName) {
                     // This is the "silent loss" scenario mentioned. We log it but allow exact map to save the day for specific refs.
                     // Normalized lookups will still only find the first one.
@@ -482,10 +469,8 @@ function collectTokenMaps(
             value,
             [...prefix, normalizedKey],
             [...currentPath, key],
-            exactRefMap,
-            normalizedRefMap,
-            exactValueMap,
-            normalizedValueMap,
+            refMap,
+            valueMap,
             collisionKeys,
             depth + 1
         );
@@ -496,10 +481,8 @@ function collectTokenMaps(
             obj[modeDefault],
             prefix,
             [...currentPath, modeDefault],
-            exactRefMap,
-            normalizedRefMap,
-            exactValueMap,
-            normalizedValueMap,
+            refMap,
+            valueMap,
             collisionKeys,
             depth + 1
         );
@@ -508,10 +491,8 @@ function collectTokenMaps(
             obj[modeAny],
             prefix,
             [...currentPath, modeAny],
-            exactRefMap,
-            normalizedRefMap,
-            exactValueMap,
-            normalizedValueMap,
+            refMap,
+            valueMap,
             collisionKeys,
             depth + 1
         );
@@ -715,15 +696,14 @@ function readAndCombineJsons(dir: string): Record<string, any> {
  * Recursive function to flatten the token object into CSS variables.
  */
 function flattenTokens(
+    summary: ExecutionSummary,
     obj: any,
     prefix: string[] = [],
     collectedVars: string[] = [],
     tokensData?: Record<string, any>,
     currentPath: string[] = [],
-    exactRefMap?: Map<string, string>,
-    normalizedRefMap?: Map<string, string>,
-    exactValueMap?: Map<string, TokenValue>,
-    normalizedValueMap?: Map<string, TokenValue>,
+    refMap?: Map<string, string>,
+    valueMap?: Map<string, TokenValue>,
     collisionKeys?: Set<string>,
     depth = 0
 ): string[] {
@@ -747,15 +727,14 @@ function flattenTokens(
         const visitedRefs = buildVisitedRefSet(currentPath);
 
         const resolvedValue = processValue(
+            summary,
             rawValue,
             varType,
             currentPath,
             tokensData,
             visitedRefs,
-            exactRefMap,
-            normalizedRefMap,
-            exactValueMap,
-            normalizedValueMap,
+            refMap,
+            valueMap,
             collisionKeys
         );
         const varName = `--${prefix.filter(p => p).join('-')}`;
@@ -797,15 +776,14 @@ function flattenTokens(
             summary.totalTokens++;
             const visitedRefs = buildVisitedRefSet([...currentPath, key]);
             const processedValue = processValue(
+                summary,
                 value as any, // Cast as it might be string/number/boolean
                 undefined,
                 [...currentPath, key],
                 tokensData,
                 visitedRefs,
-                exactRefMap,
-                normalizedRefMap,
-                exactValueMap,
-                normalizedValueMap,
+                refMap,
+                valueMap,
                 collisionKeys
             );
             collectedVars.push(`  ${varName}: ${processedValue};`);
@@ -813,15 +791,14 @@ function flattenTokens(
             continue;
         } else {
             flattenTokens(
+                summary,
                 value,
                 [...prefix, normalizedKey],
                 collectedVars,
                 tokensData,
                 [...currentPath, key],
-                exactRefMap,
-                normalizedRefMap,
-                exactValueMap,
-                normalizedValueMap,
+                refMap,
+                valueMap,
                 collisionKeys,
                 depth + 1
             );
@@ -830,29 +807,27 @@ function flattenTokens(
 
     if (modeDefault) {
         flattenTokens(
+            summary,
             obj[modeDefault],
             prefix,
             collectedVars,
             tokensData,
             [...currentPath, modeDefault],
-            exactRefMap,
-            normalizedRefMap,
-            exactValueMap,
-            normalizedValueMap,
+            refMap,
+            valueMap,
             collisionKeys,
             depth + 1
         );
     } else if (modeAny) {
         flattenTokens(
+            summary,
             obj[modeAny],
             prefix,
             collectedVars,
             tokensData,
             [...currentPath, modeAny],
-            exactRefMap,
-            normalizedRefMap,
-            exactValueMap,
-            normalizedValueMap,
+            refMap,
+            valueMap,
             collisionKeys,
             depth + 1
         );
@@ -864,24 +839,16 @@ function flattenTokens(
 // --- Main Execution ---
 
 async function main() {
-    // Reset summary in case this module runs multiple times in the same process
-    summary.totalTokens = 0;
-    summary.successCount = 0;
-    summary.unresolvedRefs = [];
-    summary.invalidNames = [];
-    summary.circularDeps = 0;
-    summary.depthLimitHits = 0;
+    const summary = createSummary();
 
     console.log('📖 Leyendo archivos JSON...');
     const combinedTokens = readAndCombineJsons(JSON_DIR);
 
     console.log('🔄 Transformando a variables CSS...');
     const cssLines: string[] = [];
-    const exactRefMap = new Map<string, string>();
-    const normalizedRefMap = new Map<string, string>();
-    const exactValueMap = new Map<string, TokenValue>();
-    const normalizedValueMap = new Map<string, TokenValue>();
-    const normalizedCollisionKeys = new Set<string>();
+    const refMap = new Map<string, string>();
+    const valueMap = new Map<string, TokenValue>();
+    const collisionKeys = new Set<string>();
 
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -902,27 +869,24 @@ async function main() {
             fileContent,
             [normalizedFileName],
             [fileName],
-            exactRefMap,
-            normalizedRefMap,
-            exactValueMap,
-            normalizedValueMap,
-            normalizedCollisionKeys
+            refMap,
+            valueMap,
+            collisionKeys
         );
     }
 
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
         const normalizedFileName = toKebabCase(fileName);
         flattenTokens(
+            summary,
             fileContent,
             [normalizedFileName],
             cssLines,
             combinedTokens,
             [fileName],
-            exactRefMap,
-            normalizedRefMap,
-            exactValueMap,
-            normalizedValueMap,
-            normalizedCollisionKeys
+            refMap,
+            valueMap,
+            collisionKeys
         );
     }
 
