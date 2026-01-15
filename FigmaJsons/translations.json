@@ -1,0 +1,25 @@
+{
+  "$description": "Translations",
+  "card": {
+    "title": {
+      "$value": "Producto",
+      "$type": "string"
+    },
+    "subtitle": {
+      "$value": "Dato ppal",
+      "$type": "string"
+    },
+    "bodyTxt": {
+      "$value": "Algo más de información",
+      "$type": "string"
+    },
+    "buttonPrimary": {
+      "$value": "Aceptar",
+      "$type": "string"
+    },
+    "buttonSecondary": {
+      "$value": "Cancelar",
+      "$type": "string"
+    }
+  }
+}
