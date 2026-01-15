@@ -96,6 +96,76 @@ function buildPathKey(segments: string[]): string {
     return segments.filter(segment => segment && !isModeKey(segment)).join('.');
 }
 
+/**
+ * Normalizes a path key to lowercase and removes delimiters for loose matching.
+ * e.g. "Color-Primitives" -> "colorprimitives", "color_primitives" -> "colorprimitives"
+ */
+function normalizePathKey(pathKey: string): string {
+    return pathKey.toLowerCase().replace(/[-_]/g, '');
+}
+
+/**
+ * Recursively collects all W3C references ({path.to.token}) from any value structure.
+ * Handles strings (including embedded refs), arrays, and nested objects.
+ */
+function collectRefsFromValue(value: unknown, refs: Set<string>): void {
+    if (typeof value === 'string') {
+        // Match all occurrences of {token.path} in the string
+        const matches = value.match(/\{([A-Za-z0-9_.-]+)\}/g);
+        if (matches) {
+            matches.forEach(match => {
+                const tokenPath = match.slice(1, -1).trim();
+                if (tokenPath) {
+                    refs.add(normalizePathKey(tokenPath));
+                }
+            });
+        }
+    } else if (Array.isArray(value)) {
+        for (const item of value) {
+            collectRefsFromValue(item, refs);
+        }
+    } else if (isPlainObject(value)) {
+        for (const key of Object.keys(value)) {
+            if (!key.startsWith('$')) {
+                collectRefsFromValue((value as Record<string, unknown>)[key], refs);
+            }
+        }
+    }
+}
+
+/**
+ * Checks for circular dependencies by recursively following all references.
+ * Returns true if a cycle is detected.
+ */
+function hasCircularDependency(
+    startPath: string,
+    valueMap: Map<string, TokenValue>,
+    visited: Set<string> = new Set()
+): boolean {
+    const normalizedStart = normalizePathKey(startPath);
+    if (visited.has(normalizedStart)) {
+        return true;
+    }
+
+    const token = valueMap.get(normalizedStart);
+    if (!token) {
+        return false;
+    }
+
+    visited.add(normalizedStart);
+
+    const nestedRefs = new Set<string>();
+    collectRefsFromValue(token.$value, nestedRefs);
+
+    for (const ref of nestedRefs) {
+        if (hasCircularDependency(ref, valueMap, new Set(visited))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function findTokenById(
     tokensData: Record<string, any>,
     targetId: string,
@@ -196,8 +266,10 @@ function processValue(
     currentPath: string[] = [],
     tokensData?: Record<string, any>,
     visitedRefs: Set<string> = new Set(),
-    refMap?: Map<string, string>,
-    valueMap?: Map<string, TokenValue>
+    exactRefMap?: Map<string, string>,
+    fuzzyRefMap?: Map<string, string>,
+    exactValueMap?: Map<string, TokenValue>,
+    fuzzyValueMap?: Map<string, TokenValue>
 ): string {
     if (value === null || value === undefined) {
         return 'null';
@@ -226,51 +298,70 @@ function processValue(
     }
 
     if (typeof value === 'string') {
-        if (value.startsWith('{') && value.endsWith('}')) {
-            const tokenPath = value.slice(1, -1).trim();
-            if (tokenPath.trim().length === 0) {
-                console.warn(`⚠️  Empty W3C reference at ${currentPath.join('.')}`);
-                summary.unresolvedRefs.push(`${currentPath.join('.')} (Empty ref)`);
+        // Regex to find all {token.path} references
+        const refRegex = /\{([A-Za-z0-9_.-]+)\}/g;
+
+        // If no references, return as is (with simple string quoting if needed)
+        if (!refRegex.test(value)) {
+            // Preserve RGB/RGBA colors
+            if (value.startsWith('rgba') || value.startsWith('rgb(')) {
                 return value;
             }
 
-            if (visitedRefs.has(tokenPath)) {
+            // Preserve hexadecimal colors
+            if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) {
+                return value;
+            }
+
+            if (varType === 'string') {
+                const escapedValue = value.replace(/"/g, '\\"');
+                return `"${escapedValue}"`;
+            }
+            return value;
+        }
+
+        // Reset regex state
+        refRegex.lastIndex = 0;
+
+        return value.replace(refRegex, (match, tokenPath) => {
+            tokenPath = tokenPath.trim();
+            if (!tokenPath) {
+                console.warn(`⚠️  Empty W3C reference in "${value}" at ${currentPath.join('.')}`);
+                summary.unresolvedRefs.push(`${currentPath.join('.')} (Empty ref)`);
+                return match;
+            }
+
+            const normalizedTokenPath = normalizePathKey(tokenPath);
+
+            if (visitedRefs.has(normalizedTokenPath)) {
                 console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${currentPath.join('.')}`);
                 summary.circularDeps++;
                 return `/* circular-ref: ${tokenPath} */`;
             }
 
-            visitedRefs.add(tokenPath);
-            if (valueMap) {
-                const refToken = valueMap.get(tokenPath);
-                if (refToken && typeof refToken.$value === 'string') {
-                    const nestedValue = refToken.$value.trim();
-                    if (nestedValue.startsWith('{') && nestedValue.endsWith('}')) {
-                        const nestedPath = nestedValue.slice(1, -1).trim();
-                        if (nestedPath) {
-                            if (visitedRefs.has(nestedPath)) {
-                                console.warn(
-                                    `⚠️  Circular W3C reference: ${nestedPath} at ${currentPath.join('.')}`
-                                );
-                                summary.circularDeps++;
-                                return `/* circular-ref: ${nestedPath} */`;
-                            }
-                            // Recursively check deeper chains
-                            processValue(
-                                `{${nestedPath}}`,
-                                undefined,
-                                currentPath,
-                                tokensData,
-                                visitedRefs,
-                                refMap,
-                                valueMap
-                            );
-                        }
-                    }
-                }
+            // Detect Deep Cycles
+            // Try Exact Value Map first, then Fuzzy
+            const targetValueMap = exactValueMap?.has(tokenPath) ? exactValueMap : fuzzyValueMap;
+            const targetKey = exactValueMap?.has(tokenPath) ? tokenPath : normalizedTokenPath;
+
+            if (targetValueMap && hasCircularDependency(targetKey, targetValueMap, new Set(visitedRefs))) {
+                console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
+                summary.circularDeps++;
+                return `/* circular-ref: ${tokenPath} */`;
             }
 
-            const mappedVarName = refMap?.get(tokenPath);
+            // Add to visited AFTER cycle check passes
+            visitedRefs.add(normalizedTokenPath);
+            if (tokenPath !== normalizedTokenPath) {
+                visitedRefs.add(tokenPath); // Track exact path too
+            }
+
+            // Resolution Strategy: Exact Match -> Fuzzy Match
+            let mappedVarName = exactRefMap?.get(tokenPath);
+            if (!mappedVarName) {
+                mappedVarName = fuzzyRefMap?.get(normalizedTokenPath);
+            }
+            
             if (mappedVarName) {
                 return `var(${mappedVarName})`;
             }
@@ -280,33 +371,19 @@ function processValue(
                 .map(toKebabCase)
                 .join('-');
             const varName = `--${cssPath}`;
+
             if (!isValidCssVariableName(varName)) {
                 console.warn(
-                    `⚠️  Invalid W3C reference ${value} generates invalid name ${varName} at ${currentPath.join('.')}`
+                    `⚠️  Invalid W3C reference ${match} generates invalid name ${varName} at ${currentPath.join('.')}`
                 );
                 summary.invalidNames.push(`${currentPath.join('.')} (Ref to invalid name: ${varName})`);
-                return value;
+                return match;
             }
-            console.warn(`⚠️  Unresolved W3C reference ${value} at ${currentPath.join('.')}`);
+
+            console.warn(`⚠️  Unresolved W3C reference ${match} at ${currentPath.join('.')}`);
             summary.unresolvedRefs.push(`${currentPath.join('.')} (Ref: ${tokenPath})`);
             return `var(${varName})`;
-        }
-
-        // Preserve RGB/RGBA colors
-        if (value.startsWith('rgba') || value.startsWith('rgb(')) {
-            return value;
-        }
-
-        // Preserve hexadecimal colors
-        if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) {
-            return value;
-        }
-
-        if (varType === 'string') {
-            const escapedValue = value.replace(/"/g, '\\"');
-            return `"${escapedValue}"`;
-        }
-        return value;
+        });
     }
 
     if (typeof value === 'number' || typeof value === 'boolean') {
@@ -320,19 +397,41 @@ function collectTokenMaps(
     obj: any,
     prefix: string[] = [],
     currentPath: string[] = [],
-    refMap: Map<string, string>,
-    valueMap: Map<string, TokenValue>
+    exactRefMap: Map<string, string>,
+    fuzzyRefMap: Map<string, string>,
+    exactValueMap: Map<string, TokenValue>,
+    fuzzyValueMap: Map<string, TokenValue>
 ): void {
     if (obj && typeof obj === 'object' && '$value' in obj) {
         const tokenPathKey = buildPathKey(currentPath);
+        const normalizedKey = normalizePathKey(tokenPathKey);
         const varName = `--${prefix.filter(p => p).join('-')}`;
+        
+        // Populate Exact Maps
         if (tokenPathKey) {
-            if (!refMap.has(tokenPathKey)) {
-                refMap.set(tokenPathKey, varName);
+             if (!exactRefMap.has(tokenPathKey)) {
+                 exactRefMap.set(tokenPathKey, varName);
+                 exactValueMap.set(tokenPathKey, obj as TokenValue);
+             } else {
+                 console.warn(`⚠️  Duplicate exact token path: ${tokenPathKey}`);
+             }
+        }
+
+        // Populate Fuzzy Maps (Fallback)
+        if (normalizedKey) {
+            if (!fuzzyRefMap.has(normalizedKey)) {
+                fuzzyRefMap.set(normalizedKey, varName);
+                fuzzyValueMap.set(normalizedKey, obj as TokenValue);
             } else {
-                console.warn(`⚠️  Duplicate token path detected: ${tokenPathKey}`);
+                 // Optimization: Only warn if it's NOT an exact-match collision (which handles itself)
+                 // and implies a "different casing" collision.
+                 const existing = fuzzyRefMap.get(normalizedKey);
+                 if (existing !== varName) {
+                     // This is the "silent loss" scenario mentioned. We log it but allow exact map to save the day for specific refs.
+                     // But fuzzy lookups will still only find the first one.
+                     console.warn(`ℹ️  Fuzzy collision: ${tokenPathKey} normalized to same key as existing token.`);
+                 }
             }
-            valueMap.set(tokenPathKey, obj as TokenValue);
         }
         return;
     }
@@ -356,8 +455,10 @@ function collectTokenMaps(
             value,
             [...prefix, normalizedKey],
             [...currentPath, key],
-            refMap,
-            valueMap
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
         );
     }
 
@@ -366,16 +467,20 @@ function collectTokenMaps(
             obj[modeDefault],
             prefix,
             [...currentPath, modeDefault],
-            refMap,
-            valueMap
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
         );
     } else if (modeAny) {
         collectTokenMaps(
             obj[modeAny],
             prefix,
             [...currentPath, modeAny],
-            refMap,
-            valueMap
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
         );
     }
 }
@@ -572,22 +677,30 @@ function flattenTokens(
     collectedVars: string[] = [],
     tokensData?: Record<string, any>,
     currentPath: string[] = [],
-    refMap?: Map<string, string>,
-    valueMap?: Map<string, TokenValue>
+    exactRefMap?: Map<string, string>,
+    fuzzyRefMap?: Map<string, string>,
+    exactValueMap?: Map<string, TokenValue>,
+    fuzzyValueMap?: Map<string, TokenValue>
 ): string[] {
     if (obj && typeof obj === 'object' && '$value' in obj) {
         summary.totalTokens++;
         const rawValue = (obj as TokenValue).$value;
         const varType = (obj as TokenValue).$type;
-        const visitedRefs = new Set([currentPath.join('.')]);
+        
+        // FIX: initialize visited with BOTH exact and normalized to catch self-refs regardless of casing
+        const exactPath = currentPath.join('.');
+        const visitedRefs = new Set([exactPath, normalizePathKey(exactPath)]);
+
         const resolvedValue = processValue(
             rawValue,
             varType,
             currentPath,
             tokensData,
             visitedRefs,
-            refMap,
-            valueMap
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
         );
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
@@ -639,15 +752,17 @@ function flattenTokens(
              }
              summary.totalTokens++;
              const visitedRefs = new Set([[...currentPath, key].join('.')]);
-             const processedValue = processValue(
-                 value as any, // Cast as it might be string/number/boolean
-                 undefined,
-                 [...currentPath, key],
-                 tokensData,
-                 visitedRefs,
-                 refMap,
-                 valueMap
-             );
+            const processedValue = processValue(
+                value as any, // Cast as it might be string/number/boolean
+                undefined,
+                [...currentPath, key],
+                tokensData,
+                visitedRefs,
+                exactRefMap,
+                fuzzyRefMap,
+                exactValueMap,
+                fuzzyValueMap
+            );
              collectedVars.push(`  ${varName}: ${processedValue};`);
              summary.successCount++;
              continue;
@@ -659,8 +774,10 @@ function flattenTokens(
             collectedVars,
             tokensData,
             [...currentPath, key],
-            refMap,
-            valueMap
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
         );
     }
 
@@ -671,8 +788,10 @@ function flattenTokens(
             collectedVars,
             tokensData,
             [...currentPath, modeDefault],
-            refMap,
-            valueMap
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
         );
     } else if (modeAny) {
         flattenTokens(
@@ -681,8 +800,10 @@ function flattenTokens(
             collectedVars,
             tokensData,
             [...currentPath, modeAny],
-            refMap,
-            valueMap
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
         );
     }
 
@@ -697,8 +818,10 @@ async function main() {
 
     console.log('🔄 Transformando a variables CSS...');
     const cssLines: string[] = [];
-    const refMap = new Map<string, string>();
-    const valueMap = new Map<string, TokenValue>();
+    const exactRefMap = new Map<string, string>();
+    const fuzzyRefMap = new Map<string, string>();
+    const exactValueMap = new Map<string, TokenValue>();
+    const fuzzyValueMap = new Map<string, TokenValue>();
 
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -715,7 +838,15 @@ async function main() {
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
         // We include the filename in the prefix (namespace)
         const normalizedFileName = toKebabCase(fileName);
-        collectTokenMaps(fileContent, [normalizedFileName], [fileName], refMap, valueMap);
+        collectTokenMaps(
+            fileContent,
+            [normalizedFileName],
+            [fileName],
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
+        );
     }
 
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
@@ -726,8 +857,10 @@ async function main() {
             cssLines,
             combinedTokens,
             [fileName],
-            refMap,
-            valueMap
+            exactRefMap,
+            fuzzyRefMap,
+            exactValueMap,
+            fuzzyValueMap
         );
     }
 
