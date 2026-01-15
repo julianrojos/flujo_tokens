@@ -125,5 +125,11 @@
         "$type": "dimension"
       }
     }
+  },
+  "borrr": {
+    "borrar": {
+      "$value": "borrar",
+      "$type": "string"
+    }
   }
 }
