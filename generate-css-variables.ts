@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 
 // --- Configuration ---
 const JSON_DIR = path.resolve(__dirname, 'FigmaJsons');
-const OUTPUT_FILE = path.resolve(__dirname, 'src/variables.css');
+const OUTPUT_FILE = path.resolve(__dirname, 'output/variables.css');
 
 // --- Types ---
 
