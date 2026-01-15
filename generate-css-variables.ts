@@ -9,13 +9,16 @@ const __dirname = path.dirname(__filename);
 const JSON_DIR = path.resolve(__dirname, 'FigmaJsons');
 const OUTPUT_FILE = path.resolve(__dirname, 'src/variables.css');
 
-// --- Helper Functions ---
-
-type TokenValueType = string | number | boolean | Record<string, unknown> | null;
+// --- Types ---
 
 interface TokenValue {
-    $value: TokenValueType | TokenValueType[];
+    $value: string | number | boolean | null | any[] | Record<string, any>;
     $type?: string;
+    $extensions?: {
+        mode?: Record<string, string>;
+        [key: string]: any;
+    };
+    [key: string]: any;
 }
 
 interface ShadowObject {
@@ -39,12 +42,34 @@ interface VariableAliasObject {
     id?: string;
 }
 
+interface ExecutionSummary {
+    totalTokens: number;
+    successCount: number;
+    unresolvedRefs: string[];
+    invalidNames: string[];
+    circularDeps: number;
+}
+
+const summary: ExecutionSummary = {
+    totalTokens: 0,
+    successCount: 0,
+    unresolvedRefs: [],
+    invalidNames: [],
+    circularDeps: 0
+};
+
+// --- Helper Functions ---
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isVariableAlias(value: unknown): value is VariableAliasObject {
     return isPlainObject(value) && value.type === 'VARIABLE_ALIAS';
+}
+
+function isModeKey(key: string): boolean {
+    return key.toLowerCase().startsWith('mode');
 }
 
 function toKebabCase(name: string): string {
@@ -65,6 +90,10 @@ function isValidCssVariableName(name: string): boolean {
         return false;
     }
     return /^[a-zA-Z0-9_-]+$/.test(afterDashes);
+}
+
+function buildPathKey(segments: string[]): string {
+    return segments.filter(segment => segment && !isModeKey(segment)).join('.');
 }
 
 function findTokenById(
@@ -124,6 +153,7 @@ function processVariableAlias(
             if (!placeholderName || placeholderName === '-') {
                 placeholderName = 'unknown';
             }
+            summary.unresolvedRefs.push(`${currentPath.join('.')} (Alias ID: ${aliasObj.id})`);
             return `var(--unresolved-${placeholderName})`;
         }
         return `var(--${currentPath.map(toKebabCase).join('-')})`;
@@ -161,11 +191,13 @@ function processShadow(shadowObj: unknown): string {
 }
 
 function processValue(
-    value: TokenValueType | TokenValueType[],
+    value: TokenValue['$value'],
     varType?: string,
     currentPath: string[] = [],
     tokensData?: Record<string, any>,
-    visitedRefs: Set<string> = new Set()
+    visitedRefs: Set<string> = new Set(),
+    refMap?: Map<string, string>,
+    valueMap?: Map<string, TokenValue>
 ): string {
     if (value === null || value === undefined) {
         return 'null';
@@ -195,15 +227,52 @@ function processValue(
 
     if (typeof value === 'string') {
         if (value.startsWith('{') && value.endsWith('}')) {
-            const tokenPath = value.slice(1, -1);
+            const tokenPath = value.slice(1, -1).trim();
             if (tokenPath.trim().length === 0) {
                 console.warn(`⚠️  Empty W3C reference at ${currentPath.join('.')}`);
+                summary.unresolvedRefs.push(`${currentPath.join('.')} (Empty ref)`);
                 return value;
             }
 
             if (visitedRefs.has(tokenPath)) {
                 console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${currentPath.join('.')}`);
+                summary.circularDeps++;
                 return `/* circular-ref: ${tokenPath} */`;
+            }
+
+            visitedRefs.add(tokenPath);
+            if (valueMap) {
+                const refToken = valueMap.get(tokenPath);
+                if (refToken && typeof refToken.$value === 'string') {
+                    const nestedValue = refToken.$value.trim();
+                    if (nestedValue.startsWith('{') && nestedValue.endsWith('}')) {
+                        const nestedPath = nestedValue.slice(1, -1).trim();
+                        if (nestedPath) {
+                            if (visitedRefs.has(nestedPath)) {
+                                console.warn(
+                                    `⚠️  Circular W3C reference: ${nestedPath} at ${currentPath.join('.')}`
+                                );
+                                summary.circularDeps++;
+                                return `/* circular-ref: ${nestedPath} */`;
+                            }
+                            // Recursively check deeper chains
+                            processValue(
+                                `{${nestedPath}}`,
+                                undefined,
+                                currentPath,
+                                tokensData,
+                                visitedRefs,
+                                refMap,
+                                valueMap
+                            );
+                        }
+                    }
+                }
+            }
+
+            const mappedVarName = refMap?.get(tokenPath);
+            if (mappedVarName) {
+                return `var(${mappedVarName})`;
             }
 
             const cssPath = tokenPath
@@ -215,8 +284,11 @@ function processValue(
                 console.warn(
                     `⚠️  Invalid W3C reference ${value} generates invalid name ${varName} at ${currentPath.join('.')}`
                 );
+                summary.invalidNames.push(`${currentPath.join('.')} (Ref to invalid name: ${varName})`);
                 return value;
             }
+            console.warn(`⚠️  Unresolved W3C reference ${value} at ${currentPath.join('.')}`);
+            summary.unresolvedRefs.push(`${currentPath.join('.')} (Ref: ${tokenPath})`);
             return `var(${varName})`;
         }
 
@@ -242,6 +314,70 @@ function processValue(
     }
 
     return String(value);
+}
+
+function collectTokenMaps(
+    obj: any,
+    prefix: string[] = [],
+    currentPath: string[] = [],
+    refMap: Map<string, string>,
+    valueMap: Map<string, TokenValue>
+): void {
+    if (obj && typeof obj === 'object' && '$value' in obj) {
+        const tokenPathKey = buildPathKey(currentPath);
+        const varName = `--${prefix.filter(p => p).join('-')}`;
+        if (tokenPathKey) {
+            if (!refMap.has(tokenPathKey)) {
+                refMap.set(tokenPathKey, varName);
+            } else {
+                console.warn(`⚠️  Duplicate token path detected: ${tokenPathKey}`);
+            }
+            valueMap.set(tokenPathKey, obj as TokenValue);
+        }
+        return;
+    }
+
+    if (!isPlainObject(obj)) {
+        return;
+    }
+
+    const keys = Object.keys(obj).sort();
+    const modeDefault = keys.find(k => k === 'modeDefault');
+    const modeAny = keys.find(k => isModeKey(k));
+
+    for (const key of keys) {
+        if (key.startsWith('$')) continue;
+        if (isModeKey(key)) {
+            continue;
+        }
+        const value = obj[key];
+        const normalizedKey = toKebabCase(key);
+        collectTokenMaps(
+            value,
+            [...prefix, normalizedKey],
+            [...currentPath, key],
+            refMap,
+            valueMap
+        );
+    }
+
+    if (modeDefault) {
+        collectTokenMaps(
+            obj[modeDefault],
+            prefix,
+            [...currentPath, modeDefault],
+            refMap,
+            valueMap
+        );
+    } else if (modeAny) {
+        collectTokenMaps(
+            obj[modeAny],
+            prefix,
+            [...currentPath, modeAny],
+            refMap,
+            valueMap
+        );
+    }
 }
 
 function extractCssVariables(cssContent: string): Map<string, string> {
@@ -435,21 +571,34 @@ function flattenTokens(
     prefix: string[] = [],
     collectedVars: string[] = [],
     tokensData?: Record<string, any>,
-    currentPath: string[] = []
+    currentPath: string[] = [],
+    refMap?: Map<string, string>,
+    valueMap?: Map<string, TokenValue>
 ): string[] {
     if (obj && typeof obj === 'object' && '$value' in obj) {
+        summary.totalTokens++;
         const rawValue = (obj as TokenValue).$value;
         const varType = (obj as TokenValue).$type;
         const visitedRefs = new Set([currentPath.join('.')]);
-        const resolvedValue = processValue(rawValue, varType, currentPath, tokensData, visitedRefs);
+        const resolvedValue = processValue(
+            rawValue,
+            varType,
+            currentPath,
+            tokensData,
+            visitedRefs,
+            refMap,
+            valueMap
+        );
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
         if (!isValidCssVariableName(varName)) {
             console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
+            summary.invalidNames.push(`${currentPath.join('.')} (Invalid CSS Var: ${varName})`);
             return collectedVars;
         }
 
         collectedVars.push(`  ${varName}: ${resolvedValue};`);
+        summary.successCount++;
         return collectedVars;
     }
 
@@ -470,23 +619,48 @@ function flattenTokens(
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-            const varName = `--${[...prefix, normalizedKey].filter(p => p).join('-')}`;
-            if (!isValidCssVariableName(varName)) {
-                console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
-                continue;
-            }
-            // Process the value to handle aliases, colors, and proper escaping
-            const visitedRefs = new Set([[...currentPath, key].join('.')]);
-            const processedValue = processValue(value, undefined, [...currentPath, key], tokensData, visitedRefs);
-            collectedVars.push(`  ${varName}: ${processedValue};`);
-            continue;
+             // Handle raw values that aren't strict token objects if needed (fallback)
+             // But usually tokens have $value.
+             // If this branch is hit, it means structure is loose.
+             // We treat it as token value for backward compat?
+             // Actually script previously supported deep recursion.
+             // But "value" here is just a value.
+             // Let's assume this path handles legacy "simple key-value" style if present,
+             // or maybe just continues recursion if it's an object?
+             // Ah, previous code: if (typeof value === 'string'...)
+             // See original lines 591...
+             // It treats them as implicit tokens?
+             // Yes, let's keep that logic for safety.
+
+             const varName = `--${[...prefix, normalizedKey].filter(p => p).join('-')}`;
+             if (!isValidCssVariableName(varName)) {
+                 console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
+                 continue;
+             }
+             summary.totalTokens++;
+             const visitedRefs = new Set([[...currentPath, key].join('.')]);
+             const processedValue = processValue(
+                 value as any, // Cast as it might be string/number/boolean
+                 undefined,
+                 [...currentPath, key],
+                 tokensData,
+                 visitedRefs,
+                 refMap,
+                 valueMap
+             );
+             collectedVars.push(`  ${varName}: ${processedValue};`);
+             summary.successCount++;
+             continue;
         }
+
         flattenTokens(
             value,
             [...prefix, normalizedKey],
             collectedVars,
             tokensData,
-            [...currentPath, key]
+            [...currentPath, key],
+            refMap,
+            valueMap
         );
     }
 
@@ -496,7 +670,9 @@ function flattenTokens(
             prefix,
             collectedVars,
             tokensData,
-            [...currentPath, modeDefault]
+            [...currentPath, modeDefault],
+            refMap,
+            valueMap
         );
     } else if (modeAny) {
         flattenTokens(
@@ -504,7 +680,9 @@ function flattenTokens(
             prefix,
             collectedVars,
             tokensData,
-            [...currentPath, modeAny]
+            [...currentPath, modeAny],
+            refMap,
+            valueMap
         );
     }
 
@@ -519,6 +697,8 @@ async function main() {
 
     console.log('🔄 Transformando a variables CSS...');
     const cssLines: string[] = [];
+    const refMap = new Map<string, string>();
+    const valueMap = new Map<string, TokenValue>();
 
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -531,11 +711,24 @@ async function main() {
         }
     }
 
-    // We iterate the top-level files (Colorprimitives, colors, etc.)
+    // We iterate the top-level files (color-primitives, colors, etc.)
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
         // We include the filename in the prefix (namespace)
         const normalizedFileName = toKebabCase(fileName);
-        flattenTokens(fileContent, [normalizedFileName], cssLines, combinedTokens, [fileName]);
+        collectTokenMaps(fileContent, [normalizedFileName], [fileName], refMap, valueMap);
+    }
+
+    for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
+        const normalizedFileName = toKebabCase(fileName);
+        flattenTokens(
+            fileContent,
+            [normalizedFileName],
+            cssLines,
+            combinedTokens,
+            [fileName],
+            refMap,
+            valueMap
+        );
     }
 
     console.log('📝 Escribiendo archivo CSS...');
@@ -548,9 +741,35 @@ async function main() {
 
     fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
     console.log(`\n✅ Archivo variables.css regenerado completamente`);
-    console.log(`   📊 Total de variables: ${cssLines.length}`);
+    
+    // Summary Report
+    console.log('\n========================================');
+    console.log('       RESUMEN DE EJECUCIÓN      ');
+    console.log('========================================');
+    console.log(`Total Tokens:        ${summary.totalTokens}`);
+    console.log(`Generados:           ${summary.successCount}`);
+    console.log(`Dependencias Circ.:  ${summary.circularDeps}`);
+    console.log(`Refs no resueltas:   ${summary.unresolvedRefs.length}`);
+    console.log(`Nombres inválidos:   ${summary.invalidNames.length}`);
+    console.log('========================================');
 
+    if (summary.unresolvedRefs.length > 0) {
+        console.log('\n⚠️  Detalle de Referencias No Resueltas (Top 10):');
+        summary.unresolvedRefs.slice(0, 10).forEach(ref => console.log(`  - ${ref}`));
+        if (summary.unresolvedRefs.length > 10) console.log(`  ... y ${summary.unresolvedRefs.length - 10} más`);
+    }
+     if (summary.invalidNames.length > 0) {
+        console.log('\n⚠️  Detalle de Nombres Inválidos (Top 10):');
+        summary.invalidNames.slice(0, 10).forEach(name => console.log(`  - ${name}`));
+        if (summary.invalidNames.length > 10) console.log(`  ... y ${summary.invalidNames.length - 10} más`);
+    }
+
+    // Change Detection Log
     if (previousVariables.size > 0) {
+        console.log('\n----------------------------------------');
+        console.log('            CAMBIOS DETECTADOS          ');
+        console.log('----------------------------------------');
+        
         const newVariables = new Map<string, string>();
         for (const line of cssLines) {
             const match = line.match(/--([a-zA-Z0-9_-]+):\s*([^;]+);/);
@@ -582,52 +801,27 @@ async function main() {
 
         if (removed.length > 0) {
             console.log(`   🗑️  Variables eliminadas: ${removed.length}`);
-            if (removed.length <= 10) {
-                removed.forEach(name => {
-                    console.log(`      - --${name}`);
-                });
-            } else {
-                removed.slice(0, 10).forEach(name => {
-                    console.log(`      - --${name}`);
-                });
-                console.log(`      ... y ${removed.length - 10} más`);
-            }
+            removed.slice(0, 5).forEach(name => console.log(`      - --${name}`));
+            if(removed.length > 5) console.log(`      ...`);
         }
 
         if (added.length > 0) {
             console.log(`   ➕ Variables añadidas: ${added.length}`);
-            if (added.length <= 10) {
-                added.forEach(name => {
-                    console.log(`      + --${name}`);
-                });
-            } else {
-                added.slice(0, 10).forEach(name => {
-                    console.log(`      + --${name}`);
-                });
-                console.log(`      ... y ${added.length - 10} más`);
-            }
+            added.slice(0, 5).forEach(name => console.log(`      + --${name}`));
+             if(added.length > 5) console.log(`      ...`);
         }
 
         if (modified.length > 0) {
             console.log(`   🔄 Variables modificadas: ${modified.length}`);
-            if (modified.length <= 10) {
-                modified.forEach(({ name, oldValue, newValue }) => {
-                    console.log(`      ~ --${name}`);
-                    console.log(`        Antes: ${oldValue}`);
-                    console.log(`        Ahora: ${newValue}`);
-                });
-            } else {
-                modified.slice(0, 10).forEach(({ name, oldValue, newValue }) => {
-                    console.log(`      ~ --${name}`);
-                    console.log(`        Antes: ${oldValue}`);
-                    console.log(`        Ahora: ${newValue}`);
-                });
-                console.log(`      ... y ${modified.length - 10} más`);
-            }
+             modified.slice(0, 5).forEach(({ name, oldValue, newValue }) => {
+                console.log(`      ~ --${name}`);
+                console.log(`        - ${oldValue} -> ${newValue}`);
+            });
+            if(modified.length > 5) console.log(`      ...`);
         }
 
         if (removed.length === 0 && added.length === 0 && modified.length === 0) {
-            console.log(`   ✓ Sin cambios (todas las variables se mantienen igual)`);
+            console.log(`   ✓ Sin cambios significativos`);
         }
     }
 
