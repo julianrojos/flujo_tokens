@@ -116,9 +116,9 @@ function processVariableAlias(
                 const cssPath = tokenPath.map(toKebabCase).join('-');
                 return `var(--${cssPath})`;
             }
-            console.warn(
-                `Unresolved VARIABLE_ALIAS at ${currentPath.join('.')} (id: ${aliasObj.id})`
-            );
+            console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${currentPath.join('.')} con ID: ${aliasObj.id}`);
+            console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
+            console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
             let placeholderName = aliasObj.id.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
             placeholderName = placeholderName.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
             if (!placeholderName || placeholderName === '-') {
@@ -197,12 +197,12 @@ function processValue(
         if (value.startsWith('{') && value.endsWith('}')) {
             const tokenPath = value.slice(1, -1);
             if (tokenPath.trim().length === 0) {
-                console.warn(`Empty W3C reference at ${currentPath.join('.')}`);
+                console.warn(`⚠️  Empty W3C reference at ${currentPath.join('.')}`);
                 return value;
             }
 
             if (visitedRefs.has(tokenPath)) {
-                console.warn(`Circular W3C reference: ${tokenPath} at ${currentPath.join('.')}`);
+                console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${currentPath.join('.')}`);
                 return `/* circular-ref: ${tokenPath} */`;
             }
 
@@ -213,11 +213,21 @@ function processValue(
             const varName = `--${cssPath}`;
             if (!isValidCssVariableName(varName)) {
                 console.warn(
-                    `Invalid W3C reference ${value} generates invalid name ${varName} at ${currentPath.join('.')}`
+                    `⚠️  Invalid W3C reference ${value} generates invalid name ${varName} at ${currentPath.join('.')}`
                 );
                 return value;
             }
             return `var(${varName})`;
+        }
+
+        // Preserve RGB/RGBA colors
+        if (value.startsWith('rgba') || value.startsWith('rgb(')) {
+            return value;
+        }
+
+        // Preserve hexadecimal colors
+        if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) {
+            return value;
         }
 
         if (varType === 'string') {
@@ -359,12 +369,45 @@ function readAndCombineJsons(dir: string): Record<string, any> {
         if (path.extname(file) === '.json') {
             const filePath = path.join(dir, file);
             try {
-                const content = fs.readFileSync(filePath, 'utf-8');
-                const json = JSON.parse(content);
+                const fileContent = fs.readFileSync(filePath, 'utf-8');
+                let json: any;
+                try {
+                    json = JSON.parse(fileContent);
+                } catch (error) {
+                    // Try to repair common Figma export issues (like extra "Translations" section)
+                    const translationStart = fileContent.indexOf('"Translations"');
+                    if (translationStart > 0) {
+                        const firstBrace = fileContent.indexOf('{');
+                        const jsonContent = fileContent
+                            .substring(firstBrace, translationStart)
+                            .trim()
+                            .replace(/,\s*$/, '');
+                        const cleanedContent = jsonContent.endsWith('}')
+                            ? jsonContent
+                            : `${jsonContent}\n}`;
+                        try {
+                            json = JSON.parse(cleanedContent);
+                        } catch {
+                            throw error; // Throw original error if repair fails
+                        }
+                    } else {
+                        throw error;
+                    }
+                }
+
+                // Handle wrapped "Tokens" object structure if present
+                if ('Tokens' in json && typeof json.Tokens === 'object' && !Array.isArray(json.Tokens)) {
+                    json = json.Tokens;
+                }
+
+                // Remove metadata keys
+                delete json['$schema'];
+                delete json['Translations'];
+
                 const name = path.basename(file, '.json');
                 combined[name] = json;
             } catch (err) {
-                console.error(`Error reading/parsing ${file}:`, err);
+                console.error(`❌ Error al leer/parsear ${file}:`, err);
             }
         }
     }
@@ -404,7 +447,7 @@ function flattenTokens(
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
         if (!isValidCssVariableName(varName)) {
-            console.warn(`Invalid CSS variable name: ${varName} at ${currentPath.join('.')}`);
+            console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
             return collectedVars;
         }
 
@@ -416,7 +459,7 @@ function flattenTokens(
         return collectedVars;
     }
 
-    const keys = Object.keys(obj);
+    const keys = Object.keys(obj).sort();
     const modeDefault = keys.find(k => k === 'modeDefault');
     const modeAny = keys.find(k => k.toLowerCase().startsWith('mode'));
 
@@ -461,10 +504,10 @@ function flattenTokens(
 // --- Main Execution ---
 
 async function main() {
-    console.log('Reading JSON files...');
+    console.log('📖 Leyendo archivos JSON...');
     const combinedTokens = readAndCombineJsons(JSON_DIR);
 
-    console.log('Transforming to CSS variables...');
+    console.log('🔄 Transformando a variables CSS...');
     const cssLines: string[] = [];
 
     let previousVariables = new Map<string, string>();
@@ -472,9 +515,9 @@ async function main() {
         try {
             const previousCss = fs.readFileSync(OUTPUT_FILE, 'utf-8');
             previousVariables = extractCssVariables(previousCss);
-            console.log(`Previous CSS found with ${previousVariables.size} variables`);
+            console.log(`📄 Archivo CSS anterior encontrado con ${previousVariables.size} variables`);
         } catch {
-            console.warn('Could not read previous CSS file; generating fresh output');
+            console.warn('⚠️  No se pudo leer el archivo CSS anterior (se creará uno nuevo)');
         }
     }
 
@@ -485,7 +528,7 @@ async function main() {
         flattenTokens(fileContent, [normalizedFileName], cssLines, combinedTokens, [fileName]);
     }
 
-    console.log('Writing output...');
+    console.log('📝 Escribiendo archivo CSS...');
     const finalCss = `:root {\n${cssLines.join('\n')}\n}\n`;
 
     const destDir = path.dirname(OUTPUT_FILE);
@@ -494,7 +537,8 @@ async function main() {
     }
 
     fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
-    console.log(`Successfully generated ${OUTPUT_FILE}`);
+    console.log(`\n✅ Archivo variables.css regenerado completamente`);
+    console.log(`   📊 Total de variables: ${cssLines.length}`);
 
     if (previousVariables.size > 0) {
         const newVariables = new Map<string, string>();
@@ -527,21 +571,68 @@ async function main() {
         });
 
         if (removed.length > 0) {
-            console.log(`Removed variables: ${removed.length}`);
+            console.log(`   🗑️  Variables eliminadas: ${removed.length}`);
+            if (removed.length <= 10) {
+                removed.forEach(name => {
+                    console.log(`      - --${name}`);
+                });
+            } else {
+                removed.slice(0, 10).forEach(name => {
+                    console.log(`      - --${name}`);
+                });
+                console.log(`      ... y ${removed.length - 10} más`);
+            }
         }
+
         if (added.length > 0) {
-            console.log(`Added variables: ${added.length}`);
+            console.log(`   ➕ Variables añadidas: ${added.length}`);
+            if (added.length <= 10) {
+                added.forEach(name => {
+                    console.log(`      + --${name}`);
+                });
+            } else {
+                added.slice(0, 10).forEach(name => {
+                    console.log(`      + --${name}`);
+                });
+                console.log(`      ... y ${added.length - 10} más`);
+            }
         }
+
         if (modified.length > 0) {
-            console.log(`Modified variables: ${modified.length}`);
+            console.log(`   🔄 Variables modificadas: ${modified.length}`);
+            if (modified.length <= 10) {
+                modified.forEach(({ name, oldValue, newValue }) => {
+                    console.log(`      ~ --${name}`);
+                    console.log(`        Antes: ${oldValue}`);
+                    console.log(`        Ahora: ${newValue}`);
+                });
+            } else {
+                modified.slice(0, 10).forEach(({ name, oldValue, newValue }) => {
+                    console.log(`      ~ --${name}`);
+                    console.log(`        Antes: ${oldValue}`);
+                    console.log(`        Ahora: ${newValue}`);
+                });
+                console.log(`      ... y ${modified.length - 10} más`);
+            }
         }
+
         if (removed.length === 0 && added.length === 0 && modified.length === 0) {
-            console.log('No variable changes detected');
+            console.log(`   ✓ Sin cambios (todas las variables se mantienen igual)`);
         }
     }
+
+    console.log(`\n📝 Archivo guardado en: ${OUTPUT_FILE}`);
 }
 
 main().catch(err => {
-    console.error(err);
+    console.error('❌ Error al generar variables CSS:');
+    if (err instanceof Error) {
+        console.error(`   ${err.message}`);
+        if (err.stack) {
+            console.error(`   ${err.stack}`);
+        }
+    } else {
+        console.error(err);
+    }
     process.exit(1);
 });
