@@ -135,5 +135,5 @@ Si tienes un archivo `spacing.json` con:
 
 ## Notas:
 
-- Plugin empleado para convertir variables de Figma a JSON: [TokensBrücke](https://www.figma.com/community/plugin/1254538877056388290/tokensbrucke)
+- Plugin empleado para convertir variables de Figma a JSON: [Token Forge](https://www.figma.com/community/plugin/1560757977662930693/token-forge)
 - Repositorio: https://github.com/julianrojos/flujo_tokens
