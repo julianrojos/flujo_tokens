@@ -116,6 +116,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
             matches.forEach(match => {
                 const tokenPath = match.slice(1, -1).trim();
                 if (tokenPath) {
+                    refs.add(tokenPath);
                     refs.add(normalizePathKey(tokenPath));
                 }
             });
@@ -142,17 +143,17 @@ function hasCircularDependency(
     valueMap: Map<string, TokenValue>,
     visited: Set<string> = new Set()
 ): boolean {
-    const normalizedStart = normalizePathKey(startPath);
-    if (visited.has(normalizedStart)) {
+    const lookupKey = valueMap.has(startPath) ? startPath : normalizePathKey(startPath);
+    if (visited.has(lookupKey)) {
         return true;
     }
 
-    const token = valueMap.get(normalizedStart);
+    const token = valueMap.get(lookupKey);
     if (!token) {
         return false;
     }
 
-    visited.add(normalizedStart);
+    visited.add(lookupKey);
 
     const nestedRefs = new Set<string>();
     collectRefsFromValue(token.$value, nestedRefs);
@@ -269,7 +270,8 @@ function processValue(
     exactRefMap?: Map<string, string>,
     fuzzyRefMap?: Map<string, string>,
     exactValueMap?: Map<string, TokenValue>,
-    fuzzyValueMap?: Map<string, TokenValue>
+    fuzzyValueMap?: Map<string, TokenValue>,
+    fuzzyCollisionKeys?: Set<string>
 ): string {
     if (value === null || value === undefined) {
         return 'null';
@@ -358,10 +360,10 @@ function processValue(
 
             // Resolution Strategy: Exact Match -> Fuzzy Match
             let mappedVarName = exactRefMap?.get(tokenPath);
-            if (!mappedVarName) {
+            if (!mappedVarName && !fuzzyCollisionKeys?.has(normalizedTokenPath)) {
                 mappedVarName = fuzzyRefMap?.get(normalizedTokenPath);
             }
-            
+
             if (mappedVarName) {
                 return `var(${mappedVarName})`;
             }
@@ -400,21 +402,22 @@ function collectTokenMaps(
     exactRefMap: Map<string, string>,
     fuzzyRefMap: Map<string, string>,
     exactValueMap: Map<string, TokenValue>,
-    fuzzyValueMap: Map<string, TokenValue>
+    fuzzyValueMap: Map<string, TokenValue>,
+    fuzzyCollisionKeys: Set<string>
 ): void {
     if (obj && typeof obj === 'object' && '$value' in obj) {
         const tokenPathKey = buildPathKey(currentPath);
         const normalizedKey = normalizePathKey(tokenPathKey);
         const varName = `--${prefix.filter(p => p).join('-')}`;
-        
+
         // Populate Exact Maps
         if (tokenPathKey) {
-             if (!exactRefMap.has(tokenPathKey)) {
-                 exactRefMap.set(tokenPathKey, varName);
-                 exactValueMap.set(tokenPathKey, obj as TokenValue);
-             } else {
-                 console.warn(`⚠️  Duplicate exact token path: ${tokenPathKey}`);
-             }
+            if (!exactRefMap.has(tokenPathKey)) {
+                exactRefMap.set(tokenPathKey, varName);
+                exactValueMap.set(tokenPathKey, obj as TokenValue);
+            } else {
+                console.warn(`⚠️  Duplicate exact token path: ${tokenPathKey}`);
+            }
         }
 
         // Populate Fuzzy Maps (Fallback)
@@ -423,14 +426,15 @@ function collectTokenMaps(
                 fuzzyRefMap.set(normalizedKey, varName);
                 fuzzyValueMap.set(normalizedKey, obj as TokenValue);
             } else {
-                 // Optimization: Only warn if it's NOT an exact-match collision (which handles itself)
-                 // and implies a "different casing" collision.
-                 const existing = fuzzyRefMap.get(normalizedKey);
-                 if (existing !== varName) {
-                     // This is the "silent loss" scenario mentioned. We log it but allow exact map to save the day for specific refs.
-                     // But fuzzy lookups will still only find the first one.
-                     console.warn(`ℹ️  Fuzzy collision: ${tokenPathKey} normalized to same key as existing token.`);
-                 }
+                // Optimization: Only warn if it's NOT an exact-match collision (which handles itself)
+                // and implies a "different casing" collision.
+                const existing = fuzzyRefMap.get(normalizedKey);
+                if (existing !== varName) {
+                    // This is the "silent loss" scenario mentioned. We log it but allow exact map to save the day for specific refs.
+                    // But fuzzy lookups will still only find the first one.
+                    console.warn(`ℹ️  Fuzzy collision: ${tokenPathKey} normalized to same key as existing token.`);
+                    fuzzyCollisionKeys.add(normalizedKey);
+                }
             }
         }
         return;
@@ -458,7 +462,8 @@ function collectTokenMaps(
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
     }
 
@@ -470,7 +475,8 @@ function collectTokenMaps(
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
     } else if (modeAny) {
         collectTokenMaps(
@@ -480,7 +486,8 @@ function collectTokenMaps(
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
     }
 }
@@ -680,13 +687,14 @@ function flattenTokens(
     exactRefMap?: Map<string, string>,
     fuzzyRefMap?: Map<string, string>,
     exactValueMap?: Map<string, TokenValue>,
-    fuzzyValueMap?: Map<string, TokenValue>
+    fuzzyValueMap?: Map<string, TokenValue>,
+    fuzzyCollisionKeys?: Set<string>
 ): string[] {
     if (obj && typeof obj === 'object' && '$value' in obj) {
         summary.totalTokens++;
         const rawValue = (obj as TokenValue).$value;
         const varType = (obj as TokenValue).$type;
-        
+
         // FIX: initialize visited with BOTH exact and normalized to catch self-refs regardless of casing
         const exactPath = currentPath.join('.');
         const visitedRefs = new Set([exactPath, normalizePathKey(exactPath)]);
@@ -700,7 +708,8 @@ function flattenTokens(
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
         const varName = `--${prefix.filter(p => p).join('-')}`;
 
@@ -732,26 +741,26 @@ function flattenTokens(
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-             // Handle raw values that aren't strict token objects if needed (fallback)
-             // But usually tokens have $value.
-             // If this branch is hit, it means structure is loose.
-             // We treat it as token value for backward compat?
-             // Actually script previously supported deep recursion.
-             // But "value" here is just a value.
-             // Let's assume this path handles legacy "simple key-value" style if present,
-             // or maybe just continues recursion if it's an object?
-             // Ah, previous code: if (typeof value === 'string'...)
-             // See original lines 591...
-             // It treats them as implicit tokens?
-             // Yes, let's keep that logic for safety.
+            // Handle raw values that aren't strict token objects if needed (fallback)
+            // But usually tokens have $value.
+            // If this branch is hit, it means structure is loose.
+            // We treat it as token value for backward compat?
+            // Actually script previously supported deep recursion.
+            // But "value" here is just a value.
+            // Let's assume this path handles legacy "simple key-value" style if present,
+            // or maybe just continues recursion if it's an object?
+            // Ah, previous code: if (typeof value === 'string'...)
+            // See original lines 591...
+            // It treats them as implicit tokens?
+            // Yes, let's keep that logic for safety.
 
-             const varName = `--${[...prefix, normalizedKey].filter(p => p).join('-')}`;
-             if (!isValidCssVariableName(varName)) {
-                 console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
-                 continue;
-             }
-             summary.totalTokens++;
-             const visitedRefs = new Set([[...currentPath, key].join('.')]);
+            const varName = `--${[...prefix, normalizedKey].filter(p => p).join('-')}`;
+            if (!isValidCssVariableName(varName)) {
+                console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
+                continue;
+            }
+            summary.totalTokens++;
+            const visitedRefs = new Set([[...currentPath, key].join('.')]);
             const processedValue = processValue(
                 value as any, // Cast as it might be string/number/boolean
                 undefined,
@@ -761,11 +770,12 @@ function flattenTokens(
                 exactRefMap,
                 fuzzyRefMap,
                 exactValueMap,
-                fuzzyValueMap
+                fuzzyValueMap,
+                fuzzyCollisionKeys
             );
-             collectedVars.push(`  ${varName}: ${processedValue};`);
-             summary.successCount++;
-             continue;
+            collectedVars.push(`  ${varName}: ${processedValue};`);
+            summary.successCount++;
+            continue;
         }
 
         flattenTokens(
@@ -777,7 +787,8 @@ function flattenTokens(
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
     }
 
@@ -791,7 +802,8 @@ function flattenTokens(
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
     } else if (modeAny) {
         flattenTokens(
@@ -803,7 +815,8 @@ function flattenTokens(
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
     }
 
@@ -822,6 +835,7 @@ async function main() {
     const fuzzyRefMap = new Map<string, string>();
     const exactValueMap = new Map<string, TokenValue>();
     const fuzzyValueMap = new Map<string, TokenValue>();
+    const fuzzyCollisionKeys = new Set<string>();
 
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -845,7 +859,8 @@ async function main() {
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
     }
 
@@ -860,7 +875,8 @@ async function main() {
             exactRefMap,
             fuzzyRefMap,
             exactValueMap,
-            fuzzyValueMap
+            fuzzyValueMap,
+            fuzzyCollisionKeys
         );
     }
 
@@ -874,7 +890,7 @@ async function main() {
 
     fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
     console.log(`\n✅ Archivo variables.css regenerado completamente`);
-    
+
     // Summary Report
     console.log('\n========================================');
     console.log('       RESUMEN DE EJECUCIÓN      ');
@@ -891,7 +907,7 @@ async function main() {
         summary.unresolvedRefs.slice(0, 10).forEach(ref => console.log(`  - ${ref}`));
         if (summary.unresolvedRefs.length > 10) console.log(`  ... y ${summary.unresolvedRefs.length - 10} más`);
     }
-     if (summary.invalidNames.length > 0) {
+    if (summary.invalidNames.length > 0) {
         console.log('\n⚠️  Detalle de Nombres Inválidos (Top 10):');
         summary.invalidNames.slice(0, 10).forEach(name => console.log(`  - ${name}`));
         if (summary.invalidNames.length > 10) console.log(`  ... y ${summary.invalidNames.length - 10} más`);
@@ -902,7 +918,7 @@ async function main() {
         console.log('\n----------------------------------------');
         console.log('            CAMBIOS DETECTADOS          ');
         console.log('----------------------------------------');
-        
+
         const newVariables = new Map<string, string>();
         for (const line of cssLines) {
             const match = line.match(/--([a-zA-Z0-9_-]+):\s*([^;]+);/);
@@ -935,22 +951,22 @@ async function main() {
         if (removed.length > 0) {
             console.log(`   🗑️  Variables eliminadas: ${removed.length}`);
             removed.slice(0, 5).forEach(name => console.log(`      - --${name}`));
-            if(removed.length > 5) console.log(`      ...`);
+            if (removed.length > 5) console.log(`      ...`);
         }
 
         if (added.length > 0) {
             console.log(`   ➕ Variables añadidas: ${added.length}`);
             added.slice(0, 5).forEach(name => console.log(`      + --${name}`));
-             if(added.length > 5) console.log(`      ...`);
+            if (added.length > 5) console.log(`      ...`);
         }
 
         if (modified.length > 0) {
             console.log(`   🔄 Variables modificadas: ${modified.length}`);
-             modified.slice(0, 5).forEach(({ name, oldValue, newValue }) => {
+            modified.slice(0, 5).forEach(({ name, oldValue, newValue }) => {
                 console.log(`      ~ --${name}`);
                 console.log(`        - ${oldValue} -> ${newValue}`);
             });
-            if(modified.length > 5) console.log(`      ...`);
+            if (modified.length > 5) console.log(`      ...`);
         }
 
         if (removed.length === 0 && added.length === 0 && modified.length === 0) {
