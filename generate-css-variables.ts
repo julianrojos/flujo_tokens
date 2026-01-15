@@ -539,6 +539,16 @@ function extractCssVariables(cssContent: string): Map<string, string> {
     // Strip comments only inside :root content
     rootContent = rootContent.replace(/\/\*[\s\S]*?\*\//g, '');
 
+    const isEscaped = (pos: number): boolean => {
+        let backslashes = 0;
+        let idx = pos - 1;
+        while (idx >= 0 && rootContent[idx] === '\\') {
+            backslashes++;
+            idx--;
+        }
+        return backslashes % 2 === 1;
+    };
+
     let i = 0;
     while (i < rootContent.length) {
         while (i < rootContent.length && /\s/.test(rootContent[i])) {
@@ -577,7 +587,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
 
         while (i < rootContent.length) {
             const char = rootContent[i];
-            if ((char === '"' || char === "'") && (i === 0 || rootContent[i - 1] !== '\\')) {
+            if ((char === '"' || char === "'") && !isEscaped(i)) {
                 if (!inString) {
                     inString = true;
                     stringChar = char;
