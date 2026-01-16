@@ -210,13 +210,26 @@ function emitCssVar(
     summary.successCount++;
 }
 
+/**
+ * Normaliza una ruta de token separada por ".":
+ * - colapsa puntos repetidos (p. ej. "a...b" -> "a.b")
+ * - elimina puntos al inicio/fin (p. ej. ".a.b." -> "a.b")
+ *
+ * Esto evita que referencias con espacios alrededor de "/" o "\" acaben en "...." y fallen al resolver.
+ */
+function normalizeDots(pathKey: string): string {
+    return pathKey.replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
+}
+
 function buildPathKey(segments: string[]): string {
     // Build a dotted key, excluding mode segments to avoid treating modes as part of identity.
-    return segments
+    const dotted = segments
         .filter(segment => segment && !isModeKey(segment))
         .join('.')
         .replace(/[\\/]+/g, '.')
         .replace(/\s+/g, '.');
+
+    return normalizeDots(dotted);
 }
 
 /**
@@ -232,7 +245,8 @@ function normalizePathKey(pathKey: string): string {
  * Intended for values found inside "{...}" references.
  */
 function canonicalizeRefPath(pathKey: string): string {
-    return pathKey.trim().replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
+    const dotted = pathKey.trim().replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
+    return normalizeDots(dotted);
 }
 
 /**
@@ -352,7 +366,15 @@ function walkTokenTree(
             continue;
         }
 
-        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1, inModeBranch);
+        walkTokenTree(
+            summary,
+            value,
+            [...prefix, normalizedKey],
+            [...currentPath, key],
+            handlers,
+            depth + 1,
+            inModeBranch
+        );
     }
 
     if (modeKey) {
@@ -582,7 +604,12 @@ function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, current
  * Note: We deliberately keep the "color" as the last shadow component. This allows CSS variables
  * (var(--...)) to work, and avoids wrapping var() inside rgba(...), which is invalid.
  */
-function processShadow(ctx: ProcessingContext, shadowObj: unknown, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
+function processShadow(
+    ctx: ProcessingContext,
+    shadowObj: unknown,
+    currentPath: string[],
+    visitedRefs: ReadonlySet<string>
+): string {
     if (!isPlainObject(shadowObj)) {
         return JSON.stringify(shadowObj);
     }
@@ -826,13 +853,7 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
         return;
     }
 
-    const upsertKey = (
-        key: string,
-        varName: string,
-        tokenObj: TokenValue,
-        debugLabel: string,
-        allowOverride: boolean
-    ) => {
+    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, debugLabel: string, allowOverride: boolean) => {
         if (!key) return;
 
         if (!refMap.has(key)) {
@@ -875,13 +896,7 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             const relativePathKey = buildPathKey(tokenPath.slice(1));
             const relativeNormalizedKey = normalizePathKey(relativePathKey);
             if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                upsertKey(
-                    relativeNormalizedKey,
-                    varName,
-                    tokenObj as TokenValue,
-                    `relative:${relativePathKey}`,
-                    inModeBranch
-                );
+                upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
             }
         }
         // Legacy primitives are intentionally ignored during indexing (same as previous behavior).
