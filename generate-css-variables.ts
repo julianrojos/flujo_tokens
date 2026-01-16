@@ -114,8 +114,29 @@ function isVariableAlias(value: unknown): value is VariableAliasObject {
     return isPlainObject(value) && value.type === 'VARIABLE_ALIAS';
 }
 
+/**
+ * Detecta claves de modo de forma conservadora.
+ * Evita falsos positivos como "model", "modeled", etc.
+ *
+ * Se considera "modo" si:
+ * - key == "mode" (cualquier casing)
+ * - key == "modeDefault" (cualquier casing)
+ * - o empieza por "mode" y el siguiente carácter es:
+ *   - mayúscula (camelCase típico: modeDark)
+ *   - dígito (mode1)
+ *   - separador '_' o '-' (mode_dark, mode-dark)
+ */
 function isModeKey(key: string): boolean {
-    return key.toLowerCase().startsWith('mode');
+    if (!key) return false;
+    if (!/^mode/i.test(key)) return false;
+
+    const tail = key.slice(4); // parte después de "mode"
+    if (!tail) return true;
+
+    if (tail.toLowerCase() === 'default') return true;
+
+    const first = tail[0];
+    return /[A-Z0-9_-]/.test(first);
 }
 
 function shouldSkipKey(key: string): boolean {
@@ -125,7 +146,7 @@ function shouldSkipKey(key: string): boolean {
 
 function pickModeKey(keys: string[]): string | undefined {
     // Prefer modeDefault for deterministic output; otherwise use the first mode* key.
-    return keys.find(k => k === 'modeDefault') ?? keys.find(isModeKey);
+    return keys.find(k => k.toLowerCase() === 'modedefault') ?? keys.find(isModeKey);
 }
 
 function toSafePlaceholderName(id: string): string {
@@ -250,15 +271,17 @@ function canonicalizeRefPath(pathKey: string): string {
 }
 
 /**
- * Initializes a visited set with both exact and normalized forms for robust cycle detection
- * regardless of casing or minor formatting differences.
+ * Initializes a visited set with both canonical and normalized forms for robust cycle detection.
+ * IMPORTANT: This must use the same canonicalization rules used for indexing/resolution
+ * (buildPathKey + normalizePathKey) to avoid mismatches.
  */
-function buildVisitedRefSet(pathSegments: string[]): Set<string> {
-    const exactPath = pathSegments.join('.');
-    const normalizedPath = normalizePathKey(exactPath);
+function buildVisitedRefSet(currentPath: string[]): Set<string> {
+    const canonical = buildPathKey(currentPath);
+    const normalized = normalizePathKey(canonical);
+
     const visited = new Set<string>();
-    if (exactPath) visited.add(exactPath);
-    if (normalizedPath && normalizedPath !== exactPath) visited.add(normalizedPath);
+    if (canonical) visited.add(canonical);
+    if (normalized && normalized !== canonical) visited.add(normalized);
     return visited;
 }
 
@@ -853,7 +876,13 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
         return;
     }
 
-    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, debugLabel: string, allowOverride: boolean) => {
+    const upsertKey = (
+        key: string,
+        varName: string,
+        tokenObj: TokenValue,
+        debugLabel: string,
+        allowOverride: boolean
+    ) => {
         if (!key) return;
 
         if (!refMap.has(key)) {
@@ -896,7 +925,13 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             const relativePathKey = buildPathKey(tokenPath.slice(1));
             const relativeNormalizedKey = normalizePathKey(relativePathKey);
             if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
+                upsertKey(
+                    relativeNormalizedKey,
+                    varName,
+                    tokenObj as TokenValue,
+                    `relative:${relativePathKey}`,
+                    inModeBranch
+                );
             }
         }
         // Legacy primitives are intentionally ignored during indexing (same as previous behavior).
@@ -1141,7 +1176,7 @@ function flattenTokens(
                 return;
             }
 
-            // Seed visited with both exact and normalized paths to catch self-refs regardless of casing.
+            // Seed visited using the same canonicalization rules as indexing/resolution.
             const visitedRefs = buildVisitedRefSet(tokenPath);
 
             const resolvedValue = processValue(ctx, rawValue, varType, tokenPath, visitedRefs);
@@ -1159,6 +1194,8 @@ function flattenTokens(
 
             const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
             const leafPath = [...parentPath, key];
+
+            // Seed visited using the same canonicalization rules as indexing/resolution.
             const visitedRefs = buildVisitedRefSet(leafPath);
 
             const processedValue = processValue(ctx, value as any, undefined, leafPath, visitedRefs);
