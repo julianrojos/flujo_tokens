@@ -77,6 +77,10 @@ function isModeKey(key: string): boolean {
     return key.toLowerCase().startsWith('mode');
 }
 
+function shouldSkipTraversalKey(key: string): boolean {
+    return key.startsWith('$') || isModeKey(key);
+}
+
 function pickModeKey(keys: string[]): string | undefined {
     const modeDefault = keys.find(k => k === 'modeDefault');
     if (modeDefault) return modeDefault;
@@ -142,6 +146,35 @@ function buildVisitedRefSet(pathSegments: string[]): Set<string> {
     if (exactPath) visited.add(exactPath);
     if (normalizedPath && normalizedPath !== exactPath) visited.add(normalizedPath);
     return visited;
+}
+
+function checkDepthLimit(summary: ExecutionSummary, depth: number, currentPath: string[]): boolean {
+    if (depth > MAX_DEPTH) {
+        console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
+        summary.depthLimitHits++;
+        return true;
+    }
+    return false;
+}
+
+function emitCssVar(
+    summary: ExecutionSummary,
+    collectedVars: string[],
+    varName: string,
+    value: string,
+    currentPath: string[],
+    trackInvalidNames: boolean
+): void {
+    if (!isValidCssVariableName(varName)) {
+        console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
+        if (trackInvalidNames) {
+            summary.invalidNames.push(`${currentPath.join('.')} (Invalid CSS Var: ${varName})`);
+        }
+        return;
+    }
+
+    collectedVars.push(`  ${varName}: ${value};`);
+    summary.successCount++;
 }
 
 /**
@@ -516,9 +549,7 @@ function collectTokenMaps(
     idToVarName: Map<string, string>,
     depth = 0
 ): void {
-    if (depth > MAX_DEPTH) {
-        console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
-        summary.depthLimitHits++;
+    if (checkDepthLimit(summary, depth, currentPath)) {
         return;
     }
 
@@ -551,6 +582,7 @@ function collectTokenMaps(
                 }
             }
         }
+
         // Also store relative path (without filename) to resolve local refs like {token}
         const relativePathKey = buildPathKey(currentPath.slice(1));
         const relativeNormalizedKey = normalizePathKey(relativePathKey);
@@ -579,10 +611,8 @@ function collectTokenMaps(
     const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
-        if (key.startsWith('$')) continue;
-        if (isModeKey(key)) {
-            continue;
-        }
+        if (shouldSkipTraversalKey(key)) continue;
+
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
         collectTokenMaps(
@@ -832,9 +862,7 @@ function flattenTokens(
     cycleStatus?: Map<string, boolean>,
     depth = 0
 ): string[] {
-    if (depth > MAX_DEPTH) {
-        console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
-        summary.depthLimitHits++;
+    if (checkDepthLimit(summary, depth, currentPath)) {
         return collectedVars;
     }
 
@@ -867,16 +895,9 @@ function flattenTokens(
         if (resolvedValue === null) {
             return collectedVars;
         }
+
         const varName = `--${prefix.filter(p => p).join('-')}`;
-
-        if (!isValidCssVariableName(varName)) {
-            console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
-            summary.invalidNames.push(`${currentPath.join('.')} (Invalid CSS Var: ${varName})`);
-            return collectedVars;
-        }
-
-        collectedVars.push(`  ${varName}: ${resolvedValue};`);
-        summary.successCount++;
+        emitCssVar(summary, collectedVars, varName, resolvedValue, currentPath, true);
         return collectedVars;
     }
 
@@ -888,13 +909,11 @@ function flattenTokens(
     const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
-        if (key.startsWith('$')) continue;
-        if (isModeKey(key)) {
-            continue;
-        }
+        if (shouldSkipTraversalKey(key)) continue;
 
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
+
         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
             // Legacy support: handle loose key-value tokens without $value wrapper
             const varName = `--${[...prefix, normalizedKey].filter(p => p).join('-')}`;
@@ -902,6 +921,7 @@ function flattenTokens(
                 console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
                 continue;
             }
+
             summary.totalTokens++;
             const visitedRefs = buildVisitedRefSet([...currentPath, key]);
             const processedValue = processValue(
@@ -920,25 +940,26 @@ function flattenTokens(
             if (processedValue === null) {
                 continue;
             }
-            collectedVars.push(`  ${varName}: ${processedValue};`);
-            summary.successCount++;
+
+            // Preserve legacy behavior: do not track invalidNames for this path (already validated above)
+            emitCssVar(summary, collectedVars, varName, processedValue, [...currentPath, key], false);
             continue;
-        } else {
-            flattenTokens(
-                summary,
-                value,
-                [...prefix, normalizedKey],
-                collectedVars,
-                tokensData,
-                [...currentPath, key],
-                refMap,
-                valueMap,
-                collisionKeys,
-                idToVarName,
-                cycleStatus,
-                depth + 1
-            );
         }
+
+        flattenTokens(
+            summary,
+            value,
+            [...prefix, normalizedKey],
+            collectedVars,
+            tokensData,
+            [...currentPath, key],
+            refMap,
+            valueMap,
+            collisionKeys,
+            idToVarName,
+            cycleStatus,
+            depth + 1
+        );
     }
 
     if (modeKey) {
