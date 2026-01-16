@@ -88,6 +88,7 @@ type ProcessingContext = Readonly<{
     valueMap?: Map<string, TokenValue>;
     collisionKeys?: Set<string>;
     idToVarName?: Map<string, string>;
+    idToTokenKey?: Map<string, string>; // ✅ NEW: $id -> normalized token key (for cycle graph)
     cycleStatus?: Map<string, boolean>;
 }>;
 
@@ -98,6 +99,7 @@ function createProcessingContext(args: {
     valueMap?: Map<string, TokenValue>;
     collisionKeys?: Set<string>;
     idToVarName?: Map<string, string>;
+    idToTokenKey?: Map<string, string>; // ✅ NEW
     cycleStatus?: Map<string, boolean>;
 }): ProcessingContext {
     // Freeze to prevent accidental mutation of the shared context object across phases.
@@ -295,6 +297,14 @@ function indexTokenIdToVarName(tokenObj: any, varName: string, idToVarName: Map<
     }
 }
 
+function indexTokenIdToTokenKey(tokenObj: any, normalizedTokenKey: string, idToTokenKey: Map<string, string>): void {
+    // Index Figma "$id" -> normalized token key so alias-ID refs can participate in cycle detection.
+    const id = tokenObj?.$id;
+    if (typeof id === 'string' && id.trim() && normalizedTokenKey) {
+        idToTokenKey.set(id, normalizedTokenKey);
+    }
+}
+
 /**
  * Resolves a reference path to a key present in the index using:
  * 1) exact canonical key, then 2) case-insensitive normalized key,
@@ -413,12 +423,26 @@ function walkTokenTree(
 }
 
 /**
- * Collects all W3C "{...}" references from an arbitrary value.
- * Notes:
- * - This does NOT extract dependencies from VARIABLE_ALIAS objects (ID-based refs).
- * - Both canonical and normalized forms are recorded for robust lookups.
+ * Collects all references from an arbitrary value:
+ * - W3C "{...}" references found inside strings
+ * - VARIABLE_ALIAS references (via $id -> tokenKey mapping) when available
+ *
+ * Both canonical and normalized forms are recorded for robust lookups.
  */
-function collectRefsFromValue(value: unknown, refs: Set<string>): void {
+function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
+    // ✅ NEW: treat VARIABLE_ALIAS as an explicit dependency edge in the cycle graph.
+    if (isVariableAlias(value)) {
+        const id = value.id?.trim();
+        if (id && idToTokenKey) {
+            const targetKey = idToTokenKey.get(id);
+            if (targetKey) {
+                refs.add(targetKey);
+                refs.add(normalizePathKey(targetKey));
+            }
+        }
+        return;
+    }
+
     if (typeof value === 'string') {
         W3C_REF_REGEX_COLLECT.lastIndex = 0;
         const matches = value.match(W3C_REF_REGEX_COLLECT);
@@ -434,13 +458,13 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
         }
     } else if (Array.isArray(value)) {
         for (const item of value) {
-            collectRefsFromValue(item, refs);
+            collectRefsFromValue(item, refs, idToTokenKey);
         }
     } else if (isPlainObject(value)) {
         for (const key of Object.keys(value)) {
             // Ignore metadata fields to reduce noise in dependency graphs.
             if (!key.startsWith('$')) {
-                collectRefsFromValue((value as Record<string, unknown>)[key], refs);
+                collectRefsFromValue((value as Record<string, unknown>)[key], refs, idToTokenKey);
             }
         }
     }
@@ -476,7 +500,7 @@ function hasCircularDependency(startKey: string, ctx: ProcessingContext, visited
     nextVisited.add(normalizedStart);
 
     const nestedRefs = new Set<string>();
-    collectRefsFromValue(token.$value, nestedRefs);
+    collectRefsFromValue(token.$value, nestedRefs, ctx.idToTokenKey);
 
     for (const ref of nestedRefs) {
         const next = getResolvedTokenKey(ref, ctx);
@@ -490,8 +514,9 @@ function hasCircularDependency(startKey: string, ctx: ProcessingContext, visited
 }
 
 /**
- * Precomputes whether each resolvable token key can reach a cycle via W3C "{...}" references.
- * Used as a cache to avoid repeated deep DFS during value resolution.
+ * Precomputes whether each resolvable token key can reach a cycle via:
+ * - W3C "{...}" references
+ * - VARIABLE_ALIAS (ID-based) references when idToTokenKey is available
  */
 function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
     const { valueMap } = ctx;
@@ -501,10 +526,10 @@ function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
 
     const refsByToken = new Map<string, Set<string>>();
 
-    // Extract W3C refs once per token key.
+    // Extract refs once per token key.
     for (const [key, token] of valueMap.entries()) {
         const refs = new Set<string>();
-        collectRefsFromValue(token.$value, refs);
+        collectRefsFromValue(token.$value, refs, ctx.idToTokenKey);
         refsByToken.set(key, refs);
     }
 
@@ -579,32 +604,54 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
     return null;
 }
 
-function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, currentPath: string[]): string {
+function processVariableAlias(
+    ctx: ProcessingContext,
+    aliasObj: unknown,
+    currentPath: string[],
+    visitedRefs?: ReadonlySet<string> // ✅ NEW: allow cycle checks consistent with W3C refs
+): string {
     if (isVariableAlias(aliasObj)) {
-        const { summary, tokensData, idToVarName } = ctx;
+        const { summary, tokensData, idToVarName, idToTokenKey, cycleStatus } = ctx;
 
-        if (aliasObj.id && tokensData) {
+        const aliasId = aliasObj.id?.trim();
+        const targetKey = aliasId && idToTokenKey ? idToTokenKey.get(aliasId) : undefined;
+
+        // ✅ NEW: detect direct self/ancestor cycles in the current resolution branch.
+        if (aliasId && targetKey && visitedRefs && (visitedRefs.has(targetKey) || visitedRefs.has(normalizePathKey(targetKey)))) {
+            console.warn(`⚠️  Circular VARIABLE_ALIAS reference (id=${aliasId}) at ${pathStr(currentPath)}`);
+            summary.circularDeps++;
+            return `/* circular-alias: ${aliasId} */`;
+        }
+
+        // ✅ NEW: deep/cached cycle hint (same semantics used for W3C refs).
+        if (aliasId && targetKey && cycleStatus?.get(targetKey) === true) {
+            console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
+            summary.circularDeps++;
+            return `/* circular-alias: ${aliasId} */`;
+        }
+
+        if (aliasId && tokensData) {
             // Fast path: O(1) lookup from the "$id" index built during indexing.
-            const direct = idToVarName?.get(aliasObj.id);
+            const direct = idToVarName?.get(aliasId);
             if (direct) {
                 return `var(${direct})`;
             }
 
             // Best-effort fallback: locate the token path and emit a var(--path) name.
-            const tokenPath = findTokenById(tokensData, aliasObj.id);
+            const tokenPath = findTokenById(tokensData, aliasId);
             if (tokenPath) {
                 const cssPath = tokenPath.map(toKebabCase).join('-');
                 return `var(--${cssPath})`;
             }
 
-            console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasObj.id}`);
+            console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
             console.warn(
                 `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
             );
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
-            const placeholderName = toSafePlaceholderName(aliasObj.id);
-            recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasObj.id);
+            const placeholderName = toSafePlaceholderName(aliasId);
+            recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
             return `var(--unresolved-${placeholderName})`;
         }
 
@@ -656,7 +703,7 @@ function processShadow(ctx: ProcessingContext, shadowObj: unknown, currentPath: 
         }
 
         if (isVariableAlias(rawColor)) {
-            return processVariableAlias(ctx, rawColor, colorPath);
+            return processVariableAlias(ctx, rawColor, colorPath, visitedRefs);
         }
 
         if (typeof rawColor === 'string') {
@@ -816,7 +863,7 @@ function processValue(
             return processShadow(ctx, value, currentPath, new Set(visitedRefs));
         }
         if (isVariableAlias(value)) {
-            return processVariableAlias(ctx, value, currentPath);
+            return processVariableAlias(ctx, value, currentPath, visitedRefs);
         }
 
         // For composite objects we don't have a stable CSS representation.
@@ -860,10 +907,10 @@ function processValue(
 }
 
 function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [], currentPath: string[] = []): void {
-    const { summary, refMap, valueMap, collisionKeys, idToVarName } = ctx;
+    const { summary, refMap, valueMap, collisionKeys, idToVarName, idToTokenKey } = ctx;
 
     // Indexing is only valid when all maps are present.
-    if (!refMap || !valueMap || !collisionKeys || !idToVarName) {
+    if (!refMap || !valueMap || !collisionKeys || !idToVarName || !idToTokenKey) {
         return;
     }
 
@@ -905,6 +952,7 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             const varName = buildCssVarNameFromPrefix(tokenPrefix);
 
             indexTokenIdToVarName(tokenObj, varName, idToVarName);
+            indexTokenIdToTokenKey(tokenObj, normalizedKey, idToTokenKey);
 
             // Store the full (file-scoped) key.
             upsertKey(normalizedKey, varName, tokenObj as TokenValue, tokenPathKey, inModeBranch);
@@ -1325,6 +1373,7 @@ async function main() {
     const valueMap = new Map<string, TokenValue>();
     const collisionKeys = new Set<string>();
     const idToVarName = new Map<string, string>();
+    const idToTokenKey = new Map<string, string>(); // ✅ NEW
 
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -1342,7 +1391,8 @@ async function main() {
         refMap,
         valueMap,
         collisionKeys,
-        idToVarName
+        idToVarName,
+        idToTokenKey
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
@@ -1360,6 +1410,7 @@ async function main() {
         valueMap,
         collisionKeys,
         idToVarName,
+        idToTokenKey,
         cycleStatus
     });
 
