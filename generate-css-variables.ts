@@ -169,6 +169,19 @@ function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reas
     summary.unresolvedRefs.push(`${pathStr(currentPath)}${reason}`);
 }
 
+/**
+ * Typed helper that preserves EXACTLY the current unresolvedRefs format:
+ * "path (Label: detail)"
+ */
+function recordUnresolvedTyped(
+    summary: ExecutionSummary,
+    currentPath: string[],
+    label: string,
+    detail: string
+): void {
+    recordUnresolved(summary, currentPath, ` (${label}: ${detail})`);
+}
+
 function emitCssVar(
     summary: ExecutionSummary,
     collectedVars: string[],
@@ -500,7 +513,7 @@ function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, current
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasObj.id);
-            recordUnresolved(summary, currentPath, ` (Alias ID: ${aliasObj.id})`);
+            recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasObj.id);
             return `var(--unresolved-${placeholderName})`;
         }
         return `var(--${currentPath.map(toKebabCase).join('-')})`;
@@ -606,7 +619,7 @@ function resolveReference(
     const varName = `--broken-ref-${cssPath || 'unknown'}`;
 
     console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)}`);
-    recordUnresolved(summary, currentPath, ` (Ref: ${tokenPath})`);
+    recordUnresolvedTyped(summary, currentPath, 'Ref', tokenPath);
     if (!isValidCssVariableName(varName)) {
         summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
         return match;
