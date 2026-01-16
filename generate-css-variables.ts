@@ -69,6 +69,28 @@ function createSummary(): ExecutionSummary {
     };
 }
 
+type ProcessingContext = Readonly<{
+    summary: ExecutionSummary;
+    tokensData?: Record<string, any>;
+    refMap?: Map<string, string>;
+    valueMap?: Map<string, TokenValue>;
+    collisionKeys?: Set<string>;
+    idToVarName?: Map<string, string>;
+    cycleStatus?: Map<string, boolean>;
+}>;
+
+function createProcessingContext(args: {
+    summary: ExecutionSummary;
+    tokensData?: Record<string, any>;
+    refMap?: Map<string, string>;
+    valueMap?: Map<string, TokenValue>;
+    collisionKeys?: Set<string>;
+    idToVarName?: Map<string, string>;
+    cycleStatus?: Map<string, boolean>;
+}): ProcessingContext {
+    return Object.freeze({ ...args });
+}
+
 // --- Helper Functions ---
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -435,14 +457,10 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
     return null;
 }
 
-function processVariableAlias(
-    summary: ExecutionSummary,
-    aliasObj: unknown,
-    currentPath: string[],
-    tokensData?: Record<string, any>,
-    idToVarName?: Map<string, string>
-): string {
+function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, currentPath: string[]): string {
     if (isVariableAlias(aliasObj)) {
+        const { summary, tokensData, idToVarName } = ctx;
+
         if (aliasObj.id && tokensData) {
             // Fast path: O(1) lookup by $id
             const direct = idToVarName?.get(aliasObj.id);
@@ -482,9 +500,12 @@ function processShadow(shadowObj: unknown): string {
     const spread = shadow.spread || 0;
 
     const isNormalized = (color.r || 0) <= 1 && (color.g || 0) <= 1 && (color.b || 0) <= 1;
-    const r = isNormalized ? Math.round((color.r || 0) * 255) : Math.round(color.r || 0);
-    const g = isNormalized ? Math.round((color.g || 0) * 255) : Math.round(color.g || 0);
-    const b = isNormalized ? Math.round((color.b || 0) * 255) : Math.round(color.b || 0);
+    const to255 = (c: number | undefined, normalized: boolean): number =>
+        normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+
+    const r = to255(color.r, isNormalized);
+    const g = to255(color.g, isNormalized);
+    const b = to255(color.b, isNormalized);
     const a = color.a !== undefined ? color.a : 1;
 
     const rgba = `rgba(${r}, ${g}, ${b}, ${a})`;
@@ -497,19 +518,88 @@ function processShadow(shadowObj: unknown): string {
     return `${offsetX}px ${offsetY}px ${radius}px ${spread}px ${rgba}`;
 }
 
+function resolveReference(
+    ctx: ProcessingContext,
+    match: string,
+    tokenPath: string,
+    originalValue: string,
+    currentPath: string[],
+    visitedRefs: Set<string>,
+    seenInValue: Set<string>
+): string {
+    const { summary, refMap, valueMap, collisionKeys, cycleStatus } = ctx;
+
+    tokenPath = tokenPath.trim();
+    if (!tokenPath) {
+        console.warn(`⚠️  Empty W3C reference in "${originalValue}" at ${pathStr(currentPath)}`);
+        recordUnresolved(summary, currentPath, ' (Empty ref)');
+        return match;
+    }
+
+    const canonicalPath = canonicalizeRefPath(tokenPath);
+    const normalizedTokenPath = normalizePathKey(canonicalPath);
+
+    if (!seenInValue.has(normalizedTokenPath)) {
+        if (visitedRefs.has(normalizedTokenPath)) {
+            console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${pathStr(currentPath)}`);
+            summary.circularDeps++;
+            return `/* circular-ref: ${tokenPath} */`;
+        }
+
+        // Detect deep cycles using cached graph (fallback to old DFS if cache not provided)
+        const keyForCycle =
+            (valueMap?.has(canonicalPath) ? canonicalPath : undefined) ??
+            (!collisionKeys?.has(normalizedTokenPath) ? normalizedTokenPath : canonicalPath);
+
+        const cachedHasCycle = cycleStatus?.get(keyForCycle);
+        if (
+            cachedHasCycle === true ||
+            (cachedHasCycle === undefined && hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs)))
+        ) {
+            console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`);
+            summary.circularDeps++;
+            return `/* circular-ref: ${tokenPath} */`;
+        }
+
+        // Add to visited AFTER cycle check passes
+        visitedRefs.add(normalizedTokenPath);
+        if (canonicalPath !== normalizedTokenPath) {
+            visitedRefs.add(canonicalPath); // Track exact path too
+        }
+        seenInValue.add(normalizedTokenPath);
+    }
+
+    // Resolution Strategy: Exact Match -> Normalized Match
+    let mappedVarName = refMap?.get(canonicalPath);
+    if (!mappedVarName && !collisionKeys?.has(normalizedTokenPath)) {
+        mappedVarName = refMap?.get(normalizedTokenPath);
+    }
+
+    if (mappedVarName) {
+        return `var(${mappedVarName})`;
+    }
+
+    const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
+    const varName = `--broken-ref-${cssPath || 'unknown'}`;
+
+    console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)}`);
+    recordUnresolved(summary, currentPath, ` (Ref: ${tokenPath})`);
+    if (!isValidCssVariableName(varName)) {
+        summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
+        return match;
+    }
+    return `var(${varName})`;
+}
+
 function processValue(
-    summary: ExecutionSummary,
+    ctx: ProcessingContext,
     value: TokenValue['$value'],
     varType?: string,
     currentPath: string[] = [],
-    tokensData?: Record<string, any>,
-    visitedRefs: Set<string> = new Set(),
-    refMap?: Map<string, string>,
-    valueMap?: Map<string, TokenValue>,
-    collisionKeys?: Set<string>,
-    idToVarName?: Map<string, string>,
-    cycleStatus?: Map<string, boolean>
+    visitedRefs: Set<string> = new Set()
 ): string | null {
+    const { summary } = ctx;
+
     if (value === null || value === undefined) {
         return 'null';
     }
@@ -530,7 +620,7 @@ function processValue(
             return processShadow(value);
         }
         if (isVariableAlias(value)) {
-            return processVariableAlias(summary, value, currentPath, tokensData, idToVarName);
+            return processVariableAlias(ctx, value, currentPath);
         }
         console.warn(`⚠️  Token compuesto no soportado en ${pathStr(currentPath)}, se omite`);
         recordUnresolved(summary, currentPath, ' (Composite object skipped)');
@@ -560,70 +650,9 @@ function processValue(
         }
 
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
-        return value.replace(W3C_REF_REGEX_REPLACE, (match, tokenPath) => {
-            tokenPath = tokenPath.trim();
-            if (!tokenPath) {
-                console.warn(`⚠️  Empty W3C reference in "${value}" at ${pathStr(currentPath)}`);
-                recordUnresolved(summary, currentPath, ' (Empty ref)');
-                return match;
-            }
-
-            const canonicalPath = canonicalizeRefPath(tokenPath);
-            const normalizedTokenPath = normalizePathKey(canonicalPath);
-
-            if (!seenInValue.has(normalizedTokenPath)) {
-                if (visitedRefs.has(normalizedTokenPath)) {
-                    console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${pathStr(currentPath)}`);
-                    summary.circularDeps++;
-                    return `/* circular-ref: ${tokenPath} */`;
-                }
-
-                // Detect deep cycles using cached graph (fallback to old DFS if cache not provided)
-                const keyForCycle =
-                    (valueMap?.has(canonicalPath) ? canonicalPath : undefined) ??
-                    (!collisionKeys?.has(normalizedTokenPath) ? normalizedTokenPath : canonicalPath);
-
-                const cachedHasCycle = cycleStatus?.get(keyForCycle);
-                if (
-                    cachedHasCycle === true ||
-                    (cachedHasCycle === undefined && hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs)))
-                ) {
-                    console.warn(
-                        `⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`
-                    );
-                    summary.circularDeps++;
-                    return `/* circular-ref: ${tokenPath} */`;
-                }
-
-                // Add to visited AFTER cycle check passes
-                visitedRefs.add(normalizedTokenPath);
-                if (canonicalPath !== normalizedTokenPath) {
-                    visitedRefs.add(canonicalPath); // Track exact path too
-                }
-                seenInValue.add(normalizedTokenPath);
-            }
-
-            // Resolution Strategy: Exact Match -> Normalized Match
-            let mappedVarName = refMap?.get(canonicalPath);
-            if (!mappedVarName && !collisionKeys?.has(normalizedTokenPath)) {
-                mappedVarName = refMap?.get(normalizedTokenPath);
-            }
-
-            if (mappedVarName) {
-                return `var(${mappedVarName})`;
-            }
-
-            const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
-            const varName = `--broken-ref-${cssPath || 'unknown'}`;
-
-            console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)}`);
-            recordUnresolved(summary, currentPath, ` (Ref: ${tokenPath})`);
-            if (!isValidCssVariableName(varName)) {
-                summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
-                return match;
-            }
-            return `var(${varName})`;
-        });
+        return value.replace(W3C_REF_REGEX_REPLACE, (match, tokenPath) =>
+            resolveReference(ctx, match, tokenPath, value, currentPath, visitedRefs, seenInValue)
+        );
     }
 
     if (typeof value === 'number' || typeof value === 'boolean') {
@@ -909,6 +938,16 @@ function flattenTokens(
     idToVarName?: Map<string, string>,
     cycleStatus?: Map<string, boolean>
 ): string[] {
+    const processingCtx = createProcessingContext({
+        summary,
+        tokensData,
+        refMap,
+        valueMap,
+        collisionKeys,
+        idToVarName,
+        cycleStatus
+    });
+
     walkTokenTree(summary, obj, prefix, currentPath, {
         onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
             summary.totalTokens++;
@@ -923,19 +962,7 @@ function flattenTokens(
             // Initialize visited with both exact and normalized paths to catch self-refs regardless of casing
             const visitedRefs = buildVisitedRefSet(tokenPath);
 
-            const resolvedValue = processValue(
-                summary,
-                rawValue,
-                varType,
-                tokenPath,
-                tokensData,
-                visitedRefs,
-                refMap,
-                valueMap,
-                collisionKeys,
-                idToVarName,
-                cycleStatus
-            );
+            const resolvedValue = processValue(processingCtx, rawValue, varType, tokenPath, visitedRefs);
             if (resolvedValue === null) {
                 return;
             }
@@ -952,19 +979,7 @@ function flattenTokens(
             const leafPath = [...parentPath, key];
             const visitedRefs = buildVisitedRefSet(leafPath);
 
-            const processedValue = processValue(
-                summary,
-                value as any, // Cast as it might be string/number/boolean
-                undefined,
-                leafPath,
-                tokensData,
-                visitedRefs,
-                refMap,
-                valueMap,
-                collisionKeys,
-                idToVarName,
-                cycleStatus
-            );
+            const processedValue = processValue(processingCtx, value as any, undefined, leafPath, visitedRefs);
             if (processedValue === null) {
                 return;
             }
@@ -1034,6 +1049,31 @@ function logChangeDetection(previousVariables: Map<string, string>, cssLines: st
 
     if (removed.length === 0 && added.length === 0 && modified.length === 0) {
         console.log(`   ✓ Sin cambios significativos`);
+    }
+}
+
+function printExecutionSummary(summary: ExecutionSummary): void {
+    // Summary Report
+    console.log('\n========================================');
+    console.log('       RESUMEN DE EJECUCIÓN      ');
+    console.log('========================================');
+    console.log(`Total Tokens:        ${summary.totalTokens}`);
+    console.log(`Generados:           ${summary.successCount}`);
+    console.log(`Dependencias Circ.:  ${summary.circularDeps}`);
+    console.log(`Refs no resueltas:   ${summary.unresolvedRefs.length}`);
+    console.log(`Nombres inválidos:   ${summary.invalidNames.length}`);
+    console.log(`Límite profundidad:  ${summary.depthLimitHits}`);
+    console.log('========================================');
+
+    if (summary.unresolvedRefs.length > 0) {
+        console.log('\n⚠️  Detalle de Referencias No Resueltas (Top 10):');
+        summary.unresolvedRefs.slice(0, 10).forEach(ref => console.log(`  - ${ref}`));
+        if (summary.unresolvedRefs.length > 10) console.log(`  ... y ${summary.unresolvedRefs.length - 10} más`);
+    }
+    if (summary.invalidNames.length > 0) {
+        console.log('\n⚠️  Detalle de Nombres Inválidos (Top 10):');
+        summary.invalidNames.slice(0, 10).forEach(name => console.log(`  - ${name}`));
+        if (summary.invalidNames.length > 10) console.log(`  ... y ${summary.invalidNames.length - 10} más`);
     }
 }
 
@@ -1114,28 +1154,7 @@ async function main() {
         process.exit(1);
     }
 
-    // Summary Report
-    console.log('\n========================================');
-    console.log('       RESUMEN DE EJECUCIÓN      ');
-    console.log('========================================');
-    console.log(`Total Tokens:        ${summary.totalTokens}`);
-    console.log(`Generados:           ${summary.successCount}`);
-    console.log(`Dependencias Circ.:  ${summary.circularDeps}`);
-    console.log(`Refs no resueltas:   ${summary.unresolvedRefs.length}`);
-    console.log(`Nombres inválidos:   ${summary.invalidNames.length}`);
-    console.log(`Límite profundidad:  ${summary.depthLimitHits}`);
-    console.log('========================================');
-
-    if (summary.unresolvedRefs.length > 0) {
-        console.log('\n⚠️  Detalle de Referencias No Resueltas (Top 10):');
-        summary.unresolvedRefs.slice(0, 10).forEach(ref => console.log(`  - ${ref}`));
-        if (summary.unresolvedRefs.length > 10) console.log(`  ... y ${summary.unresolvedRefs.length - 10} más`);
-    }
-    if (summary.invalidNames.length > 0) {
-        console.log('\n⚠️  Detalle de Nombres Inválidos (Top 10):');
-        summary.invalidNames.slice(0, 10).forEach(name => console.log(`  - ${name}`));
-        if (summary.invalidNames.length > 10) console.log(`  ... y ${summary.invalidNames.length - 10} más`);
-    }
+    printExecutionSummary(summary);
 
     // Change Detection Log
     if (previousVariables.size > 0) {
