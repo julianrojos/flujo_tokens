@@ -2,8 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // --- Configuration ---
 const JSON_DIR = path.resolve(__dirname, 'FigmaJsons');
@@ -76,10 +75,6 @@ function isVariableAlias(value: unknown): value is VariableAliasObject {
 
 function isModeKey(key: string): boolean {
     return key.toLowerCase().startsWith('mode');
-}
-
-function shouldSkipTraversalKey(key: string): boolean {
-    return key.startsWith('$') || isModeKey(key);
 }
 
 function pickModeKey(keys: string[]): string | undefined {
@@ -439,7 +434,6 @@ function processValue(
             return value;
         }
 
-        refRegex.lastIndex = 0; // reset before replace
         return value.replace(refRegex, (match, tokenPath) => {
             tokenPath = tokenPath.trim();
             if (!tokenPath) {
@@ -585,7 +579,10 @@ function collectTokenMaps(
     const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
-        if (shouldSkipTraversalKey(key)) continue;
+        if (key.startsWith('$')) continue;
+        if (isModeKey(key)) {
+            continue;
+        }
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
         collectTokenMaps(
@@ -891,7 +888,10 @@ function flattenTokens(
     const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
-        if (shouldSkipTraversalKey(key)) continue;
+        if (key.startsWith('$')) continue;
+        if (isModeKey(key)) {
+            continue;
+        }
 
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
