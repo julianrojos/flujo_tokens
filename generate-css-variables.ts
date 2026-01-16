@@ -35,13 +35,13 @@ interface ShadowObject {
         g: number;
         b: number;
         a?: number;
-    };
+    } | null;
     offset?: {
         x: number;
         y: number;
-    };
-    radius?: number;
-    spread?: number;
+    } | null;
+    radius?: number | null;
+    spread?: number | null;
 }
 
 interface VariableAliasObject {
@@ -223,6 +223,26 @@ function indexTokenIdToVarName(tokenObj: any, varName: string, idToVarName: Map<
     }
 }
 
+/**
+ * Centralized resolver for "exact -> normalized" token key lookup.
+ * Mirrors prior behavior: prefer exact; fallback to normalized only if not colliding.
+ */
+function getResolvedTokenKey(ref: string, ctx: ProcessingContext): string | null {
+    const canonical = canonicalizeRefPath(ref);
+    const normalized = normalizePathKey(canonical);
+
+    const hasKey = (key: string): boolean => {
+        if (ctx.valueMap?.has(key)) return true;
+        if (ctx.refMap?.has(key)) return true;
+        return false;
+    };
+
+    if (hasKey(canonical)) return canonical;
+    if (ctx.collisionKeys?.has(normalized)) return null;
+    if (hasKey(normalized)) return normalized;
+    return null;
+}
+
 type WalkPrimitive = string | number | boolean;
 
 type WalkHandlers = {
@@ -371,7 +391,12 @@ function hasCircularDependency(
  * Builds a cached "leads-to-cycle" map for tokens to avoid repeated deep DFS per reference.
  * The result answers: "starting from this token key, will I hit a cycle?"
  */
-function buildCycleStatus(valueMap: Map<string, TokenValue>, collisionKeys: Set<string>): Map<string, boolean> {
+function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
+    const { valueMap } = ctx;
+    if (!valueMap) {
+        return new Map<string, boolean>();
+    }
+
     const refsByToken = new Map<string, Set<string>>();
 
     // Extract refs once per token key (valueMap includes normalized/relative keys; that's ok).
@@ -380,14 +405,6 @@ function buildCycleStatus(valueMap: Map<string, TokenValue>, collisionKeys: Set<
         collectRefsFromValue(token.$value, refs);
         refsByToken.set(key, refs);
     }
-
-    const resolveKey = (ref: string): string | null => {
-        const canonical = canonicalizeRefPath(ref);
-        const normalized = normalizePathKey(canonical);
-        if (valueMap.has(canonical)) return canonical;
-        if (!collisionKeys.has(normalized) && valueMap.has(normalized)) return normalized;
-        return null;
-    };
 
     const color = new Map<string, 0 | 1 | 2>(); // 0=unvisited, 1=visiting, 2=done
     const leadsToCycle = new Map<string, boolean>();
@@ -403,7 +420,7 @@ function buildCycleStatus(valueMap: Map<string, TokenValue>, collisionKeys: Set<
         const refs = refsByToken.get(node);
         if (refs) {
             for (const ref of refs) {
-                const next = resolveKey(ref);
+                const next = getResolvedTokenKey(ref, ctx);
                 if (!next) continue;
                 if (dfs(next)) {
                     hitCycle = true;
@@ -493,11 +510,15 @@ function processShadow(shadowObj: unknown): string {
     }
 
     const shadow = shadowObj as ShadowObject;
-    const type = shadow.type || 'DROP_SHADOW';
-    const color = shadow.color || { r: 0, g: 0, b: 0, a: 1 };
-    const offset = shadow.offset || { x: 0, y: 0 };
-    const radius = shadow.radius || 0;
-    const spread = shadow.spread || 0;
+
+    // Destructuring + null-safe defaults (rawX ?? default) to preserve prior tolerance.
+    const { type: rawType, color: rawColor, offset: rawOffset, radius: rawRadius, spread: rawSpread } = shadow;
+
+    const type = rawType ?? 'DROP_SHADOW';
+    const color = rawColor ?? { r: 0, g: 0, b: 0, a: 1 };
+    const offset = rawOffset ?? { x: 0, y: 0 };
+    const radius = rawRadius ?? 0;
+    const spread = rawSpread ?? 0;
 
     const isNormalized = (color.r || 0) <= 1 && (color.g || 0) <= 1 && (color.b || 0) <= 1;
     const to255 = (c: number | undefined, normalized: boolean): number =>
@@ -506,11 +527,11 @@ function processShadow(shadowObj: unknown): string {
     const r = to255(color.r, isNormalized);
     const g = to255(color.g, isNormalized);
     const b = to255(color.b, isNormalized);
-    const a = color.a !== undefined ? color.a : 1;
+    const a = color.a ?? 1;
 
     const rgba = `rgba(${r}, ${g}, ${b}, ${a})`;
-    const offsetX = offset.x || 0;
-    const offsetY = offset.y || 0;
+    const offsetX = offset.x ?? 0;
+    const offsetY = offset.y ?? 0;
 
     if (type === 'INNER_SHADOW') {
         return `inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${rgba}`;
@@ -569,11 +590,9 @@ function resolveReference(
         seenInValue.add(normalizedTokenPath);
     }
 
-    // Resolution Strategy: Exact Match -> Normalized Match
-    let mappedVarName = refMap?.get(canonicalPath);
-    if (!mappedVarName && !collisionKeys?.has(normalizedTokenPath)) {
-        mappedVarName = refMap?.get(normalizedTokenPath);
-    }
+    // Resolution Strategy: Exact Match -> Normalized Match (centralized)
+    const resolvedKey = getResolvedTokenKey(canonicalPath, ctx);
+    const mappedVarName = resolvedKey ? refMap?.get(resolvedKey) : undefined;
 
     if (mappedVarName) {
         return `var(${mappedVarName})`;
@@ -663,15 +682,17 @@ function processValue(
 }
 
 function collectTokenMaps(
-    summary: ExecutionSummary,
+    ctx: ProcessingContext,
     obj: any,
     prefix: string[] = [],
-    currentPath: string[] = [],
-    refMap: Map<string, string>,
-    valueMap: Map<string, TokenValue>,
-    collisionKeys: Set<string>,
-    idToVarName: Map<string, string>
+    currentPath: string[] = []
 ): void {
+    const { summary, refMap, valueMap, collisionKeys, idToVarName } = ctx;
+
+    if (!refMap || !valueMap || !collisionKeys || !idToVarName) {
+        return;
+    }
+
     walkTokenTree(summary, obj, prefix, currentPath, {
         onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
             const tokenPathKey = buildPathKey(tokenPath);
@@ -926,27 +947,13 @@ function readAndCombineJsons(dir: string): Record<string, any> {
  * Recursive function to flatten the token object into CSS variables.
  */
 function flattenTokens(
-    summary: ExecutionSummary,
+    ctx: ProcessingContext,
     obj: any,
     prefix: string[] = [],
     collectedVars: string[] = [],
-    tokensData?: Record<string, any>,
-    currentPath: string[] = [],
-    refMap?: Map<string, string>,
-    valueMap?: Map<string, TokenValue>,
-    collisionKeys?: Set<string>,
-    idToVarName?: Map<string, string>,
-    cycleStatus?: Map<string, boolean>
+    currentPath: string[] = []
 ): string[] {
-    const processingCtx = createProcessingContext({
-        summary,
-        tokensData,
-        refMap,
-        valueMap,
-        collisionKeys,
-        idToVarName,
-        cycleStatus
-    });
+    const { summary } = ctx;
 
     walkTokenTree(summary, obj, prefix, currentPath, {
         onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
@@ -962,7 +969,7 @@ function flattenTokens(
             // Initialize visited with both exact and normalized paths to catch self-refs regardless of casing
             const visitedRefs = buildVisitedRefSet(tokenPath);
 
-            const resolvedValue = processValue(processingCtx, rawValue, varType, tokenPath, visitedRefs);
+            const resolvedValue = processValue(ctx, rawValue, varType, tokenPath, visitedRefs);
             if (resolvedValue === null) {
                 return;
             }
@@ -971,7 +978,7 @@ function flattenTokens(
             emitCssVar(summary, collectedVars, varName, resolvedValue, tokenPath, true);
         },
 
-        onLegacyPrimitive: ({ value, key, normalizedKey, prefix: parentPrefix, currentPath: parentPath }) => {
+        onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix }) => {
             // Legacy support: handle loose key-value tokens without $value wrapper
             summary.totalTokens++;
 
@@ -979,7 +986,7 @@ function flattenTokens(
             const leafPath = [...parentPath, key];
             const visitedRefs = buildVisitedRefSet(leafPath);
 
-            const processedValue = processValue(processingCtx, value as any, undefined, leafPath, visitedRefs);
+            const processedValue = processValue(ctx, value as any, undefined, leafPath, visitedRefs);
             if (processedValue === null) {
                 return;
             }
@@ -1102,40 +1109,39 @@ async function main() {
         }
     }
 
-    // We iterate the top-level files (color-primitives, colors, etc.)
+    // Context for indexing pass (cycleStatus not available yet; tokensData not needed here).
+    const indexingCtx = createProcessingContext({
+        summary,
+        refMap,
+        valueMap,
+        collisionKeys,
+        idToVarName
+    });
+
+    // Index pass
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
-        // We include the filename in the prefix (namespace)
         const normalizedFileName = toKebabCase(fileName);
-        collectTokenMaps(
-            summary,
-            fileContent,
-            [normalizedFileName],
-            [fileName],
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName
-        );
+        collectTokenMaps(indexingCtx, fileContent, [normalizedFileName], [fileName]);
     }
 
     // Build cached cycle info once (massive speedup on large graphs)
-    const cycleStatus = buildCycleStatus(valueMap, collisionKeys);
+    const cycleStatus = buildCycleStatus(indexingCtx);
 
+    // Full processing context (includes tokensData and cycleStatus)
+    const processingCtx = createProcessingContext({
+        summary,
+        tokensData: combinedTokens,
+        refMap,
+        valueMap,
+        collisionKeys,
+        idToVarName,
+        cycleStatus
+    });
+
+    // Flatten pass
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
         const normalizedFileName = toKebabCase(fileName);
-        flattenTokens(
-            summary,
-            fileContent,
-            [normalizedFileName],
-            cssLines,
-            combinedTokens,
-            [fileName],
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName,
-            cycleStatus
-        );
+        flattenTokens(processingCtx, fileContent, [normalizedFileName], cssLines, [fileName]);
     }
 
     console.log('📝 Escribiendo archivo CSS...');
