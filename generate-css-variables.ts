@@ -78,18 +78,16 @@ function isModeKey(key: string): boolean {
 }
 
 function pickModeKey(keys: string[]): string | undefined {
-    const modeDefault = keys.find(k => k === 'modeDefault');
-    if (modeDefault) return modeDefault;
-    return keys.find(k => isModeKey(k));
+    return keys.find(k => k === 'modeDefault') ?? keys.find(isModeKey);
 }
 
 function toSafePlaceholderName(id: string): string {
-    let placeholderName = id.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-    placeholderName = placeholderName.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-    if (!placeholderName) {
-        return 'unknown';
-    }
-    return placeholderName;
+    const placeholderName = id
+        .replace(/[^a-zA-Z0-9]/g, '-')
+        .toLowerCase()
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    return placeholderName || 'unknown';
 }
 
 function toKebabCase(name: string): string {
