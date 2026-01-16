@@ -93,3 +93,13 @@ async function main() {
 
 Source maps
 
+
+
+------------------------------------------------
+
+
+Monolito: Tienes 800+ líneas en un solo archivo. Es manejable, pero para mantenimiento a largo plazo, separarías la lógica (/core), los tipos (/types) y la ejecución (/cli).
+
+Ciclos en Alias Estructurales: Tu función collectRefsFromValue busca strings con regex ({ref}). Si un diseñador hace un ciclo solo usando objetos VARIABLE_ALIAS (sin strings), buildCycleStatus podría no detectarlo preventivamente. Sin embargo, tu MAX_DEPTH en tiempo de ejecución lo atrapará de todos modos, así que no es catastrófico.
+
+Configuración: Lo que hemos hablado. const JSON_DIR = ... sigue estando dentro del código.
