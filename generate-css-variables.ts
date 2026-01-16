@@ -389,29 +389,13 @@ function walkTokenTree(
             continue;
         }
 
-        walkTokenTree(
-            summary,
-            value,
-            [...prefix, normalizedKey],
-            [...currentPath, key],
-            handlers,
-            depth + 1,
-            inModeBranch
-        );
+        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1, inModeBranch);
     }
 
     if (modeKey) {
         // Traverse the chosen mode branch after normal keys for deterministic ordering.
         // Everything under the chosen mode branch is treated as "mode override" for indexing purposes.
-        walkTokenTree(
-            summary,
-            (obj as Record<string, any>)[modeKey],
-            prefix,
-            [...currentPath, modeKey],
-            handlers,
-            depth + 1,
-            true
-        );
+        walkTokenTree(summary, (obj as Record<string, any>)[modeKey], prefix, [...currentPath, modeKey], handlers, depth + 1, true);
     }
 }
 
@@ -468,8 +452,7 @@ function hasCircularDependency(startKey: string, ctx: ProcessingContext, visited
     }
 
     const token =
-        ctx.valueMap?.get(resolvedStart) ||
-        (resolvedStart !== normalizedStart ? ctx.valueMap?.get(normalizedStart) : undefined);
+        ctx.valueMap?.get(resolvedStart) || (resolvedStart !== normalizedStart ? ctx.valueMap?.get(normalizedStart) : undefined);
 
     if (!token) {
         return false;
@@ -530,7 +513,6 @@ function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
                 if (!next) continue;
                 if (dfs(next)) {
                     hitCycle = true;
-                    // Keep going to fully color the graph; we already know the answer for `node`.
                 }
             }
         }
@@ -627,12 +609,7 @@ function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, current
  * Note: We deliberately keep the "color" as the last shadow component. This allows CSS variables
  * (var(--...)) to work, and avoids wrapping var() inside rgba(...), which is invalid.
  */
-function processShadow(
-    ctx: ProcessingContext,
-    shadowObj: unknown,
-    currentPath: string[],
-    visitedRefs: ReadonlySet<string>
-): string {
+function processShadow(ctx: ProcessingContext, shadowObj: unknown, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
     if (!isPlainObject(shadowObj)) {
         return JSON.stringify(shadowObj);
     }
@@ -648,8 +625,7 @@ function processShadow(
 
     const type = rawType === 'INNER_SHADOW' ? 'INNER_SHADOW' : 'DROP_SHADOW';
 
-    const offset =
-        isPlainObject(rawOffset) ? (rawOffset as { x?: number | null; y?: number | null }) : { x: 0, y: 0 };
+    const offset = isPlainObject(rawOffset) ? (rawOffset as { x?: number | null; y?: number | null }) : { x: 0, y: 0 };
     const offsetX = typeof offset.x === 'number' ? offset.x : 0;
     const offsetY = typeof offset.y === 'number' ? offset.y : 0;
 
@@ -765,10 +741,7 @@ function resolveReference(
 
         // ✅ Fix punto 2 (parte B): el check profundo usa el grafo resoluble (y respeta colisiones).
         const cachedHasCycle = cycleStatus?.get(resolvedKey);
-        if (
-            cachedHasCycle === true ||
-            (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))
-        ) {
+        if (cachedHasCycle === true || (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))) {
             console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-ref: ${tokenPath} */`;
@@ -876,13 +849,7 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
         return;
     }
 
-    const upsertKey = (
-        key: string,
-        varName: string,
-        tokenObj: TokenValue,
-        debugLabel: string,
-        allowOverride: boolean
-    ) => {
+    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, debugLabel: string, allowOverride: boolean) => {
         if (!key) return;
 
         if (!refMap.has(key)) {
@@ -893,9 +860,7 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
 
         const existing = refMap.get(key);
         if (existing !== varName) {
-            console.warn(
-                `ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`
-            );
+            console.warn(`ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`);
             collisionKeys.add(key);
             // NOTE: intentionally do NOT overwrite valueMap here.
             // With the fix in resolveReference/hasCircularDependency, cycle analysis will not traverse ambiguous keys anyway.
@@ -925,16 +890,29 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             const relativePathKey = buildPathKey(tokenPath.slice(1));
             const relativeNormalizedKey = normalizePathKey(relativePathKey);
             if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                upsertKey(
-                    relativeNormalizedKey,
-                    varName,
-                    tokenObj as TokenValue,
-                    `relative:${relativePathKey}`,
-                    inModeBranch
-                );
+                upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
+            }
+        },
+
+        // ✅ FIX (problema 1): indexar también primitives legacy para que sean referenciables.
+        onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inModeBranch }) => {
+            const leafPath = [...parentPath, key];
+            const leafPrefix = [...parentPrefix, normalizedKey];
+            const varName = buildCssVarNameFromPrefix(leafPrefix);
+
+            const tokenPathKey = buildPathKey(leafPath);
+            const normalizedPathKey = normalizePathKey(tokenPathKey);
+
+            const legacyTokenObj: TokenValue = { $value: value as any };
+
+            upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
+
+            const relativePathKey = buildPathKey(leafPath.slice(1));
+            const relativeNormalizedKey = normalizePathKey(relativePathKey);
+            if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
+                upsertKey(relativeNormalizedKey, varName, legacyTokenObj, `relative:${relativePathKey}`, inModeBranch);
             }
         }
-        // Legacy primitives are intentionally ignored during indexing (same as previous behavior).
     });
 }
 
