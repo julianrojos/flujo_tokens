@@ -165,6 +165,24 @@ function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reas
     summary.unresolvedRefs.push(`${pathStr(currentPath)}${reason}`);
 }
 
+/**
+ * Safe typed wrapper around recordUnresolved that preserves the *exact* legacy formatting
+ * in summary.unresolvedRefs (so it cannot affect CSS diffs, and keeps log formatting stable).
+ *
+ * Examples:
+ *  - recordUnresolvedTyped(summary, path, "Empty ref") => "path.to.token (Empty ref)"
+ *  - recordUnresolvedTyped(summary, path, "Ref", "{foo.bar}") => "path.to.token (Ref: {foo.bar})"
+ */
+function recordUnresolvedTyped(
+    summary: ExecutionSummary,
+    currentPath: string[],
+    label: string,
+    detail?: string
+): void {
+    const reason = detail !== undefined ? ` (${label}: ${detail})` : ` (${label})`;
+    recordUnresolved(summary, currentPath, reason);
+}
+
 function emitCssVar(
     summary: ExecutionSummary,
     collectedVars: string[],
@@ -226,20 +244,18 @@ function indexTokenIdToVarName(tokenObj: any, varName: string, idToVarName: Map<
 /**
  * Centralized resolver for "exact -> normalized" token key lookup.
  * Mirrors prior behavior: prefer exact; fallback to normalized only if not colliding.
+ *
+ * Invariant (documented): collectTokenMaps populates valueMap and refMap together.
+ * Therefore, valueMap is a sufficient source of truth for token existence here.
  */
 function getResolvedTokenKey(ref: string, ctx: ProcessingContext): string | null {
     const canonical = canonicalizeRefPath(ref);
     const normalized = normalizePathKey(canonical);
 
-    const hasKey = (key: string): boolean => {
-        if (ctx.valueMap?.has(key)) return true;
-        if (ctx.refMap?.has(key)) return true;
-        return false;
-    };
-
-    if (hasKey(canonical)) return canonical;
+    if (ctx.valueMap?.has(canonical)) return canonical;
     if (ctx.collisionKeys?.has(normalized)) return null;
-    if (hasKey(normalized)) return normalized;
+    if (ctx.valueMap?.has(normalized)) return normalized;
+
     return null;
 }
 
@@ -496,7 +512,7 @@ function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, current
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasObj.id);
-            recordUnresolved(summary, currentPath, ` (Alias ID: ${aliasObj.id})`);
+            recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasObj.id);
             return `var(--unresolved-${placeholderName})`;
         }
         return `var(--${currentPath.map(toKebabCase).join('-')})`;
@@ -553,7 +569,7 @@ function resolveReference(
     tokenPath = tokenPath.trim();
     if (!tokenPath) {
         console.warn(`⚠️  Empty W3C reference in "${originalValue}" at ${pathStr(currentPath)}`);
-        recordUnresolved(summary, currentPath, ' (Empty ref)');
+        recordUnresolvedTyped(summary, currentPath, 'Empty ref');
         return match;
     }
 
@@ -602,7 +618,7 @@ function resolveReference(
     const varName = `--broken-ref-${cssPath || 'unknown'}`;
 
     console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)}`);
-    recordUnresolved(summary, currentPath, ` (Ref: ${tokenPath})`);
+    recordUnresolvedTyped(summary, currentPath, 'Ref', tokenPath);
     if (!isValidCssVariableName(varName)) {
         summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
         return match;
@@ -642,7 +658,7 @@ function processValue(
             return processVariableAlias(ctx, value, currentPath);
         }
         console.warn(`⚠️  Token compuesto no soportado en ${pathStr(currentPath)}, se omite`);
-        recordUnresolved(summary, currentPath, ' (Composite object skipped)');
+        recordUnresolvedTyped(summary, currentPath, 'Composite object skipped');
         return null;
     }
 
@@ -1092,6 +1108,13 @@ async function main() {
     console.log('📖 Leyendo archivos JSON...');
     const combinedTokens = readAndCombineJsons(JSON_DIR);
 
+    // (3) Cache file name normalization once (keeps order identical to Object.entries)
+    const fileEntries = Object.entries(combinedTokens).map(([fileName, fileContent]) => ({
+        fileName,
+        kebabName: toKebabCase(fileName),
+        fileContent
+    }));
+
     console.log('🔄 Transformando a variables CSS...');
     const cssLines: string[] = [];
     const refMap = new Map<string, string>();
@@ -1119,9 +1142,8 @@ async function main() {
     });
 
     // Index pass
-    for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
-        const normalizedFileName = toKebabCase(fileName);
-        collectTokenMaps(indexingCtx, fileContent, [normalizedFileName], [fileName]);
+    for (const { fileName, kebabName, fileContent } of fileEntries) {
+        collectTokenMaps(indexingCtx, fileContent, [kebabName], [fileName]);
     }
 
     // Build cached cycle info once (massive speedup on large graphs)
@@ -1139,9 +1161,8 @@ async function main() {
     });
 
     // Flatten pass
-    for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
-        const normalizedFileName = toKebabCase(fileName);
-        flattenTokens(processingCtx, fileContent, [normalizedFileName], cssLines, [fileName]);
+    for (const { fileName, kebabName, fileContent } of fileEntries) {
+        flattenTokens(processingCtx, fileContent, [kebabName], cssLines, [fileName]);
     }
 
     console.log('📝 Escribiendo archivo CSS...');
