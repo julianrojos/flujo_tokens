@@ -401,33 +401,42 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
 
 /**
  * Fallback deep cycle check (DFS) used when cycleStatus is not available.
- * Note: this can be expensive for large graphs, hence the cycleStatus cache.
+ *
+ * IMPORTANT (fix punto 2): this DFS MUST follow the same resolution rules as runtime resolution.
+ * That means:
+ * - If a reference resolves to "collision => null", that edge is NOT traversed (runtime can't resolve it either).
+ * - Only resolvable keys are used as nodes in the DFS.
  */
-function hasCircularDependency(
-    startPath: string,
-    valueMap?: Map<string, TokenValue>,
-    visited: Set<string> = new Set()
-): boolean {
-    const normalizedPath = normalizePathKey(startPath);
-    const lookupKey = normalizedPath || startPath;
-    if (visited.has(lookupKey)) {
+function hasCircularDependency(startKey: string, ctx: ProcessingContext, visited: Set<string> = new Set()): boolean {
+    const resolvedStart = getResolvedTokenKey(startKey, ctx);
+    if (!resolvedStart) {
+        // Collision or missing key => runtime wouldn't resolve this edge; it can't participate in a resolvable cycle.
+        return false;
+    }
+
+    const normalizedStart = normalizePathKey(resolvedStart);
+    if (visited.has(normalizedStart)) {
         return true;
     }
 
-    const token = valueMap?.get(startPath) || (normalizedPath ? valueMap?.get(normalizedPath) : undefined);
+    const token =
+        ctx.valueMap?.get(resolvedStart) ||
+        (resolvedStart !== normalizedStart ? ctx.valueMap?.get(normalizedStart) : undefined);
+
     if (!token) {
         return false;
     }
 
     const nextVisited = new Set(visited);
-    nextVisited.add(lookupKey);
-    if (normalizedPath && normalizedPath !== lookupKey) nextVisited.add(normalizedPath);
+    nextVisited.add(normalizedStart);
 
     const nestedRefs = new Set<string>();
     collectRefsFromValue(token.$value, nestedRefs);
 
     for (const ref of nestedRefs) {
-        if (hasCircularDependency(ref, valueMap, nextVisited)) {
+        const next = getResolvedTokenKey(ref, ctx);
+        if (!next) continue; // collision/missing => runtime would not traverse this edge
+        if (hasCircularDependency(next, ctx, nextVisited)) {
             return true;
         }
     }
@@ -502,7 +511,7 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
     const keys = Object.keys(tokensData);
     for (const key of keys) {
         if (key.startsWith('$')) {
-            const keyValue = tokensData[key];
+            const keyValue = (tokensData as any)[key];
             if (key === '$id' && typeof keyValue === 'string' && keyValue === targetId) {
                 return currentPath;
             }
@@ -510,7 +519,7 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
         }
 
         const newPath = [...currentPath, key];
-        const value = tokensData[key];
+        const value = (tokensData as any)[key];
 
         if (isPlainObject(value)) {
             if ('$id' in value && typeof (value as any).$id === 'string' && (value as any).$id === targetId) {
@@ -570,12 +579,7 @@ function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, current
  * Note: We deliberately keep the "color" as the last shadow component. This allows CSS variables
  * (var(--...)) to work, and avoids wrapping var() inside rgba(...), which is invalid.
  */
-function processShadow(
-    ctx: ProcessingContext,
-    shadowObj: unknown,
-    currentPath: string[],
-    visitedRefs: ReadonlySet<string>
-): string {
+function processShadow(ctx: ProcessingContext, shadowObj: unknown, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
     if (!isPlainObject(shadowObj)) {
         return JSON.stringify(shadowObj);
     }
@@ -660,7 +664,7 @@ function resolveReference(
     visitedRefs: ReadonlySet<string>,
     seenInValue: Set<string>
 ): string {
-    const { summary, refMap, valueMap, collisionKeys, cycleStatus } = ctx;
+    const { summary, refMap, collisionKeys, cycleStatus } = ctx;
 
     tokenPath = tokenPath.trim();
     if (!tokenPath) {
@@ -672,23 +676,45 @@ function resolveReference(
     const canonicalPath = canonicalizeRefPath(tokenPath);
     const normalizedTokenPath = normalizePathKey(canonicalPath);
 
-    // Only run expensive checks once per referenced token within the same string.
-    if (!seenInValue.has(normalizedTokenPath)) {
-        if (visitedRefs.has(normalizedTokenPath)) {
+    // ✅ Fix punto 2 (parte A): resuelve PRIMERO. Si hay colisión o no existe, NO hagas checks de ciclos.
+    const resolvedKey = getResolvedTokenKey(canonicalPath, ctx);
+    if (!resolvedKey) {
+        const isCollision = collisionKeys?.has(normalizedTokenPath) ?? false;
+        console.warn(
+            `⚠️  ${isCollision ? 'Ambiguous' : 'Unresolved'} W3C reference ${match} at ${pathStr(currentPath)}${isCollision ? ' (normalized collision)' : ''
+            }`
+        );
+
+        if (isCollision) {
+            recordUnresolvedTyped(summary, currentPath, 'Collision', tokenPath);
+        } else {
+            recordUnresolvedTyped(summary, currentPath, 'Ref', tokenPath);
+        }
+
+        const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
+        const varName = `--broken-ref-${cssPath || 'unknown'}`;
+        if (!isValidCssVariableName(varName)) {
+            summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
+            return match;
+        }
+        return `var(${varName})`;
+    }
+
+    // Only run expensive checks once per *resolved* key within the same string.
+    const seenKey = normalizePathKey(resolvedKey);
+    if (!seenInValue.has(seenKey)) {
+        // Cycle seed may contain exact+normalized; check both defensively.
+        if (visitedRefs.has(seenKey) || visitedRefs.has(resolvedKey)) {
             console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-ref: ${tokenPath} */`;
         }
 
-        // Detect deep cycles using cached graph (fallback to DFS when cache missing).
-        const keyForCycle =
-            (valueMap?.has(canonicalPath) ? canonicalPath : undefined) ??
-            (!collisionKeys?.has(normalizedTokenPath) ? normalizedTokenPath : canonicalPath);
-
-        const cachedHasCycle = cycleStatus?.get(keyForCycle);
+        // ✅ Fix punto 2 (parte B): el check profundo usa el grafo resoluble (y respeta colisiones).
+        const cachedHasCycle = cycleStatus?.get(resolvedKey);
         if (
             cachedHasCycle === true ||
-            (cachedHasCycle === undefined && hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs)))
+            (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))
         ) {
             console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`);
             summary.circularDeps++;
@@ -696,22 +722,19 @@ function resolveReference(
         }
 
         // IMPORTANT: do not mutate visitedRefs here; it must remain a per-branch seed.
-        seenInValue.add(normalizedTokenPath);
+        seenInValue.add(seenKey);
     }
 
-    // Resolve: exact key first, then normalized key (unless the normalized form is known to collide).
-    const resolvedKey = getResolvedTokenKey(canonicalPath, ctx);
-    const mappedVarName = resolvedKey ? refMap?.get(resolvedKey) : undefined;
-
+    const mappedVarName = refMap?.get(resolvedKey);
     if (mappedVarName) {
         return `var(${mappedVarName})`;
     }
 
-    // Keep output deterministic: derive a "broken-ref" var name from the canonical path.
+    // Extremely defensive fallback: resolvedKey existed but refMap is missing.
     const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
     const varName = `--broken-ref-${cssPath || 'unknown'}`;
 
-    console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)}`);
+    console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)} (resolved key missing in refMap)`);
     recordUnresolvedTyped(summary, currentPath, 'Ref', tokenPath);
 
     if (!isValidCssVariableName(varName)) {
@@ -800,7 +823,13 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
         return;
     }
 
-    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, debugLabel: string, allowOverride: boolean) => {
+    const upsertKey = (
+        key: string,
+        varName: string,
+        tokenObj: TokenValue,
+        debugLabel: string,
+        allowOverride: boolean
+    ) => {
         if (!key) return;
 
         if (!refMap.has(key)) {
@@ -811,8 +840,12 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
 
         const existing = refMap.get(key);
         if (existing !== varName) {
-            console.warn(`ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`);
+            console.warn(
+                `ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`
+            );
             collisionKeys.add(key);
+            // NOTE: intentionally do NOT overwrite valueMap here.
+            // With the fix in resolveReference/hasCircularDependency, cycle analysis will not traverse ambiguous keys anyway.
             return;
         }
 
@@ -839,7 +872,13 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             const relativePathKey = buildPathKey(tokenPath.slice(1));
             const relativeNormalizedKey = normalizePathKey(relativePathKey);
             if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
+                upsertKey(
+                    relativeNormalizedKey,
+                    varName,
+                    tokenObj as TokenValue,
+                    `relative:${relativePathKey}`,
+                    inModeBranch
+                );
             }
         }
         // Legacy primitives are intentionally ignored during indexing (same as previous behavior).
