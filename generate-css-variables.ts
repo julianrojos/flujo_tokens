@@ -280,7 +280,13 @@ function getResolvedTokenKey(ref: string, ctx: ProcessingContext): string | null
 type WalkPrimitive = string | number | boolean;
 
 type WalkHandlers = {
-    onTokenValue?: (ctx: { obj: any; prefix: string[]; currentPath: string[]; depth: number }) => void;
+    onTokenValue?: (ctx: {
+        obj: any;
+        prefix: string[];
+        currentPath: string[];
+        depth: number;
+        inModeBranch: boolean;
+    }) => void;
     onLegacyPrimitive?: (ctx: {
         value: WalkPrimitive;
         key: string;
@@ -288,6 +294,7 @@ type WalkHandlers = {
         prefix: string[];
         currentPath: string[];
         depth: number;
+        inModeBranch: boolean;
     }) => void;
 };
 
@@ -304,14 +311,15 @@ function walkTokenTree(
     prefix: string[],
     currentPath: string[],
     handlers: WalkHandlers,
-    depth = 0
+    depth = 0,
+    inModeBranch = false
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) {
         return;
     }
 
     if (obj && typeof obj === 'object' && '$value' in obj) {
-        handlers.onTokenValue?.({ obj, prefix, currentPath, depth });
+        handlers.onTokenValue?.({ obj, prefix, currentPath, depth, inModeBranch });
         return;
     }
 
@@ -335,23 +343,26 @@ function walkTokenTree(
                 normalizedKey,
                 prefix,
                 currentPath,
-                depth
+                depth,
+                inModeBranch
             });
             continue;
         }
 
-        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1);
+        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1, inModeBranch);
     }
 
     if (modeKey) {
         // Traverse the chosen mode branch after normal keys for deterministic ordering.
+        // Everything under the chosen mode branch is treated as "mode override" for indexing purposes.
         walkTokenTree(
             summary,
             (obj as Record<string, any>)[modeKey],
             prefix,
             [...currentPath, modeKey],
             handlers,
-            depth + 1
+            depth + 1,
+            true
         );
     }
 }
@@ -789,8 +800,32 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
         return;
     }
 
+    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, debugLabel: string, allowOverride: boolean) => {
+        if (!key) return;
+
+        if (!refMap.has(key)) {
+            refMap.set(key, varName);
+            valueMap.set(key, tokenObj);
+            return;
+        }
+
+        const existing = refMap.get(key);
+        if (existing !== varName) {
+            console.warn(`ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`);
+            collisionKeys.add(key);
+            return;
+        }
+
+        // Same var name: allow mode branch to override the effective token value for cycle analysis.
+        if (allowOverride) {
+            valueMap.set(key, tokenObj);
+        } else {
+            console.warn(`ℹ️  Duplicate token for normalized key ${key}${debugLabel ? ` (${debugLabel})` : ''}`);
+        }
+    };
+
     walkTokenTree(summary, obj, prefix, currentPath, {
-        onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
+        onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch }) => {
             const tokenPathKey = buildPathKey(tokenPath);
             const normalizedKey = normalizePathKey(tokenPathKey);
             const varName = buildCssVarNameFromPrefix(tokenPrefix);
@@ -798,39 +833,13 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             indexTokenIdToVarName(tokenObj, varName, idToVarName);
 
             // Populate the normalized key map (case-insensitive).
-            if (normalizedKey) {
-                if (!refMap.has(normalizedKey)) {
-                    refMap.set(normalizedKey, varName);
-                    valueMap.set(normalizedKey, tokenObj as TokenValue);
-                } else {
-                    const existing = refMap.get(normalizedKey);
-                    if (existing !== varName) {
-                        console.warn(`ℹ️  Normalized collision: ${tokenPathKey} normalized to same key as existing token.`);
-                        collisionKeys.add(normalizedKey);
-                    } else {
-                        console.warn(`ℹ️  Duplicate token for normalized key ${normalizedKey} at ${tokenPathKey}`);
-                    }
-                }
-            }
+            upsertKey(normalizedKey, varName, tokenObj as TokenValue, tokenPathKey, inModeBranch);
 
             // Also store a "relative" key (without the file segment) to resolve local refs like "{token}".
             const relativePathKey = buildPathKey(tokenPath.slice(1));
             const relativeNormalizedKey = normalizePathKey(relativePathKey);
             if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                if (!refMap.has(relativeNormalizedKey)) {
-                    refMap.set(relativeNormalizedKey, varName);
-                    valueMap.set(relativeNormalizedKey, tokenObj as TokenValue);
-                } else {
-                    const existingRel = refMap.get(relativeNormalizedKey);
-                    if (existingRel !== varName) {
-                        console.warn(
-                            `ℹ️  Normalized collision (relative): ${relativePathKey} normalized to same key as existing token.`
-                        );
-                        collisionKeys.add(relativeNormalizedKey);
-                    } else {
-                        console.warn(`ℹ️  Duplicate token for normalized key ${relativeNormalizedKey} at ${relativePathKey}`);
-                    }
-                }
+                upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
             }
         }
         // Legacy primitives are intentionally ignored during indexing (same as previous behavior).
@@ -1017,7 +1026,9 @@ function readAndCombineJsons(dir: string): Record<string, any> {
         process.exit(1);
     }
 
-    const files = fs.readdirSync(dir);
+    // Ensure deterministic output ordering across filesystems/environments.
+    const files = fs.readdirSync(dir).sort((a, b) => a.localeCompare(b));
+
     for (const file of files) {
         if (path.extname(file) === '.json') {
             const filePath = path.join(dir, file);
@@ -1026,13 +1037,16 @@ function readAndCombineJsons(dir: string): Record<string, any> {
                 let json: any = parseJsonWithOptionalRepair(fileContent, file);
 
                 // Some exports wrap the actual tokens under a "Tokens" object.
-                if ('Tokens' in json && typeof json.Tokens === 'object' && !Array.isArray(json.Tokens)) {
-                    json = json.Tokens;
+                // Guard against non-object JSON values to avoid "'in' operator" TypeError.
+                if (isPlainObject(json) && 'Tokens' in json && isPlainObject((json as any).Tokens)) {
+                    json = (json as any).Tokens;
                 }
 
-                // Remove metadata keys not relevant for token processing.
-                delete json['$schema'];
-                delete json['Translations'];
+                // Remove metadata keys not relevant for token processing (only when object-shaped).
+                if (isPlainObject(json)) {
+                    delete (json as any)['$schema'];
+                    delete (json as any)['Translations'];
+                }
 
                 const name = path.basename(file, '.json');
                 combined[name] = json;
