@@ -78,6 +78,10 @@ function isModeKey(key: string): boolean {
     return key.toLowerCase().startsWith('mode');
 }
 
+function shouldSkipTraversalKey(key: string): boolean {
+    return key.startsWith('$') || isModeKey(key);
+}
+
 function pickModeKey(keys: string[]): string | undefined {
     const modeDefault = keys.find(k => k === 'modeDefault');
     if (modeDefault) return modeDefault;
@@ -87,7 +91,7 @@ function pickModeKey(keys: string[]): string | undefined {
 function toSafePlaceholderName(id: string): string {
     let placeholderName = id.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
     placeholderName = placeholderName.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-    if (!placeholderName || placeholderName === '-') {
+    if (!placeholderName) {
         return 'unknown';
     }
     return placeholderName;
@@ -581,10 +585,7 @@ function collectTokenMaps(
     const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
-        if (key.startsWith('$')) continue;
-        if (isModeKey(key)) {
-            continue;
-        }
+        if (shouldSkipTraversalKey(key)) continue;
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
         collectTokenMaps(
@@ -890,10 +891,7 @@ function flattenTokens(
     const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
-        if (key.startsWith('$')) continue;
-        if (isModeKey(key)) {
-            continue;
-        }
+        if (shouldSkipTraversalKey(key)) continue;
 
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
