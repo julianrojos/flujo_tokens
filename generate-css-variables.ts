@@ -197,6 +197,66 @@ function hasCircularDependency(
     return false;
 }
 
+/**
+ * Builds a cached "leads-to-cycle" map for tokens to avoid repeated deep DFS per reference.
+ * The result answers: "starting from this token key, will I hit a cycle?"
+ */
+function buildCycleStatus(
+    valueMap: Map<string, TokenValue>,
+    collisionKeys: Set<string>
+): Map<string, boolean> {
+    const refsByToken = new Map<string, Set<string>>();
+
+    // Extract refs once per token key (valueMap includes normalized/relative keys; that's ok).
+    for (const [key, token] of valueMap.entries()) {
+        const refs = new Set<string>();
+        collectRefsFromValue(token.$value, refs);
+        refsByToken.set(key, refs);
+    }
+
+    const resolveKey = (ref: string): string | null => {
+        const canonical = canonicalizeRefPath(ref);
+        const normalized = normalizePathKey(canonical);
+        if (valueMap.has(canonical)) return canonical;
+        if (!collisionKeys.has(normalized) && valueMap.has(normalized)) return normalized;
+        return null;
+    };
+
+    const color = new Map<string, 0 | 1 | 2>(); // 0=unvisited, 1=visiting, 2=done
+    const leadsToCycle = new Map<string, boolean>();
+
+    const dfs = (node: string): boolean => {
+        const state = color.get(node) ?? 0;
+        if (state === 1) return true; // back-edge => cycle
+        if (state === 2) return leadsToCycle.get(node) ?? false;
+
+        color.set(node, 1);
+        let hitCycle = false;
+
+        const refs = refsByToken.get(node);
+        if (refs) {
+            for (const ref of refs) {
+                const next = resolveKey(ref);
+                if (!next) continue;
+                if (dfs(next)) {
+                    hitCycle = true;
+                    // keep going to fully color the graph; but we already know the answer
+                }
+            }
+        }
+
+        color.set(node, 2);
+        leadsToCycle.set(node, hitCycle);
+        return hitCycle;
+    };
+
+    for (const key of refsByToken.keys()) {
+        dfs(key);
+    }
+
+    return leadsToCycle;
+}
+
 function findTokenById(
     tokensData: Record<string, any>,
     targetId: string,
@@ -238,10 +298,16 @@ function processVariableAlias(
     summary: ExecutionSummary,
     aliasObj: unknown,
     currentPath: string[],
-    tokensData?: Record<string, any>
+    tokensData?: Record<string, any>,
+    idToVarName?: Map<string, string>
 ): string {
     if (isVariableAlias(aliasObj)) {
         if (aliasObj.id && tokensData) {
+            // Fast path: O(1) lookup by $id
+            const direct = idToVarName?.get(aliasObj.id);
+            if (direct) {
+                return `var(${direct})`;
+            }
             const tokenPath = findTokenById(tokensData, aliasObj.id);
             if (tokenPath) {
                 const cssPath = tokenPath.map(toKebabCase).join('-');
@@ -301,7 +367,9 @@ function processValue(
     visitedRefs: Set<string> = new Set(),
     refMap?: Map<string, string>,
     valueMap?: Map<string, TokenValue>,
-    collisionKeys?: Set<string>
+    collisionKeys?: Set<string>,
+    idToVarName?: Map<string, string>,
+    cycleStatus?: Map<string, boolean>
 ): string | null {
     if (value === null || value === undefined) {
         return 'null';
@@ -323,7 +391,7 @@ function processValue(
             return processShadow(value);
         }
         if (isVariableAlias(value)) {
-            return processVariableAlias(summary, value, currentPath, tokensData);
+            return processVariableAlias(summary, value, currentPath, tokensData, idToVarName);
         }
         console.warn(`⚠️  Token compuesto no soportado en ${currentPath.join('.')}, se omite`);
         summary.unresolvedRefs.push(`${currentPath.join('.')} (Composite object skipped)`);
@@ -374,8 +442,13 @@ function processValue(
                     return `/* circular-ref: ${tokenPath} */`;
                 }
 
-                // Detect Deep Cycles using normalized map
-                if (hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs))) {
+                // Detect deep cycles using cached graph (fallback to old DFS if cache not provided)
+                const keyForCycle =
+                    (valueMap?.has(canonicalPath) ? canonicalPath : undefined) ??
+                    (!collisionKeys?.has(normalizedTokenPath) ? normalizedTokenPath : canonicalPath);
+
+                const cachedHasCycle = cycleStatus?.get(keyForCycle);
+                if (cachedHasCycle === true || (cachedHasCycle === undefined && hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs)))) {
                     console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
                     summary.circularDeps++;
                     return `/* circular-ref: ${tokenPath} */`;
@@ -430,6 +503,7 @@ function collectTokenMaps(
     refMap: Map<string, string>,
     valueMap: Map<string, TokenValue>,
     collisionKeys: Set<string>,
+    idToVarName: Map<string, string>,
     depth = 0
 ): void {
     if (depth > MAX_DEPTH) {
@@ -442,6 +516,11 @@ function collectTokenMaps(
         const tokenPathKey = buildPathKey(currentPath);
         const normalizedKey = normalizePathKey(tokenPathKey);
         const varName = `--${prefix.filter(p => p).join('-')}`;
+
+        // Index $id -> varName for fast VARIABLE_ALIAS resolution
+        if (typeof (obj as any).$id === 'string' && (obj as any).$id.trim()) {
+            idToVarName.set((obj as any).$id, varName);
+        }
 
         // Populate Normalized Map (case-insensitive)
         if (normalizedKey) {
@@ -505,6 +584,7 @@ function collectTokenMaps(
             refMap,
             valueMap,
             collisionKeys,
+            idToVarName,
             depth + 1
         );
     }
@@ -518,6 +598,7 @@ function collectTokenMaps(
             refMap,
             valueMap,
             collisionKeys,
+            idToVarName,
             depth + 1
         );
     } else if (modeAny) {
@@ -529,6 +610,7 @@ function collectTokenMaps(
             refMap,
             valueMap,
             collisionKeys,
+            idToVarName,
             depth + 1
         );
     }
@@ -749,6 +831,8 @@ function flattenTokens(
     refMap?: Map<string, string>,
     valueMap?: Map<string, TokenValue>,
     collisionKeys?: Set<string>,
+    idToVarName?: Map<string, string>,
+    cycleStatus?: Map<string, boolean>,
     depth = 0
 ): string[] {
     if (depth > MAX_DEPTH) {
@@ -779,7 +863,9 @@ function flattenTokens(
             visitedRefs,
             refMap,
             valueMap,
-            collisionKeys
+            collisionKeys,
+            idToVarName,
+            cycleStatus
         );
         if (resolvedValue === null) {
             return collectedVars;
@@ -831,7 +917,9 @@ function flattenTokens(
                 visitedRefs,
                 refMap,
                 valueMap,
-                collisionKeys
+                collisionKeys,
+                idToVarName,
+                cycleStatus
             );
             if (processedValue === null) {
                 continue;
@@ -850,6 +938,8 @@ function flattenTokens(
                 refMap,
                 valueMap,
                 collisionKeys,
+                idToVarName,
+                cycleStatus,
                 depth + 1
             );
         }
@@ -866,6 +956,8 @@ function flattenTokens(
             refMap,
             valueMap,
             collisionKeys,
+            idToVarName,
+            cycleStatus,
             depth + 1
         );
     } else if (modeAny) {
@@ -879,6 +971,8 @@ function flattenTokens(
             refMap,
             valueMap,
             collisionKeys,
+            idToVarName,
+            cycleStatus,
             depth + 1
         );
     }
@@ -899,6 +993,7 @@ async function main() {
     const refMap = new Map<string, string>();
     const valueMap = new Map<string, TokenValue>();
     const collisionKeys = new Set<string>();
+    const idToVarName = new Map<string, string>();
 
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
@@ -922,9 +1017,13 @@ async function main() {
             [fileName],
             refMap,
             valueMap,
-            collisionKeys
+            collisionKeys,
+            idToVarName
         );
     }
+
+    // Build cached cycle info once (massive speedup on large graphs)
+    const cycleStatus = buildCycleStatus(valueMap, collisionKeys);
 
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
         const normalizedFileName = toKebabCase(fileName);
@@ -937,7 +1036,9 @@ async function main() {
             [fileName],
             refMap,
             valueMap,
-            collisionKeys
+            collisionKeys,
+            idToVarName,
+            cycleStatus
         );
     }
 
