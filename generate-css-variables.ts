@@ -10,11 +10,11 @@ const OUTPUT_FILE = path.resolve(__dirname, 'output/variables.css');
 const MAX_DEPTH = 50;
 const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 
-// --- Regex (centralized, safe) ---
-// NOTE: we keep separate /g instances to avoid lastIndex interference during nested calls.
-const W3C_REF_REGEX_DETECT = /\{([A-Za-z0-9_./\s-]+)\}/; // non-global
-const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // for processValue.replace
-const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // for collectRefsFromValue.match
+// --- Regex (centralized) ---
+// Keep separate instances (especially /g) to avoid lastIndex interference across nested calls.
+const W3C_REF_REGEX_DETECT = /\{([A-Za-z0-9_./\s-]+)\}/; // non-global: safe for test()
+const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // global: used by String.replace()
+const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // global: used to collect all occurrences
 
 // --- Types ---
 
@@ -92,6 +92,7 @@ function createProcessingContext(args: {
     idToVarName?: Map<string, string>;
     cycleStatus?: Map<string, boolean>;
 }): ProcessingContext {
+    // Freeze to prevent accidental mutation of the shared context object.
     return Object.freeze({ ...args });
 }
 
@@ -110,10 +111,12 @@ function isModeKey(key: string): boolean {
 }
 
 function shouldSkipKey(key: string): boolean {
+    // Skip metadata keys ($...) and mode branches; the chosen mode is handled separately.
     return key.startsWith('$') || isModeKey(key);
 }
 
 function pickModeKey(keys: string[]): string | undefined {
+    // Prefer modeDefault for deterministic output; otherwise use the first mode* key.
     return keys.find(k => k === 'modeDefault') ?? keys.find(isModeKey);
 }
 
@@ -165,13 +168,15 @@ function checkDepthLimit(summary: ExecutionSummary, depth: number, currentPath: 
 }
 
 function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reason: string): void {
-    // reason must include the leading space/paren formatting (e.g. " (Empty ref)")
+    // Legacy formatter: callers must include leading space/parens in `reason` (e.g. " (Empty ref)").
+    // Prefer recordUnresolvedTyped() for new call sites to keep formatting consistent.
     summary.unresolvedRefs.push(`${pathStr(currentPath)}${reason}`);
 }
 
 /**
- * Typed helper that preserves EXACTLY the current unresolvedRefs format:
- * "path (Label: detail)"
+ * Typed helper that preserves the unresolvedRefs output format:
+ *   "path (Label: detail)"
+ * This keeps logs consistent without forcing callers to hand-format punctuation.
  */
 function recordUnresolvedTyped(
     summary: ExecutionSummary,
@@ -203,6 +208,7 @@ function emitCssVar(
 }
 
 function buildPathKey(segments: string[]): string {
+    // Build a dotted key, excluding mode segments to avoid treating modes as part of identity.
     return segments
         .filter(segment => segment && !isModeKey(segment))
         .join('.')
@@ -211,19 +217,25 @@ function buildPathKey(segments: string[]): string {
 }
 
 /**
- * Normalizes a path key to lowercase (preserves delimiters to avoid over-collapsing distinct tokens).
+ * Lowercase-only normalization used for case-insensitive lookups.
+ * Delimiters are preserved to avoid collapsing distinct paths.
  */
 function normalizePathKey(pathKey: string): string {
     return pathKey.toLowerCase();
 }
 
 /**
- * Canonicalizes a token path by replacing slashes/backslashes and whitespace with dots.
+ * Canonicalize a reference path by normalizing separators and whitespace to dots.
+ * Intended for values found inside "{...}" references.
  */
 function canonicalizeRefPath(pathKey: string): string {
     return pathKey.trim().replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
 }
 
+/**
+ * Initializes a visited set with both exact and normalized forms for robust cycle detection
+ * regardless of casing or minor formatting differences.
+ */
 function buildVisitedRefSet(pathSegments: string[]): Set<string> {
     const exactPath = pathSegments.join('.');
     const normalizedPath = normalizePathKey(exactPath);
@@ -234,6 +246,7 @@ function buildVisitedRefSet(pathSegments: string[]): Set<string> {
 }
 
 function indexTokenIdToVarName(tokenObj: any, varName: string, idToVarName: Map<string, string>): void {
+    // Index Figma $id -> CSS var name for fast VARIABLE_ALIAS resolution.
     const id = tokenObj?.$id;
     if (typeof id === 'string' && id.trim()) {
         idToVarName.set(id, varName);
@@ -241,14 +254,15 @@ function indexTokenIdToVarName(tokenObj: any, varName: string, idToVarName: Map<
 }
 
 /**
- * Centralized resolver for "exact -> normalized" token key lookup.
- * Mirrors prior behavior: prefer exact; fallback to normalized only if not colliding.
+ * Central resolver for "exact -> normalized" token key lookup.
+ * Prefer exact matches; only fall back to normalized keys when there is no known collision.
  */
 function getResolvedTokenKey(ref: string, ctx: ProcessingContext): string | null {
     const canonical = canonicalizeRefPath(ref);
     const normalized = normalizePathKey(canonical);
 
     const hasKey = (key: string): boolean => {
+        // Defensive: some contexts may omit one of these maps.
         if (ctx.valueMap?.has(key)) return true;
         if (ctx.refMap?.has(key)) return true;
         return false;
@@ -275,9 +289,11 @@ type WalkHandlers = {
 };
 
 /**
- * Conservative universal walker:
- * - Centralizes: depth guard, key sorting, modeKey selection, skipKey logic, recursion.
- * - Does NOT normalize "legacy vs $value" semantics: leaf handling is delegated via callbacks.
+ * Universal walker for token trees.
+ * - Traverses plain objects in sorted key order for stable output.
+ * - Skips $-metadata and mode branches; then traverses the selected mode branch once.
+ * - Treats any object containing "$value" as a W3C token leaf and dispatches to onTokenValue.
+ * - Legacy primitives (string/number/boolean leaves without $value) are dispatched via onLegacyPrimitive.
  */
 function walkTokenTree(
     summary: ExecutionSummary,
@@ -325,6 +341,7 @@ function walkTokenTree(
     }
 
     if (modeKey) {
+        // Traverse the chosen mode branch after normal keys for deterministic ordering.
         walkTokenTree(
             summary,
             (obj as Record<string, any>)[modeKey],
@@ -337,12 +354,11 @@ function walkTokenTree(
 }
 
 /**
- * Recursively collects all W3C references ({path.to.token}) from any value structure.
- * Handles strings (including embedded refs), arrays, and nested objects.
+ * Collects all W3C references ({path.to.token}) found within a value.
+ * For each reference, both canonical and normalized keys are recorded to support case-insensitive resolution.
  */
 function collectRefsFromValue(value: unknown, refs: Set<string>): void {
     if (typeof value === 'string') {
-        // Match all occurrences of {token.path} in the string (allowing spaces and slashes)
         W3C_REF_REGEX_COLLECT.lastIndex = 0;
         const matches = value.match(W3C_REF_REGEX_COLLECT);
         if (matches) {
@@ -361,6 +377,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
         }
     } else if (isPlainObject(value)) {
         for (const key of Object.keys(value)) {
+            // Ignore metadata fields to reduce noise.
             if (!key.startsWith('$')) {
                 collectRefsFromValue((value as Record<string, unknown>)[key], refs);
             }
@@ -369,8 +386,8 @@ function collectRefsFromValue(value: unknown, refs: Set<string>): void {
 }
 
 /**
- * Checks for circular dependencies by recursively following all references.
- * Returns true if a cycle is detected.
+ * Fallback deep cycle check (DFS) used when cycleStatus is not available.
+ * Note: this can be expensive for large graphs, hence the cycleStatus cache.
  */
 function hasCircularDependency(
     startPath: string,
@@ -405,8 +422,8 @@ function hasCircularDependency(
 }
 
 /**
- * Builds a cached "leads-to-cycle" map for tokens to avoid repeated deep DFS per reference.
- * The result answers: "starting from this token key, will I hit a cycle?"
+ * Precomputes, for each token key, whether it can reach a cycle via references.
+ * This is used to short-circuit deep dependency checks during resolution.
  */
 function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
     const { valueMap } = ctx;
@@ -416,7 +433,7 @@ function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
 
     const refsByToken = new Map<string, Set<string>>();
 
-    // Extract refs once per token key (valueMap includes normalized/relative keys; that's ok).
+    // Extract references once per token key.
     for (const [key, token] of valueMap.entries()) {
         const refs = new Set<string>();
         collectRefsFromValue(token.$value, refs);
@@ -437,11 +454,12 @@ function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
         const refs = refsByToken.get(node);
         if (refs) {
             for (const ref of refs) {
+                // Follow edges using the same resolution rules used by runtime reference resolution.
                 const next = getResolvedTokenKey(ref, ctx);
                 if (!next) continue;
                 if (dfs(next)) {
                     hitCycle = true;
-                    // keep going to fully color the graph; but we already know the answer
+                    // Keep going to fully color the graph; we already know the answer for `node`.
                 }
             }
         }
@@ -458,6 +476,10 @@ function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
     return leadsToCycle;
 }
 
+/**
+ * Fallback recursive scan to resolve VARIABLE_ALIAS ids when the $id index misses.
+ * This is intentionally conservative (and potentially expensive) but only used as a last resort.
+ */
 function findTokenById(tokensData: Record<string, any>, targetId: string, currentPath: string[] = []): string[] | null {
     if (!isPlainObject(tokensData)) {
         return null;
@@ -496,16 +518,19 @@ function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, current
         const { summary, tokensData, idToVarName } = ctx;
 
         if (aliasObj.id && tokensData) {
-            // Fast path: O(1) lookup by $id
+            // Fast path: O(1) lookup by $id.
             const direct = idToVarName?.get(aliasObj.id);
             if (direct) {
                 return `var(${direct})`;
             }
+
+            // Slow path: attempt to locate the token in the full JSON tree (best-effort).
             const tokenPath = findTokenById(tokensData, aliasObj.id);
             if (tokenPath) {
                 const cssPath = tokenPath.map(toKebabCase).join('-');
                 return `var(--${cssPath})`;
             }
+
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasObj.id}`);
             console.warn(
                 `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
@@ -516,8 +541,11 @@ function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, current
             recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasObj.id);
             return `var(--unresolved-${placeholderName})`;
         }
+
+        // If we can't resolve the alias id, fall back to a self var() placeholder.
         return `var(--${currentPath.map(toKebabCase).join('-')})`;
     }
+
     return JSON.stringify(aliasObj);
 }
 
@@ -528,7 +556,7 @@ function processShadow(shadowObj: unknown): string {
 
     const shadow = shadowObj as ShadowObject;
 
-    // 100% safe (keeps null-tolerance): destructure raw, then apply ?? defaults.
+    // Null-tolerant parsing: Figma exports may contain nulls; we treat them as missing fields.
     const { type: rawType, color: rawColor, offset: rawOffset, radius: rawRadius, spread: rawSpread } = shadow;
 
     const type = rawType ?? 'DROP_SHADOW';
@@ -537,6 +565,7 @@ function processShadow(shadowObj: unknown): string {
     const radius = rawRadius ?? 0;
     const spread = rawSpread ?? 0;
 
+    // Support both normalized (0..1) and byte (0..255) channels.
     const isNormalized = (color.r || 0) <= 1 && (color.g || 0) <= 1 && (color.b || 0) <= 1;
     const to255 = (c: number | undefined, normalized: boolean): number =>
         normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
@@ -577,6 +606,7 @@ function resolveReference(
     const canonicalPath = canonicalizeRefPath(tokenPath);
     const normalizedTokenPath = normalizePathKey(canonicalPath);
 
+    // Only run expensive checks once per referenced token within the same string.
     if (!seenInValue.has(normalizedTokenPath)) {
         if (visitedRefs.has(normalizedTokenPath)) {
             console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${pathStr(currentPath)}`);
@@ -584,7 +614,7 @@ function resolveReference(
             return `/* circular-ref: ${tokenPath} */`;
         }
 
-        // Detect deep cycles using cached graph (fallback to old DFS if cache not provided)
+        // Detect deep cycles using cached graph (fallback to DFS when cache missing).
         const keyForCycle =
             (valueMap?.has(canonicalPath) ? canonicalPath : undefined) ??
             (!collisionKeys?.has(normalizedTokenPath) ? normalizedTokenPath : canonicalPath);
@@ -599,15 +629,15 @@ function resolveReference(
             return `/* circular-ref: ${tokenPath} */`;
         }
 
-        // Add to visited AFTER cycle check passes
+        // Mark visited only after passing the cycle checks.
         visitedRefs.add(normalizedTokenPath);
         if (canonicalPath !== normalizedTokenPath) {
-            visitedRefs.add(canonicalPath); // Track exact path too
+            visitedRefs.add(canonicalPath);
         }
         seenInValue.add(normalizedTokenPath);
     }
 
-    // Resolution Strategy: Exact Match -> Normalized Match (centralized)
+    // Resolve: exact key first, then normalized key (unless the normalized form is known to collide).
     const resolvedKey = getResolvedTokenKey(canonicalPath, ctx);
     const mappedVarName = resolvedKey ? refMap?.get(resolvedKey) : undefined;
 
@@ -615,11 +645,13 @@ function resolveReference(
         return `var(${mappedVarName})`;
     }
 
+    // Keep output deterministic: derive a "broken-ref" var name from the canonical path.
     const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
     const varName = `--broken-ref-${cssPath || 'unknown'}`;
 
     console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)}`);
     recordUnresolvedTyped(summary, currentPath, 'Ref', tokenPath);
+
     if (!isValidCssVariableName(varName)) {
         summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
         return match;
@@ -666,18 +698,17 @@ function processValue(
     if (typeof value === 'string') {
         const seenInValue = new Set<string>();
 
-        // If no references, return as is (with simple string quoting if needed)
+        // Fast exit if no "{...}" references are present.
         if (!W3C_REF_REGEX_DETECT.test(value)) {
-            // Preserve RGB/RGBA colors
+            // Preserve already-valid CSS color syntaxes.
             if (value.startsWith('rgba') || value.startsWith('rgb(')) {
                 return value;
             }
-
-            // Preserve hexadecimal colors
             if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) {
                 return value;
             }
 
+            // Quote string tokens so consumers can distinguish them from raw identifiers.
             if (varType === 'string') {
                 const escapedValue = value.replace(/"/g, '\\"');
                 return `"${escapedValue}"`;
@@ -701,6 +732,7 @@ function processValue(
 function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [], currentPath: string[] = []): void {
     const { summary, refMap, valueMap, collisionKeys, idToVarName } = ctx;
 
+    // Indexing is only valid when all maps are present.
     if (!refMap || !valueMap || !collisionKeys || !idToVarName) {
         return;
     }
@@ -711,10 +743,9 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             const normalizedKey = normalizePathKey(tokenPathKey);
             const varName = buildCssVarNameFromPrefix(tokenPrefix);
 
-            // Index $id -> varName for fast VARIABLE_ALIAS resolution
             indexTokenIdToVarName(tokenObj, varName, idToVarName);
 
-            // Populate Normalized Map (case-insensitive)
+            // Populate the normalized key map (case-insensitive).
             if (normalizedKey) {
                 if (!refMap.has(normalizedKey)) {
                     refMap.set(normalizedKey, varName);
@@ -730,7 +761,7 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
                 }
             }
 
-            // Also store relative path (without filename) to resolve local refs like {token}
+            // Also store a "relative" key (without the file segment) to resolve local refs like "{token}".
             const relativePathKey = buildPathKey(tokenPath.slice(1));
             const relativeNormalizedKey = normalizePathKey(relativePathKey);
             if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
@@ -750,10 +781,14 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
                 }
             }
         }
-        // legacy primitives intentionally ignored in this pass (same as previous behavior)
+        // Legacy primitives are intentionally ignored during indexing (same as previous behavior).
     });
 }
 
+/**
+ * Extracts CSS variables from a :root { ... } block.
+ * This is a conservative parser intended for change detection, not a full CSS parser.
+ */
 function extractCssVariables(cssContent: string): Map<string, string> {
     const variables = new Map<string, string>();
     const rootStart = cssContent.indexOf(':root');
@@ -782,6 +817,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
 
     let rootContent: string;
     if (braceCount !== 0) {
+        // Fallback: best-effort extraction if braces are unbalanced.
         const rootMatch = cssContent.match(/:root\s*\{([\s\S]+?)\}/);
         if (!rootMatch) {
             return variables;
@@ -791,7 +827,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
         rootContent = cssContent.substring(braceStart + 1, braceEnd);
     }
 
-    // Strip comments only inside :root content
+    // Strip comments within :root to simplify scanning.
     rootContent = rootContent.replace(/\/\*[\s\S]*?\*\//g, '');
 
     const isEscaped = (pos: number): boolean => {
@@ -889,7 +925,8 @@ function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
             throw error;
         }
 
-        // Try to repair common Figma export issues (like extra "Translations" section)
+        // Repair common Figma export issue: extra "Translations" section appended after the JSON.
+        // Conservative on purpose: if this repair attempt fails, rethrow the original error.
         const translationStart = fileContent.indexOf('"Translations"');
         if (translationStart > 0) {
             const firstBrace = fileContent.indexOf('{');
@@ -898,11 +935,11 @@ function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
             try {
                 return JSON.parse(cleanedContent);
             } catch {
-                throw error; // conservative: do not fall through to other repairs
+                throw error; // do not fall through to other repairs
             }
         }
 
-        // Try to fix malformed JSON by wrapping or closing braces
+        // Minimal best-effort fix: ensure outer braces exist.
         let cleaned = fileContent.trim();
         if (!cleaned.startsWith('{')) cleaned = `{${cleaned}`;
         if (!cleaned.endsWith('}')) cleaned = `${cleaned}}`;
@@ -917,8 +954,8 @@ function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
 }
 
 /**
- * Reads all JSON files from the directory and combines them into a single object.
- * Keys in the combined object are the filenames (without extension).
+ * Reads all JSON files from a directory and merges them into a single object.
+ * Each top-level key is the filename (without extension).
  */
 function readAndCombineJsons(dir: string): Record<string, any> {
     const combined: Record<string, any> = {};
@@ -936,12 +973,12 @@ function readAndCombineJsons(dir: string): Record<string, any> {
                 const fileContent = fs.readFileSync(filePath, 'utf-8');
                 let json: any = parseJsonWithOptionalRepair(fileContent, file);
 
-                // Handle wrapped "Tokens" object structure if present
+                // Some exports wrap the actual tokens under a "Tokens" object.
                 if ('Tokens' in json && typeof json.Tokens === 'object' && !Array.isArray(json.Tokens)) {
                     json = json.Tokens;
                 }
 
-                // Remove metadata keys
+                // Remove metadata keys not relevant for token processing.
                 delete json['$schema'];
                 delete json['Translations'];
 
@@ -956,7 +993,10 @@ function readAndCombineJsons(dir: string): Record<string, any> {
 }
 
 /**
- * Recursive function to flatten the token object into CSS variables.
+ * Flattens a token tree into ":root { --var: value; }" lines.
+ * Supports:
+ * - W3C token objects with "$value"
+ * - Legacy primitives (leaf key-value pairs without $value)
  */
 function flattenTokens(
     ctx: ProcessingContext,
@@ -978,7 +1018,7 @@ function flattenTokens(
                 return;
             }
 
-            // Initialize visited with both exact and normalized paths to catch self-refs regardless of casing
+            // Seed visited with both exact and normalized paths to catch self-refs regardless of casing.
             const visitedRefs = buildVisitedRefSet(tokenPath);
 
             const resolvedValue = processValue(ctx, rawValue, varType, tokenPath, visitedRefs);
@@ -991,7 +1031,7 @@ function flattenTokens(
         },
 
         onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix }) => {
-            // Legacy support: handle loose key-value tokens without $value wrapper
+            // Legacy support: loose key-value tokens without a "$value" wrapper.
             summary.totalTokens++;
 
             const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
@@ -1003,7 +1043,7 @@ function flattenTokens(
                 return;
             }
 
-            // (recordInvalidName=false) to preserve legacy behavior (no invalidNames summary entry)
+            // Keep legacy behavior: invalid var names are warned but not recorded in summary.invalidNames.
             emitCssVar(summary, collectedVars, varName, processedValue, leafPath, false);
         }
     });
@@ -1072,7 +1112,7 @@ function logChangeDetection(previousVariables: Map<string, string>, cssLines: st
 }
 
 function printExecutionSummary(summary: ExecutionSummary): void {
-    // Summary Report
+    // Summary report
     console.log('\n========================================');
     console.log('       RESUMEN DE EJECUCIÓN      ');
     console.log('========================================');
@@ -1104,7 +1144,7 @@ async function main() {
     console.log('📖 Leyendo archivos JSON...');
     const combinedTokens = readAndCombineJsons(JSON_DIR);
 
-    // (1) Pre-procesar entradas una sola vez (mismo orden que Object.entries)
+    // Preprocess entries once (preserves Object.entries order) for reuse across both passes.
     const fileEntries = Object.entries(combinedTokens).map(([name, content]) => ({
         originalName: name,
         kebabName: toKebabCase(name),
@@ -1128,7 +1168,7 @@ async function main() {
         }
     }
 
-    // Context for indexing pass (cycleStatus not available yet; tokensData not needed here).
+    // Indexing pass context (no tokensData/cycleStatus needed yet).
     const indexingCtx = createProcessingContext({
         summary,
         refMap,
@@ -1137,15 +1177,15 @@ async function main() {
         idToVarName
     });
 
-    // Index pass
+    // Pass 1: index token paths -> CSS var names and values (for reference resolution).
     for (const { originalName, kebabName, content } of fileEntries) {
         collectTokenMaps(indexingCtx, content, [kebabName], [originalName]);
     }
 
-    // Build cached cycle info once (massive speedup on large graphs)
+    // Build cycle cache once to avoid repeated deep DFS during reference resolution.
     const cycleStatus = buildCycleStatus(indexingCtx);
 
-    // Full processing context (includes tokensData and cycleStatus)
+    // Full processing context for the flattening pass.
     const processingCtx = createProcessingContext({
         summary,
         tokensData: combinedTokens,
@@ -1156,7 +1196,7 @@ async function main() {
         cycleStatus
     });
 
-    // Flatten pass
+    // Pass 2: generate final CSS lines.
     for (const { originalName, kebabName, content } of fileEntries) {
         flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName]);
     }
@@ -1179,7 +1219,7 @@ async function main() {
 
     printExecutionSummary(summary);
 
-    // Change Detection Log
+    // Optional diff-style logging against the previous CSS file.
     if (previousVariables.size > 0) {
         logChangeDetection(previousVariables, cssLines);
     }
