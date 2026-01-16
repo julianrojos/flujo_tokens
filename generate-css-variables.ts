@@ -647,8 +647,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
         const valueParsed = rootContent.substring(valueStart, i).trim();
         const valueIsSane =
             valueParsed.length > 0 &&
-            !/[\r\n\x00-\x1F]/.test(valueParsed) &&
-            valueParsed === valueParsed.trim();
+            !/[\r\n\x00-\x1F]/.test(valueParsed);
         if (name && valueIsSane && isValidCssVariableName(`--${name}`)) {
             variables.set(name, valueParsed);
         }
