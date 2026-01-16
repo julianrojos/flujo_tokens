@@ -563,7 +563,7 @@ function processShadow(
     ctx: ProcessingContext,
     shadowObj: unknown,
     currentPath: string[],
-    visitedRefs: Set<string>
+    visitedRefs: ReadonlySet<string>
 ): string {
     if (!isPlainObject(shadowObj)) {
         return JSON.stringify(shadowObj);
@@ -602,10 +602,8 @@ function processShadow(
 
         // Some exports may represent colors as strings (including "{ref}" or "rgba(...)").
         if (typeof rawColor === 'string') {
-            // IMPORTANT: use a local visited set so resolving a shadow color doesn't "poison" siblings
-            // (e.g., multiple shadows in an array) and trigger false circular-ref detections.
-            const localVisited = new Set(visitedRefs);
-            const processed = processValue(ctx, rawColor as any, undefined, colorPath, localVisited);
+            // Use a fresh visited set so this nested processing can't affect siblings.
+            const processed = processValue(ctx, rawColor as any, undefined, colorPath, new Set(visitedRefs));
             return processed ?? rawColor;
         }
 
@@ -648,7 +646,7 @@ function resolveReference(
     tokenPath: string,
     originalValue: string,
     currentPath: string[],
-    visitedRefs: Set<string>,
+    visitedRefs: ReadonlySet<string>,
     seenInValue: Set<string>
 ): string {
     const { summary, refMap, valueMap, collisionKeys, cycleStatus } = ctx;
@@ -686,11 +684,7 @@ function resolveReference(
             return `/* circular-ref: ${tokenPath} */`;
         }
 
-        // Mark visited only after passing the cycle checks.
-        visitedRefs.add(normalizedTokenPath);
-        if (canonicalPath !== normalizedTokenPath) {
-            visitedRefs.add(canonicalPath);
-        }
+        // IMPORTANT: do not mutate visitedRefs here; it must remain a per-branch seed.
         seenInValue.add(normalizedTokenPath);
     }
 
@@ -721,7 +715,7 @@ function processValue(
     value: TokenValue['$value'],
     varType?: string,
     currentPath: string[] = [],
-    visitedRefs: Set<string> = new Set()
+    visitedRefs: ReadonlySet<string> = new Set()
 ): string | null {
     const { summary } = ctx;
 
@@ -731,8 +725,8 @@ function processValue(
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
-            // Pass ctx so shadow colors can resolve aliases/refs into valid CSS var() usage.
-            return value.map(v => processShadow(ctx, v, currentPath, visitedRefs)).join(', ');
+            // Use a fresh visited set per element to avoid sibling contamination.
+            return value.map(v => processShadow(ctx, v, currentPath, new Set(visitedRefs))).join(', ');
         }
         try {
             return JSON.stringify(value);
@@ -743,7 +737,7 @@ function processValue(
 
     if (typeof value === 'object') {
         if (varType === 'shadow' && !isVariableAlias(value)) {
-            return processShadow(ctx, value, currentPath, visitedRefs);
+            return processShadow(ctx, value, currentPath, new Set(visitedRefs));
         }
         if (isVariableAlias(value)) {
             return processVariableAlias(ctx, value, currentPath);
