@@ -10,6 +10,12 @@ const OUTPUT_FILE = path.resolve(__dirname, 'output/variables.css');
 const MAX_DEPTH = 50;
 const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 
+// --- Regex (centralized, safe) ---
+// NOTE: we keep separate /g instances to avoid lastIndex interference during nested calls.
+const W3C_REF_REGEX_DETECT = /\{([A-Za-z0-9_./\s-]+)\}/; // non-global
+const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // for processValue.replace
+const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // for collectRefsFromValue.match
+
 // --- Types ---
 
 interface TokenValue {
@@ -77,6 +83,10 @@ function isModeKey(key: string): boolean {
     return key.toLowerCase().startsWith('mode');
 }
 
+function shouldSkipKey(key: string): boolean {
+    return key.startsWith('$') || isModeKey(key);
+}
+
 function pickModeKey(keys: string[]): string | undefined {
     return keys.find(k => k === 'modeDefault') ?? keys.find(isModeKey);
 }
@@ -109,6 +119,35 @@ function isValidCssVariableName(name: string): boolean {
         return false;
     }
     return /^[a-zA-Z0-9_-]+$/.test(afterDashes);
+}
+
+function checkDepthLimit(summary: ExecutionSummary, depth: number, currentPath: string[]): boolean {
+    if (depth <= MAX_DEPTH) {
+        return false;
+    }
+    console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
+    summary.depthLimitHits++;
+    return true;
+}
+
+function emitCssVar(
+    summary: ExecutionSummary,
+    collectedVars: string[],
+    varName: string,
+    value: string,
+    currentPath: string[],
+    recordInvalidName: boolean
+): void {
+    if (!isValidCssVariableName(varName)) {
+        console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
+        if (recordInvalidName) {
+            summary.invalidNames.push(`${currentPath.join('.')} (Invalid CSS Var: ${varName})`);
+        }
+        return;
+    }
+
+    collectedVars.push(`  ${varName}: ${value};`);
+    summary.successCount++;
 }
 
 function buildPathKey(segments: string[]): string {
@@ -149,7 +188,8 @@ function buildVisitedRefSet(pathSegments: string[]): Set<string> {
 function collectRefsFromValue(value: unknown, refs: Set<string>): void {
     if (typeof value === 'string') {
         // Match all occurrences of {token.path} in the string (allowing spaces and slashes)
-        const matches = value.match(/\{([A-Za-z0-9_./\s-]+)\}/g);
+        W3C_REF_REGEX_COLLECT.lastIndex = 0;
+        const matches = value.match(W3C_REF_REGEX_COLLECT);
         if (matches) {
             matches.forEach(match => {
                 const tokenPath = match.slice(1, -1).trim();
@@ -408,12 +448,10 @@ function processValue(
     }
 
     if (typeof value === 'string') {
-        // Regex to find all {token.path} references
-        const refRegex = /\{([A-Za-z0-9_./\s-]+)\}/g;
         const seenInValue = new Set<string>();
 
         // If no references, return as is (with simple string quoting if needed)
-        if (!refRegex.test(value)) {
+        if (!W3C_REF_REGEX_DETECT.test(value)) {
             // Preserve RGB/RGBA colors
             if (value.startsWith('rgba') || value.startsWith('rgb(')) {
                 return value;
@@ -431,8 +469,8 @@ function processValue(
             return value;
         }
 
-        refRegex.lastIndex = 0; // Reset after test() before replace()
-        return value.replace(refRegex, (match, tokenPath) => {
+        W3C_REF_REGEX_REPLACE.lastIndex = 0;
+        return value.replace(W3C_REF_REGEX_REPLACE, (match, tokenPath) => {
             tokenPath = tokenPath.trim();
             if (!tokenPath) {
                 console.warn(`⚠️  Empty W3C reference in "${value}" at ${currentPath.join('.')}`);
@@ -456,7 +494,10 @@ function processValue(
                     (!collisionKeys?.has(normalizedTokenPath) ? normalizedTokenPath : canonicalPath);
 
                 const cachedHasCycle = cycleStatus?.get(keyForCycle);
-                if (cachedHasCycle === true || (cachedHasCycle === undefined && hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs)))) {
+                if (
+                    cachedHasCycle === true ||
+                    (cachedHasCycle === undefined && hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs)))
+                ) {
                     console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
                     summary.circularDeps++;
                     return `/* circular-ref: ${tokenPath} */`;
@@ -514,9 +555,7 @@ function collectTokenMaps(
     idToVarName: Map<string, string>,
     depth = 0
 ): void {
-    if (depth > MAX_DEPTH) {
-        console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
-        summary.depthLimitHits++;
+    if (checkDepthLimit(summary, depth, currentPath)) {
         return;
     }
 
@@ -536,12 +575,8 @@ function collectTokenMaps(
                 refMap.set(normalizedKey, varName);
                 valueMap.set(normalizedKey, obj as TokenValue);
             } else {
-                // Optimization: Only warn if it's NOT an exact-match collision (which handles itself)
-                // and implies a "different casing" collision.
                 const existing = refMap.get(normalizedKey);
                 if (existing !== varName) {
-                    // This is the "silent loss" scenario mentioned. We log it but allow exact map to save the day for specific refs.
-                    // Normalized lookups will still only find the first one.
                     console.warn(`ℹ️  Normalized collision: ${tokenPathKey} normalized to same key as existing token.`);
                     collisionKeys.add(normalizedKey);
                 } else {
@@ -549,6 +584,7 @@ function collectTokenMaps(
                 }
             }
         }
+
         // Also store relative path (without filename) to resolve local refs like {token}
         const relativePathKey = buildPathKey(currentPath.slice(1));
         const relativeNormalizedKey = normalizePathKey(relativePathKey);
@@ -577,10 +613,8 @@ function collectTokenMaps(
     const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
-        if (key.startsWith('$')) continue;
-        if (isModeKey(key)) {
-            continue;
-        }
+        if (shouldSkipKey(key)) continue;
+
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
         collectTokenMaps(
@@ -830,9 +864,7 @@ function flattenTokens(
     cycleStatus?: Map<string, boolean>,
     depth = 0
 ): string[] {
-    if (depth > MAX_DEPTH) {
-        console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
-        summary.depthLimitHits++;
+    if (checkDepthLimit(summary, depth, currentPath)) {
         return collectedVars;
     }
 
@@ -865,16 +897,9 @@ function flattenTokens(
         if (resolvedValue === null) {
             return collectedVars;
         }
+
         const varName = `--${prefix.filter(p => p).join('-')}`;
-
-        if (!isValidCssVariableName(varName)) {
-            console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
-            summary.invalidNames.push(`${currentPath.join('.')} (Invalid CSS Var: ${varName})`);
-            return collectedVars;
-        }
-
-        collectedVars.push(`  ${varName}: ${resolvedValue};`);
-        summary.successCount++;
+        emitCssVar(summary, collectedVars, varName, resolvedValue, currentPath, true);
         return collectedVars;
     }
 
@@ -886,10 +911,7 @@ function flattenTokens(
     const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
-        if (key.startsWith('$')) continue;
-        if (isModeKey(key)) {
-            continue;
-        }
+        if (shouldSkipKey(key)) continue;
 
         const value = obj[key];
         const normalizedKey = toKebabCase(key);
@@ -900,6 +922,7 @@ function flattenTokens(
                 console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
                 continue;
             }
+
             summary.totalTokens++;
             const visitedRefs = buildVisitedRefSet([...currentPath, key]);
             const processedValue = processValue(
@@ -918,8 +941,9 @@ function flattenTokens(
             if (processedValue === null) {
                 continue;
             }
-            collectedVars.push(`  ${varName}: ${processedValue};`);
-            summary.successCount++;
+
+            // (recordInvalidName=false) to preserve legacy behavior (no invalidNames summary entry)
+            emitCssVar(summary, collectedVars, varName, processedValue, [...currentPath, key], false);
             continue;
         } else {
             flattenTokens(
