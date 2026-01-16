@@ -271,8 +271,11 @@ function getResolvedTokenKey(ref: string, ctx: ProcessingContext): string | null
         return false;
     };
 
-    if (hasKey(canonical)) return canonical;
+    // ✅ Fix: fail-fast on normalized collisions BEFORE any existence check.
+    // Otherwise ambiguous local keys like "bg" could silently resolve to the first indexed token.
     if (ctx.collisionKeys?.has(normalized)) return null;
+
+    if (hasKey(canonical)) return canonical;
     if (hasKey(normalized)) return normalized;
     return null;
 }
