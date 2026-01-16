@@ -28,8 +28,19 @@ interface TokenValue {
     [key: string]: any;
 }
 
+interface VariableAliasObject {
+    type: 'VARIABLE_ALIAS';
+    id?: string;
+}
+
 interface ShadowObject {
     type?: 'DROP_SHADOW' | 'INNER_SHADOW';
+    /**
+     * In practice (Figma + DTCG), shadow.color may be either:
+     * - RGBA channels {r,g,b,a}
+     * - VARIABLE_ALIAS object
+     * - (sometimes) a string (e.g., "{color.token}" or "rgba(...)")
+     */
     color?:
     | {
         r: number;
@@ -37,6 +48,8 @@ interface ShadowObject {
         b: number;
         a?: number;
     }
+    | VariableAliasObject
+    | string
     | null;
     offset?:
     | {
@@ -46,11 +59,6 @@ interface ShadowObject {
     | null;
     radius?: number | null;
     spread?: number | null;
-}
-
-interface VariableAliasObject {
-    type: 'VARIABLE_ALIAS';
-    id?: string;
 }
 
 interface ExecutionSummary {
@@ -549,40 +557,91 @@ function processVariableAlias(ctx: ProcessingContext, aliasObj: unknown, current
     return JSON.stringify(aliasObj);
 }
 
-function processShadow(shadowObj: unknown): string {
+/**
+ * Formats a shadow token into CSS box-shadow syntax.
+ * Correctly supports `color` as either RGBA channels or a VARIABLE_ALIAS (emitted as var(--...)).
+ *
+ * Note: We deliberately keep the "color" as the last shadow component. This allows CSS variables
+ * (var(--...)) to work, and avoids wrapping var() inside rgba(...), which is invalid.
+ */
+function processShadow(
+    ctx: ProcessingContext,
+    shadowObj: unknown,
+    currentPath: string[],
+    visitedRefs: Set<string>
+): string {
     if (!isPlainObject(shadowObj)) {
         return JSON.stringify(shadowObj);
     }
 
-    const shadow = shadowObj as ShadowObject;
+    const shadow = shadowObj as Record<string, any>;
 
     // Null-tolerant parsing: Figma exports may contain nulls; we treat them as missing fields.
-    const { type: rawType, color: rawColor, offset: rawOffset, radius: rawRadius, spread: rawSpread } = shadow;
+    const rawType = shadow.type as unknown;
+    const rawColor = shadow.color as unknown;
+    const rawOffset = shadow.offset as unknown;
+    const rawRadius = shadow.radius as unknown;
+    const rawSpread = shadow.spread as unknown;
 
-    const type = rawType ?? 'DROP_SHADOW';
-    const color = rawColor ?? { r: 0, g: 0, b: 0, a: 1 };
-    const offset = rawOffset ?? { x: 0, y: 0 };
-    const radius = rawRadius ?? 0;
-    const spread = rawSpread ?? 0;
+    const type = rawType === 'INNER_SHADOW' ? 'INNER_SHADOW' : 'DROP_SHADOW';
 
-    // Support both normalized (0..1) and byte (0..255) channels.
-    const isNormalized = (color.r || 0) <= 1 && (color.g || 0) <= 1 && (color.b || 0) <= 1;
-    const to255 = (c: number | undefined, normalized: boolean): number =>
-        normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+    const offset =
+        isPlainObject(rawOffset) ? (rawOffset as { x?: number | null; y?: number | null }) : { x: 0, y: 0 };
+    const offsetX = typeof offset.x === 'number' ? offset.x : 0;
+    const offsetY = typeof offset.y === 'number' ? offset.y : 0;
 
-    const r = to255(color.r, isNormalized);
-    const g = to255(color.g, isNormalized);
-    const b = to255(color.b, isNormalized);
-    const a = color.a ?? 1;
+    const radius = typeof rawRadius === 'number' ? rawRadius : rawRadius == null ? 0 : Number(rawRadius) || 0;
+    const spread = typeof rawSpread === 'number' ? rawSpread : rawSpread == null ? 0 : Number(rawSpread) || 0;
 
-    const rgba = `rgba(${r}, ${g}, ${b}, ${a})`;
-    const offsetX = offset.x ?? 0;
-    const offsetY = offset.y ?? 0;
+    const colorPath = [...currentPath, 'color'];
+
+    const colorPart = (() => {
+        if (rawColor == null) {
+            return 'rgba(0, 0, 0, 1)';
+        }
+
+        // If the shadow color is an alias, keep it as var(--...) instead of forcing rgba().
+        if (isVariableAlias(rawColor)) {
+            return processVariableAlias(ctx, rawColor, colorPath);
+        }
+
+        // Some exports may represent colors as strings (including "{ref}" or "rgba(...)").
+        if (typeof rawColor === 'string') {
+            const processed = processValue(ctx, rawColor as any, undefined, colorPath, visitedRefs);
+            return processed ?? rawColor;
+        }
+
+        // RGBA channels object.
+        if (isPlainObject(rawColor)) {
+            const r0 = (rawColor as any).r;
+            const g0 = (rawColor as any).g;
+            const b0 = (rawColor as any).b;
+            const a0 = (rawColor as any).a;
+
+            if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
+                // Support both normalized (0..1) and byte (0..255) channels.
+                const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
+                const to255 = (c: number, normalized: boolean): number =>
+                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+
+                const r = to255(r0, isNormalized);
+                const g = to255(g0, isNormalized);
+                const b = to255(b0, isNormalized);
+                const a = typeof a0 === 'number' ? a0 : 1;
+
+                return `rgba(${r}, ${g}, ${b}, ${a})`;
+            }
+        }
+
+        // Unknown color shape: keep prior behavior effectively black, but make it explicit.
+        console.warn(`⚠️  Unsupported shadow color format at ${pathStr(colorPath)}; defaulting to black`);
+        return 'rgba(0, 0, 0, 1)';
+    })();
 
     if (type === 'INNER_SHADOW') {
-        return `inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${rgba}`;
+        return `inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
     }
-    return `${offsetX}px ${offsetY}px ${radius}px ${spread}px ${rgba}`;
+    return `${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
 }
 
 function resolveReference(
@@ -674,7 +733,8 @@ function processValue(
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
-            return value.map(processShadow).join(', ');
+            // Pass ctx so shadow colors can resolve aliases/refs into valid CSS var() usage.
+            return value.map(v => processShadow(ctx, v, currentPath, visitedRefs)).join(', ');
         }
         try {
             return JSON.stringify(value);
@@ -685,7 +745,7 @@ function processValue(
 
     if (typeof value === 'object') {
         if (varType === 'shadow' && !isVariableAlias(value)) {
-            return processShadow(value);
+            return processShadow(ctx, value, currentPath, visitedRefs);
         }
         if (isVariableAlias(value)) {
             return processVariableAlias(ctx, value, currentPath);
