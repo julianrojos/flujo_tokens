@@ -186,12 +186,7 @@ function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reas
  *   "path (Label: detail)"
  * This keeps logs consistent without forcing callers to hand-format punctuation.
  */
-function recordUnresolvedTyped(
-    summary: ExecutionSummary,
-    currentPath: string[],
-    label: string,
-    detail: string
-): void {
+function recordUnresolvedTyped(summary: ExecutionSummary, currentPath: string[], label: string, detail: string): void {
     recordUnresolved(summary, currentPath, ` (${label}: ${detail})`);
 }
 
@@ -607,7 +602,10 @@ function processShadow(
 
         // Some exports may represent colors as strings (including "{ref}" or "rgba(...)").
         if (typeof rawColor === 'string') {
-            const processed = processValue(ctx, rawColor as any, undefined, colorPath, visitedRefs);
+            // IMPORTANT: use a local visited set so resolving a shadow color doesn't "poison" siblings
+            // (e.g., multiple shadows in an array) and trigger false circular-ref detections.
+            const localVisited = new Set(visitedRefs);
+            const processed = processValue(ctx, rawColor as any, undefined, colorPath, localVisited);
             return processed ?? rawColor;
         }
 
