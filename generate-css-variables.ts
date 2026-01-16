@@ -515,16 +515,14 @@ function processShadow(shadowObj: unknown): string {
 
     const shadow = shadowObj as ShadowObject;
 
-    // Null-safe default helper (preserves prior tolerance for null/undefined fields).
-    const n = <T>(v: T | null | undefined, d: T): T => v ?? d;
-
+    // 100% safe (keeps null-tolerance): destructure raw, then apply ?? defaults.
     const { type: rawType, color: rawColor, offset: rawOffset, radius: rawRadius, spread: rawSpread } = shadow;
 
-    const type = n(rawType, 'DROP_SHADOW');
-    const color = n(rawColor, { r: 0, g: 0, b: 0, a: 1 });
-    const offset = n(rawOffset, { x: 0, y: 0 });
-    const radius = n(rawRadius, 0);
-    const spread = n(rawSpread, 0);
+    const type = rawType ?? 'DROP_SHADOW';
+    const color = rawColor ?? { r: 0, g: 0, b: 0, a: 1 };
+    const offset = rawOffset ?? { x: 0, y: 0 };
+    const radius = rawRadius ?? 0;
+    const spread = rawSpread ?? 0;
 
     const isNormalized = (color.r || 0) <= 1 && (color.g || 0) <= 1 && (color.b || 0) <= 1;
     const to255 = (c: number | undefined, normalized: boolean): number =>
@@ -1093,6 +1091,13 @@ async function main() {
     console.log('📖 Leyendo archivos JSON...');
     const combinedTokens = readAndCombineJsons(JSON_DIR);
 
+    // (1) Pre-procesar entradas una sola vez (mismo orden que Object.entries)
+    const fileEntries = Object.entries(combinedTokens).map(([name, content]) => ({
+        originalName: name,
+        kebabName: toKebabCase(name),
+        content
+    }));
+
     console.log('🔄 Transformando a variables CSS...');
     const cssLines: string[] = [];
     const refMap = new Map<string, string>();
@@ -1120,9 +1125,8 @@ async function main() {
     });
 
     // Index pass
-    for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
-        const normalizedFileName = toKebabCase(fileName);
-        collectTokenMaps(indexingCtx, fileContent, [normalizedFileName], [fileName]);
+    for (const { originalName, kebabName, content } of fileEntries) {
+        collectTokenMaps(indexingCtx, content, [kebabName], [originalName]);
     }
 
     // Build cached cycle info once (massive speedup on large graphs)
@@ -1140,9 +1144,8 @@ async function main() {
     });
 
     // Flatten pass
-    for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
-        const normalizedFileName = toKebabCase(fileName);
-        flattenTokens(processingCtx, fileContent, [normalizedFileName], cssLines, [fileName]);
+    for (const { originalName, kebabName, content } of fileEntries) {
+        flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName]);
     }
 
     console.log('📝 Escribiendo archivo CSS...');
