@@ -68,6 +68,10 @@ interface ExecutionSummary {
     invalidNames: string[];
     circularDeps: number;
     depthLimitHits: number;
+
+    // ✅ NEW: CSS var namespace collision diagnostics (different tokens -> same "--var-name")
+    cssVarNameCollisions: number; // number of distinct CSS var names that collide
+    cssVarNameCollisionDetails: string[]; // top-N details
 }
 
 function createSummary(): ExecutionSummary {
@@ -77,9 +81,18 @@ function createSummary(): ExecutionSummary {
         unresolvedRefs: [],
         invalidNames: [],
         circularDeps: 0,
-        depthLimitHits: 0
+        depthLimitHits: 0,
+
+        cssVarNameCollisions: 0,
+        cssVarNameCollisionDetails: []
     };
 }
+
+// ✅ NEW: collision bookkeeping types
+type CssVarOwner = { tokenKey: string; tokenPath: string; id?: string };
+type CssVarCollision = { first: CssVarOwner; others: Map<string, CssVarOwner> };
+const MAX_COLLISION_DETAILS = 10;
+const warnedAliasVarCollisions = new Set<string>();
 
 type ProcessingContext = Readonly<{
     summary: ExecutionSummary;
@@ -90,6 +103,10 @@ type ProcessingContext = Readonly<{
     idToVarName?: Map<string, string>;
     idToTokenKey?: Map<string, string>; // ✅ NEW: $id -> normalized token key (for cycle graph)
     cycleStatus?: Map<string, boolean>;
+
+    // ✅ NEW: var-name namespace collision tracking
+    cssVarNameOwners?: Map<string, CssVarOwner>; // --var -> first owner
+    cssVarNameCollisionMap?: Map<string, CssVarCollision>; // --var -> collision details
 }>;
 
 function createProcessingContext(args: {
@@ -101,6 +118,10 @@ function createProcessingContext(args: {
     idToVarName?: Map<string, string>;
     idToTokenKey?: Map<string, string>; // ✅ NEW
     cycleStatus?: Map<string, boolean>;
+
+    // ✅ NEW
+    cssVarNameOwners?: Map<string, CssVarOwner>;
+    cssVarNameCollisionMap?: Map<string, CssVarCollision>;
 }): ProcessingContext {
     // Freeze to prevent accidental mutation of the shared context object across phases.
     return Object.freeze({ ...args });
@@ -236,6 +257,46 @@ function emitCssVar(
     summary.successCount++;
 }
 
+// ✅ NEW: track collisions in the CSS custom property namespace (different tokens -> same --var)
+function trackCssVarNameCollision(ctx: ProcessingContext, varName: string, owner: CssVarOwner): void {
+    const { summary, cssVarNameOwners, cssVarNameCollisionMap } = ctx;
+    if (!cssVarNameOwners || !cssVarNameCollisionMap) return;
+    if (!varName) return;
+
+    const existing = cssVarNameOwners.get(varName);
+    if (!existing) {
+        cssVarNameOwners.set(varName, owner);
+        return;
+    }
+
+    // Same token identity (common for mode overrides) => not a collision.
+    if (existing.tokenKey === owner.tokenKey) {
+        return;
+    }
+
+    let entry = cssVarNameCollisionMap.get(varName);
+    if (!entry) {
+        entry = { first: existing, others: new Map<string, CssVarOwner>() };
+        cssVarNameCollisionMap.set(varName, entry);
+        summary.cssVarNameCollisions++;
+
+        const fmt = (o: CssVarOwner) => `${o.tokenPath}${o.id ? ` ($id=${o.id})` : ''}`;
+        const detail = `${varName}: ${fmt(existing)} <-> ${fmt(owner)}`;
+
+        if (summary.cssVarNameCollisionDetails.length < MAX_COLLISION_DETAILS) {
+            summary.cssVarNameCollisionDetails.push(detail);
+        }
+
+        console.warn(
+            `⚠️  CSS var name collision for ${varName}: ${fmt(existing)} vs ${fmt(owner)}. ` +
+            `In CSS, the last emitted definition wins.`
+        );
+    }
+
+    // Track additional colliders (keyed by tokenKey for stability).
+    entry.others.set(owner.tokenKey || owner.tokenPath, owner);
+}
+
 /**
  * Normalizes dotted paths:
  * - collapses repeated dots ("a...b" -> "a.b")
@@ -332,13 +393,7 @@ function getResolvedTokenKey(ref: string, ctx: ProcessingContext): string | null
 type WalkPrimitive = string | number | boolean;
 
 type WalkHandlers = {
-    onTokenValue?: (ctx: {
-        obj: any;
-        prefix: string[];
-        currentPath: string[];
-        depth: number;
-        inModeBranch: boolean;
-    }) => void;
+    onTokenValue?: (ctx: { obj: any; prefix: string[]; currentPath: string[]; depth: number; inModeBranch: boolean }) => void;
     onLegacyPrimitive?: (ctx: {
         value: WalkPrimitive;
         key: string;
@@ -410,15 +465,7 @@ function walkTokenTree(
          * Everything under the selected mode is flagged as `inModeBranch` so indexers can treat
          * it as an override of the base token value.
          */
-        walkTokenTree(
-            summary,
-            (obj as Record<string, any>)[modeKey],
-            prefix,
-            [...currentPath, modeKey],
-            handlers,
-            depth + 1,
-            true
-        );
+        walkTokenTree(summary, (obj as Record<string, any>)[modeKey], prefix, [...currentPath, modeKey], handlers, depth + 1, true);
     }
 }
 
@@ -490,7 +537,8 @@ function hasCircularDependency(startKey: string, ctx: ProcessingContext, visited
     }
 
     const token =
-        ctx.valueMap?.get(resolvedStart) || (resolvedStart !== normalizedStart ? ctx.valueMap?.get(normalizedStart) : undefined);
+        ctx.valueMap?.get(resolvedStart) ||
+        (resolvedStart !== normalizedStart ? ctx.valueMap?.get(normalizedStart) : undefined);
 
     if (!token) {
         return false;
@@ -611,7 +659,7 @@ function processVariableAlias(
     visitedRefs?: ReadonlySet<string> // ✅ NEW: allow cycle checks consistent with W3C refs
 ): string {
     if (isVariableAlias(aliasObj)) {
-        const { summary, tokensData, idToVarName, idToTokenKey, cycleStatus } = ctx;
+        const { summary, tokensData, idToVarName, idToTokenKey, cycleStatus, cssVarNameCollisionMap } = ctx;
 
         const aliasId = aliasObj.id?.trim();
         const targetKey = aliasId && idToTokenKey ? idToTokenKey.get(aliasId) : undefined;
@@ -630,10 +678,31 @@ function processVariableAlias(
             return `/* circular-alias: ${aliasId} */`;
         }
 
+        const warnIfCollidingVarName = (varNameWithDashes: string) => {
+            const collision = cssVarNameCollisionMap?.get(varNameWithDashes);
+            if (!collision || !aliasId) return;
+
+            const warnKey = `${aliasId}|${varNameWithDashes}`;
+            if (warnedAliasVarCollisions.has(warnKey)) return;
+            warnedAliasVarCollisions.add(warnKey);
+
+            const fmt = (o: CssVarOwner) => `${o.tokenPath}${o.id ? ` ($id=${o.id})` : ''}`;
+            const sample = Array.from(collision.others.values())[0];
+            const total = 1 + collision.others.size;
+
+            console.warn(
+                `⚠️  VARIABLE_ALIAS at ${pathStr(currentPath)} (id=${aliasId}) resolved to ${varNameWithDashes}, ` +
+                `but this CSS var name collides across ${total} distinct tokens. ` +
+                `Last emitted wins; this alias may read an unexpected value. ` +
+                `Examples: ${fmt(collision.first)}${sample ? ` | ${fmt(sample)}` : ''}`
+            );
+        };
+
         if (aliasId && tokensData) {
             // Fast path: O(1) lookup from the "$id" index built during indexing.
             const direct = idToVarName?.get(aliasId);
             if (direct) {
+                warnIfCollidingVarName(direct);
                 return `var(${direct})`;
             }
 
@@ -641,7 +710,9 @@ function processVariableAlias(
             const tokenPath = findTokenById(tokensData, aliasId);
             if (tokenPath) {
                 const cssPath = tokenPath.map(toKebabCase).join('-');
-                return `var(--${cssPath})`;
+                const derived = `--${cssPath}`;
+                warnIfCollidingVarName(derived);
+                return `var(${derived})`;
             }
 
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
@@ -721,8 +792,7 @@ function processShadow(ctx: ProcessingContext, shadowObj: unknown, currentPath: 
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 // Support both normalized (0..1) and byte (0..255) channels.
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number =>
-                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -801,10 +871,7 @@ function resolveReference(
 
         // Deep cycle check uses the resolvable graph and respects collisions.
         const cachedHasCycle = cycleStatus?.get(resolvedKey);
-        if (
-            cachedHasCycle === true ||
-            (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))
-        ) {
+        if (cachedHasCycle === true || (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))) {
             console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-ref: ${tokenPath} */`;
@@ -930,9 +997,7 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
 
         const existing = refMap.get(key);
         if (existing !== varName) {
-            console.warn(
-                `ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`
-            );
+            console.warn(`ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`);
             collisionKeys.add(key);
             // Intentionally do NOT overwrite valueMap: ambiguous keys are treated as non-edges in cycle analysis.
             return;
@@ -953,6 +1018,13 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
 
             indexTokenIdToVarName(tokenObj, varName, idToVarName);
             indexTokenIdToTokenKey(tokenObj, normalizedKey, idToTokenKey);
+
+            // ✅ NEW: detect collisions in CSS custom property namespace (different tokens -> same --var)
+            trackCssVarNameCollision(ctx, varName, {
+                tokenKey: normalizedKey,
+                tokenPath: pathStr(tokenPath),
+                id: typeof (tokenObj as any)?.$id === 'string' ? (tokenObj as any).$id : undefined
+            });
 
             // Store the full (file-scoped) key.
             upsertKey(normalizedKey, varName, tokenObj as TokenValue, tokenPathKey, inModeBranch);
@@ -978,6 +1050,12 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             const normalizedPathKey = normalizePathKey(tokenPathKey);
 
             const legacyTokenObj: TokenValue = { $value: value as any };
+
+            // ✅ NEW: legacy tokens can also collide in CSS var namespace
+            trackCssVarNameCollision(ctx, varName, {
+                tokenKey: normalizedPathKey,
+                tokenPath: pathStr(leafPath)
+            });
 
             // Store the full (file-scoped) key.
             upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
@@ -1335,6 +1413,7 @@ function printExecutionSummary(summary: ExecutionSummary): void {
     console.log(`Total Tokens:        ${summary.totalTokens}`);
     console.log(`Generados:           ${summary.successCount}`);
     console.log(`Dependencias Circ.:  ${summary.circularDeps}`);
+    console.log(`Colisiones CSS Var:  ${summary.cssVarNameCollisions}`);
     console.log(`Refs no resueltas:   ${summary.unresolvedRefs.length}`);
     console.log(`Nombres inválidos:   ${summary.invalidNames.length}`);
     console.log(`Límite profundidad:  ${summary.depthLimitHits}`);
@@ -1349,6 +1428,12 @@ function printExecutionSummary(summary: ExecutionSummary): void {
         console.log('\n⚠️  Detalle de Nombres Inválidos (Top 10):');
         summary.invalidNames.slice(0, 10).forEach(name => console.log(`  - ${name}`));
         if (summary.invalidNames.length > 10) console.log(`  ... y ${summary.invalidNames.length - 10} más`);
+    }
+
+    if (summary.cssVarNameCollisionDetails.length > 0) {
+        console.log('\n⚠️  Detalle de Colisiones CSS Var (Top 10):');
+        summary.cssVarNameCollisionDetails.slice(0, 10).forEach(d => console.log(`  - ${d}`));
+        if (summary.cssVarNameCollisionDetails.length > 10) console.log(`  ... y ${summary.cssVarNameCollisionDetails.length - 10} más`);
     }
 }
 
@@ -1375,6 +1460,10 @@ async function main() {
     const idToVarName = new Map<string, string>();
     const idToTokenKey = new Map<string, string>(); // ✅ NEW
 
+    // ✅ NEW: collision tracking maps (for CSS var namespace)
+    const cssVarNameOwners = new Map<string, CssVarOwner>();
+    const cssVarNameCollisionMap = new Map<string, CssVarCollision>();
+
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
         try {
@@ -1392,7 +1481,10 @@ async function main() {
         valueMap,
         collisionKeys,
         idToVarName,
-        idToTokenKey
+        idToTokenKey,
+
+        cssVarNameOwners,
+        cssVarNameCollisionMap
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
@@ -1411,7 +1503,10 @@ async function main() {
         collisionKeys,
         idToVarName,
         idToTokenKey,
-        cycleStatus
+        cycleStatus,
+
+        cssVarNameOwners,
+        cssVarNameCollisionMap
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
