@@ -181,6 +181,96 @@ function buildVisitedRefSet(pathSegments: string[]): Set<string> {
     return visited;
 }
 
+function indexTokenIdToVarName(tokenObj: any, varName: string, idToVarName: Map<string, string>): void {
+    const id = tokenObj?.$id;
+    if (typeof id === 'string' && id.trim()) {
+        idToVarName.set(id, varName);
+    }
+}
+
+type WalkPrimitive = string | number | boolean;
+
+type WalkHandlers = {
+    onTokenValue?: (ctx: { obj: any; prefix: string[]; currentPath: string[]; depth: number }) => void;
+    onLegacyPrimitive?: (ctx: {
+        value: WalkPrimitive;
+        key: string;
+        normalizedKey: string;
+        prefix: string[];
+        currentPath: string[];
+        depth: number;
+    }) => void;
+};
+
+/**
+ * Conservative universal walker:
+ * - Centralizes: depth guard, key sorting, modeKey selection, skipKey logic, recursion.
+ * - Does NOT normalize "legacy vs $value" semantics: leaf handling is delegated via callbacks.
+ */
+function walkTokenTree(
+    summary: ExecutionSummary,
+    obj: any,
+    prefix: string[],
+    currentPath: string[],
+    depth: number,
+    handlers: WalkHandlers
+): void {
+    if (checkDepthLimit(summary, depth, currentPath)) {
+        return;
+    }
+
+    if (obj && typeof obj === 'object' && '$value' in obj) {
+        handlers.onTokenValue?.({ obj, prefix, currentPath, depth });
+        return;
+    }
+
+    if (!isPlainObject(obj)) {
+        return;
+    }
+
+    const keys = Object.keys(obj).sort();
+    const modeKey = pickModeKey(keys);
+
+    for (const key of keys) {
+        if (shouldSkipKey(key)) continue;
+
+        const value = (obj as Record<string, any>)[key];
+        const normalizedKey = toKebabCase(key);
+
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            handlers.onLegacyPrimitive?.({
+                value,
+                key,
+                normalizedKey,
+                prefix,
+                currentPath,
+                depth
+            });
+            continue;
+        }
+
+        walkTokenTree(
+            summary,
+            value,
+            [...prefix, normalizedKey],
+            [...currentPath, key],
+            depth + 1,
+            handlers
+        );
+    }
+
+    if (modeKey) {
+        walkTokenTree(
+            summary,
+            (obj as Record<string, any>)[modeKey],
+            prefix,
+            [...currentPath, modeKey],
+            depth + 1,
+            handlers
+        );
+    }
+}
+
 /**
  * Recursively collects all W3C references ({path.to.token}) from any value structure.
  * Handles strings (including embedded refs), arrays, and nested objects.
@@ -332,7 +422,7 @@ function findTokenById(
         const value = tokensData[key];
 
         if (isPlainObject(value)) {
-            if ('$id' in value && typeof value.$id === 'string' && value.$id === targetId) {
+            if ('$id' in value && typeof (value as any).$id === 'string' && (value as any).$id === targetId) {
                 return newPath;
             }
 
@@ -366,7 +456,9 @@ function processVariableAlias(
                 return `var(--${cssPath})`;
             }
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${currentPath.join('.')} con ID: ${aliasObj.id}`);
-            console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
+            console.warn(
+                `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
+            );
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasObj.id);
@@ -390,8 +482,7 @@ function processShadow(shadowObj: unknown): string {
     const radius = shadow.radius || 0;
     const spread = shadow.spread || 0;
 
-    const isNormalized =
-        (color.r || 0) <= 1 && (color.g || 0) <= 1 && (color.b || 0) <= 1;
+    const isNormalized = (color.r || 0) <= 1 && (color.g || 0) <= 1 && (color.b || 0) <= 1;
     const r = isNormalized ? Math.round((color.r || 0) * 255) : Math.round(color.r || 0);
     const g = isNormalized ? Math.round((color.g || 0) * 255) : Math.round(color.g || 0);
     const b = isNormalized ? Math.round((color.b || 0) * 255) : Math.round(color.b || 0);
@@ -498,7 +589,9 @@ function processValue(
                     cachedHasCycle === true ||
                     (cachedHasCycle === undefined && hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs)))
                 ) {
-                    console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`);
+                    console.warn(
+                        `⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`
+                    );
                     summary.circularDeps++;
                     return `/* circular-ref: ${tokenPath} */`;
                 }
@@ -521,10 +614,7 @@ function processValue(
                 return `var(${mappedVarName})`;
             }
 
-            const cssPath = canonicalPath
-                .split('.')
-                .map(toKebabCase)
-                .join('-');
+            const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
             const varName = `--broken-ref-${cssPath || 'unknown'}`;
 
             console.warn(`⚠️  Unresolved W3C reference ${match} at ${currentPath.join('.')}`);
@@ -555,94 +645,53 @@ function collectTokenMaps(
     idToVarName: Map<string, string>,
     depth = 0
 ): void {
-    if (checkDepthLimit(summary, depth, currentPath)) {
-        return;
-    }
+    walkTokenTree(summary, obj, prefix, currentPath, depth, {
+        onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
+            const tokenPathKey = buildPathKey(tokenPath);
+            const normalizedKey = normalizePathKey(tokenPathKey);
+            const varName = `--${tokenPrefix.filter(p => p).join('-')}`;
 
-    if (obj && typeof obj === 'object' && '$value' in obj) {
-        const tokenPathKey = buildPathKey(currentPath);
-        const normalizedKey = normalizePathKey(tokenPathKey);
-        const varName = `--${prefix.filter(p => p).join('-')}`;
+            // Index $id -> varName for fast VARIABLE_ALIAS resolution
+            indexTokenIdToVarName(tokenObj, varName, idToVarName);
 
-        // Index $id -> varName for fast VARIABLE_ALIAS resolution
-        if (typeof (obj as any).$id === 'string' && (obj as any).$id.trim()) {
-            idToVarName.set((obj as any).$id, varName);
-        }
-
-        // Populate Normalized Map (case-insensitive)
-        if (normalizedKey) {
-            if (!refMap.has(normalizedKey)) {
-                refMap.set(normalizedKey, varName);
-                valueMap.set(normalizedKey, obj as TokenValue);
-            } else {
-                const existing = refMap.get(normalizedKey);
-                if (existing !== varName) {
-                    console.warn(`ℹ️  Normalized collision: ${tokenPathKey} normalized to same key as existing token.`);
-                    collisionKeys.add(normalizedKey);
+            // Populate Normalized Map (case-insensitive)
+            if (normalizedKey) {
+                if (!refMap.has(normalizedKey)) {
+                    refMap.set(normalizedKey, varName);
+                    valueMap.set(normalizedKey, tokenObj as TokenValue);
                 } else {
-                    console.warn(`ℹ️  Duplicate token for normalized key ${normalizedKey} at ${tokenPathKey}`);
+                    const existing = refMap.get(normalizedKey);
+                    if (existing !== varName) {
+                        console.warn(`ℹ️  Normalized collision: ${tokenPathKey} normalized to same key as existing token.`);
+                        collisionKeys.add(normalizedKey);
+                    } else {
+                        console.warn(`ℹ️  Duplicate token for normalized key ${normalizedKey} at ${tokenPathKey}`);
+                    }
+                }
+            }
+
+            // Also store relative path (without filename) to resolve local refs like {token}
+            const relativePathKey = buildPathKey(tokenPath.slice(1));
+            const relativeNormalizedKey = normalizePathKey(relativePathKey);
+            if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
+                if (!refMap.has(relativeNormalizedKey)) {
+                    refMap.set(relativeNormalizedKey, varName);
+                    valueMap.set(relativeNormalizedKey, tokenObj as TokenValue);
+                } else {
+                    const existingRel = refMap.get(relativeNormalizedKey);
+                    if (existingRel !== varName) {
+                        console.warn(
+                            `ℹ️  Normalized collision (relative): ${relativePathKey} normalized to same key as existing token.`
+                        );
+                        collisionKeys.add(relativeNormalizedKey);
+                    } else {
+                        console.warn(`ℹ️  Duplicate token for normalized key ${relativeNormalizedKey} at ${relativePathKey}`);
+                    }
                 }
             }
         }
-
-        // Also store relative path (without filename) to resolve local refs like {token}
-        const relativePathKey = buildPathKey(currentPath.slice(1));
-        const relativeNormalizedKey = normalizePathKey(relativePathKey);
-        if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-            if (!refMap.has(relativeNormalizedKey)) {
-                refMap.set(relativeNormalizedKey, varName);
-                valueMap.set(relativeNormalizedKey, obj as TokenValue);
-            } else {
-                const existingRel = refMap.get(relativeNormalizedKey);
-                if (existingRel !== varName) {
-                    console.warn(`ℹ️  Normalized collision (relative): ${relativePathKey} normalized to same key as existing token.`);
-                    collisionKeys.add(relativeNormalizedKey);
-                } else {
-                    console.warn(`ℹ️  Duplicate token for normalized key ${relativeNormalizedKey} at ${relativePathKey}`);
-                }
-            }
-        }
-        return;
-    }
-
-    if (!isPlainObject(obj)) {
-        return;
-    }
-
-    const keys = Object.keys(obj).sort();
-    const modeKey = pickModeKey(keys);
-
-    for (const key of keys) {
-        if (shouldSkipKey(key)) continue;
-
-        const value = obj[key];
-        const normalizedKey = toKebabCase(key);
-        collectTokenMaps(
-            summary,
-            value,
-            [...prefix, normalizedKey],
-            [...currentPath, key],
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName,
-            depth + 1
-        );
-    }
-
-    if (modeKey) {
-        collectTokenMaps(
-            summary,
-            obj[modeKey],
-            prefix,
-            [...currentPath, modeKey],
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName,
-            depth + 1
-        );
-    }
+        // legacy primitives intentionally ignored in this pass (same as previous behavior)
+    });
 }
 
 function extractCssVariables(cssContent: string): Map<string, string> {
@@ -756,9 +805,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
         }
 
         const valueParsed = rootContent.substring(valueStart, i).trim();
-        const valueIsSane =
-            valueParsed.length > 0 &&
-            !/[\r\n\x00-\x1F]/.test(valueParsed);
+        const valueIsSane = valueParsed.length > 0 && !/[\r\n\x00-\x1F]/.test(valueParsed);
         if (name && valueIsSane && isValidCssVariableName(`--${name}`)) {
             variables.set(name, valueParsed);
         }
@@ -798,13 +845,8 @@ function readAndCombineJsons(dir: string): Record<string, any> {
                     const translationStart = fileContent.indexOf('"Translations"');
                     if (translationStart > 0) {
                         const firstBrace = fileContent.indexOf('{');
-                        const jsonContent = fileContent
-                            .substring(firstBrace, translationStart)
-                            .trim()
-                            .replace(/,\s*$/, '');
-                        const cleanedContent = jsonContent.endsWith('}')
-                            ? jsonContent
-                            : `${jsonContent}\n}`;
+                        const jsonContent = fileContent.substring(firstBrace, translationStart).trim().replace(/,\s*$/, '');
+                        const cleanedContent = jsonContent.endsWith('}') ? jsonContent : `${jsonContent}\n}`;
                         try {
                             json = JSON.parse(cleanedContent);
                         } catch {
@@ -864,72 +906,58 @@ function flattenTokens(
     cycleStatus?: Map<string, boolean>,
     depth = 0
 ): string[] {
-    if (checkDepthLimit(summary, depth, currentPath)) {
-        return collectedVars;
-    }
+    walkTokenTree(summary, obj, prefix, currentPath, depth, {
+        onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
+            summary.totalTokens++;
+            const rawValue = (tokenObj as TokenValue).$value;
+            const varType = (tokenObj as TokenValue).$type;
 
-    if (obj && typeof obj === 'object' && '$value' in obj) {
-        summary.totalTokens++;
-        const rawValue = (obj as TokenValue).$value;
-        const varType = (obj as TokenValue).$type;
+            if (rawValue === undefined) {
+                console.warn(`⚠️  Token sin $value en ${tokenPath.join('.')}, se omite`);
+                return;
+            }
 
-        if (rawValue === undefined) {
-            console.warn(`⚠️  Token sin $value en ${currentPath.join('.')}, se omite`);
-            return collectedVars;
-        }
+            // Initialize visited with both exact and normalized paths to catch self-refs regardless of casing
+            const visitedRefs = buildVisitedRefSet(tokenPath);
 
-        // Initialize visited with both exact and normalized paths to catch self-refs regardless of casing
-        const visitedRefs = buildVisitedRefSet(currentPath);
+            const resolvedValue = processValue(
+                summary,
+                rawValue,
+                varType,
+                tokenPath,
+                tokensData,
+                visitedRefs,
+                refMap,
+                valueMap,
+                collisionKeys,
+                idToVarName,
+                cycleStatus
+            );
+            if (resolvedValue === null) {
+                return;
+            }
 
-        const resolvedValue = processValue(
-            summary,
-            rawValue,
-            varType,
-            currentPath,
-            tokensData,
-            visitedRefs,
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName,
-            cycleStatus
-        );
-        if (resolvedValue === null) {
-            return collectedVars;
-        }
+            const varName = `--${tokenPrefix.filter(p => p).join('-')}`;
+            emitCssVar(summary, collectedVars, varName, resolvedValue, tokenPath, true);
+        },
 
-        const varName = `--${prefix.filter(p => p).join('-')}`;
-        emitCssVar(summary, collectedVars, varName, resolvedValue, currentPath, true);
-        return collectedVars;
-    }
-
-    if (!isPlainObject(obj)) {
-        return collectedVars;
-    }
-
-    const keys = Object.keys(obj).sort();
-    const modeKey = pickModeKey(keys);
-
-    for (const key of keys) {
-        if (shouldSkipKey(key)) continue;
-
-        const value = obj[key];
-        const normalizedKey = toKebabCase(key);
-        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        onLegacyPrimitive: ({ value, key, normalizedKey, prefix: parentPrefix, currentPath: parentPath }) => {
             // Legacy support: handle loose key-value tokens without $value wrapper
-            const varName = `--${[...prefix, normalizedKey].filter(p => p).join('-')}`;
+            const varName = `--${[...parentPrefix, normalizedKey].filter(p => p).join('-')}`;
             if (!isValidCssVariableName(varName)) {
                 console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
-                continue;
+                return;
             }
 
             summary.totalTokens++;
-            const visitedRefs = buildVisitedRefSet([...currentPath, key]);
+            const leafPath = [...parentPath, key];
+            const visitedRefs = buildVisitedRefSet(leafPath);
+
             const processedValue = processValue(
                 summary,
                 value as any, // Cast as it might be string/number/boolean
                 undefined,
-                [...currentPath, key],
+                leafPath,
                 tokensData,
                 visitedRefs,
                 refMap,
@@ -939,46 +967,13 @@ function flattenTokens(
                 cycleStatus
             );
             if (processedValue === null) {
-                continue;
+                return;
             }
 
             // (recordInvalidName=false) to preserve legacy behavior (no invalidNames summary entry)
-            emitCssVar(summary, collectedVars, varName, processedValue, [...currentPath, key], false);
-            continue;
-        } else {
-            flattenTokens(
-                summary,
-                value,
-                [...prefix, normalizedKey],
-                collectedVars,
-                tokensData,
-                [...currentPath, key],
-                refMap,
-                valueMap,
-                collisionKeys,
-                idToVarName,
-                cycleStatus,
-                depth + 1
-            );
+            emitCssVar(summary, collectedVars, varName, processedValue, leafPath, false);
         }
-    }
-
-    if (modeKey) {
-        flattenTokens(
-            summary,
-            obj[modeKey],
-            prefix,
-            collectedVars,
-            tokensData,
-            [...currentPath, modeKey],
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName,
-            cycleStatus,
-            depth + 1
-        );
-    }
+    });
 
     return collectedVars;
 }
@@ -1013,16 +1008,7 @@ async function main() {
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
         // We include the filename in the prefix (namespace)
         const normalizedFileName = toKebabCase(fileName);
-        collectTokenMaps(
-            summary,
-            fileContent,
-            [normalizedFileName],
-            [fileName],
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName
-        );
+        collectTokenMaps(summary, fileContent, [normalizedFileName], [fileName], refMap, valueMap, collisionKeys, idToVarName);
     }
 
     // Build cached cycle info once (massive speedup on large graphs)
