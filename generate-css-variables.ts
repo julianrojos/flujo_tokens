@@ -121,13 +121,26 @@ function isValidCssVariableName(name: string): boolean {
     return /^[a-zA-Z0-9_-]+$/.test(afterDashes);
 }
 
+function pathStr(currentPath: string[]): string {
+    return currentPath.join('.');
+}
+
+function buildCssVarNameFromPrefix(prefix: string[]): string {
+    return `--${prefix.filter(p => p).join('-')}`;
+}
+
 function checkDepthLimit(summary: ExecutionSummary, depth: number, currentPath: string[]): boolean {
     if (depth <= MAX_DEPTH) {
         return false;
     }
-    console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${currentPath.join('.')}; truncating traversal.`);
+    console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${pathStr(currentPath)}; truncating traversal.`);
     summary.depthLimitHits++;
     return true;
+}
+
+function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reason: string): void {
+    // reason must include the leading space/paren formatting (e.g. " (Empty ref)")
+    summary.unresolvedRefs.push(`${pathStr(currentPath)}${reason}`);
 }
 
 function emitCssVar(
@@ -141,7 +154,7 @@ function emitCssVar(
     if (!isValidCssVariableName(varName)) {
         console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
         if (recordInvalidName) {
-            summary.invalidNames.push(`${currentPath.join('.')} (Invalid CSS Var: ${varName})`);
+            summary.invalidNames.push(`${pathStr(currentPath)} (Invalid CSS Var: ${varName})`);
         }
         return;
     }
@@ -212,8 +225,8 @@ function walkTokenTree(
     obj: any,
     prefix: string[],
     currentPath: string[],
-    depth: number,
-    handlers: WalkHandlers
+    handlers: WalkHandlers,
+    depth = 0
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) {
         return;
@@ -249,25 +262,11 @@ function walkTokenTree(
             continue;
         }
 
-        walkTokenTree(
-            summary,
-            value,
-            [...prefix, normalizedKey],
-            [...currentPath, key],
-            depth + 1,
-            handlers
-        );
+        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1);
     }
 
     if (modeKey) {
-        walkTokenTree(
-            summary,
-            (obj as Record<string, any>)[modeKey],
-            prefix,
-            [...currentPath, modeKey],
-            depth + 1,
-            handlers
-        );
+        walkTokenTree(summary, (obj as Record<string, any>)[modeKey], prefix, [...currentPath, modeKey], handlers, depth + 1);
     }
 }
 
@@ -343,10 +342,7 @@ function hasCircularDependency(
  * Builds a cached "leads-to-cycle" map for tokens to avoid repeated deep DFS per reference.
  * The result answers: "starting from this token key, will I hit a cycle?"
  */
-function buildCycleStatus(
-    valueMap: Map<string, TokenValue>,
-    collisionKeys: Set<string>
-): Map<string, boolean> {
+function buildCycleStatus(valueMap: Map<string, TokenValue>, collisionKeys: Set<string>): Map<string, boolean> {
     const refsByToken = new Map<string, Set<string>>();
 
     // Extract refs once per token key (valueMap includes normalized/relative keys; that's ok).
@@ -399,11 +395,7 @@ function buildCycleStatus(
     return leadsToCycle;
 }
 
-function findTokenById(
-    tokensData: Record<string, any>,
-    targetId: string,
-    currentPath: string[] = []
-): string[] | null {
+function findTokenById(tokensData: Record<string, any>, targetId: string, currentPath: string[] = []): string[] | null {
     if (!isPlainObject(tokensData)) {
         return null;
     }
@@ -455,14 +447,14 @@ function processVariableAlias(
                 const cssPath = tokenPath.map(toKebabCase).join('-');
                 return `var(--${cssPath})`;
             }
-            console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${currentPath.join('.')} con ID: ${aliasObj.id}`);
+            console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasObj.id}`);
             console.warn(
                 `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
             );
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasObj.id);
-            summary.unresolvedRefs.push(`${currentPath.join('.')} (Alias ID: ${aliasObj.id})`);
+            recordUnresolved(summary, currentPath, ` (Alias ID: ${aliasObj.id})`);
             return `var(--unresolved-${placeholderName})`;
         }
         return `var(--${currentPath.map(toKebabCase).join('-')})`;
@@ -533,8 +525,8 @@ function processValue(
         if (isVariableAlias(value)) {
             return processVariableAlias(summary, value, currentPath, tokensData, idToVarName);
         }
-        console.warn(`⚠️  Token compuesto no soportado en ${currentPath.join('.')}, se omite`);
-        summary.unresolvedRefs.push(`${currentPath.join('.')} (Composite object skipped)`);
+        console.warn(`⚠️  Token compuesto no soportado en ${pathStr(currentPath)}, se omite`);
+        recordUnresolved(summary, currentPath, ' (Composite object skipped)');
         return null;
     }
 
@@ -564,8 +556,8 @@ function processValue(
         return value.replace(W3C_REF_REGEX_REPLACE, (match, tokenPath) => {
             tokenPath = tokenPath.trim();
             if (!tokenPath) {
-                console.warn(`⚠️  Empty W3C reference in "${value}" at ${currentPath.join('.')}`);
-                summary.unresolvedRefs.push(`${currentPath.join('.')} (Empty ref)`);
+                console.warn(`⚠️  Empty W3C reference in "${value}" at ${pathStr(currentPath)}`);
+                recordUnresolved(summary, currentPath, ' (Empty ref)');
                 return match;
             }
 
@@ -574,7 +566,7 @@ function processValue(
 
             if (!seenInValue.has(normalizedTokenPath)) {
                 if (visitedRefs.has(normalizedTokenPath)) {
-                    console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${currentPath.join('.')}`);
+                    console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${pathStr(currentPath)}`);
                     summary.circularDeps++;
                     return `/* circular-ref: ${tokenPath} */`;
                 }
@@ -590,7 +582,7 @@ function processValue(
                     (cachedHasCycle === undefined && hasCircularDependency(canonicalPath, valueMap, new Set(visitedRefs)))
                 ) {
                     console.warn(
-                        `⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${currentPath.join('.')}`
+                        `⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`
                     );
                     summary.circularDeps++;
                     return `/* circular-ref: ${tokenPath} */`;
@@ -617,10 +609,10 @@ function processValue(
             const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
             const varName = `--broken-ref-${cssPath || 'unknown'}`;
 
-            console.warn(`⚠️  Unresolved W3C reference ${match} at ${currentPath.join('.')}`);
-            summary.unresolvedRefs.push(`${currentPath.join('.')} (Ref: ${tokenPath})`);
+            console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)}`);
+            recordUnresolved(summary, currentPath, ` (Ref: ${tokenPath})`);
             if (!isValidCssVariableName(varName)) {
-                summary.invalidNames.push(`${currentPath.join('.')} (Ref to invalid name: ${varName})`);
+                summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
                 return match;
             }
             return `var(${varName})`;
@@ -645,11 +637,14 @@ function collectTokenMaps(
     idToVarName: Map<string, string>,
     depth = 0
 ): void {
-    walkTokenTree(summary, obj, prefix, currentPath, depth, {
+    // depth retained for signature compatibility; walker manages it internally (default=0)
+    void depth;
+
+    walkTokenTree(summary, obj, prefix, currentPath, {
         onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
             const tokenPathKey = buildPathKey(tokenPath);
             const normalizedKey = normalizePathKey(tokenPathKey);
-            const varName = `--${tokenPrefix.filter(p => p).join('-')}`;
+            const varName = buildCssVarNameFromPrefix(tokenPrefix);
 
             // Index $id -> varName for fast VARIABLE_ALIAS resolution
             indexTokenIdToVarName(tokenObj, varName, idToVarName);
@@ -816,6 +811,50 @@ function extractCssVariables(cssContent: string): Map<string, string> {
     return variables;
 }
 
+function readCssVariablesFromFile(filePath: string): Map<string, string> {
+    const previousCss = fs.readFileSync(filePath, 'utf-8');
+    return extractCssVariables(previousCss);
+}
+
+function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
+    try {
+        return JSON.parse(fileContent);
+    } catch (error) {
+        if (!ALLOW_JSON_REPAIR) {
+            throw error;
+        }
+
+        // Try to repair common Figma export issues (like extra "Translations" section)
+        const translationStart = fileContent.indexOf('"Translations"');
+        if (translationStart > 0) {
+            const firstBrace = fileContent.indexOf('{');
+            const jsonContent = fileContent.substring(firstBrace, translationStart).trim().replace(/,\s*$/, '');
+            const cleanedContent = jsonContent.endsWith('}') ? jsonContent : `${jsonContent}\n}`;
+            try {
+                return JSON.parse(cleanedContent);
+            } catch {
+                throw error; // Throw original error if repair fails
+            }
+        }
+
+        // Try to fix malformed JSON by wrapping or closing braces
+        let cleaned = fileContent.trim();
+        if (!cleaned.startsWith('{')) {
+            cleaned = `{${cleaned}`;
+        }
+        if (!cleaned.endsWith('}')) {
+            cleaned = `${cleaned}}`;
+        }
+
+        try {
+            console.warn(`⚠️  JSON reparado en ${file}; revisa el export si es posible.`);
+            return JSON.parse(cleaned);
+        } catch {
+            throw error;
+        }
+    }
+}
+
 /**
  * Reads all JSON files from the directory and combines them into a single object.
  * Keys in the combined object are the filenames (without extension).
@@ -834,41 +873,7 @@ function readAndCombineJsons(dir: string): Record<string, any> {
             const filePath = path.join(dir, file);
             try {
                 const fileContent = fs.readFileSync(filePath, 'utf-8');
-                let json: any;
-                try {
-                    json = JSON.parse(fileContent);
-                } catch (error) {
-                    if (!ALLOW_JSON_REPAIR) {
-                        throw error;
-                    }
-                    // Try to repair common Figma export issues (like extra "Translations" section)
-                    const translationStart = fileContent.indexOf('"Translations"');
-                    if (translationStart > 0) {
-                        const firstBrace = fileContent.indexOf('{');
-                        const jsonContent = fileContent.substring(firstBrace, translationStart).trim().replace(/,\s*$/, '');
-                        const cleanedContent = jsonContent.endsWith('}') ? jsonContent : `${jsonContent}\n}`;
-                        try {
-                            json = JSON.parse(cleanedContent);
-                        } catch {
-                            throw error; // Throw original error if repair fails
-                        }
-                    } else {
-                        // Try to fix malformed JSON by wrapping or closing braces
-                        let cleaned = fileContent.trim();
-                        if (!cleaned.startsWith('{')) {
-                            cleaned = `{${cleaned}`;
-                        }
-                        if (!cleaned.endsWith('}')) {
-                            cleaned = `${cleaned}}`;
-                        }
-                        try {
-                            console.warn(`⚠️  JSON reparado en ${file}; revisa el export si es posible.`);
-                            json = JSON.parse(cleaned);
-                        } catch {
-                            throw error;
-                        }
-                    }
-                }
+                let json: any = parseJsonWithOptionalRepair(fileContent, file);
 
                 // Handle wrapped "Tokens" object structure if present
                 if ('Tokens' in json && typeof json.Tokens === 'object' && !Array.isArray(json.Tokens)) {
@@ -906,14 +911,17 @@ function flattenTokens(
     cycleStatus?: Map<string, boolean>,
     depth = 0
 ): string[] {
-    walkTokenTree(summary, obj, prefix, currentPath, depth, {
+    // depth retained for signature compatibility; walker manages it internally (default=0)
+    void depth;
+
+    walkTokenTree(summary, obj, prefix, currentPath, {
         onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
             summary.totalTokens++;
             const rawValue = (tokenObj as TokenValue).$value;
             const varType = (tokenObj as TokenValue).$type;
 
             if (rawValue === undefined) {
-                console.warn(`⚠️  Token sin $value en ${tokenPath.join('.')}, se omite`);
+                console.warn(`⚠️  Token sin $value en ${pathStr(tokenPath)}, se omite`);
                 return;
             }
 
@@ -937,13 +945,13 @@ function flattenTokens(
                 return;
             }
 
-            const varName = `--${tokenPrefix.filter(p => p).join('-')}`;
+            const varName = buildCssVarNameFromPrefix(tokenPrefix);
             emitCssVar(summary, collectedVars, varName, resolvedValue, tokenPath, true);
         },
 
         onLegacyPrimitive: ({ value, key, normalizedKey, prefix: parentPrefix, currentPath: parentPath }) => {
             // Legacy support: handle loose key-value tokens without $value wrapper
-            const varName = `--${[...parentPrefix, normalizedKey].filter(p => p).join('-')}`;
+            const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
             if (!isValidCssVariableName(varName)) {
                 console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
                 return;
@@ -978,6 +986,66 @@ function flattenTokens(
     return collectedVars;
 }
 
+function logChangeDetection(previousVariables: Map<string, string>, cssLines: string[]): void {
+    console.log('\n----------------------------------------');
+    console.log('            CAMBIOS DETECTADOS          ');
+    console.log('----------------------------------------');
+
+    const newVariables = new Map<string, string>();
+    for (const line of cssLines) {
+        const match = line.match(/--([a-zA-Z0-9_-]+):\s*([^;]+);/);
+        if (match && match[1] && match[2]) {
+            newVariables.set(match[1], match[2].trim());
+        }
+    }
+
+    const removed: string[] = [];
+    const added: string[] = [];
+    const modified: Array<{ name: string; oldValue: string; newValue: string }> = [];
+
+    previousVariables.forEach((value, name) => {
+        if (!newVariables.has(name)) {
+            removed.push(name);
+        }
+    });
+
+    newVariables.forEach((value, name) => {
+        if (!previousVariables.has(name)) {
+            added.push(name);
+        } else {
+            const oldValue = previousVariables.get(name);
+            if (oldValue !== value) {
+                modified.push({ name, oldValue: oldValue || '', newValue: value });
+            }
+        }
+    });
+
+    if (removed.length > 0) {
+        console.log(`   🗑️  Variables eliminadas: ${removed.length}`);
+        removed.slice(0, 5).forEach(name => console.log(`      - --${name}`));
+        if (removed.length > 5) console.log(`      ...`);
+    }
+
+    if (added.length > 0) {
+        console.log(`   ➕ Variables añadidas: ${added.length}`);
+        added.slice(0, 5).forEach(name => console.log(`      + --${name}`));
+        if (added.length > 5) console.log(`      ...`);
+    }
+
+    if (modified.length > 0) {
+        console.log(`   🔄 Variables modificadas: ${modified.length}`);
+        modified.slice(0, 5).forEach(({ name, oldValue, newValue }) => {
+            console.log(`      ~ --${name}`);
+            console.log(`        - ${oldValue} -> ${newValue}`);
+        });
+        if (modified.length > 5) console.log(`      ...`);
+    }
+
+    if (removed.length === 0 && added.length === 0 && modified.length === 0) {
+        console.log(`   ✓ Sin cambios significativos`);
+    }
+}
+
 // --- Main Execution ---
 
 async function main() {
@@ -996,8 +1064,7 @@ async function main() {
     let previousVariables = new Map<string, string>();
     if (fs.existsSync(OUTPUT_FILE)) {
         try {
-            const previousCss = fs.readFileSync(OUTPUT_FILE, 'utf-8');
-            previousVariables = extractCssVariables(previousCss);
+            previousVariables = readCssVariablesFromFile(OUTPUT_FILE);
             console.log(`📄 Archivo CSS anterior encontrado con ${previousVariables.size} variables`);
         } catch {
             console.warn('⚠️  No se pudo leer el archivo CSS anterior (se creará uno nuevo)');
@@ -1008,7 +1075,16 @@ async function main() {
     for (const [fileName, fileContent] of Object.entries(combinedTokens)) {
         // We include the filename in the prefix (namespace)
         const normalizedFileName = toKebabCase(fileName);
-        collectTokenMaps(summary, fileContent, [normalizedFileName], [fileName], refMap, valueMap, collisionKeys, idToVarName);
+        collectTokenMaps(
+            summary,
+            fileContent,
+            [normalizedFileName],
+            [fileName],
+            refMap,
+            valueMap,
+            collisionKeys,
+            idToVarName
+        );
     }
 
     // Build cached cycle info once (massive speedup on large graphs)
@@ -1072,63 +1148,7 @@ async function main() {
 
     // Change Detection Log
     if (previousVariables.size > 0) {
-        console.log('\n----------------------------------------');
-        console.log('            CAMBIOS DETECTADOS          ');
-        console.log('----------------------------------------');
-
-        const newVariables = new Map<string, string>();
-        for (const line of cssLines) {
-            const match = line.match(/--([a-zA-Z0-9_-]+):\s*([^;]+);/);
-            if (match && match[1] && match[2]) {
-                newVariables.set(match[1], match[2].trim());
-            }
-        }
-
-        const removed: string[] = [];
-        const added: string[] = [];
-        const modified: Array<{ name: string; oldValue: string; newValue: string }> = [];
-
-        previousVariables.forEach((value, name) => {
-            if (!newVariables.has(name)) {
-                removed.push(name);
-            }
-        });
-
-        newVariables.forEach((value, name) => {
-            if (!previousVariables.has(name)) {
-                added.push(name);
-            } else {
-                const oldValue = previousVariables.get(name);
-                if (oldValue !== value) {
-                    modified.push({ name, oldValue: oldValue || '', newValue: value });
-                }
-            }
-        });
-
-        if (removed.length > 0) {
-            console.log(`   🗑️  Variables eliminadas: ${removed.length}`);
-            removed.slice(0, 5).forEach(name => console.log(`      - --${name}`));
-            if (removed.length > 5) console.log(`      ...`);
-        }
-
-        if (added.length > 0) {
-            console.log(`   ➕ Variables añadidas: ${added.length}`);
-            added.slice(0, 5).forEach(name => console.log(`      + --${name}`));
-            if (added.length > 5) console.log(`      ...`);
-        }
-
-        if (modified.length > 0) {
-            console.log(`   🔄 Variables modificadas: ${modified.length}`);
-            modified.slice(0, 5).forEach(({ name, oldValue, newValue }) => {
-                console.log(`      ~ --${name}`);
-                console.log(`        - ${oldValue} -> ${newValue}`);
-            });
-            if (modified.length > 5) console.log(`      ...`);
-        }
-
-        if (removed.length === 0 && added.length === 0 && modified.length === 0) {
-            console.log(`   ✓ Sin cambios significativos`);
-        }
+        logChangeDetection(previousVariables, cssLines);
     }
 
     console.log(`\n📝 Archivo guardado en: ${OUTPUT_FILE}`);
