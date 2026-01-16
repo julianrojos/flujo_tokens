@@ -266,7 +266,14 @@ function walkTokenTree(
     }
 
     if (modeKey) {
-        walkTokenTree(summary, (obj as Record<string, any>)[modeKey], prefix, [...currentPath, modeKey], handlers, depth + 1);
+        walkTokenTree(
+            summary,
+            (obj as Record<string, any>)[modeKey],
+            prefix,
+            [...currentPath, modeKey],
+            handlers,
+            depth + 1
+        );
     }
 }
 
@@ -634,12 +641,8 @@ function collectTokenMaps(
     refMap: Map<string, string>,
     valueMap: Map<string, TokenValue>,
     collisionKeys: Set<string>,
-    idToVarName: Map<string, string>,
-    depth = 0
+    idToVarName: Map<string, string>
 ): void {
-    // depth retained for signature compatibility; walker manages it internally (default=0)
-    void depth;
-
     walkTokenTree(summary, obj, prefix, currentPath, {
         onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
             const tokenPathKey = buildPathKey(tokenPath);
@@ -833,21 +836,17 @@ function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
             try {
                 return JSON.parse(cleanedContent);
             } catch {
-                throw error; // Throw original error if repair fails
+                throw error; // conservative: do not fall through to other repairs
             }
         }
 
         // Try to fix malformed JSON by wrapping or closing braces
         let cleaned = fileContent.trim();
-        if (!cleaned.startsWith('{')) {
-            cleaned = `{${cleaned}`;
-        }
-        if (!cleaned.endsWith('}')) {
-            cleaned = `${cleaned}}`;
-        }
+        if (!cleaned.startsWith('{')) cleaned = `{${cleaned}`;
+        if (!cleaned.endsWith('}')) cleaned = `${cleaned}}`;
 
+        console.warn(`⚠️  JSON reparado en ${file}; revisa el export si es posible.`);
         try {
-            console.warn(`⚠️  JSON reparado en ${file}; revisa el export si es posible.`);
             return JSON.parse(cleaned);
         } catch {
             throw error;
@@ -908,12 +907,8 @@ function flattenTokens(
     valueMap?: Map<string, TokenValue>,
     collisionKeys?: Set<string>,
     idToVarName?: Map<string, string>,
-    cycleStatus?: Map<string, boolean>,
-    depth = 0
+    cycleStatus?: Map<string, boolean>
 ): string[] {
-    // depth retained for signature compatibility; walker manages it internally (default=0)
-    void depth;
-
     walkTokenTree(summary, obj, prefix, currentPath, {
         onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
             summary.totalTokens++;
@@ -951,13 +946,9 @@ function flattenTokens(
 
         onLegacyPrimitive: ({ value, key, normalizedKey, prefix: parentPrefix, currentPath: parentPath }) => {
             // Legacy support: handle loose key-value tokens without $value wrapper
-            const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
-            if (!isValidCssVariableName(varName)) {
-                console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
-                return;
-            }
-
             summary.totalTokens++;
+
+            const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
             const leafPath = [...parentPath, key];
             const visitedRefs = buildVisitedRefSet(leafPath);
 
