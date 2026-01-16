@@ -78,6 +78,21 @@ function isModeKey(key: string): boolean {
     return key.toLowerCase().startsWith('mode');
 }
 
+function pickModeKey(keys: string[]): string | undefined {
+    const modeDefault = keys.find(k => k === 'modeDefault');
+    if (modeDefault) return modeDefault;
+    return keys.find(k => isModeKey(k));
+}
+
+function toSafePlaceholderName(id: string): string {
+    let placeholderName = id.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    placeholderName = placeholderName.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+    if (!placeholderName || placeholderName === '-') {
+        return 'unknown';
+    }
+    return placeholderName;
+}
+
 function toKebabCase(name: string): string {
     let result = name.replace(/-/g, ' ');
     result = result.replace(/[\\/]+/g, ' ');
@@ -316,11 +331,8 @@ function processVariableAlias(
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${currentPath.join('.')} con ID: ${aliasObj.id}`);
             console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
-            let placeholderName = aliasObj.id.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-            placeholderName = placeholderName.replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-            if (!placeholderName || placeholderName === '-') {
-                placeholderName = 'unknown';
-            }
+
+            const placeholderName = toSafePlaceholderName(aliasObj.id);
             summary.unresolvedRefs.push(`${currentPath.join('.')} (Alias ID: ${aliasObj.id})`);
             return `var(--unresolved-${placeholderName})`;
         }
@@ -566,8 +578,7 @@ function collectTokenMaps(
     }
 
     const keys = Object.keys(obj).sort();
-    const modeDefault = keys.find(k => k === 'modeDefault');
-    const modeAny = keys.find(k => isModeKey(k));
+    const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
         if (key.startsWith('$')) continue;
@@ -589,24 +600,12 @@ function collectTokenMaps(
         );
     }
 
-    if (modeDefault) {
+    if (modeKey) {
         collectTokenMaps(
             summary,
-            obj[modeDefault],
+            obj[modeKey],
             prefix,
-            [...currentPath, modeDefault],
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName,
-            depth + 1
-        );
-    } else if (modeAny) {
-        collectTokenMaps(
-            summary,
-            obj[modeAny],
-            prefix,
-            [...currentPath, modeAny],
+            [...currentPath, modeKey],
             refMap,
             valueMap,
             collisionKeys,
@@ -888,12 +887,11 @@ function flattenTokens(
     }
 
     const keys = Object.keys(obj).sort();
-    const modeDefault = keys.find(k => k === 'modeDefault');
-    const modeAny = keys.find(k => k.toLowerCase().startsWith('mode'));
+    const modeKey = pickModeKey(keys);
 
     for (const key of keys) {
         if (key.startsWith('$')) continue;
-        if (key.toLowerCase().startsWith('mode')) {
+        if (isModeKey(key)) {
             continue;
         }
 
@@ -945,29 +943,14 @@ function flattenTokens(
         }
     }
 
-    if (modeDefault) {
+    if (modeKey) {
         flattenTokens(
             summary,
-            obj[modeDefault],
+            obj[modeKey],
             prefix,
             collectedVars,
             tokensData,
-            [...currentPath, modeDefault],
-            refMap,
-            valueMap,
-            collisionKeys,
-            idToVarName,
-            cycleStatus,
-            depth + 1
-        );
-    } else if (modeAny) {
-        flattenTokens(
-            summary,
-            obj[modeAny],
-            prefix,
-            collectedVars,
-            tokensData,
-            [...currentPath, modeAny],
+            [...currentPath, modeKey],
             refMap,
             valueMap,
             collisionKeys,
