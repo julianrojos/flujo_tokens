@@ -17,6 +17,11 @@ const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // global: used by String.replace()
 const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // global: used to collect all occurrences
 
+// --- CSS var name validation regexes (precompiled) ---
+// ✅ Perf (#4): avoid per-call regex allocations in hot paths.
+const STARTS_WITH_DIGIT_REGEX = /^\d/;
+const CSS_VAR_NAME_AFTER_DASHES_REGEX = /^[a-zA-Z0-9_-]+$/;
+
 // --- Types ---
 
 interface TokenValue {
@@ -174,10 +179,10 @@ function isValidCssVariableName(name: string): boolean {
         return false;
     }
     const afterDashes = name.slice(2);
-    if (!afterDashes || /^\d/.test(afterDashes)) {
+    if (!afterDashes || STARTS_WITH_DIGIT_REGEX.test(afterDashes)) {
         return false;
     }
-    return /^[a-zA-Z0-9_-]+$/.test(afterDashes);
+    return CSS_VAR_NAME_AFTER_DASHES_REGEX.test(afterDashes);
 }
 
 function pathStr(currentPath: string[]): string {
@@ -533,14 +538,15 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
         W3C_REF_REGEX_COLLECT.lastIndex = 0;
         const matches = value.match(W3C_REF_REGEX_COLLECT);
         if (matches) {
-            matches.forEach(match => {
+            // ✅ Perf (#3): for...of avoids per-iteration callback overhead.
+            for (const match of matches) {
                 const tokenPath = match.slice(1, -1).trim();
                 if (tokenPath) {
                     const canonical = canonicalizeRefPath(tokenPath);
                     refs.add(canonical);
                     refs.add(normalizePathKey(canonical));
                 }
-            });
+            }
         }
     } else if (Array.isArray(value)) {
         for (const item of value) {
@@ -587,8 +593,11 @@ function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
             for (const ref of refs) {
                 const next = getResolvedTokenKey(ref, ctx);
                 if (!next) continue;
+
+                // ✅ Perf (#5): early exit once a cycle is found from this node.
                 if (dfs(next)) {
                     hitCycle = true;
+                    break;
                 }
             }
         }
@@ -598,8 +607,11 @@ function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
         return hitCycle;
     };
 
+    // ✅ Perf (#5): only start DFS from nodes not yet visited.
     for (const key of refsByToken.keys()) {
-        dfs(key);
+        if (!color.has(key)) {
+            dfs(key);
+        }
     }
 
     return leadsToCycle;
