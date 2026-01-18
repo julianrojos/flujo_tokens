@@ -23,9 +23,11 @@ const STARTS_WITH_DIGIT_REGEX = /^\d/;
 const CSS_VAR_NAME_AFTER_DASHES_REGEX = /^[a-zA-Z0-9_-]+$/;
 
 // ✅ Perf (#5): precompile once; used in logChangeDetection()
-// ✅ Fix (Pega #1): robust for values containing ";" by anchoring to end-of-line and capturing "everything".
-// Assumption: cssLines are generated as single-line declarations: "  --name: <value>;"
-const CSS_DECL_LINE_REGEX = /^\s*--([a-zA-Z0-9_-]+):\s*(.*);\s*$/;
+// ✅ Fix (Pega #1): robust for values containing ";" AND tolerant of trailing /* comments */.
+// - Captures value greedily up to the declaration ";" (last ";" that still allows optional trailing comment).
+// - Avoids false negatives if a comment is present after the declaration.
+// Assumption: cssLines are single-line declarations: "  --name: <value>;" (optionally with trailing "/* ... */")
+const CSS_DECL_LINE_REGEX = /^\s*--([a-zA-Z0-9_-]+):\s*(.*);\s*(?:\/\*[\s\S]*\*\/\s*)?$/;
 
 // --- Types ---
 
@@ -389,18 +391,9 @@ function canonicalizeRefPath(pathKey: string): string {
     return result;
 }
 
-// ✅ Perf (#2): reuse a shared empty visited set to avoid allocating `new Set()` when there's no seed key.
-// NOTE: treat as ReadonlySet; never mutate it (always clone before adding).
+// ✅ Shared empty visited set for cycle detection seeds.
+// NOTE: treat as ReadonlySet; never mutate it.
 const EMPTY_VISITED_REFS: ReadonlySet<string> = new Set<string>();
-
-/**
- * ✅ Perf: avoid allocating `new Set()` for empty visited sets.
- * - If empty => return shared EMPTY_VISITED_REFS
- * - Else => clone (keeps behavior compatible with previous code that cloned "for safety")
- */
-function cloneVisitedRefs(visited: ReadonlySet<string>): ReadonlySet<string> {
-    return visited.size === 0 ? EMPTY_VISITED_REFS : new Set(visited);
-}
 
 /**
  * Seeds a visited set for cycle detection using the same canonicalization rules as indexing/resolution.
@@ -782,7 +775,9 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
         if (aliasId && targetKey) {
             const cachedHasCycle = cycleStatus.get(targetKey);
             if (cachedHasCycle === true) {
-                console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
+                console.warn(
+                    `⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`
+                );
                 summary.circularDeps++;
                 return `/* circular-alias: ${aliasId} */`;
             }
@@ -825,7 +820,9 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
             }
 
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
-            console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
+            console.warn(
+                `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
+            );
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasId);
@@ -876,8 +873,8 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
         }
 
         if (typeof rawColor === 'string') {
-            // ✅ Perf: avoid allocating new Set when visitedRefs is empty
-            const processed = processValue(ctx, rawColor as any, undefined, colorPath, cloneVisitedRefs(visitedRefs));
+            // ✅ Fix (Pega #2): no cloning needed; visitedRefs is treated as immutable during recursion.
+            const processed = processValue(ctx, rawColor as any, undefined, colorPath, visitedRefs);
             return processed ?? rawColor;
         }
 
@@ -1007,8 +1004,8 @@ function processValue(
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
-            // ✅ Perf: avoid allocating new Set when visitedRefs is empty
-            return value.map(v => processShadow(ctx, v, currentPath, cloneVisitedRefs(visitedRefs))).join(', ');
+            // ✅ Fix (Pega #2): no cloning needed; visitedRefs is treated as immutable during recursion.
+            return value.map(v => processShadow(ctx, v, currentPath, visitedRefs)).join(', ');
         }
         try {
             return JSON.stringify(value);
@@ -1019,8 +1016,8 @@ function processValue(
 
     if (typeof value === 'object') {
         if (varType === 'shadow' && !isVariableAlias(value)) {
-            // ✅ Perf: avoid allocating new Set when visitedRefs is empty
-            return processShadow(ctx, value, currentPath, cloneVisitedRefs(visitedRefs));
+            // ✅ Fix (Pega #2): no cloning needed; visitedRefs is treated as immutable during recursion.
+            return processShadow(ctx, value, currentPath, visitedRefs);
         }
         if (isVariableAlias(value)) {
             return processVariableAlias(ctx, value, currentPath, visitedRefs);
