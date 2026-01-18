@@ -33,34 +33,6 @@ interface VariableAliasObject {
     id?: string;
 }
 
-interface ShadowObject {
-    type?: 'DROP_SHADOW' | 'INNER_SHADOW';
-    /**
-     * In practice (Figma + DTCG), shadow.color may be:
-     * - RGBA channels { r, g, b, a? }
-     * - a VARIABLE_ALIAS object
-     * - a string (e.g. "{color.token}" or "rgba(...)")
-     */
-    color?:
-    | {
-        r: number;
-        g: number;
-        b: number;
-        a?: number;
-    }
-    | VariableAliasObject
-    | string
-    | null;
-    offset?:
-    | {
-        x: number;
-        y: number;
-    }
-    | null;
-    radius?: number | null;
-    spread?: number | null;
-}
-
 interface ExecutionSummary {
     totalTokens: number;
     successCount: number;
@@ -94,35 +66,35 @@ type CssVarCollision = { first: CssVarOwner; others: Map<string, CssVarOwner> };
 const MAX_COLLISION_DETAILS = 10;
 const warnedAliasVarCollisions = new Set<string>();
 
-type ProcessingContext = Readonly<{
+/**
+ * Context types per phase (type-only improvement; runtime unchanged).
+ */
+type BaseContext = Readonly<{
     summary: ExecutionSummary;
-    tokensData?: Record<string, any>;
-    refMap?: Map<string, string>;
-    valueMap?: Map<string, TokenValue>;
-    collisionKeys?: Set<string>;
-    idToVarName?: Map<string, string>;
-    idToTokenKey?: Map<string, string>; // ✅ NEW: $id -> normalized token key (for cycle graph)
-    cycleStatus?: Map<string, boolean>;
 
     // ✅ NEW: var-name namespace collision tracking
     cssVarNameOwners?: Map<string, CssVarOwner>; // --var -> first owner
     cssVarNameCollisionMap?: Map<string, CssVarCollision>; // --var -> collision details
 }>;
 
-function createProcessingContext(args: {
-    summary: ExecutionSummary;
-    tokensData?: Record<string, any>;
-    refMap?: Map<string, string>;
-    valueMap?: Map<string, TokenValue>;
-    collisionKeys?: Set<string>;
-    idToVarName?: Map<string, string>;
-    idToTokenKey?: Map<string, string>; // ✅ NEW
-    cycleStatus?: Map<string, boolean>;
+type IndexingContext = BaseContext &
+    Readonly<{
+        refMap: Map<string, string>;
+        valueMap: Map<string, TokenValue>;
+        collisionKeys: Set<string>;
+        idToVarName: Map<string, string>;
+        idToTokenKey: Map<string, string>; // $id -> normalized token key (for cycle graph)
+    }>;
 
-    // ✅ NEW
-    cssVarNameOwners?: Map<string, CssVarOwner>;
-    cssVarNameCollisionMap?: Map<string, CssVarCollision>;
-}): ProcessingContext {
+type EmissionContext = IndexingContext &
+    Readonly<{
+        tokensData: Record<string, any>;
+        cycleStatus: Map<string, boolean>;
+    }>;
+
+type ProcessingContext = IndexingContext | EmissionContext;
+
+function createProcessingContext<T extends ProcessingContext>(args: T): Readonly<T> {
     // Freeze to prevent accidental mutation of the shared context object across phases.
     return Object.freeze({ ...args });
 }
@@ -258,7 +230,7 @@ function emitCssVar(
 }
 
 // ✅ NEW: track collisions in the CSS custom property namespace (different tokens -> same --var)
-function trackCssVarNameCollision(ctx: ProcessingContext, varName: string, owner: CssVarOwner): void {
+function trackCssVarNameCollision(ctx: BaseContext, varName: string, owner: CssVarOwner): void {
     const { summary, cssVarNameOwners, cssVarNameCollisionMap } = ctx;
     if (!cssVarNameOwners || !cssVarNameCollisionMap) return;
     if (!varName) return;
@@ -338,31 +310,42 @@ function canonicalizeRefPath(pathKey: string): string {
 
 /**
  * Seeds a visited set for cycle detection using the same canonicalization rules as indexing/resolution.
- * We store both canonical and normalized forms to catch casing variations.
+ *
+ * ✅ Simplified (safe in this version): store only normalized keys.
+ * All indexed keys in refMap/valueMap are normalized (lowercased), and getResolvedTokenKey
+ * resolves to normalized keys in this script.
  */
 function buildVisitedRefSet(currentPath: string[]): Set<string> {
-    const canonical = buildPathKey(currentPath);
-    const normalized = normalizePathKey(canonical);
-
+    const normalized = normalizePathKey(buildPathKey(currentPath));
     const visited = new Set<string>();
-    if (canonical) visited.add(canonical);
-    if (normalized && normalized !== canonical) visited.add(normalized);
+    if (normalized) visited.add(normalized);
     return visited;
 }
 
-function indexTokenIdToVarName(tokenObj: any, varName: string, idToVarName: Map<string, string>): void {
-    // Index Figma "$id" -> CSS var name for fast VARIABLE_ALIAS resolution.
-    const id = tokenObj?.$id;
-    if (typeof id === 'string' && id.trim()) {
-        idToVarName.set(id, varName);
-    }
-}
+/**
+ * Indexes Figma "$id" into both:
+ * - idToVarName: $id -> CSS var name (for VARIABLE_ALIAS resolution)
+ * - idToTokenKey: $id -> normalized token key (for cycle graph + alias deps)
+ *
+ * ✅ Consolidated: previously two near-identical functions.
+ */
+function indexTokenId(
+    tokenObj: any,
+    varName: string,
+    normalizedTokenKey: string,
+    idToVarName: Map<string, string>,
+    idToTokenKey: Map<string, string>
+): void {
+    const idRaw = tokenObj?.$id;
+    if (typeof idRaw !== 'string') return;
 
-function indexTokenIdToTokenKey(tokenObj: any, normalizedTokenKey: string, idToTokenKey: Map<string, string>): void {
-    // Index Figma "$id" -> normalized token key so alias-ID refs can participate in cycle detection.
-    const id = tokenObj?.$id;
-    if (typeof id === 'string' && id.trim() && normalizedTokenKey) {
-        idToTokenKey.set(id, normalizedTokenKey);
+    const trimmed = idRaw.trim();
+    if (!trimmed) return;
+
+    // Preserve original ID string (behaviorally identical to previous code).
+    idToVarName.set(idRaw, varName);
+    if (normalizedTokenKey) {
+        idToTokenKey.set(idRaw, normalizedTokenKey);
     }
 }
 
@@ -371,19 +354,32 @@ function indexTokenIdToTokenKey(tokenObj: any, normalizedTokenKey: string, idToT
  * 1) exact canonical key, then 2) case-insensitive normalized key,
  * while failing fast on normalized collisions (ambiguous local refs).
  */
-function getResolvedTokenKey(ref: string, ctx: ProcessingContext): string | null {
+function getResolvedTokenKey(ref: string, ctx: IndexingContext): string | null {
     const canonical = canonicalizeRefPath(ref);
     const normalized = normalizePathKey(canonical);
 
     const hasKey = (key: string): boolean => {
-        // Defensive: some contexts may omit one of these maps.
-        if (ctx.valueMap?.has(key)) return true;
-        if (ctx.refMap?.has(key)) return true;
-        return false;
+        return ctx.valueMap.has(key) || ctx.refMap.has(key);
     };
 
     // Ambiguous local keys (e.g., "{bg}") must not resolve silently.
-    if (ctx.collisionKeys?.has(normalized)) return null;
+    if (ctx.collisionKeys.has(normalized)) return null;
+
+    if (hasKey(canonical)) return canonical;
+    if (hasKey(normalized)) return normalized;
+    return null;
+}
+
+/**
+ * ✅ New helper: resolves using precomputed canonical/normalized strings
+ * (avoids repeated canonicalizeRefPath() work).
+ */
+function getResolvedTokenKeyFromParts(canonical: string, normalized: string, ctx: IndexingContext): string | null {
+    const hasKey = (key: string): boolean => {
+        return ctx.valueMap.has(key) || ctx.refMap.has(key);
+    };
+
+    if (ctx.collisionKeys.has(normalized)) return null;
 
     if (hasKey(canonical)) return canonical;
     if (hasKey(normalized)) return normalized;
@@ -477,14 +473,14 @@ function walkTokenTree(
  * Both canonical and normalized forms are recorded for robust lookups.
  */
 function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
-    // ✅ NEW: treat VARIABLE_ALIAS as an explicit dependency edge in the cycle graph.
+    // ✅ VARIABLE_ALIAS as an explicit dependency edge in the cycle graph.
     if (isVariableAlias(value)) {
         const id = value.id?.trim();
         if (id && idToTokenKey) {
             const targetKey = idToTokenKey.get(id);
             if (targetKey) {
+                // ✅ Safe cleanup: idToTokenKey stores normalized keys in this script; adding normalizePathKey(targetKey) was redundant.
                 refs.add(targetKey);
-                refs.add(normalizePathKey(targetKey));
             }
         }
         return;
@@ -524,7 +520,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
  * - unresolved/colliding refs are treated as non-edges
  * - only resolvable keys participate in cycle detection
  */
-function hasCircularDependency(startKey: string, ctx: ProcessingContext, visited: Set<string> = new Set()): boolean {
+function hasCircularDependency(startKey: string, ctx: IndexingContext, visited: Set<string> = new Set()): boolean {
     const resolvedStart = getResolvedTokenKey(startKey, ctx);
     if (!resolvedStart) {
         // If runtime can't resolve the edge, it can't contribute to a resolvable cycle.
@@ -537,8 +533,8 @@ function hasCircularDependency(startKey: string, ctx: ProcessingContext, visited
     }
 
     const token =
-        ctx.valueMap?.get(resolvedStart) ||
-        (resolvedStart !== normalizedStart ? ctx.valueMap?.get(normalizedStart) : undefined);
+        ctx.valueMap.get(resolvedStart) ||
+        (resolvedStart !== normalizedStart ? ctx.valueMap.get(normalizedStart) : undefined);
 
     if (!token) {
         return false;
@@ -566,16 +562,11 @@ function hasCircularDependency(startKey: string, ctx: ProcessingContext, visited
  * - W3C "{...}" references
  * - VARIABLE_ALIAS (ID-based) references when idToTokenKey is available
  */
-function buildCycleStatus(ctx: ProcessingContext): Map<string, boolean> {
-    const { valueMap } = ctx;
-    if (!valueMap) {
-        return new Map<string, boolean>();
-    }
-
+function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
     const refsByToken = new Map<string, Set<string>>();
 
     // Extract refs once per token key.
-    for (const [key, token] of valueMap.entries()) {
+    for (const [key, token] of ctx.valueMap.entries()) {
         const refs = new Set<string>();
         collectRefsFromValue(token.$value, refs, ctx.idToTokenKey);
         refsByToken.set(key, refs);
@@ -653,25 +644,25 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
 }
 
 function processVariableAlias(
-    ctx: ProcessingContext,
+    ctx: EmissionContext,
     aliasObj: unknown,
     currentPath: string[],
-    visitedRefs?: ReadonlySet<string> // ✅ NEW: allow cycle checks consistent with W3C refs
+    visitedRefs?: ReadonlySet<string> // allow cycle checks consistent with W3C refs
 ): string {
     if (isVariableAlias(aliasObj)) {
         const { summary, tokensData, idToVarName, idToTokenKey, cycleStatus, cssVarNameCollisionMap } = ctx;
 
         const aliasId = aliasObj.id?.trim();
-        const targetKey = aliasId && idToTokenKey ? idToTokenKey.get(aliasId) : undefined;
+        const targetKey = aliasId ? idToTokenKey.get(aliasId) : undefined;
 
-        // ✅ NEW: detect direct self/ancestor cycles in the current resolution branch.
+        // Detect direct self/ancestor cycles in the current resolution branch.
         if (aliasId && targetKey && visitedRefs && (visitedRefs.has(targetKey) || visitedRefs.has(normalizePathKey(targetKey)))) {
             console.warn(`⚠️  Circular VARIABLE_ALIAS reference (id=${aliasId}) at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-alias: ${aliasId} */`;
         }
 
-        // ✅ NEW: deep/cached cycle hint (same semantics used for W3C refs).
+        // Deep/cached cycle hint (same semantics used for W3C refs).
         if (aliasId && targetKey && cycleStatus?.get(targetKey) === true) {
             console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
             summary.circularDeps++;
@@ -700,7 +691,7 @@ function processVariableAlias(
 
         if (aliasId && tokensData) {
             // Fast path: O(1) lookup from the "$id" index built during indexing.
-            const direct = idToVarName?.get(aliasId);
+            const direct = idToVarName.get(aliasId);
             if (direct) {
                 warnIfCollidingVarName(direct);
                 return `var(${direct})`;
@@ -743,7 +734,7 @@ function processVariableAlias(
  *
  * Note: color is emitted as the last component so `var(--...)` works (rgba(var(...)) is invalid).
  */
-function processShadow(ctx: ProcessingContext, shadowObj: unknown, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
+function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
     if (!isPlainObject(shadowObj)) {
         return JSON.stringify(shadowObj);
     }
@@ -792,7 +783,8 @@ function processShadow(ctx: ProcessingContext, shadowObj: unknown, currentPath: 
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 // Support both normalized (0..1) and byte (0..255) channels.
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
+                const to255 = (c: number, normalized: boolean): number =>
+                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -813,8 +805,23 @@ function processShadow(ctx: ProcessingContext, shadowObj: unknown, currentPath: 
     return `${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
 }
 
+/**
+ * ✅ Consolidated helper for broken-ref placeholders (deduped in resolveReference).
+ * Produces var(--broken-ref-...) or returns the original match if invalid (and records invalidNames).
+ */
+function brokenRefPlaceholder(summary: ExecutionSummary, currentPath: string[], canonicalPath: string, match: string): string {
+    const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
+    const varName = `--broken-ref-${cssPath || 'unknown'}`;
+
+    if (!isValidCssVariableName(varName)) {
+        summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
+        return match;
+    }
+    return `var(${varName})`;
+}
+
 function resolveReference(
-    ctx: ProcessingContext,
+    ctx: EmissionContext,
     match: string,
     tokenPath: string,
     originalValue: string,
@@ -835,9 +842,9 @@ function resolveReference(
     const normalizedTokenPath = normalizePathKey(canonicalPath);
 
     // Resolve first; if it doesn't resolve (or is ambiguous), don't run cycle checks.
-    const resolvedKey = getResolvedTokenKey(canonicalPath, ctx);
+    const resolvedKey = getResolvedTokenKeyFromParts(canonicalPath, normalizedTokenPath, ctx);
     if (!resolvedKey) {
-        const isCollision = collisionKeys?.has(normalizedTokenPath) ?? false;
+        const isCollision = collisionKeys.has(normalizedTokenPath);
         console.warn(
             `⚠️  ${isCollision ? 'Ambiguous' : 'Unresolved'} W3C reference ${match} at ${pathStr(currentPath)}${isCollision ? ' (normalized collision)' : ''
             }`
@@ -850,13 +857,7 @@ function resolveReference(
         }
 
         // Emit a stable placeholder var() so downstream CSS still parses.
-        const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
-        const varName = `--broken-ref-${cssPath || 'unknown'}`;
-        if (!isValidCssVariableName(varName)) {
-            summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
-            return match;
-        }
-        return `var(${varName})`;
+        return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
     }
 
     // Avoid repeating expensive checks for the same resolved key within one string value.
@@ -871,7 +872,10 @@ function resolveReference(
 
         // Deep cycle check uses the resolvable graph and respects collisions.
         const cachedHasCycle = cycleStatus?.get(resolvedKey);
-        if (cachedHasCycle === true || (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))) {
+        if (
+            cachedHasCycle === true ||
+            (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))
+        ) {
             console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-ref: ${tokenPath} */`;
@@ -881,7 +885,7 @@ function resolveReference(
         seenInValue.add(seenKey);
     }
 
-    const mappedVarName = refMap?.get(resolvedKey);
+    const mappedVarName = refMap.get(resolvedKey);
     if (mappedVarName) {
         return `var(${mappedVarName})`;
     }
@@ -890,18 +894,11 @@ function resolveReference(
     console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)} (resolved key missing in refMap)`);
     recordUnresolvedTyped(summary, currentPath, 'Ref', tokenPath);
 
-    const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
-    const varName = `--broken-ref-${cssPath || 'unknown'}`;
-
-    if (!isValidCssVariableName(varName)) {
-        summary.invalidNames.push(`${pathStr(currentPath)} (Ref to invalid name: ${varName})`);
-        return match;
-    }
-    return `var(${varName})`;
+    return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
 }
 
 function processValue(
-    ctx: ProcessingContext,
+    ctx: EmissionContext,
     value: TokenValue['$value'],
     varType?: string,
     currentPath: string[] = [],
@@ -961,8 +958,8 @@ function processValue(
         }
 
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
-        return value.replace(W3C_REF_REGEX_REPLACE, (match, tokenPath) =>
-            resolveReference(ctx, match, tokenPath, value, currentPath, visitedRefs, seenInValue)
+        return value.replace(W3C_REF_REGEX_REPLACE, (m, tp) =>
+            resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue)
         );
     }
 
@@ -973,13 +970,8 @@ function processValue(
     return String(value);
 }
 
-function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [], currentPath: string[] = []): void {
+function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [], currentPath: string[] = []): void {
     const { summary, refMap, valueMap, collisionKeys, idToVarName, idToTokenKey } = ctx;
-
-    // Indexing is only valid when all maps are present.
-    if (!refMap || !valueMap || !collisionKeys || !idToVarName || !idToTokenKey) {
-        return;
-    }
 
     /**
      * Inserts or updates an indexed key. Keys here are already normalized (lowercased).
@@ -1016,10 +1008,9 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
             const normalizedKey = normalizePathKey(tokenPathKey);
             const varName = buildCssVarNameFromPrefix(tokenPrefix);
 
-            indexTokenIdToVarName(tokenObj, varName, idToVarName);
-            indexTokenIdToTokenKey(tokenObj, normalizedKey, idToTokenKey);
+            indexTokenId(tokenObj, varName, normalizedKey, idToVarName, idToTokenKey);
 
-            // ✅ NEW: detect collisions in CSS custom property namespace (different tokens -> same --var)
+            // ✅ detect collisions in CSS custom property namespace (different tokens -> same --var)
             trackCssVarNameCollision(ctx, varName, {
                 tokenKey: normalizedKey,
                 tokenPath: pathStr(tokenPath),
@@ -1051,7 +1042,7 @@ function collectTokenMaps(ctx: ProcessingContext, obj: any, prefix: string[] = [
 
             const legacyTokenObj: TokenValue = { $value: value as any };
 
-            // ✅ NEW: legacy tokens can also collide in CSS var namespace
+            // ✅ legacy tokens can also collide in CSS var namespace
             trackCssVarNameCollision(ctx, varName, {
                 tokenKey: normalizedPathKey,
                 tokenPath: pathStr(leafPath)
@@ -1291,7 +1282,7 @@ function readAndCombineJsons(dir: string): Record<string, any> {
  * - legacy primitive leaves (key: string|number|boolean)
  */
 function flattenTokens(
-    ctx: ProcessingContext,
+    ctx: EmissionContext,
     obj: any,
     prefix: string[] = [],
     collectedVars: string[] = [],
@@ -1458,9 +1449,9 @@ async function main() {
     const valueMap = new Map<string, TokenValue>();
     const collisionKeys = new Set<string>();
     const idToVarName = new Map<string, string>();
-    const idToTokenKey = new Map<string, string>(); // ✅ NEW
+    const idToTokenKey = new Map<string, string>();
 
-    // ✅ NEW: collision tracking maps (for CSS var namespace)
+    // ✅ collision tracking maps (for CSS var namespace)
     const cssVarNameOwners = new Map<string, CssVarOwner>();
     const cssVarNameCollisionMap = new Map<string, CssVarCollision>();
 
