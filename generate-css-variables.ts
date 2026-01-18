@@ -340,6 +340,10 @@ function canonicalizeRefPath(pathKey: string): string {
     return result;
 }
 
+// ✅ Perf (#5): reuse a shared empty visited set to avoid allocating `new Set()` when there's no seed key.
+// NOTE: treat as ReadonlySet; never mutate it (always clone before adding).
+const EMPTY_VISITED_REFS: ReadonlySet<string> = new Set<string>();
+
 /**
  * Seeds a visited set for cycle detection using the same canonicalization rules as indexing/resolution.
  *
@@ -347,11 +351,9 @@ function canonicalizeRefPath(pathKey: string): string {
  * All indexed keys in refMap/valueMap are normalized (lowercased), and getResolvedTokenKey
  * resolves to normalized keys in this script.
  */
-function buildVisitedRefSet(currentPath: string[]): Set<string> {
+function buildVisitedRefSet(currentPath: string[]): ReadonlySet<string> {
     const normalized = normalizePathKey(buildPathKey(currentPath));
-    const visited = new Set<string>();
-    if (normalized) visited.add(normalized);
-    return visited;
+    return normalized ? new Set([normalized]) : EMPTY_VISITED_REFS;
 }
 
 /**
@@ -448,7 +450,13 @@ function getResolvedTokenKeyFromParts(canonical: string, normalized: string, ctx
 type WalkPrimitive = string | number | boolean;
 
 type WalkHandlers = {
-    onTokenValue?: (ctx: { obj: any; prefix: string[]; currentPath: string[]; depth: number; inModeBranch: boolean }) => void;
+    onTokenValue?: (ctx: {
+        obj: any;
+        prefix: string[];
+        currentPath: string[];
+        depth: number;
+        inModeBranch: boolean;
+    }) => void;
     onLegacyPrimitive?: (ctx: {
         value: WalkPrimitive;
         key: string;
@@ -520,7 +528,15 @@ function walkTokenTree(
          * Everything under the selected mode is flagged as `inModeBranch` so indexers can treat
          * it as an override of the base token value.
          */
-        walkTokenTree(summary, (obj as Record<string, any>)[modeKey], prefix, [...currentPath, modeKey], handlers, depth + 1, true);
+        walkTokenTree(
+            summary,
+            (obj as Record<string, any>)[modeKey],
+            prefix,
+            [...currentPath, modeKey],
+            handlers,
+            depth + 1,
+            true
+        );
     }
 }
 
@@ -816,8 +832,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 // Support both normalized (0..1) and byte (0..255) channels.
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number =>
-                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -932,7 +947,7 @@ function processValue(
     value: TokenValue['$value'],
     varType?: string,
     currentPath: string[] = [],
-    visitedRefs: ReadonlySet<string> = new Set()
+    visitedRefs: ReadonlySet<string> = EMPTY_VISITED_REFS
 ): string | null {
     const { summary } = ctx;
 
