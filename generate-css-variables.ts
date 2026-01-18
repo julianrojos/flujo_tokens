@@ -95,7 +95,8 @@ type EmissionContext = IndexingContext &
 type ProcessingContext = IndexingContext | EmissionContext;
 
 function createProcessingContext<T extends ProcessingContext>(args: T): Readonly<T> {
-    // Freeze to prevent accidental mutation of the shared context object across phases.
+    // Shallow-freeze: prevents reassigning ctx properties (e.g. ctx.refMap = ...),
+    // but does NOT make nested Maps/Sets immutable (their contents can still change).
     return Object.freeze({ ...args });
 }
 
