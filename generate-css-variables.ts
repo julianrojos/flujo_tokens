@@ -228,9 +228,20 @@ function pathStr(currentPath: string[]): string {
     return currentPath.join('.');
 }
 
+/**
+ * ✅ Perf (#5): avoid prefix.filter(...).join(...) allocations in this hot path.
+ * Keeps identical behavior: skips falsy segments and joins with "-".
+ */
 function buildCssVarNameFromPrefix(prefix: string[]): string {
-    // Prefix segments are already kebab-cased by the walker.
-    return `--${prefix.filter(p => p).join('-')}`;
+    let out = '--';
+    let first = true;
+    for (const p of prefix) {
+        if (!p) continue;
+        if (!first) out += '-';
+        out += p;
+        first = false;
+    }
+    return out;
 }
 
 function checkDepthLimit(summary: ExecutionSummary, depth: number, currentPath: string[]): boolean {
@@ -368,9 +379,18 @@ function canonicalizeRefPath(pathKey: string): string {
     return result;
 }
 
-// ✅ Perf (#5): reuse a shared empty visited set to avoid allocating `new Set()` when there's no seed key.
+// ✅ Perf: reuse a shared empty visited set to avoid allocating `new Set()` when there's no seed key.
 // NOTE: treat as ReadonlySet; never mutate it (always clone before adding).
 const EMPTY_VISITED_REFS: ReadonlySet<string> = new Set<string>();
+
+/**
+ * ✅ Perf (#4): avoid allocating `new Set()` for empty visited sets.
+ * - If empty => return shared EMPTY_VISITED_REFS
+ * - Else => clone (keeps behavior compatible with previous code that cloned "for safety")
+ */
+function cloneVisitedRefs(visited: ReadonlySet<string>): ReadonlySet<string> {
+    return visited.size === 0 ? EMPTY_VISITED_REFS : new Set(visited);
+}
 
 /**
  * Seeds a visited set for cycle detection using the same canonicalization rules as indexing/resolution.
@@ -544,7 +564,16 @@ function walkTokenTree(
             continue;
         }
 
-        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1, inModeBranch, sortKeys);
+        walkTokenTree(
+            summary,
+            value,
+            [...prefix, normalizedKey],
+            [...currentPath, key],
+            handlers,
+            depth + 1,
+            inModeBranch,
+            sortKeys
+        );
     }
 
     if (modeKey) {
@@ -571,7 +600,8 @@ function walkTokenTree(
  * - W3C "{...}" references found inside strings
  * - VARIABLE_ALIAS references (via $id -> tokenKey mapping) when available
  *
- * Both canonical and normalized forms are recorded for robust lookups.
+ * ✅ Perf (#1): store only canonical refs (avoid duplicated canonical+normalized edges).
+ * ✅ Perf (#2): use regex.exec loop instead of match() to avoid allocating arrays of matches.
  */
 function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
     // ✅ VARIABLE_ALIAS as an explicit dependency edge in the cycle graph.
@@ -580,6 +610,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
         if (id && idToTokenKey) {
             const targetKey = idToTokenKey.get(id);
             if (targetKey) {
+                // targetKey is already a normalized token key in this script
                 refs.add(targetKey);
             }
         }
@@ -588,16 +619,14 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
 
     if (typeof value === 'string') {
         W3C_REF_REGEX_COLLECT.lastIndex = 0;
-        const matches = value.match(W3C_REF_REGEX_COLLECT);
-        if (matches) {
-            for (const match of matches) {
-                const tokenPath = match.slice(1, -1).trim();
-                if (tokenPath) {
-                    const canonical = canonicalizeRefPath(tokenPath);
-                    refs.add(canonical);
-                    refs.add(normalizePathKey(canonical));
-                }
-            }
+
+        let m: RegExpExecArray | null;
+        while ((m = W3C_REF_REGEX_COLLECT.exec(value)) !== null) {
+            const tokenPath = (m[1] ?? '').trim();
+            if (!tokenPath) continue;
+
+            const canonical = canonicalizeRefPath(tokenPath);
+            refs.add(canonical); // ✅ only canonical (normalized derived when resolving)
         }
     } else if (Array.isArray(value)) {
         for (const item of value) {
@@ -713,6 +742,22 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
     return null;
 }
 
+// ✅ Perf (#3): cache findTokenById results (including misses) per run
+const findTokenByIdCache = new Map<string, string[] | null>();
+
+function findTokenByIdCached(tokensData: Record<string, any>, targetId: string): string[] | null {
+    const key = typeof targetId === 'string' ? targetId.trim() : '';
+    if (!key) return null;
+
+    if (findTokenByIdCache.has(key)) {
+        return findTokenByIdCache.get(key)!;
+    }
+
+    const found = findTokenById(tokensData, key);
+    findTokenByIdCache.set(key, found);
+    return found;
+}
+
 function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPath: string[], visitedRefs?: ReadonlySet<string>): string {
     if (isVariableAlias(aliasObj)) {
         const { summary, tokensData, idToVarName, idToTokenKey, cycleStatus, cssVarNameCollisionMap } = ctx;
@@ -764,7 +809,8 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
                 return `var(${direct})`;
             }
 
-            const tokenPath = findTokenById(tokensData, aliasId);
+            // ✅ Perf (#3): cached O(N) scan fallback (including caching misses)
+            const tokenPath = findTokenByIdCached(tokensData, aliasId);
             if (tokenPath) {
                 const cssPath = tokenPath.map(toKebabCase).join('-');
                 const derived = `--${cssPath}`;
@@ -826,7 +872,8 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
         }
 
         if (typeof rawColor === 'string') {
-            const processed = processValue(ctx, rawColor as any, undefined, colorPath, new Set(visitedRefs));
+            // ✅ Perf (#4): avoid allocating new Set when visitedRefs is empty
+            const processed = processValue(ctx, rawColor as any, undefined, colorPath, cloneVisitedRefs(visitedRefs));
             return processed ?? rawColor;
         }
 
@@ -956,7 +1003,8 @@ function processValue(
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
-            return value.map(v => processShadow(ctx, v, currentPath, new Set(visitedRefs))).join(', ');
+            // ✅ Perf (#4): avoid allocating new Set when visitedRefs is empty
+            return value.map(v => processShadow(ctx, v, currentPath, cloneVisitedRefs(visitedRefs))).join(', ');
         }
         try {
             return JSON.stringify(value);
@@ -967,7 +1015,8 @@ function processValue(
 
     if (typeof value === 'object') {
         if (varType === 'shadow' && !isVariableAlias(value)) {
-            return processShadow(ctx, value, currentPath, new Set(visitedRefs));
+            // ✅ Perf (#4): avoid allocating new Set when visitedRefs is empty
+            return processShadow(ctx, value, currentPath, cloneVisitedRefs(visitedRefs));
         }
         if (isVariableAlias(value)) {
             return processVariableAlias(ctx, value, currentPath, visitedRefs);
@@ -988,7 +1037,7 @@ function processValue(
             return value;
         }
 
-        // ✅ Perf (#1): single-pass ref handling via replace() + flag (avoids separate .test()).
+        // ✅ Perf (#1 already present here): single-pass ref handling via replace() + flag (avoids separate .test()).
         let hadRef = false;
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
 
@@ -1453,6 +1502,7 @@ async function main() {
     // ✅ Clear memoization caches between runs (keeps benefits within a run, avoids unbounded growth across runs).
     kebabCaseCache.clear();
     refCanonicalCache.clear();
+    findTokenByIdCache.clear(); // ✅ Perf (#3): clear per run
 
     const summary = createSummary();
 
