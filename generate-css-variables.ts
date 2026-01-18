@@ -18,9 +18,14 @@ const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // global: used by St
 const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // global: used to collect all occurrences
 
 // --- CSS var name validation regexes (precompiled) ---
-// ✅ Perf (#4): avoid per-call regex allocations in hot paths.
+// ✅ Perf: avoid per-call regex allocations in hot paths.
 const STARTS_WITH_DIGIT_REGEX = /^\d/;
 const CSS_VAR_NAME_AFTER_DASHES_REGEX = /^[a-zA-Z0-9_-]+$/;
+
+// ✅ Perf (#5): precompile once; used in logChangeDetection()
+// ✅ Fix (Pega #1): robust for values containing ";" by anchoring to end-of-line and capturing "everything".
+// Assumption: cssLines are generated as single-line declarations: "  --name: <value>;"
+const CSS_DECL_LINE_REGEX = /^\s*--([a-zA-Z0-9_-]+):\s*(.*);\s*$/;
 
 // --- Types ---
 
@@ -153,7 +158,7 @@ function pickModeKey(keys: string[]): string | undefined {
     return keys.find(k => k.toLowerCase() === 'modedefault') ?? keys.find(isModeKey);
 }
 
-// ✅ Perf (#4): deterministic min selection matching default `.sort()` order (UTF-16 code unit order)
+// ✅ Perf: deterministic min selection matching default `.sort()` order (UTF-16 code unit order)
 function compareByCodeUnit(a: string, b: string): number {
     return a > b ? 1 : a < b ? -1 : 0;
 }
@@ -189,7 +194,7 @@ function toSafePlaceholderName(id: string): string {
     return placeholderName || 'unknown';
 }
 
-// ✅ NEW: cache for toKebabCase (hot path). Cleared per run in main() to avoid growth across executions.
+// ✅ cache for toKebabCase (hot path). Cleared per run in main() to avoid growth across executions.
 const kebabCaseCache = new Map<string, string>();
 
 function toKebabCase(name: string): string {
@@ -229,18 +234,23 @@ function pathStr(currentPath: string[]): string {
 }
 
 /**
- * ✅ Perf (#5): avoid prefix.filter(...).join(...) allocations in this hot path.
- * Keeps identical behavior: skips falsy segments and joins with "-".
+ * ✅ Perf (#1): micro-opt in hot path.
+ * Same behavior as: `--${prefix.filter(Boolean).join('-')}`
+ *
+ * ✅ Perf/Fine-tuning (#2): use an indexed loop to avoid iterator overhead in very hot paths.
  */
 function buildCssVarNameFromPrefix(prefix: string[]): string {
     let out = '--';
     let first = true;
-    for (const p of prefix) {
+
+    for (let i = 0; i < prefix.length; i++) {
+        const p = prefix[i];
         if (!p) continue;
         if (!first) out += '-';
         out += p;
         first = false;
     }
+
     return out;
 }
 
@@ -288,7 +298,7 @@ function emitCssVar(
     summary.successCount++;
 }
 
-// ✅ NEW: track collisions in the CSS custom property namespace (different tokens -> same --var)
+// ✅ track collisions in the CSS custom property namespace (different tokens -> same --var)
 function trackCssVarNameCollision(ctx: BaseContext, varName: string, owner: CssVarOwner): void {
     const { summary, cssVarNameOwners, cssVarNameCollisionMap } = ctx;
     if (!cssVarNameOwners || !cssVarNameCollisionMap) return;
@@ -379,12 +389,12 @@ function canonicalizeRefPath(pathKey: string): string {
     return result;
 }
 
-// ✅ Perf: reuse a shared empty visited set to avoid allocating `new Set()` when there's no seed key.
+// ✅ Perf (#2): reuse a shared empty visited set to avoid allocating `new Set()` when there's no seed key.
 // NOTE: treat as ReadonlySet; never mutate it (always clone before adding).
 const EMPTY_VISITED_REFS: ReadonlySet<string> = new Set<string>();
 
 /**
- * ✅ Perf (#4): avoid allocating `new Set()` for empty visited sets.
+ * ✅ Perf: avoid allocating `new Set()` for empty visited sets.
  * - If empty => return shared EMPTY_VISITED_REFS
  * - Else => clone (keeps behavior compatible with previous code that cloned "for safety")
  */
@@ -564,16 +574,7 @@ function walkTokenTree(
             continue;
         }
 
-        walkTokenTree(
-            summary,
-            value,
-            [...prefix, normalizedKey],
-            [...currentPath, key],
-            handlers,
-            depth + 1,
-            inModeBranch,
-            sortKeys
-        );
+        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1, inModeBranch, sortKeys);
     }
 
     if (modeKey) {
@@ -582,16 +583,7 @@ function walkTokenTree(
          * Everything under the selected mode is flagged as `inModeBranch` so indexers can treat
          * it as an override of the base token value.
          */
-        walkTokenTree(
-            summary,
-            (obj as Record<string, any>)[modeKey],
-            prefix,
-            [...currentPath, modeKey],
-            handlers,
-            depth + 1,
-            true,
-            sortKeys
-        );
+        walkTokenTree(summary, (obj as Record<string, any>)[modeKey], prefix, [...currentPath, modeKey], handlers, depth + 1, true, sortKeys);
     }
 }
 
@@ -600,8 +592,9 @@ function walkTokenTree(
  * - W3C "{...}" references found inside strings
  * - VARIABLE_ALIAS references (via $id -> tokenKey mapping) when available
  *
- * ✅ Perf (#1): store only canonical refs (avoid duplicated canonical+normalized edges).
- * ✅ Perf (#2): use regex.exec loop instead of match() to avoid allocating arrays of matches.
+ * ✅ Perf (#4):
+ * - store only canonical refs (avoid duplicated canonical+normalized edges)
+ * - use regex.exec loop instead of match() to avoid allocating arrays of matches
  */
 function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
     // ✅ VARIABLE_ALIAS as an explicit dependency edge in the cycle graph.
@@ -618,6 +611,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
     }
 
     if (typeof value === 'string') {
+        // IMPORTANT: /g regexes have state.
         W3C_REF_REGEX_COLLECT.lastIndex = 0;
 
         let m: RegExpExecArray | null;
@@ -626,7 +620,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
             if (!tokenPath) continue;
 
             const canonical = canonicalizeRefPath(tokenPath);
-            refs.add(canonical); // ✅ only canonical (normalized derived when resolving)
+            refs.add(canonical);
         }
     } else if (Array.isArray(value)) {
         for (const item of value) {
@@ -700,9 +694,20 @@ function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
  * Only used when the O(1) "$id" index misses (e.g., partial exports).
  *
  * ✅ Fixed: tolerate whitespace differences by comparing both raw and trimmed IDs.
+ * ✅ Safety: depth guard to prevent stack overflow on absurdly deep/malicious JSON shapes.
+ * ✅ Fix (Pega #2): use for...in to avoid allocating Object.keys arrays at every recursion level.
  */
-function findTokenById(tokensData: Record<string, any>, targetId: string, currentPath: string[] = []): string[] | null {
+function findTokenById(
+    tokensData: Record<string, any>,
+    targetId: string,
+    currentPath: string[] = [],
+    depth = 0
+): string[] | null {
     if (!isPlainObject(tokensData)) {
+        return null;
+    }
+
+    if (depth > MAX_DEPTH) {
         return null;
     }
 
@@ -714,8 +719,9 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
         return candidate === target || candidate.trim() === target;
     };
 
-    const keys = Object.keys(tokensData);
-    for (const key of keys) {
+    for (const key in tokensData) {
+        if (!Object.prototype.hasOwnProperty.call(tokensData, key)) continue;
+
         if (key.startsWith('$')) {
             const keyValue = (tokensData as any)[key];
             if (key === '$id' && matchesId(keyValue)) {
@@ -724,15 +730,17 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
             continue;
         }
 
-        const newPath = [...currentPath, key];
         const value = (tokensData as any)[key];
 
+        // Only recurse into plain objects; arrays are ignored intentionally (token trees are objects).
         if (isPlainObject(value)) {
+            const newPath = [...currentPath, key];
+
             if ('$id' in value && matchesId((value as any).$id)) {
                 return newPath;
             }
 
-            const found = findTokenById(value as Record<string, any>, target, newPath);
+            const found = findTokenById(value as Record<string, any>, target, newPath, depth + 1);
             if (found) {
                 return found;
             }
@@ -774,9 +782,7 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
         if (aliasId && targetKey) {
             const cachedHasCycle = cycleStatus.get(targetKey);
             if (cachedHasCycle === true) {
-                console.warn(
-                    `⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`
-                );
+                console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
                 summary.circularDeps++;
                 return `/* circular-alias: ${aliasId} */`;
             }
@@ -819,9 +825,7 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
             }
 
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
-            console.warn(
-                `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
-            );
+            console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasId);
@@ -872,7 +876,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
         }
 
         if (typeof rawColor === 'string') {
-            // ✅ Perf (#4): avoid allocating new Set when visitedRefs is empty
+            // ✅ Perf: avoid allocating new Set when visitedRefs is empty
             const processed = processValue(ctx, rawColor as any, undefined, colorPath, cloneVisitedRefs(visitedRefs));
             return processed ?? rawColor;
         }
@@ -1003,7 +1007,7 @@ function processValue(
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
-            // ✅ Perf (#4): avoid allocating new Set when visitedRefs is empty
+            // ✅ Perf: avoid allocating new Set when visitedRefs is empty
             return value.map(v => processShadow(ctx, v, currentPath, cloneVisitedRefs(visitedRefs))).join(', ');
         }
         try {
@@ -1015,7 +1019,7 @@ function processValue(
 
     if (typeof value === 'object') {
         if (varType === 'shadow' && !isVariableAlias(value)) {
-            // ✅ Perf (#4): avoid allocating new Set when visitedRefs is empty
+            // ✅ Perf: avoid allocating new Set when visitedRefs is empty
             return processShadow(ctx, value, currentPath, cloneVisitedRefs(visitedRefs));
         }
         if (isVariableAlias(value)) {
@@ -1037,7 +1041,7 @@ function processValue(
             return value;
         }
 
-        // ✅ Perf (#1 already present here): single-pass ref handling via replace() + flag (avoids separate .test()).
+        // ✅ Perf: single-pass ref handling via replace() + flag (avoids separate .test()).
         let hadRef = false;
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
 
@@ -1078,9 +1082,7 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
 
         const existing = refMap.get(key);
         if (existing !== varName) {
-            console.warn(
-                `ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`
-            );
+            console.warn(`ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`);
             collisionKeys.add(key);
             return;
         }
@@ -1092,7 +1094,7 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
         }
     };
 
-    // ✅ Perf (#4): indexing does NOT need sorted traversal order.
+    // ✅ Perf: indexing does NOT need sorted traversal order.
     walkTokenTree(
         summary,
         obj,
@@ -1407,8 +1409,9 @@ function logChangeDetection(previousVariables: Map<string, string>, cssLines: st
 
     const newVariables = new Map<string, string>();
     for (const line of cssLines) {
-        const match = line.match(/--([a-zA-Z0-9_-]+):\s*([^;]+);/);
-        if (match && match[1] && match[2]) {
+        // ✅ Perf: reuse a precompiled regex object (avoid per-iteration literal allocation)
+        const match = CSS_DECL_LINE_REGEX.exec(line);
+        if (match && match[1] && match[2] !== undefined) {
             newVariables.set(match[1], match[2].trim());
         }
     }
