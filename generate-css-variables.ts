@@ -153,6 +153,33 @@ function pickModeKey(keys: string[]): string | undefined {
     return keys.find(k => k.toLowerCase() === 'modedefault') ?? keys.find(isModeKey);
 }
 
+// ✅ Perf (#4): deterministic min selection matching default `.sort()` order (UTF-16 code unit order)
+function compareByCodeUnit(a: string, b: string): number {
+    return a > b ? 1 : a < b ? -1 : 0;
+}
+
+/**
+ * Deterministic mode-key selection WITHOUT relying on the array order.
+ * This preserves the same choice you'd get from `Object.keys(obj).sort()` + pickModeKey(sortedKeys),
+ * while allowing us to skip sorting the full keys list in indexing hot paths.
+ */
+function pickModeKeyDeterministic(keys: string[]): string | undefined {
+    let bestDefault: string | undefined;
+    let bestMode: string | undefined;
+
+    for (const k of keys) {
+        if (k.toLowerCase() === 'modedefault') {
+            if (!bestDefault || compareByCodeUnit(k, bestDefault) < 0) bestDefault = k;
+            continue;
+        }
+        if (isModeKey(k)) {
+            if (!bestMode || compareByCodeUnit(k, bestMode) < 0) bestMode = k;
+        }
+    }
+
+    return bestDefault ?? bestMode;
+}
+
 function toSafePlaceholderName(id: string): string {
     const placeholderName = id
         .replace(/[^a-zA-Z0-9]/g, '-')
@@ -450,13 +477,7 @@ function getResolvedTokenKeyFromParts(canonical: string, normalized: string, ctx
 type WalkPrimitive = string | number | boolean;
 
 type WalkHandlers = {
-    onTokenValue?: (ctx: {
-        obj: any;
-        prefix: string[];
-        currentPath: string[];
-        depth: number;
-        inModeBranch: boolean;
-    }) => void;
+    onTokenValue?: (ctx: { obj: any; prefix: string[]; currentPath: string[]; depth: number; inModeBranch: boolean }) => void;
     onLegacyPrimitive?: (ctx: {
         value: WalkPrimitive;
         key: string;
@@ -470,7 +491,8 @@ type WalkHandlers = {
 
 /**
  * Token tree walker with stable output:
- * - Traverses plain objects with sorted keys for deterministic results.
+ * - Traverses plain objects with sorted keys for deterministic results (when sortKeys=true).
+ * - Can skip sorting (sortKeys=false) for indexing performance while preserving deterministic mode selection.
  * - Skips $-metadata and mode branches; then traverses exactly one chosen mode branch.
  * - Treats objects containing "$value" as W3C token leaves.
  * - Treats primitive leaves (string/number/boolean without "$value") as legacy tokens.
@@ -482,7 +504,8 @@ function walkTokenTree(
     currentPath: string[],
     handlers: WalkHandlers,
     depth = 0,
-    inModeBranch = false
+    inModeBranch = false,
+    sortKeys = true
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) {
         return;
@@ -497,8 +520,9 @@ function walkTokenTree(
         return;
     }
 
-    const keys = Object.keys(obj).sort();
-    const modeKey = pickModeKey(keys);
+    const keys = sortKeys ? Object.keys(obj).sort() : Object.keys(obj);
+    // Preserve the same mode selection you'd get from sorted keys, even when we don't sort the full list.
+    const modeKey = sortKeys ? pickModeKey(keys) : pickModeKeyDeterministic(keys);
 
     for (const key of keys) {
         if (shouldSkipKey(key)) continue;
@@ -519,12 +543,12 @@ function walkTokenTree(
             continue;
         }
 
-        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1, inModeBranch);
+        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1, inModeBranch, sortKeys);
     }
 
     if (modeKey) {
         /**
-         * Traverse the chosen mode branch after normal keys for deterministic ordering.
+         * Traverse the chosen mode branch after normal keys for deterministic ordering (when sorted).
          * Everything under the selected mode is flagged as `inModeBranch` so indexers can treat
          * it as an override of the base token value.
          */
@@ -535,7 +559,8 @@ function walkTokenTree(
             [...currentPath, modeKey],
             handlers,
             depth + 1,
-            true
+            true,
+            sortKeys
         );
     }
 }
@@ -710,9 +735,7 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
         if (aliasId && targetKey) {
             const cachedHasCycle = cycleStatus.get(targetKey);
             if (cachedHasCycle === true) {
-                console.warn(
-                    `⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`
-                );
+                console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
                 summary.circularDeps++;
                 return `/* circular-alias: ${aliasId} */`;
             }
@@ -756,9 +779,7 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
             }
 
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
-            console.warn(
-                `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
-            );
+            console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasId);
@@ -832,7 +853,8 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 // Support both normalized (0..1) and byte (0..255) channels.
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
+                const to255 = (c: number, normalized: boolean): number =>
+                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -1052,63 +1074,74 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
         }
     };
 
-    walkTokenTree(summary, obj, prefix, currentPath, {
-        onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch }) => {
-            const tokenPathKey = buildPathKey(tokenPath);
-            const normalizedKey = normalizePathKey(tokenPathKey);
-            const varName = buildCssVarNameFromPrefix(tokenPrefix);
+    // ✅ Perf (#4): indexing does NOT need sorted traversal order.
+    // We keep deterministic mode selection inside walkTokenTree even when sortKeys=false.
+    walkTokenTree(
+        summary,
+        obj,
+        prefix,
+        currentPath,
+        {
+            onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch }) => {
+                const tokenPathKey = buildPathKey(tokenPath);
+                const normalizedKey = normalizePathKey(tokenPathKey);
+                const varName = buildCssVarNameFromPrefix(tokenPrefix);
 
-            indexTokenId(tokenObj, varName, normalizedKey, idToVarName, idToTokenKey);
+                indexTokenId(tokenObj, varName, normalizedKey, idToVarName, idToTokenKey);
 
-            // ✅ detect collisions in CSS custom property namespace (different tokens -> same --var)
-            trackCssVarNameCollision(ctx, varName, {
-                tokenKey: normalizedKey,
-                tokenPath: pathStr(tokenPath),
-                id: typeof (tokenObj as any)?.$id === 'string' ? (tokenObj as any).$id : undefined
-            });
+                // ✅ detect collisions in CSS custom property namespace (different tokens -> same --var)
+                trackCssVarNameCollision(ctx, varName, {
+                    tokenKey: normalizedKey,
+                    tokenPath: pathStr(tokenPath),
+                    id: typeof (tokenObj as any)?.$id === 'string' ? (tokenObj as any).$id : undefined
+                });
 
-            // Store the full (file-scoped) key.
-            upsertKey(normalizedKey, varName, tokenObj as TokenValue, tokenPathKey, inModeBranch);
+                // Store the full (file-scoped) key.
+                upsertKey(normalizedKey, varName, tokenObj as TokenValue, tokenPathKey, inModeBranch);
 
-            // Also store a "relative" key (without the file segment) to resolve local refs like "{bg}".
-            const relativePathKey = buildPathKey(tokenPath.slice(1));
-            const relativeNormalizedKey = normalizePathKey(relativePathKey);
-            if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
+                // Also store a "relative" key (without the file segment) to resolve local refs like "{bg}".
+                const relativePathKey = buildPathKey(tokenPath.slice(1));
+                const relativeNormalizedKey = normalizePathKey(relativePathKey);
+                if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
+                    upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
+                }
+            },
+
+            /**
+             * Index legacy primitive leaves as synthetic tokens so they can be referenced by W3C "{...}" refs.
+             * This keeps indexing consistent with the flattening pass, which also emits legacy primitives.
+             */
+            onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inModeBranch }) => {
+                const leafPath = [...parentPath, key];
+                const leafPrefix = [...parentPrefix, normalizedKey];
+                const varName = buildCssVarNameFromPrefix(leafPrefix);
+
+                const tokenPathKey = buildPathKey(leafPath);
+                const normalizedPathKey = normalizePathKey(tokenPathKey);
+
+                const legacyTokenObj: TokenValue = { $value: value as any };
+
+                // ✅ legacy tokens can also collide in CSS var namespace
+                trackCssVarNameCollision(ctx, varName, {
+                    tokenKey: normalizedPathKey,
+                    tokenPath: pathStr(leafPath)
+                });
+
+                // Store the full (file-scoped) key.
+                upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
+
+                // Also store a "relative" key (without the file segment) for local refs.
+                const relativePathKey = buildPathKey(leafPath.slice(1));
+                const relativeNormalizedKey = normalizePathKey(relativePathKey);
+                if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
+                    upsertKey(relativeNormalizedKey, varName, legacyTokenObj, `relative:${relativePathKey}`, inModeBranch);
+                }
             }
         },
-
-        /**
-         * Index legacy primitive leaves as synthetic tokens so they can be referenced by W3C "{...}" refs.
-         * This keeps indexing consistent with the flattening pass, which also emits legacy primitives.
-         */
-        onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inModeBranch }) => {
-            const leafPath = [...parentPath, key];
-            const leafPrefix = [...parentPrefix, normalizedKey];
-            const varName = buildCssVarNameFromPrefix(leafPrefix);
-
-            const tokenPathKey = buildPathKey(leafPath);
-            const normalizedPathKey = normalizePathKey(tokenPathKey);
-
-            const legacyTokenObj: TokenValue = { $value: value as any };
-
-            // ✅ legacy tokens can also collide in CSS var namespace
-            trackCssVarNameCollision(ctx, varName, {
-                tokenKey: normalizedPathKey,
-                tokenPath: pathStr(leafPath)
-            });
-
-            // Store the full (file-scoped) key.
-            upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
-
-            // Also store a "relative" key (without the file segment) for local refs.
-            const relativePathKey = buildPathKey(leafPath.slice(1));
-            const relativeNormalizedKey = normalizePathKey(relativePathKey);
-            if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
-                upsertKey(relativeNormalizedKey, varName, legacyTokenObj, `relative:${relativePathKey}`, inModeBranch);
-            }
-        }
-    });
+        0,
+        false,
+        false // <-- sortKeys disabled for indexing
+    );
 }
 
 /**
@@ -1340,48 +1373,58 @@ function flattenTokens(
 ): string[] {
     const { summary } = ctx;
 
-    walkTokenTree(summary, obj, prefix, currentPath, {
-        onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
-            summary.totalTokens++;
-            const rawValue = (tokenObj as TokenValue).$value;
-            const varType = (tokenObj as TokenValue).$type;
+    // ✅ Emission MUST stay deterministic: keep sortKeys=true here.
+    walkTokenTree(
+        summary,
+        obj,
+        prefix,
+        currentPath,
+        {
+            onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath }) => {
+                summary.totalTokens++;
+                const rawValue = (tokenObj as TokenValue).$value;
+                const varType = (tokenObj as TokenValue).$type;
 
-            if (rawValue === undefined) {
-                console.warn(`⚠️  Token sin $value en ${pathStr(tokenPath)}, se omite`);
-                return;
+                if (rawValue === undefined) {
+                    console.warn(`⚠️  Token sin $value en ${pathStr(tokenPath)}, se omite`);
+                    return;
+                }
+
+                // Seed visited using the same canonicalization rules as indexing/resolution.
+                const visitedRefs = buildVisitedRefSet(tokenPath);
+
+                const resolvedValue = processValue(ctx, rawValue, varType, tokenPath, visitedRefs);
+                if (resolvedValue === null) {
+                    return;
+                }
+
+                const varName = buildCssVarNameFromPrefix(tokenPrefix);
+                emitCssVar(summary, collectedVars, varName, resolvedValue, tokenPath, true);
+            },
+
+            onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix }) => {
+                // Legacy support: loose key-value tokens without a "$value" wrapper.
+                summary.totalTokens++;
+
+                const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
+                const leafPath = [...parentPath, key];
+
+                // Seed visited using the same canonicalization rules as indexing/resolution.
+                const visitedRefs = buildVisitedRefSet(leafPath);
+
+                const processedValue = processValue(ctx, value as any, undefined, leafPath, visitedRefs);
+                if (processedValue === null) {
+                    return;
+                }
+
+                // Keep legacy behavior: invalid var names are warned but not recorded in summary.invalidNames.
+                emitCssVar(summary, collectedVars, varName, processedValue, leafPath, false);
             }
-
-            // Seed visited using the same canonicalization rules as indexing/resolution.
-            const visitedRefs = buildVisitedRefSet(tokenPath);
-
-            const resolvedValue = processValue(ctx, rawValue, varType, tokenPath, visitedRefs);
-            if (resolvedValue === null) {
-                return;
-            }
-
-            const varName = buildCssVarNameFromPrefix(tokenPrefix);
-            emitCssVar(summary, collectedVars, varName, resolvedValue, tokenPath, true);
         },
-
-        onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix }) => {
-            // Legacy support: loose key-value tokens without a "$value" wrapper.
-            summary.totalTokens++;
-
-            const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
-            const leafPath = [...parentPath, key];
-
-            // Seed visited using the same canonicalization rules as indexing/resolution.
-            const visitedRefs = buildVisitedRefSet(leafPath);
-
-            const processedValue = processValue(ctx, value as any, undefined, leafPath, visitedRefs);
-            if (processedValue === null) {
-                return;
-            }
-
-            // Keep legacy behavior: invalid var names are warned but not recorded in summary.invalidNames.
-            emitCssVar(summary, collectedVars, varName, processedValue, leafPath, false);
-        }
-    });
+        0,
+        false,
+        true // <-- sortKeys enabled for stable CSS output
+    );
 
     return collectedVars;
 }
