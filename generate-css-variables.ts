@@ -327,7 +327,8 @@ function buildVisitedRefSet(currentPath: string[]): Set<string> {
  * - idToVarName: $id -> CSS var name (for VARIABLE_ALIAS resolution)
  * - idToTokenKey: $id -> normalized token key (for cycle graph + alias deps)
  *
- * ✅ Consolidated: previously two near-identical functions.
+ * ✅ Fixed: canonicalize IDs with trim(), while keeping backwards compatibility by
+ * also storing the raw id when it differs (whitespace edge-cases).
  */
 function indexTokenId(
     tokenObj: any,
@@ -342,10 +343,18 @@ function indexTokenId(
     const trimmed = idRaw.trim();
     if (!trimmed) return;
 
-    // Preserve original ID string (behaviorally identical to previous code).
-    idToVarName.set(idRaw, varName);
+    // Canonical key: trimmed
+    idToVarName.set(trimmed, varName);
     if (normalizedTokenKey) {
-        idToTokenKey.set(idRaw, normalizedTokenKey);
+        idToTokenKey.set(trimmed, normalizedTokenKey);
+    }
+
+    // Backward compatibility: also store raw when it differs (e.g., whitespace in export)
+    if (idRaw !== trimmed) {
+        idToVarName.set(idRaw, varName);
+        if (normalizedTokenKey) {
+            idToTokenKey.set(idRaw, normalizedTokenKey);
+        }
     }
 }
 
@@ -532,9 +541,7 @@ function hasCircularDependency(startKey: string, ctx: IndexingContext, visited: 
         return true;
     }
 
-    const token =
-        ctx.valueMap.get(resolvedStart) ||
-        (resolvedStart !== normalizedStart ? ctx.valueMap.get(normalizedStart) : undefined);
+    const token = ctx.valueMap.get(resolvedStart) || (resolvedStart !== normalizedStart ? ctx.valueMap.get(normalizedStart) : undefined);
 
     if (!token) {
         return false;
@@ -609,17 +616,27 @@ function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
 /**
  * Slow fallback to resolve a VARIABLE_ALIAS by scanning the full token tree for a matching "$id".
  * Only used when the O(1) "$id" index misses (e.g., partial exports).
+ *
+ * ✅ Fixed: tolerate whitespace differences by comparing both raw and trimmed IDs.
  */
 function findTokenById(tokensData: Record<string, any>, targetId: string, currentPath: string[] = []): string[] | null {
     if (!isPlainObject(tokensData)) {
         return null;
     }
 
+    const target = typeof targetId === 'string' ? targetId.trim() : '';
+    if (!target) return null;
+
+    const matchesId = (candidate: unknown): boolean => {
+        if (typeof candidate !== 'string') return false;
+        return candidate === target || candidate.trim() === target;
+    };
+
     const keys = Object.keys(tokensData);
     for (const key of keys) {
         if (key.startsWith('$')) {
             const keyValue = (tokensData as any)[key];
-            if (key === '$id' && typeof keyValue === 'string' && keyValue === targetId) {
+            if (key === '$id' && matchesId(keyValue)) {
                 return currentPath;
             }
             continue;
@@ -629,11 +646,11 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
         const value = (tokensData as any)[key];
 
         if (isPlainObject(value)) {
-            if ('$id' in value && typeof (value as any).$id === 'string' && (value as any).$id === targetId) {
+            if ('$id' in value && matchesId((value as any).$id)) {
                 return newPath;
             }
 
-            const found = findTokenById(value as Record<string, any>, targetId, newPath);
+            const found = findTokenById(value as Record<string, any>, target, newPath);
             if (found) {
                 return found;
             }
@@ -643,12 +660,7 @@ function findTokenById(tokensData: Record<string, any>, targetId: string, curren
     return null;
 }
 
-function processVariableAlias(
-    ctx: EmissionContext,
-    aliasObj: unknown,
-    currentPath: string[],
-    visitedRefs?: ReadonlySet<string> // allow cycle checks consistent with W3C refs
-): string {
+function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPath: string[], visitedRefs?: ReadonlySet<string>): string {
     if (isVariableAlias(aliasObj)) {
         const { summary, tokensData, idToVarName, idToTokenKey, cycleStatus, cssVarNameCollisionMap } = ctx;
 
@@ -707,9 +719,7 @@ function processVariableAlias(
             }
 
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
-            console.warn(
-                `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
-            );
+            console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasId);
@@ -783,8 +793,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 // Support both normalized (0..1) and byte (0..255) channels.
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number =>
-                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -872,10 +881,7 @@ function resolveReference(
 
         // Deep cycle check uses the resolvable graph and respects collisions.
         const cachedHasCycle = cycleStatus?.get(resolvedKey);
-        if (
-            cachedHasCycle === true ||
-            (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))
-        ) {
+        if (cachedHasCycle === true || (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))) {
             console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-ref: ${tokenPath} */`;
@@ -958,9 +964,7 @@ function processValue(
         }
 
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
-        return value.replace(W3C_REF_REGEX_REPLACE, (m, tp) =>
-            resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue)
-        );
+        return value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue));
     }
 
     if (typeof value === 'number' || typeof value === 'boolean') {
