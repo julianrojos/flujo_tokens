@@ -1,3 +1,5 @@
+// NOTE: This file uses TypeScript syntax (types/interfaces). Run it via tsx/ts-node, or compile with tsc.
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -65,6 +67,9 @@ type CssVarOwner = { tokenKey: string; tokenPath: string; id?: string };
 type CssVarCollision = { first: CssVarOwner; others: Map<string, CssVarOwner> };
 const MAX_COLLISION_DETAILS = 10;
 const warnedAliasVarCollisions = new Set<string>();
+
+// ✅ NEW: warn-once guard for duplicate $id mappings (avoids log spam).
+const warnedDuplicateTokenIds = new Set<string>();
 
 /**
  * Context types per phase (type-only improvement; runtime unchanged).
@@ -330,6 +335,8 @@ function buildVisitedRefSet(currentPath: string[]): Set<string> {
  *
  * ✅ Fixed: canonicalize IDs with trim(), while keeping backwards compatibility by
  * also storing the raw id when it differs (whitespace edge-cases).
+ *
+ * ✅ Added: warn-once when the same canonical $id maps to different tokens (helps diagnose bad exports).
  */
 function indexTokenId(
     tokenObj: any,
@@ -343,6 +350,23 @@ function indexTokenId(
 
     const trimmed = idRaw.trim();
     if (!trimmed) return;
+
+    // Warn if the canonical ID already exists but points elsewhere.
+    const existingVar = idToVarName.get(trimmed);
+    const existingKey = idToTokenKey.get(trimmed);
+    const varDiffers = existingVar !== undefined && existingVar !== varName;
+    const keyDiffers =
+        existingKey !== undefined && normalizedTokenKey && existingKey !== normalizedTokenKey;
+
+    if ((varDiffers || keyDiffers) && !warnedDuplicateTokenIds.has(trimmed)) {
+        warnedDuplicateTokenIds.add(trimmed);
+        console.warn(
+            `⚠️  Duplicate $id detected: "${trimmed}" is assigned to multiple tokens. ` +
+            `First: var=${existingVar ?? 'n/a'}, key=${existingKey ?? 'n/a'}; ` +
+            `Next: var=${varName}, key=${normalizedTokenKey || 'n/a'}. ` +
+            `VARIABLE_ALIAS resolution will use the latest mapping.`
+        );
+    }
 
     // Canonical key: trimmed
     idToVarName.set(trimmed, varName);
@@ -929,7 +953,9 @@ function processValue(
         }
 
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
-        return value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue));
+        return value.replace(W3C_REF_REGEX_REPLACE, (m, tp) =>
+            resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue)
+        );
     }
 
     if (typeof value === 'number' || typeof value === 'boolean') {
@@ -1400,6 +1426,10 @@ function printExecutionSummary(summary: ExecutionSummary): void {
 // --- Main Execution ---
 
 async function main() {
+    // Ensure warn-once sets don’t leak across multiple runs in the same process (tests/hot-reload).
+    warnedAliasVarCollisions.clear();
+    warnedDuplicateTokenIds.clear();
+
     const summary = createSummary();
 
     console.log('📖 Leyendo archivos JSON...');
