@@ -524,48 +524,6 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
 }
 
 /**
- * DFS cycle check used when `cycleStatus` isn't available.
- *
- * Key property: it follows the same resolvability rules as runtime:
- * - unresolved/colliding refs are treated as non-edges
- * - only resolvable keys participate in cycle detection
- */
-function hasCircularDependency(startKey: string, ctx: IndexingContext, visited: Set<string> = new Set()): boolean {
-    const resolvedStart = getResolvedTokenKey(startKey, ctx);
-    if (!resolvedStart) {
-        // If runtime can't resolve the edge, it can't contribute to a resolvable cycle.
-        return false;
-    }
-
-    const normalizedStart = normalizePathKey(resolvedStart);
-    if (visited.has(normalizedStart)) {
-        return true;
-    }
-
-    const token = ctx.valueMap.get(resolvedStart) || (resolvedStart !== normalizedStart ? ctx.valueMap.get(normalizedStart) : undefined);
-
-    if (!token) {
-        return false;
-    }
-
-    const nextVisited = new Set(visited);
-    nextVisited.add(normalizedStart);
-
-    const nestedRefs = new Set<string>();
-    collectRefsFromValue(token.$value, nestedRefs, ctx.idToTokenKey);
-
-    for (const ref of nestedRefs) {
-        const next = getResolvedTokenKey(ref, ctx);
-        if (!next) continue; // collision/missing => runtime would not traverse this edge
-        if (hasCircularDependency(next, ctx, nextVisited)) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-/**
  * Precomputes whether each resolvable token key can reach a cycle via:
  * - W3C "{...}" references
  * - VARIABLE_ALIAS (ID-based) references when idToTokenKey is available
@@ -677,10 +635,15 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
         }
 
         // Deep/cached cycle hint (same semantics used for W3C refs).
-        if (aliasId && targetKey && cycleStatus.get(targetKey) === true) {
-            console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
-            summary.circularDeps++;
-            return `/* circular-alias: ${aliasId} */`;
+        if (aliasId && targetKey) {
+            const cachedHasCycle = cycleStatus.get(targetKey);
+            if (cachedHasCycle === true) {
+                console.warn(
+                    `⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`
+                );
+                summary.circularDeps++;
+                return `/* circular-alias: ${aliasId} */`;
+            }
         }
 
         const warnIfCollidingVarName = (varNameWithDashes: string) => {
