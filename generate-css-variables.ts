@@ -14,7 +14,6 @@ const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 
 // --- W3C ref regexes (centralized) ---
 // Keep separate instances (especially /g) to avoid lastIndex interference across calls.
-const W3C_REF_REGEX_DETECT = /\{([A-Za-z0-9_./\s-]+)\}/; // non-global: safe for test()
 const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // global: used by String.replace()
 const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // global: used to collect all occurrences
 
@@ -305,13 +304,24 @@ function normalizePathKey(pathKey: string): string {
     return pathKey.toLowerCase();
 }
 
+// ✅ Memoize canonicalization of ref payloads (common refs repeat heavily in design systems).
+const refCanonicalCache = new Map<string, string>();
+
 /**
  * Canonicalizes a "{...}" reference payload into a dotted path.
  * Intended for parsing values found inside W3C references.
  */
 function canonicalizeRefPath(pathKey: string): string {
+    // Use `.has()` so empty-string results are cached correctly.
+    if (refCanonicalCache.has(pathKey)) {
+        return refCanonicalCache.get(pathKey)!;
+    }
+
     const dotted = pathKey.trim().replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
-    return normalizeDots(dotted);
+    const result = normalizeDots(dotted);
+
+    refCanonicalCache.set(pathKey, result);
+    return result;
 }
 
 /**
@@ -355,8 +365,7 @@ function indexTokenId(
     const existingVar = idToVarName.get(trimmed);
     const existingKey = idToTokenKey.get(trimmed);
     const varDiffers = existingVar !== undefined && existingVar !== varName;
-    const keyDiffers =
-        existingKey !== undefined && normalizedTokenKey && existingKey !== normalizedTokenKey;
+    const keyDiffers = existingKey !== undefined && normalizedTokenKey && existingKey !== normalizedTokenKey;
 
     if ((varDiffers || keyDiffers) && !warnedDuplicateTokenIds.has(trimmed)) {
         warnedDuplicateTokenIds.add(trimmed);
@@ -708,7 +717,9 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
             }
 
             console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
-            console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
+            console.warn(
+                `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
+            );
             console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
             const placeholderName = toSafePlaceholderName(aliasId);
@@ -782,7 +793,8 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 // Support both normalized (0..1) and byte (0..255) channels.
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
+                const to255 = (c: number, normalized: boolean): number =>
+                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -934,17 +946,25 @@ function processValue(
     if (typeof value === 'string') {
         const seenInValue = new Set<string>();
 
-        // Fast path if no "{...}" references are present.
-        if (!W3C_REF_REGEX_DETECT.test(value)) {
-            // Preserve common valid CSS color syntaxes.
-            if (value.startsWith('rgba') || value.startsWith('rgb(')) {
-                return value;
-            }
-            if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) {
-                return value;
-            }
+        // Preserve common valid CSS color syntaxes (cheap and avoids extra work).
+        if (value.startsWith('rgba') || value.startsWith('rgb(')) {
+            return value;
+        }
+        if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) {
+            return value;
+        }
 
-            // Quote explicit string tokens so consumers can distinguish them from raw identifiers.
+        // Single-pass ref handling: detect refs during replace() (avoids separate .test()).
+        let hadRef = false;
+        W3C_REF_REGEX_REPLACE.lastIndex = 0;
+
+        const replaced = value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => {
+            hadRef = true;
+            return resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue);
+        });
+
+        // If no refs were present, apply legacy string-token quoting behavior.
+        if (!hadRef) {
             if (varType === 'string') {
                 const escapedValue = value.replace(/"/g, '\\"');
                 return `"${escapedValue}"`;
@@ -952,10 +972,7 @@ function processValue(
             return value;
         }
 
-        W3C_REF_REGEX_REPLACE.lastIndex = 0;
-        return value.replace(W3C_REF_REGEX_REPLACE, (m, tp) =>
-            resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue)
-        );
+        return replaced;
     }
 
     if (typeof value === 'number' || typeof value === 'boolean') {
