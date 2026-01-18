@@ -348,6 +348,7 @@ function normalizePathKey(pathKey: string): string {
 }
 
 // ✅ Memoize canonicalization of ref payloads (common refs repeat heavily in design systems).
+// ✅ Cleared per run in main() to avoid growth across multiple executions in the same process (tests/hot-reload).
 const refCanonicalCache = new Map<string, string>();
 
 /**
@@ -1528,8 +1529,9 @@ async function main() {
     warnedAliasVarCollisions.clear();
     warnedDuplicateTokenIds.clear();
 
-    // ✅ NEW: clear kebab cache between runs (keeps memoization benefits within a run).
+    // ✅ Clear memoization caches between runs (keeps benefits within a run, avoids unbounded growth across runs).
     kebabCaseCache.clear();
+    refCanonicalCache.clear();
 
     const summary = createSummary();
 
