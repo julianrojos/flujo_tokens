@@ -669,14 +669,15 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
         const targetKey = aliasId ? idToTokenKey.get(aliasId) : undefined;
 
         // Detect direct self/ancestor cycles in the current resolution branch.
-        if (aliasId && targetKey && visitedRefs && (visitedRefs.has(targetKey) || visitedRefs.has(normalizePathKey(targetKey)))) {
+        // visitedRefs is seeded with normalized keys; idToTokenKey stores normalized keys in this script.
+        if (aliasId && targetKey && visitedRefs?.has(targetKey)) {
             console.warn(`⚠️  Circular VARIABLE_ALIAS reference (id=${aliasId}) at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-alias: ${aliasId} */`;
         }
 
         // Deep/cached cycle hint (same semantics used for W3C refs).
-        if (aliasId && targetKey && cycleStatus?.get(targetKey) === true) {
+        if (aliasId && targetKey && cycleStatus.get(targetKey) === true) {
             console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-alias: ${aliasId} */`;
@@ -880,9 +881,9 @@ function resolveReference(
             return `/* circular-ref: ${tokenPath} */`;
         }
 
-        // Deep cycle check uses the resolvable graph and respects collisions.
-        const cachedHasCycle = cycleStatus?.get(resolvedKey);
-        if (cachedHasCycle === true || (cachedHasCycle === undefined && hasCircularDependency(resolvedKey, ctx, new Set(visitedRefs)))) {
+        // Deep cycle check uses the resolvable graph precomputed in Phase 1.
+        const cachedHasCycle = cycleStatus.get(resolvedKey);
+        if (cachedHasCycle === true) {
             console.warn(`⚠️  Deep circular dependency detected starting from: ${tokenPath} at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-ref: ${tokenPath} */`;
