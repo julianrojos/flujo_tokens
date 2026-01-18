@@ -82,6 +82,9 @@ const warnedAliasVarCollisions = new Set<string>();
 // ✅ NEW: warn-once guard for duplicate $id mappings (avoids log spam).
 const warnedDuplicateTokenIds = new Set<string>();
 
+// ✅ NEW: warn-once guard for depth-limit aborts in findTokenById (avoids log spam).
+const warnedFindTokenByIdDepthLimit = new Set<string>();
+
 /**
  * Context types per phase (type-only improvement; runtime unchanged).
  */
@@ -588,8 +591,13 @@ function walkTokenTree(
  * ✅ Perf (#4):
  * - store only canonical refs (avoid duplicated canonical+normalized edges)
  * - use regex.exec loop instead of match() to avoid allocating arrays of matches
+ *
+ * ✅ Fix (Pega #2): reset lastIndex defensively at function entry (safe across refactors).
  */
 function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
+    // IMPORTANT: /g regexes have state; reset at entry for defensive correctness.
+    W3C_REF_REGEX_COLLECT.lastIndex = 0;
+
     // ✅ VARIABLE_ALIAS as an explicit dependency edge in the cycle graph.
     if (isVariableAlias(value)) {
         const id = value.id?.trim();
@@ -604,9 +612,6 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
     }
 
     if (typeof value === 'string') {
-        // IMPORTANT: /g regexes have state.
-        W3C_REF_REGEX_COLLECT.lastIndex = 0;
-
         let m: RegExpExecArray | null;
         while ((m = W3C_REF_REGEX_COLLECT.exec(value)) !== null) {
             const tokenPath = (m[1] ?? '').trim();
@@ -689,6 +694,7 @@ function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
  * ✅ Fixed: tolerate whitespace differences by comparing both raw and trimmed IDs.
  * ✅ Safety: depth guard to prevent stack overflow on absurdly deep/malicious JSON shapes.
  * ✅ Fix (Pega #2): use for...in to avoid allocating Object.keys arrays at every recursion level.
+ * ✅ Fix (Pega #3): log a warn-once when aborting due to depth limit (helps debugging).
  */
 function findTokenById(
     tokensData: Record<string, any>,
@@ -700,12 +706,19 @@ function findTokenById(
         return null;
     }
 
-    if (depth > MAX_DEPTH) {
-        return null;
-    }
-
     const target = typeof targetId === 'string' ? targetId.trim() : '';
     if (!target) return null;
+
+    if (depth > MAX_DEPTH) {
+        if (!warnedFindTokenByIdDepthLimit.has(target)) {
+            warnedFindTokenByIdDepthLimit.add(target);
+            const at = currentPath.length ? pathStr(currentPath) : '<root>';
+            console.warn(
+                `⚠️  findTokenById aborted: depth limit (${MAX_DEPTH}) exceeded while searching for $id="${target}" near ${at}.`
+            );
+        }
+        return null;
+    }
 
     const matchesId = (candidate: unknown): boolean => {
         if (typeof candidate !== 'string') return false;
@@ -873,7 +886,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
         }
 
         if (typeof rawColor === 'string') {
-            // ✅ Fix (Pega #2): no cloning needed; visitedRefs is treated as immutable during recursion.
+            // ✅ Fix: no cloning needed; visitedRefs is treated as immutable during recursion.
             const processed = processValue(ctx, rawColor as any, undefined, colorPath, visitedRefs);
             return processed ?? rawColor;
         }
@@ -989,6 +1002,63 @@ function resolveReference(
     return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
 }
 
+/**
+ * Escapes a raw JS string into a valid CSS double-quoted string literal.
+ * (Keeps escaping minimal to avoid altering intentional CSS escapes.)
+ */
+function quoteCssStringLiteral(value: string): string {
+    const escapedValue = value.replace(/"/g, '\\"');
+    return `"${escapedValue}"`;
+}
+
+/**
+ * ✅ Fix (Pega #1): For $type === "string" with W3C refs, emit a valid CSS token sequence:
+ *   "text " var(--ref) " more"
+ *
+ * This avoids emitting unquoted bare identifiers (invalid CSS) and preserves the only
+ * CSS-native composition model available (token lists, not string interpolation).
+ */
+function buildCssStringTokenSequence(
+    ctx: EmissionContext,
+    raw: string,
+    currentPath: string[],
+    visitedRefs: ReadonlySet<string>
+): string {
+    const parts: string[] = [];
+    const seenInValue = new Set<string>();
+
+    W3C_REF_REGEX_REPLACE.lastIndex = 0;
+    let last = 0;
+    let m: RegExpExecArray | null;
+
+    while ((m = W3C_REF_REGEX_REPLACE.exec(raw)) !== null) {
+        const start = m.index;
+        const end = W3C_REF_REGEX_REPLACE.lastIndex;
+
+        const before = raw.slice(last, start);
+        if (before) {
+            parts.push(quoteCssStringLiteral(before));
+        }
+
+        const wholeMatch = m[0];
+        const tokenPath = (m[1] ?? '').trim();
+        const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
+
+        // If we couldn't safely resolve (rare fallback returning the original match),
+        // keep it as plain text to guarantee valid CSS output.
+        parts.push(resolved === wholeMatch ? quoteCssStringLiteral(wholeMatch) : resolved);
+
+        last = end;
+    }
+
+    const tail = raw.slice(last);
+    if (tail) {
+        parts.push(quoteCssStringLiteral(tail));
+    }
+
+    return parts.length ? parts.join(' ') : quoteCssStringLiteral('');
+}
+
 function processValue(
     ctx: EmissionContext,
     value: TokenValue['$value'],
@@ -1004,7 +1074,7 @@ function processValue(
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
-            // ✅ Fix (Pega #2): no cloning needed; visitedRefs is treated as immutable during recursion.
+            // ✅ Fix: no cloning needed; visitedRefs is treated as immutable during recursion.
             return value.map(v => processShadow(ctx, v, currentPath, visitedRefs)).join(', ');
         }
         try {
@@ -1016,7 +1086,7 @@ function processValue(
 
     if (typeof value === 'object') {
         if (varType === 'shadow' && !isVariableAlias(value)) {
-            // ✅ Fix (Pega #2): no cloning needed; visitedRefs is treated as immutable during recursion.
+            // ✅ Fix: no cloning needed; visitedRefs is treated as immutable during recursion.
             return processShadow(ctx, value, currentPath, visitedRefs);
         }
         if (isVariableAlias(value)) {
@@ -1029,8 +1099,6 @@ function processValue(
     }
 
     if (typeof value === 'string') {
-        const seenInValue = new Set<string>();
-
         if (value.startsWith('rgba') || value.startsWith('rgb(')) {
             return value;
         }
@@ -1038,7 +1106,21 @@ function processValue(
             return value;
         }
 
+        // ✅ Fix (Pega #1): string tokens must remain valid CSS even when refs exist.
+        if (varType === 'string') {
+            W3C_REF_REGEX_REPLACE.lastIndex = 0;
+            const hasRef = W3C_REF_REGEX_REPLACE.exec(value) !== null;
+            W3C_REF_REGEX_REPLACE.lastIndex = 0;
+
+            if (!hasRef) {
+                return quoteCssStringLiteral(value);
+            }
+
+            return buildCssStringTokenSequence(ctx, value, currentPath, visitedRefs);
+        }
+
         // ✅ Perf: single-pass ref handling via replace() + flag (avoids separate .test()).
+        const seenInValue = new Set<string>();
         let hadRef = false;
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
 
@@ -1048,10 +1130,6 @@ function processValue(
         });
 
         if (!hadRef) {
-            if (varType === 'string') {
-                const escapedValue = value.replace(/"/g, '\\"');
-                return `"${escapedValue}"`;
-            }
             return value;
         }
 
@@ -1498,6 +1576,7 @@ function printExecutionSummary(summary: ExecutionSummary): void {
 async function main() {
     warnedAliasVarCollisions.clear();
     warnedDuplicateTokenIds.clear();
+    warnedFindTokenByIdDepthLimit.clear();
 
     // ✅ Clear memoization caches between runs (keeps benefits within a run, avoids unbounded growth across runs).
     kebabCaseCache.clear();
