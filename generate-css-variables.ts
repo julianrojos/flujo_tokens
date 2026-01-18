@@ -162,7 +162,16 @@ function toSafePlaceholderName(id: string): string {
     return placeholderName || 'unknown';
 }
 
+// ✅ NEW: cache for toKebabCase (hot path). Cleared per run in main() to avoid growth across executions.
+const kebabCaseCache = new Map<string, string>();
+
 function toKebabCase(name: string): string {
+    // Fast memoized path (use `.get()` so empty-string results are cached correctly).
+    const cached = kebabCaseCache.get(name);
+    if (cached !== undefined) {
+        return cached;
+    }
+
     // Normalize common separators and camelCase into kebab-case (used for CSS variable names).
     let result = name.replace(/-/g, ' ');
     result = result.replace(/[\\/]+/g, ' ');
@@ -170,6 +179,8 @@ function toKebabCase(name: string): string {
     result = result.toLowerCase();
     result = result.replace(/[\s-]+/g, '-');
     result = result.replace(/^-+|-+$/g, '');
+
+    kebabCaseCache.set(name, result);
     return result;
 }
 
@@ -1458,6 +1469,9 @@ async function main() {
     // Ensure warn-once sets don’t leak across multiple runs in the same process (tests/hot-reload).
     warnedAliasVarCollisions.clear();
     warnedDuplicateTokenIds.clear();
+
+    // ✅ NEW: clear kebab cache between runs (keeps memoization benefits within a run).
+    kebabCaseCache.clear();
 
     const summary = createSummary();
 
