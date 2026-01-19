@@ -157,6 +157,8 @@ export function walkTokenTree(
     const modeKey = sortKeys ? pickModeKey(keys, preferredMode) : pickModeKeyDeterministic(keys, preferredMode);
     const hasAnyModeBranch = keys.some(isModeKey);
     const preferred = normalizePreferredMode(preferredMode);
+    const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
+    const missingPreferred = preferred && hasAnyModeBranch && (!modeKey || !preferredFound);
 
     if (hasValue) {
         // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
@@ -174,30 +176,35 @@ export function walkTokenTree(
             return;
         }
 
-        const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
-        const shouldEmitBase =
-            !hasAnyModeBranch || !modeKey || (preferred && !preferredFound);
+        const path = pathStr(currentPath);
+        const warnKeyFallback = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;
 
-        if (preferred && hasAnyModeBranch && (!modeKey || !preferredFound)) {
-            const warnKey = `${pathStr(currentPath)}|${preferred}|${modeKey ?? 'none'}`;
-            if (!warnedPreferredModeFallback.has(warnKey)) {
-                warnedPreferredModeFallback.add(warnKey);
+        const shouldEmitBase = !hasAnyModeBranch || !modeKey || missingPreferred;
+        const skipModeTraversal = hasAnyModeBranch && missingPreferred;
+
+        if (missingPreferred) {
+            if (!warnedPreferredModeFallback.has(warnKeyFallback)) {
+                warnedPreferredModeFallback.add(warnKeyFallback);
                 console.warn(
-                    `ℹ️  Preferred mode "${preferred}" not found at ${pathStr(currentPath)}; emitting base $value and falling back to "${modeKey ?? 'none'}".`
+                    `ℹ️  Preferred mode "${preferred}" not found at ${path}; emitting base $value only (no mode override).`
+                );
+            }
+        } else if (modeKey) {
+            const warnKey = `${path}|${modeKey}`;
+            if (!warnedBaseValueSkippedForMode.has(warnKey)) {
+                warnedBaseValueSkippedForMode.add(warnKey);
+                console.warn(
+                    `ℹ️  ${path} has $value and mode branch "${modeKey}". Base $value is skipped to avoid double emission.`
                 );
             }
         }
 
         if (shouldEmitBase) {
             handlers.onTokenValue?.({ obj, prefix, currentPath, depth, inModeBranch, inheritedType: nextInheritedType });
-        } else {
-            const warnKey = `${pathStr(currentPath)}|${modeKey}`;
-            if (!warnedBaseValueSkippedForMode.has(warnKey)) {
-                warnedBaseValueSkippedForMode.add(warnKey);
-                console.warn(
-                    `ℹ️  ${pathStr(currentPath)} has $value and mode branch "${modeKey}". Base $value is skipped to avoid double emission.`
-                );
-            }
+        }
+
+        if (modeKey && skipModeTraversal) {
+            return;
         }
     }
 
@@ -229,6 +236,17 @@ export function walkTokenTree(
         } finally {
             currentPath.pop();
             prefix.pop();
+        }
+    }
+
+    if (missingPreferred && !hasValue) {
+        const path = pathStr(currentPath);
+        const warnKey = `${path}|${preferred}|${modeKey ?? 'none'}`;
+        if (!warnedPreferredModeFallback.has(warnKey)) {
+            warnedPreferredModeFallback.add(warnKey);
+            console.warn(
+                `ℹ️  Preferred mode "${preferred}" not found at ${path}; using "${modeKey ?? 'none'}".`
+            );
         }
     }
 
