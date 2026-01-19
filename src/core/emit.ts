@@ -227,14 +227,14 @@ export function buildCssStringTokenSequence(
             const end = W3C_REF_REGEX_REPLACE.lastIndex;
 
             const before = raw.slice(last, start);
-            if (before) parts.push(quoteCssStringLiteral(before));
+            if (before) parts.push(before);
 
             const wholeMatch = m[0];
             const tokenPath = (m[1] ?? '').trim();
             const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
 
-            // If resolution fails and returns the raw match, keep it as text to guarantee valid CSS output.
-            parts.push(resolved === wholeMatch ? quoteCssStringLiteral(wholeMatch) : resolved);
+            // If resolution fails and returns the raw match, keep it as literal text (no added spacing/quotes).
+            parts.push(resolved);
 
             last = end;
         }
@@ -243,9 +243,11 @@ export function buildCssStringTokenSequence(
     }
 
     const tail = raw.slice(last);
-    if (tail) parts.push(quoteCssStringLiteral(tail));
+    if (tail) parts.push(tail);
 
-    return parts.length ? parts.join(' ') : quoteCssStringLiteral('');
+    // Join without inserting extra whitespace to preserve the original string structure.
+    const combined = parts.join('');
+    return combined.length ? combined : quoteCssStringLiteral('');
 }
 
 // --- VARIABLE_ALIAS processing ---
