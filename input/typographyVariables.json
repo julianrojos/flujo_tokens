@@ -3,7 +3,7 @@
   "font": {
     "family": {
       "inter": {
-        "$value": "Inter",
+        "$value": "Comic Sans",
         "$type": "string",
         "$extensions": {
           "com.figma": {
