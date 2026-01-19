@@ -713,8 +713,6 @@ function findTokenByIdCached(tokensData: Record<string, any>, targetId: string):
     return found;
 }
 
-// --- (rest of script unchanged up to collectTokenMaps / flattenTokens) ---
-
 function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPath: string[], visitedRefs?: ReadonlySet<string>): string {
     if (!isVariableAlias(aliasObj)) return JSON.stringify(aliasObj);
 
@@ -759,16 +757,27 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
     };
 
     if (aliasId && tokensData) {
+        // Fast path: O(1) lookup via `$id` index.
         const direct = idToVarName.get(aliasId);
         if (direct) {
             warnIfCollidingVarName(direct);
             return `var(${direct})`;
         }
 
+        // Fallback: cached O(N) scan.
         const tokenPath = findTokenByIdCached(tokensData, aliasId);
         if (tokenPath) {
             const cssPath = tokenPath.map(toKebabCase).join('-');
             const derived = `--${cssPath}`;
+
+            // Defensive: never emit an invalid custom property name.
+            if (!isValidCssVariableName(derived)) {
+                console.warn(`⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`);
+                const placeholderName = toSafePlaceholderName(aliasId);
+                recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
+                return `var(--unresolved-${placeholderName})`;
+            }
+
             warnIfCollidingVarName(derived);
             return `var(${derived})`;
         }
@@ -785,6 +794,9 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
     return `var(--${currentPath.map(toKebabCase).join('-')})`;
 }
 
+/**
+ * Formats a shadow token into CSS `box-shadow` syntax.
+ */
 function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
     if (!isPlainObject(shadowObj)) return JSON.stringify(shadowObj);
 
@@ -815,7 +827,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
         }
 
         if (typeof rawColor === 'string') {
-            const processed = processValue(ctx, rawColor as any, undefined, colorPath, visitedRefs);
+            const processed = processValue(ctx, rawColor, undefined, colorPath, visitedRefs);
             return processed ?? rawColor;
         }
 
@@ -827,8 +839,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
 
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number =>
-                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -847,6 +858,10 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
     return `${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
 }
 
+/**
+ * Generates a placeholder `var(--broken-ref-...)` for unresolved references.
+ * If the derived custom property name would be invalid, falls back to the original match.
+ */
 function brokenRefPlaceholder(summary: ExecutionSummary, currentPath: string[], canonicalPath: string, match: string): string {
     const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
     const varName = `--broken-ref-${cssPath || 'unknown'}`;
@@ -920,6 +935,13 @@ function resolveReference(
     return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
 }
 
+/**
+ * Escapes a raw string into a valid CSS double-quoted string literal.
+ *
+ * Goals:
+ * - Preserve the input text as literal characters when parsed by CSS.
+ * - Keep output on a single line (this script emits single-line declarations).
+ */
 function quoteCssStringLiteral(value: string): string {
     const escaped = value
         .replace(/\\/g, '\\\\')
@@ -928,12 +950,14 @@ function quoteCssStringLiteral(value: string): string {
     return `"${escaped}"`;
 }
 
-function buildCssStringTokenSequence(
-    ctx: EmissionContext,
-    raw: string,
-    currentPath: string[],
-    visitedRefs: ReadonlySet<string>
-): string {
+/**
+ * Builds a CSS token sequence for string tokens that contain references.
+ *
+ * CSS does not support true string interpolation; `"Hello var(--name)"` would render literally.
+ * Instead, emit a space-separated sequence:
+ *   `"Hello "` var(--name) `"!"`
+ */
+function buildCssStringTokenSequence(ctx: EmissionContext, raw: string, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
     const parts: string[] = [];
     const seenInValue = new Set<string>();
 
@@ -953,6 +977,7 @@ function buildCssStringTokenSequence(
         const tokenPath = (m[1] ?? '').trim();
         const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
 
+        // If resolution fails and returns the raw match, keep it as text to guarantee valid CSS output.
         parts.push(resolved === wholeMatch ? quoteCssStringLiteral(wholeMatch) : resolved);
 
         last = end;
@@ -1060,13 +1085,20 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
         currentPath,
         {
             onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch }) => {
-                // ✅ (1) Prevent "$value ghost references": only index tokens that will actually be emittable.
-                const rawValue = (tokenObj as any)?.$value;
+                // ✅ Only index tokens that will be emittable (prevents "$value ghost references").
+                const rawValue = (tokenObj as TokenValue).$value;
                 if (rawValue === undefined) return;
 
                 const tokenPathKey = buildPathKey(tokenPath);
                 const normalizedKey = normalizePathKey(tokenPathKey);
+
                 const varName = buildCssVarNameFromPrefix(tokenPrefix);
+
+                // ✅ Also prevent "invalid name ghost references": if it won't be emitted, don't index it.
+                if (!isValidCssVariableName(varName)) {
+                    summary.invalidNames.push(`${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`);
+                    return;
+                }
 
                 indexTokenId(tokenObj, varName, normalizedKey, idToVarName, idToTokenKey);
 
@@ -1090,6 +1122,12 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
                 const leafPrefix = [...parentPrefix, normalizedKey];
                 const varName = buildCssVarNameFromPrefix(leafPrefix);
 
+                // ✅ Mirror emission: if it won't be emitted, don't index it.
+                if (!isValidCssVariableName(varName)) {
+                    summary.invalidNames.push(`${pathStr(leafPath)} (Invalid CSS Var: ${varName})`);
+                    return;
+                }
+
                 const tokenPathKey = buildPathKey(leafPath);
                 const normalizedPathKey = normalizePathKey(tokenPathKey);
 
@@ -1112,8 +1150,13 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
     );
 }
 
-// --- rest of file unchanged, except point (3) below in flattenTokens ---
-
+/**
+ * Extracts `--name: value;` declarations from a `:root { ... }` block.
+ *
+ * This uses a small scanner instead of a regex so it can ignore semicolons inside:
+ * - strings (quoted content)
+ * - parentheses (e.g., `calc(...)`, `url(...)`)
+ */
 function extractCssVariables(cssContent: string): Map<string, string> {
     const variables = new Map<string, string>();
     const rootStart = cssContent.indexOf(':root');
@@ -1122,6 +1165,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
     const braceStart = cssContent.indexOf('{', rootStart);
     if (braceStart === -1) return variables;
 
+    // Find the end of the :root block via brace counting (best-effort).
     let braceCount = 0;
     let braceEnd = braceStart;
     for (let i = braceStart; i < cssContent.length; i++) {
@@ -1144,6 +1188,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
         rootContent = cssContent.substring(braceStart + 1, braceEnd);
     }
 
+    // Drop comments in the :root block for simpler scanning.
     rootContent = rootContent.replace(/\/\*[\s\S]*?\*\//g, '');
 
     const isEscaped = (pos: number): boolean => {
@@ -1221,6 +1266,10 @@ function readCssVariablesFromFile(filePath: string): Map<string, string> {
     return extractCssVariables(previousCss);
 }
 
+/**
+ * Parses JSON content. If `ALLOW_JSON_REPAIR` is enabled, attempts a small best-effort repair for
+ * known truncation patterns in some exports.
+ */
 function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
     try {
         return JSON.parse(fileContent);
@@ -1269,10 +1318,12 @@ function readAndCombineJsons(dir: string): Record<string, any> {
                 const fileContent = fs.readFileSync(filePath, 'utf-8');
                 let json: any = parseJsonWithOptionalRepair(fileContent, file);
 
+                // Some exporters nest tokens under a "Tokens" root.
                 if (isPlainObject(json) && 'Tokens' in json && isPlainObject((json as any).Tokens)) {
                     json = (json as any).Tokens;
                 }
 
+                // Drop known metadata fields.
                 if (isPlainObject(json)) {
                     delete (json as any)['$schema'];
                     delete (json as any)['Translations'];
@@ -1289,6 +1340,10 @@ function readAndCombineJsons(dir: string): Record<string, any> {
     return combined;
 }
 
+/**
+ * Emits CSS variables from the token tree.
+ * Uses sorted traversal for stable output.
+ */
 function flattenTokens(
     ctx: EmissionContext,
     obj: any,
@@ -1330,7 +1385,7 @@ function flattenTokens(
 
                 const visitedRefs = buildVisitedRefSet(leafPath);
 
-                // ✅ (3) Remove unnecessary `as any`: processValue accepts primitives.
+                // ✅ No unnecessary `as any`: processValue already accepts primitives.
                 const processedValue = processValue(ctx, value, undefined, leafPath, visitedRefs);
                 if (processedValue === null) return;
 
@@ -1435,12 +1490,23 @@ function printExecutionSummary(summary: ExecutionSummary): void {
     }
 }
 
+/**
+ * Formats a section header comment for the generated CSS.
+ * Ensures the label cannot accidentally terminate the comment.
+ */
 function formatCssSectionHeader(label: string): string {
-    const safe = String(label).replace(/\r\n|\r|\n/g, ' ').replace(/\*\//g, '*\\/').trim();
+    const safe = String(label)
+        .replace(/\r\n|\r|\n/g, ' ')
+        // Most compatible way to break comment terminators.
+        .replace(/\*\//g, '* /')
+        .trim();
     return `  /* --- ${safe || 'Section'} --- */`;
 }
 
+// --- Main execution ---
+
 async function main() {
+    // Reset warn-once guards and per-run caches (important for watch mode/tests).
     warnedAliasVarCollisions.clear();
     warnedDuplicateTokenIds.clear();
     warnedFindTokenByIdDepthLimit.clear();
@@ -1481,6 +1547,7 @@ async function main() {
         }
     }
 
+    // Phase 1: Indexing (build maps, detect collisions, prepare cycle graph).
     const indexingCtx = createProcessingContext({
         summary,
         refMap,
@@ -1498,6 +1565,7 @@ async function main() {
 
     const cycleStatus = buildCycleStatus(indexingCtx);
 
+    // Phase 2: Emission (deterministic CSS output).
     const processingCtx = createProcessingContext({
         summary,
         tokensData: combinedTokens,
@@ -1512,10 +1580,19 @@ async function main() {
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
+        // Avoid orphan section headers: only keep header if something was emitted.
+        const startLen = cssLines.length;
+
         if (cssLines.length > 0) cssLines.push('');
         cssLines.push(formatCssSectionHeader(originalName));
 
         flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName]);
+
+        const expectedLenIfEmpty = startLen + (startLen > 0 ? 2 : 1);
+        if (cssLines.length === expectedLenIfEmpty) {
+            cssLines.pop(); // header
+            if (startLen > 0) cssLines.pop(); // blank line
+        }
     }
 
     console.log('📝 Escribiendo archivo CSS...');
