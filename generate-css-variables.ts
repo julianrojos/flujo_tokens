@@ -364,15 +364,26 @@ function normalizeDots(pathKey: string): string {
 /**
  * Builds the canonical dotted token key used for indexing and resolution.
  * Mode segments are excluded to keep token identities stable across modes.
+ *
+ * ✅ Optimization: supports `startIndex` to avoid `slice(1)` allocations in hot paths.
  */
-function buildPathKey(segments: string[]): string {
-    const dotted = segments
-        .filter(segment => segment && !isModeKey(segment))
-        .join('.')
-        .replace(/[\\/]+/g, '.')
-        .replace(/\s+/g, '.');
+function buildPathKey(segments: string[], startIndex = 0): string {
+    let out = '';
+    let first = true;
 
-    return normalizeDots(dotted);
+    for (let i = startIndex; i < segments.length; i++) {
+        const seg = segments[i];
+        if (!seg || isModeKey(seg)) continue;
+
+        const cleaned = seg.replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
+        if (!cleaned) continue;
+
+        if (!first) out += '.';
+        out += cleaned;
+        first = false;
+    }
+
+    return normalizeDots(out);
 }
 
 /**
@@ -670,6 +681,8 @@ function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
  * - depth protection (to avoid stack issues on pathological inputs)
  * - warn-once logging when the depth limit aborts the search
  * - `for...in` traversal to avoid allocating key arrays at every recursion level
+ *
+ * ✅ Optimization: mutable stack with `push/pop`, clone only on success.
  */
 function findTokenById(
     tokensData: Record<string, any>,
@@ -703,19 +716,28 @@ function findTokenById(
 
         if (key.startsWith('$')) {
             const keyValue = (tokensData as any)[key];
-            if (key === '$id' && matchesId(keyValue)) return currentPath;
+            if (key === '$id' && matchesId(keyValue)) {
+                // Must clone: currentPath is a mutable stack.
+                return currentPath.slice();
+            }
             continue;
         }
 
         const value = (tokensData as any)[key];
 
         if (isPlainObject(value)) {
-            const newPath = [...currentPath, key];
+            currentPath.push(key);
+            try {
+                if ('$id' in value && matchesId((value as any).$id)) {
+                    // Clone at success; stack will be unwound by finally.
+                    return currentPath.slice();
+                }
 
-            if ('$id' in value && matchesId((value as any).$id)) return newPath;
-
-            const found = findTokenById(value as Record<string, any>, target, newPath, depth + 1);
-            if (found) return found;
+                const found = findTokenById(value as Record<string, any>, target, currentPath, depth + 1);
+                if (found) return found;
+            } finally {
+                currentPath.pop();
+            }
         }
     }
 
@@ -986,7 +1008,12 @@ function quoteCssStringLiteral(value: string): string {
  * Instead, emit a space-separated sequence:
  *   `"Hello "` var(--name) `"!"`
  */
-function buildCssStringTokenSequence(ctx: EmissionContext, raw: string, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
+function buildCssStringTokenSequence(
+    ctx: EmissionContext,
+    raw: string,
+    currentPath: string[],
+    visitedRefs: ReadonlySet<string>
+): string {
     const parts: string[] = [];
     const seenInValue = new Set<string>();
 
@@ -1140,7 +1167,8 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
 
                 upsertKey(normalizedKey, varName, tokenObj as TokenValue, tokenPathKey, inModeBranch);
 
-                const relativePathKey = buildPathKey(tokenPath.slice(1));
+                // ✅ Avoid `slice(1)` allocation in hot path.
+                const relativePathKey = buildPathKey(tokenPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
                     upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
@@ -1167,7 +1195,8 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
 
                 upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
 
-                const relativePathKey = buildPathKey(leafPath.slice(1));
+                // ✅ Avoid `slice(1)` allocation.
+                const relativePathKey = buildPathKey(leafPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
                     upsertKey(relativeNormalizedKey, varName, legacyTokenObj, `relative:${relativePathKey}`, inModeBranch);
