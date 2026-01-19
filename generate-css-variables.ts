@@ -1091,6 +1091,14 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
                 const normalizedKey = normalizePathKey(tokenPathKey);
                 const varName = buildCssVarNameFromPrefix(tokenPrefix);
 
+                // ✅ (1) Validate in indexation to prevent "ghost references":
+                // If it won't be emitted, it shouldn't be referenciable.
+                if (!isValidCssVariableName(varName)) {
+                    // Record for visibility; avoid indexing ids/refs that won't exist in output.
+                    summary.invalidNames.push(`${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`);
+                    return;
+                }
+
                 indexTokenId(tokenObj, varName, normalizedKey, idToVarName, idToTokenKey);
 
                 trackCssVarNameCollision(ctx, varName, {
@@ -1112,6 +1120,12 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
                 const leafPath = [...parentPath, key];
                 const leafPrefix = [...parentPrefix, normalizedKey];
                 const varName = buildCssVarNameFromPrefix(leafPrefix);
+
+                // ✅ (1) Same guard for legacy primitives.
+                if (!isValidCssVariableName(varName)) {
+                    summary.invalidNames.push(`${pathStr(leafPath)} (Invalid CSS Var: ${varName})`);
+                    return;
+                }
 
                 const tokenPathKey = buildPathKey(leafPath);
                 const normalizedPathKey = normalizePathKey(tokenPathKey);
@@ -1480,7 +1494,8 @@ function printExecutionSummary(summary: ExecutionSummary): void {
 function formatCssSectionHeader(label: string): string {
     const safe = String(label)
         .replace(/\r\n|\r|\n/g, ' ')
-        .replace(/\*\//g, '*\\/')
+        // ✅ (4) Break comment terminators in the most compatible way: "* /"
+        .replace(/\*\//g, '* /')
         .trim();
     return `  /* --- ${safe || 'Section'} --- */`;
 }
@@ -1562,11 +1577,21 @@ async function main() {
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
-        // Section header for readability in the generated CSS file.
+        // ✅ (3) Avoid orphan section headers (only keep header if something was emitted).
+        const startLen = cssLines.length;
+
+        // Emit header (and optional blank line) speculatively.
         if (cssLines.length > 0) cssLines.push('');
         cssLines.push(formatCssSectionHeader(originalName));
 
         flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName]);
+
+        // If flattenTokens didn't add anything beyond the header (+ optional blank), remove them.
+        // Cases: files with only skipped/invalid tokens.
+        if (cssLines.length === startLen + (startLen > 0 ? 2 : 1)) {
+            cssLines.pop(); // header
+            if (startLen > 0) cssLines.pop(); // blank line
+        }
     }
 
     console.log('📝 Escribiendo archivo CSS...');
