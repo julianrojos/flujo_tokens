@@ -3,6 +3,7 @@
  */
 
 import { refCanonicalCache } from '../runtime/state.js';
+import { EMPTY_VISITED_REFS } from '../runtime/config.js';
 import { isModeKey } from '../types/tokens.js';
 
 export function pathStr(currentPath: string[]): string {
@@ -66,5 +67,5 @@ export function canonicalizeRefPath(pathKey: string): string {
  */
 export function buildVisitedRefSet(currentPath: string[]): ReadonlySet<string> {
     const normalized = normalizePathKey(buildPathKey(currentPath));
-    return normalized ? new Set([normalized]) : new Set<string>();
+    return normalized ? new Set([normalized]) : EMPTY_VISITED_REFS;
 }
