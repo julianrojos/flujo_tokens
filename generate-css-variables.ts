@@ -536,15 +536,39 @@ function walkTokenTree(
         const normalizedKey = toKebabCase(key);
 
         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            // For legacy primitives, handlers expect parent path + the key separately.
             handlers.onLegacyPrimitive?.({ value, key, normalizedKey, prefix, currentPath, depth, inModeBranch });
             continue;
         }
 
-        walkTokenTree(summary, value, [...prefix, normalizedKey], [...currentPath, key], handlers, depth + 1, inModeBranch, sortKeys);
+        // ✅ True mutable-stack traversal: push before recursion and pop after.
+        prefix.push(normalizedKey);
+        currentPath.push(key);
+        try {
+            walkTokenTree(summary, value, prefix, currentPath, handlers, depth + 1, inModeBranch, sortKeys);
+        } finally {
+            currentPath.pop();
+            prefix.pop();
+        }
     }
 
     if (modeKey) {
-        walkTokenTree(summary, (obj as Record<string, any>)[modeKey], prefix, [...currentPath, modeKey], handlers, depth + 1, true, sortKeys);
+        // Mode branches should NOT affect the CSS var name prefix, but do affect the JSON path.
+        currentPath.push(modeKey);
+        try {
+            walkTokenTree(
+                summary,
+                (obj as Record<string, any>)[modeKey],
+                prefix,
+                currentPath,
+                handlers,
+                depth + 1,
+                true,
+                sortKeys
+            );
+        } finally {
+            currentPath.pop();
+        }
     }
 }
 
@@ -772,7 +796,9 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
 
             // Defensive: never emit an invalid custom property name.
             if (!isValidCssVariableName(derived)) {
-                console.warn(`⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`);
+                console.warn(
+                    `⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`
+                );
                 const placeholderName = toSafePlaceholderName(aliasId);
                 recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
                 return `var(--unresolved-${placeholderName})`;
@@ -783,7 +809,9 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
         }
 
         console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
-        console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
+        console.warn(
+            `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
+        );
         console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
         const placeholderName = toSafePlaceholderName(aliasId);
@@ -839,7 +867,8 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
 
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
+                const to255 = (c: number, normalized: boolean): number =>
+                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -998,7 +1027,8 @@ function processValue(
 ): string | null {
     const { summary } = ctx;
 
-    if (value === null || value === undefined) return 'null';
+    // ✅ Treat null like undefined: do not emit an invalid CSS value ("null").
+    if (value == null) return null;
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
@@ -1087,7 +1117,7 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
             onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch }) => {
                 // ✅ Only index tokens that will be emittable (prevents "$value ghost references").
                 const rawValue = (tokenObj as TokenValue).$value;
-                if (rawValue === undefined) return;
+                if (rawValue == null) return;
 
                 const tokenPathKey = buildPathKey(tokenPath);
                 const normalizedKey = normalizePathKey(tokenPathKey);
@@ -1364,8 +1394,9 @@ function flattenTokens(
                 const rawValue = (tokenObj as TokenValue).$value;
                 const varType = (tokenObj as TokenValue).$type;
 
-                if (rawValue === undefined) {
-                    console.warn(`⚠️  Token sin $value en ${pathStr(tokenPath)}, se omite`);
+                // ✅ Skip null/undefined tokens entirely (no invalid CSS like "--x: null;").
+                if (rawValue == null) {
+                    console.warn(`⚠️  Token sin $value (o null) en ${pathStr(tokenPath)}, se omite`);
                     return;
                 }
 
