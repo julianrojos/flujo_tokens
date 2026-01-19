@@ -360,12 +360,30 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
 
     const type = rawType === 'INNER_SHADOW' ? 'INNER_SHADOW' : 'DROP_SHADOW';
 
-    const offset = isPlainObject(rawOffset) ? (rawOffset as { x?: number | null; y?: number | null }) : { x: 0, y: 0 };
-    const offsetX = typeof offset.x === 'number' ? offset.x : 0;
-    const offsetY = typeof offset.y === 'number' ? offset.y : 0;
+    // Helper to resolve dimensions (number, string, or ref)
+    const resolveDim = (val: unknown, def: number): string => {
+        if (val == null) return `${def}px`;
 
-    const radius = typeof rawRadius === 'number' ? rawRadius : rawRadius == null ? 0 : Number(rawRadius) || 0;
-    const spread = typeof rawSpread === 'number' ? rawSpread : rawSpread == null ? 0 : Number(rawSpread) || 0;
+        let resolved = val;
+        // 1. Try to resolve if it's a ref/alias string
+        if (typeof val === 'string') {
+            resolved = processValue(ctx, val, undefined, currentPath, visitedRefs) ?? val;
+        }
+
+        // 2. If it's a number (or stringy number "5"), append px
+        if (typeof resolved === 'number' || (typeof resolved === 'string' && /^-?\d+(\.\d+)?$/.test(resolved.trim()))) {
+            return `${resolved}px`;
+        }
+
+        // 3. Otherwise trust the string (supports "0.5rem", "var(--foo)", etc.)
+        return String(resolved);
+    };
+
+    const offset = isPlainObject(rawOffset) ? (rawOffset as { x?: number | null; y?: number | null }) : { x: 0, y: 0 };
+    const offsetXStr = resolveDim(offset.x, 0);
+    const offsetYStr = resolveDim(offset.y, 0);
+    const radiusStr = resolveDim(rawRadius, 0);
+    const spreadStr = resolveDim(rawSpread, 0);
 
     const colorPart = (() => {
         if (rawColor == null) return 'rgba(0, 0, 0, 1)';
@@ -409,8 +427,8 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
         }
     })();
 
-    if (type === 'INNER_SHADOW') return `inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
-    return `${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
+    if (type === 'INNER_SHADOW') return `inset ${offsetXStr} ${offsetYStr} ${radiusStr} ${spreadStr} ${colorPart}`;
+    return `${offsetXStr} ${offsetYStr} ${radiusStr} ${spreadStr} ${colorPart}`;
 }
 
 // --- Composite Token Helpers ---
@@ -422,8 +440,8 @@ function processTypography(ctx: EmissionContext, value: Record<string, any>, cur
     const resolve = (key: string) => {
         const val = value[key];
         if (val == null) return null;
-        if (isVariableAlias(val)) return processVariableAlias(ctx, val, currentPath, visitedRefs);
-        return String(val);
+        // Use processValue to ensure ANY reference (W3C or Alias) is resolved
+        return processValue(ctx, val, undefined, currentPath, visitedRefs) ?? String(val);
     };
 
     const family = resolve('fontFamily');
@@ -468,9 +486,8 @@ function processBorder(ctx: EmissionContext, value: Record<string, any>, current
     const resolve = (key: string) => {
         const val = value[key];
         if (val == null) return null;
-        if (isVariableAlias(val)) return processVariableAlias(ctx, val, currentPath, visitedRefs);
-        if (key === 'color') return processValue(ctx, val, 'color', currentPath, visitedRefs);
-        return String(val);
+        // Use processValue for everything to resolve deep references
+        return processValue(ctx, val, undefined, currentPath, visitedRefs) ?? String(val);
     };
 
     const width = resolve('width');
