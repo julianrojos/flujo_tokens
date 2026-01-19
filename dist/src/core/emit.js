@@ -339,9 +339,16 @@ export function processValue(ctx, value, varType, currentPath = [], visitedRefs 
         if (isVariableAlias(value)) {
             return processVariableAlias(ctx, value, currentPath, visitedRefs);
         }
-        console.warn(`⚠️  Token compuesto no soportado en ${pathStr(currentPath)}, se omite`);
-        recordUnresolved(summary, currentPath, ' (Composite object skipped)');
-        return null;
+        // Composite Token Fallback
+        // Instead of skipping, we output the raw JSON so it's not lost.
+        // This is better than silent omission.
+        console.warn(`⚠️  Token compuesto 'sin procesar' en ${pathStr(currentPath)}: ${JSON.stringify(value)}`);
+        try {
+            return `/* composite */ ${JSON.stringify(value)}`;
+        }
+        catch {
+            return `/* composite error */`;
+        }
     }
     if (typeof value === 'string') {
         // Preserve common CSS color formats verbatim.
@@ -381,6 +388,9 @@ export function flattenTokens(ctx, obj, prefix = [], collectedVars = [], current
             summary.totalTokens++;
             const rawValue = tokenObj.$value;
             const varType = tokenObj.$type ?? inheritedType;
+            if (!varType) {
+                console.warn(`⚠️  Token sin $type (ni heredado) en ${pathStr(tokenPath)}. Se emitirá valor crudo, pero puede ser inválido según DTCG.`);
+            }
             if (rawValue == null) {
                 console.warn(`⚠️  Token sin $value (o null) en ${pathStr(tokenPath)}, se omite`);
                 return;

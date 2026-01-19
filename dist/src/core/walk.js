@@ -92,6 +92,17 @@ export function walkTokenTree(summary, obj, prefix, currentPath, handlers, depth
             nextInheritedType = t;
     }
     if (obj && typeof obj === 'object' && '$value' in obj) {
+        // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
+        // If it does, those children are currently ignored.
+        if (isPlainObject(obj)) {
+            const keys = Object.keys(obj);
+            const reserved = new Set(['$value', '$type', '$description', '$extensions', '$id']);
+            const extraKeys = keys.filter(k => !reserved.has(k) && !isModeKey(k));
+            if (extraKeys.length > 0) {
+                console.warn(`⚠️  Ambigüedad Token/Grupo en ${pathStr(currentPath)}: tiene $value pero también claves extra (${extraKeys.join(', ')}). ` +
+                    `Se tratará como TOKEN (hoja) y se ignorarán los hijos.`);
+            }
+        }
         handlers.onTokenValue?.({ obj, prefix, currentPath, depth, inModeBranch, inheritedType: nextInheritedType });
         return;
     }

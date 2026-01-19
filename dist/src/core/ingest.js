@@ -75,7 +75,8 @@ export function readAndCombineJsons(dir) {
                 combined[name] = json;
             }
             catch (err) {
-                console.error(`❌ Error al leer/parsear ${file}:`, err);
+                console.error(`❌ Error crítico al leer/parsear ${file}:`, err);
+                throw new Error(`Fallo en ingesta de ${file}`);
             }
         }
     }

@@ -116,7 +116,14 @@ async function main() {
     resetRuntimeState();
     const summary = createSummary();
     console.log('📖 Leyendo archivos JSON...');
-    const combinedTokens = readAndCombineJsons(JSON_DIR);
+    let combinedTokens;
+    try {
+        combinedTokens = readAndCombineJsons(JSON_DIR);
+    }
+    catch (e) {
+        console.error('❌ Ingesta fallida. Abortando.');
+        process.exit(1);
+    }
     const fileEntries = Object.entries(combinedTokens).map(([name, content]) => ({
         originalName: name,
         kebabName: toKebabCase(name),

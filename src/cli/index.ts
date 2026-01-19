@@ -30,8 +30,25 @@ import { readCssVariablesFromFile, formatCssSectionHeader } from '../core/css.js
 // --- Path configuration ---
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const JSON_DIR = path.resolve(__dirname, '../../input');
-const OUTPUT_FILE = path.resolve(__dirname, '../../output/custom-properties.css');
+
+// Default paths
+let jsonDir = path.resolve(__dirname, '../../input');
+let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
+
+// Simple parsing of --input and --output
+const args = process.argv.slice(2);
+for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--input' && args[i + 1]) {
+        jsonDir = path.resolve(process.cwd(), args[i + 1]);
+        i++;
+    } else if (args[i] === '--output' && args[i + 1]) {
+        outputFile = path.resolve(process.cwd(), args[i + 1]);
+        i++;
+    }
+}
+
+const JSON_DIR = jsonDir;
+const OUTPUT_FILE = outputFile;
 
 // --- Logging helpers ---
 
@@ -138,7 +155,13 @@ async function main() {
     const summary = createSummary();
 
     console.log('📖 Leyendo archivos JSON...');
-    const combinedTokens = readAndCombineJsons(JSON_DIR);
+    let combinedTokens;
+    try {
+        combinedTokens = readAndCombineJsons(JSON_DIR);
+    } catch (e) {
+        console.error('❌ Ingesta fallida. Abortando.');
+        process.exit(1);
+    }
 
     const fileEntries = Object.entries(combinedTokens).map(([name, content]) => ({
         originalName: name,
