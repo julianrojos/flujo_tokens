@@ -259,7 +259,8 @@ async function main() {
 
     try {
         fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
-        console.log(`\n✅ custom-properties.css completely regenerated`);
+        const outputLabel = path.relative(process.cwd(), OUTPUT_FILE) || OUTPUT_FILE;
+        console.log(`\n✅ ${outputLabel} completely regenerated`);
     } catch (err) {
         console.error(`❌ Could not write ${OUTPUT_FILE}:`, err);
         process.exit(1);
