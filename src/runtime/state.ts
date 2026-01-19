@@ -17,6 +17,7 @@ export const warnedFindTokenByIdDepthLimit = new Set<string>();
 export const warnedAmbiguousModeDefaultAt = new Set<string>();
 export const warnedMissingPreferredMode = new Set<string>();
 export const warnedBaseValueSkippedForMode = new Set<string>();
+export const warnedPreferredModeFallback = new Set<string>();
 
 /**
  * Clears all runtime state for a fresh run.
@@ -33,4 +34,5 @@ export function resetRuntimeState(): void {
     warnedAmbiguousModeDefaultAt.clear();
     warnedMissingPreferredMode.clear();
     warnedBaseValueSkippedForMode.clear();
+    warnedPreferredModeFallback.clear();
 }

@@ -5,7 +5,7 @@
 import type { ExecutionSummary, WalkHandlers } from '../types/tokens.js';
 import { isPlainObject, isModeKey, shouldSkipKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedMissingPreferredMode, warnedBaseValueSkippedForMode } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedMissingPreferredMode, warnedBaseValueSkippedForMode, warnedPreferredModeFallback } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 
@@ -158,15 +158,6 @@ export function walkTokenTree(
     const hasAnyModeBranch = keys.some(isModeKey);
     const preferred = normalizePreferredMode(preferredMode);
 
-    if (preferred && hasAnyModeBranch && modeKey && !matchesPreferredMode(modeKey, preferred)) {
-        if (!warnedMissingPreferredMode.has(preferred)) {
-            warnedMissingPreferredMode.add(preferred);
-            console.warn(
-                `ℹ️  Preferred mode "${preferred}" not found at ${pathStr(currentPath)}; using "${modeKey}".`
-            );
-        }
-    }
-
     if (hasValue) {
         // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
         // Mode branches are allowed; non-mode children block emission.
@@ -183,7 +174,23 @@ export function walkTokenTree(
             return;
         }
 
-        if (modeKey) {
+        const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
+        const shouldEmitBase =
+            !hasAnyModeBranch || !modeKey || (preferred && !preferredFound);
+
+        if (preferred && hasAnyModeBranch && (!modeKey || !preferredFound)) {
+            const warnKey = `${pathStr(currentPath)}|${preferred}|${modeKey ?? 'none'}`;
+            if (!warnedPreferredModeFallback.has(warnKey)) {
+                warnedPreferredModeFallback.add(warnKey);
+                console.warn(
+                    `ℹ️  Preferred mode "${preferred}" not found at ${pathStr(currentPath)}; emitting base $value and falling back to "${modeKey ?? 'none'}".`
+                );
+            }
+        }
+
+        if (shouldEmitBase) {
+            handlers.onTokenValue?.({ obj, prefix, currentPath, depth, inModeBranch, inheritedType: nextInheritedType });
+        } else {
             const warnKey = `${pathStr(currentPath)}|${modeKey}`;
             if (!warnedBaseValueSkippedForMode.has(warnKey)) {
                 warnedBaseValueSkippedForMode.add(warnKey);
@@ -191,8 +198,6 @@ export function walkTokenTree(
                     `ℹ️  ${pathStr(currentPath)} has $value and mode branch "${modeKey}". Base $value is skipped to avoid double emission.`
                 );
             }
-        } else {
-            handlers.onTokenValue?.({ obj, prefix, currentPath, depth, inModeBranch, inheritedType: nextInheritedType });
         }
     }
 
