@@ -2,7 +2,7 @@
  * Emission phase: value resolution and CSS output generation.
  */
 
-import type { EmissionContext, ExecutionSummary, TokenValue, CssVarOwner, CssVarCollision } from '../types/tokens.js';
+import type { EmissionContext, ExecutionSummary, TokenValue, CssVarOwner, CssVarCollision, IndexingContext } from '../types/tokens.js';
 import { isPlainObject, isVariableAlias } from '../types/tokens.js';
 import { MAX_DEPTH, EMPTY_VISITED_REFS } from '../runtime/config.js';
 import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit } from '../runtime/state.js';
@@ -20,6 +20,58 @@ export function recordUnresolved(summary: ExecutionSummary, currentPath: string[
 
 export function recordUnresolvedTyped(summary: ExecutionSummary, currentPath: string[], label: string, detail: string): void {
     recordUnresolved(summary, currentPath, ` (${label}: ${detail})`);
+}
+
+/**
+ * Precomputes which tokens are actually emittable so references to non-emitted tokens
+ * can be flagged as unresolved instead of silently resolving to ghost vars.
+ */
+export function buildEmittableKeySet(ctx: IndexingContext): Set<string> {
+    const emittable = new Set<string>();
+
+    const canEmitValue = (token: TokenValue): boolean => {
+        const varType = token.$type;
+        const rawValue = token.$value;
+
+        if (rawValue == null || !varType) return false;
+
+        if (Array.isArray(rawValue)) {
+            return varType === 'shadow';
+        }
+
+        if (typeof rawValue === 'object') {
+            if (isVariableAlias(rawValue)) {
+                const aliasId = rawValue.id?.trim();
+                return !!aliasId;
+            }
+
+            if (varType === 'shadow') return true;
+
+            if (varType === 'typography') {
+                const family = (rawValue as any).fontFamily;
+                const size = (rawValue as any).fontSize;
+                return family != null && size != null;
+            }
+
+            if (varType === 'border') {
+                const { width, style, color } = rawValue as any;
+                return width != null && style != null && color != null;
+            }
+
+            return false;
+        }
+
+        return true;
+    };
+
+    for (const [key, token] of ctx.valueMap.entries()) {
+        if (!token) continue;
+        if (canEmitValue(token as TokenValue)) {
+            emittable.add(key);
+        }
+    }
+
+    return emittable;
 }
 
 /**
@@ -149,7 +201,7 @@ export function resolveReference(
     visitedRefs: ReadonlySet<string>,
     seenInValue: Set<string>
 ): string {
-    const { summary, refMap, collisionKeys, cycleStatus } = ctx;
+    const { summary, refMap, collisionKeys, cycleStatus, emittableKeys } = ctx;
 
     tokenPath = tokenPath.trim();
     if (!tokenPath) {
@@ -175,6 +227,15 @@ export function resolveReference(
         return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
     }
 
+    const isEmittable = emittableKeys.has(resolvedKey) || emittableKeys.has(normalizedTokenPath);
+    if (!isEmittable) {
+        console.warn(
+            `⚠️  W3C reference ${match} at ${pathStr(currentPath)} points to a token that will not be emitted (${tokenPath})`
+        );
+        recordUnresolvedTyped(summary, currentPath, 'Ref (not emitted)', tokenPath);
+        return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
+    }
+
     // Per-value loop guard: avoids repeated cycle checks for the same reference key.
     const seenKey = normalizePathKey(resolvedKey);
     if (!seenInValue.has(seenKey)) {
@@ -194,7 +255,7 @@ export function resolveReference(
         seenInValue.add(seenKey);
     }
 
-    const mappedVarName = refMap.get(resolvedKey);
+    const mappedVarName = refMap.get(resolvedKey) ?? refMap.get(normalizedTokenPath);
     if (mappedVarName) return `var(${mappedVarName})`;
 
     console.warn(`⚠️  Unresolved W3C reference ${match} at ${pathStr(currentPath)} (resolved key missing in refMap)`);
@@ -275,6 +336,13 @@ export function processVariableAlias(
 
     const aliasId = aliasObj.id?.trim();
     const targetKey = aliasId ? idToTokenKey.get(aliasId) : undefined;
+
+    if (!aliasId) {
+        console.warn(`⚠️  VARIABLE_ALIAS without a valid id at ${pathStr(currentPath)}; emitting unresolved placeholder`);
+        const placeholderName = toSafePlaceholderName(pathStr(currentPath)) || 'alias';
+        recordUnresolvedTyped(summary, currentPath, 'Alias ID', 'missing');
+        return `var(--unresolved-alias-${placeholderName})`;
+    }
 
     if (aliasId && targetKey && visitedRefs?.has(targetKey)) {
         console.warn(`⚠️  Circular VARIABLE_ALIAS reference (id=${aliasId}) at ${pathStr(currentPath)}`);

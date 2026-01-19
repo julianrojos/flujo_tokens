@@ -67,6 +67,7 @@ export type EmissionContext = IndexingContext &
     Readonly<{
         tokensData: Record<string, any>;
         cycleStatus: Map<string, boolean>;
+        emittableKeys: Set<string>;
     }>;
 
 export type ProcessingContext = IndexingContext | EmissionContext;

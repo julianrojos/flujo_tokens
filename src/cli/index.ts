@@ -24,7 +24,7 @@ import { toKebabCase } from '../utils/strings.js';
 import { readAndCombineJsons } from '../core/ingest.js';
 import { collectTokenMaps } from '../core/indexing.js';
 import { buildCycleStatus } from '../core/analyze.js';
-import { flattenTokens } from '../core/emit.js';
+import { flattenTokens, buildEmittableKeySet } from '../core/emit.js';
 import { readCssVariablesFromFile, formatCssSectionHeader } from '../core/css.js';
 
 // --- Path configuration ---
@@ -216,6 +216,7 @@ async function main() {
     }
 
     const cycleStatus = buildCycleStatus(indexingCtx);
+    const emittableKeys = buildEmittableKeySet(indexingCtx);
 
     // Phase 2: emission (deterministic CSS output).
     const processingCtx = createProcessingContext({
@@ -227,6 +228,7 @@ async function main() {
         idToVarName,
         idToTokenKey,
         cycleStatus,
+        emittableKeys,
         cssVarNameOwners,
         cssVarNameCollisionMap
     });
