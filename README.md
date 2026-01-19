@@ -17,7 +17,6 @@ npm install
 
 - **`npm run generate`**: Ejecuta el pipeline completo (Ingesta -> Indexación -> Análisis -> Emisión) para generar `custom-properties.css`.
 - **`npm run watch`**: Ejecuta el generador en modo observación, regenerando los archivos ante cambios en la carpeta `src`.
-- **`npm run build`**: Compila el código TypeScript a JavaScript en la carpeta `dist/`.
 
 ## Uso
 

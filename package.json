@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "generate": "tsx src/cli/index.ts",
-    "build": "tsc",
     "watch": "tsx watch src/cli/index.ts"
   },
   "devDependencies": {
