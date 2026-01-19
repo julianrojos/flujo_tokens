@@ -21,8 +21,12 @@ export function checkDepthLimit(summary: ExecutionSummary, depth: number, curren
 }
 
 export function pickModeKey(keys: string[]): string | undefined {
-    // Prefer "modeDefault" for stability; otherwise pick the first mode branch.
-    return keys.find(k => k.toLowerCase() === 'modedefault') ?? keys.find(isModeKey);
+    // Prefer "modeDefault" for stability; otherwise prefer Light, then first mode branch.
+    return (
+        keys.find(k => k.toLowerCase() === 'modedefault') ??
+        keys.find(isLightModeKey) ??
+        keys.find(isModeKey)
+    );
 }
 
 /**
@@ -33,12 +37,20 @@ export function compareByCodeUnit(a: string, b: string): number {
     return a > b ? 1 : a < b ? -1 : 0;
 }
 
+function isLightModeKey(key: string): boolean {
+    if (!isModeKey(key)) return false;
+    const tail = key.slice(4);
+    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase();
+    return normalized.startsWith('light');
+}
+
 /**
  * Selects a mode key deterministically without sorting the entire key list.
  * This preserves the same selection you would get from sorted keys + `pickModeKey()`.
  */
 export function pickModeKeyDeterministic(keys: string[]): string | undefined {
     let bestDefault: string | undefined;
+    let bestLight: string | undefined;
     let bestMode: string | undefined;
 
     for (const k of keys) {
@@ -46,12 +58,15 @@ export function pickModeKeyDeterministic(keys: string[]): string | undefined {
             if (!bestDefault || compareByCodeUnit(k, bestDefault) < 0) bestDefault = k;
             continue;
         }
+        if (isLightModeKey(k)) {
+            if (!bestLight || compareByCodeUnit(k, bestLight) < 0) bestLight = k;
+        }
         if (isModeKey(k)) {
             if (!bestMode || compareByCodeUnit(k, bestMode) < 0) bestMode = k;
         }
     }
 
-    return bestDefault ?? bestMode;
+    return bestDefault ?? bestLight ?? bestMode;
 }
 
 /**
@@ -108,9 +123,10 @@ export function walkTokenTree(
         if (typeof t === 'string' && t) nextInheritedType = t;
     }
 
-    if (obj && typeof obj === 'object' && '$value' in obj) {
+    const hasValue = obj && typeof obj === 'object' && '$value' in obj;
+    if (hasValue) {
         // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
-        // If it does, those children are currently ignored.
+        // Mode branches are allowed; non-mode children block emission.
         if (isPlainObject(obj)) {
             const keys = Object.keys(obj);
             const reserved = new Set(['$value', '$type', '$description', '$extensions', '$id']);
@@ -128,7 +144,6 @@ export function walkTokenTree(
         }
 
         handlers.onTokenValue?.({ obj, prefix, currentPath, depth, inModeBranch, inheritedType: nextInheritedType });
-        return;
     }
 
     if (!isPlainObject(obj)) return;
