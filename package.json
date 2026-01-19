@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "generate": "tsx src/cli/index.ts",
-    "generate:old": "tsx generate-css-variables.ts",
     "build": "tsc",
     "watch": "tsx watch src/cli/index.ts"
   },
@@ -15,4 +14,3 @@
     "typescript": "^5.3.3"
   }
 }
-

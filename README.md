@@ -37,12 +37,6 @@ Una vez instaladas las dependencias, puedes ejecutar el script de las siguientes
 npm run generate
 ```
 
-### Opción 2: Usando tsx directamente
-
-```bash
-npx tsx generate-css-variables.ts
-```
-
 ### Opción 3: Modo watch (regenera automáticamente al cambiar archivos en input)
 
 ```bash
@@ -53,7 +47,7 @@ npm run watch
 
 - `input/*.json` - Archivos de entrada con los tokens de diseño
 - `output/custom-properties.css` - Archivo de salida con las custom properties CSS generadas
-- `generate-css-variables.ts` - Script TypeScript que procesa el JSON y genera el CSS
+- `src/cli/index.ts` - Punto de entrada del CLI que procesa el JSON y genera el CSS
 
 ## Funcionamiento
 
