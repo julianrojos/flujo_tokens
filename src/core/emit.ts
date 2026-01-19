@@ -213,7 +213,7 @@ export function buildCssStringTokenSequence(
     currentPath: string[],
     visitedRefs: ReadonlySet<string>
 ): string {
-    const parts: string[] = [];
+    const tokens: Array<{ kind: 'text' | 'ref'; value: string }> = [];
     const seenInValue = new Set<string>();
 
     W3C_REF_REGEX_REPLACE.lastIndex = 0;
@@ -227,14 +227,15 @@ export function buildCssStringTokenSequence(
             const end = W3C_REF_REGEX_REPLACE.lastIndex;
 
             const before = raw.slice(last, start);
-            if (before) parts.push(before);
+            if (before) tokens.push({ kind: 'text', value: before });
 
             const wholeMatch = m[0];
             const tokenPath = (m[1] ?? '').trim();
             const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
 
             // If resolution fails and returns the raw match, keep it as literal text (no added spacing/quotes).
-            parts.push(resolved);
+            const kind: 'text' | 'ref' = resolved === wholeMatch ? 'text' : 'ref';
+            tokens.push({ kind, value: resolved });
 
             last = end;
         }
@@ -243,11 +244,18 @@ export function buildCssStringTokenSequence(
     }
 
     const tail = raw.slice(last);
-    if (tail) parts.push(tail);
+    if (tail) tokens.push({ kind: 'text', value: tail });
 
-    // Join without inserting extra whitespace to preserve the original string structure.
-    const combined = parts.join('');
-    return combined.length ? combined : quoteCssStringLiteral('');
+    if (tokens.length === 0) return quoteCssStringLiteral('');
+
+    // If the entire string is just a reference, return it directly (allows content: var(--...)).
+    if (tokens.length === 1 && tokens[0].kind === 'ref') {
+        return tokens[0].value;
+    }
+
+    // Otherwise, emit a token list: string segments stay as strings, refs stay as refs.
+    const rendered = tokens.map(t => (t.kind === 'text' ? quoteCssStringLiteral(t.value) : t.value));
+    return rendered.join(' ');
 }
 
 // --- VARIABLE_ALIAS processing ---
