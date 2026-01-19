@@ -47,8 +47,9 @@ Options:
   -i, --input <dir>    Directory with token JSON files (default: ./input)
   -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
   -m, --mode <name>    Preferred mode branch (default: light)
-      --mode-strict    Fail if preferred mode is missing in any node
-      --mode-skip-base Skip emitting $value when a mode branch is selected (avoids double emit)
+      --mode-strict    Fail if preferred mode is missing in any node (default: on)
+      --mode-loose     Allow fallback to available mode if preferred is missing
+      --mode-emit-base Emit base $value even when a mode branch is selected (default: skip)
 `);
 }
 
@@ -57,8 +58,8 @@ function parseArgs(argv: string[]): CliOptions | null {
     let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
     let help = false;
     let mode: string | undefined;
-    let modeStrict = false;
-    let modeSkipBase = false;
+    let modeStrict = true;
+    let modeSkipBase = true;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -103,8 +104,13 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
-        if (arg === '--mode-skip-base') {
-            modeSkipBase = true;
+        if (arg === '--mode-loose') {
+            modeStrict = false;
+            continue;
+        }
+
+        if (arg === '--mode-emit-base') {
+            modeSkipBase = false;
             continue;
         }
 

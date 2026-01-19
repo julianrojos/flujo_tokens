@@ -136,8 +136,8 @@ export function walkTokenTree(
     sortKeys = true,
     inheritedType?: string,
     preferredMode?: string,
-    modeStrict = false,
-    skipBaseWhenMode = false
+    modeStrict = true,
+    skipBaseWhenMode = true
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) return;
 
