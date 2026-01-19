@@ -48,6 +48,11 @@ The system operates in 4 sequential phases:
 Behavior can be adjusted using environment variables:
 
 - `ALLOW_JSON_REPAIR=true` (default: false): Attempts to repair common syntax errors in input JSONs (e.g., trailing commas) to prevent the process from failing.
+- Mode selection flags (CLI):
+  - `--mode <name>` (default: `light`): preferred mode branch.
+  - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
+  - `--mode-strict`: fail if the preferred mode is missing anywhere.
+  - `--mode-emit-base`: emit the base `$value` even when a mode branch is selected (by default it is skipped to avoid double declarations).
 
 Example:
 
