@@ -6,7 +6,7 @@ Crea este archivo en la raíz de tu proyecto. Es limpio, descriptivo y fácil de
 JSON
 
 {
-  "jsonDir": "./FigmaJsons",
+  "jsonDir": "./input",
   "outputFile": "./output/custom-properties.css",
   "settings": {
     "maxDepth": 50,
@@ -34,7 +34,7 @@ interface AppConfig {
 }
 
 const DEFAULT_CONFIG: AppConfig = {
-    jsonDir: './FigmaJsons',
+    jsonDir: './input',
     outputFile: './output/custom-properties.css',
     settings: {
         maxDepth: 50,

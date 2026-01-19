@@ -1,5 +1,7 @@
 :root {
-  /* --- colors --- */
+
+  /* ========== colors ========== */
+
   --colors-amber-100: #fef3c7;
   --colors-amber-200: #fde68a;
   --colors-amber-300: #fcd34d;
@@ -277,7 +279,9 @@
   --colors-zinc-900: #18181b;
   --colors-zinc-950: #0c0a09;
 
-  /* --- colorTokens --- */
+
+  /* ========== colorTokens ========== */
+
   --color-tokens-background-colors-bg0: var(--colors-base-900);
   --color-tokens-background-colors-bg0hover: var(--colors-base-800);
   --color-tokens-background-colors-bg100: var(--colors-base-750);
@@ -601,7 +605,9 @@
   --color-tokens-text-text-secondary: var(--colors-base-200);
   --color-tokens-text-text-tertiary: var(--colors-base-400);
 
-  /* --- padding --- */
+
+  /* ========== padding ========== */
+
   --padding-padding10: var(--spacing-primitives-10);
   --padding-padding12: var(--spacing-primitives-12);
   --padding-padding128: var(--spacing-primitives-128);
@@ -624,7 +630,9 @@
   --padding-padding96: var(--spacing-primitives-96);
   --padding-padding-none: var(--spacing-primitives-0);
 
-  /* --- radius --- */
+
+  /* ========== radius ========== */
+
   --radius-radius-l: var(--spacing-primitives-12);
   --radius-radius-m: var(--spacing-primitives-10);
   --radius-radius-max: 999px;
@@ -638,7 +646,9 @@
   --radius-radius-xxxs: var(--spacing-primitives-2);
   --radius-radius-xxxxl: var(--spacing-primitives-48);
 
-  /* --- screenSize --- */
+
+  /* ========== screenSize ========== */
+
   --screen-size-grid-system-properties-grid-column-count: 12px;
   --screen-size-grid-system-properties-grid-gutter: 32px;
   --screen-size-grid-system-properties-grid-margin: 112px;
@@ -646,7 +656,9 @@
   --screen-size-mockup-size-mockup-width: 1024px;
   --screen-size-navigation-padding-grid-padding: 112px;
 
-  /* --- spacingPrimitives --- */
+
+  /* ========== spacingPrimitives ========== */
+
   --spacing-primitives-0: 0px;
   --spacing-primitives-10: 10px;
   --spacing-primitives-12: 12px;
@@ -676,7 +688,9 @@
   --spacing-primitives-80: 80px;
   --spacing-primitives-96: 96px;
 
-  /* --- typographyVariables --- */
+
+  /* ========== typographyVariables ========== */
+
   --typography-variables-font-family-inter: "Inter";
   --typography-variables-font-fontsize-2xl: 1.125rem;
   --typography-variables-font-fontsize-3xl: 1.25rem;
