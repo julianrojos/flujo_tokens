@@ -126,6 +126,11 @@ async function main() {
         content
     }));
 
+    if (fileEntries.length === 0) {
+        console.error(`❌ No JSON files found in ${JSON_DIR}. Nothing to generate.`);
+        process.exit(1);
+    }
+
     console.log('🔄 Transforming to CSS variables...');
     const cssLines: string[] = [];
     const refMap = new Map<string, string>();
