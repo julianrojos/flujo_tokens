@@ -15,7 +15,7 @@ npm install
 - Generar: `npm run generate`
 - Watch: `npm run watch`
 
-Salida en `output/custom-properties.css`.
+Entradas fijas en `input/`; salida en `output/custom-properties.css`.
 
 ## Qué hace
 - Lee y combina `input/*.json` (acepta exports con raíz `Tokens`), limpia `$schema` y `Translations`.
