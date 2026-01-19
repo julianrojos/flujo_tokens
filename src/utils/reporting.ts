@@ -11,7 +11,7 @@ import { CSS_DECL_LINE_REGEX } from './regex.js';
  */
 export function printExecutionSummary(summary: ExecutionSummary): void {
     console.log('\n========================================');
-    console.log('       EXECUTION SUMMARY         ');
+    console.log(' EXECUTION SUMMARY         ');
     console.log('========================================');
     console.log(`Total Tokens:        ${summary.totalTokens}`);
     console.log(`Generated:           ${summary.successCount}`);
