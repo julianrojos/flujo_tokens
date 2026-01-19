@@ -16,6 +16,7 @@ npm install
 ## Available Scripts
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission) to generate `custom-properties.css`.
+- **`npm run generate:strict`**: Runs the pipeline with `--mode-strict` enabled (fails if the preferred mode is missing anywhere).
 - **`npm run watch`**: Runs the generator in watch mode, regenerating files whenever changes occur in the `src` folder.
 
 ## Usage
@@ -53,6 +54,7 @@ Behavior can be adjusted using environment variables:
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
   - `--mode-strict`: fail if the preferred mode is missing anywhere.
   - `--mode-emit-base`: emit the base `$value` even when a mode branch is selected (by default it is skipped to avoid double declarations).
+- CI recommendation: use `npm run generate:strict` to prevent silent fallbacks when a preferred mode is missing.
 
 Example:
 
