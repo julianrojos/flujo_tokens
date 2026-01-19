@@ -447,9 +447,16 @@ function processTypography(ctx: EmissionContext, value: Record<string, any>, cur
     }
     parts.push(sizePart);
 
-    // Ensure family is quoted if needed (simple check) or use raw if it looks like a var or unquoted supported string
-    // ideally, emit logic should handle quoting, but for now we assume input is reasonably sane or a ref.
-    parts.push(family);
+    // Ensure family is quoted if it contains spaces and isn't a var() or already quoted.
+    let finalFamily = family;
+    const hasSpaces = /\s/.test(family);
+    const isVar = family.startsWith('var(');
+    const isQuoted = /^['"]/.test(family);
+
+    if (hasSpaces && !isVar && !isQuoted) {
+        finalFamily = `"${family}"`;
+    }
+    parts.push(finalFamily);
 
     return parts.join(' ');
 }
