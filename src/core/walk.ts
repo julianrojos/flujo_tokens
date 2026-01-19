@@ -5,7 +5,7 @@
 import type { ExecutionSummary, WalkHandlers } from '../types/tokens.js';
 import { isPlainObject, isModeKey, shouldSkipKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedMissingPreferredMode, warnedBaseValueSkippedForMode, warnedPreferredModeFallback } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 
@@ -135,7 +135,9 @@ export function walkTokenTree(
     inModeBranch = false,
     sortKeys = true,
     inheritedType?: string,
-    preferredMode?: string
+    preferredMode?: string,
+    modeStrict = false,
+    skipBaseWhenMode = false
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) return;
 
@@ -160,6 +162,11 @@ export function walkTokenTree(
     const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
     const missingPreferred = preferred && hasAnyModeBranch && (!modeKey || !preferredFound);
 
+    if (modeStrict && missingPreferred) {
+        const path = pathStr(currentPath) || '<root>';
+        throw new Error(`Preferred mode "${preferred}" not found at ${path}`);
+    }
+
     if (hasValue) {
         // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
         // Mode branches are allowed; non-mode children block emission.
@@ -179,17 +186,22 @@ export function walkTokenTree(
         const path = pathStr(currentPath);
         const warnKeyFallback = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;
 
-        const shouldEmitBase = !hasAnyModeBranch || !modeKey || missingPreferred;
-        const skipModeTraversal = hasAnyModeBranch && missingPreferred;
+        const shouldEmitBase =
+            !hasAnyModeBranch ||
+            !modeKey ||
+            missingPreferred ||
+            (modeKey && !skipBaseWhenMode);
+
+        const skipModeTraversal = hasAnyModeBranch && missingPreferred && hasValue;
 
         if (missingPreferred) {
             if (!warnedPreferredModeFallback.has(warnKeyFallback)) {
                 warnedPreferredModeFallback.add(warnKeyFallback);
                 console.warn(
-                    `ℹ️  Preferred mode "${preferred}" not found at ${path}; emitting base $value only (no mode override).`
+                    `ℹ️  Preferred mode "${preferred}" not found at ${path}; ${hasValue ? 'emitting base $value only' : 'using available mode branch'} (${modeKey ?? 'none'}).`
                 );
             }
-        } else if (modeKey) {
+        } else if (modeKey && skipBaseWhenMode) {
             const warnKey = `${path}|${modeKey}`;
             if (!warnedBaseValueSkippedForMode.has(warnKey)) {
                 warnedBaseValueSkippedForMode.add(warnKey);
@@ -232,7 +244,20 @@ export function walkTokenTree(
         prefix.push(normalizedKey);
         currentPath.push(key);
         try {
-            walkTokenTree(summary, value, prefix, currentPath, handlers, depth + 1, inModeBranch, sortKeys, nextInheritedType, preferredMode);
+            walkTokenTree(
+                summary,
+                value,
+                prefix,
+                currentPath,
+                handlers,
+                depth + 1,
+                inModeBranch,
+                sortKeys,
+                nextInheritedType,
+                preferredMode,
+                modeStrict,
+                skipBaseWhenMode
+            );
         } finally {
             currentPath.pop();
             prefix.pop();
@@ -250,7 +275,7 @@ export function walkTokenTree(
         }
     }
 
-    if (modeKey) {
+    if (modeKey && !(hasAnyModeBranch && missingPreferred && hasValue)) {
         // Mode branches affect the JSON path but must not affect the CSS var name prefix.
         currentPath.push(modeKey);
         try {
@@ -264,7 +289,9 @@ export function walkTokenTree(
                 true,
                 sortKeys,
                 nextInheritedType,
-                preferredMode
+                preferredMode,
+                modeStrict,
+                skipBaseWhenMode
             );
         } finally {
             currentPath.pop();

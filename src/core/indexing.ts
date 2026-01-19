@@ -105,7 +105,9 @@ export function collectTokenMaps(
     obj: any,
     prefix: string[] = [],
     currentPath: string[] = [],
-    preferredMode?: string
+    preferredMode?: string,
+    modeStrict = false,
+    skipBaseWhenMode = false
 ): void {
     const { summary, refMap, valueMap, collisionKeys, idToVarName, idToTokenKey } = ctx;
 
@@ -214,6 +216,8 @@ export function collectTokenMaps(
         false,
         false,
         undefined,
-        preferredMode
+        preferredMode,
+        modeStrict,
+        skipBaseWhenMode
     );
 }

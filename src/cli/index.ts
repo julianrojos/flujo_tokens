@@ -35,6 +35,8 @@ type CliOptions = {
     outputFile: string;
     help: boolean;
     mode?: string;
+    modeStrict: boolean;
+    modeSkipBase: boolean;
 };
 
 function printUsage(): void {
@@ -45,6 +47,8 @@ Options:
   -i, --input <dir>    Directory with token JSON files (default: ./input)
   -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
   -m, --mode <name>    Preferred mode branch (default: light)
+      --mode-strict    Fail if preferred mode is missing in any node
+      --mode-skip-base Skip emitting $value when a mode branch is selected (avoids double emit)
 `);
 }
 
@@ -53,6 +57,8 @@ function parseArgs(argv: string[]): CliOptions | null {
     let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
     let help = false;
     let mode: string | undefined;
+    let modeStrict = false;
+    let modeSkipBase = false;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -92,11 +98,21 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
+        if (arg === '--mode-strict') {
+            modeStrict = true;
+            continue;
+        }
+
+        if (arg === '--mode-skip-base') {
+            modeSkipBase = true;
+            continue;
+        }
+
         console.error(`❌ Unknown argument: ${arg}`);
         return null;
     }
 
-    return { inputDir, outputFile, help, mode };
+    return { inputDir, outputFile, help, mode, modeStrict, modeSkipBase };
 }
 
 const parsed = parseArgs(process.argv.slice(2));
@@ -113,6 +129,8 @@ if (parsed.help) {
 const JSON_DIR = parsed.inputDir;
 const OUTPUT_FILE = parsed.outputFile;
 const PREFERRED_MODE = parsed.mode?.trim() || 'light';
+const MODE_STRICT = parsed.modeStrict;
+const MODE_SKIP_BASE = parsed.modeSkipBase;
 
 // --- Main execution ---
 
@@ -179,7 +197,7 @@ async function main() {
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
-        collectTokenMaps(indexingCtx, content, [kebabName], [originalName], PREFERRED_MODE);
+        collectTokenMaps(indexingCtx, content, [kebabName], [originalName], PREFERRED_MODE, MODE_STRICT, MODE_SKIP_BASE);
     }
 
     const cycleStatus = buildCycleStatus(indexingCtx);
@@ -207,7 +225,7 @@ async function main() {
         if (cssLines.length > 0) cssLines.push('');
         cssLines.push(formatCssSectionHeader(originalName));
 
-        flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName], PREFERRED_MODE);
+        flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName], PREFERRED_MODE, MODE_STRICT, MODE_SKIP_BASE);
 
         const expectedLenIfEmpty = startLen + (startLen > 0 ? 2 : 1);
         if (cssLines.length === expectedLenIfEmpty) {
