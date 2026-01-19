@@ -1,22 +1,23 @@
 /**
  * Generates a `variables.css` file (CSS custom properties) from Figma token JSON exports.
  *
- * High-level flow:
- * 1) Read and merge JSON files under `JSON_DIR` (each file becomes a namespace).
- * 2) Index tokens for fast reference resolution, alias resolution, and diagnostics.
- * 3) Emit a deterministic `:root { --vars }` block to `OUTPUT_FILE`.
+ * Architecture
+ * 1) Ingestion: reads and merges all JSON files under `JSON_DIR` (each filename becomes a namespace root).
+ * 2) Indexing: builds lookup maps for fast reference resolution, alias resolution, and diagnostics.
+ * 3) Analysis: precomputes cycle risk via a dependency graph + DFS traversal.
+ * 4) Emission: writes a deterministic `:root { ... }` block to `OUTPUT_FILE`.
  *
- * Reference formats supported:
+ * Supported references
  * - W3C-style references embedded in strings: `{path.to.token}` → `var(--path-to-token)`
  * - Figma `VARIABLE_ALIAS` objects, resolved via `$id` when available.
  *
- * String tokens (`$type === "string"`):
- * CSS does not support true string interpolation. If a string token contains references,
- * the output is emitted as a CSS token sequence (a space-separated list), e.g.:
- *   `"Hello"` var(--name) `"!"`
+ * String tokens (`$type === "string"`)
+ * CSS does not support interpolating `var(...)` inside quoted strings. If a string token contains references,
+ * the output is emitted as a CSS token sequence (space-separated), e.g.:
+ *   `"Hello "` var(--name) `"!"`
  */
 
-// NOTE: This file uses TypeScript syntax (types/interfaces). Execute with tsx/ts-node, or compile with tsc.
+// TypeScript module. Run with tsx/ts-node, or compile with tsc.
 
 import fs from 'fs';
 import path from 'path';
@@ -36,29 +37,28 @@ const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 /**
  * W3C reference payloads: `{some.path}`.
  *
- * Global regexes (`/g`) are stateful in JS (`lastIndex`). We keep separate instances to reduce
- * the risk of cross-call interference if this file is refactored (e.g., if `exec()` loops are moved
- * or introduced in more places).
+ * Note on global regexes (`/g`): they are stateful in JS via `lastIndex`.
+ * This script keeps distinct instances for replacement vs collection, and resets `lastIndex`
+ * around each use to avoid state leakage across calls.
  */
-const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // Used for replacement/scanning.
-const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // Used for dependency collection via exec().
+const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // Replacement/scanning.
+const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // Dependency collection via exec() loops.
 
 /**
- * Non-global reference test regex.
- * Safer for quick "has reference?" checks because it does not rely on `lastIndex`.
+ * Stateless reference test regex.
+ * Prefer this for boolean checks (e.g. "does the string contain any reference?").
  */
 const W3C_REF_REGEX_TEST = /\{([A-Za-z0-9_./\s-]+)\}/;
 
-/** Precompiled helpers for validating CSS custom property names. */
+/** Helpers for validating CSS custom property names. */
 const STARTS_WITH_DIGIT_REGEX = /^\d/;
 const CSS_VAR_NAME_AFTER_DASHES_REGEX = /^[a-zA-Z0-9_-]+$/;
 
 /**
- * Matches a single generated CSS variable declaration line:
+ * Matches a single CSS variable declaration line produced by this script:
  *   `  --name: <value>;` with an optional trailing block comment.
  *
- * This is used only for change detection over this script's own output (`cssLines`), and is not a
- * general-purpose CSS parser. For robust parsing of existing CSS, see `extractCssVariables()`.
+ * Used only for change detection against this script’s own output format.
  */
 const CSS_DECL_LINE_REGEX = /^\s*--([a-zA-Z0-9_-]+):\s*(.*);\s*(?:\/\*[\s\S]*\*\/\s*)?$/;
 
@@ -87,7 +87,7 @@ interface ExecutionSummary {
     circularDeps: number;
     depthLimitHits: number;
 
-    /** Diagnostics for CSS namespace collisions (distinct tokens mapping to the same `--var-name`). */
+    /** Distinct tokens mapping to the same `--var-name` (CSS is last-write-wins). */
     cssVarNameCollisions: number;
     cssVarNameCollisionDetails: string[];
 }
@@ -112,7 +112,7 @@ type CssVarCollision = { first: CssVarOwner; others: Map<string, CssVarOwner> };
 const MAX_COLLISION_DETAILS = 10;
 const MAX_SUMMARY_DETAILS = 10;
 
-/** Warn-once guards to avoid log spam across repeated occurrences. */
+/** Warn-once guards to keep logs actionable and avoid repeated noise. */
 const warnedAliasVarCollisions = new Set<string>();
 const warnedDuplicateTokenIds = new Set<string>();
 const warnedFindTokenByIdDepthLimit = new Set<string>();
@@ -121,8 +121,8 @@ const warnedAmbiguousModeDefaultAt = new Set<string>();
 /**
  * Read-only context passed across phases.
  *
- * `Object.freeze()` is shallow: it prevents reassigning top-level properties (e.g., `ctx.refMap = ...`),
- * but the Maps/Sets inside remain mutable by design.
+ * `Object.freeze()` is shallow: top-level properties cannot be reassigned, but internal Maps/Sets
+ * are intentionally mutable for incremental construction.
  */
 type BaseContext = Readonly<{
     summary: ExecutionSummary;
@@ -136,7 +136,7 @@ type IndexingContext = BaseContext &
         valueMap: Map<string, TokenValue>;
         collisionKeys: Set<string>;
         idToVarName: Map<string, string>;
-        idToTokenKey: Map<string, string>; // $id -> normalized token key (for cycle graph + alias deps)
+        idToTokenKey: Map<string, string>; // $id -> normalized token key (alias deps + cycle graph)
     }>;
 
 type EmissionContext = IndexingContext &
@@ -178,25 +178,25 @@ function isModeKey(key: string): boolean {
 }
 
 function shouldSkipKey(key: string): boolean {
-    // Skip metadata ($...) and mode branches; the chosen mode branch is traversed separately.
+    // Skip metadata ($...) and mode branches; the selected mode branch is traversed separately.
     return key.startsWith('$') || isModeKey(key);
 }
 
 function pickModeKey(keys: string[]): string | undefined {
-    // Prefer "modeDefault" for deterministic output; otherwise pick the first detected mode key.
+    // Prefer "modeDefault" for stability; otherwise pick the first mode branch.
     return keys.find(k => k.toLowerCase() === 'modedefault') ?? keys.find(isModeKey);
 }
 
 /**
- * UTF-16 code unit comparison to match JavaScript's default `.sort()` ordering, without allocating
- * a sorted array. Used to make mode selection deterministic when we intentionally skip sorting keys.
+ * UTF-16 code unit comparison to match JavaScript's default `.sort()` ordering.
+ * Used to keep mode selection deterministic when we intentionally do not sort keys.
  */
 function compareByCodeUnit(a: string, b: string): number {
     return a > b ? 1 : a < b ? -1 : 0;
 }
 
 /**
- * Selects a mode key deterministically without sorting the full key list.
+ * Selects a mode key deterministically without sorting the entire key list.
  * This preserves the same selection you would get from sorted keys + `pickModeKey()`.
  */
 function pickModeKeyDeterministic(keys: string[]): string | undefined {
@@ -218,7 +218,7 @@ function pickModeKeyDeterministic(keys: string[]): string | undefined {
 
 /**
  * Warns (once per path) when multiple keys match `modeDefault` case-insensitively.
- * This does not change selection; it only surfaces potentially confusing JSON.
+ * This does not change selection; it only surfaces potentially confusing exports.
  */
 function warnAmbiguousModeDefault(keys: string[], currentPath: string[]): void {
     let count = 0;
@@ -246,8 +246,8 @@ function toSafePlaceholderName(id: string): string {
 }
 
 /**
- * Memoization caches are cleared in `main()` so this script can run safely in watch/test environments
- * without unbounded growth across runs.
+ * Per-run memoization caches.
+ * Cleared in `main()` so repeated runs (watch mode/tests) remain bounded.
  */
 const kebabCaseCache = new Map<string, string>();
 const refCanonicalCache = new Map<string, string>();
@@ -259,7 +259,7 @@ function toKebabCase(name: string): string {
         return cached;
     }
 
-    // Convert common separators and camelCase into kebab-case (used in CSS variable names).
+    // Convert common separators and camelCase into kebab-case (used in CSS identifiers).
     let result = name.replace(/-/g, ' ');
     result = result.replace(/[\\/]+/g, ' ');
     result = result.replace(/([a-z])([A-Z])/g, '$1-$2');
@@ -287,7 +287,8 @@ function pathStr(currentPath: string[]): string {
  * Builds a CSS custom property name from a kebab-cased prefix:
  *   ["colors", "brand", "primary"] → "--colors-brand-primary"
  *
- * Implemented as an indexed loop to avoid creating intermediate arrays.
+ * If all segments are empty, this returns `"--"`. Call sites validate the name and omit invalid
+ * declarations while reporting diagnostics.
  */
 function buildCssVarNameFromPrefix(prefix: string[]): string {
     let out = '--';
@@ -306,6 +307,7 @@ function buildCssVarNameFromPrefix(prefix: string[]): string {
 
 /**
  * Safety guard against infinite recursion or unexpectedly deep JSON structures.
+ * When exceeded, traversal is truncated and the incident is recorded in the summary.
  */
 function checkDepthLimit(summary: ExecutionSummary, depth: number, currentPath: string[]): boolean {
     if (depth <= MAX_DEPTH) return false;
@@ -346,8 +348,8 @@ function emitCssVar(
 }
 
 /**
- * Detects namespace collisions where distinct tokens map to the same CSS variable name.
- * In CSS, the last emitted definition wins, so collisions can cause silent overwrites.
+ * Detects collisions where distinct tokens map to the same CSS variable name.
+ * In CSS, the last emitted declaration wins, which can silently override earlier tokens.
  */
 function trackCssVarNameCollision(ctx: BaseContext, varName: string, owner: CssVarOwner): void {
     const { summary, cssVarNameOwners, cssVarNameCollisionMap } = ctx;
@@ -360,7 +362,7 @@ function trackCssVarNameCollision(ctx: BaseContext, varName: string, owner: CssV
         return;
     }
 
-    // Ignore if it's the same token identity (e.g., mode overrides).
+    // Ignore if it's the same token identity (e.g. mode overrides resolving to the same leaf).
     if (existing.tokenKey === owner.tokenKey) return;
 
     let entry = cssVarNameCollisionMap.get(varName);
@@ -391,9 +393,9 @@ function normalizeDots(pathKey: string): string {
 
 /**
  * Builds the canonical dotted token key used for indexing and resolution.
- * Mode segments are excluded to keep token identities stable across modes.
+ * Mode segments are excluded so token identities remain stable across modes.
  *
- * ✅ Optimization: supports `startIndex` to avoid `slice(1)` allocations in hot paths.
+ * `startIndex` avoids allocating `segments.slice(...)` in hot paths.
  */
 function buildPathKey(segments: string[], startIndex = 0): string {
     let out = '';
@@ -416,6 +418,7 @@ function buildPathKey(segments: string[], startIndex = 0): string {
 
 /**
  * Case-insensitive normalization used for indexing and lookups.
+ * Normalized keys can be marked as ambiguous via `collisionKeys`.
  */
 function normalizePathKey(pathKey: string): string {
     return pathKey.toLowerCase();
@@ -423,7 +426,7 @@ function normalizePathKey(pathKey: string): string {
 
 /**
  * Parses and normalizes a W3C reference payload (e.g., `{token.path}`) into a lookup key.
- * Results are memoized for the duration of a run.
+ * Results are memoized for the duration of the run.
  */
 function canonicalizeRefPath(pathKey: string): string {
     if (refCanonicalCache.has(pathKey)) return refCanonicalCache.get(pathKey)!;
@@ -435,12 +438,12 @@ function canonicalizeRefPath(pathKey: string): string {
     return result;
 }
 
-/** Shared empty set used as a read-only default for cycle detection seeds. */
+/** Shared empty set used as a safe default for cycle detection seeds. */
 const EMPTY_VISITED_REFS: ReadonlySet<string> = new Set<string>();
 
 /**
- * Creates the initial set of visited keys for cycle detection.
- * Stores the normalized key to match the resolution strategy.
+ * Creates the initial visited set for cycle detection.
+ * The normalized key matches the resolution strategy used elsewhere in the script.
  */
 function buildVisitedRefSet(currentPath: string[]): ReadonlySet<string> {
     const normalized = normalizePathKey(buildPathKey(currentPath));
@@ -450,8 +453,8 @@ function buildVisitedRefSet(currentPath: string[]): ReadonlySet<string> {
 /**
  * Indexes Figma `$id` properties for O(1) VARIABLE_ALIAS resolution.
  * - Stores the trimmed ID (canonical).
- * - Also stores the raw ID if it differs (backward compatibility with imperfect exports).
- * - Warns once if the same canonical ID maps to multiple tokens.
+ * - Also stores the raw ID if it differs (compatibility with imperfect exports).
+ * - Warns once if the same canonical ID maps to multiple tokens (latest mapping wins).
  */
 function indexTokenId(
     tokenObj: any,
@@ -491,8 +494,10 @@ function indexTokenId(
 }
 
 /**
- * Resolves a reference path using exact canonical match first, then falling back to a case-insensitive
- * normalized match. If the normalized key is ambiguous (collision), resolution fails.
+ * Resolves a reference path by:
+ * - checking the canonical key first
+ * - falling back to a case-insensitive normalized key
+ * If the normalized key is marked ambiguous, resolution fails.
  */
 function getResolvedTokenKey(ref: string, ctx: IndexingContext): string | null {
     const canonical = canonicalizeRefPath(ref);
@@ -546,16 +551,16 @@ type WalkHandlers = {
 /**
  * Traverses the token object tree.
  *
- * Features:
- * - Optional sorted key traversal for deterministic output (`sortKeys=true`).
- * - Mode branch handling: mode keys are skipped during normal traversal and a single selected mode
- *   branch is traversed after base keys.
+ * Behaviors:
+ * - Deterministic traversal when `sortKeys=true`.
+ * - Mode branches: mode keys are skipped during base traversal; a single selected mode branch is traversed afterwards.
  * - Leaf detection:
  *   - objects containing `$value` are treated as W3C token leaves
  *   - primitive leaves are treated as legacy tokens
+ * - `$type` inheritance: a `$type` on a parent node applies to descendants unless overridden.
  *
- * ✅ Improvement 1: supports `$type` inheritance — a `$type` defined on a parent node applies to descendants
- *    unless overridden at a child node.
+ * Performance:
+ * - Uses mutable stacks (`prefix`, `currentPath`) with `push`/`pop` + `try/finally` to avoid per-node allocations.
  */
 function walkTokenTree(
     summary: ExecutionSummary,
@@ -570,7 +575,7 @@ function walkTokenTree(
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) return;
 
-    // Inherit $type from this node if present.
+    // Propagate `$type` down the tree unless a child provides its own `$type`.
     let nextInheritedType = inheritedType;
     if (isPlainObject(obj)) {
         const t = (obj as any).$type;
@@ -586,7 +591,6 @@ function walkTokenTree(
 
     const keys = sortKeys ? Object.keys(obj).sort() : Object.keys(obj);
 
-    // Hardening: warn (once) if multiple modeDefault keys exist with different casing.
     warnAmbiguousModeDefault(keys, currentPath);
 
     const modeKey = sortKeys ? pickModeKey(keys) : pickModeKeyDeterministic(keys);
@@ -598,7 +602,7 @@ function walkTokenTree(
         const normalizedKey = toKebabCase(key);
 
         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-            // For legacy primitives, handlers expect parent path + the key separately.
+            // Legacy primitives are reported as parent path + leaf key.
             handlers.onLegacyPrimitive?.({
                 value,
                 key,
@@ -612,7 +616,6 @@ function walkTokenTree(
             continue;
         }
 
-        // ✅ True mutable-stack traversal: push before recursion and pop after.
         prefix.push(normalizedKey);
         currentPath.push(key);
         try {
@@ -624,7 +627,7 @@ function walkTokenTree(
     }
 
     if (modeKey) {
-        // Mode branches should NOT affect the CSS var name prefix, but do affect the JSON path.
+        // Mode branches affect the JSON path but must not affect the CSS var name prefix.
         currentPath.push(modeKey);
         try {
             walkTokenTree(
@@ -645,13 +648,13 @@ function walkTokenTree(
 }
 
 /**
- * Collects reference dependencies from a value for cycle detection.
- * Handles both:
+ * Collects dependency references for cycle analysis.
+ * Handles:
  * - W3C `{...}` references embedded in strings
- * - `VARIABLE_ALIAS` references via `$id` → tokenKey mapping (when available)
+ * - VARIABLE_ALIAS references via `$id` → tokenKey mapping (when available)
  */
 function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
-    // Defensive reset: global regexes are stateful.
+    // Global regexes are stateful; ensure we always start from the beginning.
     W3C_REF_REGEX_COLLECT.lastIndex = 0;
 
     if (isVariableAlias(value)) {
@@ -672,7 +675,7 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
                 refs.add(canonicalizeRefPath(tokenPath));
             }
         } finally {
-            // Extra-hardening: keep regex state clean even if a future refactor throws inside the loop.
+            // Keep regex state clean even if a future refactor throws inside the loop.
             W3C_REF_REGEX_COLLECT.lastIndex = 0;
         }
         return;
@@ -693,7 +696,8 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
 }
 
 /**
- * Performs a DFS to determine whether each token can reach a cycle via its dependencies.
+ * Performs a DFS on the dependency graph to determine whether each token can reach a cycle.
+ * The returned map stores: tokenKey -> leadsToCycle (boolean).
  */
 function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
     const refsByToken = new Map<string, Set<string>>();
@@ -740,15 +744,13 @@ function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
 }
 
 /**
- * Fallback mechanism to resolve a VARIABLE_ALIAS by traversing the entire token tree.
- * Used when the optimized `$id` index misses (e.g., partial exports).
+ * Fallback VARIABLE_ALIAS resolution by scanning the entire token tree for a matching `$id`.
+ * This is used when the `$id` index misses (e.g., partial exports).
  *
- * Includes:
- * - depth protection (to avoid stack issues on pathological inputs)
- * - warn-once logging when the depth limit aborts the search
- * - `for...in` traversal to avoid allocating key arrays at every recursion level
- *
- * ✅ Optimization: mutable stack with `push/pop`, clone only on success.
+ * Implementation notes:
+ * - Depth-limited traversal to avoid stack issues on pathological inputs.
+ * - Uses `for...in` to avoid allocating key arrays at each recursion level.
+ * - Uses a mutable stack (`currentPath`) and clones only on success.
  */
 function findTokenById(
     tokensData: Record<string, any>,
@@ -783,7 +785,7 @@ function findTokenById(
         if (key.startsWith('$')) {
             const keyValue = (tokensData as any)[key];
             if (key === '$id' && matchesId(keyValue)) {
-                // Must clone: currentPath is a mutable stack.
+                // Clone because `currentPath` is a mutable stack.
                 return currentPath.slice();
             }
             continue;
@@ -795,7 +797,6 @@ function findTokenById(
             currentPath.push(key);
             try {
                 if ('$id' in value && matchesId((value as any).$id)) {
-                    // Clone at success; stack will be unwound by finally.
                     return currentPath.slice();
                 }
 
@@ -825,6 +826,18 @@ function findTokenByIdCached(tokensData: Record<string, any>, targetId: string):
     return found;
 }
 
+/**
+ * Resolve a VARIABLE_ALIAS object into `var(--...)` when possible.
+ *
+ * Strategy:
+ * - Prefer the `$id` index for O(1) resolution.
+ * - Fall back to a cached full-tree scan for partial exports.
+ * - Emit an `--unresolved-...` placeholder when resolution fails.
+ *
+ * Cycle safety:
+ * - Detects direct alias loops using `visitedRefs`.
+ * - Blocks aliases that point into a dependency cycle precomputed by `buildCycleStatus()`.
+ */
 function processVariableAlias(
     ctx: EmissionContext,
     aliasObj: unknown,
@@ -887,7 +900,6 @@ function processVariableAlias(
             const cssPath = tokenPath.map(toKebabCase).join('-');
             const derived = `--${cssPath}`;
 
-            // Defensive: never emit an invalid custom property name.
             if (!isValidCssVariableName(derived)) {
                 console.warn(
                     `⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`
@@ -918,11 +930,8 @@ function processVariableAlias(
 /**
  * Formats a shadow token into CSS `box-shadow` syntax.
  *
- * ✅ Improvement 2: avoid allocating `colorPath = [...currentPath, 'color']`.
- * We temporarily extend `currentPath` (for better logs) and restore it via `finally`.
- *
- * Note: `visitedRefs` is still the seed from the owning token leaf; extending `currentPath` must NOT
- * change cycle detection (it’s only for diagnostics).
+ * `currentPath` is temporarily extended (via push/pop) for more precise diagnostics while processing `color`.
+ * `visitedRefs` must remain anchored to the owning token leaf for cycle detection.
  */
 function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
     if (!isPlainObject(shadowObj)) return JSON.stringify(shadowObj);
@@ -992,7 +1001,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
 
 /**
  * Generates a placeholder `var(--broken-ref-...)` for unresolved references.
- * If the derived custom property name would be invalid, falls back to the original match.
+ * If the derived custom property name is invalid, falls back to the original match text.
  */
 function brokenRefPlaceholder(summary: ExecutionSummary, currentPath: string[], canonicalPath: string, match: string): string {
     const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
@@ -1040,6 +1049,7 @@ function resolveReference(
         return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
     }
 
+    // Per-value loop guard: avoids repeated cycle checks for the same reference key.
     const seenKey = normalizePathKey(resolvedKey);
     if (!seenInValue.has(seenKey)) {
         if (visitedRefs.has(seenKey) || visitedRefs.has(resolvedKey)) {
@@ -1069,10 +1079,7 @@ function resolveReference(
 
 /**
  * Escapes a raw string into a valid CSS double-quoted string literal.
- *
- * Goals:
- * - Preserve the input text as literal characters when parsed by CSS.
- * - Keep output on a single line (this script emits single-line declarations).
+ * The output is kept single-line because this script emits single-line declarations.
  */
 function quoteCssStringLiteral(value: string): string {
     const escaped = value
@@ -1085,7 +1092,7 @@ function quoteCssStringLiteral(value: string): string {
 /**
  * Builds a CSS token sequence for string tokens that contain references.
  *
- * CSS does not support true string interpolation; `"Hello var(--name)"` would render literally.
+ * CSS does not support string interpolation; `"Hello var(--name)"` would render literally.
  * Instead, emit a space-separated sequence:
  *   `"Hello "` var(--name) `"!"`
  */
@@ -1121,7 +1128,6 @@ function buildCssStringTokenSequence(
             last = end;
         }
     } finally {
-        // Extra-hardening: keep regex state clean even if a future refactor throws inside the loop.
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
     }
 
@@ -1132,13 +1138,11 @@ function buildCssStringTokenSequence(
 }
 
 /**
- * Processes a token value into a CSS-friendly string.
+ * Processes a token `$value` into a CSS-ready string.
  *
- * ✅ Improvement 3 (mantenibilidad):
- * - `currentPath` se usa SOLO para logs/diagnósticos (puede apuntar a subpropiedades como "...color").
- * - `visitedRefs` se construye desde el token "dueño" (la hoja) y debe pasarse SIN cambios a sub-llamadas,
- *   incluso si `currentPath` se extiende para dar más contexto en logs. Así la detección de ciclos siempre
- *   se ancla al token raíz, no a rutas internas.
+ * `currentPath` is used for diagnostics only and may point to sub-properties (e.g. "...color").
+ * `visitedRefs` is seeded from the owning token leaf and must be passed through unchanged so
+ * cycle detection stays anchored to the root token.
  */
 function processValue(
     ctx: EmissionContext,
@@ -1149,7 +1153,7 @@ function processValue(
 ): string | null {
     const { summary } = ctx;
 
-    // ✅ Treat null like undefined: do not emit an invalid CSS value ("null").
+    // Treat null/undefined as "no value": emit nothing rather than invalid CSS.
     if (value == null) return null;
 
     if (Array.isArray(value)) {
@@ -1177,6 +1181,7 @@ function processValue(
     }
 
     if (typeof value === 'string') {
+        // Preserve common CSS color formats verbatim.
         if (value.startsWith('rgba') || value.startsWith('rgb(')) return value;
         if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) return value;
 
@@ -1203,6 +1208,14 @@ function processValue(
     return String(value);
 }
 
+/**
+ * Indexing phase: builds lookup structures used for reference/alias resolution and diagnostics.
+ *
+ * Indexing rules:
+ * - Only tokens that will be emitted are indexed (prevents "ghost" references).
+ * - Tokens are indexed by both full path and (when distinct) a relative path that omits the namespace root.
+ * - Effective `$type` (including inherited `$type`) is persisted for later phases.
+ */
 function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [], currentPath: string[] = []): void {
     const { summary, refMap, valueMap, collisionKeys, idToVarName, idToTokenKey } = ctx;
 
@@ -1234,7 +1247,6 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
         currentPath,
         {
             onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch, inheritedType }) => {
-                // ✅ Only index tokens that will be emittable (prevents "$value ghost references").
                 const rawValue = (tokenObj as TokenValue).$value;
                 if (rawValue == null) return;
 
@@ -1243,7 +1255,7 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
 
                 const varName = buildCssVarNameFromPrefix(tokenPrefix);
 
-                // ✅ Also prevent "invalid name ghost references": if it won't be emitted, don't index it.
+                // If it won't be emitted, do not index it (prevents unresolved "phantom" refs).
                 if (!isValidCssVariableName(varName)) {
                     summary.invalidNames.push(`${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`);
                     return;
@@ -1257,7 +1269,7 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
                     id: typeof (tokenObj as any)?.$id === 'string' ? (tokenObj as any).$id : undefined
                 });
 
-                // ✅ Improvement 1: persist inherited $type into valueMap when leaf lacks $type.
+                // Persist effective type (including inherited type) for consistent downstream behavior.
                 const rawType = (tokenObj as TokenValue).$type;
                 const effectiveType = rawType ?? inheritedType;
                 const storedTokenObj: TokenValue =
@@ -1267,7 +1279,6 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
 
                 upsertKey(normalizedKey, varName, storedTokenObj, tokenPathKey, inModeBranch);
 
-                // ✅ Avoid `slice(1)` allocation in hot path.
                 const relativePathKey = buildPathKey(tokenPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
@@ -1288,7 +1299,6 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
                 const leafPrefix = [...parentPrefix, normalizedKey];
                 const varName = buildCssVarNameFromPrefix(leafPrefix);
 
-                // ✅ Mirror emission: if it won't be emitted, don't index it.
                 if (!isValidCssVariableName(varName)) {
                     summary.invalidNames.push(`${pathStr(leafPath)} (Invalid CSS Var: ${varName})`);
                     return;
@@ -1297,14 +1307,12 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
                 const tokenPathKey = buildPathKey(leafPath);
                 const normalizedPathKey = normalizePathKey(tokenPathKey);
 
-                // ✅ Improvement 1: store inherited $type on legacy primitives in valueMap (if present).
                 const legacyTokenObj: TokenValue = inheritedType ? { $value: value, $type: inheritedType } : { $value: value };
 
                 trackCssVarNameCollision(ctx, varName, { tokenKey: normalizedPathKey, tokenPath: pathStr(leafPath) });
 
                 upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
 
-                // ✅ Avoid `slice(1)` allocation.
                 const relativePathKey = buildPathKey(leafPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
@@ -1322,7 +1330,7 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
  * Extracts `--name: value;` declarations from a `:root { ... }` block.
  *
  * This uses a small scanner instead of a regex so it can ignore semicolons inside:
- * - strings (quoted content)
+ * - quoted strings
  * - parentheses (e.g., `calc(...)`, `url(...)`)
  */
 function extractCssVariables(cssContent: string): Map<string, string> {
@@ -1333,7 +1341,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
     const braceStart = cssContent.indexOf('{', rootStart);
     if (braceStart === -1) return variables;
 
-    // Find the end of the :root block via brace counting (best-effort).
+    // Best-effort brace matching for the :root block.
     let braceCount = 0;
     let braceEnd = braceStart;
     for (let i = braceStart; i < cssContent.length; i++) {
@@ -1356,7 +1364,7 @@ function extractCssVariables(cssContent: string): Map<string, string> {
         rootContent = cssContent.substring(braceStart + 1, braceEnd);
     }
 
-    // Drop comments in the :root block for simpler scanning.
+    // Strip comments within :root to simplify scanning.
     rootContent = rootContent.replace(/\/\*[\s\S]*?\*\//g, '');
 
     const isEscaped = (pos: number): boolean => {
@@ -1435,8 +1443,9 @@ function readCssVariablesFromFile(filePath: string): Map<string, string> {
 }
 
 /**
- * Parses JSON content. If `ALLOW_JSON_REPAIR` is enabled, attempts a small best-effort repair for
- * known truncation patterns in some exports.
+ * Parses JSON content.
+ * When `ALLOW_JSON_REPAIR` is enabled, attempts a best-effort repair for known truncation patterns
+ * observed in some exports.
  */
 function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
     try {
@@ -1469,6 +1478,14 @@ function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
     }
 }
 
+/**
+ * Reads all `.json` files in `dir` (sorted by filename) and combines them into a single object.
+ * Each file becomes a namespace root keyed by its basename.
+ *
+ * Export quirks handled:
+ * - Some exports nest tokens under a "Tokens" root.
+ * - Known metadata fields (`$schema`, `Translations`) are removed.
+ */
 function readAndCombineJsons(dir: string): Record<string, any> {
     const combined: Record<string, any> = {};
 
@@ -1486,12 +1503,10 @@ function readAndCombineJsons(dir: string): Record<string, any> {
                 const fileContent = fs.readFileSync(filePath, 'utf-8');
                 let json: any = parseJsonWithOptionalRepair(fileContent, file);
 
-                // Some exporters nest tokens under a "Tokens" root.
                 if (isPlainObject(json) && 'Tokens' in json && isPlainObject((json as any).Tokens)) {
                     json = (json as any).Tokens;
                 }
 
-                // Drop known metadata fields.
                 if (isPlainObject(json)) {
                     delete (json as any)['$schema'];
                     delete (json as any)['Translations'];
@@ -1509,10 +1524,8 @@ function readAndCombineJsons(dir: string): Record<string, any> {
 }
 
 /**
- * Emits CSS variables from the token tree.
- * Uses sorted traversal for stable output.
- *
- * ✅ Improvement 1: honor inherited `$type` for both W3C leaves and legacy primitives.
+ * Emission phase: flattens the token tree into CSS declarations.
+ * Sorted traversal is used to make the output deterministic across runs.
  */
 function flattenTokens(
     ctx: EmissionContext,
@@ -1534,7 +1547,6 @@ function flattenTokens(
                 const rawValue = (tokenObj as TokenValue).$value;
                 const varType = (tokenObj as TokenValue).$type ?? inheritedType;
 
-                // ✅ Skip null/undefined tokens entirely (no invalid CSS like "--x: null;").
                 if (rawValue == null) {
                     console.warn(`⚠️  Token sin $value (o null) en ${pathStr(tokenPath)}, se omite`);
                     return;
@@ -1556,7 +1568,6 @@ function flattenTokens(
 
                 const visitedRefs = buildVisitedRefSet(leafPath);
 
-                // ✅ Pass inherited type for legacy primitives when available.
                 const processedValue = processValue(ctx, value, inheritedType, leafPath, visitedRefs);
                 if (processedValue === null) return;
 
@@ -1667,15 +1678,13 @@ function printExecutionSummary(summary: ExecutionSummary): void {
 
 /**
  * Formats a section header comment for the generated CSS.
- * Ensures the label cannot accidentally terminate or nest comments.
+ * Sanitizes the label so it cannot terminate or nest CSS comment tokens.
  */
 function formatCssSectionHeader(label: string): string {
     const safe = String(label)
         .replace(/\r\n|\r|\n/g, ' ')
-        // Break both comment open/close tokens defensively.
         .replace(/\/\*/g, '/ *')
         .replace(/\*\//g, '* /')
-        // Normalize whitespace for readability and to avoid odd control chars.
         .replace(/\s+/g, ' ')
         .trim();
     return `  /* --- ${safe || 'Section'} --- */`;
@@ -1726,7 +1735,7 @@ async function main() {
         }
     }
 
-    // Phase 1: Indexing (build maps, detect collisions, prepare cycle graph).
+    // Phase 1: indexing (maps, collisions, alias indices).
     const indexingCtx = createProcessingContext({
         summary,
         refMap,
@@ -1744,7 +1753,7 @@ async function main() {
 
     const cycleStatus = buildCycleStatus(indexingCtx);
 
-    // Phase 2: Emission (deterministic CSS output).
+    // Phase 2: emission (deterministic CSS output).
     const processingCtx = createProcessingContext({
         summary,
         tokensData: combinedTokens,
@@ -1759,7 +1768,7 @@ async function main() {
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
-        // Avoid orphan section headers: only keep header if something was emitted.
+        // Avoid orphan section headers: keep the header only if something was emitted.
         const startLen = cssLines.length;
 
         if (cssLines.length > 0) cssLines.push('');
