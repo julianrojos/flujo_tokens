@@ -776,7 +776,9 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
         }
 
         console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
-        console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
+        console.warn(
+            `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
+        );
         console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
         const placeholderName = toSafePlaceholderName(aliasId);
@@ -832,8 +834,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
 
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number =>
-                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -933,10 +934,20 @@ function resolveReference(
 
 /**
  * Escapes a raw string into a valid CSS double-quoted string literal.
- * Keeps escaping minimal to avoid altering intentional CSS escapes.
+ *
+ * Goals:
+ * - Preserve the input text as literal characters when parsed by CSS.
+ * - Keep output on a single line (this script emits single-line declarations).
  */
 function quoteCssStringLiteral(value: string): string {
-    return `"${value.replace(/"/g, '\\"')}"`;
+    const escaped = value
+        // Escape existing backslashes so sequences like "\p" don't become CSS escapes.
+        .replace(/\\/g, '\\\\')
+        // Escape double quotes for a double-quoted string literal.
+        .replace(/"/g, '\\"')
+        // Normalize line breaks to spaces to avoid emitting multi-line declarations.
+        .replace(/\r\n|\r|\n/g, ' ');
+    return `"${escaped}"`;
 }
 
 /**
@@ -1465,6 +1476,18 @@ function printExecutionSummary(summary: ExecutionSummary): void {
     }
 }
 
+/**
+ * Formats a section header comment for the generated CSS.
+ * Ensures the label cannot accidentally terminate the comment.
+ */
+function formatCssSectionHeader(label: string): string {
+    const safe = String(label)
+        .replace(/\r\n|\r|\n/g, ' ')
+        .replace(/\*\//g, '*\\/')
+        .trim();
+    return `  /* --- ${safe || 'Section'} --- */`;
+}
+
 // --- Main execution ---
 
 async function main() {
@@ -1542,6 +1565,10 @@ async function main() {
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
+        // Section header for readability in the generated CSS file.
+        if (cssLines.length > 0) cssLines.push('');
+        cssLines.push(formatCssSectionHeader(originalName));
+
         flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName]);
     }
 
