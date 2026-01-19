@@ -33,6 +33,7 @@ export interface ExecutionSummary {
     cssVarNameCollisions: number;
     cssVarNameCollisionDetails: string[];
     invalidTokens: string[];
+    tokenTypeCounts: Record<string, number>;
 }
 
 // --- Collision types ---

@@ -687,6 +687,8 @@ export function flattenTokens(
                 const rawValue = (tokenObj as TokenValue).$value;
                 const varType = (tokenObj as TokenValue).$type ?? inheritedType;
 
+                if (varType) summary.tokenTypeCounts[varType] = (summary.tokenTypeCounts[varType] || 0) + 1;
+
                 // Strict Type Validation
                 if (!varType) {
                     console.error(`❌ Strict Error: Token without $type at ${pathStr(tokenPath)}. SKIPPING.`);
@@ -714,6 +716,8 @@ export function flattenTokens(
                 const leafPath = [...parentPath, key];
 
                 const visitedRefs = buildVisitedRefSet(leafPath);
+
+                if (inheritedType) summary.tokenTypeCounts[inheritedType] = (summary.tokenTypeCounts[inheritedType] || 0) + 1;
 
                 const processedValue = processValue(ctx, value, inheritedType, leafPath, visitedRefs);
                 if (processedValue === null) return;

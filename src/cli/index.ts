@@ -27,28 +27,79 @@ import { buildCycleStatus } from '../core/analyze.js';
 import { flattenTokens, buildEmittableKeySet } from '../core/emit.js';
 import { readCssVariablesFromFile, formatCssSectionHeader } from '../core/css.js';
 
-// --- Path configuration ---
+// --- Path configuration & arg parsing ---
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Default paths
-let jsonDir = path.resolve(__dirname, '../../input');
-let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
+type CliOptions = {
+    inputDir: string;
+    outputFile: string;
+    help: boolean;
+};
 
-// Simple parsing of --input and --output
-const args = process.argv.slice(2);
-for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--input' && args[i + 1]) {
-        jsonDir = path.resolve(process.cwd(), args[i + 1]);
-        i++;
-    } else if (args[i] === '--output' && args[i + 1]) {
-        outputFile = path.resolve(process.cwd(), args[i + 1]);
-        i++;
-    }
+function printUsage(): void {
+    console.log(`Usage: npm run generate -- [options]
+
+Options:
+  -h, --help           Show this help and exit
+  -i, --input <dir>    Directory with token JSON files (default: ./input)
+  -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
+`);
 }
 
-const JSON_DIR = jsonDir;
-const OUTPUT_FILE = outputFile;
+function parseArgs(argv: string[]): CliOptions | null {
+    let inputDir = path.resolve(__dirname, '../../input');
+    let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
+    let help = false;
+
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+
+        if (arg === '-h' || arg === '--help') {
+            help = true;
+            continue;
+        }
+
+        if (arg === '-i' || arg === '--input') {
+            if (!argv[i + 1]) {
+                console.error('❌ Missing value for --input');
+                return null;
+            }
+            inputDir = path.resolve(process.cwd(), argv[i + 1]);
+            i++;
+            continue;
+        }
+
+        if (arg === '-o' || arg === '--output') {
+            if (!argv[i + 1]) {
+                console.error('❌ Missing value for --output');
+                return null;
+            }
+            outputFile = path.resolve(process.cwd(), argv[i + 1]);
+            i++;
+            continue;
+        }
+
+        console.error(`❌ Unknown argument: ${arg}`);
+        return null;
+    }
+
+    return { inputDir, outputFile, help };
+}
+
+const parsed = parseArgs(process.argv.slice(2));
+if (!parsed) {
+    printUsage();
+    process.exit(1);
+}
+
+if (parsed.help) {
+    printUsage();
+    process.exit(0);
+}
+
+const JSON_DIR = parsed.inputDir;
+const OUTPUT_FILE = parsed.outputFile;
 
 // --- Logging helpers ---
 
@@ -122,6 +173,16 @@ function printExecutionSummary(summary: ExecutionSummary): void {
     console.log(`Depth Limit Hits:    ${summary.depthLimitHits}`);
     console.log('========================================');
 
+    const typeEntries = Object.entries(summary.tokenTypeCounts);
+    if (typeEntries.length > 0) {
+        console.log('\nToken Types:');
+        typeEntries
+            .sort(([a], [b]) => a.localeCompare(b))
+            .forEach(([type, count]) => {
+                console.log(`  - ${type}: ${count}`);
+            });
+    }
+
     if (summary.unresolvedRefs.length > 0) {
         console.log(`\n⚠️  Unresolved Refs Detail (Top ${MAX_SUMMARY_DETAILS}):`);
         summary.unresolvedRefs.slice(0, MAX_SUMMARY_DETAILS).forEach(ref => console.log(`  - ${ref}`));
@@ -171,6 +232,9 @@ async function main() {
         console.error('❌ Ingestion failed. Aborting.');
         process.exit(1);
     }
+
+    const fileCount = Object.keys(combinedTokens).length;
+    console.log(`📂 ${fileCount} JSON ${fileCount === 1 ? 'file' : 'files'} loaded from ${JSON_DIR}`);
 
     const fileEntries = Object.entries(combinedTokens).map(([name, content]) => ({
         originalName: name,

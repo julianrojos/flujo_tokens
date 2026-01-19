@@ -14,7 +14,8 @@ export function createSummary(): ExecutionSummary {
         depthLimitHits: 0,
         cssVarNameCollisions: 0,
         cssVarNameCollisionDetails: [],
-        invalidTokens: []
+        invalidTokens: [],
+        tokenTypeCounts: {}
     };
 }
 
