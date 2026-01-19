@@ -34,7 +34,7 @@ export function emitCssVar(
     recordInvalidName: boolean
 ): void {
     if (!isValidCssVariableName(varName)) {
-        console.warn(`⚠️  Advertencia: ${varName} no es un nombre de variable CSS válido, se omite`);
+        console.warn(`⚠️  Warning: ${varName} is not a valid CSS variable name, skipping`);
         if (recordInvalidName) {
             summary.invalidNames.push(`${pathStr(currentPath)} (Invalid CSS Var: ${varName})`);
         }
@@ -328,11 +328,11 @@ export function processVariableAlias(
             return `var(${derived})`;
         }
 
-        console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
+        console.warn(`ℹ️  VARIABLE_ALIAS reference at ${pathStr(currentPath)} with ID: ${aliasId}`);
         console.warn(
-            `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
+            `   Could not resolve automatically. This is normal if the ID refers to a Figma variable not exported in the JSON.`
         );
-        console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
+        console.warn(`   A placeholder will be generated. To resolve this, convert the reference to W3C format: {token.path}`);
 
         const placeholderName = toSafePlaceholderName(aliasId);
         recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
@@ -533,7 +533,7 @@ export function processValue(
         }
 
         // Strict Fallback: Error and Skip
-        console.error(`❌ Error: Token compuesto imposible de procesar en ${pathStr(currentPath)} (Type: ${varType}). Omite.`);
+        console.error(`❌ Error: Unable to process composite token at ${pathStr(currentPath)} (Type: ${varType}). Skipping.`);
         recordUnresolved(summary, currentPath, ` (Invalid/Unsupported Composite: ${varType})`);
         return null;
     }
@@ -594,13 +594,13 @@ export function flattenTokens(
 
                 // Strict Type Validation
                 if (!varType) {
-                    console.error(`❌ Error strict: Token sin $type en ${pathStr(tokenPath)}. SE OMITIRÁ.`);
+                    console.error(`❌ Strict Error: Token without $type at ${pathStr(tokenPath)}. SKIPPING.`);
                     summary.invalidTokens.push(`${pathStr(tokenPath)} (Missing $type)`);
                     return;
                 }
 
                 if (rawValue == null) {
-                    console.warn(`⚠️  Token sin $value (o null) en ${pathStr(tokenPath)}, se omite`);
+                    console.warn(`⚠️  Token without $value (or null) at ${pathStr(tokenPath)}, skipping`);
                     return;
                 }
 

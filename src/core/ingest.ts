@@ -34,7 +34,7 @@ export function parseJsonWithOptionalRepair(fileContent: string, file: string): 
         if (!cleaned.startsWith('{')) cleaned = `{${cleaned}`;
         if (!cleaned.endsWith('}')) cleaned = `${cleaned}}`;
 
-        console.warn(`⚠️  JSON reparado en ${file}; revisa el export si es posible.`);
+        console.warn(`⚠️  JSON repaired in ${file}; check the export if possible.`);
         try {
             return JSON.parse(cleaned);
         } catch {
@@ -80,8 +80,8 @@ export function readAndCombineJsons(dir: string): Record<string, any> {
                 const name = path.basename(file, '.json');
                 combined[name] = json;
             } catch (err) {
-                console.error(`❌ Error crítico al leer/parsear ${file}:`, err);
-                throw new Error(`Fallo en ingesta de ${file}`);
+                console.error(`❌ Critical error reading/parsing ${file}:`, err);
+                throw new Error(`Ingestion failed for ${file}`);
             }
         }
     }

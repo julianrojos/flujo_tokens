@@ -118,8 +118,8 @@ export function walkTokenTree(
 
             if (extraKeys.length > 0) {
                 console.error(
-                    `❌  Error de Ambigüedad Token/Grupo en ${pathStr(currentPath)}: tiene $value pero también claves extra (${extraKeys.join(', ')}). ` +
-                    `BLOQUEADO: No se emitirá este token por ser inválido según DTCG.`
+                    `❌  Token/Group Ambiguity Error at ${pathStr(currentPath)}: has $value but also extra keys (${extraKeys.join(', ')}). ` +
+                    `BLOCKED: This token will not be emitted as it is invalid per DTCG.`
                 );
                 // Strict blocking: record error and do NOT process the token value.
                 summary.invalidTokens.push(`${pathStr(currentPath)} (Ambiguous: has $value + children)`);
