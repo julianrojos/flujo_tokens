@@ -672,7 +672,8 @@ export function flattenTokens(
     obj: any,
     prefix: string[] = [],
     collectedVars: string[] = [],
-    currentPath: string[] = []
+    currentPath: string[] = [],
+    preferredMode?: string
 ): string[] {
     const { summary } = ctx;
 
@@ -727,7 +728,9 @@ export function flattenTokens(
         },
         0,
         false,
-        true
+        true,
+        undefined,
+        preferredMode
     );
 
     return collectedVars;

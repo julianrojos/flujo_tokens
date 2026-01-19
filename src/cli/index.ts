@@ -34,6 +34,7 @@ type CliOptions = {
     inputDir: string;
     outputFile: string;
     help: boolean;
+    mode?: string;
 };
 
 function printUsage(): void {
@@ -43,6 +44,7 @@ Options:
   -h, --help           Show this help and exit
   -i, --input <dir>    Directory with token JSON files (default: ./input)
   -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
+  -m, --mode <name>    Preferred mode branch (default: light)
 `);
 }
 
@@ -50,6 +52,7 @@ function parseArgs(argv: string[]): CliOptions | null {
     let inputDir = path.resolve(__dirname, '../../input');
     let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
     let help = false;
+    let mode: string | undefined;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -79,11 +82,21 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
+        if (arg === '-m' || arg === '--mode') {
+            if (!argv[i + 1]) {
+                console.error('❌ Missing value for --mode');
+                return null;
+            }
+            mode = argv[i + 1];
+            i++;
+            continue;
+        }
+
         console.error(`❌ Unknown argument: ${arg}`);
         return null;
     }
 
-    return { inputDir, outputFile, help };
+    return { inputDir, outputFile, help, mode };
 }
 
 const parsed = parseArgs(process.argv.slice(2));
@@ -99,6 +112,7 @@ if (parsed.help) {
 
 const JSON_DIR = parsed.inputDir;
 const OUTPUT_FILE = parsed.outputFile;
+const PREFERRED_MODE = parsed.mode?.trim() || 'light';
 
 // --- Main execution ---
 
@@ -165,7 +179,7 @@ async function main() {
     });
 
     for (const { originalName, kebabName, content } of fileEntries) {
-        collectTokenMaps(indexingCtx, content, [kebabName], [originalName]);
+        collectTokenMaps(indexingCtx, content, [kebabName], [originalName], PREFERRED_MODE);
     }
 
     const cycleStatus = buildCycleStatus(indexingCtx);
@@ -193,7 +207,7 @@ async function main() {
         if (cssLines.length > 0) cssLines.push('');
         cssLines.push(formatCssSectionHeader(originalName));
 
-        flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName]);
+        flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName], PREFERRED_MODE);
 
         const expectedLenIfEmpty = startLen + (startLen > 0 ? 2 : 1);
         if (cssLines.length === expectedLenIfEmpty) {

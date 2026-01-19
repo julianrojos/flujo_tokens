@@ -100,7 +100,13 @@ export function trackCssVarNameCollision(ctx: BaseContext, varName: string, owne
  * - Tokens are indexed by both full path and (when distinct) a relative path that omits the namespace root.
  * - Effective `$type` (including inherited `$type`) is persisted for later phases.
  */
-export function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [], currentPath: string[] = []): void {
+export function collectTokenMaps(
+    ctx: IndexingContext,
+    obj: any,
+    prefix: string[] = [],
+    currentPath: string[] = [],
+    preferredMode?: string
+): void {
     const { summary, refMap, valueMap, collisionKeys, idToVarName, idToTokenKey } = ctx;
 
     const upsertKey = (key: string, varName: string, tokenObj: TokenValue, debugLabel: string, allowOverride: boolean) => {
@@ -206,6 +212,8 @@ export function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[
         },
         0,
         false,
-        false
+        false,
+        undefined,
+        preferredMode
     );
 }
