@@ -118,6 +118,7 @@ function printExecutionSummary(summary: ExecutionSummary): void {
     console.log(`Colisiones CSS Var:  ${summary.cssVarNameCollisions}`);
     console.log(`Refs no resueltas:   ${summary.unresolvedRefs.length}`);
     console.log(`Nombres inválidos:   ${summary.invalidNames.length}`);
+    console.log(`Tokens inválidos:    ${summary.invalidTokens.length}`);
     console.log(`Límite profundidad:  ${summary.depthLimitHits}`);
     console.log('========================================');
 
@@ -142,6 +143,14 @@ function printExecutionSummary(summary: ExecutionSummary): void {
         summary.cssVarNameCollisionDetails.slice(0, MAX_SUMMARY_DETAILS).forEach(d => console.log(`  - ${d}`));
         if (summary.cssVarNameCollisionDetails.length > MAX_SUMMARY_DETAILS) {
             console.log(`  ... y ${summary.cssVarNameCollisionDetails.length - MAX_SUMMARY_DETAILS} más`);
+        }
+    }
+
+    if (summary.invalidTokens.length > 0) {
+        console.log(`\n❌ Detalle de Tokens Inválidos (Top ${MAX_SUMMARY_DETAILS}):`);
+        summary.invalidTokens.slice(0, MAX_SUMMARY_DETAILS).forEach(t => console.log(`  - ${t}`));
+        if (summary.invalidTokens.length > MAX_SUMMARY_DETAILS) {
+            console.log(`  ... y ${summary.invalidTokens.length - MAX_SUMMARY_DETAILS} más`);
         }
     }
 }

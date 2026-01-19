@@ -117,10 +117,13 @@ export function walkTokenTree(
             const extraKeys = keys.filter(k => !reserved.has(k) && !isModeKey(k));
 
             if (extraKeys.length > 0) {
-                console.warn(
-                    `⚠️  Ambigüedad Token/Grupo en ${pathStr(currentPath)}: tiene $value pero también claves extra (${extraKeys.join(', ')}). ` +
-                    `Se tratará como TOKEN (hoja) y se ignorarán los hijos.`
+                console.error(
+                    `❌  Error de Ambigüedad Token/Grupo en ${pathStr(currentPath)}: tiene $value pero también claves extra (${extraKeys.join(', ')}). ` +
+                    `BLOQUEADO: No se emitirá este token por ser inválido según DTCG.`
                 );
+                // Strict blocking: record error and do NOT process the token value.
+                summary.invalidTokens.push(`${pathStr(currentPath)} (Ambiguous: has $value + children)`);
+                return;
             }
         }
 

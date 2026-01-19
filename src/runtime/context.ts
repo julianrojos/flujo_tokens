@@ -13,7 +13,8 @@ export function createSummary(): ExecutionSummary {
         circularDeps: 0,
         depthLimitHits: 0,
         cssVarNameCollisions: 0,
-        cssVarNameCollisionDetails: []
+        cssVarNameCollisionDetails: [],
+        invalidTokens: []
     };
 }
 

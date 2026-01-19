@@ -413,6 +413,71 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
     return `${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
 }
 
+// --- Composite Token Helpers ---
+
+function processTypography(ctx: EmissionContext, value: Record<string, any>, currentPath: string[], visitedRefs: ReadonlySet<string>): string | null {
+    // Expected keys: fontFamily, fontSize, fontWeight, lineHeight, fontStyle
+    // CSS font shorthand: [font-style] [font-weight] [font-size]/[line-height] [font-family]
+
+    const resolve = (key: string) => {
+        const val = value[key];
+        if (val == null) return null;
+        if (isVariableAlias(val)) return processVariableAlias(ctx, val, currentPath, visitedRefs);
+        return String(val);
+    };
+
+    const family = resolve('fontFamily');
+    const size = resolve('fontSize');
+    const weight = resolve('fontWeight');
+    const lineHeight = resolve('lineHeight');
+    const style = resolve('fontStyle');
+
+    // Minimum requirement for valid font shorthand is size and family
+    if (!size || !family) {
+        return null;
+    }
+
+    const parts: string[] = [];
+    if (style) parts.push(style);
+    if (weight) parts.push(weight);
+
+    let sizePart = size;
+    if (lineHeight) {
+        sizePart += `/${lineHeight}`;
+    }
+    parts.push(sizePart);
+
+    // Ensure family is quoted if needed (simple check) or use raw if it looks like a var or unquoted supported string
+    // ideally, emit logic should handle quoting, but for now we assume input is reasonably sane or a ref.
+    parts.push(family);
+
+    return parts.join(' ');
+}
+
+function processBorder(ctx: EmissionContext, value: Record<string, any>, currentPath: string[], visitedRefs: ReadonlySet<string>): string | null {
+    // Expected keys: width, style, color
+    // CSS border: [width] [style] [color]
+
+    const resolve = (key: string) => {
+        const val = value[key];
+        if (val == null) return null;
+        if (isVariableAlias(val)) return processVariableAlias(ctx, val, currentPath, visitedRefs);
+        if (key === 'color') return processValue(ctx, val, 'color', currentPath, visitedRefs);
+        return String(val);
+    };
+
+    const width = resolve('width');
+    const style = resolve('style'); // Strict mode: mandatory
+    const color = resolve('color');
+
+    if (!width || !color || !style) {
+        // In strict mode, missing style is invalid.
+        return null;
+    }
+
+    return `${width} ${style} ${color}`;
+}
+
 // --- Main value processing ---
 
 /**
@@ -427,37 +492,43 @@ export function processValue(
 ): string | null {
     const { summary } = ctx;
 
-    // Treat null/undefined as "no value": emit nothing rather than invalid CSS.
+    // Treat null/undefined as "no value"
     if (value == null) return null;
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
             return value.map(v => processShadow(ctx, v, currentPath, visitedRefs)).join(', ');
         }
-        try {
-            return JSON.stringify(value);
-        } catch {
-            return String(value);
-        }
+        // Array fallback - Explicitly warn about unsupported arrays to avoid silent failure
+        console.warn(`⚠️  Array value found for type '${varType}' at ${pathStr(currentPath)} - Arrays are only supported for shadows.`);
+        recordUnresolved(summary, currentPath, ` (Unsupported Array Value for type: ${varType})`);
+        return null;
     }
 
     if (typeof value === 'object') {
-        if (varType === 'shadow' && !isVariableAlias(value)) {
-            return processShadow(ctx, value, currentPath, visitedRefs);
-        }
         if (isVariableAlias(value)) {
             return processVariableAlias(ctx, value, currentPath, visitedRefs);
         }
 
-        // Composite Token Fallback
-        // Instead of skipping, we output the raw JSON so it's not lost.
-        // This is better than silent omission.
-        console.warn(`⚠️  Token compuesto 'sin procesar' en ${pathStr(currentPath)}: ${JSON.stringify(value)}`);
-        try {
-            return `/* composite */ ${JSON.stringify(value)}`;
-        } catch {
-            return `/* composite error */`;
+        // Composite Handling based on Type
+        if (varType === 'shadow') {
+            return processShadow(ctx, value, currentPath, visitedRefs);
         }
+        if (varType === 'typography') {
+            const fontCss = processTypography(ctx, value as Record<string, any>, currentPath, visitedRefs);
+            if (fontCss) return fontCss;
+            // Fallthrough to error if invalid typography
+        }
+        if (varType === 'border') {
+            const borderCss = processBorder(ctx, value as Record<string, any>, currentPath, visitedRefs);
+            if (borderCss) return borderCss;
+            // Fallthrough to error
+        }
+
+        // Strict Fallback: Error and Skip
+        console.error(`❌ Error: Token compuesto imposible de procesar en ${pathStr(currentPath)} (Type: ${varType}). Omite.`);
+        recordUnresolved(summary, currentPath, ` (Invalid/Unsupported Composite: ${varType})`);
+        return null;
     }
 
     if (typeof value === 'string') {
@@ -514,8 +585,11 @@ export function flattenTokens(
                 const rawValue = (tokenObj as TokenValue).$value;
                 const varType = (tokenObj as TokenValue).$type ?? inheritedType;
 
+                // Strict Type Validation
                 if (!varType) {
-                    console.warn(`⚠️  Token sin $type (ni heredado) en ${pathStr(tokenPath)}. Se emitirá valor crudo, pero puede ser inválido según DTCG.`);
+                    console.error(`❌ Error strict: Token sin $type en ${pathStr(tokenPath)}. SE OMITIRÁ.`);
+                    summary.invalidTokens.push(`${pathStr(tokenPath)} (Missing $type)`);
+                    return;
                 }
 
                 if (rawValue == null) {

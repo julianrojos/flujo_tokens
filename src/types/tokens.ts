@@ -32,6 +32,7 @@ export interface ExecutionSummary {
     /** Distinct tokens mapping to the same `--var-name` (CSS is last-write-wins). */
     cssVarNameCollisions: number;
     cssVarNameCollisionDetails: string[];
+    invalidTokens: string[];
 }
 
 // --- Collision types ---
