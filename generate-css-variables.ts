@@ -776,9 +776,7 @@ function processVariableAlias(ctx: EmissionContext, aliasObj: unknown, currentPa
         }
 
         console.warn(`ℹ️  Referencia VARIABLE_ALIAS en ${pathStr(currentPath)} con ID: ${aliasId}`);
-        console.warn(
-            `   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`
-        );
+        console.warn(`   No se pudo resolver automáticamente. Esto es normal si el ID referencia una variable de Figma no exportada en el JSON.`);
         console.warn(`   Se generará un placeholder. Para resolverlo, convierte la referencia a formato W3C: {token.path}`);
 
         const placeholderName = toSafePlaceholderName(aliasId);
@@ -834,7 +832,8 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
 
             if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
                 const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number => (normalized ? Math.round((c || 0) * 255) : Math.round(c || 0));
+                const to255 = (c: number, normalized: boolean): number =>
+                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
 
                 const r = to255(r0, isNormalized);
                 const g = to255(g0, isNormalized);
@@ -849,9 +848,7 @@ function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: st
         return 'rgba(0, 0, 0, 1)';
     })();
 
-    if (type === 'INNER_SHADOW') {
-        return `inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
-    }
+    if (type === 'INNER_SHADOW') return `inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
     return `${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
 }
 
