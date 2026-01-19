@@ -1,65 +1,65 @@
-# Generador de Custom Properties CSS
+# CSS Custom Properties Generator
 
-CLI en TypeScript que convierte tokens JSON (DTCG) en variables CSS listadas en `:root`.
+TypeScript CLI that converts JSON design tokens (DTCG) into CSS variables listed in `:root`.
 
-## Requisitos
+## Requirements
 
 - Node.js 16+
-- npm o yarn
+- npm or yarn
 
-## Instalación
+## Installation
 
 ```bash
 npm install
 ```
 
-## Scripts Disponibles
+## Available Scripts
 
-- **`npm run generate`**: Ejecuta el pipeline completo (Ingesta -> Indexación -> Análisis -> Emisión) para generar `custom-properties.css`.
-- **`npm run watch`**: Ejecuta el generador en modo observación, regenerando los archivos ante cambios en la carpeta `src`.
+- **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission) to generate `custom-properties.css`.
+- **`npm run watch`**: Runs the generator in watch mode, regenerating files whenever changes occur in the `src` folder.
 
-## Uso
+## Usage
 
-1. Coloca tus archivos JSON de tokens (exportados de Figma/Token Forge) en la carpeta `input/`.
-2. Ejecuta `npm run generate`.
-3. El archivo CSS resultante se generará en `output/custom-properties.css`.
+1. Place your token JSON files (exported from Figma/Token Forge) in the `input/` folder.
+2. Run `npm run generate`.
+3. The resulting CSS file will be generated in `output/custom-properties.css`.
 
-Entradas fijas en `input/`; salida en `output/custom-properties.css`.
+Input is fixed to `input/`; output to `output/custom-properties.css`.
 
-## Arquitectura y Pipeline
+## Architecture and Pipeline
 
-El sistema opera en 4 fases secuenciales:
+The system operates in 4 sequential phases:
 
-1.  **Ingesta (`src/core/ingest.ts`)**: Lee y sanitiza los archivos JSON desde `input/`.
-2.  **Indexación (`src/core/indexing.ts`)**: Crea mapas de búsqueda y resuelve referencias cruzadas.
-3.  **Análisis (`src/core/analyze.ts`)**: Detecta ciclos y valida la integridad de los datos.
-4.  **Emisión (`src/core/emit.ts`)**: Genera el CSS final en `:root`.
+1.  **Ingest (`src/core/ingest.ts`)**: Reads and sanitizes JSON files from `input/`.
+2.  **Indexing (`src/core/indexing.ts`)**: Creates lookup maps and resolves cross-references.
+3.  **Analysis (`src/core/analyze.ts`)**: Detects cycles and validates data integrity.
+4.  **Emission (`src/core/emit.ts`)**: Generates the final CSS inside `:root`.
 
-## Estructura del Proyecto
+## Project Structure
 
-- `src/cli`: Punto de entrada de la línea de comandos (`index.ts`).
-- `src/core`: Lógica principal del pipeline (Ingest, Index, Analyze, Emit).
-- `src/runtime`: Gestión del estado, configuración y contexto de ejecución.
-- `src/utils`: Utilidades de strings, regex y validación.
-- `src/types`: Definiciones de tipos TypeScript.
+- `src/cli`: Command-line entry point (`index.ts`).
+- `src/core`: Core pipeline logic (Ingest, Index, Analyze, Emit).
+- `src/runtime`: State management, configuration, and execution context.
+- `src/utils`: String, regex, and validation utilities.
+- `src/types`: TypeScript type definitions.
 
-## Configuración
+## Configuration
 
-El comportamiento se puede ajustar mediante variables de entorno:
+Behavior can be adjusted using environment variables:
 
-- `ALLOW_JSON_REPAIR=true` (default: false): Intenta reparar errores de sintaxis comunes en los JSON de entrada (ej. comas sobrantes) para evitar que falle el proceso.
+- `ALLOW_JSON_REPAIR=true` (default: false): Attempts to repair common syntax errors in input JSONs (e.g., trailing commas) to prevent the process from failing.
 
-Ejemplo:
+Example:
 
 ```bash
 ALLOW_JSON_REPAIR=true npm run generate
 ```
 
-## Solución de problemas
+## Troubleshooting
 
-- `--unresolved-*`: el token referenciado no existe o el nombre no coincide.
-- Errores de parseo: valida los JSON en `input`; con `ALLOW_JSON_REPAIR=true` se intentan reparaciones básicas.
+- `--unresolved-*`: The referenced token does not exist or the name does not match.
+- Parsing errors: Validate the JSONs in `input/`; with `ALLOW_JSON_REPAIR=true`, basic repairs are attempted.
 
-## Referencias
+## References
 
-- Plugin Figma: [Token Forge](https://www.figma.com/community/plugin/1560757977662930693/token-forge)
+- Figma Plugin: [Token Forge](https://www.figma.com/community/plugin/1560757977662930693/token-forge)
