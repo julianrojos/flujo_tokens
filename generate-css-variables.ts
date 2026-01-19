@@ -365,7 +365,7 @@ function normalizeDots(pathKey: string): string {
  * Builds the canonical dotted token key used for indexing and resolution.
  * Mode segments are excluded to keep token identities stable across modes.
  *
- * Supports `startIndex` to avoid `slice(1)` allocations in hot paths.
+ * ✅ Optimization: supports `startIndex` to avoid `slice(1)` allocations in hot paths.
  */
 function buildPathKey(segments: string[], startIndex = 0): string {
     let out = '';
@@ -414,20 +414,9 @@ const EMPTY_VISITED_REFS: ReadonlySet<string> = new Set<string>();
  * Creates the initial set of visited keys for cycle detection.
  * Stores the normalized key to match the resolution strategy.
  */
-function buildVisitedRefSet(seedPath: string[]): ReadonlySet<string> {
-    const normalized = normalizePathKey(buildPathKey(seedPath));
+function buildVisitedRefSet(currentPath: string[]): ReadonlySet<string> {
+    const normalized = normalizePathKey(buildPathKey(currentPath));
     return normalized ? new Set([normalized]) : EMPTY_VISITED_REFS;
-}
-
-/**
- * Lazy helper: only allocates a Set when cycle checks are actually needed (i.e., when we found a ref).
- * `seedPath` must be the *token leaf path* (not a nested property path like "...color").
- */
-function ensureVisitedRefs(
-    visited: ReadonlySet<string> | null | undefined,
-    seedPath: string[]
-): ReadonlySet<string> {
-    return visited ?? buildVisitedRefSet(seedPath);
 }
 
 /**
@@ -537,7 +526,7 @@ type WalkHandlers = {
  *   - objects containing `$value` are treated as W3C token leaves
  *   - primitive leaves are treated as legacy tokens
  *
- * ✅ Improvement 2: `$type` inheritance — a `$type` defined on a parent node applies to descendants
+ * ✅ Improvement 1: supports `$type` inheritance — a `$type` defined on a parent node applies to descendants
  *    unless overridden at a child node.
  */
 function walkTokenTree(
@@ -577,6 +566,7 @@ function walkTokenTree(
         const normalizedKey = toKebabCase(key);
 
         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            // For legacy primitives, handlers expect parent path + the key separately.
             handlers.onLegacyPrimitive?.({
                 value,
                 key,
@@ -590,6 +580,7 @@ function walkTokenTree(
             continue;
         }
 
+        // ✅ True mutable-stack traversal: push before recursion and pop after.
         prefix.push(normalizedKey);
         currentPath.push(key);
         try {
@@ -601,6 +592,7 @@ function walkTokenTree(
     }
 
     if (modeKey) {
+        // Mode branches should NOT affect the CSS var name prefix, but do affect the JSON path.
         currentPath.push(modeKey);
         try {
             walkTokenTree(
@@ -719,7 +711,7 @@ function buildCycleStatus(ctx: IndexingContext): Map<string, boolean> {
  * - warn-once logging when the depth limit aborts the search
  * - `for...in` traversal to avoid allocating key arrays at every recursion level
  *
- * Uses a mutable stack; clones only on success.
+ * ✅ Optimization: mutable stack with `push/pop`, clone only on success.
  */
 function findTokenById(
     tokensData: Record<string, any>,
@@ -754,6 +746,7 @@ function findTokenById(
         if (key.startsWith('$')) {
             const keyValue = (tokensData as any)[key];
             if (key === '$id' && matchesId(keyValue)) {
+                // Must clone: currentPath is a mutable stack.
                 return currentPath.slice();
             }
             continue;
@@ -765,6 +758,7 @@ function findTokenById(
             currentPath.push(key);
             try {
                 if ('$id' in value && matchesId((value as any).$id)) {
+                    // Clone at success; stack will be unwound by finally.
                     return currentPath.slice();
                 }
 
@@ -798,8 +792,7 @@ function processVariableAlias(
     ctx: EmissionContext,
     aliasObj: unknown,
     currentPath: string[],
-    visitedRefs: ReadonlySet<string> | null | undefined,
-    visitedSeedPath: string[]
+    visitedRefs?: ReadonlySet<string>
 ): string {
     if (!isVariableAlias(aliasObj)) return JSON.stringify(aliasObj);
 
@@ -808,20 +801,16 @@ function processVariableAlias(
     const aliasId = aliasObj.id?.trim();
     const targetKey = aliasId ? idToTokenKey.get(aliasId) : undefined;
 
+    if (aliasId && targetKey && visitedRefs?.has(targetKey)) {
+        console.warn(`⚠️  Circular VARIABLE_ALIAS reference (id=${aliasId}) at ${pathStr(currentPath)}`);
+        summary.circularDeps++;
+        return `/* circular-alias: ${aliasId} */`;
+    }
+
     if (aliasId && targetKey) {
-        const effectiveVisited = ensureVisitedRefs(visitedRefs, visitedSeedPath);
-
-        if (effectiveVisited.has(targetKey)) {
-            console.warn(`⚠️  Circular VARIABLE_ALIAS reference (id=${aliasId}) at ${pathStr(currentPath)}`);
-            summary.circularDeps++;
-            return `/* circular-alias: ${aliasId} */`;
-        }
-
         const cachedHasCycle = cycleStatus.get(targetKey);
         if (cachedHasCycle === true) {
-            console.warn(
-                `⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`
-            );
+            console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-alias: ${aliasId} */`;
         }
@@ -864,9 +853,7 @@ function processVariableAlias(
             // Defensive: never emit an invalid custom property name.
             if (!isValidCssVariableName(derived)) {
                 console.warn(
-                    `⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(
-                        currentPath
-                    )}; using placeholder.`
+                    `⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`
                 );
                 const placeholderName = toSafePlaceholderName(aliasId);
                 recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
@@ -893,14 +880,14 @@ function processVariableAlias(
 
 /**
  * Formats a shadow token into CSS `box-shadow` syntax.
+ *
+ * ✅ Improvement 2: avoid allocating `colorPath = [...currentPath, 'color']`.
+ * We temporarily extend `currentPath` (for better logs) and restore it via `finally`.
+ *
+ * Note: `visitedRefs` is still the seed from the owning token leaf; extending `currentPath` must NOT
+ * change cycle detection (it’s only for diagnostics).
  */
-function processShadow(
-    ctx: EmissionContext,
-    shadowObj: unknown,
-    currentPath: string[],
-    visitedRefs: ReadonlySet<string> | null | undefined,
-    visitedSeedPath: string[]
-): string {
+function processShadow(ctx: EmissionContext, shadowObj: unknown, currentPath: string[], visitedRefs: ReadonlySet<string>): string {
     if (!isPlainObject(shadowObj)) return JSON.stringify(shadowObj);
 
     const shadow = shadowObj as Record<string, any>;
@@ -920,42 +907,46 @@ function processShadow(
     const radius = typeof rawRadius === 'number' ? rawRadius : rawRadius == null ? 0 : Number(rawRadius) || 0;
     const spread = typeof rawSpread === 'number' ? rawSpread : rawSpread == null ? 0 : Number(rawSpread) || 0;
 
-    const colorPath = [...currentPath, 'color'];
-
     const colorPart = (() => {
         if (rawColor == null) return 'rgba(0, 0, 0, 1)';
 
-        if (isVariableAlias(rawColor)) {
-            return processVariableAlias(ctx, rawColor, colorPath, visitedRefs, visitedSeedPath);
-        }
-
-        if (typeof rawColor === 'string') {
-            const processed = processValue(ctx, rawColor, undefined, colorPath, visitedRefs, visitedSeedPath);
-            return processed ?? rawColor;
-        }
-
-        if (isPlainObject(rawColor)) {
-            const r0 = (rawColor as any).r;
-            const g0 = (rawColor as any).g;
-            const b0 = (rawColor as any).b;
-            const a0 = (rawColor as any).a;
-
-            if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
-                const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
-                const to255 = (c: number, normalized: boolean): number =>
-                    normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
-
-                const r = to255(r0, isNormalized);
-                const g = to255(g0, isNormalized);
-                const b = to255(b0, isNormalized);
-                const a = typeof a0 === 'number' ? a0 : 1;
-
-                return `rgba(${r}, ${g}, ${b}, ${a})`;
+        const baseLen = currentPath.length;
+        currentPath.push('color');
+        try {
+            if (isVariableAlias(rawColor)) {
+                return processVariableAlias(ctx, rawColor, currentPath, visitedRefs);
             }
-        }
 
-        console.warn(`⚠️  Unsupported shadow color format at ${pathStr(colorPath)}; defaulting to black`);
-        return 'rgba(0, 0, 0, 1)';
+            if (typeof rawColor === 'string') {
+                const processed = processValue(ctx, rawColor, undefined, currentPath, visitedRefs);
+                return processed ?? rawColor;
+            }
+
+            if (isPlainObject(rawColor)) {
+                const r0 = (rawColor as any).r;
+                const g0 = (rawColor as any).g;
+                const b0 = (rawColor as any).b;
+                const a0 = (rawColor as any).a;
+
+                if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
+                    const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
+                    const to255 = (c: number, normalized: boolean): number =>
+                        normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
+
+                    const r = to255(r0, isNormalized);
+                    const g = to255(g0, isNormalized);
+                    const b = to255(b0, isNormalized);
+                    const a = typeof a0 === 'number' ? a0 : 1;
+
+                    return `rgba(${r}, ${g}, ${b}, ${a})`;
+                }
+            }
+
+            console.warn(`⚠️  Unsupported shadow color format at ${pathStr(currentPath)}; defaulting to black`);
+            return 'rgba(0, 0, 0, 1)';
+        } finally {
+            currentPath.length = baseLen;
+        }
     })();
 
     if (type === 'INNER_SHADOW') return `inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${colorPart}`;
@@ -983,8 +974,7 @@ function resolveReference(
     tokenPath: string,
     originalValue: string,
     currentPath: string[],
-    visitedRefs: ReadonlySet<string> | null | undefined,
-    visitedSeedPath: string[],
+    visitedRefs: ReadonlySet<string>,
     seenInValue: Set<string>
 ): string {
     const { summary, refMap, collisionKeys, cycleStatus } = ctx;
@@ -1015,9 +1005,7 @@ function resolveReference(
 
     const seenKey = normalizePathKey(resolvedKey);
     if (!seenInValue.has(seenKey)) {
-        const effectiveVisited = ensureVisitedRefs(visitedRefs, visitedSeedPath);
-
-        if (effectiveVisited.has(seenKey) || effectiveVisited.has(resolvedKey)) {
+        if (visitedRefs.has(seenKey) || visitedRefs.has(resolvedKey)) {
             console.warn(`⚠️  Circular W3C reference: ${tokenPath} at ${pathStr(currentPath)}`);
             summary.circularDeps++;
             return `/* circular-ref: ${tokenPath} */`;
@@ -1050,19 +1038,25 @@ function resolveReference(
  * - Keep output on a single line (this script emits single-line declarations).
  */
 function quoteCssStringLiteral(value: string): string {
-    const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r\n|\r|\n/g, ' ');
+    const escaped = value
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/\r\n|\r|\n/g, ' ');
     return `"${escaped}"`;
 }
 
 /**
  * Builds a CSS token sequence for string tokens that contain references.
+ *
+ * CSS does not support true string interpolation; `"Hello var(--name)"` would render literally.
+ * Instead, emit a space-separated sequence:
+ *   `"Hello "` var(--name) `"!"`
  */
 function buildCssStringTokenSequence(
     ctx: EmissionContext,
     raw: string,
     currentPath: string[],
-    visitedRefs: ReadonlySet<string> | null | undefined,
-    visitedSeedPath: string[]
+    visitedRefs: ReadonlySet<string>
 ): string {
     const parts: string[] = [];
     const seenInValue = new Set<string>();
@@ -1081,18 +1075,11 @@ function buildCssStringTokenSequence(
 
         const wholeMatch = m[0];
         const tokenPath = (m[1] ?? '').trim();
-        const resolved = resolveReference(
-            ctx,
-            wholeMatch,
-            tokenPath,
-            raw,
-            currentPath,
-            visitedRefs,
-            visitedSeedPath,
-            seenInValue
-        );
+        const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
 
+        // If resolution fails and returns the raw match, keep it as text to guarantee valid CSS output.
         parts.push(resolved === wholeMatch ? quoteCssStringLiteral(wholeMatch) : resolved);
+
         last = end;
     }
 
@@ -1103,26 +1090,29 @@ function buildCssStringTokenSequence(
 }
 
 /**
- * ✅ Improvement 1: Lazy initialization of `visitedRefs`.
- * `visitedRefs` starts as null and is only created when an actual reference is encountered.
+ * Processes a token value into a CSS-friendly string.
  *
- * `visitedSeedPath` must be the *token leaf path* being emitted (used to seed cycle checks).
+ * ✅ Improvement 3 (mantenibilidad):
+ * - `currentPath` se usa SOLO para logs/diagnósticos (puede apuntar a subpropiedades como "...color").
+ * - `visitedRefs` se construye desde el token "dueño" (la hoja) y debe pasarse SIN cambios a sub-llamadas,
+ *   incluso si `currentPath` se extiende para dar más contexto en logs. Así la detección de ciclos siempre
+ *   se ancla al token raíz, no a rutas internas.
  */
 function processValue(
     ctx: EmissionContext,
     value: TokenValue['$value'],
     varType?: string,
     currentPath: string[] = [],
-    visitedRefs: ReadonlySet<string> | null = null,
-    visitedSeedPath: string[] = currentPath
+    visitedRefs: ReadonlySet<string> = EMPTY_VISITED_REFS
 ): string | null {
     const { summary } = ctx;
 
+    // ✅ Treat null like undefined: do not emit an invalid CSS value ("null").
     if (value == null) return null;
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
-            return value.map(v => processShadow(ctx, v, currentPath, visitedRefs, visitedSeedPath)).join(', ');
+            return value.map(v => processShadow(ctx, v, currentPath, visitedRefs)).join(', ');
         }
         try {
             return JSON.stringify(value);
@@ -1133,10 +1123,10 @@ function processValue(
 
     if (typeof value === 'object') {
         if (varType === 'shadow' && !isVariableAlias(value)) {
-            return processShadow(ctx, value, currentPath, visitedRefs, visitedSeedPath);
+            return processShadow(ctx, value, currentPath, visitedRefs);
         }
         if (isVariableAlias(value)) {
-            return processVariableAlias(ctx, value, currentPath, visitedRefs, visitedSeedPath);
+            return processVariableAlias(ctx, value, currentPath, visitedRefs);
         }
 
         console.warn(`⚠️  Token compuesto no soportado en ${pathStr(currentPath)}, se omite`);
@@ -1154,7 +1144,7 @@ function processValue(
             W3C_REF_REGEX_REPLACE.lastIndex = 0;
 
             if (!hasRef) return quoteCssStringLiteral(value);
-            return buildCssStringTokenSequence(ctx, value, currentPath, visitedRefs, visitedSeedPath);
+            return buildCssStringTokenSequence(ctx, value, currentPath, visitedRefs);
         }
 
         const seenInValue = new Set<string>();
@@ -1164,7 +1154,7 @@ function processValue(
 
         const replaced = value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => {
             hadRef = true;
-            return resolveReference(ctx, m, tp, value, currentPath, visitedRefs, visitedSeedPath, seenInValue);
+            return resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue);
         });
 
         return hadRef ? replaced : value;
@@ -1197,13 +1187,15 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
         else console.warn(`ℹ️  Duplicate token for normalized key ${key}${debugLabel ? ` (${debugLabel})` : ''}`);
     };
 
+    // Indexing does not require sorted traversal order.
     walkTokenTree(
         summary,
         obj,
         prefix,
         currentPath,
         {
-            onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch }) => {
+            onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch, inheritedType }) => {
+                // ✅ Only index tokens that will be emittable (prevents "$value ghost references").
                 const rawValue = (tokenObj as TokenValue).$value;
                 if (rawValue == null) return;
 
@@ -1212,6 +1204,7 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
 
                 const varName = buildCssVarNameFromPrefix(tokenPrefix);
 
+                // ✅ Also prevent "invalid name ghost references": if it won't be emitted, don't index it.
                 if (!isValidCssVariableName(varName)) {
                     summary.invalidNames.push(`${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`);
                     return;
@@ -1225,20 +1218,38 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
                     id: typeof (tokenObj as any)?.$id === 'string' ? (tokenObj as any).$id : undefined
                 });
 
-                upsertKey(normalizedKey, varName, tokenObj as TokenValue, tokenPathKey, inModeBranch);
+                // ✅ Improvement 1: persist inherited $type into valueMap when leaf lacks $type.
+                const rawType = (tokenObj as TokenValue).$type;
+                const effectiveType = rawType ?? inheritedType;
+                const storedTokenObj: TokenValue =
+                    rawType == null && effectiveType
+                        ? ({ ...(tokenObj as TokenValue), $type: effectiveType } as TokenValue)
+                        : (tokenObj as TokenValue);
 
+                upsertKey(normalizedKey, varName, storedTokenObj, tokenPathKey, inModeBranch);
+
+                // ✅ Avoid `slice(1)` allocation in hot path.
                 const relativePathKey = buildPathKey(tokenPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                    upsertKey(relativeNormalizedKey, varName, tokenObj as TokenValue, `relative:${relativePathKey}`, inModeBranch);
+                    upsertKey(relativeNormalizedKey, varName, storedTokenObj, `relative:${relativePathKey}`, inModeBranch);
                 }
             },
 
-            onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inModeBranch }) => {
+            onLegacyPrimitive: ({
+                value,
+                key,
+                normalizedKey,
+                currentPath: parentPath,
+                prefix: parentPrefix,
+                inModeBranch,
+                inheritedType
+            }) => {
                 const leafPath = [...parentPath, key];
                 const leafPrefix = [...parentPrefix, normalizedKey];
                 const varName = buildCssVarNameFromPrefix(leafPrefix);
 
+                // ✅ Mirror emission: if it won't be emitted, don't index it.
                 if (!isValidCssVariableName(varName)) {
                     summary.invalidNames.push(`${pathStr(leafPath)} (Invalid CSS Var: ${varName})`);
                     return;
@@ -1247,12 +1258,14 @@ function collectTokenMaps(ctx: IndexingContext, obj: any, prefix: string[] = [],
                 const tokenPathKey = buildPathKey(leafPath);
                 const normalizedPathKey = normalizePathKey(tokenPathKey);
 
-                const legacyTokenObj: TokenValue = { $value: value };
+                // ✅ Improvement 1: store inherited $type on legacy primitives in valueMap (if present).
+                const legacyTokenObj: TokenValue = inheritedType ? { $value: value, $type: inheritedType } : { $value: value };
 
                 trackCssVarNameCollision(ctx, varName, { tokenKey: normalizedPathKey, tokenPath: pathStr(leafPath) });
 
                 upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
 
+                // ✅ Avoid `slice(1)` allocation.
                 const relativePathKey = buildPathKey(leafPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
@@ -1460,8 +1473,7 @@ function readAndCombineJsons(dir: string): Record<string, any> {
  * Emits CSS variables from the token tree.
  * Uses sorted traversal for stable output.
  *
- * ✅ Improvement 1: do NOT build `visitedRefs` eagerly per token; pass null and allocate only if needed.
- * ✅ Improvement 2: use inherited `$type` when leaf `$type` is absent.
+ * ✅ Improvement 1: honor inherited `$type` for both W3C leaves and legacy primitives.
  */
 function flattenTokens(
     ctx: EmissionContext,
@@ -1483,27 +1495,30 @@ function flattenTokens(
                 const rawValue = (tokenObj as TokenValue).$value;
                 const varType = (tokenObj as TokenValue).$type ?? inheritedType;
 
+                // ✅ Skip null/undefined tokens entirely (no invalid CSS like "--x: null;").
                 if (rawValue == null) {
                     console.warn(`⚠️  Token sin $value (o null) en ${pathStr(tokenPath)}, se omite`);
                     return;
                 }
 
-                // Lazy visitedRefs: start as null; seedPath is the token leaf path.
-                const resolvedValue = processValue(ctx, rawValue, varType, tokenPath, null, tokenPath);
+                const visitedRefs = buildVisitedRefSet(tokenPath);
+                const resolvedValue = processValue(ctx, rawValue, varType, tokenPath, visitedRefs);
                 if (resolvedValue === null) return;
 
                 const varName = buildCssVarNameFromPrefix(tokenPrefix);
                 emitCssVar(summary, collectedVars, varName, resolvedValue, tokenPath, true);
             },
 
-            onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix }) => {
+            onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inheritedType }) => {
                 summary.totalTokens++;
 
                 const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
                 const leafPath = [...parentPath, key];
 
-                // Lazy visitedRefs for legacy primitives too.
-                const processedValue = processValue(ctx, value, undefined, leafPath, null, leafPath);
+                const visitedRefs = buildVisitedRefSet(leafPath);
+
+                // ✅ Pass inherited type for legacy primitives when available.
+                const processedValue = processValue(ctx, value, inheritedType, leafPath, visitedRefs);
                 if (processedValue === null) return;
 
                 emitCssVar(summary, collectedVars, varName, processedValue, leafPath, false);
