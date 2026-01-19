@@ -43,6 +43,12 @@ const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 const W3C_REF_REGEX_REPLACE = /\{([A-Za-z0-9_./\s-]+)\}/g; // Used for replacement/scanning.
 const W3C_REF_REGEX_COLLECT = /\{([A-Za-z0-9_./\s-]+)\}/g; // Used for dependency collection via exec().
 
+/**
+ * Non-global reference test regex.
+ * Safer for quick "has reference?" checks because it does not rely on `lastIndex`.
+ */
+const W3C_REF_REGEX_TEST = /\{([A-Za-z0-9_./\s-]+)\}/;
+
 /** Precompiled helpers for validating CSS custom property names. */
 const STARTS_WITH_DIGIT_REGEX = /^\d/;
 const CSS_VAR_NAME_AFTER_DASHES_REGEX = /^[a-zA-Z0-9_-]+$/;
@@ -104,11 +110,13 @@ type CssVarOwner = { tokenKey: string; tokenPath: string; id?: string };
 type CssVarCollision = { first: CssVarOwner; others: Map<string, CssVarOwner> };
 
 const MAX_COLLISION_DETAILS = 10;
+const MAX_SUMMARY_DETAILS = 10;
 
 /** Warn-once guards to avoid log spam across repeated occurrences. */
 const warnedAliasVarCollisions = new Set<string>();
 const warnedDuplicateTokenIds = new Set<string>();
 const warnedFindTokenByIdDepthLimit = new Set<string>();
+const warnedAmbiguousModeDefaultAt = new Set<string>();
 
 /**
  * Read-only context passed across phases.
@@ -206,6 +214,26 @@ function pickModeKeyDeterministic(keys: string[]): string | undefined {
     }
 
     return bestDefault ?? bestMode;
+}
+
+/**
+ * Warns (once per path) when multiple keys match `modeDefault` case-insensitively.
+ * This does not change selection; it only surfaces potentially confusing JSON.
+ */
+function warnAmbiguousModeDefault(keys: string[], currentPath: string[]): void {
+    let count = 0;
+    for (const k of keys) if (k.toLowerCase() === 'modedefault') count++;
+    if (count <= 1) return;
+
+    const at = pathStr(currentPath);
+    const sig = `${at}|${count}`;
+    if (warnedAmbiguousModeDefaultAt.has(sig)) return;
+    warnedAmbiguousModeDefaultAt.add(sig);
+
+    console.warn(
+        `⚠️  Multiple "modeDefault" keys detected at ${at} (count=${count}). ` +
+        `Mode selection is deterministic but may be surprising; consider normalizing the export.`
+    );
 }
 
 function toSafePlaceholderName(id: string): string {
@@ -557,6 +585,10 @@ function walkTokenTree(
     if (!isPlainObject(obj)) return;
 
     const keys = sortKeys ? Object.keys(obj).sort() : Object.keys(obj);
+
+    // Hardening: warn (once) if multiple modeDefault keys exist with different casing.
+    warnAmbiguousModeDefault(keys, currentPath);
+
     const modeKey = sortKeys ? pickModeKey(keys) : pickModeKeyDeterministic(keys);
 
     for (const key of keys) {
@@ -633,10 +665,15 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
 
     if (typeof value === 'string') {
         let m: RegExpExecArray | null;
-        while ((m = W3C_REF_REGEX_COLLECT.exec(value)) !== null) {
-            const tokenPath = (m[1] ?? '').trim();
-            if (!tokenPath) continue;
-            refs.add(canonicalizeRefPath(tokenPath));
+        try {
+            while ((m = W3C_REF_REGEX_COLLECT.exec(value)) !== null) {
+                const tokenPath = (m[1] ?? '').trim();
+                if (!tokenPath) continue;
+                refs.add(canonicalizeRefPath(tokenPath));
+            }
+        } finally {
+            // Extra-hardening: keep regex state clean even if a future refactor throws inside the loop.
+            W3C_REF_REGEX_COLLECT.lastIndex = 0;
         }
         return;
     }
@@ -1066,21 +1103,26 @@ function buildCssStringTokenSequence(
     let last = 0;
     let m: RegExpExecArray | null;
 
-    while ((m = W3C_REF_REGEX_REPLACE.exec(raw)) !== null) {
-        const start = m.index;
-        const end = W3C_REF_REGEX_REPLACE.lastIndex;
+    try {
+        while ((m = W3C_REF_REGEX_REPLACE.exec(raw)) !== null) {
+            const start = m.index;
+            const end = W3C_REF_REGEX_REPLACE.lastIndex;
 
-        const before = raw.slice(last, start);
-        if (before) parts.push(quoteCssStringLiteral(before));
+            const before = raw.slice(last, start);
+            if (before) parts.push(quoteCssStringLiteral(before));
 
-        const wholeMatch = m[0];
-        const tokenPath = (m[1] ?? '').trim();
-        const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
+            const wholeMatch = m[0];
+            const tokenPath = (m[1] ?? '').trim();
+            const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
 
-        // If resolution fails and returns the raw match, keep it as text to guarantee valid CSS output.
-        parts.push(resolved === wholeMatch ? quoteCssStringLiteral(wholeMatch) : resolved);
+            // If resolution fails and returns the raw match, keep it as text to guarantee valid CSS output.
+            parts.push(resolved === wholeMatch ? quoteCssStringLiteral(wholeMatch) : resolved);
 
-        last = end;
+            last = end;
+        }
+    } finally {
+        // Extra-hardening: keep regex state clean even if a future refactor throws inside the loop.
+        W3C_REF_REGEX_REPLACE.lastIndex = 0;
     }
 
     const tail = raw.slice(last);
@@ -1139,10 +1181,7 @@ function processValue(
         if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) return value;
 
         if (varType === 'string') {
-            W3C_REF_REGEX_REPLACE.lastIndex = 0;
-            const hasRef = W3C_REF_REGEX_REPLACE.exec(value) !== null;
-            W3C_REF_REGEX_REPLACE.lastIndex = 0;
-
+            const hasRef = W3C_REF_REGEX_TEST.test(value);
             if (!hasRef) return quoteCssStringLiteral(value);
             return buildCssStringTokenSequence(ctx, value, currentPath, visitedRefs);
         }
@@ -1151,11 +1190,11 @@ function processValue(
         let hadRef = false;
 
         W3C_REF_REGEX_REPLACE.lastIndex = 0;
-
         const replaced = value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => {
             hadRef = true;
             return resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue);
         });
+        W3C_REF_REGEX_REPLACE.lastIndex = 0;
 
         return hadRef ? replaced : value;
     }
@@ -1602,35 +1641,42 @@ function printExecutionSummary(summary: ExecutionSummary): void {
     console.log('========================================');
 
     if (summary.unresolvedRefs.length > 0) {
-        console.log('\n⚠️  Detalle de Referencias No Resueltas (Top 10):');
-        summary.unresolvedRefs.slice(0, 10).forEach(ref => console.log(`  - ${ref}`));
-        if (summary.unresolvedRefs.length > 10) console.log(`  ... y ${summary.unresolvedRefs.length - 10} más`);
+        console.log(`\n⚠️  Detalle de Referencias No Resueltas (Top ${MAX_SUMMARY_DETAILS}):`);
+        summary.unresolvedRefs.slice(0, MAX_SUMMARY_DETAILS).forEach(ref => console.log(`  - ${ref}`));
+        if (summary.unresolvedRefs.length > MAX_SUMMARY_DETAILS) {
+            console.log(`  ... y ${summary.unresolvedRefs.length - MAX_SUMMARY_DETAILS} más`);
+        }
     }
 
     if (summary.invalidNames.length > 0) {
-        console.log('\n⚠️  Detalle de Nombres Inválidos (Top 10):');
-        summary.invalidNames.slice(0, 10).forEach(name => console.log(`  - ${name}`));
-        if (summary.invalidNames.length > 10) console.log(`  ... y ${summary.invalidNames.length - 10} más`);
+        console.log(`\n⚠️  Detalle de Nombres Inválidos (Top ${MAX_SUMMARY_DETAILS}):`);
+        summary.invalidNames.slice(0, MAX_SUMMARY_DETAILS).forEach(name => console.log(`  - ${name}`));
+        if (summary.invalidNames.length > MAX_SUMMARY_DETAILS) {
+            console.log(`  ... y ${summary.invalidNames.length - MAX_SUMMARY_DETAILS} más`);
+        }
     }
 
     if (summary.cssVarNameCollisionDetails.length > 0) {
-        console.log('\n⚠️  Detalle de Colisiones CSS Var (Top 10):');
-        summary.cssVarNameCollisionDetails.slice(0, 10).forEach(d => console.log(`  - ${d}`));
-        if (summary.cssVarNameCollisionDetails.length > 10) {
-            console.log(`  ... y ${summary.cssVarNameCollisionDetails.length - 10} más`);
+        console.log(`\n⚠️  Detalle de Colisiones CSS Var (Top ${MAX_SUMMARY_DETAILS}):`);
+        summary.cssVarNameCollisionDetails.slice(0, MAX_SUMMARY_DETAILS).forEach(d => console.log(`  - ${d}`));
+        if (summary.cssVarNameCollisionDetails.length > MAX_SUMMARY_DETAILS) {
+            console.log(`  ... y ${summary.cssVarNameCollisionDetails.length - MAX_SUMMARY_DETAILS} más`);
         }
     }
 }
 
 /**
  * Formats a section header comment for the generated CSS.
- * Ensures the label cannot accidentally terminate the comment.
+ * Ensures the label cannot accidentally terminate or nest comments.
  */
 function formatCssSectionHeader(label: string): string {
     const safe = String(label)
         .replace(/\r\n|\r|\n/g, ' ')
-        // Most compatible way to break comment terminators.
+        // Break both comment open/close tokens defensively.
+        .replace(/\/\*/g, '/ *')
         .replace(/\*\//g, '* /')
+        // Normalize whitespace for readability and to avoid odd control chars.
+        .replace(/\s+/g, ' ')
         .trim();
     return `  /* --- ${safe || 'Section'} --- */`;
 }
@@ -1642,6 +1688,7 @@ async function main() {
     warnedAliasVarCollisions.clear();
     warnedDuplicateTokenIds.clear();
     warnedFindTokenByIdDepthLimit.clear();
+    warnedAmbiguousModeDefaultAt.clear();
 
     kebabCaseCache.clear();
     refCanonicalCache.clear();
