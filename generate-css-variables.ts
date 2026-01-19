@@ -1,5 +1,5 @@
 /**
- * Generates a `variables.css` file (CSS custom properties) from Figma token JSON exports.
+ * Generates a `custom-properties.css` file (CSS custom properties) from Figma token JSON exports.
  *
  * Architecture
  * 1) Ingestion: reads and merges all JSON files under `JSON_DIR` (each filename becomes a namespace root).
@@ -28,7 +28,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // --- Configuration ---
 
 const JSON_DIR = path.resolve(__dirname, 'input');
-const OUTPUT_FILE = path.resolve(__dirname, 'output/variables.css');
+const OUTPUT_FILE = path.resolve(__dirname, 'output/custom-properties.css');
 const MAX_DEPTH = 50;
 const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 
@@ -1793,7 +1793,7 @@ async function main() {
 
     try {
         fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
-        console.log(`\n✅ Archivo variables.css regenerado completamente`);
+        console.log(`\n✅ Archivo custom-properties.css regenerado completamente`);
     } catch (err) {
         console.error(`❌ No se pudo escribir ${OUTPUT_FILE}:`, err);
         process.exit(1);

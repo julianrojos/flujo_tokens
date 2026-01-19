@@ -31,7 +31,7 @@ import { readCssVariablesFromFile, formatCssSectionHeader } from '../core/css.js
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const JSON_DIR = path.resolve(__dirname, '../../input');
-const OUTPUT_FILE = path.resolve(__dirname, '../../output/variables.css');
+const OUTPUT_FILE = path.resolve(__dirname, '../../output/custom-properties.css');
 
 // --- Logging helpers ---
 
@@ -225,7 +225,7 @@ async function main() {
 
     try {
         fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
-        console.log(`\n✅ Archivo variables.css regenerado completamente`);
+        console.log(`\n✅ Archivo custom-properties.css regenerado completamente`);
     } catch (err) {
         console.error(`❌ No se pudo escribir ${OUTPUT_FILE}:`, err);
         process.exit(1);

@@ -7,7 +7,7 @@ JSON
 
 {
   "jsonDir": "./FigmaJsons",
-  "outputFile": "./output/variables.css",
+  "outputFile": "./output/custom-properties.css",
   "settings": {
     "maxDepth": 50,
     "allowJsonRepair": true,
@@ -35,7 +35,7 @@ interface AppConfig {
 
 const DEFAULT_CONFIG: AppConfig = {
     jsonDir: './FigmaJsons',
-    outputFile: './output/variables.css',
+    outputFile: './output/custom-properties.css',
     settings: {
         maxDepth: 50,
         allowJsonRepair: false

@@ -52,7 +52,7 @@ npm run watch
 ## Archivos
 
 - `input/*.json` - Archivos de entrada con los tokens de diseño
-- `output/variables.css` - Archivo de salida con las custom properties CSS generadas
+- `output/custom-properties.css` - Archivo de salida con las custom properties CSS generadas
 - `generate-css-variables.ts` - Script TypeScript que procesa el JSON y genera el CSS
 
 ## Funcionamiento
@@ -64,7 +64,7 @@ El script:
 3. Convierte los nombres a kebab-case para las variables CSS
 4. Resuelve referencias W3C y `VARIABLE_ALIAS` cuando es posible
 5. Genera custom properties en el selector `:root`
-6. Guarda el resultado en `output/variables.css` y reporta cambios respecto al archivo anterior
+6. Guarda el resultado en `output/custom-properties.css` y reporta cambios respecto al archivo anterior
 
 ## Características avanzadas
 
@@ -113,7 +113,7 @@ Si tienes un archivo `spacing.json` con:
    - Resuelve alias W3C `{token.path}`.
    - Resuelve `VARIABLE_ALIAS` de Figma.
    - Si un alias falla, genera una variable `--unresolved-<id>` para facilitar la depuración.
-4. **Generación**: Escribe `output/variables.css`.
+4. **Generación**: Escribe `output/custom-properties.css`.
 5. **Auditoría**: Compara con el CSS anterior y reporta el delta (cambios).
 
 ## Solución de problemas
