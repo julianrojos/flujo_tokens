@@ -104,7 +104,7 @@ function logChangeDetection(previousVariables: Map<string, string>, cssLines: st
     }
 
     if (removed.length === 0 && added.length === 0 && modified.length === 0) {
-        console.log(`   ✓ Sin cambios significativos`);
+        console.log(`   ✓ Sin cambios (0 añadidas, 0 modificadas, 0 eliminadas)`);
     }
 }
 
