@@ -4,9 +4,10 @@
   "description": "Generador de custom properties CSS desde tokens JSON",
   "type": "module",
   "scripts": {
-    "generate": "tsx generate-css-variables.ts",
-    "build": "tsc generate-css-variables.ts --outDir dist --module esnext --target es2020 --moduleResolution node",
-    "watch": "tsx watch generate-css-variables.ts"
+    "generate": "tsx src/cli/index.ts",
+    "generate:old": "tsx generate-css-variables.ts",
+    "build": "tsc",
+    "watch": "tsx watch src/cli/index.ts"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
