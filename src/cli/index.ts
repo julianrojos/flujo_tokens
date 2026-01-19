@@ -30,7 +30,7 @@ import { readCssVariablesFromFile, formatCssSectionHeader } from '../core/css.js
 // --- Path configuration ---
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const JSON_DIR = path.resolve(__dirname, '../../FigmaJsons');
+const JSON_DIR = path.resolve(__dirname, '../../input');
 const OUTPUT_FILE = path.resolve(__dirname, '../../output/variables.css');
 
 // --- Logging helpers ---

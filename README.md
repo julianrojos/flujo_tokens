@@ -1,6 +1,6 @@
 # Generador de Custom Properties CSS
 
-Este proyecto contiene un script TypeScript que genera custom properties de CSS a partir de los tokens definidos en `FigmaJsons` desde Figma en un json compatible con el estándar W3C (DTCG).
+Este proyecto contiene un script TypeScript que genera custom properties de CSS a partir de los tokens definidos en `input` desde Figma en un json compatible con el estándar W3C (DTCG).
 
 ## Requisitos
 
@@ -43,7 +43,7 @@ npm run generate
 npx tsx generate-css-variables.ts
 ```
 
-### Opción 3: Modo watch (regenera automáticamente al cambiar archivos en FigmaJsons)
+### Opción 3: Modo watch (regenera automáticamente al cambiar archivos en input)
 
 ```bash
 npm run watch
@@ -51,7 +51,7 @@ npm run watch
 
 ## Archivos
 
-- `FigmaJsons/*.json` - Archivos de entrada con los tokens de diseño
+- `input/*.json` - Archivos de entrada con los tokens de diseño
 - `output/variables.css` - Archivo de salida con las custom properties CSS generadas
 - `generate-css-variables.ts` - Script TypeScript que procesa el JSON y genera el CSS
 
@@ -59,7 +59,7 @@ npm run watch
 
 El script:
 
-1. Lee y combina todos los JSON dentro de `FigmaJsons`
+1. Lee y combina todos los JSON dentro de `input`
 2. Procesa la estructura de tokens (excluyendo metadatos como `Translations`)
 3. Convierte los nombres a kebab-case para las variables CSS
 4. Resuelve referencias W3C y `VARIABLE_ALIAS` cuando es posible
@@ -107,7 +107,7 @@ Si tienes un archivo `spacing.json` con:
 
 ## Funcionamiento Interno
 
-1. **Lectura**: Escanea `FigmaJsons/` y combina todos los archivos.
+1. **Lectura**: Escanea `input/` y combina todos los archivos.
 2. **Sanitización**: Limpia metadatos innecesarios (`Translations`, `$schema`).
 3. **Resolución**:
    - Resuelve alias W3C `{token.path}`.
@@ -120,13 +120,13 @@ Si tienes un archivo `spacing.json` con:
 
 ### Si encuentras errores al ejecutar el script:
 
-1. Verifica que los JSON en `FigmaJsons` tengan un formato JSON válido
+1. Verifica que los JSON en `input` tengan un formato JSON válido
 2. Asegúrate de tener Node.js instalado: `node --version`
 3. Reinstala las dependencias: `rm -rf node_modules package-lock.json && npm install`
 
 ### Si fallan alias o referencias:
 
-- **`--unresolved-...`**: Significa que el script no encontró el token referenciado. Verifica que el archivo JSON que contiene la definición exista en `FigmaJsons/` y que el nombre coincida.
+- **`--unresolved-...`**: Significa que el script no encontró el token referenciado. Verifica que el archivo JSON que contiene la definición exista en `input/` y que el nombre coincida.
 - **Errores JSON**: El script intenta repararlos, pero si el formato es muy inválido, usa un linter de JSON para corregir el archivo fuente.
 
 ## Herramientas internas

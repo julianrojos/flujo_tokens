@@ -27,7 +27,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // --- Configuration ---
 
-const JSON_DIR = path.resolve(__dirname, 'FigmaJsons');
+const JSON_DIR = path.resolve(__dirname, 'input');
 const OUTPUT_FILE = path.resolve(__dirname, 'output/variables.css');
 const MAX_DEPTH = 50;
 const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
