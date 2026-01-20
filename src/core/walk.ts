@@ -21,13 +21,12 @@ export function checkDepthLimit(summary: ExecutionSummary, depth: number, curren
 }
 
 export function pickModeKey(keys: string[], preferredMode?: string): string | undefined {
-    // Prefer "modeDefault" for stability; otherwise prefer preferred mode, then Light, then first mode branch.
+    // Prefer "modeDefault" for stability; otherwise prefer preferred mode, then first mode branch.
     const preferred = normalizePreferredMode(preferredMode);
 
     return (
         keys.find(k => k.toLowerCase() === 'modedefault') ??
         keys.find(k => matchesPreferredMode(k, preferred)) ??
-        keys.find(isLightModeKey) ??
         keys.find(isModeKey)
     );
 }
@@ -38,13 +37,6 @@ export function pickModeKey(keys: string[], preferredMode?: string): string | un
  */
 export function compareByCodeUnit(a: string, b: string): number {
     return a > b ? 1 : a < b ? -1 : 0;
-}
-
-function isLightModeKey(key: string): boolean {
-    if (!isModeKey(key)) return false;
-    const tail = key.slice(4);
-    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase();
-    return normalized.startsWith('light');
 }
 
 function normalizePreferredMode(preferredMode?: string): string | undefined {
@@ -69,7 +61,6 @@ export function pickModeKeyDeterministic(keys: string[], preferredMode?: string)
 
     let bestDefault: string | undefined;
     let bestPreferred: string | undefined;
-    let bestLight: string | undefined;
     let bestMode: string | undefined;
 
     for (const k of keys) {
@@ -80,15 +71,12 @@ export function pickModeKeyDeterministic(keys: string[], preferredMode?: string)
         if (matchesPreferredMode(k, preferred)) {
             if (!bestPreferred || compareByCodeUnit(k, bestPreferred) < 0) bestPreferred = k;
         }
-        if (isLightModeKey(k)) {
-            if (!bestLight || compareByCodeUnit(k, bestLight) < 0) bestLight = k;
-        }
         if (isModeKey(k)) {
             if (!bestMode || compareByCodeUnit(k, bestMode) < 0) bestMode = k;
         }
     }
 
-    return bestDefault ?? bestPreferred ?? bestLight ?? bestMode;
+    return bestDefault ?? bestPreferred ?? bestMode;
 }
 
 /**
