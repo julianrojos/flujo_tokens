@@ -47,7 +47,7 @@ Options:
   -h, --help           Show this help and exit
   -i, --input <dir>    Directory with token JSON files (default: ./input)
   -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
-  -m, --mode <name>    Preferred mode branch (default: light)
+  -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
       --mode-strict    Fail if preferred mode is missing in any node (default: off)
       --mode-loose     Allow fallback to available mode if preferred is missing (default: on)
       --mode-emit-base Emit base $value even when a mode branch is selected (default: skip)
@@ -135,7 +135,7 @@ if (parsed.help) {
 
 const JSON_DIR = parsed.inputDir;
 const OUTPUT_FILE = parsed.outputFile;
-const PREFERRED_MODE = parsed.mode?.trim() || 'light';
+const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
 const MODE_SKIP_BASE = parsed.modeSkipBase;
 
