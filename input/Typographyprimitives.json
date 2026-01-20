@@ -17,7 +17,7 @@
     },
     "modeDefault": {
       "inter": {
-        "$value": "Arial",
+        "$value": "Inter",
         "$type": "string",
         "$extensions": {
           "com.figma": {
