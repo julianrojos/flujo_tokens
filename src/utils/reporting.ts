@@ -124,3 +124,30 @@ export function logChangeDetection(previousVariables: Map<string, string>, cssLi
         console.log(`   ✓ No changes (0 added, 0 modified, 0 removed)`);
     }
 }
+
+/**
+ * Prints a summary of mode branches encountered during processing.
+ */
+export function printModeSummary(modeKeys: Set<string>): void {
+    console.log('\nModes detected:');
+    if (modeKeys.size === 0) {
+        console.log('  - None');
+        return;
+    }
+
+    const stripModePrefix = (k: string): string => {
+        if (!k) return k;
+        const trimmed = k.trim();
+        const lower = trimmed.toLowerCase();
+        if (lower.startsWith('mode')) {
+            return trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed;
+        }
+        return trimmed;
+    };
+
+    const sorted = Array.from(modeKeys)
+        .map(stripModePrefix)
+        .sort((a, b) => a.localeCompare(b));
+    console.log(`  - Count: ${modeKeys.size}`);
+    console.log(`  - Names: ${sorted.join(', ')}`);
+}

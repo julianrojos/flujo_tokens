@@ -5,7 +5,7 @@
 import type { ExecutionSummary, WalkHandlers } from '../types/tokens.js';
 import { isPlainObject, isModeKey, shouldSkipKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, foundModeKeys } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 
@@ -149,6 +149,12 @@ export function walkTokenTree(
     const preferred = normalizePreferredMode(preferredMode);
     const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
     const missingPreferred = preferred && hasAnyModeBranch && (!modeKey || !preferredFound);
+
+    if (hasAnyModeBranch) {
+        for (const k of keys) {
+            if (isModeKey(k)) foundModeKeys.add(k);
+        }
+    }
 
     if (modeStrict && missingPreferred) {
         const path = pathStr(currentPath) || '<root>';
