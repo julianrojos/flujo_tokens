@@ -1,0 +1,129 @@
+{
+  "$description": "typography",
+  "font": {
+    "family": {
+      "heading": {
+        "$value": "{Typographyprimitives.family.inter}",
+        "$type": "string"
+      },
+      "body": {
+        "$value": "{Typographyprimitives.family.inter}",
+        "$type": "string"
+      }
+    },
+    "weight": {
+      "bold": {
+        "$value": "{Typographyprimitives.weight.bold}",
+        "$type": "string"
+      },
+      "semiBold": {
+        "$value": "{Typographyprimitives.weight.semiBold}",
+        "$type": "string"
+      },
+      "medium": {
+        "$value": "{Typographyprimitives.weight.medium}",
+        "$type": "string"
+      },
+      "regular": {
+        "$value": "{Typographyprimitives.weight.regular}",
+        "$type": "string"
+      }
+    },
+    "fontsize": {
+      "xs": {
+        "$value": "{Typographyprimitives.size.size11}",
+        "$type": "dimension"
+      },
+      "sm": {
+        "$value": "{Typographyprimitives.size.size12}",
+        "$type": "dimension"
+      },
+      "base": {
+        "$value": "{Typographyprimitives.size.size13}",
+        "$type": "dimension"
+      },
+      "lg": {
+        "$value": "{Typographyprimitives.size.size14}",
+        "$type": "dimension"
+      },
+      "xl": {
+        "$value": "{Typographyprimitives.size.size16}",
+        "$type": "dimension"
+      },
+      "2xl": {
+        "$value": "{Typographyprimitives.size.size18}",
+        "$type": "dimension"
+      },
+      "3xl": {
+        "$value": "{Typographyprimitives.size.size20}",
+        "$type": "dimension"
+      },
+      "4xl": {
+        "$value": "{Typographyprimitives.size.size24}",
+        "$type": "dimension"
+      },
+      "5xl": {
+        "$value": "{Typographyprimitives.size.size28}",
+        "$type": "dimension"
+      },
+      "6xl": {
+        "$value": "{Typographyprimitives.size.size36}",
+        "$type": "dimension"
+      },
+      "7xl": {
+        "$value": "{Typographyprimitives.size.size48}",
+        "$type": "dimension"
+      },
+      "8xl": {
+        "$value": "{Typographyprimitives.size.size60}",
+        "$type": "dimension"
+      },
+      "9xl": {
+        "$value": "{Typographyprimitives.size.size72}",
+        "$type": "dimension"
+      }
+    },
+    "lineheight": {
+      "none": {
+        "$value": "{Typographyprimitives.lineheight.lineheight16}",
+        "$type": "dimension"
+      },
+      "tight": {
+        "$value": "{Typographyprimitives.lineheight.lineheight20}",
+        "$type": "dimension"
+      },
+      "snug": {
+        "$value": "{Typographyprimitives.lineheight.lineheight24}",
+        "$type": "dimension"
+      },
+      "normal": {
+        "$value": "{Typographyprimitives.lineheight.lineheight28}",
+        "$type": "dimension"
+      },
+      "relaxed": {
+        "$value": "{Typographyprimitives.lineheight.lineheight32}",
+        "$type": "dimension"
+      },
+      "loose": {
+        "$value": "{Typographyprimitives.lineheight.lineheight36}",
+        "$type": "dimension"
+      },
+      "7xl": {
+        "$value": "{Typographyprimitives.lineheight.lineheight44}",
+        "$type": "dimension"
+      },
+      "8xl": {
+        "$value": "{Typographyprimitives.lineheight.lineheight60}",
+        "$type": "dimension"
+      },
+      "9xl": {
+        "$value": "{Typographyprimitives.lineheight.lineheight72}",
+        "$type": "dimension"
+      },
+      "10xl": {
+        "$value": "{Typographyprimitives.lineheight.lineheight80}",
+        "$type": "dimension"
+      }
+    }
+  }
+}
