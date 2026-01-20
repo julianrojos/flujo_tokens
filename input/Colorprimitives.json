@@ -1,7 +1,7 @@
 {
   "$description": "_colorPrimitives",
   "primary": {
-    "modeBorrar": {
+    "modeMode1": {
       "50": {
         "$value": "#e5f2ff",
         "$type": "color",
@@ -337,7 +337,7 @@
     }
   },
   "neutral": {
-    "modeBorrar": {
+    "modeMode1": {
       "0": {
         "$value": "#ffffff",
         "$type": "color",
@@ -703,7 +703,7 @@
     }
   },
   "green": {
-    "modeBorrar": {
+    "modeMode1": {
       "50": {
         "$value": "#ecfdf5",
         "$type": "color",
