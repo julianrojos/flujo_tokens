@@ -17,7 +17,7 @@ import { createSummary, createProcessingContext } from '../runtime/context.js';
 
 // Utils
 import { toKebabCase } from '../utils/strings.js';
-import { printExecutionSummary, logChangeDetection } from '../utils/reporting.js';
+import { printExecutionSummary, logChangeDetection, printModeSummary, printModeFallbackSummary } from '../utils/reporting.js';
 
 // Core
 import { readAndCombineJsons } from '../core/ingest.js';
@@ -25,6 +25,7 @@ import { collectTokenMaps } from '../core/indexing.js';
 import { buildCycleStatus } from '../core/analyze.js';
 import { flattenTokens, buildEmittableKeySet } from '../core/emit.js';
 import { readCssVariablesFromFile, formatCssSectionHeader } from '../core/css.js';
+import { foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 
 // --- Path configuration & arg parsing ---
 
@@ -46,9 +47,9 @@ Options:
   -h, --help           Show this help and exit
   -i, --input <dir>    Directory with token JSON files (default: ./input)
   -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
-  -m, --mode <name>    Preferred mode branch (default: light)
-      --mode-strict    Fail if preferred mode is missing in any node (default: on)
-      --mode-loose     Allow fallback to available mode if preferred is missing
+  -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
+      --mode-strict    Fail if preferred mode is missing in any node (default: off)
+      --mode-loose     Allow fallback to available mode if preferred is missing (default: on)
       --mode-emit-base Emit base $value even when a mode branch is selected (default: skip)
 `);
 }
@@ -58,7 +59,7 @@ function parseArgs(argv: string[]): CliOptions | null {
     let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
     let help = false;
     let mode: string | undefined;
-    let modeStrict = true;
+    let modeStrict = false;
     let modeSkipBase = true;
 
     for (let i = 0; i < argv.length; i++) {
@@ -134,7 +135,7 @@ if (parsed.help) {
 
 const JSON_DIR = parsed.inputDir;
 const OUTPUT_FILE = parsed.outputFile;
-const PREFERRED_MODE = parsed.mode?.trim() || 'light';
+const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
 const MODE_SKIP_BASE = parsed.modeSkipBase;
 
@@ -258,9 +259,15 @@ async function main() {
     }
 
     printExecutionSummary(summary);
+    printModeSummary(foundModeKeys);
+    printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
 
     if (previousVariables.size > 0) {
-        logChangeDetection(previousVariables, cssLines);
+        logChangeDetection(previousVariables, cssLines, {
+            preferredMode: PREFERRED_MODE,
+            foundModes: foundModeKeys,
+            modeStrict: MODE_STRICT
+        });
     }
 
     console.log(`\n📝 File saved to: ${OUTPUT_FILE}`);
