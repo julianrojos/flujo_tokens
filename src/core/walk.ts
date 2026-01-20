@@ -5,7 +5,7 @@
 import type { ExecutionSummary, WalkHandlers } from '../types/tokens.js';
 import { isPlainObject, isModeKey, shouldSkipKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, foundModeKeys } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 
@@ -258,14 +258,21 @@ export function walkTokenTree(
         }
     }
 
-    if (missingPreferred && !hasValue) {
+    if (missingPreferred) {
         const path = pathStr(currentPath);
         const warnKey = `${path}|${preferred}|${modeKey ?? 'none'}`;
         if (!warnedPreferredModeFallback.has(warnKey)) {
             warnedPreferredModeFallback.add(warnKey);
             console.warn(
-                `ℹ️  Preferred mode "${preferred}" not found at ${path}; using "${modeKey ?? 'none'}".`
+                `ℹ️  Preferred mode "${preferred}" not found at ${path}; ${hasValue ? 'emitting base $value only' : 'using available mode branch'} (${modeKey ?? 'none'}).`
             );
+        }
+        const key = preferred ?? '<none>';
+        modeFallbackCounts.set(key, (modeFallbackCounts.get(key) || 0) + 1);
+        const samples = modeFallbackExamples.get(key) ?? [];
+        if (samples.length < 5) {
+            samples.push(path || '<root>');
+            modeFallbackExamples.set(key, samples);
         }
     }
 

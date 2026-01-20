@@ -17,7 +17,7 @@ import { createSummary, createProcessingContext } from '../runtime/context.js';
 
 // Utils
 import { toKebabCase } from '../utils/strings.js';
-import { printExecutionSummary, logChangeDetection, printModeSummary } from '../utils/reporting.js';
+import { printExecutionSummary, logChangeDetection, printModeSummary, printModeFallbackSummary } from '../utils/reporting.js';
 
 // Core
 import { readAndCombineJsons } from '../core/ingest.js';
@@ -25,7 +25,7 @@ import { collectTokenMaps } from '../core/indexing.js';
 import { buildCycleStatus } from '../core/analyze.js';
 import { flattenTokens, buildEmittableKeySet } from '../core/emit.js';
 import { readCssVariablesFromFile, formatCssSectionHeader } from '../core/css.js';
-import { foundModeKeys } from '../runtime/state.js';
+import { foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 
 // --- Path configuration & arg parsing ---
 
@@ -260,6 +260,7 @@ async function main() {
 
     printExecutionSummary(summary);
     printModeSummary(foundModeKeys);
+    printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
 
     if (previousVariables.size > 0) {
         logChangeDetection(previousVariables, cssLines);

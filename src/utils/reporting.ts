@@ -151,3 +151,19 @@ export function printModeSummary(modeKeys: Set<string>): void {
     console.log(`  - Count: ${modeKeys.size}`);
     console.log(`  - Names: ${sorted.join(', ')}`);
 }
+
+/**
+ * Prints a summary of mode fallbacks when a preferred mode is missing.
+ */
+export function printModeFallbackSummary(fallbacks: Map<string, number>, examples: Map<string, string[]>): void {
+    if (fallbacks.size === 0) return;
+    console.log('\nMode fallbacks:');
+    const entries = Array.from(fallbacks.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [mode, count] of entries) {
+        console.log(`  - Preferred "${mode}" missing in ${count} node${count === 1 ? '' : 's'} (used available mode)`);
+        const sample = examples.get(mode);
+        if (sample && sample.length > 0) {
+            console.log(`    e.g.: ${sample.join(', ')}`);
+        }
+    }
+}
