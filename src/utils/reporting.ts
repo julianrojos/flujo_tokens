@@ -69,10 +69,33 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
 /**
  * Prints a diff-style change detection summary between previous and current CSS outputs.
  */
-export function logChangeDetection(previousVariables: Map<string, string>, cssLines: string[]): void {
+export type ModeContext = {
+    preferredMode?: string;
+    foundModes?: Set<string>;
+    modeStrict?: boolean;
+};
+
+export function logChangeDetection(
+    previousVariables: Map<string, string>,
+    cssLines: string[],
+    modeContext?: ModeContext
+): void {
     console.log('\n----------------------------------------');
     console.log('            CHANGES DETECTED            ');
     console.log('----------------------------------------');
+
+    if (modeContext?.foundModes && modeContext.foundModes.size > 0) {
+        const preferred = modeContext.preferredMode ?? '<none>';
+        const strictLabel = modeContext.modeStrict ? 'strict' : 'loose';
+        const modes = Array.from(modeContext.foundModes)
+            .map(m => {
+                const trimmed = m.trim();
+                const lower = trimmed.toLowerCase();
+                return lower.startsWith('mode') ? trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed : trimmed;
+            })
+            .sort((a, b) => a.localeCompare(b));
+        console.log(`Mode context: preferred=${preferred} (${strictLabel}), detected=${modes.join(', ')}`);
+    }
 
     const newVariables = new Map<string, string>();
     for (const line of cssLines) {

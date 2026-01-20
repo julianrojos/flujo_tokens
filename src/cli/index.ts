@@ -263,7 +263,11 @@ async function main() {
     printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
 
     if (previousVariables.size > 0) {
-        logChangeDetection(previousVariables, cssLines);
+        logChangeDetection(previousVariables, cssLines, {
+            preferredMode: PREFERRED_MODE,
+            foundModes: foundModeKeys,
+            modeStrict: MODE_STRICT
+        });
     }
 
     console.log(`\n📝 File saved to: ${OUTPUT_FILE}`);
