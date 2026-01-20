@@ -16,7 +16,7 @@ npm install
 ## Available Scripts
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission) to generate `custom-properties.css`.
-- **`npm run generate:strict`**: Runs the pipeline with `--mode-strict` enabled (fails if the preferred mode is missing anywhere).
+- **`npm run generate:strict`**: Same pipeline but with strict mode selection (fails if the preferred mode is missing anywhere).
 - **`npm run watch`**: Runs the generator in watch mode, regenerating files whenever changes occur in the `src` folder.
 
 ## Usage
@@ -50,11 +50,11 @@ Behavior can be adjusted using environment variables:
 
 - `ALLOW_JSON_REPAIR=true` (default: false): Attempts to repair common syntax errors in input JSONs (e.g., trailing commas) to prevent the process from failing.
 - Mode selection flags (CLI):
-  - `--mode <name>` (default: `light`): preferred mode branch.
+  - `--mode <name>` (default: none): preferred mode branch (matches keys starting with `mode<name>`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
   - `--mode-strict`: fail if the preferred mode is missing anywhere.
   - `--mode-emit-base`: emit the base `$value` even when a mode branch is selected (by default it is skipped to avoid double declarations).
-- CI recommendation: use `npm run generate:strict` to prevent silent fallbacks when a preferred mode is missing.
+- Mode selection order: `modeDefault` > matching `--mode` (if provided) > first `mode*` branch found.
 
 Example:
 

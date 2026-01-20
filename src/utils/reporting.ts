@@ -69,10 +69,33 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
 /**
  * Prints a diff-style change detection summary between previous and current CSS outputs.
  */
-export function logChangeDetection(previousVariables: Map<string, string>, cssLines: string[]): void {
+export type ModeContext = {
+    preferredMode?: string;
+    foundModes?: Set<string>;
+    modeStrict?: boolean;
+};
+
+export function logChangeDetection(
+    previousVariables: Map<string, string>,
+    cssLines: string[],
+    modeContext?: ModeContext
+): void {
     console.log('\n----------------------------------------');
     console.log('            CHANGES DETECTED            ');
     console.log('----------------------------------------');
+
+    if (modeContext?.foundModes && modeContext.foundModes.size > 0) {
+        const preferred = modeContext.preferredMode ?? '<none>';
+        const strictLabel = modeContext.modeStrict ? 'strict' : 'loose';
+        const modes = Array.from(modeContext.foundModes)
+            .map(m => {
+                const trimmed = m.trim();
+                const lower = trimmed.toLowerCase();
+                return lower.startsWith('mode') ? trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed : trimmed;
+            })
+            .sort((a, b) => a.localeCompare(b));
+        console.log(`Mode context: preferred=${preferred} (${strictLabel}), detected=${modes.join(', ')}`);
+    }
 
     const newVariables = new Map<string, string>();
     for (const line of cssLines) {
@@ -122,5 +145,48 @@ export function logChangeDetection(previousVariables: Map<string, string>, cssLi
 
     if (removed.length === 0 && added.length === 0 && modified.length === 0) {
         console.log(`   ✓ No changes (0 added, 0 modified, 0 removed)`);
+    }
+}
+
+/**
+ * Prints a summary of mode branches encountered during processing.
+ */
+export function printModeSummary(modeKeys: Set<string>): void {
+    console.log('\nModes detected:');
+    if (modeKeys.size === 0) {
+        console.log('  - None');
+        return;
+    }
+
+    const stripModePrefix = (k: string): string => {
+        if (!k) return k;
+        const trimmed = k.trim();
+        const lower = trimmed.toLowerCase();
+        if (lower.startsWith('mode')) {
+            return trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed;
+        }
+        return trimmed;
+    };
+
+    const sorted = Array.from(modeKeys)
+        .map(stripModePrefix)
+        .sort((a, b) => a.localeCompare(b));
+    console.log(`  - Count: ${modeKeys.size}`);
+    console.log(`  - Names: ${sorted.join(', ')}`);
+}
+
+/**
+ * Prints a summary of mode fallbacks when a preferred mode is missing.
+ */
+export function printModeFallbackSummary(fallbacks: Map<string, number>, examples: Map<string, string[]>): void {
+    if (fallbacks.size === 0) return;
+    console.log('\nMode fallbacks:');
+    const entries = Array.from(fallbacks.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    for (const [mode, count] of entries) {
+        console.log(`  - Preferred "${mode}" missing in ${count} node${count === 1 ? '' : 's'} (used available mode)`);
+        const sample = examples.get(mode);
+        if (sample && sample.length > 0) {
+            console.log(`    e.g.: ${sample.join(', ')}`);
+        }
     }
 }

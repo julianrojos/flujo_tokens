@@ -18,6 +18,9 @@ export const warnedAmbiguousModeDefaultAt = new Set<string>();
 export const warnedMissingPreferredMode = new Set<string>();
 export const warnedBaseValueSkippedForMode = new Set<string>();
 export const warnedPreferredModeFallback = new Set<string>();
+export const foundModeKeys = new Set<string>();
+export const modeFallbackCounts = new Map<string, number>();
+export const modeFallbackExamples = new Map<string, string[]>();
 
 /**
  * Clears all runtime state for a fresh run.
@@ -35,4 +38,7 @@ export function resetRuntimeState(): void {
     warnedMissingPreferredMode.clear();
     warnedBaseValueSkippedForMode.clear();
     warnedPreferredModeFallback.clear();
+    foundModeKeys.clear();
+    modeFallbackCounts.clear();
+    modeFallbackExamples.clear();
 }

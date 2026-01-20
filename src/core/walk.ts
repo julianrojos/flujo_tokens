@@ -5,7 +5,7 @@
 import type { ExecutionSummary, WalkHandlers } from '../types/tokens.js';
 import { isPlainObject, isModeKey, shouldSkipKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 
@@ -21,13 +21,12 @@ export function checkDepthLimit(summary: ExecutionSummary, depth: number, curren
 }
 
 export function pickModeKey(keys: string[], preferredMode?: string): string | undefined {
-    // Prefer "modeDefault" for stability; otherwise prefer preferred mode, then Light, then first mode branch.
+    // Prefer "modeDefault" for stability; otherwise prefer preferred mode, then first mode branch.
     const preferred = normalizePreferredMode(preferredMode);
 
     return (
         keys.find(k => k.toLowerCase() === 'modedefault') ??
         keys.find(k => matchesPreferredMode(k, preferred)) ??
-        keys.find(isLightModeKey) ??
         keys.find(isModeKey)
     );
 }
@@ -38,13 +37,6 @@ export function pickModeKey(keys: string[], preferredMode?: string): string | un
  */
 export function compareByCodeUnit(a: string, b: string): number {
     return a > b ? 1 : a < b ? -1 : 0;
-}
-
-function isLightModeKey(key: string): boolean {
-    if (!isModeKey(key)) return false;
-    const tail = key.slice(4);
-    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase();
-    return normalized.startsWith('light');
 }
 
 function normalizePreferredMode(preferredMode?: string): string | undefined {
@@ -69,7 +61,6 @@ export function pickModeKeyDeterministic(keys: string[], preferredMode?: string)
 
     let bestDefault: string | undefined;
     let bestPreferred: string | undefined;
-    let bestLight: string | undefined;
     let bestMode: string | undefined;
 
     for (const k of keys) {
@@ -80,15 +71,12 @@ export function pickModeKeyDeterministic(keys: string[], preferredMode?: string)
         if (matchesPreferredMode(k, preferred)) {
             if (!bestPreferred || compareByCodeUnit(k, bestPreferred) < 0) bestPreferred = k;
         }
-        if (isLightModeKey(k)) {
-            if (!bestLight || compareByCodeUnit(k, bestLight) < 0) bestLight = k;
-        }
         if (isModeKey(k)) {
             if (!bestMode || compareByCodeUnit(k, bestMode) < 0) bestMode = k;
         }
     }
 
-    return bestDefault ?? bestPreferred ?? bestLight ?? bestMode;
+    return bestDefault ?? bestPreferred ?? bestMode;
 }
 
 /**
@@ -161,6 +149,12 @@ export function walkTokenTree(
     const preferred = normalizePreferredMode(preferredMode);
     const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
     const missingPreferred = preferred && hasAnyModeBranch && (!modeKey || !preferredFound);
+
+    if (hasAnyModeBranch) {
+        for (const k of keys) {
+            if (isModeKey(k)) foundModeKeys.add(k);
+        }
+    }
 
     if (modeStrict && missingPreferred) {
         const path = pathStr(currentPath) || '<root>';
@@ -264,14 +258,21 @@ export function walkTokenTree(
         }
     }
 
-    if (missingPreferred && !hasValue) {
+    if (missingPreferred) {
         const path = pathStr(currentPath);
         const warnKey = `${path}|${preferred}|${modeKey ?? 'none'}`;
         if (!warnedPreferredModeFallback.has(warnKey)) {
             warnedPreferredModeFallback.add(warnKey);
             console.warn(
-                `ℹ️  Preferred mode "${preferred}" not found at ${path}; using "${modeKey ?? 'none'}".`
+                `ℹ️  Preferred mode "${preferred}" not found at ${path}; ${hasValue ? 'emitting base $value only' : 'using available mode branch'} (${modeKey ?? 'none'}).`
             );
+        }
+        const key = preferred ?? '<none>';
+        modeFallbackCounts.set(key, (modeFallbackCounts.get(key) || 0) + 1);
+        const samples = modeFallbackExamples.get(key) ?? [];
+        if (samples.length < 5) {
+            samples.push(path || '<root>');
+            modeFallbackExamples.set(key, samples);
         }
     }
 

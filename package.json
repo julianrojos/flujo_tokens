@@ -1,7 +1,7 @@
 {
   "name": "css-variables-generator",
   "version": "1.0.0",
-  "description": "Generador de custom properties CSS desde tokens JSON",
+  "description": "CSS custom properties generator from JSON tokens",
   "type": "module",
   "scripts": {
     "generate": "tsx src/cli/index.ts",
