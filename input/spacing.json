@@ -1,6 +1,6 @@
 {
-  "$description": "radius",
-  "radiusXxxs": {
+  "$description": "spacing",
+  "spacing2": {
     "modeMode1": {
       "$value": "{Numberprimitives.2}",
       "$type": "dimension"
@@ -10,7 +10,7 @@
       "$type": "dimension"
     }
   },
-  "radiusXxs": {
+  "spacing4": {
     "modeMode1": {
       "$value": "{Numberprimitives.4}",
       "$type": "dimension"
@@ -20,7 +20,7 @@
       "$type": "dimension"
     }
   },
-  "radiusXs": {
+  "spacing6": {
     "modeMode1": {
       "$value": "{Numberprimitives.6}",
       "$type": "dimension"
@@ -30,7 +30,7 @@
       "$type": "dimension"
     }
   },
-  "radiusS": {
+  "spacing8": {
     "modeMode1": {
       "$value": "{Numberprimitives.8}",
       "$type": "dimension"
@@ -40,7 +40,7 @@
       "$type": "dimension"
     }
   },
-  "radiusM": {
+  "spacing10": {
     "modeMode1": {
       "$value": "{Numberprimitives.10}",
       "$type": "dimension"
@@ -50,7 +50,7 @@
       "$type": "dimension"
     }
   },
-  "radiusL": {
+  "spacing12": {
     "modeMode1": {
       "$value": "{Numberprimitives.12}",
       "$type": "dimension"
@@ -60,7 +60,7 @@
       "$type": "dimension"
     }
   },
-  "radiusXl": {
+  "spacing16": {
     "modeMode1": {
       "$value": "{Numberprimitives.16}",
       "$type": "dimension"
@@ -70,7 +70,7 @@
       "$type": "dimension"
     }
   },
-  "radiusXxl": {
+  "spacing20": {
     "modeMode1": {
       "$value": "{Numberprimitives.20}",
       "$type": "dimension"
@@ -80,7 +80,27 @@
       "$type": "dimension"
     }
   },
-  "radiusXxxl": {
+  "spacing24": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.24}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.24}",
+      "$type": "dimension"
+    }
+  },
+  "spacing28": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.28}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.28}",
+      "$type": "dimension"
+    }
+  },
+  "spacing32": {
     "modeMode1": {
       "$value": "{Numberprimitives.32}",
       "$type": "dimension"
@@ -90,7 +110,17 @@
       "$type": "dimension"
     }
   },
-  "radiusXxxxl": {
+  "spacing40": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.40}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.40}",
+      "$type": "dimension"
+    }
+  },
+  "spacing48": {
     "modeMode1": {
       "$value": "{Numberprimitives.48}",
       "$type": "dimension"
@@ -100,13 +130,43 @@
       "$type": "dimension"
     }
   },
-  "radiusMax": {
+  "spacing64": {
     "modeMode1": {
-      "$value": "1000px",
+      "$value": "{Numberprimitives.64}",
       "$type": "dimension"
     },
     "modeDefault": {
-      "$value": "1000px",
+      "$value": "{Numberprimitives.64}",
+      "$type": "dimension"
+    }
+  },
+  "spacing72": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.72}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.72}",
+      "$type": "dimension"
+    }
+  },
+  "spacing80": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.80}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.80}",
+      "$type": "dimension"
+    }
+  },
+  "spacing96": {
+    "modeMode1": {
+      "$value": "{Numberprimitives.96}",
+      "$type": "dimension"
+    },
+    "modeDefault": {
+      "$value": "{Numberprimitives.96}",
       "$type": "dimension"
     }
   }
