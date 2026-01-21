@@ -1,8 +1,8 @@
 {
   "$description": "Color Tokens",
-  "text": {
+  "Text": {
     "modeLightmode": {
-      "textPrimary": {
+      "text-primary": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -17,7 +17,7 @@
           }
         }
       },
-      "textSecondary": {
+      "text-secondary": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -32,7 +32,7 @@
           }
         }
       },
-      "textTertiary": {
+      "text-tertiary": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -47,7 +47,7 @@
           }
         }
       },
-      "textQuaternary": {
+      "text-quaternary": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -62,7 +62,7 @@
           }
         }
       },
-      "textDisabled": {
+      "text-disabled": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -79,7 +79,7 @@
       }
     },
     "modeDarkmode": {
-      "textPrimary": {
+      "text-primary": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -94,7 +94,7 @@
           }
         }
       },
-      "textSecondary": {
+      "text-secondary": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -109,7 +109,7 @@
           }
         }
       },
-      "textTertiary": {
+      "text-tertiary": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -124,7 +124,7 @@
           }
         }
       },
-      "textQuaternary": {
+      "text-quaternary": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -139,7 +139,7 @@
           }
         }
       },
-      "textDisabled": {
+      "text-disabled": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -156,9 +156,9 @@
       }
     }
   },
-  "backgroundColors": {
+  "BackgroundColors": {
     "modeLightmode": {
-      "bg0": {
+      "bg-0": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -173,7 +173,7 @@
           }
         }
       },
-      "bg0Hover": {
+      "bg-0_hover": {
         "$value": "{colors.base.50}",
         "$type": "color",
         "$extensions": {
@@ -188,7 +188,7 @@
           }
         }
       },
-      "bg50": {
+      "bg-50": {
         "$value": "{colors.base.50}",
         "$type": "color",
         "$extensions": {
@@ -203,7 +203,7 @@
           }
         }
       },
-      "bg50Hover": {
+      "bg-50_hover": {
         "$value": "{colors.base.100}",
         "$type": "color",
         "$extensions": {
@@ -218,7 +218,7 @@
           }
         }
       },
-      "bg100": {
+      "bg-100": {
         "$value": "{colors.base.100}",
         "$type": "color",
         "$extensions": {
@@ -233,7 +233,7 @@
           }
         }
       },
-      "bg100Hover": {
+      "bg-100_hover": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -248,7 +248,7 @@
           }
         }
       },
-      "bg200": {
+      "bg-200": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -263,7 +263,7 @@
           }
         }
       },
-      "bgDisabled": {
+      "bg-disabled": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -278,7 +278,7 @@
           }
         }
       },
-      "bgPrimary500": {
+      "bg-primary-500": {
         "$value": "{colors.primary.500}",
         "$type": "color",
         "$extensions": {
@@ -293,7 +293,7 @@
           }
         }
       },
-      "bgPrimary500Hover": {
+      "bg-primary-500_hover": {
         "$value": "{colors.primary.600}",
         "$type": "color",
         "$extensions": {
@@ -308,7 +308,7 @@
           }
         }
       },
-      "bgPrimary500A10": {
+      "bg-primary-500-A10": {
         "$value": "#0166ff1a",
         "$type": "color",
         "$extensions": {
@@ -323,7 +323,7 @@
           }
         }
       },
-      "bgPrimary500A10Hover": {
+      "bg-primary-500-A10_hover": {
         "$value": "#0166ff26",
         "$type": "color",
         "$extensions": {
@@ -338,7 +338,7 @@
           }
         }
       },
-      "bgError500": {
+      "bg-error-500": {
         "$value": "{colors.error.500}",
         "$type": "color",
         "$extensions": {
@@ -353,7 +353,7 @@
           }
         }
       },
-      "bgError500Hover": {
+      "bg-error-500_hover": {
         "$value": "{colors.error.600}",
         "$type": "color",
         "$extensions": {
@@ -368,7 +368,7 @@
           }
         }
       },
-      "bgError500A10": {
+      "bg-error-500-A10": {
         "$value": "#ff4c4c1a",
         "$type": "color",
         "$extensions": {
@@ -383,7 +383,7 @@
           }
         }
       },
-      "bgError500A10Hover": {
+      "bg-error-500-A10_hover": {
         "$value": "#ff4c4c26",
         "$type": "color",
         "$extensions": {
@@ -398,7 +398,7 @@
           }
         }
       },
-      "bgSuccess500": {
+      "bg-success-500": {
         "$value": "{colors.success.500}",
         "$type": "color",
         "$extensions": {
@@ -413,7 +413,7 @@
           }
         }
       },
-      "bgSuccess500Hover": {
+      "bg-success-500_hover": {
         "$value": "{colors.success.600}",
         "$type": "color",
         "$extensions": {
@@ -428,7 +428,7 @@
           }
         }
       },
-      "bgSuccess500A10": {
+      "bg-success-500-A10": {
         "$value": "#10b9781a",
         "$type": "color",
         "$extensions": {
@@ -443,7 +443,7 @@
           }
         }
       },
-      "bgSuccess500A10Hover": {
+      "bg-success-500-A10_hover": {
         "$value": "#10b97826",
         "$type": "color",
         "$extensions": {
@@ -460,7 +460,7 @@
       }
     },
     "modeDarkmode": {
-      "bg0": {
+      "bg-0": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -475,7 +475,7 @@
           }
         }
       },
-      "bg0Hover": {
+      "bg-0_hover": {
         "$value": "{colors.base.800}",
         "$type": "color",
         "$extensions": {
@@ -490,7 +490,7 @@
           }
         }
       },
-      "bg50": {
+      "bg-50": {
         "$value": "{colors.base.800}",
         "$type": "color",
         "$extensions": {
@@ -505,7 +505,7 @@
           }
         }
       },
-      "bg50Hover": {
+      "bg-50_hover": {
         "$value": "{colors.base.750}",
         "$type": "color",
         "$extensions": {
@@ -520,7 +520,7 @@
           }
         }
       },
-      "bg100": {
+      "bg-100": {
         "$value": "{colors.base.750}",
         "$type": "color",
         "$extensions": {
@@ -535,7 +535,7 @@
           }
         }
       },
-      "bg100Hover": {
+      "bg-100_hover": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -550,7 +550,7 @@
           }
         }
       },
-      "bg200": {
+      "bg-200": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -565,7 +565,7 @@
           }
         }
       },
-      "bgDisabled": {
+      "bg-disabled": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -580,7 +580,7 @@
           }
         }
       },
-      "bgPrimary500": {
+      "bg-primary-500": {
         "$value": "{colors.primary.500}",
         "$type": "color",
         "$extensions": {
@@ -595,7 +595,7 @@
           }
         }
       },
-      "bgPrimary500Hover": {
+      "bg-primary-500_hover": {
         "$value": "{colors.primary.600}",
         "$type": "color",
         "$extensions": {
@@ -610,7 +610,7 @@
           }
         }
       },
-      "bgPrimary500A10": {
+      "bg-primary-500-A10": {
         "$value": "#0166ff1a",
         "$type": "color",
         "$extensions": {
@@ -625,7 +625,7 @@
           }
         }
       },
-      "bgPrimary500A10Hover": {
+      "bg-primary-500-A10_hover": {
         "$value": "#0166ff26",
         "$type": "color",
         "$extensions": {
@@ -640,7 +640,7 @@
           }
         }
       },
-      "bgError500": {
+      "bg-error-500": {
         "$value": "{colors.error.500}",
         "$type": "color",
         "$extensions": {
@@ -655,7 +655,7 @@
           }
         }
       },
-      "bgError500Hover": {
+      "bg-error-500_hover": {
         "$value": "{colors.error.600}",
         "$type": "color",
         "$extensions": {
@@ -670,7 +670,7 @@
           }
         }
       },
-      "bgError500A10": {
+      "bg-error-500-A10": {
         "$value": "#ff4c4c1a",
         "$type": "color",
         "$extensions": {
@@ -685,7 +685,7 @@
           }
         }
       },
-      "bgError500A10Hover": {
+      "bg-error-500-A10_hover": {
         "$value": "#ff4c4c26",
         "$type": "color",
         "$extensions": {
@@ -700,7 +700,7 @@
           }
         }
       },
-      "bgSuccess500": {
+      "bg-success-500": {
         "$value": "{colors.success.500}",
         "$type": "color",
         "$extensions": {
@@ -715,7 +715,7 @@
           }
         }
       },
-      "bgSuccess500Hover": {
+      "bg-success-500_hover": {
         "$value": "{colors.success.600}",
         "$type": "color",
         "$extensions": {
@@ -730,7 +730,7 @@
           }
         }
       },
-      "bgSuccess500A10": {
+      "bg-success-500-A10": {
         "$value": "#10b9781a",
         "$type": "color",
         "$extensions": {
@@ -745,7 +745,7 @@
           }
         }
       },
-      "bgSuccess500A10Hover": {
+      "bg-success-500-A10_hover": {
         "$value": "#10b97826",
         "$type": "color",
         "$extensions": {
@@ -762,9 +762,9 @@
       }
     }
   },
-  "borderColors": {
+  "BorderColors": {
     "modeLightmode": {
-      "border100": {
+      "border-100": {
         "$value": "{colors.base.100}",
         "$type": "color",
         "$extensions": {
@@ -779,7 +779,7 @@
           }
         }
       },
-      "border100Hover": {
+      "border-100_hover": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -794,7 +794,7 @@
           }
         }
       },
-      "border200": {
+      "border-200": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -809,7 +809,7 @@
           }
         }
       },
-      "border200Hover": {
+      "border-200_hover": {
         "$value": "{colors.base.300}",
         "$type": "color",
         "$extensions": {
@@ -824,7 +824,7 @@
           }
         }
       },
-      "border300": {
+      "border-300": {
         "$value": "{colors.base.300}",
         "$type": "color",
         "$extensions": {
@@ -839,7 +839,7 @@
           }
         }
       },
-      "border300Hover": {
+      "border-300_hover": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -854,7 +854,7 @@
           }
         }
       },
-      "border400": {
+      "border-400": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -869,7 +869,7 @@
           }
         }
       },
-      "border400Hover": {
+      "border-400_hover": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -884,7 +884,7 @@
           }
         }
       },
-      "border800": {
+      "border-800": {
         "$value": "{colors.base.800}",
         "$type": "color",
         "$extensions": {
@@ -899,7 +899,7 @@
           }
         }
       },
-      "border800Hover": {
+      "border-800_hover": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -914,7 +914,7 @@
           }
         }
       },
-      "border900": {
+      "border-900": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -929,7 +929,7 @@
           }
         }
       },
-      "borderDisabled": {
+      "border-disabled": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -944,7 +944,7 @@
           }
         }
       },
-      "borderPrimary500": {
+      "border-primary-500": {
         "$value": "{colors.primary.500}",
         "$type": "color",
         "$extensions": {
@@ -959,7 +959,7 @@
           }
         }
       },
-      "borderPrimary500Hover": {
+      "border-primary-500_hover": {
         "$value": "{colors.primary.600}",
         "$type": "color",
         "$extensions": {
@@ -974,7 +974,7 @@
           }
         }
       },
-      "borderError500": {
+      "border-error-500": {
         "$value": "{colors.error.500}",
         "$type": "color",
         "$extensions": {
@@ -989,7 +989,7 @@
           }
         }
       },
-      "borderError500Hover": {
+      "border-error-500_hover": {
         "$value": "{colors.error.600}",
         "$type": "color",
         "$extensions": {
@@ -1004,7 +1004,7 @@
           }
         }
       },
-      "borderSuccess500": {
+      "border-success-500": {
         "$value": "{colors.success.500}",
         "$type": "color",
         "$extensions": {
@@ -1019,7 +1019,7 @@
           }
         }
       },
-      "borderSuccess500Hover": {
+      "border-success-500_hover": {
         "$value": "{colors.success.600}",
         "$type": "color",
         "$extensions": {
@@ -1036,7 +1036,7 @@
       }
     },
     "modeDarkmode": {
-      "border100": {
+      "border-100": {
         "$value": "{colors.base.800}",
         "$type": "color",
         "$extensions": {
@@ -1051,7 +1051,7 @@
           }
         }
       },
-      "border100Hover": {
+      "border-100_hover": {
         "$value": "{colors.base.750}",
         "$type": "color",
         "$extensions": {
@@ -1066,7 +1066,7 @@
           }
         }
       },
-      "border200": {
+      "border-200": {
         "$value": "{colors.base.750}",
         "$type": "color",
         "$extensions": {
@@ -1081,7 +1081,7 @@
           }
         }
       },
-      "border200Hover": {
+      "border-200_hover": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -1096,7 +1096,7 @@
           }
         }
       },
-      "border300": {
+      "border-300": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -1111,7 +1111,7 @@
           }
         }
       },
-      "border300Hover": {
+      "border-300_hover": {
         "$value": "{colors.base.600}",
         "$type": "color",
         "$extensions": {
@@ -1126,7 +1126,7 @@
           }
         }
       },
-      "border400": {
+      "border-400": {
         "$value": "{colors.base.600}",
         "$type": "color",
         "$extensions": {
@@ -1141,7 +1141,7 @@
           }
         }
       },
-      "border400Hover": {
+      "border-400_hover": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -1156,7 +1156,7 @@
           }
         }
       },
-      "border800": {
+      "border-800": {
         "$value": "{colors.base.100}",
         "$type": "color",
         "$extensions": {
@@ -1171,7 +1171,7 @@
           }
         }
       },
-      "border800Hover": {
+      "border-800_hover": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -1186,7 +1186,7 @@
           }
         }
       },
-      "border900": {
+      "border-900": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -1201,7 +1201,7 @@
           }
         }
       },
-      "borderDisabled": {
+      "border-disabled": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -1216,7 +1216,7 @@
           }
         }
       },
-      "borderPrimary500": {
+      "border-primary-500": {
         "$value": "{colors.primary.500}",
         "$type": "color",
         "$extensions": {
@@ -1231,7 +1231,7 @@
           }
         }
       },
-      "borderPrimary500Hover": {
+      "border-primary-500_hover": {
         "$value": "{colors.primary.600}",
         "$type": "color",
         "$extensions": {
@@ -1246,7 +1246,7 @@
           }
         }
       },
-      "borderError500": {
+      "border-error-500": {
         "$value": "{colors.error.500}",
         "$type": "color",
         "$extensions": {
@@ -1261,7 +1261,7 @@
           }
         }
       },
-      "borderError500Hover": {
+      "border-error-500_hover": {
         "$value": "{colors.error.600}",
         "$type": "color",
         "$extensions": {
@@ -1276,7 +1276,7 @@
           }
         }
       },
-      "borderSuccess500": {
+      "border-success-500": {
         "$value": "{colors.success.500}",
         "$type": "color",
         "$extensions": {
@@ -1291,7 +1291,7 @@
           }
         }
       },
-      "borderSuccess500Hover": {
+      "border-success-500_hover": {
         "$value": "{colors.success.600}",
         "$type": "color",
         "$extensions": {
@@ -1308,9 +1308,9 @@
       }
     }
   },
-  "foregroundColors": {
+  "ForegroundColors": {
     "modeLightmode": {
-      "foreground01": {
+      "foreground-01": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -1325,7 +1325,7 @@
           }
         }
       },
-      "foreground02": {
+      "foreground-02": {
         "$value": "{colors.base.800}",
         "$type": "color",
         "$extensions": {
@@ -1340,7 +1340,7 @@
           }
         }
       },
-      "foreground02Hover": {
+      "foreground-02_hover": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -1355,7 +1355,7 @@
           }
         }
       },
-      "foreground03": {
+      "foreground-03": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -1370,7 +1370,7 @@
           }
         }
       },
-      "foreground03Hover": {
+      "foreground-03_hover": {
         "$value": "{colors.base.800}",
         "$type": "color",
         "$extensions": {
@@ -1385,7 +1385,7 @@
           }
         }
       },
-      "foreground04": {
+      "foreground-04": {
         "$value": "{colors.base.600}",
         "$type": "color",
         "$extensions": {
@@ -1400,7 +1400,7 @@
           }
         }
       },
-      "foreground04Hover": {
+      "foreground-04_hover": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -1415,7 +1415,7 @@
           }
         }
       },
-      "foreground05": {
+      "foreground-05": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -1430,7 +1430,7 @@
           }
         }
       },
-      "foreground05Hover": {
+      "foreground-05_hover": {
         "$value": "{colors.base.600}",
         "$type": "color",
         "$extensions": {
@@ -1445,7 +1445,7 @@
           }
         }
       },
-      "foreground06": {
+      "foreground-06": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -1460,7 +1460,7 @@
           }
         }
       },
-      "foreground06Hover": {
+      "foreground-06_hover": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -1475,7 +1475,7 @@
           }
         }
       },
-      "foreground07": {
+      "foreground-07": {
         "$value": "{colors.base.300}",
         "$type": "color",
         "$extensions": {
@@ -1490,7 +1490,7 @@
           }
         }
       },
-      "foreground07Hover": {
+      "foreground-07_hover": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -1507,7 +1507,7 @@
       }
     },
     "modeDarkmode": {
-      "foreground01": {
+      "foreground-01": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -1522,7 +1522,7 @@
           }
         }
       },
-      "foreground02": {
+      "foreground-02": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -1537,7 +1537,7 @@
           }
         }
       },
-      "foreground02Hover": {
+      "foreground-02_hover": {
         "$value": "{colors.base.100}",
         "$type": "color",
         "$extensions": {
@@ -1552,7 +1552,7 @@
           }
         }
       },
-      "foreground03": {
+      "foreground-03": {
         "$value": "{colors.base.300}",
         "$type": "color",
         "$extensions": {
@@ -1567,7 +1567,7 @@
           }
         }
       },
-      "foreground03Hover": {
+      "foreground-03_hover": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -1582,7 +1582,7 @@
           }
         }
       },
-      "foreground04": {
+      "foreground-04": {
         "$value": "{colors.base.300}",
         "$type": "color",
         "$extensions": {
@@ -1597,7 +1597,7 @@
           }
         }
       },
-      "foreground04Hover": {
+      "foreground-04_hover": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -1612,7 +1612,7 @@
           }
         }
       },
-      "foreground05": {
+      "foreground-05": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -1627,7 +1627,7 @@
           }
         }
       },
-      "foreground05Hover": {
+      "foreground-05_hover": {
         "$value": "{colors.base.300}",
         "$type": "color",
         "$extensions": {
@@ -1642,7 +1642,7 @@
           }
         }
       },
-      "foreground06": {
+      "foreground-06": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -1657,7 +1657,7 @@
           }
         }
       },
-      "foreground06Hover": {
+      "foreground-06_hover": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -1672,7 +1672,7 @@
           }
         }
       },
-      "foreground07": {
+      "foreground-07": {
         "$value": "{colors.base.600}",
         "$type": "color",
         "$extensions": {
@@ -1687,7 +1687,7 @@
           }
         }
       },
-      "foreground07Hover": {
+      "foreground-07_hover": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -1704,9 +1704,9 @@
       }
     }
   },
-  "icons": {
+  "Icons": {
     "modeLightmode": {
-      "icon900": {
+      "icon-900": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -1721,7 +1721,7 @@
           }
         }
       },
-      "icon800": {
+      "icon-800": {
         "$value": "{colors.base.800}",
         "$type": "color",
         "$extensions": {
@@ -1736,7 +1736,7 @@
           }
         }
       },
-      "icon700": {
+      "icon-700": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -1751,7 +1751,7 @@
           }
         }
       },
-      "icon600": {
+      "icon-600": {
         "$value": "{colors.base.600}",
         "$type": "color",
         "$extensions": {
@@ -1766,7 +1766,7 @@
           }
         }
       },
-      "icon500": {
+      "icon-500": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -1781,7 +1781,7 @@
           }
         }
       },
-      "icon400": {
+      "icon-400": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -1796,7 +1796,7 @@
           }
         }
       },
-      "icon300": {
+      "icon-300": {
         "$value": "{colors.base.300}",
         "$type": "color",
         "$extensions": {
@@ -1811,7 +1811,7 @@
           }
         }
       },
-      "icon200": {
+      "icon-200": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -1826,7 +1826,7 @@
           }
         }
       },
-      "icon100": {
+      "icon-100": {
         "$value": "{colors.base.100}",
         "$type": "color",
         "$extensions": {
@@ -1841,7 +1841,7 @@
           }
         }
       },
-      "icon50": {
+      "icon-50": {
         "$value": "{colors.base.50}",
         "$type": "color",
         "$extensions": {
@@ -1856,7 +1856,7 @@
           }
         }
       },
-      "icon0": {
+      "icon-0": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -1873,7 +1873,7 @@
       }
     },
     "modeDarkmode": {
-      "icon900": {
+      "icon-900": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -1888,7 +1888,7 @@
           }
         }
       },
-      "icon800": {
+      "icon-800": {
         "$value": "{colors.base.50}",
         "$type": "color",
         "$extensions": {
@@ -1903,7 +1903,7 @@
           }
         }
       },
-      "icon700": {
+      "icon-700": {
         "$value": "{colors.base.100}",
         "$type": "color",
         "$extensions": {
@@ -1918,7 +1918,7 @@
           }
         }
       },
-      "icon600": {
+      "icon-600": {
         "$value": "{colors.base.200}",
         "$type": "color",
         "$extensions": {
@@ -1933,7 +1933,7 @@
           }
         }
       },
-      "icon500": {
+      "icon-500": {
         "$value": "{colors.base.300}",
         "$type": "color",
         "$extensions": {
@@ -1948,7 +1948,7 @@
           }
         }
       },
-      "icon400": {
+      "icon-400": {
         "$value": "{colors.base.400}",
         "$type": "color",
         "$extensions": {
@@ -1963,7 +1963,7 @@
           }
         }
       },
-      "icon300": {
+      "icon-300": {
         "$value": "{colors.base.500}",
         "$type": "color",
         "$extensions": {
@@ -1978,7 +1978,7 @@
           }
         }
       },
-      "icon200": {
+      "icon-200": {
         "$value": "{colors.base.600}",
         "$type": "color",
         "$extensions": {
@@ -1993,7 +1993,7 @@
           }
         }
       },
-      "icon100": {
+      "icon-100": {
         "$value": "{colors.base.700}",
         "$type": "color",
         "$extensions": {
@@ -2008,7 +2008,7 @@
           }
         }
       },
-      "icon50": {
+      "icon-50": {
         "$value": "{colors.base.800}",
         "$type": "color",
         "$extensions": {
@@ -2023,7 +2023,7 @@
           }
         }
       },
-      "icon0": {
+      "icon-0": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -2040,9 +2040,9 @@
       }
     }
   },
-  "effects": {
+  "Effects": {
     "modeLightmode": {
-      "shadowXs": {
+      "shadow-xs": {
         "$value": "#141c250d",
         "$type": "color",
         "$extensions": {
@@ -2057,7 +2057,7 @@
           }
         }
       },
-      "shadowS": {
+      "shadow-s": {
         "$value": "#141c2514",
         "$type": "color",
         "$extensions": {
@@ -2072,7 +2072,7 @@
           }
         }
       },
-      "shadowM": {
+      "shadow-m": {
         "$value": "#141c2514",
         "$type": "color",
         "$extensions": {
@@ -2087,7 +2087,7 @@
           }
         }
       },
-      "shadowL": {
+      "shadow-l": {
         "$value": "#141c2514",
         "$type": "color",
         "$extensions": {
@@ -2102,7 +2102,7 @@
           }
         }
       },
-      "shadowXl": {
+      "shadow-xl": {
         "$value": "#141c251a",
         "$type": "color",
         "$extensions": {
@@ -2117,7 +2117,7 @@
           }
         }
       },
-      "shadowXxl": {
+      "shadow-xxl": {
         "$value": "#141c2540",
         "$type": "color",
         "$extensions": {
@@ -2132,7 +2132,7 @@
           }
         }
       },
-      "shadowTabs": {
+      "shadow-tabs": {
         "$value": "#141c250d",
         "$type": "color",
         "$extensions": {
@@ -2147,7 +2147,7 @@
           }
         }
       },
-      "shadowButton": {
+      "shadow-button": {
         "$value": "#141c250a",
         "$type": "color",
         "$extensions": {
@@ -2162,7 +2162,7 @@
           }
         }
       },
-      "focusedPrimary": {
+      "focused-primary": {
         "$value": "#0166ff80",
         "$type": "color",
         "$extensions": {
@@ -2177,7 +2177,7 @@
           }
         }
       },
-      "focusedInfo": {
+      "focused-info": {
         "$value": "#0ba5ec80",
         "$type": "color",
         "$extensions": {
@@ -2192,7 +2192,7 @@
           }
         }
       },
-      "focusedSuccess": {
+      "focused-success": {
         "$value": "#10b97880",
         "$type": "color",
         "$extensions": {
@@ -2207,7 +2207,7 @@
           }
         }
       },
-      "focusedWarning": {
+      "focused-warning": {
         "$value": "#f59e0b80",
         "$type": "color",
         "$extensions": {
@@ -2222,7 +2222,7 @@
           }
         }
       },
-      "focusedError": {
+      "focused-error": {
         "$value": "#ff4d4d80",
         "$type": "color",
         "$extensions": {
@@ -2237,7 +2237,7 @@
           }
         }
       },
-      "focusedOrange": {
+      "focused-orange": {
         "$value": "#f9731680",
         "$type": "color",
         "$extensions": {
@@ -2252,7 +2252,7 @@
           }
         }
       },
-      "focusedLime": {
+      "focused-lime": {
         "$value": "#84cc1680",
         "$type": "color",
         "$extensions": {
@@ -2267,7 +2267,7 @@
           }
         }
       },
-      "focusedViolet": {
+      "focused-violet": {
         "$value": "#8b5cf680",
         "$type": "color",
         "$extensions": {
@@ -2282,7 +2282,7 @@
           }
         }
       },
-      "focusedPink": {
+      "focused-pink": {
         "$value": "#ec489980",
         "$type": "color",
         "$extensions": {
@@ -2297,7 +2297,7 @@
           }
         }
       },
-      "focusedRose": {
+      "focused-rose": {
         "$value": "#f43f5e80",
         "$type": "color",
         "$extensions": {
@@ -2312,7 +2312,7 @@
           }
         }
       },
-      "whiteAlpha100": {
+      "white-alpha-100": {
         "$value": "#ffffff",
         "$type": "color",
         "$extensions": {
@@ -2327,7 +2327,7 @@
           }
         }
       },
-      "whiteAlpha50": {
+      "white-alpha-50": {
         "$value": "#ffffff80",
         "$type": "color",
         "$extensions": {
@@ -2342,7 +2342,7 @@
           }
         }
       },
-      "whiteAlpha25": {
+      "white-alpha-25": {
         "$value": "#ffffff40",
         "$type": "color",
         "$extensions": {
@@ -2357,7 +2357,7 @@
           }
         }
       },
-      "whiteAlpha0": {
+      "white-alpha-0": {
         "$value": "#ffffff00",
         "$type": "color",
         "$extensions": {
@@ -2374,7 +2374,7 @@
       }
     },
     "modeDarkmode": {
-      "shadowXs": {
+      "shadow-xs": {
         "$value": "#00000026",
         "$type": "color",
         "$extensions": {
@@ -2389,7 +2389,7 @@
           }
         }
       },
-      "shadowS": {
+      "shadow-s": {
         "$value": "#0000001a",
         "$type": "color",
         "$extensions": {
@@ -2404,7 +2404,7 @@
           }
         }
       },
-      "shadowM": {
+      "shadow-m": {
         "$value": "#0000001a",
         "$type": "color",
         "$extensions": {
@@ -2419,7 +2419,7 @@
           }
         }
       },
-      "shadowL": {
+      "shadow-l": {
         "$value": "#0000001a",
         "$type": "color",
         "$extensions": {
@@ -2434,7 +2434,7 @@
           }
         }
       },
-      "shadowXl": {
+      "shadow-xl": {
         "$value": "#0000001f",
         "$type": "color",
         "$extensions": {
@@ -2449,7 +2449,7 @@
           }
         }
       },
-      "shadowXxl": {
+      "shadow-xxl": {
         "$value": "#00000040",
         "$type": "color",
         "$extensions": {
@@ -2464,7 +2464,7 @@
           }
         }
       },
-      "shadowTabs": {
+      "shadow-tabs": {
         "$value": "#00000033",
         "$type": "color",
         "$extensions": {
@@ -2479,7 +2479,7 @@
           }
         }
       },
-      "shadowButton": {
+      "shadow-button": {
         "$value": "#0000001a",
         "$type": "color",
         "$extensions": {
@@ -2494,7 +2494,7 @@
           }
         }
       },
-      "focusedPrimary": {
+      "focused-primary": {
         "$value": "#0166ff80",
         "$type": "color",
         "$extensions": {
@@ -2509,7 +2509,7 @@
           }
         }
       },
-      "focusedInfo": {
+      "focused-info": {
         "$value": "#0ba5ec80",
         "$type": "color",
         "$extensions": {
@@ -2524,7 +2524,7 @@
           }
         }
       },
-      "focusedSuccess": {
+      "focused-success": {
         "$value": "#10b97880",
         "$type": "color",
         "$extensions": {
@@ -2539,7 +2539,7 @@
           }
         }
       },
-      "focusedWarning": {
+      "focused-warning": {
         "$value": "#f59e0b80",
         "$type": "color",
         "$extensions": {
@@ -2554,7 +2554,7 @@
           }
         }
       },
-      "focusedError": {
+      "focused-error": {
         "$value": "#ff4d4d80",
         "$type": "color",
         "$extensions": {
@@ -2569,7 +2569,7 @@
           }
         }
       },
-      "focusedOrange": {
+      "focused-orange": {
         "$value": "#f9731680",
         "$type": "color",
         "$extensions": {
@@ -2584,7 +2584,7 @@
           }
         }
       },
-      "focusedLime": {
+      "focused-lime": {
         "$value": "#84cc1680",
         "$type": "color",
         "$extensions": {
@@ -2599,7 +2599,7 @@
           }
         }
       },
-      "focusedViolet": {
+      "focused-violet": {
         "$value": "#8b5cf680",
         "$type": "color",
         "$extensions": {
@@ -2614,7 +2614,7 @@
           }
         }
       },
-      "focusedPink": {
+      "focused-pink": {
         "$value": "#ec489980",
         "$type": "color",
         "$extensions": {
@@ -2629,7 +2629,7 @@
           }
         }
       },
-      "focusedRose": {
+      "focused-rose": {
         "$value": "#0ba5ec80",
         "$type": "color",
         "$extensions": {
@@ -2644,7 +2644,7 @@
           }
         }
       },
-      "whiteAlpha100": {
+      "white-alpha-100": {
         "$value": "#141c25",
         "$type": "color",
         "$extensions": {
@@ -2659,7 +2659,7 @@
           }
         }
       },
-      "whiteAlpha50": {
+      "white-alpha-50": {
         "$value": "#141c2580",
         "$type": "color",
         "$extensions": {
@@ -2674,7 +2674,7 @@
           }
         }
       },
-      "whiteAlpha25": {
+      "white-alpha-25": {
         "$value": "#141c2540",
         "$type": "color",
         "$extensions": {
@@ -2689,7 +2689,7 @@
           }
         }
       },
-      "whiteAlpha0": {
+      "white-alpha-0": {
         "$value": "#141c2500",
         "$type": "color",
         "$extensions": {
@@ -2706,10 +2706,10 @@
       }
     }
   },
-  "semanticColors": {
+  "SemanticColors": {
     "modeLightmode": {
-      "primary": {
-        "semanticPrimary950": {
+      "Primary": {
+        "semantic-primary-950": {
           "$value": "{colors.primary.950}",
           "$type": "color",
           "$extensions": {
@@ -2724,7 +2724,7 @@
             }
           }
         },
-        "semanticPrimary900": {
+        "semantic-primary-900": {
           "$value": "{colors.primary.900}",
           "$type": "color",
           "$extensions": {
@@ -2739,7 +2739,7 @@
             }
           }
         },
-        "semanticPrimary800": {
+        "semantic-primary-800": {
           "$value": "{colors.primary.800}",
           "$type": "color",
           "$extensions": {
@@ -2754,7 +2754,7 @@
             }
           }
         },
-        "semanticPrimary700": {
+        "semantic-primary-700": {
           "$value": "{colors.primary.700}",
           "$type": "color",
           "$extensions": {
@@ -2769,7 +2769,7 @@
             }
           }
         },
-        "semanticPrimary600": {
+        "semantic-primary-600": {
           "$value": "{colors.primary.600}",
           "$type": "color",
           "$extensions": {
@@ -2784,7 +2784,7 @@
             }
           }
         },
-        "semanticPrimary500": {
+        "semantic-primary-500": {
           "$value": "{colors.primary.500}",
           "$type": "color",
           "$extensions": {
@@ -2799,7 +2799,7 @@
             }
           }
         },
-        "semanticPrimary400": {
+        "semantic-primary-400": {
           "$value": "{colors.primary.400}",
           "$type": "color",
           "$extensions": {
@@ -2814,7 +2814,7 @@
             }
           }
         },
-        "semanticPrimary300": {
+        "semantic-primary-300": {
           "$value": "{colors.primary.300}",
           "$type": "color",
           "$extensions": {
@@ -2829,7 +2829,7 @@
             }
           }
         },
-        "semanticPrimary200": {
+        "semantic-primary-200": {
           "$value": "{colors.primary.200}",
           "$type": "color",
           "$extensions": {
@@ -2844,7 +2844,7 @@
             }
           }
         },
-        "semanticPrimary100": {
+        "semantic-primary-100": {
           "$value": "{colors.primary.100}",
           "$type": "color",
           "$extensions": {
@@ -2859,7 +2859,7 @@
             }
           }
         },
-        "semanticPrimary50": {
+        "semantic-primary-50": {
           "$value": "{colors.primary.50}",
           "$type": "color",
           "$extensions": {
@@ -2875,7 +2875,7 @@
           }
         }
       },
-      "textPrimary": {
+      "text-primary": {
         "$value": "{colors.base.900}",
         "$type": "color",
         "$extensions": {
@@ -2890,8 +2890,8 @@
           }
         }
       },
-      "info": {
-        "semanticInfo950": {
+      "Info": {
+        "semantic-info-950": {
           "$value": "{colors.info.950}",
           "$type": "color",
           "$extensions": {
@@ -2906,7 +2906,7 @@
             }
           }
         },
-        "semanticInfo900": {
+        "semantic-info-900": {
           "$value": "{colors.info.900}",
           "$type": "color",
           "$extensions": {
@@ -2921,7 +2921,7 @@
             }
           }
         },
-        "semanticInfo800": {
+        "semantic-info-800": {
           "$value": "{colors.info.800}",
           "$type": "color",
           "$extensions": {
@@ -2936,7 +2936,7 @@
             }
           }
         },
-        "semanticInfo700": {
+        "semantic-info-700": {
           "$value": "{colors.info.700}",
           "$type": "color",
           "$extensions": {
@@ -2951,7 +2951,7 @@
             }
           }
         },
-        "semanticInfo600": {
+        "semantic-info-600": {
           "$value": "{colors.info.600}",
           "$type": "color",
           "$extensions": {
@@ -2966,7 +2966,7 @@
             }
           }
         },
-        "semanticInfo500": {
+        "semantic-info-500": {
           "$value": "{colors.info.500}",
           "$type": "color",
           "$extensions": {
@@ -2981,7 +2981,7 @@
             }
           }
         },
-        "semanticInfo400": {
+        "semantic-info-400": {
           "$value": "{colors.info.400}",
           "$type": "color",
           "$extensions": {
@@ -2996,7 +2996,7 @@
             }
           }
         },
-        "semanticInfo300": {
+        "semantic-info-300": {
           "$value": "{colors.info.300}",
           "$type": "color",
           "$extensions": {
@@ -3011,7 +3011,7 @@
             }
           }
         },
-        "semanticInfo200": {
+        "semantic-info-200": {
           "$value": "{colors.info.200}",
           "$type": "color",
           "$extensions": {
@@ -3026,7 +3026,7 @@
             }
           }
         },
-        "semanticInfo100": {
+        "semantic-info-100": {
           "$value": "{colors.info.100}",
           "$type": "color",
           "$extensions": {
@@ -3041,7 +3041,7 @@
             }
           }
         },
-        "semanticInfo50": {
+        "semantic-info-50": {
           "$value": "{colors.info.50}",
           "$type": "color",
           "$extensions": {
@@ -3057,8 +3057,8 @@
           }
         }
       },
-      "success": {
-        "semanticSuccess950": {
+      "Success": {
+        "semantic-success-950": {
           "$value": "{colors.success.950}",
           "$type": "color",
           "$extensions": {
@@ -3073,7 +3073,7 @@
             }
           }
         },
-        "semanticSuccess900": {
+        "semantic-success-900": {
           "$value": "{colors.success.900}",
           "$type": "color",
           "$extensions": {
@@ -3088,7 +3088,7 @@
             }
           }
         },
-        "semanticSuccess800": {
+        "semantic-success-800": {
           "$value": "{colors.success.800}",
           "$type": "color",
           "$extensions": {
@@ -3103,7 +3103,7 @@
             }
           }
         },
-        "semanticSuccess700": {
+        "semantic-success-700": {
           "$value": "{colors.success.700}",
           "$type": "color",
           "$extensions": {
@@ -3118,7 +3118,7 @@
             }
           }
         },
-        "semanticSuccess600": {
+        "semantic-success-600": {
           "$value": "{colors.success.600}",
           "$type": "color",
           "$extensions": {
@@ -3133,7 +3133,7 @@
             }
           }
         },
-        "semanticSuccess500": {
+        "semantic-success-500": {
           "$value": "{colors.success.500}",
           "$type": "color",
           "$extensions": {
@@ -3148,7 +3148,7 @@
             }
           }
         },
-        "semanticSuccess400": {
+        "semantic-success-400": {
           "$value": "{colors.success.400}",
           "$type": "color",
           "$extensions": {
@@ -3163,7 +3163,7 @@
             }
           }
         },
-        "semanticSuccess300": {
+        "semantic-success-300": {
           "$value": "{colors.success.300}",
           "$type": "color",
           "$extensions": {
@@ -3178,7 +3178,7 @@
             }
           }
         },
-        "semanticSuccess200": {
+        "semantic-success-200": {
           "$value": "{colors.success.200}",
           "$type": "color",
           "$extensions": {
@@ -3193,7 +3193,7 @@
             }
           }
         },
-        "semanticSuccess100": {
+        "semantic-success-100": {
           "$value": "{colors.success.100}",
           "$type": "color",
           "$extensions": {
@@ -3208,7 +3208,7 @@
             }
           }
         },
-        "semanticSuccess50": {
+        "semantic-success-50": {
           "$value": "{colors.success.50}",
           "$type": "color",
           "$extensions": {
@@ -3224,8 +3224,8 @@
           }
         }
       },
-      "warning": {
-        "semanticWarning950": {
+      "Warning": {
+        "semantic-warning-950": {
           "$value": "{colors.warning.950}",
           "$type": "color",
           "$extensions": {
@@ -3240,7 +3240,7 @@
             }
           }
         },
-        "semanticWarning900": {
+        "semantic-warning-900": {
           "$value": "{colors.warning.900}",
           "$type": "color",
           "$extensions": {
@@ -3255,7 +3255,7 @@
             }
           }
         },
-        "semanticWarning800": {
+        "semantic-warning-800": {
           "$value": "{colors.warning.800}",
           "$type": "color",
           "$extensions": {
@@ -3270,7 +3270,7 @@
             }
           }
         },
-        "semanticWarning700": {
+        "semantic-warning-700": {
           "$value": "{colors.warning.700}",
           "$type": "color",
           "$extensions": {
@@ -3285,7 +3285,7 @@
             }
           }
         },
-        "semanticWarning600": {
+        "semantic-warning-600": {
           "$value": "{colors.warning.600}",
           "$type": "color",
           "$extensions": {
@@ -3300,7 +3300,7 @@
             }
           }
         },
-        "semanticWarning500": {
+        "semantic-warning-500": {
           "$value": "{colors.warning.500}",
           "$type": "color",
           "$extensions": {
@@ -3315,7 +3315,7 @@
             }
           }
         },
-        "semanticWarning400": {
+        "semantic-warning-400": {
           "$value": "{colors.warning.400}",
           "$type": "color",
           "$extensions": {
@@ -3330,7 +3330,7 @@
             }
           }
         },
-        "semanticWarning300": {
+        "semantic-warning-300": {
           "$value": "{colors.warning.300}",
           "$type": "color",
           "$extensions": {
@@ -3345,7 +3345,7 @@
             }
           }
         },
-        "semanticWarning200": {
+        "semantic-warning-200": {
           "$value": "{colors.warning.200}",
           "$type": "color",
           "$extensions": {
@@ -3360,7 +3360,7 @@
             }
           }
         },
-        "semanticWarning100": {
+        "semantic-warning-100": {
           "$value": "{colors.warning.100}",
           "$type": "color",
           "$extensions": {
@@ -3375,7 +3375,7 @@
             }
           }
         },
-        "semanticWarning50": {
+        "semantic-warning-50": {
           "$value": "{colors.warning.50}",
           "$type": "color",
           "$extensions": {
@@ -3391,8 +3391,8 @@
           }
         }
       },
-      "error": {
-        "semanticError950": {
+      "Error": {
+        "semantic-error-950": {
           "$value": "{colors.error.950}",
           "$type": "color",
           "$extensions": {
@@ -3407,7 +3407,7 @@
             }
           }
         },
-        "semanticError900": {
+        "semantic-error-900": {
           "$value": "{colors.error.900}",
           "$type": "color",
           "$extensions": {
@@ -3422,7 +3422,7 @@
             }
           }
         },
-        "semanticError800": {
+        "semantic-error-800": {
           "$value": "{colors.error.800}",
           "$type": "color",
           "$extensions": {
@@ -3437,7 +3437,7 @@
             }
           }
         },
-        "semanticError700": {
+        "semantic-error-700": {
           "$value": "{colors.error.700}",
           "$type": "color",
           "$extensions": {
@@ -3452,7 +3452,7 @@
             }
           }
         },
-        "semanticError600": {
+        "semantic-error-600": {
           "$value": "{colors.error.600}",
           "$type": "color",
           "$extensions": {
@@ -3467,7 +3467,7 @@
             }
           }
         },
-        "semanticError500": {
+        "semantic-error-500": {
           "$value": "{colors.error.500}",
           "$type": "color",
           "$extensions": {
@@ -3482,7 +3482,7 @@
             }
           }
         },
-        "semanticError400": {
+        "semantic-error-400": {
           "$value": "{colors.error.400}",
           "$type": "color",
           "$extensions": {
@@ -3497,7 +3497,7 @@
             }
           }
         },
-        "semanticError300": {
+        "semantic-error-300": {
           "$value": "{colors.error.300}",
           "$type": "color",
           "$extensions": {
@@ -3512,7 +3512,7 @@
             }
           }
         },
-        "semanticError200": {
+        "semantic-error-200": {
           "$value": "{colors.error.200}",
           "$type": "color",
           "$extensions": {
@@ -3527,7 +3527,7 @@
             }
           }
         },
-        "semanticError100": {
+        "semantic-error-100": {
           "$value": "{colors.error.100}",
           "$type": "color",
           "$extensions": {
@@ -3542,7 +3542,7 @@
             }
           }
         },
-        "semanticError50": {
+        "semantic-error-50": {
           "$value": "{colors.error.50}",
           "$type": "color",
           "$extensions": {
@@ -3558,8 +3558,8 @@
           }
         }
       },
-      "violet": {
-        "semanticViolet950": {
+      "Violet": {
+        "semantic-violet-950": {
           "$value": "{colors.violet.950}",
           "$type": "color",
           "$extensions": {
@@ -3574,7 +3574,7 @@
             }
           }
         },
-        "semanticViolet900": {
+        "semantic-violet-900": {
           "$value": "{colors.violet.900}",
           "$type": "color",
           "$extensions": {
@@ -3589,7 +3589,7 @@
             }
           }
         },
-        "semanticViolet800": {
+        "semantic-violet-800": {
           "$value": "{colors.violet.800}",
           "$type": "color",
           "$extensions": {
@@ -3604,7 +3604,7 @@
             }
           }
         },
-        "semanticViolet700": {
+        "semantic-violet-700": {
           "$value": "{colors.violet.700}",
           "$type": "color",
           "$extensions": {
@@ -3619,7 +3619,7 @@
             }
           }
         },
-        "semanticViolet600": {
+        "semantic-violet-600": {
           "$value": "{colors.violet.600}",
           "$type": "color",
           "$extensions": {
@@ -3634,7 +3634,7 @@
             }
           }
         },
-        "semanticViolet500": {
+        "semantic-violet-500": {
           "$value": "{colors.violet.500}",
           "$type": "color",
           "$extensions": {
@@ -3649,7 +3649,7 @@
             }
           }
         },
-        "semanticViolet400": {
+        "semantic-violet-400": {
           "$value": "{colors.violet.400}",
           "$type": "color",
           "$extensions": {
@@ -3664,7 +3664,7 @@
             }
           }
         },
-        "semanticViolet300": {
+        "semantic-violet-300": {
           "$value": "{colors.violet.300}",
           "$type": "color",
           "$extensions": {
@@ -3679,7 +3679,7 @@
             }
           }
         },
-        "semanticViolet200": {
+        "semantic-violet-200": {
           "$value": "{colors.violet.200}",
           "$type": "color",
           "$extensions": {
@@ -3694,7 +3694,7 @@
             }
           }
         },
-        "semanticViolet100": {
+        "semantic-violet-100": {
           "$value": "{colors.violet.100}",
           "$type": "color",
           "$extensions": {
@@ -3709,7 +3709,7 @@
             }
           }
         },
-        "semanticViolet50": {
+        "semantic-violet-50": {
           "$value": "{colors.violet.50}",
           "$type": "color",
           "$extensions": {
@@ -3725,8 +3725,8 @@
           }
         }
       },
-      "orange": {
-        "semanticOrange950": {
+      "Orange": {
+        "semantic-orange-950": {
           "$value": "{colors.orange.950}",
           "$type": "color",
           "$extensions": {
@@ -3741,7 +3741,7 @@
             }
           }
         },
-        "semanticOrange900": {
+        "semantic-orange-900": {
           "$value": "{colors.orange.900}",
           "$type": "color",
           "$extensions": {
@@ -3756,7 +3756,7 @@
             }
           }
         },
-        "semanticOrange800": {
+        "semantic-orange-800": {
           "$value": "{colors.orange.800}",
           "$type": "color",
           "$extensions": {
@@ -3771,7 +3771,7 @@
             }
           }
         },
-        "semanticOrange700": {
+        "semantic-orange-700": {
           "$value": "{colors.orange.700}",
           "$type": "color",
           "$extensions": {
@@ -3786,7 +3786,7 @@
             }
           }
         },
-        "semanticOrange600": {
+        "semantic-orange-600": {
           "$value": "{colors.orange.600}",
           "$type": "color",
           "$extensions": {
@@ -3801,7 +3801,7 @@
             }
           }
         },
-        "semanticOrange500": {
+        "semantic-orange-500": {
           "$value": "{colors.orange.500}",
           "$type": "color",
           "$extensions": {
@@ -3816,7 +3816,7 @@
             }
           }
         },
-        "semanticOrange400": {
+        "semantic-orange-400": {
           "$value": "{colors.orange.400}",
           "$type": "color",
           "$extensions": {
@@ -3831,7 +3831,7 @@
             }
           }
         },
-        "semanticOrange300": {
+        "semantic-orange-300": {
           "$value": "{colors.orange.300}",
           "$type": "color",
           "$extensions": {
@@ -3846,7 +3846,7 @@
             }
           }
         },
-        "semanticOrange200": {
+        "semantic-orange-200": {
           "$value": "{colors.orange.200}",
           "$type": "color",
           "$extensions": {
@@ -3861,7 +3861,7 @@
             }
           }
         },
-        "semanticOrange100": {
+        "semantic-orange-100": {
           "$value": "{colors.orange.100}",
           "$type": "color",
           "$extensions": {
@@ -3876,7 +3876,7 @@
             }
           }
         },
-        "semanticOrange50": {
+        "semantic-orange-50": {
           "$value": "{colors.orange.100}",
           "$type": "color",
           "$extensions": {
@@ -3892,8 +3892,8 @@
           }
         }
       },
-      "amber": {
-        "semanticAmber950": {
+      "Amber": {
+        "semantic-amber-950": {
           "$value": "{colors.amber.950}",
           "$type": "color",
           "$extensions": {
@@ -3908,7 +3908,7 @@
             }
           }
         },
-        "semanticAmber900": {
+        "semantic-amber-900": {
           "$value": "{colors.amber.900}",
           "$type": "color",
           "$extensions": {
@@ -3923,7 +3923,7 @@
             }
           }
         },
-        "semanticAmber800": {
+        "semantic-amber-800": {
           "$value": "{colors.amber.800}",
           "$type": "color",
           "$extensions": {
@@ -3938,7 +3938,7 @@
             }
           }
         },
-        "semanticAmber700": {
+        "semantic-amber-700": {
           "$value": "{colors.amber.700}",
           "$type": "color",
           "$extensions": {
@@ -3953,7 +3953,7 @@
             }
           }
         },
-        "semanticAmber600": {
+        "semantic-amber-600": {
           "$value": "{colors.amber.600}",
           "$type": "color",
           "$extensions": {
@@ -3968,7 +3968,7 @@
             }
           }
         },
-        "semanticAmber500": {
+        "semantic-amber-500": {
           "$value": "{colors.amber.500}",
           "$type": "color",
           "$extensions": {
@@ -3983,7 +3983,7 @@
             }
           }
         },
-        "semanticAmber400": {
+        "semantic-amber-400": {
           "$value": "{colors.amber.400}",
           "$type": "color",
           "$extensions": {
@@ -3998,7 +3998,7 @@
             }
           }
         },
-        "semanticAmber300": {
+        "semantic-amber-300": {
           "$value": "{colors.amber.300}",
           "$type": "color",
           "$extensions": {
@@ -4013,7 +4013,7 @@
             }
           }
         },
-        "semanticAmber200": {
+        "semantic-amber-200": {
           "$value": "{colors.amber.200}",
           "$type": "color",
           "$extensions": {
@@ -4028,7 +4028,7 @@
             }
           }
         },
-        "semanticAmber100": {
+        "semantic-amber-100": {
           "$value": "{colors.amber.100}",
           "$type": "color",
           "$extensions": {
@@ -4043,7 +4043,7 @@
             }
           }
         },
-        "semanticAmber50": {
+        "semantic-amber-50": {
           "$value": "{colors.amber.50}",
           "$type": "color",
           "$extensions": {
@@ -4059,8 +4059,8 @@
           }
         }
       },
-      "yellow": {
-        "semanticYellow950": {
+      "Yellow": {
+        "semantic-yellow-950": {
           "$value": "{colors.yellow.950}",
           "$type": "color",
           "$extensions": {
@@ -4075,7 +4075,7 @@
             }
           }
         },
-        "semanticYellow900": {
+        "semantic-yellow-900": {
           "$value": "{colors.yellow.900}",
           "$type": "color",
           "$extensions": {
@@ -4090,7 +4090,7 @@
             }
           }
         },
-        "semanticYellow800": {
+        "semantic-yellow-800": {
           "$value": "{colors.yellow.800}",
           "$type": "color",
           "$extensions": {
@@ -4105,7 +4105,7 @@
             }
           }
         },
-        "semanticYellow700": {
+        "semantic-yellow-700": {
           "$value": "{colors.yellow.700}",
           "$type": "color",
           "$extensions": {
@@ -4120,7 +4120,7 @@
             }
           }
         },
-        "semanticYellow600": {
+        "semantic-yellow-600": {
           "$value": "{colors.yellow.600}",
           "$type": "color",
           "$extensions": {
@@ -4135,7 +4135,7 @@
             }
           }
         },
-        "semanticYellow500": {
+        "semantic-yellow-500": {
           "$value": "{colors.yellow.500}",
           "$type": "color",
           "$extensions": {
@@ -4150,7 +4150,7 @@
             }
           }
         },
-        "semanticYellow400": {
+        "semantic-yellow-400": {
           "$value": "{colors.yellow.400}",
           "$type": "color",
           "$extensions": {
@@ -4165,7 +4165,7 @@
             }
           }
         },
-        "semanticYellow300": {
+        "semantic-yellow-300": {
           "$value": "{colors.yellow.300}",
           "$type": "color",
           "$extensions": {
@@ -4180,7 +4180,7 @@
             }
           }
         },
-        "semanticYellow200": {
+        "semantic-yellow-200": {
           "$value": "{colors.yellow.200}",
           "$type": "color",
           "$extensions": {
@@ -4195,7 +4195,7 @@
             }
           }
         },
-        "semanticYellow100": {
+        "semantic-yellow-100": {
           "$value": "{colors.yellow.100}",
           "$type": "color",
           "$extensions": {
@@ -4210,7 +4210,7 @@
             }
           }
         },
-        "semanticYellow50": {
+        "semantic-yellow-50": {
           "$value": "{colors.yellow.50}",
           "$type": "color",
           "$extensions": {
@@ -4226,8 +4226,8 @@
           }
         }
       },
-      "lime": {
-        "semanticLime950": {
+      "Lime": {
+        "semantic-lime-950": {
           "$value": "{colors.lime.950}",
           "$type": "color",
           "$extensions": {
@@ -4242,7 +4242,7 @@
             }
           }
         },
-        "semanticLime900": {
+        "semantic-lime-900": {
           "$value": "{colors.lime.900}",
           "$type": "color",
           "$extensions": {
@@ -4257,7 +4257,7 @@
             }
           }
         },
-        "semanticLime800": {
+        "semantic-lime-800": {
           "$value": "{colors.lime.800}",
           "$type": "color",
           "$extensions": {
@@ -4272,7 +4272,7 @@
             }
           }
         },
-        "semanticLime700": {
+        "semantic-lime-700": {
           "$value": "{colors.lime.700}",
           "$type": "color",
           "$extensions": {
@@ -4287,7 +4287,7 @@
             }
           }
         },
-        "semanticLime600": {
+        "semantic-lime-600": {
           "$value": "{colors.lime.600}",
           "$type": "color",
           "$extensions": {
@@ -4302,7 +4302,7 @@
             }
           }
         },
-        "semanticLime500": {
+        "semantic-lime-500": {
           "$value": "{colors.lime.500}",
           "$type": "color",
           "$extensions": {
@@ -4317,7 +4317,7 @@
             }
           }
         },
-        "semanticLime400": {
+        "semantic-lime-400": {
           "$value": "{colors.lime.400}",
           "$type": "color",
           "$extensions": {
@@ -4332,7 +4332,7 @@
             }
           }
         },
-        "semanticLime300": {
+        "semantic-lime-300": {
           "$value": "{colors.lime.300}",
           "$type": "color",
           "$extensions": {
@@ -4347,7 +4347,7 @@
             }
           }
         },
-        "semanticLime200": {
+        "semantic-lime-200": {
           "$value": "{colors.lime.200}",
           "$type": "color",
           "$extensions": {
@@ -4362,7 +4362,7 @@
             }
           }
         },
-        "semanticLime100": {
+        "semantic-lime-100": {
           "$value": "{colors.lime.100}",
           "$type": "color",
           "$extensions": {
@@ -4377,7 +4377,7 @@
             }
           }
         },
-        "semanticLime50": {
+        "semantic-lime-50": {
           "$value": "{colors.lime.50}",
           "$type": "color",
           "$extensions": {
@@ -4393,8 +4393,8 @@
           }
         }
       },
-      "green": {
-        "semanticGreen950": {
+      "Green": {
+        "semantic-green-950": {
           "$value": "{colors.green.950}",
           "$type": "color",
           "$extensions": {
@@ -4409,7 +4409,7 @@
             }
           }
         },
-        "semanticGreen900": {
+        "semantic-green-900": {
           "$value": "{colors.green.900}",
           "$type": "color",
           "$extensions": {
@@ -4424,7 +4424,7 @@
             }
           }
         },
-        "semanticGreen800": {
+        "semantic-green-800": {
           "$value": "{colors.green.800}",
           "$type": "color",
           "$extensions": {
@@ -4439,7 +4439,7 @@
             }
           }
         },
-        "semanticGreen700": {
+        "semantic-green-700": {
           "$value": "{colors.green.700}",
           "$type": "color",
           "$extensions": {
@@ -4454,7 +4454,7 @@
             }
           }
         },
-        "semanticGreen600": {
+        "semantic-green-600": {
           "$value": "{colors.green.600}",
           "$type": "color",
           "$extensions": {
@@ -4469,7 +4469,7 @@
             }
           }
         },
-        "semanticGreen500": {
+        "semantic-green-500": {
           "$value": "{colors.green.500}",
           "$type": "color",
           "$extensions": {
@@ -4484,7 +4484,7 @@
             }
           }
         },
-        "semanticGreen400": {
+        "semantic-green-400": {
           "$value": "{colors.green.400}",
           "$type": "color",
           "$extensions": {
@@ -4499,7 +4499,7 @@
             }
           }
         },
-        "semanticGreen300": {
+        "semantic-green-300": {
           "$value": "{colors.green.300}",
           "$type": "color",
           "$extensions": {
@@ -4514,7 +4514,7 @@
             }
           }
         },
-        "semanticGreen200": {
+        "semantic-green-200": {
           "$value": "{colors.green.200}",
           "$type": "color",
           "$extensions": {
@@ -4529,7 +4529,7 @@
             }
           }
         },
-        "semanticGreen100": {
+        "semantic-green-100": {
           "$value": "{colors.green.100}",
           "$type": "color",
           "$extensions": {
@@ -4544,7 +4544,7 @@
             }
           }
         },
-        "semanticGreen50": {
+        "semantic-green-50": {
           "$value": "{colors.green.50}",
           "$type": "color",
           "$extensions": {
@@ -4560,8 +4560,8 @@
           }
         }
       },
-      "emerald": {
-        "semanticEmerald950": {
+      "Emerald": {
+        "semantic-emerald-950": {
           "$value": "{colors.emerald.950}",
           "$type": "color",
           "$extensions": {
@@ -4576,7 +4576,7 @@
             }
           }
         },
-        "semanticEmerald900": {
+        "semantic-emerald-900": {
           "$value": "{colors.emerald.900}",
           "$type": "color",
           "$extensions": {
@@ -4591,7 +4591,7 @@
             }
           }
         },
-        "semanticEmerald800": {
+        "semantic-emerald-800": {
           "$value": "{colors.emerald.800}",
           "$type": "color",
           "$extensions": {
@@ -4606,7 +4606,7 @@
             }
           }
         },
-        "semanticEmerald700": {
+        "semantic-emerald-700": {
           "$value": "{colors.emerald.700}",
           "$type": "color",
           "$extensions": {
@@ -4621,7 +4621,7 @@
             }
           }
         },
-        "semanticEmerald600": {
+        "semantic-emerald-600": {
           "$value": "{colors.emerald.600}",
           "$type": "color",
           "$extensions": {
@@ -4636,7 +4636,7 @@
             }
           }
         },
-        "semanticEmerald500": {
+        "semantic-emerald-500": {
           "$value": "{colors.emerald.500}",
           "$type": "color",
           "$extensions": {
@@ -4651,7 +4651,7 @@
             }
           }
         },
-        "semanticEmerald400": {
+        "semantic-emerald-400": {
           "$value": "{colors.emerald.400}",
           "$type": "color",
           "$extensions": {
@@ -4666,7 +4666,7 @@
             }
           }
         },
-        "semanticEmerald300": {
+        "semantic-emerald-300": {
           "$value": "{colors.emerald.300}",
           "$type": "color",
           "$extensions": {
@@ -4681,7 +4681,7 @@
             }
           }
         },
-        "semanticEmerald200": {
+        "semantic-emerald-200": {
           "$value": "{colors.emerald.200}",
           "$type": "color",
           "$extensions": {
@@ -4696,7 +4696,7 @@
             }
           }
         },
-        "semanticEmerald100": {
+        "semantic-emerald-100": {
           "$value": "{colors.emerald.100}",
           "$type": "color",
           "$extensions": {
@@ -4711,7 +4711,7 @@
             }
           }
         },
-        "semanticEmerald50": {
+        "semantic-emerald-50": {
           "$value": "{colors.emerald.50}",
           "$type": "color",
           "$extensions": {
@@ -4727,8 +4727,8 @@
           }
         }
       },
-      "teal": {
-        "semanticTeal950": {
+      "Teal": {
+        "semantic-teal-950": {
           "$value": "{colors.teal.950}",
           "$type": "color",
           "$extensions": {
@@ -4743,7 +4743,7 @@
             }
           }
         },
-        "semanticTeal900": {
+        "semantic-teal-900": {
           "$value": "{colors.teal.900}",
           "$type": "color",
           "$extensions": {
@@ -4758,7 +4758,7 @@
             }
           }
         },
-        "semanticTeal800": {
+        "semantic-teal-800": {
           "$value": "{colors.teal.800}",
           "$type": "color",
           "$extensions": {
@@ -4773,7 +4773,7 @@
             }
           }
         },
-        "semanticTeal700": {
+        "semantic-teal-700": {
           "$value": "{colors.teal.700}",
           "$type": "color",
           "$extensions": {
@@ -4788,7 +4788,7 @@
             }
           }
         },
-        "semanticTeal600": {
+        "semantic-teal-600": {
           "$value": "{colors.teal.600}",
           "$type": "color",
           "$extensions": {
@@ -4803,7 +4803,7 @@
             }
           }
         },
-        "semanticTeal500": {
+        "semantic-teal-500": {
           "$value": "{colors.teal.500}",
           "$type": "color",
           "$extensions": {
@@ -4818,7 +4818,7 @@
             }
           }
         },
-        "semanticTeal400": {
+        "semantic-teal-400": {
           "$value": "{colors.teal.400}",
           "$type": "color",
           "$extensions": {
@@ -4833,7 +4833,7 @@
             }
           }
         },
-        "semanticTeal300": {
+        "semantic-teal-300": {
           "$value": "{colors.teal.300}",
           "$type": "color",
           "$extensions": {
@@ -4848,7 +4848,7 @@
             }
           }
         },
-        "semanticTeal200": {
+        "semantic-teal-200": {
           "$value": "{colors.teal.200}",
           "$type": "color",
           "$extensions": {
@@ -4863,7 +4863,7 @@
             }
           }
         },
-        "semanticTeal100": {
+        "semantic-teal-100": {
           "$value": "{colors.teal.100}",
           "$type": "color",
           "$extensions": {
@@ -4878,7 +4878,7 @@
             }
           }
         },
-        "semanticTeal50": {
+        "semantic-teal-50": {
           "$value": "{colors.teal.50}",
           "$type": "color",
           "$extensions": {
@@ -4894,8 +4894,8 @@
           }
         }
       },
-      "cyan": {
-        "semanticCyan950": {
+      "Cyan": {
+        "semantic-cyan-950": {
           "$value": "{colors.cyan.950}",
           "$type": "color",
           "$extensions": {
@@ -4910,7 +4910,7 @@
             }
           }
         },
-        "semanticCyan900": {
+        "semantic-cyan-900": {
           "$value": "{colors.cyan.900}",
           "$type": "color",
           "$extensions": {
@@ -4925,7 +4925,7 @@
             }
           }
         },
-        "semanticCyan800": {
+        "semantic-cyan-800": {
           "$value": "{colors.cyan.800}",
           "$type": "color",
           "$extensions": {
@@ -4940,7 +4940,7 @@
             }
           }
         },
-        "semanticCyan700": {
+        "semantic-cyan-700": {
           "$value": "{colors.cyan.700}",
           "$type": "color",
           "$extensions": {
@@ -4955,7 +4955,7 @@
             }
           }
         },
-        "semanticCyan600": {
+        "semantic-cyan-600": {
           "$value": "{colors.cyan.600}",
           "$type": "color",
           "$extensions": {
@@ -4970,7 +4970,7 @@
             }
           }
         },
-        "semanticCyan500": {
+        "semantic-cyan-500": {
           "$value": "{colors.cyan.500}",
           "$type": "color",
           "$extensions": {
@@ -4985,7 +4985,7 @@
             }
           }
         },
-        "semanticCyan400": {
+        "semantic-cyan-400": {
           "$value": "{colors.cyan.400}",
           "$type": "color",
           "$extensions": {
@@ -5000,7 +5000,7 @@
             }
           }
         },
-        "semanticCyan300": {
+        "semantic-cyan-300": {
           "$value": "{colors.cyan.300}",
           "$type": "color",
           "$extensions": {
@@ -5015,7 +5015,7 @@
             }
           }
         },
-        "semanticCyan200": {
+        "semantic-cyan-200": {
           "$value": "{colors.cyan.200}",
           "$type": "color",
           "$extensions": {
@@ -5030,7 +5030,7 @@
             }
           }
         },
-        "semanticCyan100": {
+        "semantic-cyan-100": {
           "$value": "{colors.cyan.100}",
           "$type": "color",
           "$extensions": {
@@ -5045,7 +5045,7 @@
             }
           }
         },
-        "semanticCyan50": {
+        "semantic-cyan-50": {
           "$value": "{colors.cyan.50}",
           "$type": "color",
           "$extensions": {
@@ -5061,8 +5061,8 @@
           }
         }
       },
-      "sky": {
-        "semanticSky950": {
+      "Sky": {
+        "semantic-sky-950": {
           "$value": "{colors.sky.950}",
           "$type": "color",
           "$extensions": {
@@ -5077,7 +5077,7 @@
             }
           }
         },
-        "semanticSky900": {
+        "semantic-sky-900": {
           "$value": "{colors.sky.900}",
           "$type": "color",
           "$extensions": {
@@ -5092,7 +5092,7 @@
             }
           }
         },
-        "semanticSky800": {
+        "semantic-sky-800": {
           "$value": "{colors.sky.800}",
           "$type": "color",
           "$extensions": {
@@ -5107,7 +5107,7 @@
             }
           }
         },
-        "semanticSky700": {
+        "semantic-sky-700": {
           "$value": "{colors.sky.700}",
           "$type": "color",
           "$extensions": {
@@ -5122,7 +5122,7 @@
             }
           }
         },
-        "semanticSky600": {
+        "semantic-sky-600": {
           "$value": "{colors.sky.600}",
           "$type": "color",
           "$extensions": {
@@ -5137,7 +5137,7 @@
             }
           }
         },
-        "semanticSky500": {
+        "semantic-sky-500": {
           "$value": "{colors.sky.500}",
           "$type": "color",
           "$extensions": {
@@ -5152,7 +5152,7 @@
             }
           }
         },
-        "semanticSky400": {
+        "semantic-sky-400": {
           "$value": "{colors.sky.400}",
           "$type": "color",
           "$extensions": {
@@ -5167,7 +5167,7 @@
             }
           }
         },
-        "semanticSky300": {
+        "semantic-sky-300": {
           "$value": "{colors.sky.300}",
           "$type": "color",
           "$extensions": {
@@ -5182,7 +5182,7 @@
             }
           }
         },
-        "semanticSky200": {
+        "semantic-sky-200": {
           "$value": "{colors.sky.200}",
           "$type": "color",
           "$extensions": {
@@ -5197,7 +5197,7 @@
             }
           }
         },
-        "semanticSky100": {
+        "semantic-sky-100": {
           "$value": "{colors.sky.100}",
           "$type": "color",
           "$extensions": {
@@ -5212,7 +5212,7 @@
             }
           }
         },
-        "semanticSky50": {
+        "semantic-sky-50": {
           "$value": "{colors.sky.50}",
           "$type": "color",
           "$extensions": {
@@ -5228,8 +5228,8 @@
           }
         }
       },
-      "blue": {
-        "semanticBlue950": {
+      "Blue": {
+        "semantic-blue-950": {
           "$value": "{colors.blue.950}",
           "$type": "color",
           "$extensions": {
@@ -5244,7 +5244,7 @@
             }
           }
         },
-        "semanticBlue900": {
+        "semantic-blue-900": {
           "$value": "{colors.blue.900}",
           "$type": "color",
           "$extensions": {
@@ -5259,7 +5259,7 @@
             }
           }
         },
-        "semanticBlue800": {
+        "semantic-blue-800": {
           "$value": "{colors.blue.800}",
           "$type": "color",
           "$extensions": {
@@ -5274,7 +5274,7 @@
             }
           }
         },
-        "semanticBlue700": {
+        "semantic-blue-700": {
           "$value": "{colors.blue.700}",
           "$type": "color",
           "$extensions": {
@@ -5289,7 +5289,7 @@
             }
           }
         },
-        "semanticBlue600": {
+        "semantic-blue-600": {
           "$value": "{colors.blue.600}",
           "$type": "color",
           "$extensions": {
@@ -5304,7 +5304,7 @@
             }
           }
         },
-        "semanticBlue500": {
+        "semantic-blue-500": {
           "$value": "{colors.blue.500}",
           "$type": "color",
           "$extensions": {
@@ -5319,7 +5319,7 @@
             }
           }
         },
-        "semanticBlue400": {
+        "semantic-blue-400": {
           "$value": "{colors.blue.400}",
           "$type": "color",
           "$extensions": {
@@ -5334,7 +5334,7 @@
             }
           }
         },
-        "semanticBlue300": {
+        "semantic-blue-300": {
           "$value": "{colors.blue.300}",
           "$type": "color",
           "$extensions": {
@@ -5349,7 +5349,7 @@
             }
           }
         },
-        "semanticBlue200": {
+        "semantic-blue-200": {
           "$value": "{colors.blue.200}",
           "$type": "color",
           "$extensions": {
@@ -5364,7 +5364,7 @@
             }
           }
         },
-        "semanticBlue100": {
+        "semantic-blue-100": {
           "$value": "{colors.blue.100}",
           "$type": "color",
           "$extensions": {
@@ -5379,7 +5379,7 @@
             }
           }
         },
-        "semanticBlue50": {
+        "semantic-blue-50": {
           "$value": "{colors.blue.50}",
           "$type": "color",
           "$extensions": {
@@ -5395,8 +5395,8 @@
           }
         }
       },
-      "indigo": {
-        "semanticIndigo950": {
+      "Indigo": {
+        "semantic-indigo-950": {
           "$value": "{colors.indigo.950}",
           "$type": "color",
           "$extensions": {
@@ -5411,7 +5411,7 @@
             }
           }
         },
-        "semanticIndigo900": {
+        "semantic-indigo-900": {
           "$value": "{colors.indigo.900}",
           "$type": "color",
           "$extensions": {
@@ -5426,7 +5426,7 @@
             }
           }
         },
-        "semanticIndigo800": {
+        "semantic-indigo-800": {
           "$value": "{colors.indigo.800}",
           "$type": "color",
           "$extensions": {
@@ -5441,7 +5441,7 @@
             }
           }
         },
-        "semanticIndigo700": {
+        "semantic-indigo-700": {
           "$value": "{colors.indigo.700}",
           "$type": "color",
           "$extensions": {
@@ -5456,7 +5456,7 @@
             }
           }
         },
-        "semanticIndigo600": {
+        "semantic-indigo-600": {
           "$value": "{colors.indigo.600}",
           "$type": "color",
           "$extensions": {
@@ -5471,7 +5471,7 @@
             }
           }
         },
-        "semanticIndigo500": {
+        "semantic-indigo-500": {
           "$value": "{colors.indigo.500}",
           "$type": "color",
           "$extensions": {
@@ -5486,7 +5486,7 @@
             }
           }
         },
-        "semanticIndigo400": {
+        "semantic-indigo-400": {
           "$value": "{colors.indigo.400}",
           "$type": "color",
           "$extensions": {
@@ -5501,7 +5501,7 @@
             }
           }
         },
-        "semanticIndigo300": {
+        "semantic-indigo-300": {
           "$value": "{colors.indigo.300}",
           "$type": "color",
           "$extensions": {
@@ -5516,7 +5516,7 @@
             }
           }
         },
-        "semanticIndigo200": {
+        "semantic-indigo-200": {
           "$value": "{colors.indigo.200}",
           "$type": "color",
           "$extensions": {
@@ -5531,7 +5531,7 @@
             }
           }
         },
-        "semanticIndigo100": {
+        "semantic-indigo-100": {
           "$value": "{colors.indigo.100}",
           "$type": "color",
           "$extensions": {
@@ -5546,7 +5546,7 @@
             }
           }
         },
-        "semanticIndigo50": {
+        "semantic-indigo-50": {
           "$value": "{colors.indigo.50}",
           "$type": "color",
           "$extensions": {
@@ -5562,8 +5562,8 @@
           }
         }
       },
-      "purple": {
-        "semanticPurple950": {
+      "Purple": {
+        "semantic-purple-950": {
           "$value": "{colors.purple.950}",
           "$type": "color",
           "$extensions": {
@@ -5578,7 +5578,7 @@
             }
           }
         },
-        "semanticPurple900": {
+        "semantic-purple-900": {
           "$value": "{colors.purple.900}",
           "$type": "color",
           "$extensions": {
@@ -5593,7 +5593,7 @@
             }
           }
         },
-        "semanticPurple800": {
+        "semantic-purple-800": {
           "$value": "{colors.purple.800}",
           "$type": "color",
           "$extensions": {
@@ -5608,7 +5608,7 @@
             }
           }
         },
-        "semanticPurple700": {
+        "semantic-purple-700": {
           "$value": "{colors.purple.700}",
           "$type": "color",
           "$extensions": {
@@ -5623,7 +5623,7 @@
             }
           }
         },
-        "semanticPurple600": {
+        "semantic-purple-600": {
           "$value": "{colors.purple.600}",
           "$type": "color",
           "$extensions": {
@@ -5638,7 +5638,7 @@
             }
           }
         },
-        "semanticPurple500": {
+        "semantic-purple-500": {
           "$value": "{colors.purple.500}",
           "$type": "color",
           "$extensions": {
@@ -5653,7 +5653,7 @@
             }
           }
         },
-        "semanticPurple400": {
+        "semantic-purple-400": {
           "$value": "{colors.purple.400}",
           "$type": "color",
           "$extensions": {
@@ -5668,7 +5668,7 @@
             }
           }
         },
-        "semanticPurple300": {
+        "semantic-purple-300": {
           "$value": "{colors.purple.300}",
           "$type": "color",
           "$extensions": {
@@ -5683,7 +5683,7 @@
             }
           }
         },
-        "semanticPurple200": {
+        "semantic-purple-200": {
           "$value": "{colors.purple.200}",
           "$type": "color",
           "$extensions": {
@@ -5698,7 +5698,7 @@
             }
           }
         },
-        "semanticPurple100": {
+        "semantic-purple-100": {
           "$value": "{colors.purple.100}",
           "$type": "color",
           "$extensions": {
@@ -5713,7 +5713,7 @@
             }
           }
         },
-        "semanticPurple50": {
+        "semantic-purple-50": {
           "$value": "{colors.purple.50}",
           "$type": "color",
           "$extensions": {
@@ -5729,8 +5729,8 @@
           }
         }
       },
-      "fuchsia": {
-        "semanticFuchsia950": {
+      "Fuchsia": {
+        "semantic-fuchsia-950": {
           "$value": "{colors.fuchsia.950}",
           "$type": "color",
           "$extensions": {
@@ -5745,7 +5745,7 @@
             }
           }
         },
-        "semanticFuchsia900": {
+        "semantic-fuchsia-900": {
           "$value": "{colors.fuchsia.900}",
           "$type": "color",
           "$extensions": {
@@ -5760,7 +5760,7 @@
             }
           }
         },
-        "semanticFuchsia800": {
+        "semantic-fuchsia-800": {
           "$value": "{colors.fuchsia.800}",
           "$type": "color",
           "$extensions": {
@@ -5775,7 +5775,7 @@
             }
           }
         },
-        "semanticFuchsia700": {
+        "semantic-fuchsia-700": {
           "$value": "{colors.fuchsia.700}",
           "$type": "color",
           "$extensions": {
@@ -5790,7 +5790,7 @@
             }
           }
         },
-        "semanticFuchsia600": {
+        "semantic-fuchsia-600": {
           "$value": "{colors.fuchsia.600}",
           "$type": "color",
           "$extensions": {
@@ -5805,7 +5805,7 @@
             }
           }
         },
-        "semanticFuchsia500": {
+        "semantic-fuchsia-500": {
           "$value": "{colors.fuchsia.500}",
           "$type": "color",
           "$extensions": {
@@ -5820,7 +5820,7 @@
             }
           }
         },
-        "semanticFuchsia400": {
+        "semantic-fuchsia-400": {
           "$value": "{colors.fuchsia.400}",
           "$type": "color",
           "$extensions": {
@@ -5835,7 +5835,7 @@
             }
           }
         },
-        "semanticFuchsia300": {
+        "semantic-fuchsia-300": {
           "$value": "{colors.fuchsia.300}",
           "$type": "color",
           "$extensions": {
@@ -5850,7 +5850,7 @@
             }
           }
         },
-        "semanticFuchsia200": {
+        "semantic-fuchsia-200": {
           "$value": "{colors.fuchsia.200}",
           "$type": "color",
           "$extensions": {
@@ -5865,7 +5865,7 @@
             }
           }
         },
-        "semanticFuchsia100": {
+        "semantic-fuchsia-100": {
           "$value": "{colors.fuchsia.100}",
           "$type": "color",
           "$extensions": {
@@ -5880,7 +5880,7 @@
             }
           }
         },
-        "semanticFuchsia50": {
+        "semantic-fuchsia-50": {
           "$value": "{colors.fuchsia.50}",
           "$type": "color",
           "$extensions": {
@@ -5896,8 +5896,8 @@
           }
         }
       },
-      "pink": {
-        "semanticPink950": {
+      "Pink": {
+        "semantic-pink-950": {
           "$value": "{colors.pink.950}",
           "$type": "color",
           "$extensions": {
@@ -5912,7 +5912,7 @@
             }
           }
         },
-        "semanticPink900": {
+        "semantic-pink-900": {
           "$value": "{colors.pink.900}",
           "$type": "color",
           "$extensions": {
@@ -5927,7 +5927,7 @@
             }
           }
         },
-        "semanticPink800": {
+        "semantic-pink-800": {
           "$value": "{colors.pink.800}",
           "$type": "color",
           "$extensions": {
@@ -5942,7 +5942,7 @@
             }
           }
         },
-        "semanticPink700": {
+        "semantic-pink-700": {
           "$value": "{colors.pink.700}",
           "$type": "color",
           "$extensions": {
@@ -5957,7 +5957,7 @@
             }
           }
         },
-        "semanticPink600": {
+        "semantic-pink-600": {
           "$value": "{colors.pink.600}",
           "$type": "color",
           "$extensions": {
@@ -5972,7 +5972,7 @@
             }
           }
         },
-        "semanticPink500": {
+        "semantic-pink-500": {
           "$value": "{colors.pink.500}",
           "$type": "color",
           "$extensions": {
@@ -5987,7 +5987,7 @@
             }
           }
         },
-        "semanticPink400": {
+        "semantic-pink-400": {
           "$value": "{colors.pink.400}",
           "$type": "color",
           "$extensions": {
@@ -6002,7 +6002,7 @@
             }
           }
         },
-        "semanticPink300": {
+        "semantic-pink-300": {
           "$value": "{colors.pink.300}",
           "$type": "color",
           "$extensions": {
@@ -6017,7 +6017,7 @@
             }
           }
         },
-        "semanticPink200": {
+        "semantic-pink-200": {
           "$value": "{colors.pink.200}",
           "$type": "color",
           "$extensions": {
@@ -6032,7 +6032,7 @@
             }
           }
         },
-        "semanticPink100": {
+        "semantic-pink-100": {
           "$value": "{colors.pink.100}",
           "$type": "color",
           "$extensions": {
@@ -6047,7 +6047,7 @@
             }
           }
         },
-        "semanticPink50": {
+        "semantic-pink-50": {
           "$value": "{colors.pink.50}",
           "$type": "color",
           "$extensions": {
@@ -6063,8 +6063,8 @@
           }
         }
       },
-      "rose": {
-        "semanticRose950": {
+      "Rose": {
+        "semantic-rose-950": {
           "$value": "{colors.rose.950}",
           "$type": "color",
           "$extensions": {
@@ -6079,7 +6079,7 @@
             }
           }
         },
-        "semanticRose900": {
+        "semantic-rose-900": {
           "$value": "{colors.rose.900}",
           "$type": "color",
           "$extensions": {
@@ -6094,7 +6094,7 @@
             }
           }
         },
-        "semanticRose800": {
+        "semantic-rose-800": {
           "$value": "{colors.rose.800}",
           "$type": "color",
           "$extensions": {
@@ -6109,7 +6109,7 @@
             }
           }
         },
-        "semanticRose700": {
+        "semantic-rose-700": {
           "$value": "{colors.rose.700}",
           "$type": "color",
           "$extensions": {
@@ -6124,7 +6124,7 @@
             }
           }
         },
-        "semanticRose600": {
+        "semantic-rose-600": {
           "$value": "{colors.rose.600}",
           "$type": "color",
           "$extensions": {
@@ -6139,7 +6139,7 @@
             }
           }
         },
-        "semanticRose500": {
+        "semantic-rose-500": {
           "$value": "{colors.rose.500}",
           "$type": "color",
           "$extensions": {
@@ -6154,7 +6154,7 @@
             }
           }
         },
-        "semanticRose400": {
+        "semantic-rose-400": {
           "$value": "{colors.rose.400}",
           "$type": "color",
           "$extensions": {
@@ -6169,7 +6169,7 @@
             }
           }
         },
-        "semanticRose300": {
+        "semantic-rose-300": {
           "$value": "{colors.rose.300}",
           "$type": "color",
           "$extensions": {
@@ -6184,7 +6184,7 @@
             }
           }
         },
-        "semanticRose200": {
+        "semantic-rose-200": {
           "$value": "{colors.rose.200}",
           "$type": "color",
           "$extensions": {
@@ -6199,7 +6199,7 @@
             }
           }
         },
-        "semanticRose100": {
+        "semantic-rose-100": {
           "$value": "{colors.rose.100}",
           "$type": "color",
           "$extensions": {
@@ -6214,7 +6214,7 @@
             }
           }
         },
-        "semanticRose50": {
+        "semantic-rose-50": {
           "$value": "{colors.rose.50}",
           "$type": "color",
           "$extensions": {
@@ -6232,8 +6232,8 @@
       }
     },
     "modeDarkmode": {
-      "primary": {
-        "semanticPrimary950": {
+      "Primary": {
+        "semantic-primary-950": {
           "$value": "{colors.primary.50}",
           "$type": "color",
           "$extensions": {
@@ -6248,7 +6248,7 @@
             }
           }
         },
-        "semanticPrimary900": {
+        "semantic-primary-900": {
           "$value": "{colors.primary.100}",
           "$type": "color",
           "$extensions": {
@@ -6263,7 +6263,7 @@
             }
           }
         },
-        "semanticPrimary800": {
+        "semantic-primary-800": {
           "$value": "{colors.primary.200}",
           "$type": "color",
           "$extensions": {
@@ -6278,7 +6278,7 @@
             }
           }
         },
-        "semanticPrimary700": {
+        "semantic-primary-700": {
           "$value": "{colors.primary.300}",
           "$type": "color",
           "$extensions": {
@@ -6293,7 +6293,7 @@
             }
           }
         },
-        "semanticPrimary600": {
+        "semantic-primary-600": {
           "$value": "{colors.primary.400}",
           "$type": "color",
           "$extensions": {
@@ -6308,7 +6308,7 @@
             }
           }
         },
-        "semanticPrimary500": {
+        "semantic-primary-500": {
           "$value": "{colors.primary.500}",
           "$type": "color",
           "$extensions": {
@@ -6323,7 +6323,7 @@
             }
           }
         },
-        "semanticPrimary400": {
+        "semantic-primary-400": {
           "$value": "{colors.primary.600}",
           "$type": "color",
           "$extensions": {
@@ -6338,7 +6338,7 @@
             }
           }
         },
-        "semanticPrimary300": {
+        "semantic-primary-300": {
           "$value": "{colors.primary.700}",
           "$type": "color",
           "$extensions": {
@@ -6353,7 +6353,7 @@
             }
           }
         },
-        "semanticPrimary200": {
+        "semantic-primary-200": {
           "$value": "{colors.primary.800}",
           "$type": "color",
           "$extensions": {
@@ -6368,7 +6368,7 @@
             }
           }
         },
-        "semanticPrimary100": {
+        "semantic-primary-100": {
           "$value": "{colors.primary.900}",
           "$type": "color",
           "$extensions": {
@@ -6383,7 +6383,7 @@
             }
           }
         },
-        "semanticPrimary50": {
+        "semantic-primary-50": {
           "$value": "{colors.primary.950}",
           "$type": "color",
           "$extensions": {
@@ -6399,7 +6399,7 @@
           }
         }
       },
-      "textPrimary": {
+      "text-primary": {
         "$value": "{colors.base.0White}",
         "$type": "color",
         "$extensions": {
@@ -6414,8 +6414,8 @@
           }
         }
       },
-      "info": {
-        "semanticInfo950": {
+      "Info": {
+        "semantic-info-950": {
           "$value": "{colors.info.50}",
           "$type": "color",
           "$extensions": {
@@ -6430,7 +6430,7 @@
             }
           }
         },
-        "semanticInfo900": {
+        "semantic-info-900": {
           "$value": "{colors.info.100}",
           "$type": "color",
           "$extensions": {
@@ -6445,7 +6445,7 @@
             }
           }
         },
-        "semanticInfo800": {
+        "semantic-info-800": {
           "$value": "{colors.info.200}",
           "$type": "color",
           "$extensions": {
@@ -6460,7 +6460,7 @@
             }
           }
         },
-        "semanticInfo700": {
+        "semantic-info-700": {
           "$value": "{colors.info.300}",
           "$type": "color",
           "$extensions": {
@@ -6475,7 +6475,7 @@
             }
           }
         },
-        "semanticInfo600": {
+        "semantic-info-600": {
           "$value": "{colors.info.400}",
           "$type": "color",
           "$extensions": {
@@ -6490,7 +6490,7 @@
             }
           }
         },
-        "semanticInfo500": {
+        "semantic-info-500": {
           "$value": "{colors.info.500}",
           "$type": "color",
           "$extensions": {
@@ -6505,7 +6505,7 @@
             }
           }
         },
-        "semanticInfo400": {
+        "semantic-info-400": {
           "$value": "{colors.info.600}",
           "$type": "color",
           "$extensions": {
@@ -6520,7 +6520,7 @@
             }
           }
         },
-        "semanticInfo300": {
+        "semantic-info-300": {
           "$value": "{colors.info.700}",
           "$type": "color",
           "$extensions": {
@@ -6535,7 +6535,7 @@
             }
           }
         },
-        "semanticInfo200": {
+        "semantic-info-200": {
           "$value": "{colors.info.800}",
           "$type": "color",
           "$extensions": {
@@ -6550,7 +6550,7 @@
             }
           }
         },
-        "semanticInfo100": {
+        "semantic-info-100": {
           "$value": "{colors.info.900}",
           "$type": "color",
           "$extensions": {
@@ -6565,7 +6565,7 @@
             }
           }
         },
-        "semanticInfo50": {
+        "semantic-info-50": {
           "$value": "{colors.info.950}",
           "$type": "color",
           "$extensions": {
@@ -6581,8 +6581,8 @@
           }
         }
       },
-      "success": {
-        "semanticSuccess950": {
+      "Success": {
+        "semantic-success-950": {
           "$value": "{colors.success.50}",
           "$type": "color",
           "$extensions": {
@@ -6597,7 +6597,7 @@
             }
           }
         },
-        "semanticSuccess900": {
+        "semantic-success-900": {
           "$value": "{colors.success.100}",
           "$type": "color",
           "$extensions": {
@@ -6612,7 +6612,7 @@
             }
           }
         },
-        "semanticSuccess800": {
+        "semantic-success-800": {
           "$value": "{colors.success.200}",
           "$type": "color",
           "$extensions": {
@@ -6627,7 +6627,7 @@
             }
           }
         },
-        "semanticSuccess700": {
+        "semantic-success-700": {
           "$value": "{colors.success.300}",
           "$type": "color",
           "$extensions": {
@@ -6642,7 +6642,7 @@
             }
           }
         },
-        "semanticSuccess600": {
+        "semantic-success-600": {
           "$value": "{colors.success.400}",
           "$type": "color",
           "$extensions": {
@@ -6657,7 +6657,7 @@
             }
           }
         },
-        "semanticSuccess500": {
+        "semantic-success-500": {
           "$value": "{colors.success.500}",
           "$type": "color",
           "$extensions": {
@@ -6672,7 +6672,7 @@
             }
           }
         },
-        "semanticSuccess400": {
+        "semantic-success-400": {
           "$value": "{colors.success.600}",
           "$type": "color",
           "$extensions": {
@@ -6687,7 +6687,7 @@
             }
           }
         },
-        "semanticSuccess300": {
+        "semantic-success-300": {
           "$value": "{colors.success.700}",
           "$type": "color",
           "$extensions": {
@@ -6702,7 +6702,7 @@
             }
           }
         },
-        "semanticSuccess200": {
+        "semantic-success-200": {
           "$value": "{colors.success.800}",
           "$type": "color",
           "$extensions": {
@@ -6717,7 +6717,7 @@
             }
           }
         },
-        "semanticSuccess100": {
+        "semantic-success-100": {
           "$value": "{colors.success.900}",
           "$type": "color",
           "$extensions": {
@@ -6732,7 +6732,7 @@
             }
           }
         },
-        "semanticSuccess50": {
+        "semantic-success-50": {
           "$value": "{colors.success.950}",
           "$type": "color",
           "$extensions": {
@@ -6748,8 +6748,8 @@
           }
         }
       },
-      "warning": {
-        "semanticWarning950": {
+      "Warning": {
+        "semantic-warning-950": {
           "$value": "{colors.warning.50}",
           "$type": "color",
           "$extensions": {
@@ -6764,7 +6764,7 @@
             }
           }
         },
-        "semanticWarning900": {
+        "semantic-warning-900": {
           "$value": "{colors.warning.100}",
           "$type": "color",
           "$extensions": {
@@ -6779,7 +6779,7 @@
             }
           }
         },
-        "semanticWarning800": {
+        "semantic-warning-800": {
           "$value": "{colors.warning.200}",
           "$type": "color",
           "$extensions": {
@@ -6794,7 +6794,7 @@
             }
           }
         },
-        "semanticWarning700": {
+        "semantic-warning-700": {
           "$value": "{colors.warning.300}",
           "$type": "color",
           "$extensions": {
@@ -6809,7 +6809,7 @@
             }
           }
         },
-        "semanticWarning600": {
+        "semantic-warning-600": {
           "$value": "{colors.warning.400}",
           "$type": "color",
           "$extensions": {
@@ -6824,7 +6824,7 @@
             }
           }
         },
-        "semanticWarning500": {
+        "semantic-warning-500": {
           "$value": "{colors.warning.500}",
           "$type": "color",
           "$extensions": {
@@ -6839,7 +6839,7 @@
             }
           }
         },
-        "semanticWarning400": {
+        "semantic-warning-400": {
           "$value": "{colors.warning.600}",
           "$type": "color",
           "$extensions": {
@@ -6854,7 +6854,7 @@
             }
           }
         },
-        "semanticWarning300": {
+        "semantic-warning-300": {
           "$value": "{colors.warning.700}",
           "$type": "color",
           "$extensions": {
@@ -6869,7 +6869,7 @@
             }
           }
         },
-        "semanticWarning200": {
+        "semantic-warning-200": {
           "$value": "{colors.warning.800}",
           "$type": "color",
           "$extensions": {
@@ -6884,7 +6884,7 @@
             }
           }
         },
-        "semanticWarning100": {
+        "semantic-warning-100": {
           "$value": "{colors.warning.900}",
           "$type": "color",
           "$extensions": {
@@ -6899,7 +6899,7 @@
             }
           }
         },
-        "semanticWarning50": {
+        "semantic-warning-50": {
           "$value": "{colors.warning.950}",
           "$type": "color",
           "$extensions": {
@@ -6915,8 +6915,8 @@
           }
         }
       },
-      "error": {
-        "semanticError950": {
+      "Error": {
+        "semantic-error-950": {
           "$value": "{colors.error.50}",
           "$type": "color",
           "$extensions": {
@@ -6931,7 +6931,7 @@
             }
           }
         },
-        "semanticError900": {
+        "semantic-error-900": {
           "$value": "{colors.error.100}",
           "$type": "color",
           "$extensions": {
@@ -6946,7 +6946,7 @@
             }
           }
         },
-        "semanticError800": {
+        "semantic-error-800": {
           "$value": "{colors.error.200}",
           "$type": "color",
           "$extensions": {
@@ -6961,7 +6961,7 @@
             }
           }
         },
-        "semanticError700": {
+        "semantic-error-700": {
           "$value": "{colors.error.300}",
           "$type": "color",
           "$extensions": {
@@ -6976,7 +6976,7 @@
             }
           }
         },
-        "semanticError600": {
+        "semantic-error-600": {
           "$value": "{colors.error.400}",
           "$type": "color",
           "$extensions": {
@@ -6991,7 +6991,7 @@
             }
           }
         },
-        "semanticError500": {
+        "semantic-error-500": {
           "$value": "{colors.error.500}",
           "$type": "color",
           "$extensions": {
@@ -7006,7 +7006,7 @@
             }
           }
         },
-        "semanticError400": {
+        "semantic-error-400": {
           "$value": "{colors.error.600}",
           "$type": "color",
           "$extensions": {
@@ -7021,7 +7021,7 @@
             }
           }
         },
-        "semanticError300": {
+        "semantic-error-300": {
           "$value": "{colors.error.700}",
           "$type": "color",
           "$extensions": {
@@ -7036,7 +7036,7 @@
             }
           }
         },
-        "semanticError200": {
+        "semantic-error-200": {
           "$value": "{colors.error.800}",
           "$type": "color",
           "$extensions": {
@@ -7051,7 +7051,7 @@
             }
           }
         },
-        "semanticError100": {
+        "semantic-error-100": {
           "$value": "{colors.error.900}",
           "$type": "color",
           "$extensions": {
@@ -7066,7 +7066,7 @@
             }
           }
         },
-        "semanticError50": {
+        "semantic-error-50": {
           "$value": "{colors.error.950}",
           "$type": "color",
           "$extensions": {
@@ -7082,8 +7082,8 @@
           }
         }
       },
-      "violet": {
-        "semanticViolet950": {
+      "Violet": {
+        "semantic-violet-950": {
           "$value": "{colors.violet.50}",
           "$type": "color",
           "$extensions": {
@@ -7098,7 +7098,7 @@
             }
           }
         },
-        "semanticViolet900": {
+        "semantic-violet-900": {
           "$value": "{colors.violet.100}",
           "$type": "color",
           "$extensions": {
@@ -7113,7 +7113,7 @@
             }
           }
         },
-        "semanticViolet800": {
+        "semantic-violet-800": {
           "$value": "{colors.violet.200}",
           "$type": "color",
           "$extensions": {
@@ -7128,7 +7128,7 @@
             }
           }
         },
-        "semanticViolet700": {
+        "semantic-violet-700": {
           "$value": "{colors.violet.300}",
           "$type": "color",
           "$extensions": {
@@ -7143,7 +7143,7 @@
             }
           }
         },
-        "semanticViolet600": {
+        "semantic-violet-600": {
           "$value": "{colors.violet.400}",
           "$type": "color",
           "$extensions": {
@@ -7158,7 +7158,7 @@
             }
           }
         },
-        "semanticViolet500": {
+        "semantic-violet-500": {
           "$value": "{colors.violet.500}",
           "$type": "color",
           "$extensions": {
@@ -7173,7 +7173,7 @@
             }
           }
         },
-        "semanticViolet400": {
+        "semantic-violet-400": {
           "$value": "{colors.violet.600}",
           "$type": "color",
           "$extensions": {
@@ -7188,7 +7188,7 @@
             }
           }
         },
-        "semanticViolet300": {
+        "semantic-violet-300": {
           "$value": "{colors.violet.700}",
           "$type": "color",
           "$extensions": {
@@ -7203,7 +7203,7 @@
             }
           }
         },
-        "semanticViolet200": {
+        "semantic-violet-200": {
           "$value": "{colors.violet.800}",
           "$type": "color",
           "$extensions": {
@@ -7218,7 +7218,7 @@
             }
           }
         },
-        "semanticViolet100": {
+        "semantic-violet-100": {
           "$value": "{colors.violet.900}",
           "$type": "color",
           "$extensions": {
@@ -7233,7 +7233,7 @@
             }
           }
         },
-        "semanticViolet50": {
+        "semantic-violet-50": {
           "$value": "{colors.violet.950}",
           "$type": "color",
           "$extensions": {
@@ -7249,8 +7249,8 @@
           }
         }
       },
-      "orange": {
-        "semanticOrange950": {
+      "Orange": {
+        "semantic-orange-950": {
           "$value": "{colors.orange.50}",
           "$type": "color",
           "$extensions": {
@@ -7265,7 +7265,7 @@
             }
           }
         },
-        "semanticOrange900": {
+        "semantic-orange-900": {
           "$value": "{colors.orange.100}",
           "$type": "color",
           "$extensions": {
@@ -7280,7 +7280,7 @@
             }
           }
         },
-        "semanticOrange800": {
+        "semantic-orange-800": {
           "$value": "{colors.orange.200}",
           "$type": "color",
           "$extensions": {
@@ -7295,7 +7295,7 @@
             }
           }
         },
-        "semanticOrange700": {
+        "semantic-orange-700": {
           "$value": "{colors.orange.300}",
           "$type": "color",
           "$extensions": {
@@ -7310,7 +7310,7 @@
             }
           }
         },
-        "semanticOrange600": {
+        "semantic-orange-600": {
           "$value": "{colors.orange.400}",
           "$type": "color",
           "$extensions": {
@@ -7325,7 +7325,7 @@
             }
           }
         },
-        "semanticOrange500": {
+        "semantic-orange-500": {
           "$value": "{colors.orange.500}",
           "$type": "color",
           "$extensions": {
@@ -7340,7 +7340,7 @@
             }
           }
         },
-        "semanticOrange400": {
+        "semantic-orange-400": {
           "$value": "{colors.orange.600}",
           "$type": "color",
           "$extensions": {
@@ -7355,7 +7355,7 @@
             }
           }
         },
-        "semanticOrange300": {
+        "semantic-orange-300": {
           "$value": "{colors.orange.700}",
           "$type": "color",
           "$extensions": {
@@ -7370,7 +7370,7 @@
             }
           }
         },
-        "semanticOrange200": {
+        "semantic-orange-200": {
           "$value": "{colors.orange.800}",
           "$type": "color",
           "$extensions": {
@@ -7385,7 +7385,7 @@
             }
           }
         },
-        "semanticOrange100": {
+        "semantic-orange-100": {
           "$value": "{colors.orange.900}",
           "$type": "color",
           "$extensions": {
@@ -7400,7 +7400,7 @@
             }
           }
         },
-        "semanticOrange50": {
+        "semantic-orange-50": {
           "$value": "{colors.orange.950}",
           "$type": "color",
           "$extensions": {
@@ -7416,8 +7416,8 @@
           }
         }
       },
-      "amber": {
-        "semanticAmber950": {
+      "Amber": {
+        "semantic-amber-950": {
           "$value": "{colors.amber.50}",
           "$type": "color",
           "$extensions": {
@@ -7432,7 +7432,7 @@
             }
           }
         },
-        "semanticAmber900": {
+        "semantic-amber-900": {
           "$value": "{colors.amber.100}",
           "$type": "color",
           "$extensions": {
@@ -7447,7 +7447,7 @@
             }
           }
         },
-        "semanticAmber800": {
+        "semantic-amber-800": {
           "$value": "{colors.amber.200}",
           "$type": "color",
           "$extensions": {
@@ -7462,7 +7462,7 @@
             }
           }
         },
-        "semanticAmber700": {
+        "semantic-amber-700": {
           "$value": "{colors.amber.300}",
           "$type": "color",
           "$extensions": {
@@ -7477,7 +7477,7 @@
             }
           }
         },
-        "semanticAmber600": {
+        "semantic-amber-600": {
           "$value": "{colors.amber.400}",
           "$type": "color",
           "$extensions": {
@@ -7492,7 +7492,7 @@
             }
           }
         },
-        "semanticAmber500": {
+        "semantic-amber-500": {
           "$value": "{colors.amber.500}",
           "$type": "color",
           "$extensions": {
@@ -7507,7 +7507,7 @@
             }
           }
         },
-        "semanticAmber400": {
+        "semantic-amber-400": {
           "$value": "{colors.amber.600}",
           "$type": "color",
           "$extensions": {
@@ -7522,7 +7522,7 @@
             }
           }
         },
-        "semanticAmber300": {
+        "semantic-amber-300": {
           "$value": "{colors.amber.700}",
           "$type": "color",
           "$extensions": {
@@ -7537,7 +7537,7 @@
             }
           }
         },
-        "semanticAmber200": {
+        "semantic-amber-200": {
           "$value": "{colors.amber.800}",
           "$type": "color",
           "$extensions": {
@@ -7552,7 +7552,7 @@
             }
           }
         },
-        "semanticAmber100": {
+        "semantic-amber-100": {
           "$value": "{colors.amber.900}",
           "$type": "color",
           "$extensions": {
@@ -7567,7 +7567,7 @@
             }
           }
         },
-        "semanticAmber50": {
+        "semantic-amber-50": {
           "$value": "{colors.amber.950}",
           "$type": "color",
           "$extensions": {
@@ -7583,8 +7583,8 @@
           }
         }
       },
-      "yellow": {
-        "semanticYellow950": {
+      "Yellow": {
+        "semantic-yellow-950": {
           "$value": "{colors.yellow.50}",
           "$type": "color",
           "$extensions": {
@@ -7599,7 +7599,7 @@
             }
           }
         },
-        "semanticYellow900": {
+        "semantic-yellow-900": {
           "$value": "{colors.yellow.100}",
           "$type": "color",
           "$extensions": {
@@ -7614,7 +7614,7 @@
             }
           }
         },
-        "semanticYellow800": {
+        "semantic-yellow-800": {
           "$value": "{colors.yellow.200}",
           "$type": "color",
           "$extensions": {
@@ -7629,7 +7629,7 @@
             }
           }
         },
-        "semanticYellow700": {
+        "semantic-yellow-700": {
           "$value": "{colors.yellow.300}",
           "$type": "color",
           "$extensions": {
@@ -7644,7 +7644,7 @@
             }
           }
         },
-        "semanticYellow600": {
+        "semantic-yellow-600": {
           "$value": "{colors.yellow.400}",
           "$type": "color",
           "$extensions": {
@@ -7659,7 +7659,7 @@
             }
           }
         },
-        "semanticYellow500": {
+        "semantic-yellow-500": {
           "$value": "{colors.yellow.500}",
           "$type": "color",
           "$extensions": {
@@ -7674,7 +7674,7 @@
             }
           }
         },
-        "semanticYellow400": {
+        "semantic-yellow-400": {
           "$value": "{colors.yellow.600}",
           "$type": "color",
           "$extensions": {
@@ -7689,7 +7689,7 @@
             }
           }
         },
-        "semanticYellow300": {
+        "semantic-yellow-300": {
           "$value": "{colors.yellow.700}",
           "$type": "color",
           "$extensions": {
@@ -7704,7 +7704,7 @@
             }
           }
         },
-        "semanticYellow200": {
+        "semantic-yellow-200": {
           "$value": "{colors.yellow.800}",
           "$type": "color",
           "$extensions": {
@@ -7719,7 +7719,7 @@
             }
           }
         },
-        "semanticYellow100": {
+        "semantic-yellow-100": {
           "$value": "{colors.yellow.900}",
           "$type": "color",
           "$extensions": {
@@ -7734,7 +7734,7 @@
             }
           }
         },
-        "semanticYellow50": {
+        "semantic-yellow-50": {
           "$value": "{colors.yellow.950}",
           "$type": "color",
           "$extensions": {
@@ -7750,8 +7750,8 @@
           }
         }
       },
-      "lime": {
-        "semanticLime950": {
+      "Lime": {
+        "semantic-lime-950": {
           "$value": "{colors.lime.50}",
           "$type": "color",
           "$extensions": {
@@ -7766,7 +7766,7 @@
             }
           }
         },
-        "semanticLime900": {
+        "semantic-lime-900": {
           "$value": "{colors.lime.100}",
           "$type": "color",
           "$extensions": {
@@ -7781,7 +7781,7 @@
             }
           }
         },
-        "semanticLime800": {
+        "semantic-lime-800": {
           "$value": "{colors.lime.200}",
           "$type": "color",
           "$extensions": {
@@ -7796,7 +7796,7 @@
             }
           }
         },
-        "semanticLime700": {
+        "semantic-lime-700": {
           "$value": "{colors.lime.300}",
           "$type": "color",
           "$extensions": {
@@ -7811,7 +7811,7 @@
             }
           }
         },
-        "semanticLime600": {
+        "semantic-lime-600": {
           "$value": "{colors.lime.400}",
           "$type": "color",
           "$extensions": {
@@ -7826,7 +7826,7 @@
             }
           }
         },
-        "semanticLime500": {
+        "semantic-lime-500": {
           "$value": "{colors.lime.500}",
           "$type": "color",
           "$extensions": {
@@ -7841,7 +7841,7 @@
             }
           }
         },
-        "semanticLime400": {
+        "semantic-lime-400": {
           "$value": "{colors.lime.600}",
           "$type": "color",
           "$extensions": {
@@ -7856,7 +7856,7 @@
             }
           }
         },
-        "semanticLime300": {
+        "semantic-lime-300": {
           "$value": "{colors.lime.700}",
           "$type": "color",
           "$extensions": {
@@ -7871,7 +7871,7 @@
             }
           }
         },
-        "semanticLime200": {
+        "semantic-lime-200": {
           "$value": "{colors.lime.800}",
           "$type": "color",
           "$extensions": {
@@ -7886,7 +7886,7 @@
             }
           }
         },
-        "semanticLime100": {
+        "semantic-lime-100": {
           "$value": "{colors.lime.900}",
           "$type": "color",
           "$extensions": {
@@ -7901,7 +7901,7 @@
             }
           }
         },
-        "semanticLime50": {
+        "semantic-lime-50": {
           "$value": "{colors.lime.950}",
           "$type": "color",
           "$extensions": {
@@ -7917,8 +7917,8 @@
           }
         }
       },
-      "green": {
-        "semanticGreen950": {
+      "Green": {
+        "semantic-green-950": {
           "$value": "{colors.green.50}",
           "$type": "color",
           "$extensions": {
@@ -7933,7 +7933,7 @@
             }
           }
         },
-        "semanticGreen900": {
+        "semantic-green-900": {
           "$value": "{colors.green.100}",
           "$type": "color",
           "$extensions": {
@@ -7948,7 +7948,7 @@
             }
           }
         },
-        "semanticGreen800": {
+        "semantic-green-800": {
           "$value": "{colors.green.200}",
           "$type": "color",
           "$extensions": {
@@ -7963,7 +7963,7 @@
             }
           }
         },
-        "semanticGreen700": {
+        "semantic-green-700": {
           "$value": "{colors.green.300}",
           "$type": "color",
           "$extensions": {
@@ -7978,7 +7978,7 @@
             }
           }
         },
-        "semanticGreen600": {
+        "semantic-green-600": {
           "$value": "{colors.green.400}",
           "$type": "color",
           "$extensions": {
@@ -7993,7 +7993,7 @@
             }
           }
         },
-        "semanticGreen500": {
+        "semantic-green-500": {
           "$value": "{colors.green.500}",
           "$type": "color",
           "$extensions": {
@@ -8008,7 +8008,7 @@
             }
           }
         },
-        "semanticGreen400": {
+        "semantic-green-400": {
           "$value": "{colors.green.600}",
           "$type": "color",
           "$extensions": {
@@ -8023,7 +8023,7 @@
             }
           }
         },
-        "semanticGreen300": {
+        "semantic-green-300": {
           "$value": "{colors.green.700}",
           "$type": "color",
           "$extensions": {
@@ -8038,7 +8038,7 @@
             }
           }
         },
-        "semanticGreen200": {
+        "semantic-green-200": {
           "$value": "{colors.green.800}",
           "$type": "color",
           "$extensions": {
@@ -8053,7 +8053,7 @@
             }
           }
         },
-        "semanticGreen100": {
+        "semantic-green-100": {
           "$value": "{colors.green.900}",
           "$type": "color",
           "$extensions": {
@@ -8068,7 +8068,7 @@
             }
           }
         },
-        "semanticGreen50": {
+        "semantic-green-50": {
           "$value": "{colors.green.950}",
           "$type": "color",
           "$extensions": {
@@ -8084,8 +8084,8 @@
           }
         }
       },
-      "emerald": {
-        "semanticEmerald950": {
+      "Emerald": {
+        "semantic-emerald-950": {
           "$value": "{colors.emerald.50}",
           "$type": "color",
           "$extensions": {
@@ -8100,7 +8100,7 @@
             }
           }
         },
-        "semanticEmerald900": {
+        "semantic-emerald-900": {
           "$value": "{colors.emerald.100}",
           "$type": "color",
           "$extensions": {
@@ -8115,7 +8115,7 @@
             }
           }
         },
-        "semanticEmerald800": {
+        "semantic-emerald-800": {
           "$value": "{colors.emerald.200}",
           "$type": "color",
           "$extensions": {
@@ -8130,7 +8130,7 @@
             }
           }
         },
-        "semanticEmerald700": {
+        "semantic-emerald-700": {
           "$value": "{colors.emerald.300}",
           "$type": "color",
           "$extensions": {
@@ -8145,7 +8145,7 @@
             }
           }
         },
-        "semanticEmerald600": {
+        "semantic-emerald-600": {
           "$value": "{colors.emerald.400}",
           "$type": "color",
           "$extensions": {
@@ -8160,7 +8160,7 @@
             }
           }
         },
-        "semanticEmerald500": {
+        "semantic-emerald-500": {
           "$value": "{colors.emerald.500}",
           "$type": "color",
           "$extensions": {
@@ -8175,7 +8175,7 @@
             }
           }
         },
-        "semanticEmerald400": {
+        "semantic-emerald-400": {
           "$value": "{colors.emerald.600}",
           "$type": "color",
           "$extensions": {
@@ -8190,7 +8190,7 @@
             }
           }
         },
-        "semanticEmerald300": {
+        "semantic-emerald-300": {
           "$value": "{colors.emerald.700}",
           "$type": "color",
           "$extensions": {
@@ -8205,7 +8205,7 @@
             }
           }
         },
-        "semanticEmerald200": {
+        "semantic-emerald-200": {
           "$value": "{colors.emerald.800}",
           "$type": "color",
           "$extensions": {
@@ -8220,7 +8220,7 @@
             }
           }
         },
-        "semanticEmerald100": {
+        "semantic-emerald-100": {
           "$value": "{colors.emerald.900}",
           "$type": "color",
           "$extensions": {
@@ -8235,7 +8235,7 @@
             }
           }
         },
-        "semanticEmerald50": {
+        "semantic-emerald-50": {
           "$value": "{colors.emerald.950}",
           "$type": "color",
           "$extensions": {
@@ -8251,8 +8251,8 @@
           }
         }
       },
-      "teal": {
-        "semanticTeal950": {
+      "Teal": {
+        "semantic-teal-950": {
           "$value": "{colors.teal.50}",
           "$type": "color",
           "$extensions": {
@@ -8267,7 +8267,7 @@
             }
           }
         },
-        "semanticTeal900": {
+        "semantic-teal-900": {
           "$value": "{colors.teal.100}",
           "$type": "color",
           "$extensions": {
@@ -8282,7 +8282,7 @@
             }
           }
         },
-        "semanticTeal800": {
+        "semantic-teal-800": {
           "$value": "{colors.teal.200}",
           "$type": "color",
           "$extensions": {
@@ -8297,7 +8297,7 @@
             }
           }
         },
-        "semanticTeal700": {
+        "semantic-teal-700": {
           "$value": "{colors.teal.300}",
           "$type": "color",
           "$extensions": {
@@ -8312,7 +8312,7 @@
             }
           }
         },
-        "semanticTeal600": {
+        "semantic-teal-600": {
           "$value": "{colors.teal.400}",
           "$type": "color",
           "$extensions": {
@@ -8327,7 +8327,7 @@
             }
           }
         },
-        "semanticTeal500": {
+        "semantic-teal-500": {
           "$value": "{colors.teal.500}",
           "$type": "color",
           "$extensions": {
@@ -8342,7 +8342,7 @@
             }
           }
         },
-        "semanticTeal400": {
+        "semantic-teal-400": {
           "$value": "{colors.teal.600}",
           "$type": "color",
           "$extensions": {
@@ -8357,7 +8357,7 @@
             }
           }
         },
-        "semanticTeal300": {
+        "semantic-teal-300": {
           "$value": "{colors.teal.700}",
           "$type": "color",
           "$extensions": {
@@ -8372,7 +8372,7 @@
             }
           }
         },
-        "semanticTeal200": {
+        "semantic-teal-200": {
           "$value": "{colors.teal.800}",
           "$type": "color",
           "$extensions": {
@@ -8387,7 +8387,7 @@
             }
           }
         },
-        "semanticTeal100": {
+        "semantic-teal-100": {
           "$value": "{colors.teal.900}",
           "$type": "color",
           "$extensions": {
@@ -8402,7 +8402,7 @@
             }
           }
         },
-        "semanticTeal50": {
+        "semantic-teal-50": {
           "$value": "{colors.teal.950}",
           "$type": "color",
           "$extensions": {
@@ -8418,8 +8418,8 @@
           }
         }
       },
-      "cyan": {
-        "semanticCyan950": {
+      "Cyan": {
+        "semantic-cyan-950": {
           "$value": "{colors.cyan.50}",
           "$type": "color",
           "$extensions": {
@@ -8434,7 +8434,7 @@
             }
           }
         },
-        "semanticCyan900": {
+        "semantic-cyan-900": {
           "$value": "{colors.cyan.100}",
           "$type": "color",
           "$extensions": {
@@ -8449,7 +8449,7 @@
             }
           }
         },
-        "semanticCyan800": {
+        "semantic-cyan-800": {
           "$value": "{colors.cyan.200}",
           "$type": "color",
           "$extensions": {
@@ -8464,7 +8464,7 @@
             }
           }
         },
-        "semanticCyan700": {
+        "semantic-cyan-700": {
           "$value": "{colors.cyan.300}",
           "$type": "color",
           "$extensions": {
@@ -8479,7 +8479,7 @@
             }
           }
         },
-        "semanticCyan600": {
+        "semantic-cyan-600": {
           "$value": "{colors.cyan.400}",
           "$type": "color",
           "$extensions": {
@@ -8494,7 +8494,7 @@
             }
           }
         },
-        "semanticCyan500": {
+        "semantic-cyan-500": {
           "$value": "{colors.cyan.500}",
           "$type": "color",
           "$extensions": {
@@ -8509,7 +8509,7 @@
             }
           }
         },
-        "semanticCyan400": {
+        "semantic-cyan-400": {
           "$value": "{colors.cyan.600}",
           "$type": "color",
           "$extensions": {
@@ -8524,7 +8524,7 @@
             }
           }
         },
-        "semanticCyan300": {
+        "semantic-cyan-300": {
           "$value": "{colors.cyan.700}",
           "$type": "color",
           "$extensions": {
@@ -8539,7 +8539,7 @@
             }
           }
         },
-        "semanticCyan200": {
+        "semantic-cyan-200": {
           "$value": "{colors.cyan.800}",
           "$type": "color",
           "$extensions": {
@@ -8554,7 +8554,7 @@
             }
           }
         },
-        "semanticCyan100": {
+        "semantic-cyan-100": {
           "$value": "{colors.cyan.900}",
           "$type": "color",
           "$extensions": {
@@ -8569,7 +8569,7 @@
             }
           }
         },
-        "semanticCyan50": {
+        "semantic-cyan-50": {
           "$value": "{colors.cyan.950}",
           "$type": "color",
           "$extensions": {
@@ -8585,8 +8585,8 @@
           }
         }
       },
-      "sky": {
-        "semanticSky950": {
+      "Sky": {
+        "semantic-sky-950": {
           "$value": "{colors.sky.50}",
           "$type": "color",
           "$extensions": {
@@ -8601,7 +8601,7 @@
             }
           }
         },
-        "semanticSky900": {
+        "semantic-sky-900": {
           "$value": "{colors.sky.100}",
           "$type": "color",
           "$extensions": {
@@ -8616,7 +8616,7 @@
             }
           }
         },
-        "semanticSky800": {
+        "semantic-sky-800": {
           "$value": "{colors.sky.200}",
           "$type": "color",
           "$extensions": {
@@ -8631,7 +8631,7 @@
             }
           }
         },
-        "semanticSky700": {
+        "semantic-sky-700": {
           "$value": "{colors.sky.300}",
           "$type": "color",
           "$extensions": {
@@ -8646,7 +8646,7 @@
             }
           }
         },
-        "semanticSky600": {
+        "semantic-sky-600": {
           "$value": "{colors.sky.400}",
           "$type": "color",
           "$extensions": {
@@ -8661,7 +8661,7 @@
             }
           }
         },
-        "semanticSky500": {
+        "semantic-sky-500": {
           "$value": "{colors.sky.500}",
           "$type": "color",
           "$extensions": {
@@ -8676,7 +8676,7 @@
             }
           }
         },
-        "semanticSky400": {
+        "semantic-sky-400": {
           "$value": "{colors.sky.600}",
           "$type": "color",
           "$extensions": {
@@ -8691,7 +8691,7 @@
             }
           }
         },
-        "semanticSky300": {
+        "semantic-sky-300": {
           "$value": "{colors.sky.700}",
           "$type": "color",
           "$extensions": {
@@ -8706,7 +8706,7 @@
             }
           }
         },
-        "semanticSky200": {
+        "semantic-sky-200": {
           "$value": "{colors.sky.800}",
           "$type": "color",
           "$extensions": {
@@ -8721,7 +8721,7 @@
             }
           }
         },
-        "semanticSky100": {
+        "semantic-sky-100": {
           "$value": "{colors.sky.900}",
           "$type": "color",
           "$extensions": {
@@ -8736,7 +8736,7 @@
             }
           }
         },
-        "semanticSky50": {
+        "semantic-sky-50": {
           "$value": "{colors.sky.950}",
           "$type": "color",
           "$extensions": {
@@ -8752,8 +8752,8 @@
           }
         }
       },
-      "blue": {
-        "semanticBlue950": {
+      "Blue": {
+        "semantic-blue-950": {
           "$value": "{colors.blue.50}",
           "$type": "color",
           "$extensions": {
@@ -8768,7 +8768,7 @@
             }
           }
         },
-        "semanticBlue900": {
+        "semantic-blue-900": {
           "$value": "{colors.blue.100}",
           "$type": "color",
           "$extensions": {
@@ -8783,7 +8783,7 @@
             }
           }
         },
-        "semanticBlue800": {
+        "semantic-blue-800": {
           "$value": "{colors.blue.200}",
           "$type": "color",
           "$extensions": {
@@ -8798,7 +8798,7 @@
             }
           }
         },
-        "semanticBlue700": {
+        "semantic-blue-700": {
           "$value": "{colors.blue.300}",
           "$type": "color",
           "$extensions": {
@@ -8813,7 +8813,7 @@
             }
           }
         },
-        "semanticBlue600": {
+        "semantic-blue-600": {
           "$value": "{colors.blue.400}",
           "$type": "color",
           "$extensions": {
@@ -8828,7 +8828,7 @@
             }
           }
         },
-        "semanticBlue500": {
+        "semantic-blue-500": {
           "$value": "{colors.blue.500}",
           "$type": "color",
           "$extensions": {
@@ -8843,7 +8843,7 @@
             }
           }
         },
-        "semanticBlue400": {
+        "semantic-blue-400": {
           "$value": "{colors.blue.600}",
           "$type": "color",
           "$extensions": {
@@ -8858,7 +8858,7 @@
             }
           }
         },
-        "semanticBlue300": {
+        "semantic-blue-300": {
           "$value": "{colors.blue.700}",
           "$type": "color",
           "$extensions": {
@@ -8873,7 +8873,7 @@
             }
           }
         },
-        "semanticBlue200": {
+        "semantic-blue-200": {
           "$value": "{colors.blue.800}",
           "$type": "color",
           "$extensions": {
@@ -8888,7 +8888,7 @@
             }
           }
         },
-        "semanticBlue100": {
+        "semantic-blue-100": {
           "$value": "{colors.blue.900}",
           "$type": "color",
           "$extensions": {
@@ -8903,7 +8903,7 @@
             }
           }
         },
-        "semanticBlue50": {
+        "semantic-blue-50": {
           "$value": "{colors.blue.950}",
           "$type": "color",
           "$extensions": {
@@ -8919,8 +8919,8 @@
           }
         }
       },
-      "indigo": {
-        "semanticIndigo950": {
+      "Indigo": {
+        "semantic-indigo-950": {
           "$value": "{colors.indigo.50}",
           "$type": "color",
           "$extensions": {
@@ -8935,7 +8935,7 @@
             }
           }
         },
-        "semanticIndigo900": {
+        "semantic-indigo-900": {
           "$value": "{colors.indigo.100}",
           "$type": "color",
           "$extensions": {
@@ -8950,7 +8950,7 @@
             }
           }
         },
-        "semanticIndigo800": {
+        "semantic-indigo-800": {
           "$value": "{colors.indigo.200}",
           "$type": "color",
           "$extensions": {
@@ -8965,7 +8965,7 @@
             }
           }
         },
-        "semanticIndigo700": {
+        "semantic-indigo-700": {
           "$value": "{colors.indigo.300}",
           "$type": "color",
           "$extensions": {
@@ -8980,7 +8980,7 @@
             }
           }
         },
-        "semanticIndigo600": {
+        "semantic-indigo-600": {
           "$value": "{colors.indigo.400}",
           "$type": "color",
           "$extensions": {
@@ -8995,7 +8995,7 @@
             }
           }
         },
-        "semanticIndigo500": {
+        "semantic-indigo-500": {
           "$value": "{colors.indigo.500}",
           "$type": "color",
           "$extensions": {
@@ -9010,7 +9010,7 @@
             }
           }
         },
-        "semanticIndigo400": {
+        "semantic-indigo-400": {
           "$value": "{colors.indigo.600}",
           "$type": "color",
           "$extensions": {
@@ -9025,7 +9025,7 @@
             }
           }
         },
-        "semanticIndigo300": {
+        "semantic-indigo-300": {
           "$value": "{colors.indigo.700}",
           "$type": "color",
           "$extensions": {
@@ -9040,7 +9040,7 @@
             }
           }
         },
-        "semanticIndigo200": {
+        "semantic-indigo-200": {
           "$value": "{colors.indigo.800}",
           "$type": "color",
           "$extensions": {
@@ -9055,7 +9055,7 @@
             }
           }
         },
-        "semanticIndigo100": {
+        "semantic-indigo-100": {
           "$value": "{colors.indigo.900}",
           "$type": "color",
           "$extensions": {
@@ -9070,7 +9070,7 @@
             }
           }
         },
-        "semanticIndigo50": {
+        "semantic-indigo-50": {
           "$value": "{colors.indigo.950}",
           "$type": "color",
           "$extensions": {
@@ -9086,8 +9086,8 @@
           }
         }
       },
-      "purple": {
-        "semanticPurple950": {
+      "Purple": {
+        "semantic-purple-950": {
           "$value": "{colors.purple.50}",
           "$type": "color",
           "$extensions": {
@@ -9102,7 +9102,7 @@
             }
           }
         },
-        "semanticPurple900": {
+        "semantic-purple-900": {
           "$value": "{colors.purple.100}",
           "$type": "color",
           "$extensions": {
@@ -9117,7 +9117,7 @@
             }
           }
         },
-        "semanticPurple800": {
+        "semantic-purple-800": {
           "$value": "{colors.purple.200}",
           "$type": "color",
           "$extensions": {
@@ -9132,7 +9132,7 @@
             }
           }
         },
-        "semanticPurple700": {
+        "semantic-purple-700": {
           "$value": "{colors.purple.300}",
           "$type": "color",
           "$extensions": {
@@ -9147,7 +9147,7 @@
             }
           }
         },
-        "semanticPurple600": {
+        "semantic-purple-600": {
           "$value": "{colors.purple.400}",
           "$type": "color",
           "$extensions": {
@@ -9162,7 +9162,7 @@
             }
           }
         },
-        "semanticPurple500": {
+        "semantic-purple-500": {
           "$value": "{colors.purple.500}",
           "$type": "color",
           "$extensions": {
@@ -9177,7 +9177,7 @@
             }
           }
         },
-        "semanticPurple400": {
+        "semantic-purple-400": {
           "$value": "{colors.purple.600}",
           "$type": "color",
           "$extensions": {
@@ -9192,7 +9192,7 @@
             }
           }
         },
-        "semanticPurple300": {
+        "semantic-purple-300": {
           "$value": "{colors.purple.700}",
           "$type": "color",
           "$extensions": {
@@ -9207,7 +9207,7 @@
             }
           }
         },
-        "semanticPurple200": {
+        "semantic-purple-200": {
           "$value": "{colors.purple.800}",
           "$type": "color",
           "$extensions": {
@@ -9222,7 +9222,7 @@
             }
           }
         },
-        "semanticPurple100": {
+        "semantic-purple-100": {
           "$value": "{colors.purple.900}",
           "$type": "color",
           "$extensions": {
@@ -9237,7 +9237,7 @@
             }
           }
         },
-        "semanticPurple50": {
+        "semantic-purple-50": {
           "$value": "{colors.purple.950}",
           "$type": "color",
           "$extensions": {
@@ -9253,8 +9253,8 @@
           }
         }
       },
-      "fuchsia": {
-        "semanticFuchsia950": {
+      "Fuchsia": {
+        "semantic-fuchsia-950": {
           "$value": "{colors.fuchsia.50}",
           "$type": "color",
           "$extensions": {
@@ -9269,7 +9269,7 @@
             }
           }
         },
-        "semanticFuchsia900": {
+        "semantic-fuchsia-900": {
           "$value": "{colors.fuchsia.100}",
           "$type": "color",
           "$extensions": {
@@ -9284,7 +9284,7 @@
             }
           }
         },
-        "semanticFuchsia800": {
+        "semantic-fuchsia-800": {
           "$value": "{colors.fuchsia.200}",
           "$type": "color",
           "$extensions": {
@@ -9299,7 +9299,7 @@
             }
           }
         },
-        "semanticFuchsia700": {
+        "semantic-fuchsia-700": {
           "$value": "{colors.fuchsia.300}",
           "$type": "color",
           "$extensions": {
@@ -9314,7 +9314,7 @@
             }
           }
         },
-        "semanticFuchsia600": {
+        "semantic-fuchsia-600": {
           "$value": "{colors.fuchsia.400}",
           "$type": "color",
           "$extensions": {
@@ -9329,7 +9329,7 @@
             }
           }
         },
-        "semanticFuchsia500": {
+        "semantic-fuchsia-500": {
           "$value": "{colors.fuchsia.500}",
           "$type": "color",
           "$extensions": {
@@ -9344,7 +9344,7 @@
             }
           }
         },
-        "semanticFuchsia400": {
+        "semantic-fuchsia-400": {
           "$value": "{colors.fuchsia.600}",
           "$type": "color",
           "$extensions": {
@@ -9359,7 +9359,7 @@
             }
           }
         },
-        "semanticFuchsia300": {
+        "semantic-fuchsia-300": {
           "$value": "{colors.fuchsia.700}",
           "$type": "color",
           "$extensions": {
@@ -9374,7 +9374,7 @@
             }
           }
         },
-        "semanticFuchsia200": {
+        "semantic-fuchsia-200": {
           "$value": "{colors.fuchsia.800}",
           "$type": "color",
           "$extensions": {
@@ -9389,7 +9389,7 @@
             }
           }
         },
-        "semanticFuchsia100": {
+        "semantic-fuchsia-100": {
           "$value": "{colors.fuchsia.900}",
           "$type": "color",
           "$extensions": {
@@ -9404,7 +9404,7 @@
             }
           }
         },
-        "semanticFuchsia50": {
+        "semantic-fuchsia-50": {
           "$value": "{colors.fuchsia.950}",
           "$type": "color",
           "$extensions": {
@@ -9420,8 +9420,8 @@
           }
         }
       },
-      "pink": {
-        "semanticPink950": {
+      "Pink": {
+        "semantic-pink-950": {
           "$value": "{colors.pink.50}",
           "$type": "color",
           "$extensions": {
@@ -9436,7 +9436,7 @@
             }
           }
         },
-        "semanticPink900": {
+        "semantic-pink-900": {
           "$value": "{colors.pink.100}",
           "$type": "color",
           "$extensions": {
@@ -9451,7 +9451,7 @@
             }
           }
         },
-        "semanticPink800": {
+        "semantic-pink-800": {
           "$value": "{colors.pink.200}",
           "$type": "color",
           "$extensions": {
@@ -9466,7 +9466,7 @@
             }
           }
         },
-        "semanticPink700": {
+        "semantic-pink-700": {
           "$value": "{colors.pink.300}",
           "$type": "color",
           "$extensions": {
@@ -9481,7 +9481,7 @@
             }
           }
         },
-        "semanticPink600": {
+        "semantic-pink-600": {
           "$value": "{colors.pink.400}",
           "$type": "color",
           "$extensions": {
@@ -9496,7 +9496,7 @@
             }
           }
         },
-        "semanticPink500": {
+        "semantic-pink-500": {
           "$value": "{colors.pink.500}",
           "$type": "color",
           "$extensions": {
@@ -9511,7 +9511,7 @@
             }
           }
         },
-        "semanticPink400": {
+        "semantic-pink-400": {
           "$value": "{colors.pink.600}",
           "$type": "color",
           "$extensions": {
@@ -9526,7 +9526,7 @@
             }
           }
         },
-        "semanticPink300": {
+        "semantic-pink-300": {
           "$value": "{colors.pink.700}",
           "$type": "color",
           "$extensions": {
@@ -9541,7 +9541,7 @@
             }
           }
         },
-        "semanticPink200": {
+        "semantic-pink-200": {
           "$value": "{colors.pink.800}",
           "$type": "color",
           "$extensions": {
@@ -9556,7 +9556,7 @@
             }
           }
         },
-        "semanticPink100": {
+        "semantic-pink-100": {
           "$value": "{colors.pink.900}",
           "$type": "color",
           "$extensions": {
@@ -9571,7 +9571,7 @@
             }
           }
         },
-        "semanticPink50": {
+        "semantic-pink-50": {
           "$value": "{colors.pink.950}",
           "$type": "color",
           "$extensions": {
@@ -9587,8 +9587,8 @@
           }
         }
       },
-      "rose": {
-        "semanticRose950": {
+      "Rose": {
+        "semantic-rose-950": {
           "$value": "{colors.rose.50}",
           "$type": "color",
           "$extensions": {
@@ -9603,7 +9603,7 @@
             }
           }
         },
-        "semanticRose900": {
+        "semantic-rose-900": {
           "$value": "{colors.rose.100}",
           "$type": "color",
           "$extensions": {
@@ -9618,7 +9618,7 @@
             }
           }
         },
-        "semanticRose800": {
+        "semantic-rose-800": {
           "$value": "{colors.rose.200}",
           "$type": "color",
           "$extensions": {
@@ -9633,7 +9633,7 @@
             }
           }
         },
-        "semanticRose700": {
+        "semantic-rose-700": {
           "$value": "{colors.rose.300}",
           "$type": "color",
           "$extensions": {
@@ -9648,7 +9648,7 @@
             }
           }
         },
-        "semanticRose600": {
+        "semantic-rose-600": {
           "$value": "{colors.rose.400}",
           "$type": "color",
           "$extensions": {
@@ -9663,7 +9663,7 @@
             }
           }
         },
-        "semanticRose500": {
+        "semantic-rose-500": {
           "$value": "{colors.rose.500}",
           "$type": "color",
           "$extensions": {
@@ -9678,7 +9678,7 @@
             }
           }
         },
-        "semanticRose400": {
+        "semantic-rose-400": {
           "$value": "{colors.rose.600}",
           "$type": "color",
           "$extensions": {
@@ -9693,7 +9693,7 @@
             }
           }
         },
-        "semanticRose300": {
+        "semantic-rose-300": {
           "$value": "{colors.rose.700}",
           "$type": "color",
           "$extensions": {
@@ -9708,7 +9708,7 @@
             }
           }
         },
-        "semanticRose200": {
+        "semantic-rose-200": {
           "$value": "{colors.rose.800}",
           "$type": "color",
           "$extensions": {
@@ -9723,7 +9723,7 @@
             }
           }
         },
-        "semanticRose100": {
+        "semantic-rose-100": {
           "$value": "{colors.rose.900}",
           "$type": "color",
           "$extensions": {
@@ -9738,7 +9738,7 @@
             }
           }
         },
-        "semanticRose50": {
+        "semantic-rose-50": {
           "$value": "{colors.rose.950}",
           "$type": "color",
           "$extensions": {

@@ -1,6 +1,6 @@
 {
   "$description": "Colors",
-  "base": {
+  "Base": {
     "50": {
       "$value": "#f9fafb",
       "$type": "color",
@@ -182,7 +182,7 @@
       }
     }
   },
-  "primary": {
+  "Primary": {
     "50": {
       "$value": "#e5f2ff",
       "$type": "color",
@@ -349,7 +349,7 @@
       }
     }
   },
-  "info": {
+  "Info": {
     "50": {
       "$value": "#f0f9ff",
       "$type": "color",
@@ -516,7 +516,7 @@
       }
     }
   },
-  "success": {
+  "Success": {
     "50": {
       "$value": "#ecfdf5",
       "$type": "color",
@@ -683,7 +683,7 @@
       }
     }
   },
-  "warning": {
+  "Warning": {
     "50": {
       "$value": "#fffbeb",
       "$type": "color",
@@ -850,7 +850,7 @@
       }
     }
   },
-  "error": {
+  "Error": {
     "50": {
       "$value": "#ffe5e5",
       "$type": "color",
@@ -1017,7 +1017,7 @@
       }
     }
   },
-  "violet": {
+  "Violet": {
     "50": {
       "$value": "#f5f3ff",
       "$type": "color",
@@ -1184,7 +1184,7 @@
       }
     }
   },
-  "zinc": {
+  "Zinc": {
     "50": {
       "$value": "#fafafa",
       "$type": "color",
@@ -1351,7 +1351,7 @@
       }
     }
   },
-  "neutral": {
+  "Neutral": {
     "50": {
       "$value": "#fafafa",
       "$type": "color",
@@ -1518,7 +1518,7 @@
       }
     }
   },
-  "stone": {
+  "Stone": {
     "50": {
       "$value": "#fafaf9",
       "$type": "color",
@@ -1685,7 +1685,7 @@
       }
     }
   },
-  "orange": {
+  "Orange": {
     "50": {
       "$value": "#fff7ed",
       "$type": "color",
@@ -1852,7 +1852,7 @@
       }
     }
   },
-  "amber": {
+  "Amber": {
     "50": {
       "$value": "#fffbeb",
       "$type": "color",
@@ -2019,7 +2019,7 @@
       }
     }
   },
-  "yellow": {
+  "Yellow": {
     "50": {
       "$value": "#fefce8",
       "$type": "color",
@@ -2186,7 +2186,7 @@
       }
     }
   },
-  "lime": {
+  "Lime": {
     "50": {
       "$value": "#f7fee7",
       "$type": "color",
@@ -2353,7 +2353,7 @@
       }
     }
   },
-  "green": {
+  "Green": {
     "50": {
       "$value": "#f0fdf4",
       "$type": "color",
@@ -2520,7 +2520,7 @@
       }
     }
   },
-  "emerald": {
+  "Emerald": {
     "50": {
       "$value": "#ecfdf5",
       "$type": "color",
@@ -2687,7 +2687,7 @@
       }
     }
   },
-  "teal": {
+  "Teal": {
     "50": {
       "$value": "#f0fdfa",
       "$type": "color",
@@ -2854,7 +2854,7 @@
       }
     }
   },
-  "cyan": {
+  "Cyan": {
     "50": {
       "$value": "#ecfeff",
       "$type": "color",
@@ -3021,7 +3021,7 @@
       }
     }
   },
-  "sky": {
+  "Sky": {
     "50": {
       "$value": "#f0f9ff",
       "$type": "color",
@@ -3188,7 +3188,7 @@
       }
     }
   },
-  "blue": {
+  "Blue": {
     "50": {
       "$value": "#eff6ff",
       "$type": "color",
@@ -3355,7 +3355,7 @@
       }
     }
   },
-  "indigo": {
+  "Indigo": {
     "50": {
       "$value": "#eef2ff",
       "$type": "color",
@@ -3522,7 +3522,7 @@
       }
     }
   },
-  "purple": {
+  "Purple": {
     "50": {
       "$value": "#faf5ff",
       "$type": "color",
@@ -3689,7 +3689,7 @@
       }
     }
   },
-  "fuchsia": {
+  "Fuchsia": {
     "50": {
       "$value": "#fdf4ff",
       "$type": "color",
@@ -3856,7 +3856,7 @@
       }
     }
   },
-  "pink": {
+  "Pink": {
     "50": {
       "$value": "#fdf2f8",
       "$type": "color",
@@ -4023,7 +4023,7 @@
       }
     }
   },
-  "rose": {
+  "Rose": {
     "50": {
       "$value": "#fff1f2",
       "$type": "color",

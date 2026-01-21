@@ -1,6 +1,6 @@
 {
   "$description": "Radius",
-  "radiusNone": {
+  "radius-none": {
     "$value": "{spacingPrimitives.0}",
     "$type": "dimension",
     "$extensions": {
@@ -15,7 +15,7 @@
       }
     }
   },
-  "radiusXxxs": {
+  "radius-xxxs": {
     "$value": "{spacingPrimitives.2}",
     "$type": "dimension",
     "$extensions": {
@@ -30,7 +30,7 @@
       }
     }
   },
-  "radiusXxs": {
+  "radius-xxs": {
     "$value": "{spacingPrimitives.4}",
     "$type": "dimension",
     "$extensions": {
@@ -45,7 +45,7 @@
       }
     }
   },
-  "radiusXs": {
+  "radius-xs": {
     "$value": "{spacingPrimitives.6}",
     "$type": "dimension",
     "$extensions": {
@@ -60,7 +60,7 @@
       }
     }
   },
-  "radiusS": {
+  "radius-s": {
     "$value": "{spacingPrimitives.8}",
     "$type": "dimension",
     "$extensions": {
@@ -75,7 +75,7 @@
       }
     }
   },
-  "radiusM": {
+  "radius-m": {
     "$value": "{spacingPrimitives.10}",
     "$type": "dimension",
     "$extensions": {
@@ -90,7 +90,7 @@
       }
     }
   },
-  "radiusL": {
+  "radius-l": {
     "$value": "{spacingPrimitives.12}",
     "$type": "dimension",
     "$extensions": {
@@ -105,7 +105,7 @@
       }
     }
   },
-  "radiusXl": {
+  "radius-xl": {
     "$value": "{spacingPrimitives.16}",
     "$type": "dimension",
     "$extensions": {
@@ -120,7 +120,7 @@
       }
     }
   },
-  "radiusXxl": {
+  "radius-xxl": {
     "$value": "{spacingPrimitives.20}",
     "$type": "dimension",
     "$extensions": {
@@ -135,7 +135,7 @@
       }
     }
   },
-  "radiusXxxl": {
+  "radius-xxxl": {
     "$value": "{spacingPrimitives.32}",
     "$type": "dimension",
     "$extensions": {
@@ -150,7 +150,7 @@
       }
     }
   },
-  "radiusXxxxl": {
+  "radius-xxxxl": {
     "$value": "{spacingPrimitives.48}",
     "$type": "dimension",
     "$extensions": {
@@ -165,7 +165,7 @@
       }
     }
   },
-  "radiusMax": {
+  "radius-max": {
     "$value": "999px",
     "$type": "dimension",
     "$extensions": {

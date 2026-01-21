@@ -1,6 +1,6 @@
 {
   "$description": "Padding",
-  "paddingNone": {
+  "padding-none": {
     "$value": "{spacingPrimitives.0}",
     "$type": "dimension",
     "$extensions": {
@@ -15,7 +15,7 @@
       }
     }
   },
-  "padding2": {
+  "padding-2": {
     "$value": "{spacingPrimitives.2}",
     "$type": "dimension",
     "$extensions": {
@@ -30,7 +30,7 @@
       }
     }
   },
-  "padding4": {
+  "padding-4": {
     "$value": "{spacingPrimitives.4}",
     "$type": "dimension",
     "$extensions": {
@@ -45,7 +45,7 @@
       }
     }
   },
-  "padding6": {
+  "padding-6": {
     "$value": "{spacingPrimitives.6}",
     "$type": "dimension",
     "$extensions": {
@@ -72,7 +72,7 @@
       }
     }
   },
-  "padding8": {
+  "padding-8": {
     "$value": "{spacingPrimitives.8}",
     "$type": "dimension",
     "$extensions": {
@@ -87,7 +87,7 @@
       }
     }
   },
-  "padding10": {
+  "padding-10": {
     "$value": "{spacingPrimitives.10}",
     "$type": "dimension",
     "$extensions": {
@@ -102,7 +102,7 @@
       }
     }
   },
-  "padding12": {
+  "padding-12": {
     "$value": "{spacingPrimitives.12}",
     "$type": "dimension",
     "$extensions": {
@@ -117,7 +117,7 @@
       }
     }
   },
-  "padding16": {
+  "padding-16": {
     "$value": "{spacingPrimitives.16}",
     "$type": "dimension",
     "$extensions": {
@@ -132,7 +132,7 @@
       }
     }
   },
-  "padding20": {
+  "padding-20": {
     "$value": "{spacingPrimitives.20}",
     "$type": "dimension",
     "$extensions": {
@@ -147,7 +147,7 @@
       }
     }
   },
-  "padding24": {
+  "padding-24": {
     "$value": "{spacingPrimitives.24}",
     "$type": "dimension",
     "$extensions": {
@@ -162,7 +162,7 @@
       }
     }
   },
-  "padding28": {
+  "padding-28": {
     "$value": "{spacingPrimitives.28}",
     "$type": "dimension",
     "$extensions": {
@@ -177,7 +177,7 @@
       }
     }
   },
-  "padding32": {
+  "padding-32": {
     "$value": "{spacingPrimitives.32}",
     "$type": "dimension",
     "$extensions": {
@@ -192,7 +192,7 @@
       }
     }
   },
-  "padding40": {
+  "padding-40": {
     "$value": "{spacingPrimitives.40}",
     "$type": "dimension",
     "$extensions": {
@@ -207,7 +207,7 @@
       }
     }
   },
-  "padding48": {
+  "padding-48": {
     "$value": "{spacingPrimitives.48}",
     "$type": "dimension",
     "$extensions": {
@@ -222,7 +222,7 @@
       }
     }
   },
-  "padding64": {
+  "padding-64": {
     "$value": "{spacingPrimitives.64}",
     "$type": "dimension",
     "$extensions": {
@@ -237,7 +237,7 @@
       }
     }
   },
-  "padding72": {
+  "padding-72": {
     "$value": "{spacingPrimitives.72}",
     "$type": "dimension",
     "$extensions": {
@@ -252,7 +252,7 @@
       }
     }
   },
-  "padding80": {
+  "padding-80": {
     "$value": "{spacingPrimitives.80}",
     "$type": "dimension",
     "$extensions": {
@@ -267,7 +267,7 @@
       }
     }
   },
-  "padding96": {
+  "padding-96": {
     "$value": "{spacingPrimitives.96}",
     "$type": "dimension",
     "$extensions": {
@@ -294,7 +294,7 @@
       }
     }
   },
-  "padding128": {
+  "padding-128": {
     "$value": "{spacingPrimitives.128}",
     "$type": "dimension",
     "$extensions": {
@@ -321,7 +321,7 @@
       }
     }
   },
-  "padding160": {
+  "padding-160": {
     "$value": "{spacingPrimitives.160}",
     "$type": "dimension",
     "$extensions": {
@@ -348,7 +348,7 @@
       }
     }
   },
-  "padding192": {
+  "padding-192": {
     "$value": "{spacingPrimitives.192}",
     "$type": "dimension",
     "$extensions": {

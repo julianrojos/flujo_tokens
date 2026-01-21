@@ -1,8 +1,8 @@
 {
   "$description": "Screen Size",
-  "navigationPadding": {
+  "NavigationPadding": {
     "modeDesktop": {
-      "gridPadding": {
+      "grid-padding": {
         "$value": "112px",
         "$type": "dimension",
         "$extensions": {
@@ -20,7 +20,7 @@
       }
     },
     "modeMobile": {
-      "gridPadding": {
+      "grid-padding": {
         "$value": "16px",
         "$type": "dimension",
         "$extensions": {
@@ -38,9 +38,9 @@
       }
     }
   },
-  "gridSystemProperties": {
+  "GridSystemProperties": {
     "modeDesktop": {
-      "gridColumnCount": {
+      "grid-column-count": {
         "$value": "12px",
         "$type": "dimension",
         "$extensions": {
@@ -61,7 +61,7 @@
           }
         }
       },
-      "gridMargin": {
+      "grid-margin": {
         "$value": "112px",
         "$type": "dimension",
         "$extensions": {
@@ -82,7 +82,7 @@
           }
         }
       },
-      "gridGutter": {
+      "grid-gutter": {
         "$value": "32px",
         "$type": "dimension",
         "$extensions": {
@@ -105,7 +105,7 @@
       }
     },
     "modeMobile": {
-      "gridColumnCount": {
+      "grid-column-count": {
         "$value": "4px",
         "$type": "dimension",
         "$extensions": {
@@ -126,7 +126,7 @@
           }
         }
       },
-      "gridMargin": {
+      "grid-margin": {
         "$value": "16px",
         "$type": "dimension",
         "$extensions": {
@@ -147,7 +147,7 @@
           }
         }
       },
-      "gridGutter": {
+      "grid-gutter": {
         "$value": "16px",
         "$type": "dimension",
         "$extensions": {
@@ -170,9 +170,9 @@
       }
     }
   },
-  "mockupSize": {
+  "MockupSize": {
     "modeDesktop": {
-      "mockupWidth": {
+      "mockup-width": {
         "$value": "1024px",
         "$type": "dimension",
         "$extensions": {
@@ -188,7 +188,7 @@
           }
         }
       },
-      "mockupHeight": {
+      "mockup-height": {
         "$value": "640px",
         "$type": "dimension",
         "$extensions": {
@@ -206,7 +206,7 @@
       }
     },
     "modeMobile": {
-      "mockupWidth": {
+      "mockup-width": {
         "$value": "343px",
         "$type": "dimension",
         "$extensions": {
@@ -222,7 +222,7 @@
           }
         }
       },
-      "mockupHeight": {
+      "mockup-height": {
         "$value": "214px",
         "$type": "dimension",
         "$extensions": {

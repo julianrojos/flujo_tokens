@@ -2,8 +2,8 @@
   "$description": "Typography Variables",
   "font": {
     "family": {
-      "inter": {
-        "$value": "Arial",
+      "Inter": {
+        "$value": "Inter",
         "$type": "string",
         "$extensions": {
           "com.figma": {
@@ -19,7 +19,7 @@
       }
     },
     "weight": {
-      "bold": {
+      "Bold": {
         "$value": "Bold",
         "$type": "string",
         "$extensions": {
@@ -34,7 +34,7 @@
           }
         }
       },
-      "semiBold": {
+      "SemiBold": {
         "$value": "Semi Bold",
         "$type": "string",
         "$extensions": {
@@ -49,7 +49,7 @@
           }
         }
       },
-      "medium": {
+      "Medium": {
         "$value": "Medium",
         "$type": "string",
         "$extensions": {
@@ -64,7 +64,7 @@
           }
         }
       },
-      "regular": {
+      "Regular": {
         "$value": "Regular",
         "$type": "string",
         "$extensions": {
@@ -80,7 +80,7 @@
         }
       }
     },
-    "fontsize": {
+    "fontSize": {
       "xs": {
         "$value": "0.6875rem",
         "$type": "dimension",
@@ -277,7 +277,7 @@
         }
       }
     },
-    "lineheight": {
+    "lineHeight": {
       "none": {
         "$value": "16px",
         "$type": "dimension",
@@ -429,7 +429,7 @@
         }
       }
     },
-    "letterspacing": {
+    "letterSpacing": {
       "tighter": {
         "$value": "-2px",
         "$type": "dimension",
@@ -476,7 +476,7 @@
         }
       }
     },
-    "paragraphspacing": {
+    "paragraphSpacing": {
       "none": {
         "$value": "0px",
         "$type": "dimension",
@@ -493,7 +493,7 @@
         }
       }
     },
-    "paragraphindent": {
+    "paragraphIndent": {
       "none": {
         "$value": "0px",
         "$type": "dimension",
