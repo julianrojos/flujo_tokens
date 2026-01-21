@@ -12,6 +12,41 @@ import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
 import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, buildPathKey } from '../utils/paths.js';
 import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName, quoteCssStringLiteral } from '../utils/strings.js';
 
+function formatNumber(value: number): string {
+    return value.toFixed(4).replace(/\.?0+$/, '');
+}
+
+function coerceTypographyDimension(
+    value: TokenValue['$value'],
+    varType: string | undefined,
+    currentPath: string[]
+): { value: TokenValue['$value']; varType: string | undefined } {
+    if (typeof value !== 'string') return { value, varType };
+    if (varType !== 'dimension') return { value, varType };
+
+    const root = currentPath[0]?.toLowerCase();
+    if (root !== 'typographyprimitives') return { value, varType };
+
+    const lowerPath = currentPath.map(p => p.toLowerCase());
+    const isSize = lowerPath.includes('size');
+    const isLineHeight = lowerPath.includes('lineheight');
+    if (!isSize && !isLineHeight) return { value, varType };
+
+    const match = value.trim().match(/^(-?\d+(?:\.\d+)?)px$/i);
+    if (!match) return { value, varType };
+
+    const px = parseFloat(match[1]);
+    if (Number.isNaN(px)) return { value, varType };
+
+    if (isSize) {
+        const rem = px / 16;
+        return { value: `${formatNumber(rem)}rem`, varType };
+    }
+
+    const unitless = px / 16;
+    return { value: formatNumber(unitless), varType };
+}
+
 // --- Recording helpers ---
 
 export function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reason: string): void {
@@ -596,6 +631,10 @@ export function processValue(
 
     // Treat null/undefined as "no value"
     if (value == null) return null;
+
+    const coerced = coerceTypographyDimension(value, varType, currentPath);
+    value = coerced.value;
+    varType = coerced.varType;
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
