@@ -1,0 +1,378 @@
+{
+  "$description": "Padding",
+  "padding-none": {
+    "$value": "{spacingPrimitives.0}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:970",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-2": {
+    "$value": "{spacingPrimitives.2}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:971",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-4": {
+    "$value": "{spacingPrimitives.4}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:972",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-6": {
+    "$value": "{spacingPrimitives.6}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:256:65",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "TEXT_CONTENT",
+          "WIDTH_HEIGHT",
+          "GAP",
+          "STROKE_FLOAT",
+          "EFFECT_FLOAT",
+          "OPACITY",
+          "FONT_WEIGHT",
+          "FONT_SIZE",
+          "LINE_HEIGHT",
+          "LETTER_SPACING",
+          "PARAGRAPH_SPACING",
+          "PARAGRAPH_INDENT",
+          "FONT_VARIATIONS"
+        ]
+      }
+    }
+  },
+  "padding-8": {
+    "$value": "{spacingPrimitives.8}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:973",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-10": {
+    "$value": "{spacingPrimitives.10}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:1328",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-12": {
+    "$value": "{spacingPrimitives.12}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:974",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-16": {
+    "$value": "{spacingPrimitives.16}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:975",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-20": {
+    "$value": "{spacingPrimitives.20}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:976",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-24": {
+    "$value": "{spacingPrimitives.24}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:977",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-28": {
+    "$value": "{spacingPrimitives.28}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:978",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-32": {
+    "$value": "{spacingPrimitives.32}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:155:979",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-40": {
+    "$value": "{spacingPrimitives.40}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:638:2623",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-48": {
+    "$value": "{spacingPrimitives.48}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:638:2624",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-64": {
+    "$value": "{spacingPrimitives.64}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:638:2625",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-72": {
+    "$value": "{spacingPrimitives.72}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:19027:36027",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-80": {
+    "$value": "{spacingPrimitives.80}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:638:2626",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "GAP"
+        ]
+      }
+    }
+  },
+  "padding-96": {
+    "$value": "{spacingPrimitives.96}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:18754:16803",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "TEXT_CONTENT",
+          "WIDTH_HEIGHT",
+          "GAP",
+          "STROKE_FLOAT",
+          "EFFECT_FLOAT",
+          "OPACITY",
+          "FONT_WEIGHT",
+          "FONT_SIZE",
+          "LINE_HEIGHT",
+          "LETTER_SPACING",
+          "PARAGRAPH_SPACING",
+          "PARAGRAPH_INDENT",
+          "FONT_VARIATIONS"
+        ]
+      }
+    }
+  },
+  "padding-128": {
+    "$value": "{spacingPrimitives.128}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:18754:16804",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "TEXT_CONTENT",
+          "WIDTH_HEIGHT",
+          "GAP",
+          "STROKE_FLOAT",
+          "EFFECT_FLOAT",
+          "OPACITY",
+          "FONT_WEIGHT",
+          "FONT_SIZE",
+          "LINE_HEIGHT",
+          "LETTER_SPACING",
+          "PARAGRAPH_SPACING",
+          "PARAGRAPH_INDENT",
+          "FONT_VARIATIONS"
+        ]
+      }
+    }
+  },
+  "padding-160": {
+    "$value": "{spacingPrimitives.160}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:18754:16805",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "TEXT_CONTENT",
+          "WIDTH_HEIGHT",
+          "GAP",
+          "STROKE_FLOAT",
+          "EFFECT_FLOAT",
+          "OPACITY",
+          "FONT_WEIGHT",
+          "FONT_SIZE",
+          "LINE_HEIGHT",
+          "LETTER_SPACING",
+          "PARAGRAPH_SPACING",
+          "PARAGRAPH_INDENT",
+          "FONT_VARIATIONS"
+        ]
+      }
+    }
+  },
+  "padding-192": {
+    "$value": "{spacingPrimitives.192}",
+    "$type": "dimension",
+    "$extensions": {
+      "com.figma": {
+        "variableId": "VariableID:18754:16806",
+        "collectionId": "VariableCollectionId:155:969",
+        "modeId": "155:1",
+        "resolvedType": "FLOAT",
+        "scopes": [
+          "TEXT_CONTENT",
+          "WIDTH_HEIGHT",
+          "GAP",
+          "STROKE_FLOAT",
+          "EFFECT_FLOAT",
+          "OPACITY",
+          "FONT_WEIGHT",
+          "FONT_SIZE",
+          "LINE_HEIGHT",
+          "LETTER_SPACING",
+          "PARAGRAPH_SPACING",
+          "PARAGRAPH_INDENT",
+          "FONT_VARIATIONS"
+        ]
+      }
+    }
+  }
+}
