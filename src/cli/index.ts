@@ -304,7 +304,8 @@ async function main() {
         if (scopedLines.length === 0) continue;
 
         allCssLines.push(...scopedLines);
-        cssBlocks.push(`${scope.selector} {\n${scopedLines.join('\n')}\n}`);
+        const modeLabel = scope.mode ? `/* ========== ${scope.mode.toUpperCase()} ========== */\n` : '';
+        cssBlocks.push(`${modeLabel}${scope.selector} {\n${scopedLines.join('\n')}\n}`);
     }
 
     console.log('📝 Writing CSS file...');
