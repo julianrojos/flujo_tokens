@@ -40,6 +40,12 @@ type CliOptions = {
     modeSkipBase: boolean;
 };
 
+type ModeScope = {
+    selector: string;
+    mode?: string;
+    skipBaseWhenMode: boolean;
+};
+
 function printUsage(): void {
     console.log(`Usage: npm run generate -- [options]
 
@@ -139,6 +145,27 @@ const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
 const MODE_SKIP_BASE = parsed.modeSkipBase;
 
+function normalizeModeName(modeKey: string | undefined): string {
+    if (!modeKey) return '';
+    const trimmed = modeKey.trim();
+    return trimmed ? toKebabCase(trimmed) : '';
+}
+
+function selectBaseMode(modeKeys: string[], preferredMode?: string): string | undefined {
+    if (modeKeys.length === 0) return undefined;
+
+    const normalizedPreferred = preferredMode ? normalizeModeName(preferredMode) : undefined;
+    if (normalizedPreferred) {
+        const match = modeKeys.find(k => normalizeModeName(k) === normalizedPreferred);
+        if (match) return match;
+    }
+
+    const defaultKey = modeKeys.find(k => k.toLowerCase() === 'modedefault');
+    if (defaultKey) return defaultKey;
+
+    return modeKeys[0];
+}
+
 // --- Main execution ---
 
 async function main() {
@@ -171,7 +198,6 @@ async function main() {
     }
 
     console.log('🔄 Transforming to CSS variables...');
-    const cssLines: string[] = [];
     const refMap = new Map<string, string>();
     const valueMap = new Map<string, TokenValue>();
     const collisionKeys = new Set<string>();
@@ -225,24 +251,64 @@ async function main() {
         cssVarNameCollisionMap
     });
 
-    for (const { originalName, kebabName, content } of fileEntries) {
-        // Avoid orphan section headers: keep the header only if something was emitted.
-        const startLen = cssLines.length;
+    const modeKeys = Array.from(foundModeKeys);
+    const sortedModes = modeKeys.slice().sort((a, b) => normalizeModeName(a).localeCompare(normalizeModeName(b)));
+    const baseMode = selectBaseMode(sortedModes, PREFERRED_MODE);
 
-        if (cssLines.length > 0) cssLines.push('');
-        cssLines.push(formatCssSectionHeader(originalName));
+    const scopes: ModeScope[] = [];
+    if (sortedModes.length === 0) {
+        scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: MODE_SKIP_BASE });
+    } else {
+        const base = baseMode ?? sortedModes[0];
+        scopes.push({ selector: ':root', mode: base, skipBaseWhenMode: MODE_SKIP_BASE });
 
-        flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName], PREFERRED_MODE, MODE_STRICT, MODE_SKIP_BASE);
-
-        const expectedLenIfEmpty = startLen + (startLen > 0 ? 2 : 1);
-        if (cssLines.length === expectedLenIfEmpty) {
-            cssLines.pop(); // header
-            if (startLen > 0) cssLines.pop(); // blank line
+        for (const modeKey of sortedModes) {
+            if (modeKey === base) continue;
+            const selectorValue = normalizeModeName(modeKey);
+            const selector = `[data-theme="${selectorValue}"]`;
+            scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true });
         }
     }
 
+    const cssBlocks: string[] = [];
+    const allCssLines: string[] = [];
+
+    for (const scope of scopes) {
+        const scopedLines: string[] = [];
+
+        for (const { originalName, kebabName, content } of fileEntries) {
+            // Avoid orphan section headers: keep the header only if something was emitted.
+            const startLen = scopedLines.length;
+
+            if (scopedLines.length > 0) scopedLines.push('');
+            scopedLines.push(formatCssSectionHeader(originalName));
+
+            flattenTokens(
+                processingCtx,
+                content,
+                [kebabName],
+                scopedLines,
+                [originalName],
+                scope.mode,
+                MODE_STRICT,
+                scope.skipBaseWhenMode
+            );
+
+            const expectedLenIfEmpty = startLen + (startLen > 0 ? 2 : 1);
+            if (scopedLines.length === expectedLenIfEmpty) {
+                scopedLines.pop(); // header
+                if (startLen > 0) scopedLines.pop(); // blank line
+            }
+        }
+
+        if (scopedLines.length === 0) continue;
+
+        allCssLines.push(...scopedLines);
+        cssBlocks.push(`${scope.selector} {\n${scopedLines.join('\n')}\n}`);
+    }
+
     console.log('📝 Writing CSS file...');
-    const finalCss = `:root {\n${cssLines.join('\n')}\n}\n`;
+    const finalCss = `${cssBlocks.join('\n\n')}\n`;
 
     const destDir = path.dirname(OUTPUT_FILE);
     if (!fs.existsSync(destDir)) {
@@ -263,7 +329,7 @@ async function main() {
     printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
 
     if (previousVariables.size > 0) {
-        logChangeDetection(previousVariables, cssLines, {
+        logChangeDetection(previousVariables, allCssLines, {
             preferredMode: PREFERRED_MODE,
             foundModes: foundModeKeys,
             modeStrict: MODE_STRICT
