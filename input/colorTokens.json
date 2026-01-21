@@ -9755,37 +9755,5 @@
         }
       }
     }
-  },
-  "borrar": {
-    "modeLightmode": {
-      "$value": "BORRAR_1",
-      "$type": "string",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:72179:206",
-          "collectionId": "VariableCollectionId:120:152",
-          "modeId": "120:0",
-          "resolvedType": "STRING",
-          "scopes": [
-            "ALL_SCOPES"
-          ]
-        }
-      }
-    },
-    "modeDarkmode": {
-      "$value": "BORRAR-2",
-      "$type": "string",
-      "$extensions": {
-        "com.figma": {
-          "variableId": "VariableID:72179:206",
-          "collectionId": "VariableCollectionId:120:152",
-          "modeId": "120:1",
-          "resolvedType": "STRING",
-          "scopes": [
-            "ALL_SCOPES"
-          ]
-        }
-      }
-    }
   }
 }
