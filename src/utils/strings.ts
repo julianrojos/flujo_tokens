@@ -11,13 +11,12 @@ export function toKebabCase(name: string): string {
         return cached;
     }
 
-    // Convert common separators and camelCase into kebab-case (used in CSS identifiers).
-    let result = name.replace(/-/g, ' ');
-    result = result.replace(/[\\/]+/g, ' ');
-    result = result.replace(/([a-z])([A-Z])/g, '$1-$2');
+    // Convert camelCase and whitespace/slashes into kebab-style without altering existing hyphens/underscores.
+    let result = name.replace(/[\\/]+/g, '-'); // normalize path separators to dashes
+    result = result.replace(/([a-z])([A-Z])/g, '$1-$2'); // split camelCase
+    result = result.replace(/\s+/g, '-'); // collapse spaces to dashes
     result = result.toLowerCase();
-    result = result.replace(/[\s-]+/g, '-');
-    result = result.replace(/^-+|-+$/g, '');
+    result = result.replace(/^-+|-+$/g, ''); // trim outer dashes, keep internal hyphens/underscores intact
 
     kebabCaseCache.set(name, result);
     return result;
