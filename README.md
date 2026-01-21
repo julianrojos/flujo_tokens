@@ -64,10 +64,15 @@ ALLOW_JSON_REPAIR=true npm run generate
 
 ## Typography unit coercion (runtime)
 
-- Para evitar tocar los JSON exportados, durante la emisión se convierten los tokens bajo `Typographyprimitives` con `$type: "dimension"`:
-  - Tamaños en `px` → `rem` (base 16, redondeo a 4 decimales).
-  - Line-heights en `px` → valores unitless.
-- Solo se aplica en `Typographyprimitives`; otros valores dimension no se alteran.
+- To avoid touching exported JSONs, during emission the tokens under `Typographyprimitives` with `$type: "dimension"` are converted:
+  - Font sizes in `px` → `rem` (16px base, rounded to 4 decimals).
+  - Line-heights in `px` → unitless values.
+- Applied only to `Typographyprimitives`; other dimensions are not altered.
+
+## Output order (primitives first)
+
+- Within each emitted CSS block, variables with primitive values (no references) are written before alias variables (that reference other tokens).
+- Section comments per file are kept in both groups for readability.
 
 ## Troubleshooting
 

@@ -274,32 +274,37 @@ async function main() {
     const allCssLines: string[] = [];
 
     for (const scope of scopes) {
-        const scopedLines: string[] = [];
+        const scopedPrimitives: string[] = [];
+        const scopedAliases: string[] = [];
 
         for (const { originalName, kebabName, content } of fileEntries) {
-            // Avoid orphan section headers: keep the header only if something was emitted.
-            const startLen = scopedLines.length;
-
-            if (scopedLines.length > 0) scopedLines.push('');
-            scopedLines.push(formatCssSectionHeader(originalName));
-
-            flattenTokens(
+            const { primitives, aliases } = flattenTokens(
                 processingCtx,
                 content,
                 [kebabName],
-                scopedLines,
                 [originalName],
                 scope.mode,
                 MODE_STRICT,
                 scope.skipBaseWhenMode
             );
 
-            const expectedLenIfEmpty = startLen + (startLen > 0 ? 2 : 1);
-            if (scopedLines.length === expectedLenIfEmpty) {
-                scopedLines.pop(); // header
-                if (startLen > 0) scopedLines.pop(); // blank line
+            if (primitives.length > 0) {
+                if (scopedPrimitives.length > 0) scopedPrimitives.push('');
+                scopedPrimitives.push(formatCssSectionHeader(originalName));
+                scopedPrimitives.push(...primitives);
+            }
+
+            if (aliases.length > 0) {
+                if (scopedAliases.length > 0) scopedAliases.push('');
+                scopedAliases.push(formatCssSectionHeader(originalName));
+                scopedAliases.push(...aliases);
             }
         }
+
+        const scopedLines: string[] = [];
+        scopedLines.push(...scopedPrimitives);
+        if (scopedPrimitives.length > 0 && scopedAliases.length > 0) scopedLines.push('');
+        scopedLines.push(...scopedAliases);
 
         if (scopedLines.length === 0) continue;
 

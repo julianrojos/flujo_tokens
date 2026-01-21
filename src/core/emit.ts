@@ -47,6 +47,19 @@ function coerceTypographyDimension(
     return { value: formatNumber(unitless), varType };
 }
 
+function containsReference(value: unknown): boolean {
+    if (typeof value === 'string') return W3C_REF_REGEX_TEST.test(value);
+    if (isVariableAlias(value)) return true;
+    if (Array.isArray(value)) return value.some(v => containsReference(v));
+    if (isPlainObject(value)) {
+        for (const [k, v] of Object.entries(value)) {
+            if (k.startsWith('$')) continue;
+            if (containsReference(v)) return true;
+        }
+    }
+    return false;
+}
+
 // --- Recording helpers ---
 
 export function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reason: string): void {
@@ -705,18 +718,21 @@ export function processValue(
 /**
  * Emission phase: flattens the token tree into CSS declarations.
  * Sorted traversal is used to make the output deterministic across runs.
+ *
+ * Returns primitives first (no references) and aliases later.
  */
 export function flattenTokens(
     ctx: EmissionContext,
     obj: any,
     prefix: string[] = [],
-    collectedVars: string[] = [],
     currentPath: string[] = [],
     preferredMode?: string,
     modeStrict = false,
     skipBaseWhenMode = false
-): string[] {
+): { primitives: string[]; aliases: string[] } {
     const { summary } = ctx;
+    const primitiveVars: string[] = [];
+    const aliasVars: string[] = [];
 
     walkTokenTree(
         summary,
@@ -748,7 +764,8 @@ export function flattenTokens(
                 if (resolvedValue === null) return;
 
                 const varName = buildCssVarNameFromPrefix(tokenPrefix);
-                emitCssVar(summary, collectedVars, varName, resolvedValue, tokenPath, true);
+                const target = containsReference(rawValue) ? aliasVars : primitiveVars;
+                emitCssVar(summary, target, varName, resolvedValue, tokenPath, true);
             },
 
             onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inheritedType }) => {
@@ -764,7 +781,8 @@ export function flattenTokens(
                 const processedValue = processValue(ctx, value, inheritedType, leafPath, visitedRefs);
                 if (processedValue === null) return;
 
-                emitCssVar(summary, collectedVars, varName, processedValue, leafPath, false);
+                const target = containsReference(value) ? aliasVars : primitiveVars;
+                emitCssVar(summary, target, varName, processedValue, leafPath, false);
             }
         },
         0,
@@ -776,5 +794,5 @@ export function flattenTokens(
         skipBaseWhenMode
     );
 
-    return collectedVars;
+    return { primitives: primitiveVars, aliases: aliasVars };
 }
