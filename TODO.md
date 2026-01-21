@@ -21,3 +21,7 @@
 - Nomenclatura CSS: Las variables actuales incluyen el nombre del archivo fuente (e.g., --colorprimitives-...) y son bastante largas. Podríamos simplificarlas usando el prefijo --ds-.
 - Arquitectura: Aunque hay una separación básica, podríamos fortalecer la capa Semántica para facilitar temas (Light/Dark).
 - Line-height: Actualmente se están generando con px en el CSS, cuando el skill recomienda valores unitless.
+
+# SUGERENCIAS
+
+- Prefijo configurable para las CSS vars: permite definir un prefijo (p.ej. --ds-) en la CLI o config, y prepéndelo en la emisión sin renombrar los JSON. Así evitas colisiones y sigues las recomendaciones de naming.
