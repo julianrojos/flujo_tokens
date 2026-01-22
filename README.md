@@ -17,7 +17,6 @@ npm install
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission) to generate `custom-properties.css`.
 - **`npm run generate:strict`**: Same pipeline but with strict mode selection (fails if the preferred mode is missing anywhere).
-- **`npm run watch`**: Runs the generator in watch mode, regenerating files whenever changes occur in the `src` folder.
 
 ## Usage
 

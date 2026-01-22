@@ -5,8 +5,7 @@
   "type": "module",
   "scripts": {
     "generate": "tsx src/cli/index.ts",
-    "generate:strict": "tsx src/cli/index.ts --mode-strict",
-    "watch": "tsx watch src/cli/index.ts"
+    "generate:strict": "tsx src/cli/index.ts --mode-strict"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
