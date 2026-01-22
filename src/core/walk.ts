@@ -147,7 +147,8 @@ export function walkTokenTree(
     preferredMode?: string,
     modeStrict = false,
     skipBaseWhenMode = true,
-    modeOverridesOnly = false
+    modeOverridesOnly = false,
+    allowModeBranches = true
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) return;
 
@@ -166,7 +167,10 @@ export function walkTokenTree(
 
     warnAmbiguousModeDefault(keys, currentPath);
 
-    const modeKey = modeOverridesOnly
+    const effectiveAllowModes = allowModeBranches || inModeBranch;
+    const modeKey = !effectiveAllowModes
+        ? undefined
+        : modeOverridesOnly
         ? pickModeKeyPreferredOnly(keys, preferredMode)
         : sortKeys
         ? pickModeKey(keys, preferredMode)
@@ -316,7 +320,7 @@ export function walkTokenTree(
         }
     }
 
-    if (modeKey && !skipModeTraversal) {
+    if (modeKey && !skipModeTraversal && effectiveAllowModes) {
         // Mode branches affect the JSON path but must not affect the CSS var name prefix.
         currentPath.push(modeKey);
         try {

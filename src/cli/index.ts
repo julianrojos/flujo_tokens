@@ -45,6 +45,7 @@ type ModeScope = {
     mode?: string;
     skipBaseWhenMode: boolean;
     modeOverridesOnly: boolean;
+    allowModeBranches: boolean;
 };
 
 function printUsage(): void {
@@ -264,18 +265,13 @@ async function main() {
     const baseMode = selectBaseMode(sortedModes, PREFERRED_MODE);
 
     const scopes: ModeScope[] = [];
-    if (sortedModes.length === 0) {
-        scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: MODE_SKIP_BASE, modeOverridesOnly: false });
-    } else {
-        const base = baseMode ?? sortedModes[0];
-        scopes.push({ selector: ':root', mode: base, skipBaseWhenMode: MODE_SKIP_BASE, modeOverridesOnly: false });
+    // Base scope: emit only tokens without mode branches or with explicit base values.
+    scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: false, modeOverridesOnly: false, allowModeBranches: false });
 
-        for (const modeKey of sortedModes) {
-            if (modeKey === base) continue;
-            const selectorValue = normalizeModeName(modeKey);
-            const selector = `[data-theme="${selectorValue}"]`;
-            scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true, modeOverridesOnly: true });
-        }
+    for (const modeKey of sortedModes) {
+        const selectorValue = normalizeModeName(modeKey);
+        const selector = `[data-theme="${selectorValue}"]`;
+        scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true, modeOverridesOnly: true, allowModeBranches: true });
     }
 
     const cssBlocks: string[] = [];
@@ -294,7 +290,8 @@ async function main() {
                 scope.mode,
                 MODE_STRICT,
                 scope.skipBaseWhenMode,
-                scope.modeOverridesOnly
+                scope.modeOverridesOnly,
+                scope.allowModeBranches
             );
 
             if (primitives.length > 0) {
