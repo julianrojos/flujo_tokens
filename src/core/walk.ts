@@ -32,6 +32,19 @@ export function pickModeKey(keys: string[], preferredMode?: string): string | un
 }
 
 /**
+ * Strict mode selection: only returns the preferred mode when it exists; no fallback.
+ */
+function pickModeKeyPreferredOnly(keys: string[], preferredMode?: string): string | undefined {
+    const preferred = normalizePreferredMode(preferredMode);
+    if (!preferred) return undefined;
+
+    for (const k of keys) {
+        if (matchesPreferredMode(k, preferred)) return k;
+    }
+    return undefined;
+}
+
+/**
  * UTF-16 code unit comparison to match JavaScript's default `.sort()` ordering.
  * Used to keep mode selection deterministic when we intentionally do not sort keys.
  */
@@ -133,7 +146,8 @@ export function walkTokenTree(
     inheritedType?: string,
     preferredMode?: string,
     modeStrict = false,
-    skipBaseWhenMode = true
+    skipBaseWhenMode = true,
+    modeOverridesOnly = false
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) return;
 
@@ -152,7 +166,11 @@ export function walkTokenTree(
 
     warnAmbiguousModeDefault(keys, currentPath);
 
-    const modeKey = sortKeys ? pickModeKey(keys, preferredMode) : pickModeKeyDeterministic(keys, preferredMode);
+    const modeKey = modeOverridesOnly
+        ? pickModeKeyPreferredOnly(keys, preferredMode)
+        : sortKeys
+        ? pickModeKey(keys, preferredMode)
+        : pickModeKeyDeterministic(keys, preferredMode);
     const hasAnyModeBranch = keys.some(isModeKey);
     const preferred = normalizePreferredMode(preferredMode);
     const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
@@ -188,7 +206,7 @@ export function walkTokenTree(
         const path = pathStr(currentPath);
         const warnKeyFallback = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;
 
-        const shouldEmitBase =
+        let shouldEmitBase =
             !hasAnyModeBranch ||
             !modeKey ||
             missingPreferred ||
@@ -196,7 +214,14 @@ export function walkTokenTree(
 
         const skipModeTraversal = hasAnyModeBranch && missingPreferred && hasValue;
 
-        if (missingPreferred) {
+        if (modeOverridesOnly && preferred && !inModeBranch) {
+            // In override scopes, do not emit base values outside the selected mode branch.
+            if (!hasAnyModeBranch || missingPreferred) {
+                shouldEmitBase = false;
+            }
+        }
+
+        if (missingPreferred && !(modeOverridesOnly && preferred)) {
             if (!warnedPreferredModeFallback.has(warnKeyFallback)) {
                 warnedPreferredModeFallback.add(warnKeyFallback);
                 console.warn(
@@ -258,7 +283,8 @@ export function walkTokenTree(
                 nextInheritedType,
                 preferredMode,
                 modeStrict,
-                skipBaseWhenMode
+                skipBaseWhenMode,
+                modeOverridesOnly
             );
         } finally {
             currentPath.pop();
@@ -266,7 +292,7 @@ export function walkTokenTree(
         }
     }
 
-    if (missingPreferred) {
+    if (missingPreferred && !(modeOverridesOnly && preferred)) {
         const path = pathStr(currentPath);
         const warnKey = `${path}|${preferred}|${modeKey ?? 'none'}`;
         if (!warnedPreferredModeFallback.has(warnKey)) {
@@ -300,7 +326,8 @@ export function walkTokenTree(
                 nextInheritedType,
                 preferredMode,
                 modeStrict,
-                skipBaseWhenMode
+                skipBaseWhenMode,
+                modeOverridesOnly
             );
         } finally {
             currentPath.pop();

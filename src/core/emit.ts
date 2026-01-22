@@ -728,7 +728,8 @@ export function flattenTokens(
     currentPath: string[] = [],
     preferredMode?: string,
     modeStrict = false,
-    skipBaseWhenMode = false
+    skipBaseWhenMode = false,
+    modeOverridesOnly = false
 ): { primitives: string[]; aliases: string[] } {
     const { summary } = ctx;
     const primitiveVars: string[] = [];
@@ -791,7 +792,8 @@ export function flattenTokens(
         undefined,
         preferredMode,
         modeStrict,
-        skipBaseWhenMode
+        skipBaseWhenMode,
+        modeOverridesOnly
     );
 
     return { primitives: primitiveVars, aliases: aliasVars };

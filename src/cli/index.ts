@@ -44,6 +44,7 @@ type ModeScope = {
     selector: string;
     mode?: string;
     skipBaseWhenMode: boolean;
+    modeOverridesOnly: boolean;
 };
 
 function printUsage(): void {
@@ -257,16 +258,16 @@ async function main() {
 
     const scopes: ModeScope[] = [];
     if (sortedModes.length === 0) {
-        scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: MODE_SKIP_BASE });
+        scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: MODE_SKIP_BASE, modeOverridesOnly: false });
     } else {
         const base = baseMode ?? sortedModes[0];
-        scopes.push({ selector: ':root', mode: base, skipBaseWhenMode: MODE_SKIP_BASE });
+        scopes.push({ selector: ':root', mode: base, skipBaseWhenMode: MODE_SKIP_BASE, modeOverridesOnly: false });
 
         for (const modeKey of sortedModes) {
             if (modeKey === base) continue;
             const selectorValue = normalizeModeName(modeKey);
             const selector = `[data-theme="${selectorValue}"]`;
-            scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true });
+            scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true, modeOverridesOnly: true });
         }
     }
 
@@ -285,7 +286,8 @@ async function main() {
                 [originalName],
                 scope.mode,
                 MODE_STRICT,
-                scope.skipBaseWhenMode
+                scope.skipBaseWhenMode,
+                scope.modeOverridesOnly
             );
 
             if (primitives.length > 0) {
