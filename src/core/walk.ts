@@ -21,12 +21,12 @@ export function checkDepthLimit(summary: ExecutionSummary, depth: number, curren
 }
 
 export function pickModeKey(keys: string[], preferredMode?: string): string | undefined {
-    // Prefer "modeDefault" for stability; otherwise prefer preferred mode, then first mode branch.
+    // Prefer an explicit preferred mode when present; otherwise modeDefault, then first mode branch.
     const preferred = normalizePreferredMode(preferredMode);
 
     return (
-        keys.find(k => k.toLowerCase() === 'modedefault') ??
         keys.find(k => matchesPreferredMode(k, preferred)) ??
+        keys.find(k => k.toLowerCase() === 'modedefault') ??
         keys.find(isModeKey)
     );
 }
@@ -67,24 +67,24 @@ function matchesPreferredMode(key: string, preferred?: string): boolean {
 export function pickModeKeyDeterministic(keys: string[], preferredMode?: string): string | undefined {
     const preferred = normalizePreferredMode(preferredMode);
 
-    let bestDefault: string | undefined;
     let bestPreferred: string | undefined;
+    let bestDefault: string | undefined;
     let bestMode: string | undefined;
 
     for (const k of keys) {
+        if (matchesPreferredMode(k, preferred)) {
+            if (!bestPreferred || compareByCodeUnit(k, bestPreferred) < 0) bestPreferred = k;
+        }
         if (k.toLowerCase() === 'modedefault') {
             if (!bestDefault || compareByCodeUnit(k, bestDefault) < 0) bestDefault = k;
             continue;
-        }
-        if (matchesPreferredMode(k, preferred)) {
-            if (!bestPreferred || compareByCodeUnit(k, bestPreferred) < 0) bestPreferred = k;
         }
         if (isModeKey(k)) {
             if (!bestMode || compareByCodeUnit(k, bestMode) < 0) bestMode = k;
         }
     }
 
-    return bestDefault ?? bestPreferred ?? bestMode;
+    return bestPreferred ?? bestDefault ?? bestMode;
 }
 
 /**
