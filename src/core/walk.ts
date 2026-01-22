@@ -187,6 +187,8 @@ export function walkTokenTree(
         throw new Error(`Preferred mode "${preferred}" not found at ${path}`);
     }
 
+    let skipModeTraversal = false;
+
     if (hasValue) {
         // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
         // Mode branches are allowed; non-mode children block emission.
@@ -212,7 +214,7 @@ export function walkTokenTree(
             missingPreferred ||
             (modeKey && !skipBaseWhenMode);
 
-        const skipModeTraversal = hasAnyModeBranch && missingPreferred && hasValue;
+        skipModeTraversal = hasAnyModeBranch && missingPreferred && hasValue;
 
         if (modeOverridesOnly && preferred && !inModeBranch) {
             // In override scopes, do not emit base values outside the selected mode branch.
@@ -245,6 +247,10 @@ export function walkTokenTree(
         if (modeKey && skipModeTraversal) {
             return;
         }
+    }
+    else if (hasAnyModeBranch && missingPreferred) {
+        // No base value and preferred mode missing: do not traverse any mode branch in this scope.
+        skipModeTraversal = true;
     }
 
     for (const key of keys) {
@@ -310,7 +316,7 @@ export function walkTokenTree(
         }
     }
 
-    if (modeKey && !(hasAnyModeBranch && missingPreferred && hasValue)) {
+    if (modeKey && !skipModeTraversal) {
         // Mode branches affect the JSON path but must not affect the CSS var name prefix.
         currentPath.push(modeKey);
         try {
