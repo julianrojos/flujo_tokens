@@ -26,3 +26,4 @@
 
 - Prefijo configurable para las CSS vars: permite definir un prefijo (p.ej. --ds-) en la CLI o config, y prepéndelo en la emisión sin renombrar los JSON. Así evitas colisiones y sigues las recomendaciones de naming.
 - Add logic to use Figma scopes to improve $type when it is generically set to "string" (e.g., set to fontFamily if scope is FONT_FAMILY).
+- Convertir el letter-spacing a rems?
