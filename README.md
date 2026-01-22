@@ -52,8 +52,7 @@ Behavior can be adjusted using environment variables:
   - `--mode <name>` (default: none): preferred mode branch (matches keys starting with `mode<name>`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
   - `--mode-strict`: fail if the preferred mode is missing anywhere.
-  - `--mode-emit-base`: emit the base `$value` even when a mode branch is selected (by default it is skipped to avoid double declarations).
-- Mode selection order: `modeDefault` > matching `--mode` (if provided) > first `mode*` branch found.
+  - `--mode-emit-base`: emit the base `$value` alongside a selected mode branch (mainly for legacy outputs).
 
 Example:
 
@@ -70,11 +69,10 @@ ALLOW_JSON_REPAIR=true npm run generate
 
 ## Multi-mode output
 
-- The base block uses `:root` and picks `modeDefault` when it exists (or the first `mode*` branch if there is no `modeDefault`).  
-- Each additional branch generates a `[data-theme="mode-…"]` block with that mode’s overrides; base values are not re-emitted there.  
-- If a node has no `modeDefault` and only has, for example, `modeDesktop`, that value is used in the base scope; if there’s neither base nor preferred, nothing is emitted in the base for that node.  
-- `--mode-emit-base` forces emitting the base `$value` alongside the selected mode branch (useful when you need both).  
-- Use `--mode <name>` to pick a preferred branch; with `--mode-strict` it fails if missing anywhere, with `--mode-loose` it falls back and logs a warning.
+- `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.  
+- Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.  
+- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks (base is not re-emitted in modes unless you opt in with `--mode-emit-base`).  
+- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing, `--mode-loose` logs a fallback warning.  
 
 ## Output order (primitives first)
 
