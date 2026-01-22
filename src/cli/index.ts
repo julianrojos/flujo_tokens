@@ -152,6 +152,13 @@ function normalizeModeName(modeKey: string | undefined): string {
     return trimmed ? toKebabCase(trimmed) : '';
 }
 
+function formatModeLabel(modeKey: string | undefined): string {
+    const normalized = normalizeModeName(modeKey);
+    const withoutPrefix = normalized.replace(/^mode[-_]?/i, '');
+    const label = withoutPrefix || normalized || (modeKey ?? '');
+    return label.toUpperCase();
+}
+
 function selectBaseMode(modeKeys: string[], preferredMode?: string): string | undefined {
     if (modeKeys.length === 0) return undefined;
 
@@ -311,7 +318,7 @@ async function main() {
         if (scopedLines.length === 0) continue;
 
         allCssLines.push(...scopedLines);
-        const modeLabel = scope.mode ? `/* ========== ${scope.mode.toUpperCase()} ========== */\n` : '';
+        const modeLabel = scope.mode ? `/* ========== MODE ${formatModeLabel(scope.mode)} ========== */\n` : '';
         cssBlocks.push(`${modeLabel}${scope.selector} {\n${scopedLines.join('\n')}\n}`);
     }
 
