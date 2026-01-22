@@ -69,6 +69,14 @@ ALLOW_JSON_REPAIR=true npm run generate
   - Line-heights in `px` → unitless values.
 - Applied only to `Typographyprimitives`; other dimensions are not altered.
 
+## Multi-mode output
+
+- The base block uses `:root` and picks `modeDefault` when it exists (or the first `mode*` branch if there is no `modeDefault`).  
+- Each additional branch generates a `[data-theme="mode-…"]` block with that mode’s overrides; base values are not re-emitted there.  
+- If a node has no `modeDefault` and only has, for example, `modeDesktop`, that value is used in the base scope; if there’s neither base nor preferred, nothing is emitted in the base for that node.  
+- `--mode-emit-base` forces emitting the base `$value` alongside the selected mode branch (useful when you need both).  
+- Use `--mode <name>` to pick a preferred branch; with `--mode-strict` it fails if missing anywhere, with `--mode-loose` it falls back and logs a warning.
+
 ## Output order (primitives first)
 
 - Within each emitted CSS block, variables with primitive values (no references) are written before alias variables (that reference other tokens).
