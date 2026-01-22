@@ -41,7 +41,15 @@ export function compareByCodeUnit(a: string, b: string): number {
 
 function normalizePreferredMode(preferredMode?: string): string | undefined {
     const trimmed = preferredMode?.trim().toLowerCase();
-    return trimmed ? trimmed.replace(/^[^a-z0-9]+/i, '') : undefined;
+    if (!trimmed) return undefined;
+
+    // Drop leading non-alphanumerics and the common "mode" prefix to align with export keys.
+    let cleaned = trimmed.replace(/^[^a-z0-9]+/i, '');
+    if (cleaned.startsWith('mode')) {
+        cleaned = cleaned.slice(4).replace(/^[^a-z0-9]+/i, '') || cleaned;
+    }
+
+    return cleaned;
 }
 
 function matchesPreferredMode(key: string, preferred?: string): boolean {
