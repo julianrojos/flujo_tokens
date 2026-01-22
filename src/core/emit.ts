@@ -12,6 +12,54 @@ import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
 import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, buildPathKey } from '../utils/paths.js';
 import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName, quoteCssStringLiteral } from '../utils/strings.js';
 
+function formatNumber(value: number): string {
+    return value.toFixed(4).replace(/\.?0+$/, '');
+}
+
+function coerceTypographyDimension(
+    value: TokenValue['$value'],
+    varType: string | undefined,
+    currentPath: string[]
+): { value: TokenValue['$value']; varType: string | undefined } {
+    if (typeof value !== 'string') return { value, varType };
+    if (varType !== 'dimension') return { value, varType };
+
+    const root = currentPath[0]?.toLowerCase();
+    if (root !== 'typographyprimitives') return { value, varType };
+
+    const lowerPath = currentPath.map(p => p.toLowerCase());
+    const isSize = lowerPath.includes('size');
+    const isLineHeight = lowerPath.includes('lineheight');
+    if (!isSize && !isLineHeight) return { value, varType };
+
+    const match = value.trim().match(/^(-?\d+(?:\.\d+)?)px$/i);
+    if (!match) return { value, varType };
+
+    const px = parseFloat(match[1]);
+    if (Number.isNaN(px)) return { value, varType };
+
+    if (isSize) {
+        const rem = px / 16;
+        return { value: `${formatNumber(rem)}rem`, varType };
+    }
+
+    const unitless = px / 16;
+    return { value: formatNumber(unitless), varType };
+}
+
+function containsReference(value: unknown): boolean {
+    if (typeof value === 'string') return W3C_REF_REGEX_TEST.test(value);
+    if (isVariableAlias(value)) return true;
+    if (Array.isArray(value)) return value.some(v => containsReference(v));
+    if (isPlainObject(value)) {
+        for (const [k, v] of Object.entries(value)) {
+            if (k.startsWith('$')) continue;
+            if (containsReference(v)) return true;
+        }
+    }
+    return false;
+}
+
 // --- Recording helpers ---
 
 export function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reason: string): void {
@@ -597,6 +645,10 @@ export function processValue(
     // Treat null/undefined as "no value"
     if (value == null) return null;
 
+    const coerced = coerceTypographyDimension(value, varType, currentPath);
+    value = coerced.value;
+    varType = coerced.varType;
+
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
             return value.map(v => processShadow(ctx, v, currentPath, visitedRefs)).join(', ');
@@ -666,18 +718,23 @@ export function processValue(
 /**
  * Emission phase: flattens the token tree into CSS declarations.
  * Sorted traversal is used to make the output deterministic across runs.
+ *
+ * Returns primitives first (no references) and aliases later.
  */
 export function flattenTokens(
     ctx: EmissionContext,
     obj: any,
     prefix: string[] = [],
-    collectedVars: string[] = [],
     currentPath: string[] = [],
     preferredMode?: string,
     modeStrict = false,
-    skipBaseWhenMode = false
-): string[] {
+    skipBaseWhenMode = false,
+    modeOverridesOnly = false,
+    allowModeBranches = true
+): { primitives: string[]; aliases: string[] } {
     const { summary } = ctx;
+    const primitiveVars: string[] = [];
+    const aliasVars: string[] = [];
 
     walkTokenTree(
         summary,
@@ -709,7 +766,8 @@ export function flattenTokens(
                 if (resolvedValue === null) return;
 
                 const varName = buildCssVarNameFromPrefix(tokenPrefix);
-                emitCssVar(summary, collectedVars, varName, resolvedValue, tokenPath, true);
+                const target = containsReference(rawValue) ? aliasVars : primitiveVars;
+                emitCssVar(summary, target, varName, resolvedValue, tokenPath, true);
             },
 
             onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inheritedType }) => {
@@ -725,7 +783,8 @@ export function flattenTokens(
                 const processedValue = processValue(ctx, value, inheritedType, leafPath, visitedRefs);
                 if (processedValue === null) return;
 
-                emitCssVar(summary, collectedVars, varName, processedValue, leafPath, false);
+                const target = containsReference(value) ? aliasVars : primitiveVars;
+                emitCssVar(summary, target, varName, processedValue, leafPath, false);
             }
         },
         0,
@@ -734,8 +793,10 @@ export function flattenTokens(
         undefined,
         preferredMode,
         modeStrict,
-        skipBaseWhenMode
+        skipBaseWhenMode,
+        modeOverridesOnly,
+        allowModeBranches
     );
 
-    return collectedVars;
+    return { primitives: primitiveVars, aliases: aliasVars };
 }

@@ -21,14 +21,27 @@ export function checkDepthLimit(summary: ExecutionSummary, depth: number, curren
 }
 
 export function pickModeKey(keys: string[], preferredMode?: string): string | undefined {
-    // Prefer "modeDefault" for stability; otherwise prefer preferred mode, then first mode branch.
+    // Prefer an explicit preferred mode when present; otherwise modeDefault, then first mode branch.
     const preferred = normalizePreferredMode(preferredMode);
 
     return (
-        keys.find(k => k.toLowerCase() === 'modedefault') ??
         keys.find(k => matchesPreferredMode(k, preferred)) ??
+        keys.find(k => k.toLowerCase() === 'modedefault') ??
         keys.find(isModeKey)
     );
+}
+
+/**
+ * Strict mode selection: only returns the preferred mode when it exists; no fallback.
+ */
+function pickModeKeyPreferredOnly(keys: string[], preferredMode?: string): string | undefined {
+    const preferred = normalizePreferredMode(preferredMode);
+    if (!preferred) return undefined;
+
+    for (const k of keys) {
+        if (matchesPreferredMode(k, preferred)) return k;
+    }
+    return undefined;
 }
 
 /**
@@ -41,7 +54,15 @@ export function compareByCodeUnit(a: string, b: string): number {
 
 function normalizePreferredMode(preferredMode?: string): string | undefined {
     const trimmed = preferredMode?.trim().toLowerCase();
-    return trimmed ? trimmed.replace(/^[^a-z0-9]+/i, '') : undefined;
+    if (!trimmed) return undefined;
+
+    // Drop leading non-alphanumerics and the common "mode" prefix to align with export keys.
+    let cleaned = trimmed.replace(/^[^a-z0-9]+/i, '');
+    if (cleaned.startsWith('mode')) {
+        cleaned = cleaned.slice(4).replace(/^[^a-z0-9]+/i, '') || cleaned;
+    }
+
+    return cleaned;
 }
 
 function matchesPreferredMode(key: string, preferred?: string): boolean {
@@ -59,24 +80,24 @@ function matchesPreferredMode(key: string, preferred?: string): boolean {
 export function pickModeKeyDeterministic(keys: string[], preferredMode?: string): string | undefined {
     const preferred = normalizePreferredMode(preferredMode);
 
-    let bestDefault: string | undefined;
     let bestPreferred: string | undefined;
+    let bestDefault: string | undefined;
     let bestMode: string | undefined;
 
     for (const k of keys) {
+        if (matchesPreferredMode(k, preferred)) {
+            if (!bestPreferred || compareByCodeUnit(k, bestPreferred) < 0) bestPreferred = k;
+        }
         if (k.toLowerCase() === 'modedefault') {
             if (!bestDefault || compareByCodeUnit(k, bestDefault) < 0) bestDefault = k;
             continue;
-        }
-        if (matchesPreferredMode(k, preferred)) {
-            if (!bestPreferred || compareByCodeUnit(k, bestPreferred) < 0) bestPreferred = k;
         }
         if (isModeKey(k)) {
             if (!bestMode || compareByCodeUnit(k, bestMode) < 0) bestMode = k;
         }
     }
 
-    return bestDefault ?? bestPreferred ?? bestMode;
+    return bestPreferred ?? bestDefault ?? bestMode;
 }
 
 /**
@@ -124,8 +145,10 @@ export function walkTokenTree(
     sortKeys = true,
     inheritedType?: string,
     preferredMode?: string,
-    modeStrict = true,
-    skipBaseWhenMode = true
+    modeStrict = false,
+    skipBaseWhenMode = true,
+    modeOverridesOnly = false,
+    allowModeBranches = true
 ): void {
     if (checkDepthLimit(summary, depth, currentPath)) return;
 
@@ -144,7 +167,14 @@ export function walkTokenTree(
 
     warnAmbiguousModeDefault(keys, currentPath);
 
-    const modeKey = sortKeys ? pickModeKey(keys, preferredMode) : pickModeKeyDeterministic(keys, preferredMode);
+    const effectiveAllowModes = allowModeBranches || inModeBranch;
+    const modeKey = !effectiveAllowModes
+        ? undefined
+        : modeOverridesOnly
+        ? pickModeKeyPreferredOnly(keys, preferredMode)
+        : sortKeys
+        ? pickModeKey(keys, preferredMode)
+        : pickModeKeyDeterministic(keys, preferredMode);
     const hasAnyModeBranch = keys.some(isModeKey);
     const preferred = normalizePreferredMode(preferredMode);
     const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
@@ -160,6 +190,8 @@ export function walkTokenTree(
         const path = pathStr(currentPath) || '<root>';
         throw new Error(`Preferred mode "${preferred}" not found at ${path}`);
     }
+
+    let skipModeTraversal = false;
 
     if (hasValue) {
         // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
@@ -180,15 +212,22 @@ export function walkTokenTree(
         const path = pathStr(currentPath);
         const warnKeyFallback = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;
 
-        const shouldEmitBase =
+        let shouldEmitBase =
             !hasAnyModeBranch ||
             !modeKey ||
             missingPreferred ||
             (modeKey && !skipBaseWhenMode);
 
-        const skipModeTraversal = hasAnyModeBranch && missingPreferred && hasValue;
+        skipModeTraversal = hasAnyModeBranch && missingPreferred && hasValue;
 
-        if (missingPreferred) {
+        if (modeOverridesOnly && preferred && !inModeBranch) {
+            // In override scopes, do not emit base values outside the selected mode branch.
+            if (!hasAnyModeBranch || missingPreferred) {
+                shouldEmitBase = false;
+            }
+        }
+
+        if (missingPreferred && !(modeOverridesOnly && preferred)) {
             if (!warnedPreferredModeFallback.has(warnKeyFallback)) {
                 warnedPreferredModeFallback.add(warnKeyFallback);
                 console.warn(
@@ -212,6 +251,10 @@ export function walkTokenTree(
         if (modeKey && skipModeTraversal) {
             return;
         }
+    }
+    else if (hasAnyModeBranch && missingPreferred) {
+        // No base value and preferred mode missing: do not traverse any mode branch in this scope.
+        skipModeTraversal = true;
     }
 
     for (const key of keys) {
@@ -250,7 +293,8 @@ export function walkTokenTree(
                 nextInheritedType,
                 preferredMode,
                 modeStrict,
-                skipBaseWhenMode
+                skipBaseWhenMode,
+                modeOverridesOnly
             );
         } finally {
             currentPath.pop();
@@ -258,7 +302,7 @@ export function walkTokenTree(
         }
     }
 
-    if (missingPreferred) {
+    if (missingPreferred && !(modeOverridesOnly && preferred)) {
         const path = pathStr(currentPath);
         const warnKey = `${path}|${preferred}|${modeKey ?? 'none'}`;
         if (!warnedPreferredModeFallback.has(warnKey)) {
@@ -276,7 +320,7 @@ export function walkTokenTree(
         }
     }
 
-    if (modeKey && !(hasAnyModeBranch && missingPreferred && hasValue)) {
+    if (modeKey && !skipModeTraversal && effectiveAllowModes) {
         // Mode branches affect the JSON path but must not affect the CSS var name prefix.
         currentPath.push(modeKey);
         try {
@@ -292,7 +336,8 @@ export function walkTokenTree(
                 nextInheritedType,
                 preferredMode,
                 modeStrict,
-                skipBaseWhenMode
+                skipBaseWhenMode,
+                modeOverridesOnly
             );
         } finally {
             currentPath.pop();

@@ -17,7 +17,6 @@ npm install
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission) to generate `custom-properties.css`.
 - **`npm run generate:strict`**: Same pipeline but with strict mode selection (fails if the preferred mode is missing anywhere).
-- **`npm run watch`**: Runs the generator in watch mode, regenerating files whenever changes occur in the `src` folder.
 
 ## Usage
 
@@ -53,14 +52,32 @@ Behavior can be adjusted using environment variables:
   - `--mode <name>` (default: none): preferred mode branch (matches keys starting with `mode<name>`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
   - `--mode-strict`: fail if the preferred mode is missing anywhere.
-  - `--mode-emit-base`: emit the base `$value` even when a mode branch is selected (by default it is skipped to avoid double declarations).
-- Mode selection order: `modeDefault` > matching `--mode` (if provided) > first `mode*` branch found.
+  - `--mode-emit-base`: emit the base `$value` alongside a selected mode branch (mainly for legacy outputs).
 
 Example:
 
 ```bash
 ALLOW_JSON_REPAIR=true npm run generate
 ```
+
+## Typography unit coercion (runtime)
+
+- To avoid touching exported JSONs, during emission the tokens under `Typographyprimitives` with `$type: "dimension"` are converted:
+  - Font sizes in `px` → `rem` (16px base, rounded to 4 decimals).
+  - Line-heights in `px` → unitless values.
+- Applied only to `Typographyprimitives`; other dimensions are not altered.
+
+## Multi-mode output
+
+- `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.  
+- Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.  
+- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks (base is not re-emitted in modes unless you opt in with `--mode-emit-base`).  
+- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing, `--mode-loose` logs a fallback warning.  
+
+## Output order (primitives first)
+
+- Within each emitted CSS block, variables with primitive values (no references) are written before alias variables (that reference other tokens).
+- Section comments per file are kept in both groups for readability.
 
 ## Troubleshooting
 

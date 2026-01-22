@@ -125,5 +125,5 @@ export function readCssVariablesFromFile(filePath: string): Map<string, string> 
  * Formats a CSS section header comment.
  */
 export function formatCssSectionHeader(name: string): string {
-    return `\n  /* ========== ${name} ========== */\n`;
+    return `\n  /* = ${name} = */\n`;
 }

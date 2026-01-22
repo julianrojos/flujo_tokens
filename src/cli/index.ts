@@ -40,6 +40,14 @@ type CliOptions = {
     modeSkipBase: boolean;
 };
 
+type ModeScope = {
+    selector: string;
+    mode?: string;
+    skipBaseWhenMode: boolean;
+    modeOverridesOnly: boolean;
+    allowModeBranches: boolean;
+};
+
 function printUsage(): void {
     console.log(`Usage: npm run generate -- [options]
 
@@ -139,6 +147,19 @@ const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
 const MODE_SKIP_BASE = parsed.modeSkipBase;
 
+function normalizeModeName(modeKey: string | undefined): string {
+    if (!modeKey) return '';
+    const trimmed = modeKey.trim();
+    return trimmed ? toKebabCase(trimmed) : '';
+}
+
+function formatModeLabel(modeKey: string | undefined): string {
+    const normalized = normalizeModeName(modeKey);
+    const withoutPrefix = normalized.replace(/^mode[-_]?/i, '');
+    const label = withoutPrefix || normalized || (modeKey ?? '');
+    return label.toUpperCase();
+}
+
 // --- Main execution ---
 
 async function main() {
@@ -171,7 +192,6 @@ async function main() {
     }
 
     console.log('🔄 Transforming to CSS variables...');
-    const cssLines: string[] = [];
     const refMap = new Map<string, string>();
     const valueMap = new Map<string, TokenValue>();
     const collisionKeys = new Set<string>();
@@ -225,24 +245,66 @@ async function main() {
         cssVarNameCollisionMap
     });
 
-    for (const { originalName, kebabName, content } of fileEntries) {
-        // Avoid orphan section headers: keep the header only if something was emitted.
-        const startLen = cssLines.length;
+    const modeKeys = Array.from(foundModeKeys);
+    const sortedModes = modeKeys.slice().sort((a, b) => normalizeModeName(a).localeCompare(normalizeModeName(b)));
 
-        if (cssLines.length > 0) cssLines.push('');
-        cssLines.push(formatCssSectionHeader(originalName));
+    const scopes: ModeScope[] = [];
+    // Base scope: emit only tokens without mode branches or with explicit base values.
+    scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: false, modeOverridesOnly: false, allowModeBranches: false });
 
-        flattenTokens(processingCtx, content, [kebabName], cssLines, [originalName], PREFERRED_MODE, MODE_STRICT, MODE_SKIP_BASE);
+    for (const modeKey of sortedModes) {
+        const selectorValue = normalizeModeName(modeKey);
+        const selector = `[data-theme="${selectorValue}"]`;
+        scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true, modeOverridesOnly: true, allowModeBranches: true });
+    }
 
-        const expectedLenIfEmpty = startLen + (startLen > 0 ? 2 : 1);
-        if (cssLines.length === expectedLenIfEmpty) {
-            cssLines.pop(); // header
-            if (startLen > 0) cssLines.pop(); // blank line
+    const cssBlocks: string[] = [];
+    const allCssLines: string[] = [];
+
+    for (const scope of scopes) {
+        const scopedPrimitives: string[] = [];
+        const scopedAliases: string[] = [];
+
+        for (const { originalName, kebabName, content } of fileEntries) {
+            const { primitives, aliases } = flattenTokens(
+                processingCtx,
+                content,
+                [kebabName],
+                [originalName],
+                scope.mode,
+                MODE_STRICT,
+                scope.skipBaseWhenMode,
+                scope.modeOverridesOnly,
+                scope.allowModeBranches
+            );
+
+            if (primitives.length > 0) {
+                if (scopedPrimitives.length > 0) scopedPrimitives.push('');
+                scopedPrimitives.push(formatCssSectionHeader(originalName));
+                scopedPrimitives.push(...primitives);
+            }
+
+            if (aliases.length > 0) {
+                if (scopedAliases.length > 0) scopedAliases.push('');
+                scopedAliases.push(formatCssSectionHeader(originalName));
+                scopedAliases.push(...aliases);
+            }
         }
+
+        const scopedLines: string[] = [];
+        scopedLines.push(...scopedPrimitives);
+        if (scopedPrimitives.length > 0 && scopedAliases.length > 0) scopedLines.push('');
+        scopedLines.push(...scopedAliases);
+
+        if (scopedLines.length === 0) continue;
+
+        allCssLines.push(...scopedLines);
+        const modeLabel = scope.mode ? `/* ========== MODE ${formatModeLabel(scope.mode)} ========== */\n` : '';
+        cssBlocks.push(`${modeLabel}${scope.selector} {\n${scopedLines.join('\n')}\n}`);
     }
 
     console.log('📝 Writing CSS file...');
-    const finalCss = `:root {\n${cssLines.join('\n')}\n}\n`;
+    const finalCss = `${cssBlocks.join('\n\n')}\n`;
 
     const destDir = path.dirname(OUTPUT_FILE);
     if (!fs.existsSync(destDir)) {
@@ -263,7 +325,7 @@ async function main() {
     printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
 
     if (previousVariables.size > 0) {
-        logChangeDetection(previousVariables, cssLines, {
+        logChangeDetection(previousVariables, allCssLines, {
             preferredMode: PREFERRED_MODE,
             foundModes: foundModeKeys,
             modeStrict: MODE_STRICT
