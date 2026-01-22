@@ -160,21 +160,6 @@ function formatModeLabel(modeKey: string | undefined): string {
     return label.toUpperCase();
 }
 
-function selectBaseMode(modeKeys: string[], preferredMode?: string): string | undefined {
-    if (modeKeys.length === 0) return undefined;
-
-    const normalizedPreferred = preferredMode ? normalizeModeName(preferredMode) : undefined;
-    if (normalizedPreferred) {
-        const match = modeKeys.find(k => normalizeModeName(k) === normalizedPreferred);
-        if (match) return match;
-    }
-
-    const defaultKey = modeKeys.find(k => k.toLowerCase() === 'modedefault');
-    if (defaultKey) return defaultKey;
-
-    return modeKeys[0];
-}
-
 // --- Main execution ---
 
 async function main() {
@@ -262,7 +247,6 @@ async function main() {
 
     const modeKeys = Array.from(foundModeKeys);
     const sortedModes = modeKeys.slice().sort((a, b) => normalizeModeName(a).localeCompare(normalizeModeName(b)));
-    const baseMode = selectBaseMode(sortedModes, PREFERRED_MODE);
 
     const scopes: ModeScope[] = [];
     // Base scope: emit only tokens without mode branches or with explicit base values.
