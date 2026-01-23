@@ -160,7 +160,8 @@ export function walkTokenTree(
     }
 
     const isObj = isPlainObject(obj);
-    const keys = isObj ? (sortKeys ? Object.keys(obj).sort() : Object.keys(obj)) : [];
+    let keys = isObj ? (sortKeys ? Object.keys(obj).sort() : Object.keys(obj)) : [];
+    const hasAnyModeBranchRaw = keys.some(isModeKey);
     const hasValue = obj && typeof obj === 'object' && '$value' in obj;
 
     if (!isObj) return;
@@ -168,6 +169,11 @@ export function walkTokenTree(
     warnAmbiguousModeDefault(keys, currentPath);
 
     const effectiveAllowModes = allowModeBranches || inModeBranch;
+    if (!effectiveAllowModes) {
+        // In base scopes, ignore mode branches entirely.
+        keys = keys.filter(k => !isModeKey(k));
+    }
+
     const modeKey = !effectiveAllowModes
         ? undefined
         : modeOverridesOnly
@@ -192,6 +198,11 @@ export function walkTokenTree(
     }
 
     let skipModeTraversal = false;
+
+    if (!effectiveAllowModes && hasAnyModeBranchRaw && !hasValue) {
+        // In base scopes, skip nodes that only contain mode branches (no base value).
+        return;
+    }
 
     if (hasValue) {
         // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
@@ -294,7 +305,8 @@ export function walkTokenTree(
                 preferredMode,
                 modeStrict,
                 skipBaseWhenMode,
-                modeOverridesOnly
+                modeOverridesOnly,
+                allowModeBranches
             );
         } finally {
             currentPath.pop();
@@ -337,7 +349,8 @@ export function walkTokenTree(
                 preferredMode,
                 modeStrict,
                 skipBaseWhenMode,
-                modeOverridesOnly
+                modeOverridesOnly,
+                allowModeBranches
             );
         } finally {
             currentPath.pop();
