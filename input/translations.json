@@ -1,0 +1,80 @@
+{
+  "$description": "Translations",
+  "card": {
+    "title": {
+      "$value": "Producto",
+      "$type": "string",
+      "$extensions": {
+        "com.figma": {
+          "variableId": "VariableID:127:4846",
+          "collectionId": "VariableCollectionId:127:4845",
+          "modeId": "127:7",
+          "resolvedType": "STRING",
+          "scopes": [
+            "ALL_SCOPES"
+          ]
+        }
+      }
+    },
+    "subtitle": {
+      "$value": "Dato ppal",
+      "$type": "string",
+      "$extensions": {
+        "com.figma": {
+          "variableId": "VariableID:127:4847",
+          "collectionId": "VariableCollectionId:127:4845",
+          "modeId": "127:7",
+          "resolvedType": "STRING",
+          "scopes": [
+            "ALL_SCOPES"
+          ]
+        }
+      }
+    },
+    "bodyTxt": {
+      "$value": "Algo más de información",
+      "$type": "string",
+      "$extensions": {
+        "com.figma": {
+          "variableId": "VariableID:127:4848",
+          "collectionId": "VariableCollectionId:127:4845",
+          "modeId": "127:7",
+          "resolvedType": "STRING",
+          "scopes": [
+            "ALL_SCOPES"
+          ]
+        }
+      }
+    },
+    "buttonPrimary": {
+      "$value": "Aceptar",
+      "$type": "string",
+      "$extensions": {
+        "com.figma": {
+          "variableId": "VariableID:127:4849",
+          "collectionId": "VariableCollectionId:127:4845",
+          "modeId": "127:7",
+          "resolvedType": "STRING",
+          "scopes": [
+            "ALL_SCOPES"
+          ]
+        }
+      }
+    },
+    "buttonSecondary": {
+      "$value": "Cancelar",
+      "$type": "string",
+      "$extensions": {
+        "com.figma": {
+          "variableId": "VariableID:127:4850",
+          "collectionId": "VariableCollectionId:127:4845",
+          "modeId": "127:7",
+          "resolvedType": "STRING",
+          "scopes": [
+            "ALL_SCOPES"
+          ]
+        }
+      }
+    }
+  }
+}
