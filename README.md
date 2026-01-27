@@ -69,10 +69,10 @@ ALLOW_JSON_REPAIR=true npm run generate
 
 ## Multi-mode output
 
-- `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.  
-- Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.  
-- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks (base is not re-emitted in modes unless you opt in with `--mode-emit-base`).  
-- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing, `--mode-loose` logs a fallback warning.  
+- `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.
+- Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.
+- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks (base is not re-emitted in modes unless you opt in with `--mode-emit-base`).
+- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing, `--mode-loose` logs a fallback warning.
 
 ## Output order (primitives first)
 
