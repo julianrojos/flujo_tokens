@@ -86,4 +86,4 @@ ALLOW_JSON_REPAIR=true npm run generate
 
 ## References
 
-- Figma Plugin: [Token Forge](https://www.figma.com/community/plugin/1560757977662930693/token-forge)
+- Figma Plugin: [Token Forge](https://www.figma.com/community/plugin/1560757977662930693/token-forge) - best compatibility with DTCG v2 format (october 2025), git integration (not perfect, but the best I found), several export options, handles aliases and modes.
