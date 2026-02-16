@@ -1,0 +1,43 @@
+{
+  "$description": "A11y",
+  "A11y": {
+    "modeDesktop": {
+      "Dimension": {
+        "Min-Hit-Area": {
+          "$value": "{_Primitives.Dimension.A11y.Min-Hit-Area-Desktop-AA}",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:4552:5940",
+              "collectionId": "VariableCollectionId:4552:5939",
+              "modeId": "4552:6",
+              "resolvedType": "FLOAT",
+              "scopes": [
+                "WIDTH_HEIGHT"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "modeMobile": {
+      "Dimension": {
+        "Min-Hit-Area": {
+          "$value": "{_Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA}",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:4552:5940",
+              "collectionId": "VariableCollectionId:4552:5939",
+              "modeId": "4552:7",
+              "resolvedType": "FLOAT",
+              "scopes": [
+                "WIDTH_HEIGHT"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

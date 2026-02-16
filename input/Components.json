@@ -1,0 +1,37 @@
+{
+  "$description": "Components",
+  "Bottom-Bar": {
+    "Background-Default": {
+      "$value": "{_Primitives.Color.Grey.100}",
+      "$type": "color",
+      "$extensions": {
+        "com.figma": {
+          "variableId": "VariableID:4402:16419",
+          "collectionId": "VariableCollectionId:4383:15270",
+          "modeId": "4383:1",
+          "resolvedType": "COLOR",
+          "scopes": [
+            "FRAME_FILL",
+            "SHAPE_FILL"
+          ]
+        }
+      }
+    },
+    "Background-Selected": {
+      "$value": "{_Primitives.Color.BW.White}",
+      "$type": "color",
+      "$extensions": {
+        "com.figma": {
+          "variableId": "VariableID:4402:16418",
+          "collectionId": "VariableCollectionId:4383:15270",
+          "modeId": "4383:1",
+          "resolvedType": "COLOR",
+          "scopes": [
+            "FRAME_FILL",
+            "SHAPE_FILL"
+          ]
+        }
+      }
+    }
+  }
+}
