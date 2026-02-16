@@ -3,6 +3,35 @@
 ## Chat GPT
 
 - Los nombres de variables CSS se construyen sin prefijo ni taxonomía (-- + nombre de archivo + ruta), contrario al prefijo/tier recomendado (--ds-...). Ver strings.ts (lines 33-52) (no añade --ds-) y el uso en la emisión index.ts (lines 228-246).
+- Después de exportar de Figma, ejecutar un script que genera tokens compuestos:typescript// generate-composite-tokens.ts
+  import { Semantic } from './semantic'
+
+  export const CompositeTokens = {
+  Typography: {
+  Heading: {
+  H1: {
+  fontFamily: Semantic.Font.Family.Heading,
+  fontSize: Semantic.Font.Size[900],
+  lineHeight: Semantic.Font['Line-Height'][900],
+  fontWeight: Semantic.Font.Weight.Bold
+  }
+  },
+  Body: {
+  Default: {
+  fontFamily: Semantic.Font.Family.Body,
+  fontSize: Semantic.Font.Size[300],
+  lineHeight: Semantic.Font['Line-Height'][300],
+  fontWeight: Semantic.Font.Weight.Regular
+  }
+  }
+  },
+
+  Effect: {
+  Elevation: {
+  Low: `${Semantic.Dimension.Shadow.X[100]} ${Semantic.Dimension.Shadow.Y[100]} ${Semantic.Dimension.Shadow.Blur[100]} ${Semantic.Dimension.Shadow.Spread[100]} ${Semantic.Color.Shadow[100]}`
+  }
+  }
+  }
 
 ### Ocurren porque vienen "mal" en el json mismo
 
