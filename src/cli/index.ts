@@ -200,6 +200,25 @@ function normalizeModeName(modeKey: string | undefined): string {
     return trimmed ? toKebabCase(trimmed) : '';
 }
 
+function normalizePreferredModeInput(mode?: string): string | undefined {
+    const trimmed = mode?.trim().toLowerCase();
+    if (!trimmed) return undefined;
+
+    let cleaned = trimmed.replace(/^[^a-z0-9]+/i, '');
+    if (cleaned.startsWith('mode')) {
+        cleaned = cleaned.slice(4).replace(/^[^a-z0-9]+/i, '') || cleaned;
+    }
+
+    const normalized = cleaned.replace(/[^a-z0-9]+/g, '');
+    return normalized || undefined;
+}
+
+function matchesPreferredModeKey(modeKey: string, preferred?: string): boolean {
+    if (!preferred) return false;
+    const normalizedMode = normalizeModeName(modeKey).replace(/^mode[-_]?/i, '').replace(/[^a-z0-9]+/gi, '').toLowerCase();
+    return normalizedMode === preferred;
+}
+
 function formatModeLabel(modeKey: string | undefined): string {
     const normalized = normalizeModeName(modeKey);
     const withoutPrefix = normalized.replace(/^mode[-_]?/i, '');
@@ -272,7 +291,18 @@ async function main() {
     scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: false, modeOverridesOnly: false, allowModeBranches: false });
 
     // Do not emit a dedicated mode-default scope: default values belong in :root.
-    const emittedModes = sortedModes.filter(modeKey => !isModeDefaultKey(modeKey));
+    let emittedModes = sortedModes.filter(modeKey => !isModeDefaultKey(modeKey));
+    const preferredForEmission = normalizePreferredModeInput(PREFERRED_MODE);
+    if (preferredForEmission) {
+        const preferredModes = emittedModes.filter(modeKey => matchesPreferredModeKey(modeKey, preferredForEmission));
+        if (preferredModes.length > 0) {
+            emittedModes = preferredModes;
+        } else {
+            console.warn(
+                `ℹ️  Preferred mode "${PREFERRED_MODE}" was not detected in mode scopes; emitting all detected modes.`
+            );
+        }
+    }
 
     for (const modeKey of emittedModes) {
         const selectorValue = normalizeModeName(modeKey);

@@ -53,7 +53,7 @@ Behavior can be adjusted using environment variables:
 - `ALLOW_JSON_REPAIR=true` (default: false): Attempts to repair common syntax errors in input JSONs (e.g., trailing commas) to prevent the process from failing.
 - `ALLOW_ALIAS_SCAN=true` (default: false): Enables O(N) tree-scan fallback for unresolved `VARIABLE_ALIAS` IDs. Keep disabled for large token sets/perf safety; enable only for debugging/migrations.
 - Mode selection flags (CLI):
-  - `--mode <name>` (default: none): preferred mode branch (normalized exact match against `mode...` keys, e.g. `dark` -> `modeDark`/`mode-dark`).
+  - `--mode <name>` (default: none): preferred mode branch (normalized exact match against `mode...` keys, e.g. `dark` -> `modeDark`/`mode-dark`). When present, only that mode scope is emitted (plus `:root`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
   - `--mode-strict`: fail if the preferred mode is missing anywhere (effective when used together with `--mode <name>`).
 - Split output flags (CLI):
@@ -96,7 +96,8 @@ npm run generate:strict -- --mode dark
 ## Multi-mode output
 
 - `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.
-- Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.
+- Without `--mode`, each detected mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides.
+- With `--mode <name>`, only the selected mode block is emitted (tokens that exist only inside other mode branches are omitted).
 - `modeDefault` is folded into `:root` and is not emitted as a separate `[data-theme="mode-default"]` block.
 - Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks.
 - Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing (when `--mode` is provided), `--mode-loose` logs a fallback warning.
