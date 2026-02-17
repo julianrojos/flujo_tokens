@@ -1,0 +1,170 @@
+name: figma-doc-theme-default
+status: draft
+source_component: Alert
+description: >
+  Render contract for converting markdown component docs into Figma documentation
+  sections with consistent visual style.
+
+layout:
+  target:
+    section_name_pattern: "Doc/{component_name}"
+    position:
+      reference: component_section
+      offset_x: 200
+      align_y: top
+  section:
+    width: 940
+    min_height: 1100
+  canvas:
+    inset: 40
+    width: 860
+    padding:
+      top: 28
+      right: 28
+      bottom: 28
+      left: 28
+    item_spacing: 18
+
+theme:
+  colors:
+    page_bg: "#FFF9F0"
+    section_border: "#E7DDCF"
+    card_bg: "#FFFFFF"
+    card_border: "#E7DDCF"
+    title_text: "#3A3030"
+    heading_text: "#3F3434"
+    body_text: "#4E4343"
+    muted_text: "#5B4F4F"
+    chip_bg: "#F6EFE4"
+    chip_border: "#DCCBB2"
+    chip_text: "#6E5A3A"
+  radii:
+    canvas: 24
+    card: 16
+    chip: 999
+  strokes:
+    section_border: 1
+    card_border: 1
+    chip_border: 1
+  spacing:
+    card_padding: 20
+    card_gap: 10
+    chip_padding_v: 6
+    chip_padding_h: 10
+    chip_gap: 8
+    paragraph_gap: 8
+    list_gap: 6
+  typography:
+    font_family: "Nunito Sans"
+    h1:
+      size: 40
+      line_height: 48
+      weight: Bold
+      color: title_text
+    h2:
+      size: 20
+      line_height: 28
+      weight: Bold
+      color: heading_text
+    h3:
+      size: 16
+      line_height: 24
+      weight: SemiBold
+      color: heading_text
+    body:
+      size: 15
+      line_height: 24
+      weight: Regular
+      color: body_text
+    body_small:
+      size: 13
+      line_height: 18
+      weight: SemiBold
+      color: chip_text
+
+markdown_mapping:
+  document:
+    wrapper: canvas
+  title:
+    component: header_block
+    text_style: h1
+  subtitle:
+    component: intro_text
+    text_style: body
+    color_override: muted_text
+  heading_2:
+    component: card
+    title_style: h2
+  heading_3:
+    component: inline_heading
+    text_style: h3
+  paragraph:
+    component: text
+    text_style: body
+  unordered_list:
+    component: stack
+    item_gap: list_gap
+  ordered_list:
+    component: stack
+    item_gap: list_gap
+  list_item:
+    component: text
+    text_style: body
+  table:
+    component: table_card
+    header_style: h3
+    cell_style: body
+    border_color: card_border
+  code_inline:
+    component: text
+    text_style: body
+    color_override: heading_text
+
+components:
+  header_block:
+    layout: vertical
+    stretch: true
+    item_spacing: 6
+  chips_row:
+    layout: horizontal
+    stretch: true
+    item_spacing: 8
+  card:
+    layout: vertical
+    stretch: true
+    width: 820
+    padding:
+      top: 20
+      right: 20
+      bottom: 20
+      left: 20
+    item_spacing: 10
+    fills:
+      color: card_bg
+    strokes:
+      color: card_border
+      weight: 1
+    radius: 16
+  table_card:
+    extends: card
+    table:
+      cell_padding_v: 8
+      cell_padding_h: 10
+      row_gap: 0
+      column_gap: 0
+      border_weight: 1
+
+rules:
+  - Keep one visual card per H2 section.
+  - Render markdown in source order; do not reorder content blocks.
+  - Preserve semantic spacing and hierarchy from heading levels.
+  - Avoid hardcoded widths for text nodes; use stretch behavior when possible.
+  - If a markdown element is unsupported, render it as body text and flag it in report.
+
+output_contract:
+  report_fields:
+    - markdown_path
+    - target_section_id
+    - theme_name
+    - offset_x_applied
+    - unsupported_blocks
