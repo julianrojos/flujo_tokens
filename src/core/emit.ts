@@ -130,6 +130,18 @@ function containsReference(value: unknown): boolean {
     return false;
 }
 
+function canEmitUntypedTokenValue(rawValue: TokenValue['$value']): boolean {
+    if (rawValue == null) return false;
+    if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+        return true;
+    }
+    if (isVariableAlias(rawValue)) {
+        const aliasId = rawValue.id?.trim();
+        return !!aliasId;
+    }
+    return false;
+}
+
 // --- Recording helpers ---
 
 function getSummaryTokenKey(currentPath: string[]): string {
@@ -184,16 +196,9 @@ export function buildEmittableKeySet(ctx: IndexingContext): Set<string> {
 
         if (rawValue == null) return false;
 
-        // Compatibility mode: legacy primitives without $type are still emittable.
+        // Compatibility mode: untyped primitive/alias tokens are emittable.
         if (!varType) {
-            if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
-                return true;
-            }
-            if (isVariableAlias(rawValue)) {
-                const aliasId = rawValue.id?.trim();
-                return !!aliasId;
-            }
-            return false;
+            return canEmitUntypedTokenValue(rawValue);
         }
 
         if (Array.isArray(rawValue)) {
@@ -882,15 +887,16 @@ export function flattenTokens(
 
                 incrementUniqueTokenTypeCount(summary, tokenPath, varType);
 
-                // Strict Type Validation
-                if (!varType) {
-                    console.error(`❌ Strict Error: Token without $type at ${pathStr(tokenPath)}. SKIPPING.`);
-                    summary.invalidTokens.push(`${pathStr(tokenPath)} (Missing $type)`);
+                if (rawValue == null) {
+                    console.warn(`⚠️  Token without $value (or null) at ${pathStr(tokenPath)}, skipping`);
                     return;
                 }
 
-                if (rawValue == null) {
-                    console.warn(`⚠️  Token without $value (or null) at ${pathStr(tokenPath)}, skipping`);
+                // Compatibility mode for non-strict exports:
+                // allow untyped primitive/alias tokens, but keep blocking untyped composites.
+                if (!varType && !canEmitUntypedTokenValue(rawValue)) {
+                    console.error(`❌ Strict Error: Token without $type at ${pathStr(tokenPath)}. SKIPPING.`);
+                    summary.invalidTokens.push(`${pathStr(tokenPath)} (Missing $type)`);
                     return;
                 }
 
