@@ -226,6 +226,14 @@ function formatModeLabel(modeKey: string | undefined): string {
     return label.toUpperCase();
 }
 
+function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
+    if (a.size !== b.size) return false;
+    for (const value of a) {
+        if (!b.has(value)) return false;
+    }
+    return true;
+}
+
 // --- Main execution ---
 
 async function main() {
@@ -285,6 +293,7 @@ async function main() {
 
     const modeKeys = Array.from(foundModeKeys);
     const sortedModes = modeKeys.slice().sort((a, b) => normalizeModeName(a).localeCompare(normalizeModeName(b)));
+    const detectedModeSet = new Set<string>(sortedModes);
 
     const scopes: ModeScope[] = [];
     // Base scope: emit only tokens without mode branches or with explicit base values.
@@ -309,6 +318,7 @@ async function main() {
         const selector = `[data-theme="${selectorValue}"]`;
         scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true, modeOverridesOnly: true, allowModeBranches: true });
     }
+    const emittedModeSet = new Set<string>(emittedModes);
 
     const baseRefMap = new Map<string, string>();
     const baseValueMap = new Map<string, TokenValue>();
@@ -483,7 +493,8 @@ async function main() {
             const newVariables = extractCssVariables(finalCss);
             logChangeDetection(previousVariables, newVariables, {
                 preferredMode: PREFERRED_MODE,
-                foundModes: foundModeKeys,
+                detectedModes: detectedModeSet,
+                emittedModes: emittedModeSet,
                 modeStrict: MODE_STRICT_PREFERRED
             });
         }
@@ -492,7 +503,10 @@ async function main() {
     }
 
     printExecutionSummary(summary);
-    printModeSummary(foundModeKeys);
+    printModeSummary(emittedModeSet, 'emitted');
+    if (!setsEqual(emittedModeSet, detectedModeSet)) {
+        printModeSummary(detectedModeSet, 'detected');
+    }
     printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
 }
 

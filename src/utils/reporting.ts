@@ -78,9 +78,26 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
  */
 export type ModeContext = {
     preferredMode?: string;
-    foundModes?: Set<string>;
+    foundModes?: Set<string>; // legacy alias of detectedModes
+    detectedModes?: Set<string>;
+    emittedModes?: Set<string>;
     modeStrict?: boolean;
 };
+
+function stripModePrefix(key: string): string {
+    if (!key) return key;
+    const trimmed = key.trim();
+    const lower = trimmed.toLowerCase();
+    if (!lower.startsWith('mode')) return trimmed;
+    return trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed;
+}
+
+function sortedModeLabels(modeKeys?: Set<string>): string[] {
+    if (!modeKeys || modeKeys.size === 0) return [];
+    return Array.from(modeKeys)
+        .map(stripModePrefix)
+        .sort((a, b) => a.localeCompare(b));
+}
 
 export function logChangeDetection(
     previousVariables: Map<string, string>,
@@ -91,17 +108,18 @@ export function logChangeDetection(
     console.log('            CHANGES DETECTED            ');
     console.log('----------------------------------------');
 
-    if (modeContext?.foundModes && modeContext.foundModes.size > 0) {
+    const detectedModes = sortedModeLabels(modeContext?.detectedModes ?? modeContext?.foundModes);
+    const emittedModes = sortedModeLabels(modeContext?.emittedModes);
+
+    if (detectedModes.length > 0 || emittedModes.length > 0) {
         const preferred = modeContext.preferredMode ?? '<none>';
         const strictLabel = modeContext.modeStrict ? 'strict' : 'loose';
-        const modes = Array.from(modeContext.foundModes)
-            .map(m => {
-                const trimmed = m.trim();
-                const lower = trimmed.toLowerCase();
-                return lower.startsWith('mode') ? trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed : trimmed;
-            })
-            .sort((a, b) => a.localeCompare(b));
-        console.log(`Mode context: preferred=${preferred} (${strictLabel}), detected=${modes.join(', ')}`);
+        const details: string[] = [];
+        if (emittedModes.length > 0) details.push(`emitted=${emittedModes.join(', ')}`);
+        if (detectedModes.length > 0 && (emittedModes.length === 0 || detectedModes.join('|') !== emittedModes.join('|'))) {
+            details.push(`detected=${detectedModes.join(', ')}`);
+        }
+        console.log(`Mode context: preferred=${preferred} (${strictLabel})${details.length > 0 ? `, ${details.join(', ')}` : ''}`);
     }
 
     const removed: string[] = [];
@@ -160,26 +178,14 @@ export function logChangeDetection(
 /**
  * Prints a summary of mode branches encountered during processing.
  */
-export function printModeSummary(modeKeys: Set<string>): void {
-    console.log('\nModes detected:');
+export function printModeSummary(modeKeys: Set<string>, label: 'detected' | 'emitted' = 'detected'): void {
+    console.log(`\nModes ${label}:`);
     if (modeKeys.size === 0) {
         console.log('  - None');
         return;
     }
 
-    const stripModePrefix = (k: string): string => {
-        if (!k) return k;
-        const trimmed = k.trim();
-        const lower = trimmed.toLowerCase();
-        if (lower.startsWith('mode')) {
-            return trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed;
-        }
-        return trimmed;
-    };
-
-    const sorted = Array.from(modeKeys)
-        .map(stripModePrefix)
-        .sort((a, b) => a.localeCompare(b));
+    const sorted = sortedModeLabels(modeKeys);
     console.log(`  - Count: ${modeKeys.size}`);
     console.log(`  - Names: ${sorted.join(', ')}`);
 }
