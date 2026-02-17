@@ -15,7 +15,7 @@ Use this skill when the user wants to:
 
 ## Inputs (ask only if missing)
 
-- `docs_root` (default: `docs/design-system/`)
+- `docs_root` (default: `docs/design_system/`)
 - `system_name` (default: `Iter`)
 - `repo_conventions` (optional: preferred naming, language, tone)
 

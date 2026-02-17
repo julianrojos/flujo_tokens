@@ -4,7 +4,7 @@ One page per component. This documentation is design-first (Figma) and token-bac
 
 ## How to add a component
 
-1. Create a spec: `docs/design-system/_spec/components/<Component>.yml` (copy from `_template.yml`)
+1. Create a spec: `docs/design_system/_spec/components/<Component>.yml` (copy from `_template.yml`)
 2. Run: `/ds-component-doc component_name=<Component>`
 
 ## Definition of done

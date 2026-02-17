@@ -1,7 +1,7 @@
 ---
 description: Guardrails for Design System documentation (Markdown). Prevents invention and enforces deterministic structure.
 globs:
-  - "docs/design-system/**/*.md"
+  - "docs/design_system/**/*.md"
 ---
 
 # Documentation guardrails (Design System)
