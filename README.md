@@ -62,10 +62,10 @@ ALLOW_JSON_REPAIR=true npm run generate
 
 ## Typography unit coercion (runtime)
 
-- To avoid touching exported JSONs, during emission the tokens under `Typographyprimitives` with `$type: "dimension"` are converted:
+- To avoid touching exported JSONs, during emission typography dimensions are converted when token paths match font size/line-height conventions (`font.size`, `font.lineHeight`, `fontSize`, `lineHeight`):
   - Font sizes in `px` → `rem` (16px base, rounded to 4 decimals).
   - Line-heights in `px` → unitless values.
-- Applied only to `Typographyprimitives`; other dimensions are not altered.
+- Applied only to typography-like paths; other dimensions are not altered.
 
 ## Multi-mode output
 

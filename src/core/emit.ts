@@ -28,6 +28,24 @@ function isBorderDimensionPath(currentPath: string[]): boolean {
     return hasBorder && (hasRadius || hasWidth);
 }
 
+function classifyTypographyDimensionPath(currentPath: string[]): { isSize: boolean; isLineHeight: boolean } {
+    const normalized = currentPath.map(normalizePathSegmentForMatch);
+
+    const hasFontSizeSegment = normalized.includes('fontsize');
+    const hasLineHeightSegment = normalized.includes('lineheight');
+    if (hasFontSizeSegment || hasLineHeightSegment) {
+        return { isSize: hasFontSizeSegment, isLineHeight: hasLineHeightSegment };
+    }
+
+    const fontIdx = normalized.indexOf('font');
+    if (fontIdx === -1 || fontIdx + 1 >= normalized.length) {
+        return { isSize: false, isLineHeight: false };
+    }
+
+    const metric = normalized[fontIdx + 1];
+    return { isSize: metric === 'size', isLineHeight: metric === 'lineheight' };
+}
+
 function coerceTypographyDimension(
     value: TokenValue['$value'],
     varType: string | undefined,
@@ -36,12 +54,7 @@ function coerceTypographyDimension(
     if (typeof value !== 'string') return { value, varType };
     if (varType !== 'dimension') return { value, varType };
 
-    const root = currentPath[0]?.toLowerCase();
-    if (root !== 'typographyprimitives') return { value, varType };
-
-    const lowerPath = currentPath.map(p => p.toLowerCase());
-    const isSize = lowerPath.includes('size');
-    const isLineHeight = lowerPath.includes('lineheight');
+    const { isSize, isLineHeight } = classifyTypographyDimensionPath(currentPath);
     if (!isSize && !isLineHeight) return { value, varType };
 
     const match = value.trim().match(/^(-?\d+(?:\.\d+)?)px$/i);
