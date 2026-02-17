@@ -161,11 +161,6 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
-        if (arg === '--mode-emit-base') {
-            console.warn('⚠️  --mode-emit-base is deprecated and has no effect in the current multi-scope pipeline. Ignoring.');
-            continue;
-        }
-
         console.error(`❌ Unknown argument: ${arg}`);
         return null;
     }

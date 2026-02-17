@@ -56,7 +56,6 @@ Behavior can be adjusted using environment variables:
   - `--mode <name>` (default: none): preferred mode branch (normalized exact match against `mode...` keys, e.g. `dark` -> `modeDark`/`mode-dark`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
   - `--mode-strict`: fail if the preferred mode is missing anywhere.
-  - `--mode-emit-base`: emit the base `$value` alongside a selected mode branch (mainly for legacy outputs).
 - Split output flags (CLI):
   - `--split`: generate two files (default behavior).
   - `--single`: generate one file (`--output`) instead of split outputs.
@@ -99,7 +98,7 @@ npm run generate:strict -- --mode dark
 - `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.
 - Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.
 - `modeDefault` is folded into `:root` and is not emitted as a separate `[data-theme="mode-default"]` block.
-- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks (base is not re-emitted in modes unless you opt in with `--mode-emit-base`).
+- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks.
 - Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing, `--mode-loose` logs a fallback warning.
 
 ## Output order (primitives first)
