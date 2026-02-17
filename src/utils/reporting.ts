@@ -32,6 +32,22 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
             });
     }
 
+    if (summary.cssVarNameCollisions > 0) {
+        console.log('\n🚨 ATTENTION: CSS VARIABLE NAME COLLISIONS DETECTED');
+        console.log(
+            `   ${summary.cssVarNameCollisions} colliding name${summary.cssVarNameCollisions === 1 ? '' : 's'} found.`
+        );
+        console.log('   CSS uses last-write-wins, so token values may be overridden unexpectedly.');
+        if (summary.cssVarNameCollisionDetails.length > 0) {
+            console.log(`   Examples (Top ${MAX_SUMMARY_DETAILS}):`);
+            summary.cssVarNameCollisionDetails.slice(0, MAX_SUMMARY_DETAILS).forEach(name => console.log(`   - ${name}`));
+            if (summary.cssVarNameCollisions > summary.cssVarNameCollisionDetails.length) {
+                const more = summary.cssVarNameCollisions - summary.cssVarNameCollisionDetails.length;
+                console.log(`   ... and ${more} more`);
+            }
+        }
+    }
+
     if (summary.unresolvedRefs.length > 0) {
         console.log(`\n⚠️  Unresolved Refs Detail (Top ${MAX_SUMMARY_DETAILS}):`);
         summary.unresolvedRefs.slice(0, MAX_SUMMARY_DETAILS).forEach(ref => console.log(`  - ${ref}`));

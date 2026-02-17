@@ -41,7 +41,6 @@ type CliOptions = {
     help: boolean;
     mode?: string;
     modeStrict: boolean;
-    modeSkipBase: boolean;
 };
 
 type ModeScope = {
@@ -71,7 +70,6 @@ Options:
   -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
       --mode-strict    Fail if preferred mode is missing in any node (default: off)
       --mode-loose     Allow fallback to available mode if preferred is missing (default: on)
-      --mode-emit-base Emit base $value even when a mode branch is selected (default: skip)
 `);
 }
 
@@ -84,7 +82,6 @@ function parseArgs(argv: string[]): CliOptions | null {
     let help = false;
     let mode: string | undefined;
     let modeStrict = false;
-    let modeSkipBase = true;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -165,7 +162,7 @@ function parseArgs(argv: string[]): CliOptions | null {
         }
 
         if (arg === '--mode-emit-base') {
-            modeSkipBase = false;
+            console.warn('⚠️  --mode-emit-base is deprecated and has no effect in the current multi-scope pipeline. Ignoring.');
             continue;
         }
 
@@ -173,7 +170,7 @@ function parseArgs(argv: string[]): CliOptions | null {
         return null;
     }
 
-    return { inputDir, outputFile, outputPrimitives, outputTokens, split, help, mode, modeStrict, modeSkipBase };
+    return { inputDir, outputFile, outputPrimitives, outputTokens, split, help, mode, modeStrict };
 }
 
 const parsed = parseArgs(process.argv.slice(2));
@@ -195,7 +192,6 @@ const SPLIT_OUTPUT = parsed.split;
 const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
 const MODE_STRICT_PREFERRED = MODE_STRICT && !!PREFERRED_MODE;
-const MODE_SKIP_BASE = parsed.modeSkipBase;
 
 function normalizeModeName(modeKey: string | undefined): string {
     if (!modeKey) return '';
@@ -264,7 +260,7 @@ async function main() {
 
     for (const { originalName, content } of fileEntries) {
         // Keep file name in currentPath for lookup/resolution, but do not include it in emitted CSS var names.
-        collectTokenMaps(indexingCtx, content, [], [originalName], PREFERRED_MODE, MODE_STRICT_PREFERRED, MODE_SKIP_BASE);
+        collectTokenMaps(indexingCtx, content, [], [originalName], PREFERRED_MODE, MODE_STRICT_PREFERRED, true);
     }
 
     const modeKeys = Array.from(foundModeKeys);

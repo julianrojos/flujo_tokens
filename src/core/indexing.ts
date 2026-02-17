@@ -7,6 +7,7 @@ import { walkTokenTree } from './walk.js';
 import { buildPathKey, normalizePathKey, pathStr } from '../utils/paths.js';
 import { buildCssVarNameFromPrefix, isValidCssVariableName } from '../utils/strings.js';
 import { warnedDuplicateTokenIds } from '../runtime/state.js';
+import { MAX_COLLISION_DETAILS } from '../runtime/config.js';
 
 function recordInvalidCssVarName(summary: BaseContext['summary'], tokenPath: string[], varName: string): void {
     const detail = `${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`;
@@ -81,8 +82,12 @@ export function trackCssVarNameCollision(ctx: BaseContext, varName: string, owne
         entry = { first: existing, others: new Map<string, CssVarOwner>() };
         cssVarNameCollisionMap.set(varName, entry);
         summary.cssVarNameCollisions++;
-        summary.cssVarNameCollisionDetails.push(varName);
-        console.warn(`⚠️  There are two tokens with the same name: ${varName}`);
+        if (summary.cssVarNameCollisionDetails.length < MAX_COLLISION_DETAILS) {
+            summary.cssVarNameCollisionDetails.push(varName);
+        }
+        console.error('\n🚨 CSS VARIABLE NAME COLLISION DETECTED');
+        console.error(`   Colliding name: ${varName}`);
+        console.error('   Multiple tokens map to the same CSS variable; last declaration wins.\n');
     }
 
     entry.others.set(owner.tokenKey || owner.tokenPath, owner);
@@ -109,7 +114,7 @@ export function collectTokenMaps(
 ): void {
     const { summary, refMap, valueMap, collisionKeys, idToVarName, idToTokenKey } = ctx;
 
-    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, debugLabel: string, allowOverride: boolean) => {
+    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, allowOverride: boolean) => {
         if (!key) return;
 
         if (!refMap.has(key)) {
@@ -165,12 +170,12 @@ export function collectTokenMaps(
                         ? ({ ...(tokenObj as TokenValue), $type: effectiveType } as TokenValue)
                         : (tokenObj as TokenValue);
 
-                upsertKey(normalizedKey, varName, storedTokenObj, tokenPathKey, inModeBranch);
+                upsertKey(normalizedKey, varName, storedTokenObj, inModeBranch);
 
                 const relativePathKey = buildPathKey(tokenPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                    upsertKey(relativeNormalizedKey, varName, storedTokenObj, `relative:${relativePathKey}`, inModeBranch);
+                    upsertKey(relativeNormalizedKey, varName, storedTokenObj, inModeBranch);
                 }
             },
 
@@ -199,12 +204,12 @@ export function collectTokenMaps(
 
                 trackCssVarNameCollision(ctx, varName, { tokenKey: normalizedPathKey, tokenPath: pathStr(leafPath) });
 
-                upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
+                upsertKey(normalizedPathKey, varName, legacyTokenObj, inModeBranch);
 
                 const relativePathKey = buildPathKey(leafPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
-                    upsertKey(relativeNormalizedKey, varName, legacyTokenObj, `relative:${relativePathKey}`, inModeBranch);
+                    upsertKey(relativeNormalizedKey, varName, legacyTokenObj, inModeBranch);
                 }
             }
         },

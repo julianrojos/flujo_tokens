@@ -15,7 +15,6 @@ export const warnedAliasVarCollisions = new Set<string>();
 export const warnedDuplicateTokenIds = new Set<string>();
 export const warnedFindTokenByIdDepthLimit = new Set<string>();
 export const warnedAmbiguousModeDefaultAt = new Set<string>();
-export const warnedMissingPreferredMode = new Set<string>();
 export const warnedBaseValueSkippedForMode = new Set<string>();
 export const warnedPreferredModeFallback = new Set<string>();
 export const foundModeKeys = new Set<string>();
@@ -35,7 +34,6 @@ export function resetRuntimeState(): void {
     warnedDuplicateTokenIds.clear();
     warnedFindTokenByIdDepthLimit.clear();
     warnedAmbiguousModeDefaultAt.clear();
-    warnedMissingPreferredMode.clear();
     warnedBaseValueSkippedForMode.clear();
     warnedPreferredModeFallback.clear();
     foundModeKeys.clear();

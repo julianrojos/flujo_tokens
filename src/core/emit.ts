@@ -10,7 +10,7 @@ import { walkTokenTree } from './walk.js';
 import { getResolvedTokenKeyFromParts } from './analyze.js';
 import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
 import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, buildPathKey } from '../utils/paths.js';
-import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName, quoteCssStringLiteral } from '../utils/strings.js';
+import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName } from '../utils/strings.js';
 
 function formatNumber(value: number): string {
     return value.toFixed(4).replace(/\.?0+$/, '');
@@ -391,61 +391,6 @@ export function resolveReference(
     recordUnresolvedTyped(summary, currentPath, 'Ref', tokenPath);
 
     return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
-}
-
-/**
- * Builds a CSS token sequence for string tokens that contain references.
- * CSS does not support string interpolation.
- */
-export function buildCssStringTokenSequence(
-    ctx: EmissionContext,
-    raw: string,
-    currentPath: string[],
-    visitedRefs: ReadonlySet<string>
-): string {
-    const tokens: Array<{ kind: 'text' | 'ref'; value: string }> = [];
-    const seenInValue = new Set<string>();
-
-    W3C_REF_REGEX_REPLACE.lastIndex = 0;
-
-    let last = 0;
-    let m: RegExpExecArray | null;
-
-    try {
-        while ((m = W3C_REF_REGEX_REPLACE.exec(raw)) !== null) {
-            const start = m.index;
-            const end = W3C_REF_REGEX_REPLACE.lastIndex;
-
-            const before = raw.slice(last, start);
-            if (before) tokens.push({ kind: 'text', value: before });
-
-            const wholeMatch = m[0];
-            const tokenPath = (m[1] ?? '').trim();
-            const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
-
-            // If resolution fails and returns the raw match, keep it as literal text (no added spacing/quotes).
-            const kind: 'text' | 'ref' = resolved === wholeMatch ? 'text' : 'ref';
-            tokens.push({ kind, value: resolved });
-
-            last = end;
-        }
-    } finally {
-        W3C_REF_REGEX_REPLACE.lastIndex = 0;
-    }
-
-    const tail = raw.slice(last);
-    if (tail) tokens.push({ kind: 'text', value: tail });
-
-    if (tokens.length === 0) return quoteCssStringLiteral('');
-
-    // If the entire string is just a reference, return it directly (allows content: var(--...)).
-    if (tokens.length === 1 && tokens[0].kind === 'ref') {
-        return tokens[0].value;
-    }
-
-    // Otherwise, emit a token list: string segments stay as strings, refs stay as refs.
-    const rendered = tokens.map(t => (t.kind === 'text' ? quoteCssStringLiteral(t.value) : t.value));
-    return rendered.join(' ');
 }
 
 // --- VARIABLE_ALIAS processing ---
