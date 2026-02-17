@@ -24,7 +24,7 @@ import { readAndCombineJsons } from '../core/ingest.js';
 import { collectTokenMaps } from '../core/indexing.js';
 import { buildCycleStatus } from '../core/analyze.js';
 import { flattenTokens, buildEmittableKeySet } from '../core/emit.js';
-import { readCssVariablesFromFile, formatCssSectionHeader } from '../core/css.js';
+import { readCssVariablesFromFile, extractCssVariables, formatCssSectionHeader } from '../core/css.js';
 import { foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 
 // --- Path configuration & arg parsing ---
@@ -259,7 +259,6 @@ async function main() {
     }
 
     const cssBlocks: string[] = [];
-    const allCssLines: string[] = [];
 
     for (const scope of scopes) {
         const scopedPrimitives: string[] = [];
@@ -298,7 +297,6 @@ async function main() {
 
         if (scopedLines.length === 0) continue;
 
-        allCssLines.push(...scopedLines);
         const modeLabel = scope.mode ? `/* ========== MODE ${formatModeLabel(scope.mode)} ========== */\n` : '';
         cssBlocks.push(`${modeLabel}${scope.selector} {\n${scopedLines.join('\n')}\n}`);
     }
@@ -325,7 +323,8 @@ async function main() {
     printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
 
     if (previousVariables.size > 0) {
-        logChangeDetection(previousVariables, allCssLines, {
+        const newVariables = extractCssVariables(finalCss);
+        logChangeDetection(previousVariables, newVariables, {
             preferredMode: PREFERRED_MODE,
             foundModes: foundModeKeys,
             modeStrict: MODE_STRICT

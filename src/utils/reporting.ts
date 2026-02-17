@@ -4,7 +4,6 @@
 
 import type { ExecutionSummary } from '../types/tokens.js';
 import { MAX_SUMMARY_DETAILS } from '../runtime/config.js';
-import { CSS_DECL_LINE_REGEX } from './regex.js';
 
 /**
  * Prints a human-friendly execution summary with optional detail sections.
@@ -69,7 +68,7 @@ export type ModeContext = {
 
 export function logChangeDetection(
     previousVariables: Map<string, string>,
-    cssLines: string[],
+    newVariables: Map<string, string>,
     modeContext?: ModeContext
 ): void {
     console.log('\n----------------------------------------');
@@ -89,17 +88,19 @@ export function logChangeDetection(
         console.log(`Mode context: preferred=${preferred} (${strictLabel}), detected=${modes.join(', ')}`);
     }
 
-    const newVariables = new Map<string, string>();
-    for (const line of cssLines) {
-        const match = CSS_DECL_LINE_REGEX.exec(line);
-        if (match && match[1] && match[2] !== undefined) {
-            newVariables.set(match[1], match[2].trim());
-        }
-    }
-
     const removed: string[] = [];
     const added: string[] = [];
     const modified: Array<{ name: string; oldValue: string; newValue: string }> = [];
+    const formatScopedVar = (key: string): string => {
+        const separatorIndex = key.indexOf('::');
+        if (separatorIndex === -1) {
+            return key.startsWith('--') ? key : `--${key}`;
+        }
+        const scope = key.slice(0, separatorIndex);
+        const rawName = key.slice(separatorIndex + 2);
+        const normalizedName = rawName.startsWith('--') ? rawName : `--${rawName}`;
+        return `${scope} ${normalizedName}`;
+    };
 
     previousVariables.forEach((_value, name) => {
         if (!newVariables.has(name)) removed.push(name);
@@ -116,20 +117,20 @@ export function logChangeDetection(
 
     if (removed.length > 0) {
         console.log(`   🗑️  Variables removed: ${removed.length}`);
-        removed.slice(0, 5).forEach(name => console.log(`      - --${name}`));
+        removed.slice(0, 5).forEach(name => console.log(`      - ${formatScopedVar(name)}`));
         if (removed.length > 5) console.log(`      ...`);
     }
 
     if (added.length > 0) {
         console.log(`   ➕ Variables added: ${added.length}`);
-        added.slice(0, 5).forEach(name => console.log(`      + --${name}`));
+        added.slice(0, 5).forEach(name => console.log(`      + ${formatScopedVar(name)}`));
         if (added.length > 5) console.log(`      ...`);
     }
 
     if (modified.length > 0) {
         console.log(`   🔄 Variables modified: ${modified.length}`);
         modified.slice(0, 5).forEach(({ name, oldValue, newValue }) => {
-            console.log(`      ~ --${name}`);
+            console.log(`      ~ ${formatScopedVar(name)}`);
             console.log(`        - ${oldValue} -> ${newValue}`);
         });
         if (modified.length > 5) console.log(`      ...`);
