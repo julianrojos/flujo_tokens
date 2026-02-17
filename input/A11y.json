@@ -1,0 +1,21 @@
+{
+  "$description": "A11y",
+  "A11y": {
+    "modeDesktop": {
+      "Dimension": {
+        "Min-Hit-Area": {
+          "$value": "{_Primitives.Dimension.A11y.Min-Hit-Area-Desktop-AA}",
+          "$type": "dimension"
+        }
+      }
+    },
+    "modeMobile": {
+      "Dimension": {
+        "Min-Hit-Area": {
+          "$value": "{_Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA}",
+          "$type": "dimension"
+        }
+      }
+    }
+  }
+}

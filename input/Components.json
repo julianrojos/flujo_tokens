@@ -1,0 +1,13 @@
+{
+  "$description": "Components",
+  "Bottom-Bar": {
+    "Background-Default": {
+      "$value": "{_Primitives.Color.Grey.100}",
+      "$type": "color"
+    },
+    "Background-Selected": {
+      "$value": "{_Primitives.Color.BW.White}",
+      "$type": "color"
+    }
+  }
+}
