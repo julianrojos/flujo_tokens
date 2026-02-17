@@ -62,15 +62,16 @@ function normalizePreferredMode(preferredMode?: string): string | undefined {
         cleaned = cleaned.slice(4).replace(/^[^a-z0-9]+/i, '') || cleaned;
     }
 
-    return cleaned;
+    const normalized = cleaned.replace(/[^a-z0-9]+/g, '');
+    return normalized || undefined;
 }
 
 function matchesPreferredMode(key: string, preferred?: string): boolean {
     if (!preferred) return false;
     if (!isModeKey(key)) return false;
     const tail = key.slice(4);
-    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase();
-    return normalized.startsWith(preferred);
+    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return normalized === preferred;
 }
 
 /**
