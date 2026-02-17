@@ -16,6 +16,18 @@ function formatNumber(value: number): string {
     return value.toFixed(4).replace(/\.?0+$/, '');
 }
 
+function normalizePathSegmentForMatch(segment: string): string {
+    return segment.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isBorderDimensionPath(currentPath: string[]): boolean {
+    const normalized = currentPath.map(normalizePathSegmentForMatch);
+    const hasBorder = normalized.includes('border');
+    const hasRadius = normalized.includes('radius') || normalized.includes('borderradius');
+    const hasWidth = normalized.includes('width') || normalized.includes('borderwidth');
+    return hasBorder && (hasRadius || hasWidth);
+}
+
 function coerceTypographyDimension(
     value: TokenValue['$value'],
     varType: string | undefined,
@@ -45,6 +57,28 @@ function coerceTypographyDimension(
 
     const unitless = px / 16;
     return { value: formatNumber(unitless), varType };
+}
+
+function coerceBorderDimension(
+    value: TokenValue['$value'],
+    varType: string | undefined,
+    currentPath: string[]
+): { value: TokenValue['$value']; varType: string | undefined } {
+    if (varType !== 'dimension') return { value, varType };
+    if (!isBorderDimensionPath(currentPath)) return { value, varType };
+
+    if (typeof value === 'number') {
+        return { value: `${formatNumber(value)}px`, varType };
+    }
+
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+            return { value: `${trimmed}px`, varType };
+        }
+    }
+
+    return { value, varType };
 }
 
 function containsReference(value: unknown): boolean {
@@ -648,6 +682,9 @@ export function processValue(
     const coerced = coerceTypographyDimension(value, varType, currentPath);
     value = coerced.value;
     varType = coerced.varType;
+    const coercedBorder = coerceBorderDimension(value, varType, currentPath);
+    value = coercedBorder.value;
+    varType = coercedBorder.varType;
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
@@ -688,7 +725,7 @@ export function processValue(
     if (typeof value === 'string') {
         // Preserve common CSS color formats verbatim.
         if (value.startsWith('rgba') || value.startsWith('rgb(')) return value;
-        if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) return value;
+        if (/^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(value)) return value;
 
         if (varType === 'string') {
             const hasRef = W3C_REF_REGEX_TEST.test(value);
