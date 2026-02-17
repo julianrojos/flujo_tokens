@@ -6,7 +6,7 @@ import fs from 'fs';
 import { isValidCssVariableName } from '../utils/strings.js';
 
 /**
- * Extracts `--name: value;` declarations from a `:root { ... }` block.
+ * Extracts `--name: value;` declarations from the whole stylesheet.
  *
  * This uses a small scanner instead of a regex so it can ignore semicolons inside:
  * - quoted strings
@@ -14,42 +14,13 @@ import { isValidCssVariableName } from '../utils/strings.js';
  */
 export function extractCssVariables(cssContent: string): Map<string, string> {
     const variables = new Map<string, string>();
-    const rootStart = cssContent.indexOf(':root');
-    if (rootStart === -1) return variables;
-
-    const braceStart = cssContent.indexOf('{', rootStart);
-    if (braceStart === -1) return variables;
-
-    // Best-effort brace matching for the :root block.
-    let braceCount = 0;
-    let braceEnd = braceStart;
-    for (let i = braceStart; i < cssContent.length; i++) {
-        if (cssContent[i] === '{') braceCount++;
-        else if (cssContent[i] === '}') {
-            braceCount--;
-            if (braceCount === 0) {
-                braceEnd = i;
-                break;
-            }
-        }
-    }
-
-    let rootContent: string;
-    if (braceCount !== 0) {
-        const rootMatch = cssContent.match(/:root\s*\{([\s\S]+?)\}/);
-        if (!rootMatch) return variables;
-        rootContent = rootMatch[1];
-    } else {
-        rootContent = cssContent.substring(braceStart + 1, braceEnd);
-    }
-
-    // Strip comments within :root to simplify scanning.
-    rootContent = rootContent.replace(/\/\*[\s\S]*?\*\//g, '');
+    // Strip comments to simplify scanning.
+    const content = cssContent.replace(/\/\*[\s\S]*?\*\//g, '');
 
     const isEscaped = (pos: number): boolean => {
         let backslashes = 0;
         let idx = pos - 1;
-        while (idx >= 0 && rootContent[idx] === '\\') {
+        while (idx >= 0 && content[idx] === '\\') {
             backslashes++;
             idx--;
         }
@@ -57,35 +28,35 @@ export function extractCssVariables(cssContent: string): Map<string, string> {
     };
 
     let i = 0;
-    while (i < rootContent.length) {
-        while (i < rootContent.length && /\s/.test(rootContent[i])) i++;
+    while (i < content.length) {
+        while (i < content.length && /\s/.test(content[i])) i++;
 
-        if (i >= rootContent.length || rootContent.substring(i, i + 2) !== '--') {
+        if (i >= content.length || content.substring(i, i + 2) !== '--') {
             i++;
             continue;
         }
 
         const nameStart = i + 2;
         let nameEnd = nameStart;
-        while (nameEnd < rootContent.length && /[a-zA-Z0-9_-]/.test(rootContent[nameEnd])) {
+        while (nameEnd < content.length && /[a-zA-Z0-9_-]/.test(content[nameEnd])) {
             nameEnd++;
         }
-        const name = rootContent.substring(nameStart, nameEnd);
+        const name = content.substring(nameStart, nameEnd);
 
         i = nameEnd;
-        while (i < rootContent.length && /\s/.test(rootContent[i])) i++;
-        if (i >= rootContent.length || rootContent[i] !== ':') continue;
+        while (i < content.length && /\s/.test(content[i])) i++;
+        if (i >= content.length || content[i] !== ':') continue;
         i++;
 
-        while (i < rootContent.length && /\s/.test(rootContent[i])) i++;
+        while (i < content.length && /\s/.test(content[i])) i++;
 
         const valueStart = i;
         let depth = 0;
         let inString = false;
         let stringChar = '';
 
-        while (i < rootContent.length) {
-            const char = rootContent[i];
+        while (i < content.length) {
+            const char = content[i];
             if ((char === '"' || char === "'") && !isEscaped(i)) {
                 if (!inString) {
                     inString = true;
@@ -104,7 +75,7 @@ export function extractCssVariables(cssContent: string): Map<string, string> {
             i++;
         }
 
-        const valueParsed = rootContent.substring(valueStart, i).trim();
+        const valueParsed = content.substring(valueStart, i).trim();
         const valueIsSane = valueParsed.length > 0 && !/[\r\n\x00-\x1F]/.test(valueParsed);
         if (name && valueIsSane && isValidCssVariableName(`--${name}`)) {
             variables.set(name, valueParsed);
