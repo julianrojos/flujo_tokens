@@ -804,9 +804,19 @@ export function processValue(
         if (/^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(value)) return value;
 
         if (varType === 'string') {
-            const hasRef = W3C_REF_REGEX_TEST.test(value);
-            if (!hasRef) return quoteCssStringLiteral(value);
-            return buildCssStringTokenSequence(ctx, value, currentPath, visitedRefs);
+            // Do not force-quote string tokens. Keep raw CSS keywords/idents (e.g., bold, solid),
+            // while still resolving embedded references.
+            const seenInValue = new Set<string>();
+            let hadRef = false;
+
+            W3C_REF_REGEX_REPLACE.lastIndex = 0;
+            const replaced = value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => {
+                hadRef = true;
+                return resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue);
+            });
+            W3C_REF_REGEX_REPLACE.lastIndex = 0;
+
+            return hadRef ? replaced : value;
         }
 
         const seenInValue = new Set<string>();
