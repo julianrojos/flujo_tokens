@@ -188,6 +188,12 @@ const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
 const MODE_STRICT_PREFERRED = MODE_STRICT && !!PREFERRED_MODE;
 
+if (MODE_STRICT && !PREFERRED_MODE) {
+    console.warn(
+        'ℹ️  --mode-strict was provided without --mode <name>; strict checks apply only when a preferred mode is set. Continuing in loose mode.'
+    );
+}
+
 function normalizeModeName(modeKey: string | undefined): string {
     if (!modeKey) return '';
     const trimmed = modeKey.trim();

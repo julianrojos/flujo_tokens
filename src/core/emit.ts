@@ -159,7 +159,19 @@ export function buildEmittableKeySet(ctx: IndexingContext): Set<string> {
         const varType = token.$type;
         const rawValue = token.$value;
 
-        if (rawValue == null || !varType) return false;
+        if (rawValue == null) return false;
+
+        // Compatibility mode: legacy primitives without $type are still emittable.
+        if (!varType) {
+            if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+                return true;
+            }
+            if (isVariableAlias(rawValue)) {
+                const aliasId = rawValue.id?.trim();
+                return !!aliasId;
+            }
+            return false;
+        }
 
         if (Array.isArray(rawValue)) {
             return varType === 'shadow';
@@ -406,7 +418,7 @@ export function processVariableAlias(
 ): string {
     if (!isVariableAlias(aliasObj)) return JSON.stringify(aliasObj);
 
-    const { summary, tokensData, refMap, idToVarName, idToTokenKey, cycleStatus, cssVarNameCollisionMap } = ctx;
+    const { summary, tokensData, refMap, idToVarName, idToTokenKey, cycleStatus, emittableKeys, cssVarNameCollisionMap } = ctx;
 
     const aliasId = aliasObj.id?.trim();
     const targetKey = aliasId ? idToTokenKey.get(aliasId) : undefined;
@@ -431,6 +443,15 @@ export function processVariableAlias(
             summary.circularDeps++;
             return `/* circular-alias: ${aliasId} */`;
         }
+    }
+
+    if (aliasId && targetKey && !emittableKeys.has(targetKey)) {
+        console.warn(
+            `⚠️  VARIABLE_ALIAS at ${pathStr(currentPath)} points to a token not emitted in this scope (id=${aliasId}).`
+        );
+        const placeholderName = toSafePlaceholderName(aliasId);
+        recordUnresolvedTyped(summary, currentPath, 'Alias ID (not emitted)', aliasId);
+        return `var(--unresolved-${placeholderName})`;
     }
 
     const warnIfCollidingVarName = (varNameWithDashes: string) => {
@@ -480,6 +501,17 @@ export function processVariableAlias(
                 const fullKeyNorm = normalizePathKey(fullKey);
                 const relativeKey = buildPathKey(tokenPath, 1);
                 const relativeKeyNorm = normalizePathKey(relativeKey);
+                const candidateKeys = [fullKey, fullKeyNorm, relativeKey, relativeKeyNorm].filter(k => !!k) as string[];
+                const targetIsEmittableInScope = candidateKeys.some(k => emittableKeys.has(k));
+
+                if (!targetIsEmittableInScope) {
+                    console.warn(
+                        `⚠️  VARIABLE_ALIAS at ${pathStr(currentPath)} resolved id="${aliasId}" to a token not emitted in this scope.`
+                    );
+                    const placeholderName = toSafePlaceholderName(aliasId);
+                    recordUnresolvedTyped(summary, currentPath, 'Alias ID (not emitted)', aliasId);
+                    return `var(--unresolved-${placeholderName})`;
+                }
 
                 const mappedFromIndex =
                     refMap.get(fullKey) ??

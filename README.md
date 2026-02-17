@@ -16,7 +16,7 @@ npm install
 ## Available Scripts
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
-- **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled (it fails when the preferred mode from `--mode <name>` is missing).
+- **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 
 ## Usage
 
@@ -55,7 +55,7 @@ Behavior can be adjusted using environment variables:
 - Mode selection flags (CLI):
   - `--mode <name>` (default: none): preferred mode branch (normalized exact match against `mode...` keys, e.g. `dark` -> `modeDark`/`mode-dark`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
-  - `--mode-strict`: fail if the preferred mode is missing anywhere.
+  - `--mode-strict`: fail if the preferred mode is missing anywhere (effective when used together with `--mode <name>`).
 - Split output flags (CLI):
   - `--split`: generate two files (default behavior).
   - `--single`: generate one file (`--output`) instead of split outputs.
@@ -99,7 +99,7 @@ npm run generate:strict -- --mode dark
 - Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.
 - `modeDefault` is folded into `:root` and is not emitted as a separate `[data-theme="mode-default"]` block.
 - Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks.
-- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing, `--mode-loose` logs a fallback warning.
+- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing (when `--mode` is provided), `--mode-loose` logs a fallback warning.
 
 ## Output order (primitives first)
 
