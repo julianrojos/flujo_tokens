@@ -8,6 +8,13 @@ import { buildPathKey, normalizePathKey, pathStr } from '../utils/paths.js';
 import { buildCssVarNameFromPrefix, isValidCssVariableName } from '../utils/strings.js';
 import { warnedDuplicateTokenIds } from '../runtime/state.js';
 
+function recordInvalidCssVarName(summary: BaseContext['summary'], tokenPath: string[], varName: string): void {
+    const detail = `${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`;
+    if (!summary.invalidNames.includes(detail)) {
+        summary.invalidNames.push(detail);
+    }
+}
+
 /**
  * Indexes Figma `$id` properties for O(1) VARIABLE_ALIAS resolution.
  * - Stores the trimmed ID (canonical).
@@ -138,7 +145,7 @@ export function collectTokenMaps(
 
                 // If it won't be emitted, do not index it (prevents unresolved "phantom" refs).
                 if (!isValidCssVariableName(varName)) {
-                    summary.invalidNames.push(`${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`);
+                    recordInvalidCssVarName(summary, tokenPath, varName);
                     return;
                 }
 
@@ -181,7 +188,7 @@ export function collectTokenMaps(
                 const varName = buildCssVarNameFromPrefix(leafPrefix);
 
                 if (!isValidCssVariableName(varName)) {
-                    summary.invalidNames.push(`${pathStr(leafPath)} (Invalid CSS Var: ${varName})`);
+                    recordInvalidCssVarName(summary, leafPath, varName);
                     return;
                 }
 

@@ -214,7 +214,10 @@ export function emitCssVar(
     if (!isValidCssVariableName(varName)) {
         console.warn(`⚠️  Warning: ${varName} is not a valid CSS variable name, skipping`);
         if (recordInvalidName) {
-            summary.invalidNames.push(`${pathStr(currentPath)} (Invalid CSS Var: ${varName})`);
+            const detail = `${pathStr(currentPath)} (Invalid CSS Var: ${varName})`;
+            if (!summary.invalidNames.includes(detail)) {
+                summary.invalidNames.push(detail);
+            }
         }
         return;
     }
