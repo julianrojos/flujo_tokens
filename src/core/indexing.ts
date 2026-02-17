@@ -75,7 +75,7 @@ export function trackCssVarNameCollision(ctx: BaseContext, varName: string, owne
         cssVarNameCollisionMap.set(varName, entry);
         summary.cssVarNameCollisions++;
         summary.cssVarNameCollisionDetails.push(varName);
-        console.warn(`⚠️  Hay dos tokens con el mismo nombre: ${varName}`);
+        console.warn(`⚠️  There are two tokens with the same name: ${varName}`);
     }
 
     entry.others.set(owner.tokenKey || owner.tokenPath, owner);
