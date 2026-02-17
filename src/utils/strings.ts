@@ -11,8 +11,15 @@ export function toKebabCase(name: string): string {
         return cached;
     }
 
+    const raw = name.trim();
+    // Preserve numeric negative keys (e.g. "-16") so sign is kept in CSS var segments.
+    if (/^-\d+(?:\.\d+)?$/.test(raw)) {
+        kebabCaseCache.set(name, raw);
+        return raw;
+    }
+
     // Convert camelCase and whitespace/slashes into kebab-style without altering existing hyphens/underscores.
-    let result = name.replace(/[\\/]+/g, '-'); // normalize path separators to dashes
+    let result = raw.replace(/[\\/]+/g, '-'); // normalize path separators to dashes
     result = result.replace(/([a-z])([A-Z])/g, '$1-$2'); // split camelCase
     result = result.replace(/\s+/g, '-'); // collapse spaces to dashes
     result = result.toLowerCase();

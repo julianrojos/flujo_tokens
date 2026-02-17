@@ -182,7 +182,6 @@ async function main() {
 
     const fileEntries = Object.entries(combinedTokens).map(([name, content]) => ({
         originalName: name,
-        kebabName: toKebabCase(name),
         content
     }));
 
@@ -223,8 +222,9 @@ async function main() {
         cssVarNameCollisionMap
     });
 
-    for (const { originalName, kebabName, content } of fileEntries) {
-        collectTokenMaps(indexingCtx, content, [kebabName], [originalName], PREFERRED_MODE, MODE_STRICT, MODE_SKIP_BASE);
+    for (const { originalName, content } of fileEntries) {
+        // Keep file name in currentPath for lookup/resolution, but do not include it in emitted CSS var names.
+        collectTokenMaps(indexingCtx, content, [], [originalName], PREFERRED_MODE, MODE_STRICT, MODE_SKIP_BASE);
     }
 
     const cycleStatus = buildCycleStatus(indexingCtx);
@@ -265,11 +265,11 @@ async function main() {
         const scopedPrimitives: string[] = [];
         const scopedAliases: string[] = [];
 
-        for (const { originalName, kebabName, content } of fileEntries) {
+        for (const { originalName, content } of fileEntries) {
             const { primitives, aliases } = flattenTokens(
                 processingCtx,
                 content,
-                [kebabName],
+                [],
                 [originalName],
                 scope.mode,
                 MODE_STRICT,

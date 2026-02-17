@@ -49,14 +49,6 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
         }
     }
 
-    if (summary.cssVarNameCollisionDetails.length > 0) {
-        console.log(`\n⚠️  CSS Var Collisions Detail (Top ${MAX_SUMMARY_DETAILS}):`);
-        summary.cssVarNameCollisionDetails.slice(0, MAX_SUMMARY_DETAILS).forEach(d => console.log(`  - ${d}`));
-        if (summary.cssVarNameCollisionDetails.length > MAX_SUMMARY_DETAILS) {
-            console.log(`  ... and ${summary.cssVarNameCollisionDetails.length - MAX_SUMMARY_DETAILS} more`);
-        }
-    }
-
     if (summary.invalidTokens.length > 0) {
         console.log(`\n❌ Invalid Tokens Detail (Top ${MAX_SUMMARY_DETAILS}):`);
         summary.invalidTokens.slice(0, MAX_SUMMARY_DETAILS).forEach(t => console.log(`  - ${t}`));

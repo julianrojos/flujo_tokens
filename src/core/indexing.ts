@@ -6,7 +6,6 @@ import type { IndexingContext, TokenValue, BaseContext, CssVarOwner } from '../t
 import { walkTokenTree } from './walk.js';
 import { buildPathKey, normalizePathKey, pathStr } from '../utils/paths.js';
 import { buildCssVarNameFromPrefix, isValidCssVariableName } from '../utils/strings.js';
-import { MAX_COLLISION_DETAILS } from '../runtime/config.js';
 import { warnedDuplicateTokenIds } from '../runtime/state.js';
 
 /**
@@ -75,18 +74,8 @@ export function trackCssVarNameCollision(ctx: BaseContext, varName: string, owne
         entry = { first: existing, others: new Map<string, CssVarOwner>() };
         cssVarNameCollisionMap.set(varName, entry);
         summary.cssVarNameCollisions++;
-
-        const fmt = (o: CssVarOwner) => `${o.tokenPath}${o.id ? ` ($id=${o.id})` : ''}`;
-        const detail = `${varName}: ${fmt(existing)} <-> ${fmt(owner)}`;
-
-        if (summary.cssVarNameCollisionDetails.length < MAX_COLLISION_DETAILS) {
-            summary.cssVarNameCollisionDetails.push(detail);
-        }
-
-        console.warn(
-            `⚠️  CSS var name collision for ${varName}: ${fmt(existing)} vs ${fmt(owner)}. ` +
-            `In CSS, the last emitted definition wins.`
-        );
+        summary.cssVarNameCollisionDetails.push(varName);
+        console.warn(`⚠️  Hay dos tokens con el mismo nombre: ${varName}`);
     }
 
     entry.others.set(owner.tokenKey || owner.tokenPath, owner);
@@ -122,13 +111,11 @@ export function collectTokenMaps(
 
         const existing = refMap.get(key);
         if (existing !== varName) {
-            console.warn(`ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`);
             collisionKeys.add(key);
             return;
         }
 
         if (allowOverride) valueMap.set(key, tokenObj);
-        else console.warn(`ℹ️  Duplicate token for normalized key ${key}${debugLabel ? ` (${debugLabel})` : ''}`);
     };
 
     // Indexing does not require sorted traversal order.
