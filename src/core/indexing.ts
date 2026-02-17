@@ -96,7 +96,9 @@ export function collectTokenMaps(
     currentPath: string[] = [],
     preferredMode?: string,
     modeStrict = false,
-    skipBaseWhenMode = false
+    skipBaseWhenMode = false,
+    modeOverridesOnly = false,
+    allowModeBranches = true
 ): void {
     const { summary, refMap, valueMap, collisionKeys, idToVarName, idToTokenKey } = ctx;
 
@@ -205,6 +207,8 @@ export function collectTokenMaps(
         undefined,
         preferredMode,
         modeStrict,
-        skipBaseWhenMode
+        skipBaseWhenMode,
+        modeOverridesOnly,
+        allowModeBranches
     );
 }

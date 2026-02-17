@@ -227,24 +227,6 @@ async function main() {
         collectTokenMaps(indexingCtx, content, [], [originalName], PREFERRED_MODE, MODE_STRICT, MODE_SKIP_BASE);
     }
 
-    const cycleStatus = buildCycleStatus(indexingCtx);
-    const emittableKeys = buildEmittableKeySet(indexingCtx);
-
-    // Phase 2: emission (deterministic CSS output).
-    const processingCtx = createProcessingContext({
-        summary,
-        tokensData: combinedTokens,
-        refMap,
-        valueMap,
-        collisionKeys,
-        idToVarName,
-        idToTokenKey,
-        cycleStatus,
-        emittableKeys,
-        cssVarNameOwners,
-        cssVarNameCollisionMap
-    });
-
     const modeKeys = Array.from(foundModeKeys);
     const sortedModes = modeKeys.slice().sort((a, b) => normalizeModeName(a).localeCompare(normalizeModeName(b)));
 
@@ -260,13 +242,90 @@ async function main() {
 
     const cssBlocks: string[] = [];
 
+    const baseRefMap = new Map<string, string>();
+    const baseValueMap = new Map<string, TokenValue>();
+    const baseCollisionKeys = new Set<string>();
+    const baseIdToVarName = new Map<string, string>();
+    const baseIdToTokenKey = new Map<string, string>();
+    const baseIndexSummary = createSummary();
+    const baseIndexingCtx = createProcessingContext({
+        summary: baseIndexSummary,
+        refMap: baseRefMap,
+        valueMap: baseValueMap,
+        collisionKeys: baseCollisionKeys,
+        idToVarName: baseIdToVarName,
+        idToTokenKey: baseIdToTokenKey
+    });
+    for (const { originalName, content } of fileEntries) {
+        collectTokenMaps(
+            baseIndexingCtx,
+            content,
+            [],
+            [originalName],
+            undefined,
+            MODE_STRICT,
+            false,
+            false,
+            false
+        );
+    }
+
     for (const scope of scopes) {
+        // Build a scope-specific resolution context (base + mode overrides) so emittable/cycle checks
+        // match what can actually be referenced in that scope via CSS cascade.
+        const scopeRefMap = new Map<string, string>(baseRefMap);
+        const scopeValueMap = new Map<string, TokenValue>(baseValueMap);
+        const scopeCollisionKeys = new Set<string>(baseCollisionKeys);
+        const scopeIdToVarName = new Map<string, string>(baseIdToVarName);
+        const scopeIdToTokenKey = new Map<string, string>(baseIdToTokenKey);
+        const scopeIndexSummary = createSummary();
+        const scopeIndexingCtx = createProcessingContext({
+            summary: scopeIndexSummary,
+            refMap: scopeRefMap,
+            valueMap: scopeValueMap,
+            collisionKeys: scopeCollisionKeys,
+            idToVarName: scopeIdToVarName,
+            idToTokenKey: scopeIdToTokenKey
+        });
+
+        if (scope.mode) {
+            for (const { originalName, content } of fileEntries) {
+                collectTokenMaps(
+                    scopeIndexingCtx,
+                    content,
+                    [],
+                    [originalName],
+                    scope.mode,
+                    MODE_STRICT,
+                    scope.skipBaseWhenMode,
+                    scope.modeOverridesOnly,
+                    scope.allowModeBranches
+                );
+            }
+        }
+
+        const scopeCycleStatus = buildCycleStatus(scopeIndexingCtx);
+        const scopeEmittableKeys = buildEmittableKeySet(scopeIndexingCtx);
+        const scopeProcessingCtx = createProcessingContext({
+            summary,
+            tokensData: combinedTokens,
+            refMap: scopeRefMap,
+            valueMap: scopeValueMap,
+            collisionKeys: scopeCollisionKeys,
+            idToVarName: scopeIdToVarName,
+            idToTokenKey: scopeIdToTokenKey,
+            cycleStatus: scopeCycleStatus,
+            emittableKeys: scopeEmittableKeys,
+            cssVarNameOwners,
+            cssVarNameCollisionMap
+        });
+
         const scopedPrimitives: string[] = [];
         const scopedAliases: string[] = [];
 
         for (const { originalName, content } of fileEntries) {
             const { primitives, aliases } = flattenTokens(
-                processingCtx,
+                scopeProcessingCtx,
                 content,
                 [],
                 [originalName],

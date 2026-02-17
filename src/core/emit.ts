@@ -3,7 +3,7 @@
  */
 
 import type { EmissionContext, ExecutionSummary, TokenValue, CssVarOwner, CssVarCollision, IndexingContext } from '../types/tokens.js';
-import { isPlainObject, isVariableAlias } from '../types/tokens.js';
+import { isPlainObject, isVariableAlias, isModeKey } from '../types/tokens.js';
 import { MAX_DEPTH, EMPTY_VISITED_REFS } from '../runtime/config.js';
 import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit } from '../runtime/state.js';
 import { walkTokenTree } from './walk.js';
@@ -458,7 +458,7 @@ export function processVariableAlias(
 ): string {
     if (!isVariableAlias(aliasObj)) return JSON.stringify(aliasObj);
 
-    const { summary, tokensData, idToVarName, idToTokenKey, cycleStatus, cssVarNameCollisionMap } = ctx;
+    const { summary, tokensData, refMap, idToVarName, idToTokenKey, cycleStatus, cssVarNameCollisionMap } = ctx;
 
     const aliasId = aliasObj.id?.trim();
     const targetKey = aliasId ? idToTokenKey.get(aliasId) : undefined;
@@ -505,6 +505,17 @@ export function processVariableAlias(
         );
     };
 
+    const deriveVarNameFromTokenPath = (tokenPath: string[]): string => {
+        // `tokenPath` includes the file root (currentPath starts with file name in CLI),
+        // but emitted variable names intentionally omit that namespace segment.
+        const segments = tokenPath
+            .slice(1)
+            .filter(seg => !!seg && !isModeKey(seg))
+            .map(toKebabCase)
+            .filter(Boolean);
+        return buildCssVarNameFromPrefix(segments);
+    };
+
     if (aliasId && tokensData) {
         // Fast path: O(1) lookup via `$id` index.
         const direct = idToVarName.get(aliasId);
@@ -516,8 +527,23 @@ export function processVariableAlias(
         // Fallback: cached O(N) scan.
         const tokenPath = findTokenByIdCached(tokensData, aliasId);
         if (tokenPath) {
-            const cssPath = tokenPath.map(toKebabCase).join('-');
-            const derived = `--${cssPath}`;
+            const fullKey = buildPathKey(tokenPath);
+            const fullKeyNorm = normalizePathKey(fullKey);
+            const relativeKey = buildPathKey(tokenPath, 1);
+            const relativeKeyNorm = normalizePathKey(relativeKey);
+
+            const mappedFromIndex =
+                refMap.get(fullKey) ??
+                refMap.get(fullKeyNorm) ??
+                refMap.get(relativeKey) ??
+                refMap.get(relativeKeyNorm);
+
+            if (mappedFromIndex) {
+                warnIfCollidingVarName(mappedFromIndex);
+                return `var(${mappedFromIndex})`;
+            }
+
+            const derived = deriveVarNameFromTokenPath(tokenPath);
 
             if (!isValidCssVariableName(derived)) {
                 console.warn(
