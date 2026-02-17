@@ -215,7 +215,8 @@ export function walkTokenTree(
     let skipModeTraversal = false;
 
     if (!effectiveAllowModes && hasAnyModeBranchRaw && !hasValue) {
-        // In base scopes, if the node only contains mode branches, treat modeDefault as base when available.
+        // In base scopes, when a node has mode branches but no base value,
+        // fold modeDefault into base traversal when available.
         const modeDefaultKey = pickModeDefaultKey(rawKeys, sortKeys);
         if (modeDefaultKey && (obj as Record<string, any>)[modeDefaultKey] !== undefined) {
             currentPath.push(modeDefaultKey);
@@ -240,8 +241,7 @@ export function walkTokenTree(
                 currentPath.pop();
             }
         }
-        // If there's no modeDefault, nothing is emitted in base scope for this node.
-        return;
+        // Keep traversing non-mode children in this node; do not early-return here.
     }
 
     if (hasValue) {
