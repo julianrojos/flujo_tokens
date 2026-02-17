@@ -194,6 +194,7 @@ const OUTPUT_TOKENS = parsed.outputTokens;
 const SPLIT_OUTPUT = parsed.split;
 const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
+const MODE_STRICT_PREFERRED = MODE_STRICT && !!PREFERRED_MODE;
 const MODE_SKIP_BASE = parsed.modeSkipBase;
 
 function normalizeModeName(modeKey: string | undefined): string {
@@ -263,7 +264,7 @@ async function main() {
 
     for (const { originalName, content } of fileEntries) {
         // Keep file name in currentPath for lookup/resolution, but do not include it in emitted CSS var names.
-        collectTokenMaps(indexingCtx, content, [], [originalName], PREFERRED_MODE, MODE_STRICT, MODE_SKIP_BASE);
+        collectTokenMaps(indexingCtx, content, [], [originalName], PREFERRED_MODE, MODE_STRICT_PREFERRED, MODE_SKIP_BASE);
     }
 
     const modeKeys = Array.from(foundModeKeys);
@@ -303,7 +304,7 @@ async function main() {
             [],
             [originalName],
             undefined,
-            MODE_STRICT,
+            MODE_STRICT_PREFERRED,
             false,
             false,
             false
@@ -337,7 +338,7 @@ async function main() {
                     [],
                     [originalName],
                     scope.mode,
-                    MODE_STRICT,
+                    false,
                     scope.skipBaseWhenMode,
                     scope.modeOverridesOnly,
                     scope.allowModeBranches
@@ -404,7 +405,7 @@ async function main() {
                     [],
                     [originalName],
                     scope.mode,
-                    MODE_STRICT,
+                    false,
                     scope.skipBaseWhenMode,
                     scope.modeOverridesOnly,
                     scope.allowModeBranches
@@ -456,7 +457,7 @@ async function main() {
             logChangeDetection(previousVariables, newVariables, {
                 preferredMode: PREFERRED_MODE,
                 foundModes: foundModeKeys,
-                modeStrict: MODE_STRICT
+                modeStrict: MODE_STRICT_PREFERRED
             });
         }
 
