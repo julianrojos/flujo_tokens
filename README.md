@@ -1,6 +1,6 @@
 # CSS Custom Properties Generator
 
-TypeScript CLI that converts JSON design tokens (DTCG) into CSS variables listed in `:root`.
+TypeScript CLI that converts JSON design tokens (DTCG) into CSS custom properties for `:root` and mode scopes.
 
 ## Requirements
 
@@ -15,8 +15,8 @@ npm install
 
 ## Available Scripts
 
-- **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission) to generate `custom-properties.css`.
-- **`npm run generate:strict`**: Same pipeline but with strict mode selection (fails if the preferred mode is missing anywhere).
+- **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
+- **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled (it fails when the preferred mode from `--mode <name>` is missing).
 
 ## Usage
 
@@ -36,7 +36,7 @@ The system operates in 4 sequential phases:
 1.  **Ingest (`src/core/ingest.ts`)**: Reads and sanitizes JSON files from `input/`.
 2.  **Indexing (`src/core/indexing.ts`)**: Creates lookup maps and resolves cross-references.
 3.  **Analysis (`src/core/analyze.ts`)**: Detects cycles and validates data integrity.
-4.  **Emission (`src/core/emit.ts`)**: Generates the final CSS inside `:root`.
+4.  **Emission (`src/core/emit.ts`)**: Generates final CSS declarations for base scope (`:root`) and mode scopes (`[data-theme="..."]`) when mode branches exist.
 
 ## Project Structure
 
@@ -53,7 +53,7 @@ Behavior can be adjusted using environment variables:
 - `ALLOW_JSON_REPAIR=true` (default: false): Attempts to repair common syntax errors in input JSONs (e.g., trailing commas) to prevent the process from failing.
 - `ALLOW_ALIAS_SCAN=true` (default: false): Enables O(N) tree-scan fallback for unresolved `VARIABLE_ALIAS` IDs. Keep disabled for large token sets/perf safety; enable only for debugging/migrations.
 - Mode selection flags (CLI):
-  - `--mode <name>` (default: none): preferred mode branch (matches keys starting with `mode<name>`).
+  - `--mode <name>` (default: none): preferred mode branch (normalized exact match against `mode...` keys, e.g. `dark` -> `modeDark`/`mode-dark`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
   - `--mode-strict`: fail if the preferred mode is missing anywhere.
   - `--mode-emit-base`: emit the base `$value` alongside a selected mode branch (mainly for legacy outputs).
@@ -81,6 +81,12 @@ Single-file example:
 npm run generate -- --single --output output/custom-properties.css
 ```
 
+Strict mode example (preferred mode required):
+
+```bash
+npm run generate:strict -- --mode dark
+```
+
 ## Typography unit coercion (runtime)
 
 - To avoid touching exported JSONs, during emission typography dimensions are converted when token paths match font size/line-height conventions (`font.size`, `font.lineHeight`, `fontSize`, `lineHeight`):
@@ -90,10 +96,10 @@ npm run generate -- --single --output output/custom-properties.css
 
 ## Multi-mode output
 
-- `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.  
-- Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.  
-- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks (base is not re-emitted in modes unless you opt in with `--mode-emit-base`).  
-- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing, `--mode-loose` logs a fallback warning.  
+- `:root` emits only tokens without mode branches or with an explicit base `$value`/`modeDefault`; mode branches are ignored in the base scope.
+- Each mode generates its own `[data-theme="mode-…"]` block with that mode’s overrides. Tokens that exist only inside a mode branch are emitted only there.
+- Tokens with base + modes: base goes to `:root`, overrides go to their mode blocks (base is not re-emitted in modes unless you opt in with `--mode-emit-base`).
+- Use `--mode <name>` to pick a preferred mode branch; `--mode-strict` fails if it’s missing, `--mode-loose` logs a fallback warning.
 
 ## Output order (primitives first)
 
@@ -101,9 +107,21 @@ npm run generate -- --single --output output/custom-properties.css
 - Section comments per file are kept in both groups for readability.
 - When using `--split`, load `primitives.css` before `tokens.css`.
 
+## Split classification rule
+
+- Files whose basename starts with `_` are treated as primitive sources (for `primitives.css`).
+- All other JSON files are treated as semantic/component token sources (for `tokens.css`).
+- In `--single` mode, all sources are emitted into the single target file.
+
+## Naming behavior
+
+- CSS custom property names are derived from the internal token path (the source filename is not prefixed into `--...` names).
+- If two token paths normalize to the same CSS variable name, the CLI reports a collision warning and CSS cascade decides the winner.
+
 ## Troubleshooting
 
 - `--unresolved-*`: The referenced token does not exist or the name does not match.
+- `There are two tokens with the same name: --...`: two different token paths normalized to the same CSS variable name; only one value can win at runtime.
 - Parsing errors: Validate the JSONs in `input/`; with `ALLOW_JSON_REPAIR=true`, basic repairs are attempted.
 
 ## References
