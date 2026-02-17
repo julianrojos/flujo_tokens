@@ -5,7 +5,7 @@
 import type { ExecutionSummary, WalkHandlers } from '../types/tokens.js';
 import { isPlainObject, isModeKey, shouldSkipKey, isModeDefaultKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, warnedInvalidTokenDetails, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 
@@ -251,12 +251,20 @@ export function walkTokenTree(
         const extraKeys = keys.filter(k => !reserved.has(k) && !isModeKey(k));
 
         if (extraKeys.length > 0) {
-            console.error(
-                `❌  Token/Group Ambiguity Error at ${pathStr(currentPath)}: has $value but also extra keys (${extraKeys.join(', ')}). ` +
-                `BLOCKED: This token will not be emitted as it is invalid per DTCG.`
-            );
+            const detail = `${pathStr(currentPath)} (Ambiguous: has $value + children)`;
+            if (summary.invalidTokens.includes(detail)) {
+                return;
+            }
+
+            if (!warnedInvalidTokenDetails.has(detail)) {
+                warnedInvalidTokenDetails.add(detail);
+                console.error(
+                    `❌  Token/Group Ambiguity Error at ${pathStr(currentPath)}: has $value but also extra keys (${extraKeys.join(', ')}). ` +
+                    `BLOCKED: This token will not be emitted as it is invalid per DTCG.`
+                );
+            }
             // Strict blocking: record error and do NOT process the token value.
-            summary.invalidTokens.push(`${pathStr(currentPath)} (Ambiguous: has $value + children)`);
+            summary.invalidTokens.push(detail);
             return;
         }
 

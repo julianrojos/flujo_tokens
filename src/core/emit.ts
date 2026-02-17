@@ -5,7 +5,7 @@
 import type { EmissionContext, ExecutionSummary, TokenValue, CssVarOwner, CssVarCollision, IndexingContext } from '../types/tokens.js';
 import { isPlainObject, isVariableAlias, isModeKey } from '../types/tokens.js';
 import { MAX_DEPTH, EMPTY_VISITED_REFS, ALLOW_ALIAS_SCAN } from '../runtime/config.js';
-import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit } from '../runtime/state.js';
+import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit, warnedInvalidTokenDetails } from '../runtime/state.js';
 import { walkTokenTree } from './walk.js';
 import { getResolvedTokenKeyFromParts } from './analyze.js';
 import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
@@ -895,8 +895,16 @@ export function flattenTokens(
                 // Compatibility mode for non-strict exports:
                 // allow untyped primitive/alias tokens, but keep blocking untyped composites.
                 if (!varType && !canEmitUntypedTokenValue(rawValue)) {
-                    console.error(`❌ Strict Error: Token without $type at ${pathStr(tokenPath)}. SKIPPING.`);
-                    summary.invalidTokens.push(`${pathStr(tokenPath)} (Missing $type)`);
+                    const detail = `${pathStr(tokenPath)} (Missing $type)`;
+                    if (summary.invalidTokens.includes(detail)) {
+                        return;
+                    }
+
+                    if (!warnedInvalidTokenDetails.has(detail)) {
+                        warnedInvalidTokenDetails.add(detail);
+                        console.error(`❌ Strict Error: Token without $type at ${pathStr(tokenPath)}. SKIPPING.`);
+                    }
+                    summary.invalidTokens.push(detail);
                     return;
                 }
 

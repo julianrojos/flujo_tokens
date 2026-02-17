@@ -17,6 +17,7 @@ export const warnedFindTokenByIdDepthLimit = new Set<string>();
 export const warnedAmbiguousModeDefaultAt = new Set<string>();
 export const warnedBaseValueSkippedForMode = new Set<string>();
 export const warnedPreferredModeFallback = new Set<string>();
+export const warnedInvalidTokenDetails = new Set<string>();
 export const foundModeKeys = new Set<string>();
 export const modeFallbackCounts = new Map<string, number>();
 export const modeFallbackExamples = new Map<string, string[]>();
@@ -36,6 +37,7 @@ export function resetRuntimeState(): void {
     warnedAmbiguousModeDefaultAt.clear();
     warnedBaseValueSkippedForMode.clear();
     warnedPreferredModeFallback.clear();
+    warnedInvalidTokenDetails.clear();
     foundModeKeys.clear();
     modeFallbackCounts.clear();
     modeFallbackExamples.clear();
