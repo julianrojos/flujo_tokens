@@ -9,7 +9,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Types
-import type { TokenValue, CssVarOwner, CssVarCollision } from '../types/tokens.js';
+import type { TokenValue, CssVarOwner, CssVarCollision, EmissionContext } from '../types/tokens.js';
 
 // Runtime
 import { resetRuntimeState } from '../runtime/state.js';
@@ -34,6 +34,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 type CliOptions = {
     inputDir: string;
     outputFile: string;
+    outputPrimitives: string;
+    outputTokens: string;
+    split: boolean;
     help: boolean;
     mode?: string;
     modeStrict: boolean;
@@ -48,6 +51,11 @@ type ModeScope = {
     allowModeBranches: boolean;
 };
 
+type FileEntry = {
+    originalName: string;
+    content: any;
+};
+
 function printUsage(): void {
     console.log(`Usage: npm run generate -- [options]
 
@@ -55,6 +63,10 @@ Options:
   -h, --help           Show this help and exit
   -i, --input <dir>    Directory with token JSON files (default: ./input)
   -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
+      --split          Emit two files: primitives + tokens (default)
+      --single         Emit one file (disables split)
+      --output-primitives <file>  Primitives CSS output (default: ./output/primitives.css)
+      --output-tokens <file>      Tokens CSS output (default: ./output/tokens.css)
   -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
       --mode-strict    Fail if preferred mode is missing in any node (default: off)
       --mode-loose     Allow fallback to available mode if preferred is missing (default: on)
@@ -65,6 +77,9 @@ Options:
 function parseArgs(argv: string[]): CliOptions | null {
     let inputDir = path.resolve(__dirname, '../../input');
     let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
+    let outputPrimitives = path.resolve(__dirname, '../../output/primitives.css');
+    let outputTokens = path.resolve(__dirname, '../../output/tokens.css');
+    let split = true;
     let help = false;
     let mode: string | undefined;
     let modeStrict = false;
@@ -98,6 +113,36 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
+        if (arg === '--split') {
+            split = true;
+            continue;
+        }
+
+        if (arg === '--single') {
+            split = false;
+            continue;
+        }
+
+        if (arg === '--output-primitives') {
+            if (!argv[i + 1]) {
+                console.error('❌ Missing value for --output-primitives');
+                return null;
+            }
+            outputPrimitives = path.resolve(process.cwd(), argv[i + 1]);
+            i++;
+            continue;
+        }
+
+        if (arg === '--output-tokens') {
+            if (!argv[i + 1]) {
+                console.error('❌ Missing value for --output-tokens');
+                return null;
+            }
+            outputTokens = path.resolve(process.cwd(), argv[i + 1]);
+            i++;
+            continue;
+        }
+
         if (arg === '-m' || arg === '--mode') {
             if (!argv[i + 1]) {
                 console.error('❌ Missing value for --mode');
@@ -127,7 +172,7 @@ function parseArgs(argv: string[]): CliOptions | null {
         return null;
     }
 
-    return { inputDir, outputFile, help, mode, modeStrict, modeSkipBase };
+    return { inputDir, outputFile, outputPrimitives, outputTokens, split, help, mode, modeStrict, modeSkipBase };
 }
 
 const parsed = parseArgs(process.argv.slice(2));
@@ -143,6 +188,9 @@ if (parsed.help) {
 
 const JSON_DIR = parsed.inputDir;
 const OUTPUT_FILE = parsed.outputFile;
+const OUTPUT_PRIMITIVES = parsed.outputPrimitives;
+const OUTPUT_TOKENS = parsed.outputTokens;
+const SPLIT_OUTPUT = parsed.split;
 const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
 const MODE_SKIP_BASE = parsed.modeSkipBase;
@@ -200,16 +248,6 @@ async function main() {
     const cssVarNameOwners = new Map<string, CssVarOwner>();
     const cssVarNameCollisionMap = new Map<string, CssVarCollision>();
 
-    let previousVariables = new Map<string, string>();
-    if (fs.existsSync(OUTPUT_FILE)) {
-        try {
-            previousVariables = readCssVariablesFromFile(OUTPUT_FILE);
-            console.log(`📄 Previous CSS file found with ${previousVariables.size} variables`);
-        } catch {
-            console.warn('⚠️  Could not read previous CSS file (creating a new one)');
-        }
-    }
-
     // Phase 1: indexing (maps, collisions, alias indices).
     const indexingCtx = createProcessingContext({
         summary,
@@ -240,8 +278,6 @@ async function main() {
         scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true, modeOverridesOnly: true, allowModeBranches: true });
     }
 
-    const cssBlocks: string[] = [];
-
     const baseRefMap = new Map<string, string>();
     const baseValueMap = new Map<string, TokenValue>();
     const baseCollisionKeys = new Set<string>();
@@ -270,6 +306,7 @@ async function main() {
         );
     }
 
+    const scopeProcessingContexts: Array<{ scope: ModeScope; processingCtx: Readonly<EmissionContext> }> = [];
     for (const scope of scopes) {
         // Build a scope-specific resolution context (base + mode overrides) so emittable/cycle checks
         // match what can actually be referenced in that scope via CSS cascade.
@@ -319,78 +356,112 @@ async function main() {
             cssVarNameOwners,
             cssVarNameCollisionMap
         });
+        scopeProcessingContexts.push({ scope, processingCtx: scopeProcessingCtx });
+    }
 
-        const scopedPrimitives: string[] = [];
-        const scopedAliases: string[] = [];
+    const primitiveEntries = fileEntries.filter(entry => entry.originalName.startsWith('_'));
+    const tokenEntries = fileEntries.filter(entry => !entry.originalName.startsWith('_'));
 
-        for (const { originalName, content } of fileEntries) {
-            const { primitives, aliases } = flattenTokens(
-                scopeProcessingCtx,
-                content,
-                [],
-                [originalName],
-                scope.mode,
-                MODE_STRICT,
-                scope.skipBaseWhenMode,
-                scope.modeOverridesOnly,
-                scope.allowModeBranches
-            );
+    const outputs: Array<{ label: string; filePath: string; emitEntries: FileEntry[] }> = SPLIT_OUTPUT
+        ? [
+            { label: 'primitives', filePath: OUTPUT_PRIMITIVES, emitEntries: primitiveEntries },
+            { label: 'tokens', filePath: OUTPUT_TOKENS, emitEntries: tokenEntries }
+        ]
+        : [{ label: 'custom properties', filePath: OUTPUT_FILE, emitEntries: fileEntries }];
 
-            if (primitives.length > 0) {
-                if (scopedPrimitives.length > 0) scopedPrimitives.push('');
-                scopedPrimitives.push(formatCssSectionHeader(originalName));
-                scopedPrimitives.push(...primitives);
-            }
+    if (SPLIT_OUTPUT) {
+        console.log(`🧩 Split mode enabled: ${primitiveEntries.length} primitive file(s), ${tokenEntries.length} token file(s)`);
+    }
 
-            if (aliases.length > 0) {
-                if (scopedAliases.length > 0) scopedAliases.push('');
-                scopedAliases.push(formatCssSectionHeader(originalName));
-                scopedAliases.push(...aliases);
+    for (const output of outputs) {
+        if (output.emitEntries.length === 0) {
+            console.warn(`⚠️  No files matched for ${output.label}; writing empty output.`);
+        }
+
+        let previousVariables = new Map<string, string>();
+        if (fs.existsSync(output.filePath)) {
+            try {
+                previousVariables = readCssVariablesFromFile(output.filePath);
+                console.log(`📄 Previous ${output.label} CSS found with ${previousVariables.size} variables`);
+            } catch {
+                console.warn(`⚠️  Could not read previous ${output.label} CSS file (creating a new one)`);
             }
         }
 
-        const scopedLines: string[] = [];
-        scopedLines.push(...scopedPrimitives);
-        if (scopedPrimitives.length > 0 && scopedAliases.length > 0) scopedLines.push('');
-        scopedLines.push(...scopedAliases);
+        const cssBlocks: string[] = [];
+        for (const { scope, processingCtx } of scopeProcessingContexts) {
+            const scopedPrimitives: string[] = [];
+            const scopedAliases: string[] = [];
 
-        if (scopedLines.length === 0) continue;
+            for (const { originalName, content } of output.emitEntries) {
+                const { primitives, aliases } = flattenTokens(
+                    processingCtx,
+                    content,
+                    [],
+                    [originalName],
+                    scope.mode,
+                    MODE_STRICT,
+                    scope.skipBaseWhenMode,
+                    scope.modeOverridesOnly,
+                    scope.allowModeBranches
+                );
 
-        const modeLabel = scope.mode ? `/* ========== MODE ${formatModeLabel(scope.mode)} ========== */\n` : '';
-        cssBlocks.push(`${modeLabel}${scope.selector} {\n${scopedLines.join('\n')}\n}`);
-    }
+                if (primitives.length > 0) {
+                    if (scopedPrimitives.length > 0) scopedPrimitives.push('');
+                    scopedPrimitives.push(formatCssSectionHeader(originalName));
+                    scopedPrimitives.push(...primitives);
+                }
 
-    console.log('📝 Writing CSS file...');
-    const finalCss = `${cssBlocks.join('\n\n')}\n`;
+                if (aliases.length > 0) {
+                    if (scopedAliases.length > 0) scopedAliases.push('');
+                    scopedAliases.push(formatCssSectionHeader(originalName));
+                    scopedAliases.push(...aliases);
+                }
+            }
 
-    const destDir = path.dirname(OUTPUT_FILE);
-    if (!fs.existsSync(destDir)) {
-        fs.mkdirSync(destDir, { recursive: true });
-    }
+            const scopedLines: string[] = [];
+            scopedLines.push(...scopedPrimitives);
+            if (scopedPrimitives.length > 0 && scopedAliases.length > 0) scopedLines.push('');
+            scopedLines.push(...scopedAliases);
 
-    try {
-        fs.writeFileSync(OUTPUT_FILE, finalCss, 'utf-8');
-        const outputLabel = path.relative(process.cwd(), OUTPUT_FILE) || OUTPUT_FILE;
-        console.log(`\n✅ ${outputLabel} completely regenerated`);
-    } catch (err) {
-        console.error(`❌ Could not write ${OUTPUT_FILE}:`, err);
-        process.exit(1);
+            if (scopedLines.length === 0) continue;
+
+            const modeLabel = scope.mode ? `/* ========== MODE ${formatModeLabel(scope.mode)} ========== */\n` : '';
+            cssBlocks.push(`${modeLabel}${scope.selector} {\n${scopedLines.join('\n')}\n}`);
+        }
+
+        console.log(`📝 Writing ${output.label} CSS file...`);
+        const finalCss = `${cssBlocks.join('\n\n')}\n`;
+
+        const destDir = path.dirname(output.filePath);
+        if (!fs.existsSync(destDir)) {
+            fs.mkdirSync(destDir, { recursive: true });
+        }
+
+        try {
+            fs.writeFileSync(output.filePath, finalCss, 'utf-8');
+            const outputLabel = path.relative(process.cwd(), output.filePath) || output.filePath;
+            console.log(`\n✅ ${outputLabel} completely regenerated`);
+        } catch (err) {
+            console.error(`❌ Could not write ${output.filePath}:`, err);
+            process.exit(1);
+        }
+
+        if (previousVariables.size > 0) {
+            const newVariables = extractCssVariables(finalCss);
+            logChangeDetection(previousVariables, newVariables, {
+                preferredMode: PREFERRED_MODE,
+                foundModes: foundModeKeys,
+                modeStrict: MODE_STRICT
+            });
+        }
+
+        console.log(`\n📝 File saved to: ${output.filePath}`);
     }
 
     printExecutionSummary(summary);
     printModeSummary(foundModeKeys);
     printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
-
-    if (previousVariables.size > 0) {
-        const newVariables = extractCssVariables(finalCss);
-        logChangeDetection(previousVariables, newVariables, {
-            preferredMode: PREFERRED_MODE,
-            foundModes: foundModeKeys,
-            modeStrict: MODE_STRICT
-        });
-    }
-
-    console.log(`\n📝 File saved to: ${OUTPUT_FILE}`);
 }
 
 main().catch(err => {

@@ -22,9 +22,12 @@ npm install
 
 1. Place your token JSON files (exported from Figma/Token Forge) in the `input/` folder.
 2. Run `npm run generate`.
-3. The resulting CSS file will be generated in `output/custom-properties.css`.
+3. By default, two CSS files are generated:
+   - `output/primitives.css`
+   - `output/tokens.css`
 
-Input is fixed to `input/`; output to `output/custom-properties.css`.
+You can override input/output via CLI args (`--input`, `--output-primitives`, `--output-tokens`).
+If you want a single file output, use `--single` with `--output`.
 
 ## Architecture and Pipeline
 
@@ -54,11 +57,28 @@ Behavior can be adjusted using environment variables:
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
   - `--mode-strict`: fail if the preferred mode is missing anywhere.
   - `--mode-emit-base`: emit the base `$value` alongside a selected mode branch (mainly for legacy outputs).
+- Split output flags (CLI):
+  - `--split`: generate two files (default behavior).
+  - `--single`: generate one file (`--output`) instead of split outputs.
+  - `--output-primitives <file>`: primitives output path (default: `output/primitives.css`).
+  - `--output-tokens <file>`: semantic/component tokens output path (default: `output/tokens.css`).
 
 Example:
 
 ```bash
 ALLOW_JSON_REPAIR=true ALLOW_ALIAS_SCAN=true npm run generate
+```
+
+Split example:
+
+```bash
+npm run generate -- --split
+```
+
+Single-file example:
+
+```bash
+npm run generate -- --single --output output/custom-properties.css
 ```
 
 ## Typography unit coercion (runtime)
@@ -79,6 +99,7 @@ ALLOW_JSON_REPAIR=true ALLOW_ALIAS_SCAN=true npm run generate
 
 - Within each emitted CSS block, variables with primitive values (no references) are written before alias variables (that reference other tokens).
 - Section comments per file are kept in both groups for readability.
+- When using `--split`, load `primitives.css` before `tokens.css`.
 
 ## Troubleshooting
 
