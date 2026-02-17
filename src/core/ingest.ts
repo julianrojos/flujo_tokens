@@ -24,7 +24,9 @@ export function parseJsonWithOptionalRepair(fileContent: string, file: string): 
             const jsonContent = fileContent.substring(firstBrace, translationStart).trim().replace(/,\s*$/, '');
             const cleanedContent = jsonContent.endsWith('}') ? jsonContent : `${jsonContent}\n}`;
             try {
-                return JSON.parse(cleanedContent);
+                const parsed = JSON.parse(cleanedContent);
+                console.warn(`⚠️  JSON repaired in ${file}; check the export if possible.`);
+                return parsed;
             } catch {
                 throw error;
             }
@@ -34,9 +36,10 @@ export function parseJsonWithOptionalRepair(fileContent: string, file: string): 
         if (!cleaned.startsWith('{')) cleaned = `{${cleaned}`;
         if (!cleaned.endsWith('}')) cleaned = `${cleaned}}`;
 
-        console.warn(`⚠️  JSON repaired in ${file}; check the export if possible.`);
         try {
-            return JSON.parse(cleaned);
+            const parsed = JSON.parse(cleaned);
+            console.warn(`⚠️  JSON repaired in ${file}; check the export if possible.`);
+            return parsed;
         } catch {
             throw error;
         }
@@ -55,8 +58,7 @@ export function readAndCombineJsons(dir: string): Record<string, any> {
     const combined: Record<string, any> = {};
 
     if (!fs.existsSync(dir)) {
-        console.error(`Directory not found: ${dir}`);
-        process.exit(1);
+        throw new Error(`Directory not found: ${dir}`);
     }
 
     const files = fs.readdirSync(dir).sort((a, b) => a.localeCompare(b));

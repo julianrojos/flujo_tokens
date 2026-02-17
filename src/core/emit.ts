@@ -3,17 +3,48 @@
  */
 
 import type { EmissionContext, ExecutionSummary, TokenValue, CssVarOwner, CssVarCollision, IndexingContext } from '../types/tokens.js';
-import { isPlainObject, isVariableAlias } from '../types/tokens.js';
-import { MAX_DEPTH, EMPTY_VISITED_REFS } from '../runtime/config.js';
-import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit } from '../runtime/state.js';
+import { isPlainObject, isVariableAlias, isModeKey } from '../types/tokens.js';
+import { MAX_DEPTH, EMPTY_VISITED_REFS, ALLOW_ALIAS_SCAN } from '../runtime/config.js';
+import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit, warnedInvalidTokenDetails } from '../runtime/state.js';
 import { walkTokenTree } from './walk.js';
 import { getResolvedTokenKeyFromParts } from './analyze.js';
 import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
 import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, buildPathKey } from '../utils/paths.js';
-import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName, quoteCssStringLiteral } from '../utils/strings.js';
+import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName } from '../utils/strings.js';
 
 function formatNumber(value: number): string {
     return value.toFixed(4).replace(/\.?0+$/, '');
+}
+
+function normalizePathSegmentForMatch(segment: string): string {
+    return segment.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isBorderDimensionPath(currentPath: string[]): boolean {
+    const normalized = currentPath.map(normalizePathSegmentForMatch);
+    const hasBorderGroup =
+        normalized.includes('border') &&
+        (normalized.includes('radius') || normalized.includes('width') || normalized.includes('borderradius') || normalized.includes('borderwidth'));
+    const hasDirectBorderMetric = normalized.some(segment => segment === 'borderradius' || segment === 'borderwidth');
+    return hasBorderGroup || hasDirectBorderMetric;
+}
+
+function classifyTypographyDimensionPath(currentPath: string[]): { isSize: boolean; isLineHeight: boolean } {
+    const normalized = currentPath.map(normalizePathSegmentForMatch);
+
+    const hasFontSizeSegment = normalized.includes('fontsize');
+    const hasLineHeightSegment = normalized.includes('lineheight');
+    if (hasFontSizeSegment || hasLineHeightSegment) {
+        return { isSize: hasFontSizeSegment, isLineHeight: hasLineHeightSegment };
+    }
+
+    const fontIdx = normalized.indexOf('font');
+    if (fontIdx === -1 || fontIdx + 1 >= normalized.length) {
+        return { isSize: false, isLineHeight: false };
+    }
+
+    const metric = normalized[fontIdx + 1];
+    return { isSize: metric === 'size', isLineHeight: metric === 'lineheight' };
 }
 
 function coerceTypographyDimension(
@@ -21,30 +52,69 @@ function coerceTypographyDimension(
     varType: string | undefined,
     currentPath: string[]
 ): { value: TokenValue['$value']; varType: string | undefined } {
-    if (typeof value !== 'string') return { value, varType };
     if (varType !== 'dimension') return { value, varType };
 
-    const root = currentPath[0]?.toLowerCase();
-    if (root !== 'typographyprimitives') return { value, varType };
-
-    const lowerPath = currentPath.map(p => p.toLowerCase());
-    const isSize = lowerPath.includes('size');
-    const isLineHeight = lowerPath.includes('lineheight');
+    const { isSize, isLineHeight } = classifyTypographyDimensionPath(currentPath);
     if (!isSize && !isLineHeight) return { value, varType };
 
-    const match = value.trim().match(/^(-?\d+(?:\.\d+)?)px$/i);
-    if (!match) return { value, varType };
+    const coerceFromNumeric = (numeric: number, sourceIsUnitlessNumeric: boolean, rawUnitlessText?: string): { value: TokenValue['$value']; varType: string | undefined } => {
+        if (!Number.isFinite(numeric)) return { value, varType };
 
-    const px = parseFloat(match[1]);
-    if (Number.isNaN(px)) return { value, varType };
+        if (isSize) {
+            const rem = numeric / 16;
+            return { value: `${formatNumber(rem)}rem`, varType };
+        }
 
-    if (isSize) {
-        const rem = px / 16;
-        return { value: `${formatNumber(rem)}rem`, varType };
+        // For line-height, keep small unitless ratios as-is (e.g. 1.2, 1.5).
+        if (sourceIsUnitlessNumeric && Math.abs(numeric) <= 4) {
+            return { value: rawUnitlessText ?? formatNumber(numeric), varType };
+        }
+
+        const unitless = numeric / 16;
+        return { value: formatNumber(unitless), varType };
+    };
+
+    if (typeof value === 'number') {
+        return coerceFromNumeric(value, true);
     }
 
-    const unitless = px / 16;
-    return { value: formatNumber(unitless), varType };
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        const matchPx = trimmed.match(/^(-?\d+(?:\.\d+)?)px$/i);
+        if (matchPx) {
+            const px = parseFloat(matchPx[1]);
+            return coerceFromNumeric(px, false);
+        }
+
+        if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+            const numeric = parseFloat(trimmed);
+            return coerceFromNumeric(numeric, true, trimmed);
+        }
+    }
+
+    return { value, varType };
+}
+
+function coerceBorderDimension(
+    value: TokenValue['$value'],
+    varType: string | undefined,
+    currentPath: string[]
+): { value: TokenValue['$value']; varType: string | undefined } {
+    if (varType !== 'dimension') return { value, varType };
+    if (!isBorderDimensionPath(currentPath)) return { value, varType };
+
+    if (typeof value === 'number') {
+        return { value: `${formatNumber(value)}px`, varType };
+    }
+
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+            return { value: `${trimmed}px`, varType };
+        }
+    }
+
+    return { value, varType };
 }
 
 function containsReference(value: unknown): boolean {
@@ -60,7 +130,50 @@ function containsReference(value: unknown): boolean {
     return false;
 }
 
+function canEmitUntypedTokenValue(rawValue: TokenValue['$value']): boolean {
+    if (rawValue == null) return false;
+    if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
+        return true;
+    }
+    if (isVariableAlias(rawValue)) {
+        const aliasId = rawValue.id?.trim();
+        return !!aliasId;
+    }
+    return false;
+}
+
 // --- Recording helpers ---
+
+function getSummaryTokenKey(currentPath: string[]): string {
+    const normalized = normalizePathKey(buildPathKey(currentPath));
+    if (normalized) return normalized;
+    return normalizePathKey(pathStr(currentPath));
+}
+
+function incrementUniqueTokenCount(summary: ExecutionSummary, currentPath: string[]): void {
+    const key = getSummaryTokenKey(currentPath);
+    if (!key || summary.countedTokenKeys.has(key)) return;
+    summary.countedTokenKeys.add(key);
+    summary.totalTokens++;
+}
+
+function incrementUniqueGeneratedCount(summary: ExecutionSummary, currentPath: string[]): void {
+    const key = getSummaryTokenKey(currentPath);
+    if (!key || summary.countedGeneratedKeys.has(key)) return;
+    summary.countedGeneratedKeys.add(key);
+    summary.successCount++;
+}
+
+function incrementUniqueTokenTypeCount(summary: ExecutionSummary, currentPath: string[], varType?: string): void {
+    if (!varType) return;
+    const key = getSummaryTokenKey(currentPath);
+    if (!key) return;
+
+    const typeKey = `${key}::${varType}`;
+    if (summary.countedTokenTypeKeys.has(typeKey)) return;
+    summary.countedTokenTypeKeys.add(typeKey);
+    summary.tokenTypeCounts[varType] = (summary.tokenTypeCounts[varType] || 0) + 1;
+}
 
 export function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reason: string): void {
     summary.unresolvedRefs.push(`${pathStr(currentPath)}${reason}`);
@@ -81,7 +194,12 @@ export function buildEmittableKeySet(ctx: IndexingContext): Set<string> {
         const varType = token.$type;
         const rawValue = token.$value;
 
-        if (rawValue == null || !varType) return false;
+        if (rawValue == null) return false;
+
+        // Compatibility mode: untyped primitive/alias tokens are emittable.
+        if (!varType) {
+            return canEmitUntypedTokenValue(rawValue);
+        }
 
         if (Array.isArray(rawValue)) {
             return varType === 'shadow';
@@ -136,13 +254,16 @@ export function emitCssVar(
     if (!isValidCssVariableName(varName)) {
         console.warn(`⚠️  Warning: ${varName} is not a valid CSS variable name, skipping`);
         if (recordInvalidName) {
-            summary.invalidNames.push(`${pathStr(currentPath)} (Invalid CSS Var: ${varName})`);
+            const detail = `${pathStr(currentPath)} (Invalid CSS Var: ${varName})`;
+            if (!summary.invalidNames.includes(detail)) {
+                summary.invalidNames.push(detail);
+            }
         }
         return;
     }
 
     collectedVars.push(`  ${varName}: ${value};`);
-    summary.successCount++;
+    incrementUniqueGeneratedCount(summary, currentPath);
 }
 
 // --- Token lookup helpers ---
@@ -312,61 +433,6 @@ export function resolveReference(
     return brokenRefPlaceholder(summary, currentPath, canonicalPath, match);
 }
 
-/**
- * Builds a CSS token sequence for string tokens that contain references.
- * CSS does not support string interpolation.
- */
-export function buildCssStringTokenSequence(
-    ctx: EmissionContext,
-    raw: string,
-    currentPath: string[],
-    visitedRefs: ReadonlySet<string>
-): string {
-    const tokens: Array<{ kind: 'text' | 'ref'; value: string }> = [];
-    const seenInValue = new Set<string>();
-
-    W3C_REF_REGEX_REPLACE.lastIndex = 0;
-
-    let last = 0;
-    let m: RegExpExecArray | null;
-
-    try {
-        while ((m = W3C_REF_REGEX_REPLACE.exec(raw)) !== null) {
-            const start = m.index;
-            const end = W3C_REF_REGEX_REPLACE.lastIndex;
-
-            const before = raw.slice(last, start);
-            if (before) tokens.push({ kind: 'text', value: before });
-
-            const wholeMatch = m[0];
-            const tokenPath = (m[1] ?? '').trim();
-            const resolved = resolveReference(ctx, wholeMatch, tokenPath, raw, currentPath, visitedRefs, seenInValue);
-
-            // If resolution fails and returns the raw match, keep it as literal text (no added spacing/quotes).
-            const kind: 'text' | 'ref' = resolved === wholeMatch ? 'text' : 'ref';
-            tokens.push({ kind, value: resolved });
-
-            last = end;
-        }
-    } finally {
-        W3C_REF_REGEX_REPLACE.lastIndex = 0;
-    }
-
-    const tail = raw.slice(last);
-    if (tail) tokens.push({ kind: 'text', value: tail });
-
-    if (tokens.length === 0) return quoteCssStringLiteral('');
-
-    // If the entire string is just a reference, return it directly (allows content: var(--...)).
-    if (tokens.length === 1 && tokens[0].kind === 'ref') {
-        return tokens[0].value;
-    }
-
-    // Otherwise, emit a token list: string segments stay as strings, refs stay as refs.
-    const rendered = tokens.map(t => (t.kind === 'text' ? quoteCssStringLiteral(t.value) : t.value));
-    return rendered.join(' ');
-}
-
 // --- VARIABLE_ALIAS processing ---
 
 /**
@@ -380,7 +446,7 @@ export function processVariableAlias(
 ): string {
     if (!isVariableAlias(aliasObj)) return JSON.stringify(aliasObj);
 
-    const { summary, tokensData, idToVarName, idToTokenKey, cycleStatus, cssVarNameCollisionMap } = ctx;
+    const { summary, tokensData, refMap, idToVarName, idToTokenKey, cycleStatus, emittableKeys, cssVarNameCollisionMap } = ctx;
 
     const aliasId = aliasObj.id?.trim();
     const targetKey = aliasId ? idToTokenKey.get(aliasId) : undefined;
@@ -407,6 +473,15 @@ export function processVariableAlias(
         }
     }
 
+    if (aliasId && targetKey && !emittableKeys.has(targetKey)) {
+        console.warn(
+            `⚠️  VARIABLE_ALIAS at ${pathStr(currentPath)} points to a token not emitted in this scope (id=${aliasId}).`
+        );
+        const placeholderName = toSafePlaceholderName(aliasId);
+        recordUnresolvedTyped(summary, currentPath, 'Alias ID (not emitted)', aliasId);
+        return `var(--unresolved-${placeholderName})`;
+    }
+
     const warnIfCollidingVarName = (varNameWithDashes: string) => {
         const collision = cssVarNameCollisionMap?.get(varNameWithDashes);
         if (!collision || !aliasId) return;
@@ -427,6 +502,17 @@ export function processVariableAlias(
         );
     };
 
+    const deriveVarNameFromTokenPath = (tokenPath: string[]): string => {
+        // `tokenPath` includes the file root (currentPath starts with file name in CLI),
+        // but emitted variable names intentionally omit that namespace segment.
+        const segments = tokenPath
+            .slice(1)
+            .filter(seg => !!seg && !isModeKey(seg))
+            .map(toKebabCase)
+            .filter(Boolean);
+        return buildCssVarNameFromPrefix(segments);
+    };
+
     if (aliasId && tokensData) {
         // Fast path: O(1) lookup via `$id` index.
         const direct = idToVarName.get(aliasId);
@@ -435,23 +521,56 @@ export function processVariableAlias(
             return `var(${direct})`;
         }
 
-        // Fallback: cached O(N) scan.
-        const tokenPath = findTokenByIdCached(tokensData, aliasId);
-        if (tokenPath) {
-            const cssPath = tokenPath.map(toKebabCase).join('-');
-            const derived = `--${cssPath}`;
+        if (ALLOW_ALIAS_SCAN) {
+            // Optional fallback: cached O(N) scan.
+            const tokenPath = findTokenByIdCached(tokensData, aliasId);
+            if (tokenPath) {
+                const fullKey = buildPathKey(tokenPath);
+                const fullKeyNorm = normalizePathKey(fullKey);
+                const relativeKey = buildPathKey(tokenPath, 1);
+                const relativeKeyNorm = normalizePathKey(relativeKey);
+                const candidateKeys = [fullKey, fullKeyNorm, relativeKey, relativeKeyNorm].filter(k => !!k) as string[];
+                const targetIsEmittableInScope = candidateKeys.some(k => emittableKeys.has(k));
 
-            if (!isValidCssVariableName(derived)) {
-                console.warn(
-                    `⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`
-                );
-                const placeholderName = toSafePlaceholderName(aliasId);
-                recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
-                return `var(--unresolved-${placeholderName})`;
+                if (!targetIsEmittableInScope) {
+                    console.warn(
+                        `⚠️  VARIABLE_ALIAS at ${pathStr(currentPath)} resolved id="${aliasId}" to a token not emitted in this scope.`
+                    );
+                    const placeholderName = toSafePlaceholderName(aliasId);
+                    recordUnresolvedTyped(summary, currentPath, 'Alias ID (not emitted)', aliasId);
+                    return `var(--unresolved-${placeholderName})`;
+                }
+
+                const mappedFromIndex =
+                    refMap.get(fullKey) ??
+                    refMap.get(fullKeyNorm) ??
+                    refMap.get(relativeKey) ??
+                    refMap.get(relativeKeyNorm);
+
+                if (mappedFromIndex) {
+                    warnIfCollidingVarName(mappedFromIndex);
+                    return `var(${mappedFromIndex})`;
+                }
+
+                const derived = deriveVarNameFromTokenPath(tokenPath);
+
+                if (!isValidCssVariableName(derived)) {
+                    console.warn(
+                        `⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`
+                    );
+                    const placeholderName = toSafePlaceholderName(aliasId);
+                    recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
+                    return `var(--unresolved-${placeholderName})`;
+                }
+
+                warnIfCollidingVarName(derived);
+                return `var(${derived})`;
             }
-
-            warnIfCollidingVarName(derived);
-            return `var(${derived})`;
+        } else {
+            console.warn(
+                `ℹ️  VARIABLE_ALIAS scan fallback is disabled (ALLOW_ALIAS_SCAN=false); ` +
+                `skipping tree scan for id="${aliasId}" at ${pathStr(currentPath)}.`
+            );
         }
 
         console.warn(`ℹ️  VARIABLE_ALIAS reference at ${pathStr(currentPath)} with ID: ${aliasId}`);
@@ -533,7 +652,13 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
                 const a0 = (rawColor as any).a;
 
                 if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
-                    const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
+                    const channels = [r0, g0, b0];
+                    const hasChannelGreaterThanOne = channels.some(c => c > 1);
+                    const allWithinUnitRange = channels.every(c => c >= 0 && c <= 1);
+                    const isBinaryAmbiguous = channels.every(c => Number.isInteger(c) && (c === 0 || c === 1));
+
+                    // Ambiguous case like {r:1,g:1,b:1}: prefer byte scale to avoid misreading as white.
+                    const isNormalized = !hasChannelGreaterThanOne && allWithinUnitRange && !isBinaryAmbiguous;
                     const to255 = (c: number, normalized: boolean): number =>
                         normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
 
@@ -648,6 +773,9 @@ export function processValue(
     const coerced = coerceTypographyDimension(value, varType, currentPath);
     value = coerced.value;
     varType = coerced.varType;
+    const coercedBorder = coerceBorderDimension(value, varType, currentPath);
+    value = coercedBorder.value;
+    varType = coercedBorder.varType;
 
     if (Array.isArray(value)) {
         if (varType === 'shadow') {
@@ -688,12 +816,22 @@ export function processValue(
     if (typeof value === 'string') {
         // Preserve common CSS color formats verbatim.
         if (value.startsWith('rgba') || value.startsWith('rgb(')) return value;
-        if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(value)) return value;
+        if (/^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(value)) return value;
 
         if (varType === 'string') {
-            const hasRef = W3C_REF_REGEX_TEST.test(value);
-            if (!hasRef) return quoteCssStringLiteral(value);
-            return buildCssStringTokenSequence(ctx, value, currentPath, visitedRefs);
+            // Do not force-quote string tokens. Keep raw CSS keywords/idents (e.g., bold, solid),
+            // while still resolving embedded references.
+            const seenInValue = new Set<string>();
+            let hadRef = false;
+
+            W3C_REF_REGEX_REPLACE.lastIndex = 0;
+            const replaced = value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => {
+                hadRef = true;
+                return resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue);
+            });
+            W3C_REF_REGEX_REPLACE.lastIndex = 0;
+
+            return hadRef ? replaced : value;
         }
 
         const seenInValue = new Set<string>();
@@ -743,21 +881,30 @@ export function flattenTokens(
         currentPath,
         {
             onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inheritedType }) => {
-                summary.totalTokens++;
+                incrementUniqueTokenCount(summary, tokenPath);
                 const rawValue = (tokenObj as TokenValue).$value;
                 const varType = (tokenObj as TokenValue).$type ?? inheritedType;
 
-                if (varType) summary.tokenTypeCounts[varType] = (summary.tokenTypeCounts[varType] || 0) + 1;
-
-                // Strict Type Validation
-                if (!varType) {
-                    console.error(`❌ Strict Error: Token without $type at ${pathStr(tokenPath)}. SKIPPING.`);
-                    summary.invalidTokens.push(`${pathStr(tokenPath)} (Missing $type)`);
-                    return;
-                }
+                incrementUniqueTokenTypeCount(summary, tokenPath, varType);
 
                 if (rawValue == null) {
                     console.warn(`⚠️  Token without $value (or null) at ${pathStr(tokenPath)}, skipping`);
+                    return;
+                }
+
+                // Compatibility mode for non-strict exports:
+                // allow untyped primitive/alias tokens, but keep blocking untyped composites.
+                if (!varType && !canEmitUntypedTokenValue(rawValue)) {
+                    const detail = `${pathStr(tokenPath)} (Missing $type)`;
+                    if (summary.invalidTokens.includes(detail)) {
+                        return;
+                    }
+
+                    if (!warnedInvalidTokenDetails.has(detail)) {
+                        warnedInvalidTokenDetails.add(detail);
+                        console.error(`❌ Strict Error: Token without $type at ${pathStr(tokenPath)}. SKIPPING.`);
+                    }
+                    summary.invalidTokens.push(detail);
                     return;
                 }
 
@@ -771,14 +918,13 @@ export function flattenTokens(
             },
 
             onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inheritedType }) => {
-                summary.totalTokens++;
-
                 const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
                 const leafPath = [...parentPath, key];
+                incrementUniqueTokenCount(summary, leafPath);
 
                 const visitedRefs = buildVisitedRefSet(leafPath);
 
-                if (inheritedType) summary.tokenTypeCounts[inheritedType] = (summary.tokenTypeCounts[inheritedType] || 0) + 1;
+                incrementUniqueTokenTypeCount(summary, leafPath, inheritedType);
 
                 const processedValue = processValue(ctx, value, inheritedType, leafPath, visitedRefs);
                 if (processedValue === null) return;

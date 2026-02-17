@@ -3,9 +3,9 @@
  */
 
 import type { ExecutionSummary, WalkHandlers } from '../types/tokens.js';
-import { isPlainObject, isModeKey, shouldSkipKey } from '../types/tokens.js';
+import { isPlainObject, isModeKey, shouldSkipKey, isModeDefaultKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, warnedInvalidTokenDetails, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 
@@ -26,7 +26,7 @@ export function pickModeKey(keys: string[], preferredMode?: string): string | un
 
     return (
         keys.find(k => matchesPreferredMode(k, preferred)) ??
-        keys.find(k => k.toLowerCase() === 'modedefault') ??
+        keys.find(isModeDefaultKey) ??
         keys.find(isModeKey)
     );
 }
@@ -62,15 +62,16 @@ function normalizePreferredMode(preferredMode?: string): string | undefined {
         cleaned = cleaned.slice(4).replace(/^[^a-z0-9]+/i, '') || cleaned;
     }
 
-    return cleaned;
+    const normalized = cleaned.replace(/[^a-z0-9]+/g, '');
+    return normalized || undefined;
 }
 
 function matchesPreferredMode(key: string, preferred?: string): boolean {
     if (!preferred) return false;
     if (!isModeKey(key)) return false;
     const tail = key.slice(4);
-    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase();
-    return normalized.startsWith(preferred);
+    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return normalized === preferred;
 }
 
 /**
@@ -88,7 +89,7 @@ export function pickModeKeyDeterministic(keys: string[], preferredMode?: string)
         if (matchesPreferredMode(k, preferred)) {
             if (!bestPreferred || compareByCodeUnit(k, bestPreferred) < 0) bestPreferred = k;
         }
-        if (k.toLowerCase() === 'modedefault') {
+        if (isModeDefaultKey(k)) {
             if (!bestDefault || compareByCodeUnit(k, bestDefault) < 0) bestDefault = k;
             continue;
         }
@@ -100,13 +101,26 @@ export function pickModeKeyDeterministic(keys: string[], preferredMode?: string)
     return bestPreferred ?? bestDefault ?? bestMode;
 }
 
+function pickModeDefaultKey(keys: string[], sortKeys: boolean): string | undefined {
+    if (sortKeys) {
+        return keys.find(isModeDefaultKey);
+    }
+
+    let best: string | undefined;
+    for (const k of keys) {
+        if (!isModeDefaultKey(k)) continue;
+        if (!best || compareByCodeUnit(k, best) < 0) best = k;
+    }
+    return best;
+}
+
 /**
  * Warns (once per path) when multiple keys match `modeDefault` case-insensitively.
  * This does not change selection; it only surfaces potentially confusing exports.
  */
 export function warnAmbiguousModeDefault(keys: string[], currentPath: string[]): void {
     let count = 0;
-    for (const k of keys) if (k.toLowerCase() === 'modedefault') count++;
+    for (const k of keys) if (isModeDefaultKey(k)) count++;
     if (count <= 1) return;
 
     const at = pathStr(currentPath);
@@ -160,8 +174,9 @@ export function walkTokenTree(
     }
 
     const isObj = isPlainObject(obj);
-    let keys = isObj ? (sortKeys ? Object.keys(obj).sort() : Object.keys(obj)) : [];
-    const hasAnyModeBranchRaw = keys.some(isModeKey);
+    const rawKeys = isObj ? (sortKeys ? Object.keys(obj).sort() : Object.keys(obj)) : [];
+    let keys = rawKeys;
+    const hasAnyModeBranchRaw = rawKeys.some(isModeKey);
     const hasValue = obj && typeof obj === 'object' && '$value' in obj;
 
     if (!isObj) return;
@@ -200,8 +215,33 @@ export function walkTokenTree(
     let skipModeTraversal = false;
 
     if (!effectiveAllowModes && hasAnyModeBranchRaw && !hasValue) {
-        // In base scopes, skip nodes that only contain mode branches (no base value).
-        return;
+        // In base scopes, when a node has mode branches but no base value,
+        // fold modeDefault into base traversal when available.
+        const modeDefaultKey = pickModeDefaultKey(rawKeys, sortKeys);
+        if (modeDefaultKey && (obj as Record<string, any>)[modeDefaultKey] !== undefined) {
+            currentPath.push(modeDefaultKey);
+            try {
+                walkTokenTree(
+                    summary,
+                    (obj as Record<string, any>)[modeDefaultKey],
+                    prefix,
+                    currentPath,
+                    handlers,
+                    depth + 1,
+                    false,
+                    sortKeys,
+                    nextInheritedType,
+                    preferredMode,
+                    modeStrict,
+                    skipBaseWhenMode,
+                    modeOverridesOnly,
+                    allowModeBranches
+                );
+            } finally {
+                currentPath.pop();
+            }
+        }
+        // Keep traversing non-mode children in this node; do not early-return here.
     }
 
     if (hasValue) {
@@ -211,12 +251,20 @@ export function walkTokenTree(
         const extraKeys = keys.filter(k => !reserved.has(k) && !isModeKey(k));
 
         if (extraKeys.length > 0) {
-            console.error(
-                `❌  Token/Group Ambiguity Error at ${pathStr(currentPath)}: has $value but also extra keys (${extraKeys.join(', ')}). ` +
-                `BLOCKED: This token will not be emitted as it is invalid per DTCG.`
-            );
+            const detail = `${pathStr(currentPath)} (Ambiguous: has $value + children)`;
+            if (summary.invalidTokens.includes(detail)) {
+                return;
+            }
+
+            if (!warnedInvalidTokenDetails.has(detail)) {
+                warnedInvalidTokenDetails.add(detail);
+                console.error(
+                    `❌  Token/Group Ambiguity Error at ${pathStr(currentPath)}: has $value but also extra keys (${extraKeys.join(', ')}). ` +
+                    `BLOCKED: This token will not be emitted as it is invalid per DTCG.`
+                );
+            }
             // Strict blocking: record error and do NOT process the token value.
-            summary.invalidTokens.push(`${pathStr(currentPath)} (Ambiguous: has $value + children)`);
+            summary.invalidTokens.push(detail);
             return;
         }
 

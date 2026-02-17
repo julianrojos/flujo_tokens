@@ -3,114 +3,66 @@
  */
 
 import fs from 'fs';
+import { CSS_DECL_LINE_REGEX } from '../utils/regex.js';
 import { isValidCssVariableName } from '../utils/strings.js';
 
 /**
- * Extracts `--name: value;` declarations from a `:root { ... }` block.
+ * Extracts CSS variable declarations as scope-aware keys:
+ * `scope::name` -> `value`.
  *
- * This uses a small scanner instead of a regex so it can ignore semicolons inside:
- * - quoted strings
- * - parentheses (e.g., `calc(...)`, `url(...)`)
+ * Example keys:
+ * - `:root::color-text`
+ * - `[data-theme="dark"]::color-text`
  */
 export function extractCssVariables(cssContent: string): Map<string, string> {
     const variables = new Map<string, string>();
-    const rootStart = cssContent.indexOf(':root');
-    if (rootStart === -1) return variables;
+    const content = cssContent.replace(/\/\*[\s\S]*?\*\//g, '');
+    const lines = content.split(/\r?\n/);
 
-    const braceStart = cssContent.indexOf('{', rootStart);
-    if (braceStart === -1) return variables;
-
-    // Best-effort brace matching for the :root block.
-    let braceCount = 0;
-    let braceEnd = braceStart;
-    for (let i = braceStart; i < cssContent.length; i++) {
-        if (cssContent[i] === '{') braceCount++;
-        else if (cssContent[i] === '}') {
-            braceCount--;
-            if (braceCount === 0) {
-                braceEnd = i;
-                break;
-            }
+    const countChar = (line: string, char: string): number => {
+        let count = 0;
+        for (const c of line) {
+            if (c === char) count++;
         }
-    }
-
-    let rootContent: string;
-    if (braceCount !== 0) {
-        const rootMatch = cssContent.match(/:root\s*\{([\s\S]+?)\}/);
-        if (!rootMatch) return variables;
-        rootContent = rootMatch[1];
-    } else {
-        rootContent = cssContent.substring(braceStart + 1, braceEnd);
-    }
-
-    // Strip comments within :root to simplify scanning.
-    rootContent = rootContent.replace(/\/\*[\s\S]*?\*\//g, '');
-
-    const isEscaped = (pos: number): boolean => {
-        let backslashes = 0;
-        let idx = pos - 1;
-        while (idx >= 0 && rootContent[idx] === '\\') {
-            backslashes++;
-            idx--;
-        }
-        return backslashes % 2 === 1;
+        return count;
     };
 
-    let i = 0;
-    while (i < rootContent.length) {
-        while (i < rootContent.length && /\s/.test(rootContent[i])) i++;
+    let currentScope: string | null = null;
+    let scopeDepth = 0;
 
-        if (i >= rootContent.length || rootContent.substring(i, i + 2) !== '--') {
-            i++;
-            continue;
-        }
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
 
-        const nameStart = i + 2;
-        let nameEnd = nameStart;
-        while (nameEnd < rootContent.length && /[a-zA-Z0-9_-]/.test(rootContent[nameEnd])) {
-            nameEnd++;
-        }
-        const name = rootContent.substring(nameStart, nameEnd);
-
-        i = nameEnd;
-        while (i < rootContent.length && /\s/.test(rootContent[i])) i++;
-        if (i >= rootContent.length || rootContent[i] !== ':') continue;
-        i++;
-
-        while (i < rootContent.length && /\s/.test(rootContent[i])) i++;
-
-        const valueStart = i;
-        let depth = 0;
-        let inString = false;
-        let stringChar = '';
-
-        while (i < rootContent.length) {
-            const char = rootContent[i];
-            if ((char === '"' || char === "'") && !isEscaped(i)) {
-                if (!inString) {
-                    inString = true;
-                    stringChar = char;
-                } else if (char === stringChar) {
-                    inString = false;
+        if (currentScope === null) {
+            const openBraceIndex = line.indexOf('{');
+            if (openBraceIndex >= 0) {
+                const selector = line.slice(0, openBraceIndex).trim();
+                if (selector.length > 0) {
+                    currentScope = selector;
+                    scopeDepth = 0;
                 }
             }
+        }
 
-            if (!inString) {
-                if (char === '(') depth++;
-                else if (char === ')') depth--;
-                else if (char === ';' && depth === 0) break;
+        if (currentScope === null) continue;
+
+        const match = CSS_DECL_LINE_REGEX.exec(rawLine);
+        if (match && match[1] && match[2] !== undefined) {
+            const name = match[1];
+            const value = match[2].trim();
+            const valueIsSane = value.length > 0 && !/[\r\n\x00-\x1F]/.test(value);
+            if (valueIsSane && isValidCssVariableName(`--${name}`)) {
+                variables.set(`${currentScope}::${name}`, value);
             }
-
-            i++;
         }
 
-        const valueParsed = rootContent.substring(valueStart, i).trim();
-        const valueIsSane = valueParsed.length > 0 && !/[\r\n\x00-\x1F]/.test(valueParsed);
-        if (name && valueIsSane && isValidCssVariableName(`--${name}`)) {
-            variables.set(name, valueParsed);
+        scopeDepth += countChar(rawLine, '{');
+        scopeDepth -= countChar(rawLine, '}');
+        if (scopeDepth <= 0) {
+            currentScope = null;
+            scopeDepth = 0;
         }
-
-        i++;
     }
 
     return variables;

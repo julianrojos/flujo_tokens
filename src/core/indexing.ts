@@ -6,8 +6,15 @@ import type { IndexingContext, TokenValue, BaseContext, CssVarOwner } from '../t
 import { walkTokenTree } from './walk.js';
 import { buildPathKey, normalizePathKey, pathStr } from '../utils/paths.js';
 import { buildCssVarNameFromPrefix, isValidCssVariableName } from '../utils/strings.js';
-import { MAX_COLLISION_DETAILS } from '../runtime/config.js';
 import { warnedDuplicateTokenIds } from '../runtime/state.js';
+import { MAX_COLLISION_DETAILS } from '../runtime/config.js';
+
+function recordInvalidCssVarName(summary: BaseContext['summary'], tokenPath: string[], varName: string): void {
+    const detail = `${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`;
+    if (!summary.invalidNames.includes(detail)) {
+        summary.invalidNames.push(detail);
+    }
+}
 
 /**
  * Indexes Figma `$id` properties for O(1) VARIABLE_ALIAS resolution.
@@ -75,18 +82,12 @@ export function trackCssVarNameCollision(ctx: BaseContext, varName: string, owne
         entry = { first: existing, others: new Map<string, CssVarOwner>() };
         cssVarNameCollisionMap.set(varName, entry);
         summary.cssVarNameCollisions++;
-
-        const fmt = (o: CssVarOwner) => `${o.tokenPath}${o.id ? ` ($id=${o.id})` : ''}`;
-        const detail = `${varName}: ${fmt(existing)} <-> ${fmt(owner)}`;
-
         if (summary.cssVarNameCollisionDetails.length < MAX_COLLISION_DETAILS) {
-            summary.cssVarNameCollisionDetails.push(detail);
+            summary.cssVarNameCollisionDetails.push(varName);
         }
-
-        console.warn(
-            `⚠️  CSS var name collision for ${varName}: ${fmt(existing)} vs ${fmt(owner)}. ` +
-            `In CSS, the last emitted definition wins.`
-        );
+        console.error('\n🚨 CSS VARIABLE NAME COLLISION DETECTED');
+        console.error(`   Colliding name: ${varName}`);
+        console.error('   Multiple tokens map to the same CSS variable; last declaration wins.\n');
     }
 
     entry.others.set(owner.tokenKey || owner.tokenPath, owner);
@@ -107,11 +108,13 @@ export function collectTokenMaps(
     currentPath: string[] = [],
     preferredMode?: string,
     modeStrict = false,
-    skipBaseWhenMode = false
+    skipBaseWhenMode = false,
+    modeOverridesOnly = false,
+    allowModeBranches = true
 ): void {
     const { summary, refMap, valueMap, collisionKeys, idToVarName, idToTokenKey } = ctx;
 
-    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, debugLabel: string, allowOverride: boolean) => {
+    const upsertKey = (key: string, varName: string, tokenObj: TokenValue, allowOverride: boolean) => {
         if (!key) return;
 
         if (!refMap.has(key)) {
@@ -122,13 +125,11 @@ export function collectTokenMaps(
 
         const existing = refMap.get(key);
         if (existing !== varName) {
-            console.warn(`ℹ️  Normalized collision${debugLabel ? ` (${debugLabel})` : ''}: key "${key}" maps to multiple vars.`);
             collisionKeys.add(key);
             return;
         }
 
         if (allowOverride) valueMap.set(key, tokenObj);
-        else console.warn(`ℹ️  Duplicate token for normalized key ${key}${debugLabel ? ` (${debugLabel})` : ''}`);
     };
 
     // Indexing does not require sorted traversal order.
@@ -149,7 +150,7 @@ export function collectTokenMaps(
 
                 // If it won't be emitted, do not index it (prevents unresolved "phantom" refs).
                 if (!isValidCssVariableName(varName)) {
-                    summary.invalidNames.push(`${pathStr(tokenPath)} (Invalid CSS Var: ${varName})`);
+                    recordInvalidCssVarName(summary, tokenPath, varName);
                     return;
                 }
 
@@ -169,12 +170,12 @@ export function collectTokenMaps(
                         ? ({ ...(tokenObj as TokenValue), $type: effectiveType } as TokenValue)
                         : (tokenObj as TokenValue);
 
-                upsertKey(normalizedKey, varName, storedTokenObj, tokenPathKey, inModeBranch);
+                upsertKey(normalizedKey, varName, storedTokenObj, inModeBranch);
 
                 const relativePathKey = buildPathKey(tokenPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                    upsertKey(relativeNormalizedKey, varName, storedTokenObj, `relative:${relativePathKey}`, inModeBranch);
+                    upsertKey(relativeNormalizedKey, varName, storedTokenObj, inModeBranch);
                 }
             },
 
@@ -192,7 +193,7 @@ export function collectTokenMaps(
                 const varName = buildCssVarNameFromPrefix(leafPrefix);
 
                 if (!isValidCssVariableName(varName)) {
-                    summary.invalidNames.push(`${pathStr(leafPath)} (Invalid CSS Var: ${varName})`);
+                    recordInvalidCssVarName(summary, leafPath, varName);
                     return;
                 }
 
@@ -203,12 +204,12 @@ export function collectTokenMaps(
 
                 trackCssVarNameCollision(ctx, varName, { tokenKey: normalizedPathKey, tokenPath: pathStr(leafPath) });
 
-                upsertKey(normalizedPathKey, varName, legacyTokenObj, tokenPathKey, inModeBranch);
+                upsertKey(normalizedPathKey, varName, legacyTokenObj, inModeBranch);
 
                 const relativePathKey = buildPathKey(leafPath, 1);
                 const relativeNormalizedKey = normalizePathKey(relativePathKey);
                 if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
-                    upsertKey(relativeNormalizedKey, varName, legacyTokenObj, `relative:${relativePathKey}`, inModeBranch);
+                    upsertKey(relativeNormalizedKey, varName, legacyTokenObj, inModeBranch);
                 }
             }
         },
@@ -218,6 +219,8 @@ export function collectTokenMaps(
         undefined,
         preferredMode,
         modeStrict,
-        skipBaseWhenMode
+        skipBaseWhenMode,
+        modeOverridesOnly,
+        allowModeBranches
     );
 }

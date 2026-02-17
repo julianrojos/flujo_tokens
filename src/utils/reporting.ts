@@ -4,7 +4,6 @@
 
 import type { ExecutionSummary } from '../types/tokens.js';
 import { MAX_SUMMARY_DETAILS } from '../runtime/config.js';
-import { CSS_DECL_LINE_REGEX } from './regex.js';
 
 /**
  * Prints a human-friendly execution summary with optional detail sections.
@@ -13,8 +12,8 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
     console.log('\n========================================');
     console.log(' EXECUTION SUMMARY         ');
     console.log('========================================');
-    console.log(`Total Tokens:        ${summary.totalTokens}`);
-    console.log(`Generated:           ${summary.successCount}`);
+    console.log(`Total Tokens (unique): ${summary.totalTokens}`);
+    console.log(`Generated (unique):    ${summary.successCount}`);
     console.log(`Circular Deps:       ${summary.circularDeps}`);
     console.log(`CSS Var Collisions:  ${summary.cssVarNameCollisions}`);
     console.log(`Unresolved Refs:     ${summary.unresolvedRefs.length}`);
@@ -33,6 +32,22 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
             });
     }
 
+    if (summary.cssVarNameCollisions > 0) {
+        console.log('\n🚨 ATTENTION: CSS VARIABLE NAME COLLISIONS DETECTED');
+        console.log(
+            `   ${summary.cssVarNameCollisions} colliding name${summary.cssVarNameCollisions === 1 ? '' : 's'} found.`
+        );
+        console.log('   CSS uses last-write-wins, so token values may be overridden unexpectedly.');
+        if (summary.cssVarNameCollisionDetails.length > 0) {
+            console.log(`   Examples (Top ${MAX_SUMMARY_DETAILS}):`);
+            summary.cssVarNameCollisionDetails.slice(0, MAX_SUMMARY_DETAILS).forEach(name => console.log(`   - ${name}`));
+            if (summary.cssVarNameCollisions > summary.cssVarNameCollisionDetails.length) {
+                const more = summary.cssVarNameCollisions - summary.cssVarNameCollisionDetails.length;
+                console.log(`   ... and ${more} more`);
+            }
+        }
+    }
+
     if (summary.unresolvedRefs.length > 0) {
         console.log(`\n⚠️  Unresolved Refs Detail (Top ${MAX_SUMMARY_DETAILS}):`);
         summary.unresolvedRefs.slice(0, MAX_SUMMARY_DETAILS).forEach(ref => console.log(`  - ${ref}`));
@@ -46,14 +61,6 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
         summary.invalidNames.slice(0, MAX_SUMMARY_DETAILS).forEach(name => console.log(`  - ${name}`));
         if (summary.invalidNames.length > MAX_SUMMARY_DETAILS) {
             console.log(`  ... and ${summary.invalidNames.length - MAX_SUMMARY_DETAILS} more`);
-        }
-    }
-
-    if (summary.cssVarNameCollisionDetails.length > 0) {
-        console.log(`\n⚠️  CSS Var Collisions Detail (Top ${MAX_SUMMARY_DETAILS}):`);
-        summary.cssVarNameCollisionDetails.slice(0, MAX_SUMMARY_DETAILS).forEach(d => console.log(`  - ${d}`));
-        if (summary.cssVarNameCollisionDetails.length > MAX_SUMMARY_DETAILS) {
-            console.log(`  ... and ${summary.cssVarNameCollisionDetails.length - MAX_SUMMARY_DETAILS} more`);
         }
     }
 
@@ -71,43 +78,63 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
  */
 export type ModeContext = {
     preferredMode?: string;
-    foundModes?: Set<string>;
+    foundModes?: Set<string>; // legacy alias of detectedModes
+    detectedModes?: Set<string>;
+    emittedModes?: Set<string>;
     modeStrict?: boolean;
 };
 
+function stripModePrefix(key: string): string {
+    if (!key) return key;
+    const trimmed = key.trim();
+    const lower = trimmed.toLowerCase();
+    if (!lower.startsWith('mode')) return trimmed;
+    return trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed;
+}
+
+function sortedModeLabels(modeKeys?: Set<string>): string[] {
+    if (!modeKeys || modeKeys.size === 0) return [];
+    return Array.from(modeKeys)
+        .map(stripModePrefix)
+        .sort((a, b) => a.localeCompare(b));
+}
+
 export function logChangeDetection(
     previousVariables: Map<string, string>,
-    cssLines: string[],
+    newVariables: Map<string, string>,
     modeContext?: ModeContext
 ): void {
     console.log('\n----------------------------------------');
     console.log('            CHANGES DETECTED            ');
     console.log('----------------------------------------');
 
-    if (modeContext?.foundModes && modeContext.foundModes.size > 0) {
+    const detectedModes = sortedModeLabels(modeContext?.detectedModes ?? modeContext?.foundModes);
+    const emittedModes = sortedModeLabels(modeContext?.emittedModes);
+
+    if (detectedModes.length > 0 || emittedModes.length > 0) {
         const preferred = modeContext.preferredMode ?? '<none>';
         const strictLabel = modeContext.modeStrict ? 'strict' : 'loose';
-        const modes = Array.from(modeContext.foundModes)
-            .map(m => {
-                const trimmed = m.trim();
-                const lower = trimmed.toLowerCase();
-                return lower.startsWith('mode') ? trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed : trimmed;
-            })
-            .sort((a, b) => a.localeCompare(b));
-        console.log(`Mode context: preferred=${preferred} (${strictLabel}), detected=${modes.join(', ')}`);
-    }
-
-    const newVariables = new Map<string, string>();
-    for (const line of cssLines) {
-        const match = CSS_DECL_LINE_REGEX.exec(line);
-        if (match && match[1] && match[2] !== undefined) {
-            newVariables.set(match[1], match[2].trim());
+        const details: string[] = [];
+        if (emittedModes.length > 0) details.push(`emitted=${emittedModes.join(', ')}`);
+        if (detectedModes.length > 0 && (emittedModes.length === 0 || detectedModes.join('|') !== emittedModes.join('|'))) {
+            details.push(`detected=${detectedModes.join(', ')}`);
         }
+        console.log(`Mode context: preferred=${preferred} (${strictLabel})${details.length > 0 ? `, ${details.join(', ')}` : ''}`);
     }
 
     const removed: string[] = [];
     const added: string[] = [];
     const modified: Array<{ name: string; oldValue: string; newValue: string }> = [];
+    const formatScopedVar = (key: string): string => {
+        const separatorIndex = key.indexOf('::');
+        if (separatorIndex === -1) {
+            return key.startsWith('--') ? key : `--${key}`;
+        }
+        const scope = key.slice(0, separatorIndex);
+        const rawName = key.slice(separatorIndex + 2);
+        const normalizedName = rawName.startsWith('--') ? rawName : `--${rawName}`;
+        return `${scope} ${normalizedName}`;
+    };
 
     previousVariables.forEach((_value, name) => {
         if (!newVariables.has(name)) removed.push(name);
@@ -124,20 +151,20 @@ export function logChangeDetection(
 
     if (removed.length > 0) {
         console.log(`   🗑️  Variables removed: ${removed.length}`);
-        removed.slice(0, 5).forEach(name => console.log(`      - --${name}`));
+        removed.slice(0, 5).forEach(name => console.log(`      - ${formatScopedVar(name)}`));
         if (removed.length > 5) console.log(`      ...`);
     }
 
     if (added.length > 0) {
         console.log(`   ➕ Variables added: ${added.length}`);
-        added.slice(0, 5).forEach(name => console.log(`      + --${name}`));
+        added.slice(0, 5).forEach(name => console.log(`      + ${formatScopedVar(name)}`));
         if (added.length > 5) console.log(`      ...`);
     }
 
     if (modified.length > 0) {
         console.log(`   🔄 Variables modified: ${modified.length}`);
         modified.slice(0, 5).forEach(({ name, oldValue, newValue }) => {
-            console.log(`      ~ --${name}`);
+            console.log(`      ~ ${formatScopedVar(name)}`);
             console.log(`        - ${oldValue} -> ${newValue}`);
         });
         if (modified.length > 5) console.log(`      ...`);
@@ -151,26 +178,14 @@ export function logChangeDetection(
 /**
  * Prints a summary of mode branches encountered during processing.
  */
-export function printModeSummary(modeKeys: Set<string>): void {
-    console.log('\nModes detected:');
+export function printModeSummary(modeKeys: Set<string>, label: 'detected' | 'emitted' = 'detected'): void {
+    console.log(`\nModes ${label}:`);
     if (modeKeys.size === 0) {
         console.log('  - None');
         return;
     }
 
-    const stripModePrefix = (k: string): string => {
-        if (!k) return k;
-        const trimmed = k.trim();
-        const lower = trimmed.toLowerCase();
-        if (lower.startsWith('mode')) {
-            return trimmed.slice(4).replace(/^[-_\s]+/, '') || trimmed;
-        }
-        return trimmed;
-    };
-
-    const sorted = Array.from(modeKeys)
-        .map(stripModePrefix)
-        .sort((a, b) => a.localeCompare(b));
+    const sorted = sortedModeLabels(modeKeys);
     console.log(`  - Count: ${modeKeys.size}`);
     console.log(`  - Names: ${sorted.join(', ')}`);
 }
