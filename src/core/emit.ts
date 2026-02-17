@@ -4,7 +4,7 @@
 
 import type { EmissionContext, ExecutionSummary, TokenValue, CssVarOwner, CssVarCollision, IndexingContext } from '../types/tokens.js';
 import { isPlainObject, isVariableAlias, isModeKey } from '../types/tokens.js';
-import { MAX_DEPTH, EMPTY_VISITED_REFS } from '../runtime/config.js';
+import { MAX_DEPTH, EMPTY_VISITED_REFS, ALLOW_ALIAS_SCAN } from '../runtime/config.js';
 import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit } from '../runtime/state.js';
 import { walkTokenTree } from './walk.js';
 import { getResolvedTokenKeyFromParts } from './analyze.js';
@@ -524,38 +524,45 @@ export function processVariableAlias(
             return `var(${direct})`;
         }
 
-        // Fallback: cached O(N) scan.
-        const tokenPath = findTokenByIdCached(tokensData, aliasId);
-        if (tokenPath) {
-            const fullKey = buildPathKey(tokenPath);
-            const fullKeyNorm = normalizePathKey(fullKey);
-            const relativeKey = buildPathKey(tokenPath, 1);
-            const relativeKeyNorm = normalizePathKey(relativeKey);
+        if (ALLOW_ALIAS_SCAN) {
+            // Optional fallback: cached O(N) scan.
+            const tokenPath = findTokenByIdCached(tokensData, aliasId);
+            if (tokenPath) {
+                const fullKey = buildPathKey(tokenPath);
+                const fullKeyNorm = normalizePathKey(fullKey);
+                const relativeKey = buildPathKey(tokenPath, 1);
+                const relativeKeyNorm = normalizePathKey(relativeKey);
 
-            const mappedFromIndex =
-                refMap.get(fullKey) ??
-                refMap.get(fullKeyNorm) ??
-                refMap.get(relativeKey) ??
-                refMap.get(relativeKeyNorm);
+                const mappedFromIndex =
+                    refMap.get(fullKey) ??
+                    refMap.get(fullKeyNorm) ??
+                    refMap.get(relativeKey) ??
+                    refMap.get(relativeKeyNorm);
 
-            if (mappedFromIndex) {
-                warnIfCollidingVarName(mappedFromIndex);
-                return `var(${mappedFromIndex})`;
+                if (mappedFromIndex) {
+                    warnIfCollidingVarName(mappedFromIndex);
+                    return `var(${mappedFromIndex})`;
+                }
+
+                const derived = deriveVarNameFromTokenPath(tokenPath);
+
+                if (!isValidCssVariableName(derived)) {
+                    console.warn(
+                        `⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`
+                    );
+                    const placeholderName = toSafePlaceholderName(aliasId);
+                    recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
+                    return `var(--unresolved-${placeholderName})`;
+                }
+
+                warnIfCollidingVarName(derived);
+                return `var(${derived})`;
             }
-
-            const derived = deriveVarNameFromTokenPath(tokenPath);
-
-            if (!isValidCssVariableName(derived)) {
-                console.warn(
-                    `⚠️  VARIABLE_ALIAS fallback resolved to invalid var name "${derived}" at ${pathStr(currentPath)}; using placeholder.`
-                );
-                const placeholderName = toSafePlaceholderName(aliasId);
-                recordUnresolvedTyped(summary, currentPath, 'Alias ID', aliasId);
-                return `var(--unresolved-${placeholderName})`;
-            }
-
-            warnIfCollidingVarName(derived);
-            return `var(${derived})`;
+        } else {
+            console.warn(
+                `ℹ️  VARIABLE_ALIAS scan fallback is disabled (ALLOW_ALIAS_SCAN=false); ` +
+                `skipping tree scan for id="${aliasId}" at ${pathStr(currentPath)}.`
+            );
         }
 
         console.warn(`ℹ️  VARIABLE_ALIAS reference at ${pathStr(currentPath)} with ID: ${aliasId}`);

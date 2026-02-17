@@ -48,6 +48,7 @@ The system operates in 4 sequential phases:
 Behavior can be adjusted using environment variables:
 
 - `ALLOW_JSON_REPAIR=true` (default: false): Attempts to repair common syntax errors in input JSONs (e.g., trailing commas) to prevent the process from failing.
+- `ALLOW_ALIAS_SCAN=true` (default: false): Enables O(N) tree-scan fallback for unresolved `VARIABLE_ALIAS` IDs. Keep disabled for large token sets/perf safety; enable only for debugging/migrations.
 - Mode selection flags (CLI):
   - `--mode <name>` (default: none): preferred mode branch (matches keys starting with `mode<name>`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
@@ -57,7 +58,7 @@ Behavior can be adjusted using environment variables:
 Example:
 
 ```bash
-ALLOW_JSON_REPAIR=true npm run generate
+ALLOW_JSON_REPAIR=true ALLOW_ALIAS_SCAN=true npm run generate
 ```
 
 ## Typography unit coercion (runtime)

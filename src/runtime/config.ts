@@ -8,6 +8,9 @@ export const MAX_DEPTH = 50;
 /** Allow best-effort JSON repair for malformed exports. */
 export const ALLOW_JSON_REPAIR = process.env.ALLOW_JSON_REPAIR === 'true';
 
+/** Allow O(N) fallback scan for VARIABLE_ALIAS ids not present in the fast index. */
+export const ALLOW_ALIAS_SCAN = process.env.ALLOW_ALIAS_SCAN === 'true';
+
 /** Maximum collision details to store in summary. */
 export const MAX_COLLISION_DETAILS = 10;
 
