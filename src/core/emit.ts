@@ -580,7 +580,13 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
                 const a0 = (rawColor as any).a;
 
                 if (typeof r0 === 'number' && typeof g0 === 'number' && typeof b0 === 'number') {
-                    const isNormalized = (r0 || 0) <= 1 && (g0 || 0) <= 1 && (b0 || 0) <= 1;
+                    const channels = [r0, g0, b0];
+                    const hasChannelGreaterThanOne = channels.some(c => c > 1);
+                    const allWithinUnitRange = channels.every(c => c >= 0 && c <= 1);
+                    const isBinaryAmbiguous = channels.every(c => Number.isInteger(c) && (c === 0 || c === 1));
+
+                    // Ambiguous case like {r:1,g:1,b:1}: prefer byte scale to avoid misreading as white.
+                    const isNormalized = !hasChannelGreaterThanOne && allWithinUnitRange && !isBinaryAmbiguous;
                     const to255 = (c: number, normalized: boolean): number =>
                         normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
 

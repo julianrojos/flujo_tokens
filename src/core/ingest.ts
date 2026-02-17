@@ -24,7 +24,9 @@ export function parseJsonWithOptionalRepair(fileContent: string, file: string): 
             const jsonContent = fileContent.substring(firstBrace, translationStart).trim().replace(/,\s*$/, '');
             const cleanedContent = jsonContent.endsWith('}') ? jsonContent : `${jsonContent}\n}`;
             try {
-                return JSON.parse(cleanedContent);
+                const parsed = JSON.parse(cleanedContent);
+                console.warn(`⚠️  JSON repaired in ${file}; check the export if possible.`);
+                return parsed;
             } catch {
                 throw error;
             }
@@ -34,9 +36,10 @@ export function parseJsonWithOptionalRepair(fileContent: string, file: string): 
         if (!cleaned.startsWith('{')) cleaned = `{${cleaned}`;
         if (!cleaned.endsWith('}')) cleaned = `${cleaned}}`;
 
-        console.warn(`⚠️  JSON repaired in ${file}; check the export if possible.`);
         try {
-            return JSON.parse(cleaned);
+            const parsed = JSON.parse(cleaned);
+            console.warn(`⚠️  JSON repaired in ${file}; check the export if possible.`);
+            return parsed;
         } catch {
             throw error;
         }
