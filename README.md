@@ -4,7 +4,7 @@ TypeScript CLI that converts JSON design tokens (DTCG) into CSS custom propertie
 
 ## Requirements
 
-- Node.js 16+
+- Node.js 18+
 - npm or yarn
 
 ## Installation
