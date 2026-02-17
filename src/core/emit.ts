@@ -22,10 +22,11 @@ function normalizePathSegmentForMatch(segment: string): string {
 
 function isBorderDimensionPath(currentPath: string[]): boolean {
     const normalized = currentPath.map(normalizePathSegmentForMatch);
-    const hasBorder = normalized.includes('border');
-    const hasRadius = normalized.includes('radius') || normalized.includes('borderradius');
-    const hasWidth = normalized.includes('width') || normalized.includes('borderwidth');
-    return hasBorder && (hasRadius || hasWidth);
+    const hasBorderGroup =
+        normalized.includes('border') &&
+        (normalized.includes('radius') || normalized.includes('width') || normalized.includes('borderradius') || normalized.includes('borderwidth'));
+    const hasDirectBorderMetric = normalized.some(segment => segment === 'borderradius' || segment === 'borderwidth');
+    return hasBorderGroup || hasDirectBorderMetric;
 }
 
 function classifyTypographyDimensionPath(currentPath: string[]): { isSize: boolean; isLineHeight: boolean } {
@@ -51,25 +52,47 @@ function coerceTypographyDimension(
     varType: string | undefined,
     currentPath: string[]
 ): { value: TokenValue['$value']; varType: string | undefined } {
-    if (typeof value !== 'string') return { value, varType };
     if (varType !== 'dimension') return { value, varType };
 
     const { isSize, isLineHeight } = classifyTypographyDimensionPath(currentPath);
     if (!isSize && !isLineHeight) return { value, varType };
 
-    const match = value.trim().match(/^(-?\d+(?:\.\d+)?)px$/i);
-    if (!match) return { value, varType };
+    const coerceFromNumeric = (numeric: number, sourceIsUnitlessNumeric: boolean, rawUnitlessText?: string): { value: TokenValue['$value']; varType: string | undefined } => {
+        if (!Number.isFinite(numeric)) return { value, varType };
 
-    const px = parseFloat(match[1]);
-    if (Number.isNaN(px)) return { value, varType };
+        if (isSize) {
+            const rem = numeric / 16;
+            return { value: `${formatNumber(rem)}rem`, varType };
+        }
 
-    if (isSize) {
-        const rem = px / 16;
-        return { value: `${formatNumber(rem)}rem`, varType };
+        // For line-height, keep small unitless ratios as-is (e.g. 1.2, 1.5).
+        if (sourceIsUnitlessNumeric && Math.abs(numeric) <= 4) {
+            return { value: rawUnitlessText ?? formatNumber(numeric), varType };
+        }
+
+        const unitless = numeric / 16;
+        return { value: formatNumber(unitless), varType };
+    };
+
+    if (typeof value === 'number') {
+        return coerceFromNumeric(value, true);
     }
 
-    const unitless = px / 16;
-    return { value: formatNumber(unitless), varType };
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        const matchPx = trimmed.match(/^(-?\d+(?:\.\d+)?)px$/i);
+        if (matchPx) {
+            const px = parseFloat(matchPx[1]);
+            return coerceFromNumeric(px, false);
+        }
+
+        if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+            const numeric = parseFloat(trimmed);
+            return coerceFromNumeric(numeric, true, trimmed);
+        }
+    }
+
+    return { value, varType };
 }
 
 function coerceBorderDimension(
