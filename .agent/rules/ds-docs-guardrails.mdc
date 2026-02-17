@@ -1,0 +1,14 @@
+---
+description: Guardrails for Design System documentation (Markdown). Prevents invention and enforces deterministic structure.
+globs:
+  - "docs/design-system/**/*.md"
+---
+
+# Documentation guardrails (Design System)
+
+- Do not invent system-specific facts, component behavior, or token semantics.
+- If information is missing, write `TBD` and add an item under **Gaps / TBD**.
+- Use stable headings and the same section order for pages of the same type.
+- Token names must match the JSON keys exactly and be wrapped in inline code.
+- Prefer tables for properties, states, and token mappings.
+- No code examples for now (design-only documentation).
