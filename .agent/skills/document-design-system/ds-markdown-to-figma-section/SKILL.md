@@ -24,6 +24,17 @@ Do not use this skill for non-component pages.
 - `figma_file_url` (optional if already connected through Desktop Bridge)
 - `offset_x` (default from theme; expected `200`)
 
+## Bundled scripts
+
+- `scripts/markdown_to_doc_model.mjs`
+  - Step A parser.
+  - Converts markdown into deterministic `doc_model.json`.
+- `scripts/build_figma_execute_code.mjs`
+  - Step B builder.
+  - Combines `doc_model.json` + `figma_doc_theme.yml` and generates:
+    - Figma runtime code (`*.figma-execute.js`) for `figma_execute`
+    - Render payload snapshot (`*.render-payload.json`) for traceability
+
 ## Preconditions
 
 - Figma MCP connection is active.
@@ -32,6 +43,41 @@ Do not use this skill for non-component pages.
 - The component exists in Figma as a `COMPONENT_SET`.
 
 If any precondition fails, STOP and report the exact blocker.
+
+## Two-step pipeline (required)
+
+### Step A: Markdown -> doc model
+
+Run:
+
+```bash
+node .agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs \
+  --markdown docs/design_system/components/<component>.md \
+  --component-name <ComponentName> \
+  --out docs/design_system/_generated/figma_doc_models/<component>.doc-model.json
+```
+
+### Step B: doc model + theme -> render code
+
+Run:
+
+```bash
+node .agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs \
+  --model docs/design_system/_generated/figma_doc_models/<component>.doc-model.json \
+  --theme docs/design_system/_spec/figma_doc_theme.yml \
+  --component-name <ComponentName> \
+  --component-set-id <figma_component_set_node_id_optional> \
+  --offset-x 200 \
+  --out docs/design_system/_generated/figma_doc_models/<component>.figma-execute.js \
+  --payload-out docs/design_system/_generated/figma_doc_models/<component>.render-payload.json
+```
+
+Then execute the generated JS with `figma_execute`.
+
+Notes:
+
+- Re-run Step A and Step B on every markdown/theme change.
+- Keep generated files in `docs/design_system/_generated/figma_doc_models/` for reproducibility.
 
 ## Required behavior
 
