@@ -55,8 +55,7 @@ export function readAndCombineJsons(dir: string): Record<string, any> {
     const combined: Record<string, any> = {};
 
     if (!fs.existsSync(dir)) {
-        console.error(`Directory not found: ${dir}`);
-        process.exit(1);
+        throw new Error(`Directory not found: ${dir}`);
     }
 
     const files = fs.readdirSync(dir).sort((a, b) => a.localeCompare(b));
