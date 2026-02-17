@@ -1,0 +1,3310 @@
+{
+  "$description": "Semantic Dimension Tokens",
+  "global": {
+    "border": {
+      "radius": {
+        "sharp": {
+          "$value": "{Base Dimension Tokens.global.border.radius.0}",
+          "$description": "Use to adjust the curvature of the border corners for an element. Use for sharp corners.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:425:5781",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to adjust the curvature of the border corners for an element. Use for sharp corners.",
+              "scopes": [
+                "CORNER_RADIUS"
+              ]
+            }
+          }
+        },
+        "tiny": {
+          "$value": "{Base Dimension Tokens.global.border.radius.100}",
+          "$description": "Use to adjust the curvature of the border corners for an element. Use for barely rounded corners.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:192:673",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to adjust the curvature of the border corners for an element. Use for barely rounded corners.",
+              "scopes": [
+                "CORNER_RADIUS"
+              ]
+            }
+          }
+        },
+        "small": {
+          "$value": "{Base Dimension Tokens.global.border.radius.200}",
+          "$description": "Use to adjust the curvature of the border corners for an element. Use for slightly rounded corners, like icon buttons or menus.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:192:674",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to adjust the curvature of the border corners for an element. Use for slightly rounded corners, like icon buttons or menus.",
+              "scopes": [
+                "CORNER_RADIUS"
+              ]
+            }
+          }
+        },
+        "medium": {
+          "$value": "{Base Dimension Tokens.global.border.radius.300}",
+          "$description": "Use to adjust the curvature of the border corners for an element. Use for moderately rounded corners, like cards.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:192:675",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to adjust the curvature of the border corners for an element. Use for moderately rounded corners, like cards.",
+              "scopes": [
+                "CORNER_RADIUS"
+              ]
+            }
+          }
+        },
+        "large": {
+          "$value": "{Base Dimension Tokens.global.border.radius.400}",
+          "$description": "Use to adjust the curvature of the border corners for an element. Use for mostly rounded corners, like modals.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:192:676",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to adjust the curvature of the border corners for an element. Use for mostly rounded corners, like modals.",
+              "scopes": [
+                "CORNER_RADIUS"
+              ]
+            }
+          }
+        },
+        "pill": {
+          "$value": "{Base Dimension Tokens.global.border.radius.500}",
+          "$description": "Use to adjust the curvature of the border corners for an element. Use for corners that are as round as possible, like standard buttons and badges.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:192:677",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to adjust the curvature of the border corners for an element. Use for corners that are as round as possible, like standard buttons and badges.",
+              "scopes": [
+                "CORNER_RADIUS"
+              ]
+            }
+          }
+        }
+      },
+      "width": {
+        "divider": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.border.width.100}",
+            "$description": "Use as the default border width for dividers.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:678",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the default border width for dividers.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.border.width.100}",
+            "$description": "Use as the border width hover state for dividers.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:679",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the border width hover state for dividers.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "clicked": {
+            "$value": "{Base Dimension Tokens.global.border.width.100}",
+            "$description": "Use as the border width clicked state for dividers.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:680",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the border width clicked state for dividers.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          }
+        },
+        "regular": {
+          "$value": "{Base Dimension Tokens.global.border.width.100}",
+          "$description": "Use as the default border width for elements.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:2",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the default border width for elements.",
+              "scopes": [
+                "WIDTH_HEIGHT",
+                "STROKE_FLOAT"
+              ]
+            }
+          }
+        },
+        "strong": {
+          "$value": "{Base Dimension Tokens.global.border.width.200}",
+          "$description": "Use as a stronger/wider border width for elements.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:3",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as a stronger/wider border width for elements.",
+              "scopes": [
+                "WIDTH_HEIGHT",
+                "STROKE_FLOAT"
+              ]
+            }
+          }
+        },
+        "extra-strong": {
+          "$value": "{Base Dimension Tokens.global.border.width.300}",
+          "$description": "Use as the strongest/widest border width for elements.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:4",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the strongest/widest border width for elements.",
+              "scopes": [
+                "WIDTH_HEIGHT",
+                "STROKE_FLOAT"
+              ]
+            }
+          }
+        },
+        "box": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.border.width.100}",
+            "$description": "Use as the default border width for containers like cards, panels, code editors, etc.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2420:2",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the default border width for containers like cards, panels, code editors, etc.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.border.width.100}",
+            "$description": "Use as the hover border width for containers like cards, panels, code editors, etc.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2420:3",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the hover border width for containers like cards, panels, code editors, etc.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "clicked": {
+            "$value": "{Base Dimension Tokens.global.border.width.200}",
+            "$description": "Use as the clicked border width for containers like cards, panels, code editors, etc.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2420:4",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the clicked border width for containers like cards, panels, code editors, etc.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "status": {
+            "default": {
+              "$value": "{Base Dimension Tokens.global.border.width.200}",
+              "$description": "Use as the default border width for containers that convey statuses like inline alerts, notification drawer items and hints. This token is typically paired with status border colors.",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2420:8",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use as the default border width for containers that convey statuses like inline alerts, notification drawer items and hints. This token is typically paired with status border colors.",
+                  "scopes": [
+                    "WIDTH_HEIGHT",
+                    "STROKE_FLOAT"
+                  ]
+                }
+              }
+            },
+            "read": {
+              "$value": "{Base Dimension Tokens.global.border.width.100}",
+              "$description": "Use as the border width for containers that convey  a “read” status, like notification drawer items.",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2420:9",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use as the border width for containers that convey  a “read” status, like notification drawer items.",
+                  "scopes": [
+                    "WIDTH_HEIGHT",
+                    "STROKE_FLOAT"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "action": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.border.width.100}",
+            "$description": "Use as the default border width for actions like secondary and tertiary buttons",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:681",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the default border width for actions like secondary and tertiary buttons",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.border.width.200}",
+            "$description": "Use as the hover state border width for actions like secondary and tertiary buttons",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:682",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the hover state border width for actions like secondary and tertiary buttons",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "clicked": {
+            "$value": "{Base Dimension Tokens.global.border.width.200}",
+            "$description": "Use as the clicked state border width for actions like secondary and tertiary buttons",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:683",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the clicked state border width for actions like secondary and tertiary buttons",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          }
+        },
+        "control": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.border.width.100}",
+            "$description": "Use as the default border width for controls like text inputs, menu toggles and control buttons",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:684",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the default border width for controls like text inputs, menu toggles and control buttons",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.border.width.100}",
+            "$description": "Use as the hover state border width for controls like text inputs, menu toggles and control buttons",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:685",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the hover state border width for controls like text inputs, menu toggles and control buttons",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          },
+          "clicked": {
+            "$value": "{Base Dimension Tokens.global.border.width.200}",
+            "$description": "Use as the clicked state border width for controls like text inputs, menu toggles and control buttons",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:192:686",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the clicked state border width for controls like text inputs, menu toggles and control buttons",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "STROKE_FLOAT"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "spacer": {
+      "xs": {
+        "$value": "{Base Dimension Tokens.global.spacer.100}",
+        "$description": "Use for extra small spaces between elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:193:687",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use for extra small spaces between elements.",
+            "scopes": [
+              "WIDTH_HEIGHT",
+              "GAP"
+            ]
+          }
+        }
+      },
+      "sm": {
+        "$value": "{Base Dimension Tokens.global.spacer.200}",
+        "$description": "Use for small spaces between elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:193:688",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use for small spaces between elements.",
+            "scopes": [
+              "WIDTH_HEIGHT",
+              "GAP"
+            ]
+          }
+        }
+      },
+      "md": {
+        "$value": "{Base Dimension Tokens.global.spacer.300}",
+        "$description": "Use for medium-sized spaces between elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:193:689",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use for medium-sized spaces between elements.",
+            "scopes": [
+              "WIDTH_HEIGHT",
+              "GAP"
+            ]
+          }
+        }
+      },
+      "lg": {
+        "$value": "{Base Dimension Tokens.global.spacer.400}",
+        "$description": "Use for large spaces between elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:193:690",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use for large spaces between elements.",
+            "scopes": [
+              "WIDTH_HEIGHT",
+              "GAP"
+            ]
+          }
+        }
+      },
+      "xl": {
+        "$value": "{Base Dimension Tokens.global.spacer.500}",
+        "$description": "Use for extra large spaces between elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:193:691",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use for extra large spaces between elements.",
+            "scopes": [
+              "WIDTH_HEIGHT",
+              "GAP"
+            ]
+          }
+        }
+      },
+      "2xl": {
+        "$value": "{Base Dimension Tokens.global.spacer.600}",
+        "$description": "Use for double extra large spaces spacing between elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:193:692",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use for double extra large spaces spacing between elements.",
+            "scopes": [
+              "WIDTH_HEIGHT",
+              "GAP"
+            ]
+          }
+        }
+      },
+      "3xl": {
+        "$value": "{Base Dimension Tokens.global.spacer.700}",
+        "$description": "Use for triple extra large spaces between elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:193:693",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use for triple extra large spaces between elements.",
+            "scopes": [
+              "WIDTH_HEIGHT",
+              "GAP"
+            ]
+          }
+        }
+      },
+      "4xl": {
+        "$value": "{Base Dimension Tokens.global.spacer.800}",
+        "$description": "Use for quadruple extra large spaces between elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:193:694",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use for quadruple extra large spaces between elements.",
+            "scopes": [
+              "WIDTH_HEIGHT",
+              "GAP"
+            ]
+          }
+        }
+      },
+      "control": {
+        "vertical": {
+          "default": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.sm}",
+            "$description": "Use to set the vertical padding inside of controls. This is used across buttons, text inputs, menu toggles, etc.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:436:4",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the vertical padding inside of controls. This is used across buttons, text inputs, menu toggles, etc.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "GAP"
+                ]
+              }
+            }
+          },
+          "compact": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.xs}",
+            "$description": "Use to set the vertical padding inside of  compact controls. This is used across text inputs, menu toggles, control buttons etc.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:3555:2",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the vertical padding inside of  compact controls. This is used across text inputs, menu toggles, control buttons etc.",
+                "scopes": [
+                  "WIDTH_HEIGHT"
+                ]
+              }
+            }
+          },
+          "plain": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.sm}",
+            "$description": "Use to set the vertical padding inside of plain controls, like in plain menu toggles and plain buttons.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:3530:2",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the vertical padding inside of plain controls, like in plain menu toggles and plain buttons.",
+                "scopes": [
+                  "WIDTH_HEIGHT"
+                ]
+              }
+            }
+          },
+          "spacious": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.md}",
+            "$description": "Use to set the vertical padding inside a large/display controls. This is used across buttons, text inputs, menu toggles, etc.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5495:3",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the vertical padding inside a large/display controls. This is used across buttons, text inputs, menu toggles, etc.",
+                "scopes": [
+                  "WIDTH_HEIGHT"
+                ]
+              }
+            }
+          }
+        },
+        "horizontal": {
+          "default": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.md}",
+            "$description": "Use to set the horizontal padding inside of controls, like text inputs and menu toggles.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:436:5",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the horizontal padding inside of controls, like text inputs and menu toggles.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "GAP"
+                ]
+              }
+            }
+          },
+          "plain": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.sm}",
+            "$description": "Use to set the horizontal padding inside of plain controls, like in plain menu toggles.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:3530:3",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the horizontal padding inside of plain controls, like in plain menu toggles.",
+                "scopes": [
+                  "WIDTH_HEIGHT"
+                ]
+              }
+            }
+          },
+          "compact": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.sm}",
+            "$description": "Use to set the horizontal padding inside of  compact controls. This is used across text inputs, menu toggles, control buttons etc.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:3555:3",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the horizontal padding inside of  compact controls. This is used across text inputs, menu toggles, control buttons etc.",
+                "scopes": [
+                  "WIDTH_HEIGHT"
+                ]
+              }
+            }
+          },
+          "spacious": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.lg}",
+            "$description": "Use to set the horizontal padding in large/display controls.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5495:6",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the horizontal padding in large/display controls.",
+                "scopes": [
+                  "WIDTH_HEIGHT"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "action": {
+        "horizontal": {
+          "default": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.lg}",
+            "$description": "Use to set the horizontal padding inside a default action, like buttons.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:436:7",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the horizontal padding inside a default action, like buttons.",
+                "scopes": [
+                  "WIDTH_HEIGHT",
+                  "GAP"
+                ]
+              }
+            }
+          },
+          "plain": {
+            "default": {
+              "$value": "{Semantic Dimension Tokens.global.spacer.sm}",
+              "$description": "Use to set the horizontal padding inside a plain action, like plain buttons.",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:3530:5",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use to set the horizontal padding inside a plain action, like plain buttons.",
+                  "scopes": [
+                    "ALL_SCOPES"
+                  ]
+                }
+              }
+            },
+            "compact": {
+              "$value": "{Semantic Dimension Tokens.global.spacer.xs}",
+              "$description": "Use to set the horizontal padding inside a compact, plain action/button.",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5495:4",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use to set the horizontal padding inside a compact, plain action/button.",
+                  "scopes": [
+                    "ALL_SCOPES"
+                  ]
+                }
+              }
+            }
+          },
+          "compact": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.md}",
+            "$description": "Use to set the horizontal padding inside a compact action, like compact buttons.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:1379:3",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the horizontal padding inside a compact action, like compact buttons.",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "spacious": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.xl}",
+            "$description": "Use to set the horizontal padding inside a large/display action, like CTAs.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5495:5",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the horizontal padding inside a large/display action, like CTAs.",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "gap": {
+        "text-to-element": {
+          "default": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.sm}",
+            "$description": "Use to space an element, like an icon or badge, inline with text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:4868:2",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to space an element, like an icon or badge, inline with text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "compact": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.xs}",
+            "$description": "Use to space an element, like an icon or badge, inline with text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:6274:9680",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to space an element, like an icon or badge, inline with text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        },
+        "control-to-control": {
+          "default": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.xs}",
+            "$description": "Use to set the space between controls, like in input groups or filter groups",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:4868:9",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the space between controls, like in input groups or filter groups",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        },
+        "group": {
+          "vertical": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.sm}",
+            "$description": "Use to set the vertical space between items in a group, like a field label, form input, and helper text placed in a vertical/stacked layout",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:4868:4",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the vertical space between items in a group, like a field label, form input, and helper text placed in a vertical/stacked layout",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "horizontal": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.md}",
+            "$description": "Use to set the horizontal space between items in a group, like a field label and form input placed in a horizontal layout.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:4868:3",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the horizontal space between items in a group, like a field label and form input placed in a horizontal layout.",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        },
+        "group-to-group": {
+          "horizontal": {
+            "default": {
+              "$value": "{Semantic Dimension Tokens.global.spacer.2xl}",
+              "$description": "Use to set the horizontal space between groups of elements, like between multiple action groups or forms groups placed in a horizontal layout.",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:4868:5",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use to set the horizontal space between groups of elements, like between multiple action groups or forms groups placed in a horizontal layout.",
+                  "scopes": [
+                    "ALL_SCOPES"
+                  ]
+                }
+              }
+            },
+            "compact": {
+              "$value": "{Semantic Dimension Tokens.global.spacer.sm}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:6274:9678",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "GAP"
+                  ]
+                }
+              }
+            }
+          },
+          "vertical": {
+            "default": {
+              "$value": "{Semantic Dimension Tokens.global.spacer.lg}",
+              "$description": "Use to set the vertical space between groups of elements, like between stacked form groups.",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:4868:6",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use to set the vertical space between groups of elements, like between stacked form groups.",
+                  "scopes": [
+                    "ALL_SCOPES"
+                  ]
+                }
+              }
+            },
+            "compact": {
+              "$value": "{Semantic Dimension Tokens.global.spacer.md}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:6274:9679",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "GAP"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "action-to-action": {
+          "default": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.md}",
+            "$description": "Use to set the space between actions, like in an action list group.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:4868:7",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the space between actions, like in an action list group.",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "plain": {
+            "$value": "{Semantic Dimension Tokens.global.spacer.xs}",
+            "$description": "Use to set the space between plain actions, like in an action list group.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:4868:8",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to set the space between plain actions, like in an action list group.",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "inset": {
+        "page-chrome": {
+          "$value": "{Semantic Dimension Tokens.global.spacer.lg}",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5726:3",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "scopes": [
+                "GAP"
+              ]
+            }
+          }
+        }
+      },
+      "gutter": {
+        "default": {
+          "$value": "{Semantic Dimension Tokens.global.spacer.md}",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5726:2",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "scopes": [
+                "GAP",
+                "FONT_VARIATIONS"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "icon": {
+      "size": {
+        "sm": {
+          "$value": "{Base Dimension Tokens.global.icon.size.100}",
+          "$description": "Use for small icons.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:196:695",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use for small icons.",
+              "scopes": [
+                "WIDTH_HEIGHT"
+              ]
+            }
+          }
+        },
+        "md": {
+          "$value": "{Base Dimension Tokens.global.icon.size.200}",
+          "$description": "Use for medium icons.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:196:697",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use for medium icons.",
+              "scopes": [
+                "WIDTH_HEIGHT"
+              ]
+            }
+          }
+        },
+        "lg": {
+          "$value": "{Base Dimension Tokens.global.icon.size.250}",
+          "$description": "Use for large icons.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:436:3",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use for large icons.",
+              "scopes": [
+                "WIDTH_HEIGHT"
+              ]
+            }
+          }
+        },
+        "xl": {
+          "$value": "{Base Dimension Tokens.global.icon.size.300}",
+          "$description": "Use for extra large icons.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:196:698",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use for extra large icons.",
+              "scopes": [
+                "WIDTH_HEIGHT"
+              ]
+            }
+          }
+        },
+        "2xl": {
+          "$value": "{Base Dimension Tokens.global.icon.size.400}",
+          "$description": "Use for double extra large icons.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:196:699",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use for double extra large icons.",
+              "scopes": [
+                "WIDTH_HEIGHT"
+              ]
+            }
+          }
+        },
+        "font": {
+          "body": {
+            "sm": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.body.sm}",
+              "$description": "Use for icons that are placed inline with small body text",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:31",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with small body text",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "default": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.body.default}",
+              "$description": "Use for icons that are placed inline with default body text",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:32",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with default body text",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "lg": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.body.lg}",
+              "$description": "Use for icons that are placed inline with large body text",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:33",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with large body text",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            }
+          },
+          "heading": {
+            "h1": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.heading.h1}",
+              "$description": "Use for icons that are placed inline with first level headings",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:34",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with first level headings",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "h2": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.heading.h2}",
+              "$description": "Use for icons that are placed inline with second level headings",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:35",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with second level headings",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "h3": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.heading.h3}",
+              "$description": "Use for icons that are placed inline with third level headings",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:36",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with third level headings",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "h4": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.heading.h4}",
+              "$description": "Use for icons that are placed inline with fourth level headings",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:37",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with fourth level headings",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "h5": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.heading.h5}",
+              "$description": "Use for icons that are placed inline with fifth level headings",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:38",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with fifth level headings",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "h6": {
+              "$value": "{Semantic Dimension Tokens.global.font.size.heading.h6}",
+              "$description": "Use for icons that are placed inline with sixth level headings",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:2305:39",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "description": "Use for icons that are placed inline with sixth level headings",
+                  "scopes": [
+                    "WIDTH_HEIGHT"
+                  ]
+                }
+              }
+            }
+          },
+          "xs": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.xs}",
+            "$description": "Use for icons that are placed inline with font–size–xs text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2666:2",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for icons that are placed inline with font–size–xs text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "sm": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.sm}",
+            "$description": "Use for icons that are placed inline with font–size–sm text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2666:3",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for icons that are placed inline with font–size–sm text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "md": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.md}",
+            "$description": "Use for icons that are placed inline with font–size–md text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2666:4",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for icons that are placed inline with font–size–md text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "lg": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.lg}",
+            "$description": "Use for icons that are placed inline with font–size–lg text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2666:5",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for icons that are placed inline with font–size–lg text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "xl": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.xl}",
+            "$description": "Use for icons that are placed inline with font–size–xl text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2666:6",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for icons that are placed inline with font–size–xl text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "2xl": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.2xl}",
+            "$description": "Use for icons that are placed inline with font–size–2xl text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2666:7",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for icons that are placed inline with font–size–2xl text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "3xl": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.3xl}",
+            "$description": "Use for icons that are placed inline with font–size–3xl text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2666:8",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for icons that are placed inline with font–size–3xl text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "4xl": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.4xl}",
+            "$description": "Use for icons that are placed inline with font–size–3xl text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2666:9",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for icons that are placed inline with font–size–3xl text",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        },
+        "3xl": {
+          "$value": "{Base Dimension Tokens.global.icon.size.500}",
+          "$description": "Use for triple extra large icons.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2490:360",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use for triple extra large icons.",
+              "scopes": [
+                "ALL_SCOPES"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "font": {
+      "line-height": {
+        "body": {
+          "$value": "{Base Dimension Tokens.global.font.line-height.200}",
+          "$description": "Use to define the line height for body text",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5053:9",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define the line height for body text",
+              "scopes": [
+                "ALL_SCOPES"
+              ]
+            }
+          }
+        },
+        "heading": {
+          "$value": "{Base Dimension Tokens.global.font.line-height.100}",
+          "$description": "Use to define the line height for heading text",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5053:10",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define the line height for heading text",
+              "scopes": [
+                "ALL_SCOPES"
+              ]
+            }
+          }
+        },
+        "figma-only": {
+          "body": {
+            "small": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.100}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:11",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "default": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.200}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:12",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "large": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.300}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:13",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            }
+          },
+          "heading": {
+            "xs": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.300}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:14",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "sm": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.400}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:17",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "md": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.500}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:18",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "lg": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.600}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:19",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "xl": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.700}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:20",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            },
+            "2xl": {
+              "$value": "{Base Dimension Tokens.global.font.line-height.figma-only.800}",
+              "$type": "dimension",
+              "$extensions": {
+                "com.figma": {
+                  "variableId": "VariableID:5053:21",
+                  "collectionId": "VariableCollectionId:192:672",
+                  "modeId": "192:4",
+                  "resolvedType": "FLOAT",
+                  "scopes": [
+                    "LINE_HEIGHT"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "family": {
+        "figma-only": {
+          "body": {
+            "$value": "{Base Dimension Tokens.global.font.family.figma-only.100}",
+            "$description": "Use to define the font family for body text",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5053:6",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "description": "Use to define the font family for body text",
+                "scopes": [
+                  "FONT_FAMILY"
+                ]
+              }
+            }
+          },
+          "heading": {
+            "$value": "{Base Dimension Tokens.global.font.family.figma-only.200}",
+            "$description": "Use to define the font family for heading text",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5053:7",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "description": "Use to define the font family for heading text",
+                "scopes": [
+                  "FONT_FAMILY"
+                ]
+              }
+            }
+          },
+          "mono": {
+            "$value": "{Base Dimension Tokens.global.font.family.figma-only.300}",
+            "$description": "Use to define the font family for mono text",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5053:8",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "description": "Use to define the font family for mono text",
+                "scopes": [
+                  "FONT_FAMILY"
+                ]
+              }
+            }
+          }
+        },
+        "body": {
+          "$value": "{Base Dimension Tokens.global.font.family.100}",
+          "$description": "Use to define the font family for body text",
+          "$type": "string",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5727:7",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "STRING",
+              "description": "Use to define the font family for body text"
+            }
+          }
+        },
+        "heading": {
+          "$value": "{Base Dimension Tokens.global.font.family.200}",
+          "$description": "Use to define the font family for heading text",
+          "$type": "string",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5727:8",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "STRING",
+              "description": "Use to define the font family for heading text"
+            }
+          }
+        },
+        "mono": {
+          "$value": "{Base Dimension Tokens.global.font.family.300}",
+          "$description": "Use to define the font family for mono text",
+          "$type": "string",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5727:9",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "STRING",
+              "description": "Use to define the font family for mono text"
+            }
+          }
+        }
+      },
+      "weight": {
+        "body": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.font.weight.100}",
+            "$description": "Use to define the default weight for body text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5053:22",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the default weight for body text",
+                "scopes": [
+                  "FONT_WEIGHT"
+                ]
+              }
+            }
+          },
+          "bold": {
+            "$value": "{Base Dimension Tokens.global.font.weight.200}",
+            "$description": "Use to define the bold weight for body text, often used to field labels or to add emphasis.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5053:23",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the bold weight for body text, often used to field labels or to add emphasis.",
+                "scopes": [
+                  "FONT_WEIGHT"
+                ]
+              }
+            }
+          }
+        },
+        "heading": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.font.weight.300}",
+            "$description": "Use to define the default weight for heading text",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5053:24",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the default weight for heading text",
+                "scopes": [
+                  "FONT_WEIGHT"
+                ]
+              }
+            }
+          },
+          "bold": {
+            "$value": "{Base Dimension Tokens.global.font.weight.400}",
+            "$description": "Use to define the bold weight for heading text, often used to add emphasis.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5053:25",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the bold weight for heading text, often used to add emphasis.",
+                "scopes": [
+                  "FONT_WEIGHT"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "size": {
+        "body": {
+          "sm": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.xs}",
+            "$description": "Use for a smaller font size in body sections.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:13",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for a smaller font size in body sections.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          },
+          "default": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.sm}",
+            "$description": "Use as the default font size in body sections.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:15",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the default font size in body sections.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          },
+          "lg": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.md}",
+            "$description": "Use for a larger font size in body sections.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:16",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use for a larger font size in body sections.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          }
+        },
+        "heading": {
+          "h1": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.2xl}",
+            "$description": "Use as the font size for first level headings.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:17",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the font size for first level headings.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          },
+          "h2": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.xl}",
+            "$description": "Use as the font size for second level headings.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:18",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the font size for second level headings.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          },
+          "h3": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.lg}",
+            "$description": "Use as the font size for third level headings.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:19",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the font size for third level headings.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          },
+          "h4": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.md}",
+            "$description": "Use as the font size for fourth-level headings.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:20",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the font size for fourth-level headings.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          },
+          "h5": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.md}",
+            "$description": "Use as the font size for fifth level headings.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:21",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the font size for fifth level headings.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          },
+          "h6": {
+            "$value": "{Semantic Dimension Tokens.global.font.size.md}",
+            "$description": "Use as the font size for sixth level headings.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2305:22",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use as the font size for sixth level headings.",
+                "scopes": [
+                  "FONT_SIZE"
+                ]
+              }
+            }
+          }
+        },
+        "xs": {
+          "$value": "{Base Dimension Tokens.global.font.size.100}",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:23",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "scopes": [
+                "FONT_SIZE"
+              ]
+            }
+          }
+        },
+        "sm": {
+          "$value": "{Base Dimension Tokens.global.font.size.200}",
+          "$description": "Use as the font size for small text that isn’t a heading or in a body section.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:24",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the font size for small text that isn’t a heading or in a body section.",
+              "scopes": [
+                "FONT_SIZE"
+              ]
+            }
+          }
+        },
+        "md": {
+          "$value": "{Base Dimension Tokens.global.font.size.300}",
+          "$description": "Use as the font size for medium text that isn’t a heading or in a body section.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:25",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the font size for medium text that isn’t a heading or in a body section.",
+              "scopes": [
+                "FONT_SIZE"
+              ]
+            }
+          }
+        },
+        "lg": {
+          "$value": "{Base Dimension Tokens.global.font.size.400}",
+          "$description": "Use as the font size for large text that isn’t a heading or in a body section.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:26",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the font size for large text that isn’t a heading or in a body section.",
+              "scopes": [
+                "FONT_SIZE"
+              ]
+            }
+          }
+        },
+        "xl": {
+          "$value": "{Base Dimension Tokens.global.font.size.500}",
+          "$description": "Use as the font size for extra large text that isn’t a heading or in a body section.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:27",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the font size for extra large text that isn’t a heading or in a body section.",
+              "scopes": [
+                "FONT_SIZE"
+              ]
+            }
+          }
+        },
+        "2xl": {
+          "$value": "{Base Dimension Tokens.global.font.size.600}",
+          "$description": "Use as the font size for double extra large text that isn’t a heading or in a body section.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:28",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the font size for double extra large text that isn’t a heading or in a body section.",
+              "scopes": [
+                "FONT_SIZE"
+              ]
+            }
+          }
+        },
+        "3xl": {
+          "$value": "{Base Dimension Tokens.global.font.size.700}",
+          "$description": "Use as the font size for triple extra large text that isn’t a heading or in a body section.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:29",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the font size for triple extra large text that isn’t a heading or in a body section.",
+              "scopes": [
+                "FONT_SIZE"
+              ]
+            }
+          }
+        },
+        "4xl": {
+          "$value": "{Base Dimension Tokens.global.font.size.800}",
+          "$description": "Use as the font size for quadruple extra large text that isn’t a heading or in a body section.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2305:30",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use as the font size for quadruple extra large text that isn’t a heading or in a body section.",
+              "scopes": [
+                "FONT_SIZE"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "z-index": {
+      "xs": {
+        "$value": "{Base Dimension Tokens.global.z-index.100}",
+        "$description": "Use to set an extra small z-index, to display an element below other elements with a larger z-index. Use for smaller parts of a component that need to overlap adjacent elements, like box shadows of hovered elements.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:2376:8",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to set an extra small z-index, to display an element below other elements with a larger z-index. Use for smaller parts of a component that need to overlap adjacent elements, like box shadows of hovered elements.",
+            "scopes": [
+              "ALL_SCOPES"
+            ]
+          }
+        }
+      },
+      "sm": {
+        "$value": "{Base Dimension Tokens.global.z-index.200}",
+        "$description": "Use to set a small z-index, to display an element above other elements with smaller z-indexes. Use for components that need to appear above surrounding elements, like menus/dropdowns.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:2376:9",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to set a small z-index, to display an element above other elements with smaller z-indexes. Use for components that need to appear above surrounding elements, like menus/dropdowns.",
+            "scopes": [
+              "ALL_SCOPES"
+            ]
+          }
+        }
+      },
+      "md": {
+        "$value": "{Base Dimension Tokens.global.z-index.300}",
+        "$description": "Use to set a medium z-index, to display an element above other elements with smaller z-indexes Use for sticky elements, like banners and page sections.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:2376:10",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to set a medium z-index, to display an element above other elements with smaller z-indexes Use for sticky elements, like banners and page sections.",
+            "scopes": [
+              "ALL_SCOPES"
+            ]
+          }
+        }
+      },
+      "lg": {
+        "$value": "{Base Dimension Tokens.global.z-index.400}",
+        "$description": "Use to set a large z-index, to display an element above other elements with smaller z-indexes Use for the backdrop component, which appears beneath an open modal.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:2376:11",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to set a large z-index, to display an element above other elements with smaller z-indexes Use for the backdrop component, which appears beneath an open modal.",
+            "scopes": [
+              "ALL_SCOPES"
+            ]
+          }
+        }
+      },
+      "xl": {
+        "$value": "{Base Dimension Tokens.global.z-index.500}",
+        "$description": "Use to set an extra large z-index, to display an element above other elements with smaller z-indexes. Use for modals.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:2376:12",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to set an extra large z-index, to display an element above other elements with smaller z-indexes. Use for modals.",
+            "scopes": [
+              "ALL_SCOPES"
+            ]
+          }
+        }
+      },
+      "2xl": {
+        "$value": "{Base Dimension Tokens.global.z-index.600}",
+        "$description": "Use to set a double extra large z-index, to display an element above all other page elements. Use for elements that should appear on top of all others, like toast alert groups.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:2376:13",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to set a double extra large z-index, to display an element above all other page elements. Use for elements that should appear on top of all others, like toast alert groups.",
+            "scopes": [
+              "ALL_SCOPES"
+            ]
+          }
+        }
+      }
+    },
+    "box-shadow": {
+      "X": {
+        "sm": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a default small box-shadow, like in sticky sections",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1972",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a default small box-shadow, like in sticky sections",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "top": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a small box-shadow that appears on the top of a raised element, like in sticky footers",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1980",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a small box-shadow that appears on the top of a raised element, like in sticky footers",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "bottom": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a small box-shadow that appears on the bottom of a raised element, like in sticky headers.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1983",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a small box-shadow that appears on the bottom of a raised element, like in sticky headers.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "left": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.200}",
+            "$description": "Use to define the X value for a small box-shadow that appears on the left of a raised element, like in sticky columns.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1981",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a small box-shadow that appears on the left of a raised element, like in sticky columns.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "right": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.600}",
+            "$description": "Use to define the X value for a small box-shadow that appears on the right of a raised element, like in sticky columns.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1982",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a small box-shadow that appears on the right of a raised element, like in sticky columns.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        },
+        "md": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a default medium box-shadow, used in popovers and raised menus.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1975",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a default medium box-shadow, used in popovers and raised menus.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "top": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a medium box-shadow that appears on the top of a raised element, like in overlay bottom drawers.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1995",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a medium box-shadow that appears on the top of a raised element, like in overlay bottom drawers.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "bottom": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a medium box-shadow that appears on the bottom of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1996",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a medium box-shadow that appears on the bottom of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "left": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.100}",
+            "$description": "Use to define the X value for a medium box-shadow that appears on the left of a raised element, like in overlay drawers that show on the right of the screen.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1997",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a medium box-shadow that appears on the left of a raised element, like in overlay drawers that show on the right of the screen.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "right": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.700}",
+            "$description": "Use to define the X value for a medium box-shadow that appears on the right of a raised element, like in overlay drawers that show on the left of the screen.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1998",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a medium box-shadow that appears on the right of a raised element, like in overlay drawers that show on the left of the screen.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        },
+        "lg": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a default large box-shadow, used in modals and wizards.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1976",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a default large box-shadow, used in modals and wizards.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "top": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a large box-shadow that appears on the top of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1999",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a large box-shadow that appears on the top of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "bottom": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.400}",
+            "$description": "Use to define the X value for a large box-shadow that appears on the bottom of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2000",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a large box-shadow that appears on the bottom of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "left": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.50}",
+            "$description": "Use to define the X value for a large box-shadow that appears on the left of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2001",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a large box-shadow that appears on the left of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "right": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.X.800}",
+            "$description": "Use to define the X value for a large box-shadow that appears on the right of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2002",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the X value for a large box-shadow that appears on the right of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "Y": {
+        "sm": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.500}",
+            "$description": "Use to define the Y value for a default small box-shadow, like in sticky sections",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1977",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a default small box-shadow, like in sticky sections",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "top": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.200}",
+            "$description": "Use to define the Y value for a small box-shadow that appears on the top of a raised element, like in sticky footers",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2003",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a small box-shadow that appears on the top of a raised element, like in sticky footers",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "bottom": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.600}",
+            "$description": "Use to define the Y value for a small box-shadow that appears on the bottom of a raised element, like in sticky headers.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2004",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a small box-shadow that appears on the bottom of a raised element, like in sticky headers.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "left": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.400}",
+            "$description": "Use to define the Y value for a small box-shadow that appears on the left of a raised element, like in sticky columns.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2005",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a small box-shadow that appears on the left of a raised element, like in sticky columns.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "right": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.400}",
+            "$description": "Use to define the Y value for a small box-shadow that appears on the right of a raised element, like in sticky columns.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2006",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a small box-shadow that appears on the right of a raised element, like in sticky columns.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        },
+        "md": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.600}",
+            "$description": "Use to define the Y value for a default medium box-shadow, used in popovers and raised menus.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1978",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a default medium box-shadow, used in popovers and raised menus.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "top": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.100}",
+            "$description": "Use to define the Y value for a medium box-shadow that appears on the top of a raised element, like in overlay bottom drawers",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2007",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a medium box-shadow that appears on the top of a raised element, like in overlay bottom drawers",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "bottom": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.700}",
+            "$description": "Use to define the Y value for a medium box-shadow that appears on the bottom of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2008",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a medium box-shadow that appears on the bottom of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "left": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.400}",
+            "$description": "Use to define the Y value for a medium box-shadow that appears on the left of a raised element, like in overlay drawers that show on the right of the screen.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2009",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a medium box-shadow that appears on the left of a raised element, like in overlay drawers that show on the right of the screen.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "right": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.400}",
+            "$description": "Use to define the Y value for a medium box-shadow that appears on the right of a raised element, like in overlay drawers that show on the left of the screen.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2010",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a medium box-shadow that appears on the right of a raised element, like in overlay drawers that show on the left of the screen.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        },
+        "lg": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.700}",
+            "$description": "Use to define the Y value for a default large box-shadow, used in modals and wizards.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:1979",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a default large box-shadow, used in modals and wizards.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "top": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.50}",
+            "$description": "Use to define the Y value for a large box-shadow that appears on the top of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2011",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a large box-shadow that appears on the top of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "bottom": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.800}",
+            "$description": "Use to define the Y value for a large box-shadow that appears on the bottom of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2012",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a large box-shadow that appears on the bottom of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "left": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.400}",
+            "$description": "Use to define the Y value for a large box-shadow that appears on the left of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2013",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a large box-shadow that appears on the left of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "right": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.Y.400}",
+            "$description": "Use to define the Y value for a large box-shadow that appears on the right of a raised element.",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2014",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the Y value for a large box-shadow that appears on the right of a raised element.",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "blur": {
+        "sm": {
+          "$value": "{Base Dimension Tokens.global.box-shadow.blur.100}",
+          "$description": "Use to define the blur for a small box-shadow",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2971:2026",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define the blur for a small box-shadow",
+              "scopes": [
+                "EFFECT_FLOAT"
+              ]
+            }
+          }
+        },
+        "md": {
+          "$value": "{Base Dimension Tokens.global.box-shadow.blur.200}",
+          "$description": "Use to define the blur for a medium box-shadow",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2971:2027",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define the blur for a medium box-shadow",
+              "scopes": [
+                "EFFECT_FLOAT"
+              ]
+            }
+          }
+        },
+        "lg": {
+          "$value": "{Base Dimension Tokens.global.box-shadow.blur.300}",
+          "$description": "Use to define the blue for a large box-shadow",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:2971:2028",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define the blue for a large box-shadow",
+              "scopes": [
+                "EFFECT_FLOAT"
+              ]
+            }
+          }
+        }
+      },
+      "spread": {
+        "sm": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.spread.100}",
+            "$description": "Use to define the spread for a small box-shadow",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2029",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the spread for a small box-shadow",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "directional": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.spread.200}",
+            "$description": "Use to define the spread for a small box-shadow",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:6334:66",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the spread for a small box-shadow",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        },
+        "md": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.spread.100}",
+            "$description": "Use to define the spread of a medium box-shadow",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2030",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the spread of a medium box-shadow",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "directional": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.spread.300}",
+            "$description": "Use to define the spread of a medium box-shadow",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:6334:70",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the spread of a medium box-shadow",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        },
+        "lg": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.spread.100}",
+            "$description": "Use to define the spread of a large box-shadow",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:2971:2031",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the spread of a large box-shadow",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          },
+          "directional": {
+            "$value": "{Base Dimension Tokens.global.box-shadow.spread.400}",
+            "$description": "Use to define the spread of a large box-shadow",
+            "$type": "dimension",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:6334:74",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "FLOAT",
+                "description": "Use to define the spread of a large box-shadow",
+                "scopes": [
+                  "EFFECT_FLOAT"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "breakpoint": {
+      "xs": {
+        "$value": "{Base Dimension Tokens.global.breakpoint.100}",
+        "$description": "Use to define an extra small breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:4548:8",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to define an extra small breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+            "scopes": [
+              "WIDTH_HEIGHT"
+            ]
+          }
+        }
+      },
+      "sm": {
+        "$value": "{Base Dimension Tokens.global.breakpoint.200}",
+        "$description": "Use to define a small breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:4548:9",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to define a small breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+            "scopes": [
+              "WIDTH_HEIGHT"
+            ]
+          }
+        }
+      },
+      "md": {
+        "$value": "{Base Dimension Tokens.global.breakpoint.300}",
+        "$description": "Use to define a medium breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:4548:10",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to define a medium breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+            "scopes": [
+              "WIDTH_HEIGHT"
+            ]
+          }
+        }
+      },
+      "lg": {
+        "$value": "{Base Dimension Tokens.global.breakpoint.400}",
+        "$description": "Use to define a large breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:4548:11",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to define a large breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+            "scopes": [
+              "WIDTH_HEIGHT"
+            ]
+          }
+        }
+      },
+      "xl": {
+        "$value": "{Base Dimension Tokens.global.breakpoint.500}",
+        "$description": "Use to define an extra large breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:4548:12",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to define an extra large breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+            "scopes": [
+              "WIDTH_HEIGHT"
+            ]
+          }
+        }
+      },
+      "2xl": {
+        "$value": "{Base Dimension Tokens.global.breakpoint.600}",
+        "$description": "Use to define a double extra large breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+        "$type": "dimension",
+        "$extensions": {
+          "com.figma": {
+            "variableId": "VariableID:4548:13",
+            "collectionId": "VariableCollectionId:192:672",
+            "modeId": "192:4",
+            "resolvedType": "FLOAT",
+            "description": "Use to define a double extra large breakpoint, which is the minimum width at which an effect applies to an element, in order to support responsive design.",
+            "scopes": [
+              "WIDTH_HEIGHT"
+            ]
+          }
+        }
+      },
+      "height": {
+        "sm": {
+          "$value": "{Base Dimension Tokens.global.breakpoint.100}",
+          "$description": "Use to define a small height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:4785:5",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define a small height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+              "scopes": [
+                "ALL_SCOPES"
+              ]
+            }
+          }
+        },
+        "md": {
+          "$value": "{Base Dimension Tokens.global.breakpoint.250}",
+          "$description": "Use to define a medium height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:4785:6",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define a medium height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+              "scopes": [
+                "ALL_SCOPES"
+              ]
+            }
+          }
+        },
+        "lg": {
+          "$value": "{Base Dimension Tokens.global.breakpoint.300}",
+          "$description": "Use to define a large height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:4785:7",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define a large height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+              "scopes": [
+                "ALL_SCOPES"
+              ]
+            }
+          }
+        },
+        "xl": {
+          "$value": "{Base Dimension Tokens.global.breakpoint.350}",
+          "$description": "Use to define an extra large height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:4785:8",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define an extra large height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+              "scopes": [
+                "ALL_SCOPES"
+              ]
+            }
+          }
+        },
+        "2xl": {
+          "$value": "{Base Dimension Tokens.global.breakpoint.550}",
+          "$description": "Use to define an extra small height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:4785:9",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "description": "Use to define an extra small height breakpoint, which is the minimum height at which an effect applies to an element, in order to support responsive design.",
+              "scopes": [
+                "WIDTH_HEIGHT"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "text-decoration": {
+      "width": {
+        "default": {
+          "$value": "{Semantic Dimension Tokens.global.border.width.regular}",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5192:18",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "scopes": [
+                "ALL_SCOPES"
+              ]
+            }
+          }
+        }
+      },
+      "offset": {
+        "default": {
+          "$value": "{Semantic Dimension Tokens.global.spacer.xs}",
+          "$type": "dimension",
+          "$extensions": {
+            "com.figma": {
+              "variableId": "VariableID:5192:20",
+              "collectionId": "VariableCollectionId:192:672",
+              "modeId": "192:4",
+              "resolvedType": "FLOAT",
+              "scopes": [
+                "GAP",
+                "FONT_VARIATIONS"
+              ]
+            }
+          }
+        }
+      },
+      "editable-text": {
+        "line": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.line.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5211:25",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.line.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5211:26",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        },
+        "style": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.style.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5192:16",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.style.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5192:17",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "link": {
+        "line": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.line.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5192:8",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.line.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5192:9",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        },
+        "style": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.style.100}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5211:27",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.style.100}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5211:28",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "help-text": {
+        "line": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.line.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5211:23",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.line.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5211:24",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        },
+        "style": {
+          "default": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.style.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5192:14",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          },
+          "hover": {
+            "$value": "{Base Dimension Tokens.global.text-decoration.style.200}",
+            "$type": "string",
+            "$extensions": {
+              "com.figma": {
+                "variableId": "VariableID:5192:15",
+                "collectionId": "VariableCollectionId:192:672",
+                "modeId": "192:4",
+                "resolvedType": "STRING",
+                "scopes": [
+                  "ALL_SCOPES"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
