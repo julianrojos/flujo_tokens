@@ -1,0 +1,56 @@
+name: TBD
+status: draft # draft | ready
+figma:
+  file: TBD
+  page: TBD
+  component_set: TBD
+
+summary:
+  purpose: TBD
+  when_to_use: TBD
+  when_not_to_use: TBD
+
+anatomy:
+  - id: container
+    description: TBD
+
+properties:
+  - name: state
+    type: enum
+    values: [default]
+    default: default
+    required: true
+    description: "Figma property for interaction states."
+
+content_guidelines:
+  rules:
+    - TBD
+
+best_practices:
+  do:
+    - TBD
+  dont:
+    - TBD
+
+accessibility:
+  role: TBD
+  focus:
+    tokens:
+      inner: "Semantic.Color.Focus-Outline.Inner"
+      outer: "Semantic.Color.Focus-Outline.Outer"
+  hit_area:
+    desktop_token: "A11y.A11y.modeDesktop.Dimension.Min-Hit-Area"
+    mobile_token: "A11y.A11y.modeMobile.Dimension.Min-Hit-Area"
+  labeling:
+    rules:
+      - TBD
+
+token_mapping:
+  # Example:
+  # container.background:
+  #   "state=default": "Components.<Component>.Background.Default"
+  TBD: TBD
+
+qa:
+  - "Properties match the Figma component set."
+  - "Token mapping uses real token keys."
