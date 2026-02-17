@@ -125,7 +125,7 @@ export function isModeKey(key: string): boolean {
 
     const tail = key.slice(4);
     if (!tail) return true;
-    if (tail.toLowerCase() === 'default') return true;
+    if (isModeDefaultKey(key)) return true;
 
     const first = tail[0];
     return /[A-Z0-9_-]/.test(first);
@@ -134,4 +134,13 @@ export function isModeKey(key: string): boolean {
 export function shouldSkipKey(key: string): boolean {
     // Skip metadata ($...) and mode branches; the selected mode branch is traversed separately.
     return key.startsWith('$') || isModeKey(key);
+}
+
+export function isModeDefaultKey(modeKey: string): boolean {
+    if (!modeKey) return false;
+    const trimmed = modeKey.trim();
+    if (!/^mode/i.test(trimmed)) return false;
+    const tail = trimmed.slice(4);
+    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+    return normalized === 'default';
 }

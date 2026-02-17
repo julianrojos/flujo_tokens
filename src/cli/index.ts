@@ -10,6 +10,7 @@ import { fileURLToPath } from 'url';
 
 // Types
 import type { TokenValue, CssVarOwner, CssVarCollision, EmissionContext } from '../types/tokens.js';
+import { isModeDefaultKey } from '../types/tokens.js';
 
 // Runtime
 import { resetRuntimeState } from '../runtime/state.js';
@@ -272,7 +273,10 @@ async function main() {
     // Base scope: emit only tokens without mode branches or with explicit base values.
     scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: false, modeOverridesOnly: false, allowModeBranches: false });
 
-    for (const modeKey of sortedModes) {
+    // Do not emit a dedicated mode-default scope: default values belong in :root.
+    const emittedModes = sortedModes.filter(modeKey => !isModeDefaultKey(modeKey));
+
+    for (const modeKey of emittedModes) {
         const selectorValue = normalizeModeName(modeKey);
         const selector = `[data-theme="${selectorValue}"]`;
         scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true, modeOverridesOnly: true, allowModeBranches: true });
