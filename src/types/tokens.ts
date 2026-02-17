@@ -34,6 +34,13 @@ export interface ExecutionSummary {
     cssVarNameCollisionDetails: string[];
     invalidTokens: string[];
     tokenTypeCounts: Record<string, number>;
+    /**
+     * Internal dedupe sets used to keep summary counters scope-agnostic.
+     * They are runtime-only and not part of user-facing output.
+     */
+    countedTokenKeys: Set<string>;
+    countedGeneratedKeys: Set<string>;
+    countedTokenTypeKeys: Set<string>;
 }
 
 // --- Collision types ---

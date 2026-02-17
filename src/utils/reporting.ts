@@ -12,8 +12,8 @@ export function printExecutionSummary(summary: ExecutionSummary): void {
     console.log('\n========================================');
     console.log(' EXECUTION SUMMARY         ');
     console.log('========================================');
-    console.log(`Total Tokens:        ${summary.totalTokens}`);
-    console.log(`Generated:           ${summary.successCount}`);
+    console.log(`Total Tokens (unique): ${summary.totalTokens}`);
+    console.log(`Generated (unique):    ${summary.successCount}`);
     console.log(`Circular Deps:       ${summary.circularDeps}`);
     console.log(`CSS Var Collisions:  ${summary.cssVarNameCollisions}`);
     console.log(`Unresolved Refs:     ${summary.unresolvedRefs.length}`);

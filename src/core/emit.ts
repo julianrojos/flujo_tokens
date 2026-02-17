@@ -109,6 +109,37 @@ function containsReference(value: unknown): boolean {
 
 // --- Recording helpers ---
 
+function getSummaryTokenKey(currentPath: string[]): string {
+    const normalized = normalizePathKey(buildPathKey(currentPath));
+    if (normalized) return normalized;
+    return normalizePathKey(pathStr(currentPath));
+}
+
+function incrementUniqueTokenCount(summary: ExecutionSummary, currentPath: string[]): void {
+    const key = getSummaryTokenKey(currentPath);
+    if (!key || summary.countedTokenKeys.has(key)) return;
+    summary.countedTokenKeys.add(key);
+    summary.totalTokens++;
+}
+
+function incrementUniqueGeneratedCount(summary: ExecutionSummary, currentPath: string[]): void {
+    const key = getSummaryTokenKey(currentPath);
+    if (!key || summary.countedGeneratedKeys.has(key)) return;
+    summary.countedGeneratedKeys.add(key);
+    summary.successCount++;
+}
+
+function incrementUniqueTokenTypeCount(summary: ExecutionSummary, currentPath: string[], varType?: string): void {
+    if (!varType) return;
+    const key = getSummaryTokenKey(currentPath);
+    if (!key) return;
+
+    const typeKey = `${key}::${varType}`;
+    if (summary.countedTokenTypeKeys.has(typeKey)) return;
+    summary.countedTokenTypeKeys.add(typeKey);
+    summary.tokenTypeCounts[varType] = (summary.tokenTypeCounts[varType] || 0) + 1;
+}
+
 export function recordUnresolved(summary: ExecutionSummary, currentPath: string[], reason: string): void {
     summary.unresolvedRefs.push(`${pathStr(currentPath)}${reason}`);
 }
@@ -189,7 +220,7 @@ export function emitCssVar(
     }
 
     collectedVars.push(`  ${varName}: ${value};`);
-    summary.successCount++;
+    incrementUniqueGeneratedCount(summary, currentPath);
 }
 
 // --- Token lookup helpers ---
@@ -799,11 +830,11 @@ export function flattenTokens(
         currentPath,
         {
             onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inheritedType }) => {
-                summary.totalTokens++;
+                incrementUniqueTokenCount(summary, tokenPath);
                 const rawValue = (tokenObj as TokenValue).$value;
                 const varType = (tokenObj as TokenValue).$type ?? inheritedType;
 
-                if (varType) summary.tokenTypeCounts[varType] = (summary.tokenTypeCounts[varType] || 0) + 1;
+                incrementUniqueTokenTypeCount(summary, tokenPath, varType);
 
                 // Strict Type Validation
                 if (!varType) {
@@ -827,14 +858,13 @@ export function flattenTokens(
             },
 
             onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inheritedType }) => {
-                summary.totalTokens++;
-
                 const varName = buildCssVarNameFromPrefix([...parentPrefix, normalizedKey]);
                 const leafPath = [...parentPath, key];
+                incrementUniqueTokenCount(summary, leafPath);
 
                 const visitedRefs = buildVisitedRefSet(leafPath);
 
-                if (inheritedType) summary.tokenTypeCounts[inheritedType] = (summary.tokenTypeCounts[inheritedType] || 0) + 1;
+                incrementUniqueTokenTypeCount(summary, leafPath, inheritedType);
 
                 const processedValue = processValue(ctx, value, inheritedType, leafPath, visitedRefs);
                 if (processedValue === null) return;

@@ -15,7 +15,10 @@ export function createSummary(): ExecutionSummary {
         cssVarNameCollisions: 0,
         cssVarNameCollisionDetails: [],
         invalidTokens: [],
-        tokenTypeCounts: {}
+        tokenTypeCounts: {},
+        countedTokenKeys: new Set<string>(),
+        countedGeneratedKeys: new Set<string>(),
+        countedTokenTypeKeys: new Set<string>()
     };
 }
 
