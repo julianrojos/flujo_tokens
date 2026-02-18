@@ -25,7 +25,8 @@ figma:
 ```
 
 - If data is unknown, use `TBD`.
-- Do not use `VariableID:*` or raw node IDs as standalone metadata values.
+- Do not use `VariableID:*` as metadata.
+- Node IDs may appear for traceability (for example via `node-id` in `figma.file_url`).
 
 ## Required sections (in order)
 

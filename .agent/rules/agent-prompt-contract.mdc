@@ -20,7 +20,8 @@ Prompts produced by tooling scripts must follow a stable template.
 ## Required constraints
 
 - No invented component or token facts.
-- No Figma internal IDs in user-facing markdown tables/prose (`VariableID:*`, node IDs).
+- No Figma internal variable IDs in user-facing markdown (`VariableID:*`).
+- Figma node IDs are allowed when used for source traceability.
 - No component implementation code; documentation-only output.
 - Explicit output path(s) when writing files.
 

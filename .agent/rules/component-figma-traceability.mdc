@@ -32,8 +32,10 @@ If a value is unknown, use `TBD` instead of guessing.
 - `figma.page` should match the page name in Figma.
 - `figma.last_verified` records the latest manual verification date.
 - Keep a direct source link in `## Overview` (human-readable URL text is fine).
+- Include `node-id` in the source URL when available to preserve exact node traceability.
 
 ## Prohibited values
 
 - Do not use `VariableID:*` as metadata.
-- Do not store node IDs as standalone identifiers in tables or prose.
+- Node IDs are allowed in traceability URLs and metadata notes.
+- Do not use node IDs as token identifiers.

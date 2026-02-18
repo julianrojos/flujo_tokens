@@ -2,7 +2,7 @@
 doc_type: component
 doc_status: draft
 figma:
-  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System"
+  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202"
   page: "Bars"
   component: "Status-Bar"
   last_verified: "2026-02-18"
@@ -22,7 +22,7 @@ Default variant in Figma: `Background=Transparent`.
 
 All variants share the same structure and dimensions (`440 x 44`).
 
-Source: [Status-Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System)
+Source: [Status-Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202)
 
 ## Anatomy
 

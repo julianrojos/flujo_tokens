@@ -2,7 +2,7 @@
 doc_type: component
 doc_status: draft
 figma:
-  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System"
+  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2064-65"
   page: "Bars"
   component: "Bottom_Bar"
   last_verified: "2026-02-18"
@@ -18,7 +18,7 @@ In Figma, this component is defined as a `COMPONENT` (`Bottom_Bar`) without root
 
 It contains five `Bottom_Bar_Button` instances arranged horizontally.
 
-Source: [Bottom_Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System)
+Source: [Bottom_Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2064-65)
 
 ## Anatomy
 

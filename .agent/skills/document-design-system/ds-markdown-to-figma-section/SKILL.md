@@ -21,7 +21,7 @@ This skill must comply with:
 
 - `figma-doc-rendering.mdc` — block types, determinism, theme contract, section placement, and table rendering rules
 - `component-doc-structure.mdc` — the Markdown input is expected to follow the required frontmatter + ordered sections
-- `ds-docs-guardrails.mdc` — no Figma internal IDs in visible text, no invented content
+- `ds-docs-guardrails.mdc` — no invented content; `VariableID:*` is prohibited in visible docs
 - `markdown-figma-subset.mdc` — supported markdown subset and table authoring constraints
 
 ## Inputs (ask only if missing)

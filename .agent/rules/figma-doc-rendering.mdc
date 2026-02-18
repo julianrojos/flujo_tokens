@@ -57,6 +57,6 @@ Input markdown is expected to follow the authoring subset from `markdown-figma-s
 
 ## Prohibited content in Figma sections
 
-- Never render Figma node IDs in visible text nodes.
 - Never render `VariableID:*` references in visible text.
+- Figma node IDs may be rendered when present in documentation for source traceability.
 - Token paths shown in the Figma section should match the Markdown source exactly.

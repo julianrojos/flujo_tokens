@@ -121,7 +121,8 @@ Per `component-doc-structure.mdc`, use this table format:
   |------|-----------|-------|----------|
 
 - Resolve aliases when possible; otherwise show raw reference and mark `unresolved`.
-- Never include `VariableID:*` or Figma-internal node IDs.
+- Never include `VariableID:*`.
+- Figma node IDs are allowed only for source traceability (for example, `node-id` in Figma URLs).
 
 ## End with a report
 

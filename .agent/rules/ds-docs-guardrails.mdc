@@ -29,7 +29,9 @@ globs:
 ## Figma references
 
 - Reference Figma by **component set name** and **property name** only.
-- Never include Figma internal IDs (`VariableID:*`, node IDs like `1234:5678`) in prose, tables, or YAML specs. Use human-readable token paths only.
+- Never include Figma internal variable IDs (`VariableID:*`) in prose, tables, or YAML specs.
+- Figma node IDs are allowed for traceability (for example, `node-id` in source URLs or explicit node references in metadata).
+- Do not use node IDs as token identifiers; keep token references human-readable.
 
 ## Metadata
 
