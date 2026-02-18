@@ -201,6 +201,38 @@ function fontStyleFromWeight(weight) {
   return "Regular";
 }
 
+function extractBoldRanges(rawText) {
+  const input = String(rawText == null ? "" : rawText);
+  const boldRanges = [];
+  let plainText = "";
+  let cursor = 0;
+
+  while (cursor < input.length) {
+    const open = input.indexOf("**", cursor);
+    if (open === -1) {
+      plainText += input.slice(cursor);
+      break;
+    }
+
+    const close = input.indexOf("**", open + 2);
+    if (close === -1) {
+      plainText += input.slice(cursor);
+      break;
+    }
+
+    plainText += input.slice(cursor, open);
+    const boldPart = input.slice(open + 2, close);
+    const start = plainText.length;
+    plainText += boldPart;
+    const end = plainText.length;
+    if (end > start) boldRanges.push({ start, end });
+
+    cursor = close + 2;
+  }
+
+  return { plainText, boldRanges };
+}
+
 async function ensureFonts(theme) {
   const family = getPath(theme, "theme.typography.font_family", "Nunito Sans");
   const typography = getPath(theme, "theme.typography", {});
@@ -210,6 +242,7 @@ async function ensureFonts(theme) {
     if (!value || typeof value !== "object") continue;
     styles.add(fontStyleFromWeight(value.weight));
   }
+  styles.add("Bold");
 
   for (const style of styles) {
     try {
@@ -273,8 +306,19 @@ function createText(parent, text, styleKey, theme, options) {
   } else {
     node.textAutoResize = "WIDTH_AND_HEIGHT";
   }
-  node.characters = text;
+  const parsed = extractBoldRanges(text);
+  node.characters = parsed.plainText;
   parent.appendChild(node);
+  if (parsed.boldRanges.length > 0) {
+    const boldFont = { family, style: "Bold" };
+    for (const range of parsed.boldRanges) {
+      try {
+        node.setRangeFontName(range.start, range.end, boldFont);
+      } catch (error) {
+        // Ignore unavailable bold style for this font family.
+      }
+    }
+  }
   if (wrap) {
     const parentWidth = "width" in parent ? Number(parent.width || 0) : 0;
     const padLeft = "paddingLeft" in parent ? Number(parent.paddingLeft || 0) : 0;
