@@ -178,7 +178,8 @@ const OPTIONAL_H2_TAIL = ["Design–Token Discrepancies", "Gaps / TBD"];
 Exit behavior
 Exit code 0 if all pass, 1 if any fail. JSON report to stdout.
 
-###Improvement 3: Inline Formatting in MD→Figma Pipeline
+### Improvement 3: Inline Formatting in MD→Figma Pipeline
+
 Problem: markdown*to_doc_model.mjs strips **bold**, \_italic*, `code`. The Figma render is plain text only.
 Files to modify
 A) markdown_to_doc_model.mjs — add parseInlineFormatting(raw):
@@ -202,7 +203,8 @@ font_family_mono: "Roboto Mono"
 
 ```
 
-**D) `figma-doc-rendering.mdc`** — document inline formatting support in block types section
+D) `figma-doc-rendering.mdc`** — document inline formatting support in block types section
+```
 
 ---
 
@@ -211,11 +213,11 @@ font_family_mono: "Roboto Mono"
 **Problem**: Running the full pipeline is 5+ manual steps with no precondition checking.
 
 #### Files to create
+
 - `.agent/skills/document-design-system/ds-pipeline/SKILL.md`
 - `tooling/scripts/ds-pipeline.mjs`
 
 #### Pipeline stages
-```
 
 Stage 0: Token compile npm run generate -- --registry
 Stage 1: Validate docs npm run validate:docs
@@ -232,6 +234,7 @@ node tooling/scripts/ds-pipeline.mjs --strict # fail on first error
 
 ### Files to modify
 - `package.json` — add script `"ds:pipeline"`
+```
 
 ---
 
@@ -240,9 +243,11 @@ node tooling/scripts/ds-pipeline.mjs --strict # fail on first error
 **Problem**: Writing spec YAMLs by hand is the slowest bottleneck. User must inspect Figma, extract properties, map tokens — all manually.
 
 ### Files to create
+
 - `.agent/skills/document-design-system/ds-spec-from-figma/SKILL.md`
 
 #### Skill workflow (agent-driven, uses Figma MCP)
+
 1. `figma_search_components` / `figma_get_component_details` → extract `name`, `properties`, layer tree
 2. Read `input/Components.json` → match token entries for this component → pre-fill `token_mapping`
 3. Pre-fill `accessibility` with standard tokens from `_template.yml`
@@ -250,6 +255,7 @@ node tooling/scripts/ds-pipeline.mjs --strict # fail on first error
 5. Write to `docs/_spec/components/{snake_name}.yml`
 
 #### Applicable rules
+
 - `component-spec-yaml.mdc` — output must comply with spec schema
 - `token-references.mdc` — token paths in token_mapping must use real paths
 - `ds-docs-guardrails.mdc` — no invented content
@@ -261,32 +267,39 @@ node tooling/scripts/ds-pipeline.mjs --strict # fail on first error
 **Problem**: No way to answer: "How complete is our docs coverage? Which components lack docs? Which tokens are stale?"
 
 #### Files to create
+
 - `tooling/scripts/ds-qa.mjs`
 
 #### Audit dimensions
 
 **Coverage** (what exists vs. what should):
+
 - `COV-01`: Spec YAMLs vs. markdown files
 - `COV-02`: Markdown files vs. overview links
 - `COV-03`: Token paths in docs vs. token registry
 
 **Freshness** (what might be stale):
+
 - `FRE-01`: Spec YAMLs still `draft`
 - `FRE-02`: Markdown with `doc_status: needs-review`
 - `FRE-03`: `last_verified` dates older than 30 days
 
 **Completeness** (what has TBD gaps):
+
 - `COM-01`: Spec YAMLs with TBD values (count per file)
 - `COM-02`: Markdowns with `## Gaps / TBD` section
 
 **Integrity** (cross-pipeline):
+
 - `INT-01`: Token paths in docs not in registry
 - `INT-02`: Overview links vs. actual files
 
 #### Output
+
 JSON report to stdout + `docs/_generated/qa-report.json`
 
 #### Files to modify
+
 - `package.json` — add script `"ds:qa"`
 
 ---
@@ -295,7 +308,8 @@ JSON report to stdout + `docs/_generated/qa-report.json`
 
 **Problem**: Hand-rolled YAML parser (~170 lines), hand-rolled MD parser, duplicated `parseArgs()` across 4 files, no real YAML library.
 
-####  Files to create
+#### Files to create
+
 ```
 
 tooling/scripts/lib/
@@ -323,3 +337,4 @@ Orchestration: npm run ds:pipeline -- --component alert --from-stage 0 runs all 
 Spec from Figma: Run skill on Alert component, compare generated YAML against manually-written alert.yml
 QA: npm run ds:qa produces coverage report showing 4/4 specs, 4/4 markdowns, token validity
 Shared lib: build_figma_execute_code.mjs uses js-yaml and all shared utilities
+```
