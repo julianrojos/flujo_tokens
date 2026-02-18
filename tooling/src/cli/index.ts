@@ -74,10 +74,10 @@ Options:
 }
 
 function parseArgs(argv: string[]): CliOptions | null {
-    let inputDir = path.resolve(__dirname, '../../input');
-    let outputFile = path.resolve(__dirname, '../../output/custom-properties.css');
-    let outputPrimitives = path.resolve(__dirname, '../../output/primitives.css');
-    let outputTokens = path.resolve(__dirname, '../../output/tokens.css');
+    let inputDir = path.resolve(__dirname, '../../../input');
+    let outputFile = path.resolve(__dirname, '../../../output/custom-properties.css');
+    let outputPrimitives = path.resolve(__dirname, '../../../output/primitives.css');
+    let outputTokens = path.resolve(__dirname, '../../../output/tokens.css');
     let split = true;
     let help = false;
     let mode: string | undefined;
