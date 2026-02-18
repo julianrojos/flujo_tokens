@@ -42,7 +42,7 @@ Current variant dimensions in Figma:
 - **Padding**: `7px` top and bottom, `8px` left and right
 - **Corner radius**: `8px`
 - **Border**: `2px`, aligned `INSIDE`
-- **Background token**: `Color/Background/Feedback/Default` (`VariableID:4399:866`)
+- **Background token**: `Color/Background/Feedback/Default`
 - **Background fallback**: `#FFFFFF`
 
 ### Typography
@@ -51,16 +51,16 @@ Current variant dimensions in Figma:
 - **Font**: `Nunito Sans Regular`
 - **Size / line height**: `16 / 24`
 - **Letter spacing**: `0%`
-- **Text color token**: `Color/Text/Neutral/Default` (`VariableID:365:1156`)
+- **Text color token**: `Color/Text/Neutral/Default`
 - **Text color fallback**: `#483F3F`
 
 ### Variants
 
 | Variant       | Border token                                                | Border fallback | Icon component                 | Icon token                                                 | Icon fallback |
 | :------------ | :---------------------------------------------------------- | :-------------- | :----------------------------- | :--------------------------------------------------------- | :------------ |
-| `Information` | `Color/Border/Feedback/Information` (`VariableID:4480:772`) | `#BAA06B`       | `information-circle-contained` | `Color/Icon/Feedback/Information` (`VariableID:4480:1571`) | `#9D8555`     |
-| `Warning`     | `Color/Border/Feedback/Danger` (`VariableID:4480:971`)      | `#B22222`       | `x-circle-contained`           | `Color/Icon/Feedback/Danger` (`VariableID:4480:1173`)      | `#B22222`     |
-| `Positive`    | `Color/Border/Feedback/Success` (`VariableID:4480:464`)     | `#299157`       | `check-contained`              | `Color/Icon/Feedback/Success` (`VariableID:4480:1372`)     | `#299157`     |
+| `Information` | `Color/Border/Feedback/Information` | `#BAA06B`       | `information-circle-contained` | `Color/Icon/Feedback/Information` | `#9D8555`     |
+| `Warning`     | `Color/Border/Feedback/Danger`      | `#B22222`       | `x-circle-contained`           | `Color/Icon/Feedback/Danger`      | `#B22222`     |
+| `Positive`    | `Color/Border/Feedback/Success`     | `#299157`       | `check-contained`              | `Color/Icon/Feedback/Success`     | `#299157`     |
 
 ## Usage Guidelines
 

@@ -12,3 +12,4 @@ globs:
 - Token names must match the JSON keys exactly and be wrapped in inline code.
 - Prefer tables for properties, states, and token mappings.
 - No code examples for now (design-only documentation).
+- Never include Figma internal IDs (`VariableID:*`, node IDs) in prose or tables. Use human-readable token paths only.

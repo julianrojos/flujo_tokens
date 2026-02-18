@@ -35,7 +35,7 @@ Each avatar contains:
 - **Layout**: `NONE` (no Auto Layout)
 - **Corner radius**: `8px` on all corners
 - **Border**: `2px`, aligned `INSIDE`
-- **Border color token**: `Color/Border/Neutral/Default` (`VariableID:2014:168`)
+- **Border color token**: `Color/Border/Neutral/Default`
 - **Border color fallback**: `#9A9090`
 - **Fill**: none
 - **Clips content**: `true`
@@ -51,9 +51,9 @@ Each avatar contains:
 
 | Slot | Figma binding | Semantic token | Primitive alias | Resolved value |
 | :--- | :------------ | :------------- | :-------------- | :------------- |
-| Border color | `strokes` | `Color/Border/Neutral/Default` (`VariableID:2014:168`) | `Color/Grey/500` (`VariableID:40:245`) | `#9A9090` |
-| Border radius | `topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius` | `Dimension/Border/Radius/200` (`VariableID:98:4439`) | `Dimension/Border/Radius/8` (`VariableID:4550:5300`) | `8` |
-| Border width | `strokeTopWeight`, `strokeBottomWeight`, `strokeLeftWeight`, `strokeRightWeight` | `Dimension/Border/Width/200` (`VariableID:4379:2395`) | `Dimension/Border/Width/2` (`VariableID:4550:5305`) | `2` |
+| Border color | `strokes` | `Color/Border/Neutral/Default` | `Color/Grey/500` | `#9A9090` |
+| Border radius | `topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius` | `Dimension/Border/Radius/200` | `Dimension/Border/Radius/8` | `8` |
+| Border width | `strokeTopWeight`, `strokeBottomWeight`, `strokeLeftWeight`, `strokeRightWeight` | `Dimension/Border/Width/200` | `Dimension/Border/Width/2` | `2` |
 
 ## Usage Guidelines
 

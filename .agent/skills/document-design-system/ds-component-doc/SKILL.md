@@ -67,7 +67,7 @@ The spec should contain (when available):
 
 ## Tokens used (resolved)
 
-- Must list real token keys.
+- Must list real token keys (human-readable paths). Never include `VariableID:*` or Figma-internal node IDs.
 - If `token_mapping` includes conditional mappings, show them in a table:
   | Slot/Property | Condition | Token | Resolves to | Notes |
   |---|---|---|---|---|

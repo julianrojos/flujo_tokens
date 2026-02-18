@@ -67,15 +67,15 @@ Each status bar contains:
 | Variant | Background fill | Token | Fallback |
 | :------ | :-------------- | :---- | :------- |
 | `Background=Transparent` | None | — | Transparent |
-| `Background=Brand` | Solid fill | `Color/Background/Brand/Secondary` (`VariableID:4400:1267`) | `#C9E0BE` |
+| `Background=Brand` | Solid fill | `Color/Background/Brand/Secondary` | `#C9E0BE` |
 
 ## Tokens Used
 
 | Slot | Condition | Token | Alias chain | Resolved value |
 | :--- | :-------- | :---- | :---------- | :------------- |
-| Background fill | `Background=Brand` | `Color/Background/Brand/Secondary` (`VariableID:4400:1267`) | `Color/Cucumber/200` (`VariableID:40:206`) | `#C9E0BE` |
-| Time text color | All variants | `Color/BW/Black` (`VariableID:40:195`) | — | `#000000` |
-| Status icons color | All variants | `Color/BW/Black` (`VariableID:40:195`) | — | `#000000` |
+| Background fill | `Background=Brand` | `Color/Background/Brand/Secondary` | `Color/Cucumber/200` | `#C9E0BE` |
+| Time text color | All variants | `Color/BW/Black` | — | `#000000` |
+| Status icons color | All variants | `Color/BW/Black` | — | `#000000` |
 
 ## Usage Guidelines
 
