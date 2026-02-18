@@ -33,11 +33,20 @@ Use this skill when:
 - `${docs_root}/foundations/a11y.md`
 - Update `${docs_root}/foundations/overview.md` to link to all of the above
 
+## Applicable rules
+
+This skill must produce output that complies with:
+
+- `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
+- `token-references.mdc` — token path formatting, fallback values, and naming patterns in all foundation pages
+- `accessibility-docs.mdc` — conventions for documenting focus, hit area, and contrast in `a11y.md`
+
 ## Global rules
 
 - Do not invent usage rules.
-- If a guideline is not explicitly supported by naming or metadata, mark `TBD` and list what’s needed.
+- If a guideline is not explicitly supported by naming or metadata, mark `TBD` and list what's needed.
 - Always link to `_generated/` for the authoritative token tables.
+- Token paths in foundation pages must follow `token-references.mdc` (inline code + fallback).
 
 ## Page patterns (fixed sections)
 
@@ -83,8 +92,8 @@ Use this skill when:
 
 1. A11y foundations (scope)
 2. Modes (link `_generated/a11y.modes.md`)
-3. Focus indicator tokens (if present)
-4. Touch targets (values only)
+3. Focus indicator tokens (if present) — follow `accessibility-docs.mdc` for focus outline token conventions
+4. Touch targets (values only) — reference A11y hit area tokens per `accessibility-docs.mdc`
 5. Gaps / TBD
 
 ## End with a report

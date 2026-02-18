@@ -23,10 +23,18 @@ Use this skill when:
   - `Components.json`
   - `A11y.json`
 
+## Applicable rules
+
+This skill must produce output that complies with:
+
+- `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
+- `token-references.mdc` — token path formatting and naming patterns in generated tables
+
 ## Required behavior
 
 - Read all provided token files
 - Do not invent meaning; only document what is present
+- Token paths in generated tables must follow the formatting conventions in `token-references.mdc` (inline code, grouped by semantic category)
 - Detect and report:
   - Unresolved `{alias}` references
   - Circular alias chains

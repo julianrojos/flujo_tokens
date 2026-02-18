@@ -31,6 +31,10 @@ Create these files/directories (do not overwrite if already present; append safe
 - `${docs_root}/_generated/` (empty dir; generated docs later)
 - `${docs_root}/_spec/components/` (empty dir; component specs live here)
 
+## Applicable rules
+
+All generated documentation must comply with `ds-docs-guardrails.mdc`.
+
 ## Style & rules
 
 - Markdown only
@@ -69,15 +73,16 @@ Create these files/directories (do not overwrite if already present; append safe
 ### ${docs_root}/components/overview.md
 
 - One-page-per-component policy
+- Each component page follows the 12-section structure defined in `component-doc-structure.mdc`
 - How to add a component:
-  1. Create spec YAML in `_spec/components/<Component>.yml`
+  1. Create spec YAML in `_spec/components/<Component>.yml` (see `component-spec-yaml.mdc`)
   2. Run ds-component-doc
 - Definition of done checklist (short)
 
 ### ${docs_root}/a11y/overview.md
 
 - Accessibility goals
-- What is documented here (focus, hit area, color contrast notes)
+- What is documented here (focus, hit area, color contrast notes) — per `accessibility-docs.mdc`
 - How to raise gaps/issues
 
 ## End with a brief report
