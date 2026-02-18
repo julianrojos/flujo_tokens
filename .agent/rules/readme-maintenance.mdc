@@ -1,0 +1,65 @@
+---
+description: Keeps README.md aligned with public workflows, commands, paths, and documentation governance for this repository.
+globs:
+  - "README.md"
+  - "package.json"
+  - "tooling/scripts/ds-*.mjs"
+  - "tooling/src/cli/**/*.ts"
+  - "tooling/scripts/lib/agent-runner.mjs"
+  - "docs/_spec/**/*.yml"
+  - ".agent/rules/*.mdc"
+---
+
+# README maintenance standards
+
+## Scope
+
+This repository has two public workflows only:
+
+1. Token compilation from JSON to CSS custom properties.
+2. Figma component documentation (Figma -> Markdown -> Figma section).
+
+README changes must preserve that split and avoid introducing unrelated scopes.
+
+## Mandatory README updates
+
+When any file matched by this rule changes public behavior, update `README.md` in the same change.
+
+Public behavior includes:
+
+- npm scripts, command names, flags, defaults, or required environment variables.
+- Input/output paths or generated artifact locations.
+- Rule contracts that affect author-facing documentation requirements.
+- Figma documentation flow expectations (agent selection, MCP prerequisites, render flow).
+
+## Required consistency checks
+
+- Script names in README match `package.json`.
+- Command examples are copy/paste-ready.
+- Paths shown in README exist in the repository.
+- Terminology stays consistent:
+  - "Token compilation"
+  - "Figma component documentation"
+- README does not describe component implementation/code-generation workflows.
+
+## Documentation governance section
+
+If rules under `.agent/rules/*.mdc` add or change author-facing requirements, update the README governance summary accordingly.
+
+Examples:
+
+- New required frontmatter fields.
+- New mandatory section ordering.
+- New markdown subset constraints for Figma rendering.
+- New overview/index synchronization requirements.
+
+## Change justification when README is untouched
+
+If files matched by this rule are changed and `README.md` is not modified, the change summary must include a short explicit statement:
+
+- Why README updates are not required for that change.
+
+## Out of scope
+
+- Do not add guidance about implementing product components/framework code in README.
+- Do not expand README into testing/code quality policies unrelated to token compilation or Figma documentation.
