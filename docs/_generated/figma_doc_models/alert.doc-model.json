@@ -1,52 +1,154 @@
 {
-  "version": 1,
-  "componentName": "Alert",
+  "version": 2,
+  "componentName": "alert",
   "markdownPath": "docs/components/alert.md",
   "title": "Alert",
   "blocks": [
     {
       "type": "heading",
       "level": 1,
-      "text": "Alert"
+      "text": "Alert",
+      "segments": [
+        {
+          "text": "Alert",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "The **Alert** component communicates concise feedback messages in a highly visible inline block."
+      "text": "The Alert component communicates concise feedback messages in a highly visible inline block.",
+      "segments": [
+        {
+          "text": "The ",
+          "style": "normal"
+        },
+        {
+          "text": "Alert",
+          "style": "bold"
+        },
+        {
+          "text": " component communicates concise feedback messages in a highly visible inline block.",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Overview"
+      "text": "Overview",
+      "segments": [
+        {
+          "text": "Overview",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "In Figma, this component is defined as a `COMPONENT_SET` (`Alert`) with one variant property:"
+      "text": "In Figma, this component is defined as a COMPONENT_SET (Alert) with one variant property:",
+      "segments": [
+        {
+          "text": "In Figma, this component is defined as a ",
+          "style": "normal"
+        },
+        {
+          "text": "COMPONENT_SET",
+          "style": "code"
+        },
+        {
+          "text": " (",
+          "style": "normal"
+        },
+        {
+          "text": "Alert",
+          "style": "code"
+        },
+        {
+          "text": ") with one variant property:",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "`Type`: `Information`, `Warning`, `Positive`"
+          "text": "Type: Information, Warning, Positive",
+          "segments": [
+            {
+              "text": "Type",
+              "style": "code"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "Information",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Warning",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Positive",
+              "style": "code"
+            }
+          ]
         }
       ]
     },
     {
       "type": "paragraph",
-      "text": "All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens."
+      "text": "All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens.",
+      "segments": [
+        {
+          "text": "All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens.",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)"
+      "text": "Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)",
+      "segments": [
+        {
+          "text": "Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Anatomy"
+      "text": "Anatomy",
+      "segments": [
+        {
+          "text": "Anatomy",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "Each alert contains:"
+      "text": "Each alert contains:",
+      "segments": [
+        {
+          "text": "Each alert contains:",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
@@ -54,46 +156,160 @@
       "items": [
         {
           "index": 1,
-          "text": "**Container** (`Auto Layout`, horizontal)"
+          "text": "Container (Auto Layout, horizontal)",
+          "segments": [
+            {
+              "text": "Container",
+              "style": "bold"
+            },
+            {
+              "text": " (",
+              "style": "normal"
+            },
+            {
+              "text": "Auto Layout",
+              "style": "code"
+            },
+            {
+              "text": ", horizontal)",
+              "style": "normal"
+            }
+          ]
         },
         {
           "index": 2,
-          "text": "**Leading icon** (`24 x 24`, internal vector `18 x 18`)"
+          "text": "Leading icon (24 x 24, internal vector 18 x 18)",
+          "segments": [
+            {
+              "text": "Leading icon",
+              "style": "bold"
+            },
+            {
+              "text": " (",
+              "style": "normal"
+            },
+            {
+              "text": "24 x 24",
+              "style": "code"
+            },
+            {
+              "text": ", internal vector ",
+              "style": "normal"
+            },
+            {
+              "text": "18 x 18",
+              "style": "code"
+            },
+            {
+              "text": ")",
+              "style": "normal"
+            }
+          ]
         },
         {
           "index": 3,
-          "text": "**Text container** with a single message text node"
+          "text": "Text container with a single message text node",
+          "segments": [
+            {
+              "text": "Text container",
+              "style": "bold"
+            },
+            {
+              "text": " with a single message text node",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "paragraph",
-      "text": "Current variant dimensions in Figma:"
+      "text": "Current variant dimensions in Figma:",
+      "segments": [
+        {
+          "text": "Current variant dimensions in Figma:",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "`Type=Information`: `383 x 38`"
+          "text": "Type=Information: 383 x 38",
+          "segments": [
+            {
+              "text": "Type=Information",
+              "style": "code"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "383 x 38",
+              "style": "code"
+            }
+          ]
         },
         {
-          "text": "`Type=Warning`: `383 x 38`"
+          "text": "Type=Warning: 383 x 38",
+          "segments": [
+            {
+              "text": "Type=Warning",
+              "style": "code"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "383 x 38",
+              "style": "code"
+            }
+          ]
         },
         {
-          "text": "`Type=Positive`: `383 x 38`"
+          "text": "Type=Positive: 383 x 38",
+          "segments": [
+            {
+              "text": "Type=Positive",
+              "style": "code"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "383 x 38",
+              "style": "code"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Component API"
+      "text": "Component API",
+      "segments": [
+        {
+          "text": "Component API",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "Properties"
+      "text": "Properties",
+      "segments": [
+        {
+          "text": "Properties",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "table",
@@ -104,110 +320,492 @@
         "Required",
         "Description"
       ],
-      "rows": [
+      "headerSegments": [
         [
-          "`Type`",
-          "`VARIANT`",
-          "`Information`",
-          "`true`",
-          "Semantic alert type. Options: `Information`, `Warning`, `Positive`."
+          {
+            "text": "Name",
+            "style": "normal"
+          }
         ],
         [
-          "`Change_Message_Text`",
-          "`TEXT`",
-          "`Text text text`",
-          "`TBD`",
+          {
+            "text": "Type",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Default",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Required",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Description",
+            "style": "normal"
+          }
+        ]
+      ],
+      "rows": [
+        [
+          "Type",
+          "VARIANT",
+          "Information",
+          "true",
+          "Semantic alert type. Options: Information, Warning, Positive."
+        ],
+        [
+          "Change_Message_Text",
+          "TEXT",
+          "Text text text",
+          "TBD",
           "Overrides the main alert message copy."
+        ]
+      ],
+      "rowSegments": [
+        [
+          [
+            {
+              "text": "Type",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "VARIANT",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "Information",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "true",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "Semantic alert type. Options: ",
+              "style": "normal"
+            },
+            {
+              "text": "Information",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Warning",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Positive",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "text": "Change_Message_Text",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "TEXT",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "Text text text",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "Overrides the main alert message copy.",
+              "style": "normal"
+            }
+          ]
         ]
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Visual Specifications"
-    },
-    {
-      "type": "heading",
-      "level": 3,
-      "text": "Container"
-    },
-    {
-      "type": "list",
-      "ordered": false,
-      "items": [
+      "text": "Visual Specifications",
+      "segments": [
         {
-          "text": "**Layout**: Auto Layout, `HORIZONTAL`"
-        },
-        {
-          "text": "**Item spacing**: `8px`"
-        },
-        {
-          "text": "**Padding**: `7px` top and bottom, `8px` left and right"
-        },
-        {
-          "text": "**Corner radius**: `8px`"
-        },
-        {
-          "text": "**Border**: `2px`, aligned `INSIDE`"
-        },
-        {
-          "text": "**Background token**: `Color/Background/Feedback/Default`"
-        },
-        {
-          "text": "**Background fallback**: `#FFFFFF`"
+          "text": "Visual Specifications",
+          "style": "normal"
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "Typography"
+      "text": "Container",
+      "segments": [
+        {
+          "text": "Container",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "**Text style**: `Regular/Body 16`"
+          "text": "Layout: Auto Layout, HORIZONTAL",
+          "segments": [
+            {
+              "text": "Layout",
+              "style": "bold"
+            },
+            {
+              "text": ": Auto Layout, ",
+              "style": "normal"
+            },
+            {
+              "text": "HORIZONTAL",
+              "style": "code"
+            }
+          ]
         },
         {
-          "text": "**Font**: `Nunito Sans Regular`"
+          "text": "Item spacing: 8px",
+          "segments": [
+            {
+              "text": "Item spacing",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "8px",
+              "style": "code"
+            }
+          ]
         },
         {
-          "text": "**Size / line height**: `16 / 24`"
+          "text": "Padding: 7px top and bottom, 8px left and right",
+          "segments": [
+            {
+              "text": "Padding",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "7px",
+              "style": "code"
+            },
+            {
+              "text": " top and bottom, ",
+              "style": "normal"
+            },
+            {
+              "text": "8px",
+              "style": "code"
+            },
+            {
+              "text": " left and right",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "**Letter spacing**: `0%`"
+          "text": "Corner radius: 8px",
+          "segments": [
+            {
+              "text": "Corner radius",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "8px",
+              "style": "code"
+            }
+          ]
         },
         {
-          "text": "**Text color token**: `Color/Text/Neutral/Default`"
+          "text": "Border: 2px, aligned INSIDE",
+          "segments": [
+            {
+              "text": "Border",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "2px",
+              "style": "code"
+            },
+            {
+              "text": ", aligned ",
+              "style": "normal"
+            },
+            {
+              "text": "INSIDE",
+              "style": "code"
+            }
+          ]
         },
         {
-          "text": "**Text color fallback**: `#483F3F`"
+          "text": "Background token: Color/Background/Feedback/Default",
+          "segments": [
+            {
+              "text": "Background token",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "Color/Background/Feedback/Default",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Background fallback: #FFFFFF",
+          "segments": [
+            {
+              "text": "Background fallback",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "#FFFFFF",
+              "style": "code"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "Iconography"
+      "text": "Typography",
+      "segments": [
+        {
+          "text": "Typography",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "**Icon container size**: `24 x 24`"
+          "text": "Text style: Regular/Body 16",
+          "segments": [
+            {
+              "text": "Text style",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "Regular/Body 16",
+              "style": "code"
+            }
+          ]
         },
         {
-          "text": "**Internal vector size**: `18 x 18`"
+          "text": "Font: Nunito Sans Regular",
+          "segments": [
+            {
+              "text": "Font",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "Nunito Sans Regular",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Size / line height: 16 / 24",
+          "segments": [
+            {
+              "text": "Size / line height",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "16 / 24",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Letter spacing: 0%",
+          "segments": [
+            {
+              "text": "Letter spacing",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "0%",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Text color token: Color/Text/Neutral/Default",
+          "segments": [
+            {
+              "text": "Text color token",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "Color/Text/Neutral/Default",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Text color fallback: #483F3F",
+          "segments": [
+            {
+              "text": "Text color fallback",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "#483F3F",
+              "style": "code"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "Token Mapping"
+      "text": "Iconography",
+      "segments": [
+        {
+          "text": "Iconography",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Icon container size: 24 x 24",
+          "segments": [
+            {
+              "text": "Icon container size",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "24 x 24",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Internal vector size: 18 x 18",
+          "segments": [
+            {
+              "text": "Internal vector size",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "18 x 18",
+              "style": "code"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Token Mapping",
+      "segments": [
+        {
+          "text": "Token Mapping",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "table",
@@ -217,25 +815,111 @@
         "Token",
         "Fallback"
       ],
-      "rows": [
+      "headerSegments": [
         [
-          "`container.background`",
-          "all variants",
-          "`Color/Background/Feedback/Default`",
-          "`#FFFFFF`"
+          {
+            "text": "Part",
+            "style": "normal"
+          }
         ],
         [
-          "`text.color`",
+          {
+            "text": "Condition",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Token",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Fallback",
+            "style": "normal"
+          }
+        ]
+      ],
+      "rows": [
+        [
+          "container.background",
           "all variants",
-          "`Color/Text/Neutral/Default`",
-          "`#483F3F`"
+          "Color/Background/Feedback/Default",
+          "#FFFFFF"
+        ],
+        [
+          "text.color",
+          "all variants",
+          "Color/Text/Neutral/Default",
+          "#483F3F"
+        ]
+      ],
+      "rowSegments": [
+        [
+          [
+            {
+              "text": "container.background",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "all variants",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Color/Background/Feedback/Default",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "#FFFFFF",
+              "style": "code"
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "text": "text.color",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "all variants",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Color/Text/Neutral/Default",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "#483F3F",
+              "style": "code"
+            }
+          ]
         ]
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Variants"
+      "text": "Variants",
+      "segments": [
+        {
+          "text": "Variants",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "table",
@@ -245,211 +929,797 @@
         "Fallback value(s)",
         "Visual indicator"
       ],
+      "headerSegments": [
+        [
+          {
+            "text": "Variant",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Differentiating token(s)",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Fallback value(s)",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Visual indicator",
+            "style": "normal"
+          }
+        ]
+      ],
       "rows": [
         [
-          "`Information`",
-          "`Color/Border/Feedback/Information`, `Color/Icon/Feedback/Information`",
-          "`#BAA06B`, `#9D8555`",
-          "`information-circle-contained` icon + information border"
+          "Information",
+          "Color/Border/Feedback/Information, Color/Icon/Feedback/Information",
+          "#BAA06B, #9D8555",
+          "information-circle-contained icon + information border"
         ],
         [
-          "`Warning`",
-          "`Color/Border/Feedback/Danger`, `Color/Icon/Feedback/Danger`",
-          "`#B22222`, `#B22222`",
-          "`x-circle-contained` icon + warning border"
+          "Warning",
+          "Color/Border/Feedback/Danger, Color/Icon/Feedback/Danger",
+          "#B22222, #B22222",
+          "x-circle-contained icon + warning border"
         ],
         [
-          "`Positive`",
-          "`Color/Border/Feedback/Success`, `Color/Icon/Feedback/Success`",
-          "`#299157`, `#299157`",
-          "`check-contained` icon + success border"
+          "Positive",
+          "Color/Border/Feedback/Success, Color/Icon/Feedback/Success",
+          "#299157, #299157",
+          "check-contained icon + success border"
+        ]
+      ],
+      "rowSegments": [
+        [
+          [
+            {
+              "text": "Information",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "Color/Border/Feedback/Information",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Color/Icon/Feedback/Information",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "#BAA06B",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "#9D8555",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "information-circle-contained",
+              "style": "code"
+            },
+            {
+              "text": " icon + information border",
+              "style": "normal"
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "text": "Warning",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "Color/Border/Feedback/Danger",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Color/Icon/Feedback/Danger",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "#B22222",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "#B22222",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "x-circle-contained",
+              "style": "code"
+            },
+            {
+              "text": " icon + warning border",
+              "style": "normal"
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "text": "Positive",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "Color/Border/Feedback/Success",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Color/Icon/Feedback/Success",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "#299157",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "#299157",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "check-contained",
+              "style": "code"
+            },
+            {
+              "text": " icon + success border",
+              "style": "normal"
+            }
+          ]
         ]
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "States"
+      "text": "States",
+      "segments": [
+        {
+          "text": "States",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "This component has no interactive states in the current Figma component set."
+      "text": "This component has no interactive states in the current Figma component set.",
+      "segments": [
+        {
+          "text": "This component has no interactive states in the current Figma component set.",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "Feedback semantics are represented through the `Type` variant, not through `hover`/`focus`/`pressed` states."
-    },
-    {
-      "type": "heading",
-      "level": 2,
-      "text": "Usage Guidelines"
-    },
-    {
-      "type": "list",
-      "ordered": false,
-      "items": [
+      "text": "Feedback semantics are represented through the Type variant, not through hover/focus/pressed states.",
+      "segments": [
         {
-          "text": "**When to use**: Use `Information`, `Warning`, and `Positive` to communicate concise status feedback in context."
+          "text": "Feedback semantics are represented through the ",
+          "style": "normal"
         },
         {
-          "text": "**When not to use**: Do not use this component for persistent page-level navigation or long-form guidance."
+          "text": "Type",
+          "style": "code"
         },
         {
-          "text": "**Do**: Keep icon size and spacing unchanged to preserve visual rhythm."
+          "text": " variant, not through ",
+          "style": "normal"
         },
         {
-          "text": "**Do**: Keep semantic feedback tokens aligned with the selected variant."
+          "text": "hover",
+          "style": "code"
         },
         {
-          "text": "**Don't**: Replace semantic border/icon tokens with neutral values."
+          "text": "/",
+          "style": "normal"
         },
         {
-          "text": "**Don't**: Use this component for multi-paragraph content."
+          "text": "focus",
+          "style": "code"
+        },
+        {
+          "text": "/",
+          "style": "normal"
+        },
+        {
+          "text": "pressed",
+          "style": "code"
+        },
+        {
+          "text": " states.",
+          "style": "normal"
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Content Guidelines"
+      "text": "Usage Guidelines",
+      "segments": [
+        {
+          "text": "Usage Guidelines",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "Use short, direct message text."
+          "text": "When to use: Use Information, Warning, and Positive to communicate concise status feedback in context.",
+          "segments": [
+            {
+              "text": "When to use",
+              "style": "bold"
+            },
+            {
+              "text": ": Use ",
+              "style": "normal"
+            },
+            {
+              "text": "Information",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Warning",
+              "style": "code"
+            },
+            {
+              "text": ", and ",
+              "style": "normal"
+            },
+            {
+              "text": "Positive",
+              "style": "code"
+            },
+            {
+              "text": " to communicate concise status feedback in context.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Prefer one sentence per alert."
+          "text": "When not to use: Do not use this component for persistent page-level navigation or long-form guidance.",
+          "segments": [
+            {
+              "text": "When not to use",
+              "style": "bold"
+            },
+            {
+              "text": ": Do not use this component for persistent page-level navigation or long-form guidance.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Use sentence case."
+          "text": "Do: Keep icon size and spacing unchanged to preserve visual rhythm.",
+          "segments": [
+            {
+              "text": "Do",
+              "style": "bold"
+            },
+            {
+              "text": ": Keep icon size and spacing unchanged to preserve visual rhythm.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Avoid unnecessary punctuation and repeated emphasis."
+          "text": "Do: Keep semantic feedback tokens aligned with the selected variant.",
+          "segments": [
+            {
+              "text": "Do",
+              "style": "bold"
+            },
+            {
+              "text": ": Keep semantic feedback tokens aligned with the selected variant.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Don't: Replace semantic border/icon tokens with neutral values.",
+          "segments": [
+            {
+              "text": "Don't",
+              "style": "bold"
+            },
+            {
+              "text": ": Replace semantic border/icon tokens with neutral values.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Don't: Use this component for multi-paragraph content.",
+          "segments": [
+            {
+              "text": "Don't",
+              "style": "bold"
+            },
+            {
+              "text": ": Use this component for multi-paragraph content.",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Accessibility"
+      "text": "Content Guidelines",
+      "segments": [
+        {
+          "text": "Content Guidelines",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Use short, direct message text.",
+          "segments": [
+            {
+              "text": "Use short, direct message text.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Prefer one sentence per alert.",
+          "segments": [
+            {
+              "text": "Prefer one sentence per alert.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Use sentence case.",
+          "segments": [
+            {
+              "text": "Use sentence case.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Avoid unnecessary punctuation and repeated emphasis.",
+          "segments": [
+            {
+              "text": "Avoid unnecessary punctuation and repeated emphasis.",
+              "style": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Accessibility",
+      "segments": [
+        {
+          "text": "Accessibility",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "1. ARIA role and semantics"
+      "text": "1. ARIA role and semantics",
+      "segments": [
+        {
+          "text": "1. ARIA role and semantics",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "Expected role for passive feedback: `role=\"alert\"`."
+          "text": "Expected role for passive feedback: role=\"alert\".",
+          "segments": [
+            {
+              "text": "Expected role for passive feedback: ",
+              "style": "normal"
+            },
+            {
+              "text": "role=\"alert\"",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA."
+          "text": "If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA.",
+          "segments": [
+            {
+              "text": "If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Required ARIA attributes are `TBD` for this component configuration."
+          "text": "Required ARIA attributes are TBD for this component configuration.",
+          "segments": [
+            {
+              "text": "Required ARIA attributes are ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": " for this component configuration.",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "2. Keyboard navigation"
+      "text": "2. Keyboard navigation",
+      "segments": [
+        {
+          "text": "2. Keyboard navigation",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "This component is not keyboard-interactive in the current Figma configuration."
-    },
-    {
-      "type": "heading",
-      "level": 3,
-      "text": "3. Focus management"
-    },
-    {
-      "type": "list",
-      "ordered": false,
-      "items": [
+      "text": "This component is not keyboard-interactive in the current Figma configuration.",
+      "segments": [
         {
-          "text": "This component has no focusable element in the current Figma definition."
-        },
-        {
-          "text": "Focus behavior for dismissible/interactive alert variants is `TBD`."
-        },
-        {
-          "text": "Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) are `TBD` for this component."
+          "text": "This component is not keyboard-interactive in the current Figma configuration.",
+          "style": "normal"
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "4. Labeling"
+      "text": "3. Focus management",
+      "segments": [
+        {
+          "text": "3. Focus management",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "The message text itself provides the accessible content."
+          "text": "This component has no focusable element in the current Figma definition.",
+          "segments": [
+            {
+              "text": "This component has no focusable element in the current Figma definition.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Additional labeling patterns (`aria-label`, `aria-labelledby`, `aria-describedby`) are `TBD` for interactive variants."
+          "text": "Focus behavior for dismissible/interactive alert variants is TBD.",
+          "segments": [
+            {
+              "text": "Focus behavior for dismissible/interactive alert variants is ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Focus outline tokens (Semantic.Color.Focus-Outline.Inner, Semantic.Color.Focus-Outline.Outer) are TBD for this component.",
+          "segments": [
+            {
+              "text": "Focus outline tokens (",
+              "style": "normal"
+            },
+            {
+              "text": "Semantic.Color.Focus-Outline.Inner",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Semantic.Color.Focus-Outline.Outer",
+              "style": "code"
+            },
+            {
+              "text": ") are ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": " for this component.",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "5. Contrast and visibility"
+      "text": "4. Labeling",
+      "segments": [
+        {
+          "text": "4. Labeling",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "The component should not rely on color alone; iconography and text must remain present with each variant."
+          "text": "The message text itself provides the accessible content.",
+          "segments": [
+            {
+              "text": "The message text itself provides the accessible content.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Verified contrast ratios are `TBD (pending audit)`."
+          "text": "Additional labeling patterns (aria-label, aria-labelledby, aria-describedby) are TBD for interactive variants.",
+          "segments": [
+            {
+              "text": "Additional labeling patterns (",
+              "style": "normal"
+            },
+            {
+              "text": "aria-label",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "aria-labelledby",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "aria-describedby",
+              "style": "code"
+            },
+            {
+              "text": ") are ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": " for interactive variants.",
+              "style": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "5. Contrast and visibility",
+      "segments": [
+        {
+          "text": "5. Contrast and visibility",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "The component should not rely on color alone; iconography and text must remain present with each variant.",
+          "segments": [
+            {
+              "text": "The component should not rely on color alone; iconography and text must remain present with each variant.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Verified contrast ratios are TBD (pending audit).",
+          "segments": [
+            {
+              "text": "Verified contrast ratios are ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD (pending audit)",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Related Components"
+      "text": "Related Components",
+      "segments": [
+        {
+          "text": "Related Components",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "[Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging."
+          "text": "[Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging.",
+          "segments": [
+            {
+              "text": "[Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "[Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback."
+          "text": "[Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback.",
+          "segments": [
+            {
+              "text": "[Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback.",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Gaps / TBD"
+      "text": "Gaps / TBD",
+      "segments": [
+        {
+          "text": "Gaps / TBD",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "Required status for `Change_Message_Text` in Figma is `TBD`."
+          "text": "Required status for Change_Message_Text in Figma is TBD.",
+          "segments": [
+            {
+              "text": "Required status for ",
+              "style": "normal"
+            },
+            {
+              "text": "Change_Message_Text",
+              "style": "code"
+            },
+            {
+              "text": " in Figma is ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Accessibility behavior for interactive/dismissible alert variants is `TBD`."
+          "text": "Accessibility behavior for interactive/dismissible alert variants is TBD.",
+          "segments": [
+            {
+              "text": "Accessibility behavior for interactive/dismissible alert variants is ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
         }
       ]
     }

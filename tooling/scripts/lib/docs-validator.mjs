@@ -20,7 +20,7 @@ export const REQUIRED_H2 = [
   "Related Components",
 ];
 
-const OPTIONAL_H2_TAIL = new Set(["Design–Token Discrepancies", "Discrepancias detectadas", "Gaps / TBD"]);
+const OPTIONAL_H2_TAIL = new Set(["Design–Token Discrepancies", "Gaps / TBD"]);
 const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A11y"]);
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
 const SLASH_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9-]+){1,}/g;

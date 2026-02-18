@@ -1,54 +1,146 @@
 {
-  "version": 1,
-  "componentName": "Avatar",
+  "version": 2,
+  "componentName": "avatar",
   "markdownPath": "docs/components/avatar.md",
   "title": "Avatar",
   "blocks": [
     {
       "type": "heading",
       "level": 1,
-      "text": "Avatar"
+      "text": "Avatar",
+      "segments": [
+        {
+          "text": "Avatar",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "The **Avatar** component displays a profile image inside a bordered rounded square."
+      "text": "The Avatar component displays a profile image inside a bordered rounded square.",
+      "segments": [
+        {
+          "text": "The ",
+          "style": "normal"
+        },
+        {
+          "text": "Avatar",
+          "style": "bold"
+        },
+        {
+          "text": " component displays a profile image inside a bordered rounded square.",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Overview"
+      "text": "Overview",
+      "segments": [
+        {
+          "text": "Overview",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "In Figma, this component is defined as a single `COMPONENT` (`Avatar`) with fixed structure:"
+      "text": "In Figma, this component is defined as a single COMPONENT (Avatar) with fixed structure:",
+      "segments": [
+        {
+          "text": "In Figma, this component is defined as a single ",
+          "style": "normal"
+        },
+        {
+          "text": "COMPONENT",
+          "style": "code"
+        },
+        {
+          "text": " (",
+          "style": "normal"
+        },
+        {
+          "text": "Avatar",
+          "style": "code"
+        },
+        {
+          "text": ") with fixed structure:",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "No variant properties"
+          "text": "No variant properties",
+          "segments": [
+            {
+              "text": "No variant properties",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "No text overrides"
+          "text": "No text overrides",
+          "segments": [
+            {
+              "text": "No text overrides",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "One image layer (`Img_bg`) inside a clipped container"
+          "text": "One image layer (Img_bg) inside a clipped container",
+          "segments": [
+            {
+              "text": "One image layer (",
+              "style": "normal"
+            },
+            {
+              "text": "Img_bg",
+              "style": "code"
+            },
+            {
+              "text": ") inside a clipped container",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "paragraph",
-      "text": "Source: [Avatar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)"
+      "text": "Source: [Avatar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)",
+      "segments": [
+        {
+          "text": "Source: [Avatar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Anatomy"
+      "text": "Anatomy",
+      "segments": [
+        {
+          "text": "Anatomy",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "Each avatar contains:"
+      "text": "Each avatar contains:",
+      "segments": [
+        {
+          "text": "Each avatar contains:",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
@@ -56,23 +148,87 @@
       "items": [
         {
           "index": 1,
-          "text": "**Container** (`COMPONENT`, `90 x 90`)"
+          "text": "Container (COMPONENT, 90 x 90)",
+          "segments": [
+            {
+              "text": "Container",
+              "style": "bold"
+            },
+            {
+              "text": " (",
+              "style": "normal"
+            },
+            {
+              "text": "COMPONENT",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "90 x 90",
+              "style": "code"
+            },
+            {
+              "text": ")",
+              "style": "normal"
+            }
+          ]
         },
         {
           "index": 2,
-          "text": "**Img_bg** (`RECTANGLE`, `90 x 90`, image fill)"
+          "text": "Img_bg (RECTANGLE, 90 x 90, image fill)",
+          "segments": [
+            {
+              "text": "Img_bg",
+              "style": "bold"
+            },
+            {
+              "text": " (",
+              "style": "normal"
+            },
+            {
+              "text": "RECTANGLE",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "90 x 90",
+              "style": "code"
+            },
+            {
+              "text": ", image fill)",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Component API"
+      "text": "Component API",
+      "segments": [
+        {
+          "text": "Component API",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "Properties"
+      "text": "Properties",
+      "segments": [
+        {
+          "text": "Properties",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "table",
@@ -83,97 +239,391 @@
         "Required",
         "Description"
       ],
+      "headerSegments": [
+        [
+          {
+            "text": "Name",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Type",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Default",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Required",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Description",
+            "style": "normal"
+          }
+        ]
+      ],
       "rows": [
         [
-          "`—`",
-          "`—`",
-          "`—`",
-          "`—`",
+          "—",
+          "—",
+          "—",
+          "—",
           "This component has no exposed Figma component properties."
+        ]
+      ],
+      "rowSegments": [
+        [
+          [
+            {
+              "text": "—",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "—",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "—",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "—",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "This component has no exposed Figma component properties.",
+              "style": "normal"
+            }
+          ]
         ]
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Visual Specifications"
-    },
-    {
-      "type": "heading",
-      "level": 3,
-      "text": "Container"
-    },
-    {
-      "type": "list",
-      "ordered": false,
-      "items": [
+      "text": "Visual Specifications",
+      "segments": [
         {
-          "text": "**Size**: `90 x 90`"
-        },
-        {
-          "text": "**Layout**: `NONE` (no Auto Layout)"
-        },
-        {
-          "text": "**Corner radius**: `8px` on all corners"
-        },
-        {
-          "text": "**Border**: `2px`, aligned `INSIDE`"
-        },
-        {
-          "text": "**Border color token**: `Color/Border/Neutral/Default`"
-        },
-        {
-          "text": "**Border color fallback**: `#9A9090`"
-        },
-        {
-          "text": "**Fill**: none"
-        },
-        {
-          "text": "**Clips content**: `true`"
+          "text": "Visual Specifications",
+          "style": "normal"
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "Iconography"
+      "text": "Container",
+      "segments": [
+        {
+          "text": "Container",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "Not applicable. This component renders an image surface, not an icon slot."
+          "text": "Size: 90 x 90",
+          "segments": [
+            {
+              "text": "Size",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "90 x 90",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Layout: NONE (no Auto Layout)",
+          "segments": [
+            {
+              "text": "Layout",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "NONE",
+              "style": "code"
+            },
+            {
+              "text": " (no Auto Layout)",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Corner radius: 8px on all corners",
+          "segments": [
+            {
+              "text": "Corner radius",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "8px",
+              "style": "code"
+            },
+            {
+              "text": " on all corners",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Border: 2px, aligned INSIDE",
+          "segments": [
+            {
+              "text": "Border",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "2px",
+              "style": "code"
+            },
+            {
+              "text": ", aligned ",
+              "style": "normal"
+            },
+            {
+              "text": "INSIDE",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Border color token: Color/Border/Neutral/Default",
+          "segments": [
+            {
+              "text": "Border color token",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "Color/Border/Neutral/Default",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Border color fallback: #9A9090",
+          "segments": [
+            {
+              "text": "Border color fallback",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "#9A9090",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Fill: none",
+          "segments": [
+            {
+              "text": "Fill",
+              "style": "bold"
+            },
+            {
+              "text": ": none",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Clips content: true",
+          "segments": [
+            {
+              "text": "Clips content",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "true",
+              "style": "code"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "Image Layer (`Img_bg`)"
+      "text": "Iconography",
+      "segments": [
+        {
+          "text": "Iconography",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "**Node type**: `RECTANGLE`"
-        },
-        {
-          "text": "**Size**: `90 x 90`"
-        },
-        {
-          "text": "**Fill**: `IMAGE` with scale mode `FILL`"
-        },
-        {
-          "text": "**Strokes**: none"
+          "text": "Not applicable. This component renders an image surface, not an icon slot.",
+          "segments": [
+            {
+              "text": "Not applicable. This component renders an image surface, not an icon slot.",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "Token Mapping"
+      "text": "Image Layer (Img_bg)",
+      "segments": [
+        {
+          "text": "Image Layer (",
+          "style": "normal"
+        },
+        {
+          "text": "Img_bg",
+          "style": "code"
+        },
+        {
+          "text": ")",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Node type: RECTANGLE",
+          "segments": [
+            {
+              "text": "Node type",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "RECTANGLE",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Size: 90 x 90",
+          "segments": [
+            {
+              "text": "Size",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "90 x 90",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Fill: IMAGE with scale mode FILL",
+          "segments": [
+            {
+              "text": "Fill",
+              "style": "bold"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "IMAGE",
+              "style": "code"
+            },
+            {
+              "text": " with scale mode ",
+              "style": "normal"
+            },
+            {
+              "text": "FILL",
+              "style": "code"
+            }
+          ]
+        },
+        {
+          "text": "Strokes: none",
+          "segments": [
+            {
+              "text": "Strokes",
+              "style": "bold"
+            },
+            {
+              "text": ": none",
+              "style": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Token Mapping",
+      "segments": [
+        {
+          "text": "Token Mapping",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "table",
@@ -183,208 +633,722 @@
         "Token",
         "Fallback"
       ],
+      "headerSegments": [
+        [
+          {
+            "text": "Part",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Condition",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Token",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Fallback",
+            "style": "normal"
+          }
+        ]
+      ],
       "rows": [
         [
-          "`container.border-color`",
+          "container.border-color",
           "all variants",
-          "`Color/Border/Neutral/Default`",
-          "`#9A9090`"
+          "Color/Border/Neutral/Default",
+          "#9A9090"
         ],
         [
-          "`container.border-radius`",
+          "container.border-radius",
           "all variants",
-          "`Dimension/Border/Radius/200`",
-          "`8`"
+          "Dimension/Border/Radius/200",
+          "8"
         ],
         [
-          "`container.border-width`",
+          "container.border-width",
           "all variants",
-          "`Dimension/Border/Width/200`",
-          "`2`"
+          "Dimension/Border/Width/200",
+          "2"
+        ]
+      ],
+      "rowSegments": [
+        [
+          [
+            {
+              "text": "container.border-color",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "all variants",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Color/Border/Neutral/Default",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "#9A9090",
+              "style": "code"
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "text": "container.border-radius",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "all variants",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Dimension/Border/Radius/200",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "8",
+              "style": "code"
+            }
+          ]
+        ],
+        [
+          [
+            {
+              "text": "container.border-width",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "all variants",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Dimension/Border/Width/200",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "2",
+              "style": "code"
+            }
+          ]
         ]
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Variants"
+      "text": "Variants",
+      "segments": [
+        {
+          "text": "Variants",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "This component has no variants in the current Figma definition."
+      "text": "This component has no variants in the current Figma definition.",
+      "segments": [
+        {
+          "text": "This component has no variants in the current Figma definition.",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "States"
+      "text": "States",
+      "segments": [
+        {
+          "text": "States",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "This component has no interactive states."
-    },
-    {
-      "type": "heading",
-      "level": 2,
-      "text": "Usage Guidelines"
-    },
-    {
-      "type": "list",
-      "ordered": false,
-      "items": [
+      "text": "This component has no interactive states.",
+      "segments": [
         {
-          "text": "**When to use**: Use this component to represent a user or entity with a square profile image."
-        },
-        {
-          "text": "**When not to use**: Do not use it for icon buttons or status indicators."
-        },
-        {
-          "text": "**Do**: Use square image assets to avoid unpredictable cropping."
-        },
-        {
-          "text": "**Do**: Keep avatar size consistent inside the same UI context."
-        },
-        {
-          "text": "**Don't**: Stretch non-square images."
-        },
-        {
-          "text": "**Don't**: Rely on this component for interaction states not defined in Figma."
+          "text": "This component has no interactive states.",
+          "style": "normal"
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Content Guidelines"
+      "text": "Usage Guidelines",
+      "segments": [
+        {
+          "text": "Usage Guidelines",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "When to use: Use this component to represent a user or entity with a square profile image.",
+          "segments": [
+            {
+              "text": "When to use",
+              "style": "bold"
+            },
+            {
+              "text": ": Use this component to represent a user or entity with a square profile image.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "When not to use: Do not use it for icon buttons or status indicators.",
+          "segments": [
+            {
+              "text": "When not to use",
+              "style": "bold"
+            },
+            {
+              "text": ": Do not use it for icon buttons or status indicators.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Do: Use square image assets to avoid unpredictable cropping.",
+          "segments": [
+            {
+              "text": "Do",
+              "style": "bold"
+            },
+            {
+              "text": ": Use square image assets to avoid unpredictable cropping.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Do: Keep avatar size consistent inside the same UI context.",
+          "segments": [
+            {
+              "text": "Do",
+              "style": "bold"
+            },
+            {
+              "text": ": Keep avatar size consistent inside the same UI context.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Don't: Stretch non-square images.",
+          "segments": [
+            {
+              "text": "Don't",
+              "style": "bold"
+            },
+            {
+              "text": ": Stretch non-square images.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Don't: Rely on this component for interaction states not defined in Figma.",
+          "segments": [
+            {
+              "text": "Don't",
+              "style": "bold"
+            },
+            {
+              "text": ": Rely on this component for interaction states not defined in Figma.",
+              "style": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Content Guidelines",
+      "segments": [
+        {
+          "text": "Content Guidelines",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "This component has no text content."
+      "text": "This component has no text content.",
+      "segments": [
+        {
+          "text": "This component has no text content.",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Accessibility"
-    },
-    {
-      "type": "heading",
-      "level": 3,
-      "text": "1. ARIA role and semantics"
-    },
-    {
-      "type": "list",
-      "ordered": false,
-      "items": [
+      "text": "Accessibility",
+      "segments": [
         {
-          "text": "If rendered as a decorative image, use `aria-hidden=\"true\"` or empty `alt`."
-        },
-        {
-          "text": "If rendered as informative content, use semantic `img` with descriptive `alt`."
-        },
-        {
-          "text": "For interactive usage, wrap in a semantic interactive element and define role semantics in implementation (`TBD`)."
+          "text": "Accessibility",
+          "style": "normal"
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "2. Keyboard navigation"
+      "text": "1. ARIA role and semantics",
+      "segments": [
+        {
+          "text": "1. ARIA role and semantics",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "If rendered as a decorative image, use aria-hidden=\"true\" or empty alt.",
+          "segments": [
+            {
+              "text": "If rendered as a decorative image, use ",
+              "style": "normal"
+            },
+            {
+              "text": "aria-hidden=\"true\"",
+              "style": "code"
+            },
+            {
+              "text": " or empty ",
+              "style": "normal"
+            },
+            {
+              "text": "alt",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "If rendered as informative content, use semantic img with descriptive alt.",
+          "segments": [
+            {
+              "text": "If rendered as informative content, use semantic ",
+              "style": "normal"
+            },
+            {
+              "text": "img",
+              "style": "code"
+            },
+            {
+              "text": " with descriptive ",
+              "style": "normal"
+            },
+            {
+              "text": "alt",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "For interactive usage, wrap in a semantic interactive element and define role semantics in implementation (TBD).",
+          "segments": [
+            {
+              "text": "For interactive usage, wrap in a semantic interactive element and define role semantics in implementation (",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": ").",
+              "style": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "2. Keyboard navigation",
+      "segments": [
+        {
+          "text": "2. Keyboard navigation",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "paragraph",
-      "text": "This component is not keyboard-interactive by itself."
-    },
-    {
-      "type": "heading",
-      "level": 3,
-      "text": "3. Focus management"
-    },
-    {
-      "type": "list",
-      "ordered": false,
-      "items": [
+      "text": "This component is not keyboard-interactive by itself.",
+      "segments": [
         {
-          "text": "No focus behavior is defined in the Figma component."
-        },
-        {
-          "text": "If used in an interactive wrapper, focus behavior is `TBD`."
-        },
-        {
-          "text": "Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) apply only when wrapped in a focusable control."
+          "text": "This component is not keyboard-interactive by itself.",
+          "style": "normal"
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "4. Labeling"
+      "text": "3. Focus management",
+      "segments": [
+        {
+          "text": "3. Focus management",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "Informative usage requires descriptive `alt` text."
+          "text": "No focus behavior is defined in the Figma component.",
+          "segments": [
+            {
+              "text": "No focus behavior is defined in the Figma component.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Decorative usage should avoid redundant labeling."
+          "text": "If used in an interactive wrapper, focus behavior is TBD.",
+          "segments": [
+            {
+              "text": "If used in an interactive wrapper, focus behavior is ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "`aria-label` and `aria-labelledby` patterns are `TBD` for clickable wrappers."
+          "text": "Focus outline tokens (Semantic.Color.Focus-Outline.Inner, Semantic.Color.Focus-Outline.Outer) apply only when wrapped in a focusable control.",
+          "segments": [
+            {
+              "text": "Focus outline tokens (",
+              "style": "normal"
+            },
+            {
+              "text": "Semantic.Color.Focus-Outline.Inner",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "Semantic.Color.Focus-Outline.Outer",
+              "style": "code"
+            },
+            {
+              "text": ") apply only when wrapped in a focusable control.",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 3,
-      "text": "5. Contrast and visibility"
+      "text": "4. Labeling",
+      "segments": [
+        {
+          "text": "4. Labeling",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "Border visibility should remain distinguishable against surrounding surfaces."
+          "text": "Informative usage requires descriptive alt text.",
+          "segments": [
+            {
+              "text": "Informative usage requires descriptive ",
+              "style": "normal"
+            },
+            {
+              "text": "alt",
+              "style": "code"
+            },
+            {
+              "text": " text.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "Contrast verification is `TBD (pending audit)`."
+          "text": "Decorative usage should avoid redundant labeling.",
+          "segments": [
+            {
+              "text": "Decorative usage should avoid redundant labeling.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "aria-label and aria-labelledby patterns are TBD for clickable wrappers.",
+          "segments": [
+            {
+              "text": "aria-label",
+              "style": "code"
+            },
+            {
+              "text": " and ",
+              "style": "normal"
+            },
+            {
+              "text": "aria-labelledby",
+              "style": "code"
+            },
+            {
+              "text": " patterns are ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            },
+            {
+              "text": " for clickable wrappers.",
+              "style": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "5. Contrast and visibility",
+      "segments": [
+        {
+          "text": "5. Contrast and visibility",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Border visibility should remain distinguishable against surrounding surfaces.",
+          "segments": [
+            {
+              "text": "Border visibility should remain distinguishable against surrounding surfaces.",
+              "style": "normal"
+            }
+          ]
+        },
+        {
+          "text": "Contrast verification is TBD (pending audit).",
+          "segments": [
+            {
+              "text": "Contrast verification is ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD (pending audit)",
+              "style": "code"
+            },
+            {
+              "text": ".",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Related Components"
+      "text": "Related Components",
+      "segments": [
+        {
+          "text": "Related Components",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "[Bottom Bar](bottom_bar.md): Use for navigation actions; avatar may appear inside destinations opened from navigation."
+          "text": "[Bottom Bar](bottom_bar.md): Use for navigation actions; avatar may appear inside destinations opened from navigation.",
+          "segments": [
+            {
+              "text": "[Bottom Bar](bottom_bar.md): Use for navigation actions; avatar may appear inside destinations opened from navigation.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "[Alert](alert.md): Use for feedback messaging; avatar should not be used as feedback status."
+          "text": "[Alert](alert.md): Use for feedback messaging; avatar should not be used as feedback status.",
+          "segments": [
+            {
+              "text": "[Alert](alert.md): Use for feedback messaging; avatar should not be used as feedback status.",
+              "style": "normal"
+            }
+          ]
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Gaps / TBD"
+      "text": "Gaps / TBD",
+      "segments": [
+        {
+          "text": "Gaps / TBD",
+          "style": "normal"
+        }
+      ]
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "No size variants (`sm`, `md`, `lg`, etc.) in Figma."
+          "text": "No size variants (sm, md, lg, etc.) in Figma.",
+          "segments": [
+            {
+              "text": "No size variants (",
+              "style": "normal"
+            },
+            {
+              "text": "sm",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "md",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "lg",
+              "style": "code"
+            },
+            {
+              "text": ", etc.) in Figma.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "No explicit fallback variant for empty/missing image."
+          "text": "No explicit fallback variant for empty/missing image.",
+          "segments": [
+            {
+              "text": "No explicit fallback variant for empty/missing image.",
+              "style": "normal"
+            }
+          ]
         },
         {
-          "text": "No explicit interaction states (`hover`, `focus`, `selected`, `disabled`)."
+          "text": "No explicit interaction states (hover, focus, selected, disabled).",
+          "segments": [
+            {
+              "text": "No explicit interaction states (",
+              "style": "normal"
+            },
+            {
+              "text": "hover",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "focus",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "selected",
+              "style": "code"
+            },
+            {
+              "text": ", ",
+              "style": "normal"
+            },
+            {
+              "text": "disabled",
+              "style": "code"
+            },
+            {
+              "text": ").",
+              "style": "normal"
+            }
+          ]
         }
       ]
     }
