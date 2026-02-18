@@ -32,14 +32,15 @@ Each bottom bar contains:
 ## Component API
 
 The root `Bottom_Bar` component does not expose root-level component properties. Available properties are exposed by each nested `Bottom_Bar_Button` item.
+P
 
 ### Properties
 
-| Name | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| `Item.Change_Bottom_Bar_Button_Icon` | `INSTANCE_SWAP` | `default icon instance` | `TBD` | Replaces the icon rendered in each button item. |
-| `Item.Change_Text` | `TEXT` | `Text` | `TBD` | Overrides the label text for each button item. |
-| `Item.State` | `VARIANT` | `Default` | `true` | Item visual state. Options: `Default`, `Selected`. |
+| Name                                 | Type            | Default                 | Required | Description                                        |
+| ------------------------------------ | --------------- | ----------------------- | -------- | -------------------------------------------------- |
+| `Item.Change_Bottom_Bar_Button_Icon` | `INSTANCE_SWAP` | `default icon instance` | `TBD`    | Replaces the icon rendered in each button item.    |
+| `Item.Change_Text`                   | `TEXT`          | `Text`                  | `TBD`    | Overrides the label text for each button item.     |
+| `Item.State`                         | `VARIANT`       | `Default`               | `true`   | Item visual state. Options: `Default`, `Selected`. |
 
 ## Visual Specifications
 
@@ -82,33 +83,33 @@ The root `Bottom_Bar` component does not expose root-level component properties.
 
 ### Token Mapping
 
-| Part | Condition | Token | Fallback |
-| --- | --- | --- | --- |
-| `item_slot.padding` | all items | `Dimension/Spacing/400` | `8px` |
-| `item_slot.radius` | all items | `Dimension/Border/Radius/200` | `8px` |
-| `item_icon.color` | all items | `Color/Icon/Neutral/Default` | `#483F3F` |
-| `item_label.color` | all items | `Color/Text/Neutral/Default` | `#483F3F` |
-| `item_label.font-family` | all items | `Font/Family/Body` | `Nunito Sans` |
-| `item_label.font-size` | all items | `Font/Size/100` | `12px` |
-| `item_label.font-weight` | all items | `Font/Weight/Regular` | `Regular` |
-| `item_label.line-height` | all items | `Font/Line-Height/100` | `16px` |
-| `container.background` | root container | `TBD` | `#ECECEC` |
+| Part                     | Condition      | Token                         | Fallback      |
+| ------------------------ | -------------- | ----------------------------- | ------------- |
+| `item_slot.padding`      | all items      | `Dimension/Spacing/400`       | `8px`         |
+| `item_slot.radius`       | all items      | `Dimension/Border/Radius/200` | `8px`         |
+| `item_icon.color`        | all items      | `Color/Icon/Neutral/Default`  | `#483F3F`     |
+| `item_label.color`       | all items      | `Color/Text/Neutral/Default`  | `#483F3F`     |
+| `item_label.font-family` | all items      | `Font/Family/Body`            | `Nunito Sans` |
+| `item_label.font-size`   | all items      | `Font/Size/100`               | `12px`        |
+| `item_label.font-weight` | all items      | `Font/Weight/Regular`         | `Regular`     |
+| `item_label.line-height` | all items      | `Font/Line-Height/100`        | `16px`        |
+| `container.background`   | root container | `TBD`                         | `#ECECEC`     |
 
 ## Variants
 
-| Variant group | Variant name | Differentiating token(s) | Fallback value(s) | Visual indicator |
-| --- | --- | --- | --- | --- |
-| `Item.State` | `Default` | `TBD` | `TBD` | Neutral, unselected item appearance |
-| `Item.State` | `Selected` | `TBD` | `TBD` | Selected/active destination appearance |
+| Variant group | Variant name | Differentiating token(s) | Fallback value(s) | Visual indicator                       |
+| ------------- | ------------ | ------------------------ | ----------------- | -------------------------------------- |
+| `Item.State`  | `Default`    | `TBD`                    | `TBD`             | Neutral, unselected item appearance    |
+| `Item.State`  | `Selected`   | `TBD`                    | `TBD`             | Selected/active destination appearance |
 
 ## States
 
 The root container has no independent interaction state. State behavior is controlled by each nested button item.
 
-| State | What changes visually | Tokens | Notes |
-| --- | --- | --- | --- |
-| `Default` | Baseline item appearance | `TBD` | Defined by nested button variant |
-| `Selected` | Active destination appearance | `TBD` | Defined by nested button variant |
+| State      | What changes visually         | Tokens | Notes                            |
+| ---------- | ----------------------------- | ------ | -------------------------------- |
+| `Default`  | Baseline item appearance      | `TBD`  | Defined by nested button variant |
+| `Selected` | Active destination appearance | `TBD`  | Defined by nested button variant |
 
 ## Usage Guidelines
 
@@ -135,10 +136,10 @@ The root container has no independent interaction state. State behavior is contr
 
 ### 2. Keyboard navigation
 
-| Key | Action |
-| --- | --- |
-| `Tab` | Moves focus between interactive items |
-| `Enter` | Activates focused item |
+| Key          | Action                                                    |
+| ------------ | --------------------------------------------------------- |
+| `Tab`        | Moves focus between interactive items                     |
+| `Enter`      | Activates focused item                                    |
 | `Arrow keys` | `TBD` (optional pattern, pending implementation decision) |
 
 ### 3. Focus management
@@ -170,8 +171,8 @@ The root container has no independent interaction state. State behavior is contr
 
 ## Design–Token Discrepancies
 
-| Discrepancy | Impact | Pending action | Status |
-| --- | --- | --- | --- |
+| Discrepancy                                                                       | Impact                                                      | Pending action                                                                          | Status |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------ |
 | Container background is hardcoded as `#ECECEC` instead of using a semantic token. | Reduces token governance consistency and theme portability. | Map container background to a semantic token or document this as an accepted exception. | `open` |
 
 ## Gaps / TBD

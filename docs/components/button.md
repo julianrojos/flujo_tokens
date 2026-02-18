@@ -34,10 +34,12 @@ Source: [Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PF
 
 ## Anatomy
 
-1. **Container**: Horizontal auto-layout frame that carries background, border, radius, and state/type styling.
-2. **Leading icon**: Optional `INSTANCE` (default icon: `arrow-left-square-contained`, `24 x 24`).
-3. **Label**: Optional `TEXT` node (default content: `Button`).
-4. **Trailing icon**: Optional `INSTANCE` (default icon: `arrow-right-square-contained`, `24 x 24`).
+| Part              | Type                     | Size / Values | Description                     |
+| ----------------- | ------------------------ | ------------- | ------------------------------- |
+| **Container**     | `HORIZONTAL` Auto Layout | `133 x 44`    | Main button frame with styling. |
+| **Leading icon**  | `INSTANCE`               | `24 x 24`     | Optional icon before label.     |
+| **Label**         | `TEXT`                   | `Button`      | Main action text.               |
+| **Trailing icon** | `INSTANCE`               | `24 x 24`     | Optional icon after label.      |
 
 Current variant dimensions in Figma:
 
@@ -47,16 +49,16 @@ Current variant dimensions in Figma:
 
 ### Properties
 
-| Name | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| `State` | `VARIANT` | `Default` | `true` | Interaction state axis. Options: `Default`, `Hover`, `Active`, `Disabled`. |
-| `Type` | `VARIANT` | `Primary` | `true` | Semantic style axis. Options: `Primary`, `Secondary`, `Cancel`. |
-| `↳ Change txt` | `TEXT` | `Button` | `TBD` | Overrides the label copy. |
-| `View txt` | `BOOLEAN` | `true` | `TBD` | Toggles label visibility. |
-| `View icn left` | `BOOLEAN` | `true` | `TBD` | Toggles leading icon visibility. |
-| `View icn right` | `BOOLEAN` | `true` | `TBD` | Toggles trailing icon visibility. |
-| `↳ Change icn left` | `INSTANCE_SWAP` | `65:430` | `TBD` | Swaps the leading icon instance from preferred icon options. |
-| `↳ Change icn right` | `INSTANCE_SWAP` | `65:434` | `TBD` | Swaps the trailing icon instance from preferred icon options. |
+| Name                 | Type            | Default   | Required | Description                                                                |
+| -------------------- | --------------- | --------- | -------- | -------------------------------------------------------------------------- |
+| `State`              | `VARIANT`       | `Default` | `true`   | Interaction state axis. Options: `Default`, `Hover`, `Active`, `Disabled`. |
+| `Type`               | `VARIANT`       | `Primary` | `true`   | Semantic style axis. Options: `Primary`, `Secondary`, `Cancel`.            |
+| `↳ Change txt`       | `TEXT`          | `Button`  | `TBD`    | Overrides the label copy.                                                  |
+| `View txt`           | `BOOLEAN`       | `true`    | `TBD`    | Toggles label visibility.                                                  |
+| `View icn left`      | `BOOLEAN`       | `true`    | `TBD`    | Toggles leading icon visibility.                                           |
+| `View icn right`     | `BOOLEAN`       | `true`    | `TBD`    | Toggles trailing icon visibility.                                          |
+| `↳ Change icn left`  | `INSTANCE_SWAP` | `65:430`  | `TBD`    | Swaps the leading icon instance from preferred icon options.               |
+| `↳ Change icn right` | `INSTANCE_SWAP` | `65:434`  | `TBD`    | Swaps the trailing icon instance from preferred icon options.              |
 
 ## Visual Specifications
 
@@ -94,40 +96,40 @@ Current variant dimensions in Figma:
 
 ### Token Mapping
 
-| Part | Condition | Token | Fallback |
-| --- | --- | --- | --- |
-| `container.background` | `type=Primary,state=Default` | `Color/Background/Action/Primary/Default` | `#ADD8E6` |
-| `container.background` | `type=Primary,state=Hover` | `Color/Background/Action/Primary/Hover` | `#C5F0FF` |
-| `container.background` | `type=Primary,state=Active` | `Color/Background/Action/Primary/Active` | `#96BFCC` |
-| `container.background` | `type=Secondary,state=Default` | `Color/Background/Action/Secondary/Default` | `#C9E0BE` |
-| `container.background` | `type=Secondary,state=Hover` | `Color/Background/Action/Secondary/Hover` | `#E0F7D6` |
-| `container.background` | `type=Secondary,state=Active` | `Color/Background/Action/Secondary/Active` | `#B2C9A7` |
-| `container.background` | `type=Cancel,state=Default` | `Color/Background/Action/Danger/Default` | `#B22222` |
-| `container.background` | `type=Cancel,state=Hover` | `Color/Background/Action/Danger/Hover` | `#D43636` |
-| `container.background` | `type=Cancel,state=Active` | `Color/Background/Action/Danger/Active` | `#901212` |
-| `container.background` | `state=Disabled` | `Color/Background/Action/Disabled/Default` | `#ECECEC` |
-| `container.border` | all variants | `Color/Border/Neutral/Alpha-10` | `#0000001A` |
-| `label.color` | `type=Primary,state!=Disabled` | `Color/Text/Action/On-Primary` | `#483F3F` |
-| `label.color` | `type=Secondary,state!=Disabled` | `Color/Text/Action/On-Secondary` | `#483F3F` |
-| `label.color` | `type=Cancel,state!=Disabled` | `Color/Text/Action/On-Danger` | `#FFFFFF` |
-| `label.color` | `state=Disabled` | `Color/Text/Action/On-Disabled` | `#5D5252` |
+| Part                   | Condition                        | Token                                       | Fallback    |
+| ---------------------- | -------------------------------- | ------------------------------------------- | ----------- |
+| `container.background` | `type=Primary,state=Default`     | `Color/Background/Action/Primary/Default`   | `#ADD8E6`   |
+| `container.background` | `type=Primary,state=Hover`       | `Color/Background/Action/Primary/Hover`     | `#C5F0FF`   |
+| `container.background` | `type=Primary,state=Active`      | `Color/Background/Action/Primary/Active`    | `#96BFCC`   |
+| `container.background` | `type=Secondary,state=Default`   | `Color/Background/Action/Secondary/Default` | `#C9E0BE`   |
+| `container.background` | `type=Secondary,state=Hover`     | `Color/Background/Action/Secondary/Hover`   | `#E0F7D6`   |
+| `container.background` | `type=Secondary,state=Active`    | `Color/Background/Action/Secondary/Active`  | `#B2C9A7`   |
+| `container.background` | `type=Cancel,state=Default`      | `Color/Background/Action/Danger/Default`    | `#B22222`   |
+| `container.background` | `type=Cancel,state=Hover`        | `Color/Background/Action/Danger/Hover`      | `#D43636`   |
+| `container.background` | `type=Cancel,state=Active`       | `Color/Background/Action/Danger/Active`     | `#901212`   |
+| `container.background` | `state=Disabled`                 | `Color/Background/Action/Disabled/Default`  | `#ECECEC`   |
+| `container.border`     | all variants                     | `Color/Border/Neutral/Alpha-10`             | `#0000001A` |
+| `label.color`          | `type=Primary,state!=Disabled`   | `Color/Text/Action/On-Primary`              | `#483F3F`   |
+| `label.color`          | `type=Secondary,state!=Disabled` | `Color/Text/Action/On-Secondary`            | `#483F3F`   |
+| `label.color`          | `type=Cancel,state!=Disabled`    | `Color/Text/Action/On-Danger`               | `#FFFFFF`   |
+| `label.color`          | `state=Disabled`                 | `Color/Text/Action/On-Disabled`             | `#5D5252`   |
 
 ## Variants
 
-| Type | State | Differentiating token(s) | Fallback value(s) | Visual indicator | Node |
-| --- | --- | --- | --- | --- | --- |
-| `Primary` | `Default` | `Color/Background/Action/Primary/Default`, `Color/Text/Action/On-Primary`, shadow `100` set | `#ADD8E6`, `#483F3F`, `#00000014` | Blue background, dark text/icons, medium shadow | `59:391` |
-| `Primary` | `Hover` | `Color/Background/Action/Primary/Hover`, `Color/Text/Action/On-Primary`, shadow `200` set | `#C5F0FF`, `#483F3F`, `#00000029` | Lighter blue background, stronger shadow | `68:4126` |
-| `Primary` | `Active` | `Color/Background/Action/Primary/Active`, `Color/Text/Action/On-Primary` | `#96BFCC`, `#483F3F` | Darker blue background, no shadow | `68:4157` |
-| `Primary` | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled` | `#ECECEC`, `#5D5252` | Neutral disabled surface and text | `68:4185` |
-| `Secondary` | `Default` | `Color/Background/Action/Secondary/Default`, `Color/Text/Action/On-Secondary`, shadow `100` set | `#C9E0BE`, `#483F3F`, `#00000014` | Light green background, dark text/icons | `68:4098` |
-| `Secondary` | `Hover` | `Color/Background/Action/Secondary/Hover`, `Color/Text/Action/On-Secondary`, shadow `200` set | `#E0F7D6`, `#483F3F`, `#00000029` | Lighter green background, stronger shadow | `68:4236` |
-| `Secondary` | `Active` | `Color/Background/Action/Secondary/Active`, `Color/Text/Action/On-Secondary` | `#B2C9A7`, `#483F3F` | Darker green background, no shadow | `68:4256` |
-| `Secondary` | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled` | `#ECECEC`, `#5D5252` | Neutral disabled surface and text | `68:4276` |
-| `Cancel` | `Default` | `Color/Background/Action/Danger/Default`, `Color/Text/Action/On-Danger`, shadow `100` set | `#B22222`, `#FFFFFF`, `#00000014` | Red background, white text/icons | `68:4104` |
-| `Cancel` | `Hover` | `Color/Background/Action/Danger/Hover`, `Color/Text/Action/On-Danger`, shadow `200` set | `#D43636`, `#FFFFFF`, `#00000029` | Lighter red background, stronger shadow | `74:4294` |
-| `Cancel` | `Active` | `Color/Background/Action/Danger/Active`, `Color/Text/Action/On-Danger` | `#901212`, `#FFFFFF` | Darker red background, no shadow | `77:4322` |
-| `Cancel` | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled` | `#ECECEC`, `#5D5252` | Neutral disabled surface and text | `77:4374` |
+| Type        | State      | Differentiating token(s)                                                                        | Fallback value(s)                 | Visual indicator                                | Node      |
+| ----------- | ---------- | ----------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------- | --------- |
+| `Primary`   | `Default`  | `Color/Background/Action/Primary/Default`, `Color/Text/Action/On-Primary`, shadow `100` set     | `#ADD8E6`, `#483F3F`, `#00000014` | Blue background, dark text/icons, medium shadow | `59:391`  |
+| `Primary`   | `Hover`    | `Color/Background/Action/Primary/Hover`, `Color/Text/Action/On-Primary`, shadow `200` set       | `#C5F0FF`, `#483F3F`, `#00000029` | Lighter blue background, stronger shadow        | `68:4126` |
+| `Primary`   | `Active`   | `Color/Background/Action/Primary/Active`, `Color/Text/Action/On-Primary`                        | `#96BFCC`, `#483F3F`              | Darker blue background, no shadow               | `68:4157` |
+| `Primary`   | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled`                     | `#ECECEC`, `#5D5252`              | Neutral disabled surface and text               | `68:4185` |
+| `Secondary` | `Default`  | `Color/Background/Action/Secondary/Default`, `Color/Text/Action/On-Secondary`, shadow `100` set | `#C9E0BE`, `#483F3F`, `#00000014` | Light green background, dark text/icons         | `68:4098` |
+| `Secondary` | `Hover`    | `Color/Background/Action/Secondary/Hover`, `Color/Text/Action/On-Secondary`, shadow `200` set   | `#E0F7D6`, `#483F3F`, `#00000029` | Lighter green background, stronger shadow       | `68:4236` |
+| `Secondary` | `Active`   | `Color/Background/Action/Secondary/Active`, `Color/Text/Action/On-Secondary`                    | `#B2C9A7`, `#483F3F`              | Darker green background, no shadow              | `68:4256` |
+| `Secondary` | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled`                     | `#ECECEC`, `#5D5252`              | Neutral disabled surface and text               | `68:4276` |
+| `Cancel`    | `Default`  | `Color/Background/Action/Danger/Default`, `Color/Text/Action/On-Danger`, shadow `100` set       | `#B22222`, `#FFFFFF`, `#00000014` | Red background, white text/icons                | `68:4104` |
+| `Cancel`    | `Hover`    | `Color/Background/Action/Danger/Hover`, `Color/Text/Action/On-Danger`, shadow `200` set         | `#D43636`, `#FFFFFF`, `#00000029` | Lighter red background, stronger shadow         | `74:4294` |
+| `Cancel`    | `Active`   | `Color/Background/Action/Danger/Active`, `Color/Text/Action/On-Danger`                          | `#901212`, `#FFFFFF`              | Darker red background, no shadow                | `77:4322` |
+| `Cancel`    | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled`                     | `#ECECEC`, `#5D5252`              | Neutral disabled surface and text               | `77:4374` |
 
 ## States
 
@@ -165,12 +167,12 @@ Current variant dimensions in Figma:
 
 ### 2. Keyboard navigation
 
-| Key | Action |
-| --- | --- |
-| `Tab` | Moves focus to the button |
+| Key         | Action                                        |
+| ----------- | --------------------------------------------- |
+| `Tab`       | Moves focus to the button                     |
 | `Shift+Tab` | Moves focus to the previous focusable element |
-| `Enter` | Activates the button action |
-| `Space` | Activates the button action |
+| `Enter`     | Activates the button action                   |
+| `Space`     | Activates the button action                   |
 
 ### 3. Focus management
 

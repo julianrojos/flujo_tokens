@@ -324,129 +324,174 @@
       ]
     },
     {
-      "type": "list",
-      "ordered": true,
-      "items": [
-        {
-          "index": 1,
-          "text": "Container: Horizontal auto-layout frame that carries background, border, radius, and state/type styling.",
-          "segments": [
+      "type": "table",
+      "header": [
+        "Part",
+        "Type",
+        "Size / Values",
+        "Description"
+      ],
+      "headerSegments": [
+        [
+          {
+            "text": "Part",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Type",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Size / Values",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Description",
+            "style": "normal"
+          }
+        ]
+      ],
+      "rows": [
+        [
+          "Container",
+          "HORIZONTAL Auto Layout",
+          "133 x 44",
+          "Main button frame with styling."
+        ],
+        [
+          "Leading icon",
+          "INSTANCE",
+          "24 x 24",
+          "Optional icon before label."
+        ],
+        [
+          "Label",
+          "TEXT",
+          "Button",
+          "Main action text."
+        ],
+        [
+          "Trailing icon",
+          "INSTANCE",
+          "24 x 24",
+          "Optional icon after label."
+        ]
+      ],
+      "rowSegments": [
+        [
+          [
             {
               "text": "Container",
               "style": "bold"
+            }
+          ],
+          [
+            {
+              "text": "HORIZONTAL",
+              "style": "code"
             },
             {
-              "text": ": Horizontal auto-layout frame that carries background, border, radius, and state/type styling.",
+              "text": " Auto Layout",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "133 x 44",
+              "style": "code"
+            }
+          ],
+          [
+            {
+              "text": "Main button frame with styling.",
               "style": "normal"
             }
           ]
-        },
-        {
-          "index": 2,
-          "text": "Leading icon: Optional INSTANCE (default icon: arrow-left-square-contained, 24 x 24).",
-          "segments": [
+        ],
+        [
+          [
             {
               "text": "Leading icon",
               "style": "bold"
-            },
-            {
-              "text": ": Optional ",
-              "style": "normal"
-            },
+            }
+          ],
+          [
             {
               "text": "INSTANCE",
               "style": "code"
-            },
-            {
-              "text": " (default icon: ",
-              "style": "normal"
-            },
-            {
-              "text": "arrow-left-square-contained",
-              "style": "code"
-            },
-            {
-              "text": ", ",
-              "style": "normal"
-            },
+            }
+          ],
+          [
             {
               "text": "24 x 24",
               "style": "code"
-            },
+            }
+          ],
+          [
             {
-              "text": ").",
+              "text": "Optional icon before label.",
               "style": "normal"
             }
           ]
-        },
-        {
-          "index": 3,
-          "text": "Label: Optional TEXT node (default content: Button).",
-          "segments": [
+        ],
+        [
+          [
             {
               "text": "Label",
               "style": "bold"
-            },
-            {
-              "text": ": Optional ",
-              "style": "normal"
-            },
+            }
+          ],
+          [
             {
               "text": "TEXT",
               "style": "code"
-            },
-            {
-              "text": " node (default content: ",
-              "style": "normal"
-            },
+            }
+          ],
+          [
             {
               "text": "Button",
               "style": "code"
-            },
+            }
+          ],
+          [
             {
-              "text": ").",
+              "text": "Main action text.",
               "style": "normal"
             }
           ]
-        },
-        {
-          "index": 4,
-          "text": "Trailing icon: Optional INSTANCE (default icon: arrow-right-square-contained, 24 x 24).",
-          "segments": [
+        ],
+        [
+          [
             {
               "text": "Trailing icon",
               "style": "bold"
-            },
-            {
-              "text": ": Optional ",
-              "style": "normal"
-            },
+            }
+          ],
+          [
             {
               "text": "INSTANCE",
               "style": "code"
-            },
-            {
-              "text": " (default icon: ",
-              "style": "normal"
-            },
-            {
-              "text": "arrow-right-square-contained",
-              "style": "code"
-            },
-            {
-              "text": ", ",
-              "style": "normal"
-            },
+            }
+          ],
+          [
             {
               "text": "24 x 24",
               "style": "code"
-            },
+            }
+          ],
+          [
             {
-              "text": ").",
+              "text": "Optional icon after label.",
               "style": "normal"
             }
           ]
-        }
+        ]
       ]
     },
     {
@@ -4079,8 +4124,8 @@
   "stats": {
     "headings": 23,
     "paragraphs": 6,
-    "lists": 17,
-    "tables": 4,
+    "lists": 16,
+    "tables": 5,
     "codeBlocks": 0
   }
 }
