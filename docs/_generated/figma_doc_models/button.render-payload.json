@@ -4290,6 +4290,7 @@
         "table": {
           "cell_padding_v": 8,
           "cell_padding_h": 10,
+          "min_row_height": "auto",
           "row_gap": 0,
           "column_gap": 0,
           "border_weight": 1,

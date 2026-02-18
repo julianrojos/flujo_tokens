@@ -65,6 +65,31 @@ function fontStyleFromWeight(weight) {
   return "Regular";
 }
 
+function addFontFamilyVariants(fontPairs, family, variants) {
+  const safeFamily = String(family || "").trim();
+  if (!safeFamily) return;
+  for (const variant of variants) {
+    fontPairs.add(safeFamily + ":" + variant);
+  }
+}
+
+function setRangeFontNameSafe(node, start, end, family, styleCandidates) {
+  const safeFamily = String(family || "").trim();
+  if (!safeFamily || end <= start) return false;
+
+  for (const rawStyle of styleCandidates) {
+    const safeStyle = String(rawStyle || "").trim();
+    if (!safeStyle) continue;
+    try {
+      node.setRangeFontName(start, end, { family: safeFamily, style: safeStyle });
+      return true;
+    } catch (_) {
+      // Keep trying style fallbacks.
+    }
+  }
+  return false;
+}
+
 function normalizeInlineSegments(rawSegments, fallbackText) {
   if (!Array.isArray(rawSegments) || rawSegments.length === 0) {
     return [{ text: String(fallbackText == null ? "" : fallbackText), style: "normal" }];
@@ -109,18 +134,38 @@ function applySegmentFormatting(node, segments, family, theme) {
     const end = offset + text.length;
     if (end <= offset) continue;
 
-    try {
-      if (segment.style === "bold_italic") {
-        node.setRangeFontName(offset, end, { family, style: "Bold Italic" });
-      } else if (segment.style === "bold") {
-        node.setRangeFontName(offset, end, { family, style: "Bold" });
-      } else if (segment.style === "italic") {
-        node.setRangeFontName(offset, end, { family, style: "Italic" });
-      } else if (segment.style === "code") {
-        node.setRangeFontName(offset, end, { family: monoFamily, style: "Regular" });
+    if (segment.style === "bold_italic") {
+      setRangeFontNameSafe(node, offset, end, family, [
+        "Bold Italic",
+        "SemiBold Italic",
+        "Bold",
+        "Italic",
+        "Regular",
+      ]);
+    } else if (segment.style === "bold") {
+      setRangeFontNameSafe(node, offset, end, family, [
+        "Bold",
+        "SemiBold",
+        "Medium",
+        "Regular",
+      ]);
+    } else if (segment.style === "italic") {
+      setRangeFontNameSafe(node, offset, end, family, [
+        "Italic",
+        "Medium Italic",
+        "Regular",
+      ]);
+    } else if (segment.style === "code") {
+      const appliedMono = setRangeFontNameSafe(node, offset, end, monoFamily, [
+        "Regular",
+        "Medium",
+      ]);
+      if (!appliedMono) {
+        setRangeFontNameSafe(node, offset, end, family, [
+          "Regular",
+          "Medium",
+        ]);
       }
-    } catch (_) {
-      // Keep base style if a specific variant is unavailable.
     }
 
     offset = end;
@@ -135,20 +180,24 @@ async function ensureFonts(theme) {
 
   // Collect { family, style } pairs from all typography entries
   const fontPairs = new Set();
-  fontPairs.add(bodyFamily + ":Regular");
-  fontPairs.add(bodyFamily + ":Bold");
-  fontPairs.add(bodyFamily + ":Italic");
-  if (headingFamily !== bodyFamily) {
-    fontPairs.add(headingFamily + ":Regular");
-    fontPairs.add(headingFamily + ":Bold");
-    fontPairs.add(headingFamily + ":Italic");
-  }
-  fontPairs.add(monoFamily + ":Regular");
+  const richTextVariants = [
+    "Regular",
+    "Bold",
+    "Italic",
+    "Bold Italic",
+    "SemiBold",
+    "SemiBold Italic",
+    "Medium",
+    "Medium Italic",
+  ];
+  addFontFamilyVariants(fontPairs, bodyFamily, richTextVariants);
+  addFontFamilyVariants(fontPairs, headingFamily, richTextVariants);
+  addFontFamilyVariants(fontPairs, monoFamily, ["Regular", "Medium"]);
   for (const [key, value] of Object.entries(typography)) {
     if (key === "font_family" || key === "font_family_heading") continue;
     if (!value || typeof value !== "object") continue;
     const fam = value.font_family || bodyFamily;
-    fontPairs.add(fam + ":" + fontStyleFromWeight(value.weight));
+    addFontFamilyVariants(fontPairs, fam, [fontStyleFromWeight(value.weight)]);
   }
 
   for (const pair of fontPairs) {
@@ -299,6 +348,31 @@ function createChip(parent, label, theme) {
   });
 }
 
+function resolveTableMinRowHeight(theme, cellPaddingV) {
+  const configured = getPath(theme, "components.table_card.table.min_row_height", null);
+  const configuredString = String(configured == null ? "" : configured).trim().toLowerCase();
+
+  if (configuredString && configuredString !== "auto") {
+    const configuredNumber = Number(configured);
+    if (Number.isFinite(configuredNumber) && configuredNumber > 0) {
+      return Math.ceil(configuredNumber);
+    }
+  }
+
+  const bodySizeRaw = Number(getPath(theme, "theme.typography.body.size", 15));
+  const bodyLineHeightRaw = Number(getPath(theme, "theme.typography.body.line_height", 24));
+  const safeBodySize = Number.isFinite(bodySizeRaw) && bodySizeRaw > 0 ? bodySizeRaw : 15;
+  const safeBodyLineHeight =
+    Number.isFinite(bodyLineHeightRaw) && bodyLineHeightRaw > 0
+      ? bodyLineHeightRaw
+      : Math.ceil(safeBodySize * 1.2);
+  const safePaddingV =
+    Number.isFinite(cellPaddingV) && cellPaddingV >= 0 ? cellPaddingV : 8;
+
+  const contentHeight = Math.max(safeBodyLineHeight, safeBodySize * 1.2);
+  return Math.ceil(contentHeight + safePaddingV * 2);
+}
+
 function createTable(parent, title, tableBlock, theme) {
   const tableCard = createVerticalFrame("Table/" + toSafeName(title || "Table"));
   tableCard.layoutAlign = "STRETCH";
@@ -344,7 +418,7 @@ function createTable(parent, title, tableBlock, theme) {
   const cellPaddingH = Number(getPath(theme, "components.table_card.table.cell_padding_h", 10));
   const borderColor = resolveColor(theme, getPath(theme, "markdown_mapping.table.border_color", "card_border"), "#E7DDCF");
   const borderWeight = Number(getPath(theme, "components.table_card.table.border_weight", 1));
-  const minRowHeight = Number(getPath(theme, "components.table_card.table.min_row_height", 40));
+  const minRowHeight = resolveTableMinRowHeight(theme, cellPaddingV);
   const minColumnWidth = Number(getPath(theme, "components.table_card.table.min_column_width", 120));
   const rowGap = Number(getPath(theme, "components.table_card.table.row_gap", 0));
   const columnGap = Number(getPath(theme, "components.table_card.table.column_gap", 0));
@@ -426,6 +500,7 @@ function createTable(parent, title, tableBlock, theme) {
     rowFrame.fills = [];
     tableCard.appendChild(rowFrame);
     const rowCells = [];
+    let rowContentHeight = minRowHeight;
 
     for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
       const value = colIndex < row.cells.length ? String(row.cells[colIndex] ?? "") : "";
@@ -450,13 +525,20 @@ function createTable(parent, title, tableBlock, theme) {
         Array.isArray(row.segments) && Array.isArray(row.segments[colIndex])
           ? row.segments[colIndex]
           : null;
-      createText(cell, value, row.isHeader ? "h3" : "body", theme, {
+      const textNode = createText(cell, value, row.isHeader ? "h3" : "body", theme, {
         wrapWidth: Math.max(1, cellWidth - cellPaddingH * 2),
         segments: cellSegments,
       });
+      const measuredCellHeight = Math.ceil(Number(textNode.height || 0) + cellPaddingV * 2);
+      rowContentHeight = Math.max(rowContentHeight, measuredCellHeight);
     }
 
-    const targetRowHeight = Math.max(minRowHeight, Math.ceil(rowFrame.height));
+    const targetRowHeight = Math.max(
+      minRowHeight,
+      rowContentHeight,
+      Math.ceil(Number(rowFrame.height || 0))
+    );
+    rowFrame.counterAxisSizingMode = "FIXED";
     rowFrame.resizeWithoutConstraints(tableWidth, targetRowHeight);
 
     // Force same cell height in a row to avoid ragged table baselines.

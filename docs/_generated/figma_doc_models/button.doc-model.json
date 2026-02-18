@@ -1,7 +1,7 @@
 {
   "version": 2,
   "componentName": "Button",
-  "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/button.md",
+  "markdownPath": "docs/components/button.md",
   "title": "Button",
   "blocks": [
     {
