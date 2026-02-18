@@ -447,8 +447,8 @@ function createTable(parent, title, tableBlock, theme) {
   grid.name = "Grid";
   grid.layoutMode = "GRID";
   grid.primaryAxisSizingMode = "FIXED";
-  grid.counterAxisSizingMode = "AUTO";
-  grid.resizeWithoutConstraints(tableWidth, 40);
+  grid.counterAxisSizingMode = "FIXED";
+  grid.resizeWithoutConstraints(tableWidth, 1);
   grid.gridRowCount = rows.length;
   grid.gridColumnCount = columnCount;
   grid.gridRowGap = rowGap;
@@ -460,6 +460,8 @@ function createTable(parent, title, tableBlock, theme) {
 
   const availableWidth = Math.max(1, tableWidth - columnGap * Math.max(0, columnCount - 1));
   const cellContentWidth = Math.max(1, availableWidth / columnCount - cellPaddingH * 2);
+  const rowHeights = new Array(rows.length).fill(0);
+  const minRowHeight = Number(getPath(theme, "components.table_card.table.min_row_height", 40));
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
     const row = rows[rowIndex];
@@ -481,8 +483,13 @@ function createTable(parent, title, tableBlock, theme) {
       createText(cell, value, row.isHeader ? "h3" : "body", theme, {
         wrapWidth: cellContentWidth,
       });
+      rowHeights[rowIndex] = Math.max(rowHeights[rowIndex], Math.ceil(cell.height));
     }
   }
+
+  const maxRowHeight = Math.max(minRowHeight, ...rowHeights);
+  const totalGridHeight = maxRowHeight * rows.length + rowGap * Math.max(0, rows.length - 1);
+  grid.resizeWithoutConstraints(tableWidth, Math.max(1, totalGridHeight));
 }
 
 function renderList(parent, listBlock, theme) {
