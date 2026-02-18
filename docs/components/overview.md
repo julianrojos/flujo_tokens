@@ -18,4 +18,5 @@ One page per component. This documentation is design-first (Figma) and token-bac
 
 ## Component list
 
-- TBD
+- [Alert](alert.md)
+- [Avatar](avatar.md)
