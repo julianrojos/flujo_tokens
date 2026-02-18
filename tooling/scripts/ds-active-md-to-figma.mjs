@@ -74,6 +74,7 @@ function main() {
   const payloadPath = path.join(generatedDir, `${fileBase}.render-payload.json`);
   const offsetX = args["offset-x"] || "200";
   const componentSetId = args["component-set-id"] || "";
+  const tokenRegistryPath = args["token-registry"] || "";
   const figmaUrl = args.url || "";
 
   fs.mkdirSync(path.resolve(generatedDir), { recursive: true });
@@ -106,6 +107,9 @@ function main() {
 
   if (componentSetId) {
     stepBArgs.push("--component-set-id", componentSetId);
+  }
+  if (tokenRegistryPath) {
+    stepBArgs.push("--token-registry", tokenRegistryPath);
   }
 
   runOrFail("node", stepBArgs);

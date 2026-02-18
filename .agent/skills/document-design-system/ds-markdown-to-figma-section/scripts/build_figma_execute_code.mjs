@@ -5,6 +5,262 @@ import path from "node:path";
 import { parseYamlDocument } from "../../../../../tooling/scripts/lib/parse-frontmatter.mjs";
 import { parseArgs } from "../../../../../tooling/scripts/lib/parse-args.mjs";
 import { FIGMA_DOC_MODELS_DIR } from "../../../../../tooling/scripts/lib/paths.mjs";
+import {
+  DEFAULT_TOKEN_REGISTRY_PATH,
+  loadTokenRegistry,
+} from "../../../../../tooling/scripts/lib/token-registry.mjs";
+
+function normalizeHexColor(rawValue) {
+  if (typeof rawValue !== "string") return null;
+  const trimmed = rawValue.trim();
+  if (!trimmed.startsWith("#")) return null;
+  const hex = trimmed.slice(1);
+  if (![3, 4, 6, 8].includes(hex.length)) return null;
+  if (!/^[0-9a-f]+$/i.test(hex)) return null;
+  return `#${hex.toLowerCase()}`;
+}
+
+function getVarReference(rawValue) {
+  if (typeof rawValue !== "string") return null;
+  const match = rawValue.trim().match(/^var\(\s*(--[a-z0-9\-_]+)\s*(?:,\s*[^)]+)?\)$/i);
+  return match ? match[1] : null;
+}
+
+function asTokenKey(rawKey) {
+  if (typeof rawKey !== "string") return "";
+  return rawKey.trim().replace(/^["'`]+|["'`]+$/g, "");
+}
+
+function addTokenAlias(colorIndex, rawKey, hexValue) {
+  const key = asTokenKey(rawKey).toLowerCase();
+  if (!key) return;
+  if (colorIndex[key] === undefined) colorIndex[key] = hexValue;
+}
+
+function addTokenNumberAlias(numberIndex, rawKey, numericValue) {
+  const key = asTokenKey(rawKey).toLowerCase();
+  if (!key) return;
+  if (numberIndex[key] === undefined) numberIndex[key] = numericValue;
+}
+
+function extractUniqueEntries(registryIndex) {
+  const unique = [];
+  const seen = new Set();
+  for (const entry of Object.values(registryIndex || {})) {
+    if (!entry || typeof entry !== "object") continue;
+    const marker = [
+      entry.path ?? "",
+      entry.slashPath ?? "",
+      entry.cssVar ?? "",
+      entry.collection ?? "",
+    ].join("|");
+    if (seen.has(marker)) continue;
+    seen.add(marker);
+    unique.push(entry);
+  }
+  return unique;
+}
+
+function resolveEntryHex(entry, byCssVar, cache, stack = new Set()) {
+  const cacheKey = String(entry.path || entry.slashPath || entry.cssVar || "");
+  if (cache[cacheKey] !== undefined) return cache[cacheKey];
+  if (stack.has(cacheKey)) return null;
+
+  stack.add(cacheKey);
+  const directHex = normalizeHexColor(entry.resolvedValue);
+  if (directHex) {
+    cache[cacheKey] = directHex;
+    stack.delete(cacheKey);
+    return directHex;
+  }
+
+  const varRef = getVarReference(entry.resolvedValue);
+  if (!varRef) {
+    cache[cacheKey] = null;
+    stack.delete(cacheKey);
+    return null;
+  }
+
+  const referencedEntry = byCssVar.get(varRef);
+  if (!referencedEntry) {
+    cache[cacheKey] = null;
+    stack.delete(cacheKey);
+    return null;
+  }
+
+  const resolved = resolveEntryHex(referencedEntry, byCssVar, cache, stack);
+  cache[cacheKey] = resolved;
+  stack.delete(cacheKey);
+  return resolved;
+}
+
+function parseDimensionNumber(rawValue) {
+  if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+    return rawValue;
+  }
+  if (typeof rawValue !== "string") return null;
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+
+  const pxMatch = trimmed.match(/^(-?\d+(?:\.\d+)?)px$/i);
+  if (pxMatch) {
+    const parsed = Number(pxMatch[1]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const numericMatch = trimmed.match(/^-?\d+(?:\.\d+)?$/);
+  if (numericMatch) {
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function resolveEntryDimension(entry, byCssVar, cache, stack = new Set()) {
+  const cacheKey = String(entry.path || entry.slashPath || entry.cssVar || "");
+  if (cache[cacheKey] !== undefined) return cache[cacheKey];
+  if (stack.has(cacheKey)) return null;
+
+  stack.add(cacheKey);
+  const directNumber = parseDimensionNumber(entry.resolvedValue);
+  if (directNumber != null) {
+    cache[cacheKey] = directNumber;
+    stack.delete(cacheKey);
+    return directNumber;
+  }
+
+  const varRef = getVarReference(entry.resolvedValue);
+  if (!varRef) {
+    cache[cacheKey] = null;
+    stack.delete(cacheKey);
+    return null;
+  }
+
+  const referencedEntry = byCssVar.get(varRef);
+  if (!referencedEntry) {
+    cache[cacheKey] = null;
+    stack.delete(cacheKey);
+    return null;
+  }
+
+  const resolved = resolveEntryDimension(referencedEntry, byCssVar, cache, stack);
+  cache[cacheKey] = resolved;
+  stack.delete(cacheKey);
+  return resolved;
+}
+
+function buildColorTokenIndex(registryIndex) {
+  const entries = extractUniqueEntries(registryIndex);
+  const byCssVar = new Map();
+  for (const entry of entries) {
+    if (typeof entry.cssVar === "string" && entry.cssVar.trim()) {
+      byCssVar.set(entry.cssVar.trim(), entry);
+    }
+  }
+
+  const colorIndex = Object.create(null);
+  const cache = Object.create(null);
+
+  for (const entry of entries) {
+    if (String(entry.type || "").toLowerCase() !== "color") continue;
+
+    const resolvedHex = resolveEntryHex(entry, byCssVar, cache);
+    if (!resolvedHex) continue;
+
+    const dotPath = asTokenKey(entry.path);
+    const slashPath = asTokenKey(entry.slashPath);
+    const collection = String(entry.collection || "").trim().toLowerCase();
+
+    addTokenAlias(colorIndex, dotPath, resolvedHex);
+    addTokenAlias(colorIndex, slashPath, resolvedHex);
+
+    if (dotPath.includes(".")) {
+      addTokenAlias(colorIndex, dotPath.split(".").slice(1).join("."), resolvedHex);
+    }
+
+    if (collection && slashPath) {
+      addTokenAlias(colorIndex, `${collection}/${slashPath}`, resolvedHex);
+      addTokenAlias(colorIndex, `_${collection}/${slashPath}`, resolvedHex);
+    }
+
+    // Compatibility alias for legacy shorthand (for example `_primitives/BW/White`).
+    if (collection === "primitives" && slashPath.startsWith("Color/")) {
+      const primitiveShortPath = slashPath.slice("Color/".length);
+      addTokenAlias(colorIndex, `primitives/${primitiveShortPath}`, resolvedHex);
+      addTokenAlias(colorIndex, `_primitives/${primitiveShortPath}`, resolvedHex);
+    }
+  }
+
+  return colorIndex;
+}
+
+function buildDimensionTokenIndex(registryIndex) {
+  const entries = extractUniqueEntries(registryIndex);
+  const byCssVar = new Map();
+  for (const entry of entries) {
+    if (typeof entry.cssVar === "string" && entry.cssVar.trim()) {
+      byCssVar.set(entry.cssVar.trim(), entry);
+    }
+  }
+
+  const dimensionIndex = Object.create(null);
+  const cache = Object.create(null);
+
+  for (const entry of entries) {
+    if (String(entry.type || "").toLowerCase() !== "dimension") continue;
+
+    const resolvedNumber = resolveEntryDimension(entry, byCssVar, cache);
+    if (resolvedNumber == null) continue;
+
+    const dotPath = asTokenKey(entry.path);
+    const slashPath = asTokenKey(entry.slashPath);
+    const collection = String(entry.collection || "").trim().toLowerCase();
+
+    addTokenNumberAlias(dimensionIndex, dotPath, resolvedNumber);
+    addTokenNumberAlias(dimensionIndex, slashPath, resolvedNumber);
+
+    if (dotPath.includes(".")) {
+      addTokenNumberAlias(
+        dimensionIndex,
+        dotPath.split(".").slice(1).join("."),
+        resolvedNumber
+      );
+    }
+
+    if (collection && slashPath) {
+      addTokenNumberAlias(dimensionIndex, `${collection}/${slashPath}`, resolvedNumber);
+      addTokenNumberAlias(dimensionIndex, `_${collection}/${slashPath}`, resolvedNumber);
+    }
+  }
+
+  return dimensionIndex;
+}
+
+function loadTokenIndexes(registryPath) {
+  const absolutePath = path.resolve(registryPath);
+  if (!fs.existsSync(absolutePath)) {
+    return {
+      tokenColors: Object.create(null),
+      tokenDimensions: Object.create(null),
+    };
+  }
+
+  try {
+    const registryIndex = loadTokenRegistry(absolutePath);
+    return {
+      tokenColors: buildColorTokenIndex(registryIndex),
+      tokenDimensions: buildDimensionTokenIndex(registryIndex),
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.warn(`[build_figma_execute_code] Token registry ignored (${reason})`);
+    return {
+      tokenColors: Object.create(null),
+      tokenDimensions: Object.create(null),
+    };
+  }
+}
 
 function buildFigmaExecuteCode(payload) {
   const payloadJson = JSON.stringify(payload);
@@ -45,15 +301,85 @@ function solid(hex, opacity) {
   };
 }
 
-function resolveColor(theme, colorOrToken, fallbackHex) {
+function normalizeTokenKey(rawValue) {
+  if (typeof rawValue !== "string") return "";
+  return rawValue.trim().replace(/^["'\`]+|["'\`]+$/g, "");
+}
+
+function resolveColorFromRegistry(tokenColors, rawToken) {
+  if (!tokenColors || typeof tokenColors !== "object") return null;
+  const tokenKey = normalizeTokenKey(rawToken);
+  if (!tokenKey) return null;
+  return tokenColors[tokenKey] || tokenColors[tokenKey.toLowerCase()] || null;
+}
+
+function resolveColor(theme, tokenColors, colorOrToken, fallbackHex) {
   if (typeof colorOrToken === "string" && colorOrToken.startsWith("#")) {
     return colorOrToken;
   }
   if (typeof colorOrToken === "string") {
     const tokenValue = getPath(theme, "theme.colors." + colorOrToken, null);
     if (typeof tokenValue === "string" && tokenValue.startsWith("#")) return tokenValue;
+    const themeRegistryValue = resolveColorFromRegistry(tokenColors, tokenValue);
+    if (typeof themeRegistryValue === "string" && themeRegistryValue.startsWith("#")) {
+      return themeRegistryValue;
+    }
+    const directRegistryValue = resolveColorFromRegistry(tokenColors, colorOrToken);
+    if (typeof directRegistryValue === "string" && directRegistryValue.startsWith("#")) {
+      return directRegistryValue;
+    }
   }
   return fallbackHex;
+}
+
+function parseNumericDimension(rawValue) {
+  if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
+    return rawValue;
+  }
+  if (typeof rawValue !== "string") return null;
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+  const pxMatch = trimmed.match(/^(-?\\d+(?:\\.\\d+)?)px$/i);
+  if (pxMatch) {
+    const parsedPx = Number(pxMatch[1]);
+    return Number.isFinite(parsedPx) ? parsedPx : null;
+  }
+  const numericMatch = trimmed.match(/^-?\\d+(?:\\.\\d+)?$/);
+  if (numericMatch) {
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function resolveDimensionFromRegistry(tokenDimensions, rawToken) {
+  if (!tokenDimensions || typeof tokenDimensions !== "object") return null;
+  const tokenKey = normalizeTokenKey(rawToken);
+  if (!tokenKey) return null;
+  const value = tokenDimensions[tokenKey] || tokenDimensions[tokenKey.toLowerCase()] || null;
+  return Number.isFinite(value) ? value : null;
+}
+
+function resolveRadiusValue(theme, tokenDimensions, valueOrToken, fallbackValue) {
+  const directValue = parseNumericDimension(valueOrToken);
+  if (directValue != null) return directValue;
+
+  const aliasValue =
+    typeof valueOrToken === "string"
+      ? getPath(theme, "theme.radii." + valueOrToken, null)
+      : null;
+  const aliasNumericValue = parseNumericDimension(aliasValue);
+  if (aliasNumericValue != null) return aliasNumericValue;
+
+  const registryAliasValue = resolveDimensionFromRegistry(tokenDimensions, aliasValue);
+  if (registryAliasValue != null) return registryAliasValue;
+
+  const registryDirectValue = resolveDimensionFromRegistry(tokenDimensions, valueOrToken);
+  if (registryDirectValue != null) return registryDirectValue;
+
+  const fallbackNumericValue = parseNumericDimension(fallbackValue);
+  if (fallbackNumericValue != null) return fallbackNumericValue;
+  return Number(fallbackValue);
 }
 
 function fontStyleFromWeight(weight) {
@@ -254,7 +580,7 @@ function createText(parent, text, styleKey, theme, options) {
   const wrapWidth = options && typeof options.wrapWidth === "number"
     ? Number(options.wrapWidth)
     : null;
-  const colorHex = resolveColor(theme, colorToken, "#4E4343");
+  const colorHex = resolveColor(theme, tokenColors, colorToken, "#4E4343");
 
   const node = figma.createText();
   node.fontName = { family, style: fontStyleFromWeight(style.weight) };
@@ -321,9 +647,14 @@ function createCard(canvas, title, titleSegments, theme) {
   card.paddingBottom = padBottom;
   card.paddingLeft = padLeft;
   card.itemSpacing = Number(getPath(theme, "components.card.item_spacing", 10));
-  card.cornerRadius = Number(getPath(theme, "components.card.radius", getPath(theme, "theme.radii.card", 16)));
-  card.fills = [solid(resolveColor(theme, getPath(theme, "components.card.fills.color", "card_bg"), "#FFFFFF"), 1)];
-  card.strokes = [solid(resolveColor(theme, getPath(theme, "components.card.strokes.color", "card_border"), "#E7DDCF"), 1)];
+  card.cornerRadius = resolveRadiusValue(
+    theme,
+    tokenDimensions,
+    getPath(theme, "components.card.radius", getPath(theme, "theme.radii.card", 16)),
+    16
+  );
+  card.fills = [solid(resolveColor(theme, tokenColors, getPath(theme, "components.card.fills.color", "card_bg"), "#FFFFFF"), 1)];
+  card.strokes = [solid(resolveColor(theme, tokenColors, getPath(theme, "components.card.strokes.color", "card_border"), "#E7DDCF"), 1)];
   card.strokeWeight = Number(getPath(theme, "components.card.strokes.weight", 1));
   canvas.appendChild(card);
 
@@ -337,10 +668,15 @@ function createChip(parent, label, theme) {
   chip.paddingBottom = Number(getPath(theme, "theme.spacing.chip_padding_v", 6));
   chip.paddingLeft = Number(getPath(theme, "theme.spacing.chip_padding_h", 10));
   chip.paddingRight = Number(getPath(theme, "theme.spacing.chip_padding_h", 10));
-  chip.cornerRadius = Number(getPath(theme, "theme.radii.chip", 999));
-  chip.strokes = [solid(resolveColor(theme, "chip_border", "#DCCBB2"), 1)];
+  chip.cornerRadius = resolveRadiusValue(
+    theme,
+    tokenDimensions,
+    getPath(theme, "theme.radii.chip", 999),
+    999
+  );
+  chip.strokes = [solid(resolveColor(theme, tokenColors, "chip_border", "#DCCBB2"), 1)];
   chip.strokeWeight = Number(getPath(theme, "theme.strokes.chip_border", 1));
-  chip.fills = [solid(resolveColor(theme, "chip_bg", "#F6EFE4"), 1)];
+  chip.fills = [solid(resolveColor(theme, tokenColors, "chip_bg", "#F6EFE4"), 1)];
   parent.appendChild(chip);
   createText(chip, label, "body_small", theme, {
     colorOverride: "chip_text",
@@ -416,13 +752,13 @@ function createTable(parent, title, tableBlock, theme) {
 
   const cellPaddingV = Number(getPath(theme, "components.table_card.table.cell_padding_v", 8));
   const cellPaddingH = Number(getPath(theme, "components.table_card.table.cell_padding_h", 10));
-  const borderColor = resolveColor(theme, getPath(theme, "markdown_mapping.table.border_color", "card_border"), "#E7DDCF");
+  const borderColor = resolveColor(theme, tokenColors, getPath(theme, "markdown_mapping.table.border_color", "card_border"), "#E7DDCF");
   const borderWeight = Number(getPath(theme, "components.table_card.table.border_weight", 1));
   const minRowHeight = resolveTableMinRowHeight(theme, cellPaddingV);
   const minColumnWidth = Number(getPath(theme, "components.table_card.table.min_column_width", 120));
   const rowGap = Number(getPath(theme, "components.table_card.table.row_gap", 0));
   const columnGap = Number(getPath(theme, "components.table_card.table.column_gap", 0));
-  const headerBgColor = resolveColor(theme, getPath(theme, "components.table_card.table.header_bg", "table_header_bg"), null);
+  const headerBgColor = resolveColor(theme, tokenColors, getPath(theme, "components.table_card.table.header_bg", "table_header_bg"), null);
   const cardWidth = Number(getPath(theme, "components.card.width", 820));
   const cardPadLeft = Number(getPath(theme, "components.card.padding.left", 20));
   const cardPadRight = Number(getPath(theme, "components.card.padding.right", 20));
@@ -569,6 +905,8 @@ function renderList(parent, listBlock, theme) {
 
 const model = PAYLOAD.model || {};
 const theme = PAYLOAD.theme || {};
+const tokenColors = PAYLOAD.tokenColors || {};
+const tokenDimensions = PAYLOAD.tokenDimensions || {};
 const options = PAYLOAD.options || {};
 const unsupportedBlocks = [];
 const renderedCount = {
@@ -666,9 +1004,14 @@ canvas.paddingRight = Number(canvasPadding.right ?? 28);
 canvas.paddingBottom = Number(canvasPadding.bottom ?? 28);
 canvas.paddingLeft = Number(canvasPadding.left ?? 28);
 canvas.itemSpacing = Number(getPath(theme, "layout.canvas.item_spacing", 18));
-canvas.cornerRadius = Number(getPath(theme, "theme.radii.canvas", 24));
-canvas.fills = [solid(resolveColor(theme, "page_bg", "#FFF9F0"), 1)];
-canvas.strokes = [solid(resolveColor(theme, "section_border", "#E7DDCF"), 1)];
+canvas.cornerRadius = resolveRadiusValue(
+  theme,
+  tokenDimensions,
+  getPath(theme, "theme.radii.canvas", 24),
+  24
+);
+canvas.fills = [solid(resolveColor(theme, tokenColors, "page_bg", "#FFF9F0"), 1)];
+canvas.strokes = [solid(resolveColor(theme, tokenColors, "section_border", "#E7DDCF"), 1)];
 canvas.strokeWeight = Number(getPath(theme, "theme.strokes.section_border", 1));
 canvas.x = canvasInset;
 canvas.y = canvasInset;
@@ -686,8 +1029,17 @@ if (accentEnabled) {
   accent.paddingBottom = Number(accentPad.bottom ?? 16);
   accent.paddingLeft = Number(accentPad.left ?? 24);
   accent.itemSpacing = Number(getPath(theme, "components.header_block.item_spacing", 8));
-  accent.cornerRadius = Number(getPath(theme, "components.header_block.accent.radius", getPath(theme, "theme.radii.header_accent", 12)));
-  const accentColor = resolveColor(theme, getPath(theme, "components.header_block.accent.fills.color", "header_accent"), "#C9E0BE");
+  accent.cornerRadius = resolveRadiusValue(
+    theme,
+    tokenDimensions,
+    getPath(
+      theme,
+      "components.header_block.accent.radius",
+      getPath(theme, "theme.radii.header_accent", 12)
+    ),
+    12
+  );
+  const accentColor = resolveColor(theme, tokenColors, getPath(theme, "components.header_block.accent.fills.color", "header_accent"), "#C9E0BE");
   accent.fills = [solid(accentColor, 1)];
   canvas.appendChild(accent);
   headerTarget = accent;
@@ -847,6 +1199,8 @@ function main() {
     fs.readFileSync(themePath, "utf8"),
     `theme file (${themePath})`
   );
+  const tokenRegistryPath = args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
+  const { tokenColors, tokenDimensions } = loadTokenIndexes(tokenRegistryPath);
 
   const componentName = args["component-name"] || model.componentName || model.title || "Component";
   const outPath =
@@ -860,6 +1214,8 @@ function main() {
   const payload = {
     model,
     theme,
+    tokenColors,
+    tokenDimensions,
     options: {
       componentName,
       componentSetNodeId: args["component-set-id"] || null,
@@ -884,6 +1240,11 @@ function main() {
         componentName,
         componentSetNodeId: payload.options.componentSetNodeId,
         offsetX: payload.options.offsetX,
+        tokenColorsCount: Object.keys(tokenColors).length,
+        tokenDimensionsCount: Object.keys(tokenDimensions).length,
+        tokenRegistryPath: fs.existsSync(path.resolve(tokenRegistryPath))
+          ? path.resolve(tokenRegistryPath)
+          : null,
       },
       null,
       2

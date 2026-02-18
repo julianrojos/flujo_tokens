@@ -28,7 +28,7 @@ layout:
 theme:
   colors:
     # Surfaces — from DS Semantic tokens
-    page_bg: "#FFFAF0"
+    page_bg: "_primitives/BW/White"
     section_border: "#C9E0BE"
     canvas_shadow: "#00000014"
     # Cards
@@ -48,10 +48,10 @@ theme:
     # Header accent — brand secondary
     header_accent: "#C9E0BE"
   radii:
-    canvas: 20
-    card: 12
-    chip: 999
-    header_accent: 12
+    canvas: "Dimension/Border/Radius/200"
+    card: "Dimension/Border/Radius/200"
+    chip: "Dimension/Border/Radius/200"
+    header_accent: "Dimension/Border/Radius/200"
   strokes:
     section_border: 1.5
     card_border: 1
@@ -146,7 +146,7 @@ components:
       enabled: true
       fills:
         color: header_accent
-      radius: 12
+      radius: "Dimension/Border/Radius/200"
       padding:
         top: 16
         right: 24
@@ -171,7 +171,7 @@ components:
     strokes:
       color: card_border
       weight: 1
-    radius: 12
+    radius: "Dimension/Border/Radius/200"
   table_card:
     extends: card
     table:

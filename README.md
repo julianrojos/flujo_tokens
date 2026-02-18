@@ -265,5 +265,14 @@ Useful flags:
 - `--component-set-id <figma-node-id>`
 - `--generated-dir <path>` (default: `docs/_generated/figma_doc_models`)
 - `--theme <path>` (default: `docs/_spec/figma_doc_theme.yml`)
+- `--token-registry <path>` (default: `docs/_generated/token-registry.json`)
 - `--offset-x <number>` (default: `200`)
 - `--agent <codex|claude|gemini>`
+
+Theme color values can be:
+
+- direct hex values (for example `#FFFFFF`)
+- local color aliases under `theme.colors`
+- token paths resolved through the token registry (for example `Color/BW/White`, `_primitives/BW/White`)
+
+Theme radius values can also use token paths from the registry (for example `Dimension/Border/Radius/200`).
