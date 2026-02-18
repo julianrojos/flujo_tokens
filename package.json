@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "CSS custom properties generator from JSON tokens",
   "type": "module",
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  },
   "scripts": {
     "generate": "tsx tooling/src/cli/index.ts",
     "generate:strict": "tsx tooling/src/cli/index.ts --mode-strict",

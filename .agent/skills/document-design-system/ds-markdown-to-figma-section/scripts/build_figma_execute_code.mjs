@@ -2,145 +2,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-
-function parseArgs(argv) {
-  const args = {};
-  for (let i = 0; i < argv.length; i += 1) {
-    const token = argv[i];
-    if (!token.startsWith("--")) continue;
-    const key = token.slice(2);
-    const value = argv[i + 1];
-    if (!value || value.startsWith("--")) {
-      args[key] = "true";
-      continue;
-    }
-    args[key] = value;
-    i += 1;
-  }
-  return args;
-}
-
-function stripInlineComment(rawLine) {
-  let inSingle = false;
-  let inDouble = false;
-  for (let i = 0; i < rawLine.length; i += 1) {
-    const char = rawLine[i];
-    if (char === "'" && !inDouble) inSingle = !inSingle;
-    if (char === '"' && !inSingle) inDouble = !inDouble;
-    if (char === "#" && !inSingle && !inDouble) {
-      if (i === 0 || /\s/.test(rawLine[i - 1])) return rawLine.slice(0, i);
-    }
-  }
-  return rawLine;
-}
-
-function parseScalar(rawValue) {
-  const value = rawValue.trim();
-  if (!value) return "";
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
-  }
-  if (value === "true") return true;
-  if (value === "false") return false;
-  if (/^-?\d+(\.\d+)?$/.test(value)) return Number(value);
-  return value;
-}
-
-function preprocessYaml(rawYaml) {
-  const sourceLines = rawYaml.replace(/\r\n/g, "\n").split("\n");
-  const lines = [];
-  for (const sourceLine of sourceLines) {
-    const uncommented = stripInlineComment(sourceLine);
-    if (!uncommented.trim()) continue;
-    const indent = uncommented.match(/^ */)?.[0].length ?? 0;
-    lines.push({
-      indent,
-      text: uncommented.trimEnd(),
-    });
-  }
-  return lines;
-}
-
-function parseYaml(rawYaml) {
-  const lines = preprocessYaml(rawYaml);
-  const cursor = { i: 0 };
-
-  function parseFoldedString(baseIndent) {
-    const fragments = [];
-    while (cursor.i < lines.length) {
-      const line = lines[cursor.i];
-      if (line.indent <= baseIndent) break;
-      fragments.push(line.text.trim());
-      cursor.i += 1;
-    }
-    return fragments.join(" ").trim();
-  }
-
-  function parseArray(arrayIndent) {
-    const values = [];
-    while (cursor.i < lines.length) {
-      const line = lines[cursor.i];
-      if (line.indent < arrayIndent) break;
-      if (line.indent !== arrayIndent || !line.text.trim().startsWith("- ")) break;
-      const itemText = line.text.trim().slice(2).trim();
-      values.push(parseScalar(itemText));
-      cursor.i += 1;
-    }
-    return values;
-  }
-
-  function parseObject(objectIndent) {
-    const obj = {};
-    while (cursor.i < lines.length) {
-      const line = lines[cursor.i];
-      if (line.indent < objectIndent) break;
-      if (line.indent > objectIndent) {
-        throw new Error(
-          `Invalid indentation near line: "${line.text}". Expected indent ${objectIndent}, got ${line.indent}.`
-        );
-      }
-
-      const trimmed = line.text.trim();
-      if (trimmed.startsWith("- ")) break;
-
-      const separatorIndex = trimmed.indexOf(":");
-      if (separatorIndex === -1) {
-        throw new Error(`Invalid YAML line (missing colon): "${trimmed}"`);
-      }
-
-      const key = trimmed.slice(0, separatorIndex).trim();
-      const valueToken = trimmed.slice(separatorIndex + 1).trim();
-      cursor.i += 1;
-
-      if (!valueToken) {
-        if (cursor.i >= lines.length || lines[cursor.i].indent <= objectIndent) {
-          obj[key] = {};
-          continue;
-        }
-        const nextLine = lines[cursor.i];
-        if (nextLine.text.trim().startsWith("- ")) {
-          obj[key] = parseArray(nextLine.indent);
-        } else {
-          obj[key] = parseObject(nextLine.indent);
-        }
-        continue;
-      }
-
-      if (valueToken === ">" || valueToken === "|") {
-        obj[key] = parseFoldedString(objectIndent);
-        continue;
-      }
-
-      obj[key] = parseScalar(valueToken);
-    }
-    return obj;
-  }
-
-  return parseObject(0);
-}
+import { parseYamlDocument } from "../../../../../tooling/scripts/lib/parse-frontmatter.mjs";
+import { parseArgs } from "../../../../../tooling/scripts/lib/parse-args.mjs";
 
 function buildFigmaExecuteCode(payload) {
   const payloadJson = JSON.stringify(payload);
@@ -828,7 +691,10 @@ function main() {
   }
 
   const model = JSON.parse(fs.readFileSync(modelPath, "utf8"));
-  const theme = parseYaml(fs.readFileSync(themePath, "utf8"));
+  const theme = parseYamlDocument(
+    fs.readFileSync(themePath, "utf8"),
+    `theme file (${themePath})`
+  );
 
   const componentName = args["component-name"] || model.componentName || model.title || "Component";
   const outPath =
