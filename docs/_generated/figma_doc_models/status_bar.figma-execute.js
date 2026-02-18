@@ -1,4 +1,4 @@
-const PAYLOAD = {"model":{"version":1,"componentName":"StatusBar","markdownPath":"docs/components/status_bar.md","generatedAt":"2026-02-18T02:17:45.426Z","title":"Status Bar","blocks":[{"type":"heading","level":1,"text":"Status Bar"},{"type":"paragraph","text":"The **Status Bar** component represents the top system status row for iPhone layouts."},{"type":"heading","level":2,"text":"Overview"},{"type":"paragraph","text":"In Figma, this component is defined as a `COMPONENT_SET` (`Status-Bar`) with one variant property:"},{"type":"list","ordered":false,"items":[{"text":"`Background`: `Transparent`, `Brand`"}]},{"type":"paragraph","text":"Default variant in Figma: `Background=Transparent`."},{"type":"paragraph","text":"All variants share the same structure and dimensions (`440 x 44`)."},{"type":"paragraph","text":"Source node: [Status-Bar (node `713:202`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202)"},{"type":"heading","level":2,"text":"Anatomy"},{"type":"paragraph","text":"Each status bar contains:"},{"type":"list","ordered":true,"items":[{"index":1,"text":"**Container** (`COMPONENT`, `440 x 44`)"},{"index":2,"text":"**OS row** (`FRAME`, `376 x 18`) positioned at `x=32`, `y=13`"},{"index":3,"text":"**Time group** with text `9:41`"},{"index":4,"text":"**Icons row** (`FRAME`, horizontal) with:"}]},{"type":"list","ordered":false,"items":[{"text":"`Cellular Connection` (`VECTOR`)"},{"text":"`Wifi` (`VECTOR`)"},{"text":"`Battery` (`VECTOR`)"}]},{"type":"heading","level":2,"text":"Component API"},{"type":"heading","level":3,"text":"Properties"},{"type":"table","header":["Name","Type","Default Value","Description"],"rows":[["`Background`","`VARIANT`","`Transparent`","Background style. Options: `Transparent`, `Brand`."]]},{"type":"heading","level":2,"text":"Visual Specifications"},{"type":"heading","level":3,"text":"Container"},{"type":"list","ordered":false,"items":[{"text":"**Variant size**: `440 x 44`"},{"text":"**Layout**: `NONE` (no Auto Layout at root)"},{"text":"**Clips content**: `true`"},{"text":"**Border**: none"},{"text":"**Corner radius**: `0`"}]},{"type":"heading","level":3,"text":"OS Row"},{"type":"list","ordered":false,"items":[{"text":"**Node**: `FRAME`"},{"text":"**Size**: `376 x 18`"},{"text":"**Layout**: Auto Layout, `HORIZONTAL`"},{"text":"**Item spacing**: `229`"},{"text":"**Children**:"},{"text":"Left: time label (`9:41`)"},{"text":"Right: icons frame (`65.98 x 11`, Auto Layout `HORIZONTAL`, spacing `5`)"}]},{"type":"heading","level":3,"text":"Typography"},{"type":"list","ordered":false,"items":[{"text":"**Time text**: `9:41`"},{"text":"**Font**: `Roboto Medium`"},{"text":"**Size**: `15`"},{"text":"**Line height**: `AUTO`"},{"text":"**Letter spacing**: `0%`"}]},{"type":"heading","level":3,"text":"Variants"},{"type":"table","header":["Variant","Background fill","Token","Fallback"],"rows":[["`Background=Transparent`","None","—","Transparent"],["`Background=Brand`","Solid fill","`Color/Background/Brand/Secondary`","`#C9E0BE`"]]},{"type":"heading","level":2,"text":"Tokens Used"},{"type":"table","header":["Slot","Condition","Token","Alias chain","Resolved value"],"rows":[["Background fill","`Background=Brand`","`Color/Background/Brand/Secondary`","`Color/Cucumber/200`","`#C9E0BE`"],["Time text color","All variants","`Color/BW/Black`","—","`#000000`"],["Status icons color","All variants","`Color/BW/Black`","—","`#000000`"]]},{"type":"heading","level":2,"text":"Usage Guidelines"},{"type":"list","ordered":false,"items":[{"text":"Use this component at the top edge of iPhone mockups and flows."},{"text":"Preserve the internal horizontal structure (time on the left, status icons on the right)."},{"text":"Use `Background=Transparent` on light/neutral surfaces where the screen background should remain visible."},{"text":"Use `Background=Brand` when the status bar needs to sit on the brand secondary background."}]},{"type":"heading","level":2,"text":"Accessibility"},{"type":"list","ordered":false,"items":[{"text":"This component is decorative UI chrome in most product contexts."},{"text":"If status information is meaningful in a prototype, provide equivalent text outside this component."},{"text":"No interaction or focus states are defined in Figma for this component."}]},{"type":"heading","level":2,"text":"Gaps / TBD"},{"type":"list","ordered":false,"items":[{"text":"No dark mode or high-contrast variant."},{"text":"No configurable properties for time or signal/battery values."},{"text":"No platform variants beyond the current iPhone layout."}]}],"stats":{"headings":14,"paragraphs":6,"lists":9,"tables":3,"codeBlocks":0}},"theme":{"name":"figma-doc-theme-karmap","status":"ready","description":"Render contract for converting markdown component docs into Figma documentation sections. Styled to match the Karmap / Iter design system visual identity: Lora headings, Nunito Sans body, cucumber-green accents on warm cream surfaces.","layout":{"target":{"section_name_pattern":"Doc/{component_name}","position":{"reference":"component_section","offset_x":200,"align_y":"top"}},"section":{"width":940,"min_height":1100},"canvas":{"inset":40,"width":860,"padding":{"top":32,"right":32,"bottom":32,"left":32},"item_spacing":20}},"theme":{"colors":{"page_bg":"#FFFAF0","section_border":"#C9E0BE","canvas_shadow":"#00000014","card_bg":"#FFFFFF","card_border":"#E7DDCF","table_header_bg":"#F5F0E6","title_text":"#495841","heading_text":"#495841","body_text":"#483F3F","muted_text":"#716666","chip_bg":"#E8F0E4","chip_border":"#C9E0BE","chip_text":"#495841","header_accent":"#C9E0BE"},"radii":{"canvas":20,"card":12,"chip":999,"header_accent":12},"strokes":{"section_border":1.5,"card_border":1,"chip_border":1},"spacing":{"card_padding":20,"card_gap":12,"chip_padding_v":5,"chip_padding_h":12,"chip_gap":8,"paragraph_gap":8,"list_gap":6,"header_accent_padding_v":16,"header_accent_padding_h":24},"typography":{"font_family":"Nunito Sans","font_family_heading":"Lora","h1":{"font_family":"Lora","size":36,"line_height":42,"weight":"Bold","color":"title_text"},"h2":{"font_family":"Lora","size":20,"line_height":26,"weight":"Bold","color":"heading_text"},"h3":{"size":16,"line_height":24,"weight":"SemiBold","color":"heading_text"},"body":{"size":15,"line_height":24,"weight":"Regular","color":"body_text"},"body_small":{"size":13,"line_height":18,"weight":"SemiBold","color":"chip_text"}}},"markdown_mapping":{"document":{"wrapper":"canvas"},"title":{"component":"header_block","text_style":"h1"},"subtitle":{"component":"intro_text","text_style":"body","color_override":"muted_text"},"heading_2":{"component":"card","title_style":"h2"},"heading_3":{"component":"inline_heading","text_style":"h3"},"paragraph":{"component":"text","text_style":"body"},"unordered_list":{"component":"stack","item_gap":"list_gap"},"ordered_list":{"component":"stack","item_gap":"list_gap"},"list_item":{"component":"text","text_style":"body"},"table":{"component":"table_card","header_style":"h3","cell_style":"body","border_color":"card_border","header_bg":"table_header_bg"},"code_inline":{"component":"text","text_style":"body","color_override":"heading_text"}},"components":{"header_block":{"layout":"vertical","stretch":true,"item_spacing":8,"accent":{"enabled":true,"fills":{"color":"header_accent"},"radius":12,"padding":{"top":16,"right":24,"bottom":16,"left":24}}},"chips_row":{"layout":"horizontal","stretch":true,"item_spacing":8},"card":{"layout":"vertical","stretch":true,"width":796,"padding":{"top":20,"right":20,"bottom":20,"left":20},"item_spacing":12,"fills":{"color":"card_bg"},"strokes":{"color":"card_border","weight":1},"radius":12},"table_card":{"extends":"card","table":{"cell_padding_v":8,"cell_padding_h":10,"row_gap":0,"column_gap":0,"border_weight":1,"header_bg":"table_header_bg"}}},"rules":["Keep one visual card per H2 section.","Render markdown in source order; do not reorder content blocks.","Preserve semantic spacing and hierarchy from heading levels.","Avoid hardcoded widths for text nodes; use stretch behavior when possible.","If a markdown element is unsupported, render it as body text and flag it in report.","Use Lora for h1 and h2 headings; Nunito Sans for everything else.","Table header rows use a tinted background to distinguish from body rows.","The header accent block wraps the title area with a brand-colored background."],"output_contract":{"report_fields":["markdown_path","target_section_id","theme_name","offset_x_applied","unsupported_blocks"]}},"options":{"componentName":"StatusBar","componentSetNodeId":null,"offsetX":200}};
+const PAYLOAD = {"model":{"version":1,"componentName":"StatusBar","markdownPath":"docs/components/status_bar.md","generatedAt":"2026-02-18T02:17:45.426Z","title":"Status Bar","blocks":[{"type":"heading","level":1,"text":"Status Bar"},{"type":"paragraph","text":"The **Status Bar** component represents the top system status row for iPhone layouts."},{"type":"heading","level":2,"text":"Overview"},{"type":"paragraph","text":"In Figma, this component is defined as a `COMPONENT_SET` (`Status-Bar`) with one variant property:"},{"type":"list","ordered":false,"items":[{"text":"`Background`: `Transparent`, `Brand`"}]},{"type":"paragraph","text":"Default variant in Figma: `Background=Transparent`."},{"type":"paragraph","text":"All variants share the same structure and dimensions (`440 x 44`)."},{"type":"paragraph","text":"Source node: [Status-Bar (node `713:202`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202)"},{"type":"heading","level":2,"text":"Anatomy"},{"type":"paragraph","text":"Each status bar contains:"},{"type":"list","ordered":true,"items":[{"index":1,"text":"**Container** (`COMPONENT`, `440 x 44`)"},{"index":2,"text":"**OS row** (`FRAME`, `376 x 18`) positioned at `x=32`, `y=13`"},{"index":3,"text":"**Time group** with text `9:41`"},{"index":4,"text":"**Icons row** (`FRAME`, horizontal) with:"}]},{"type":"list","ordered":false,"items":[{"text":"`Cellular Connection` (`VECTOR`)"},{"text":"`Wifi` (`VECTOR`)"},{"text":"`Battery` (`VECTOR`)"}]},{"type":"heading","level":2,"text":"Component API"},{"type":"heading","level":3,"text":"Properties"},{"type":"table","header":["Name","Type","Default Value","Description"],"rows":[["`Background`","`VARIANT`","`Transparent`","Background style. Options: `Transparent`, `Brand`."]]},{"type":"heading","level":2,"text":"Visual Specifications"},{"type":"heading","level":3,"text":"Container"},{"type":"list","ordered":false,"items":[{"text":"**Variant size**: `440 x 44`"},{"text":"**Layout**: `NONE` (no Auto Layout at root)"},{"text":"**Clips content**: `true`"},{"text":"**Border**: none"},{"text":"**Corner radius**: `0`"}]},{"type":"heading","level":3,"text":"OS Row"},{"type":"list","ordered":false,"items":[{"text":"**Node**: `FRAME`"},{"text":"**Size**: `376 x 18`"},{"text":"**Layout**: Auto Layout, `HORIZONTAL`"},{"text":"**Item spacing**: `229`"},{"text":"**Children**:"},{"text":"Left: time label (`9:41`)"},{"text":"Right: icons frame (`65.98 x 11`, Auto Layout `HORIZONTAL`, spacing `5`)"}]},{"type":"heading","level":3,"text":"Typography"},{"type":"list","ordered":false,"items":[{"text":"**Time text**: `9:41`"},{"text":"**Font**: `Roboto Medium`"},{"text":"**Size**: `15`"},{"text":"**Line height**: `AUTO`"},{"text":"**Letter spacing**: `0%`"}]},{"type":"heading","level":3,"text":"Variants"},{"type":"table","header":["Variant","Background fill","Token","Fallback"],"rows":[["`Background=Transparent`","None","—","Transparent"],["`Background=Brand`","Solid fill","`Color/Background/Brand/Secondary`","`#C9E0BE`"]]},{"type":"heading","level":2,"text":"Tokens Used"},{"type":"table","header":["Slot","Condition","Token","Alias chain","Resolved value"],"rows":[["Background fill","`Background=Brand`","`Color/Background/Brand/Secondary`","`Color/Cucumber/200`","`#C9E0BE`"],["Time text color","All variants","`Color/BW/Black`","—","`#000000`"],["Status icons color","All variants","`Color/BW/Black`","—","`#000000`"]]},{"type":"heading","level":2,"text":"Usage Guidelines"},{"type":"list","ordered":false,"items":[{"text":"Use this component at the top edge of iPhone mockups and flows."},{"text":"Preserve the internal horizontal structure (time on the left, status icons on the right)."},{"text":"Use `Background=Transparent` on light/neutral surfaces where the screen background should remain visible."},{"text":"Use `Background=Brand` when the status bar needs to sit on the brand secondary background."}]},{"type":"heading","level":2,"text":"Accessibility"},{"type":"list","ordered":false,"items":[{"text":"This component is decorative UI chrome in most product contexts."},{"text":"If status information is meaningful in a prototype, provide equivalent text outside this component."},{"text":"No interaction or focus states are defined in Figma for this component."}]},{"type":"heading","level":2,"text":"Gaps / TBD"},{"type":"list","ordered":false,"items":[{"text":"No dark mode or high-contrast variant."},{"text":"No configurable properties for time or signal/battery values."},{"text":"No platform variants beyond the current iPhone layout."}]}],"stats":{"headings":14,"paragraphs":6,"lists":9,"tables":3,"codeBlocks":0}},"theme":{"name":"figma-doc-theme-karmap","status":"ready","description":"Render contract for converting markdown component docs into Figma documentation sections. Styled to match the Karmap / Iter design system visual identity: Lora headings, Nunito Sans body, cucumber-green accents on warm cream surfaces.","layout":{"target":{"section_name_pattern":"Doc/{component_name}","position":{"reference":"component_section","offset_x":200,"align_y":"top"}},"section":{"width":940,"min_height":1100},"canvas":{"inset":40,"width":860,"padding":{"top":32,"right":32,"bottom":32,"left":32},"item_spacing":20}},"theme":{"colors":{"page_bg":"#FFFAF0","section_border":"#C9E0BE","canvas_shadow":"#00000014","card_bg":"#FFFFFF","card_border":"#E7DDCF","table_header_bg":"#F5F0E6","title_text":"#495841","heading_text":"#495841","body_text":"#483F3F","muted_text":"#716666","chip_bg":"#E8F0E4","chip_border":"#C9E0BE","chip_text":"#495841","header_accent":"#C9E0BE"},"radii":{"canvas":20,"card":12,"chip":999,"header_accent":12},"strokes":{"section_border":1.5,"card_border":1,"chip_border":1},"spacing":{"card_padding":20,"card_gap":12,"chip_padding_v":5,"chip_padding_h":12,"chip_gap":8,"paragraph_gap":8,"list_gap":6,"header_accent_padding_v":16,"header_accent_padding_h":24},"typography":{"font_family":"Nunito Sans","font_family_heading":"Lora","h1":{"font_family":"Lora","size":36,"line_height":42,"weight":"Bold","color":"title_text"},"h2":{"font_family":"Lora","size":20,"line_height":26,"weight":"Bold","color":"heading_text"},"h3":{"size":16,"line_height":24,"weight":"SemiBold","color":"heading_text"},"body":{"size":15,"line_height":24,"weight":"Regular","color":"body_text"},"body_small":{"size":13,"line_height":18,"weight":"SemiBold","color":"chip_text"}}},"markdown_mapping":{"document":{"wrapper":"canvas"},"title":{"component":"header_block","text_style":"h1"},"subtitle":{"component":"intro_text","text_style":"body","color_override":"muted_text"},"heading_2":{"component":"card","title_style":"h2"},"heading_3":{"component":"inline_heading","text_style":"h3"},"paragraph":{"component":"text","text_style":"body"},"unordered_list":{"component":"stack","item_gap":"list_gap"},"ordered_list":{"component":"stack","item_gap":"list_gap"},"list_item":{"component":"text","text_style":"body"},"table":{"component":"table_card","header_style":"h3","cell_style":"body","border_color":"card_border","header_bg":"table_header_bg"},"code_inline":{"component":"text","text_style":"body","color_override":"heading_text"}},"components":{"header_block":{"layout":"vertical","stretch":true,"item_spacing":8,"accent":{"enabled":true,"fills":{"color":"header_accent"},"radius":12,"padding":{"top":16,"right":24,"bottom":16,"left":24}}},"chips_row":{"layout":"horizontal","stretch":true,"item_spacing":8},"card":{"layout":"vertical","stretch":true,"width":796,"padding":{"top":20,"right":20,"bottom":20,"left":20},"item_spacing":12,"fills":{"color":"card_bg"},"strokes":{"color":"card_border","weight":1},"radius":12},"table_card":{"extends":"card","table":{"cell_padding_v":8,"cell_padding_h":10,"row_gap":0,"column_gap":0,"border_weight":1,"header_bg":"table_header_bg"}}},"rules":["Keep one visual card per H2 section.","Render markdown in source order; do not reorder content blocks.","Preserve semantic spacing and hierarchy from heading levels.","Avoid hardcoded widths for text nodes; use stretch behavior when possible.","If a markdown element is unsupported, render it as body text and flag it in report.","Use Lora for h1 and h2 headings; Nunito Sans for everything else.","Table header rows use a tinted background to distinguish from body rows.","The header accent block wraps the title area with a brand-colored background."],"output_contract":{"report_fields":["markdown_path","target_section_id","theme_name","offset_x_applied","unsupported_blocks"]}},"options":{"componentName":"StatusBar","componentSetNodeId":"713:202","offsetX":200}};
 
 function getPath(obj, path, fallbackValue) {
   const parts = path.split(".");
@@ -267,7 +267,7 @@ function createChip(parent, label, theme) {
 function createTable(parent, title, tableBlock, theme) {
   const tableCard = createVerticalFrame("Table/" + toSafeName(title || "Table"));
   tableCard.layoutAlign = "STRETCH";
-  tableCard.itemSpacing = 6;
+  tableCard.itemSpacing = 0;
   tableCard.fills = [];
   parent.appendChild(tableCard);
 
@@ -290,6 +290,8 @@ function createTable(parent, title, tableBlock, theme) {
   const cellPaddingH = Number(getPath(theme, "components.table_card.table.cell_padding_h", 10));
   const borderColor = resolveColor(theme, getPath(theme, "markdown_mapping.table.border_color", "card_border"), "#E7DDCF");
   const borderWeight = Number(getPath(theme, "components.table_card.table.border_weight", 1));
+  const minRowHeight = Number(getPath(theme, "components.table_card.table.min_row_height", 40));
+  const minColumnWidth = Number(getPath(theme, "components.table_card.table.min_column_width", 120));
   const rowGap = Number(getPath(theme, "components.table_card.table.row_gap", 0));
   const columnGap = Number(getPath(theme, "components.table_card.table.column_gap", 0));
   const headerBgColor = resolveColor(theme, getPath(theme, "components.table_card.table.header_bg", "table_header_bg"), null);
@@ -297,33 +299,88 @@ function createTable(parent, title, tableBlock, theme) {
   const cardPadLeft = Number(getPath(theme, "components.card.padding.left", 20));
   const cardPadRight = Number(getPath(theme, "components.card.padding.right", 20));
   const tableWidth = Math.max(240, cardWidth - cardPadLeft - cardPadRight);
-  const grid = figma.createFrame();
-  grid.name = "Grid";
-  grid.layoutMode = "GRID";
-  grid.primaryAxisSizingMode = "FIXED";
-  grid.counterAxisSizingMode = "FIXED";
-  grid.resizeWithoutConstraints(tableWidth, 1);
-  grid.gridRowCount = rows.length;
-  grid.gridColumnCount = columnCount;
-  grid.gridRowGap = rowGap;
-  grid.gridColumnGap = columnGap;
-  grid.layoutAlign = "STRETCH";
-  grid.fills = [];
-  grid.clipsContent = false;
-  tableCard.appendChild(grid);
+  tableCard.itemSpacing = rowGap;
+
+  function normalizeCellText(raw) {
+    return String(raw == null ? "" : raw)
+      .replace(/[([^]]+)](([^)]+))/g, "$1")
+      .replace(/[*_`]/g, "")
+      .replace(/s+/g, " ")
+      .trim();
+  }
+
+  const contentScores = new Array(columnCount).fill(1);
+  for (const row of rows) {
+    for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
+      const raw = colIndex < row.cells.length ? row.cells[colIndex] : "";
+      const normalized = normalizeCellText(raw);
+      const lengthScore = Math.max(1, normalized.length);
+      const boostedScore = row.isHeader ? lengthScore * 1.15 : lengthScore;
+      contentScores[colIndex] = Math.max(contentScores[colIndex], boostedScore);
+    }
+  }
 
   const availableWidth = Math.max(1, tableWidth - columnGap * Math.max(0, columnCount - 1));
-  const cellContentWidth = Math.max(1, availableWidth / columnCount - cellPaddingH * 2);
-  const rowHeights = new Array(rows.length).fill(0);
-  const minRowHeight = Number(getPath(theme, "components.table_card.table.min_row_height", 40));
+  const minWeight = Number(getPath(theme, "components.table_card.table.min_column_weight", 1));
+  const maxWeight = Number(getPath(theme, "components.table_card.table.max_column_weight", 3.2));
+  const columnWeights = contentScores.map((score) => {
+    const baseWeight = Math.sqrt(Math.max(4, score)) / 2;
+    return Math.min(maxWeight, Math.max(minWeight, baseWeight));
+  });
+  const totalWeight = Math.max(1, columnWeights.reduce((sum, value) => sum + value, 0));
+  const columnWidths = columnWeights.map((weight) =>
+    Math.max(1, Math.floor((availableWidth * weight) / totalWeight))
+  );
+
+  // Ensure the full table width is consumed after flooring.
+  let widthRemainder =
+    availableWidth - columnWidths.reduce((sum, value) => sum + value, 0);
+  let remainderIndex = 0;
+  while (widthRemainder > 0) {
+    const target = remainderIndex % columnWidths.length;
+    columnWidths[target] += 1;
+    remainderIndex += 1;
+    widthRemainder -= 1;
+  }
+
+  // Try to keep columns readable without exceeding the table width budget.
+  if (minColumnWidth * columnCount <= availableWidth) {
+    for (let i = 0; i < columnWidths.length; i += 1) {
+      columnWidths[i] = Math.max(minColumnWidth, columnWidths[i]);
+    }
+    let overflow =
+      columnWidths.reduce((sum, value) => sum + value, 0) - availableWidth;
+    while (overflow > 0) {
+      let widestIndex = 0;
+      for (let i = 1; i < columnWidths.length; i += 1) {
+        if (columnWidths[i] > columnWidths[widestIndex]) widestIndex = i;
+      }
+      if (columnWidths[widestIndex] <= minColumnWidth) break;
+      columnWidths[widestIndex] -= 1;
+      overflow -= 1;
+    }
+  }
 
   for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
     const row = rows[rowIndex];
+    const rowFrame = createHorizontalFrame(row.isHeader ? "Header Row" : "Body Row");
+    rowFrame.primaryAxisSizingMode = "FIXED";
+    rowFrame.counterAxisSizingMode = "AUTO";
+    rowFrame.resizeWithoutConstraints(tableWidth, 1);
+    rowFrame.itemSpacing = columnGap;
+    rowFrame.layoutAlign = "STRETCH";
+    rowFrame.fills = [];
+    tableCard.appendChild(rowFrame);
+    const rowCells = [];
+
     for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
       const value = colIndex < row.cells.length ? String(row.cells[colIndex] ?? "") : "";
       const cell = createVerticalFrame((row.isHeader ? "Header Cell " : "Cell ") + String(colIndex + 1));
       cell.primaryAxisSizingMode = "AUTO";
-      cell.counterAxisSizingMode = "AUTO";
+      cell.counterAxisSizingMode = "FIXED";
+      const cellWidth = Math.max(1, columnWidths[colIndex]);
+      cell.resizeWithoutConstraints(cellWidth, 1);
+      cell.layoutAlign = "STRETCH";
       cell.clipsContent = false;
       cell.paddingTop = cellPaddingV;
       cell.paddingBottom = cellPaddingV;
@@ -333,17 +390,24 @@ function createTable(parent, title, tableBlock, theme) {
       cell.strokeWeight = borderWeight;
       const cellBg = row.isHeader && headerBgColor ? headerBgColor : "#FFFFFF";
       cell.fills = [solid(cellBg, 1)];
-      grid.appendChildAt(cell, rowIndex, colIndex);
+      rowFrame.appendChild(cell);
+      rowCells.push(cell);
       createText(cell, value, row.isHeader ? "h3" : "body", theme, {
-        wrapWidth: cellContentWidth,
+        wrapWidth: Math.max(1, cellWidth - cellPaddingH * 2),
       });
-      rowHeights[rowIndex] = Math.max(rowHeights[rowIndex], Math.ceil(cell.height));
+    }
+
+    const targetRowHeight = Math.max(minRowHeight, Math.ceil(rowFrame.height));
+    rowFrame.resizeWithoutConstraints(tableWidth, targetRowHeight);
+
+    // Force same cell height in a row to avoid ragged table baselines.
+    for (const cell of rowCells) {
+      cell.primaryAxisSizingMode = "FIXED";
+      cell.counterAxisSizingMode = "FIXED";
+      cell.layoutAlign = "STRETCH";
+      cell.resizeWithoutConstraints(cell.width, targetRowHeight);
     }
   }
-
-  const maxRowHeight = Math.max(minRowHeight, ...rowHeights);
-  const totalGridHeight = maxRowHeight * rows.length + rowGap * Math.max(0, rows.length - 1);
-  grid.resizeWithoutConstraints(tableWidth, Math.max(1, totalGridHeight));
 }
 
 function renderList(parent, listBlock, theme) {

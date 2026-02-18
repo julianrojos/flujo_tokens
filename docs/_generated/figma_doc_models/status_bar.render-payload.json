@@ -578,7 +578,7 @@
   },
   "options": {
     "componentName": "StatusBar",
-    "componentSetNodeId": null,
+    "componentSetNodeId": "713:202",
     "offsetX": 200
   }
 }
