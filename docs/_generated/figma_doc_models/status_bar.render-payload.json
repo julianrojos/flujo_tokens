@@ -3,7 +3,7 @@
     "version": 1,
     "componentName": "StatusBar",
     "markdownPath": "docs/components/status_bar.md",
-    "generatedAt": "2026-02-18T01:41:53.323Z",
+    "generatedAt": "2026-02-18T01:56:07.868Z",
     "title": "Status Bar",
     "blocks": [
       {
@@ -230,7 +230,7 @@
           [
             "`Background=Brand`",
             "Solid fill",
-            "`Color/Background/Brand/Secondary` (`VariableID:4400:1267`)",
+            "`Color/Background/Brand/Secondary`",
             "`#C9E0BE`"
           ]
         ]
@@ -253,21 +253,21 @@
           [
             "Background fill",
             "`Background=Brand`",
-            "`Color/Background/Brand/Secondary` (`VariableID:4400:1267`)",
-            "`Color/Cucumber/200` (`VariableID:40:206`)",
+            "`Color/Background/Brand/Secondary`",
+            "`Color/Cucumber/200`",
             "`#C9E0BE`"
           ],
           [
             "Time text color",
             "All variants",
-            "`Color/BW/Black` (`VariableID:40:195`)",
+            "`Color/BW/Black`",
             "—",
             "`#000000`"
           ],
           [
             "Status icons color",
             "All variants",
-            "`Color/BW/Black` (`VariableID:40:195`)",
+            "`Color/BW/Black`",
             "—",
             "`#000000`"
           ]

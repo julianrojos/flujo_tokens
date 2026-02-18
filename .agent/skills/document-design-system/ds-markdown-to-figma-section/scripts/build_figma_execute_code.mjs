@@ -255,6 +255,12 @@ function createText(parent, text, styleKey, theme, options) {
 
   const family = getPath(theme, "theme.typography.font_family", "Nunito Sans");
   const colorToken = options && options.colorOverride ? options.colorOverride : style.color;
+  const wrap = options && Object.prototype.hasOwnProperty.call(options, "wrap")
+    ? Boolean(options.wrap)
+    : true;
+  const wrapWidth = options && typeof options.wrapWidth === "number"
+    ? Number(options.wrapWidth)
+    : null;
   const colorHex = resolveColor(theme, colorToken, "#4E4343");
 
   const node = figma.createText();
@@ -262,8 +268,23 @@ function createText(parent, text, styleKey, theme, options) {
   node.fontSize = Number(style.size || 15);
   node.lineHeight = { unit: "PIXELS", value: Number(style.line_height || 24) };
   node.fills = [solid(colorHex, 1)];
+  if (wrap) {
+    node.textAutoResize = "HEIGHT";
+  } else {
+    node.textAutoResize = "WIDTH_AND_HEIGHT";
+  }
   node.characters = text;
   parent.appendChild(node);
+  if (wrap) {
+    const parentWidth = "width" in parent ? Number(parent.width || 0) : 0;
+    const padLeft = "paddingLeft" in parent ? Number(parent.paddingLeft || 0) : 0;
+    const padRight = "paddingRight" in parent ? Number(parent.paddingRight || 0) : 0;
+    const inferredWidth = Math.max(1, parentWidth - padLeft - padRight);
+    const targetWidth = wrapWidth != null ? Math.max(1, wrapWidth) : inferredWidth;
+    if (targetWidth > 1) {
+      node.resize(targetWidth, node.height);
+    }
+  }
   return node;
 }
 
@@ -326,7 +347,10 @@ function createChip(parent, label, theme) {
   chip.strokeWeight = Number(getPath(theme, "theme.strokes.chip_border", 1));
   chip.fills = [solid(resolveColor(theme, "chip_bg", "#F6EFE4"), 1)];
   parent.appendChild(chip);
-  createText(chip, label, "body_small", theme, { colorOverride: "chip_text" });
+  createText(chip, label, "body_small", theme, {
+    colorOverride: "chip_text",
+    wrap: false,
+  });
 }
 
 function createTable(parent, title, tableBlock, theme) {
@@ -348,14 +372,21 @@ function createTable(parent, title, tableBlock, theme) {
   const cellPaddingH = Number(getPath(theme, "components.table_card.table.cell_padding_h", 10));
   const borderColor = resolveColor(theme, getPath(theme, "markdown_mapping.table.border_color", "card_border"), "#E7DDCF");
   const borderWeight = Number(getPath(theme, "components.table_card.table.border_weight", 1));
+  const cardWidth = Number(getPath(theme, "components.card.width", 820));
+  const cardPadLeft = Number(getPath(theme, "components.card.padding.left", 20));
+  const cardPadRight = Number(getPath(theme, "components.card.padding.right", 20));
+  const tableWidth = Math.max(240, cardWidth - cardPadLeft - cardPadRight);
 
   function renderRow(cells, isHeaderRow) {
     const row = createHorizontalFrame(isHeaderRow ? "Header Row" : "Body Row");
+    row.primaryAxisSizingMode = "FIXED";
     row.layoutAlign = "STRETCH";
-    row.counterAxisSizingMode = "FIXED";
-    row.resizeWithoutConstraints(760, 40);
+    row.counterAxisSizingMode = "AUTO";
+    row.clipsContent = false;
+    row.resizeWithoutConstraints(tableWidth, 40);
     row.itemSpacing = 0;
     tableCard.appendChild(row);
+    const cellContentWidth = Math.max(1, tableWidth / columnCount - cellPaddingH * 2);
 
     for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
       const value = colIndex < cells.length ? String(cells[colIndex] ?? "") : "";
@@ -363,6 +394,7 @@ function createTable(parent, title, tableBlock, theme) {
       cell.primaryAxisSizingMode = "AUTO";
       cell.counterAxisSizingMode = "FIXED";
       cell.layoutGrow = 1;
+      cell.clipsContent = false;
       cell.paddingTop = cellPaddingV;
       cell.paddingBottom = cellPaddingV;
       cell.paddingLeft = cellPaddingH;
@@ -371,7 +403,9 @@ function createTable(parent, title, tableBlock, theme) {
       cell.strokeWeight = borderWeight;
       cell.fills = [solid("#FFFFFF", 1)];
       row.appendChild(cell);
-      createText(cell, value, isHeaderRow ? "h3" : "body", theme, {});
+      createText(cell, value, isHeaderRow ? "h3" : "body", theme, {
+        wrapWidth: cellContentWidth,
+      });
     }
   }
 
