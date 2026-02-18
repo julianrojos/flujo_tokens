@@ -1,0 +1,90 @@
+---
+description: Rules for documenting accessibility in component pages and spec YAMLs. Based on WCAG AA, Gestalt (Pinterest), and Carbon (IBM) patterns.
+globs:
+  - "docs/**/*.md"
+  - "docs/_spec/**/*.yml"
+---
+
+# Accessibility documentation rules
+
+Every component doc's `## Accessibility` section and every spec YAML's `accessibility` field must follow these rules.
+
+## Required subsections in Markdown
+
+The Accessibility section must address **all five areas** below. If one does not apply, state it explicitly (e.g., "This component is not keyboard-interactive.").
+
+### 1. ARIA role and semantics
+
+- State the expected ARIA role (e.g., `role="alert"`, `role="navigation"`).
+- If no explicit role is needed (semantic HTML suffices), say so and name the HTML element.
+- List any required ARIA attributes (`aria-label`, `aria-expanded`, `aria-controls`, etc.).
+
+### 2. Keyboard navigation
+
+- Document keyboard interactions as a table or list:
+
+  | Key          | Action                        |
+  |--------------|-------------------------------|
+  | `Tab`        | Moves focus to the component  |
+  | `Enter`      | Activates the primary action  |
+  | `Escape`     | Dismisses / closes            |
+  | `Arrow keys` | Navigates within the component|
+
+- Only include keys that are relevant to the component.
+
+### 3. Focus management
+
+- Describe focus behavior: what happens when the component appears, opens, or is dismissed.
+- Reference focus outline tokens:
+  - Inner: `Semantic.Color.Focus-Outline.Inner`
+  - Outer: `Semantic.Color.Focus-Outline.Outer`
+- Note if focus should be trapped (e.g., modals) or if it returns to the trigger element on close.
+
+### 4. Labeling
+
+- How the component receives its accessible name: visible label, `aria-label`, `aria-labelledby`.
+- Rules for when `aria-label` is needed (e.g., icon-only buttons without visible text).
+- Note if `aria-describedby` should link to help text or error messages.
+
+### 5. Contrast and visibility
+
+- State whether the component relies on color alone to convey meaning (it should not).
+- For disabled states: note that WCAG contrast requirements do not apply, but the state must still be visually distinguishable.
+- Do **not** claim WCAG AA/AAA compliance without verification — write `TBD (pending audit)` instead.
+
+## Hit area requirements
+
+- Reference the A11y collection tokens for minimum hit areas:
+  - Desktop: `A11y.A11y.modeDesktop.Dimension.Min-Hit-Area`
+  - Mobile: `A11y.A11y.modeMobile.Dimension.Min-Hit-Area`
+- State the resolved values when known.
+- If the component is non-interactive, this subsection can be omitted.
+
+## Rules for spec YAML
+
+In `docs/_spec/components/*.yml`, the `accessibility` object must include:
+
+```yaml
+accessibility:
+  role: <ARIA role or TBD>
+  focus:
+    tokens:
+      inner: "Semantic.Color.Focus-Outline.Inner"
+      outer: "Semantic.Color.Focus-Outline.Outer"
+  hit_area:
+    desktop_token: "A11y.A11y.modeDesktop.Dimension.Min-Hit-Area"
+    mobile_token: "A11y.A11y.modeMobile.Dimension.Min-Hit-Area"
+  labeling:
+    rules:
+      - <rule or TBD>
+```
+
+- Never leave `role` empty — use `TBD` if unknown.
+- Focus tokens are the same for all components (project-wide convention).
+- Hit area tokens may be omitted only for non-interactive components.
+
+## Prohibited claims
+
+- Do not assert WCAG conformance levels (AA, AAA) without a completed audit.
+- Do not invent color contrast ratios — use `TBD` or reference a tool output.
+- Do not claim screen reader compatibility without testing — describe expected behavior and mark as `TBD (pending SR test)`.

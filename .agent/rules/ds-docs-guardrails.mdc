@@ -1,15 +1,36 @@
 ---
-description: Guardrails for Design System documentation (Markdown). Prevents invention and enforces deterministic structure.
+description: Global guardrails for all Design System documentation. Prevents invention, enforces deterministic structure, and sets cross-cutting conventions.
 globs:
   - "docs/**/*.md"
+  - "docs/_spec/**/*.yml"
 ---
 
 # Documentation guardrails (Design System)
 
-- Do not invent system-specific facts, component behavior, or token semantics.
-- If information is missing, write `TBD` and add an item under **Gaps / TBD**.
-- Use stable headings and the same section order for pages of the same type.
-- Token names must match the JSON keys exactly and be wrapped in inline code.
-- Prefer tables for properties, states, and token mappings.
+## Content integrity
+
+- **Never invent** system-specific facts, component behavior, token semantics, dimensions, or color values. Every stated value must come from Figma, token JSON, or an explicit design decision.
+- If information is missing or unverified, write `TBD` and add an item under **Gaps / TBD**.
 - No code examples for now (design-only documentation).
-- Never include Figma internal IDs (`VariableID:*`, node IDs) in prose or tables. Use human-readable token paths only.
+
+## Structure and consistency
+
+- Use stable headings and the same section order for pages of the same type. See `component-doc-structure.mdc` for component pages.
+- Every component doc should start with a one-line description immediately after the H1.
+- Prefer tables for properties, states, and token mappings. Use consistent column order across all tables of the same kind.
+
+## Token references
+
+- Token names must match the JSON keys exactly and be wrapped in inline code (e.g., `` `Semantic.Color.Focus-Outline.Inner` ``).
+- Always pair a token path with its resolved hex fallback — either in parentheses or in a dedicated table column.
+- See `token-references.mdc` for naming conventions and formatting rules.
+
+## Figma references
+
+- Reference Figma by **component set name** and **property name** only.
+- Never include Figma internal IDs (`VariableID:*`, node IDs like `1234:5678`) in prose, tables, or YAML specs. Use human-readable token paths only.
+
+## Metadata
+
+- Component docs and spec YAMLs must declare a `status` field: `draft` or `ready`.
+- Generated files in `docs/_generated/` must not be hand-edited; they are overwritten by skills.

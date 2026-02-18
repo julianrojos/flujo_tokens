@@ -1,0 +1,94 @@
+---
+description: Mandatory section order and content rules for component documentation pages. Based on industry best practices from Gestalt (Pinterest), Carbon (IBM), and UXPin guidelines.
+globs:
+  - "docs/components/*.md"
+---
+
+# Component documentation structure
+
+Every component page in `docs/components/` must follow this section order. Omit a section only if the component genuinely does not need it (e.g., a purely decorative component has no Accessibility keyboard interactions). Never reorder sections.
+
+## Required sections (in order)
+
+### 1. `# {ComponentName}`
+
+- Immediately followed by a **single-line description** of what the component does.
+- Example: `The **Alert** component communicates concise feedback messages in a highly visible inline block.`
+
+### 2. `## Overview`
+
+- What the component is and its role in the UI.
+- Figma component set name and variant properties (list format).
+- Shared structural characteristics across variants.
+- Alternative names or aliases if any (e.g., CTA, Action).
+
+### 3. `## Anatomy`
+
+- **Numbered list** of the component's internal parts with bold names.
+- Each item describes the part and its role (container, label, icon, divider, etc.).
+- Include current Figma dimensions per variant if available.
+
+### 4. `## Component API`
+
+- Subsection `### Properties` with a table:
+
+  | Name | Type | Default | Required | Description |
+  |------|------|---------|----------|-------------|
+
+- `Type` column uses Figma property types: `VARIANT`, `TEXT`, `BOOLEAN`, `INSTANCE_SWAP`.
+- Group props by category when there are many: Styling, State, Content, Accessibility, Interaction.
+
+### 5. `## Visual Specifications`
+
+- Subsections for each visual aspect: `### Container`, `### Typography`, `### Spacing`, `### Iconography` (as applicable).
+- Each spec item includes: property name, value, token path in inline code, and hex/px fallback.
+- Use bullet lists, not free prose.
+
+### 6. `## Variants`
+
+- Table or subsections documenting each variant.
+- Columns should include: Variant name, differentiating token(s), fallback value(s), visual indicator (icon, color, border).
+- If variants only differ by a single token, a table is preferred over subsections.
+
+### 7. `## States`
+
+- Document interactive states: **default, hover, focus, pressed/active, disabled, loading** (as applicable).
+- For each state: what changes visually, which tokens apply, and any behavioral notes.
+- If the component is non-interactive, state explicitly: "This component has no interactive states."
+
+### 8. `## Usage Guidelines`
+
+- Subsections or bullet groups for:
+  - **When to use**: Scenarios where this component is the right choice.
+  - **When not to use**: Alternatives to recommend (with links to Related Components).
+  - **Best Practices (Do / Don't)**: Concrete pairs of correct vs. incorrect usage.
+- Do/Don't items should be actionable and specific, not vague.
+
+### 9. `## Content Guidelines`
+
+- Copywriting rules specific to the component's text content.
+- Cover: verb usage, sentence case, max word count, punctuation, truncation behavior.
+- If the component has no user-facing text, write: "This component has no text content."
+
+### 10. `## Accessibility`
+
+- Must cover: ARIA role, keyboard navigation, focus management, labeling requirements, contrast notes.
+- See `accessibility-docs.mdc` for detailed formatting rules.
+- Reference focus outline and hit area tokens.
+
+### 11. `## Related Components`
+
+- Bullet list linking to sibling or alternative components.
+- Each item: component name (as link if page exists) + one-line description of when to use it instead.
+
+### 12. `## Gaps / TBD`
+
+- Only present if there are unresolved items.
+- Bullet list of what is missing or unverified.
+- Remove this section entirely once all gaps are resolved.
+
+## General rules
+
+- Do not add sections outside this list without explicit justification.
+- Keep prose short and scannable — prefer bullets and tables over paragraphs.
+- One component per file. File name matches component name in `snake_case` (e.g., `status_bar.md`).

@@ -1,0 +1,59 @@
+---
+description: Rules for the Markdown-to-Figma documentation rendering pipeline — doc models, theme contract, and section placement.
+globs:
+  - "docs/_generated/figma_doc_models/*.json"
+  - ".agent/skills/document-design-system/ds-markdown-to-figma-section/**"
+---
+
+# Figma documentation rendering rules
+
+These rules govern the two-step pipeline that converts component Markdown into a visual Figma documentation section.
+
+## Pipeline overview
+
+1. **Markdown → doc model** (`markdown_to_doc_model.mjs`): Parses `.md` into a deterministic JSON block array.
+2. **Doc model + theme → Figma code** (`build_figma_execute_code.mjs`): Combines the doc model with the theme contract to produce executable Figma plugin code.
+
+## Determinism
+
+- The doc model JSON must be **deterministic**: identical Markdown input must always produce identical JSON output.
+- Block order in the JSON matches the Markdown source order exactly.
+- No random IDs, timestamps, or non-deterministic values in the doc model.
+
+## Theme contract
+
+- The visual theme lives in `docs/_spec/figma_doc_theme.yml`. All styling (fonts, colors, spacing, radii) comes from this file.
+- Never hardcode visual values in the rendering scripts — always read from the theme.
+- The theme uses the Karmap/Iter identity: Lora (headings), Nunito Sans (body), surface `#FFFAF0`, accent `Cucumber/800`.
+
+## Supported block types
+
+| Block type       | Markdown source     | Notes                                        |
+|------------------|---------------------|----------------------------------------------|
+| `header`         | `# H1`             | Only the first H1 becomes the section header |
+| `card_title`     | `## H2`            | Major section dividers                       |
+| `inline_heading` | `### H3`           | Subsection labels within a card              |
+| `paragraph`      | Body text           | Plain text blocks                            |
+| `list`           | `- item` or `1. item` | Bulleted or numbered lists                |
+| `table`          | Markdown table      | Rendered as grid layout                      |
+
+- **Unsupported blocks** (e.g., code fences, images, blockquotes) must generate a **warning log**, not fail silently.
+- The warning should include the line number and block type.
+
+## Section placement
+
+- Section identity follows the pattern `Doc/{ComponentName}` — re-running the pipeline updates the existing section (idempotent).
+- Default offset: **200px** to the right of the component set frame.
+- The offset is configurable via `--offset-x`.
+
+## Table rendering
+
+- Tables use a **grid layout** with explicit row and column gaps.
+- Cell heights must be **normalized per row** (all cells in a row share the tallest cell's height).
+- Header row is visually distinct (bold, background fill from theme).
+
+## Prohibited content in Figma sections
+
+- Never render Figma node IDs in visible text nodes.
+- Never render `VariableID:*` references in visible text.
+- Token paths shown in the Figma section should match the Markdown source exactly.

@@ -1,0 +1,78 @@
+---
+description: Structure and validation rules for component spec YAML files — the source of truth before Markdown generation.
+globs:
+  - "docs/_spec/components/*.yml"
+---
+
+# Component spec YAML conventions
+
+Spec files in `docs/_spec/components/` are the structured source of truth for each component. The `ds-component-doc` skill consumes these to generate Markdown pages.
+
+## Required top-level fields
+
+Every spec YAML must include these fields (use `TBD` for unknown values, never omit):
+
+```
+name            # PascalCase component name (e.g., Alert, StatusBar)
+status          # Only "draft" or "ready"
+figma           # Object: file, page, component_set
+summary         # Object: purpose, when_to_use, when_not_to_use
+anatomy         # Array of { id, description }
+properties      # Array of { name, type, values, default, required, description }
+content_guidelines  # Object: rules (array)
+best_practices  # Object: do (array), dont (array)
+accessibility   # Object: role, focus, hit_area, labeling
+token_mapping   # Object: keyed by "{part}.{attribute}"
+qa              # Array of verification statements
+```
+
+## Field conventions
+
+### `name`
+- PascalCase, matching the Figma component set name exactly.
+
+### `status`
+- `draft`: Incomplete or unverified. `ready`: Reviewed and matches Figma.
+- No other values allowed.
+
+### `figma`
+- `file`: Figma file key (not full URL).
+- `page`: Page name in Figma.
+- `component_set`: Component set name (not node ID).
+
+### `anatomy`
+- Each item has `id` (snake_case, e.g., `leading_icon`) and `description`.
+- Order matches visual top-to-bottom / left-to-right reading order.
+
+### `properties`
+- Must map 1:1 with the Figma component set properties.
+- `type`: Use Figma types — `enum`, `text`, `boolean`, `instance_swap`.
+- `values`: Array of allowed values for enums; omit for text/boolean.
+- `default`: The Figma default value.
+- `required`: `true` or `false`.
+
+### `best_practices`
+- Always include both `do` and `dont` arrays.
+- Minimum 1 item each, or a single `TBD` entry.
+- Items are short imperative sentences.
+
+### `accessibility`
+- `role`: ARIA role (e.g., `alert`, `button`, `navigation`). Use `TBD` if unknown.
+- `focus.tokens`: Must reference real token paths for inner/outer focus outlines.
+- `hit_area`: Must reference A11y collection tokens for desktop and mobile.
+- `labeling.rules`: Array of labeling guidelines.
+
+### `token_mapping`
+- Keys follow pattern: `{anatomy_id}.{css_property}` (e.g., `container.background`, `label.color`).
+- Values are objects keyed by condition (e.g., `"state=default"`, `"type=warning"`).
+- Token paths must be real JSON keys — never `VariableID:*` or Figma node IDs.
+- Use `TBD` as value when token is unknown.
+
+### `qa`
+- Minimum 2 items: property match check + token validity check.
+- Additional items for component-specific invariants.
+
+## File naming
+
+- One file per component: `{component_name_snake_case}.yml` (e.g., `status_bar.yml`).
+- Template at `docs/_spec/components/_template.yml` — copy for new components.
