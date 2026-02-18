@@ -234,24 +234,36 @@ function extractBoldRanges(rawText) {
 }
 
 async function ensureFonts(theme) {
-  const family = getPath(theme, "theme.typography.font_family", "Nunito Sans");
+  const bodyFamily = getPath(theme, "theme.typography.font_family", "Nunito Sans");
+  const headingFamily = getPath(theme, "theme.typography.font_family_heading", bodyFamily);
   const typography = getPath(theme, "theme.typography", {});
-  const styles = new Set(["Regular"]);
-  for (const [key, value] of Object.entries(typography)) {
-    if (key === "font_family") continue;
-    if (!value || typeof value !== "object") continue;
-    styles.add(fontStyleFromWeight(value.weight));
-  }
-  styles.add("Bold");
 
-  for (const style of styles) {
+  // Collect { family, style } pairs from all typography entries
+  const fontPairs = new Set();
+  fontPairs.add(bodyFamily + ":Regular");
+  fontPairs.add(bodyFamily + ":Bold");
+  if (headingFamily !== bodyFamily) {
+    fontPairs.add(headingFamily + ":Regular");
+    fontPairs.add(headingFamily + ":Bold");
+  }
+  for (const [key, value] of Object.entries(typography)) {
+    if (key === "font_family" || key === "font_family_heading") continue;
+    if (!value || typeof value !== "object") continue;
+    const fam = value.font_family || bodyFamily;
+    fontPairs.add(fam + ":" + fontStyleFromWeight(value.weight));
+  }
+
+  for (const pair of fontPairs) {
+    const [family, style] = pair.split(":");
     try {
       await figma.loadFontAsync({ family, style });
     } catch (error) {
       if (style !== "Regular") {
-        await figma.loadFontAsync({ family, style: "Regular" });
-      } else {
-        throw error;
+        try {
+          await figma.loadFontAsync({ family, style: "Regular" });
+        } catch (_) {
+          // Skip unavailable font variant
+        }
       }
     }
   }
@@ -286,7 +298,8 @@ function createText(parent, text, styleKey, theme, options) {
     color: "body_text",
   };
 
-  const family = getPath(theme, "theme.typography.font_family", "Nunito Sans");
+  const defaultFamily = getPath(theme, "theme.typography.font_family", "Nunito Sans");
+  const family = style.font_family || defaultFamily;
   const colorToken = options && options.colorOverride ? options.colorOverride : style.color;
   const wrap = options && Object.prototype.hasOwnProperty.call(options, "wrap")
     ? Boolean(options.wrap)
@@ -310,7 +323,7 @@ function createText(parent, text, styleKey, theme, options) {
   node.characters = parsed.plainText;
   parent.appendChild(node);
   if (parsed.boldRanges.length > 0) {
-    const boldFont = { family, style: "Bold" };
+    const boldFont = { family: family, style: "Bold" };
     for (const range of parsed.boldRanges) {
       try {
         node.setRangeFontName(range.start, range.end, boldFont);
@@ -416,6 +429,7 @@ function createTable(parent, title, tableBlock, theme) {
   const cellPaddingH = Number(getPath(theme, "components.table_card.table.cell_padding_h", 10));
   const borderColor = resolveColor(theme, getPath(theme, "markdown_mapping.table.border_color", "card_border"), "#E7DDCF");
   const borderWeight = Number(getPath(theme, "components.table_card.table.border_weight", 1));
+  const headerBgColor = resolveColor(theme, getPath(theme, "components.table_card.table.header_bg", "table_header_bg"), null);
   const cardWidth = Number(getPath(theme, "components.card.width", 820));
   const cardPadLeft = Number(getPath(theme, "components.card.padding.left", 20));
   const cardPadRight = Number(getPath(theme, "components.card.padding.right", 20));
@@ -445,7 +459,8 @@ function createTable(parent, title, tableBlock, theme) {
       cell.paddingRight = cellPaddingH;
       cell.strokes = [solid(borderColor, 1)];
       cell.strokeWeight = borderWeight;
-      cell.fills = [solid("#FFFFFF", 1)];
+      const cellBg = isHeaderRow && headerBgColor ? headerBgColor : "#FFFFFF";
+      cell.fills = [solid(cellBg, 1)];
       row.appendChild(cell);
       createText(cell, value, isHeaderRow ? "h3" : "body", theme, {
         wrapWidth: cellContentWidth,
@@ -578,13 +593,33 @@ canvas.x = canvasInset;
 canvas.y = canvasInset;
 docSection.appendChild(canvas);
 
-const header = createVerticalFrame("Header");
-header.layoutAlign = "STRETCH";
-header.itemSpacing = Number(getPath(theme, "components.header_block.item_spacing", 6));
-canvas.appendChild(header);
+const accentEnabled = getPath(theme, "components.header_block.accent.enabled", false);
+
+let headerTarget;
+if (accentEnabled) {
+  const accent = createVerticalFrame("Header Accent");
+  accent.layoutAlign = "STRETCH";
+  const accentPad = getPath(theme, "components.header_block.accent.padding", {});
+  accent.paddingTop = Number(accentPad.top ?? 16);
+  accent.paddingRight = Number(accentPad.right ?? 24);
+  accent.paddingBottom = Number(accentPad.bottom ?? 16);
+  accent.paddingLeft = Number(accentPad.left ?? 24);
+  accent.itemSpacing = Number(getPath(theme, "components.header_block.item_spacing", 8));
+  accent.cornerRadius = Number(getPath(theme, "components.header_block.accent.radius", getPath(theme, "theme.radii.header_accent", 12)));
+  const accentColor = resolveColor(theme, getPath(theme, "components.header_block.accent.fills.color", "header_accent"), "#C9E0BE");
+  accent.fills = [solid(accentColor, 1)];
+  canvas.appendChild(accent);
+  headerTarget = accent;
+} else {
+  const header = createVerticalFrame("Header");
+  header.layoutAlign = "STRETCH";
+  header.itemSpacing = Number(getPath(theme, "components.header_block.item_spacing", 8));
+  canvas.appendChild(header);
+  headerTarget = header;
+}
 
 const titleText = String(model.title || componentName);
-createText(header, titleText, "h1", theme, {});
+createText(headerTarget, titleText, "h1", theme, {});
 
 const blocks = Array.isArray(model.blocks) ? model.blocks : [];
 let firstH2Index = blocks.findIndex(
@@ -595,7 +630,7 @@ if (firstH2Index < 0) firstH2Index = blocks.length;
 for (let index = 0; index < firstH2Index; index += 1) {
   const block = blocks[index];
   if (block.type === "paragraph") {
-    createText(header, String(block.text || ""), "body", theme, {
+    createText(headerTarget, String(block.text || ""), "body", theme, {
       colorOverride: "muted_text",
     });
     renderedCount.paragraph += 1;
