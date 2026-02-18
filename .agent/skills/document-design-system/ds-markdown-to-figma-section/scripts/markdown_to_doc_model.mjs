@@ -3,6 +3,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "../../../../../tooling/scripts/lib/parse-args.mjs";
+import { parseMarkdownFrontmatter } from "../../../../../tooling/scripts/lib/parse-frontmatter.mjs";
+import { FIGMA_DOC_MODELS_DIR } from "../../../../../tooling/scripts/lib/paths.mjs";
 
 function parseTableRow(line) {
   const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
@@ -21,30 +23,8 @@ function normalizeText(text) {
   return text.replace(/\s+/g, " ").trim();
 }
 
-function stripFrontmatter(markdown) {
-  const normalized = markdown.replace(/\r\n/g, "\n");
-  if (!normalized.startsWith("---\n")) {
-    return normalized;
-  }
-
-  const lines = normalized.split("\n");
-  let endIndex = -1;
-  for (let i = 1; i < lines.length; i += 1) {
-    if (lines[i].trim() === "---") {
-      endIndex = i;
-      break;
-    }
-  }
-
-  if (endIndex === -1) {
-    return normalized;
-  }
-
-  return lines.slice(endIndex + 1).join("\n");
-}
-
 function parseMarkdown(markdown) {
-  const lines = stripFrontmatter(markdown).split("\n");
+  const lines = markdown.split("\n");
   const blocks = [];
   let i = 0;
 
@@ -211,11 +191,11 @@ function main() {
     args["component-name"] ||
     path.basename(markdownPath, path.extname(markdownPath));
   const outPath =
-    args.out ||
-    `docs/_generated/figma_doc_models/${componentName.toLowerCase()}.doc-model.json`;
+    args.out || `${FIGMA_DOC_MODELS_DIR}/${componentName.toLowerCase()}.doc-model.json`;
 
   const markdown = fs.readFileSync(markdownPath, "utf8");
-  const blocks = parseMarkdown(markdown);
+  const { content } = parseMarkdownFrontmatter(markdown);
+  const blocks = parseMarkdown(content);
   const model = {
     version: 1,
     componentName,

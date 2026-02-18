@@ -4,6 +4,10 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
+import {
+  FIGMA_DOC_MODELS_DIR,
+  FIGMA_DOC_THEME_PATH,
+} from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 
 function toComponentName(raw) {
@@ -49,9 +53,8 @@ function main() {
   const fileBase = path.basename(markdownPath, path.extname(markdownPath));
   const agent = args.agent || "auto";
   const componentName = args["component-name"] || toComponentName(fileBase);
-  const generatedDir =
-    args["generated-dir"] || "docs/_generated/figma_doc_models";
-  const themePath = args.theme || "docs/_spec/figma_doc_theme.yml";
+  const generatedDir = args["generated-dir"] || FIGMA_DOC_MODELS_DIR;
+  const themePath = args.theme || FIGMA_DOC_THEME_PATH;
   const docModelPath = path.join(generatedDir, `${fileBase}.doc-model.json`);
   const executePath = path.join(generatedDir, `${fileBase}.figma-execute.js`);
   const payloadPath = path.join(generatedDir, `${fileBase}.render-payload.json`);

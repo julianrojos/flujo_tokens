@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseYamlDocument } from "../../../../../tooling/scripts/lib/parse-frontmatter.mjs";
 import { parseArgs } from "../../../../../tooling/scripts/lib/parse-args.mjs";
+import { FIGMA_DOC_MODELS_DIR } from "../../../../../tooling/scripts/lib/paths.mjs";
 
 function buildFigmaExecuteCode(payload) {
   const payloadJson = JSON.stringify(payload);
@@ -699,10 +700,10 @@ function main() {
   const componentName = args["component-name"] || model.componentName || model.title || "Component";
   const outPath =
     args.out ||
-    `docs/_generated/figma_doc_models/${String(componentName).toLowerCase()}.figma-execute.js`;
+    `${FIGMA_DOC_MODELS_DIR}/${String(componentName).toLowerCase()}.figma-execute.js`;
   const payloadOutPath =
     args["payload-out"] ||
-    `docs/_generated/figma_doc_models/${String(componentName).toLowerCase()}.render-payload.json`;
+    `${FIGMA_DOC_MODELS_DIR}/${String(componentName).toLowerCase()}.render-payload.json`;
   const offsetX = args["offset-x"] != null ? Number(args["offset-x"]) : undefined;
 
   const payload = {

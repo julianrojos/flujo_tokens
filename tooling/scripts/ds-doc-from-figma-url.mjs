@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
+import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 
 function toSafeFileName(raw) {
@@ -23,7 +24,7 @@ function main() {
     process.exit(1);
   }
 
-  const docsRoot = args["docs-root"] || "docs/components";
+  const docsRoot = args["docs-root"] || COMPONENT_DOCS_DIR;
   const agent = args.agent || "auto";
   const componentName = args["component-name"] || "";
   const outputPath =
