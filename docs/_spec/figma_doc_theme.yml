@@ -28,18 +28,18 @@ layout:
 theme:
   colors:
     # Surfaces — from DS Semantic tokens
-    page_bg: "_primitives/BW/White"
-    section_border: "#C9E0BE"
+    page_bg: "Color/BW/White"
+    section_border: "Color/Border/Neutral/Default"
     canvas_shadow: "#00000014"
     # Cards
-    card_bg: "#FFFFFF"
-    card_border: "#E7DDCF"
+    card_bg: "Color/Background/Surface/Card"
+    card_border: "Color/Border/Neutral/Default"
     # Table header row
     table_header_bg: "#F5F0E6"
     # Text — from DS Color/Text tokens
     title_text: "#495841"
     heading_text: "#495841"
-    body_text: "#483F3F"
+    body_text: "Color/Text/Neutral/Default"
     muted_text: "#716666"
     # Chips — cucumber-tinted
     chip_bg: "#E8F0E4"
