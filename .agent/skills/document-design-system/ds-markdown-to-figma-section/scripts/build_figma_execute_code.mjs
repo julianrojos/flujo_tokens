@@ -418,40 +418,56 @@ function createTable(parent, title, tableBlock, theme) {
   parent.appendChild(tableCard);
 
   const header = Array.isArray(tableBlock.header) ? tableBlock.header : [];
-  const rows = Array.isArray(tableBlock.rows) ? tableBlock.rows : [];
+  const bodyRows = Array.isArray(tableBlock.rows) ? tableBlock.rows : [];
   const columnCount = Math.max(
     header.length,
-    ...rows.map((row) => (Array.isArray(row) ? row.length : 0)),
+    ...bodyRows.map((row) => (Array.isArray(row) ? row.length : 0)),
     1
   );
+  const rows = [];
+  if (header.length > 0) rows.push({ cells: header, isHeader: true });
+  for (const row of bodyRows) {
+    const safeRow = Array.isArray(row) ? row : [String(row)];
+    rows.push({ cells: safeRow, isHeader: false });
+  }
+  if (rows.length === 0) return;
 
   const cellPaddingV = Number(getPath(theme, "components.table_card.table.cell_padding_v", 8));
   const cellPaddingH = Number(getPath(theme, "components.table_card.table.cell_padding_h", 10));
   const borderColor = resolveColor(theme, getPath(theme, "markdown_mapping.table.border_color", "card_border"), "#E7DDCF");
   const borderWeight = Number(getPath(theme, "components.table_card.table.border_weight", 1));
+  const rowGap = Number(getPath(theme, "components.table_card.table.row_gap", 0));
+  const columnGap = Number(getPath(theme, "components.table_card.table.column_gap", 0));
   const headerBgColor = resolveColor(theme, getPath(theme, "components.table_card.table.header_bg", "table_header_bg"), null);
   const cardWidth = Number(getPath(theme, "components.card.width", 820));
   const cardPadLeft = Number(getPath(theme, "components.card.padding.left", 20));
   const cardPadRight = Number(getPath(theme, "components.card.padding.right", 20));
   const tableWidth = Math.max(240, cardWidth - cardPadLeft - cardPadRight);
+  const grid = figma.createFrame();
+  grid.name = "Grid";
+  grid.layoutMode = "GRID";
+  grid.primaryAxisSizingMode = "FIXED";
+  grid.counterAxisSizingMode = "AUTO";
+  grid.resizeWithoutConstraints(tableWidth, 40);
+  grid.gridRowCount = rows.length;
+  grid.gridColumnCount = columnCount;
+  grid.gridRowGap = rowGap;
+  grid.gridColumnGap = columnGap;
+  grid.layoutAlign = "STRETCH";
+  grid.fills = [];
+  grid.clipsContent = false;
+  tableCard.appendChild(grid);
 
-  function renderRow(cells, isHeaderRow) {
-    const row = createHorizontalFrame(isHeaderRow ? "Header Row" : "Body Row");
-    row.primaryAxisSizingMode = "FIXED";
-    row.layoutAlign = "STRETCH";
-    row.counterAxisSizingMode = "AUTO";
-    row.clipsContent = false;
-    row.resizeWithoutConstraints(tableWidth, 40);
-    row.itemSpacing = 0;
-    tableCard.appendChild(row);
-    const cellContentWidth = Math.max(1, tableWidth / columnCount - cellPaddingH * 2);
+  const availableWidth = Math.max(1, tableWidth - columnGap * Math.max(0, columnCount - 1));
+  const cellContentWidth = Math.max(1, availableWidth / columnCount - cellPaddingH * 2);
 
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex];
     for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
-      const value = colIndex < cells.length ? String(cells[colIndex] ?? "") : "";
-      const cell = createVerticalFrame((isHeaderRow ? "Header Cell " : "Cell ") + String(colIndex + 1));
+      const value = colIndex < row.cells.length ? String(row.cells[colIndex] ?? "") : "";
+      const cell = createVerticalFrame((row.isHeader ? "Header Cell " : "Cell ") + String(colIndex + 1));
       cell.primaryAxisSizingMode = "AUTO";
-      cell.counterAxisSizingMode = "FIXED";
-      cell.layoutGrow = 1;
+      cell.counterAxisSizingMode = "AUTO";
       cell.clipsContent = false;
       cell.paddingTop = cellPaddingV;
       cell.paddingBottom = cellPaddingV;
@@ -459,19 +475,13 @@ function createTable(parent, title, tableBlock, theme) {
       cell.paddingRight = cellPaddingH;
       cell.strokes = [solid(borderColor, 1)];
       cell.strokeWeight = borderWeight;
-      const cellBg = isHeaderRow && headerBgColor ? headerBgColor : "#FFFFFF";
+      const cellBg = row.isHeader && headerBgColor ? headerBgColor : "#FFFFFF";
       cell.fills = [solid(cellBg, 1)];
-      row.appendChild(cell);
-      createText(cell, value, isHeaderRow ? "h3" : "body", theme, {
+      grid.appendChildAt(cell, rowIndex, colIndex);
+      createText(cell, value, row.isHeader ? "h3" : "body", theme, {
         wrapWidth: cellContentWidth,
       });
     }
-  }
-
-  if (header.length > 0) renderRow(header, true);
-  for (const row of rows) {
-    const safeRow = Array.isArray(row) ? row : [String(row)];
-    renderRow(safeRow, false);
   }
 }
 
