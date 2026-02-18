@@ -72,7 +72,7 @@ The root `Bottom_Bar` component does not expose root-level component properties.
 - **Label weight**: `Regular`
 - **Label size**: `12`
 - **Label line height**: `16`
-- **Label color**: `#483F3F`
+- **Label color**: `Color/Text/Neutral/Default` (`#483F3F`)
 
 ### Iconography
 

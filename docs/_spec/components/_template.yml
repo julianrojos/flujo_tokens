@@ -49,8 +49,9 @@ token_mapping:
   # Example:
   # container.background:
   #   "state=default": "Components.<Component>.Background.Default"
-  TBD: TBD
 
 qa:
   - "Properties match the Figma component set."
   - "Token mapping uses real token keys."
+
+related_components: []

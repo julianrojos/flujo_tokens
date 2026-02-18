@@ -954,7 +954,7 @@
           ]
         },
         {
-          "text": "Label color: #483F3F",
+          "text": "Label color: Color/Text/Neutral/Default (#483F3F)",
           "segments": [
             {
               "text": "Label color",
@@ -965,8 +965,20 @@
               "style": "normal"
             },
             {
+              "text": "Color/Text/Neutral/Default",
+              "style": "code"
+            },
+            {
+              "text": " (",
+              "style": "normal"
+            },
+            {
               "text": "#483F3F",
               "style": "code"
+            },
+            {
+              "text": ")",
+              "style": "normal"
             }
           ]
         }

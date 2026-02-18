@@ -21,7 +21,7 @@ One page per component. This documentation is design-first (Figma) and token-bac
 - Properties table complete (matches Figma)
 - Accessibility notes present
 - Token mapping references real token keys
-- `Discrepancias detectadas` included only when real mismatches exist
+- `Design–Token Discrepancies` included only when real mismatches exist
 - Gaps / TBD empty or explicitly accepted
 
 ## Component list
