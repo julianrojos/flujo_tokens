@@ -1,12 +1,31 @@
 ---
-description: Mandatory section order and content rules for component documentation pages. Based on industry best practices from Gestalt (Pinterest), Carbon (IBM), and UXPin guidelines.
+description: Mandatory metadata, section order, and content rules for component documentation pages.
 globs:
   - "docs/components/*.md"
 ---
 
 # Component documentation structure
 
-Every component page in `docs/components/` must follow this section order. Omit a section only if the component genuinely does not need it (e.g., a purely decorative component has no Accessibility keyboard interactions). Never reorder sections.
+Every component page in `docs/components/` (excluding `overview.md`) must follow this contract.
+
+## Required YAML frontmatter
+
+Each component page must start with:
+
+```md
+---
+doc_type: component
+doc_status: draft # draft | ready | needs-review
+figma:
+  file_url: "https://www.figma.com/design/<file>/<name>?node-id=<node>"
+  page: "<FigmaPageName>"
+  component: "<ComponentOrSetName>"
+  last_verified: "YYYY-MM-DD"
+---
+```
+
+- If data is unknown, use `TBD`.
+- Do not use `VariableID:*` or raw node IDs as standalone metadata values.
 
 ## Required sections (in order)
 
@@ -56,7 +75,13 @@ Every component page in `docs/components/` must follow this section order. Omit 
 - For each state: what changes visually, which tokens apply, and any behavioral notes.
 - If the component is non-interactive, state explicitly: "This component has no interactive states."
 
-### 8. `## Usage Guidelines`
+### 8. `## Discrepancias detectadas` (optional)
+
+- Include this section only when there are real mismatches between Figma design and tokenized documentation.
+- Use the table format defined in `design-token-discrepancies.mdc`.
+- If there are no discrepancies, omit this section entirely.
+
+### 9. `## Usage Guidelines`
 
 - Subsections or bullet groups for:
   - **When to use**: Scenarios where this component is the right choice.
@@ -64,24 +89,24 @@ Every component page in `docs/components/` must follow this section order. Omit 
   - **Best Practices (Do / Don't)**: Concrete pairs of correct vs. incorrect usage.
 - Do/Don't items should be actionable and specific, not vague.
 
-### 9. `## Content Guidelines`
+### 10. `## Content Guidelines`
 
 - Copywriting rules specific to the component's text content.
 - Cover: verb usage, sentence case, max word count, punctuation, truncation behavior.
 - If the component has no user-facing text, write: "This component has no text content."
 
-### 10. `## Accessibility`
+### 11. `## Accessibility`
 
 - Must cover: ARIA role, keyboard navigation, focus management, labeling requirements, contrast notes.
 - See `accessibility-docs.mdc` for detailed formatting rules.
 - Reference focus outline and hit area tokens.
 
-### 11. `## Related Components`
+### 12. `## Related Components`
 
 - Bullet list linking to sibling or alternative components.
 - Each item: component name (as link if page exists) + one-line description of when to use it instead.
 
-### 12. `## Gaps / TBD`
+### 13. `## Gaps / TBD`
 
 - Only present if there are unresolved items.
 - Bullet list of what is missing or unverified.
@@ -92,3 +117,4 @@ Every component page in `docs/components/` must follow this section order. Omit 
 - Do not add sections outside this list without explicit justification.
 - Keep prose short and scannable — prefer bullets and tables over paragraphs.
 - One component per file. File name matches component name in `snake_case` (e.g., `status_bar.md`).
+- Keep language and tone aligned with `docs-language-tone.mdc`.

@@ -20,8 +20,9 @@ Do not use this skill for non-component pages.
 This skill must comply with:
 
 - `figma-doc-rendering.mdc` — block types, determinism, theme contract, section placement, and table rendering rules
-- `component-doc-structure.mdc` — the Markdown input is expected to follow this section order (12 sections)
+- `component-doc-structure.mdc` — the Markdown input is expected to follow the required frontmatter + ordered sections
 - `ds-docs-guardrails.mdc` — no Figma internal IDs in visible text, no invented content
+- `markdown-figma-subset.mdc` — supported markdown subset and table authoring constraints
 
 ## Inputs (ask only if missing)
 
@@ -103,6 +104,7 @@ Notes:
    - Idempotent mode: if section already exists, clear and re-render content.
    - Never create duplicates with the same logical target.
 6. Parse markdown blocks in order using the supported block types defined in `figma-doc-rendering.mdc` (header, card_title, inline_heading, paragraph, list, table). Unsupported blocks → body text fallback + warning entry in report.
+   - Ignore YAML frontmatter when present.
 7. Apply design contract from theme (see `figma-doc-rendering.mdc` for theme contract rules). No hardcoded styling outside theme, except fallback safety values.
 8. Produce a run report with:
    - `markdown_path`

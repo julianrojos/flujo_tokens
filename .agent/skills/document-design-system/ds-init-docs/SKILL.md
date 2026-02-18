@@ -73,7 +73,7 @@ All generated documentation must comply with `ds-docs-guardrails.mdc`.
 ### ${docs_root}/components/overview.md
 
 - One-page-per-component policy
-- Each component page follows the 12-section structure defined in `component-doc-structure.mdc`
+- Each component page follows the structure defined in `component-doc-structure.mdc` (required frontmatter + ordered sections)
 - How to add a component:
   1. Create spec YAML in `_spec/components/<Component>.yml` (see `component-spec-yaml.mdc`)
   2. Run ds-component-doc

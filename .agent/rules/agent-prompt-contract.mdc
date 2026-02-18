@@ -1,0 +1,31 @@
+---
+description: Contract for generated agent prompts to reduce output variability across codex, claude, and gemini.
+globs:
+  - "tooling/scripts/ds-*.mjs"
+  - "tooling/scripts/lib/agent-runner.mjs"
+  - "docs/_generated/agent_prompts/*.txt"
+---
+
+# Generated prompt contract
+
+Prompts produced by tooling scripts must follow a stable template.
+
+## Required sections in prompt text
+
+1. `Context`
+2. `Sources`
+3. `Constraints`
+4. `Expected Output`
+
+## Required constraints
+
+- No invented component or token facts.
+- No Figma internal IDs in user-facing markdown tables/prose (`VariableID:*`, node IDs).
+- No component implementation code; documentation-only output.
+- Explicit output path(s) when writing files.
+
+## Expected output contract
+
+- For markdown generation: final file path + short completion report.
+- For markdown-to-figma rendering: section id/name, applied offset, unsupported block count.
+- Keep response deterministic and actionable across supported agents (`codex`, `claude`, `gemini`).

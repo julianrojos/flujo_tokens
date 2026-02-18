@@ -110,14 +110,22 @@ function main() {
   runOrFail("node", stepBArgs);
 
   const prompt = [
-    "Render markdown documentation to Figma using figma MCP.",
-    figmaUrl ? `If needed, connect to this Figma URL first: ${figmaUrl}` : "",
-    `Markdown source: ${markdownPath}`,
-    `Generated figma_execute script path: ${path.resolve(executePath)}`,
-    "Required behavior:",
+    "Context",
+    "- Render markdown documentation into a Figma section using generated script artifacts.",
+    "",
+    "Sources",
+    figmaUrl ? `- Figma URL (if connection needed): ${figmaUrl}` : "",
+    `- Markdown source: ${markdownPath}`,
+    `- Generated figma_execute script: ${path.resolve(executePath)}`,
+    "",
+    "Constraints",
     "- Read the generated figma_execute script from disk.",
-    "- Execute it using figma_execute.",
-    "- Ensure target section is idempotent and placed 200px to the right of the component section.",
+    "- Execute it with figma_execute.",
+    "- Keep section idempotent and place it 200px to the right of the component section.",
+    "- Do not alter unrelated components/sections.",
+    "- Report unsupported markdown blocks if any.",
+    "",
+    "Expected Output",
     "- Return: target_section_id, target_section_name, offset_x_applied, unsupported_blocks count.",
   ]
     .filter(Boolean)

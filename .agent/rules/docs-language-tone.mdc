@@ -1,0 +1,25 @@
+---
+description: Language and tone consistency for Design System documentation pages.
+globs:
+  - "docs/**/*.md"
+---
+
+# Language and tone consistency
+
+## Default language policy
+
+- Default language for docs is English.
+- Do not mix English and Spanish in the same page, except for fixed section labels required by other rules (for example, `Discrepancias detectadas`).
+
+## Tone policy
+
+- Use technical, prescriptive, and neutral tone.
+- Prioritize clarity and scanability over narrative style.
+- Avoid marketing language, slogans, and subjective claims.
+- Keep statements evidence-based (Figma, token JSON, explicit decisions).
+
+## Writing style
+
+- Prefer short paragraphs, bullets, and tables.
+- Use active voice and direct instructions when describing usage.
+- Use `TBD` instead of speculative wording.

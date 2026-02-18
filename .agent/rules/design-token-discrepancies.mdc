@@ -1,0 +1,36 @@
+---
+description: Standard section for documenting Design <-> Token mismatches in component and foundation docs.
+globs:
+  - "docs/components/*.md"
+  - "docs/foundations/*.md"
+---
+
+# Design <-> Token discrepancies
+
+Use a dedicated section to track mismatches between Figma design intent and token usage.
+
+## Section name and placement
+
+- Section title: `## Discrepancias detectadas`
+- Component docs: place after `## States` and before `## Usage Guidelines`.
+- If no discrepancies exist, omit the section.
+
+## Required table format
+
+Use this exact table schema:
+
+| Discrepancia | Impacto | Accion pendiente | Estado |
+| --- | --- | --- | --- |
+
+### Field guidance
+
+- `Discrepancia`: factual mismatch (hardcoded value, missing token, naming mismatch, unmapped variant).
+- `Impacto`: short impact statement on consistency/usability/maintenance.
+- `Accion pendiente`: concrete remediation task.
+- `Estado`: `open`, `accepted`, or `resolved`.
+
+## Content rules
+
+- Record only verifiable mismatches.
+- Do not invent root causes.
+- If evidence is incomplete, mark the row with `TBD` in the relevant cell.

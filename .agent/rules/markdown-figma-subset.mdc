@@ -1,0 +1,39 @@
+---
+description: Authoring subset for markdown pages that will be rendered to Figma sections.
+globs:
+  - "docs/components/*.md"
+---
+
+# Markdown subset for Figma rendering
+
+This rule defines the authoring subset that renders reliably in the Markdown -> Figma pipeline.
+
+## Supported syntax (recommended)
+
+- `#`, `##`, `###` headings
+- Paragraphs
+- Flat lists (`- item` or `1. item`)
+- Markdown tables
+- Inline emphasis: `**bold**`, `*italic*`, `` `code` ``
+
+## Syntax to avoid (degrades in Figma output)
+
+- Code fences (```), blockquotes (`>`), raw HTML, images, task lists
+- Nested lists
+- Deep heading levels (`####` and deeper)
+
+If used, these blocks may be simplified or warned by the renderer.
+
+## Table authoring constraints
+
+- Prefer 3-5 columns.
+- Keep cell text concise to avoid overflow/clipping.
+- Avoid long URLs inside cells; reference links in surrounding paragraphs.
+- Keep one semantic concept per column.
+- Use explicit header labels; do not leave blank headers.
+
+## Text-width hygiene
+
+- Prefer short labels for property names and variant values.
+- Split long content into multiple rows instead of one dense row.
+- Use `TBD` placeholders rather than long speculative explanations.

@@ -1,0 +1,31 @@
+---
+description: Defines lifecycle status for markdown documentation pages and aligns it with review workflows.
+globs:
+  - "docs/**/*.md"
+  - "docs/_spec/components/*.yml"
+---
+
+# Markdown lifecycle status
+
+## Allowed markdown statuses
+
+Markdown docs use `doc_status` with these values only:
+
+- `draft`: incomplete or unverified
+- `ready`: reviewed and aligned with current Figma/tokens
+- `needs-review`: previously valid but potentially stale after upstream changes
+
+## Required status metadata
+
+- Component docs (`docs/components/*.md`, excluding `overview.md`) must declare `doc_status` in YAML frontmatter.
+- Overview/foundation/workflow pages should also declare `doc_status` when edited.
+
+## YAML alignment note
+
+- Component spec YAML keeps `status` limited to `draft | ready` (as defined in `component-spec-yaml.mdc`).
+- `needs-review` is markdown-only and should be used when docs may be stale but YAML has not been revalidated yet.
+
+## Transition guidance
+
+- Set to `needs-review` after major Figma component changes, token renames, or render-layout regressions.
+- Promote to `ready` only after re-checking source Figma and token mappings.

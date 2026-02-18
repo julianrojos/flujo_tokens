@@ -53,18 +53,28 @@ function main() {
   }
 
   const prompt = [
-    "Use the figma MCP workflow to document one component from this URL.",
-    `Figma URL: ${figmaUrl}`,
-    componentName ? `Expected component name: ${componentName}` : "",
+    "Context",
+    "- Generate one component documentation markdown from Figma.",
+    componentName ? `- Expected component name: ${componentName}` : "",
+    "",
+    "Sources",
+    `- Figma URL: ${figmaUrl}`,
+    "- Existing docs style reference: docs/components/alert.md",
     outputPath
-      ? `Write/update exactly this file: ${outputPath}`
-      : "Write/update one markdown file under docs/components/ based on the real component name.",
-    "Required behavior:",
-    "- Connect to the Figma file and inspect the referenced node/component.",
-    "- Produce a component markdown consistent with docs/components/alert.md structure and tone.",
-    "- Include real properties, variants, layout, typography, tokens and usage guidance from Figma.",
+      ? `- Output path (required): ${outputPath}`
+      : "- Output path: one file under docs/components/ based on the real component name.",
+    "",
+    "Constraints",
+    "- Use figma MCP workflow and inspect the referenced component/set.",
+    "- Documentation only. Do not generate component implementation code.",
+    "- Do not invent properties, variants, states, or token semantics.",
+    "- Never use Figma internal IDs (VariableID or node IDs) in user-facing prose/tables.",
+    "- Include component metadata/frontmatter expected by project rules.",
     "- Do not document system_cover or non-component pages.",
-    "- Save the file directly in the repo and finish with a short report including the final path.",
+    "",
+    "Expected Output",
+    "- Write/update the markdown file in the repo.",
+    "- Return a short report with: final path, doc_status value, and unresolved TBD count.",
   ]
     .filter(Boolean)
     .join("\n");

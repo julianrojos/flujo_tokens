@@ -1,0 +1,39 @@
+---
+description: Enforces Figma traceability metadata in component markdown pages to reduce documentation drift.
+globs:
+  - "docs/components/*.md"
+---
+
+# Component Figma traceability
+
+This rule applies to component pages in `docs/components/` (excluding `overview.md`).
+
+## Required frontmatter contract
+
+Component docs must include this metadata block:
+
+```md
+---
+doc_type: component
+doc_status: draft # draft | ready | needs-review
+figma:
+  file_url: "https://www.figma.com/design/<file>/<name>?node-id=<node>"
+  page: "<FigmaPageName>"
+  component: "<ComponentOrSetName>"
+  last_verified: "YYYY-MM-DD"
+---
+```
+
+If a value is unknown, use `TBD` instead of guessing.
+
+## Traceability rules
+
+- `figma.component` must use a human-readable component/set name, not node IDs.
+- `figma.page` should match the page name in Figma.
+- `figma.last_verified` records the latest manual verification date.
+- Keep a direct source link in `## Overview` (human-readable URL text is fine).
+
+## Prohibited values
+
+- Do not use `VariableID:*` as metadata.
+- Do not store node IDs as standalone identifiers in tables or prose.

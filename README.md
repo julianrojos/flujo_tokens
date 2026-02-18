@@ -151,6 +151,23 @@ This workflow documents Design System components from Figma and can also render 
 - `docs/_spec/`: documentation specs and visual theme contract
 - `docs/_generated/figma_doc_models/`: generated intermediate artifacts for markdown -> Figma rendering
 
+### Documentation governance (rules)
+
+Component pages are governed by rules in `.agent/rules/` and must include:
+
+- YAML frontmatter metadata:
+  - `doc_type: component`
+  - `doc_status: draft | ready | needs-review`
+  - `figma.file_url`, `figma.page`, `figma.component`, `figma.last_verified`
+- Stable section order from `component-doc-structure.mdc`
+- Optional `## Discrepancias detectadas` when design/token mismatches are real
+- No Figma internal IDs (`VariableID:*`, node IDs) in user-facing prose/tables
+
+For markdown rendered to Figma, prefer the supported subset:
+
+- Headings (`#`, `##`, `###`), paragraphs, flat lists, markdown tables, inline emphasis
+- Avoid code fences, blockquotes, images, nested lists, and deep headings (`####+`)
+
 ### Requirements
 
 - A compatible agent CLI installed: `codex`, `claude`, or `gemini`

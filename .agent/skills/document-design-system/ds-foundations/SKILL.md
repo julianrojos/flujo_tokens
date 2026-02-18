@@ -40,6 +40,9 @@ This skill must produce output that complies with:
 - `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
 - `token-references.mdc` — token path formatting, fallback values, and naming patterns in all foundation pages
 - `accessibility-docs.mdc` — conventions for documenting focus, hit area, and contrast in `a11y.md`
+- `docs-taxonomy.mdc` — page type classification (`foundation`)
+- `docs-language-tone.mdc` — language and tone consistency
+- `overview-index-maintenance.mdc` — keep `foundations/overview.md` synchronized
 
 ## Global rules
 

@@ -37,8 +37,30 @@ function normalizeText(text) {
   return text.replace(/\s+/g, " ").trim();
 }
 
+function stripFrontmatter(markdown) {
+  const normalized = markdown.replace(/\r\n/g, "\n");
+  if (!normalized.startsWith("---\n")) {
+    return normalized;
+  }
+
+  const lines = normalized.split("\n");
+  let endIndex = -1;
+  for (let i = 1; i < lines.length; i += 1) {
+    if (lines[i].trim() === "---") {
+      endIndex = i;
+      break;
+    }
+  }
+
+  if (endIndex === -1) {
+    return normalized;
+  }
+
+  return lines.slice(endIndex + 1).join("\n");
+}
+
 function parseMarkdown(markdown) {
-  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+  const lines = stripFrontmatter(markdown).split("\n");
   const blocks = [];
   let i = 0;
 
@@ -214,7 +236,6 @@ function main() {
     version: 1,
     componentName,
     markdownPath,
-    generatedAt: new Date().toISOString(),
     title: deriveTitle(blocks, componentName),
     blocks,
     stats: summarizeBlocks(blocks),

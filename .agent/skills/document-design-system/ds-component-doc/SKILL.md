@@ -18,10 +18,15 @@ Use this skill when:
 This skill must produce output that complies with:
 
 - `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
-- `component-doc-structure.mdc` — mandatory section order (12 sections) and content for each
+- `component-doc-structure.mdc` — mandatory frontmatter + section order and content
 - `component-spec-yaml.mdc` — required fields and conventions for the input YAML
 - `token-references.mdc` — token path formatting, fallback values, and naming patterns
 - `accessibility-docs.mdc` — five required areas in the Accessibility section
+- `component-figma-traceability.mdc` — Figma source metadata in component docs
+- `markdown-lifecycle-status.mdc` — `doc_status` lifecycle for markdown pages
+- `design-token-discrepancies.mdc` — optional discrepancy section with fixed table format
+- `docs-language-tone.mdc` — language and tone consistency
+- `overview-index-maintenance.mdc` — required synchronization of `docs/components/overview.md`
 
 When in doubt, the rules are the source of truth.
 
@@ -64,22 +69,37 @@ See `component-spec-yaml.mdc` for full field conventions and validation rules.
 
 ## Component page structure
 
-Follow the section order defined in `component-doc-structure.mdc` (12 sections). The skill generates all sections from the spec YAML, filling `TBD` where data is missing.
+Follow the structure defined in `component-doc-structure.mdc` (required frontmatter + ordered sections). The skill generates all sections from the spec YAML, filling `TBD` where data is missing.
 
 Summary of sections (see rule for full details):
 
+Before `# {ComponentName}`, always generate YAML frontmatter:
+
+```yaml
+doc_type: component
+doc_status: draft
+figma:
+  file_url: TBD
+  page: TBD
+  component: TBD
+  last_verified: TBD
+```
+
+Then use this section order:
+
 1. `# {ComponentName}` + one-line description
-2. `## Overview` — from `summary` + Figma component set info
+2. `## Overview` — from `summary` + Figma component set info + source link
 3. `## Anatomy` — numbered list from `anatomy`
 4. `## Component API` — `### Properties` table from `properties`
 5. `## Visual Specifications` — token mappings organized by part (container, typography, spacing, iconography)
 6. `## Variants` — from `properties` where type is `VARIANT` + variant-specific tokens from `token_mapping`
 7. `## States` — from `state` property if present; otherwise `TBD`
-8. `## Usage Guidelines` — from `summary.when_to_use`, `summary.when_not_to_use`, `best_practices`
-9. `## Content Guidelines` — from `content_guidelines`
-10. `## Accessibility` — from `accessibility`, following `accessibility-docs.mdc` (five required areas)
-11. `## Related Components` — from spec if available, otherwise `TBD`
-12. `## Gaps / TBD` — auto-generated from all missing fields
+8. `## Discrepancias detectadas` — only when mismatches are verifiable; follow `design-token-discrepancies.mdc`
+9. `## Usage Guidelines` — from `summary.when_to_use`, `summary.when_not_to_use`, `best_practices`
+10. `## Content Guidelines` — from `content_guidelines`
+11. `## Accessibility` — from `accessibility`, following `accessibility-docs.mdc` (five required areas)
+12. `## Related Components` — from spec if available, otherwise `TBD`
+13. `## Gaps / TBD` — auto-generated from all missing fields
 
 ## Properties table format
 
