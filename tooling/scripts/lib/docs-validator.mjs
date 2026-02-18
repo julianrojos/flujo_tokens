@@ -346,14 +346,6 @@ function validateSectionOrder(filePath, content, report, lineStarts, baseOffset 
 }
 
 function validateFrontmatter(filePath, frontmatter, report) {
-  if (frontmatter.doc_type !== "component") {
-    report.errors.push({
-      code: "FM01",
-      file: filePath,
-      message: "Frontmatter must include `doc_type: component`.",
-    });
-  }
-
   const status = String(frontmatter.doc_status || "").trim();
   if (!ALLOWED_DOC_STATUS.has(status)) {
     report.errors.push({
@@ -362,6 +354,18 @@ function validateFrontmatter(filePath, frontmatter, report) {
       message: "Frontmatter `doc_status` must be one of: draft, ready, needs-review.",
     });
   }
+}
+
+function validateComponentFrontmatter(filePath, frontmatter, report) {
+  if (frontmatter.doc_type !== "component") {
+    report.errors.push({
+      code: "FM01",
+      file: filePath,
+      message: "Frontmatter must include `doc_type: component`.",
+    });
+  }
+
+  validateFrontmatter(filePath, frontmatter, report);
 
   const figma = frontmatter.figma;
   const requiredFigmaFields = ["file_url", "page", "component", "last_verified"];
@@ -384,6 +388,18 @@ function validateFrontmatter(filePath, frontmatter, report) {
       });
     }
   }
+}
+
+function validateOverviewFrontmatter(filePath, frontmatter, report) {
+  if (frontmatter.doc_type !== "overview") {
+    report.errors.push({
+      code: "FM01",
+      file: filePath,
+      message: "Overview frontmatter must include `doc_type: overview`.",
+    });
+  }
+
+  validateFrontmatter(filePath, frontmatter, report);
 }
 
 function validateVariableIds(filePath, rawMarkdown, report, lineStarts) {
@@ -899,9 +915,10 @@ export function validateDocs(options = {}) {
 
   const registryIndexes = buildRegistryIndexes(registry);
   const markdownFiles = collectMarkdownFiles(docsRoot, explicitFilePath);
+  const overviewFiles = markdownFiles.filter((filePath) => path.basename(filePath) === "overview.md");
   const componentFiles = markdownFiles.filter((filePath) => path.basename(filePath) !== "overview.md");
 
-  for (const filePath of componentFiles) {
+  for (const filePath of markdownFiles) {
     if (!fs.existsSync(filePath)) {
       report.errors.push({
         code: "DOC01",
@@ -915,9 +932,15 @@ export function validateDocs(options = {}) {
     const lineStarts = buildLineStarts(raw);
     const { frontmatter, content } = parseMarkdownFrontmatter(raw);
     const contentOffset = raw.length - content.length;
+    const isOverview = path.basename(filePath) === "overview.md";
 
     report.summary.filesChecked += 1;
-    validateFrontmatter(filePath, frontmatter, report);
+    if (isOverview) {
+      validateOverviewFrontmatter(filePath, frontmatter, report);
+      continue;
+    }
+
+    validateComponentFrontmatter(filePath, frontmatter, report);
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset);
     validateVariableIds(filePath, raw, report, lineStarts);
     validateTokenReferences(filePath, content, registryIndexes, report, lineStarts, contentOffset);
@@ -930,6 +953,12 @@ export function validateDocs(options = {}) {
 
   if (checkOverview) {
     validateOverviewLinks(docsRoot, componentFiles, report);
+    for (const overviewPath of overviewFiles) {
+      if (!fs.existsSync(overviewPath)) continue;
+      const raw = fs.readFileSync(overviewPath, "utf8");
+      const lineStarts = buildLineStarts(raw);
+      validateVariableIds(overviewPath, raw, report, lineStarts);
+    }
   }
 
   report.summary.errors = report.errors.length;
