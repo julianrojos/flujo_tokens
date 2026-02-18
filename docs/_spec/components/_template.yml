@@ -4,6 +4,7 @@ figma:
   file: TBD
   page: TBD
   component_set: TBD
+  component_set_node_id: TBD # optional but recommended (e.g., "2304:1892")
 
 summary:
   purpose: TBD

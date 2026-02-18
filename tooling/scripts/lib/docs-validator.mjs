@@ -862,9 +862,19 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
   }
 }
 
-function validateSpecYamlFiles(specRoot, report, registryIndexes) {
-  const files = collectSpecFiles(specRoot);
+function validateSpecYamlFiles(specRoot, report, registryIndexes, explicitSpecFilePath = null) {
+  const files = explicitSpecFilePath
+    ? [path.resolve(explicitSpecFilePath)]
+    : collectSpecFiles(specRoot);
   for (const filePath of files) {
+    if (!fs.existsSync(filePath)) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: "Spec YAML file not found.",
+      });
+      continue;
+    }
     report.summary.specFilesChecked += 1;
     validateSpecYamlFile(filePath, report, registryIndexes);
   }
@@ -890,6 +900,7 @@ function createBaseReport() {
 export function validateDocs(options = {}) {
   const docsRoot = path.resolve(options.docsRoot || COMPONENT_DOCS_DIR);
   const specRoot = path.resolve(options.specRoot || SPEC_COMPONENTS_DIR);
+  const explicitSpecFilePath = options.specFilePath ? path.resolve(options.specFilePath) : null;
   const registryPath = path.resolve(options.registryPath || DEFAULT_TOKEN_REGISTRY_PATH);
   const explicitFilePath = options.filePath ? path.resolve(options.filePath) : null;
   const checkOverview = explicitFilePath ? false : options.checkOverview !== false;
@@ -948,7 +959,7 @@ export function validateDocs(options = {}) {
   }
 
   if (checkSpecs) {
-    validateSpecYamlFiles(specRoot, report, registryIndexes);
+    validateSpecYamlFiles(specRoot, report, registryIndexes, explicitSpecFilePath);
   }
 
   if (checkOverview) {

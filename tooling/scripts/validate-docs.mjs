@@ -13,6 +13,7 @@ function main() {
   const docsRoot = args["docs-root"] || COMPONENT_DOCS_DIR;
   const registryPath = args.registry || DEFAULT_TOKEN_REGISTRY_PATH;
   const filePath = args.file ? path.resolve(args.file) : null;
+  const specFilePath = args["spec-file"] ? path.resolve(args["spec-file"]) : null;
   const strict = String(args.strict || "false") === "true";
   const noOverview = String(args["no-overview"] || "false") === "true";
   const noSpecs = String(args["no-specs"] || "false") === "true";
@@ -21,6 +22,7 @@ function main() {
     docsRoot,
     registryPath,
     filePath,
+    specFilePath,
     checkOverview: !noOverview,
     checkSpecs: !noSpecs,
   });

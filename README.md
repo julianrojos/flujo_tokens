@@ -152,6 +152,7 @@ This workflow documents Design System components from Figma and can also render 
 
 ### Documentation Scripts
 
+- **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract.
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links).
@@ -215,7 +216,31 @@ Useful flags:
 - `--output <path/to/component.md>`
 - `--agent <codex|claude|gemini>`
 
-### 2) Active markdown -> Figma section
+### 2) Figma component -> spec YAML
+
+Generate/update one component spec YAML from Figma:
+
+```bash
+npm run ds:spec-from-figma -- \
+  --url "https://www.figma.com/design/<file>?node-id=<node>" \
+  --component-name Alert \
+  --output docs/_spec/components/alert.yml \
+  --agent codex
+```
+
+Useful flags:
+
+- `--url <figma-url>`
+- `--component-set-node-id <figma-node-id>` (deterministic fallback when URL is not used)
+- `--component-name <Name>`
+- `--output <path/to/spec.yml>`
+- `--spec-root <path>` (default: `docs/_spec/components`)
+- `--template <path>` (default: `docs/_spec/components/_template.yml`)
+- `--registry <path>` (default: `docs/_generated/token-registry.json`)
+- `--skip-validation true`
+- `--agent <codex|claude|gemini>`
+
+### 3) Active markdown -> Figma section
 
 Render markdown to a Figma documentation section:
 
@@ -248,6 +273,7 @@ Validation command options:
 
 - `npm run validate:docs` -> full docs + specs + overview checks
 - `npm run validate:docs -- --file docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
+- `npm run validate:docs -- --spec-file docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
 
 Internally, this command runs a two-step generation flow:
 
