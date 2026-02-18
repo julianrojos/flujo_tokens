@@ -94,11 +94,11 @@ Then use this section order:
 5. `## Visual Specifications` — token mappings organized by part (container, typography, spacing, iconography)
 6. `## Variants` — from `properties` where type is `VARIANT` + variant-specific tokens from `token_mapping`
 7. `## States` — from `state` property if present; otherwise `TBD`
-8. `## Discrepancias detectadas` — only when mismatches are verifiable; follow `design-token-discrepancies.mdc`
-9. `## Usage Guidelines` — from `summary.when_to_use`, `summary.when_not_to_use`, `best_practices`
-10. `## Content Guidelines` — from `content_guidelines`
-11. `## Accessibility` — from `accessibility`, following `accessibility-docs.mdc` (five required areas)
-12. `## Related Components` — from spec if available, otherwise `TBD`
+8. `## Usage Guidelines` — from `summary.when_to_use`, `summary.when_not_to_use`, `best_practices`
+9. `## Content Guidelines` — from `content_guidelines`
+10. `## Accessibility` — from `accessibility`, following `accessibility-docs.mdc` (five required areas)
+11. `## Related Components` — from spec if available, otherwise `TBD`
+12. `## Design–Token Discrepancies` — only when mismatches are verifiable; follow `design-token-discrepancies.mdc`
 13. `## Gaps / TBD` — auto-generated from all missing fields
 
 ## Properties table format

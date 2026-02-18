@@ -10,23 +10,7 @@ Every component page in `docs/components/` (excluding `overview.md`) must follow
 
 ## Required YAML frontmatter
 
-Each component page must start with:
-
-```md
----
-doc_type: component
-doc_status: draft # draft | ready | needs-review
-figma:
-  file_url: "https://www.figma.com/design/<file>/<name>?node-id=<node>"
-  page: "<FigmaPageName>"
-  component: "<ComponentOrSetName>"
-  last_verified: "YYYY-MM-DD"
----
-```
-
-- If data is unknown, use `TBD`.
-- Do not use `VariableID:*` as metadata.
-- Node IDs may appear for traceability (for example via `node-id` in `figma.file_url`).
+Each component page must start with the frontmatter contract defined in `component-figma-traceability.mdc` (includes `doc_type`, `doc_status`, and `figma` traceability metadata). See that rule for the full schema and allowed values.
 
 ## Required sections (in order)
 
@@ -76,13 +60,7 @@ figma:
 - For each state: what changes visually, which tokens apply, and any behavioral notes.
 - If the component is non-interactive, state explicitly: "This component has no interactive states."
 
-### 8. `## Discrepancias detectadas` (optional)
-
-- Include this section only when there are real mismatches between Figma design and tokenized documentation.
-- Use the table format defined in `design-token-discrepancies.mdc`.
-- If there are no discrepancies, omit this section entirely.
-
-### 9. `## Usage Guidelines`
+### 8. `## Usage Guidelines`
 
 - Subsections or bullet groups for:
   - **When to use**: Scenarios where this component is the right choice.
@@ -90,22 +68,28 @@ figma:
   - **Best Practices (Do / Don't)**: Concrete pairs of correct vs. incorrect usage.
 - Do/Don't items should be actionable and specific, not vague.
 
-### 10. `## Content Guidelines`
+### 9. `## Content Guidelines`
 
 - Copywriting rules specific to the component's text content.
 - Cover: verb usage, sentence case, max word count, punctuation, truncation behavior.
 - If the component has no user-facing text, write: "This component has no text content."
 
-### 11. `## Accessibility`
+### 10. `## Accessibility`
 
 - Must cover: ARIA role, keyboard navigation, focus management, labeling requirements, contrast notes.
 - See `accessibility-docs.mdc` for detailed formatting rules.
 - Reference focus outline and hit area tokens.
 
-### 12. `## Related Components`
+### 11. `## Related Components`
 
 - Bullet list linking to sibling or alternative components.
 - Each item: component name (as link if page exists) + one-line description of when to use it instead.
+
+### 12. `## Design–Token Discrepancies` (optional)
+
+- Include this section only when there are verifiable mismatches between Figma design and tokenized documentation.
+- Use the table format defined in `design-token-discrepancies.mdc`.
+- If there are no discrepancies, omit this section entirely.
 
 ### 13. `## Gaps / TBD`
 

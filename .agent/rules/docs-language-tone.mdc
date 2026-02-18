@@ -9,7 +9,7 @@ globs:
 ## Default language policy
 
 - Default language for docs is English.
-- Do not mix English and Spanish in the same page, except for fixed section labels required by other rules (for example, `Discrepancias detectadas`).
+- Do not mix languages in the same page. All section headings and table headers must be in English.
 
 ## Tone policy
 

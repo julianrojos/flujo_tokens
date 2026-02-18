@@ -11,23 +11,23 @@ Use a dedicated section to track mismatches between Figma design intent and toke
 
 ## Section name and placement
 
-- Section title: `## Discrepancias detectadas`
-- Component docs: place after `## States` and before `## Usage Guidelines`.
-- If no discrepancies exist, omit the section.
+- Section title: `## Design–Token Discrepancies`
+- Component docs: place after `## Related Components` and before `## Gaps / TBD` (see `component-doc-structure.mdc`).
+- If no discrepancies exist, omit the section entirely.
 
 ## Required table format
 
 Use this exact table schema:
 
-| Discrepancia | Impacto | Accion pendiente | Estado |
+| Discrepancy | Impact | Pending action | Status |
 | --- | --- | --- | --- |
 
 ### Field guidance
 
-- `Discrepancia`: factual mismatch (hardcoded value, missing token, naming mismatch, unmapped variant).
-- `Impacto`: short impact statement on consistency/usability/maintenance.
-- `Accion pendiente`: concrete remediation task.
-- `Estado`: `open`, `accepted`, or `resolved`.
+- `Discrepancy`: factual mismatch (hardcoded value, missing token, naming mismatch, unmapped variant).
+- `Impact`: short impact statement on consistency/usability/maintenance.
+- `Pending action`: concrete remediation task.
+- `Status`: `open`, `accepted`, or `resolved`.
 
 ## Content rules
 
