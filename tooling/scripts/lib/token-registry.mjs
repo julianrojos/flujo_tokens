@@ -19,8 +19,20 @@ export function loadTokenRegistry(registryPath = DEFAULT_TOKEN_REGISTRY_PATH) {
     throw new Error(`Invalid token registry JSON at ${absolutePath}: ${message}`);
   }
 
-  if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error(`Token registry must be an object at top level: ${absolutePath}`);
+  if (Array.isArray(parsed)) {
+    const index = Object.create(null);
+    for (const entry of parsed) {
+      if (!entry || typeof entry !== "object") continue;
+      const pathKey = typeof entry.path === "string" ? entry.path.trim() : "";
+      const slashKey = typeof entry.slashPath === "string" ? entry.slashPath.trim() : "";
+      if (pathKey && index[pathKey] === undefined) index[pathKey] = entry;
+      if (slashKey && index[slashKey] === undefined) index[slashKey] = entry;
+    }
+    return index;
+  }
+
+  if (parsed == null || typeof parsed !== "object") {
+    throw new Error(`Token registry must be an object or array at top level: ${absolutePath}`);
   }
 
   return parsed;

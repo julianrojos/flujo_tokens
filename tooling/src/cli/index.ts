@@ -26,6 +26,7 @@ import { collectTokenMaps } from '../core/indexing.js';
 import { buildCycleStatus } from '../core/analyze.js';
 import { flattenTokens, buildEmittableKeySet } from '../core/emit.js';
 import { readCssVariablesFromFile, extractCssVariables, formatCssSectionHeader } from '../core/css.js';
+import { exportTokenRegistry, writeTokenRegistry } from '../core/registry.js';
 import { foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 
 // --- Path configuration & arg parsing ---
@@ -37,7 +38,9 @@ type CliOptions = {
     outputFile: string;
     outputPrimitives: string;
     outputTokens: string;
+    registryOutput: string;
     split: boolean;
+    registry: boolean;
     help: boolean;
     mode?: string;
     modeStrict: boolean;
@@ -67,6 +70,8 @@ Options:
       --single         Emit one file (disables split)
       --output-primitives <file>  Primitives CSS output (default: ./output/primitives.css)
       --output-tokens <file>      Tokens CSS output (default: ./output/tokens.css)
+      --registry       Also export docs token registry JSON (default: off)
+      --registry-output <file>    Token registry output (default: ./docs/_generated/token-registry.json)
   -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
       --mode-strict    Fail if preferred mode is missing in any node (default: off)
       --mode-loose     Allow fallback to available mode if preferred is missing (default: on)
@@ -78,7 +83,9 @@ function parseArgs(argv: string[]): CliOptions | null {
     let outputFile = path.resolve(__dirname, '../../../output/custom-properties.css');
     let outputPrimitives = path.resolve(__dirname, '../../../output/primitives.css');
     let outputTokens = path.resolve(__dirname, '../../../output/tokens.css');
+    let registryOutput = path.resolve(__dirname, '../../../docs/_generated/token-registry.json');
     let split = true;
+    let registry = false;
     let help = false;
     let mode: string | undefined;
     let modeStrict = false;
@@ -141,6 +148,22 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
+        if (arg === '--registry') {
+            registry = true;
+            continue;
+        }
+
+        if (arg === '--registry-output') {
+            if (!argv[i + 1]) {
+                console.error('❌ Missing value for --registry-output');
+                return null;
+            }
+            registryOutput = path.resolve(process.cwd(), argv[i + 1]);
+            registry = true;
+            i++;
+            continue;
+        }
+
         if (arg === '-m' || arg === '--mode') {
             if (!argv[i + 1]) {
                 console.error('❌ Missing value for --mode');
@@ -165,7 +188,7 @@ function parseArgs(argv: string[]): CliOptions | null {
         return null;
     }
 
-    return { inputDir, outputFile, outputPrimitives, outputTokens, split, help, mode, modeStrict };
+    return { inputDir, outputFile, outputPrimitives, outputTokens, registryOutput, split, registry, help, mode, modeStrict };
 }
 
 const parsed = parseArgs(process.argv.slice(2));
@@ -183,7 +206,9 @@ const JSON_DIR = parsed.inputDir;
 const OUTPUT_FILE = parsed.outputFile;
 const OUTPUT_PRIMITIVES = parsed.outputPrimitives;
 const OUTPUT_TOKENS = parsed.outputTokens;
+const REGISTRY_OUTPUT = parsed.registryOutput;
 const SPLIT_OUTPUT = parsed.split;
+const REGISTRY_ENABLED = parsed.registry;
 const PREFERRED_MODE = parsed.mode?.trim() || undefined;
 const MODE_STRICT = parsed.modeStrict;
 const MODE_STRICT_PREFERRED = MODE_STRICT && !!PREFERRED_MODE;
@@ -500,6 +525,19 @@ async function main() {
         }
 
         console.log(`\n📝 File saved to: ${output.filePath}`);
+    }
+
+    if (REGISTRY_ENABLED) {
+        const baseScopeProcessingCtx = scopeProcessingContexts.find(({ scope }) => !scope.mode)?.processingCtx;
+        if (!baseScopeProcessingCtx) {
+            throw new Error('Internal error: base scope context not found for registry export.');
+        }
+
+        console.log('🧾 Exporting token registry...');
+        const registryEntries = exportTokenRegistry(baseScopeProcessingCtx);
+        writeTokenRegistry(REGISTRY_OUTPUT, registryEntries);
+        const outputLabel = path.relative(process.cwd(), REGISTRY_OUTPUT) || REGISTRY_OUTPUT;
+        console.log(`✅ Token registry exported to ${outputLabel} (${registryEntries.length} entries)`);
     }
 
     printExecutionSummary(summary);

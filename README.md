@@ -23,6 +23,7 @@ npm install
 ### Token Compilation Scripts
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
+- **`npm run generate:registry`**: Executes the same token pipeline and also exports `docs/_generated/token-registry.json` for documentation validation.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 
 ### Usage
@@ -68,6 +69,9 @@ Behavior can be adjusted using environment variables:
   - `--single`: generate one file (`--output`) instead of split outputs.
   - `--output-primitives <file>`: primitives output path (default: `output/primitives.css`).
   - `--output-tokens <file>`: semantic/component tokens output path (default: `output/tokens.css`).
+- Registry export flags (CLI):
+  - `--registry`: also generate docs token registry JSON.
+  - `--registry-output <file>`: registry output path (default: `docs/_generated/token-registry.json`).
 
 Example:
 
@@ -91,6 +95,12 @@ Strict mode example (preferred mode required):
 
 ```bash
 npm run generate:strict -- --mode dark
+```
+
+Registry example:
+
+```bash
+npm run generate:registry
 ```
 
 ### Typography unit coercion (runtime)
