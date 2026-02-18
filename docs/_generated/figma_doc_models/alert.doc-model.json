@@ -2,7 +2,6 @@
   "version": 1,
   "componentName": "Alert",
   "markdownPath": "docs/components/alert.md",
-  "generatedAt": "2026-02-18T01:18:39.723Z",
   "title": "Alert",
   "blocks": [
     {
@@ -35,6 +34,10 @@
     {
       "type": "paragraph",
       "text": "All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens."
+    },
+    {
+      "type": "paragraph",
+      "text": "Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)"
     },
     {
       "type": "heading",
@@ -97,7 +100,8 @@
       "header": [
         "Name",
         "Type",
-        "Default Value",
+        "Default",
+        "Required",
         "Description"
       ],
       "rows": [
@@ -105,13 +109,15 @@
           "`Type`",
           "`VARIANT`",
           "`Information`",
-          "Semantic alert state. Options: `Information`, `Warning`, `Positive`."
+          "`true`",
+          "Semantic alert type. Options: `Information`, `Warning`, `Positive`."
         ],
         [
           "`Change_Message_Text`",
           "`TEXT`",
           "`Text text text`",
-          "Main alert message content."
+          "`TBD`",
+          "Overrides the main alert message copy."
         ]
       ]
     },
@@ -145,7 +151,7 @@
           "text": "**Border**: `2px`, aligned `INSIDE`"
         },
         {
-          "text": "**Background token**: `Color/Background/Feedback/Default` (`VariableID:4399:866`)"
+          "text": "**Background token**: `Color/Background/Feedback/Default`"
         },
         {
           "text": "**Background fallback**: `#FFFFFF`"
@@ -174,7 +180,7 @@
           "text": "**Letter spacing**: `0%`"
         },
         {
-          "text": "**Text color token**: `Color/Text/Neutral/Default` (`VariableID:365:1156`)"
+          "text": "**Text color token**: `Color/Text/Neutral/Default`"
         },
         {
           "text": "**Text color fallback**: `#483F3F`"
@@ -184,44 +190,94 @@
     {
       "type": "heading",
       "level": 3,
+      "text": "Iconography"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "**Icon container size**: `24 x 24`"
+        },
+        {
+          "text": "**Internal vector size**: `18 x 18`"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Token Mapping"
+    },
+    {
+      "type": "table",
+      "header": [
+        "Part",
+        "Condition",
+        "Token",
+        "Fallback"
+      ],
+      "rows": [
+        [
+          "`container.background`",
+          "all variants",
+          "`Color/Background/Feedback/Default`",
+          "`#FFFFFF`"
+        ],
+        [
+          "`text.color`",
+          "all variants",
+          "`Color/Text/Neutral/Default`",
+          "`#483F3F`"
+        ]
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
       "text": "Variants"
     },
     {
       "type": "table",
       "header": [
         "Variant",
-        "Border token",
-        "Border fallback",
-        "Icon component",
-        "Icon token",
-        "Icon fallback"
+        "Differentiating token(s)",
+        "Fallback value(s)",
+        "Visual indicator"
       ],
       "rows": [
         [
           "`Information`",
-          "`Color/Border/Feedback/Information` (`VariableID:4480:772`)",
-          "`#BAA06B`",
-          "`information-circle-contained`",
-          "`Color/Icon/Feedback/Information` (`VariableID:4480:1571`)",
-          "`#9D8555`"
+          "`Color/Border/Feedback/Information`, `Color/Icon/Feedback/Information`",
+          "`#BAA06B`, `#9D8555`",
+          "`information-circle-contained` icon + information border"
         ],
         [
           "`Warning`",
-          "`Color/Border/Feedback/Danger` (`VariableID:4480:971`)",
-          "`#B22222`",
-          "`x-circle-contained`",
-          "`Color/Icon/Feedback/Danger` (`VariableID:4480:1173`)",
-          "`#B22222`"
+          "`Color/Border/Feedback/Danger`, `Color/Icon/Feedback/Danger`",
+          "`#B22222`, `#B22222`",
+          "`x-circle-contained` icon + warning border"
         ],
         [
           "`Positive`",
-          "`Color/Border/Feedback/Success` (`VariableID:4480:464`)",
-          "`#299157`",
-          "`check-contained`",
-          "`Color/Icon/Feedback/Success` (`VariableID:4480:1372`)",
-          "`#299157`"
+          "`Color/Border/Feedback/Success`, `Color/Icon/Feedback/Success`",
+          "`#299157`, `#299157`",
+          "`check-contained` icon + success border"
         ]
       ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "States"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component has no interactive states in the current Figma component set."
+    },
+    {
+      "type": "paragraph",
+      "text": "Feedback semantics are represented through the `Type` variant, not through `hover`/`focus`/`pressed` states."
     },
     {
       "type": "heading",
@@ -233,45 +289,176 @@
       "ordered": false,
       "items": [
         {
-          "text": "Use `Information` for neutral status or contextual updates."
+          "text": "**When to use**: Use `Information`, `Warning`, and `Positive` to communicate concise status feedback in context."
         },
         {
-          "text": "Use `Warning` for error or risky states that require user attention."
+          "text": "**When not to use**: Do not use this component for persistent page-level navigation or long-form guidance."
         },
         {
-          "text": "Use `Positive` for successful outcomes and confirmations."
+          "text": "**Do**: Keep icon size and spacing unchanged to preserve visual rhythm."
         },
         {
-          "text": "Keep message copy short and direct, ideally one sentence."
+          "text": "**Do**: Keep semantic feedback tokens aligned with the selected variant."
+        },
+        {
+          "text": "**Don't**: Replace semantic border/icon tokens with neutral values."
+        },
+        {
+          "text": "**Don't**: Use this component for multi-paragraph content."
         }
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Notes For Implementation"
+      "text": "Content Guidelines"
     },
     {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "Keep icon size fixed at `24 x 24` to preserve alignment."
+          "text": "Use short, direct message text."
         },
         {
-          "text": "Keep the 8px horizontal gap between icon and text container."
+          "text": "Prefer one sentence per alert."
         },
         {
-          "text": "Do not replace semantic feedback tokens with neutral borders, as this removes the state meaning."
+          "text": "Use sentence case."
+        },
+        {
+          "text": "Avoid unnecessary punctuation and repeated emphasis."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Accessibility"
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "1. ARIA role and semantics"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Expected role for passive feedback: `role=\"alert\"`."
+        },
+        {
+          "text": "If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA."
+        },
+        {
+          "text": "Required ARIA attributes are `TBD` for this component configuration."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "2. Keyboard navigation"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component is not keyboard-interactive in the current Figma configuration."
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "3. Focus management"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "This component has no focusable element in the current Figma definition."
+        },
+        {
+          "text": "Focus behavior for dismissible/interactive alert variants is `TBD`."
+        },
+        {
+          "text": "Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) are `TBD` for this component."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "4. Labeling"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "The message text itself provides the accessible content."
+        },
+        {
+          "text": "Additional labeling patterns (`aria-label`, `aria-labelledby`, `aria-describedby`) are `TBD` for interactive variants."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "5. Contrast and visibility"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "The component should not rely on color alone; iconography and text must remain present with each variant."
+        },
+        {
+          "text": "Verified contrast ratios are `TBD (pending audit)`."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Related Components"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "[Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging."
+        },
+        {
+          "text": "[Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Gaps / TBD"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Required status for `Change_Message_Text` in Figma is `TBD`."
+        },
+        {
+          "text": "Accessibility behavior for interactive/dismissible alert variants is `TBD`."
         }
       ]
     }
   ],
   "stats": {
-    "headings": 11,
-    "paragraphs": 5,
-    "lists": 7,
-    "tables": 2,
+    "headings": 22,
+    "paragraphs": 9,
+    "lists": 14,
+    "tables": 3,
     "codeBlocks": 0
   }
 }

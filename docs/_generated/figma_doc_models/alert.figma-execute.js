@@ -1,4 +1,4 @@
-const PAYLOAD = {"model":{"version":1,"componentName":"Alert","markdownPath":"docs/components/alert.md","generatedAt":"2026-02-18T01:18:39.723Z","title":"Alert","blocks":[{"type":"heading","level":1,"text":"Alert"},{"type":"paragraph","text":"The **Alert** component communicates concise feedback messages in a highly visible inline block."},{"type":"heading","level":2,"text":"Overview"},{"type":"paragraph","text":"In Figma, this component is defined as a `COMPONENT_SET` (`Alert`) with one variant property:"},{"type":"list","ordered":false,"items":[{"text":"`Type`: `Information`, `Warning`, `Positive`"}]},{"type":"paragraph","text":"All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens."},{"type":"heading","level":2,"text":"Anatomy"},{"type":"paragraph","text":"Each alert contains:"},{"type":"list","ordered":true,"items":[{"index":1,"text":"**Container** (`Auto Layout`, horizontal)"},{"index":2,"text":"**Leading icon** (`24 x 24`, internal vector `18 x 18`)"},{"index":3,"text":"**Text container** with a single message text node"}]},{"type":"paragraph","text":"Current variant dimensions in Figma:"},{"type":"list","ordered":false,"items":[{"text":"`Type=Information`: `383 x 38`"},{"text":"`Type=Warning`: `383 x 38`"},{"text":"`Type=Positive`: `383 x 38`"}]},{"type":"heading","level":2,"text":"Component API"},{"type":"heading","level":3,"text":"Properties"},{"type":"table","header":["Name","Type","Default Value","Description"],"rows":[["`Type`","`VARIANT`","`Information`","Semantic alert state. Options: `Information`, `Warning`, `Positive`."],["`Change_Message_Text`","`TEXT`","`Text text text`","Main alert message content."]]},{"type":"heading","level":2,"text":"Visual Specifications"},{"type":"heading","level":3,"text":"Container"},{"type":"list","ordered":false,"items":[{"text":"**Layout**: Auto Layout, `HORIZONTAL`"},{"text":"**Item spacing**: `8px`"},{"text":"**Padding**: `7px` top and bottom, `8px` left and right"},{"text":"**Corner radius**: `8px`"},{"text":"**Border**: `2px`, aligned `INSIDE`"},{"text":"**Background token**: `Color/Background/Feedback/Default` (`VariableID:4399:866`)"},{"text":"**Background fallback**: `#FFFFFF`"}]},{"type":"heading","level":3,"text":"Typography"},{"type":"list","ordered":false,"items":[{"text":"**Text style**: `Regular/Body 16`"},{"text":"**Font**: `Nunito Sans Regular`"},{"text":"**Size / line height**: `16 / 24`"},{"text":"**Letter spacing**: `0%`"},{"text":"**Text color token**: `Color/Text/Neutral/Default` (`VariableID:365:1156`)"},{"text":"**Text color fallback**: `#483F3F`"}]},{"type":"heading","level":3,"text":"Variants"},{"type":"table","header":["Variant","Border token","Border fallback","Icon component","Icon token","Icon fallback"],"rows":[["`Information`","`Color/Border/Feedback/Information` (`VariableID:4480:772`)","`#BAA06B`","`information-circle-contained`","`Color/Icon/Feedback/Information` (`VariableID:4480:1571`)","`#9D8555`"],["`Warning`","`Color/Border/Feedback/Danger` (`VariableID:4480:971`)","`#B22222`","`x-circle-contained`","`Color/Icon/Feedback/Danger` (`VariableID:4480:1173`)","`#B22222`"],["`Positive`","`Color/Border/Feedback/Success` (`VariableID:4480:464`)","`#299157`","`check-contained`","`Color/Icon/Feedback/Success` (`VariableID:4480:1372`)","`#299157`"]]},{"type":"heading","level":2,"text":"Usage Guidelines"},{"type":"list","ordered":false,"items":[{"text":"Use `Information` for neutral status or contextual updates."},{"text":"Use `Warning` for error or risky states that require user attention."},{"text":"Use `Positive` for successful outcomes and confirmations."},{"text":"Keep message copy short and direct, ideally one sentence."}]},{"type":"heading","level":2,"text":"Notes For Implementation"},{"type":"list","ordered":false,"items":[{"text":"Keep icon size fixed at `24 x 24` to preserve alignment."},{"text":"Keep the 8px horizontal gap between icon and text container."},{"text":"Do not replace semantic feedback tokens with neutral borders, as this removes the state meaning."}]}],"stats":{"headings":11,"paragraphs":5,"lists":7,"tables":2,"codeBlocks":0}},"theme":{"name":"figma-doc-theme-default","status":"draft","source_component":"Alert","description":"Render contract for converting markdown component docs into Figma documentation sections with consistent visual style.","layout":{"target":{"section_name_pattern":"Doc/{component_name}","position":{"reference":"component_section","offset_x":200,"align_y":"top"}},"section":{"width":940,"min_height":1100},"canvas":{"inset":40,"width":860,"padding":{"top":28,"right":28,"bottom":28,"left":28},"item_spacing":18}},"theme":{"colors":{"page_bg":"#FFF9F0","section_border":"#E7DDCF","card_bg":"#FFFFFF","card_border":"#E7DDCF","title_text":"#3A3030","heading_text":"#3F3434","body_text":"#4E4343","muted_text":"#5B4F4F","chip_bg":"#F6EFE4","chip_border":"#DCCBB2","chip_text":"#6E5A3A"},"radii":{"canvas":24,"card":16,"chip":999},"strokes":{"section_border":1,"card_border":1,"chip_border":1},"spacing":{"card_padding":20,"card_gap":10,"chip_padding_v":6,"chip_padding_h":10,"chip_gap":8,"paragraph_gap":8,"list_gap":6},"typography":{"font_family":"Nunito Sans","h1":{"size":40,"line_height":48,"weight":"Bold","color":"title_text"},"h2":{"size":20,"line_height":28,"weight":"Bold","color":"heading_text"},"h3":{"size":16,"line_height":24,"weight":"SemiBold","color":"heading_text"},"body":{"size":15,"line_height":24,"weight":"Regular","color":"body_text"},"body_small":{"size":13,"line_height":18,"weight":"SemiBold","color":"chip_text"}}},"markdown_mapping":{"document":{"wrapper":"canvas"},"title":{"component":"header_block","text_style":"h1"},"subtitle":{"component":"intro_text","text_style":"body","color_override":"muted_text"},"heading_2":{"component":"card","title_style":"h2"},"heading_3":{"component":"inline_heading","text_style":"h3"},"paragraph":{"component":"text","text_style":"body"},"unordered_list":{"component":"stack","item_gap":"list_gap"},"ordered_list":{"component":"stack","item_gap":"list_gap"},"list_item":{"component":"text","text_style":"body"},"table":{"component":"table_card","header_style":"h3","cell_style":"body","border_color":"card_border"},"code_inline":{"component":"text","text_style":"body","color_override":"heading_text"}},"components":{"header_block":{"layout":"vertical","stretch":true,"item_spacing":6},"chips_row":{"layout":"horizontal","stretch":true,"item_spacing":8},"card":{"layout":"vertical","stretch":true,"width":820,"padding":{"top":20,"right":20,"bottom":20,"left":20},"item_spacing":10,"fills":{"color":"card_bg"},"strokes":{"color":"card_border","weight":1},"radius":16},"table_card":{"extends":"card","table":{"cell_padding_v":8,"cell_padding_h":10,"row_gap":0,"column_gap":0,"border_weight":1}}},"rules":["Keep one visual card per H2 section.","Render markdown in source order; do not reorder content blocks.","Preserve semantic spacing and hierarchy from heading levels.","Avoid hardcoded widths for text nodes; use stretch behavior when possible.","If a markdown element is unsupported, render it as body text and flag it in report."],"output_contract":{"report_fields":["markdown_path","target_section_id","theme_name","offset_x_applied","unsupported_blocks"]}},"options":{"componentName":"Alert","componentSetNodeId":"2304:1892","offsetX":200}};
+const PAYLOAD = {"model":{"version":1,"componentName":"Alert","markdownPath":"docs/components/alert.md","title":"Alert","blocks":[{"type":"heading","level":1,"text":"Alert"},{"type":"paragraph","text":"The **Alert** component communicates concise feedback messages in a highly visible inline block."},{"type":"heading","level":2,"text":"Overview"},{"type":"paragraph","text":"In Figma, this component is defined as a `COMPONENT_SET` (`Alert`) with one variant property:"},{"type":"list","ordered":false,"items":[{"text":"`Type`: `Information`, `Warning`, `Positive`"}]},{"type":"paragraph","text":"All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens."},{"type":"paragraph","text":"Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)"},{"type":"heading","level":2,"text":"Anatomy"},{"type":"paragraph","text":"Each alert contains:"},{"type":"list","ordered":true,"items":[{"index":1,"text":"**Container** (`Auto Layout`, horizontal)"},{"index":2,"text":"**Leading icon** (`24 x 24`, internal vector `18 x 18`)"},{"index":3,"text":"**Text container** with a single message text node"}]},{"type":"paragraph","text":"Current variant dimensions in Figma:"},{"type":"list","ordered":false,"items":[{"text":"`Type=Information`: `383 x 38`"},{"text":"`Type=Warning`: `383 x 38`"},{"text":"`Type=Positive`: `383 x 38`"}]},{"type":"heading","level":2,"text":"Component API"},{"type":"heading","level":3,"text":"Properties"},{"type":"table","header":["Name","Type","Default","Required","Description"],"rows":[["`Type`","`VARIANT`","`Information`","`true`","Semantic alert type. Options: `Information`, `Warning`, `Positive`."],["`Change_Message_Text`","`TEXT`","`Text text text`","`TBD`","Overrides the main alert message copy."]]},{"type":"heading","level":2,"text":"Visual Specifications"},{"type":"heading","level":3,"text":"Container"},{"type":"list","ordered":false,"items":[{"text":"**Layout**: Auto Layout, `HORIZONTAL`"},{"text":"**Item spacing**: `8px`"},{"text":"**Padding**: `7px` top and bottom, `8px` left and right"},{"text":"**Corner radius**: `8px`"},{"text":"**Border**: `2px`, aligned `INSIDE`"},{"text":"**Background token**: `Color/Background/Feedback/Default`"},{"text":"**Background fallback**: `#FFFFFF`"}]},{"type":"heading","level":3,"text":"Typography"},{"type":"list","ordered":false,"items":[{"text":"**Text style**: `Regular/Body 16`"},{"text":"**Font**: `Nunito Sans Regular`"},{"text":"**Size / line height**: `16 / 24`"},{"text":"**Letter spacing**: `0%`"},{"text":"**Text color token**: `Color/Text/Neutral/Default`"},{"text":"**Text color fallback**: `#483F3F`"}]},{"type":"heading","level":3,"text":"Iconography"},{"type":"list","ordered":false,"items":[{"text":"**Icon container size**: `24 x 24`"},{"text":"**Internal vector size**: `18 x 18`"}]},{"type":"heading","level":3,"text":"Token Mapping"},{"type":"table","header":["Part","Condition","Token","Fallback"],"rows":[["`container.background`","all variants","`Color/Background/Feedback/Default`","`#FFFFFF`"],["`text.color`","all variants","`Color/Text/Neutral/Default`","`#483F3F`"]]},{"type":"heading","level":2,"text":"Variants"},{"type":"table","header":["Variant","Differentiating token(s)","Fallback value(s)","Visual indicator"],"rows":[["`Information`","`Color/Border/Feedback/Information`, `Color/Icon/Feedback/Information`","`#BAA06B`, `#9D8555`","`information-circle-contained` icon + information border"],["`Warning`","`Color/Border/Feedback/Danger`, `Color/Icon/Feedback/Danger`","`#B22222`, `#B22222`","`x-circle-contained` icon + warning border"],["`Positive`","`Color/Border/Feedback/Success`, `Color/Icon/Feedback/Success`","`#299157`, `#299157`","`check-contained` icon + success border"]]},{"type":"heading","level":2,"text":"States"},{"type":"paragraph","text":"This component has no interactive states in the current Figma component set."},{"type":"paragraph","text":"Feedback semantics are represented through the `Type` variant, not through `hover`/`focus`/`pressed` states."},{"type":"heading","level":2,"text":"Usage Guidelines"},{"type":"list","ordered":false,"items":[{"text":"**When to use**: Use `Information`, `Warning`, and `Positive` to communicate concise status feedback in context."},{"text":"**When not to use**: Do not use this component for persistent page-level navigation or long-form guidance."},{"text":"**Do**: Keep icon size and spacing unchanged to preserve visual rhythm."},{"text":"**Do**: Keep semantic feedback tokens aligned with the selected variant."},{"text":"**Don't**: Replace semantic border/icon tokens with neutral values."},{"text":"**Don't**: Use this component for multi-paragraph content."}]},{"type":"heading","level":2,"text":"Content Guidelines"},{"type":"list","ordered":false,"items":[{"text":"Use short, direct message text."},{"text":"Prefer one sentence per alert."},{"text":"Use sentence case."},{"text":"Avoid unnecessary punctuation and repeated emphasis."}]},{"type":"heading","level":2,"text":"Accessibility"},{"type":"heading","level":3,"text":"1. ARIA role and semantics"},{"type":"list","ordered":false,"items":[{"text":"Expected role for passive feedback: `role=\"alert\"`."},{"text":"If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA."},{"text":"Required ARIA attributes are `TBD` for this component configuration."}]},{"type":"heading","level":3,"text":"2. Keyboard navigation"},{"type":"paragraph","text":"This component is not keyboard-interactive in the current Figma configuration."},{"type":"heading","level":3,"text":"3. Focus management"},{"type":"list","ordered":false,"items":[{"text":"This component has no focusable element in the current Figma definition."},{"text":"Focus behavior for dismissible/interactive alert variants is `TBD`."},{"text":"Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) are `TBD` for this component."}]},{"type":"heading","level":3,"text":"4. Labeling"},{"type":"list","ordered":false,"items":[{"text":"The message text itself provides the accessible content."},{"text":"Additional labeling patterns (`aria-label`, `aria-labelledby`, `aria-describedby`) are `TBD` for interactive variants."}]},{"type":"heading","level":3,"text":"5. Contrast and visibility"},{"type":"list","ordered":false,"items":[{"text":"The component should not rely on color alone; iconography and text must remain present with each variant."},{"text":"Verified contrast ratios are `TBD (pending audit)`."}]},{"type":"heading","level":2,"text":"Related Components"},{"type":"list","ordered":false,"items":[{"text":"[Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging."},{"text":"[Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback."}]},{"type":"heading","level":2,"text":"Gaps / TBD"},{"type":"list","ordered":false,"items":[{"text":"Required status for `Change_Message_Text` in Figma is `TBD`."},{"text":"Accessibility behavior for interactive/dismissible alert variants is `TBD`."}]}],"stats":{"headings":22,"paragraphs":9,"lists":14,"tables":3,"codeBlocks":0}},"theme":{"name":"figma-doc-theme-karmap","status":"ready","description":"Render contract for converting markdown component docs into Figma documentation sections. Styled to match the Karmap / Iter design system visual identity: Lora headings, Nunito Sans body, cucumber-green accents on warm cream surfaces.","layout":{"target":{"section_name_pattern":"Doc/{component_name}","position":{"reference":"component_section","offset_x":200,"align_y":"top"}},"section":{"width":940,"min_height":1100},"canvas":{"inset":40,"width":860,"padding":{"top":32,"right":32,"bottom":32,"left":32},"item_spacing":20}},"theme":{"colors":{"page_bg":"#FFFAF0","section_border":"#C9E0BE","canvas_shadow":"#00000014","card_bg":"#FFFFFF","card_border":"#E7DDCF","table_header_bg":"#F5F0E6","title_text":"#495841","heading_text":"#495841","body_text":"#483F3F","muted_text":"#716666","chip_bg":"#E8F0E4","chip_border":"#C9E0BE","chip_text":"#495841","header_accent":"#C9E0BE"},"radii":{"canvas":20,"card":12,"chip":999,"header_accent":12},"strokes":{"section_border":1.5,"card_border":1,"chip_border":1},"spacing":{"card_padding":20,"card_gap":12,"chip_padding_v":5,"chip_padding_h":12,"chip_gap":8,"paragraph_gap":8,"list_gap":6,"header_accent_padding_v":16,"header_accent_padding_h":24},"typography":{"font_family":"Nunito Sans","font_family_heading":"Lora","h1":{"font_family":"Lora","size":36,"line_height":42,"weight":"Bold","color":"title_text"},"h2":{"font_family":"Lora","size":20,"line_height":26,"weight":"Bold","color":"heading_text"},"h3":{"size":16,"line_height":24,"weight":"SemiBold","color":"heading_text"},"body":{"size":15,"line_height":24,"weight":"Regular","color":"body_text"},"body_small":{"size":13,"line_height":18,"weight":"SemiBold","color":"chip_text"}}},"markdown_mapping":{"document":{"wrapper":"canvas"},"title":{"component":"header_block","text_style":"h1"},"subtitle":{"component":"intro_text","text_style":"body","color_override":"muted_text"},"heading_2":{"component":"card","title_style":"h2"},"heading_3":{"component":"inline_heading","text_style":"h3"},"paragraph":{"component":"text","text_style":"body"},"unordered_list":{"component":"stack","item_gap":"list_gap"},"ordered_list":{"component":"stack","item_gap":"list_gap"},"list_item":{"component":"text","text_style":"body"},"table":{"component":"table_card","header_style":"h3","cell_style":"body","border_color":"card_border","header_bg":"table_header_bg"},"code_inline":{"component":"text","text_style":"body","color_override":"heading_text"}},"components":{"header_block":{"layout":"vertical","stretch":true,"item_spacing":8,"accent":{"enabled":true,"fills":{"color":"header_accent"},"radius":12,"padding":{"top":16,"right":24,"bottom":16,"left":24}}},"chips_row":{"layout":"horizontal","stretch":true,"item_spacing":8},"card":{"layout":"vertical","stretch":true,"width":796,"padding":{"top":20,"right":20,"bottom":20,"left":20},"item_spacing":12,"fills":{"color":"card_bg"},"strokes":{"color":"card_border","weight":1},"radius":12},"table_card":{"extends":"card","table":{"cell_padding_v":8,"cell_padding_h":10,"row_gap":0,"column_gap":0,"border_weight":1,"header_bg":"table_header_bg"}}},"rules":["Keep one visual card per H2 section.","Render markdown in source order; do not reorder content blocks.","Preserve semantic spacing and hierarchy from heading levels.","Avoid hardcoded widths for text nodes; use stretch behavior when possible.","If a markdown element is unsupported, render it as body text and flag it in report.","Use Lora for h1 and h2 headings; Nunito Sans for everything else.","Table header rows use a tinted background to distinguish from body rows.","The header accent block wraps the title area with a brand-colored background."],"output_contract":{"report_fields":["markdown_path","target_section_id","theme_name","offset_x_applied","unsupported_blocks"]}},"options":{"componentName":"Alert","componentSetNodeId":"2304:1892","offsetX":200}};
 
 function getPath(obj, path, fallbackValue) {
   const parts = path.split(".");
@@ -55,24 +55,69 @@ function fontStyleFromWeight(weight) {
   return "Regular";
 }
 
-async function ensureFonts(theme) {
-  const family = getPath(theme, "theme.typography.font_family", "Nunito Sans");
-  const typography = getPath(theme, "theme.typography", {});
-  const styles = new Set(["Regular"]);
-  for (const [key, value] of Object.entries(typography)) {
-    if (key === "font_family") continue;
-    if (!value || typeof value !== "object") continue;
-    styles.add(fontStyleFromWeight(value.weight));
+function extractBoldRanges(rawText) {
+  const input = String(rawText == null ? "" : rawText);
+  const boldRanges = [];
+  let plainText = "";
+  let cursor = 0;
+
+  while (cursor < input.length) {
+    const open = input.indexOf("**", cursor);
+    if (open === -1) {
+      plainText += input.slice(cursor);
+      break;
+    }
+
+    const close = input.indexOf("**", open + 2);
+    if (close === -1) {
+      plainText += input.slice(cursor);
+      break;
+    }
+
+    plainText += input.slice(cursor, open);
+    const boldPart = input.slice(open + 2, close);
+    const start = plainText.length;
+    plainText += boldPart;
+    const end = plainText.length;
+    if (end > start) boldRanges.push({ start, end });
+
+    cursor = close + 2;
   }
 
-  for (const style of styles) {
+  return { plainText, boldRanges };
+}
+
+async function ensureFonts(theme) {
+  const bodyFamily = getPath(theme, "theme.typography.font_family", "Nunito Sans");
+  const headingFamily = getPath(theme, "theme.typography.font_family_heading", bodyFamily);
+  const typography = getPath(theme, "theme.typography", {});
+
+  // Collect { family, style } pairs from all typography entries
+  const fontPairs = new Set();
+  fontPairs.add(bodyFamily + ":Regular");
+  fontPairs.add(bodyFamily + ":Bold");
+  if (headingFamily !== bodyFamily) {
+    fontPairs.add(headingFamily + ":Regular");
+    fontPairs.add(headingFamily + ":Bold");
+  }
+  for (const [key, value] of Object.entries(typography)) {
+    if (key === "font_family" || key === "font_family_heading") continue;
+    if (!value || typeof value !== "object") continue;
+    const fam = value.font_family || bodyFamily;
+    fontPairs.add(fam + ":" + fontStyleFromWeight(value.weight));
+  }
+
+  for (const pair of fontPairs) {
+    const [family, style] = pair.split(":");
     try {
       await figma.loadFontAsync({ family, style });
     } catch (error) {
       if (style !== "Regular") {
-        await figma.loadFontAsync({ family, style: "Regular" });
-      } else {
-        throw error;
+        try {
+          await figma.loadFontAsync({ family, style: "Regular" });
+        } catch (_) {
+          // Skip unavailable font variant
+        }
       }
     }
   }
@@ -107,8 +152,15 @@ function createText(parent, text, styleKey, theme, options) {
     color: "body_text",
   };
 
-  const family = getPath(theme, "theme.typography.font_family", "Nunito Sans");
+  const defaultFamily = getPath(theme, "theme.typography.font_family", "Nunito Sans");
+  const family = style.font_family || defaultFamily;
   const colorToken = options && options.colorOverride ? options.colorOverride : style.color;
+  const wrap = options && Object.prototype.hasOwnProperty.call(options, "wrap")
+    ? Boolean(options.wrap)
+    : true;
+  const wrapWidth = options && typeof options.wrapWidth === "number"
+    ? Number(options.wrapWidth)
+    : null;
   const colorHex = resolveColor(theme, colorToken, "#4E4343");
 
   const node = figma.createText();
@@ -116,8 +168,34 @@ function createText(parent, text, styleKey, theme, options) {
   node.fontSize = Number(style.size || 15);
   node.lineHeight = { unit: "PIXELS", value: Number(style.line_height || 24) };
   node.fills = [solid(colorHex, 1)];
-  node.characters = text;
+  if (wrap) {
+    node.textAutoResize = "HEIGHT";
+  } else {
+    node.textAutoResize = "WIDTH_AND_HEIGHT";
+  }
+  const parsed = extractBoldRanges(text);
+  node.characters = parsed.plainText;
   parent.appendChild(node);
+  if (parsed.boldRanges.length > 0) {
+    const boldFont = { family: family, style: "Bold" };
+    for (const range of parsed.boldRanges) {
+      try {
+        node.setRangeFontName(range.start, range.end, boldFont);
+      } catch (error) {
+        // Ignore unavailable bold style for this font family.
+      }
+    }
+  }
+  if (wrap) {
+    const parentWidth = "width" in parent ? Number(parent.width || 0) : 0;
+    const padLeft = "paddingLeft" in parent ? Number(parent.paddingLeft || 0) : 0;
+    const padRight = "paddingRight" in parent ? Number(parent.paddingRight || 0) : 0;
+    const inferredWidth = Math.max(1, parentWidth - padLeft - padRight);
+    const targetWidth = wrapWidth != null ? Math.max(1, wrapWidth) : inferredWidth;
+    if (targetWidth > 1) {
+      node.resize(targetWidth, node.height);
+    }
+  }
   return node;
 }
 
@@ -180,59 +258,155 @@ function createChip(parent, label, theme) {
   chip.strokeWeight = Number(getPath(theme, "theme.strokes.chip_border", 1));
   chip.fills = [solid(resolveColor(theme, "chip_bg", "#F6EFE4"), 1)];
   parent.appendChild(chip);
-  createText(chip, label, "body_small", theme, { colorOverride: "chip_text" });
+  createText(chip, label, "body_small", theme, {
+    colorOverride: "chip_text",
+    wrap: false,
+  });
 }
 
 function createTable(parent, title, tableBlock, theme) {
   const tableCard = createVerticalFrame("Table/" + toSafeName(title || "Table"));
   tableCard.layoutAlign = "STRETCH";
-  tableCard.itemSpacing = 6;
+  tableCard.itemSpacing = 0;
   tableCard.fills = [];
   parent.appendChild(tableCard);
 
   const header = Array.isArray(tableBlock.header) ? tableBlock.header : [];
-  const rows = Array.isArray(tableBlock.rows) ? tableBlock.rows : [];
+  const bodyRows = Array.isArray(tableBlock.rows) ? tableBlock.rows : [];
   const columnCount = Math.max(
     header.length,
-    ...rows.map((row) => (Array.isArray(row) ? row.length : 0)),
+    ...bodyRows.map((row) => (Array.isArray(row) ? row.length : 0)),
     1
   );
+  const rows = [];
+  if (header.length > 0) rows.push({ cells: header, isHeader: true });
+  for (const row of bodyRows) {
+    const safeRow = Array.isArray(row) ? row : [String(row)];
+    rows.push({ cells: safeRow, isHeader: false });
+  }
+  if (rows.length === 0) return;
 
   const cellPaddingV = Number(getPath(theme, "components.table_card.table.cell_padding_v", 8));
   const cellPaddingH = Number(getPath(theme, "components.table_card.table.cell_padding_h", 10));
   const borderColor = resolveColor(theme, getPath(theme, "markdown_mapping.table.border_color", "card_border"), "#E7DDCF");
   const borderWeight = Number(getPath(theme, "components.table_card.table.border_weight", 1));
+  const minRowHeight = Number(getPath(theme, "components.table_card.table.min_row_height", 40));
+  const minColumnWidth = Number(getPath(theme, "components.table_card.table.min_column_width", 120));
+  const rowGap = Number(getPath(theme, "components.table_card.table.row_gap", 0));
+  const columnGap = Number(getPath(theme, "components.table_card.table.column_gap", 0));
+  const headerBgColor = resolveColor(theme, getPath(theme, "components.table_card.table.header_bg", "table_header_bg"), null);
+  const cardWidth = Number(getPath(theme, "components.card.width", 820));
+  const cardPadLeft = Number(getPath(theme, "components.card.padding.left", 20));
+  const cardPadRight = Number(getPath(theme, "components.card.padding.right", 20));
+  const tableWidth = Math.max(240, cardWidth - cardPadLeft - cardPadRight);
+  tableCard.itemSpacing = rowGap;
 
-  function renderRow(cells, isHeaderRow) {
-    const row = createHorizontalFrame(isHeaderRow ? "Header Row" : "Body Row");
-    row.layoutAlign = "STRETCH";
-    row.counterAxisSizingMode = "FIXED";
-    row.resizeWithoutConstraints(760, 40);
-    row.itemSpacing = 0;
-    tableCard.appendChild(row);
+  function normalizeCellText(raw) {
+    return String(raw == null ? "" : raw)
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+      .replace(/[*_`]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  const contentScores = new Array(columnCount).fill(1);
+  for (const row of rows) {
+    for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
+      const raw = colIndex < row.cells.length ? row.cells[colIndex] : "";
+      const normalized = normalizeCellText(raw);
+      const lengthScore = Math.max(1, normalized.length);
+      const boostedScore = row.isHeader ? lengthScore * 1.15 : lengthScore;
+      contentScores[colIndex] = Math.max(contentScores[colIndex], boostedScore);
+    }
+  }
+
+  const availableWidth = Math.max(1, tableWidth - columnGap * Math.max(0, columnCount - 1));
+  const minWeight = Number(getPath(theme, "components.table_card.table.min_column_weight", 1));
+  const maxWeight = Number(getPath(theme, "components.table_card.table.max_column_weight", 3.2));
+  const columnWeights = contentScores.map((score) => {
+    const baseWeight = Math.sqrt(Math.max(4, score)) / 2;
+    return Math.min(maxWeight, Math.max(minWeight, baseWeight));
+  });
+  const totalWeight = Math.max(1, columnWeights.reduce((sum, value) => sum + value, 0));
+  const columnWidths = columnWeights.map((weight) =>
+    Math.max(1, Math.floor((availableWidth * weight) / totalWeight))
+  );
+
+  // Ensure the full table width is consumed after flooring.
+  let widthRemainder =
+    availableWidth - columnWidths.reduce((sum, value) => sum + value, 0);
+  let remainderIndex = 0;
+  while (widthRemainder > 0) {
+    const target = remainderIndex % columnWidths.length;
+    columnWidths[target] += 1;
+    remainderIndex += 1;
+    widthRemainder -= 1;
+  }
+
+  // Try to keep columns readable without exceeding the table width budget.
+  if (minColumnWidth * columnCount <= availableWidth) {
+    for (let i = 0; i < columnWidths.length; i += 1) {
+      columnWidths[i] = Math.max(minColumnWidth, columnWidths[i]);
+    }
+    let overflow =
+      columnWidths.reduce((sum, value) => sum + value, 0) - availableWidth;
+    while (overflow > 0) {
+      let widestIndex = 0;
+      for (let i = 1; i < columnWidths.length; i += 1) {
+        if (columnWidths[i] > columnWidths[widestIndex]) widestIndex = i;
+      }
+      if (columnWidths[widestIndex] <= minColumnWidth) break;
+      columnWidths[widestIndex] -= 1;
+      overflow -= 1;
+    }
+  }
+
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+    const row = rows[rowIndex];
+    const rowFrame = createHorizontalFrame(row.isHeader ? "Header Row" : "Body Row");
+    rowFrame.primaryAxisSizingMode = "FIXED";
+    rowFrame.counterAxisSizingMode = "AUTO";
+    rowFrame.resizeWithoutConstraints(tableWidth, 1);
+    rowFrame.itemSpacing = columnGap;
+    rowFrame.layoutAlign = "STRETCH";
+    rowFrame.fills = [];
+    tableCard.appendChild(rowFrame);
+    const rowCells = [];
 
     for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
-      const value = colIndex < cells.length ? String(cells[colIndex] ?? "") : "";
-      const cell = createVerticalFrame((isHeaderRow ? "Header Cell " : "Cell ") + String(colIndex + 1));
+      const value = colIndex < row.cells.length ? String(row.cells[colIndex] ?? "") : "";
+      const cell = createVerticalFrame((row.isHeader ? "Header Cell " : "Cell ") + String(colIndex + 1));
       cell.primaryAxisSizingMode = "AUTO";
       cell.counterAxisSizingMode = "FIXED";
-      cell.layoutGrow = 1;
+      const cellWidth = Math.max(1, columnWidths[colIndex]);
+      cell.resizeWithoutConstraints(cellWidth, 1);
+      cell.layoutAlign = "STRETCH";
+      cell.clipsContent = false;
       cell.paddingTop = cellPaddingV;
       cell.paddingBottom = cellPaddingV;
       cell.paddingLeft = cellPaddingH;
       cell.paddingRight = cellPaddingH;
       cell.strokes = [solid(borderColor, 1)];
       cell.strokeWeight = borderWeight;
-      cell.fills = [solid("#FFFFFF", 1)];
-      row.appendChild(cell);
-      createText(cell, value, isHeaderRow ? "h3" : "body", theme, {});
+      const cellBg = row.isHeader && headerBgColor ? headerBgColor : "#FFFFFF";
+      cell.fills = [solid(cellBg, 1)];
+      rowFrame.appendChild(cell);
+      rowCells.push(cell);
+      createText(cell, value, row.isHeader ? "h3" : "body", theme, {
+        wrapWidth: Math.max(1, cellWidth - cellPaddingH * 2),
+      });
     }
-  }
 
-  if (header.length > 0) renderRow(header, true);
-  for (const row of rows) {
-    const safeRow = Array.isArray(row) ? row : [String(row)];
-    renderRow(safeRow, false);
+    const targetRowHeight = Math.max(minRowHeight, Math.ceil(rowFrame.height));
+    rowFrame.resizeWithoutConstraints(tableWidth, targetRowHeight);
+
+    // Force same cell height in a row to avoid ragged table baselines.
+    for (const cell of rowCells) {
+      cell.primaryAxisSizingMode = "FIXED";
+      cell.counterAxisSizingMode = "FIXED";
+      cell.layoutAlign = "STRETCH";
+      cell.resizeWithoutConstraints(cell.width, targetRowHeight);
+    }
   }
 }
 
@@ -354,13 +528,33 @@ canvas.x = canvasInset;
 canvas.y = canvasInset;
 docSection.appendChild(canvas);
 
-const header = createVerticalFrame("Header");
-header.layoutAlign = "STRETCH";
-header.itemSpacing = Number(getPath(theme, "components.header_block.item_spacing", 6));
-canvas.appendChild(header);
+const accentEnabled = getPath(theme, "components.header_block.accent.enabled", false);
+
+let headerTarget;
+if (accentEnabled) {
+  const accent = createVerticalFrame("Header Accent");
+  accent.layoutAlign = "STRETCH";
+  const accentPad = getPath(theme, "components.header_block.accent.padding", {});
+  accent.paddingTop = Number(accentPad.top ?? 16);
+  accent.paddingRight = Number(accentPad.right ?? 24);
+  accent.paddingBottom = Number(accentPad.bottom ?? 16);
+  accent.paddingLeft = Number(accentPad.left ?? 24);
+  accent.itemSpacing = Number(getPath(theme, "components.header_block.item_spacing", 8));
+  accent.cornerRadius = Number(getPath(theme, "components.header_block.accent.radius", getPath(theme, "theme.radii.header_accent", 12)));
+  const accentColor = resolveColor(theme, getPath(theme, "components.header_block.accent.fills.color", "header_accent"), "#C9E0BE");
+  accent.fills = [solid(accentColor, 1)];
+  canvas.appendChild(accent);
+  headerTarget = accent;
+} else {
+  const header = createVerticalFrame("Header");
+  header.layoutAlign = "STRETCH";
+  header.itemSpacing = Number(getPath(theme, "components.header_block.item_spacing", 8));
+  canvas.appendChild(header);
+  headerTarget = header;
+}
 
 const titleText = String(model.title || componentName);
-createText(header, titleText, "h1", theme, {});
+createText(headerTarget, titleText, "h1", theme, {});
 
 const blocks = Array.isArray(model.blocks) ? model.blocks : [];
 let firstH2Index = blocks.findIndex(
@@ -371,7 +565,7 @@ if (firstH2Index < 0) firstH2Index = blocks.length;
 for (let index = 0; index < firstH2Index; index += 1) {
   const block = blocks[index];
   if (block.type === "paragraph") {
-    createText(header, String(block.text || ""), "body", theme, {
+    createText(headerTarget, String(block.text || ""), "body", theme, {
       colorOverride: "muted_text",
     });
     renderedCount.paragraph += 1;

@@ -3,7 +3,6 @@
     "version": 1,
     "componentName": "Alert",
     "markdownPath": "docs/components/alert.md",
-    "generatedAt": "2026-02-18T01:18:39.723Z",
     "title": "Alert",
     "blocks": [
       {
@@ -36,6 +35,10 @@
       {
         "type": "paragraph",
         "text": "All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens."
+      },
+      {
+        "type": "paragraph",
+        "text": "Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)"
       },
       {
         "type": "heading",
@@ -98,7 +101,8 @@
         "header": [
           "Name",
           "Type",
-          "Default Value",
+          "Default",
+          "Required",
           "Description"
         ],
         "rows": [
@@ -106,13 +110,15 @@
             "`Type`",
             "`VARIANT`",
             "`Information`",
-            "Semantic alert state. Options: `Information`, `Warning`, `Positive`."
+            "`true`",
+            "Semantic alert type. Options: `Information`, `Warning`, `Positive`."
           ],
           [
             "`Change_Message_Text`",
             "`TEXT`",
             "`Text text text`",
-            "Main alert message content."
+            "`TBD`",
+            "Overrides the main alert message copy."
           ]
         ]
       },
@@ -146,7 +152,7 @@
             "text": "**Border**: `2px`, aligned `INSIDE`"
           },
           {
-            "text": "**Background token**: `Color/Background/Feedback/Default` (`VariableID:4399:866`)"
+            "text": "**Background token**: `Color/Background/Feedback/Default`"
           },
           {
             "text": "**Background fallback**: `#FFFFFF`"
@@ -175,7 +181,7 @@
             "text": "**Letter spacing**: `0%`"
           },
           {
-            "text": "**Text color token**: `Color/Text/Neutral/Default` (`VariableID:365:1156`)"
+            "text": "**Text color token**: `Color/Text/Neutral/Default`"
           },
           {
             "text": "**Text color fallback**: `#483F3F`"
@@ -185,44 +191,94 @@
       {
         "type": "heading",
         "level": 3,
+        "text": "Iconography"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "**Icon container size**: `24 x 24`"
+          },
+          {
+            "text": "**Internal vector size**: `18 x 18`"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Token Mapping"
+      },
+      {
+        "type": "table",
+        "header": [
+          "Part",
+          "Condition",
+          "Token",
+          "Fallback"
+        ],
+        "rows": [
+          [
+            "`container.background`",
+            "all variants",
+            "`Color/Background/Feedback/Default`",
+            "`#FFFFFF`"
+          ],
+          [
+            "`text.color`",
+            "all variants",
+            "`Color/Text/Neutral/Default`",
+            "`#483F3F`"
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
         "text": "Variants"
       },
       {
         "type": "table",
         "header": [
           "Variant",
-          "Border token",
-          "Border fallback",
-          "Icon component",
-          "Icon token",
-          "Icon fallback"
+          "Differentiating token(s)",
+          "Fallback value(s)",
+          "Visual indicator"
         ],
         "rows": [
           [
             "`Information`",
-            "`Color/Border/Feedback/Information` (`VariableID:4480:772`)",
-            "`#BAA06B`",
-            "`information-circle-contained`",
-            "`Color/Icon/Feedback/Information` (`VariableID:4480:1571`)",
-            "`#9D8555`"
+            "`Color/Border/Feedback/Information`, `Color/Icon/Feedback/Information`",
+            "`#BAA06B`, `#9D8555`",
+            "`information-circle-contained` icon + information border"
           ],
           [
             "`Warning`",
-            "`Color/Border/Feedback/Danger` (`VariableID:4480:971`)",
-            "`#B22222`",
-            "`x-circle-contained`",
-            "`Color/Icon/Feedback/Danger` (`VariableID:4480:1173`)",
-            "`#B22222`"
+            "`Color/Border/Feedback/Danger`, `Color/Icon/Feedback/Danger`",
+            "`#B22222`, `#B22222`",
+            "`x-circle-contained` icon + warning border"
           ],
           [
             "`Positive`",
-            "`Color/Border/Feedback/Success` (`VariableID:4480:464`)",
-            "`#299157`",
-            "`check-contained`",
-            "`Color/Icon/Feedback/Success` (`VariableID:4480:1372`)",
-            "`#299157`"
+            "`Color/Border/Feedback/Success`, `Color/Icon/Feedback/Success`",
+            "`#299157`, `#299157`",
+            "`check-contained` icon + success border"
           ]
         ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "States"
+      },
+      {
+        "type": "paragraph",
+        "text": "This component has no interactive states in the current Figma component set."
+      },
+      {
+        "type": "paragraph",
+        "text": "Feedback semantics are represented through the `Type` variant, not through `hover`/`focus`/`pressed` states."
       },
       {
         "type": "heading",
@@ -234,53 +290,183 @@
         "ordered": false,
         "items": [
           {
-            "text": "Use `Information` for neutral status or contextual updates."
+            "text": "**When to use**: Use `Information`, `Warning`, and `Positive` to communicate concise status feedback in context."
           },
           {
-            "text": "Use `Warning` for error or risky states that require user attention."
+            "text": "**When not to use**: Do not use this component for persistent page-level navigation or long-form guidance."
           },
           {
-            "text": "Use `Positive` for successful outcomes and confirmations."
+            "text": "**Do**: Keep icon size and spacing unchanged to preserve visual rhythm."
           },
           {
-            "text": "Keep message copy short and direct, ideally one sentence."
+            "text": "**Do**: Keep semantic feedback tokens aligned with the selected variant."
+          },
+          {
+            "text": "**Don't**: Replace semantic border/icon tokens with neutral values."
+          },
+          {
+            "text": "**Don't**: Use this component for multi-paragraph content."
           }
         ]
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "Notes For Implementation"
+        "text": "Content Guidelines"
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
           {
-            "text": "Keep icon size fixed at `24 x 24` to preserve alignment."
+            "text": "Use short, direct message text."
           },
           {
-            "text": "Keep the 8px horizontal gap between icon and text container."
+            "text": "Prefer one sentence per alert."
           },
           {
-            "text": "Do not replace semantic feedback tokens with neutral borders, as this removes the state meaning."
+            "text": "Use sentence case."
+          },
+          {
+            "text": "Avoid unnecessary punctuation and repeated emphasis."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Accessibility"
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "1. ARIA role and semantics"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Expected role for passive feedback: `role=\"alert\"`."
+          },
+          {
+            "text": "If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA."
+          },
+          {
+            "text": "Required ARIA attributes are `TBD` for this component configuration."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "2. Keyboard navigation"
+      },
+      {
+        "type": "paragraph",
+        "text": "This component is not keyboard-interactive in the current Figma configuration."
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "3. Focus management"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "This component has no focusable element in the current Figma definition."
+          },
+          {
+            "text": "Focus behavior for dismissible/interactive alert variants is `TBD`."
+          },
+          {
+            "text": "Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) are `TBD` for this component."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "4. Labeling"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "The message text itself provides the accessible content."
+          },
+          {
+            "text": "Additional labeling patterns (`aria-label`, `aria-labelledby`, `aria-describedby`) are `TBD` for interactive variants."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "5. Contrast and visibility"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "The component should not rely on color alone; iconography and text must remain present with each variant."
+          },
+          {
+            "text": "Verified contrast ratios are `TBD (pending audit)`."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Related Components"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "[Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging."
+          },
+          {
+            "text": "[Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Gaps / TBD"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Required status for `Change_Message_Text` in Figma is `TBD`."
+          },
+          {
+            "text": "Accessibility behavior for interactive/dismissible alert variants is `TBD`."
           }
         ]
       }
     ],
     "stats": {
-      "headings": 11,
-      "paragraphs": 5,
-      "lists": 7,
-      "tables": 2,
+      "headings": 22,
+      "paragraphs": 9,
+      "lists": 14,
+      "tables": 3,
       "codeBlocks": 0
     }
   },
   "theme": {
-    "name": "figma-doc-theme-default",
-    "status": "draft",
-    "source_component": "Alert",
-    "description": "Render contract for converting markdown component docs into Figma documentation sections with consistent visual style.",
+    "name": "figma-doc-theme-karmap",
+    "status": "ready",
+    "description": "Render contract for converting markdown component docs into Figma documentation sections. Styled to match the Karmap / Iter design system visual identity: Lora headings, Nunito Sans body, cucumber-green accents on warm cream surfaces.",
     "layout": {
       "target": {
         "section_name_pattern": "Doc/{component_name}",
@@ -298,58 +484,67 @@
         "inset": 40,
         "width": 860,
         "padding": {
-          "top": 28,
-          "right": 28,
-          "bottom": 28,
-          "left": 28
+          "top": 32,
+          "right": 32,
+          "bottom": 32,
+          "left": 32
         },
-        "item_spacing": 18
+        "item_spacing": 20
       }
     },
     "theme": {
       "colors": {
-        "page_bg": "#FFF9F0",
-        "section_border": "#E7DDCF",
+        "page_bg": "#FFFAF0",
+        "section_border": "#C9E0BE",
+        "canvas_shadow": "#00000014",
         "card_bg": "#FFFFFF",
         "card_border": "#E7DDCF",
-        "title_text": "#3A3030",
-        "heading_text": "#3F3434",
-        "body_text": "#4E4343",
-        "muted_text": "#5B4F4F",
-        "chip_bg": "#F6EFE4",
-        "chip_border": "#DCCBB2",
-        "chip_text": "#6E5A3A"
+        "table_header_bg": "#F5F0E6",
+        "title_text": "#495841",
+        "heading_text": "#495841",
+        "body_text": "#483F3F",
+        "muted_text": "#716666",
+        "chip_bg": "#E8F0E4",
+        "chip_border": "#C9E0BE",
+        "chip_text": "#495841",
+        "header_accent": "#C9E0BE"
       },
       "radii": {
-        "canvas": 24,
-        "card": 16,
-        "chip": 999
+        "canvas": 20,
+        "card": 12,
+        "chip": 999,
+        "header_accent": 12
       },
       "strokes": {
-        "section_border": 1,
+        "section_border": 1.5,
         "card_border": 1,
         "chip_border": 1
       },
       "spacing": {
         "card_padding": 20,
-        "card_gap": 10,
-        "chip_padding_v": 6,
-        "chip_padding_h": 10,
+        "card_gap": 12,
+        "chip_padding_v": 5,
+        "chip_padding_h": 12,
         "chip_gap": 8,
         "paragraph_gap": 8,
-        "list_gap": 6
+        "list_gap": 6,
+        "header_accent_padding_v": 16,
+        "header_accent_padding_h": 24
       },
       "typography": {
         "font_family": "Nunito Sans",
+        "font_family_heading": "Lora",
         "h1": {
-          "size": 40,
-          "line_height": 48,
+          "font_family": "Lora",
+          "size": 36,
+          "line_height": 42,
           "weight": "Bold",
           "color": "title_text"
         },
         "h2": {
+          "font_family": "Lora",
           "size": 20,
-          "line_height": 28,
+          "line_height": 26,
           "weight": "Bold",
           "color": "heading_text"
         },
@@ -414,7 +609,8 @@
         "component": "table_card",
         "header_style": "h3",
         "cell_style": "body",
-        "border_color": "card_border"
+        "border_color": "card_border",
+        "header_bg": "table_header_bg"
       },
       "code_inline": {
         "component": "text",
@@ -426,7 +622,20 @@
       "header_block": {
         "layout": "vertical",
         "stretch": true,
-        "item_spacing": 6
+        "item_spacing": 8,
+        "accent": {
+          "enabled": true,
+          "fills": {
+            "color": "header_accent"
+          },
+          "radius": 12,
+          "padding": {
+            "top": 16,
+            "right": 24,
+            "bottom": 16,
+            "left": 24
+          }
+        }
       },
       "chips_row": {
         "layout": "horizontal",
@@ -436,14 +645,14 @@
       "card": {
         "layout": "vertical",
         "stretch": true,
-        "width": 820,
+        "width": 796,
         "padding": {
           "top": 20,
           "right": 20,
           "bottom": 20,
           "left": 20
         },
-        "item_spacing": 10,
+        "item_spacing": 12,
         "fills": {
           "color": "card_bg"
         },
@@ -451,7 +660,7 @@
           "color": "card_border",
           "weight": 1
         },
-        "radius": 16
+        "radius": 12
       },
       "table_card": {
         "extends": "card",
@@ -460,7 +669,8 @@
           "cell_padding_h": 10,
           "row_gap": 0,
           "column_gap": 0,
-          "border_weight": 1
+          "border_weight": 1,
+          "header_bg": "table_header_bg"
         }
       }
     },
@@ -469,7 +679,10 @@
       "Render markdown in source order; do not reorder content blocks.",
       "Preserve semantic spacing and hierarchy from heading levels.",
       "Avoid hardcoded widths for text nodes; use stretch behavior when possible.",
-      "If a markdown element is unsupported, render it as body text and flag it in report."
+      "If a markdown element is unsupported, render it as body text and flag it in report.",
+      "Use Lora for h1 and h2 headings; Nunito Sans for everything else.",
+      "Table header rows use a tinted background to distinguish from body rows.",
+      "The header accent block wraps the title area with a brand-colored background."
     ],
     "output_contract": {
       "report_fields": [

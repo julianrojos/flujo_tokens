@@ -2,7 +2,6 @@
   "version": 1,
   "componentName": "Avatar",
   "markdownPath": "docs/components/avatar.md",
-  "generatedAt": "2026-02-18T01:23:01.080Z",
   "title": "Avatar",
   "blocks": [
     {
@@ -40,7 +39,7 @@
     },
     {
       "type": "paragraph",
-      "text": "Source node: [Avatar (node `146:474`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)"
+      "text": "Source: [Avatar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)"
     },
     {
       "type": "heading",
@@ -80,15 +79,17 @@
       "header": [
         "Name",
         "Type",
-        "Default Value",
+        "Default",
+        "Required",
         "Description"
       ],
       "rows": [
         [
-          "—",
-          "—",
-          "—",
-          "No exposed Figma properties."
+          "`—`",
+          "`—`",
+          "`—`",
+          "`—`",
+          "This component has no exposed Figma component properties."
         ]
       ]
     },
@@ -119,7 +120,7 @@
           "text": "**Border**: `2px`, aligned `INSIDE`"
         },
         {
-          "text": "**Border color token**: `Color/Border/Neutral/Default` (`VariableID:2014:168`)"
+          "text": "**Border color token**: `Color/Border/Neutral/Default`"
         },
         {
           "text": "**Border color fallback**: `#9A9090`"
@@ -129,6 +130,20 @@
         },
         {
           "text": "**Clips content**: `true`"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Iconography"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Not applicable. This component renders an image surface, not an icon slot."
         }
       ]
     },
@@ -157,41 +172,55 @@
     },
     {
       "type": "heading",
-      "level": 2,
-      "text": "Tokens Used"
+      "level": 3,
+      "text": "Token Mapping"
     },
     {
       "type": "table",
       "header": [
-        "Slot",
-        "Figma binding",
-        "Semantic token",
-        "Primitive alias",
-        "Resolved value"
+        "Part",
+        "Condition",
+        "Token",
+        "Fallback"
       ],
       "rows": [
         [
-          "Border color",
-          "`strokes`",
-          "`Color/Border/Neutral/Default` (`VariableID:2014:168`)",
-          "`Color/Grey/500` (`VariableID:40:245`)",
+          "`container.border-color`",
+          "all variants",
+          "`Color/Border/Neutral/Default`",
           "`#9A9090`"
         ],
         [
-          "Border radius",
-          "`topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius`",
-          "`Dimension/Border/Radius/200` (`VariableID:98:4439`)",
-          "`Dimension/Border/Radius/8` (`VariableID:4550:5300`)",
+          "`container.border-radius`",
+          "all variants",
+          "`Dimension/Border/Radius/200`",
           "`8`"
         ],
         [
-          "Border width",
-          "`strokeTopWeight`, `strokeBottomWeight`, `strokeLeftWeight`, `strokeRightWeight`",
-          "`Dimension/Border/Width/200` (`VariableID:4379:2395`)",
-          "`Dimension/Border/Width/2` (`VariableID:4550:5305`)",
+          "`container.border-width`",
+          "all variants",
+          "`Dimension/Border/Width/200`",
           "`2`"
         ]
       ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Variants"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component has no variants in the current Figma definition."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "States"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component has no interactive states."
     },
     {
       "type": "heading",
@@ -203,15 +232,33 @@
       "ordered": false,
       "items": [
         {
-          "text": "Use square source images whenever possible to avoid unexpected crops."
+          "text": "**When to use**: Use this component to represent a user or entity with a square profile image."
         },
         {
-          "text": "Keep avatar sizes consistent within the same UI context."
+          "text": "**When not to use**: Do not use it for icon buttons or status indicators."
         },
         {
-          "text": "For missing images, define a product fallback strategy (initials or placeholder icon) in code."
+          "text": "**Do**: Use square image assets to avoid unpredictable cropping."
+        },
+        {
+          "text": "**Do**: Keep avatar size consistent inside the same UI context."
+        },
+        {
+          "text": "**Don't**: Stretch non-square images."
+        },
+        {
+          "text": "**Don't**: Rely on this component for interaction states not defined in Figma."
         }
       ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Content Guidelines"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component has no text content."
     },
     {
       "type": "heading",
@@ -219,20 +266,105 @@
       "text": "Accessibility"
     },
     {
+      "type": "heading",
+      "level": 3,
+      "text": "1. ARIA role and semantics"
+    },
+    {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "If decorative only, set `aria-hidden=\"true\"`."
+          "text": "If rendered as a decorative image, use `aria-hidden=\"true\"` or empty `alt`."
         },
         {
-          "text": "If informative, provide descriptive `alt` text."
+          "text": "If rendered as informative content, use semantic `img` with descriptive `alt`."
         },
         {
-          "text": "If clickable, use an interactive wrapper (`button`/`a`) with an accessible name."
+          "text": "For interactive usage, wrap in a semantic interactive element and define role semantics in implementation (`TBD`)."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "2. Keyboard navigation"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component is not keyboard-interactive by itself."
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "3. Focus management"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "No focus behavior is defined in the Figma component."
         },
         {
-          "text": "This Figma component does not define a dedicated focus/interaction state."
+          "text": "If used in an interactive wrapper, focus behavior is `TBD`."
+        },
+        {
+          "text": "Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) apply only when wrapped in a focusable control."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "4. Labeling"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Informative usage requires descriptive `alt` text."
+        },
+        {
+          "text": "Decorative usage should avoid redundant labeling."
+        },
+        {
+          "text": "`aria-label` and `aria-labelledby` patterns are `TBD` for clickable wrappers."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "5. Contrast and visibility"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Border visibility should remain distinguishable against surrounding surfaces."
+        },
+        {
+          "text": "Contrast verification is `TBD (pending audit)`."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Related Components"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "[Bottom Bar](bottom_bar.md): Use for navigation actions; avatar may appear inside destinations opened from navigation."
+        },
+        {
+          "text": "[Alert](alert.md): Use for feedback messaging; avatar should not be used as feedback status."
         }
       ]
     },
@@ -258,9 +390,9 @@
     }
   ],
   "stats": {
-    "headings": 12,
-    "paragraphs": 4,
-    "lists": 7,
+    "headings": 22,
+    "paragraphs": 8,
+    "lists": 12,
     "tables": 2,
     "codeBlocks": 0
   }

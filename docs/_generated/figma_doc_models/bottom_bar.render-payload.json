@@ -3,7 +3,6 @@
     "version": 1,
     "componentName": "BottomBar",
     "markdownPath": "docs/components/bottom_bar.md",
-    "generatedAt": "2026-02-18T09:32:42.203Z",
     "title": "Bottom Bar",
     "blocks": [
       {
@@ -30,7 +29,7 @@
       },
       {
         "type": "paragraph",
-        "text": "Source node: [Bottom_Bar (node `2064:65`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2064-65)"
+        "text": "Source: [Bottom_Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2064-65)"
       },
       {
         "type": "heading",
@@ -69,58 +68,44 @@
         "text": "Component API"
       },
       {
+        "type": "paragraph",
+        "text": "The root `Bottom_Bar` component does not expose root-level component properties. Available properties are exposed by each nested `Bottom_Bar_Button` item."
+      },
+      {
         "type": "heading",
         "level": 3,
-        "text": "Root properties"
+        "text": "Properties"
       },
       {
         "type": "table",
         "header": [
           "Name",
           "Type",
-          "Default Value",
+          "Default",
+          "Required",
           "Description"
         ],
         "rows": [
           [
-            "—",
-            "—",
-            "—",
-            "The root `Bottom_Bar` component does not expose component properties in Figma."
-          ]
-        ]
-      },
-      {
-        "type": "heading",
-        "level": 3,
-        "text": "Nested button properties (per item)"
-      },
-      {
-        "type": "table",
-        "header": [
-          "Name",
-          "Type",
-          "Default Value",
-          "Description"
-        ],
-        "rows": [
-          [
-            "`Change_Bottom_Bar_Button_Icon`",
+            "`Item.Change_Bottom_Bar_Button_Icon`",
             "`INSTANCE_SWAP`",
-            "icon node `65:924`",
-            "Replaces the icon rendered in each button."
+            "`default icon instance`",
+            "`TBD`",
+            "Replaces the icon rendered in each button item."
           ],
           [
-            "`Change_Text`",
+            "`Item.Change_Text`",
             "`TEXT`",
             "`Text`",
-            "Overrides the label for each button."
+            "`TBD`",
+            "Overrides the label text for each button item."
           ],
           [
-            "`State`",
+            "`Item.State`",
             "`VARIANT`",
             "`Default`",
-            "Button visual state. Options in button set: `Default`, `Selected`."
+            "`true`",
+            "Item visual state. Options: `Default`, `Selected`."
           ]
         ]
       },
@@ -230,106 +215,176 @@
       },
       {
         "type": "heading",
-        "level": 2,
-        "text": "States"
-      },
-      {
-        "type": "paragraph",
-        "text": "The `Bottom_Bar` root does not define container-level states."
-      },
-      {
-        "type": "paragraph",
-        "text": "State behavior is controlled per `Bottom_Bar_Button` through its nested `State` variant:"
+        "level": 3,
+        "text": "Iconography"
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
           {
-            "text": "`Default`"
+            "text": "**Icon container size**: `48 x 48`"
           },
           {
-            "text": "`Selected`"
+            "text": "**Icon color token**: `Color/Icon/Neutral/Default`"
+          },
+          {
+            "text": "**Icon fallback**: `#483F3F`"
           }
         ]
       },
       {
         "type": "heading",
-        "level": 2,
-        "text": "Tokens Used"
+        "level": 3,
+        "text": "Token Mapping"
       },
       {
         "type": "table",
         "header": [
-          "Slot",
+          "Part",
           "Condition",
           "Token",
-          "Alias chain",
-          "Resolved value"
+          "Fallback"
         ],
         "rows": [
           [
-            "Button padding (`top/right/bottom/left`)",
-            "All buttons",
+            "`item.padding`",
+            "all items",
             "`Dimension/Spacing/400`",
-            "`Dimension/Spacing/8`",
             "`8`"
           ],
           [
-            "Button radius (`top-left/top-right/bottom-left/bottom-right`)",
-            "All buttons",
+            "`item.radius`",
+            "all items",
             "`Dimension/Border/Radius/200`",
-            "`Dimension/Border/Radius/8`",
             "`8`"
           ],
           [
-            "Button icon stroke",
-            "All buttons",
+            "`item.icon-color`",
+            "all items",
             "`Color/Icon/Neutral/Default`",
-            "`Color/Grey/900`",
             "`#483F3F`"
           ],
           [
-            "Button text color",
-            "All buttons",
+            "`item.text-color`",
+            "all items",
             "`Color/Text/Neutral/Default`",
-            "`Color/Grey/900`",
             "`#483F3F`"
           ],
           [
-            "Label font family",
-            "All buttons",
+            "`item.label-font-family`",
+            "all items",
             "`Font/Family/Body`",
-            "`Font/Family/Nunito-Sans`",
             "`Nunito Sans`"
           ],
           [
-            "Label font size",
-            "All buttons",
+            "`item.label-font-size`",
+            "all items",
             "`Font/Size/100`",
-            "`Font/Size/12`",
             "`12`"
           ],
           [
-            "Label font weight",
-            "All buttons",
+            "`item.label-font-weight`",
+            "all items",
             "`Font/Weight/Default`",
-            "`Font/Weight/Regular`",
             "`regular`"
           ],
           [
-            "Label line-height",
-            "All buttons",
+            "`item.label-line-height`",
+            "all items",
             "`Font/Line-Height/100`",
-            "`Font/Line-Height/12`",
             "`16`"
           ],
           [
-            "Container background",
-            "Root container",
-            "— (hardcoded)",
-            "—",
+            "`container.background`",
+            "root container",
+            "`TBD`",
             "`#ECECEC`"
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Variants"
+      },
+      {
+        "type": "table",
+        "header": [
+          "Variant group",
+          "Variant name",
+          "Differentiating token(s)",
+          "Fallback value(s)",
+          "Visual indicator"
+        ],
+        "rows": [
+          [
+            "`Item.State`",
+            "`Default`",
+            "`TBD`",
+            "`TBD`",
+            "Neutral, unselected item appearance"
+          ],
+          [
+            "`Item.State`",
+            "`Selected`",
+            "`TBD`",
+            "`TBD`",
+            "Selected/active destination appearance"
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "States"
+      },
+      {
+        "type": "paragraph",
+        "text": "The root container has no independent interaction state. State behavior is controlled by each nested button item."
+      },
+      {
+        "type": "table",
+        "header": [
+          "State",
+          "What changes visually",
+          "Tokens",
+          "Notes"
+        ],
+        "rows": [
+          [
+            "`Default`",
+            "Baseline item appearance",
+            "`TBD`",
+            "Defined by nested button variant"
+          ],
+          [
+            "`Selected`",
+            "Active destination appearance",
+            "`TBD`",
+            "Defined by nested button variant"
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Discrepancias detectadas"
+      },
+      {
+        "type": "table",
+        "header": [
+          "Discrepancia",
+          "Impacto",
+          "Accion pendiente",
+          "Estado"
+        ],
+        "rows": [
+          [
+            "Container background is hardcoded as `#ECECEC` instead of using a semantic token.",
+            "Reduces token governance consistency and theme portability.",
+            "Map container background to a semantic token or document this as an accepted exception.",
+            "`open`"
           ]
         ]
       },
@@ -343,16 +398,42 @@
         "ordered": false,
         "items": [
           {
-            "text": "Use this component as the primary bottom navigation bar for mobile layouts."
+            "text": "**When to use**: Use as primary bottom navigation for mobile layouts with persistent destinations."
           },
           {
-            "text": "Keep a stable count and order of actions (five slots in this variant)."
+            "text": "**When not to use**: Do not use as a contextual action toolbar or for transient feedback actions."
           },
           {
-            "text": "Set exactly one button to `Selected` for the current destination when needed."
+            "text": "**Do**: Keep a stable action count and order."
           },
           {
-            "text": "Keep labels short to avoid wrapping or clipping inside button slots."
+            "text": "**Do**: Keep exactly one item in `Selected` state for the current destination."
+          },
+          {
+            "text": "**Don't**: Use long labels that wrap or clip in item cells."
+          },
+          {
+            "text": "**Don't**: Mix unrelated action types in the same bar."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Content Guidelines"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Use concise labels (prefer one short word or short phrase)."
+          },
+          {
+            "text": "Use sentence case or title case consistently across all items."
+          },
+          {
+            "text": "Keep labels semantically distinct to avoid ambiguous navigation choices."
           }
         ]
       },
@@ -362,20 +443,139 @@
         "text": "Accessibility"
       },
       {
+        "type": "heading",
+        "level": 3,
+        "text": "1. ARIA role and semantics"
+      },
+      {
         "type": "list",
         "ordered": false,
         "items": [
           {
-            "text": "Ensure each button label is meaningful and unique when implemented in code."
+            "text": "Expected container role: `role=\"navigation\"` (implementation-level, `TBD` pending audit)."
           },
           {
-            "text": "Expose proper button semantics for each action in the host UI."
+            "text": "Item semantics should be interactive controls (for example buttons/links) in implementation."
           },
           {
-            "text": "Provide a clear selected-state cue in code when using `State=Selected`."
+            "text": "Required ARIA attributes for current implementation are `TBD`."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "2. Keyboard navigation"
+      },
+      {
+        "type": "table",
+        "header": [
+          "Key",
+          "Action"
+        ],
+        "rows": [
+          [
+            "`Tab`",
+            "Moves focus between interactive items"
+          ],
+          [
+            "`Enter`",
+            "Activates focused item"
+          ],
+          [
+            "`Arrow keys`",
+            "`TBD` (optional pattern, pending implementation decision)"
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "3. Focus management"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Focus order should follow visual item order from left to right."
           },
           {
-            "text": "Verify touch targets remain at least `44 x 44` in implementation."
+            "text": "No focus behavior is explicitly defined in Figma; implementation details are `TBD`."
+          },
+          {
+            "text": "Focus outline tokens should use `Semantic.Color.Focus-Outline.Inner` and `Semantic.Color.Focus-Outline.Outer`."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "4. Labeling"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Each item label should be unique and meaningful."
+          },
+          {
+            "text": "Icon-only usage is not defined; if introduced, labeling strategy is `TBD`."
+          },
+          {
+            "text": "`aria-describedby` usage is `TBD`."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "5. Contrast and visibility"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Selected vs non-selected states must remain distinguishable without relying on color alone."
+          },
+          {
+            "text": "Contrast verification is `TBD (pending audit)`."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Hit area requirements"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Desktop minimum hit area token: `A11y.A11y.modeDesktop.Dimension.Min-Hit-Area` (`TBD` resolved value)."
+          },
+          {
+            "text": "Mobile minimum hit area token: `A11y.A11y.modeMobile.Dimension.Min-Hit-Area` (`TBD` resolved value)."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Related Components"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "[Status Bar](status_bar.md): Use together with bottom navigation in full mobile chrome compositions."
+          },
+          {
+            "text": "[Alert](alert.md): Use for contextual feedback, not for destination switching."
           }
         ]
       },
@@ -389,7 +589,10 @@
         "ordered": false,
         "items": [
           {
-            "text": "Root-level selected index/state is not exposed as a single property in this component."
+            "text": "Item-level token differences for `Default` vs `Selected` are `TBD` in current docs."
+          },
+          {
+            "text": "Root-level selected-index control is not exposed as a single property in this component."
           },
           {
             "text": "No badge/counter slot is defined for notifications."
@@ -404,10 +607,10 @@
       }
     ],
     "stats": {
-      "headings": 15,
+      "headings": 25,
       "paragraphs": 7,
-      "lists": 8,
-      "tables": 3,
+      "lists": 14,
+      "tables": 6,
       "codeBlocks": 0
     }
   },

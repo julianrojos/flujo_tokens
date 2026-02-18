@@ -3,7 +3,7 @@ doc_type: component
 doc_status: needs-review
 figma:
   file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474"
-  page: "TBD"
+  page: "Avatar"
   component: "Avatar"
   last_verified: "2026-02-18"
 ---
@@ -126,7 +126,6 @@ This component is not keyboard-interactive by itself.
 
 ## Gaps / TBD
 
-- `figma.page` metadata is `TBD`.
 - No size variants (`sm`, `md`, `lg`, etc.) in Figma.
 - No explicit fallback variant for empty/missing image.
 - No explicit interaction states (`hover`, `focus`, `selected`, `disabled`).

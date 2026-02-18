@@ -49,7 +49,16 @@ function candidateCommands(agent, prompt, cwd) {
     return [
       {
         command: "codex",
-        args: ["exec", "--full-auto", "-C", cwd, prompt],
+        args: [
+          "exec",
+          "--full-auto",
+          "--ephemeral",
+          "-c",
+          "mcp_servers.figma-console.startup_timeout_sec=60",
+          "-C",
+          cwd,
+          prompt,
+        ],
       },
     ];
   }

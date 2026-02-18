@@ -2,7 +2,6 @@
   "version": 1,
   "componentName": "StatusBar",
   "markdownPath": "docs/components/status_bar.md",
-  "generatedAt": "2026-02-18T02:17:45.426Z",
   "title": "Status Bar",
   "blocks": [
     {
@@ -42,7 +41,7 @@
     },
     {
       "type": "paragraph",
-      "text": "Source node: [Status-Bar (node `713:202`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202)"
+      "text": "Source: [Status-Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202)"
     },
     {
       "type": "heading",
@@ -105,7 +104,8 @@
       "header": [
         "Name",
         "Type",
-        "Default Value",
+        "Default",
+        "Required",
         "Description"
       ],
       "rows": [
@@ -113,6 +113,7 @@
           "`Background`",
           "`VARIANT`",
           "`Transparent`",
+          "`true`",
           "Background style. Options: `Transparent`, `Brand`."
         ]
       ]
@@ -209,68 +210,93 @@
     {
       "type": "heading",
       "level": 3,
-      "text": "Variants"
+      "text": "Iconography"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "**Icons**: `Cellular Connection`, `Wifi`, `Battery`"
+        },
+        {
+          "text": "**Icons color token**: `Color/BW/Black`"
+        },
+        {
+          "text": "**Icons fallback**: `#000000`"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Token Mapping"
     },
     {
       "type": "table",
       "header": [
-        "Variant",
-        "Background fill",
+        "Part",
+        "Condition",
         "Token",
         "Fallback"
       ],
       "rows": [
         [
-          "`Background=Transparent`",
-          "None",
-          "—",
-          "Transparent"
-        ],
-        [
+          "`container.background`",
           "`Background=Brand`",
-          "Solid fill",
           "`Color/Background/Brand/Secondary`",
           "`#C9E0BE`"
+        ],
+        [
+          "`time.color`",
+          "all variants",
+          "`Color/BW/Black`",
+          "`#000000`"
+        ],
+        [
+          "`icons.color`",
+          "all variants",
+          "`Color/BW/Black`",
+          "`#000000`"
         ]
       ]
     },
     {
       "type": "heading",
       "level": 2,
-      "text": "Tokens Used"
+      "text": "Variants"
     },
     {
       "type": "table",
       "header": [
-        "Slot",
-        "Condition",
-        "Token",
-        "Alias chain",
-        "Resolved value"
+        "Variant",
+        "Differentiating token(s)",
+        "Fallback value(s)",
+        "Visual indicator"
       ],
       "rows": [
         [
-          "Background fill",
+          "`Background=Transparent`",
+          "`—`",
+          "`Transparent`",
+          "No background fill"
+        ],
+        [
           "`Background=Brand`",
           "`Color/Background/Brand/Secondary`",
-          "`Color/Cucumber/200`",
-          "`#C9E0BE`"
-        ],
-        [
-          "Time text color",
-          "All variants",
-          "`Color/BW/Black`",
-          "—",
-          "`#000000`"
-        ],
-        [
-          "Status icons color",
-          "All variants",
-          "`Color/BW/Black`",
-          "—",
-          "`#000000`"
+          "`#C9E0BE`",
+          "Brand secondary surface fill"
         ]
       ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "States"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component has no interactive states."
     },
     {
       "type": "heading",
@@ -282,18 +308,33 @@
       "ordered": false,
       "items": [
         {
-          "text": "Use this component at the top edge of iPhone mockups and flows."
+          "text": "**When to use**: Use at the top edge of iPhone-oriented mockups and mobile layout compositions."
         },
         {
-          "text": "Preserve the internal horizontal structure (time on the left, status icons on the right)."
+          "text": "**When not to use**: Do not use as an interactive toolbar or as a content container."
         },
         {
-          "text": "Use `Background=Transparent` on light/neutral surfaces where the screen background should remain visible."
+          "text": "**Do**: Keep internal layout structure unchanged (time left, icons right)."
         },
         {
-          "text": "Use `Background=Brand` when the status bar needs to sit on the brand secondary background."
+          "text": "**Do**: Use `Background=Transparent` or `Background=Brand` according to the parent surface."
+        },
+        {
+          "text": "**Don't**: Override icon/time color without validating contrast."
+        },
+        {
+          "text": "**Don't**: Treat this component as a replacement for app-level navigation."
         }
       ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Content Guidelines"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component has no user-authored text content. Time/system indicators are system-driven."
     },
     {
       "type": "heading",
@@ -301,17 +342,99 @@
       "text": "Accessibility"
     },
     {
+      "type": "heading",
+      "level": 3,
+      "text": "1. ARIA role and semantics"
+    },
+    {
       "type": "list",
       "ordered": false,
       "items": [
         {
-          "text": "This component is decorative UI chrome in most product contexts."
+          "text": "In most documentation/prototype contexts, this component is decorative system chrome."
         },
         {
-          "text": "If status information is meaningful in a prototype, provide equivalent text outside this component."
+          "text": "If rendered in product UI, semantic treatment is `TBD` and should follow platform conventions."
         },
         {
-          "text": "No interaction or focus states are defined in Figma for this component."
+          "text": "Required ARIA attributes are `TBD`."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "2. Keyboard navigation"
+    },
+    {
+      "type": "paragraph",
+      "text": "This component is not keyboard-interactive."
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "3. Focus management"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "No focus behavior is defined in Figma."
+        },
+        {
+          "text": "Focus outline tokens are not applicable unless this component becomes interactive (`TBD`)."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "4. Labeling"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "If status data is meaningful for assistive tech, provide equivalent accessible text outside this visual component."
+        },
+        {
+          "text": "Labeling strategy for implementation is `TBD`."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "5. Contrast and visibility"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Time and icon foreground should remain visible against both transparent and brand backgrounds."
+        },
+        {
+          "text": "Contrast verification is `TBD (pending audit)`."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Related Components"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "[Bottom Bar](bottom_bar.md): Use as complementary bottom navigation in mobile page chrome."
+        },
+        {
+          "text": "[Alert](alert.md): Use for contextual feedback content, not for fixed device chrome."
         }
       ]
     },
@@ -337,9 +460,9 @@
     }
   ],
   "stats": {
-    "headings": 14,
-    "paragraphs": 6,
-    "lists": 9,
+    "headings": 23,
+    "paragraphs": 9,
+    "lists": 14,
     "tables": 3,
     "codeBlocks": 0
   }

@@ -2,8 +2,8 @@
 doc_type: component
 doc_status: needs-review
 figma:
-  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System"
-  page: "TBD"
+  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892"
+  page: "Alert"
   component: "Alert"
   last_verified: "2026-02-18"
 ---
@@ -20,7 +20,7 @@ In Figma, this component is defined as a `COMPONENT_SET` (`Alert`) with one vari
 
 All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens.
 
-Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System)
+Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)
 
 ## Anatomy
 
@@ -143,6 +143,5 @@ This component is not keyboard-interactive in the current Figma configuration.
 
 ## Gaps / TBD
 
-- `figma.page` metadata is `TBD`.
 - Required status for `Change_Message_Text` in Figma is `TBD`.
 - Accessibility behavior for interactive/dismissible alert variants is `TBD`.
