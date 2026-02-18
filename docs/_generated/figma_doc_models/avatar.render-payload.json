@@ -1,19 +1,19 @@
 {
   "model": {
     "version": 1,
-    "componentName": "Alert",
-    "markdownPath": "docs/components/alert.md",
-    "generatedAt": "2026-02-18T01:18:39.723Z",
-    "title": "Alert",
+    "componentName": "Avatar",
+    "markdownPath": "docs/components/avatar.md",
+    "generatedAt": "2026-02-18T01:23:01.080Z",
+    "title": "Avatar",
     "blocks": [
       {
         "type": "heading",
         "level": 1,
-        "text": "Alert"
+        "text": "Avatar"
       },
       {
         "type": "paragraph",
-        "text": "The **Alert** component communicates concise feedback messages in a highly visible inline block."
+        "text": "The **Avatar** component displays a profile image inside a bordered rounded square."
       },
       {
         "type": "heading",
@@ -22,20 +22,26 @@
       },
       {
         "type": "paragraph",
-        "text": "In Figma, this component is defined as a `COMPONENT_SET` (`Alert`) with one variant property:"
+        "text": "In Figma, this component is defined as a single `COMPONENT` (`Avatar`) with fixed structure:"
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
           {
-            "text": "`Type`: `Information`, `Warning`, `Positive`"
+            "text": "No variant properties"
+          },
+          {
+            "text": "No text overrides"
+          },
+          {
+            "text": "One image layer (`Img_bg`) inside a clipped container"
           }
         ]
       },
       {
         "type": "paragraph",
-        "text": "All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens."
+        "text": "Source node: [Avatar (node `146:474`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)"
       },
       {
         "type": "heading",
@@ -44,7 +50,7 @@
       },
       {
         "type": "paragraph",
-        "text": "Each alert contains:"
+        "text": "Each avatar contains:"
       },
       {
         "type": "list",
@@ -52,34 +58,11 @@
         "items": [
           {
             "index": 1,
-            "text": "**Container** (`Auto Layout`, horizontal)"
+            "text": "**Container** (`COMPONENT`, `90 x 90`)"
           },
           {
             "index": 2,
-            "text": "**Leading icon** (`24 x 24`, internal vector `18 x 18`)"
-          },
-          {
-            "index": 3,
-            "text": "**Text container** with a single message text node"
-          }
-        ]
-      },
-      {
-        "type": "paragraph",
-        "text": "Current variant dimensions in Figma:"
-      },
-      {
-        "type": "list",
-        "ordered": false,
-        "items": [
-          {
-            "text": "`Type=Information`: `383 x 38`"
-          },
-          {
-            "text": "`Type=Warning`: `383 x 38`"
-          },
-          {
-            "text": "`Type=Positive`: `383 x 38`"
+            "text": "**Img_bg** (`RECTANGLE`, `90 x 90`, image fill)"
           }
         ]
       },
@@ -103,16 +86,10 @@
         ],
         "rows": [
           [
-            "`Type`",
-            "`VARIANT`",
-            "`Information`",
-            "Semantic alert state. Options: `Information`, `Warning`, `Positive`."
-          ],
-          [
-            "`Change_Message_Text`",
-            "`TEXT`",
-            "`Text text text`",
-            "Main alert message content."
+            "—",
+            "—",
+            "—",
+            "No exposed Figma properties."
           ]
         ]
       },
@@ -131,96 +108,89 @@
         "ordered": false,
         "items": [
           {
-            "text": "**Layout**: Auto Layout, `HORIZONTAL`"
+            "text": "**Size**: `90 x 90`"
           },
           {
-            "text": "**Item spacing**: `8px`"
+            "text": "**Layout**: `NONE` (no Auto Layout)"
           },
           {
-            "text": "**Padding**: `7px` top and bottom, `8px` left and right"
-          },
-          {
-            "text": "**Corner radius**: `8px`"
+            "text": "**Corner radius**: `8px` on all corners"
           },
           {
             "text": "**Border**: `2px`, aligned `INSIDE`"
           },
           {
-            "text": "**Background token**: `Color/Background/Feedback/Default` (`VariableID:4399:866`)"
+            "text": "**Border color token**: `Color/Border/Neutral/Default` (`VariableID:2014:168`)"
           },
           {
-            "text": "**Background fallback**: `#FFFFFF`"
+            "text": "**Border color fallback**: `#9A9090`"
+          },
+          {
+            "text": "**Fill**: none"
+          },
+          {
+            "text": "**Clips content**: `true`"
           }
         ]
       },
       {
         "type": "heading",
         "level": 3,
-        "text": "Typography"
+        "text": "Image Layer (`Img_bg`)"
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
           {
-            "text": "**Text style**: `Regular/Body 16`"
+            "text": "**Node type**: `RECTANGLE`"
           },
           {
-            "text": "**Font**: `Nunito Sans Regular`"
+            "text": "**Size**: `90 x 90`"
           },
           {
-            "text": "**Size / line height**: `16 / 24`"
+            "text": "**Fill**: `IMAGE` with scale mode `FILL`"
           },
           {
-            "text": "**Letter spacing**: `0%`"
-          },
-          {
-            "text": "**Text color token**: `Color/Text/Neutral/Default` (`VariableID:365:1156`)"
-          },
-          {
-            "text": "**Text color fallback**: `#483F3F`"
+            "text": "**Strokes**: none"
           }
         ]
       },
       {
         "type": "heading",
-        "level": 3,
-        "text": "Variants"
+        "level": 2,
+        "text": "Tokens Used"
       },
       {
         "type": "table",
         "header": [
-          "Variant",
-          "Border token",
-          "Border fallback",
-          "Icon component",
-          "Icon token",
-          "Icon fallback"
+          "Slot",
+          "Figma binding",
+          "Semantic token",
+          "Primitive alias",
+          "Resolved value"
         ],
         "rows": [
           [
-            "`Information`",
-            "`Color/Border/Feedback/Information` (`VariableID:4480:772`)",
-            "`#BAA06B`",
-            "`information-circle-contained`",
-            "`Color/Icon/Feedback/Information` (`VariableID:4480:1571`)",
-            "`#9D8555`"
+            "Border color",
+            "`strokes`",
+            "`Color/Border/Neutral/Default` (`VariableID:2014:168`)",
+            "`Color/Grey/500` (`VariableID:40:245`)",
+            "`#9A9090`"
           ],
           [
-            "`Warning`",
-            "`Color/Border/Feedback/Danger` (`VariableID:4480:971`)",
-            "`#B22222`",
-            "`x-circle-contained`",
-            "`Color/Icon/Feedback/Danger` (`VariableID:4480:1173`)",
-            "`#B22222`"
+            "Border radius",
+            "`topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius`",
+            "`Dimension/Border/Radius/200` (`VariableID:98:4439`)",
+            "`Dimension/Border/Radius/8` (`VariableID:4550:5300`)",
+            "`8`"
           ],
           [
-            "`Positive`",
-            "`Color/Border/Feedback/Success` (`VariableID:4480:464`)",
-            "`#299157`",
-            "`check-contained`",
-            "`Color/Icon/Feedback/Success` (`VariableID:4480:1372`)",
-            "`#299157`"
+            "Border width",
+            "`strokeTopWeight`, `strokeBottomWeight`, `strokeLeftWeight`, `strokeRightWeight`",
+            "`Dimension/Border/Width/200` (`VariableID:4379:2395`)",
+            "`Dimension/Border/Width/2` (`VariableID:4550:5305`)",
+            "`2`"
           ]
         ]
       },
@@ -234,43 +204,63 @@
         "ordered": false,
         "items": [
           {
-            "text": "Use `Information` for neutral status or contextual updates."
+            "text": "Use square source images whenever possible to avoid unexpected crops."
           },
           {
-            "text": "Use `Warning` for error or risky states that require user attention."
+            "text": "Keep avatar sizes consistent within the same UI context."
           },
           {
-            "text": "Use `Positive` for successful outcomes and confirmations."
-          },
-          {
-            "text": "Keep message copy short and direct, ideally one sentence."
+            "text": "For missing images, define a product fallback strategy (initials or placeholder icon) in code."
           }
         ]
       },
       {
         "type": "heading",
         "level": 2,
-        "text": "Notes For Implementation"
+        "text": "Accessibility"
       },
       {
         "type": "list",
         "ordered": false,
         "items": [
           {
-            "text": "Keep icon size fixed at `24 x 24` to preserve alignment."
+            "text": "If decorative only, set `aria-hidden=\"true\"`."
           },
           {
-            "text": "Keep the 8px horizontal gap between icon and text container."
+            "text": "If informative, provide descriptive `alt` text."
           },
           {
-            "text": "Do not replace semantic feedback tokens with neutral borders, as this removes the state meaning."
+            "text": "If clickable, use an interactive wrapper (`button`/`a`) with an accessible name."
+          },
+          {
+            "text": "This Figma component does not define a dedicated focus/interaction state."
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Gaps / TBD"
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "No size variants (`sm`, `md`, `lg`, etc.) in Figma."
+          },
+          {
+            "text": "No explicit fallback variant for empty/missing image."
+          },
+          {
+            "text": "No explicit interaction states (`hover`, `focus`, `selected`, `disabled`)."
           }
         ]
       }
     ],
     "stats": {
-      "headings": 11,
-      "paragraphs": 5,
+      "headings": 12,
+      "paragraphs": 4,
       "lists": 7,
       "tables": 2,
       "codeBlocks": 0
@@ -482,8 +472,8 @@
     }
   },
   "options": {
-    "componentName": "Alert",
-    "componentSetNodeId": "2304:1892",
+    "componentName": "Avatar",
+    "componentSetNodeId": "146:474",
     "offsetX": 200
   }
 }

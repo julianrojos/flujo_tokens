@@ -1,0 +1,267 @@
+{
+  "version": 1,
+  "componentName": "Avatar",
+  "markdownPath": "docs/components/avatar.md",
+  "generatedAt": "2026-02-18T01:23:01.080Z",
+  "title": "Avatar",
+  "blocks": [
+    {
+      "type": "heading",
+      "level": 1,
+      "text": "Avatar"
+    },
+    {
+      "type": "paragraph",
+      "text": "The **Avatar** component displays a profile image inside a bordered rounded square."
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Overview"
+    },
+    {
+      "type": "paragraph",
+      "text": "In Figma, this component is defined as a single `COMPONENT` (`Avatar`) with fixed structure:"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "No variant properties"
+        },
+        {
+          "text": "No text overrides"
+        },
+        {
+          "text": "One image layer (`Img_bg`) inside a clipped container"
+        }
+      ]
+    },
+    {
+      "type": "paragraph",
+      "text": "Source node: [Avatar (node `146:474`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)"
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Anatomy"
+    },
+    {
+      "type": "paragraph",
+      "text": "Each avatar contains:"
+    },
+    {
+      "type": "list",
+      "ordered": true,
+      "items": [
+        {
+          "index": 1,
+          "text": "**Container** (`COMPONENT`, `90 x 90`)"
+        },
+        {
+          "index": 2,
+          "text": "**Img_bg** (`RECTANGLE`, `90 x 90`, image fill)"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Component API"
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Properties"
+    },
+    {
+      "type": "table",
+      "header": [
+        "Name",
+        "Type",
+        "Default Value",
+        "Description"
+      ],
+      "rows": [
+        [
+          "—",
+          "—",
+          "—",
+          "No exposed Figma properties."
+        ]
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Visual Specifications"
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Container"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "**Size**: `90 x 90`"
+        },
+        {
+          "text": "**Layout**: `NONE` (no Auto Layout)"
+        },
+        {
+          "text": "**Corner radius**: `8px` on all corners"
+        },
+        {
+          "text": "**Border**: `2px`, aligned `INSIDE`"
+        },
+        {
+          "text": "**Border color token**: `Color/Border/Neutral/Default` (`VariableID:2014:168`)"
+        },
+        {
+          "text": "**Border color fallback**: `#9A9090`"
+        },
+        {
+          "text": "**Fill**: none"
+        },
+        {
+          "text": "**Clips content**: `true`"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Image Layer (`Img_bg`)"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "**Node type**: `RECTANGLE`"
+        },
+        {
+          "text": "**Size**: `90 x 90`"
+        },
+        {
+          "text": "**Fill**: `IMAGE` with scale mode `FILL`"
+        },
+        {
+          "text": "**Strokes**: none"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Tokens Used"
+    },
+    {
+      "type": "table",
+      "header": [
+        "Slot",
+        "Figma binding",
+        "Semantic token",
+        "Primitive alias",
+        "Resolved value"
+      ],
+      "rows": [
+        [
+          "Border color",
+          "`strokes`",
+          "`Color/Border/Neutral/Default` (`VariableID:2014:168`)",
+          "`Color/Grey/500` (`VariableID:40:245`)",
+          "`#9A9090`"
+        ],
+        [
+          "Border radius",
+          "`topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius`",
+          "`Dimension/Border/Radius/200` (`VariableID:98:4439`)",
+          "`Dimension/Border/Radius/8` (`VariableID:4550:5300`)",
+          "`8`"
+        ],
+        [
+          "Border width",
+          "`strokeTopWeight`, `strokeBottomWeight`, `strokeLeftWeight`, `strokeRightWeight`",
+          "`Dimension/Border/Width/200` (`VariableID:4379:2395`)",
+          "`Dimension/Border/Width/2` (`VariableID:4550:5305`)",
+          "`2`"
+        ]
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Usage Guidelines"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Use square source images whenever possible to avoid unexpected crops."
+        },
+        {
+          "text": "Keep avatar sizes consistent within the same UI context."
+        },
+        {
+          "text": "For missing images, define a product fallback strategy (initials or placeholder icon) in code."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Accessibility"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "If decorative only, set `aria-hidden=\"true\"`."
+        },
+        {
+          "text": "If informative, provide descriptive `alt` text."
+        },
+        {
+          "text": "If clickable, use an interactive wrapper (`button`/`a`) with an accessible name."
+        },
+        {
+          "text": "This Figma component does not define a dedicated focus/interaction state."
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Gaps / TBD"
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "No size variants (`sm`, `md`, `lg`, etc.) in Figma."
+        },
+        {
+          "text": "No explicit fallback variant for empty/missing image."
+        },
+        {
+          "text": "No explicit interaction states (`hover`, `focus`, `selected`, `disabled`)."
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "headings": 12,
+    "paragraphs": 4,
+    "lists": 7,
+    "tables": 2,
+    "codeBlocks": 0
+  }
+}
