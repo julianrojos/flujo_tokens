@@ -17,6 +17,8 @@ npm install
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
+- **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
+- **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract.
 
 ## Usage
 
@@ -28,6 +30,92 @@ npm install
 
 You can override input/output via CLI args (`--input`, `--output-primitives`, `--output-tokens`).
 If you want a single file output, use `--single` with `--output`.
+
+## Component Documentation (Figma)
+
+This repo also includes a documentation workflow for Design System components:
+
+1. Extract component context from Figma and write markdown docs.
+2. Convert markdown docs into a visual documentation section in Figma.
+
+### Documentation folders
+
+- `docs/components/`: component documentation pages (e.g. `alert.md`)
+- `docs/_spec/`: documentation specs and visual theme contract
+- `docs/_generated/figma_doc_models/`: generated intermediate artifacts for markdown -> Figma rendering
+
+### Requirements
+
+- A compatible agent CLI installed: `codex`, `claude`, or `gemini`
+- Figma MCP configured for the selected agent
+- For Figma write operations, Figma Desktop + Desktop Bridge plugin running
+
+Agent selection options:
+
+- Pass `--agent codex|claude|gemini`
+- Or set `DS_AGENT=codex|claude|gemini`
+- Default is `auto` (tries `codex`, then `claude`, then `gemini`)
+
+If non-interactive execution is unavailable, the command stores a fallback prompt in:
+
+- `docs/_generated/agent_prompts/`
+
+### 1) Figma URL -> component markdown
+
+Generate/update one component markdown page from a Figma URL:
+
+```bash
+npm run ds:doc-from-figma-url -- \
+  --url "https://www.figma.com/design/<file>?node-id=<node>" \
+  --component-name Alert \
+  --output docs/components/alert.md \
+  --agent codex
+```
+
+Useful flags:
+
+- `--docs-root docs/components` (default)
+- `--component-name <Name>`
+- `--output <path/to/component.md>`
+- `--agent <codex|claude|gemini>`
+
+### 2) Active markdown -> Figma section
+
+Render markdown to a Figma documentation section:
+
+```bash
+npm run ds:active-md-to-figma -- \
+  --markdown docs/components/alert.md \
+  --component-name Alert \
+  --component-set-id 2304:1892 \
+  --url "https://www.figma.com/design/<file>?node-id=<node>" \
+  --agent codex
+```
+
+If your editor exposes the active file via environment variable, you can omit `--markdown`:
+
+```bash
+ANTIGRAVITY_ACTIVE_FILE=docs/components/alert.md npm run ds:active-md-to-figma -- --agent codex
+```
+
+Internally, this command runs a two-step generation flow:
+
+- Markdown -> doc model JSON
+- Doc model + theme (`docs/_spec/figma_doc_theme.yml`) -> Figma execute script
+
+Generated files are written to:
+
+- `docs/_generated/figma_doc_models/`
+
+Useful flags:
+
+- `--markdown <path>`
+- `--component-name <Name>`
+- `--component-set-id <figma-node-id>`
+- `--generated-dir <path>` (default: `docs/_generated/figma_doc_models`)
+- `--theme <path>` (default: `docs/_spec/figma_doc_theme.yml`)
+- `--offset-x <number>` (default: `200`)
+- `--agent <codex|claude|gemini>`
 
 ## Architecture and Pipeline
 
