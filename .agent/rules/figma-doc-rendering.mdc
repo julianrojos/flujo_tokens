@@ -43,6 +43,15 @@ Input markdown is expected to follow the authoring subset from `markdown-figma-s
 - The warning should include the line number and block type.
 - YAML frontmatter must be ignored by the parser (metadata is not rendered as visible content).
 
+## Inline formatting
+
+- Inline emphasis in supported text blocks must be preserved from Markdown to Figma:
+  - `**bold**`
+  - `_italic_` / `*italic*`
+  - `` `code` ``
+- The doc model should carry inline style segments so Figma rendering can apply range-level text styles.
+- If inline segments are missing, render plain text without failing.
+
 ## Section placement
 
 - Section identity follows the pattern `Doc/{ComponentName}` — re-running the pipeline updates the existing section (idempotent).

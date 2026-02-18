@@ -69,6 +69,7 @@ theme:
   typography:
     font_family: "Nunito Sans"
     font_family_heading: "Lora"
+    font_family_mono: "Roboto Mono"
     h1:
       font_family: "Lora"
       size: 36

@@ -65,51 +65,83 @@ function fontStyleFromWeight(weight) {
   return "Regular";
 }
 
-function extractBoldRanges(rawText) {
-  const input = String(rawText == null ? "" : rawText);
-  const boldRanges = [];
-  let plainText = "";
-  let cursor = 0;
-
-  while (cursor < input.length) {
-    const open = input.indexOf("**", cursor);
-    if (open === -1) {
-      plainText += input.slice(cursor);
-      break;
-    }
-
-    const close = input.indexOf("**", open + 2);
-    if (close === -1) {
-      plainText += input.slice(cursor);
-      break;
-    }
-
-    plainText += input.slice(cursor, open);
-    const boldPart = input.slice(open + 2, close);
-    const start = plainText.length;
-    plainText += boldPart;
-    const end = plainText.length;
-    if (end > start) boldRanges.push({ start, end });
-
-    cursor = close + 2;
+function normalizeInlineSegments(rawSegments, fallbackText) {
+  if (!Array.isArray(rawSegments) || rawSegments.length === 0) {
+    return [{ text: String(fallbackText == null ? "" : fallbackText), style: "normal" }];
   }
 
-  return { plainText, boldRanges };
+  const segments = [];
+  for (const rawSegment of rawSegments) {
+    const text = String(rawSegment && rawSegment.text != null ? rawSegment.text : "");
+    if (!text) continue;
+
+    const style = String(rawSegment && rawSegment.style ? rawSegment.style : "normal");
+    const safeStyle =
+      style === "bold" || style === "italic" || style === "code" || style === "normal"
+        ? style
+        : "normal";
+
+    const last = segments[segments.length - 1];
+    if (last && last.style === safeStyle) {
+      last.text += text;
+    } else {
+      segments.push({ text, style: safeStyle });
+    }
+  }
+
+  if (segments.length === 0) {
+    return [{ text: String(fallbackText == null ? "" : fallbackText), style: "normal" }];
+  }
+
+  return segments;
+}
+
+function segmentsToText(segments) {
+  return segments.map((segment) => String(segment.text || "")).join("");
+}
+
+function applySegmentFormatting(node, segments, family, theme) {
+  const monoFamily = String(getPath(theme, "theme.typography.font_family_mono", "Roboto Mono"));
+  let offset = 0;
+
+  for (const segment of segments) {
+    const text = String(segment.text || "");
+    const end = offset + text.length;
+    if (end <= offset) continue;
+
+    try {
+      if (segment.style === "bold") {
+        node.setRangeFontName(offset, end, { family, style: "Bold" });
+      } else if (segment.style === "italic") {
+        node.setRangeFontName(offset, end, { family, style: "Italic" });
+      } else if (segment.style === "code") {
+        node.setRangeFontName(offset, end, { family: monoFamily, style: "Regular" });
+      }
+    } catch (_) {
+      // Keep base style if a specific variant is unavailable.
+    }
+
+    offset = end;
+  }
 }
 
 async function ensureFonts(theme) {
   const bodyFamily = getPath(theme, "theme.typography.font_family", "Nunito Sans");
   const headingFamily = getPath(theme, "theme.typography.font_family_heading", bodyFamily);
+  const monoFamily = getPath(theme, "theme.typography.font_family_mono", "Roboto Mono");
   const typography = getPath(theme, "theme.typography", {});
 
   // Collect { family, style } pairs from all typography entries
   const fontPairs = new Set();
   fontPairs.add(bodyFamily + ":Regular");
   fontPairs.add(bodyFamily + ":Bold");
+  fontPairs.add(bodyFamily + ":Italic");
   if (headingFamily !== bodyFamily) {
     fontPairs.add(headingFamily + ":Regular");
     fontPairs.add(headingFamily + ":Bold");
+    fontPairs.add(headingFamily + ":Italic");
   }
+  fontPairs.add(monoFamily + ":Regular");
   for (const [key, value] of Object.entries(typography)) {
     if (key === "font_family" || key === "font_family_heading") continue;
     if (!value || typeof value !== "object") continue;
@@ -183,19 +215,10 @@ function createText(parent, text, styleKey, theme, options) {
   } else {
     node.textAutoResize = "WIDTH_AND_HEIGHT";
   }
-  const parsed = extractBoldRanges(text);
-  node.characters = parsed.plainText;
+  const resolvedSegments = normalizeInlineSegments(options && options.segments, text);
+  node.characters = segmentsToText(resolvedSegments);
   parent.appendChild(node);
-  if (parsed.boldRanges.length > 0) {
-    const boldFont = { family: family, style: "Bold" };
-    for (const range of parsed.boldRanges) {
-      try {
-        node.setRangeFontName(range.start, range.end, boldFont);
-      } catch (error) {
-        // Ignore unavailable bold style for this font family.
-      }
-    }
-  }
+  applySegmentFormatting(node, resolvedSegments, family, theme);
   if (wrap) {
     const parentWidth = "width" in parent ? Number(parent.width || 0) : 0;
     const padLeft = "paddingLeft" in parent ? Number(parent.paddingLeft || 0) : 0;
@@ -231,7 +254,7 @@ function clearChildren(node) {
   }
 }
 
-function createCard(canvas, title, theme) {
+function createCard(canvas, title, titleSegments, theme) {
   const card = createVerticalFrame("Card/" + toSafeName(title || "Untitled"));
   const cardWidth = Number(getPath(theme, "components.card.width", 820));
   const padding = getPath(theme, "components.card.padding", {});
@@ -253,7 +276,7 @@ function createCard(canvas, title, theme) {
   card.strokeWeight = Number(getPath(theme, "components.card.strokes.weight", 1));
   canvas.appendChild(card);
 
-  createText(card, title, "h2", theme, {});
+  createText(card, title, "h2", theme, { segments: titleSegments });
   return card;
 }
 
@@ -282,17 +305,36 @@ function createTable(parent, title, tableBlock, theme) {
   parent.appendChild(tableCard);
 
   const header = Array.isArray(tableBlock.header) ? tableBlock.header : [];
+  const headerSegments = Array.isArray(tableBlock.headerSegments)
+    ? tableBlock.headerSegments
+    : [];
   const bodyRows = Array.isArray(tableBlock.rows) ? tableBlock.rows : [];
+  const bodyRowSegments = Array.isArray(tableBlock.rowSegments)
+    ? tableBlock.rowSegments
+    : [];
   const columnCount = Math.max(
     header.length,
     ...bodyRows.map((row) => (Array.isArray(row) ? row.length : 0)),
     1
   );
   const rows = [];
-  if (header.length > 0) rows.push({ cells: header, isHeader: true });
-  for (const row of bodyRows) {
+  if (header.length > 0) {
+    rows.push({
+      cells: header,
+      segments: Array.isArray(headerSegments) ? headerSegments : [],
+      isHeader: true,
+    });
+  }
+  for (let bodyRowIndex = 0; bodyRowIndex < bodyRows.length; bodyRowIndex += 1) {
+    const row = bodyRows[bodyRowIndex];
     const safeRow = Array.isArray(row) ? row : [String(row)];
-    rows.push({ cells: safeRow, isHeader: false });
+    rows.push({
+      cells: safeRow,
+      segments: Array.isArray(bodyRowSegments[bodyRowIndex])
+        ? bodyRowSegments[bodyRowIndex]
+        : [],
+      isHeader: false,
+    });
   }
   if (rows.length === 0) return;
 
@@ -402,8 +444,13 @@ function createTable(parent, title, tableBlock, theme) {
       cell.fills = [solid(cellBg, 1)];
       rowFrame.appendChild(cell);
       rowCells.push(cell);
+      const cellSegments =
+        Array.isArray(row.segments) && Array.isArray(row.segments[colIndex])
+          ? row.segments[colIndex]
+          : null;
       createText(cell, value, row.isHeader ? "h3" : "body", theme, {
         wrapWidth: Math.max(1, cellWidth - cellPaddingH * 2),
+        segments: cellSegments,
       });
     }
 
@@ -426,8 +473,13 @@ function renderList(parent, listBlock, theme) {
   for (let i = 0; i < items.length; i += 1) {
     const item = items[i];
     const text = typeof item === "string" ? item : String(item?.text ?? "");
+    const itemSegments =
+      typeof item === "string" || !Array.isArray(item?.segments) ? null : item.segments;
     const prefix = ordered ? String(i + 1) + ". " : "\\u2022 ";
-    createText(parent, prefix + text, "body", theme, {});
+    const mergedSegments = itemSegments
+      ? [{ text: prefix, style: "normal" }, ...itemSegments]
+      : null;
+    createText(parent, prefix + text, "body", theme, { segments: mergedSegments });
   }
 }
 
@@ -563,10 +615,15 @@ if (accentEnabled) {
   headerTarget = header;
 }
 
-const titleText = String(model.title || componentName);
-createText(headerTarget, titleText, "h1", theme, {});
-
 const blocks = Array.isArray(model.blocks) ? model.blocks : [];
+const titleBlock = blocks.find(
+  (block) => block.type === "heading" && Number(block.level) === 1
+);
+const titleText = String(model.title || titleBlock?.text || componentName);
+createText(headerTarget, titleText, "h1", theme, {
+  segments: Array.isArray(titleBlock?.segments) ? titleBlock.segments : null,
+});
+
 let firstH2Index = blocks.findIndex(
   (block) => block.type === "heading" && Number(block.level) === 2
 );
@@ -577,6 +634,7 @@ for (let index = 0; index < firstH2Index; index += 1) {
   if (block.type === "paragraph") {
     createText(headerTarget, String(block.text || ""), "body", theme, {
       colorOverride: "muted_text",
+      segments: Array.isArray(block.segments) ? block.segments : null,
     });
     renderedCount.paragraph += 1;
   }
@@ -604,23 +662,32 @@ for (let blockIndex = 0; blockIndex < blocks.length; blockIndex += 1) {
   }
 
   if (block.type === "heading" && Number(block.level) === 2) {
-    currentCard = createCard(canvas, String(block.text || "Untitled"), theme);
+    currentCard = createCard(
+      canvas,
+      String(block.text || "Untitled"),
+      Array.isArray(block.segments) ? block.segments : null,
+      theme
+    );
     renderedCount.heading += 1;
     continue;
   }
 
   if (!currentCard) {
-    currentCard = createCard(canvas, "General", theme);
+    currentCard = createCard(canvas, "General", null, theme);
   }
 
   if (block.type === "heading" && Number(block.level) === 3) {
-    createText(currentCard, String(block.text || ""), "h3", theme, {});
+    createText(currentCard, String(block.text || ""), "h3", theme, {
+      segments: Array.isArray(block.segments) ? block.segments : null,
+    });
     renderedCount.heading += 1;
     continue;
   }
 
   if (block.type === "paragraph") {
-    createText(currentCard, String(block.text || ""), "body", theme, {});
+    createText(currentCard, String(block.text || ""), "body", theme, {
+      segments: Array.isArray(block.segments) ? block.segments : null,
+    });
     renderedCount.paragraph += 1;
     continue;
   }
