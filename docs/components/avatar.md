@@ -66,8 +66,8 @@ Each avatar contains:
 | Part | Condition | Token | Fallback |
 | --- | --- | --- | --- |
 | `container.border-color` | all variants | `Color/Border/Neutral/Default` | `#9A9090` |
-| `container.border-radius` | all variants | `Dimension/Border/Radius/200` | `8` |
-| `container.border-width` | all variants | `Dimension/Border/Width/200` | `2` |
+| `container.border-radius` | all variants | `Dimension/Border/Radius/200` | `8px` |
+| `container.border-width` | all variants | `Dimension/Border/Width/200` | `2px` |
 
 ## Variants
 

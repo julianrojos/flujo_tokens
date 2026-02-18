@@ -171,7 +171,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - `doc_status: draft | ready | needs-review`
   - `figma.file_url`, `figma.page`, `figma.component`, `figma.last_verified`
 - Stable section order from `component-doc-structure.mdc`
-- Optional `## Discrepancias detectadas` when design/token mismatches are real
+- Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
 - Figma node IDs are allowed for source traceability (for example in `node-id` URLs)
 

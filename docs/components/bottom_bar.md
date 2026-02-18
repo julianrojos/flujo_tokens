@@ -84,14 +84,14 @@ The root `Bottom_Bar` component does not expose root-level component properties.
 
 | Part | Condition | Token | Fallback |
 | --- | --- | --- | --- |
-| `item.padding` | all items | `Dimension/Spacing/400` | `8` |
-| `item.radius` | all items | `Dimension/Border/Radius/200` | `8` |
-| `item.icon-color` | all items | `Color/Icon/Neutral/Default` | `#483F3F` |
-| `item.text-color` | all items | `Color/Text/Neutral/Default` | `#483F3F` |
-| `item.label-font-family` | all items | `Font/Family/Body` | `Nunito Sans` |
-| `item.label-font-size` | all items | `Font/Size/100` | `12` |
-| `item.label-font-weight` | all items | `Font/Weight/Regular` | `regular` |
-| `item.label-line-height` | all items | `Font/Line-Height/100` | `16` |
+| `item_slot.padding` | all items | `Dimension/Spacing/400` | `8px` |
+| `item_slot.radius` | all items | `Dimension/Border/Radius/200` | `8px` |
+| `item_icon.color` | all items | `Color/Icon/Neutral/Default` | `#483F3F` |
+| `item_label.color` | all items | `Color/Text/Neutral/Default` | `#483F3F` |
+| `item_label.font-family` | all items | `Font/Family/Body` | `Nunito Sans` |
+| `item_label.font-size` | all items | `Font/Size/100` | `12px` |
+| `item_label.font-weight` | all items | `Font/Weight/Regular` | `Regular` |
+| `item_label.line-height` | all items | `Font/Line-Height/100` | `16px` |
 | `container.background` | root container | `TBD` | `#ECECEC` |
 
 ## Variants

@@ -83,8 +83,8 @@ Each status bar contains:
 | Part | Condition | Token | Fallback |
 | --- | --- | --- | --- |
 | `container.background` | `Background=Brand` | `Color/Background/Brand/Secondary` | `#C9E0BE` |
-| `time.color` | all variants | `Color/BW/Black` | `#000000` |
-| `icons.color` | all variants | `Color/BW/Black` | `#000000` |
+| `time_group.color` | all variants | `Color/BW/Black` | `#000000` |
+| `icons_row.color` | all variants | `Color/BW/Black` | `#000000` |
 
 ## Variants
 

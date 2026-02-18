@@ -10,7 +10,7 @@ One page per component. This documentation is design-first (Figma) and token-bac
 ## How to add a component
 
 1. Create a spec: `docs/_spec/components/<Component>.yml` (copy from `_template.yml`)
-2. Run: `/ds-component-doc component_name=<Component>`
+2. Run: `npm run ds:doc-from-figma-url -- --url "<figma-component-url>" --component-name <Component> --agent codex`
 
 ## Definition of done
 
