@@ -449,9 +449,9 @@ function createTable(parent, title, tableBlock, theme) {
 
   function normalizeCellText(raw) {
     return String(raw == null ? "" : raw)
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+      .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, "$1")
       .replace(/[*_\`]/g, "")
-      .replace(/\s+/g, " ")
+      .replace(/\\s+/g, " ")
       .trim();
   }
 
