@@ -33,18 +33,18 @@ If you want a single file output, use `--single` with `--output`.
 
 The system operates in 4 sequential phases:
 
-1.  **Ingest (`src/core/ingest.ts`)**: Reads and sanitizes JSON files from `input/`.
-2.  **Indexing (`src/core/indexing.ts`)**: Creates lookup maps and resolves cross-references.
-3.  **Analysis (`src/core/analyze.ts`)**: Detects cycles and validates data integrity.
-4.  **Emission (`src/core/emit.ts`)**: Generates final CSS declarations for base scope (`:root`) and mode scopes (`[data-theme="..."]`) when mode branches exist.
+1.  **Ingest (`tooling/src/core/ingest.ts`)**: Reads and sanitizes JSON files from `input/`.
+2.  **Indexing (`tooling/src/core/indexing.ts`)**: Creates lookup maps and resolves cross-references.
+3.  **Analysis (`tooling/src/core/analyze.ts`)**: Detects cycles and validates data integrity.
+4.  **Emission (`tooling/src/core/emit.ts`)**: Generates final CSS declarations for base scope (`:root`) and mode scopes (`[data-theme="..."]`) when mode branches exist.
 
 ## Project Structure
 
-- `src/cli`: Command-line entry point (`index.ts`).
-- `src/core`: Core pipeline logic (Ingest, Index, Analyze, Emit).
-- `src/runtime`: State management, configuration, and execution context.
-- `src/utils`: String, regex, and validation utilities.
-- `src/types`: TypeScript type definitions.
+- `tooling/src/cli`: Command-line entry point (`index.ts`).
+- `tooling/src/core`: Core pipeline logic (Ingest, Index, Analyze, Emit).
+- `tooling/src/runtime`: State management, configuration, and execution context.
+- `tooling/src/utils`: String, regex, and validation utilities.
+- `tooling/src/types`: TypeScript type definitions.
 
 ## Configuration
 

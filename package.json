@@ -4,10 +4,10 @@
   "description": "CSS custom properties generator from JSON tokens",
   "type": "module",
   "scripts": {
-    "generate": "tsx src/cli/index.ts",
-    "generate:strict": "tsx src/cli/index.ts --mode-strict",
-    "ds:doc-from-figma-url": "node scripts/ds-doc-from-figma-url.mjs",
-    "ds:active-md-to-figma": "node scripts/ds-active-md-to-figma.mjs"
+    "generate": "tsx tooling/src/cli/index.ts",
+    "generate:strict": "tsx tooling/src/cli/index.ts --mode-strict",
+    "ds:doc-from-figma-url": "node tooling/scripts/ds-doc-from-figma-url.mjs",
+    "ds:active-md-to-figma": "node tooling/scripts/ds-active-md-to-figma.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
