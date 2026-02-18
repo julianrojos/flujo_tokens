@@ -88,11 +88,11 @@
       }
     },
     "Weight": {
-      "Regular": {
+      "Default": {
         "$value": "{_Typography.Font.Weight.Regular}",
         "$type": "string"
       },
-      "Bold": {
+      "Emphasis": {
         "$value": "{_Typography.Font.Weight.Bold}",
         "$type": "string"
       }
