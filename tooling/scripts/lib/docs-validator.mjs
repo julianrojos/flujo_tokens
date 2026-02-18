@@ -699,7 +699,96 @@ function validateOverviewLinks(docsRoot, componentFiles, report) {
   }
 }
 
-function validateSpecYamlFile(filePath, report) {
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function splitSpecTokenValue(rawValue) {
+  return String(rawValue || "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function isTbdMarker(value) {
+  return /^tbd$/i.test(String(value || "").trim());
+}
+
+function validateSpecTokenMapping(filePath, tokenMapping, registryIndexes, report) {
+  if (tokenMapping === undefined || tokenMapping === null) return;
+  if (!isPlainObject(tokenMapping)) {
+    report.errors.push({
+      code: "SPEC01",
+      file: filePath,
+      message: "Field `token_mapping` must be an object.",
+    });
+    return;
+  }
+
+  const walk = (node, keyPath) => {
+    if (typeof node === "string") {
+      const values = splitSpecTokenValue(node);
+      if (values.length === 0) {
+        report.errors.push({
+          code: "SPEC01",
+          file: filePath,
+          message: `Token mapping \`token_mapping.${keyPath}\` is empty.`,
+        });
+        return;
+      }
+
+      for (const tokenValue of values) {
+        if (isTbdMarker(tokenValue)) continue;
+        if (!tokenValue.includes("/") && !tokenValue.includes(".")) {
+          report.errors.push({
+            code: "SPEC01",
+            file: filePath,
+            message: `Token mapping \`token_mapping.${keyPath}\` is not a valid token path: \`${tokenValue}\`.`,
+          });
+          continue;
+        }
+
+        const resolution = resolveTokenCandidate(tokenValue, registryIndexes);
+        if (!resolution.ok) {
+          report.errors.push({
+            code: "SPEC01",
+            file: filePath,
+            message: `Token mapping \`token_mapping.${keyPath}\`: ${resolution.message}`,
+            suggested: resolution.suggested,
+          });
+        }
+      }
+      return;
+    }
+
+    if (isPlainObject(node)) {
+      for (const [key, value] of Object.entries(node)) {
+        const nextPath = keyPath ? `${keyPath}.${key}` : key;
+        walk(value, nextPath);
+      }
+      return;
+    }
+
+    if (node === undefined || node === null) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Token mapping \`token_mapping.${keyPath}\` is missing a token value.`,
+      });
+      return;
+    }
+
+    report.errors.push({
+      code: "SPEC01",
+      file: filePath,
+      message: `Token mapping \`token_mapping.${keyPath}\` must be a string or object.`,
+    });
+  };
+
+  walk(tokenMapping, "");
+}
+
+function validateSpecYamlFile(filePath, report, registryIndexes) {
   let parsed;
   try {
     const raw = fs.readFileSync(filePath, "utf8");
@@ -751,13 +840,17 @@ function validateSpecYamlFile(filePath, report) {
       }
     }
   }
+
+  if (registryIndexes) {
+    validateSpecTokenMapping(filePath, parsed.token_mapping, registryIndexes, report);
+  }
 }
 
-function validateSpecYamlFiles(specRoot, report) {
+function validateSpecYamlFiles(specRoot, report, registryIndexes) {
   const files = collectSpecFiles(specRoot);
   for (const filePath of files) {
     report.summary.specFilesChecked += 1;
-    validateSpecYamlFile(filePath, report);
+    validateSpecYamlFile(filePath, report, registryIndexes);
   }
 }
 
@@ -832,7 +925,7 @@ export function validateDocs(options = {}) {
   }
 
   if (checkSpecs) {
-    validateSpecYamlFiles(specRoot, report);
+    validateSpecYamlFiles(specRoot, report, registryIndexes);
   }
 
   if (checkOverview) {
