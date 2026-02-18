@@ -90,7 +90,7 @@ The root `Bottom_Bar` component does not expose root-level component properties.
 | `item.text-color` | all items | `Color/Text/Neutral/Default` | `#483F3F` |
 | `item.label-font-family` | all items | `Font/Family/Body` | `Nunito Sans` |
 | `item.label-font-size` | all items | `Font/Size/100` | `12` |
-| `item.label-font-weight` | all items | `Font/Weight/Default` | `regular` |
+| `item.label-font-weight` | all items | `Font/Weight/Regular` | `regular` |
 | `item.label-line-height` | all items | `Font/Line-Height/100` | `16` |
 | `container.background` | root container | `TBD` | `#ECECEC` |
 

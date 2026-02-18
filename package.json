@@ -10,6 +10,7 @@
     "generate": "tsx tooling/src/cli/index.ts",
     "generate:registry": "tsx tooling/src/cli/index.ts --registry",
     "generate:strict": "tsx tooling/src/cli/index.ts --mode-strict",
+    "validate:docs": "node tooling/scripts/validate-docs.mjs",
     "ds:doc-from-figma-url": "node tooling/scripts/ds-doc-from-figma-url.mjs",
     "ds:active-md-to-figma": "node tooling/scripts/ds-active-md-to-figma.mjs"
   },

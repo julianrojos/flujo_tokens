@@ -63,7 +63,7 @@ token_mapping:
   item_label.font-size:
     "default": "Font/Size/100"
   item_label.font-weight:
-    "default": "Font/Weight/Default"
+    "default": "Font/Weight/Regular"
   item_label.line-height:
     "default": "Font/Line-Height/100"
   container.background:

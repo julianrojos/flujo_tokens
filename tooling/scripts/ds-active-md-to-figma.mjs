@@ -9,6 +9,7 @@ import {
   FIGMA_DOC_THEME_PATH,
 } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
+import { validateDocs } from "./lib/docs-validator.mjs";
 
 function toComponentName(raw) {
   return String(raw)
@@ -48,6 +49,19 @@ function main() {
   if (!fs.existsSync(markdownPath)) {
     console.error(`Markdown file not found: ${markdownPath}`);
     process.exit(1);
+  }
+
+  const skipValidation = String(args["skip-validation"] || "false") === "true";
+  if (!skipValidation) {
+    const validationReport = validateDocs({
+      filePath: markdownPath,
+      checkOverview: false,
+    });
+    if (!validationReport.ok) {
+      console.error("Documentation validation failed. Rendering to Figma was blocked.");
+      process.stdout.write(`${JSON.stringify(validationReport, null, 2)}\n`);
+      process.exit(1);
+    }
   }
 
   const fileBase = path.basename(markdownPath, path.extname(markdownPath));

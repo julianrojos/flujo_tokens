@@ -154,6 +154,7 @@ This workflow documents Design System components from Figma and can also render 
 
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract.
+- **`npm run validate:docs`**: Validates component docs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, forbidden `VariableID:*`, token references, overview links).
 
 ### Documentation folders
 
@@ -231,6 +232,16 @@ If your editor exposes the active file via environment variable, you can omit `-
 
 ```bash
 ANTIGRAVITY_ACTIVE_FILE=docs/components/alert.md npm run ds:active-md-to-figma -- --agent codex
+```
+
+This command runs a validation preflight first. If the markdown references tokens missing from `docs/_generated/token-registry.json`, rendering is blocked.
+For exceptional cases only, you can bypass preflight with `--skip-validation true`.
+
+Recommended sequence before rendering:
+
+```bash
+npm run generate:registry
+npm run validate:docs
 ```
 
 Internally, this command runs a two-step generation flow:
