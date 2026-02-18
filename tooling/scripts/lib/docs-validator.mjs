@@ -25,6 +25,9 @@ const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A1
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
 const SLASH_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9-]+){1,}/g;
 const VARIABLE_ID_RE = /VariableID:[A-Za-z0-9:-]+/g;
+const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
+const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
 const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
 const SPEC_ALLOWED_STATUS = new Set(["draft", "ready"]);
 const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
@@ -105,6 +108,7 @@ function buildRegistryIndexes(registryObj) {
   const keys = Object.keys(registryObj);
   const keySet = new Set(keys);
   const lowerMap = new Map(keys.map((key) => [key.toLowerCase(), key]));
+  const entriesByKey = new Map(keys.map((key) => [key, registryObj[key]]));
 
   const dotRoots = new Set();
   const slashRoots = new Set();
@@ -113,7 +117,7 @@ function buildRegistryIndexes(registryObj) {
     if (key.includes("/")) slashRoots.add(key.split("/")[0]);
   }
 
-  return { keySet, lowerMap, dotRoots, slashRoots };
+  return { keySet, lowerMap, dotRoots, slashRoots, entriesByKey };
 }
 
 function extractTokenCandidatesFromSpan(spanText) {
@@ -173,6 +177,108 @@ function resolveTokenCandidate(candidate, registryIndexes) {
     ok: false,
     message: `Token reference not found in registry: \`${candidate}\`.`,
   };
+}
+
+function extractResolvedTokenRefsFromText(text, registryIndexes) {
+  const refs = [];
+  const seen = new Set();
+  const codeSpanRegex = /`([^`\n]+)`/g;
+  let spanMatch;
+
+  while ((spanMatch = codeSpanRegex.exec(String(text || ""))) !== null) {
+    const span = spanMatch[1];
+    const candidates = extractTokenCandidatesFromSpan(span);
+    for (const item of candidates) {
+      const tokenPath = item.token;
+      if (!looksLikeTokenPath(tokenPath, registryIndexes.dotRoots, registryIndexes.slashRoots)) continue;
+      const resolution = resolveTokenCandidate(tokenPath, registryIndexes);
+      if (!resolution.ok) continue;
+      const dedupeKey = `${tokenPath}|${resolution.resolvedAs}`;
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      refs.push({
+        tokenPath,
+        resolvedAs: resolution.resolvedAs,
+        entry: registryIndexes.entriesByKey.get(resolution.resolvedAs),
+      });
+    }
+  }
+
+  return refs;
+}
+
+function inferFallbackKind(tokenRefs) {
+  const types = new Set(
+    tokenRefs
+      .map((ref) => String(ref.entry?.type || "").trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (types.size !== 1) return "generic";
+  const onlyType = Array.from(types)[0];
+  if (onlyType === "color") return "color";
+  if (onlyType === "dimension") return "dimension";
+  return "generic";
+}
+
+function normalizeFallbackValue(raw) {
+  return String(raw || "")
+    .replace(/[`*]/g, "")
+    .trim()
+    .replace(/^[\(\[]+/, "")
+    .replace(/[\)\].,:;]+$/, "")
+    .trim();
+}
+
+function hasConcreteFallbackValue(raw) {
+  const value = normalizeFallbackValue(raw);
+  return !!value && !/^tbd$/i.test(value) && !/^[-—]+$/.test(value);
+}
+
+function isFallbackCompatible(raw, kind) {
+  const value = normalizeFallbackValue(raw);
+  if (!hasConcreteFallbackValue(value)) return false;
+
+  if (kind === "color") {
+    if (CSS_COLOR_FUNC_RE.test(value)) return true;
+    const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+    return parts.every((part) => HEX_COLOR_RE.test(part) || /^transparent$/i.test(part));
+  }
+  if (kind === "dimension") {
+    return CSS_DIMENSION_RE.test(value);
+  }
+
+  return true;
+}
+
+function extractFallbackFromLine(line, registryIndexes) {
+  const rawLine = String(line || "");
+  if (!rawLine) return "";
+
+  const codeSpanRegex = /`([^`\n]+)`/g;
+  const codeSpans = [];
+  let match;
+  while ((match = codeSpanRegex.exec(rawLine)) !== null) {
+    codeSpans.push(match[1]);
+  }
+
+  for (const span of codeSpans) {
+    const isTokenLike = extractTokenCandidatesFromSpan(span).some((candidate) =>
+      looksLikeTokenPath(candidate.token, registryIndexes.dotRoots, registryIndexes.slashRoots)
+    );
+    if (!isTokenLike && hasConcreteFallbackValue(span)) return span;
+  }
+
+  const explicitFallbackMatch = rawLine.match(/fallback[^:]*:\s*([^|]+)$/i);
+  if (explicitFallbackMatch && hasConcreteFallbackValue(explicitFallbackMatch[1])) {
+    return explicitFallbackMatch[1];
+  }
+
+  const parentheticalMatch = rawLine.match(/\(([^)]+)\)/);
+  if (parentheticalMatch && hasConcreteFallbackValue(parentheticalMatch[1])) {
+    return parentheticalMatch[1];
+  }
+
+  return "";
 }
 
 function normalizeHeadingText(text) {
@@ -403,19 +509,11 @@ function findHeaderIndex(cells, needle) {
 }
 
 function tableCellHasTokenReference(cell, registryIndexes) {
-  const raw = String(cell || "");
-  const candidates = extractTokenCandidatesFromSpan(raw);
-  for (const { token } of candidates) {
-    if (looksLikeTokenPath(token, registryIndexes.dotRoots, registryIndexes.slashRoots)) {
-      return true;
-    }
-  }
-  return false;
+  return extractResolvedTokenRefsFromText(cell, registryIndexes).length > 0;
 }
 
 function isMissingFallbackValue(cell) {
-  const text = normalizeCellText(cell);
-  return !text || /^[-—]+$/.test(text) || /^tbd$/i.test(text);
+  return !hasConcreteFallbackValue(cell);
 }
 
 function validateTokenFallbacks(filePath, content, registryIndexes, report, lineStarts, baseOffset = 0) {
@@ -424,11 +522,13 @@ function validateTokenFallbacks(filePath, content, registryIndexes, report, line
     const tokenCol = findHeaderIndex(table.headerCells, "token");
     if (tokenCol < 0) continue;
 
-    const rowsWithTokenRefs = table.rows.filter((row) => {
+    const rowsWithTokenRefs = table.rows.map((row) => {
       const tokenCell = row.cells[tokenCol] || "";
-      if (/^`?tbd`?$/i.test(normalizeCellText(tokenCell))) return false;
-      return tableCellHasTokenReference(tokenCell, registryIndexes);
-    });
+      if (/^`?tbd`?$/i.test(normalizeCellText(tokenCell))) return null;
+      const tokenRefs = extractResolvedTokenRefsFromText(tokenCell, registryIndexes);
+      if (tokenRefs.length === 0) return null;
+      return { row, tokenRefs };
+    }).filter(Boolean);
     if (rowsWithTokenRefs.length === 0) continue;
 
     const fallbackCol = findHeaderIndex(table.headerCells, "fallback");
@@ -442,7 +542,8 @@ function validateTokenFallbacks(filePath, content, registryIndexes, report, line
       continue;
     }
 
-    for (const row of rowsWithTokenRefs) {
+    for (const item of rowsWithTokenRefs) {
+      const { row, tokenRefs } = item;
       const fallbackCell = row.cells[fallbackCol] || "";
       const line = lineFromOffset(lineStarts, baseOffset + row.offset);
 
@@ -453,7 +554,102 @@ function validateTokenFallbacks(filePath, content, registryIndexes, report, line
           line,
           message: "Token reference row is missing fallback value in `Fallback` column.",
         });
+        continue;
       }
+
+      const fallbackKind = inferFallbackKind(tokenRefs);
+      if (!isFallbackCompatible(fallbackCell, fallbackKind)) {
+        const expected =
+          fallbackKind === "color"
+            ? "a concrete color fallback (hex/rgb/hsl)"
+            : fallbackKind === "dimension"
+            ? "a concrete dimension fallback (px/rem/number)"
+            : "a concrete fallback value";
+        report.errors.push({
+          code: "TOK02",
+          file: filePath,
+          line,
+          message: `Fallback is present but not valid for token type; expected ${expected}.`,
+        });
+      }
+    }
+  }
+
+  validateProseTokenFallbacks(filePath, content, registryIndexes, report, lineStarts, baseOffset, tables);
+}
+
+function validateProseTokenFallbacks(
+  filePath,
+  content,
+  registryIndexes,
+  report,
+  lineStarts,
+  baseOffset = 0,
+  tables = collectMarkdownTables(content)
+) {
+  const lines = String(content || "").split("\n");
+  const lineOffsets = [];
+  let runningOffset = 0;
+  for (const line of lines) {
+    lineOffsets.push(runningOffset);
+    runningOffset += line.length + 1;
+  }
+
+  const tableLineSet = new Set();
+  for (const table of tables) {
+    const firstLine = lines.findIndex((_, idx) => lineOffsets[idx] === table.headerOffset);
+    if (firstLine < 0) continue;
+    const lastLine = firstLine + table.rows.length + 1;
+    for (let i = firstLine; i <= lastLine; i += 1) tableLineSet.add(i);
+  }
+
+  for (let i = 0; i < lines.length; i += 1) {
+    if (tableLineSet.has(i)) continue;
+    const line = lines[i];
+    if (!line || !line.includes("`")) continue;
+    if (!/token\b/i.test(line) || !line.includes(":")) continue;
+    if (/tbd/i.test(line)) continue;
+
+    const tokenRefs = extractResolvedTokenRefsFromText(line, registryIndexes);
+    if (tokenRefs.length === 0) continue;
+
+    let fallback = extractFallbackFromLine(line, registryIndexes);
+    if (!fallback) {
+      for (let j = i + 1; j <= Math.min(i + 2, lines.length - 1); j += 1) {
+        if (tableLineSet.has(j)) break;
+        const nextLine = lines[j];
+        if (!nextLine.trim()) continue;
+        if (!/fallback/i.test(nextLine)) break;
+        fallback = extractFallbackFromLine(nextLine, registryIndexes);
+        if (fallback) break;
+      }
+    }
+
+    const lineNumber = lineFromOffset(lineStarts, baseOffset + lineOffsets[i]);
+    if (!hasConcreteFallbackValue(fallback)) {
+      report.errors.push({
+        code: "TOK02",
+        file: filePath,
+        line: lineNumber,
+        message: "Token reference in prose is missing a concrete fallback value.",
+      });
+      continue;
+    }
+
+    const fallbackKind = inferFallbackKind(tokenRefs);
+    if (!isFallbackCompatible(fallback, fallbackKind)) {
+      const expected =
+        fallbackKind === "color"
+          ? "a concrete color fallback (hex/rgb/hsl)"
+          : fallbackKind === "dimension"
+          ? "a concrete dimension fallback (px/rem/number)"
+          : "a concrete fallback value";
+      report.errors.push({
+        code: "TOK02",
+        file: filePath,
+        line: lineNumber,
+        message: `Token reference in prose has invalid fallback; expected ${expected}.`,
+      });
     }
   }
 }
