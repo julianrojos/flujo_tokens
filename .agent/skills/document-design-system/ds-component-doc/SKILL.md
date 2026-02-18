@@ -15,7 +15,7 @@ Use this skill when:
 
 ## Inputs (ask only if missing)
 
-- `docs_root` (default: `docs/design_system/`)
+- `docs_root` (default: `docs/`)
 - `component_name` (required)
 - `spec_file` (default: `${docs_root}/_spec/components/${component_name}.yml`)
 - `token_files` (optional; if needed to resolve component tokens)

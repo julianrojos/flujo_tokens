@@ -15,7 +15,7 @@ Use this skill when:
 
 ## Inputs (ask only if missing)
 
-- `docs_root` (default: `docs/design_system/`)
+- `docs_root` (default: `docs/`)
 - `language` (default: Spanish if repo is Spanish; otherwise keep consistent with repo)
 
 ## Dependencies

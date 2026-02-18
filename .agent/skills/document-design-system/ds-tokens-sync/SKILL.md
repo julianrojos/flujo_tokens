@@ -15,7 +15,7 @@ Use this skill when:
 
 ## Inputs (ask only if missing)
 
-- `docs_root` (default: `docs/design_system/`)
+- `docs_root` (default: `docs/`)
 - `token_files` (default list below; user may override)
   - `_Primitives.json`
   - `_Typography.json`

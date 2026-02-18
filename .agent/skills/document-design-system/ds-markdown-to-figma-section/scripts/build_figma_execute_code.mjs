@@ -639,10 +639,10 @@ function main() {
   const componentName = args["component-name"] || model.componentName || model.title || "Component";
   const outPath =
     args.out ||
-    `docs/design_system/_generated/figma_doc_models/${String(componentName).toLowerCase()}.figma-execute.js`;
+    `docs/_generated/figma_doc_models/${String(componentName).toLowerCase()}.figma-execute.js`;
   const payloadOutPath =
     args["payload-out"] ||
-    `docs/design_system/_generated/figma_doc_models/${String(componentName).toLowerCase()}.render-payload.json`;
+    `docs/_generated/figma_doc_models/${String(componentName).toLowerCase()}.render-payload.json`;
   const offsetX = args["offset-x"] != null ? Number(args["offset-x"]) : undefined;
 
   const payload = {

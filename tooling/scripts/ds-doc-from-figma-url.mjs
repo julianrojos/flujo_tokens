@@ -39,7 +39,7 @@ function main() {
     process.exit(1);
   }
 
-  const docsRoot = args["docs-root"] || "docs/design_system/components";
+  const docsRoot = args["docs-root"] || "docs/components";
   const agent = args.agent || "auto";
   const componentName = args["component-name"] || "";
   const outputPath =
@@ -58,10 +58,10 @@ function main() {
     componentName ? `Expected component name: ${componentName}` : "",
     outputPath
       ? `Write/update exactly this file: ${outputPath}`
-      : "Write/update one markdown file under docs/design_system/components/ based on the real component name.",
+      : "Write/update one markdown file under docs/components/ based on the real component name.",
     "Required behavior:",
     "- Connect to the Figma file and inspect the referenced node/component.",
-    "- Produce a component markdown consistent with docs/design_system/components/alert.md structure and tone.",
+    "- Produce a component markdown consistent with docs/components/alert.md structure and tone.",
     "- Include real properties, variants, layout, typography, tokens and usage guidance from Figma.",
     "- Do not document system_cover or non-component pages.",
     "- Save the file directly in the repo and finish with a short report including the final path.",

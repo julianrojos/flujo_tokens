@@ -74,7 +74,7 @@ function candidateCommands(agent, prompt, cwd) {
 }
 
 function writePromptFallback(prompt, label) {
-  const dir = path.resolve("docs/design_system/_generated/agent_prompts");
+  const dir = path.resolve("docs/_generated/agent_prompts");
   fs.mkdirSync(dir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const fileName = `${label || "prompt"}-${timestamp}.txt`;

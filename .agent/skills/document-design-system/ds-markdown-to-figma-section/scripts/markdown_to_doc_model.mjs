@@ -196,7 +196,7 @@ function main() {
   const markdownPath = args.markdown;
   if (!markdownPath) {
     console.error(
-      "Missing --markdown. Example: --markdown docs/design_system/components/alert.md"
+      "Missing --markdown. Example: --markdown docs/components/alert.md"
     );
     process.exit(1);
   }
@@ -206,7 +206,7 @@ function main() {
     path.basename(markdownPath, path.extname(markdownPath));
   const outPath =
     args.out ||
-    `docs/design_system/_generated/figma_doc_models/${componentName.toLowerCase()}.doc-model.json`;
+    `docs/_generated/figma_doc_models/${componentName.toLowerCase()}.doc-model.json`;
 
   const markdown = fs.readFileSync(markdownPath, "utf8");
   const blocks = parseMarkdown(markdown);

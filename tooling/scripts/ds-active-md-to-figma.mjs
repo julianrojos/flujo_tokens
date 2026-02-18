@@ -66,8 +66,8 @@ function main() {
   const agent = args.agent || "auto";
   const componentName = args["component-name"] || toComponentName(fileBase);
   const generatedDir =
-    args["generated-dir"] || "docs/design_system/_generated/figma_doc_models";
-  const themePath = args.theme || "docs/design_system/_spec/figma_doc_theme.yml";
+    args["generated-dir"] || "docs/_generated/figma_doc_models";
+  const themePath = args.theme || "docs/_spec/figma_doc_theme.yml";
   const docModelPath = path.join(generatedDir, `${fileBase}.doc-model.json`);
   const executePath = path.join(generatedDir, `${fileBase}.figma-execute.js`);
   const payloadPath = path.join(generatedDir, `${fileBase}.render-payload.json`);

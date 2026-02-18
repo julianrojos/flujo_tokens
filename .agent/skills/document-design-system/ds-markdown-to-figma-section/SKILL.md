@@ -1,6 +1,6 @@
 ---
 name: ds-markdown-to-figma-section
-description: Render a component markdown doc into a styled Figma documentation section placed 200px to the right of the component section, using the shared theme contract in docs/design_system/_spec/figma_doc_theme.yml.
+description: Render a component markdown doc into a styled Figma documentation section placed 200px to the right of the component section, using the shared theme contract in docs/_spec/figma_doc_theme.yml.
 ---
 
 # ds-markdown-to-figma-section
@@ -9,7 +9,7 @@ description: Render a component markdown doc into a styled Figma documentation s
 
 Use this skill when:
 
-- A component markdown exists in `docs/design_system/components/`
+- A component markdown exists in `docs/components/`
 - You want a visual documentation section in Figma, not only markdown
 - You need consistent formatting for headings, paragraphs, lists, tables, and containers
 
@@ -18,8 +18,8 @@ Do not use this skill for non-component pages.
 ## Inputs (ask only if missing)
 
 - `component_name` (recommended)
-- `markdown_path` (default: `docs/design_system/components/${component_name}.md`)
-- `theme_path` (default: `docs/design_system/_spec/figma_doc_theme.yml`)
+- `markdown_path` (default: `docs/components/${component_name}.md`)
+- `theme_path` (default: `docs/_spec/figma_doc_theme.yml`)
 - `component_set_node_id` (preferred for deterministic placement)
 - `figma_file_url` (optional if already connected through Desktop Bridge)
 - `offset_x` (default from theme; expected `200`)
@@ -52,9 +52,9 @@ Run:
 
 ```bash
 node .agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs \
-  --markdown docs/design_system/components/<component>.md \
+  --markdown docs/components/<component>.md \
   --component-name <ComponentName> \
-  --out docs/design_system/_generated/figma_doc_models/<component>.doc-model.json
+  --out docs/_generated/figma_doc_models/<component>.doc-model.json
 ```
 
 ### Step B: doc model + theme -> render code
@@ -63,13 +63,13 @@ Run:
 
 ```bash
 node .agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs \
-  --model docs/design_system/_generated/figma_doc_models/<component>.doc-model.json \
-  --theme docs/design_system/_spec/figma_doc_theme.yml \
+  --model docs/_generated/figma_doc_models/<component>.doc-model.json \
+  --theme docs/_spec/figma_doc_theme.yml \
   --component-name <ComponentName> \
   --component-set-id <figma_component_set_node_id_optional> \
   --offset-x 200 \
-  --out docs/design_system/_generated/figma_doc_models/<component>.figma-execute.js \
-  --payload-out docs/design_system/_generated/figma_doc_models/<component>.render-payload.json
+  --out docs/_generated/figma_doc_models/<component>.figma-execute.js \
+  --payload-out docs/_generated/figma_doc_models/<component>.render-payload.json
 ```
 
 Then execute the generated JS with `figma_execute`.
@@ -77,7 +77,7 @@ Then execute the generated JS with `figma_execute`.
 Notes:
 
 - Re-run Step A and Step B on every markdown/theme change.
-- Keep generated files in `docs/design_system/_generated/figma_doc_models/` for reproducibility.
+- Keep generated files in `docs/_generated/figma_doc_models/` for reproducibility.
 
 ## Required behavior
 
