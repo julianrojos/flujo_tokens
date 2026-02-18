@@ -1,3 +1,8 @@
+---
+doc_type: overview
+doc_status: ready
+---
+
 # Components
 
 One page per component. This documentation is design-first (Figma) and token-backed (JSON).
@@ -9,11 +14,13 @@ One page per component. This documentation is design-first (Figma) and token-bac
 
 ## Definition of done
 
+- YAML frontmatter present (`doc_type`, `doc_status`, `figma.*`)
 - Summary filled (no TBD)
 - Anatomy filled
 - Properties table complete (matches Figma)
 - Accessibility notes present
 - Token mapping references real token keys
+- `Discrepancias detectadas` included only when real mismatches exist
 - Gaps / TBD empty or explicitly accepted
 
 ## Component list

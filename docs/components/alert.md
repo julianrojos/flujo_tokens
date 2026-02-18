@@ -1,3 +1,13 @@
+---
+doc_type: component
+doc_status: needs-review
+figma:
+  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System"
+  page: "TBD"
+  component: "Alert"
+  last_verified: "2026-02-18"
+---
+
 # Alert
 
 The **Alert** component communicates concise feedback messages in a highly visible inline block.
@@ -9,6 +19,8 @@ In Figma, this component is defined as a `COMPONENT_SET` (`Alert`) with one vari
 - `Type`: `Information`, `Warning`, `Positive`
 
 All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens.
+
+Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System)
 
 ## Anatomy
 
@@ -28,10 +40,10 @@ Current variant dimensions in Figma:
 
 ### Properties
 
-| Name                  | Type      | Default Value    | Description                                                          |
-| :-------------------- | :-------- | :--------------- | :------------------------------------------------------------------- |
-| `Type`                | `VARIANT` | `Information`    | Semantic alert state. Options: `Information`, `Warning`, `Positive`. |
-| `Change_Message_Text` | `TEXT`    | `Text text text` | Main alert message content.                                          |
+| Name | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+| `Type` | `VARIANT` | `Information` | `true` | Semantic alert type. Options: `Information`, `Warning`, `Positive`. |
+| `Change_Message_Text` | `TEXT` | `Text text text` | `TBD` | Overrides the main alert message copy. |
 
 ## Visual Specifications
 
@@ -54,23 +66,83 @@ Current variant dimensions in Figma:
 - **Text color token**: `Color/Text/Neutral/Default`
 - **Text color fallback**: `#483F3F`
 
-### Variants
+### Iconography
 
-| Variant       | Border token                                                | Border fallback | Icon component                 | Icon token                                                 | Icon fallback |
-| :------------ | :---------------------------------------------------------- | :-------------- | :----------------------------- | :--------------------------------------------------------- | :------------ |
-| `Information` | `Color/Border/Feedback/Information` | `#BAA06B`       | `information-circle-contained` | `Color/Icon/Feedback/Information` | `#9D8555`     |
-| `Warning`     | `Color/Border/Feedback/Danger`      | `#B22222`       | `x-circle-contained`           | `Color/Icon/Feedback/Danger`      | `#B22222`     |
-| `Positive`    | `Color/Border/Feedback/Success`     | `#299157`       | `check-contained`              | `Color/Icon/Feedback/Success`     | `#299157`     |
+- **Icon container size**: `24 x 24`
+- **Internal vector size**: `18 x 18`
+
+### Token Mapping
+
+| Part | Condition | Token | Fallback |
+| --- | --- | --- | --- |
+| `container.background` | all variants | `Color/Background/Feedback/Default` | `#FFFFFF` |
+| `text.color` | all variants | `Color/Text/Neutral/Default` | `#483F3F` |
+
+## Variants
+
+| Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
+| --- | --- | --- | --- |
+| `Information` | `Color/Border/Feedback/Information`, `Color/Icon/Feedback/Information` | `#BAA06B`, `#9D8555` | `information-circle-contained` icon + information border |
+| `Warning` | `Color/Border/Feedback/Danger`, `Color/Icon/Feedback/Danger` | `#B22222`, `#B22222` | `x-circle-contained` icon + warning border |
+| `Positive` | `Color/Border/Feedback/Success`, `Color/Icon/Feedback/Success` | `#299157`, `#299157` | `check-contained` icon + success border |
+
+## States
+
+This component has no interactive states in the current Figma component set.
+
+Feedback semantics are represented through the `Type` variant, not through `hover`/`focus`/`pressed` states.
 
 ## Usage Guidelines
 
-- Use `Information` for neutral status or contextual updates.
-- Use `Warning` for error or risky states that require user attention.
-- Use `Positive` for successful outcomes and confirmations.
-- Keep message copy short and direct, ideally one sentence.
+- **When to use**: Use `Information`, `Warning`, and `Positive` to communicate concise status feedback in context.
+- **When not to use**: Do not use this component for persistent page-level navigation or long-form guidance.
+- **Do**: Keep icon size and spacing unchanged to preserve visual rhythm.
+- **Do**: Keep semantic feedback tokens aligned with the selected variant.
+- **Don't**: Replace semantic border/icon tokens with neutral values.
+- **Don't**: Use this component for multi-paragraph content.
 
-## Notes For Implementation
+## Content Guidelines
 
-- Keep icon size fixed at `24 x 24` to preserve alignment.
-- Keep the 8px horizontal gap between icon and text container.
-- Do not replace semantic feedback tokens with neutral borders, as this removes the state meaning.
+- Use short, direct message text.
+- Prefer one sentence per alert.
+- Use sentence case.
+- Avoid unnecessary punctuation and repeated emphasis.
+
+## Accessibility
+
+### 1. ARIA role and semantics
+
+- Expected role for passive feedback: `role="alert"`.
+- If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA.
+- Required ARIA attributes are `TBD` for this component configuration.
+
+### 2. Keyboard navigation
+
+This component is not keyboard-interactive in the current Figma configuration.
+
+### 3. Focus management
+
+- This component has no focusable element in the current Figma definition.
+- Focus behavior for dismissible/interactive alert variants is `TBD`.
+- Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) are `TBD` for this component.
+
+### 4. Labeling
+
+- The message text itself provides the accessible content.
+- Additional labeling patterns (`aria-label`, `aria-labelledby`, `aria-describedby`) are `TBD` for interactive variants.
+
+### 5. Contrast and visibility
+
+- The component should not rely on color alone; iconography and text must remain present with each variant.
+- Verified contrast ratios are `TBD (pending audit)`.
+
+## Related Components
+
+- [Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging.
+- [Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback.
+
+## Gaps / TBD
+
+- `figma.page` metadata is `TBD`.
+- Required status for `Change_Message_Text` in Figma is `TBD`.
+- Accessibility behavior for interactive/dismissible alert variants is `TBD`.

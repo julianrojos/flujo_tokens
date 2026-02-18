@@ -1,3 +1,13 @@
+---
+doc_type: component
+doc_status: needs-review
+figma:
+  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System"
+  page: "TBD"
+  component: "Avatar"
+  last_verified: "2026-02-18"
+---
+
 # Avatar
 
 The **Avatar** component displays a profile image inside a bordered rounded square.
@@ -10,7 +20,7 @@ In Figma, this component is defined as a single `COMPONENT` (`Avatar`) with fixe
 - No text overrides
 - One image layer (`Img_bg`) inside a clipped container
 
-Source node: [Avatar (node `146:474`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)
+Source: [Avatar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System)
 
 ## Anatomy
 
@@ -23,9 +33,9 @@ Each avatar contains:
 
 ### Properties
 
-| Name | Type | Default Value | Description |
-| :--- | :--- | :------------ | :---------- |
-| — | — | — | No exposed Figma properties. |
+| Name | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+| `—` | `—` | `—` | `—` | This component has no exposed Figma component properties. |
 
 ## Visual Specifications
 
@@ -40,6 +50,10 @@ Each avatar contains:
 - **Fill**: none
 - **Clips content**: `true`
 
+### Iconography
+
+- Not applicable. This component renders an image surface, not an icon slot.
+
 ### Image Layer (`Img_bg`)
 
 - **Node type**: `RECTANGLE`
@@ -47,29 +61,72 @@ Each avatar contains:
 - **Fill**: `IMAGE` with scale mode `FILL`
 - **Strokes**: none
 
-## Tokens Used
+### Token Mapping
 
-| Slot | Figma binding | Semantic token | Primitive alias | Resolved value |
-| :--- | :------------ | :------------- | :-------------- | :------------- |
-| Border color | `strokes` | `Color/Border/Neutral/Default` | `Color/Grey/500` | `#9A9090` |
-| Border radius | `topLeftRadius`, `topRightRadius`, `bottomLeftRadius`, `bottomRightRadius` | `Dimension/Border/Radius/200` | `Dimension/Border/Radius/8` | `8` |
-| Border width | `strokeTopWeight`, `strokeBottomWeight`, `strokeLeftWeight`, `strokeRightWeight` | `Dimension/Border/Width/200` | `Dimension/Border/Width/2` | `2` |
+| Part | Condition | Token | Fallback |
+| --- | --- | --- | --- |
+| `container.border-color` | all variants | `Color/Border/Neutral/Default` | `#9A9090` |
+| `container.border-radius` | all variants | `Dimension/Border/Radius/200` | `8` |
+| `container.border-width` | all variants | `Dimension/Border/Width/200` | `2` |
+
+## Variants
+
+This component has no variants in the current Figma definition.
+
+## States
+
+This component has no interactive states.
 
 ## Usage Guidelines
 
-- Use square source images whenever possible to avoid unexpected crops.
-- Keep avatar sizes consistent within the same UI context.
-- For missing images, define a product fallback strategy (initials or placeholder icon) in code.
+- **When to use**: Use this component to represent a user or entity with a square profile image.
+- **When not to use**: Do not use it for icon buttons or status indicators.
+- **Do**: Use square image assets to avoid unpredictable cropping.
+- **Do**: Keep avatar size consistent inside the same UI context.
+- **Don't**: Stretch non-square images.
+- **Don't**: Rely on this component for interaction states not defined in Figma.
+
+## Content Guidelines
+
+This component has no text content.
 
 ## Accessibility
 
-- If decorative only, set `aria-hidden="true"`.
-- If informative, provide descriptive `alt` text.
-- If clickable, use an interactive wrapper (`button`/`a`) with an accessible name.
-- This Figma component does not define a dedicated focus/interaction state.
+### 1. ARIA role and semantics
+
+- If rendered as a decorative image, use `aria-hidden="true"` or empty `alt`.
+- If rendered as informative content, use semantic `img` with descriptive `alt`.
+- For interactive usage, wrap in a semantic interactive element and define role semantics in implementation (`TBD`).
+
+### 2. Keyboard navigation
+
+This component is not keyboard-interactive by itself.
+
+### 3. Focus management
+
+- No focus behavior is defined in the Figma component.
+- If used in an interactive wrapper, focus behavior is `TBD`.
+- Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) apply only when wrapped in a focusable control.
+
+### 4. Labeling
+
+- Informative usage requires descriptive `alt` text.
+- Decorative usage should avoid redundant labeling.
+- `aria-label` and `aria-labelledby` patterns are `TBD` for clickable wrappers.
+
+### 5. Contrast and visibility
+
+- Border visibility should remain distinguishable against surrounding surfaces.
+- Contrast verification is `TBD (pending audit)`.
+
+## Related Components
+
+- [Bottom Bar](bottom_bar.md): Use for navigation actions; avatar may appear inside destinations opened from navigation.
+- [Alert](alert.md): Use for feedback messaging; avatar should not be used as feedback status.
 
 ## Gaps / TBD
 
+- `figma.page` metadata is `TBD`.
 - No size variants (`sm`, `md`, `lg`, etc.) in Figma.
 - No explicit fallback variant for empty/missing image.
 - No explicit interaction states (`hover`, `focus`, `selected`, `disabled`).

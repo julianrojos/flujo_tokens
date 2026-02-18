@@ -1,3 +1,13 @@
+---
+doc_type: component
+doc_status: draft
+figma:
+  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System"
+  page: "Bars"
+  component: "Status-Bar"
+  last_verified: "2026-02-18"
+---
+
 # Status Bar
 
 The **Status Bar** component represents the top system status row for iPhone layouts.
@@ -12,7 +22,7 @@ Default variant in Figma: `Background=Transparent`.
 
 All variants share the same structure and dimensions (`440 x 44`).
 
-Source node: [Status-Bar (node `713:202`)](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202)
+Source: [Status-Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System)
 
 ## Anatomy
 
@@ -30,9 +40,9 @@ Each status bar contains:
 
 ### Properties
 
-| Name | Type | Default Value | Description |
-| :--- | :--- | :------------ | :---------- |
-| `Background` | `VARIANT` | `Transparent` | Background style. Options: `Transparent`, `Brand`. |
+| Name | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+| `Background` | `VARIANT` | `Transparent` | `true` | Background style. Options: `Transparent`, `Brand`. |
 
 ## Visual Specifications
 
@@ -62,33 +72,75 @@ Each status bar contains:
 - **Line height**: `AUTO`
 - **Letter spacing**: `0%`
 
-### Variants
+### Iconography
 
-| Variant | Background fill | Token | Fallback |
-| :------ | :-------------- | :---- | :------- |
-| `Background=Transparent` | None | — | Transparent |
-| `Background=Brand` | Solid fill | `Color/Background/Brand/Secondary` | `#C9E0BE` |
+- **Icons**: `Cellular Connection`, `Wifi`, `Battery`
+- **Icons color token**: `Color/BW/Black`
+- **Icons fallback**: `#000000`
 
-## Tokens Used
+### Token Mapping
 
-| Slot | Condition | Token | Alias chain | Resolved value |
-| :--- | :-------- | :---- | :---------- | :------------- |
-| Background fill | `Background=Brand` | `Color/Background/Brand/Secondary` | `Color/Cucumber/200` | `#C9E0BE` |
-| Time text color | All variants | `Color/BW/Black` | — | `#000000` |
-| Status icons color | All variants | `Color/BW/Black` | — | `#000000` |
+| Part | Condition | Token | Fallback |
+| --- | --- | --- | --- |
+| `container.background` | `Background=Brand` | `Color/Background/Brand/Secondary` | `#C9E0BE` |
+| `time.color` | all variants | `Color/BW/Black` | `#000000` |
+| `icons.color` | all variants | `Color/BW/Black` | `#000000` |
+
+## Variants
+
+| Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
+| --- | --- | --- | --- |
+| `Background=Transparent` | `—` | `Transparent` | No background fill |
+| `Background=Brand` | `Color/Background/Brand/Secondary` | `#C9E0BE` | Brand secondary surface fill |
+
+## States
+
+This component has no interactive states.
 
 ## Usage Guidelines
 
-- Use this component at the top edge of iPhone mockups and flows.
-- Preserve the internal horizontal structure (time on the left, status icons on the right).
-- Use `Background=Transparent` on light/neutral surfaces where the screen background should remain visible.
-- Use `Background=Brand` when the status bar needs to sit on the brand secondary background.
+- **When to use**: Use at the top edge of iPhone-oriented mockups and mobile layout compositions.
+- **When not to use**: Do not use as an interactive toolbar or as a content container.
+- **Do**: Keep internal layout structure unchanged (time left, icons right).
+- **Do**: Use `Background=Transparent` or `Background=Brand` according to the parent surface.
+- **Don't**: Override icon/time color without validating contrast.
+- **Don't**: Treat this component as a replacement for app-level navigation.
+
+## Content Guidelines
+
+This component has no user-authored text content. Time/system indicators are system-driven.
 
 ## Accessibility
 
-- This component is decorative UI chrome in most product contexts.
-- If status information is meaningful in a prototype, provide equivalent text outside this component.
-- No interaction or focus states are defined in Figma for this component.
+### 1. ARIA role and semantics
+
+- In most documentation/prototype contexts, this component is decorative system chrome.
+- If rendered in product UI, semantic treatment is `TBD` and should follow platform conventions.
+- Required ARIA attributes are `TBD`.
+
+### 2. Keyboard navigation
+
+This component is not keyboard-interactive.
+
+### 3. Focus management
+
+- No focus behavior is defined in Figma.
+- Focus outline tokens are not applicable unless this component becomes interactive (`TBD`).
+
+### 4. Labeling
+
+- If status data is meaningful for assistive tech, provide equivalent accessible text outside this visual component.
+- Labeling strategy for implementation is `TBD`.
+
+### 5. Contrast and visibility
+
+- Time and icon foreground should remain visible against both transparent and brand backgrounds.
+- Contrast verification is `TBD (pending audit)`.
+
+## Related Components
+
+- [Bottom Bar](bottom_bar.md): Use as complementary bottom navigation in mobile page chrome.
+- [Alert](alert.md): Use for contextual feedback content, not for fixed device chrome.
 
 ## Gaps / TBD
 
