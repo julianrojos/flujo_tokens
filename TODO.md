@@ -129,31 +129,31 @@ Phase 4 (Orchestration): [4] ds-pipeline skill
 ↓
 Phase 5 (Automation): [5] ds-spec-from-figma skill
 
-### Improvement 1: Token Registry — The Bridge Between Pipelines
+~~### Improvement 1: Token Registry — The Bridge Between Pipelines~~
 
-Problem: Pipeline A (token compilation) knows all 318 token paths. Pipeline B (documentation) references tokens by path. Nothing connects them — docs can reference non-existent tokens.
-Solution: Pipeline A exports docs/\_generated/token-registry.json that Pipeline B validates against.
-Files to create
+~~Problem: Pipeline A (token compilation) knows all 318 token paths. Pipeline B (documentation) references tokens by path. Nothing connects them — docs can reference non-existent tokens.~~
+~~Solution: Pipeline A exports docs/\_generated/token-registry.json that Pipeline B validates against.~~
+~~Files to create~~
 
-tooling/src/core/registry.ts — new module, exports exportTokenRegistry(ctx: EmissionContext): TokenRegistryEntry[]
+~~tooling/src/core/registry.ts — new module, exports exportTokenRegistry(ctx: EmissionContext): TokenRegistryEntry[]~~
 
-Files to modify
+~~Files to modify~~
 
-tooling/src/cli/index.ts — add --registry flag, call exportTokenRegistry() after emit phase
-package.json — add script "generate:registry"
+~~tooling/src/cli/index.ts — add --registry flag, call exportTokenRegistry() after emit phase~~
+~~package.json — add script "generate:registry"~~
 
-Output schema
-typescriptinterface TokenRegistryEntry {
-path: string; // "Semantic.Color.Focus-Outline.Inner"
-slashPath: string; // "Color/Focus-Outline/Inner" (Figma-style)
-cssVar: string; // "--semantic-color-focus-outline-inner"
-type: string; // "color" | "dimension" | ...
-resolvedValue: string; // "#1C6B4A" | "24px"
-aliasOf?: string; // original alias target
-collection: string; // "Semantic" | "Components" | ...
-}
-Key detail
-Must emit both dot-path and slash-path because docs use Figma-style slash paths (Color/Background/Feedback/Default) while token JSON uses dot paths. The registry bridges both conventions.
+~~Output schema~~
+~~typescriptinterface TokenRegistryEntry {~~
+~~path: string; // "Semantic.Color.Focus-Outline.Inner"~~
+~~slashPath: string; // "Color/Focus-Outline/Inner" (Figma-style)~~
+~~cssVar: string; // "--semantic-color-focus-outline-inner"~~
+~~type: string; // "color" | "dimension" | ...~~
+~~resolvedValue: string; // "#1C6B4A" | "24px"~~
+~~aliasOf?: string; // original alias target~~
+~~collection: string; // "Semantic" | "Components" | ...~~
+~~}~~
+~~Key detail~~
+~~Must emit both dot-path and slash-path because docs use Figma-style slash paths (Color/Background/Feedback/Default) while token JSON uses dot paths. The registry bridges both conventions.~~
 
 ### Improvement 2: Validation Layer (validate-docs.mjs)
 
