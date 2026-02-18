@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
@@ -12,6 +13,21 @@ function toSafeFileName(raw) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+}
+
+function formatMarkdown({ outputPath, docsRoot }) {
+  const target = outputPath
+    ? path.resolve(outputPath)
+    : path.join(path.resolve(docsRoot), "**/*.md");
+  const result = spawnSync("npx", ["prettier", "--write", target], {
+    stdio: "inherit",
+  });
+  if (result.error) {
+    throw new Error(`Failed to run Prettier: ${result.error.message}`);
+  }
+  if ((result.status ?? 1) !== 0) {
+    throw new Error(`Prettier exited with code ${result.status}`);
+  }
 }
 
 function main() {
@@ -71,6 +87,7 @@ function main() {
       agent,
       label: `doc-from-figma-url-${toSafeFileName(componentName || "component")}`,
     });
+    formatMarkdown({ outputPath, docsRoot });
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
