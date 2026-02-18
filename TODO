@@ -1,3 +1,5 @@
+## PROPUESTAS DE MEJORA PARA DOCUMENTACIÓN
+
 Propuestas de mejora
 
 1. Skill de orquestación (ds-pipeline)
@@ -71,3 +73,35 @@ P1 3. QA automática Garantiza consistencia DS ↔ Docs ↔ Figma Medio
 P1 5. Mejoras parser MD→Figma Fidelidad visual de los docs renderizados Medio
 P2 1. Orquestador de pipeline UX del flujo completo Medio
 P2 6. Sincronización incremental Performance a escala Bajo-Medio
+
+Reglas que te recomendaría incorporar (sin aplicarlas aún):
+
+Testing para scripts/pipeline
+Falta una regla que obligue a tests en el pipeline markdown -> doc model -> figma execute (casos felices, edge cases y regresiones).
+Fuente: https://raw.githubusercontent.com/mondaycom/vibe/master/.cursor/rules/300_testing.mdc
+
+Error handling y códigos de salida en CLI
+No veo regla formal sobre errores recuperables/no recuperables, mensajes accionables y exit codes consistentes en scripts.
+Fuente: https://raw.githubusercontent.com/mondaycom/vibe/master/.cursor/rules/400_error_handling.mdc
+
+Convenciones de estilo para código (no solo docs)
+Tenéis reglas muy buenas para documentación, pero faltan guías equivalentes para scripts (readability, comentarios, complejidad, etc.).
+Fuente: https://raw.githubusercontent.com/mondaycom/vibe/master/.cursor/rules/110_code_style.mdc
+
+Reusabilidad / anti-duplicación en scripts de skills
+No hay guardrail explícito para evitar lógica duplicada entre skills/scripts (shared helpers, funciones comunes, etc.).
+Fuente: https://raw.githubusercontent.com/mondaycom/vibe/master/.cursor/rules/120_reusability.mdc
+
+Estructura de proyecto para tooling interno
+Falta una regla de organización para ubicar claramente scripts, generated artifacts y utilidades compartidas.
+Fuente: https://raw.githubusercontent.com/mondaycom/vibe/master/.cursor/rules/100_project_structure.mdc
+
+Aplicabilidad baja o nula para vuestro caso actual:
+
+200_backend_python.mdc (no aplica si no mantenéis backend Python).
+500_api_design.mdc (solo aplicaría si vais a exponer API HTTP).
+600_performance.mdc (útil, pero segunda prioridad frente a testing/error handling).
+Contexto de comparación local:
+ds-docs-guardrails.mdc, component-doc-structure.mdc, component-spec-yaml.mdc, token-references.mdc, figma-doc-rendering.mdc, accessibility-docs.mdc.
+
+Inferencia: vuestro set actual está muy fuerte en calidad documental, pero le falta capa de calidad de ingeniería para scripts/CLI.
