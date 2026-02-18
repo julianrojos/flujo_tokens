@@ -304,37 +304,22 @@ JSON report to stdout + `docs/_generated/qa-report.json`
 
 ---
 
-### Improvement 7: Shared Library + Dependency Rationalization
+~~### Improvement 7: Shared Library + Dependency Rationalization~~
 
-**Problem**: Hand-rolled YAML parser (~170 lines), hand-rolled MD parser, duplicated `parseArgs()` across 4 files, no real YAML library.
+~~**Problem**: Hand-rolled YAML parser (~170 lines), hand-rolled MD parser, duplicated `parseArgs()` across 4 files, no real YAML library.~~
 
-#### Files to create
+~~#### Files to create~~
 
 ```
-
-tooling/scripts/lib/
-parse-args.mjs — shared CLI arg parser (extract from existing copies)
-parse-frontmatter.mjs — YAML frontmatter parser using js-yaml
-token-registry.mjs — load/query token-registry.json
-paths.mjs — shared path constants (docs root, spec dir, generated dir)
-Files to modify
-
-package.json — add "js-yaml": "^4.1.0" to dependencies
-build_figma_execute_code.mjs — replace hand-rolled parseYaml() with import yaml from 'js-yaml' (deletes ~90 lines)
-validate-docs.mjs, ds-qa.mjs, ds-pipeline.mjs — import from lib/
-
-Summary of All New Files
-FilePurposetooling/src/core/registry.tsToken registry exporttooling/scripts/validate-docs.mjsMachine-enforce rulestooling/scripts/ds-qa.mjsCoverage/freshness/completeness audittooling/scripts/ds-pipeline.mjsFull pipeline orchestrationtooling/scripts/lib/parse-args.mjsShared arg parsertooling/scripts/lib/parse-frontmatter.mjsShared frontmatter parsertooling/scripts/lib/token-registry.mjsShared registry loadertooling/scripts/lib/paths.mjsShared path constants.agent/skills/.../ds-pipeline/SKILL.mdOrchestration skill.agent/skills/.../ds-spec-from-figma/SKILL.mdSpec auto-generation skill
-Summary of Modified Files
-FileChangetooling/src/cli/index.tsAdd --registry flagpackage.jsonAdd js-yaml, 4 new scriptsmarkdown_to_doc_model.mjsInline formatting segments, version bumpbuild_figma_execute_code.mjsSegment rendering, js-yaml replacementdocs/\_spec/figma_doc_theme.ymlAdd font_family_monofigma-doc-rendering.mdcDocument inline formatting support
-Verification
-For each improvement, after implementation:
-
-Token Registry: npm run generate:registry produces token-registry.json with all 318 tokens, both dot-path and slash-path
-Validation: npm run validate:docs catches known errors (bottom_bar.md Spanish heading, missing frontmatter fields) and exits 1
-Inline formatting: Generate doc model for alert.md, verify segments array preserves **bold** and `code` spans
-Orchestration: npm run ds:pipeline -- --component alert --from-stage 0 runs all stages in sequence
-Spec from Figma: Run skill on Alert component, compare generated YAML against manually-written alert.yml
-QA: npm run ds:qa produces coverage report showing 4/4 specs, 4/4 markdowns, token validity
-Shared lib: build_figma_execute_code.mjs uses js-yaml and all shared utilities
+~~tooling/scripts/lib/~~
+~~parse-args.mjs — shared CLI arg parser (extract from existing copies)~~
+~~parse-frontmatter.mjs — YAML frontmatter parser using js-yaml~~
+~~token-registry.mjs — load/query token-registry.json~~
+~~paths.mjs — shared path constants (docs root, spec dir, generated dir)~~
 ```
+
+~~Files to modify~~
+
+~~package.json — add "js-yaml": "^4.1.0" to dependencies~~
+~~build_figma_execute_code.mjs — replace hand-rolled parseYaml() with import yaml from 'js-yaml' (deletes ~90 lines)~~
+~~validate-docs.mjs, ds-qa.mjs, ds-pipeline.mjs — import from lib/~~
