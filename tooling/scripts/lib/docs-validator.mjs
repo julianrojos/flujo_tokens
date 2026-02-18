@@ -607,11 +607,10 @@ function validateProseTokenFallbacks(
     if (tableLineSet.has(i)) continue;
     const line = lines[i];
     if (!line || !line.includes("`")) continue;
-    if (!/token\b/i.test(line) || !line.includes(":")) continue;
-    if (/tbd/i.test(line)) continue;
 
     const tokenRefs = extractResolvedTokenRefsFromText(line, registryIndexes);
     if (tokenRefs.length === 0) continue;
+    if (/tbd/i.test(line)) continue;
 
     let fallback = extractFallbackFromLine(line, registryIndexes);
     if (!fallback) {

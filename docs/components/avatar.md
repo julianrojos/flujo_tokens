@@ -106,7 +106,7 @@ This component is not keyboard-interactive by itself.
 
 - No focus behavior is defined in the Figma component.
 - If used in an interactive wrapper, focus behavior is `TBD`.
-- Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) apply only when wrapped in a focusable control.
+- Focus outline tokens (`Semantic.Color.Focus-Outline.Inner` (`#FFFFFF`), `Semantic.Color.Focus-Outline.Outer` (`#567680`)) apply only when wrapped in a focusable control.
 
 ### 4. Labeling
 

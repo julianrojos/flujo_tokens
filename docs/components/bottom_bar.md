@@ -145,7 +145,7 @@ The root container has no independent interaction state. State behavior is contr
 
 - Focus order should follow visual item order from left to right.
 - No focus behavior is explicitly defined in Figma; implementation details are `TBD`.
-- Focus outline tokens should use `Semantic.Color.Focus-Outline.Inner` and `Semantic.Color.Focus-Outline.Outer`.
+- Focus outline tokens should use `Semantic.Color.Focus-Outline.Inner` (`#FFFFFF`) and `Semantic.Color.Focus-Outline.Outer` (`#567680`).
 
 ### 4. Labeling
 
