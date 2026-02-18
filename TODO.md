@@ -207,8 +207,8 @@ Exit code 0 if all pass, 1 if any fail. JSON report to stdout.
 
 ~~Files to create~~
 
-- `.agent/skills/.../ds-pipeline/SKILL.md`~~
-- `tooling/scripts/ds-pipeline.mjs`~~
+- ~~`.agent/skills/.../ds-pipeline/SKILL.md`~~
+- ~~`tooling/scripts/ds-pipeline.mjs`~~
 
 ~~Pipeline stages~~
 
@@ -234,7 +234,6 @@ Exit code 0 if all pass, 1 if any fail. JSON report to stdout.
 ~~font_family_mono: "Roboto Mono"~~
 
 ```
-
 ~~D) `figma-doc-rendering.mdc`** — document inline formatting support in block types section~~
 ```
 
