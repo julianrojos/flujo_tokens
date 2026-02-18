@@ -20,3 +20,4 @@ One page per component. This documentation is design-first (Figma) and token-bac
 
 - [Alert](alert.md)
 - [Avatar](avatar.md)
+- [Status Bar](status_bar.md)
