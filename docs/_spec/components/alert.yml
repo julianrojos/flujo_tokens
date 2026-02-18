@@ -1,0 +1,79 @@
+name: Alert
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: TBD
+  component_set: Alert
+
+summary:
+  purpose: Communicates concise feedback messages in a visible inline container.
+  when_to_use: Use for contextual status feedback (information, warning, positive).
+  when_not_to_use: Do not use for navigation, long-form guidance, or persistent layout chrome.
+
+anatomy:
+  - id: container
+    description: Auto Layout horizontal wrapper for icon and message content.
+  - id: leading_icon
+    description: Feedback icon that changes by Type variant.
+  - id: message_text
+    description: Main message text content.
+
+properties:
+  - name: Type
+    type: enum
+    values: [Information, Warning, Positive]
+    default: Information
+    required: true
+    description: Semantic alert type.
+  - name: Change_Message_Text
+    type: text
+    default: "Text text text"
+    required: false
+    description: Overrides the main alert message copy.
+
+content_guidelines:
+  rules:
+    - Use short, direct message copy.
+    - Prefer one sentence per alert.
+    - Use sentence case.
+
+best_practices:
+  do:
+    - Keep icon size and spacing unchanged to preserve visual rhythm.
+    - Keep semantic feedback tokens aligned with the selected type.
+  dont:
+    - Replace semantic border/icon tokens with neutral values.
+    - Use this component for multi-paragraph content.
+
+accessibility:
+  role: alert
+  focus:
+    tokens:
+      inner: "Semantic.Color.Focus-Outline.Inner"
+      outer: "Semantic.Color.Focus-Outline.Outer"
+  hit_area:
+    desktop_token: "A11y.A11y.modeDesktop.Dimension.Min-Hit-Area"
+    mobile_token: "A11y.A11y.modeMobile.Dimension.Min-Hit-Area"
+  labeling:
+    rules:
+      - Message text must be meaningful without relying on icon color alone.
+      - Additional labeling for interactive variants is TBD.
+
+token_mapping:
+  container.background:
+    "default": "Color/Background/Feedback/Default"
+  container.border:
+    "type=Information": "Color/Border/Feedback/Information"
+    "type=Warning": "Color/Border/Feedback/Danger"
+    "type=Positive": "Color/Border/Feedback/Success"
+  leading_icon.color:
+    "type=Information": "Color/Icon/Feedback/Information"
+    "type=Warning": "Color/Icon/Feedback/Danger"
+    "type=Positive": "Color/Icon/Feedback/Success"
+  message_text.color:
+    "default": "Color/Text/Neutral/Default"
+
+qa:
+  - "Properties match the Figma component set."
+  - "Token mapping uses real token keys."
+  - "Accessibility behavior for interactive/dismissible variants remains TBD until verified."

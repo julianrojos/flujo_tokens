@@ -1,0 +1,68 @@
+name: StatusBar
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Bars
+  component_set: Status-Bar
+
+summary:
+  purpose: Represents top system status row for iPhone-oriented layouts.
+  when_to_use: Use as fixed top chrome in mobile mockups and flows.
+  when_not_to_use: Do not use as interactive toolbar or content container.
+
+anatomy:
+  - id: container
+    description: Root status bar container.
+  - id: os_row
+    description: Horizontal row containing time group and status icons.
+  - id: time_group
+    description: Left-side time text area.
+  - id: icons_row
+    description: Right-side icon group (cellular, wifi, battery).
+
+properties:
+  - name: Background
+    type: enum
+    values: [Transparent, Brand]
+    default: Transparent
+    required: true
+    description: Background style variant.
+
+content_guidelines:
+  rules:
+    - This component has no user-authored text content.
+
+best_practices:
+  do:
+    - Keep the internal left-right layout structure unchanged.
+    - Use Transparent or Brand based on parent surface.
+  dont:
+    - Override icon/time color without contrast validation.
+    - Use this component as app-level navigation.
+
+accessibility:
+  role: TBD
+  focus:
+    tokens:
+      inner: "Semantic.Color.Focus-Outline.Inner"
+      outer: "Semantic.Color.Focus-Outline.Outer"
+  hit_area:
+    desktop_token: "A11y.A11y.modeDesktop.Dimension.Min-Hit-Area"
+    mobile_token: "A11y.A11y.modeMobile.Dimension.Min-Hit-Area"
+  labeling:
+    rules:
+      - Provide equivalent accessible text externally when status data is meaningful.
+      - Platform-specific semantic treatment is TBD.
+
+token_mapping:
+  container.background:
+    "Background=Brand": "Color/Background/Brand/Secondary"
+  time_group.color:
+    "default": "Color/BW/Black"
+  icons_row.color:
+    "default": "Color/BW/Black"
+
+qa:
+  - "Properties match the Figma component set."
+  - "Token mapping uses real token keys."
+  - "No interaction states are currently defined in Figma."

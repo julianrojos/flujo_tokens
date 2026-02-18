@@ -14,6 +14,7 @@ One page per component. This documentation is design-first (Figma) and token-bac
 
 ## Definition of done
 
+- Spec YAML exists in `docs/_spec/components/` for the component.
 - YAML frontmatter present (`doc_type`, `doc_status`, `figma.*`)
 - Summary filled (no TBD)
 - Anatomy filled

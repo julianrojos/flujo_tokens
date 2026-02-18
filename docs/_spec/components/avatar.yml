@@ -1,0 +1,58 @@
+name: Avatar
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: TBD
+  component_set: Avatar
+
+summary:
+  purpose: Displays a profile image inside a bordered rounded square.
+  when_to_use: Use to represent a user or entity with a square image.
+  when_not_to_use: Do not use as an icon button or status indicator.
+
+anatomy:
+  - id: container
+    description: Clipped outer container with border and corner radius.
+  - id: image_layer
+    description: Image-filled rectangle (`Img_bg`) that provides visual content.
+
+properties: []
+
+content_guidelines:
+  rules:
+    - This component has no text content.
+
+best_practices:
+  do:
+    - Use square source images to avoid unexpected crops.
+    - Keep avatar size consistent inside the same UI context.
+  dont:
+    - Stretch non-square images.
+    - Rely on this component for interaction states not defined in Figma.
+
+accessibility:
+  role: img
+  focus:
+    tokens:
+      inner: "Semantic.Color.Focus-Outline.Inner"
+      outer: "Semantic.Color.Focus-Outline.Outer"
+  hit_area:
+    desktop_token: "A11y.A11y.modeDesktop.Dimension.Min-Hit-Area"
+    mobile_token: "A11y.A11y.modeMobile.Dimension.Min-Hit-Area"
+  labeling:
+    rules:
+      - Use descriptive alt text when image content is informative.
+      - Use decorative treatment when image content is purely presentational.
+
+token_mapping:
+  container.border-color:
+    "default": "Color/Border/Neutral/Default"
+  container.border-radius:
+    "default": "Dimension/Border/Radius/200"
+  container.border-width:
+    "default": "Dimension/Border/Width/200"
+
+qa:
+  - "Properties match the Figma component set."
+  - "Token mapping uses real token keys."
+  - "No size or interaction variants are currently defined in Figma."
