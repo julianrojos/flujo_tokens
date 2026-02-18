@@ -534,10 +534,10 @@ async function main() {
         }
 
         console.log('🧾 Exporting token registry...');
-        const registryEntries = exportTokenRegistry(baseScopeProcessingCtx);
-        writeTokenRegistry(REGISTRY_OUTPUT, registryEntries);
+        const registryIndex = exportTokenRegistry(baseScopeProcessingCtx);
+        writeTokenRegistry(REGISTRY_OUTPUT, registryIndex);
         const outputLabel = path.relative(process.cwd(), REGISTRY_OUTPUT) || REGISTRY_OUTPUT;
-        console.log(`✅ Token registry exported to ${outputLabel} (${registryEntries.length} entries)`);
+        console.log(`✅ Token registry exported to ${outputLabel} (${registryIndex.entries.length} entries)`);
     }
 
     printExecutionSummary(summary);

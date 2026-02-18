@@ -35,7 +35,8 @@ function pushInlineSegment(segments, text, style) {
 
 function parseInlineFormatting(raw) {
   const input = String(raw == null ? "" : raw);
-  const tokenRegex = /(\*\*([^*]+?)\*\*|_([^_\n]+?)_|`([^`\n]+?)`)/g;
+  // Order matters: bold_italic (***) before bold (**) before italic (_) before code (`)
+  const tokenRegex = /(\*\*\*([^*]+?)\*\*\*|\*\*([^*]+?)\*\*|_([^_\n]+?)_|`([^`\n]+?)`)/g;
   const segments = [];
   let plainText = "";
   let cursor = 0;
@@ -52,14 +53,17 @@ function parseInlineFormatting(raw) {
     let style = "normal";
     let styledText = "";
     if (match[2] != null) {
-      style = "bold";
+      style = "bold_italic";
       styledText = match[2];
     } else if (match[3] != null) {
-      style = "italic";
+      style = "bold";
       styledText = match[3];
     } else if (match[4] != null) {
-      style = "code";
+      style = "italic";
       styledText = match[4];
+    } else if (match[5] != null) {
+      style = "code";
+      styledText = match[5];
     }
 
     plainText += styledText;

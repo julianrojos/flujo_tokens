@@ -77,7 +77,7 @@ function normalizeInlineSegments(rawSegments, fallbackText) {
 
     const style = String(rawSegment && rawSegment.style ? rawSegment.style : "normal");
     const safeStyle =
-      style === "bold" || style === "italic" || style === "code" || style === "normal"
+      style === "bold" || style === "italic" || style === "bold_italic" || style === "code" || style === "normal"
         ? style
         : "normal";
 
@@ -110,7 +110,9 @@ function applySegmentFormatting(node, segments, family, theme) {
     if (end <= offset) continue;
 
     try {
-      if (segment.style === "bold") {
+      if (segment.style === "bold_italic") {
+        node.setRangeFontName(offset, end, { family, style: "Bold Italic" });
+      } else if (segment.style === "bold") {
         node.setRangeFontName(offset, end, { family, style: "Bold" });
       } else if (segment.style === "italic") {
         node.setRangeFontName(offset, end, { family, style: "Italic" });

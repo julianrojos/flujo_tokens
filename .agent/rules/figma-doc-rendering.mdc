@@ -46,6 +46,7 @@ Input markdown is expected to follow the authoring subset from `markdown-figma-s
 ## Inline formatting
 
 - Inline emphasis in supported text blocks must be preserved from Markdown to Figma:
+  - `***bold italic***`
   - `**bold**`
   - `_italic_` / `*italic*`
   - `` `code` ``

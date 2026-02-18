@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DOCS_ROOT } from "./paths.mjs";
 
-export const DEFAULT_TOKEN_REGISTRY_PATH = `${DOCS_ROOT}/_generated/token-registry.json`;
+export const DEFAULT_TOKEN_REGISTRY_PATH = path.join(DOCS_ROOT, "_generated", "token-registry.json");
 
 export function loadTokenRegistry(registryPath = DEFAULT_TOKEN_REGISTRY_PATH) {
   const absolutePath = path.resolve(registryPath);
@@ -19,6 +19,17 @@ export function loadTokenRegistry(registryPath = DEFAULT_TOKEN_REGISTRY_PATH) {
     throw new Error(`Invalid token registry JSON at ${absolutePath}: ${message}`);
   }
 
+  // New indexed format: { entries: [...], byPath: {...}, bySlashPath: {...} }
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && Array.isArray(parsed.entries)) {
+    const index = Object.create(null);
+    for (const key of Object.keys(parsed.byPath || {})) index[key] = parsed.byPath[key];
+    for (const key of Object.keys(parsed.bySlashPath || {})) {
+      if (index[key] === undefined) index[key] = parsed.bySlashPath[key];
+    }
+    return index;
+  }
+
+  // Legacy array format (backward compat)
   if (Array.isArray(parsed)) {
     const index = Object.create(null);
     for (const entry of parsed) {

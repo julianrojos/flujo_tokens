@@ -1640,96 +1640,6 @@
     {
       "type": "heading",
       "level": 2,
-      "text": "Discrepancias detectadas",
-      "segments": [
-        {
-          "text": "Discrepancias detectadas",
-          "style": "normal"
-        }
-      ]
-    },
-    {
-      "type": "table",
-      "header": [
-        "Discrepancia",
-        "Impacto",
-        "Accion pendiente",
-        "Estado"
-      ],
-      "headerSegments": [
-        [
-          {
-            "text": "Discrepancia",
-            "style": "normal"
-          }
-        ],
-        [
-          {
-            "text": "Impacto",
-            "style": "normal"
-          }
-        ],
-        [
-          {
-            "text": "Accion pendiente",
-            "style": "normal"
-          }
-        ],
-        [
-          {
-            "text": "Estado",
-            "style": "normal"
-          }
-        ]
-      ],
-      "rows": [
-        [
-          "Container background is hardcoded as #ECECEC instead of using a semantic token.",
-          "Reduces token governance consistency and theme portability.",
-          "Map container background to a semantic token or document this as an accepted exception.",
-          "open"
-        ]
-      ],
-      "rowSegments": [
-        [
-          [
-            {
-              "text": "Container background is hardcoded as ",
-              "style": "normal"
-            },
-            {
-              "text": "#ECECEC",
-              "style": "code"
-            },
-            {
-              "text": " instead of using a semantic token.",
-              "style": "normal"
-            }
-          ],
-          [
-            {
-              "text": "Reduces token governance consistency and theme portability.",
-              "style": "normal"
-            }
-          ],
-          [
-            {
-              "text": "Map container background to a semantic token or document this as an accepted exception.",
-              "style": "normal"
-            }
-          ],
-          [
-            {
-              "text": "open",
-              "style": "code"
-            }
-          ]
-        ]
-      ]
-    },
-    {
-      "type": "heading",
-      "level": 2,
       "text": "Usage Guidelines",
       "segments": [
         {
@@ -2322,6 +2232,96 @@
             }
           ]
         }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 2,
+      "text": "Design–Token Discrepancies",
+      "segments": [
+        {
+          "text": "Design–Token Discrepancies",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "header": [
+        "Discrepancy",
+        "Impact",
+        "Pending action",
+        "Status"
+      ],
+      "headerSegments": [
+        [
+          {
+            "text": "Discrepancy",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Impact",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Pending action",
+            "style": "normal"
+          }
+        ],
+        [
+          {
+            "text": "Status",
+            "style": "normal"
+          }
+        ]
+      ],
+      "rows": [
+        [
+          "Container background is hardcoded as #ECECEC instead of using a semantic token.",
+          "Reduces token governance consistency and theme portability.",
+          "Map container background to a semantic token or document this as an accepted exception.",
+          "open"
+        ]
+      ],
+      "rowSegments": [
+        [
+          [
+            {
+              "text": "Container background is hardcoded as ",
+              "style": "normal"
+            },
+            {
+              "text": "#ECECEC",
+              "style": "code"
+            },
+            {
+              "text": " instead of using a semantic token.",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Reduces token governance consistency and theme portability.",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Map container background to a semantic token or document this as an accepted exception.",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "open",
+              "style": "code"
+            }
+          ]
+        ]
       ]
     },
     {

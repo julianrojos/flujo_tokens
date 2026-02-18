@@ -92,7 +92,13 @@ function upsertRegistryEntry(
     registry.set(key, entry);
 }
 
-export function exportTokenRegistry(ctx: Readonly<EmissionContext>): TokenRegistryEntry[] {
+export interface TokenRegistryIndex {
+    entries: TokenRegistryEntry[];
+    byPath: Record<string, TokenRegistryEntry>;
+    bySlashPath: Record<string, TokenRegistryEntry>;
+}
+
+export function exportTokenRegistry(ctx: Readonly<EmissionContext>): TokenRegistryIndex {
     const localSummary = createSummary();
     const localCtx: EmissionContext = {
         ...ctx,
@@ -176,15 +182,24 @@ export function exportTokenRegistry(ctx: Readonly<EmissionContext>): TokenRegist
         true
     );
 
-    return Array.from(registry.values()).sort((a, b) =>
+    const entries = Array.from(registry.values()).sort((a, b) =>
         a.path.localeCompare(b.path, 'en', { sensitivity: 'base' })
     );
+
+    const byPath: Record<string, TokenRegistryEntry> = Object.create(null);
+    const bySlashPath: Record<string, TokenRegistryEntry> = Object.create(null);
+    for (const entry of entries) {
+        if (entry.path) byPath[entry.path] = entry;
+        if (entry.slashPath) bySlashPath[entry.slashPath] = entry;
+    }
+
+    return { entries, byPath, bySlashPath };
 }
 
-export function writeTokenRegistry(filePath: string, entries: TokenRegistryEntry[]): void {
+export function writeTokenRegistry(filePath: string, index: TokenRegistryIndex): void {
     const outputDir = path.dirname(filePath);
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
-    fs.writeFileSync(filePath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8');
+    fs.writeFileSync(filePath, `${JSON.stringify(index, null, 2)}\n`, 'utf-8');
 }

@@ -110,12 +110,6 @@ The root container has no independent interaction state. State behavior is contr
 | `Default` | Baseline item appearance | `TBD` | Defined by nested button variant |
 | `Selected` | Active destination appearance | `TBD` | Defined by nested button variant |
 
-## Discrepancias detectadas
-
-| Discrepancia | Impacto | Accion pendiente | Estado |
-| --- | --- | --- | --- |
-| Container background is hardcoded as `#ECECEC` instead of using a semantic token. | Reduces token governance consistency and theme portability. | Map container background to a semantic token or document this as an accepted exception. | `open` |
-
 ## Usage Guidelines
 
 - **When to use**: Use as primary bottom navigation for mobile layouts with persistent destinations.
@@ -173,6 +167,12 @@ The root container has no independent interaction state. State behavior is contr
 
 - [Status Bar](status_bar.md): Use together with bottom navigation in full mobile chrome compositions.
 - [Alert](alert.md): Use for contextual feedback, not for destination switching.
+
+## Design–Token Discrepancies
+
+| Discrepancy | Impact | Pending action | Status |
+| --- | --- | --- | --- |
+| Container background is hardcoded as `#ECECEC` instead of using a semantic token. | Reduces token governance consistency and theme portability. | Map container background to a semantic token or document this as an accepted exception. | `open` |
 
 ## Gaps / TBD
 
