@@ -1,0 +1,4325 @@
+{
+  "model": {
+    "version": 2,
+    "componentName": "Button",
+    "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/button.md",
+    "title": "Button",
+    "blocks": [
+      {
+        "type": "heading",
+        "level": 1,
+        "text": "Button",
+        "segments": [
+          {
+            "text": "Button",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "The Button component triggers a user action with optional leading and trailing icons.",
+        "segments": [
+          {
+            "text": "The ",
+            "style": "normal"
+          },
+          {
+            "text": "Button",
+            "style": "bold"
+          },
+          {
+            "text": " component triggers a user action with optional leading and trailing icons.",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Overview",
+        "segments": [
+          {
+            "text": "Overview",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "In Figma, this component is defined as a COMPONENT_SET (Button) with two variant properties:",
+        "segments": [
+          {
+            "text": "In Figma, this component is defined as a ",
+            "style": "normal"
+          },
+          {
+            "text": "COMPONENT_SET",
+            "style": "code"
+          },
+          {
+            "text": " (",
+            "style": "normal"
+          },
+          {
+            "text": "Button",
+            "style": "code"
+          },
+          {
+            "text": ") with two variant properties:",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "State: Default, Hover, Active, Disabled",
+            "segments": [
+              {
+                "text": "State",
+                "style": "code"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "Default",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Hover",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Active",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Disabled",
+                "style": "code"
+              }
+            ]
+          },
+          {
+            "text": "Type: Primary, Secondary, Cancel",
+            "segments": [
+              {
+                "text": "Type",
+                "style": "code"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "Primary",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Secondary",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Cancel",
+                "style": "code"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "It also exposes content and visibility properties for text and icon instances:",
+        "segments": [
+          {
+            "text": "It also exposes content and visibility properties for text and icon instances:",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "↳ Change txt (TEXT)",
+            "segments": [
+              {
+                "text": "↳ Change txt",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "TEXT",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "View txt (BOOLEAN)",
+            "segments": [
+              {
+                "text": "View txt",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "BOOLEAN",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "View icn left (BOOLEAN)",
+            "segments": [
+              {
+                "text": "View icn left",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "BOOLEAN",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "View icn right (BOOLEAN)",
+            "segments": [
+              {
+                "text": "View icn right",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "BOOLEAN",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "↳ Change icn left (INSTANCE_SWAP)",
+            "segments": [
+              {
+                "text": "↳ Change icn left",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "INSTANCE_SWAP",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "↳ Change icn right (INSTANCE_SWAP)",
+            "segments": [
+              {
+                "text": "↳ Change icn right",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "INSTANCE_SWAP",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "All 12 variants share the same frame size and auto-layout structure.",
+        "segments": [
+          {
+            "text": "All 12 variants share the same frame size and auto-layout structure.",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Source: [Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097)",
+        "segments": [
+          {
+            "text": "Source: [Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097)",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Anatomy",
+        "segments": [
+          {
+            "text": "Anatomy",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": true,
+        "items": [
+          {
+            "index": 1,
+            "text": "Container: Horizontal auto-layout frame that carries background, border, radius, and state/type styling.",
+            "segments": [
+              {
+                "text": "Container",
+                "style": "bold"
+              },
+              {
+                "text": ": Horizontal auto-layout frame that carries background, border, radius, and state/type styling.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "index": 2,
+            "text": "Leading icon: Optional INSTANCE (default icon: arrow-left-square-contained, 24 x 24).",
+            "segments": [
+              {
+                "text": "Leading icon",
+                "style": "bold"
+              },
+              {
+                "text": ": Optional ",
+                "style": "normal"
+              },
+              {
+                "text": "INSTANCE",
+                "style": "code"
+              },
+              {
+                "text": " (default icon: ",
+                "style": "normal"
+              },
+              {
+                "text": "arrow-left-square-contained",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "24 x 24",
+                "style": "code"
+              },
+              {
+                "text": ").",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "index": 3,
+            "text": "Label: Optional TEXT node (default content: Button).",
+            "segments": [
+              {
+                "text": "Label",
+                "style": "bold"
+              },
+              {
+                "text": ": Optional ",
+                "style": "normal"
+              },
+              {
+                "text": "TEXT",
+                "style": "code"
+              },
+              {
+                "text": " node (default content: ",
+                "style": "normal"
+              },
+              {
+                "text": "Button",
+                "style": "code"
+              },
+              {
+                "text": ").",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "index": 4,
+            "text": "Trailing icon: Optional INSTANCE (default icon: arrow-right-square-contained, 24 x 24).",
+            "segments": [
+              {
+                "text": "Trailing icon",
+                "style": "bold"
+              },
+              {
+                "text": ": Optional ",
+                "style": "normal"
+              },
+              {
+                "text": "INSTANCE",
+                "style": "code"
+              },
+              {
+                "text": " (default icon: ",
+                "style": "normal"
+              },
+              {
+                "text": "arrow-right-square-contained",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "24 x 24",
+                "style": "code"
+              },
+              {
+                "text": ").",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "paragraph",
+        "text": "Current variant dimensions in Figma:",
+        "segments": [
+          {
+            "text": "Current variant dimensions in Figma:",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "All variants: 133 x 44",
+            "segments": [
+              {
+                "text": "All variants: ",
+                "style": "normal"
+              },
+              {
+                "text": "133 x 44",
+                "style": "code"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Component API",
+        "segments": [
+          {
+            "text": "Component API",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Properties",
+        "segments": [
+          {
+            "text": "Properties",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "header": [
+          "Name",
+          "Type",
+          "Default",
+          "Required",
+          "Description"
+        ],
+        "headerSegments": [
+          [
+            {
+              "text": "Name",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Type",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Default",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Required",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Description",
+              "style": "normal"
+            }
+          ]
+        ],
+        "rows": [
+          [
+            "State",
+            "VARIANT",
+            "Default",
+            "true",
+            "Interaction state axis. Options: Default, Hover, Active, Disabled."
+          ],
+          [
+            "Type",
+            "VARIANT",
+            "Primary",
+            "true",
+            "Semantic style axis. Options: Primary, Secondary, Cancel."
+          ],
+          [
+            "↳ Change txt",
+            "TEXT",
+            "Button",
+            "TBD",
+            "Overrides the label copy."
+          ],
+          [
+            "View txt",
+            "BOOLEAN",
+            "true",
+            "TBD",
+            "Toggles label visibility."
+          ],
+          [
+            "View icn left",
+            "BOOLEAN",
+            "true",
+            "TBD",
+            "Toggles leading icon visibility."
+          ],
+          [
+            "View icn right",
+            "BOOLEAN",
+            "true",
+            "TBD",
+            "Toggles trailing icon visibility."
+          ],
+          [
+            "↳ Change icn left",
+            "INSTANCE_SWAP",
+            "65:430",
+            "TBD",
+            "Swaps the leading icon instance from preferred icon options."
+          ],
+          [
+            "↳ Change icn right",
+            "INSTANCE_SWAP",
+            "65:434",
+            "TBD",
+            "Swaps the trailing icon instance from preferred icon options."
+          ]
+        ],
+        "rowSegments": [
+          [
+            [
+              {
+                "text": "State",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "VARIANT",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "true",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Interaction state axis. Options: ",
+                "style": "normal"
+              },
+              {
+                "text": "Default",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Hover",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Active",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Disabled",
+                "style": "code"
+              },
+              {
+                "text": ".",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Type",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "VARIANT",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Primary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "true",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Semantic style axis. Options: ",
+                "style": "normal"
+              },
+              {
+                "text": "Primary",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Secondary",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Cancel",
+                "style": "code"
+              },
+              {
+                "text": ".",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "↳ Change txt",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "TEXT",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Button",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "TBD",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Overrides the label copy.",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "View txt",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "BOOLEAN",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "true",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "TBD",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Toggles label visibility.",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "View icn left",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "BOOLEAN",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "true",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "TBD",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Toggles leading icon visibility.",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "View icn right",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "BOOLEAN",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "true",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "TBD",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Toggles trailing icon visibility.",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "↳ Change icn left",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "INSTANCE_SWAP",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "65:430",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "TBD",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Swaps the leading icon instance from preferred icon options.",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "↳ Change icn right",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "INSTANCE_SWAP",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "65:434",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "TBD",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Swaps the trailing icon instance from preferred icon options.",
+                "style": "normal"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Visual Specifications",
+        "segments": [
+          {
+            "text": "Visual Specifications",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Container",
+        "segments": [
+          {
+            "text": "Container",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Layout: Auto Layout, HORIZONTAL, center-aligned on both axes",
+            "segments": [
+              {
+                "text": "Layout",
+                "style": "bold"
+              },
+              {
+                "text": ": Auto Layout, ",
+                "style": "normal"
+              },
+              {
+                "text": "HORIZONTAL",
+                "style": "code"
+              },
+              {
+                "text": ", center-aligned on both axes",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Size: 133 x 44",
+            "segments": [
+              {
+                "text": "Size",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "133 x 44",
+                "style": "code"
+              }
+            ]
+          },
+          {
+            "text": "Item spacing: 8px via Dimension/Spacing/400 (8)",
+            "segments": [
+              {
+                "text": "Item spacing",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "8px",
+                "style": "code"
+              },
+              {
+                "text": " via ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Spacing/400",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "8",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Padding: 10px all sides via Dimension/Spacing/500 (10)",
+            "segments": [
+              {
+                "text": "Padding",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "10px",
+                "style": "code"
+              },
+              {
+                "text": " all sides via ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Spacing/500",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "10",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Corner radius: 8px via Dimension/Border/Radius/200 (8)",
+            "segments": [
+              {
+                "text": "Corner radius",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "8px",
+                "style": "code"
+              },
+              {
+                "text": " via ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Border/Radius/200",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "8",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Border width: 1px via Dimension/Border/Width/100 (1)",
+            "segments": [
+              {
+                "text": "Border width",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "1px",
+                "style": "code"
+              },
+              {
+                "text": " via ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Border/Width/100",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "1",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Border color: Color/Border/Neutral/Alpha-10 (#0000001A)",
+            "segments": [
+              {
+                "text": "Border color",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Border/Neutral/Alpha-10",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "#0000001A",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Minimum height token: A11y/Dimension/Min-Hit-Area (24)",
+            "segments": [
+              {
+                "text": "Minimum height token",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "A11y/Dimension/Min-Hit-Area",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "24",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Minimum width token: TBD (binding exists but token name is unresolved in current file metadata)",
+            "segments": [
+              {
+                "text": "Minimum width token",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "TBD",
+                "style": "code"
+              },
+              {
+                "text": " (binding exists but token name is unresolved in current file metadata)",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Typography",
+        "segments": [
+          {
+            "text": "Typography",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Font family: Nunito Sans via Font/Family/Body (Nunito Sans)",
+            "segments": [
+              {
+                "text": "Font family",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "Nunito Sans",
+                "style": "code"
+              },
+              {
+                "text": " via ",
+                "style": "normal"
+              },
+              {
+                "text": "Font/Family/Body",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "Nunito Sans",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Font style: Regular via Font/Weight/Regular (regular)",
+            "segments": [
+              {
+                "text": "Font style",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "Regular",
+                "style": "code"
+              },
+              {
+                "text": " via ",
+                "style": "normal"
+              },
+              {
+                "text": "Font/Weight/Regular",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "regular",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Font size: 16 via Font/Size/300 (16)",
+            "segments": [
+              {
+                "text": "Font size",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "16",
+                "style": "code"
+              },
+              {
+                "text": " via ",
+                "style": "normal"
+              },
+              {
+                "text": "Font/Size/300",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "16",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Line height: 24 via Font/Line-Height/300 (24)",
+            "segments": [
+              {
+                "text": "Line height",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "24",
+                "style": "code"
+              },
+              {
+                "text": " via ",
+                "style": "normal"
+              },
+              {
+                "text": "Font/Line-Height/300",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "24",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Letter spacing: 0%",
+            "segments": [
+              {
+                "text": "Letter spacing",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "0%",
+                "style": "code"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Iconography",
+        "segments": [
+          {
+            "text": "Iconography",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Leading icon: default arrow-left-square-contained, 24 x 24",
+            "segments": [
+              {
+                "text": "Leading icon",
+                "style": "bold"
+              },
+              {
+                "text": ": default ",
+                "style": "normal"
+              },
+              {
+                "text": "arrow-left-square-contained",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "24 x 24",
+                "style": "code"
+              }
+            ]
+          },
+          {
+            "text": "Trailing icon: default arrow-right-square-contained, 24 x 24",
+            "segments": [
+              {
+                "text": "Trailing icon",
+                "style": "bold"
+              },
+              {
+                "text": ": default ",
+                "style": "normal"
+              },
+              {
+                "text": "arrow-right-square-contained",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "24 x 24",
+                "style": "code"
+              }
+            ]
+          },
+          {
+            "text": "Icon color token mapping: TBD at this component-set level (icons are nested instances)",
+            "segments": [
+              {
+                "text": "Icon color token mapping",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "TBD",
+                "style": "code"
+              },
+              {
+                "text": " at this component-set level (icons are nested instances)",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Elevation",
+        "segments": [
+          {
+            "text": "Elevation",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Default state shadow tokens: Dimension/Shadow/X/Default/100 (0), Dimension/Shadow/Y/Default/100 (4), Dimension/Shadow/Blur/Default/100 (12), Dimension/Shadow/Spread/Default/100 (0), Color/Shadow/100 (#00000014)",
+            "segments": [
+              {
+                "text": "Default state shadow tokens",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Shadow/X/Default/100",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "0",
+                "style": "code"
+              },
+              {
+                "text": "), ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Shadow/Y/Default/100",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "4",
+                "style": "code"
+              },
+              {
+                "text": "), ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Shadow/Blur/Default/100",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "12",
+                "style": "code"
+              },
+              {
+                "text": "), ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Shadow/Spread/Default/100",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "0",
+                "style": "code"
+              },
+              {
+                "text": "), ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Shadow/100",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "#00000014",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Hover state shadow tokens: Dimension/Shadow/X/Default/200 (0), Dimension/Shadow/Y/Default/200 (4), Dimension/Shadow/Blur/Default/200 (16), Dimension/Shadow/Spread/Default/200 (0), Color/Shadow/200 (#00000029)",
+            "segments": [
+              {
+                "text": "Hover state shadow tokens",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Shadow/X/Default/200",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "0",
+                "style": "code"
+              },
+              {
+                "text": "), ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Shadow/Y/Default/200",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "4",
+                "style": "code"
+              },
+              {
+                "text": "), ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Shadow/Blur/Default/200",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "16",
+                "style": "code"
+              },
+              {
+                "text": "), ",
+                "style": "normal"
+              },
+              {
+                "text": "Dimension/Shadow/Spread/Default/200",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "0",
+                "style": "code"
+              },
+              {
+                "text": "), ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Shadow/200",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "#00000029",
+                "style": "code"
+              },
+              {
+                "text": ")",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Active / Disabled: no bound effect tokens in current variants",
+            "segments": [
+              {
+                "text": "Active / Disabled",
+                "style": "bold"
+              },
+              {
+                "text": ": no bound effect tokens in current variants",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "Token Mapping",
+        "segments": [
+          {
+            "text": "Token Mapping",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "header": [
+          "Part",
+          "Condition",
+          "Token",
+          "Fallback"
+        ],
+        "headerSegments": [
+          [
+            {
+              "text": "Part",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Condition",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Token",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Fallback",
+              "style": "normal"
+            }
+          ]
+        ],
+        "rows": [
+          [
+            "container.background",
+            "type=Primary,state=Default",
+            "Color/Background/Action/Primary/Default",
+            "#ADD8E6"
+          ],
+          [
+            "container.background",
+            "type=Primary,state=Hover",
+            "Color/Background/Action/Primary/Hover",
+            "#C5F0FF"
+          ],
+          [
+            "container.background",
+            "type=Primary,state=Active",
+            "Color/Background/Action/Primary/Active",
+            "#96BFCC"
+          ],
+          [
+            "container.background",
+            "type=Secondary,state=Default",
+            "Color/Background/Action/Secondary/Default",
+            "#C9E0BE"
+          ],
+          [
+            "container.background",
+            "type=Secondary,state=Hover",
+            "Color/Background/Action/Secondary/Hover",
+            "#E0F7D6"
+          ],
+          [
+            "container.background",
+            "type=Secondary,state=Active",
+            "Color/Background/Action/Secondary/Active",
+            "#B2C9A7"
+          ],
+          [
+            "container.background",
+            "type=Cancel,state=Default",
+            "Color/Background/Action/Danger/Default",
+            "#B22222"
+          ],
+          [
+            "container.background",
+            "type=Cancel,state=Hover",
+            "Color/Background/Action/Danger/Hover",
+            "#D43636"
+          ],
+          [
+            "container.background",
+            "type=Cancel,state=Active",
+            "Color/Background/Action/Danger/Active",
+            "#901212"
+          ],
+          [
+            "container.background",
+            "state=Disabled",
+            "Color/Background/Action/Disabled/Default",
+            "#ECECEC"
+          ],
+          [
+            "container.border",
+            "all variants",
+            "Color/Border/Neutral/Alpha-10",
+            "#0000001A"
+          ],
+          [
+            "label.color",
+            "type=Primary,state!=Disabled",
+            "Color/Text/Action/On-Primary",
+            "#483F3F"
+          ],
+          [
+            "label.color",
+            "type=Secondary,state!=Disabled",
+            "Color/Text/Action/On-Secondary",
+            "#483F3F"
+          ],
+          [
+            "label.color",
+            "type=Cancel,state!=Disabled",
+            "Color/Text/Action/On-Danger",
+            "#FFFFFF"
+          ],
+          [
+            "label.color",
+            "state=Disabled",
+            "Color/Text/Action/On-Disabled",
+            "#5D5252"
+          ]
+        ],
+        "rowSegments": [
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Primary,state=Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Primary/Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#ADD8E6",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Primary,state=Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Primary/Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#C5F0FF",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Primary,state=Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Primary/Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#96BFCC",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Secondary,state=Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Secondary/Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#C9E0BE",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Secondary,state=Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Secondary/Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#E0F7D6",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Secondary,state=Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Secondary/Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#B2C9A7",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Cancel,state=Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Danger/Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#B22222",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Cancel,state=Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Danger/Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#D43636",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Cancel,state=Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Danger/Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#901212",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.background",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "state=Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Disabled/Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#ECECEC",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "container.border",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "all variants",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "Color/Border/Neutral/Alpha-10",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#0000001A",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "label.color",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Primary,state!=Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Text/Action/On-Primary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#483F3F",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "label.color",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Secondary,state!=Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Text/Action/On-Secondary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#483F3F",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "label.color",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "type=Cancel,state!=Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Text/Action/On-Danger",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#FFFFFF",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "label.color",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "state=Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Text/Action/On-Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#5D5252",
+                "style": "code"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Variants",
+        "segments": [
+          {
+            "text": "Variants",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "header": [
+          "Type",
+          "State",
+          "Differentiating token(s)",
+          "Fallback value(s)",
+          "Visual indicator",
+          "Node"
+        ],
+        "headerSegments": [
+          [
+            {
+              "text": "Type",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "State",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Differentiating token(s)",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Fallback value(s)",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Visual indicator",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Node",
+              "style": "normal"
+            }
+          ]
+        ],
+        "rows": [
+          [
+            "Primary",
+            "Default",
+            "Color/Background/Action/Primary/Default, Color/Text/Action/On-Primary, shadow 100 set",
+            "#ADD8E6, #483F3F, #00000014",
+            "Blue background, dark text/icons, medium shadow",
+            "59:391"
+          ],
+          [
+            "Primary",
+            "Hover",
+            "Color/Background/Action/Primary/Hover, Color/Text/Action/On-Primary, shadow 200 set",
+            "#C5F0FF, #483F3F, #00000029",
+            "Lighter blue background, stronger shadow",
+            "68:4126"
+          ],
+          [
+            "Primary",
+            "Active",
+            "Color/Background/Action/Primary/Active, Color/Text/Action/On-Primary",
+            "#96BFCC, #483F3F",
+            "Darker blue background, no shadow",
+            "68:4157"
+          ],
+          [
+            "Primary",
+            "Disabled",
+            "Color/Background/Action/Disabled/Default, Color/Text/Action/On-Disabled",
+            "#ECECEC, #5D5252",
+            "Neutral disabled surface and text",
+            "68:4185"
+          ],
+          [
+            "Secondary",
+            "Default",
+            "Color/Background/Action/Secondary/Default, Color/Text/Action/On-Secondary, shadow 100 set",
+            "#C9E0BE, #483F3F, #00000014",
+            "Light green background, dark text/icons",
+            "68:4098"
+          ],
+          [
+            "Secondary",
+            "Hover",
+            "Color/Background/Action/Secondary/Hover, Color/Text/Action/On-Secondary, shadow 200 set",
+            "#E0F7D6, #483F3F, #00000029",
+            "Lighter green background, stronger shadow",
+            "68:4236"
+          ],
+          [
+            "Secondary",
+            "Active",
+            "Color/Background/Action/Secondary/Active, Color/Text/Action/On-Secondary",
+            "#B2C9A7, #483F3F",
+            "Darker green background, no shadow",
+            "68:4256"
+          ],
+          [
+            "Secondary",
+            "Disabled",
+            "Color/Background/Action/Disabled/Default, Color/Text/Action/On-Disabled",
+            "#ECECEC, #5D5252",
+            "Neutral disabled surface and text",
+            "68:4276"
+          ],
+          [
+            "Cancel",
+            "Default",
+            "Color/Background/Action/Danger/Default, Color/Text/Action/On-Danger, shadow 100 set",
+            "#B22222, #FFFFFF, #00000014",
+            "Red background, white text/icons",
+            "68:4104"
+          ],
+          [
+            "Cancel",
+            "Hover",
+            "Color/Background/Action/Danger/Hover, Color/Text/Action/On-Danger, shadow 200 set",
+            "#D43636, #FFFFFF, #00000029",
+            "Lighter red background, stronger shadow",
+            "74:4294"
+          ],
+          [
+            "Cancel",
+            "Active",
+            "Color/Background/Action/Danger/Active, Color/Text/Action/On-Danger",
+            "#901212, #FFFFFF",
+            "Darker red background, no shadow",
+            "77:4322"
+          ],
+          [
+            "Cancel",
+            "Disabled",
+            "Color/Background/Action/Disabled/Default, Color/Text/Action/On-Disabled",
+            "#ECECEC, #5D5252",
+            "Neutral disabled surface and text",
+            "77:4374"
+          ]
+        ],
+        "rowSegments": [
+          [
+            [
+              {
+                "text": "Primary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Primary/Default",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Primary",
+                "style": "code"
+              },
+              {
+                "text": ", shadow ",
+                "style": "normal"
+              },
+              {
+                "text": "100",
+                "style": "code"
+              },
+              {
+                "text": " set",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "#ADD8E6",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#483F3F",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#00000014",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Blue background, dark text/icons, medium shadow",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "59:391",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Primary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Primary/Hover",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Primary",
+                "style": "code"
+              },
+              {
+                "text": ", shadow ",
+                "style": "normal"
+              },
+              {
+                "text": "200",
+                "style": "code"
+              },
+              {
+                "text": " set",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "#C5F0FF",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#483F3F",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#00000029",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Lighter blue background, stronger shadow",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "68:4126",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Primary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Primary/Active",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Primary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#96BFCC",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#483F3F",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Darker blue background, no shadow",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "68:4157",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Primary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Disabled/Default",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#ECECEC",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#5D5252",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Neutral disabled surface and text",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "68:4185",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Secondary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Secondary/Default",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Secondary",
+                "style": "code"
+              },
+              {
+                "text": ", shadow ",
+                "style": "normal"
+              },
+              {
+                "text": "100",
+                "style": "code"
+              },
+              {
+                "text": " set",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "#C9E0BE",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#483F3F",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#00000014",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Light green background, dark text/icons",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "68:4098",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Secondary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Secondary/Hover",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Secondary",
+                "style": "code"
+              },
+              {
+                "text": ", shadow ",
+                "style": "normal"
+              },
+              {
+                "text": "200",
+                "style": "code"
+              },
+              {
+                "text": " set",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "#E0F7D6",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#483F3F",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#00000029",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Lighter green background, stronger shadow",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "68:4236",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Secondary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Secondary/Active",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Secondary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#B2C9A7",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#483F3F",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Darker green background, no shadow",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "68:4256",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Secondary",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Disabled/Default",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#ECECEC",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#5D5252",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Neutral disabled surface and text",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "68:4276",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Cancel",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Default",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Danger/Default",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Danger",
+                "style": "code"
+              },
+              {
+                "text": ", shadow ",
+                "style": "normal"
+              },
+              {
+                "text": "100",
+                "style": "code"
+              },
+              {
+                "text": " set",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "#B22222",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#FFFFFF",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#00000014",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Red background, white text/icons",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "68:4104",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Cancel",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Hover",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Danger/Hover",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Danger",
+                "style": "code"
+              },
+              {
+                "text": ", shadow ",
+                "style": "normal"
+              },
+              {
+                "text": "200",
+                "style": "code"
+              },
+              {
+                "text": " set",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "#D43636",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#FFFFFF",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#00000029",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Lighter red background, stronger shadow",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "74:4294",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Cancel",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Active",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Danger/Active",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Danger",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#901212",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#FFFFFF",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Darker red background, no shadow",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "77:4322",
+                "style": "code"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Cancel",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Color/Background/Action/Disabled/Default",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Disabled",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "#ECECEC",
+                "style": "code"
+              },
+              {
+                "text": ", ",
+                "style": "normal"
+              },
+              {
+                "text": "#5D5252",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Neutral disabled surface and text",
+                "style": "normal"
+              }
+            ],
+            [
+              {
+                "text": "77:4374",
+                "style": "code"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "States",
+        "segments": [
+          {
+            "text": "States",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Default: Uses each type’s /Default background token and the shadow 100 token set.",
+            "segments": [
+              {
+                "text": "Default",
+                "style": "bold"
+              },
+              {
+                "text": ": Uses each type’s ",
+                "style": "normal"
+              },
+              {
+                "text": "/Default",
+                "style": "code"
+              },
+              {
+                "text": " background token and the shadow ",
+                "style": "normal"
+              },
+              {
+                "text": "100",
+                "style": "code"
+              },
+              {
+                "text": " token set.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Hover: Uses each type’s /Hover background token and the shadow 200 token set.",
+            "segments": [
+              {
+                "text": "Hover",
+                "style": "bold"
+              },
+              {
+                "text": ": Uses each type’s ",
+                "style": "normal"
+              },
+              {
+                "text": "/Hover",
+                "style": "code"
+              },
+              {
+                "text": " background token and the shadow ",
+                "style": "normal"
+              },
+              {
+                "text": "200",
+                "style": "code"
+              },
+              {
+                "text": " token set.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Active: Uses each type’s /Active background token and removes shadow tokens.",
+            "segments": [
+              {
+                "text": "Active",
+                "style": "bold"
+              },
+              {
+                "text": ": Uses each type’s ",
+                "style": "normal"
+              },
+              {
+                "text": "/Active",
+                "style": "code"
+              },
+              {
+                "text": " background token and removes shadow tokens.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Disabled: Uses shared disabled tokens Color/Background/Action/Disabled/Default (#ECECEC) and Color/Text/Action/On-Disabled (#5D5252) across all three types.",
+            "segments": [
+              {
+                "text": "Disabled",
+                "style": "bold"
+              },
+              {
+                "text": ": Uses shared disabled tokens ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Background/Action/Disabled/Default",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "#ECECEC",
+                "style": "code"
+              },
+              {
+                "text": ") and ",
+                "style": "normal"
+              },
+              {
+                "text": "Color/Text/Action/On-Disabled",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "#5D5252",
+                "style": "code"
+              },
+              {
+                "text": ") across all three types.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Focus: TBD in this component set (no dedicated focus variant axis in Figma).",
+            "segments": [
+              {
+                "text": "Focus",
+                "style": "bold"
+              },
+              {
+                "text": ": ",
+                "style": "normal"
+              },
+              {
+                "text": "TBD",
+                "style": "code"
+              },
+              {
+                "text": " in this component set (no dedicated focus variant axis in Figma).",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Loading: Not defined in this component set.",
+            "segments": [
+              {
+                "text": "Loading",
+                "style": "bold"
+              },
+              {
+                "text": ": Not defined in this component set.",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Usage Guidelines",
+        "segments": [
+          {
+            "text": "Usage Guidelines",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "When to use: Use for explicit user-triggered actions in flows where text and optional directional icons improve clarity.",
+            "segments": [
+              {
+                "text": "When to use",
+                "style": "bold"
+              },
+              {
+                "text": ": Use for explicit user-triggered actions in flows where text and optional directional icons improve clarity.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "When not to use: Do not use this component as persistent navigation chrome.",
+            "segments": [
+              {
+                "text": "When not to use",
+                "style": "bold"
+              },
+              {
+                "text": ": Do not use this component as persistent navigation chrome.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Do: Keep State and Type aligned with interaction and semantic intent.",
+            "segments": [
+              {
+                "text": "Do",
+                "style": "bold"
+              },
+              {
+                "text": ": Keep ",
+                "style": "normal"
+              },
+              {
+                "text": "State",
+                "style": "code"
+              },
+              {
+                "text": " and ",
+                "style": "normal"
+              },
+              {
+                "text": "Type",
+                "style": "code"
+              },
+              {
+                "text": " aligned with interaction and semantic intent.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Do: Keep icon visibility and label visibility consistent with the accessible name strategy.",
+            "segments": [
+              {
+                "text": "Do",
+                "style": "bold"
+              },
+              {
+                "text": ": Keep icon visibility and label visibility consistent with the accessible name strategy.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Don't: Use disabled styling for non-disabled actions.",
+            "segments": [
+              {
+                "text": "Don't",
+                "style": "bold"
+              },
+              {
+                "text": ": Use disabled styling for non-disabled actions.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Don't: Replace semantic action tokens with ad-hoc color values.",
+            "segments": [
+              {
+                "text": "Don't",
+                "style": "bold"
+              },
+              {
+                "text": ": Replace semantic action tokens with ad-hoc color values.",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Content Guidelines",
+        "segments": [
+          {
+            "text": "Content Guidelines",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Prefer short action labels in sentence case (for example, imperative verb phrases).",
+            "segments": [
+              {
+                "text": "Prefer short action labels in sentence case (for example, imperative verb phrases).",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Keep punctuation minimal unless required by the product voice.",
+            "segments": [
+              {
+                "text": "Keep punctuation minimal unless required by the product voice.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Label length limit: TBD (no explicit max width/content rule found on the component set).",
+            "segments": [
+              {
+                "text": "Label length limit: ",
+                "style": "normal"
+              },
+              {
+                "text": "TBD",
+                "style": "code"
+              },
+              {
+                "text": " (no explicit max width/content rule found on the component set).",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Truncation behavior: TBD (no explicit truncation rule found on the component set).",
+            "segments": [
+              {
+                "text": "Truncation behavior: ",
+                "style": "normal"
+              },
+              {
+                "text": "TBD",
+                "style": "code"
+              },
+              {
+                "text": " (no explicit truncation rule found on the component set).",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "If View txt=false, accessible labeling requirements become mandatory (aria-label/aria-labelledby).",
+            "segments": [
+              {
+                "text": "If ",
+                "style": "normal"
+              },
+              {
+                "text": "View txt=false",
+                "style": "code"
+              },
+              {
+                "text": ", accessible labeling requirements become mandatory (",
+                "style": "normal"
+              },
+              {
+                "text": "aria-label",
+                "style": "code"
+              },
+              {
+                "text": "/",
+                "style": "normal"
+              },
+              {
+                "text": "aria-labelledby",
+                "style": "code"
+              },
+              {
+                "text": ").",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Accessibility",
+        "segments": [
+          {
+            "text": "Accessibility",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "1. ARIA role and semantics",
+        "segments": [
+          {
+            "text": "1. ARIA role and semantics",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Expected semantic role: button (native <button> preferred).",
+            "segments": [
+              {
+                "text": "Expected semantic role: ",
+                "style": "normal"
+              },
+              {
+                "text": "button",
+                "style": "code"
+              },
+              {
+                "text": " (native ",
+                "style": "normal"
+              },
+              {
+                "text": "<button>",
+                "style": "code"
+              },
+              {
+                "text": " preferred).",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Required ARIA attributes for default text buttons: none when visible label is present.",
+            "segments": [
+              {
+                "text": "Required ARIA attributes for default text buttons: none when visible label is present.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "If label text is hidden (View txt=false), provide aria-label or aria-labelledby.",
+            "segments": [
+              {
+                "text": "If label text is hidden (",
+                "style": "normal"
+              },
+              {
+                "text": "View txt=false",
+                "style": "code"
+              },
+              {
+                "text": "), provide ",
+                "style": "normal"
+              },
+              {
+                "text": "aria-label",
+                "style": "code"
+              },
+              {
+                "text": " or ",
+                "style": "normal"
+              },
+              {
+                "text": "aria-labelledby",
+                "style": "code"
+              },
+              {
+                "text": ".",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "2. Keyboard navigation",
+        "segments": [
+          {
+            "text": "2. Keyboard navigation",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "table",
+        "header": [
+          "Key",
+          "Action"
+        ],
+        "headerSegments": [
+          [
+            {
+              "text": "Key",
+              "style": "normal"
+            }
+          ],
+          [
+            {
+              "text": "Action",
+              "style": "normal"
+            }
+          ]
+        ],
+        "rows": [
+          [
+            "Tab",
+            "Moves focus to the button"
+          ],
+          [
+            "Shift+Tab",
+            "Moves focus to the previous focusable element"
+          ],
+          [
+            "Enter",
+            "Activates the button action"
+          ],
+          [
+            "Space",
+            "Activates the button action"
+          ]
+        ],
+        "rowSegments": [
+          [
+            [
+              {
+                "text": "Tab",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Moves focus to the button",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Shift+Tab",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Moves focus to the previous focusable element",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Enter",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Activates the button action",
+                "style": "normal"
+              }
+            ]
+          ],
+          [
+            [
+              {
+                "text": "Space",
+                "style": "code"
+              }
+            ],
+            [
+              {
+                "text": "Activates the button action",
+                "style": "normal"
+              }
+            ]
+          ]
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "3. Focus management",
+        "segments": [
+          {
+            "text": "3. Focus management",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Focus behavior should follow native button behavior in tab order.",
+            "segments": [
+              {
+                "text": "Focus behavior should follow native button behavior in tab order.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Focus outline token mapping is TBD in this component set.",
+            "segments": [
+              {
+                "text": "Focus outline token mapping is ",
+                "style": "normal"
+              },
+              {
+                "text": "TBD",
+                "style": "code"
+              },
+              {
+                "text": " in this component set.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Expected focus tokens: Semantic.Color.Focus-Outline.Inner (#FFFFFF) and Semantic.Color.Focus-Outline.Outer (#567680).",
+            "segments": [
+              {
+                "text": "Expected focus tokens: ",
+                "style": "normal"
+              },
+              {
+                "text": "Semantic.Color.Focus-Outline.Inner",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "#FFFFFF",
+                "style": "code"
+              },
+              {
+                "text": ") and ",
+                "style": "normal"
+              },
+              {
+                "text": "Semantic.Color.Focus-Outline.Outer",
+                "style": "code"
+              },
+              {
+                "text": " (",
+                "style": "normal"
+              },
+              {
+                "text": "#567680",
+                "style": "code"
+              },
+              {
+                "text": ").",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "4. Labeling",
+        "segments": [
+          {
+            "text": "4. Labeling",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "With visible text (View txt=true), the label text provides the accessible name.",
+            "segments": [
+              {
+                "text": "With visible text (",
+                "style": "normal"
+              },
+              {
+                "text": "View txt=true",
+                "style": "code"
+              },
+              {
+                "text": "), the label text provides the accessible name.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "For icon-only usage (View txt=false), set an explicit accessible name.",
+            "segments": [
+              {
+                "text": "For icon-only usage (",
+                "style": "normal"
+              },
+              {
+                "text": "View txt=false",
+                "style": "code"
+              },
+              {
+                "text": "), set an explicit accessible name.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Descriptive helper text linkage (aria-describedby) is TBD for this component family.",
+            "segments": [
+              {
+                "text": "Descriptive helper text linkage (",
+                "style": "normal"
+              },
+              {
+                "text": "aria-describedby",
+                "style": "code"
+              },
+              {
+                "text": ") is ",
+                "style": "normal"
+              },
+              {
+                "text": "TBD",
+                "style": "code"
+              },
+              {
+                "text": " for this component family.",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 3,
+        "text": "5. Contrast and visibility",
+        "segments": [
+          {
+            "text": "5. Contrast and visibility",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "The component uses both color and icon/text content to convey meaning.",
+            "segments": [
+              {
+                "text": "The component uses both color and icon/text content to convey meaning.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Disabled variants remain visually distinct from interactive states.",
+            "segments": [
+              {
+                "text": "Disabled variants remain visually distinct from interactive states.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Verified contrast ratios are TBD (pending audit).",
+            "segments": [
+              {
+                "text": "Verified contrast ratios are ",
+                "style": "normal"
+              },
+              {
+                "text": "TBD (pending audit)",
+                "style": "code"
+              },
+              {
+                "text": ".",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Related Components",
+        "segments": [
+          {
+            "text": "Related Components",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "[Bottom Bar](bottom_bar.md): Use for persistent navigation/action regions, not for standalone action controls.",
+            "segments": [
+              {
+                "text": "[Bottom Bar](bottom_bar.md): Use for persistent navigation/action regions, not for standalone action controls.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "[Alert](alert.md): Use for feedback messaging, not action triggering.",
+            "segments": [
+              {
+                "text": "[Alert](alert.md): Use for feedback messaging, not action triggering.",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "heading",
+        "level": 2,
+        "text": "Gaps / TBD",
+        "segments": [
+          {
+            "text": "Gaps / TBD",
+            "style": "normal"
+          }
+        ]
+      },
+      {
+        "type": "list",
+        "ordered": false,
+        "items": [
+          {
+            "text": "Minimum width token binding is unresolved in current Figma variable metadata (minWidth token name returns null).",
+            "segments": [
+              {
+                "text": "Minimum width token binding is unresolved in current Figma variable metadata (",
+                "style": "normal"
+              },
+              {
+                "text": "minWidth",
+                "style": "code"
+              },
+              {
+                "text": " token name returns ",
+                "style": "normal"
+              },
+              {
+                "text": "null",
+                "style": "code"
+              },
+              {
+                "text": ").",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Icon color token mapping is not directly exposed at the Button component-set level (icons are nested instances).",
+            "segments": [
+              {
+                "text": "Icon color token mapping is not directly exposed at the ",
+                "style": "normal"
+              },
+              {
+                "text": "Button",
+                "style": "code"
+              },
+              {
+                "text": " component-set level (icons are nested instances).",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Focus-state visual token mapping is not represented as a dedicated variant axis.",
+            "segments": [
+              {
+                "text": "Focus-state visual token mapping is not represented as a dedicated variant axis.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Label-length and truncation policy for long button text are not specified in the current component set metadata.",
+            "segments": [
+              {
+                "text": "Label-length and truncation policy for long button text are not specified in the current component set metadata.",
+                "style": "normal"
+              }
+            ]
+          },
+          {
+            "text": "Contrast verification results are pending accessibility audit.",
+            "segments": [
+              {
+                "text": "Contrast verification results are pending accessibility audit.",
+                "style": "normal"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "stats": {
+      "headings": 23,
+      "paragraphs": 6,
+      "lists": 17,
+      "tables": 4,
+      "codeBlocks": 0
+    }
+  },
+  "theme": {
+    "name": "figma-doc-theme-karmap",
+    "status": "ready",
+    "description": "Render contract for converting markdown component docs into Figma documentation sections. Styled to match the Karmap / Iter design system visual identity: Lora headings, Nunito Sans body, cucumber-green accents on warm cream surfaces.\n",
+    "layout": {
+      "target": {
+        "section_name_pattern": "Doc/{component_name}",
+        "position": {
+          "reference": "component_section",
+          "offset_x": 200,
+          "align_y": "top"
+        }
+      },
+      "section": {
+        "width": 940,
+        "min_height": 1100
+      },
+      "canvas": {
+        "inset": 40,
+        "width": 860,
+        "padding": {
+          "top": 32,
+          "right": 32,
+          "bottom": 32,
+          "left": 32
+        },
+        "item_spacing": 20
+      }
+    },
+    "theme": {
+      "colors": {
+        "page_bg": "#FFFAF0",
+        "section_border": "#C9E0BE",
+        "canvas_shadow": "#00000014",
+        "card_bg": "#FFFFFF",
+        "card_border": "#E7DDCF",
+        "table_header_bg": "#F5F0E6",
+        "title_text": "#495841",
+        "heading_text": "#495841",
+        "body_text": "#483F3F",
+        "muted_text": "#716666",
+        "chip_bg": "#E8F0E4",
+        "chip_border": "#C9E0BE",
+        "chip_text": "#495841",
+        "header_accent": "#C9E0BE"
+      },
+      "radii": {
+        "canvas": 20,
+        "card": 12,
+        "chip": 999,
+        "header_accent": 12
+      },
+      "strokes": {
+        "section_border": 1.5,
+        "card_border": 1,
+        "chip_border": 1
+      },
+      "spacing": {
+        "card_padding": 20,
+        "card_gap": 12,
+        "chip_padding_v": 5,
+        "chip_padding_h": 12,
+        "chip_gap": 8,
+        "paragraph_gap": 8,
+        "list_gap": 6,
+        "header_accent_padding_v": 16,
+        "header_accent_padding_h": 24
+      },
+      "typography": {
+        "font_family": "Nunito Sans",
+        "font_family_heading": "Lora",
+        "font_family_mono": "Roboto Mono",
+        "h1": {
+          "font_family": "Lora",
+          "size": 36,
+          "line_height": 42,
+          "weight": "Bold",
+          "color": "title_text"
+        },
+        "h2": {
+          "font_family": "Lora",
+          "size": 20,
+          "line_height": 26,
+          "weight": "Bold",
+          "color": "heading_text"
+        },
+        "h3": {
+          "size": 16,
+          "line_height": 24,
+          "weight": "SemiBold",
+          "color": "heading_text"
+        },
+        "body": {
+          "size": 15,
+          "line_height": 24,
+          "weight": "Regular",
+          "color": "body_text"
+        },
+        "body_small": {
+          "size": 13,
+          "line_height": 18,
+          "weight": "SemiBold",
+          "color": "chip_text"
+        }
+      }
+    },
+    "markdown_mapping": {
+      "document": {
+        "wrapper": "canvas"
+      },
+      "title": {
+        "component": "header_block",
+        "text_style": "h1"
+      },
+      "subtitle": {
+        "component": "intro_text",
+        "text_style": "body",
+        "color_override": "muted_text"
+      },
+      "heading_2": {
+        "component": "card",
+        "title_style": "h2"
+      },
+      "heading_3": {
+        "component": "inline_heading",
+        "text_style": "h3"
+      },
+      "paragraph": {
+        "component": "text",
+        "text_style": "body"
+      },
+      "unordered_list": {
+        "component": "stack",
+        "item_gap": "list_gap"
+      },
+      "ordered_list": {
+        "component": "stack",
+        "item_gap": "list_gap"
+      },
+      "list_item": {
+        "component": "text",
+        "text_style": "body"
+      },
+      "table": {
+        "component": "table_card",
+        "header_style": "h3",
+        "cell_style": "body",
+        "border_color": "card_border",
+        "header_bg": "table_header_bg"
+      },
+      "code_inline": {
+        "component": "text",
+        "text_style": "body",
+        "color_override": "heading_text"
+      }
+    },
+    "components": {
+      "header_block": {
+        "layout": "vertical",
+        "stretch": true,
+        "item_spacing": 8,
+        "accent": {
+          "enabled": true,
+          "fills": {
+            "color": "header_accent"
+          },
+          "radius": 12,
+          "padding": {
+            "top": 16,
+            "right": 24,
+            "bottom": 16,
+            "left": 24
+          }
+        }
+      },
+      "chips_row": {
+        "layout": "horizontal",
+        "stretch": true,
+        "item_spacing": 8
+      },
+      "card": {
+        "layout": "vertical",
+        "stretch": true,
+        "width": 796,
+        "padding": {
+          "top": 20,
+          "right": 20,
+          "bottom": 20,
+          "left": 20
+        },
+        "item_spacing": 12,
+        "fills": {
+          "color": "card_bg"
+        },
+        "strokes": {
+          "color": "card_border",
+          "weight": 1
+        },
+        "radius": 12
+      },
+      "table_card": {
+        "extends": "card",
+        "table": {
+          "cell_padding_v": 8,
+          "cell_padding_h": 10,
+          "row_gap": 0,
+          "column_gap": 0,
+          "border_weight": 1,
+          "header_bg": "table_header_bg"
+        }
+      }
+    },
+    "rules": [
+      "Keep one visual card per H2 section.",
+      "Render markdown in source order; do not reorder content blocks.",
+      "Preserve semantic spacing and hierarchy from heading levels.",
+      "Avoid hardcoded widths for text nodes; use stretch behavior when possible.",
+      "If a markdown element is unsupported, render it as body text and flag it in report.",
+      "Use Lora for h1 and h2 headings; Nunito Sans for everything else.",
+      "Table header rows use a tinted background to distinguish from body rows.",
+      "The header accent block wraps the title area with a brand-colored background."
+    ],
+    "output_contract": {
+      "report_fields": [
+        "markdown_path",
+        "target_section_id",
+        "theme_name",
+        "offset_x_applied",
+        "unsupported_blocks"
+      ]
+    }
+  },
+  "options": {
+    "componentName": "Button",
+    "componentSetNodeId": "68:4097",
+    "offsetX": 200
+  }
+}
