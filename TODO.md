@@ -178,32 +178,64 @@ const OPTIONAL_H2_TAIL = ["Design–Token Discrepancies", "Gaps / TBD"];
 Exit behavior
 Exit code 0 if all pass, 1 if any fail. JSON report to stdout.
 
-### Improvement 3: Inline Formatting in MD→Figma Pipeline
+~~### Improvement 3: Inline Formatting in MD→Figma Pipeline~~
 
-Problem: markdown*to_doc_model.mjs strips **bold**, \_italic*, `code`. The Figma render is plain text only.
-Files to modify
-A) markdown_to_doc_model.mjs — add parseInlineFormatting(raw):
+~~Problem: markdown*to_doc_model.mjs strips **bold**, \_italic*, `code`. The Figma render is plain text only.~~
+~~Files to modify~~
+~~A) markdown_to_doc_model.mjs — add parseInlineFormatting(raw):~~
 
-Returns { text: "plain string", segments: [{text, style}] } where style ∈ normal|bold|italic|code
-Apply to: paragraphs, list items, table cells, headings
-Regex order: **bold** before _italic_ before `code`
-Bump doc model version: 1 → version: 2. Keep text field for backward compat.
+~~Returns { text: "plain string", segments: [{text, style}] } where style ∈ normal|bold|italic|code~~
+~~Apply to: paragraphs, list items, table cells, headings~~
+~~Regex order: **bold** before _italic_ before `code`~~
+~~Bump doc model version: 1 → version: 2. Keep text field for backward compat.~~
 
-B) build_figma_execute_code.mjs — replace extractBoldRanges() with applySegmentFormatting(node, segments, family, theme):
+~~B) build_figma_execute_code.mjs — replace extractBoldRanges() with applySegmentFormatting(node, segments, family, theme):~~
+~~bold → setRangeFontName(offset, end, { family, style: "Bold" })~~
+~~italic → setRangeFontName(offset, end, { family, style: "Italic" })~~
+~~code → setRangeFontName(offset, end, { family: monoFamily, style: "Regular" })~~
+~~Replace hand-rolled YAML parser with js-yaml (removes ~90 lines)~~
 
-bold → setRangeFontName(offset, end, { family, style: "Bold" })
-italic → setRangeFontName(offset, end, { family, style: "Italic" })
-code → setRangeFontName(offset, end, { family: monoFamily, style: "Regular" })
-Replace hand-rolled YAML parser with js-yaml (removes ~90 lines)
+~~C) docs/\_spec/figma_doc_theme.yml — add:~~
+~~yaml~~theme:~~typography:~~font_family_mono: "Roboto Mono"~~~~```~~
 
-C) docs/\_spec/figma_doc_theme.yml — add:
-yamltheme:
-typography:
-font_family_mono: "Roboto Mono"
+~~D) `figma-doc-rendering.mdc`\*\* — document inline formatting support in block types section~~
+~~```~~
+
+~~### Improvement 4: Pipeline Orchestration (`ds-pipeline`)~~
+
+~~Problem: Running the full pipeline is 5+ manual steps with no precondition checking.~~
+
+~~Files to create~~
+
+- `.agent/skills/.../ds-pipeline/SKILL.md`~~
+- `tooling/scripts/ds-pipeline.mjs`~~
+
+~~Pipeline stages~~
+
+~~Stage 0: Token compile~~ `npm run generate -- --registry`~~
+~~Stage 1: Validate docs~~ `npm run validate:docs`~~
+~~Stage 2: Run QA audit~~ `npm run ds:qa`~~
+~~Stage 3: Generate missing specs~~ `npm run ds:spec-from-figma -- --component <name>`~~
+~~Stage 4: Build Figma docs~~ `npm run build:figma -- --component <name>`~~
+~~Stage 5: Publish to Figma~~ `npm run publish:figma -- --component <name>`~~
+
+~~Shared library~~
+
+~~tooling/scripts/lib/~~
+
+~~bold → setRangeFontName(offset, end, { family, style: "Bold" })~~
+~~italic → setRangeFontName(offset, end, { family, style: "Italic" })~~
+~~code → setRangeFontName(offset, end, { family: monoFamily, style: "Regular" })~~
+~~Replace hand-rolled YAML parser with js-yaml (removes ~90 lines)~~
+
+~~C) docs/\_spec/figma_doc_theme.yml — add:~~
+~~yamltheme:~~
+~~typography:~~
+~~font_family_mono: "Roboto Mono"~~
 
 ```
 
-D) `figma-doc-rendering.mdc`** — document inline formatting support in block types section
+~~D) `figma-doc-rendering.mdc`** — document inline formatting support in block types section~~
 ```
 
 ---
