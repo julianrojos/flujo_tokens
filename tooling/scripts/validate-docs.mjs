@@ -15,12 +15,14 @@ function main() {
   const filePath = args.file ? path.resolve(args.file) : null;
   const strict = String(args.strict || "false") === "true";
   const noOverview = String(args["no-overview"] || "false") === "true";
+  const noSpecs = String(args["no-specs"] || "false") === "true";
 
   const report = validateDocs({
     docsRoot,
     registryPath,
     filePath,
     checkOverview: !noOverview,
+    checkSpecs: !noSpecs,
   });
 
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

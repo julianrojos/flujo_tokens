@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { COMPONENT_DOCS_DIR } from "./paths.mjs";
+import { COMPONENT_DOCS_DIR, DOCS_SPEC_DIR } from "./paths.mjs";
 import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./token-registry.mjs";
-import { parseMarkdownFrontmatter } from "./parse-frontmatter.mjs";
+import { parseMarkdownFrontmatter, parseYamlDocument } from "./parse-frontmatter.mjs";
 
 const ALLOWED_DOC_STATUS = new Set(["draft", "ready", "needs-review"]);
 
@@ -25,6 +25,22 @@ const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A1
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
 const SLASH_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9-]+){1,}/g;
 const VARIABLE_ID_RE = /VariableID:[A-Za-z0-9:-]+/g;
+const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
+const SPEC_ALLOWED_STATUS = new Set(["draft", "ready"]);
+const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
+  "name",
+  "status",
+  "figma",
+  "summary",
+  "anatomy",
+  "properties",
+  "content_guidelines",
+  "best_practices",
+  "accessibility",
+  "token_mapping",
+  "qa",
+];
+
 
 function normalizeSlashPathCandidate(tokenPath) {
   const parts = tokenPath.split("/");
@@ -73,6 +89,15 @@ function collectMarkdownFiles(docsRoot, explicitFilePath) {
     .readdirSync(docsRoot, { withFileTypes: true })
     .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
     .map((entry) => path.join(docsRoot, entry.name))
+    .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+}
+
+function collectSpecFiles(specRoot) {
+  if (!fs.existsSync(specRoot)) return [];
+  return fs
+    .readdirSync(specRoot, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".yml") && entry.name !== "_template.yml")
+    .map((entry) => path.join(specRoot, entry.name))
     .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
 }
 
@@ -305,6 +330,134 @@ function validateTokenReferences(filePath, content, registryIndexes, report, lin
   }
 }
 
+function normalizeCellText(cell) {
+  return String(cell || "").replace(/`/g, "").trim();
+}
+
+function isTableLine(line) {
+  const trimmed = String(line || "").trim();
+  return trimmed.startsWith("|") && trimmed.includes("|");
+}
+
+function parseTableCells(line) {
+  let trimmed = String(line || "").trim();
+  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+  if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+  return trimmed.split("|").map((cell) => cell.trim());
+}
+
+function isSeparatorRow(cells) {
+  if (!Array.isArray(cells) || cells.length === 0) return false;
+  return cells.every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s+/g, "")));
+}
+
+function collectMarkdownTables(content) {
+  const lines = String(content || "").split("\n");
+  const lineOffsets = [];
+  let offset = 0;
+  for (const line of lines) {
+    lineOffsets.push(offset);
+    offset += line.length + 1;
+  }
+
+  const tables = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (!isTableLine(lines[i])) {
+      i += 1;
+      continue;
+    }
+
+    let j = i;
+    while (j < lines.length && isTableLine(lines[j])) j += 1;
+    const blockLength = j - i;
+
+    if (blockLength >= 2) {
+      const headerCells = parseTableCells(lines[i]);
+      const separatorCells = parseTableCells(lines[i + 1]);
+      if (isSeparatorRow(separatorCells)) {
+        const rows = [];
+        for (let k = i + 2; k < j; k += 1) {
+          rows.push({
+            cells: parseTableCells(lines[k]),
+            offset: lineOffsets[k],
+          });
+        }
+        tables.push({
+          headerCells,
+          headerOffset: lineOffsets[i],
+          rows,
+        });
+      }
+    }
+
+    i = j;
+  }
+
+  return tables;
+}
+
+function findHeaderIndex(cells, needle) {
+  const key = String(needle || "").trim().toLowerCase();
+  return cells.findIndex((cell) => normalizeCellText(cell).toLowerCase().includes(key));
+}
+
+function tableCellHasTokenReference(cell, registryIndexes) {
+  const raw = String(cell || "");
+  const candidates = extractTokenCandidatesFromSpan(raw);
+  for (const { token } of candidates) {
+    if (looksLikeTokenPath(token, registryIndexes.dotRoots, registryIndexes.slashRoots)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isMissingFallbackValue(cell) {
+  const text = normalizeCellText(cell);
+  return !text || /^[-—]+$/.test(text) || /^tbd$/i.test(text);
+}
+
+function validateTokenFallbacks(filePath, content, registryIndexes, report, lineStarts, baseOffset = 0) {
+  const tables = collectMarkdownTables(content);
+  for (const table of tables) {
+    const tokenCol = findHeaderIndex(table.headerCells, "token");
+    if (tokenCol < 0) continue;
+
+    const rowsWithTokenRefs = table.rows.filter((row) => {
+      const tokenCell = row.cells[tokenCol] || "";
+      if (/^`?tbd`?$/i.test(normalizeCellText(tokenCell))) return false;
+      return tableCellHasTokenReference(tokenCell, registryIndexes);
+    });
+    if (rowsWithTokenRefs.length === 0) continue;
+
+    const fallbackCol = findHeaderIndex(table.headerCells, "fallback");
+    if (fallbackCol < 0) {
+      report.errors.push({
+        code: "TOK02",
+        file: filePath,
+        line: lineFromOffset(lineStarts, baseOffset + table.headerOffset),
+        message: "Token table must include a `Fallback` column.",
+      });
+      continue;
+    }
+
+    for (const row of rowsWithTokenRefs) {
+      const fallbackCell = row.cells[fallbackCol] || "";
+      const line = lineFromOffset(lineStarts, baseOffset + row.offset);
+
+      if (isMissingFallbackValue(fallbackCell)) {
+        report.errors.push({
+          code: "TOK02",
+          file: filePath,
+          line,
+          message: "Token reference row is missing fallback value in `Fallback` column.",
+        });
+      }
+    }
+  }
+}
+
 function validateOverviewLinks(docsRoot, componentFiles, report) {
   const overviewPath = path.join(docsRoot, "overview.md");
   if (!fs.existsSync(overviewPath)) {
@@ -351,12 +504,75 @@ function validateOverviewLinks(docsRoot, componentFiles, report) {
   }
 }
 
+function validateSpecYamlFile(filePath, report) {
+  let parsed;
+  try {
+    const raw = fs.readFileSync(filePath, "utf8");
+    parsed = parseYamlDocument(raw, `spec YAML (${path.basename(filePath)})`);
+  } catch (error) {
+    report.errors.push({
+      code: "SPEC01",
+      file: filePath,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
+
+  for (const field of SPEC_REQUIRED_TOP_LEVEL_FIELDS) {
+    if (!(field in parsed)) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Missing required top-level field: \`${field}\`.`,
+      });
+    }
+  }
+
+  const status = String(parsed.status || "").trim();
+  if (!SPEC_ALLOWED_STATUS.has(status)) {
+    report.errors.push({
+      code: "SPEC01",
+      file: filePath,
+      message: "Field `status` must be one of: draft, ready.",
+    });
+  }
+
+  const figma = parsed.figma;
+  if (!figma || typeof figma !== "object" || Array.isArray(figma)) {
+    report.errors.push({
+      code: "SPEC01",
+      file: filePath,
+      message: "Field `figma` must be an object.",
+    });
+  } else {
+    for (const key of ["file", "page", "component_set"]) {
+      const value = String(figma[key] ?? "").trim();
+      if (!value) {
+        report.errors.push({
+          code: "SPEC01",
+          file: filePath,
+          message: `Field figma.${key} is required.`,
+        });
+      }
+    }
+  }
+}
+
+function validateSpecYamlFiles(specRoot, report) {
+  const files = collectSpecFiles(specRoot);
+  for (const filePath of files) {
+    report.summary.specFilesChecked += 1;
+    validateSpecYamlFile(filePath, report);
+  }
+}
+
 function createBaseReport() {
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
     summary: {
       filesChecked: 0,
+      specFilesChecked: 0,
       tokenRefsChecked: 0,
       tokenRefsInvalid: 0,
       errors: 0,
@@ -369,9 +585,11 @@ function createBaseReport() {
 
 export function validateDocs(options = {}) {
   const docsRoot = path.resolve(options.docsRoot || COMPONENT_DOCS_DIR);
+  const specRoot = path.resolve(options.specRoot || SPEC_COMPONENTS_DIR);
   const registryPath = path.resolve(options.registryPath || DEFAULT_TOKEN_REGISTRY_PATH);
   const explicitFilePath = options.filePath ? path.resolve(options.filePath) : null;
   const checkOverview = explicitFilePath ? false : options.checkOverview !== false;
+  const checkSpecs = explicitFilePath ? false : options.checkSpecs !== false;
 
   const report = createBaseReport();
 
@@ -415,6 +633,11 @@ export function validateDocs(options = {}) {
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset);
     validateVariableIds(filePath, raw, report, lineStarts);
     validateTokenReferences(filePath, content, registryIndexes, report, lineStarts, contentOffset);
+    validateTokenFallbacks(filePath, content, registryIndexes, report, lineStarts, contentOffset);
+  }
+
+  if (checkSpecs) {
+    validateSpecYamlFiles(specRoot, report);
   }
 
   if (checkOverview) {
