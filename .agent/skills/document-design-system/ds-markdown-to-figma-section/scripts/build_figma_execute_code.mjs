@@ -912,17 +912,30 @@ function createTable(parent, title, tableBlock, theme) {
     getPath(theme, "components.table_card.table.min_readable_column_width", 40)
   );
   const hardMinColumnWidth = Math.max(12, minReadableColumnWidth);
-  const rowGap = Number(getPath(theme, "components.table_card.table.row_gap", 0));
-  const columnGap = Number(getPath(theme, "components.table_card.table.column_gap", 0));
   const headerBgColor = resolveColor(theme, tokenColors, getPath(theme, "components.table_card.table.header_bg", "table_header_bg"), null);
   const cardWidth = Number(getPath(theme, "components.card.width", 820));
   const cardPadLeft = Number(getPath(theme, "components.card.padding.left", 20));
   const cardPadRight = Number(getPath(theme, "components.card.padding.right", 20));
   const baseTableWidth = Math.max(240, cardWidth - cardPadLeft - cardPadRight);
+  const normalizedBorderWeight =
+    Number.isFinite(borderWeight) && borderWeight > 0 ? borderWeight : 1;
+  const separatorThickness = Math.max(1, Math.round(normalizedBorderWeight));
+  const separatorCount = Math.max(0, columnCount - 1);
   const minimumRequiredWidth =
-    hardMinColumnWidth * columnCount + columnGap * Math.max(0, columnCount - 1);
+    hardMinColumnWidth * columnCount + separatorThickness * separatorCount;
   const tableWidth = Math.max(baseTableWidth, minimumRequiredWidth);
-  tableCard.itemSpacing = rowGap;
+  tableCard.itemSpacing = 0;
+  const tableGrid = createVerticalFrame("Grid");
+  tableGrid.layoutAlign = "STRETCH";
+  tableGrid.primaryAxisSizingMode = "AUTO";
+  tableGrid.counterAxisSizingMode = "FIXED";
+  tableGrid.resizeWithoutConstraints(tableWidth, 1);
+  tableGrid.itemSpacing = 0;
+  tableGrid.fills = [solid("#FFFFFF", 1)];
+  tableGrid.strokes = [solid(borderColor, 1)];
+  tableGrid.strokeWeight = normalizedBorderWeight;
+  tableGrid.clipsContent = false;
+  tableCard.appendChild(tableGrid);
 
   function normalizeCellText(raw) {
     return String(raw == null ? "" : raw)
@@ -930,6 +943,18 @@ function createTable(parent, title, tableBlock, theme) {
       .replace(/[*_\`]/g, "")
       .replace(/\\s+/g, " ")
       .trim();
+  }
+
+  function createSeparator(name, width, height) {
+    const separator = figma.createRectangle();
+    separator.name = name;
+    separator.resizeWithoutConstraints(
+      Math.max(1, Math.ceil(Number(width) || 0)),
+      Math.max(1, Math.ceil(Number(height) || 0))
+    );
+    separator.fills = [solid(borderColor, 1)];
+    separator.strokes = [];
+    return separator;
   }
 
   const contentScores = new Array(columnCount).fill(1);
@@ -943,7 +968,7 @@ function createTable(parent, title, tableBlock, theme) {
     }
   }
 
-  const availableWidth = Math.max(1, tableWidth - columnGap * Math.max(0, columnCount - 1));
+  const availableWidth = Math.max(1, tableWidth - separatorThickness * separatorCount);
   const minWeight = Number(getPath(theme, "components.table_card.table.min_column_weight", 1));
   const maxWeight = Number(getPath(theme, "components.table_card.table.max_column_weight", 3.2));
   const columnWeights = contentScores.map((score) => {
@@ -991,11 +1016,12 @@ function createTable(parent, title, tableBlock, theme) {
     rowFrame.primaryAxisSizingMode = "FIXED";
     rowFrame.counterAxisSizingMode = "AUTO";
     rowFrame.resizeWithoutConstraints(tableWidth, 1);
-    rowFrame.itemSpacing = columnGap;
+    rowFrame.itemSpacing = 0;
     rowFrame.layoutAlign = "STRETCH";
     rowFrame.fills = [];
-    tableCard.appendChild(rowFrame);
+    tableGrid.appendChild(rowFrame);
     const rowCells = [];
+    const rowSeparators = [];
     let rowContentHeight = minRowHeight;
 
     for (let colIndex = 0; colIndex < columnCount; colIndex += 1) {
@@ -1011,8 +1037,7 @@ function createTable(parent, title, tableBlock, theme) {
       cell.paddingBottom = cellPaddingV;
       cell.paddingLeft = cellPaddingH;
       cell.paddingRight = cellPaddingH;
-      cell.strokes = [solid(borderColor, 1)];
-      cell.strokeWeight = borderWeight;
+      cell.strokes = [];
       const cellBg = row.isHeader && headerBgColor ? headerBgColor : "#FFFFFF";
       cell.fills = [solid(cellBg, 1)];
       rowFrame.appendChild(cell);
@@ -1027,6 +1052,17 @@ function createTable(parent, title, tableBlock, theme) {
       });
       const measuredCellHeight = Math.ceil(Number(textNode.height || 0) + cellPaddingV * 2);
       rowContentHeight = Math.max(rowContentHeight, measuredCellHeight);
+
+      if (colIndex < columnCount - 1) {
+        const columnSeparator = createSeparator(
+          "Column Separator " + String(colIndex + 1),
+          separatorThickness,
+          1
+        );
+        columnSeparator.layoutAlign = "STRETCH";
+        rowFrame.appendChild(columnSeparator);
+        rowSeparators.push(columnSeparator);
+      }
     }
 
     const targetRowHeight = Math.max(
@@ -1043,6 +1079,21 @@ function createTable(parent, title, tableBlock, theme) {
       cell.counterAxisSizingMode = "FIXED";
       cell.layoutAlign = "STRETCH";
       cell.resizeWithoutConstraints(cell.width, targetRowHeight);
+    }
+
+    for (const separator of rowSeparators) {
+      separator.resizeWithoutConstraints(separatorThickness, targetRowHeight);
+      separator.layoutAlign = "STRETCH";
+    }
+
+    if (rowIndex < rows.length - 1) {
+      const rowSeparator = createSeparator(
+        "Row Separator " + String(rowIndex + 1),
+        tableWidth,
+        separatorThickness
+      );
+      rowSeparator.layoutAlign = "STRETCH";
+      tableGrid.appendChild(rowSeparator);
     }
   }
 }
