@@ -54,6 +54,16 @@ function matchesPreferredMode(key: string, preferred?: string): boolean {
     return normalized === preferred;
 }
 
+function warnPreferredModeFallbackOnce(path: string, preferred: string | undefined, modeKey: string | undefined, hasValue: boolean): void {
+    const warnKey = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;
+    if (warnedPreferredModeFallback.has(warnKey)) return;
+    warnedPreferredModeFallback.add(warnKey);
+
+    console.warn(
+        `ℹ️  Preferred mode "${preferred}" not found at ${path}; ${hasValue ? 'emitting base $value only' : 'using available mode branch'} (${modeKey ?? 'none'}).`
+    );
+}
+
 export interface ModeSelectOptions {
     preferredMode?: string;
     strict?: boolean;
@@ -254,8 +264,6 @@ export function walkTokenTree(
         }
 
         const path = pathStr(currentPath);
-        const warnKeyFallback = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;
-
         let shouldEmitBase =
             !hasAnyModeBranch ||
             !modeKey ||
@@ -272,12 +280,7 @@ export function walkTokenTree(
         }
 
         if (missingPreferred && !(modeOverridesOnly && preferred)) {
-            if (!warnedPreferredModeFallback.has(warnKeyFallback)) {
-                warnedPreferredModeFallback.add(warnKeyFallback);
-                console.warn(
-                    `ℹ️  Preferred mode "${preferred}" not found at ${path}; ${hasValue ? 'emitting base $value only' : 'using available mode branch'} (${modeKey ?? 'none'}).`
-                );
-            }
+            warnPreferredModeFallbackOnce(path, preferred, modeKey, hasValue);
         } else if (modeKey && skipBaseWhenMode) {
             const warnKey = `${path}|${modeKey}`;
             if (!warnedBaseValueSkippedForMode.has(warnKey)) {
@@ -349,13 +352,7 @@ export function walkTokenTree(
 
     if (missingPreferred && !(modeOverridesOnly && preferred)) {
         const path = pathStr(currentPath);
-        const warnKey = `${path}|${preferred}|${modeKey ?? 'none'}`;
-        if (!warnedPreferredModeFallback.has(warnKey)) {
-            warnedPreferredModeFallback.add(warnKey);
-            console.warn(
-                `ℹ️  Preferred mode "${preferred}" not found at ${path}; ${hasValue ? 'emitting base $value only' : 'using available mode branch'} (${modeKey ?? 'none'}).`
-            );
-        }
+        warnPreferredModeFallbackOnce(path, preferred, modeKey, hasValue);
         const key = preferred ?? '<none>';
         modeFallbackCounts.set(key, (modeFallbackCounts.get(key) || 0) + 1);
         const samples = modeFallbackExamples.get(key) ?? [];
