@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "components": [
+    {
+      "slug": "alert",
+      "display_name": "Alert",
+      "paths": {
+        "spec": "docs/_spec/components/alert.yml",
+        "doc": "docs/components/alert.md",
+        "render_payload": "docs/_generated/figma_doc_models/alert.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/alert.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "needs-review"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": true
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "render",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "44e5c8650ffc06eab0492453870fe80db61408183565496228e6c97f02bbc78e"
+    },
+    {
+      "slug": "avatar",
+      "display_name": "Avatar",
+      "paths": {
+        "spec": "docs/_spec/components/avatar.yml",
+        "doc": "docs/components/avatar.md",
+        "render_payload": "docs/_generated/figma_doc_models/avatar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/avatar.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "needs-review"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": true
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "render",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "29985853621d98b587ee99f7c7f28593090fb14b770b0c8fa0a1f2c7bd99fc88"
+    },
+    {
+      "slug": "bottom_bar",
+      "display_name": "Bottom Bar",
+      "paths": {
+        "spec": "docs/_spec/components/bottom_bar.yml",
+        "doc": "docs/components/bottom_bar.md",
+        "render_payload": "docs/_generated/figma_doc_models/bottom_bar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/bottom_bar.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2064-65",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": true
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "render",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "6d64fb8aeee5d9819547f6bd953940ce3f8170c7e708d3b15114e3283843ae6f"
+    },
+    {
+      "slug": "button",
+      "display_name": "Button",
+      "paths": {
+        "spec": "docs/_spec/components/button.yml",
+        "doc": "docs/components/button.md",
+        "render_payload": "docs/_generated/figma_doc_models/button.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/button.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "needs-review"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097",
+        "component_set_node_id": "68:4097"
+      },
+      "render": {
+        "exists": true
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "render",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "574ad0bd9894ff2f8b0ded952430d0accc6bde2a4960fa9531cb55b2bae4712c"
+    },
+    {
+      "slug": "status_bar",
+      "display_name": "Status Bar",
+      "paths": {
+        "spec": "docs/_spec/components/status_bar.yml",
+        "doc": "docs/components/status_bar.md",
+        "render_payload": "docs/_generated/figma_doc_models/status_bar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/status_bar.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": true
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "render",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "abd9f0e9d765a37a349052d4b39fd4560db4b6eb0103bd24b3bef8af35ce475a"
+    }
+  ],
+  "summary": {
+    "total_components": 5,
+    "with_spec": 5,
+    "with_doc": 5,
+    "with_render_payload": 5,
+    "with_visual_proof": 0,
+    "ready_for_publish": 0,
+    "by_pipeline_stage": {
+      "missing-spec": 0,
+      "spec": 0,
+      "markdown": 0,
+      "render": 5,
+      "visual-proof": 0
+    }
+  },
+  "fingerprint_sha256": "0c0e08b0d87a8c72878f3d0bba0255e1eb82336b7193cd9de6e1d2ec8e08f35d"
+}
