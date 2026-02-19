@@ -57,6 +57,21 @@ function normalizeStringArray(value) {
     .filter(Boolean);
 }
 
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function containsWholeTerm(haystack, term) {
+  const source = String(haystack || "");
+  const needle = String(term || "").trim();
+  if (!needle) return false;
+  const pattern = new RegExp(
+    `(^|[^A-Za-z0-9_])${escapeRegex(needle)}([^A-Za-z0-9_]|$)`,
+    "i",
+  );
+  return pattern.test(source);
+}
+
 function splitSpecTokenValue(raw) {
   return String(raw || "")
     .split(",")
@@ -136,7 +151,14 @@ function includesAnyTokenForm(sectionText, forms) {
   const haystack = String(sectionText || "");
   for (const form of forms) {
     if (!form) continue;
-    if (haystack.includes(`\`${form}\``) || haystack.includes(form)) return true;
+    const escaped = escapeRegex(form);
+    if (new RegExp(`\`${escaped}\``).test(haystack)) return true;
+    if (
+      new RegExp(`(^|[^A-Za-z0-9_./-])${escaped}([^A-Za-z0-9_./-]|$)`, "i").test(
+        haystack,
+      )
+    )
+      return true;
   }
   return false;
 }
@@ -150,7 +172,7 @@ function checkSpecMarkdownConsistency({ spec, frontmatter, markdownContent, look
   for (const property of properties) {
     const name = String(property?.name ?? "").trim();
     if (!name) continue;
-    if (!componentApi.includes(name)) {
+    if (!containsWholeTerm(componentApi, name)) {
       errors.push(`Missing property in markdown Component API: \`${name}\`.`);
     }
 
@@ -158,7 +180,7 @@ function checkSpecMarkdownConsistency({ spec, frontmatter, markdownContent, look
     if (type === "enum") {
       const values = normalizeStringArray(property?.values);
       for (const value of values) {
-        if (!componentApi.includes(value)) {
+        if (!containsWholeTerm(componentApi, value)) {
           errors.push(`Missing enum value \`${value}\` for property \`${name}\` in Component API.`);
         }
       }
@@ -226,7 +248,7 @@ function checkMarkdownFigmaConsistency({ spec, frontmatter, markdownContent }) {
     const stateSection = extractSectionBody(markdownContent, "States");
     const stateValues = normalizeStringArray(stateProperty.values);
     for (const stateValue of stateValues) {
-      if (!stateSection.includes(stateValue)) {
+      if (!containsWholeTerm(stateSection, stateValue)) {
         errors.push(`State \`${stateValue}\` is defined in spec but missing in markdown \`## States\` section.`);
       }
     }

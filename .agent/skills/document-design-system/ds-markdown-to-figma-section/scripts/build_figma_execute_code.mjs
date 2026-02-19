@@ -312,25 +312,51 @@ function getPath(obj, path, fallbackValue) {
 }
 
 function hexToRgb(hex) {
-  if (typeof hex !== "string") return { r: 0, g: 0, b: 0 };
+  if (typeof hex !== "string") return { r: 0, g: 0, b: 0, a: 1 };
   const cleaned = hex.trim().replace("#", "");
-  const expanded =
-    cleaned.length === 3
-      ? cleaned.split("").map((c) => c + c).join("")
-      : cleaned.padEnd(6, "0").slice(0, 6);
-  const value = Number.parseInt(expanded, 16);
+  if (!cleaned) return { r: 0, g: 0, b: 0, a: 1 };
+  const expanded = (() => {
+    if (cleaned.length === 3 || cleaned.length === 4) {
+      return cleaned
+        .split("")
+        .map((c) => c + c)
+        .join("");
+    }
+    if (cleaned.length === 6 || cleaned.length === 8) {
+      return cleaned;
+    }
+    if (cleaned.length > 8) return cleaned.slice(0, 8);
+    return cleaned.padEnd(6, "0");
+  })();
+
+  const colorHex = expanded.slice(0, 6).padEnd(6, "0");
+  const alphaHex =
+    expanded.length >= 8 ? expanded.slice(6, 8) : null;
+  const alphaRaw = alphaHex ? Number.parseInt(alphaHex, 16) : 255;
+  const alpha =
+    Number.isFinite(alphaRaw) && alphaRaw >= 0 ? Math.max(0, Math.min(255, alphaRaw)) / 255 : 1;
+  const value = Number.parseInt(colorHex, 16);
   return {
     r: ((value >> 16) & 255) / 255,
     g: ((value >> 8) & 255) / 255,
     b: (value & 255) / 255,
+    a: alpha,
   };
 }
 
 function solid(hex, opacity) {
+  const rgb = hexToRgb(hex);
+  const baseOpacity = Number.isFinite(rgb.a) ? rgb.a : 1;
+  const requestedOpacity = Number.isFinite(opacity) ? opacity : null;
+  const finalOpacity = requestedOpacity == null ? baseOpacity : requestedOpacity * baseOpacity;
   return {
     type: "SOLID",
-    color: hexToRgb(hex),
-    opacity: opacity == null ? 1 : opacity,
+    color: {
+      r: rgb.r,
+      g: rgb.g,
+      b: rgb.b,
+    },
+    opacity: Math.max(0, Math.min(1, finalOpacity)),
   };
 }
 
