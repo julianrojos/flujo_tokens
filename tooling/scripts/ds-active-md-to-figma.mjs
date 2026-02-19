@@ -10,7 +10,10 @@ import {
   FIGMA_DOC_THEME_PATH,
   PROJECT_ROOT,
 } from "./lib/paths.mjs";
-import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
+import {
+  normalizeComponentName,
+  componentNameToSnakeCase,
+} from "./lib/component-name.mjs";
 import {
   computeFingerprint,
   loadSyncState,
@@ -22,6 +25,7 @@ import { validateDocs } from "./lib/docs-validator.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
+import { isTbdMarker } from "./lib/tbd.mjs";
 
 function runOrFail(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });
@@ -29,16 +33,14 @@ function runOrFail(command, args) {
     throw new Error(result.error.message);
   }
   if ((result.status ?? 1) !== 0) {
-    throw new Error(`${command} ${args.join(" ")} failed with code ${result.status}`);
+    throw new Error(
+      `${command} ${args.join(" ")} failed with code ${result.status}`,
+    );
   }
 }
 
 function isValidNodeId(raw) {
   return /^[A-Za-z0-9]+:[A-Za-z0-9]+$/.test(String(raw || "").trim());
-}
-
-function isTbd(raw) {
-  return /^tbd$/i.test(String(raw || "").trim());
 }
 
 function validateSpecPreflight(specPath, tokenRegistryPath) {
@@ -53,7 +55,8 @@ function validateSpecPreflight(specPath, tokenRegistryPath) {
   if (report.ok) return;
 
   const specErrors = report.errors.filter(
-    (error) => path.resolve(String(error.file || "")) === path.resolve(specPath)
+    (error) =>
+      path.resolve(String(error.file || "")) === path.resolve(specPath),
   );
   const payload = {
     file: specPath,
@@ -62,15 +65,11 @@ function validateSpecPreflight(specPath, tokenRegistryPath) {
   throw new Error(
     "Spec validation failed. Rendering to Figma was blocked.\n" +
       `Run: npm run validate:docs -- --spec-file "${specPath}" --no-overview true\n` +
-      `${JSON.stringify(payload, null, 2)}`
+      `${JSON.stringify(payload, null, 2)}`,
   );
 }
 
-function detectMarkdownStaleness({
-  specPath,
-  markdownPath,
-  syncStatePath,
-}) {
+function detectMarkdownStaleness({ specPath, markdownPath, syncStatePath }) {
   const specPathResolved = path.resolve(specPath);
   const markdownPathResolved = path.resolve(markdownPath);
   const taskId = `ds-component-doc:${specPathResolved}->${markdownPathResolved}`;
@@ -80,7 +79,10 @@ function detectMarkdownStaleness({
 
   if (task?.metadata?.specHashAtGeneration) {
     if (String(task.metadata.specHashAtGeneration) === currentSpecHash) {
-      return { stale: false, reason: "spec_unchanged_since_markdown_generation" };
+      return {
+        stale: false,
+        reason: "spec_unchanged_since_markdown_generation",
+      };
     }
     return {
       stale: true,
@@ -113,7 +115,7 @@ function main() {
 
   if (!activeMarkdown) {
     console.error(
-      "Missing active markdown path.\nUse --markdown <path> (and optionally --agent codex|claude|gemini) or export ANTIGRAVITY_ACTIVE_FILE."
+      "Missing active markdown path.\nUse --markdown <path> (and optionally --agent codex|claude|gemini) or export ANTIGRAVITY_ACTIVE_FILE.",
     );
     process.exit(1);
   }
@@ -125,18 +127,22 @@ function main() {
   }
 
   const fileBase = path.basename(markdownPath, path.extname(markdownPath));
-  const normalizedName = normalizeComponentName(args["component-name"] || fileBase);
+  const normalizedName = normalizeComponentName(
+    args["component-name"] || fileBase,
+  );
   const componentName = normalizedName.displayName || "Component";
-  const componentSlug = normalizedName.fileSlug || componentNameToSnakeCase(fileBase);
+  const componentSlug =
+    normalizedName.fileSlug || componentNameToSnakeCase(fileBase);
   const specPath = path.resolve(
-    args["spec-file"] || path.join(DOCS_SPEC_DIR, "components", `${componentSlug}.yml`)
+    args["spec-file"] ||
+      path.join(DOCS_SPEC_DIR, "components", `${componentSlug}.yml`),
   );
 
   if (!fs.existsSync(specPath)) {
     console.error(
       "Missing required spec file.\n" +
         `Spec: ${specPath}\n` +
-        `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"`
+        `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"`,
     );
     process.exit(1);
   }
@@ -144,12 +150,13 @@ function main() {
   const skipValidation = String(args["skip-validation"] || "false") === "true";
   const force = String(args.force || "false") === "true";
   const syncStatePath = args["sync-state"] || undefined;
-  const tokenRegistryPath = args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
+  const tokenRegistryPath =
+    args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
 
   if (skipValidation && !force) {
     console.error(
       "Validation gate bypass requires explicit force.\n" +
-        "Use `--skip-validation true --force true` only for exceptional cases."
+        "Use `--skip-validation true --force true` only for exceptional cases.",
     );
     process.exit(1);
   }
@@ -159,24 +166,29 @@ function main() {
   try {
     const specParsed = parseYamlDocument(
       fs.readFileSync(specPath, "utf8"),
-      `spec YAML (${path.basename(specPath)})`
+      `spec YAML (${path.basename(specPath)})`,
     );
-    specStatus = String(specParsed.status || "draft").trim().toLowerCase();
-    const specFigma = specParsed && typeof specParsed.figma === "object" ? specParsed.figma : {};
+    specStatus = String(specParsed.status || "draft")
+      .trim()
+      .toLowerCase();
+    const specFigma =
+      specParsed && typeof specParsed.figma === "object"
+        ? specParsed.figma
+        : {};
     const specNodeIdRaw = String(specFigma?.component_set_node_id || "").trim();
-    if (specNodeIdRaw && !isTbd(specNodeIdRaw)) {
+    if (specNodeIdRaw && !isTbdMarker(specNodeIdRaw)) {
       const normalizedSpecNodeId = normalizeNodeId(specNodeIdRaw);
       if (!isValidNodeId(normalizedSpecNodeId)) {
         if (specStatus === "ready") {
           console.error(
             "Invalid figma.component_set_node_id in ready spec.\n" +
               `Spec: ${specPath}\n` +
-              "Expected format: 123:456"
+              "Expected format: 123:456",
           );
           process.exit(1);
         }
         console.warn(
-          `Warning: ignoring invalid figma.component_set_node_id in spec (${specNodeIdRaw}).`
+          `Warning: ignoring invalid figma.component_set_node_id in spec (${specNodeIdRaw}).`,
         );
       } else {
         specNodeId = normalizedSpecNodeId;
@@ -193,7 +205,7 @@ function main() {
     console.error(
       "Invalid --component-set-id format.\n" +
         `Provided: ${cliNodeIdRaw}\n` +
-        "Expected format: 123:456"
+        "Expected format: 123:456",
     );
     process.exit(1);
   }
@@ -203,7 +215,7 @@ function main() {
       "Traceability mismatch between CLI and spec.\n" +
         `CLI --component-set-id: ${cliNodeId}\n` +
         `Spec figma.component_set_node_id: ${specNodeId}\n` +
-        "Use --force true only if you intentionally want to override the spec."
+        "Use --force true only if you intentionally want to override the spec.",
     );
     process.exit(1);
   }
@@ -214,12 +226,12 @@ function main() {
       console.error(
         "Missing figma.component_set_node_id for ready spec.\n" +
           `Spec: ${specPath}\n` +
-          "Add figma.component_set_node_id to the spec to keep Figma placement deterministic."
+          "Add figma.component_set_node_id to the spec to keep Figma placement deterministic.",
       );
       process.exit(1);
     }
     console.warn(
-      "Warning: component_set_node_id not available. Falling back to name-based lookup (non-deterministic)."
+      "Warning: component_set_node_id not available. Falling back to name-based lookup (non-deterministic).",
     );
   }
 
@@ -231,7 +243,9 @@ function main() {
       registryPath: tokenRegistryPath,
     });
     if (!validationReport.ok) {
-      console.error("Documentation validation failed. Rendering to Figma was blocked.");
+      console.error(
+        "Documentation validation failed. Rendering to Figma was blocked.",
+      );
       process.stdout.write(`${JSON.stringify(validationReport, null, 2)}\n`);
       process.exit(1);
     }
@@ -257,7 +271,7 @@ function main() {
           `Spec: ${specPath}\n` +
           `Markdown: ${markdownPath}\n` +
           `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"\n` +
-          "Use --force true only if you intentionally want to render without regenerating markdown."
+          "Use --force true only if you intentionally want to render without regenerating markdown.",
       );
       process.exit(1);
     }
@@ -268,14 +282,17 @@ function main() {
   const themePath = args.theme || FIGMA_DOC_THEME_PATH;
   const docModelPath = path.join(generatedDir, `${fileBase}.doc-model.json`);
   const executePath = path.join(generatedDir, `${fileBase}.figma-execute.js`);
-  const payloadPath = path.join(generatedDir, `${fileBase}.render-payload.json`);
+  const payloadPath = path.join(
+    generatedDir,
+    `${fileBase}.render-payload.json`,
+  );
   const offsetX = args["offset-x"] || "200";
   const figmaUrl = args.url || "";
   const markdownToModelScriptPath = path.resolve(
-    ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs"
+    ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs",
   );
   const modelToExecuteScriptPath = path.resolve(
-    ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs"
+    ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs",
   );
 
   fs.mkdirSync(path.resolve(generatedDir), { recursive: true });
@@ -340,7 +357,12 @@ function main() {
 
   const executeTaskId = `ds-markdown-to-figma:execute:${path.resolve(markdownPath)}`;
   const executeFingerprint = computeFingerprint({
-    files: [docModelPath, themePath, modelToExecuteScriptPath, tokenRegistryPath],
+    files: [
+      docModelPath,
+      themePath,
+      modelToExecuteScriptPath,
+      tokenRegistryPath,
+    ],
     values: {
       componentName,
       componentSetId: resolvedComponentSetId,
@@ -405,8 +427,8 @@ function main() {
           hint: "Use --force true to regenerate and re-render in Figma.",
         },
         null,
-        2
-      )}\n`
+        2,
+      )}\n`,
     );
     return;
   }

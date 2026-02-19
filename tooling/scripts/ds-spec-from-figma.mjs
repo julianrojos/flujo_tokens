@@ -21,6 +21,7 @@ import {
 } from "./lib/component-name.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
+import { isTbdMarker } from "./lib/tbd.mjs";
 import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./lib/docs-config.mjs";
 import { buildAgentPrompt, RULE_BLOCKS } from "./lib/prompts.mjs";
 import { GOLDEN_COMPONENT_SPEC_SAMPLE_PATH } from "./lib/doc-templates.mjs";
@@ -181,10 +182,6 @@ function normalizeSpecOrder(spec) {
   }
 
   return ordered;
-}
-
-function isTbdMarker(raw) {
-  return /^tbd$/i.test(String(raw || "").trim());
 }
 
 function normalizeCompareKey(raw) {
