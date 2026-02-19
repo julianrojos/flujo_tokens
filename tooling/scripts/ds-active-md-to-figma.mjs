@@ -237,6 +237,7 @@ function main() {
     const validationReport = validateDocs({
       filePath: markdownPath,
       checkOverview: false,
+      registryPath: tokenRegistryPath,
     });
     if (!validationReport.ok) {
       console.error("Documentation validation failed. Rendering to Figma was blocked.");
