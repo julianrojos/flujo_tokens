@@ -2,7 +2,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { parseArgs } from "./lib/parse-args.mjs";
+import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import {
@@ -26,6 +26,42 @@ import {
   RULE_BLOCKS,
 } from "./lib/prompts.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
+
+const USAGE = {
+  command:
+    'npm run ds:doc-from-figma-url -- --url "https://www.figma.com/design/..." [--component-name Button] [--output docs/components/button.md] [--agent codex]',
+  description:
+    "Generate one component markdown from a Figma URL using an agent CLI.",
+  options: [
+    {
+      name: "--url <figma-url>",
+      description: "Figma URL with node-id for the component.",
+      required: true,
+    },
+    {
+      name: "--component-name <name>",
+      description: "Optional display name hint for H1 and output naming.",
+    },
+    {
+      name: "--output <path>",
+      description: "Optional markdown output path.",
+    },
+    {
+      name: "--docs-root <path>",
+      description: "Docs root or docs/components directory.",
+      defaultValue: "docs/components",
+    },
+    {
+      name: "--agent <codex|claude|gemini|auto>",
+      description: "Agent CLI used for generation.",
+      defaultValue: "auto",
+    },
+    {
+      name: "--help",
+      description: "Show this help message.",
+    },
+  ],
+};
 
 function formatMarkdown({ outputPath, docsRoot }) {
   const target = outputPath
@@ -55,12 +91,13 @@ function restoreFileSnapshot(filePath, snapshot) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (String(args.help || "false") === "true") {
+    printUsage(USAGE, { exitCode: 0 });
+  }
+
   const figmaUrl = args.url;
   if (!figmaUrl) {
-    console.error(
-      'Missing --url\nExample: npm run ds:doc-from-figma-url -- --url "https://www.figma.com/design/..." --agent codex',
-    );
-    process.exit(1);
+    printUsage(USAGE, { stream: "stderr", exitCode: 1 });
   }
 
   const docsRoot = args["docs-root"] || COMPONENT_DOCS_DIR;

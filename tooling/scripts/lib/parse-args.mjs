@@ -23,3 +23,53 @@ export function parseArgs(argv) {
   }
   return args;
 }
+
+function formatDefaultValue(value) {
+  if (value === undefined || value === null || value === "") return "";
+  return ` (default: ${String(value)})`;
+}
+
+export function renderUsage({
+  command = "",
+  description = "",
+  options = [],
+  examples = [],
+} = {}) {
+  const lines = [];
+
+  if (command) lines.push(`Usage: ${command}`);
+  if (description) lines.push(description);
+
+  if (options.length > 0) {
+    lines.push("");
+    lines.push("Options:");
+    for (const option of options) {
+      const name = String(option.name || "").trim();
+      if (!name) continue;
+      const required = option.required ? " (required)" : "";
+      const defaultText = formatDefaultValue(option.defaultValue);
+      const details = String(option.description || "").trim();
+      lines.push(`  ${name}${required}${defaultText}`);
+      if (details) lines.push(`    ${details}`);
+    }
+  }
+
+  if (examples.length > 0) {
+    lines.push("");
+    lines.push("Examples:");
+    for (const example of examples) {
+      lines.push(`  ${example}`);
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+export function printUsage(config, { stream = "stdout", exitCode } = {}) {
+  const text = renderUsage(config);
+  const writer = stream === "stderr" ? process.stderr : process.stdout;
+  writer.write(text);
+  if (typeof exitCode === "number") {
+    process.exit(exitCode);
+  }
+}

@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
 
-import { parseArgs } from "./lib/parse-args.mjs";
+import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import {
@@ -51,6 +51,51 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const TRACEABILITY_CONTRACT_VERSION = "1";
+const USAGE = {
+  command:
+    "npm run ds:component-doc -- --component-name Alert [--agent codex] [--output docs/components/alert.md]",
+  description:
+    "Generate or update one component markdown from a component spec YAML.",
+  options: [
+    {
+      name: "--component-name <name>",
+      description:
+        "Display component name (PascalCase). Used to infer spec/output paths.",
+    },
+    {
+      name: "--spec-file <path>",
+      description: "Explicit spec YAML path.",
+    },
+    {
+      name: "--output <path>",
+      description: "Explicit markdown output path.",
+    },
+    {
+      name: "--registry <path>",
+      description: "Token registry JSON path.",
+      defaultValue: "docs/_generated/token-registry.json",
+    },
+    {
+      name: "--agent <codex|claude|gemini|auto>",
+      description: "Agent CLI used for generation.",
+      defaultValue: "auto",
+    },
+    {
+      name: "--force <true|false>",
+      description: "Bypass incremental cache.",
+      defaultValue: "false",
+    },
+    {
+      name: "--skip-validation <true|false>",
+      description: "Skip pre/post validation (requires --force true).",
+      defaultValue: "false",
+    },
+    {
+      name: "--help",
+      description: "Show this help message.",
+    },
+  ],
+};
 
 function formatMarkdown(outputPath) {
   runOrThrow("npx", ["prettier", "--write", outputPath]);
@@ -231,6 +276,10 @@ function validateGeneratedMarkdown({ outputPath, specPath, registryPath }) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (String(args.help || "false") === "true") {
+    printUsage(USAGE, { exitCode: 0 });
+  }
+
   const rawComponentName = String(args["component-name"] || "").trim();
   const docsRootInput = path.resolve(args["docs-root"] || DOCS_ROOT);
   const componentDocsDir =
@@ -265,7 +314,7 @@ function main() {
 
   if (!rawComponentName && !args["spec-file"]) {
     console.error("Missing --component-name or --spec-file.");
-    process.exit(1);
+    printUsage(USAGE, { stream: "stderr", exitCode: 1 });
   }
 
   const normalizedFromArg = normalizeComponentName(rawComponentName);
