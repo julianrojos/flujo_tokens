@@ -13,6 +13,7 @@
     "validate:docs": "node tooling/scripts/validate-docs.mjs",
     "ds:tokens-sync": "node tooling/scripts/ds-tokens-sync.mjs",
     "ds:token-diff": "node tooling/scripts/ds-token-diff.mjs",
+    "ds:token-graph": "node tooling/scripts/ds-token-graph.mjs",
     "ds:component-doc": "node tooling/scripts/ds-component-doc.mjs",
     "ds:capture-visual-proof": "node tooling/scripts/ds-capture-visual-proof.mjs",
     "ds:mark-needs-review": "node tooling/scripts/ds-mark-needs-review.mjs",
