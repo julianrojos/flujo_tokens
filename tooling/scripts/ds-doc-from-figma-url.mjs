@@ -11,6 +11,7 @@ import {
   componentNameToSnakeCase,
 } from "./lib/component-name.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
+import { normalizeAgentOutputFile } from "./lib/agent-output-normalizer.mjs";
 import {
   buildAgentPrompt,
   canonicalH2ConstraintLines,
@@ -108,6 +109,9 @@ function main() {
       agent,
       label: `doc-from-figma-url-${componentNameToSnakeCase(componentName || "component")}`,
     });
+    if (outputPath && fs.existsSync(outputPath)) {
+      normalizeAgentOutputFile(outputPath);
+    }
     formatMarkdown({ outputPath, docsRoot: componentDocsDir });
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

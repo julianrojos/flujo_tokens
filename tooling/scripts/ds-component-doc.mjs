@@ -23,6 +23,7 @@ import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
 import { deriveFigmaFrontmatterTraceability } from "./lib/figma-traceability.mjs";
+import { normalizeAgentOutputFile } from "./lib/agent-output-normalizer.mjs";
 import {
   buildAgentPrompt,
   canonicalH2ConstraintLines,
@@ -352,6 +353,12 @@ function main() {
       agent,
       label: `component-doc-${safeName}`,
     });
+    if (!fs.existsSync(outputPath)) {
+      throw new Error(
+        `Agent did not produce markdown output at: ${outputPath}`,
+      );
+    }
+    normalizeAgentOutputFile(outputPath);
     gapsCount = syncGapsSection({
       specPath,
       markdownPath: outputPath,
