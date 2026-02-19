@@ -8,8 +8,14 @@ import {
   FIGMA_DOC_MODELS_DIR,
   FIGMA_DOC_THEME_PATH,
 } from "./lib/paths.mjs";
+import {
+  computeFingerprint,
+  shouldSkipTask,
+  updateTaskState,
+} from "./lib/cache-utils.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
+import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 
 function toComponentName(raw) {
   return String(raw)
@@ -52,6 +58,8 @@ function main() {
   }
 
   const skipValidation = String(args["skip-validation"] || "false") === "true";
+  const force = String(args.force || "false") === "true";
+  const syncStatePath = args["sync-state"] || undefined;
   if (!skipValidation) {
     const validationReport = validateDocs({
       filePath: markdownPath,
@@ -74,20 +82,53 @@ function main() {
   const payloadPath = path.join(generatedDir, `${fileBase}.render-payload.json`);
   const offsetX = args["offset-x"] || "200";
   const componentSetId = args["component-set-id"] || "";
-  const tokenRegistryPath = args["token-registry"] || "";
+  const tokenRegistryPath = args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
   const figmaUrl = args.url || "";
+  const markdownToModelScriptPath = path.resolve(
+    ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs"
+  );
+  const modelToExecuteScriptPath = path.resolve(
+    ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs"
+  );
 
   fs.mkdirSync(path.resolve(generatedDir), { recursive: true });
 
-  runOrFail("node", [
-    ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs",
-    "--markdown",
-    markdownPath,
-    "--component-name",
-    componentName,
-    "--out",
-    docModelPath,
-  ]);
+  const modelTaskId = `ds-markdown-to-figma:model:${path.resolve(markdownPath)}`;
+  const modelFingerprint = computeFingerprint({
+    files: [markdownPath, markdownToModelScriptPath],
+    values: {
+      componentName,
+      docModelPath: path.resolve(docModelPath),
+    },
+  });
+  const modelSync = shouldSkipTask({
+    taskId: modelTaskId,
+    fingerprint: modelFingerprint,
+    outputs: [docModelPath],
+    force,
+    statePath: syncStatePath,
+  });
+
+  if (!modelSync.skip) {
+    runOrFail("node", [
+      ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs",
+      "--markdown",
+      markdownPath,
+      "--component-name",
+      componentName,
+      "--out",
+      docModelPath,
+    ]);
+    updateTaskState({
+      taskId: modelTaskId,
+      fingerprint: modelFingerprint,
+      outputs: [docModelPath],
+      metadata: {
+        command: "markdown_to_doc_model",
+      },
+      statePath: syncStatePath,
+    });
+  }
 
   const stepBArgs = [
     ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs",
@@ -108,11 +149,80 @@ function main() {
   if (componentSetId) {
     stepBArgs.push("--component-set-id", componentSetId);
   }
-  if (tokenRegistryPath) {
-    stepBArgs.push("--token-registry", tokenRegistryPath);
+  stepBArgs.push("--token-registry", tokenRegistryPath);
+
+  const executeTaskId = `ds-markdown-to-figma:execute:${path.resolve(markdownPath)}`;
+  const executeFingerprint = computeFingerprint({
+    files: [docModelPath, themePath, modelToExecuteScriptPath, tokenRegistryPath],
+    values: {
+      componentName,
+      componentSetId,
+      offsetX: String(offsetX),
+      executePath: path.resolve(executePath),
+      payloadPath: path.resolve(payloadPath),
+    },
+  });
+  const executeSync = shouldSkipTask({
+    taskId: executeTaskId,
+    fingerprint: executeFingerprint,
+    outputs: [executePath, payloadPath],
+    force,
+    statePath: syncStatePath,
+  });
+
+  if (!executeSync.skip) {
+    runOrFail("node", stepBArgs);
+    updateTaskState({
+      taskId: executeTaskId,
+      fingerprint: executeFingerprint,
+      outputs: [executePath, payloadPath],
+      metadata: {
+        command: "build_figma_execute_code",
+      },
+      statePath: syncStatePath,
+    });
   }
 
-  runOrFail("node", stepBArgs);
+  const renderTaskId = `ds-markdown-to-figma:render:${path.resolve(markdownPath)}`;
+  const renderFingerprint = computeFingerprint({
+    files: [executePath, payloadPath],
+    values: {
+      componentName,
+      componentSetId,
+      figmaUrl,
+      offsetX: String(offsetX),
+    },
+  });
+  const renderSync = shouldSkipTask({
+    taskId: renderTaskId,
+    fingerprint: renderFingerprint,
+    outputs: [executePath, payloadPath],
+    force,
+    statePath: syncStatePath,
+  });
+
+  if (renderSync.skip) {
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          ok: true,
+          skipped: true,
+          reason: renderSync.reason,
+          markdownPath,
+          componentName,
+          outputs: {
+            docModelPath,
+            executePath,
+            payloadPath,
+          },
+          hint: "Use --force true to regenerate and re-render in Figma.",
+        },
+        null,
+        2
+      )}\n`
+    );
+    return;
+  }
 
   const prompt = [
     "Context",
@@ -141,6 +251,15 @@ function main() {
       prompt,
       agent,
       label: `active-md-to-figma-${fileBase}`,
+    });
+    updateTaskState({
+      taskId: renderTaskId,
+      fingerprint: renderFingerprint,
+      outputs: [executePath, payloadPath],
+      metadata: {
+        command: "figma_execute_render",
+      },
+      statePath: syncStatePath,
     });
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : String(error));

@@ -25,6 +25,7 @@ npm install
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
 - **`npm run generate:registry`**: Executes the same token pipeline and also exports `docs/_generated/token-registry.json` for documentation validation.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
+- **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
 
 ### Usage
 
@@ -103,6 +104,12 @@ Registry example:
 npm run generate:registry
 ```
 
+Incremental sync example:
+
+```bash
+npm run ds:tokens-sync
+```
+
 ### Typography unit coercion (runtime)
 
 - To avoid touching exported JSONs, during emission typography dimensions are converted when token paths match font size/line-height conventions (`font.size`, `font.lineHeight`, `fontSize`, `lineHeight`):
@@ -152,9 +159,10 @@ This workflow documents Design System components from Figma and can also render 
 
 ### Documentation Scripts
 
+- **`npm run ds:component-doc`**: Generates one component markdown page from a spec YAML with incremental change detection (spec hash -> markdown). Use `--force true` to regenerate.
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
-- **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract.
+- **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links).
 
 ### Documentation folders
@@ -216,7 +224,29 @@ Useful flags:
 - `--output <path/to/component.md>`
 - `--agent <codex|claude|gemini>`
 
-### 2) Figma component -> spec YAML
+### 2) Spec YAML -> component markdown
+
+Generate/update one component markdown page from a local spec YAML:
+
+```bash
+npm run ds:component-doc -- \
+  --component-name Alert \
+  --spec-file docs/_spec/components/alert.yml \
+  --output docs/components/alert.md \
+  --agent codex
+```
+
+Useful flags:
+
+- `--component-name <Name>`
+- `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<name>.yml`)
+- `--output <path/to/component.md>`
+- `--docs-root <path>` (default: `docs`)
+- `--skip-validation true`
+- `--force true` (ignore incremental cache)
+- `--agent <codex|claude|gemini>`
+
+### 3) Figma component -> spec YAML
 
 Generate/update one component spec YAML from Figma:
 
@@ -240,7 +270,7 @@ Useful flags:
 - `--skip-validation true`
 - `--agent <codex|claude|gemini>`
 
-### 3) Active markdown -> Figma section
+### 4) Active markdown -> Figma section
 
 Render markdown to a Figma documentation section:
 
@@ -293,6 +323,7 @@ Useful flags:
 - `--theme <path>` (default: `docs/_spec/figma_doc_theme.yml`)
 - `--token-registry <path>` (default: `docs/_generated/token-registry.json`)
 - `--offset-x <number>` (default: `200`)
+- `--force true` (ignore incremental cache and always rebuild + re-render)
 - `--agent <codex|claude|gemini>`
 
 Theme color values can be:

@@ -99,3 +99,17 @@ Print:
 - Generated files list
 - Counts + warnings list
 - Top 5 unresolved/cycle examples
+
+## Incremental execution (CLI)
+
+Use the project command for change detection:
+
+```bash
+npm run ds:tokens-sync
+```
+
+Force regeneration:
+
+```bash
+npm run ds:tokens-sync -- --force true
+```

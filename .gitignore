@@ -3,3 +3,4 @@ node_modules/
 .claude/
 *.log
 *.tsbuildinfo
+docs/_generated/.sync-state.json

@@ -11,6 +11,8 @@
     "generate:registry": "tsx tooling/src/cli/index.ts --registry",
     "generate:strict": "tsx tooling/src/cli/index.ts --mode-strict",
     "validate:docs": "node tooling/scripts/validate-docs.mjs",
+    "ds:tokens-sync": "node tooling/scripts/ds-tokens-sync.mjs",
+    "ds:component-doc": "node tooling/scripts/ds-component-doc.mjs",
     "ds:doc-from-figma-url": "node tooling/scripts/ds-doc-from-figma-url.mjs",
     "ds:active-md-to-figma": "node tooling/scripts/ds-active-md-to-figma.mjs",
     "ds:spec-from-figma": "node tooling/scripts/ds-spec-from-figma.mjs"

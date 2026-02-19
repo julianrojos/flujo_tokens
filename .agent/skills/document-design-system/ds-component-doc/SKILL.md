@@ -129,3 +129,20 @@ Per `component-doc-structure.mdc`, use this table format:
 - Component page path
 - Missing spec fields
 - Unresolved token references (if any)
+
+## Incremental execution (CLI)
+
+Use the project command to generate from spec with cache:
+
+```bash
+npm run ds:component-doc -- \
+  --component-name Alert \
+  --spec-file docs/_spec/components/alert.yml \
+  --agent codex
+```
+
+Force regeneration:
+
+```bash
+npm run ds:component-doc -- --component-name Alert --force true --agent codex
+```

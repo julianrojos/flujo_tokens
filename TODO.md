@@ -15,20 +15,6 @@ Crear un skill orquestador que:
 - Ejecute la cadena completa o parcial, reportando progreso.
 - Detecte qué componentes tienen docs pero no render en Figma (y viceversa).
 
-### 2. Generación automática de spec YAML desde Figma
-
-**Problema**  
-El paso más manual y propenso a error es escribir el spec YAML de cada componente. El template `_template.yml` ayuda, pero hay que completarlo a mano inspeccionando Figma.
-
-**Propuesta**  
-Crear un skill `ds-spec-from-figma` que:
-
-- Reciba un `component_set_node_id` o nombre.
-- Use `figma_get_component_details` / `figma_get_component_for_development` para extraer variantes, propiedades y anatomía (capas).
-- Cruce con los tokens de `Components.json` para prellenar `token_mapping`.
-- Genere un spec YAML con datos reales y marque solo lo no inferible como `TBD`.
-- Reduzca el trabajo manual de horas a minutos por componente.
-
 ### 3. Validación y QA automática (`ds-qa`)
 
 **Problema**  

@@ -152,3 +152,17 @@ Notes:
 - Applied offset and measured result.
 - Count of rendered blocks by type.
 - Unsupported blocks list (if any).
+
+## Incremental execution (CLI)
+
+Use the project command for change detection:
+
+```bash
+npm run ds:active-md-to-figma -- --markdown docs/components/alert.md --agent codex
+```
+
+Force rebuild and re-render:
+
+```bash
+npm run ds:active-md-to-figma -- --markdown docs/components/alert.md --force true --agent codex
+```
