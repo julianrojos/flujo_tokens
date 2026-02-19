@@ -167,6 +167,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, and upserts `### Visual Proof` inside `## Overview`.
+- **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
 - **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec/render/proof status.
 - **`npm run ds:registry:validate`**: Validates component registry schema and checks drift between registry content and current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from the component registry in canonical sorted format.
@@ -414,6 +415,22 @@ Useful flags:
 - `--render-dir <path>` (default: `docs/_generated/figma_doc_models`)
 - `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
 - `--dry-run true` (supported by `ds:registry:sync` and `ds:registry:overview`)
+
+### 4e) Foundations docs sync from token registry
+
+```bash
+npm run ds:foundations:sync -- --create-root true
+```
+
+Useful flags:
+
+- `--docs-root <path>` (default: `docs`)
+- `--foundations-root <path>` (default: `docs/foundations`)
+- `--registry <path>` (default: `docs/_generated/token-registry.json`)
+- `--status <draft|ready|needs-review>` (default: `draft`)
+- `--max-samples <number>` (default: `2`)
+- `--create-root <true|false>` (default: `false`)
+- `--dry-run true`
 
 Recommended sequence before rendering:
 

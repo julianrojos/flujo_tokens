@@ -19,6 +19,7 @@
     "ds:doc-from-figma-url": "node tooling/scripts/ds-doc-from-figma-url.mjs",
     "ds:active-md-to-figma": "node tooling/scripts/ds-active-md-to-figma.mjs",
     "ds:spec-from-figma": "node tooling/scripts/ds-spec-from-figma.mjs",
+    "ds:foundations:sync": "node tooling/scripts/ds-foundations-sync.mjs",
     "ds:registry:sync": "node tooling/scripts/ds-registry-sync.mjs",
     "ds:registry:validate": "node tooling/scripts/ds-registry-validate.mjs",
     "ds:registry:overview": "node tooling/scripts/ds-registry-overview.mjs",

@@ -1,7 +1,7 @@
 ---
 name: ds-foundations
 description: Build optional Foundations pages (Color, Typography, Spacing/Sizing, Elevation, Iconography, A11y) in Markdown using the token registry as source of truth.
-version: "1.3.0"
+version: "1.3.1"
 requires_rules:
   - ds-docs-guardrails: ">=1.0.0"
   - docs-taxonomy: ">=1.0.0"
@@ -37,6 +37,22 @@ Use this skill when:
 - Requires `${docs_root}/_generated/token-registry.json`
 - Optional supporting artifacts (if present): `${docs_root}/_generated/tokens.inventory.md`, `${docs_root}/_generated/tokens.alias-resolution.md`, `${docs_root}/_generated/a11y.modes.md`
 - If missing, instruct to run `ds:tokens-sync` first and STOP
+
+## Command (automated sync)
+
+Use the foundations sync script to generate/update pages deterministically:
+
+```bash
+npm run ds:foundations:sync -- --create-root true
+```
+
+Useful flags:
+
+- `--docs-root <path>` (default: `docs`)
+- `--foundations-root <path>` (default: `docs/foundations`)
+- `--registry <path>` (default: `docs/_generated/token-registry.json`)
+- `--status <draft|ready|needs-review>` (default: `draft`)
+- `--dry-run true`
 
 ## Output files (create/update)
 
