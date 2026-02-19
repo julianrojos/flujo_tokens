@@ -164,6 +164,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, and deterministic `Gaps / TBD` contract).
+  - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
 
 ### Documentation folders
 
@@ -339,6 +340,7 @@ Validation command options:
 - `npm run validate:docs` -> full docs + specs + overview checks
 - `npm run validate:docs -- --file docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
 - `npm run validate:docs -- --spec-file docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
+- validation output includes `rule_ids` per finding when mapped in `.agent/rules/_manifest.yml`
 
 Internally, this command runs a two-step generation flow:
 

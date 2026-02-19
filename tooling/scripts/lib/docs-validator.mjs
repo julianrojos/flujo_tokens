@@ -39,6 +39,7 @@ const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
 const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
+const RULE_MANIFEST_PATH = path.resolve(process.cwd(), ".agent", "rules", "_manifest.yml");
 const SPEC_ALLOWED_STATUS = new Set(["draft", "ready"]);
 const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
   "name",
@@ -1458,6 +1459,10 @@ function createBaseReport() {
   return {
     ok: true,
     generatedAt: new Date().toISOString(),
+    governance: {
+      manifestPath: RULE_MANIFEST_PATH,
+      manifestLoaded: false,
+    },
     summary: {
       filesChecked: 0,
       specFilesChecked: 0,
@@ -1471,6 +1476,56 @@ function createBaseReport() {
   };
 }
 
+function loadRuleManifest(manifestPath) {
+  const resolvedPath = path.resolve(manifestPath || RULE_MANIFEST_PATH);
+  if (!fs.existsSync(resolvedPath)) {
+    return {
+      path: resolvedPath,
+      checks: {},
+      loaded: false,
+      error: null,
+    };
+  }
+
+  try {
+    const parsed = parseYamlDocument(
+      fs.readFileSync(resolvedPath, "utf8"),
+      `rule manifest (${path.basename(resolvedPath)})`
+    );
+    const checks = isPlainObject(parsed.checks) ? parsed.checks : {};
+    return {
+      path: resolvedPath,
+      checks,
+      loaded: true,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      path: resolvedPath,
+      checks: {},
+      loaded: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function annotateFindingsWithManifest(findings, manifestChecks) {
+  if (!Array.isArray(findings) || findings.length === 0) return;
+  for (const finding of findings) {
+    const code = String(finding?.code || "").trim();
+    if (!code) continue;
+    const manifestEntry = manifestChecks[code];
+    if (!isPlainObject(manifestEntry)) continue;
+    const ruleIds = Array.isArray(manifestEntry.rule_ids)
+      ? manifestEntry.rule_ids.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    finding.rule_ids = ruleIds;
+    if (typeof manifestEntry.blocking === "boolean") {
+      finding.blocking = manifestEntry.blocking;
+    }
+  }
+}
+
 export function validateDocs(options = {}) {
   const docsRoot = path.resolve(options.docsRoot || COMPONENT_DOCS_DIR);
   const specRoot = path.resolve(options.specRoot || SPEC_COMPONENTS_DIR);
@@ -1481,6 +1536,16 @@ export function validateDocs(options = {}) {
   const checkSpecs = explicitFilePath ? false : options.checkSpecs !== false;
 
   const report = createBaseReport();
+  const manifestInfo = loadRuleManifest(options.manifestPath || RULE_MANIFEST_PATH);
+  report.governance.manifestPath = manifestInfo.path;
+  report.governance.manifestLoaded = manifestInfo.loaded;
+  if (manifestInfo.error) {
+    report.errors.push({
+      code: "GOV01",
+      file: manifestInfo.path,
+      message: `Failed to parse rule manifest: ${manifestInfo.error}`,
+    });
+  }
 
   let registry;
   try {
@@ -1557,6 +1622,9 @@ export function validateDocs(options = {}) {
       validateVariableIds(overviewPath, raw, report, lineStarts);
     }
   }
+
+  annotateFindingsWithManifest(report.errors, manifestInfo.checks);
+  annotateFindingsWithManifest(report.warnings, manifestInfo.checks);
 
   report.summary.errors = report.errors.length;
   report.summary.warnings = report.warnings.length;
