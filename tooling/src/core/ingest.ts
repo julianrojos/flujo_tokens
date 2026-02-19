@@ -8,6 +8,61 @@ import { isPlainObject } from '../types/tokens.js';
 import { ALLOW_JSON_REPAIR } from '../runtime/config.js';
 
 /**
+ * Finds the start offset of a top-level object key (depth=1), outside string literals.
+ * Returns -1 when the key is not found in object-key position.
+ */
+function findTopLevelObjectKeyStart(source: string, keyName: string): number {
+    let depth = 0;
+
+    for (let i = 0; i < source.length; i++) {
+        const ch = source[i];
+
+        if (ch === '{') {
+            depth++;
+            continue;
+        }
+        if (ch === '}') {
+            depth = Math.max(0, depth - 1);
+            continue;
+        }
+        if (ch !== '"') continue;
+
+        // Parse JSON string token starting at i.
+        let j = i + 1;
+        let escaped = false;
+        let token = '';
+
+        for (; j < source.length; j++) {
+            const current = source[j];
+            if (escaped) {
+                token += current;
+                escaped = false;
+                continue;
+            }
+            if (current === '\\') {
+                escaped = true;
+                continue;
+            }
+            if (current === '"') break;
+            token += current;
+        }
+
+        if (j >= source.length) return -1;
+
+        // Only consider object keys at top level depth.
+        if (depth === 1 && token === keyName) {
+            let k = j + 1;
+            while (k < source.length && /\s/.test(source[k])) k++;
+            if (source[k] === ':') return i;
+        }
+
+        i = j;
+    }
+
+    return -1;
+}
+
+/**
  * Parses JSON content.
  * When `ALLOW_JSON_REPAIR` is enabled, attempts a best-effort repair for known truncation patterns
  * observed in some exports.
@@ -18,23 +73,20 @@ function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
     } catch (error) {
         if (!ALLOW_JSON_REPAIR) throw error;
 
-        const translationStart = fileContent.indexOf('"Translations"');
-        if (translationStart > 0) {
-            const firstBrace = fileContent.indexOf('{');
-            const jsonContent = fileContent.substring(firstBrace, translationStart).trim().replace(/,\s*$/, '');
-            const cleanedContent = jsonContent.endsWith('}') ? jsonContent : `${jsonContent}\n}`;
-            try {
-                const parsed = JSON.parse(cleanedContent);
-                console.warn(`⚠️  JSON repaired in ${file}; check the export if possible.`);
-                return parsed;
-            } catch {
-                throw error;
-            }
-        }
+        const trimmed = fileContent.trim();
+        const firstBrace = trimmed.indexOf('{');
+        if (firstBrace === -1) throw error;
 
-        let cleaned = fileContent.trim();
-        if (!cleaned.startsWith('{')) cleaned = `{${cleaned}`;
-        if (!cleaned.endsWith('}')) cleaned = `${cleaned}}`;
+        const translationStart = findTopLevelObjectKeyStart(trimmed, 'Translations');
+        if (translationStart <= firstBrace) throw error;
+
+        const beforeTranslations = trimmed
+            .slice(firstBrace, translationStart)
+            .trim()
+            .replace(/,\s*$/, '');
+        const cleaned = beforeTranslations.endsWith('}')
+            ? beforeTranslations
+            : `${beforeTranslations}\n}`;
 
         try {
             const parsed = JSON.parse(cleaned);
