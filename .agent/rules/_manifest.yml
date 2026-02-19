@@ -86,6 +86,11 @@ rules:
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
+  - id: skill-versioning
+    file: skill-versioning.mdc
+    owner: docs-governance
+    applies_to: [skills]
+    blocking: false
   - id: agent-output-contract
     file: agent-output-contract.mdc
     owner: docs-governance
@@ -170,3 +175,74 @@ checks:
   VER01:
     rule_ids: [component-versioning]
     blocking: true
+
+matrix:
+  by_doc_type:
+    component:
+      [
+        frontmatter-contract,
+        component-doc-structure,
+        component-doc-content,
+        component-figma-traceability,
+        token-references,
+        token-registry-validation,
+        markdown-lifecycle-status,
+        prohibited-patterns,
+      ]
+    overview:
+      [
+        frontmatter-contract,
+        docs-taxonomy,
+        overview-index-maintenance,
+        overview-components-canonical-list,
+        markdown-lifecycle-status,
+      ]
+    foundation:
+      [
+        frontmatter-contract,
+        docs-taxonomy,
+        token-references,
+        token-registry-validation,
+        markdown-lifecycle-status,
+      ]
+    workflow: [frontmatter-contract, docs-taxonomy, markdown-lifecycle-status]
+    spec:
+      [
+        component-spec-yaml,
+        component-spec-properties-order,
+        component-name-normalization,
+        token-references,
+        token-registry-validation,
+        prohibited-patterns,
+      ]
+    skills: [skill-versioning]
+  by_skill:
+    ds-component-doc:
+      [
+        frontmatter-contract,
+        component-doc-structure,
+        component-doc-content,
+        component-figma-traceability,
+        component-name-normalization,
+        token-references,
+        token-registry-validation,
+        docs-pipeline-contract,
+      ]
+    ds-spec-from-figma:
+      [
+        component-spec-yaml,
+        component-spec-properties-order,
+        component-name-normalization,
+        token-references,
+        token-registry-validation,
+        docs-pipeline-contract,
+      ]
+    ds-markdown-to-figma-section: [docs-pipeline-contract]
+    ds-doc-from-figma-url:
+      [
+        frontmatter-contract,
+        component-doc-structure,
+        component-doc-content,
+        component-figma-traceability,
+        docs-pipeline-contract,
+      ]
