@@ -37,7 +37,7 @@ import {
   canonicalH2ConstraintLines,
   RULE_BLOCKS,
 } from "./lib/prompts.mjs";
-import { runOrThrow } from "./lib/exec.mjs";
+import { formatMarkdownTarget } from "./lib/format-markdown.mjs";
 import {
   normalizeComponentName,
   componentNameFromFilePath,
@@ -49,6 +49,10 @@ import {
   updateTaskState,
 } from "./lib/cache-utils.mjs";
 import { TRACEABILITY_CONTRACT_VERSION } from "./lib/docs-config.mjs";
+import {
+  captureFileSnapshot,
+  restoreFileSnapshot,
+} from "./lib/file-snapshot.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const USAGE = {
@@ -96,28 +100,6 @@ const USAGE = {
     },
   ],
 };
-
-function formatMarkdown(outputPath) {
-  runOrThrow("npx", ["prettier", "--write", outputPath]);
-}
-
-function captureFileSnapshot(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return { exists: false, content: "" };
-  }
-  return {
-    exists: true,
-    content: fs.readFileSync(filePath, "utf8"),
-  };
-}
-
-function restoreFileSnapshot(filePath, snapshot) {
-  if (!snapshot.exists) {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    return;
-  }
-  fs.writeFileSync(filePath, snapshot.content, "utf8");
-}
 
 function validateSpecPreflight(specPath, registryPath) {
   const report = validateDocs({
@@ -472,7 +454,7 @@ function main() {
         registryPath,
         generatorScriptPath: __filename,
       });
-      formatMarkdown(outputPath);
+      formatMarkdownTarget(outputPath);
 
       const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
       const outputContract = validateAgentOutputContract({

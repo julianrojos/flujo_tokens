@@ -25,7 +25,11 @@ import {
   canonicalH2ConstraintLines,
   RULE_BLOCKS,
 } from "./lib/prompts.mjs";
-import { runOrThrow } from "./lib/exec.mjs";
+import { formatMarkdownScope } from "./lib/format-markdown.mjs";
+import {
+  captureFileSnapshot,
+  restoreFileSnapshot,
+} from "./lib/file-snapshot.mjs";
 
 const USAGE = {
   command:
@@ -62,32 +66,6 @@ const USAGE = {
     },
   ],
 };
-
-function formatMarkdown({ outputPath, docsRoot }) {
-  const target = outputPath
-    ? path.resolve(outputPath)
-    : path.join(path.resolve(docsRoot), "**/*.md");
-  runOrThrow("npx", ["prettier", "--write", target]);
-}
-
-function captureFileSnapshot(filePath) {
-  if (!filePath || !fs.existsSync(filePath)) {
-    return { exists: false, content: "" };
-  }
-  return {
-    exists: true,
-    content: fs.readFileSync(filePath, "utf8"),
-  };
-}
-
-function restoreFileSnapshot(filePath, snapshot) {
-  if (!filePath) return;
-  if (!snapshot.exists) {
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    return;
-  }
-  fs.writeFileSync(filePath, snapshot.content, "utf8");
-}
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -178,7 +156,7 @@ function main() {
     if (outputPath && fs.existsSync(outputPath)) {
       normalizeAgentOutputFile(outputPath);
     }
-    formatMarkdown({ outputPath, docsRoot: componentDocsDir });
+    formatMarkdownScope({ outputPath, docsRoot: componentDocsDir });
 
     if (outputPath && fs.existsSync(outputPath)) {
       const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
