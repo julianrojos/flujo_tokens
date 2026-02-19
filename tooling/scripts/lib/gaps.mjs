@@ -1,6 +1,4 @@
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
+import { isPlainObject } from "./is-plain-object.mjs";
 
 const GAP_TYPE = Object.freeze({
   SCHEMA_TBD: "SCHEMA_TBD",

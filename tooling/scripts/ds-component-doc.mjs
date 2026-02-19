@@ -15,6 +15,7 @@ import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
+import { isPlainObject } from "./lib/is-plain-object.mjs";
 import {
   normalizeComponentName,
   componentNameFromFilePath,
@@ -73,10 +74,6 @@ function sha256File(filePath) {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(filePath));
   return hash.digest("hex");
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function upsertTraceabilityFrontmatter({

@@ -15,6 +15,8 @@ import {
   componentNameToSnakeCase,
   isSnakeCaseFileSlug,
 } from "./component-name.mjs";
+import { isPlainObject } from "./is-plain-object.mjs";
+import { normalizeNodeId } from "./node-id.mjs";
 
 const ALLOWED_DOC_STATUS = new Set(["draft", "ready", "needs-review"]);
 
@@ -1446,21 +1448,6 @@ function validateSpecMarkdownPairing({
         `${path.relative(process.cwd(), expectedMarkdownPath)}.`,
     });
   }
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function normalizeNodeId(raw) {
-  const value = String(raw || "").trim();
-  if (!value) return "";
-  if (value.includes(":")) return value;
-  if (value.includes("-")) {
-    const parts = value.split("-").filter(Boolean);
-    if (parts.length === 2) return `${parts[0]}:${parts[1]}`;
-  }
-  return value;
 }
 
 function toCliPath(filePath) {

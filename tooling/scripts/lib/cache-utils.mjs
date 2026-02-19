@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { SYNC_STATE_PATH } from "./paths.mjs";
+import { isPlainObject } from "./is-plain-object.mjs";
 
 const STATE_VERSION = 1;
 
@@ -11,10 +12,6 @@ function createEmptyState() {
     version: STATE_VERSION,
     tasks: {},
   };
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function stableSerialize(value) {

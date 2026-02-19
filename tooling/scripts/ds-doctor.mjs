@@ -2,7 +2,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 
 import { parseArgs } from "./lib/parse-args.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
@@ -10,11 +9,7 @@ import { validateDocs } from "./lib/docs-validator.mjs";
 import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
-
-function checkCommandAvailability(command) {
-  const probe = spawnSync("which", [command], { stdio: "pipe" });
-  return (probe.status ?? 1) === 0;
-}
+import { commandExists } from "./lib/command-exists.mjs";
 
 function createCheck(id, status, message, details = {}) {
   return {
@@ -94,7 +89,7 @@ function main() {
   }
 
   const supportedAgents = ["codex", "claude", "gemini"];
-  const availableAgents = supportedAgents.filter((agent) => checkCommandAvailability(agent));
+  const availableAgents = supportedAgents.filter((agent) => commandExists(agent));
   if (availableAgents.length > 0) {
     checks.push(
       createCheck("AGENTS", "pass", "At least one supported agent CLI is available.", {

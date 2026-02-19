@@ -21,6 +21,7 @@ import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
+import { normalizeNodeId } from "./lib/node-id.mjs";
 
 function runOrFail(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });
@@ -30,17 +31,6 @@ function runOrFail(command, args) {
   if ((result.status ?? 1) !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with code ${result.status}`);
   }
-}
-
-function normalizeNodeId(raw) {
-  const value = String(raw || "").trim();
-  if (!value) return "";
-  if (value.includes(":")) return value;
-  if (value.includes("-")) {
-    const parts = value.split("-").filter(Boolean);
-    if (parts.length === 2) return `${parts[0]}:${parts[1]}`;
-  }
-  return value;
 }
 
 function isValidNodeId(raw) {

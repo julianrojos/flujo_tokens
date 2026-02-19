@@ -12,6 +12,8 @@ import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
 import { componentNameToSnakeCase, componentNameToDisplayName, normalizeComponentName } from "./lib/component-name.mjs";
+import { isPlainObject } from "./lib/is-plain-object.mjs";
+import { normalizeNodeId } from "./lib/node-id.mjs";
 
 const SPEC_COMPONENTS_DIR = path.join(DOCS_SPEC_DIR, "components");
 const SPEC_TEMPLATE_PATH = path.join(SPEC_COMPONENTS_DIR, "_template.yml");
@@ -29,21 +31,6 @@ const SPEC_TOP_LEVEL_ORDER = [
   "qa",
   "related_components",
 ];
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function normalizeNodeId(raw) {
-  const value = String(raw || "").trim();
-  if (!value) return "";
-  if (value.includes(":")) return value;
-  if (value.includes("-")) {
-    const parts = value.split("-").filter(Boolean);
-    if (parts.length === 2) return `${parts[0]}:${parts[1]}`;
-  }
-  return value;
-}
 
 function parseFigmaUrl(figmaUrl) {
   if (!figmaUrl) return { fileKey: "", nodeId: "" };

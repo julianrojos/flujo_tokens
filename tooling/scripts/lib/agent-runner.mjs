@@ -1,11 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-
-function commandExists(command) {
-  const probe = spawnSync("which", [command], { stdio: "pipe" });
-  return (probe.status ?? 1) === 0;
-}
+import { commandExists } from "./command-exists.mjs";
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
