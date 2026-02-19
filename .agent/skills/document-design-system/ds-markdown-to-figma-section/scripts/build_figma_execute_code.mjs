@@ -412,7 +412,8 @@ function resolveRadiusValue(theme, tokenDimensions, valueOrToken, fallbackValue)
 
   const fallbackNumericValue = parseNumericDimension(fallbackValue);
   if (fallbackNumericValue != null) return fallbackNumericValue;
-  return Number(fallbackValue);
+  const numericFallback = Number(fallbackValue);
+  return Number.isFinite(numericFallback) ? numericFallback : 0;
 }
 
 function fontStyleFromWeight(weight) {
@@ -725,6 +726,24 @@ function resolvePageForSection(componentSection, componentSet) {
   return figma.currentPage || null;
 }
 
+function findSectionByName(rootNode, sectionName) {
+  if (!rootNode || !sectionName) return null;
+  const queue = [rootNode];
+
+  while (queue.length > 0) {
+    const node = queue.shift();
+    if (!node) continue;
+    if (node.type === "SECTION" && node.name === sectionName) {
+      return node;
+    }
+    if (Array.isArray(node.children)) {
+      for (const child of node.children) queue.push(child);
+    }
+  }
+
+  return null;
+}
+
 function toSafeName(raw) {
   return String(raw || "")
     .replace(/[\\\\/:*?"<>|]/g, "-")
@@ -863,13 +882,20 @@ function createTable(parent, title, tableBlock, theme) {
   const borderWeight = Number(getPath(theme, "components.table_card.table.border_weight", 1));
   const minRowHeight = resolveTableMinRowHeight(theme, cellPaddingV);
   const minColumnWidth = Number(getPath(theme, "components.table_card.table.min_column_width", 120));
+  const minReadableColumnWidth = Number(
+    getPath(theme, "components.table_card.table.min_readable_column_width", 40)
+  );
+  const hardMinColumnWidth = Math.max(12, minReadableColumnWidth);
   const rowGap = Number(getPath(theme, "components.table_card.table.row_gap", 0));
   const columnGap = Number(getPath(theme, "components.table_card.table.column_gap", 0));
   const headerBgColor = resolveColor(theme, tokenColors, getPath(theme, "components.table_card.table.header_bg", "table_header_bg"), null);
   const cardWidth = Number(getPath(theme, "components.card.width", 820));
   const cardPadLeft = Number(getPath(theme, "components.card.padding.left", 20));
   const cardPadRight = Number(getPath(theme, "components.card.padding.right", 20));
-  const tableWidth = Math.max(240, cardWidth - cardPadLeft - cardPadRight);
+  const baseTableWidth = Math.max(240, cardWidth - cardPadLeft - cardPadRight);
+  const minimumRequiredWidth =
+    hardMinColumnWidth * columnCount + columnGap * Math.max(0, columnCount - 1);
+  const tableWidth = Math.max(baseTableWidth, minimumRequiredWidth);
   tableCard.itemSpacing = rowGap;
 
   function normalizeCellText(raw) {
@@ -900,7 +926,7 @@ function createTable(parent, title, tableBlock, theme) {
   });
   const totalWeight = Math.max(1, columnWeights.reduce((sum, value) => sum + value, 0));
   const columnWidths = columnWeights.map((weight) =>
-    Math.max(1, Math.floor((availableWidth * weight) / totalWeight))
+    Math.max(hardMinColumnWidth, Math.floor((availableWidth * weight) / totalWeight))
   );
 
   // Ensure the full table width is consumed after flooring.
@@ -915,9 +941,10 @@ function createTable(parent, title, tableBlock, theme) {
   }
 
   // Try to keep columns readable without exceeding the table width budget.
-  if (minColumnWidth * columnCount <= availableWidth) {
+  const enforcedMinColumnWidth = Math.max(hardMinColumnWidth, minColumnWidth);
+  if (enforcedMinColumnWidth * columnCount <= availableWidth) {
     for (let i = 0; i < columnWidths.length; i += 1) {
-      columnWidths[i] = Math.max(minColumnWidth, columnWidths[i]);
+      columnWidths[i] = Math.max(enforcedMinColumnWidth, columnWidths[i]);
     }
     let overflow =
       columnWidths.reduce((sum, value) => sum + value, 0) - availableWidth;
@@ -926,7 +953,7 @@ function createTable(parent, title, tableBlock, theme) {
       for (let i = 1; i < columnWidths.length; i += 1) {
         if (columnWidths[i] > columnWidths[widestIndex]) widestIndex = i;
       }
-      if (columnWidths[widestIndex] <= minColumnWidth) break;
+      if (columnWidths[widestIndex] <= enforcedMinColumnWidth) break;
       columnWidths[widestIndex] -= 1;
       overflow -= 1;
     }
@@ -950,7 +977,7 @@ function createTable(parent, title, tableBlock, theme) {
       const cell = createVerticalFrame((row.isHeader ? "Header Cell " : "Cell ") + String(colIndex + 1));
       cell.primaryAxisSizingMode = "AUTO";
       cell.counterAxisSizingMode = "FIXED";
-      const cellWidth = Math.max(1, columnWidths[colIndex]);
+      const cellWidth = Math.max(hardMinColumnWidth, columnWidths[colIndex]);
       cell.resizeWithoutConstraints(cellWidth, 1);
       cell.layoutAlign = "STRETCH";
       cell.clipsContent = false;
@@ -997,16 +1024,35 @@ function createTable(parent, title, tableBlock, theme) {
 function renderList(parent, listBlock, theme) {
   const ordered = Boolean(listBlock.ordered);
   const items = Array.isArray(listBlock.items) ? listBlock.items : [];
+  const orderedCounters = [];
+
   for (let i = 0; i < items.length; i += 1) {
     const item = items[i];
     const text = typeof item === "string" ? item : String(item?.text ?? "");
+    const depth =
+      typeof item === "string" ? 0 : Math.max(0, Number(item?.depth ?? 0));
+    const isOrderedItem =
+      typeof item === "string" ? ordered : Boolean(item?.ordered ?? ordered);
+
+    while (orderedCounters.length > depth + 1) orderedCounters.pop();
+    while (orderedCounters.length < depth + 1) orderedCounters.push(0);
+
+    if (isOrderedItem) {
+      orderedCounters[depth] += 1;
+      for (let counterIndex = depth + 1; counterIndex < orderedCounters.length; counterIndex += 1) {
+        orderedCounters[counterIndex] = 0;
+      }
+    }
+
+    const indentPrefix = "  ".repeat(depth);
+    const prefix = isOrderedItem ? String(orderedCounters[depth]) + ". " : "\\u2022 ";
+    const fullPrefix = indentPrefix + prefix;
     const itemSegments =
       typeof item === "string" || !Array.isArray(item?.segments) ? null : item.segments;
-    const prefix = ordered ? String(i + 1) + ". " : "\\u2022 ";
     const mergedSegments = itemSegments
-      ? [{ text: prefix, style: "normal" }, ...itemSegments]
+      ? [{ text: fullPrefix, style: "normal" }, ...itemSegments]
       : null;
-    createText(parent, prefix + text, "body", theme, { segments: mergedSegments });
+    createText(parent, fullPrefix + text, "body", theme, { segments: mergedSegments });
   }
 }
 
@@ -1075,13 +1121,7 @@ const sectionPattern = String(
   getPath(theme, "layout.target.section_name_pattern", "Doc/{component_name}")
 );
 const docSectionName = sectionPattern.replace("{component_name}", componentName);
-let docSection = null;
-for (const child of page.children) {
-  if (child.type === "SECTION" && child.name === docSectionName) {
-    docSection = child;
-    break;
-  }
-}
+let docSection = findSectionByName(page, docSectionName);
 if (!docSection) {
   docSection = figma.createSection();
   docSection.name = docSectionName;
@@ -1282,7 +1322,7 @@ return {
   componentSectionId: componentSection.id,
   targetSectionId: docSection.id,
   targetSectionName: docSection.name,
-  offsetXApplied: docSection.x - (componentSection.x + componentSection.width),
+  offsetXApplied: docSection.x - (componentSectionBounds.x + componentSectionBounds.width),
   renderedCount,
   unsupportedBlocks,
 };

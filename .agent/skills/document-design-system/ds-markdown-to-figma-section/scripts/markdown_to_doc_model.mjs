@@ -7,8 +7,43 @@ import { parseMarkdownFrontmatter } from "../../../../../tooling/scripts/lib/par
 import { FIGMA_DOC_MODELS_DIR } from "../../../../../tooling/scripts/lib/paths.mjs";
 
 function parseTableRow(line) {
-  const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
-  return trimmed.split("|").map((cell) => cell.trim());
+  const source = String(line == null ? "" : line).trim();
+  const trimmed = source.replace(/^\|/, "").replace(/\|$/, "");
+  const cells = [];
+  let current = "";
+  let inCode = false;
+
+  for (let i = 0; i < trimmed.length; i += 1) {
+    const ch = trimmed[i];
+
+    if (ch === "\\") {
+      const next = trimmed[i + 1];
+      if (next === "|" || next === "\\" || next === "`") {
+        current += next;
+        i += 1;
+        continue;
+      }
+      current += ch;
+      continue;
+    }
+
+    if (ch === "`") {
+      inCode = !inCode;
+      current += ch;
+      continue;
+    }
+
+    if (ch === "|" && !inCode) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += ch;
+  }
+
+  cells.push(current.trim());
+  return cells;
 }
 
 function isTableSeparator(line) {
@@ -177,27 +212,40 @@ function parseMarkdown(markdown) {
       const baseIndent = ordered
         ? orderedMatch[1].length
         : unorderedMatch[1].length;
+      const indentStack = [baseIndent];
       const items = [];
-      let index = 1;
 
       while (i < lines.length) {
         const rawCandidate = lines[i];
         const candidate = rawCandidate.trim();
         if (!candidate) break;
-        if (ordered) {
-          const m = rawCandidate.match(/^(\s*)(\d+)\.\s+(.+)$/);
-          if (!m) break;
-          if (m[1].length !== baseIndent) break;
-          const inline = parseInlineFormatting(normalizeText(m[3]));
-          items.push({ index, text: inline.text, segments: inline.segments });
-          index += 1;
-        } else {
-          const m = rawCandidate.match(/^(\s*)[-*]\s+(.+)$/);
-          if (!m) break;
-          if (m[1].length !== baseIndent) break;
-          const inline = parseInlineFormatting(normalizeText(m[2]));
-          items.push({ text: inline.text, segments: inline.segments });
+        const orderedItemMatch = rawCandidate.match(/^(\s*)(\d+)\.\s+(.+)$/);
+        const unorderedItemMatch = rawCandidate.match(/^(\s*)[-*]\s+(.+)$/);
+        const itemMatch = orderedItemMatch || unorderedItemMatch;
+        if (!itemMatch) break;
+
+        const indent = itemMatch[1].length;
+        if (indent < baseIndent) break;
+
+        while (
+          indentStack.length > 1 &&
+          indent < indentStack[indentStack.length - 1]
+        ) {
+          indentStack.pop();
         }
+        if (indent > indentStack[indentStack.length - 1]) {
+          indentStack.push(indent);
+        }
+
+        const depth = Math.max(0, indentStack.length - 1);
+        const textIndex = orderedItemMatch ? 3 : 2;
+        const inline = parseInlineFormatting(normalizeText(itemMatch[textIndex]));
+        items.push({
+          text: inline.text,
+          segments: inline.segments,
+          depth,
+          ordered: Boolean(orderedItemMatch),
+        });
         i += 1;
       }
 
