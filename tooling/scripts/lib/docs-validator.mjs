@@ -45,7 +45,7 @@ export { CANONICAL_H2_ORDER, REQUIRED_CANONICAL_H2 } from "./docs-config.mjs";
 export { OPTIONAL_CANONICAL_H2 } from "./docs-config.mjs";
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
 const SLASH_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9-]+){1,}/g;
-const VARIABLE_ID_RE_SOURCE = "VariableID:[A-Za-z0-9:-]+";
+const VARIABLE_ID_RE_SOURCE = "\\bVariableID:[A-Za-z0-9:-]+\\b";
 const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
@@ -64,10 +64,14 @@ const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
 const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 const HASH_RE = /^[a-f0-9]{64}$/i;
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const TOKEN_COLLECTION_PREFIXES_LOWER = new Set(
+  [...TOKEN_COLLECTION_PREFIXES].map((value) => String(value).toLowerCase()),
+);
 
 function normalizeSlashPathCandidate(tokenPath) {
   const parts = tokenPath.split("/");
-  if (parts.length > 1 && TOKEN_COLLECTION_PREFIXES.has(parts[0])) {
+  const first = String(parts[0] || "").toLowerCase();
+  if (parts.length > 1 && TOKEN_COLLECTION_PREFIXES_LOWER.has(first)) {
     return parts.slice(1).join("/");
   }
   return tokenPath;
@@ -165,7 +169,10 @@ function looksLikeTokenPath(candidate, dotRoots, slashRoots) {
   if (!candidate) return false;
   if (candidate.includes("/")) {
     const first = candidate.split("/")[0];
-    if (slashRoots.has(first) || TOKEN_COLLECTION_PREFIXES.has(first)) return true;
+    if (slashRoots.has(first)) return true;
+    if (TOKEN_COLLECTION_PREFIXES_LOWER.has(String(first || "").toLowerCase())) {
+      return true;
+    }
     return false;
   }
   if (candidate.includes(".")) {

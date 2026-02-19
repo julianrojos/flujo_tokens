@@ -14,6 +14,9 @@ const GAP_TYPE_ORDER = new Map([
   [GAP_TYPE.CONTENT_UNKNOWN, 3],
   [GAP_TYPE.A11Y_TBD, 4],
 ]);
+const TOKEN_COLLECTION_PREFIXES_LOWER = new Set(
+  [...TOKEN_COLLECTION_PREFIXES].map((value) => String(value).toLowerCase()),
+);
 
 function isGapMarker(raw) {
   return /^(?:tbd|unknown|unverified|not[-_\s]?defined)$/i.test(String(raw || "").trim());
@@ -26,7 +29,8 @@ function normalizeTokenPathCandidate(tokenPath) {
   let normalized = raw;
   if (normalized.includes("/")) {
     const parts = normalized.split("/");
-    if (parts.length > 1 && TOKEN_COLLECTION_PREFIXES.has(parts[0])) {
+    const first = String(parts[0] || "").toLowerCase();
+    if (parts.length > 1 && TOKEN_COLLECTION_PREFIXES_LOWER.has(first)) {
       normalized = parts.slice(1).join("/");
     }
   }
