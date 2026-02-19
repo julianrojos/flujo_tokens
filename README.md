@@ -160,6 +160,7 @@ This workflow documents Design System components from Figma and can also render 
 ### Documentation Scripts
 
 - **`npm run ds:component-doc`**: Generates one component markdown page from a spec YAML with incremental change detection (spec hash -> markdown). Use `--force true` to regenerate.
+- **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
@@ -278,6 +279,24 @@ Preflight behavior:
 - Validates the target spec before generating markdown; generation is blocked on spec errors.
 - Synchronizes `## Gaps / TBD` from spec + token registry using canonical checkbox format.
 - Validation bypass requires `--force true` when `--skip-validation true` is used.
+
+### 2b) Batch markdown regeneration (operational)
+
+Regenerate all component markdown docs from current specs:
+
+```bash
+npm run ds:regenerate-docs -- --agent codex
+```
+
+Useful flags:
+
+- `--component <Name|snake_case>` (regenerate one component only)
+- `--registry <path>` (default: `docs/_generated/token-registry.json`)
+- `--spec-root <path>` (default: `docs/_spec/components`)
+- `--docs-root <path>` (default: `docs/components`)
+- `--skip-validation true` (passes through to `ds:component-doc`)
+- `--continue-on-error true` (process remaining components)
+- `--dry-run true` (print commands without executing)
 
 ### 3) Figma component -> spec YAML
 

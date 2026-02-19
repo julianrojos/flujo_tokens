@@ -13,6 +13,7 @@
     "validate:docs": "node tooling/scripts/validate-docs.mjs",
     "ds:tokens-sync": "node tooling/scripts/ds-tokens-sync.mjs",
     "ds:component-doc": "node tooling/scripts/ds-component-doc.mjs",
+    "ds:regenerate-docs": "node tooling/scripts/ds-regenerate-docs.mjs",
     "ds:doc-from-figma-url": "node tooling/scripts/ds-doc-from-figma-url.mjs",
     "ds:active-md-to-figma": "node tooling/scripts/ds-active-md-to-figma.mjs",
     "ds:spec-from-figma": "node tooling/scripts/ds-spec-from-figma.mjs",
