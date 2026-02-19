@@ -5,15 +5,18 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseArgs } from "./lib/parse-args.mjs";
-import { COMPONENT_DOCS_DIR, DOCS_SPEC_DIR } from "./lib/paths.mjs";
+import {
+  COMPONENT_DOCS_DIR,
+  DOCS_SPEC_DIR,
+  resolveProjectPath,
+} from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
 
-const COMPONENT_DOC_SCRIPT_PATH = path.resolve(
-  process.cwd(),
+const COMPONENT_DOC_SCRIPT_PATH = resolveProjectPath(
   "tooling",
   "scripts",
-  "ds-component-doc.mjs"
+  "ds-component-doc.mjs",
 );
 
 function listSpecFiles(specRoot) {

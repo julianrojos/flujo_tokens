@@ -2,7 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 
-import { COMPONENT_DOCS_DIR, DOCS_SPEC_DIR } from "./paths.mjs";
+import {
+  COMPONENT_DOCS_DIR,
+  DOCS_SPEC_DIR,
+  resolveProjectPath,
+} from "./paths.mjs";
 import {
   loadTokenRegistry,
   DEFAULT_TOKEN_REGISTRY_PATH,
@@ -49,12 +53,7 @@ const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
 const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
-const RULE_MANIFEST_PATH = path.resolve(
-  process.cwd(),
-  ".agent",
-  "rules",
-  "_manifest.yml",
-);
+const RULE_MANIFEST_PATH = resolveProjectPath(".agent", "rules", "_manifest.yml");
 const TRACEABILITY_CONTRACT_VERSION = "1";
 const SPEC_PROPERTY_GROUP_ORDER = new Map([
   ["variant", 1],

@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = path.resolve(__dirname, "..", "..", "..");
 
-export const DOCS_ROOT = path.join(PROJECT_ROOT, "docs");
+export function resolveProjectPath(...parts) {
+  return path.join(PROJECT_ROOT, ...parts);
+}
+
+export const DOCS_ROOT = resolveProjectPath("docs");
 export const COMPONENT_DOCS_DIR = path.join(DOCS_ROOT, "components");
 export const DOCS_SPEC_DIR = path.join(DOCS_ROOT, "_spec");
 const DOCS_GENERATED_DIR = path.join(DOCS_ROOT, "_generated");
