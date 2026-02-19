@@ -29,7 +29,7 @@ npm install
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 - **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
 - **`npm run ds:token-diff`**: Compares current token registry with a previous version (file or git ref), groups changes (`Added`, `Modified`, `Removed`), and classifies breaking vs non-breaking diffs.
-- **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, and reports unused primitive terminal tokens.
+- **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
 
 ### Usage
 
@@ -141,6 +141,12 @@ npm run ds:token-graph -- --format text --dry-run true
 
 # Fail CI when cycles exist
 npm run ds:token-graph -- --strict-cycles true
+
+# Fail CI when unresolved aliases or identity collisions exist
+npm run ds:token-graph -- --strict-unresolved true --strict-collisions true
+
+# Limit graph size in mermaid output for large registries
+npm run ds:token-graph -- --mermaid-max-edges 1000
 ```
 
 ### Typography unit coercion (runtime)
