@@ -2,10 +2,16 @@
 doc_type: component
 doc_status: needs-review
 figma:
-  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892"
-  page: "Alert"
-  component: "Alert"
+  file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892
+  page: Alert
+  component: Alert
   last_verified: "2026-02-18"
+pipeline:
+  ds_component_doc:
+    contract_version: "1"
+    spec_sha256: 0b3496e15665bf76ea5f34028e595a17dd6856b4018defeddd07fee02359c578
+    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    generator_script_sha256: b339a68ac7ef34b3cfc99b8b3afecc126fe2a21056182b8d0ffe5642a7925158
 ---
 
 # Alert

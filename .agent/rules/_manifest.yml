@@ -105,6 +105,9 @@ checks:
   TRACE01:
     rule_ids: [component-figma-traceability, component-spec-yaml]
     blocking: true
+  TRACE02:
+    rule_ids: [docs-pipeline-contract, ds-docs-guardrails]
+    blocking: true
   LINK01:
     rule_ids: [overview-index-maintenance]
     blocking: true

@@ -2,10 +2,16 @@
 doc_type: component
 doc_status: draft
 figma:
-  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202"
-  page: "Bars"
-  component: "Status-Bar"
+  file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202
+  page: Bars
+  component: Status-Bar
   last_verified: "2026-02-18"
+pipeline:
+  ds_component_doc:
+    contract_version: "1"
+    spec_sha256: 6a72f5e4021a7eb62d0777e33d9fac47b044ab692acf18f56835f9111ea10fd2
+    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    generator_script_sha256: b339a68ac7ef34b3cfc99b8b3afecc126fe2a21056182b8d0ffe5642a7925158
 ---
 
 # Status Bar

@@ -2,10 +2,16 @@
 doc_type: component
 doc_status: needs-review
 figma:
-  file_url: "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474"
-  page: "Avatar"
-  component: "Avatar"
+  file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474
+  page: Avatar
+  component: Avatar
   last_verified: "2026-02-18"
+pipeline:
+  ds_component_doc:
+    contract_version: "1"
+    spec_sha256: c1df7ce9b6ef2b9aa0c1228598d1bb0301e45036b6327daf27105713aa338f2f
+    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    generator_script_sha256: b339a68ac7ef34b3cfc99b8b3afecc126fe2a21056182b8d0ffe5642a7925158
 ---
 
 # Avatar

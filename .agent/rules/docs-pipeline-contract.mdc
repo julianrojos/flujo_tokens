@@ -27,6 +27,11 @@ This contract defines the only canonical order for component documentation:
 - After `spec` stage, run docs validation for the generated spec and block on errors.
 - After `markdown` stage, run docs validation for the generated markdown and block on errors.
 - `figma` stage is blocked when validation fails or markdown is stale relative to its spec.
+- Generated markdown must include a deterministic traceability block in frontmatter:
+  - `pipeline.ds_component_doc.contract_version`
+  - `pipeline.ds_component_doc.spec_sha256`
+  - `pipeline.ds_component_doc.token_registry_sha256`
+  - `pipeline.ds_component_doc.generator_script_sha256`
 
 ## Bypass policy
 

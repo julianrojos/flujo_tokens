@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 
 import { COMPONENT_DOCS_DIR, DOCS_SPEC_DIR } from "./paths.mjs";
 import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./token-registry.mjs";
@@ -40,6 +41,8 @@ const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
 const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
 const RULE_MANIFEST_PATH = path.resolve(process.cwd(), ".agent", "rules", "_manifest.yml");
+const DS_COMPONENT_DOC_SCRIPT_PATH = path.resolve(process.cwd(), "tooling", "scripts", "ds-component-doc.mjs");
+const TRACEABILITY_CONTRACT_VERSION = "1";
 const SPEC_ALLOWED_STATUS = new Set(["draft", "ready"]);
 const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
   "name",
@@ -65,6 +68,7 @@ const CANONICAL_COMPONENT_LIST_HEADING = "component list";
 const OVERVIEW_ENTRY_RE = /^-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
 const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
+const HASH_RE = /^[a-f0-9]{64}$/i;
 
 
 function normalizeSlashPathCandidate(tokenPath) {
@@ -535,6 +539,73 @@ function validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, rep
         `differs from spec value (${spec.componentSetNodeId}).`,
       suggested: path.relative(process.cwd(), spec.specPath),
     });
+  }
+}
+
+function validateGeneratedTraceability(filePath, frontmatter, specRoot, registryPath, report) {
+  const spec = readComponentSpecByDocPath(filePath, specRoot);
+  if (!spec.exists || spec.parseError) return;
+
+  const pipeline = isPlainObject(frontmatter.pipeline) ? frontmatter.pipeline : null;
+  const dsDoc = pipeline && isPlainObject(pipeline.ds_component_doc) ? pipeline.ds_component_doc : null;
+  if (!dsDoc) {
+    report.errors.push({
+      code: "TRACE02",
+      file: filePath,
+      message:
+        "Missing frontmatter `pipeline.ds_component_doc` traceability block. Regenerate markdown via `ds:component-doc`.",
+    });
+    return;
+  }
+
+  const contractVersion = String(dsDoc.contract_version || "").trim();
+  if (contractVersion !== TRACEABILITY_CONTRACT_VERSION) {
+    report.errors.push({
+      code: "TRACE02",
+      file: filePath,
+      message:
+        `Unsupported traceability contract version: \`${contractVersion || "<missing>"}\`. ` +
+        `Expected \`${TRACEABILITY_CONTRACT_VERSION}\`.`,
+    });
+  }
+
+  const expected = {
+    spec_sha256: sha256FileCached(spec.specPath),
+    token_registry_sha256: sha256FileCached(registryPath),
+    generator_script_sha256: fs.existsSync(DS_COMPONENT_DOC_SCRIPT_PATH)
+      ? sha256FileCached(DS_COMPONENT_DOC_SCRIPT_PATH)
+      : "",
+  };
+
+  for (const [field, expectedValue] of Object.entries(expected)) {
+    const actualValue = String(dsDoc[field] || "").trim();
+    if (!actualValue) {
+      report.errors.push({
+        code: "TRACE02",
+        file: filePath,
+        message: `Missing frontmatter traceability field: pipeline.ds_component_doc.${field}.`,
+      });
+      continue;
+    }
+    if (!HASH_RE.test(actualValue)) {
+      report.errors.push({
+        code: "TRACE02",
+        file: filePath,
+        message:
+          `Invalid hash format in pipeline.ds_component_doc.${field}; expected a 64-char sha256 hex string.`,
+      });
+      continue;
+    }
+    if (expectedValue && actualValue !== expectedValue) {
+      report.errors.push({
+        code: "TRACE02",
+        file: filePath,
+        message:
+          `Traceability drift in pipeline.ds_component_doc.${field}. Regenerate markdown via ds-component-doc.`,
+        expected: expectedValue,
+        actual: actualValue,
+      });
+    }
   }
 }
 
@@ -1172,6 +1243,18 @@ function normalizeNodeId(raw) {
   return value;
 }
 
+const FILE_HASH_CACHE = new Map();
+
+function sha256FileCached(filePath) {
+  const resolved = path.resolve(filePath);
+  if (FILE_HASH_CACHE.has(resolved)) return FILE_HASH_CACHE.get(resolved);
+  const hash = crypto.createHash("sha256");
+  hash.update(fs.readFileSync(resolved));
+  const digest = hash.digest("hex");
+  FILE_HASH_CACHE.set(resolved, digest);
+  return digest;
+}
+
 function isValidNodeId(raw) {
   const normalized = normalizeNodeId(raw);
   if (!normalized) return false;
@@ -1602,6 +1685,7 @@ export function validateDocs(options = {}) {
     validateComponentDocFileName(filePath, report);
     validateComponentFrontmatter(filePath, frontmatter, report);
     validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report);
+    validateGeneratedTraceability(filePath, frontmatter, specRoot, registryPath, report);
     validateGapsSectionContract(filePath, raw, specRoot, registry, report, lineStarts);
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset);
     validateVariableIds(filePath, raw, report, lineStarts);

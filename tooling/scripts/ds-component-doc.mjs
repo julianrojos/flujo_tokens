@@ -1,14 +1,16 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import yaml from "js-yaml";
 
 import { parseArgs } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
-import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
+import { parseMarkdownFrontmatter, parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
@@ -24,6 +26,7 @@ import {
 } from "./lib/cache-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
+const TRACEABILITY_CONTRACT_VERSION = "1";
 
 function formatMarkdown(outputPath) {
   const result = spawnSync("npx", ["prettier", "--write", outputPath], {
@@ -60,6 +63,60 @@ function validateSpecPreflight(specPath) {
       `Run: npm run validate:docs -- --spec-file "${specPath}" --no-overview true\n` +
       `${JSON.stringify(payload, null, 2)}`
   );
+}
+
+function sha256File(filePath) {
+  const hash = crypto.createHash("sha256");
+  hash.update(fs.readFileSync(filePath));
+  return hash.digest("hex");
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function upsertTraceabilityFrontmatter({
+  markdownPath,
+  specPath,
+  registryPath,
+  generatorScriptPath,
+}) {
+  const rawMarkdown = fs.readFileSync(markdownPath, "utf8");
+  const { frontmatter, content } = parseMarkdownFrontmatter(rawMarkdown);
+  const fm = isPlainObject(frontmatter) ? { ...frontmatter } : {};
+
+  if (!isPlainObject(fm.pipeline)) fm.pipeline = {};
+  if (!isPlainObject(fm.pipeline.ds_component_doc)) {
+    fm.pipeline.ds_component_doc = {};
+  }
+
+  fm.pipeline.ds_component_doc = {
+    contract_version: TRACEABILITY_CONTRACT_VERSION,
+    spec_sha256: sha256File(specPath),
+    token_registry_sha256: sha256File(registryPath),
+    generator_script_sha256: sha256File(generatorScriptPath),
+  };
+
+  const preferredOrder = ["doc_type", "doc_status", "figma", "pipeline"];
+  const orderedFm = {};
+  for (const key of preferredOrder) {
+    if (key in fm) orderedFm[key] = fm[key];
+  }
+  for (const [key, value] of Object.entries(fm)) {
+    if (!(key in orderedFm)) orderedFm[key] = value;
+  }
+
+  const frontmatterYaml = yaml.dump(orderedFm, {
+    lineWidth: 120,
+    noRefs: true,
+    sortKeys: false,
+  });
+  const normalizedContent = String(content || "").replace(/^\n+/, "");
+  const nextMarkdown = `---\n${frontmatterYaml.trimEnd()}\n---\n\n${normalizedContent}`;
+
+  if (nextMarkdown !== rawMarkdown) {
+    fs.writeFileSync(markdownPath, nextMarkdown, "utf8");
+  }
 }
 
 function syncGapsSection({ specPath, markdownPath, registryPath }) {
@@ -230,6 +287,12 @@ function main() {
       specPath,
       markdownPath: outputPath,
       registryPath,
+    });
+    upsertTraceabilityFrontmatter({
+      markdownPath: outputPath,
+      specPath,
+      registryPath,
+      generatorScriptPath: __filename,
     });
     formatMarkdown(outputPath);
 

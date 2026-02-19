@@ -47,6 +47,7 @@ When in doubt, the rules are the source of truth.
 - Read token JSON files if needed to resolve values
 - Do NOT write code snippets
 - Do NOT invent anatomy/variants/states/accessibility behavior
+- Generate/update frontmatter traceability block (`pipeline.ds_component_doc.*`) for deterministic drift detection
 - If spec lacks information:
   - Fill section with `TBD`
   - Add explicit items under `## Gaps / TBD`
