@@ -618,6 +618,15 @@ function findAncestorSection(node) {
   return null;
 }
 
+function findRootPage(node) {
+  let current = node;
+  while (current) {
+    if (current.type === "PAGE") return current;
+    current = current.parent;
+  }
+  return null;
+}
+
 function toSafeName(raw) {
   return String(raw || "")
     .replace(/[\\\\/:*?"<>|]/g, "-")
@@ -954,11 +963,11 @@ if (!componentSection) {
   };
 }
 
-const page = componentSection.parent;
-if (!page || page.type !== "PAGE") {
+const page = findRootPage(componentSection);
+if (!page) {
   return {
     ok: false,
-    error: "Component section parent is not a PAGE",
+    error: "Unable to resolve PAGE ancestor for component section",
     componentSectionId: componentSection.id,
   };
 }
