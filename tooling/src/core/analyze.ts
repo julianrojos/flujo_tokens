@@ -46,9 +46,6 @@ export function getResolvedTokenKeyFromParts(canonical: string, normalized: stri
  * - VARIABLE_ALIAS references via `$id` → tokenKey mapping (when available)
  */
 function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
-    // Global regexes are stateful; ensure we always start from the beginning.
-    W3C_REF_REGEX_COLLECT.lastIndex = 0;
-
     if (isVariableAlias(value)) {
         const id = value.id?.trim();
         if (id && idToTokenKey) {
@@ -59,16 +56,13 @@ function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: 
     }
 
     if (typeof value === 'string') {
+        // Use a local regex instance to avoid sharing `lastIndex` state across calls.
+        const refRegex = new RegExp(W3C_REF_REGEX_COLLECT.source, W3C_REF_REGEX_COLLECT.flags);
         let m: RegExpExecArray | null;
-        try {
-            while ((m = W3C_REF_REGEX_COLLECT.exec(value)) !== null) {
-                const tokenPath = (m[1] ?? '').trim();
-                if (!tokenPath) continue;
-                refs.add(canonicalizeRefPath(tokenPath));
-            }
-        } finally {
-            // Keep regex state clean even if a future refactor throws inside the loop.
-            W3C_REF_REGEX_COLLECT.lastIndex = 0;
+        while ((m = refRegex.exec(value)) !== null) {
+            const tokenPath = (m[1] ?? '').trim();
+            if (!tokenPath) continue;
+            refs.add(canonicalizeRefPath(tokenPath));
         }
         return;
     }

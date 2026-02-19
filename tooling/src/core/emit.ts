@@ -13,6 +13,20 @@ import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, bui
 import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName } from '../utils/strings.js';
 import { coerceTypographyDimension, coerceBorderDimension } from '../utils/coerce.js';
 
+function replaceW3cReferences(
+    input: string,
+    replacer: (match: string, tokenPath: string) => string
+): { replaced: string; hadRef: boolean } {
+    // Use a local regex instance to avoid shared `lastIndex` state across calls.
+    const refRegex = new RegExp(W3C_REF_REGEX_REPLACE.source, W3C_REF_REGEX_REPLACE.flags);
+    let hadRef = false;
+    const replaced = input.replace(refRegex, (match, tokenPath) => {
+        hadRef = true;
+        return replacer(match, tokenPath);
+    });
+    return { replaced, hadRef };
+}
+
 function containsReference(value: unknown): boolean {
     if (typeof value === 'string') return W3C_REF_REGEX_TEST.test(value);
     if (isVariableAlias(value)) return true;
@@ -714,32 +728,14 @@ export function processValue(
         if (value.startsWith('rgba') || value.startsWith('rgb(')) return value;
         if (/^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$/.test(value)) return value;
 
-        if (varType === 'string') {
-            // Do not force-quote string tokens. Keep raw CSS keywords/idents (e.g., bold, solid),
-            // while still resolving embedded references.
-            const seenInValue = new Set<string>();
-            let hadRef = false;
-
-            W3C_REF_REGEX_REPLACE.lastIndex = 0;
-            const replaced = value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => {
-                hadRef = true;
-                return resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue);
-            });
-            W3C_REF_REGEX_REPLACE.lastIndex = 0;
-
-            return hadRef ? replaced : value;
-        }
-
         const seenInValue = new Set<string>();
-        let hadRef = false;
+        const { replaced, hadRef } = replaceW3cReferences(
+            value,
+            (m, tp) => resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue)
+        );
 
-        W3C_REF_REGEX_REPLACE.lastIndex = 0;
-        const replaced = value.replace(W3C_REF_REGEX_REPLACE, (m, tp) => {
-            hadRef = true;
-            return resolveReference(ctx, m, tp, value, currentPath, visitedRefs, seenInValue);
-        });
-        W3C_REF_REGEX_REPLACE.lastIndex = 0;
-
+        // Do not force-quote string tokens. Keep raw CSS keywords/idents (e.g., bold, solid),
+        // while still resolving embedded references.
         return hadRef ? replaced : value;
     }
 
