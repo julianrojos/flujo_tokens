@@ -50,17 +50,17 @@ function classifyTypographyDimensionPath(currentPath: string[]): { isSize: boole
     return { isSize: metric === 'size', isLineHeight: metric === 'lineheight' };
 }
 
-export function coerceNumericToRem(px: number): string {
+function coerceNumericToRem(px: number): string {
     const rem = px / 16;
     return `${formatNumber(rem)}rem`;
 }
 
-export function coerceNumericToUnitless(px: number): string {
+function coerceNumericToUnitless(px: number): string {
     const unitless = px / 16;
     return formatNumber(unitless);
 }
 
-export function parseNumericValue(value: string | number): ParsedNumericValue | undefined {
+function parseNumericValue(value: string | number): ParsedNumericValue | undefined {
     if (typeof value === 'number') {
         if (!Number.isFinite(value)) return undefined;
         return { numeric: value, isUnitless: true };
@@ -83,19 +83,6 @@ export function parseNumericValue(value: string | number): ParsedNumericValue | 
     return undefined;
 }
 
-export function coerceFontSize(px: number): string {
-    return coerceNumericToRem(px);
-}
-
-export function coerceLineHeight(px: number, isUnitless: boolean, rawUnitlessText?: string): string {
-    // Keep small unitless ratios as-is (e.g. 1.2, 1.5).
-    if (isUnitless && Math.abs(px) <= 4) {
-        return rawUnitlessText ?? formatNumber(px);
-    }
-
-    return coerceNumericToUnitless(px);
-}
-
 export function coerceTypographyDimension(
     value: TokenValue['$value'],
     varType: string | undefined,
@@ -111,11 +98,15 @@ export function coerceTypographyDimension(
         if (!parsed) return { value, varType };
 
         if (isSize) {
-            return { value: coerceFontSize(parsed.numeric), varType };
+            return { value: coerceNumericToRem(parsed.numeric), varType };
         }
 
         if (isLineHeight) {
-            return { value: coerceLineHeight(parsed.numeric, parsed.isUnitless, parsed.raw), varType };
+            // Keep small unitless ratios as-is (e.g. 1.2, 1.5).
+            if (parsed.isUnitless && Math.abs(parsed.numeric) <= 4) {
+                return { value: parsed.raw ?? formatNumber(parsed.numeric), varType };
+            }
+            return { value: coerceNumericToUnitless(parsed.numeric), varType };
         }
     }
 
