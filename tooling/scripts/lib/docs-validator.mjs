@@ -1738,10 +1738,24 @@ export function clearFileHashCache() {
 
 function sha256FileCached(filePath) {
   const resolved = path.resolve(filePath);
-  const cached = FILE_HASH_CACHE.get(resolved);
-  if (cached) return cached;
+  const stat = fs.statSync(resolved);
+  const size = Number(stat.size || 0);
+  const mtimeMs = Number(stat.mtimeMs || 0);
 
-  if (FILE_HASH_CACHE.size >= FILE_HASH_CACHE_MAX_ENTRIES) {
+  const cached = FILE_HASH_CACHE.get(resolved);
+  if (
+    cached &&
+    cached.size === size &&
+    cached.mtimeMs === mtimeMs &&
+    typeof cached.digest === "string"
+  ) {
+    return cached.digest;
+  }
+
+  if (
+    !FILE_HASH_CACHE.has(resolved) &&
+    FILE_HASH_CACHE.size >= FILE_HASH_CACHE_MAX_ENTRIES
+  ) {
     const firstKey = FILE_HASH_CACHE.keys().next().value;
     if (typeof firstKey === "string") FILE_HASH_CACHE.delete(firstKey);
   }
@@ -1749,7 +1763,7 @@ function sha256FileCached(filePath) {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(resolved));
   const digest = hash.digest("hex");
-  FILE_HASH_CACHE.set(resolved, digest);
+  FILE_HASH_CACHE.set(resolved, { digest, size, mtimeMs });
   return digest;
 }
 

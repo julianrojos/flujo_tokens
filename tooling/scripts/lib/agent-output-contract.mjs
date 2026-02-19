@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { ALLOWED_DOC_STATUS, CANONICAL_H2_ORDER } from "./docs-config.mjs";
+import {
+  ALLOWED_DOC_STATUS,
+  CANONICAL_H2_ORDER,
+  REQUIRED_CANONICAL_H2,
+} from "./docs-config.mjs";
 import { isPlainObject } from "./is-plain-object.mjs";
 import { parseMarkdownFrontmatter } from "./parse-frontmatter.mjs";
 
@@ -65,14 +69,32 @@ export function validateAgentOutputContract({
 } = {}) {
   const errors = [];
   const source = String(markdown || "");
-  const { frontmatter, content } = parseMarkdownFrontmatter(source);
+  let frontmatter = {};
+  let content = source;
+  let frontmatterParseError = "";
+  try {
+    ({ frontmatter, content } = parseMarkdownFrontmatter(source));
+  } catch (error) {
+    frontmatterParseError =
+      error instanceof Error ? error.message : String(error);
+  }
 
-  if (!isPlainObject(frontmatter) || Object.keys(frontmatter).length === 0) {
+  if (frontmatterParseError) {
+    errors.push({
+      code: "AOC01",
+      message: `Invalid markdown frontmatter: ${frontmatterParseError}`,
+    });
+  }
+
+  if (
+    !frontmatterParseError &&
+    (!isPlainObject(frontmatter) || Object.keys(frontmatter).length === 0)
+  ) {
     errors.push({
       code: "AOC01",
       message: "Missing YAML frontmatter block.",
     });
-  } else {
+  } else if (!frontmatterParseError) {
     if (frontmatter.doc_type !== "component") {
       errors.push({
         code: "AOC01",
@@ -140,6 +162,16 @@ export function validateAgentOutputContract({
   );
   let previousIndex = -1;
   const h2Headings = extractH2Headings(content);
+  const normalizedH2 = new Set(h2Headings.map((heading) => normalizeHeadingKey(heading)));
+
+  for (const requiredHeading of REQUIRED_CANONICAL_H2) {
+    const normalizedRequired = normalizeHeadingKey(requiredHeading);
+    if (normalizedH2.has(normalizedRequired)) continue;
+    errors.push({
+      code: "AOC03",
+      message: `Missing required H2 heading: \`## ${requiredHeading}\`.`,
+    });
+  }
 
   for (const heading of h2Headings) {
     const normalized = normalizeHeadingKey(heading);

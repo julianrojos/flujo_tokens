@@ -112,8 +112,8 @@ export function logChangeDetection(
     const emittedModes = sortedModeLabels(modeContext?.emittedModes);
 
     if (detectedModes.length > 0 || emittedModes.length > 0) {
-        const preferred = modeContext.preferredMode ?? '<none>';
-        const strictLabel = modeContext.modeStrict ? 'strict' : 'loose';
+        const preferred = modeContext?.preferredMode ?? '<none>';
+        const strictLabel = modeContext?.modeStrict ? 'strict' : 'loose';
         const details: string[] = [];
         if (emittedModes.length > 0) details.push(`emitted=${emittedModes.join(', ')}`);
         if (detectedModes.length > 0 && (emittedModes.length === 0 || detectedModes.join('|') !== emittedModes.join('|'))) {
