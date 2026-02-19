@@ -1,0 +1,68 @@
+name: Example Button
+status: ready
+
+figma:
+  file: example-file-key
+  page: Components
+  component_set: Example Button
+  component_set_node_id: "100:200"
+
+summary:
+  purpose: "Primary action trigger."
+  behavior: "Activates a user-defined callback."
+  anatomy_notes: "Container + label + optional icon."
+
+anatomy:
+  - part: container
+    description: "Outer frame with background and border radius."
+    required: true
+  - part: label
+    description: "Action text."
+    required: true
+
+properties:
+  - name: Type
+    type: VARIANT
+    values: [Primary, Secondary]
+    default: Primary
+    required: true
+    description: "Visual emphasis level."
+  - name: Label
+    type: TEXT
+    default: Button
+    required: true
+    description: "Visible action text."
+
+content_guidelines:
+  tone: "Action-oriented and concise."
+  max_length: "24 characters"
+
+best_practices:
+  do:
+    - "Use one primary button per context."
+  dont:
+    - "Do not use vague labels."
+
+accessibility:
+  role: "button"
+  keyboard: "Enter and Space trigger action."
+  notes:
+    - "Maintain visible focus state."
+
+token_mapping:
+  container:
+    background:
+      Primary: Components/Button/Background/Primary/Default
+      Secondary: Components/Button/Background/Secondary/Default
+    border_radius:
+      default: Semantic/Dimension/Border/Radius/200
+  label:
+    color:
+      Primary: Semantic/Color/Text/On-Primary
+      Secondary: Semantic/Color/Text/Neutral/Default
+
+qa:
+  visual_regression: true
+  a11y_review: true
+  notes:
+    - "Validate disabled contrast."

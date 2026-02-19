@@ -23,6 +23,7 @@ import { isPlainObject } from "./lib/is-plain-object.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./lib/docs-config.mjs";
 import { buildAgentPrompt, RULE_BLOCKS } from "./lib/prompts.mjs";
+import { GOLDEN_COMPONENT_SPEC_SAMPLE_PATH } from "./lib/doc-templates.mjs";
 
 const SPEC_COMPONENTS_DIR = path.join(DOCS_SPEC_DIR, "components");
 const SPEC_TEMPLATE_PATH = path.join(SPEC_COMPONENTS_DIR, "_template.yml");
@@ -329,6 +330,7 @@ function buildPrompt({
         : "Figma URL: not provided (use node id or name lookup).",
       `Spec template: ${templatePath}`,
       `Token registry: ${registryPath}`,
+      `Golden spec example for structure/detail: ${GOLDEN_COMPONENT_SPEC_SAMPLE_PATH}`,
       "Existing spec reference: docs/_spec/components/alert.yml",
       `Output path (required): ${outputPath}`,
     ],

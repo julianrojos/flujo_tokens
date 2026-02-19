@@ -13,6 +13,10 @@ import {
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { normalizeAgentOutputFile } from "./lib/agent-output-normalizer.mjs";
 import {
+  GOLDEN_COMPONENT_DOC_SAMPLE_PATH,
+  writeComponentDocSkeleton,
+} from "./lib/doc-templates.mjs";
+import {
   validateAgentOutputContract,
   writeAgentOutputErrorReport,
 } from "./lib/agent-output-contract.mjs";
@@ -85,6 +89,10 @@ function main() {
   if (outputPath) {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   }
+  const skeletonPath = writeComponentDocSkeleton({
+    componentName: componentName || "Component",
+    outputPath: outputPath || undefined,
+  });
   const styleReferencePath = resolveStyleReferencePath({
     componentDocsDir,
     outputPath,
@@ -100,6 +108,8 @@ function main() {
       styleReferencePath
         ? `Existing docs style reference: ${styleReferencePath}`
         : "",
+      `Canonical markdown skeleton (fill-only): ${skeletonPath}`,
+      `Golden markdown example for tone/detail: ${GOLDEN_COMPONENT_DOC_SAMPLE_PATH}`,
       outputPath
         ? `Output path (required): ${outputPath}`
         : "Output path: one file under docs/components/ based on the real component name.",
@@ -108,6 +118,8 @@ function main() {
       RULE_BLOCKS.FIGMA_MCP_WORKFLOW,
       RULE_BLOCKS.DOCUMENTATION_ONLY,
       ...canonicalH2ConstraintLines(),
+      "Use the skeleton file as the source layout: keep all H2 headings and table columns unchanged.",
+      "Fill placeholders with concrete content, but do not add or remove H2 sections.",
       "Do not invent properties, variants, states, or token semantics.",
       RULE_BLOCKS.NO_INTERNAL_IDS,
       "Figma node IDs are allowed for source traceability (for example in `node-id` URLs).",

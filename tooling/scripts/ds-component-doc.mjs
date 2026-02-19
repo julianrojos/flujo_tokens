@@ -25,6 +25,10 @@ import { isPlainObject } from "./lib/is-plain-object.mjs";
 import { deriveFigmaFrontmatterTraceability } from "./lib/figma-traceability.mjs";
 import { normalizeAgentOutputFile } from "./lib/agent-output-normalizer.mjs";
 import {
+  GOLDEN_COMPONENT_DOC_SAMPLE_PATH,
+  writeComponentDocSkeleton,
+} from "./lib/doc-templates.mjs";
+import {
   validateAgentOutputContract,
   writeAgentOutputErrorReport,
 } from "./lib/agent-output-contract.mjs";
@@ -272,6 +276,10 @@ function main() {
   const safeName = componentNameToSnakeCase(
     effectiveComponentName || componentSlug || "component",
   );
+  const skeletonPath = writeComponentDocSkeleton({
+    componentName: effectiveComponentName,
+    outputPath,
+  });
 
   if (!fs.existsSync(specPath)) {
     const suggestedName =
@@ -344,16 +352,20 @@ function main() {
       styleReferencePath
         ? `Existing docs style reference: ${styleReferencePath}`
         : "",
+      `Canonical markdown skeleton (fill-only): ${skeletonPath}`,
+      `Golden markdown example for tone/detail: ${GOLDEN_COMPONENT_DOC_SAMPLE_PATH}`,
       `Output component markdown path (required): ${outputPath}`,
       `Overview path to keep in sync: ${overviewPath}`,
     ],
     constraints: [
       RULE_BLOCKS.NO_INVENTION,
       ...canonicalH2ConstraintLines(),
+      "Use the skeleton file as the source layout: keep all H2 headings and table columns unchanged.",
+      "Fill placeholders with concrete content, but do not add or remove H2 sections.",
       "If spec lacks information, keep explicit `TBD` values.",
       RULE_BLOCKS.NO_INTERNAL_IDS,
       "If spec includes figma.component_set_node_id, mirror it in markdown frontmatter figma.component_set_node_id.",
-      "Keep language and tone consistent with existing component docs.",
+      "Keep language and tone consistent with the golden markdown example and existing component docs.",
       "Update overview links if needed so the component is discoverable.",
       RULE_BLOCKS.GAPS_AUTOMANAGED,
     ],
