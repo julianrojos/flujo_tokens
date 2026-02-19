@@ -202,6 +202,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec/render/proof status.
 - **`npm run ds:registry:validate`**: Validates component registry schema and checks drift between registry content and current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from the component registry in canonical sorted format.
+- **`npm run ds:registry:report`**: Generates read-only registry projections (`docs/COMPONENTS_INDEX.md` and `docs/_generated/components-health.json`) without scanning specs/docs again.
 - **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
 - **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
@@ -216,6 +217,8 @@ This workflow documents Design System components from Figma and can also render 
 - `docs/_spec/`: documentation specs and visual theme contract
 - `docs/_generated/figma_doc_models/`: generated intermediate artifacts for markdown -> Figma rendering
 - `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
+- `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
+- `docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
 
 ### Documentation governance (rules)
 
@@ -436,6 +439,7 @@ Useful flags:
 npm run ds:registry:sync
 npm run ds:registry:validate
 npm run ds:registry:overview
+npm run ds:registry:report
 ```
 
 Useful flags:
@@ -446,6 +450,15 @@ Useful flags:
 - `--render-dir <path>` (default: `docs/_generated/figma_doc_models`)
 - `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
 - `--dry-run true` (supported by `ds:registry:sync` and `ds:registry:overview`)
+
+Registry report specific flags:
+
+- `--out-md <path>` (default: `docs/COMPONENTS_INDEX.md`)
+- `--out-json <path>` (default: `docs/_generated/components-health.json`)
+- `--format <json|text>` (default: `json`)
+- `--max-filter-items <number>` (default: `20`)
+- `--no-md true` / `--no-json true`
+- `--dry-run true`
 
 ### 4e) Foundations docs sync from token registry
 
