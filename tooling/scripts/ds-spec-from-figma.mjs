@@ -63,6 +63,19 @@ const PROPERTY_TYPE_ORDER = new Map([
   ["instance_swap", 4],
 ]);
 
+function normalizePropertyType(rawType) {
+  const withoutSuffix = String(rawType || "")
+    .trim()
+    .split("#")[0]
+    .trim();
+  if (!withoutSuffix) return "";
+
+  return withoutSuffix
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[\s-]+/g, "_")
+    .toLowerCase();
+}
+
 function parseFigmaUrl(figmaUrl) {
   if (!figmaUrl) return { fileKey: "", nodeId: "" };
   let url;
@@ -147,12 +160,8 @@ function normalizeSpecOrder(spec) {
       index,
     }));
     stableDecorated.sort((a, b) => {
-      const typeA = String(a.item.type || "")
-        .trim()
-        .toLowerCase();
-      const typeB = String(b.item.type || "")
-        .trim()
-        .toLowerCase();
+      const typeA = normalizePropertyType(a.item.type);
+      const typeB = normalizePropertyType(b.item.type);
       const groupA = PROPERTY_TYPE_ORDER.get(typeA) || Number.MAX_SAFE_INTEGER;
       const groupB = PROPERTY_TYPE_ORDER.get(typeB) || Number.MAX_SAFE_INTEGER;
       if (groupA !== groupB) return groupA - groupB;
