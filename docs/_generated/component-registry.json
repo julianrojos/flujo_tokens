@@ -20,7 +20,7 @@
       },
       "figma": {
         "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892",
-        "component_set_node_id": null
+        "component_set_node_id": "2304:1892"
       },
       "render": {
         "exists": true
@@ -31,7 +31,7 @@
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "44e5c8650ffc06eab0492453870fe80db61408183565496228e6c97f02bbc78e"
+      "fingerprint_sha256": "ead812a607aafe36c682203a3354aca1f6ffa3a7e18b6b61ad0caa71e39b2b35"
     },
     {
       "slug": "avatar",
@@ -98,6 +98,38 @@
       "fingerprint_sha256": "6d64fb8aeee5d9819547f6bd953940ce3f8170c7e708d3b15114e3283843ae6f"
     },
     {
+      "slug": "bottom_bar_button",
+      "display_name": "Bottom Bar Button",
+      "paths": {
+        "spec": "docs/_spec/components/bottom_bar_button.yml",
+        "doc": "docs/components/bottom_bar_button.md",
+        "render_payload": "docs/_generated/figma_doc_models/bottom_bar_button.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/bottom_bar_button.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=694-170",
+        "component_set_node_id": "694:170"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "5c562bf3b01eaabb2abc18446ffbc33c2999c292634aa9954bc0faf5d1c0ed16"
+    },
+    {
       "slug": "button",
       "display_name": "Button",
       "paths": {
@@ -148,7 +180,7 @@
       },
       "figma": {
         "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202",
-        "component_set_node_id": null
+        "component_set_node_id": "713:202"
       },
       "render": {
         "exists": true
@@ -159,23 +191,55 @@
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "abd9f0e9d765a37a349052d4b39fd4560db4b6eb0103bd24b3bef8af35ce475a"
+      "fingerprint_sha256": "58d9932533d6d839d24bb087791a50e1b150e5ce729bdb298d8c29e23d767f24"
+    },
+    {
+      "slug": "topbar",
+      "display_name": "Topbar",
+      "paths": {
+        "spec": "docs/_spec/components/topbar.yml",
+        "doc": "docs/components/topbar.md",
+        "render_payload": "docs/_generated/figma_doc_models/topbar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/topbar.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2065-95",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "d756bd267034a431e81a2e963a2e73c673b95be488ffbcd47925ba63d8b2921a"
     }
   ],
   "summary": {
-    "total_components": 5,
-    "with_spec": 5,
-    "with_doc": 5,
+    "total_components": 7,
+    "with_spec": 7,
+    "with_doc": 7,
     "with_render_payload": 5,
     "with_visual_proof": 0,
     "ready_for_publish": 0,
     "by_pipeline_stage": {
       "missing-spec": 0,
       "spec": 0,
-      "markdown": 0,
+      "markdown": 2,
       "render": 5,
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "0c0e08b0d87a8c72878f3d0bba0255e1eb82336b7193cd9de6e1d2ec8e08f35d"
+  "fingerprint_sha256": "1ebe4ed9b1904a7228744b8cd4370fae964695164ebb72a0c08c33e898290315"
 }
