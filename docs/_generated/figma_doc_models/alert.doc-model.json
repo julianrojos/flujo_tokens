@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "componentName": "alert",
-  "markdownPath": "docs/components/alert.md",
+  "componentName": "Alert",
+  "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/alert.md",
   "title": "Alert",
   "blocks": [
     {
@@ -46,7 +46,7 @@
     },
     {
       "type": "paragraph",
-      "text": "In Figma, this component is defined as a COMPONENT_SET (Alert) with one variant property:",
+      "text": "In Figma, this component is defined as a COMPONENT_SET (Alert) with two exposed properties:",
       "segments": [
         {
           "text": "In Figma, this component is defined as a ",
@@ -65,7 +65,7 @@
           "style": "code"
         },
         {
-          "text": ") with one variant property:",
+          "text": ") with two exposed properties:",
           "style": "normal"
         }
       ]
@@ -105,7 +105,32 @@
               "text": "Positive",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Change_Message_Text: Text text text (default)",
+          "segments": [
+            {
+              "text": "Change_Message_Text",
+              "style": "code"
+            },
+            {
+              "text": ": ",
+              "style": "normal"
+            },
+            {
+              "text": "Text text text",
+              "style": "code"
+            },
+            {
+              "text": " (default)",
+              "style": "normal"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -126,6 +151,68 @@
         {
           "text": "Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)",
           "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Visual Proof",
+      "segments": [
+        {
+          "text": "Visual Proof",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Screenshot URL: TBD",
+          "segments": [
+            {
+              "text": "Screenshot URL: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Source node id: 2304:1892",
+          "segments": [
+            {
+              "text": "Source node id: ",
+              "style": "normal"
+            },
+            {
+              "text": "2304:1892",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Proof artifact: TBD",
+          "segments": [
+            {
+              "text": "Proof artifact: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -155,7 +242,6 @@
       "ordered": true,
       "items": [
         {
-          "index": 1,
           "text": "Container (Auto Layout, horizontal)",
           "segments": [
             {
@@ -174,10 +260,11 @@
               "text": ", horizontal)",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": true
         },
         {
-          "index": 2,
           "text": "Leading icon (24 x 24, internal vector 18 x 18)",
           "segments": [
             {
@@ -204,10 +291,11 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": true
         },
         {
-          "index": 3,
           "text": "Text container with a single message text node",
           "segments": [
             {
@@ -218,7 +306,9 @@
               "text": " with a single message text node",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": true
         }
       ]
     },
@@ -251,7 +341,9 @@
               "text": "383 x 38",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Type=Warning: 383 x 38",
@@ -268,7 +360,9 @@
               "text": "383 x 38",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Type=Positive: 383 x 38",
@@ -285,7 +379,9 @@
               "text": "383 x 38",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -364,7 +460,7 @@
           "Change_Message_Text",
           "TEXT",
           "Text text text",
-          "TBD",
+          "false",
           "Overrides the main alert message copy."
         ]
       ],
@@ -446,7 +542,7 @@
           ],
           [
             {
-              "text": "TBD",
+              "text": "false",
               "style": "code"
             }
           ],
@@ -500,7 +596,9 @@
               "text": "HORIZONTAL",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Item spacing: 8px",
@@ -517,7 +615,9 @@
               "text": "8px",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Padding: 7px top and bottom, 8px left and right",
@@ -546,7 +646,9 @@
               "text": " left and right",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Corner radius: 8px",
@@ -563,7 +665,9 @@
               "text": "8px",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Border: 2px, aligned INSIDE",
@@ -588,7 +692,9 @@
               "text": "INSIDE",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Background token: Color/Background/Feedback/Default",
@@ -605,7 +711,9 @@
               "text": "Color/Background/Feedback/Default",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Background fallback: #FFFFFF",
@@ -622,7 +730,9 @@
               "text": "#FFFFFF",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -656,7 +766,9 @@
               "text": "Regular/Body 16",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Font: Nunito Sans Regular",
@@ -673,7 +785,9 @@
               "text": "Nunito Sans Regular",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Size / line height: 16 / 24",
@@ -690,7 +804,9 @@
               "text": "16 / 24",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Letter spacing: 0%",
@@ -707,7 +823,9 @@
               "text": "0%",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Text color token: Color/Text/Neutral/Default",
@@ -724,7 +842,9 @@
               "text": "Color/Text/Neutral/Default",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Text color fallback: #483F3F",
@@ -741,7 +861,9 @@
               "text": "#483F3F",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -775,7 +897,9 @@
               "text": "24 x 24",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Internal vector size: 18 x 18",
@@ -792,7 +916,9 @@
               "text": "18 x 18",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1191,6 +1317,17 @@
       ]
     },
     {
+      "type": "heading",
+      "level": 3,
+      "text": "Behavior",
+      "segments": [
+        {
+          "text": "Behavior",
+          "style": "normal"
+        }
+      ]
+    },
+    {
       "type": "list",
       "ordered": false,
       "items": [
@@ -1229,7 +1366,9 @@
               "text": " to communicate concise status feedback in context.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "When not to use: Do not use this component for persistent page-level navigation or long-form guidance.",
@@ -1242,7 +1381,9 @@
               "text": ": Do not use this component for persistent page-level navigation or long-form guidance.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Do: Keep icon size and spacing unchanged to preserve visual rhythm.",
@@ -1255,7 +1396,9 @@
               "text": ": Keep icon size and spacing unchanged to preserve visual rhythm.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Do: Keep semantic feedback tokens aligned with the selected variant.",
@@ -1268,7 +1411,9 @@
               "text": ": Keep semantic feedback tokens aligned with the selected variant.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Don't: Replace semantic border/icon tokens with neutral values.",
@@ -1281,7 +1426,9 @@
               "text": ": Replace semantic border/icon tokens with neutral values.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Don't: Use this component for multi-paragraph content.",
@@ -1294,7 +1441,117 @@
               "text": ": Use this component for multi-paragraph content.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Responsive behavior: TBD",
+          "segments": [
+            {
+              "text": "Responsive behavior: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Overflow / truncation behavior: TBD",
+          "segments": [
+            {
+              "text": "Overflow / truncation behavior: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "i18n / RTL behavior: TBD",
+          "segments": [
+            {
+              "text": "i18n / RTL behavior: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Examples",
+      "segments": [
+        {
+          "text": "Examples",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Basic example: Type=Information for neutral informational feedback inside forms or cards.",
+          "segments": [
+            {
+              "text": "Basic example: ",
+              "style": "normal"
+            },
+            {
+              "text": "Type=Information",
+              "style": "code"
+            },
+            {
+              "text": " for neutral informational feedback inside forms or cards.",
+              "style": "normal"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Contextual example: Type=Warning or Type=Positive for validation and result feedback after user actions.",
+          "segments": [
+            {
+              "text": "Contextual example: ",
+              "style": "normal"
+            },
+            {
+              "text": "Type=Warning",
+              "style": "code"
+            },
+            {
+              "text": " or ",
+              "style": "normal"
+            },
+            {
+              "text": "Type=Positive",
+              "style": "code"
+            },
+            {
+              "text": " for validation and result feedback after user actions.",
+              "style": "normal"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1320,7 +1577,9 @@
               "text": "Use short, direct message text.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Prefer one sentence per alert.",
@@ -1329,7 +1588,9 @@
               "text": "Prefer one sentence per alert.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Use sentence case.",
@@ -1338,7 +1599,9 @@
               "text": "Use sentence case.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Avoid unnecessary punctuation and repeated emphasis.",
@@ -1347,7 +1610,9 @@
               "text": "Avoid unnecessary punctuation and repeated emphasis.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1392,7 +1657,9 @@
               "text": ".",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA.",
@@ -1401,7 +1668,9 @@
               "text": "If the host context already conveys live feedback semantics, use semantic HTML and avoid duplicate ARIA.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Required ARIA attributes are TBD for this component configuration.",
@@ -1418,7 +1687,9 @@
               "text": " for this component configuration.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1465,7 +1736,9 @@
               "text": "This component has no focusable element in the current Figma definition.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Focus behavior for dismissible/interactive alert variants is TBD.",
@@ -1482,10 +1755,12 @@
               "text": ".",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
-          "text": "Focus outline tokens (Semantic.Color.Focus-Outline.Inner, Semantic.Color.Focus-Outline.Outer) are TBD for this component.",
+          "text": "Focus outline tokens (Semantic.Color.Focus-Outline.Inner (#FFFFFF), Semantic.Color.Focus-Outline.Outer (#567680)) are TBD for this component.",
           "segments": [
             {
               "text": "Focus outline tokens (",
@@ -1496,7 +1771,15 @@
               "style": "code"
             },
             {
-              "text": ", ",
+              "text": " (",
+              "style": "normal"
+            },
+            {
+              "text": "#FFFFFF",
+              "style": "code"
+            },
+            {
+              "text": "), ",
               "style": "normal"
             },
             {
@@ -1504,7 +1787,15 @@
               "style": "code"
             },
             {
-              "text": ") are ",
+              "text": " (",
+              "style": "normal"
+            },
+            {
+              "text": "#567680",
+              "style": "code"
+            },
+            {
+              "text": ")) are ",
               "style": "normal"
             },
             {
@@ -1515,7 +1806,9 @@
               "text": " for this component.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1541,7 +1834,9 @@
               "text": "The message text itself provides the accessible content.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Additional labeling patterns (aria-label, aria-labelledby, aria-describedby) are TBD for interactive variants.",
@@ -1582,7 +1877,9 @@
               "text": " for interactive variants.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1608,7 +1905,9 @@
               "text": "The component should not rely on color alone; iconography and text must remain present with each variant.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Verified contrast ratios are TBD (pending audit).",
@@ -1625,7 +1924,9 @@
               "text": ".",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1651,7 +1952,9 @@
               "text": "[Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "[Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback.",
@@ -1660,74 +1963,17 @@
               "text": "[Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback.",
               "style": "normal"
             }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "heading",
-      "level": 2,
-      "text": "Gaps / TBD",
-      "segments": [
-        {
-          "text": "Gaps / TBD",
-          "style": "normal"
-        }
-      ]
-    },
-    {
-      "type": "list",
-      "ordered": false,
-      "items": [
-        {
-          "text": "Required status for Change_Message_Text in Figma is TBD.",
-          "segments": [
-            {
-              "text": "Required status for ",
-              "style": "normal"
-            },
-            {
-              "text": "Change_Message_Text",
-              "style": "code"
-            },
-            {
-              "text": " in Figma is ",
-              "style": "normal"
-            },
-            {
-              "text": "TBD",
-              "style": "code"
-            },
-            {
-              "text": ".",
-              "style": "normal"
-            }
-          ]
-        },
-        {
-          "text": "Accessibility behavior for interactive/dismissible alert variants is TBD.",
-          "segments": [
-            {
-              "text": "Accessibility behavior for interactive/dismissible alert variants is ",
-              "style": "normal"
-            },
-            {
-              "text": "TBD",
-              "style": "code"
-            },
-            {
-              "text": ".",
-              "style": "normal"
-            }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     }
   ],
   "stats": {
-    "headings": 22,
+    "headings": 24,
     "paragraphs": 9,
-    "lists": 14,
+    "lists": 15,
     "tables": 3,
     "codeBlocks": 0
   }
