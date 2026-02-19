@@ -21,27 +21,7 @@ export function checkDepthLimit(summary: ExecutionSummary, depth: number, curren
 }
 
 export function pickModeKey(keys: string[], preferredMode?: string): string | undefined {
-    // Prefer an explicit preferred mode when present; otherwise modeDefault, then first mode branch.
-    const preferred = normalizePreferredMode(preferredMode);
-
-    return (
-        keys.find(k => matchesPreferredMode(k, preferred)) ??
-        keys.find(isModeDefaultKey) ??
-        keys.find(isModeKey)
-    );
-}
-
-/**
- * Strict mode selection: only returns the preferred mode when it exists; no fallback.
- */
-function pickModeKeyPreferredOnly(keys: string[], preferredMode?: string): string | undefined {
-    const preferred = normalizePreferredMode(preferredMode);
-    if (!preferred) return undefined;
-
-    for (const k of keys) {
-        if (matchesPreferredMode(k, preferred)) return k;
-    }
-    return undefined;
+    return selectModeKey(keys, { preferredMode });
 }
 
 /**
@@ -74,31 +54,38 @@ function matchesPreferredMode(key: string, preferred?: string): boolean {
     return normalized === preferred;
 }
 
+export interface ModeSelectOptions {
+    preferredMode?: string;
+    strict?: boolean;
+    sort?: boolean;
+    allowFallback?: boolean;
+}
+
+export function selectModeKey(keys: string[], options: ModeSelectOptions = {}): string | undefined {
+    const { preferredMode, strict = false, sort = false, allowFallback = true } = options;
+    const preferred = normalizePreferredMode(preferredMode);
+
+    const source = sort ? [...keys].sort(compareByCodeUnit) : keys;
+    const preferredMatch = source.find(k => matchesPreferredMode(k, preferred));
+    if (preferredMatch) return preferredMatch;
+
+    if (strict && preferred) {
+        return undefined;
+    }
+
+    if (!allowFallback) {
+        return undefined;
+    }
+
+    return source.find(isModeDefaultKey) ?? source.find(isModeKey);
+}
+
 /**
  * Selects a mode key deterministically without sorting the entire key list.
  * This preserves the same selection you would get from sorted keys + `pickModeKey()`.
  */
 export function pickModeKeyDeterministic(keys: string[], preferredMode?: string): string | undefined {
-    const preferred = normalizePreferredMode(preferredMode);
-
-    let bestPreferred: string | undefined;
-    let bestDefault: string | undefined;
-    let bestMode: string | undefined;
-
-    for (const k of keys) {
-        if (matchesPreferredMode(k, preferred)) {
-            if (!bestPreferred || compareByCodeUnit(k, bestPreferred) < 0) bestPreferred = k;
-        }
-        if (isModeDefaultKey(k)) {
-            if (!bestDefault || compareByCodeUnit(k, bestDefault) < 0) bestDefault = k;
-            continue;
-        }
-        if (isModeKey(k)) {
-            if (!bestMode || compareByCodeUnit(k, bestMode) < 0) bestMode = k;
-        }
-    }
-
-    return bestPreferred ?? bestDefault ?? bestMode;
+    return selectModeKey(keys, { preferredMode, sort: true });
 }
 
 function pickModeDefaultKey(keys: string[], sortKeys: boolean): string | undefined {
@@ -192,10 +179,8 @@ export function walkTokenTree(
     const modeKey = !effectiveAllowModes
         ? undefined
         : modeOverridesOnly
-        ? pickModeKeyPreferredOnly(keys, preferredMode)
-        : sortKeys
-        ? pickModeKey(keys, preferredMode)
-        : pickModeKeyDeterministic(keys, preferredMode);
+        ? selectModeKey(keys, { preferredMode, allowFallback: false })
+        : selectModeKey(keys, { preferredMode, sort: !sortKeys });
     const hasAnyModeBranch = keys.some(isModeKey);
     const preferred = normalizePreferredMode(preferredMode);
     const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
