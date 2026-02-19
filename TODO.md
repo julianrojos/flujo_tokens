@@ -58,19 +58,6 @@ Evolucionar `markdown_to_doc_model.mjs` y `build_figma_execute_code.mjs` para:
 - Renderizar code blocks con fondo monospace en lugar de omitirlos.
 - Soportar badges de estado (`draft` / `ready`) como chips coloreados.
 
-### 6. Sincronización incremental (change detection)
-
-**Problema**  
-Cada ejecución regenera todo desde cero. Con un DS grande, esto es lento e innecesario.
-
-**Propuesta**  
-Añadir detección de cambios:
-
-- `ds-tokens-sync`: comparar hash de los JSON de entrada vs última ejecución y hacer skip si no cambió.
-- `ds-component-doc`: comparar timestamp del spec YAML vs el `.md` generado.
-- `ds-markdown-to-figma`: comparar hash del `.md` vs el `doc-model.json` existente.
-- Añadir flag `--force` para ignorar cache y regenerar todo.
-
 ## COMPILACIÓN DE TOKENS
 
 ### **Testing para scripts/pipeline**
