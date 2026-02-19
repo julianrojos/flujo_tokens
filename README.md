@@ -165,6 +165,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
 - **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, rule manifest, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
+- **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, and deterministic `Gaps / TBD` contract).
   - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
   - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
@@ -372,6 +373,11 @@ Doctor command examples:
 - `npm run ds:doctor` -> full docs-pipeline health checks + `validate:docs`
 - `npm run ds:doctor -- --component-name Button` -> include pair check for one component slug
 - `npm run ds:doctor -- --skip-validate true` -> quick preflight without full validation gate
+
+Consistency audit examples:
+
+- `npm run ds:audit-consistency` -> audit all detected component pairs
+- `npm run ds:audit-consistency -- --component-name Button` -> audit one component pair
 
 Internally, this command runs a two-step generation flow:
 
