@@ -54,6 +54,7 @@ import {
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
 import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
+import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const USAGE = {
@@ -260,6 +261,8 @@ function validateGeneratedMarkdown({ outputPath, specPath, registryPath }) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  const tempArtifacts = new TempArtifactManager();
+  tempArtifacts.attachProcessHooks();
   if (String(args.help || "false") === "true") {
     printUsage(USAGE, { exitCode: 0 });
   }
@@ -333,6 +336,7 @@ function main() {
     componentName: effectiveComponentName,
     outputPath,
   });
+  tempArtifacts.track(skeletonPath);
 
   if (!fs.existsSync(specPath)) {
     const suggestedName =

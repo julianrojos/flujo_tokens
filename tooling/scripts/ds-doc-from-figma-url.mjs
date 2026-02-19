@@ -31,6 +31,7 @@ import {
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
 import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
+import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
 const USAGE = {
   command:
@@ -71,6 +72,8 @@ const USAGE = {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  const tempArtifacts = new TempArtifactManager();
+  tempArtifacts.attachProcessHooks();
   if (String(args.help || "false") === "true") {
     printUsage(USAGE, { exitCode: 0 });
   }
@@ -110,6 +113,7 @@ function main() {
     componentName: componentName || "Component",
     outputPath,
   });
+  tempArtifacts.track(skeletonPath);
   const styleReferencePath = resolveStyleReferencePath({
     componentDocsDir,
     outputPath,
