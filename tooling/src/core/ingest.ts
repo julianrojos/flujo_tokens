@@ -12,7 +12,7 @@ import { ALLOW_JSON_REPAIR } from '../runtime/config.js';
  * When `ALLOW_JSON_REPAIR` is enabled, attempts a best-effort repair for known truncation patterns
  * observed in some exports.
  */
-export function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
+function parseJsonWithOptionalRepair(fileContent: string, file: string): any {
     try {
         return JSON.parse(fileContent);
     } catch (error) {

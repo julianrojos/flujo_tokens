@@ -10,7 +10,7 @@ export function pathStr(currentPath: string[]): string {
     return currentPath.join('.');
 }
 
-export function normalizeDots(pathKey: string): string {
+function normalizeDots(pathKey: string): string {
     return pathKey.replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
 }
 

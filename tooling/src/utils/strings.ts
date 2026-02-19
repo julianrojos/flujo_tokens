@@ -70,15 +70,3 @@ export function toSafePlaceholderName(id: string): string {
         .replace(/^-+|-+$/g, '');
     return placeholderName || 'unknown';
 }
-
-/**
- * Escapes a raw string into a valid CSS double-quoted string literal.
- * The output is kept single-line because this script emits single-line declarations.
- */
-export function quoteCssStringLiteral(value: string): string {
-    const escaped = value
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/\r\n|\r|\n/g, ' ');
-    return `"${escaped}"`;
-}

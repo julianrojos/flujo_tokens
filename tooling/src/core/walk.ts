@@ -28,7 +28,7 @@ export function pickModeKey(keys: string[], preferredMode?: string): string | un
  * UTF-16 code unit comparison to match JavaScript's default `.sort()` ordering.
  * Used to keep mode selection deterministic when we intentionally do not sort keys.
  */
-export function compareByCodeUnit(a: string, b: string): number {
+function compareByCodeUnit(a: string, b: string): number {
     return a > b ? 1 : a < b ? -1 : 0;
 }
 

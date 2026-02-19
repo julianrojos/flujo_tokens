@@ -246,7 +246,7 @@ export function findTokenByIdCached(tokensData: Record<string, any>, targetId: s
 /**
  * Generates a placeholder `var(--broken-ref-...)` for unresolved references.
  */
-export function brokenRefPlaceholder(summary: ExecutionSummary, currentPath: string[], canonicalPath: string, match: string): string {
+function brokenRefPlaceholder(summary: ExecutionSummary, currentPath: string[], canonicalPath: string, match: string): string {
     const cssPath = canonicalPath.split('.').map(toKebabCase).join('-');
     const varName = `--broken-ref-${cssPath || 'unknown'}`;
 

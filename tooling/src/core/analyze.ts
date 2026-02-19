@@ -13,7 +13,7 @@ import { canonicalizeRefPath, normalizePathKey } from '../utils/paths.js';
  * - falling back to a case-insensitive normalized key
  * If the normalized key is marked ambiguous, resolution fails.
  */
-export function getResolvedTokenKey(ref: string, ctx: IndexingContext): string | null {
+function getResolvedTokenKey(ref: string, ctx: IndexingContext): string | null {
     const canonical = canonicalizeRefPath(ref);
     const normalized = normalizePathKey(canonical);
 
@@ -45,7 +45,7 @@ export function getResolvedTokenKeyFromParts(canonical: string, normalized: stri
  * - W3C `{...}` references embedded in strings
  * - VARIABLE_ALIAS references via `$id` → tokenKey mapping (when available)
  */
-export function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
+function collectRefsFromValue(value: unknown, refs: Set<string>, idToTokenKey?: Map<string, string>): void {
     // Global regexes are stateful; ensure we always start from the beginning.
     W3C_REF_REGEX_COLLECT.lastIndex = 0;
 
