@@ -714,6 +714,109 @@ function validateGapsSectionContract(filePath, rawMarkdown, specRoot, registry, 
   });
 }
 
+function extractSectionBody(rawMarkdown, headingTitle) {
+  const markdown = String(rawMarkdown || "");
+  const escaped = String(headingTitle || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const headingRegex = new RegExp(`^##\\s+${escaped}\\s*$`, "m");
+  const headingMatch = headingRegex.exec(markdown);
+  if (!headingMatch) return "";
+
+  const start = headingMatch.index;
+  const headingEnd = markdown.indexOf("\n", start);
+  const contentStart = headingEnd === -1 ? markdown.length : headingEnd + 1;
+  const rest = markdown.slice(contentStart);
+  const nextHeadingMatch = /^##\s+/m.exec(rest);
+  const end = nextHeadingMatch ? contentStart + nextHeadingMatch.index : markdown.length;
+  return markdown.slice(contentStart, end).trim();
+}
+
+function findDiscrepancyStatuses(rawMarkdown) {
+  const body = extractSectionBody(rawMarkdown, "Design–Token Discrepancies");
+  if (!body) return [];
+  const matches = [];
+  const statusCellRegex = /\|\s*`?(open|accepted|resolved)`?\s*\|/gi;
+  let match;
+  while ((match = statusCellRegex.exec(body)) !== null) {
+    matches.push(String(match[1] || "").toLowerCase());
+  }
+  return matches;
+}
+
+function validateReadyLifecycleConsistency(filePath, rawMarkdown, frontmatter, specRoot, report, lineStarts) {
+  const docStatus = String(frontmatter.doc_status || "").trim().toLowerCase();
+  const figma = isPlainObject(frontmatter.figma) ? frontmatter.figma : {};
+  const lastVerified = String(figma.last_verified || "").trim();
+  const spec = readComponentSpecByDocPath(filePath, specRoot);
+  const specStatus = String(spec.status || "").trim().toLowerCase();
+
+  if (docStatus === "ready") {
+    if (!spec.exists) {
+      report.errors.push({
+        code: "READY01",
+        file: filePath,
+        message: "Component markdown is `ready` but linked spec file is missing.",
+        suggested: path.relative(process.cwd(), spec.specPath),
+      });
+      return;
+    }
+    if (spec.parseError) {
+      report.errors.push({
+        code: "READY01",
+        file: filePath,
+        message:
+          "Component markdown is `ready` but linked spec could not be parsed.",
+        suggested: path.relative(process.cwd(), spec.specPath),
+      });
+      return;
+    }
+    if (specStatus !== "ready") {
+      report.errors.push({
+        code: "READY01",
+        file: filePath,
+        message:
+          `Component markdown is \`ready\` but spec status is \`${specStatus || "missing"}\`.`,
+        suggested: path.relative(process.cwd(), spec.specPath),
+      });
+    }
+    if (!lastVerified || isTbdMarker(lastVerified)) {
+      report.errors.push({
+        code: "READY01",
+        file: filePath,
+        message:
+          "Component markdown is `ready` but figma.last_verified is missing or `TBD`.",
+      });
+    }
+    if (/\bTBD\b/i.test(rawMarkdown)) {
+      report.errors.push({
+        code: "READY01",
+        file: filePath,
+        message:
+          "Component markdown is `ready` but still contains `TBD` markers.",
+      });
+    }
+    const discrepancyStatuses = findDiscrepancyStatuses(rawMarkdown);
+    if (discrepancyStatuses.some((status) => status === "open" || status === "accepted")) {
+      report.errors.push({
+        code: "READY01",
+        file: filePath,
+        line: lineFromOffset(lineStarts, rawMarkdown.indexOf("## Design–Token Discrepancies")),
+        message:
+          "Component markdown is `ready` but has unresolved Design–Token Discrepancies (`open` or `accepted`).",
+      });
+    }
+  }
+
+  if (spec.exists && !spec.parseError && specStatus === "ready" && docStatus !== "ready") {
+    report.errors.push({
+      code: "READY01",
+      file: filePath,
+      message:
+        `Spec status is \`ready\` but component markdown doc_status is \`${docStatus || "missing"}\`.`,
+      suggested: path.relative(process.cwd(), spec.specPath),
+    });
+  }
+}
+
 function validateComponentDocFileName(filePath, report) {
   const fileBase = path.basename(filePath, path.extname(filePath));
   if (isSnakeCaseFileSlug(fileBase)) return;
@@ -1687,6 +1790,7 @@ export function validateDocs(options = {}) {
     validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report);
     validateGeneratedTraceability(filePath, frontmatter, specRoot, registryPath, report);
     validateGapsSectionContract(filePath, raw, specRoot, registry, report, lineStarts);
+    validateReadyLifecycleConsistency(filePath, raw, frontmatter, specRoot, report, lineStarts);
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset);
     validateVariableIds(filePath, raw, report, lineStarts);
     validateTokenReferences(filePath, content, registryIndexes, report, lineStarts, contentOffset);

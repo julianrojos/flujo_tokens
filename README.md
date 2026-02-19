@@ -167,6 +167,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, and deterministic `Gaps / TBD` contract).
   - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
   - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
+  - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, and no unresolved discrepancy rows).
 
 ### Documentation folders
 

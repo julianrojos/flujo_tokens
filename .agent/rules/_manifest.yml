@@ -126,3 +126,6 @@ checks:
   PAIR01:
     rule_ids: [docs-pipeline-contract, ds-docs-guardrails]
     blocking: true
+  READY01:
+    rule_ids: [markdown-lifecycle-status, component-spec-yaml, ds-docs-guardrails]
+    blocking: true
