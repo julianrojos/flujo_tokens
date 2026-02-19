@@ -50,7 +50,7 @@ const COLLECTION_PREFIXES = new Set([
 ]);
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
 const SLASH_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9-]+){1,}/g;
-const VARIABLE_ID_RE = /VariableID:[A-Za-z0-9:-]+/g;
+const VARIABLE_ID_RE_SOURCE = "VariableID:[A-Za-z0-9:-]+";
 const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
@@ -1124,9 +1124,9 @@ function validateComponentDocFileName(filePath, report) {
 }
 
 function validateVariableIds(filePath, rawMarkdown, report, lineStarts) {
-  VARIABLE_ID_RE.lastIndex = 0;
+  const variableIdRegex = new RegExp(VARIABLE_ID_RE_SOURCE, "g");
   let match;
-  while ((match = VARIABLE_ID_RE.exec(rawMarkdown)) !== null) {
+  while ((match = variableIdRegex.exec(rawMarkdown)) !== null) {
     report.errors.push({
       code: "TOK03",
       file: filePath,
