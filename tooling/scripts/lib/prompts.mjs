@@ -10,6 +10,8 @@ export const RULE_BLOCKS = Object.freeze({
     "Do not invent properties, variants, states, accessibility, or token semantics.",
   NO_INTERNAL_IDS:
     "Never use Figma internal variable IDs (VariableID) in user-facing prose/tables.",
+  NO_VARIABLE_IDS:
+    "Never use Figma internal variable IDs (VariableID) in generated content.",
   GAPS_AUTOMANAGED:
     "`## Gaps / TBD` is auto-managed by the pipeline and should not contain custom freeform entries.",
 });

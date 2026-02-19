@@ -14,6 +14,8 @@ import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-regi
 import { componentNameToSnakeCase, componentNameToDisplayName, normalizeComponentName } from "./lib/component-name.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
+import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./lib/docs-config.mjs";
+import { buildAgentPrompt, RULE_BLOCKS } from "./lib/prompts.mjs";
 
 const SPEC_COMPONENTS_DIR = path.join(DOCS_SPEC_DIR, "components");
 const SPEC_TEMPLATE_PATH = path.join(SPEC_COMPONENTS_DIR, "_template.yml");
@@ -281,38 +283,36 @@ function buildPrompt({
   registryPath,
   fileKeyFromUrl,
 }) {
-  const requiredFields = SPEC_TOP_LEVEL_ORDER.filter((field) => field !== "related_components");
-  return [
-    "Context",
-    "- Generate one component spec YAML from Figma for this repository's documentation pipeline.",
-    componentName ? `- Expected component name: ${componentName}` : "",
-    nodeId ? `- Target component set node id: ${nodeId}` : "",
-    fileKeyFromUrl ? `- Figma file key from URL: ${fileKeyFromUrl}` : "",
-    "",
-    "Sources",
-    figmaUrl ? `- Figma URL: ${figmaUrl}` : "- Figma URL: not provided (use node id or name lookup).",
-    `- Spec template: ${templatePath}`,
-    `- Token registry: ${registryPath}`,
-    "- Existing spec reference: docs/_spec/components/alert.yml",
-    `- Output path (required): ${outputPath}`,
-    "",
-    "Constraints",
-    "- Use Figma MCP workflow and inspect the referenced component/set.",
-    "- Write YAML only (no markdown, no code fences).",
-    `- Include required top-level fields: ${requiredFields.join(", ")}.`,
-    "- Set figma.file, figma.page, figma.component_set from evidence.",
-    "- Set figma.component_set_node_id when node-id is available from URL/context.",
-    "- In token_mapping, use token paths that exist in the token registry.",
-    "- If a field is not inferable, set it to `TBD` instead of guessing.",
-    "- Never use Figma VariableID values in YAML content.",
-    "- Keep language in English and concise.",
-    "",
-    "Expected Output",
-    "- Write/update exactly one file at the output path.",
-    "- Return a short report: output path, component name, unresolved TBD count.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  return buildAgentPrompt({
+    context: [
+      "Generate one component spec YAML from Figma for this repository's documentation pipeline.",
+      componentName ? `Expected component name: ${componentName}` : "",
+      nodeId ? `Target component set node id: ${nodeId}` : "",
+      fileKeyFromUrl ? `Figma file key from URL: ${fileKeyFromUrl}` : "",
+    ],
+    sources: [
+      figmaUrl ? `Figma URL: ${figmaUrl}` : "Figma URL: not provided (use node id or name lookup).",
+      `Spec template: ${templatePath}`,
+      `Token registry: ${registryPath}`,
+      "Existing spec reference: docs/_spec/components/alert.yml",
+      `Output path (required): ${outputPath}`,
+    ],
+    constraints: [
+      RULE_BLOCKS.FIGMA_MCP_WORKFLOW,
+      "Write YAML only (no markdown, no code fences).",
+      `Include required top-level fields: ${SPEC_REQUIRED_TOP_LEVEL_FIELDS.join(", ")}.`,
+      "Set figma.file, figma.page, figma.component_set from evidence.",
+      "Set figma.component_set_node_id when node-id is available from URL/context.",
+      "In token_mapping, use token paths that exist in the token registry.",
+      "If a field is not inferable, set it to `TBD` instead of guessing.",
+      RULE_BLOCKS.NO_VARIABLE_IDS,
+      "Keep language in English and concise.",
+    ],
+    expectedOutput: [
+      "Write/update exactly one file at the output path.",
+      "Return a short report: output path, component name, unresolved TBD count.",
+    ],
+  });
 }
 
 function ensureSpecMetadata(spec, { componentName, nodeId, fileKeyFromUrl }) {
