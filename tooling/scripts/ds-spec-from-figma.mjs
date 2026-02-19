@@ -41,6 +41,27 @@ const SPEC_TOP_LEVEL_ORDER = [
   "qa",
   "related_components",
 ];
+const FIGMA_FIELD_ORDER = [
+  "file",
+  "page",
+  "component_set",
+  "component_set_node_id",
+];
+const PROPERTY_FIELD_ORDER = [
+  "name",
+  "type",
+  "values",
+  "default",
+  "required",
+  "description",
+];
+const PROPERTY_TYPE_ORDER = new Map([
+  ["variant", 1],
+  ["enum", 1],
+  ["text", 2],
+  ["boolean", 3],
+  ["instance_swap", 4],
+]);
 
 function parseFigmaUrl(figmaUrl) {
   if (!figmaUrl) return { fileKey: "", nodeId: "" };
@@ -109,6 +130,47 @@ function normalizeSpecOrder(spec) {
   for (const [key, value] of Object.entries(spec)) {
     if (!(key in ordered)) ordered[key] = value;
   }
+  if (isPlainObject(ordered.figma)) {
+    const figmaOrdered = {};
+    for (const key of FIGMA_FIELD_ORDER) {
+      if (key in ordered.figma) figmaOrdered[key] = ordered.figma[key];
+    }
+    for (const [key, value] of Object.entries(ordered.figma)) {
+      if (!(key in figmaOrdered)) figmaOrdered[key] = value;
+    }
+    ordered.figma = figmaOrdered;
+  }
+
+  if (Array.isArray(ordered.properties)) {
+    const stableDecorated = ordered.properties.map((item, index) => ({
+      item: isPlainObject(item) ? item : {},
+      index,
+    }));
+    stableDecorated.sort((a, b) => {
+      const typeA = String(a.item.type || "")
+        .trim()
+        .toLowerCase();
+      const typeB = String(b.item.type || "")
+        .trim()
+        .toLowerCase();
+      const groupA = PROPERTY_TYPE_ORDER.get(typeA) || Number.MAX_SAFE_INTEGER;
+      const groupB = PROPERTY_TYPE_ORDER.get(typeB) || Number.MAX_SAFE_INTEGER;
+      if (groupA !== groupB) return groupA - groupB;
+      return a.index - b.index;
+    });
+
+    ordered.properties = stableDecorated.map(({ item }) => {
+      const propertyOrdered = {};
+      for (const key of PROPERTY_FIELD_ORDER) {
+        if (key in item) propertyOrdered[key] = item[key];
+      }
+      for (const [key, value] of Object.entries(item)) {
+        if (!(key in propertyOrdered)) propertyOrdered[key] = value;
+      }
+      return propertyOrdered;
+    });
+  }
+
   return ordered;
 }
 
@@ -156,6 +218,27 @@ function pickComponentTokenCandidates(registryEntries, componentName) {
     matches.push(entry);
   }
   return matches;
+}
+
+function buildTokenMenuLines(registryEntries, componentName, limit = 24) {
+  const preferred = pickComponentTokenCandidates(
+    registryEntries,
+    componentName,
+  );
+  const fallback = registryEntries.filter((entry) => {
+    const collection = String(entry.collection || "").toLowerCase();
+    return collection === "semantic" || collection === "primitives";
+  });
+  const source = preferred.length > 0 ? preferred : fallback;
+  const selected = source.slice(0, Math.max(0, limit));
+  return selected.map((entry) => {
+    const tokenPath = String(entry.slashPath || entry.path || "").trim();
+    const tokenType = String(entry.type || "unknown").trim();
+    const resolved = String(entry.resolvedValue || "").trim();
+    return resolved
+      ? `${tokenPath} (${tokenType}: ${resolved})`
+      : `${tokenPath} (${tokenType})`;
+  });
 }
 
 function extractKeywords(raw) {
@@ -316,6 +399,7 @@ function buildPrompt({
   templatePath,
   registryPath,
   fileKeyFromUrl,
+  tokenMenuLines,
 }) {
   return buildAgentPrompt({
     context: [
@@ -331,6 +415,12 @@ function buildPrompt({
       `Spec template: ${templatePath}`,
       `Token registry: ${registryPath}`,
       `Golden spec example for structure/detail: ${GOLDEN_COMPONENT_SPEC_SAMPLE_PATH}`,
+      ...(tokenMenuLines.length > 0
+        ? [
+            "Token menu (prefer these exact paths when applicable):",
+            ...tokenMenuLines,
+          ]
+        : []),
       "Existing spec reference: docs/_spec/components/alert.yml",
       `Output path (required): ${outputPath}`,
     ],
@@ -342,6 +432,7 @@ function buildPrompt({
       "Set figma.file, figma.page, figma.component_set from evidence.",
       "Set figma.component_set_node_id when node-id is available from URL/context.",
       "In token_mapping, use token paths that exist in the token registry.",
+      "Prefer token paths from the provided token menu before proposing any other registry path.",
       "If a field is not inferable, set it to `TBD` instead of guessing.",
       RULE_BLOCKS.NO_VARIABLE_IDS,
       "Keep language in English and concise.",
@@ -468,6 +559,10 @@ function main() {
     templatePath,
     registryPath,
     fileKeyFromUrl,
+    tokenMenuLines: buildTokenMenuLines(
+      extractUniqueRegistryEntries(registryIndex),
+      componentName || componentSlug,
+    ),
   });
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
