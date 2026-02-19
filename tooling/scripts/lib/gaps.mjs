@@ -2,7 +2,7 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-export const GAP_TYPE = Object.freeze({
+const GAP_TYPE = Object.freeze({
   SCHEMA_TBD: "SCHEMA_TBD",
   TOKEN_INVALID: "TOKEN_INVALID",
   CONTENT_UNKNOWN: "CONTENT_UNKNOWN",
@@ -18,7 +18,7 @@ const GAP_TYPE_ORDER = new Map([
 
 const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A11y"]);
 
-export function isGapMarker(raw) {
+function isGapMarker(raw) {
   return /^(?:tbd|unknown|unverified|not[-_\s]?defined)$/i.test(String(raw || "").trim());
 }
 

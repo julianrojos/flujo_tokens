@@ -48,12 +48,3 @@ export function loadTokenRegistry(registryPath = DEFAULT_TOKEN_REGISTRY_PATH) {
 
   return parsed;
 }
-
-export function getRegistryEntry(registry, key) {
-  if (!registry || typeof registry !== "object") return undefined;
-  return registry[key];
-}
-
-export function hasRegistryEntry(registry, key) {
-  return getRegistryEntry(registry, key) !== undefined;
-}

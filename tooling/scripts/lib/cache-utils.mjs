@@ -103,10 +103,6 @@ export function saveSyncState(state, statePath = SYNC_STATE_PATH) {
   );
 }
 
-export function outputsExist(outputs = []) {
-  return outputs.every((outputPath) => fs.existsSync(path.resolve(outputPath)));
-}
-
 export function shouldSkipTask({
   taskId,
   fingerprint,
