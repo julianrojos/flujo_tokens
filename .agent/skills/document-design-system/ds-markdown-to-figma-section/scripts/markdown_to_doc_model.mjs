@@ -15,10 +15,10 @@ function isTableSeparator(line) {
   return /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
 }
 
-function isLikelyTableRow(line) {
+function isLikelyTableRow(line, { allowSinglePipe = false } = {}) {
   const source = String(line || "");
   const pipeCount = (source.match(/\|/g) || []).length;
-  if (pipeCount < 2) return false;
+  if (pipeCount < 2 && !(allowSinglePipe && pipeCount === 1)) return false;
   const trimmed = source.trim();
   if (!trimmed) return false;
   return true;
@@ -136,7 +136,7 @@ function parseMarkdown(markdown) {
 
     if (
       i + 1 < lines.length &&
-      isLikelyTableRow(line) &&
+      isLikelyTableRow(line, { allowSinglePipe: true }) &&
       isTableSeparator(lines[i + 1])
     ) {
       const parsedHeader = parseTableRow(line).map((cell) =>
@@ -150,7 +150,7 @@ function parseMarkdown(markdown) {
       while (i < lines.length) {
         const current = lines[i];
         const currentTrimmed = current.trim();
-        if (!currentTrimmed || !isLikelyTableRow(current)) break;
+        if (!currentTrimmed || !isLikelyTableRow(current, { allowSinglePipe: true })) break;
         if (!isTableSeparator(current)) {
           const parsedRow = parseTableRow(current).map((cell) =>
             parseInlineFormatting(cell),
@@ -220,7 +220,7 @@ function parseMarkdown(markdown) {
       if (/^\d+\.\s+/.test(candidateTrimmed)) break;
       if (
         i + 1 < lines.length &&
-        isLikelyTableRow(candidate) &&
+        isLikelyTableRow(candidate, { allowSinglePipe: true }) &&
         isTableSeparator(lines[i + 1])
       ) {
         break;
