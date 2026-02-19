@@ -1,0 +1,38 @@
+---
+description: Validation rules for token references against the generated token registry.
+globs:
+  - "docs/**/*.md"
+  - "docs/_spec/**/*.yml"
+---
+
+# Token Registry Validation
+
+This rule defines how token references must be validated against `docs/_generated/token-registry.json`.
+
+## Blocking checks
+
+- Every token path referenced in docs/specs must resolve in `docs/_generated/token-registry.json`.
+- Token paths are case-sensitive and should match canonical registry keys exactly.
+- Dot and slash aliases must resolve deterministically to the same canonical entry.
+
+## Error codes
+
+- `TOKEN_MISSING`: Token path does not resolve in registry (includes case mismatches).
+- `TOKEN_AMBIGUOUS`: Multiple possible matches prevent deterministic resolution.
+- `TOKEN_DEPRECATED`: Token resolves but is marked as deprecated in registry metadata.
+
+Implementation note:
+- The current validator emits base governance codes (`TOK01`, `TOK02`, `TOK03`, `SPEC01`).
+- `validate:docs -- --check token-registry` exposes a token-focused report and maps those to token-registry-centric error codes when possible.
+
+## Validation command
+
+```bash
+npm run validate:docs -- --check token-registry
+```
+
+This command is a focused gate. Use full validation for release checks:
+
+```bash
+npm run validate:docs
+```

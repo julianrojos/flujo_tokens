@@ -361,6 +361,7 @@ npm run validate:docs
 Validation command options:
 
 - `npm run validate:docs` -> full docs + specs + overview checks
+- `npm run validate:docs -- --check token-registry` -> token-registry-focused report (codes: `TOKEN_MISSING` / `TOKEN_AMBIGUOUS` / `TOKEN_DEPRECATED`, mapped from validator findings)
 - `npm run validate:docs -- --file docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
 - `npm run validate:docs -- --spec-file docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
 - `npm run validate:docs -- --allow-extra-h2 true` -> temporary transition mode (downgrades unauthorized H2 from error to warning)

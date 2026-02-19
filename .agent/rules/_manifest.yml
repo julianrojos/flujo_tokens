@@ -36,6 +36,11 @@ rules:
     owner: docs-governance
     applies_to: [spec, markdown]
     blocking: true
+  - id: token-registry-validation
+    file: token-registry-validation.mdc
+    owner: docs-governance
+    applies_to: [spec, markdown]
+    blocking: true
   - id: markdown-lifecycle-status
     file: markdown-lifecycle-status.mdc
     owner: docs-governance
@@ -82,16 +87,16 @@ checks:
     rule_ids: [component-doc-structure]
     blocking: true
   TOK01:
-    rule_ids: [token-references]
+    rule_ids: [token-references, token-registry-validation]
     blocking: true
   TOK02:
-    rule_ids: [token-references]
+    rule_ids: [token-references, token-registry-validation]
     blocking: true
   TOK03:
-    rule_ids: [ds-docs-guardrails, token-references]
+    rule_ids: [ds-docs-guardrails, token-references, token-registry-validation]
     blocking: true
   SPEC01:
-    rule_ids: [component-spec-yaml]
+    rule_ids: [component-spec-yaml, token-registry-validation]
     blocking: true
   DET01:
     rule_ids: [component-spec-properties-order]
