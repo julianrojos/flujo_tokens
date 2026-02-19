@@ -272,6 +272,7 @@ matrix:
       ]
     skills: [skill-versioning]
   by_skill:
+    design-tokens-advisor: [skill-versioning]
     ds-component-doc:
       [
         frontmatter-contract,
@@ -312,15 +313,6 @@ matrix:
         figma-doc-rendering,
         figma-doc-rendering-implementation,
         markdown-figma-subset,
-      ]
-    ds-doc-from-figma-url:
-      [
-        frontmatter-contract,
-        component-doc-structure,
-        component-doc-content,
-        component-figma-traceability,
-        docs-language-tone,
-        docs-pipeline-contract,
       ]
     ds-foundations:
       [

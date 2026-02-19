@@ -1,5 +1,5 @@
 ---
-name: design-system-architect
+name: design-tokens-advisor
 description: >
   Act as a Design System Architect to create, extract, refactor, audit, and document
   Design Tokens aligned with W3C Design Tokens Community Group (DTCG, 2025.10),
