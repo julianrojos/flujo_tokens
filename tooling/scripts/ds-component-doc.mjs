@@ -10,16 +10,17 @@ import yaml from "js-yaml";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
-import {
-  REQUIRED_CANONICAL_H2,
-  OPTIONAL_CANONICAL_H2,
-} from "./lib/docs-config.mjs";
 import { parseMarkdownFrontmatter, parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
+import {
+  buildAgentPrompt,
+  canonicalH2ConstraintLines,
+  RULE_BLOCKS,
+} from "./lib/prompts.mjs";
 import {
   normalizeComponentName,
   componentNameFromFilePath,
@@ -253,38 +254,32 @@ function main() {
     return;
   }
 
-  const prompt = [
-    "Context",
-    "- Generate one component documentation markdown from a spec YAML.",
-    effectiveComponentName ? `- Component name: ${effectiveComponentName}` : "",
-    "",
-    "Sources",
-    `- Spec YAML (source of truth): ${specPath}`,
-    styleReferencePath ? `- Existing docs style reference: ${styleReferencePath}` : "",
-    `- Output component markdown path (required): ${outputPath}`,
-    `- Overview path to keep in sync: ${overviewPath}`,
-    "",
-    "Constraints",
-    "- Do not invent properties, variants, states, accessibility, or token semantics.",
-    "- Use only canonical H2 sections in exact canonical order.",
-    `- Required H2 order: ${REQUIRED_CANONICAL_H2.join(" -> ")}.`,
-    `- Optional H2 (include only when applicable, still canonical order): ${OPTIONAL_CANONICAL_H2.join(
-      " -> "
-    )}.`,
-    "- Do not create extra H2 headings outside the canonical set.",
-    "- If spec lacks information, keep explicit `TBD` values.",
-    "- Never use Figma internal variable IDs (VariableID) in user-facing prose/tables.",
-    "- If spec includes figma.component_set_node_id, mirror it in markdown frontmatter figma.component_set_node_id.",
-    "- Keep language and tone consistent with existing component docs.",
-    "- Update overview links if needed so the component is discoverable.",
-    "- `## Gaps / TBD` is auto-managed by the pipeline and should not contain custom freeform entries.",
-    "",
-    "Expected Output",
-    "- Write/update the markdown file at the exact output path.",
-    "- Return a short report with final path and unresolved TBD count.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const prompt = buildAgentPrompt({
+    context: [
+      "Generate one component documentation markdown from a spec YAML.",
+      effectiveComponentName ? `Component name: ${effectiveComponentName}` : "",
+    ],
+    sources: [
+      `Spec YAML (source of truth): ${specPath}`,
+      styleReferencePath ? `Existing docs style reference: ${styleReferencePath}` : "",
+      `Output component markdown path (required): ${outputPath}`,
+      `Overview path to keep in sync: ${overviewPath}`,
+    ],
+    constraints: [
+      RULE_BLOCKS.NO_INVENTION,
+      ...canonicalH2ConstraintLines(),
+      "If spec lacks information, keep explicit `TBD` values.",
+      RULE_BLOCKS.NO_INTERNAL_IDS,
+      "If spec includes figma.component_set_node_id, mirror it in markdown frontmatter figma.component_set_node_id.",
+      "Keep language and tone consistent with existing component docs.",
+      "Update overview links if needed so the component is discoverable.",
+      RULE_BLOCKS.GAPS_AUTOMANAGED,
+    ],
+    expectedOutput: [
+      "Write/update the markdown file at the exact output path.",
+      "Return a short report with final path and unresolved TBD count.",
+    ],
+  });
 
   try {
     let gapsCount = 0;

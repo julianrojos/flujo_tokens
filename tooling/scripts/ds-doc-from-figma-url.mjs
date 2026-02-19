@@ -6,12 +6,13 @@ import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
-import {
-  REQUIRED_CANONICAL_H2,
-  OPTIONAL_CANONICAL_H2,
-} from "./lib/docs-config.mjs";
 import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
+import {
+  buildAgentPrompt,
+  canonicalH2ConstraintLines,
+  RULE_BLOCKS,
+} from "./lib/prompts.mjs";
 
 function formatMarkdown({ outputPath, docsRoot }) {
   const target = outputPath
@@ -63,39 +64,33 @@ function main() {
     outputPath,
   });
 
-  const prompt = [
-    "Context",
-    "- Generate one component documentation markdown from Figma.",
-    componentName ? `- Expected component name: ${componentName}` : "",
-    "",
-    "Sources",
-    `- Figma URL: ${figmaUrl}`,
-    styleReferencePath ? `- Existing docs style reference: ${styleReferencePath}` : "",
-    outputPath
-      ? `- Output path (required): ${outputPath}`
-      : "- Output path: one file under docs/components/ based on the real component name.",
-    "",
-    "Constraints",
-    "- Use figma MCP workflow and inspect the referenced component/set.",
-    "- Documentation only. Do not generate component implementation code.",
-    "- Use only canonical H2 sections in exact canonical order.",
-    `- Required H2 order: ${REQUIRED_CANONICAL_H2.join(" -> ")}.`,
-    `- Optional H2 (include only when applicable, still canonical order): ${OPTIONAL_CANONICAL_H2.join(
-      " -> "
-    )}.`,
-    "- Do not create extra H2 headings outside the canonical set.",
-    "- Do not invent properties, variants, states, or token semantics.",
-    "- Never use Figma internal variable IDs (VariableID) in user-facing prose/tables.",
-    "- Figma node IDs are allowed for source traceability (for example in `node-id` URLs).",
-    "- Include component metadata/frontmatter expected by project rules.",
-    "- Do not document system_cover or non-component pages.",
-    "",
-    "Expected Output",
-    "- Write/update the markdown file in the repo.",
-    "- Return a short report with: final path, doc_status value, and unresolved TBD count.",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const prompt = buildAgentPrompt({
+    context: [
+      "Generate one component documentation markdown from Figma.",
+      componentName ? `Expected component name: ${componentName}` : "",
+    ],
+    sources: [
+      `Figma URL: ${figmaUrl}`,
+      styleReferencePath ? `Existing docs style reference: ${styleReferencePath}` : "",
+      outputPath
+        ? `Output path (required): ${outputPath}`
+        : "Output path: one file under docs/components/ based on the real component name.",
+    ],
+    constraints: [
+      RULE_BLOCKS.FIGMA_MCP_WORKFLOW,
+      RULE_BLOCKS.DOCUMENTATION_ONLY,
+      ...canonicalH2ConstraintLines(),
+      "Do not invent properties, variants, states, or token semantics.",
+      RULE_BLOCKS.NO_INTERNAL_IDS,
+      "Figma node IDs are allowed for source traceability (for example in `node-id` URLs).",
+      "Include component metadata/frontmatter expected by project rules.",
+      "Do not document system_cover or non-component pages.",
+    ],
+    expectedOutput: [
+      "Write/update the markdown file in the repo.",
+      "Return a short report with: final path, doc_status value, and unresolved TBD count.",
+    ],
+  });
 
   try {
     runAgentPrompt({
