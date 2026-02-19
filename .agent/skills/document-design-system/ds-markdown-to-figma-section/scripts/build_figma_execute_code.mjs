@@ -1147,11 +1147,18 @@ const sectionPattern = String(
   getPath(theme, "layout.target.section_name_pattern", "Doc/{component_name}")
 );
 const docSectionName = sectionPattern.replace("{component_name}", componentName);
-let docSection = findSectionByName(page, docSectionName);
+const targetParent =
+  componentSection && componentSection.parent
+    ? componentSection.parent
+    : page;
+let docSection = findSectionByName(targetParent, docSectionName);
+if (!docSection && targetParent !== page) {
+  docSection = findSectionByName(page, docSectionName);
+}
 if (!docSection) {
   docSection = figma.createSection();
   docSection.name = docSectionName;
-  page.appendChild(docSection);
+  targetParent.appendChild(docSection);
 }
 
 const offsetX = Number(
