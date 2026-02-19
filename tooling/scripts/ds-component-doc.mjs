@@ -48,9 +48,9 @@ import {
   shouldSkipTask,
   updateTaskState,
 } from "./lib/cache-utils.mjs";
+import { TRACEABILITY_CONTRACT_VERSION } from "./lib/docs-config.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
-const TRACEABILITY_CONTRACT_VERSION = "1";
 const USAGE = {
   command:
     "npm run ds:component-doc -- --component-name Alert [--agent codex] [--output docs/components/alert.md]",

@@ -28,6 +28,7 @@ import {
 import { isPlainObject } from "./is-plain-object.mjs";
 import { normalizeNodeId } from "./node-id.mjs";
 import { deriveFigmaFrontmatterTraceability } from "./figma-traceability.mjs";
+import { isTbdMarker } from "./tbd.mjs";
 import {
   ALLOWED_DOC_STATUS,
   CANONICAL_H2_ORDER,
@@ -35,6 +36,7 @@ import {
   REQUIRED_CANONICAL_H2,
   SPEC_ALLOWED_STATUS,
   SPEC_REQUIRED_TOP_LEVEL_FIELDS,
+  TRACEABILITY_CONTRACT_VERSION,
 } from "./docs-config.mjs";
 
 export { CANONICAL_H2_ORDER, REQUIRED_CANONICAL_H2 } from "./docs-config.mjs";
@@ -54,7 +56,6 @@ const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
 const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
 const RULE_MANIFEST_PATH = resolveProjectPath(".agent", "rules", "_manifest.yml");
-const TRACEABILITY_CONTRACT_VERSION = "1";
 const SPEC_PROPERTY_GROUP_ORDER = new Map([
   ["variant", 1],
   ["enum", 1],
@@ -1761,10 +1762,6 @@ function splitSpecTokenValue(rawValue) {
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
-}
-
-function isTbdMarker(value) {
-  return /^tbd$/i.test(String(value || "").trim());
 }
 
 function normalizeSpecPropertyGroup(typeValue) {
