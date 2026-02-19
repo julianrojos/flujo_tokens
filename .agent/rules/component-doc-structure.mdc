@@ -102,6 +102,7 @@ If additional details are needed, place them under `###` inside the nearest allo
 
 - Bullet list linking to sibling or alternative components.
 - Each item: component name (as link if page exists) + one-line description of when to use it instead.
+- If changelog tracking is needed, add it as `### Changelog` inside this section (never as a new H2).
 
 ### 12. `## Design–Token Discrepancies` (optional)
 

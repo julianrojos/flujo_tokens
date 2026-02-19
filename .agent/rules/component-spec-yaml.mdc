@@ -26,6 +26,12 @@ token_mapping   # Object: keyed by "{part}.{attribute}"
 qa              # Array of verification statements
 ```
 
+## Optional top-level fields
+
+```
+version         # Optional object: { spec, component } with SemVer values
+```
+
 ## Field conventions
 
 ### `name`

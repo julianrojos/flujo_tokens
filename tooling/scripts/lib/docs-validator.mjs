@@ -53,6 +53,7 @@ const OVERVIEW_ENTRY_RE = /^-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
 const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 const HASH_RE = /^[a-f0-9]{64}$/i;
+const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 
 function normalizeSlashPathCandidate(tokenPath) {
@@ -402,6 +403,46 @@ function validateFrontmatter(filePath, frontmatter, report) {
   }
 }
 
+function validateOptionalVersionBlock({
+  filePath,
+  versionNode,
+  allowedKeys,
+  report,
+  context,
+}) {
+  if (versionNode === undefined || versionNode === null || versionNode === "") return;
+
+  if (!isPlainObject(versionNode)) {
+    report.errors.push({
+      code: "VER01",
+      file: filePath,
+      message: `${context} \`version\` must be an object when declared.`,
+    });
+    return;
+  }
+
+  for (const [key, rawValue] of Object.entries(versionNode)) {
+    if (!allowedKeys.has(key)) {
+      report.errors.push({
+        code: "VER01",
+        file: filePath,
+        message: `${context} version key \`${key}\` is not allowed.`,
+      });
+      continue;
+    }
+
+    const value = String(rawValue ?? "").trim();
+    if (!value || isTbdMarker(value) || !SEMVER_RE.test(value)) {
+      report.errors.push({
+        code: "VER01",
+        file: filePath,
+        message:
+          `${context} version \`${key}\` must be a SemVer string (for example \`1.2.3\`).`,
+      });
+    }
+  }
+}
+
 function validateComponentFrontmatter(filePath, frontmatter, report) {
   if (frontmatter.doc_type !== "component") {
     report.errors.push({
@@ -471,6 +512,14 @@ function validateComponentFrontmatter(filePath, frontmatter, report) {
 
   validateOptionalCountField("properties_count");
   validateOptionalCountField("variants_count");
+
+  validateOptionalVersionBlock({
+    filePath,
+    versionNode: frontmatter.version,
+    allowedKeys: new Set(["spec", "component", "docs"]),
+    report,
+    context: "Frontmatter",
+  });
 }
 
 function validateOverviewFrontmatter(filePath, frontmatter, report) {
@@ -1765,6 +1814,14 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
   if (registryIndexes) {
     validateSpecTokenMapping(filePath, parsed.token_mapping, registryIndexes, report);
   }
+
+  validateOptionalVersionBlock({
+    filePath,
+    versionNode: parsed.version,
+    allowedKeys: new Set(["spec", "component"]),
+    report,
+    context: "Spec",
+  });
 
   validateSpecPropertyOrder(filePath, parsed.properties, report);
 
