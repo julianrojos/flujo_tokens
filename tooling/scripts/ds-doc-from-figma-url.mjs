@@ -25,7 +25,7 @@ import {
   canonicalH2ConstraintLines,
   RULE_BLOCKS,
 } from "./lib/prompts.mjs";
-import { formatMarkdownScope } from "./lib/format-markdown.mjs";
+import { formatMarkdownTarget } from "./lib/format-markdown.mjs";
 import {
   captureFileSnapshot,
   restoreFileSnapshot,
@@ -44,7 +44,8 @@ const USAGE = {
     },
     {
       name: "--component-name <name>",
-      description: "Optional display name hint for H1 and output naming.",
+      description:
+        "Display name hint for H1 and output naming (required when --output is omitted).",
     },
     {
       name: "--output <path>",
@@ -89,16 +90,24 @@ function main() {
   const normalized = normalizeComponentName(rawComponentName);
   const componentName = normalized.displayName;
   const componentSlug = normalized.fileSlug;
-  const outputPath =
-    args.output ||
-    (componentSlug ? path.join(componentDocsDir, `${componentSlug}.md`) : null);
+  const outputPath = args.output
+    ? path.resolve(args.output)
+    : componentSlug
+      ? path.resolve(path.join(componentDocsDir, `${componentSlug}.md`))
+      : "";
 
-  if (outputPath) {
-    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  if (!outputPath) {
+    console.error(
+      "Missing deterministic output path.\n" +
+        "Provide --output <path>, or pass --component-name so the script can derive docs/components/<snake_case>.md.",
+    );
+    process.exit(1);
   }
+
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   const skeletonPath = writeComponentDocSkeleton({
     componentName: componentName || "Component",
-    outputPath: outputPath || undefined,
+    outputPath,
   });
   const styleReferencePath = resolveStyleReferencePath({
     componentDocsDir,
@@ -117,9 +126,7 @@ function main() {
         : "",
       `Canonical markdown skeleton (fill-only): ${skeletonPath}`,
       `Golden markdown example for tone/detail: ${GOLDEN_COMPONENT_DOC_SAMPLE_PATH}`,
-      outputPath
-        ? `Output path (required): ${outputPath}`
-        : "Output path: one file under docs/components/ based on the real component name.",
+      `Output path (required): ${outputPath}`,
     ],
     constraints: [
       RULE_BLOCKS.FIGMA_MCP_WORKFLOW,
@@ -153,48 +160,48 @@ function main() {
       agent,
       label: `doc-from-figma-url-${componentNameToSnakeCase(componentName || "component")}`,
     });
-    if (outputPath && fs.existsSync(outputPath)) {
-      normalizeAgentOutputFile(outputPath);
+    if (!fs.existsSync(outputPath)) {
+      throw new Error(
+        `Agent did not produce markdown output at the required path: ${outputPath}`,
+      );
     }
-    formatMarkdownScope({ outputPath, docsRoot: componentDocsDir });
+    normalizeAgentOutputFile(outputPath);
+    formatMarkdownTarget(outputPath);
 
-    if (outputPath && fs.existsSync(outputPath)) {
-      const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
-      const outputContract = validateAgentOutputContract({
-        markdown: generatedMarkdown,
-        expectedComponentName: componentName || undefined,
-      });
-      if (!outputContract.ok) {
-        const reportPath = writeAgentOutputErrorReport({
-          componentSlug:
-            componentSlug ||
-            path.basename(outputPath, path.extname(outputPath)),
-          scriptName: "ds-doc-from-figma-url",
-          markdownPath: outputPath,
-          errors: outputContract.errors,
-          rawOutput: generatedMarkdown,
-        });
-        throw new Error(
-          "Generated markdown failed output contract.\n" +
-            `Report: ${reportPath}\n` +
-            `${JSON.stringify({ file: outputPath, errors: outputContract.errors }, null, 2)}`,
-        );
-      }
-
-      const drift = updateAgentDriftBaseline({
-        markdownPath: outputPath,
+    const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
+    const outputContract = validateAgentOutputContract({
+      markdown: generatedMarkdown,
+      expectedComponentName: componentName || undefined,
+    });
+    if (!outputContract.ok) {
+      const reportPath = writeAgentOutputErrorReport({
         componentSlug:
           componentSlug || path.basename(outputPath, path.extname(outputPath)),
         scriptName: "ds-doc-from-figma-url",
+        markdownPath: outputPath,
+        errors: outputContract.errors,
+        rawOutput: generatedMarkdown,
       });
-      if (drift.driftDetected) {
-        console.warn(
-          "Output contract drift detected.\n" +
-            `Baseline: ${drift.baselinePath}\n` +
-            `Previous hash: ${drift.previousHash}\n` +
-            `Current hash: ${drift.hash}`,
-        );
-      }
+      throw new Error(
+        "Generated markdown failed output contract.\n" +
+          `Report: ${reportPath}\n` +
+          `${JSON.stringify({ file: outputPath, errors: outputContract.errors }, null, 2)}`,
+      );
+    }
+
+    const drift = updateAgentDriftBaseline({
+      markdownPath: outputPath,
+      componentSlug:
+        componentSlug || path.basename(outputPath, path.extname(outputPath)),
+      scriptName: "ds-doc-from-figma-url",
+    });
+    if (drift.driftDetected) {
+      console.warn(
+        "Output contract drift detected.\n" +
+          `Baseline: ${drift.baselinePath}\n` +
+          `Previous hash: ${drift.previousHash}\n` +
+          `Current hash: ${drift.hash}`,
+      );
     }
   } catch (error) {
     restoreFileSnapshot(outputPath, outputSnapshot);
