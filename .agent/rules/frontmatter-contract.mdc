@@ -26,19 +26,22 @@ figma:
   file_url: "<url-or-TBD>"
   page: "<name-or-TBD>"
   component: "<name-or-TBD>"
-  component_set_node_id: "123:456" # optional, but if present must be concrete node-id
   last_verified: "YYYY-MM-DD or TBD"
-  component_hash: "<sha256>" # optional 64-char hex when present
-  properties_count: 0 # optional non-negative integer when present
-  variants_count: 0 # optional non-negative integer when present
+  # Optional fields (include only when known):
+  # component_set_node_id: "123:456"
+  # component_hash: "<64-char-sha256>"
+  # properties_count: 0
+  # variants_count: 0
 ```
 
 Rules:
 
-- If a field is unknown, use `TBD` (never invent values).
+- For required string fields, use `TBD` when unknown (never invent values).
+- Optional typed fields (`component_set_node_id`, `component_hash`, `properties_count`, `variants_count`) must be omitted when unknown (`TBD` is not valid for these fields).
 - `doc_status: ready` requires concrete `figma.last_verified` (not `TBD`).
 - If both spec YAML and markdown declare `component_set_node_id`, they must match.
 - `component_hash` must be a 64-character SHA-256 hex string when declared.
+- `properties_count` and `variants_count` must be non-negative integers when declared.
 
 ## Pipeline-generated traceability block
 

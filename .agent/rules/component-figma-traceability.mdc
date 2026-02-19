@@ -18,6 +18,7 @@ This rule adds component-specific traceability constraints on top of that contra
 - `figma.component` must use a human-readable component/set name, not node IDs.
 - `figma.page` should match the page name in Figma.
 - `figma.last_verified` records the latest manual verification date.
+- Optional typed traceability fields (`component_set_node_id`, `component_hash`, `properties_count`, `variants_count`) must be omitted when unknown (`TBD` is not valid for these fields).
 - Keep a direct source link in `## Overview` (human-readable URL text is fine).
 - Include `node-id` in the source URL when available to preserve exact node traceability.
 - If `figma.component_set_node_id` is present, it must be valid (`123:456`) and match the linked component spec value.

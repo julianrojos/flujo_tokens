@@ -109,11 +109,12 @@ figma:
   file_url: TBD
   page: TBD
   component: TBD
-  component_set_node_id: TBD
   last_verified: TBD
-  component_hash: TBD
-  properties_count: TBD
-  variants_count: TBD
+  # Optional fields (include only when known):
+  # component_set_node_id: "123:456"
+  # component_hash: "<64-char-sha256>"
+  # properties_count: 0
+  # variants_count: 0
 ```
 
 Then use this section order:
