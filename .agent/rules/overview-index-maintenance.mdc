@@ -16,8 +16,12 @@ When a component/foundation page is created, deleted, or renamed, update its ove
 
 - Source pages: `docs/components/*.md` (excluding `overview.md`)
 - Index page: `docs/components/overview.md`
-- Keep the component list alphabetically sorted by display name.
+- The component list MUST follow canonical format:
+  - `- [Display Name](snake_case.md)`
+- The component list MUST be sorted alphabetically by display name (case-insensitive).
+- Ties MUST be resolved by `snake_case.md` ascending.
 - Ensure links point to existing files.
+- For exact format/order/uniqueness constraints, follow `overview-components-canonical-list.mdc`.
 
 ## Foundations
 

@@ -1,0 +1,58 @@
+---
+description: Deterministic ordering rules for `properties` in component spec YAML files.
+globs:
+  - "docs/_spec/components/*.yml"
+---
+
+# Component spec deterministic property order
+
+This rule enforces a stable, deterministic order for `properties` entries in component specs.
+
+## Mandatory order for `properties`
+
+The `properties` array MUST be sorted by groups in this exact order:
+
+1. Variant/state selectors
+2. Content properties (`TEXT`)
+3. Boolean toggles (`BOOLEAN`)
+4. Instance swaps (`INSTANCE_SWAP`)
+5. Other or unknown types
+
+Type normalization for grouping:
+
+- Group 1: `variant`, `enum`
+- Group 2: `text`
+- Group 3: `boolean`
+- Group 4: `instance_swap`
+- Group 5: any other type
+
+Comparison is case-insensitive.
+
+## Intra-group deterministic order
+
+Inside each group:
+
+- Keep Figma component-set order when it is explicitly available.
+- If Figma order is unavailable, preserve source order from the current spec.
+- If both are unavailable/ambiguous, sort by `name` (case-insensitive, ascending).
+
+This fallback chain MUST produce the same output on repeated runs with unchanged inputs.
+
+## Canonical field order inside each property object
+
+Each object in `properties` SHOULD use this key order:
+
+1. `name`
+2. `type`
+3. `values`
+4. `default`
+5. `required`
+6. `description`
+
+Unknown extra keys MAY exist but SHOULD be appended after these keys.
+
+## Validity constraints
+
+- `properties` MUST map 1:1 to Figma component-set properties.
+- Duplicated property `name` values are not allowed.
+- Reordering without source changes (Figma/spec inputs) is considered non-deterministic and invalid.

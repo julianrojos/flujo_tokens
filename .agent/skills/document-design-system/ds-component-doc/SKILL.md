@@ -20,6 +20,7 @@ This skill must produce output that complies with:
 - `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
 - `component-doc-structure.mdc` — mandatory frontmatter + section order and content
 - `component-spec-yaml.mdc` — required fields and conventions for the input YAML
+- `component-spec-properties-order.mdc` — deterministic ordering of `properties` entries in spec YAML
 - `token-references.mdc` — token path formatting, fallback values, and naming patterns
 - `accessibility-docs.mdc` — five required areas in the Accessibility section
 - `component-figma-traceability.mdc` — Figma source metadata in component docs
@@ -27,6 +28,7 @@ This skill must produce output that complies with:
 - `design-token-discrepancies.mdc` — optional discrepancy section with fixed table format
 - `docs-language-tone.mdc` — language and tone consistency
 - `overview-index-maintenance.mdc` — required synchronization of `docs/components/overview.md`
+- `overview-components-canonical-list.mdc` — canonical component list format and strict ordering in overview
 
 When in doubt, the rules are the source of truth.
 
@@ -65,7 +67,10 @@ See `component-spec-yaml.mdc` for full field conventions and validation rules.
 ## Output
 
 - `${docs_root}/components/${component_name}.md`
-- Update `${docs_root}/components/overview.md` to include the component in the list (append alphabetically if possible)
+- Update `${docs_root}/components/overview.md` using the canonical list format:
+  - `- [Display Name](snake_case.md)`
+  - sorted alphabetically by display name (case-insensitive)
+  - no duplicates, no dead links, no orphan component docs
 
 ## Component page structure
 

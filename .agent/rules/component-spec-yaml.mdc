@@ -50,6 +50,7 @@ qa              # Array of verification statements
 - `values`: Array of allowed values for enums; omit for text/boolean.
 - `default`: The Figma default value.
 - `required`: `true` or `false`.
+- Ordering MUST be deterministic and follow `component-spec-properties-order.mdc`.
 
 ### `best_practices`
 - Always include both `do` and `dont` arrays.

@@ -43,6 +43,16 @@ const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
   "token_mapping",
   "qa",
 ];
+const SPEC_PROPERTY_GROUP_ORDER = new Map([
+  ["variant", 1],
+  ["enum", 1],
+  ["text", 2],
+  ["boolean", 3],
+  ["instance_swap", 4],
+]);
+const CANONICAL_COMPONENT_LIST_HEADING = "component list";
+const OVERVIEW_ENTRY_RE = /^-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
+const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
 
 
 function normalizeSlashPathCandidate(tokenPath) {
@@ -681,25 +691,165 @@ function validateOverviewLinks(docsRoot, componentFiles, report) {
   }
 
   const overviewRaw = fs.readFileSync(overviewPath, "utf8");
-  const linkRegex = /\[[^\]]+\]\(([^)]+)\)/g;
-  const linkedFiles = [];
-  let match;
-  while ((match = linkRegex.exec(overviewRaw)) !== null) {
-    const linkTarget = String(match[1] || "").trim();
-    if (!linkTarget || /^https?:\/\//i.test(linkTarget)) continue;
-    if (!linkTarget.endsWith(".md")) continue;
-    linkedFiles.push(path.resolve(path.dirname(overviewPath), linkTarget));
+  const lineStarts = buildLineStarts(overviewRaw);
+  const { content } = parseMarkdownFrontmatter(overviewRaw);
+  const contentOffset = overviewRaw.length - content.length;
+
+  const headingRegex = /^##\s+(.+?)\s*$/gim;
+  let headingMatch;
+  let sectionStart = -1;
+  let sectionEnd = content.length;
+
+  while ((headingMatch = headingRegex.exec(content)) !== null) {
+    const headingText = normalizeHeadingText(headingMatch[1]);
+    if (sectionStart >= 0) {
+      sectionEnd = headingMatch.index;
+      break;
+    }
+    if (headingText === CANONICAL_COMPONENT_LIST_HEADING) {
+      sectionStart = headingMatch.index + headingMatch[0].length;
+    }
   }
 
-  const linkedSet = new Set(linkedFiles);
+  if (sectionStart < 0) {
+    report.errors.push({
+      code: "LINK02",
+      file: overviewPath,
+      message: "Missing `## Component list` section in overview.",
+    });
+    return;
+  }
+
+  const sectionText = content.slice(sectionStart, sectionEnd);
+  const sectionBaseOffset = contentOffset + sectionStart;
+  const sectionLines = sectionText.split("\n");
+  const entries = [];
+
+  for (let i = 0, offset = 0; i < sectionLines.length; i += 1) {
+    const line = sectionLines[i];
+    const trimmed = String(line || "").trim();
+    const lineOffset = sectionBaseOffset + offset;
+    offset += line.length + 1;
+
+    if (!trimmed) continue;
+    if (!trimmed.startsWith("-")) continue;
+
+    const parsed = trimmed.match(OVERVIEW_ENTRY_RE);
+    if (!parsed) {
+      report.errors.push({
+        code: "LINK02",
+        file: overviewPath,
+        line: lineFromOffset(lineStarts, lineOffset),
+        message: "Component list entries must use `- [Display Name](snake_case.md)` format.",
+      });
+      continue;
+    }
+
+    const displayName = String(parsed[1] || "").trim().replace(/\s+/g, " ");
+    const target = String(parsed[2] || "").trim();
+
+    if (!displayName) {
+      report.errors.push({
+        code: "LINK02",
+        file: overviewPath,
+        line: lineFromOffset(lineStarts, lineOffset),
+        message: "Component list entry has an empty display name.",
+      });
+      continue;
+    }
+
+    if (!OVERVIEW_TARGET_RE.test(target)) {
+      report.errors.push({
+        code: "LINK02",
+        file: overviewPath,
+        line: lineFromOffset(lineStarts, lineOffset),
+        message: `Component list link target must be snake_case.md: \`${target}\`.`,
+      });
+      continue;
+    }
+
+    entries.push({
+      displayName,
+      target,
+      absolutePath: path.resolve(path.dirname(overviewPath), target),
+      line: lineFromOffset(lineStarts, lineOffset),
+    });
+  }
+
+  if (entries.length === 0) {
+    report.errors.push({
+      code: "LINK02",
+      file: overviewPath,
+      message: "Component list section has no valid entries.",
+    });
+    return;
+  }
+
+  const seenDisplay = new Map();
+  const seenTarget = new Map();
+  for (const entry of entries) {
+    const displayKey = entry.displayName.toLowerCase();
+    if (seenDisplay.has(displayKey)) {
+      report.errors.push({
+        code: "LINK02",
+        file: overviewPath,
+        line: entry.line,
+        message: `Duplicate display name in component list: \`${entry.displayName}\`.`,
+      });
+    } else {
+      seenDisplay.set(displayKey, entry.line);
+    }
+
+    const targetKey = entry.target.toLowerCase();
+    if (seenTarget.has(targetKey)) {
+      report.errors.push({
+        code: "LINK02",
+        file: overviewPath,
+        line: entry.line,
+        message: `Duplicate component link in component list: \`${entry.target}\`.`,
+      });
+    } else {
+      seenTarget.set(targetKey, entry.line);
+    }
+  }
+
+  const normalizedName = (value) =>
+    String(value || "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+  const sortedEntries = entries.slice().sort((a, b) => {
+    const aName = normalizedName(a.displayName);
+    const bName = normalizedName(b.displayName);
+    if (aName !== bName) return aName.localeCompare(bName, "en");
+    return a.target.toLowerCase().localeCompare(b.target.toLowerCase(), "en");
+  });
+
+  for (let i = 0; i < entries.length; i += 1) {
+    const current = entries[i];
+    const expected = sortedEntries[i];
+    if (current.displayName === expected.displayName && current.target === expected.target) continue;
+    report.errors.push({
+      code: "LINK02",
+      file: overviewPath,
+      line: current.line,
+      message:
+        "Component list must be alphabetically sorted by display name (case-insensitive), " +
+        "with filename tie-breaker.",
+    });
+    break;
+  }
+
+  const linkedSet = new Set(entries.map((entry) => entry.absolutePath));
   const componentSet = new Set(componentFiles);
 
-  for (const linked of linkedSet) {
-    if (!fs.existsSync(linked)) {
+  for (const entry of entries) {
+    if (!fs.existsSync(entry.absolutePath)) {
       report.errors.push({
         code: "LINK01",
         file: overviewPath,
-        message: `Overview link points to missing file: ${path.relative(process.cwd(), linked)}.`,
+        line: entry.line,
+        message: `Overview link points to missing file: ${path.relative(process.cwd(), entry.absolutePath)}.`,
       });
     }
   }
@@ -728,6 +878,72 @@ function splitSpecTokenValue(rawValue) {
 
 function isTbdMarker(value) {
   return /^tbd$/i.test(String(value || "").trim());
+}
+
+function normalizeSpecPropertyGroup(typeValue) {
+  const normalizedType = String(typeValue || "").trim().toLowerCase();
+  return SPEC_PROPERTY_GROUP_ORDER.get(normalizedType) || 5;
+}
+
+function validateSpecPropertyOrder(filePath, properties, report) {
+  if (properties === undefined || properties === null) return;
+  if (!Array.isArray(properties)) {
+    report.errors.push({
+      code: "SPEC01",
+      file: filePath,
+      message: "Field `properties` must be an array.",
+    });
+    return;
+  }
+
+  let previousGroup = -1;
+  const seenNames = new Set();
+
+  for (let i = 0; i < properties.length; i += 1) {
+    const prop = properties[i];
+    if (!isPlainObject(prop)) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Property entry at index ${i} must be an object.`,
+      });
+      continue;
+    }
+
+    const propName = String(prop.name || "").trim();
+    const propType = String(prop.type || "").trim();
+    if (!propName) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Property entry at index ${i} is missing \`name\`.`,
+      });
+    } else {
+      const nameKey = propName.toLowerCase();
+      if (seenNames.has(nameKey)) {
+        report.errors.push({
+          code: "DET01",
+          file: filePath,
+          message: `Duplicate property name in spec properties: \`${propName}\`.`,
+        });
+      } else {
+        seenNames.add(nameKey);
+      }
+    }
+
+    const currentGroup = normalizeSpecPropertyGroup(propType);
+    if (currentGroup < previousGroup) {
+      report.errors.push({
+        code: "DET01",
+        file: filePath,
+        message:
+          "Properties must follow canonical type group order: " +
+          "variant/enum -> text -> boolean -> instance_swap -> other.",
+      });
+      break;
+    }
+    previousGroup = currentGroup;
+  }
 }
 
 function validateSpecTokenMapping(filePath, tokenMapping, registryIndexes, report) {
@@ -860,6 +1076,8 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
   if (registryIndexes) {
     validateSpecTokenMapping(filePath, parsed.token_mapping, registryIndexes, report);
   }
+
+  validateSpecPropertyOrder(filePath, parsed.properties, report);
 }
 
 function validateSpecYamlFiles(specRoot, report, registryIndexes, explicitSpecFilePath = null) {
