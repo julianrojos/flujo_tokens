@@ -55,6 +55,12 @@ A concise summary of what the component does.
 - Figma component set: TBD
 - Variant properties: TBD
 
+### Visual Proof
+
+- Screenshot: TBD
+- Source node: TBD
+- Artifact: TBD
+
 ## Anatomy
 
 1. **Container**: TBD

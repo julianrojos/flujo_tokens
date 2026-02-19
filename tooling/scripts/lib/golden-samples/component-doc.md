@@ -18,6 +18,12 @@ The **Example Button** triggers a primary action in flows where a single clear n
 - Figma component set: Example Button
 - Variant properties: \`Type\`, \`Size\`, \`State\`.
 
+### Visual Proof
+
+- Screenshot: [Captured (2026-02-19)](https://example.com/figma-proof/example-button.png)
+- Source node: \`123:456\`
+- Artifact: \`../_generated/visual-proofs/example_button.json\`
+
 ## Anatomy
 
 1. **Container**: Hosts background, border, and interaction state.

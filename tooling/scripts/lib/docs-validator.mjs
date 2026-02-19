@@ -363,6 +363,30 @@ function normalizeHeadingText(text) {
     .toLowerCase();
 }
 
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getH2SectionRange(rawMarkdown, headingTitle) {
+  const raw = String(rawMarkdown || "");
+  const headingRegex = new RegExp(`^##\\s+${escapeRegex(headingTitle)}\\s*$`, "m");
+  const headingMatch = headingRegex.exec(raw);
+  if (!headingMatch) return null;
+
+  const headingLineEnd = raw.indexOf("\n", headingMatch.index);
+  const bodyStart = headingLineEnd === -1 ? raw.length : headingLineEnd + 1;
+  const rest = raw.slice(bodyStart);
+  const nextHeadingMatch = /^##\s+/m.exec(rest);
+  const end = nextHeadingMatch ? bodyStart + nextHeadingMatch.index : raw.length;
+
+  return {
+    headingOffset: headingMatch.index,
+    bodyStart,
+    end,
+    body: raw.slice(bodyStart, end),
+  };
+}
+
 function collectH2Headings(content) {
   const headings = [];
   const regex = /^##\s+(.+?)\s*$/gm;
@@ -1001,6 +1025,92 @@ function findDiscrepancyStatuses(rawMarkdown) {
     matches.push(String(match[1] || "").toLowerCase());
   }
   return matches;
+}
+
+function extractVisualProof(rawMarkdown) {
+  const overview = getH2SectionRange(rawMarkdown, "Overview");
+  if (!overview) {
+    return {
+      hasOverview: false,
+      hasSection: false,
+      headingOffset: -1,
+      body: "",
+    };
+  }
+
+  const visualHeadingRegex = /^###\s+Visual Proof\s*$/m;
+  const headingMatch = visualHeadingRegex.exec(overview.body);
+  if (!headingMatch) {
+    return {
+      hasOverview: true,
+      hasSection: false,
+      headingOffset: overview.headingOffset,
+      body: "",
+    };
+  }
+
+  const absoluteHeadingOffset = overview.bodyStart + headingMatch.index;
+  const afterHeadingRaw = overview.body.slice(headingMatch.index + headingMatch[0].length);
+  const afterHeading = afterHeadingRaw.replace(/^\n+/, "");
+  const nextH3Match = /^###\s+/m.exec(afterHeading);
+  const body = (nextH3Match
+    ? afterHeading.slice(0, nextH3Match.index)
+    : afterHeading
+  ).trim();
+
+  return {
+    hasOverview: true,
+    hasSection: true,
+    headingOffset: absoluteHeadingOffset,
+    body,
+  };
+}
+
+function validateVisualProofSection(
+  filePath,
+  rawMarkdown,
+  frontmatter,
+  report,
+  lineStarts,
+) {
+  const docStatus = String(frontmatter.doc_status || "")
+    .trim()
+    .toLowerCase();
+  if (docStatus !== "ready") return;
+
+  const visualProof = extractVisualProof(rawMarkdown);
+  const fallbackOffset = visualProof.headingOffset >= 0 ? visualProof.headingOffset : 0;
+
+  if (!visualProof.hasOverview || !visualProof.hasSection) {
+    report.errors.push({
+      code: "VIS01",
+      file: filePath,
+      line: lineFromOffset(lineStarts, fallbackOffset),
+      message:
+        "Component markdown is `ready` but missing `### Visual Proof` under `## Overview`.",
+    });
+    return;
+  }
+
+  if (/\bTBD\b/i.test(visualProof.body)) {
+    report.errors.push({
+      code: "VIS01",
+      file: filePath,
+      line: lineFromOffset(lineStarts, fallbackOffset),
+      message:
+        "Component markdown is `ready` but `### Visual Proof` still contains `TBD`.",
+    });
+  }
+
+  if (!/\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/i.test(visualProof.body)) {
+    report.errors.push({
+      code: "VIS01",
+      file: filePath,
+      line: lineFromOffset(lineStarts, fallbackOffset),
+      message:
+        "Component markdown is `ready` but `### Visual Proof` has no concrete screenshot URL.",
+    });
+  }
 }
 
 function validateReadyLifecycleConsistency(
@@ -2346,6 +2456,13 @@ export function validateDocs(options = {}) {
       report,
       lineStarts,
       specResolution,
+    );
+    validateVisualProofSection(
+      filePath,
+      raw,
+      frontmatter,
+      report,
+      lineStarts,
     );
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset, {
       allowExtraH2,

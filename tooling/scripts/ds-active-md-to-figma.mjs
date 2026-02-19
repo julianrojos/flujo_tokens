@@ -140,6 +140,8 @@ function main() {
   const syncStatePath = args["sync-state"] || undefined;
   const tokenRegistryPath =
     args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
+  const captureProof = String(args["capture-proof"] || "true") !== "false";
+  const captureProofStrict = String(args["capture-proof-strict"] || "false") === "true";
 
   if (skipValidation && !force) {
     console.error(
@@ -458,6 +460,43 @@ function main() {
       },
       statePath: syncStatePath,
     });
+
+    if (captureProof) {
+      if (!resolvedComponentSetId) {
+        const message =
+          "Visual proof capture skipped: no deterministic component_set_node_id available.";
+        if (captureProofStrict) {
+          throw new Error(message);
+        }
+        console.warn(message);
+      } else {
+        const proofArgs = [
+          "tooling/scripts/ds-capture-visual-proof.mjs",
+          "--markdown",
+          markdownPath,
+          "--spec-file",
+          specPath,
+          "--component-set-id",
+          resolvedComponentSetId,
+          "--agent",
+          agent,
+        ];
+        if (figmaUrl) {
+          proofArgs.push("--url", figmaUrl);
+        }
+        try {
+          runOrThrow("node", proofArgs);
+        } catch (error) {
+          const message = `Visual proof capture failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`;
+          if (captureProofStrict) {
+            throw new Error(message);
+          }
+          console.warn(message);
+        }
+      }
+    }
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : String(error));
   }
