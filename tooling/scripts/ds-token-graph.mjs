@@ -5,12 +5,13 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { DOCS_ROOT } from "./lib/paths.mjs";
+import { DOCS_ROOT, PROJECT_ROOT } from "./lib/paths.mjs";
 
 const DEFAULT_REGISTRY_PATH = path.join(DOCS_ROOT, "_generated", "token-registry.json");
 const DEFAULT_OUT_JSON_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.json");
 const DEFAULT_OUT_MD_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.md");
 const DEFAULT_OUT_MERMAID_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.mmd");
+const DEFAULT_MERMAID_MAX_EDGES = 2000;
 const CSS_VAR_REF_RE = /var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)/gi;
 
 const USAGE = {
@@ -64,6 +65,26 @@ const USAGE = {
       defaultValue: "false",
     },
     {
+      name: "--strict-unresolved <true|false>",
+      description: "Exit non-zero when unresolved css var references are detected.",
+      defaultValue: "false",
+    },
+    {
+      name: "--strict-collisions <true|false>",
+      description: "Exit non-zero when token identity/cssVar collisions are detected.",
+      defaultValue: "false",
+    },
+    {
+      name: "--mermaid-max-edges <number>",
+      description: "Max edges to include in mermaid output before truncation.",
+      defaultValue: "2000",
+    },
+    {
+      name: "--allow-outside-project <true|false>",
+      description: "Allow input/output paths outside repository root (unsafe; defaults to false).",
+      defaultValue: "false",
+    },
+    {
       name: "--no-mermaid <true|false>",
       description: "Skip mermaid output file generation.",
       defaultValue: "false",
@@ -99,6 +120,23 @@ function limitItems(rows, maxItems) {
   return rows.slice(0, maxItems);
 }
 
+function resolveSafePath(rawPath, label, { allowOutsideProject = false } = {}) {
+  const resolved = path.resolve(String(rawPath || "").trim());
+  const rootWithSep = PROJECT_ROOT.endsWith(path.sep)
+    ? PROJECT_ROOT
+    : `${PROJECT_ROOT}${path.sep}`;
+  const isInsideProject =
+    resolved === PROJECT_ROOT || resolved.startsWith(rootWithSep);
+
+  if (!allowOutsideProject && !isInsideProject) {
+    throw new Error(
+      `${label} must be inside project root (${PROJECT_ROOT}). Received: ${resolved}`,
+    );
+  }
+
+  return resolved;
+}
+
 function stableSerialize(value) {
   if (Array.isArray(value)) {
     return `[${value.map((item) => stableSerialize(item)).join(",")}]`;
@@ -114,11 +152,25 @@ function fingerprint(payload) {
   return crypto.createHash("sha256").update(stableSerialize(payload)).digest("hex");
 }
 
-function writeTextFile(filePath, content) {
+function writeTextFileIfChanged(filePath, content, { dryRun = false } = {}) {
   const resolved = path.resolve(filePath);
-  fs.mkdirSync(path.dirname(resolved), { recursive: true });
-  fs.writeFileSync(resolved, content, "utf8");
-  return resolved;
+  const current = fs.existsSync(resolved) ? fs.readFileSync(resolved, "utf8") : null;
+  const changed = current !== content;
+  let written = false;
+
+  if (changed && !dryRun) {
+    fs.mkdirSync(path.dirname(resolved), { recursive: true });
+    const tempPath = `${resolved}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tempPath, content, "utf8");
+    fs.renameSync(tempPath, resolved);
+    written = true;
+  }
+
+  return {
+    path: resolved,
+    changed,
+    written,
+  };
 }
 
 function readTextFile(filePath, label) {
@@ -567,7 +619,21 @@ function buildTerminalReports(graph, maxItems) {
   };
 }
 
-function buildMermaid(graph, maxEdges = 2000) {
+function buildReasonCounts(rows, fieldName) {
+  const counts = {};
+  for (const row of rows) {
+    const reason = String(row?.[fieldName] || "unknown");
+    counts[reason] = (counts[reason] || 0) + 1;
+  }
+
+  return Object.fromEntries(
+    Object.keys(counts)
+      .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }))
+      .map((key) => [key, counts[key]]),
+  );
+}
+
+function buildMermaid(graph, maxEdges = DEFAULT_MERMAID_MAX_EDGES) {
   const nodeIds = graph.nodes.map((node) => node.id);
   const shortIdMap = new Map();
   for (let i = 0; i < nodeIds.length; i += 1) {
@@ -654,6 +720,21 @@ function buildMarkdownReport(report, maxItems) {
     lines.push("");
   }
 
+  lines.push("## Terminal Tokens", "");
+  if (report.terminals.length === 0) {
+    lines.push("- None", "");
+  } else {
+    for (const row of report.terminals) {
+      lines.push(`- \`${row.token}\` (in_degree=${row.in_degree}, type=${row.type || "unknown"})`);
+    }
+    const terminalsNote = addTruncatedNote(
+      report.terminals.length,
+      report.summary.terminals_total,
+    );
+    if (terminalsNote) lines.push(terminalsNote);
+    lines.push("");
+  }
+
   lines.push("## Unused Primitive Terminals", "");
   if (report.unused_primitive_terminals.length === 0) {
     lines.push("- None", "");
@@ -699,6 +780,20 @@ function buildMarkdownReport(report, maxItems) {
     lines.push("");
   }
 
+  lines.push("## Identity Collisions", "");
+  if (!Array.isArray(report.collisions) || report.collisions.length === 0) {
+    lines.push("- None", "");
+  } else {
+    for (const collision of report.collisions) {
+      const first = collision.first ? `, first=${collision.first}` : "";
+      const second = collision.second ? `, second=${collision.second}` : "";
+      lines.push(`- \`${collision.id}\` (${collision.reason}${first}${second})`);
+    }
+    const collisionsNote = addTruncatedNote(report.collisions.length, report.summary.graph_collisions);
+    if (collisionsNote) lines.push(collisionsNote);
+    lines.push("");
+  }
+
   return `${lines.join("\n").replace(/\n{3,}/g, "\n\n")}\n`;
 }
 
@@ -715,10 +810,25 @@ function main() {
   }
 
   try {
-    const registryPath = path.resolve(args.registry || DEFAULT_REGISTRY_PATH);
-    const outJsonPath = path.resolve(args["out-json"] || DEFAULT_OUT_JSON_PATH);
-    const outMdPath = path.resolve(args["out-md"] || DEFAULT_OUT_MD_PATH);
-    const outMermaidPath = path.resolve(args["out-mermaid"] || DEFAULT_OUT_MERMAID_PATH);
+    const allowOutsideProject = parseBooleanOption(
+      args["allow-outside-project"],
+      "--allow-outside-project",
+      false,
+    );
+    const registryPath = resolveSafePath(args.registry || DEFAULT_REGISTRY_PATH, "--registry", {
+      allowOutsideProject,
+    });
+    const outJsonPath = resolveSafePath(args["out-json"] || DEFAULT_OUT_JSON_PATH, "--out-json", {
+      allowOutsideProject,
+    });
+    const outMdPath = resolveSafePath(args["out-md"] || DEFAULT_OUT_MD_PATH, "--out-md", {
+      allowOutsideProject,
+    });
+    const outMermaidPath = resolveSafePath(
+      args["out-mermaid"] || DEFAULT_OUT_MERMAID_PATH,
+      "--out-mermaid",
+      { allowOutsideProject },
+    );
     const noMermaid = parseBooleanOption(args["no-mermaid"], "--no-mermaid", false);
     const dryRun = parseBooleanOption(args["dry-run"], "--dry-run", false);
     const strictCycles = parseBooleanOption(args["strict-cycles"], "--strict-cycles", false);
@@ -727,8 +837,24 @@ function main() {
       "--strict-high-indirection",
       false,
     );
+    const strictUnresolved = parseBooleanOption(
+      args["strict-unresolved"],
+      "--strict-unresolved",
+      false,
+    );
+    const strictCollisions = parseBooleanOption(
+      args["strict-collisions"],
+      "--strict-collisions",
+      false,
+    );
     const threshold = parseIntegerOption(args["indirection-threshold"], "--indirection-threshold", 3, 0);
     const maxItems = parseIntegerOption(args["max-items"], "--max-items", 100, 1);
+    const mermaidMaxEdges = parseIntegerOption(
+      args["mermaid-max-edges"],
+      "--mermaid-max-edges",
+      DEFAULT_MERMAID_MAX_EDGES,
+      1,
+    );
 
     const registryRaw = readTextFile(registryPath, "token registry");
     const entries = parseRegistryEntries(registryRaw, `token registry (${registryPath})`);
@@ -751,6 +877,8 @@ function main() {
         if (byFrom !== 0) return byFrom;
         return a.cssVar.localeCompare(b.cssVar, "en", { sensitivity: "base" });
       });
+    const unresolvedReasonCounts = buildReasonCounts(unresolved, "reason");
+    const collisionsReasonCounts = buildReasonCounts(graph.collisions, "reason");
 
     const reportCore = {
       source: {
@@ -766,8 +894,10 @@ function main() {
         terminals_total: terminalReports.terminals_total,
         unused_primitive_terminals_total: terminalReports.unused_primitive_terminals_total,
         unresolved_css_var_refs_total: unresolved.length,
+        unresolved_css_var_refs_by_reason: unresolvedReasonCounts,
         ambiguous_css_vars_total: graph.ambiguousCssVars.length,
         graph_collisions: graph.collisions.length,
+        graph_collisions_by_reason: collisionsReasonCounts,
       },
       cycles: cyclesData.cycles.slice(0, maxItems),
       high_indirection: highIndirection.rows,
@@ -789,16 +919,31 @@ function main() {
     };
 
     const markdown = buildMarkdownReport(report, maxItems);
-    const mermaid = noMermaid ? "" : buildMermaid(graph);
+    const mermaid = noMermaid ? "" : buildMermaid(graph, mermaidMaxEdges);
 
-    const writtenFiles = [];
-    if (!dryRun) {
-      writtenFiles.push(writeTextFile(outJsonPath, `${JSON.stringify(report, null, 2)}\n`));
-      writtenFiles.push(writeTextFile(outMdPath, markdown));
-      if (!noMermaid) {
-        writtenFiles.push(writeTextFile(outMermaidPath, mermaid));
-      }
-    }
+    const writeResults = {
+      json: writeTextFileIfChanged(outJsonPath, `${JSON.stringify(report, null, 2)}\n`, { dryRun }),
+      markdown: writeTextFileIfChanged(outMdPath, markdown, { dryRun }),
+      mermaid: noMermaid
+        ? null
+        : writeTextFileIfChanged(outMermaidPath, mermaid, { dryRun }),
+    };
+    const changedFiles = [
+      writeResults.json,
+      writeResults.markdown,
+      writeResults.mermaid,
+    ]
+      .filter(Boolean)
+      .filter((item) => item.changed)
+      .map((item) => item.path);
+    const writtenFiles = [
+      writeResults.json,
+      writeResults.markdown,
+      writeResults.mermaid,
+    ]
+      .filter(Boolean)
+      .filter((item) => item.written)
+      .map((item) => item.path);
 
     const stdoutPayload = {
       ...report,
@@ -808,6 +953,8 @@ function main() {
         markdown: outMdPath,
         mermaid: noMermaid ? null : outMermaidPath,
       },
+      write_results: writeResults,
+      changed_files: changedFiles,
       written_files: writtenFiles,
     };
 
@@ -822,6 +969,14 @@ function main() {
     }
 
     if (strictHighIndirection && highIndirection.total > 0) {
+      process.exit(1);
+    }
+
+    if (strictUnresolved && unresolved.length > 0) {
+      process.exit(1);
+    }
+
+    if (strictCollisions && graph.collisions.length > 0) {
       process.exit(1);
     }
   } catch (error) {
