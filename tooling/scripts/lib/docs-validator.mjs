@@ -676,8 +676,12 @@ function validateGapsSectionContract(filePath, rawMarkdown, specRoot, registry, 
 
   const gaps = extractGapsFromSpec({ spec: spec.parsed, registry });
   const expectedLines = buildGapsChecklistLines(gaps);
+  const hasReadyStatusWithGaps = spec.status === "ready" && gaps.length > 0;
+  const readyStatusWithGapsNote = hasReadyStatusWithGaps
+    ? " Linked spec is also invalid: status `ready` with unresolved gaps (GAP02)."
+    : "";
 
-  if (spec.status === "ready" && gaps.length > 0) {
+  if (hasReadyStatusWithGaps) {
     report.errors.push({
       code: "GAP02",
       file: spec.specPath,
@@ -703,7 +707,7 @@ function validateGapsSectionContract(filePath, rawMarkdown, specRoot, registry, 
       code: "GAP01",
       file: filePath,
       message:
-        "Missing required `## Gaps / TBD` section. The linked spec has unresolved gaps.",
+        `Missing required \`## Gaps / TBD\` section. The linked spec has unresolved gaps.${readyStatusWithGapsNote}`,
     });
     return;
   }
@@ -715,7 +719,7 @@ function validateGapsSectionContract(filePath, rawMarkdown, specRoot, registry, 
       file: filePath,
       line: lineFromOffset(lineStarts, section.start),
       message:
-        "`## Gaps / TBD` must contain checklist items in canonical checkbox format.",
+        `\`## Gaps / TBD\` must contain checklist items in canonical checkbox format.${readyStatusWithGapsNote}`,
     });
     return;
   }
@@ -728,7 +732,7 @@ function validateGapsSectionContract(filePath, rawMarkdown, specRoot, registry, 
       file: filePath,
       line: lineFromOffset(lineStarts, section.start),
       message:
-        "Every Gaps item must use checkbox format: `- [ ] [GAP_TYPE] ...`.",
+        `Every Gaps item must use checkbox format: \`- [ ] [GAP_TYPE] ...\`.${readyStatusWithGapsNote}`,
       details: invalidLine,
     });
     return;
@@ -745,7 +749,7 @@ function validateGapsSectionContract(filePath, rawMarkdown, specRoot, registry, 
     file: filePath,
     line: lineFromOffset(lineStarts, section.start),
     message:
-      "Gaps section does not match canonical deterministic content generated from spec + token registry.",
+      `Gaps section does not match canonical deterministic content generated from spec + token registry.${readyStatusWithGapsNote}`,
     expected: expectedLines,
     actual: actualLines,
   });
