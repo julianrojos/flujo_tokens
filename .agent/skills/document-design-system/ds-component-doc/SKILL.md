@@ -97,7 +97,11 @@ figma:
   file_url: TBD
   page: TBD
   component: TBD
+  component_set_node_id: TBD
   last_verified: TBD
+  component_hash: TBD
+  properties_count: TBD
+  variants_count: TBD
 ```
 
 Then use this section order:
