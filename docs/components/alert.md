@@ -5,13 +5,14 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892
   page: Alert
   component: Alert
-  last_verified: "2026-02-18"
+  component_set_node_id: 2304:1892
+  last_verified: "2026-02-19"
 pipeline:
   ds_component_doc:
     contract_version: "1"
-    spec_sha256: 0b3496e15665bf76ea5f34028e595a17dd6856b4018defeddd07fee02359c578
+    spec_sha256: 1dbf1520c904ef9e63ccae4dbd71a10ab96f48301ace1600f0229e4906ef63ef
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
-    generator_script_sha256: b339a68ac7ef34b3cfc99b8b3afecc126fe2a21056182b8d0ffe5642a7925158
+    generator_script_sha256: 0a97e706c998422920cda46896d72747026c04af88cea96d91e2bff2fe14bf97
 ---
 
 # Alert
@@ -20,13 +21,20 @@ The **Alert** component communicates concise feedback messages in a highly visib
 
 ## Overview
 
-In Figma, this component is defined as a `COMPONENT_SET` (`Alert`) with one variant property:
+In Figma, this component is defined as a `COMPONENT_SET` (`Alert`) with two exposed properties:
 
 - `Type`: `Information`, `Warning`, `Positive`
+- `Change_Message_Text`: `Text text text` (default)
 
 All variants share the same structure, spacing, and typography. Visual meaning is conveyed through semantic border and icon color tokens.
 
 Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1892)
+
+### Visual Proof
+
+- Screenshot URL: `TBD`
+- Source node id: `2304:1892`
+- Proof artifact: `TBD`
 
 ## Anatomy
 
@@ -49,7 +57,7 @@ Current variant dimensions in Figma:
 | Name                  | Type      | Default          | Required | Description                                                         |
 | --------------------- | --------- | ---------------- | -------- | ------------------------------------------------------------------- |
 | `Type`                | `VARIANT` | `Information`    | `true`   | Semantic alert type. Options: `Information`, `Warning`, `Positive`. |
-| `Change_Message_Text` | `TEXT`    | `Text text text` | `TBD`    | Overrides the main alert message copy.                              |
+| `Change_Message_Text` | `TEXT`    | `Text text text` | `false`  | Overrides the main alert message copy.                              |
 
 ## Visual Specifications
 
@@ -100,12 +108,22 @@ Feedback semantics are represented through the `Type` variant, not through `hove
 
 ## Usage Guidelines
 
+### Behavior
+
 - **When to use**: Use `Information`, `Warning`, and `Positive` to communicate concise status feedback in context.
 - **When not to use**: Do not use this component for persistent page-level navigation or long-form guidance.
 - **Do**: Keep icon size and spacing unchanged to preserve visual rhythm.
 - **Do**: Keep semantic feedback tokens aligned with the selected variant.
 - **Don't**: Replace semantic border/icon tokens with neutral values.
 - **Don't**: Use this component for multi-paragraph content.
+- Responsive behavior: `TBD`
+- Overflow / truncation behavior: `TBD`
+- i18n / RTL behavior: `TBD`
+
+### Examples
+
+- Basic example: `Type=Information` for neutral informational feedback inside forms or cards.
+- Contextual example: `Type=Warning` or `Type=Positive` for validation and result feedback after user actions.
 
 ## Content Guidelines
 
@@ -130,7 +148,7 @@ This component is not keyboard-interactive in the current Figma configuration.
 
 - This component has no focusable element in the current Figma definition.
 - Focus behavior for dismissible/interactive alert variants is `TBD`.
-- Focus outline tokens (`Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Focus-Outline.Outer`) are `TBD` for this component.
+- Focus outline tokens (`Semantic.Color.Focus-Outline.Inner` (`#FFFFFF`), `Semantic.Color.Focus-Outline.Outer` (`#567680`)) are `TBD` for this component.
 
 ### 4. Labeling
 

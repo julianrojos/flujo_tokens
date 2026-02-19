@@ -4,6 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Alert
   component_set: Alert
+  component_set_node_id: 2304:1892
 
 summary:
   purpose: Communicates concise feedback messages in a visible inline container.
