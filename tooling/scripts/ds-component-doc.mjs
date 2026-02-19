@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
-import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
+import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import {
   normalizeComponentName,
   componentNameFromFilePath,
@@ -32,6 +32,31 @@ function formatMarkdown(outputPath) {
   if ((result.status ?? 1) !== 0) {
     throw new Error(`Prettier exited with code ${result.status}`);
   }
+}
+
+function validateSpecPreflight(specPath) {
+  const report = validateDocs({
+    docsRoot: path.join(PROJECT_ROOT, "__docs_validation_stub__"),
+    specFilePath: specPath,
+    checkOverview: false,
+    checkSpecs: true,
+  });
+
+  if (report.ok) return;
+
+  const specErrors = report.errors.filter(
+    (error) => path.resolve(String(error.file || "")) === path.resolve(specPath)
+  );
+
+  const payload = {
+    file: specPath,
+    errors: specErrors.length > 0 ? specErrors : report.errors,
+  };
+  throw new Error(
+    "Spec validation failed. Markdown generation was blocked.\n" +
+      `Run: npm run validate:docs -- --spec-file "${specPath}" --no-overview true\n` +
+      `${JSON.stringify(payload, null, 2)}`
+  );
 }
 
 function main() {
@@ -76,8 +101,22 @@ function main() {
   const safeName = componentNameToSnakeCase(effectiveComponentName || componentSlug || "component");
 
   if (!fs.existsSync(specPath)) {
-    console.error(`Spec file not found: ${specPath}`);
+    const suggestedName = effectiveComponentName || componentSlug || "Component";
+    console.error(
+      "Missing required spec file.\n" +
+        `Spec: ${specPath}\n` +
+        `Run: npm run ds:spec-from-figma -- --component-name "${suggestedName}" --output "${specPath}"`
+    );
     process.exit(1);
+  }
+
+  if (!skipValidation) {
+    try {
+      validateSpecPreflight(specPath);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
   }
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -177,6 +216,8 @@ function main() {
       metadata: {
         command: "ds-component-doc",
         specPath,
+        specHashAtGeneration: computeFingerprint({ files: [specPath] }),
+        markdownHashAtGeneration: computeFingerprint({ files: [outputPath] }),
       },
       statePath: syncStatePath,
     });

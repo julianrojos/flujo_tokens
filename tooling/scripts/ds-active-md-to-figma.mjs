@@ -5,12 +5,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
 import {
+  DOCS_SPEC_DIR,
   FIGMA_DOC_MODELS_DIR,
   FIGMA_DOC_THEME_PATH,
+  PROJECT_ROOT,
 } from "./lib/paths.mjs";
-import { normalizeComponentName } from "./lib/component-name.mjs";
+import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
 import {
   computeFingerprint,
+  loadSyncState,
   shouldSkipTask,
   updateTaskState,
 } from "./lib/cache-utils.mjs";
@@ -26,6 +29,68 @@ function runOrFail(command, args) {
   if ((result.status ?? 1) !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with code ${result.status}`);
   }
+}
+
+function validateSpecPreflight(specPath, tokenRegistryPath) {
+  const report = validateDocs({
+    docsRoot: path.join(PROJECT_ROOT, "__docs_validation_stub__"),
+    registryPath: tokenRegistryPath,
+    checkOverview: false,
+    checkSpecs: true,
+    specFilePath: specPath,
+  });
+
+  if (report.ok) return;
+
+  const specErrors = report.errors.filter(
+    (error) => path.resolve(String(error.file || "")) === path.resolve(specPath)
+  );
+  const payload = {
+    file: specPath,
+    errors: specErrors.length > 0 ? specErrors : report.errors,
+  };
+  throw new Error(
+    "Spec validation failed. Rendering to Figma was blocked.\n" +
+      `Run: npm run validate:docs -- --spec-file "${specPath}" --no-overview true\n` +
+      `${JSON.stringify(payload, null, 2)}`
+  );
+}
+
+function detectMarkdownStaleness({
+  specPath,
+  markdownPath,
+  syncStatePath,
+}) {
+  const specPathResolved = path.resolve(specPath);
+  const markdownPathResolved = path.resolve(markdownPath);
+  const taskId = `ds-component-doc:${specPathResolved}->${markdownPathResolved}`;
+  const state = loadSyncState(syncStatePath);
+  const task = state.tasks?.[taskId];
+  const currentSpecHash = computeFingerprint({ files: [specPathResolved] });
+
+  if (task?.metadata?.specHashAtGeneration) {
+    if (String(task.metadata.specHashAtGeneration) === currentSpecHash) {
+      return { stale: false, reason: "spec_unchanged_since_markdown_generation" };
+    }
+    return {
+      stale: true,
+      reason: "spec_changed_since_markdown_generation",
+      taskId,
+    };
+  }
+
+  // Backward-compatible fallback for older sync state entries.
+  const specMtime = fs.statSync(specPathResolved).mtimeMs;
+  const markdownMtime = fs.statSync(markdownPathResolved).mtimeMs;
+  if (specMtime > markdownMtime) {
+    return {
+      stale: true,
+      reason: "spec_newer_than_markdown",
+      taskId,
+    };
+  }
+
+  return { stale: false, reason: "timestamp_fallback_allows_render" };
 }
 
 function main() {
@@ -49,9 +114,27 @@ function main() {
     process.exit(1);
   }
 
+  const fileBase = path.basename(markdownPath, path.extname(markdownPath));
+  const normalizedName = normalizeComponentName(args["component-name"] || fileBase);
+  const componentName = normalizedName.displayName || "Component";
+  const componentSlug = normalizedName.fileSlug || componentNameToSnakeCase(fileBase);
+  const specPath = path.resolve(
+    args["spec-file"] || path.join(DOCS_SPEC_DIR, "components", `${componentSlug}.yml`)
+  );
+
+  if (!fs.existsSync(specPath)) {
+    console.error(
+      "Missing required spec file.\n" +
+        `Spec: ${specPath}\n` +
+        `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"`
+    );
+    process.exit(1);
+  }
+
   const skipValidation = String(args["skip-validation"] || "false") === "true";
   const force = String(args.force || "false") === "true";
   const syncStatePath = args["sync-state"] || undefined;
+
   if (!skipValidation) {
     const validationReport = validateDocs({
       filePath: markdownPath,
@@ -62,12 +145,35 @@ function main() {
       process.stdout.write(`${JSON.stringify(validationReport, null, 2)}\n`);
       process.exit(1);
     }
+
+    try {
+      validateSpecPreflight(specPath, args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
   }
 
-  const fileBase = path.basename(markdownPath, path.extname(markdownPath));
+  if (!force) {
+    const staleness = detectMarkdownStaleness({
+      specPath,
+      markdownPath,
+      syncStatePath,
+    });
+    if (staleness.stale) {
+      console.error(
+        "Markdown is stale relative to its source spec. Rendering to Figma was blocked.\n" +
+          `Reason: ${staleness.reason}\n` +
+          `Spec: ${specPath}\n` +
+          `Markdown: ${markdownPath}\n` +
+          `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"\n` +
+          "Use --force true only if you intentionally want to render without regenerating markdown."
+      );
+      process.exit(1);
+    }
+  }
+
   const agent = args.agent || "auto";
-  const componentName =
-    normalizeComponentName(args["component-name"] || fileBase).displayName || "Component";
   const generatedDir = args["generated-dir"] || FIGMA_DOC_MODELS_DIR;
   const themePath = args.theme || FIGMA_DOC_THEME_PATH;
   const docModelPath = path.join(generatedDir, `${fileBase}.doc-model.json`);
