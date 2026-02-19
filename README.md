@@ -187,6 +187,11 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - treat `component_name` as display name input (`Alert`, `StatusBar`, `Status Bar`)
   - infer default file paths with `snake_case` (`status_bar`)
   - explicit path flags (`--output`, `--spec-file`) always take precedence
+- Canonical pipeline order is enforced:
+  - `(1) spec` -> `(2) markdown` -> `(3) Figma render (optional)`
+  - do not run markdown generation without a valid spec
+  - do not render to Figma without an existing component markdown
+  - validation is a gate after spec and markdown generation
 
 For markdown rendered to Figma, prefer the supported subset:
 
@@ -250,6 +255,11 @@ Useful flags:
 - `--force true` (ignore incremental cache)
 - `--agent <codex|claude|gemini>`
 
+Preflight behavior:
+
+- Fails fast if the spec file does not exist.
+- Validates the target spec before generating markdown; generation is blocked on spec errors.
+
 ### 3) Figma component -> spec YAML
 
 Generate/update one component spec YAML from Figma:
@@ -295,6 +305,7 @@ ANTIGRAVITY_ACTIVE_FILE=docs/components/alert.md npm run ds:active-md-to-figma -
 
 This command runs a validation preflight first. If the markdown references tokens missing from `docs/_generated/token-registry.json`, rendering is blocked.
 For exceptional cases only, you can bypass preflight with `--skip-validation true`.
+It also enforces pipeline freshness: if the source spec is newer than the markdown (or changed since last markdown generation), rendering is blocked until markdown is regenerated. Use `--force true` only for explicit bypass.
 
 Recommended sequence before rendering:
 
@@ -322,6 +333,7 @@ Useful flags:
 
 - `--markdown <path>`
 - `--component-name <Name>`
+- `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
 - `--component-set-id <figma-node-id>`
 - `--generated-dir <path>` (default: `docs/_generated/figma_doc_models`)
 - `--theme <path>` (default: `docs/_spec/figma_doc_theme.yml`)

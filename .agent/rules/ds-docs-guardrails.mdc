@@ -21,6 +21,17 @@ globs:
 - Prefer tables for properties, states, and token mappings. Use consistent column order across all tables of the same kind.
 - Apply page taxonomy from `docs-taxonomy.mdc` (`component`, `overview`, `foundation`, `workflow`) and keep scope boundaries clear.
 
+## Pipeline order and preconditions
+
+- Canonical order is mandatory: `(1) spec YAML -> (2) component markdown -> (3) Figma section render (optional)`.
+- Step `(2)` must not run without a valid spec file at `docs/_spec/components/<snake_case>.yml` (or explicit `--spec-file`).
+- Step `(3)` must not run without an existing markdown file at `docs/components/<snake_case>.md` (or explicit `--markdown`).
+- Use fail-fast behavior for precondition errors: stop immediately and return an actionable error message with the next command to run.
+- Validation is a gate, not a recommendation:
+  - After step `(1)`, run docs validation for the generated spec and block on errors.
+  - After step `(2)`, run docs validation for the generated markdown and block on errors.
+- Source of truth: spec YAML. Markdown and Figma sections are derived artifacts.
+
 ## Token references
 
 - Token names must match the JSON keys exactly and be wrapped in inline code (e.g., `` `Semantic.Color.Focus-Outline.Inner` ``).
