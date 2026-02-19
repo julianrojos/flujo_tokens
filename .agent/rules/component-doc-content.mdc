@@ -26,6 +26,11 @@ Structure defines _where_ content goes; this rule defines _how_ to write each se
 
 - Explain component purpose and role.
 - Include Figma component/set name and core variant properties.
+- Include a `### Visual Proof` subsection with:
+  - a screenshot link captured from Figma (`figma_take_screenshot` workflow),
+  - source node id,
+  - generated proof artifact path.
+- For `draft` / `needs-review`, use explicit `TBD` placeholders when capture is not yet available.
 
 ### `## Anatomy`
 
@@ -37,6 +42,11 @@ Structure defines _where_ content goes; this rule defines _how_ to write each se
 - Include `### Properties` with table schema:
   `| Name | Type | Default | Required | Description |`
 - `Type` values: `VARIANT`, `TEXT`, `BOOLEAN`, `INSTANCE_SWAP`.
+- When mapping from spec YAML, convert canonical spec types as:
+  - `enum` -> `VARIANT`
+  - `text` -> `TEXT`
+  - `boolean` -> `BOOLEAN`
+  - `instance_swap` -> `INSTANCE_SWAP`
 
 ### `## Visual Specifications`
 

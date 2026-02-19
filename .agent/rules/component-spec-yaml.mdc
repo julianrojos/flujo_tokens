@@ -61,11 +61,18 @@ version         # Optional object: { spec, component } with SemVer values
 ### `properties`
 
 - Must map 1:1 with the Figma component set properties.
-- `type`: Use Figma types — `enum`, `text`, `boolean`, `instance_swap`.
+- `type`: Use canonical spec types — `enum`, `text`, `boolean`, `instance_swap`.
 - `values`: Array of allowed values for enums; omit for text/boolean.
 - `default`: The Figma default value.
 - `required`: `true` or `false`.
 - Ordering MUST be deterministic and follow `component-spec-properties-order.mdc`.
+
+Type mapping for markdown docs:
+
+- `enum` -> `VARIANT`
+- `text` -> `TEXT`
+- `boolean` -> `BOOLEAN`
+- `instance_swap` -> `INSTANCE_SWAP`
 
 ### `best_practices`
 

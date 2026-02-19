@@ -10,11 +10,11 @@ This rule defines a safe migration path for versioned skills.
 
 ## Adoption policy
 
-- For new skills: include versioning metadata from day one.
-- For existing skills: add versioning metadata on the next substantive edit.
-- Do not block usage of legacy skills that have not been migrated yet.
+- For new skills: include versioning metadata from day one (blocking).
+- For existing skills modified in the same change: add versioning metadata before merging (blocking).
+- Legacy skills that are not touched may remain unmigrated temporarily.
 
-## Recommended frontmatter fields
+## Required frontmatter fields for new or modified skills
 
 ```yaml
 name: ds-component-doc

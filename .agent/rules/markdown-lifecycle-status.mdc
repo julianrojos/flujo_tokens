@@ -30,6 +30,17 @@ Markdown docs use `doc_status` with these values only:
 
 - Set to `needs-review` after major Figma component changes, token renames, or render-layout regressions.
 - Promote to `ready` only after re-checking source Figma and token mappings.
+- Use automated drift marking to reduce manual misses:
+
+```bash
+npm run ds:mark-needs-review
+```
+
+Automatic drift trigger (component docs):
+
+- `pipeline.ds_component_doc.spec_sha256` differs from the linked spec hash.
+- `pipeline.ds_component_doc.token_registry_sha256` differs from current token registry hash.
+- traceability block is missing/invalid.
 
 ## `ready` hard gate (components)
 
@@ -39,3 +50,4 @@ For component pages (`docs/components/*.md`, excluding `overview.md`), `doc_stat
 - No `TBD` markers remain in markdown content.
 - `figma.last_verified` is concrete (not missing/`TBD`).
 - No unresolved rows (`open` or `accepted`) in `## Design–Token Discrepancies`.
+- `## Overview` includes a `### Visual Proof` subsection with a concrete screenshot URL (not `TBD`).

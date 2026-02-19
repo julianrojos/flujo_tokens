@@ -1,28 +1,28 @@
 version: 1
 
 rules:
-  - id: frontmatter-contract
-    file: frontmatter-contract.mdc
+  - id: accessibility-docs
+    file: accessibility-docs.mdc
     owner: docs-governance
-    applies_to: [markdown]
+    applies_to: [markdown, spec]
     blocking: true
-  - id: prohibited-patterns
-    file: prohibited-patterns.mdc
+  - id: agent-output-contract
+    file: agent-output-contract.mdc
     owner: docs-governance
-    applies_to: [spec, markdown, pipeline]
+    applies_to: [pipeline]
     blocking: true
-  - id: ds-docs-guardrails
-    file: ds-docs-guardrails.mdc
+  - id: agent-prompt-contract
+    file: agent-prompt-contract.mdc
     owner: docs-governance
-    applies_to: [spec, markdown, pipeline]
-    blocking: true
-  - id: component-doc-structure
-    file: component-doc-structure.mdc
-    owner: docs-governance
-    applies_to: [markdown]
+    applies_to: [pipeline]
     blocking: true
   - id: component-doc-content
     file: component-doc-content.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
+  - id: component-doc-structure
+    file: component-doc-structure.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
@@ -31,13 +31,18 @@ rules:
     owner: docs-governance
     applies_to: [markdown, spec]
     blocking: true
-  - id: component-spec-yaml
-    file: component-spec-yaml.mdc
+  - id: component-name-normalization
+    file: component-name-normalization.mdc
     owner: docs-governance
-    applies_to: [spec]
+    applies_to: [spec, markdown, pipeline]
     blocking: true
   - id: component-spec-properties-order
     file: component-spec-properties-order.mdc
+    owner: docs-governance
+    applies_to: [spec]
+    blocking: true
+  - id: component-spec-yaml
+    file: component-spec-yaml.mdc
     owner: docs-governance
     applies_to: [spec]
     blocking: true
@@ -46,10 +51,80 @@ rules:
     owner: docs-governance
     applies_to: [spec, markdown]
     blocking: true
-  - id: component-name-normalization
-    file: component-name-normalization.mdc
+  - id: design-token-discrepancies
+    file: design-token-discrepancies.mdc
     owner: docs-governance
-    applies_to: [spec, markdown]
+    applies_to: [markdown]
+    blocking: true
+  - id: docs-language-tone
+    file: docs-language-tone.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
+  - id: docs-pipeline-contract
+    file: docs-pipeline-contract.mdc
+    owner: docs-governance
+    applies_to: [pipeline]
+    blocking: true
+  - id: docs-taxonomy
+    file: docs-taxonomy.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
+  - id: ds-docs-guardrails
+    file: ds-docs-guardrails.mdc
+    owner: docs-governance
+    applies_to: [spec, markdown, pipeline]
+    blocking: true
+  - id: figma-doc-rendering
+    file: figma-doc-rendering.mdc
+    owner: docs-governance
+    applies_to: [pipeline]
+    blocking: true
+  - id: figma-doc-rendering-implementation
+    file: figma-doc-rendering-implementation.mdc
+    owner: docs-governance
+    applies_to: [pipeline]
+    blocking: false
+  - id: frontmatter-contract
+    file: frontmatter-contract.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
+  - id: markdown-figma-subset
+    file: markdown-figma-subset.mdc
+    owner: docs-governance
+    applies_to: [markdown, pipeline]
+    blocking: true
+  - id: markdown-lifecycle-status
+    file: markdown-lifecycle-status.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
+  - id: overview-components-canonical-list
+    file: overview-components-canonical-list.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
+  - id: overview-index-maintenance
+    file: overview-index-maintenance.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
+  - id: prohibited-patterns
+    file: prohibited-patterns.mdc
+    owner: docs-governance
+    applies_to: [spec, markdown, pipeline]
+    blocking: true
+  - id: readme-maintenance
+    file: readme-maintenance.mdc
+    owner: docs-governance
+    applies_to: [pipeline]
+    blocking: true
+  - id: skill-versioning
+    file: skill-versioning.mdc
+    owner: docs-governance
+    applies_to: [skills]
     blocking: true
   - id: token-references
     file: token-references.mdc
@@ -61,41 +136,6 @@ rules:
     owner: docs-governance
     applies_to: [spec, markdown]
     blocking: true
-  - id: markdown-lifecycle-status
-    file: markdown-lifecycle-status.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-  - id: overview-index-maintenance
-    file: overview-index-maintenance.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-  - id: overview-components-canonical-list
-    file: overview-components-canonical-list.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-  - id: docs-taxonomy
-    file: docs-taxonomy.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-  - id: docs-pipeline-contract
-    file: docs-pipeline-contract.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: true
-  - id: skill-versioning
-    file: skill-versioning.mdc
-    owner: docs-governance
-    applies_to: [skills]
-    blocking: false
-  - id: agent-output-contract
-    file: agent-output-contract.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: true
 
 checks:
   REG01:
@@ -105,8 +145,7 @@ checks:
     rule_ids: [ds-docs-guardrails, docs-pipeline-contract]
     blocking: true
   FM01:
-    rule_ids:
-      [frontmatter-contract, component-figma-traceability, docs-taxonomy]
+    rule_ids: [frontmatter-contract, component-figma-traceability, docs-taxonomy]
     blocking: true
   FM02:
     rule_ids: [frontmatter-contract, markdown-lifecycle-status]
@@ -124,13 +163,7 @@ checks:
     rule_ids: [token-references, token-registry-validation]
     blocking: true
   TOK03:
-    rule_ids:
-      [
-        prohibited-patterns,
-        ds-docs-guardrails,
-        token-references,
-        token-registry-validation,
-      ]
+    rule_ids: [prohibited-patterns, ds-docs-guardrails, token-references, token-registry-validation]
     blocking: true
   SPEC01:
     rule_ids: [component-spec-yaml, token-registry-validation]
@@ -149,6 +182,9 @@ checks:
     blocking: true
   TRACE02:
     rule_ids: [docs-pipeline-contract, ds-docs-guardrails]
+    blocking: true
+  TRACE03:
+    rule_ids: [component-figma-traceability, docs-pipeline-contract]
     blocking: true
   LINK01:
     rule_ids: [overview-index-maintenance]
@@ -169,11 +205,16 @@ checks:
     rule_ids: [docs-pipeline-contract, ds-docs-guardrails]
     blocking: true
   READY01:
-    rule_ids:
-      [markdown-lifecycle-status, component-spec-yaml, ds-docs-guardrails]
+    rule_ids: [markdown-lifecycle-status, component-spec-yaml, ds-docs-guardrails]
+    blocking: true
+  VIS01:
+    rule_ids: [component-doc-content, markdown-lifecycle-status, ds-docs-guardrails]
     blocking: true
   VER01:
     rule_ids: [component-versioning]
+    blocking: true
+  GOV01:
+    rule_ids: [docs-pipeline-contract]
     blocking: true
 
 matrix:
@@ -184,9 +225,12 @@ matrix:
         component-doc-structure,
         component-doc-content,
         component-figma-traceability,
+        accessibility-docs,
+        design-token-discrepancies,
         token-references,
         token-registry-validation,
         markdown-lifecycle-status,
+        docs-language-tone,
         prohibited-patterns,
       ]
     overview:
@@ -196,6 +240,7 @@ matrix:
         overview-index-maintenance,
         overview-components-canonical-list,
         markdown-lifecycle-status,
+        docs-language-tone,
       ]
     foundation:
       [
@@ -203,9 +248,12 @@ matrix:
         docs-taxonomy,
         token-references,
         token-registry-validation,
+        design-token-discrepancies,
         markdown-lifecycle-status,
+        docs-language-tone,
       ]
-    workflow: [frontmatter-contract, docs-taxonomy, markdown-lifecycle-status]
+    workflow:
+      [frontmatter-contract, docs-taxonomy, markdown-lifecycle-status, docs-language-tone]
     spec:
       [
         component-spec-yaml,
@@ -213,6 +261,7 @@ matrix:
         component-name-normalization,
         token-references,
         token-registry-validation,
+        accessibility-docs,
         prohibited-patterns,
       ]
     skills: [skill-versioning]
@@ -224,8 +273,11 @@ matrix:
         component-doc-content,
         component-figma-traceability,
         component-name-normalization,
+        accessibility-docs,
+        design-token-discrepancies,
         token-references,
         token-registry-validation,
+        docs-language-tone,
         docs-pipeline-contract,
       ]
     ds-spec-from-figma:
@@ -237,12 +289,48 @@ matrix:
         token-registry-validation,
         docs-pipeline-contract,
       ]
-    ds-markdown-to-figma-section: [docs-pipeline-contract]
+    ds-markdown-to-figma-section:
+      [
+        docs-pipeline-contract,
+        figma-doc-rendering,
+        figma-doc-rendering-implementation,
+        markdown-figma-subset,
+      ]
     ds-doc-from-figma-url:
       [
         frontmatter-contract,
         component-doc-structure,
         component-doc-content,
         component-figma-traceability,
+        docs-language-tone,
         docs-pipeline-contract,
       ]
+    ds-foundations:
+      [
+        docs-taxonomy,
+        token-references,
+        token-registry-validation,
+        accessibility-docs,
+        docs-language-tone,
+        overview-index-maintenance,
+      ]
+    ds-init-docs: [docs-taxonomy, ds-docs-guardrails, docs-language-tone]
+    ds-migrate-legacy-component:
+      [
+        component-spec-yaml,
+        component-doc-structure,
+        component-figma-traceability,
+        component-name-normalization,
+        token-references,
+        token-registry-validation,
+        markdown-lifecycle-status,
+        docs-pipeline-contract,
+      ]
+    ds-audit-consistency:
+      [
+        component-figma-traceability,
+        token-registry-validation,
+        markdown-lifecycle-status,
+        docs-pipeline-contract,
+      ]
+    ds-tokens-sync: [token-references, ds-docs-guardrails]

@@ -13,11 +13,13 @@ This contract defines the only canonical order for component documentation:
 1. `spec` stage: create/update `docs/_spec/components/<snake_case>.yml`
 2. `markdown` stage: create/update `docs/components/<snake_case>.md` from spec
 3. `figma` stage (optional): render markdown as Figma section
+4. `visual-proof` stage (recommended after figma): capture screenshot evidence and update `### Visual Proof` in markdown
 
 ## Preconditions (hard fail)
 
 - `markdown` stage requires an existing spec file.
 - `figma` stage requires an existing markdown file and its matching spec file.
+- `visual-proof` stage requires an existing markdown file and a deterministic component node id (`--component-set-id` or `figma.component_set_node_id` in spec).
 - `ready` specs require a valid `figma.component_set_node_id`.
 - The mapping is strict and 1:1 by slug:
   - `docs/_spec/components/<slug>.yml` <-> `docs/components/<slug>.md`
@@ -27,6 +29,7 @@ This contract defines the only canonical order for component documentation:
 - After `spec` stage, run docs validation for the generated spec and block on errors.
 - After `markdown` stage, run docs validation for the generated markdown and block on errors.
 - `figma` stage is blocked when validation fails or markdown is stale relative to its spec.
+- `visual-proof` stage should fail when screenshot capture cannot produce a concrete URL in strict mode.
 - Generated markdown must include a deterministic traceability block in frontmatter:
   - `pipeline.ds_component_doc.contract_version`
   - `pipeline.ds_component_doc.spec_sha256`
