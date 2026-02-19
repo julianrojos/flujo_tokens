@@ -10,20 +10,17 @@ import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
 import {
+  normalizeComponentName,
+  componentNameFromFilePath,
+  componentNameToSnakeCase,
+} from "./lib/component-name.mjs";
+import {
   computeFingerprint,
   shouldSkipTask,
   updateTaskState,
 } from "./lib/cache-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
-
-function toSafeFileName(raw) {
-  return String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
 
 function formatMarkdown(outputPath) {
   const result = spawnSync("npx", ["prettier", "--write", outputPath], {
@@ -39,7 +36,7 @@ function formatMarkdown(outputPath) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const componentName = String(args["component-name"] || "").trim();
+  const rawComponentName = String(args["component-name"] || "").trim();
   const docsRootInput = path.resolve(args["docs-root"] || DOCS_ROOT);
   const componentDocsDir =
     path.basename(docsRootInput) === "components"
@@ -51,19 +48,32 @@ function main() {
   const syncStatePath = args["sync-state"] || undefined;
   const agent = args.agent || "auto";
 
-  if (!componentName && !args["spec-file"]) {
+  if (!rawComponentName && !args["spec-file"]) {
     console.error("Missing --component-name or --spec-file.");
     process.exit(1);
   }
 
+  const normalizedFromArg = normalizeComponentName(rawComponentName);
+  const componentName = normalizedFromArg.displayName;
+  const componentSlugFromArg = normalizedFromArg.fileSlug;
+  if (!args["spec-file"] && !componentSlugFromArg) {
+    console.error(
+      "Invalid --component-name for path inference. Provide a valid component name, or pass --spec-file/--output explicitly."
+    );
+    process.exit(1);
+  }
   const specPath = path.resolve(
-    args["spec-file"] || path.join(specRoot, `${toSafeFileName(componentName)}.yml`)
+    args["spec-file"] || path.join(specRoot, `${componentSlugFromArg}.yml`)
   );
+  const normalizedFromSpecPath = componentNameFromFilePath(specPath);
+  const componentSlug = componentSlugFromArg || normalizedFromSpecPath.fileSlug;
+  const effectiveComponentName = componentName || normalizedFromSpecPath.displayName;
+
   const outputPath = path.resolve(
-    args.output || path.join(componentDocsDir, `${toSafeFileName(componentName)}.md`)
+    args.output || path.join(componentDocsDir, `${componentSlug}.md`)
   );
   const overviewPath = path.resolve(path.join(componentDocsDir, "overview.md"));
-  const safeName = toSafeFileName(componentName || path.basename(specPath, path.extname(specPath)));
+  const safeName = componentNameToSnakeCase(effectiveComponentName || componentSlug || "component");
 
   if (!fs.existsSync(specPath)) {
     console.error(`Spec file not found: ${specPath}`);
@@ -76,7 +86,7 @@ function main() {
   const fingerprint = computeFingerprint({
     files: [specPath, __filename],
     values: {
-      componentName: componentName || path.basename(specPath, path.extname(specPath)),
+      componentName: effectiveComponentName || path.basename(specPath, path.extname(specPath)),
       outputPath,
       docsRoot: docsRootInput,
     },
@@ -110,7 +120,7 @@ function main() {
   const prompt = [
     "Context",
     "- Generate one component documentation markdown from a spec YAML.",
-    componentName ? `- Component name: ${componentName}` : "",
+    effectiveComponentName ? `- Component name: ${effectiveComponentName}` : "",
     "",
     "Sources",
     `- Spec YAML (source of truth): ${specPath}`,

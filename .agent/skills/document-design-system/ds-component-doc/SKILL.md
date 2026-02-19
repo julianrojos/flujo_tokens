@@ -27,6 +27,7 @@ This skill must produce output that complies with:
 - `markdown-lifecycle-status.mdc` — `doc_status` lifecycle for markdown pages
 - `design-token-discrepancies.mdc` — optional discrepancy section with fixed table format
 - `docs-language-tone.mdc` — language and tone consistency
+- `component-name-normalization.mdc` — canonical `component_name` normalization and deterministic paths
 - `overview-index-maintenance.mdc` — required synchronization of `docs/components/overview.md`
 - `overview-components-canonical-list.mdc` — canonical component list format and strict ordering in overview
 
@@ -71,6 +72,13 @@ See `component-spec-yaml.mdc` for full field conventions and validation rules.
   - `- [Display Name](snake_case.md)`
   - sorted alphabetically by display name (case-insensitive)
   - no duplicates, no dead links, no orphan component docs
+
+## Naming contract
+
+- `component_name` is display name input (`Alert`, `StatusBar`, `Status Bar`).
+- Default spec path: `docs/_spec/components/<snake_case>.yml`
+- Default markdown path: `docs/components/<snake_case>.md`
+- If explicit path flags are provided (`--spec-file`, `--output`), they take precedence.
 
 ## Component page structure
 

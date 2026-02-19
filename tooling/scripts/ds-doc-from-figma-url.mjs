@@ -6,14 +6,7 @@ import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
-
-function toSafeFileName(raw) {
-  return String(raw)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
+import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
 
 function formatMarkdown({ outputPath, docsRoot }) {
   const target = outputPath
@@ -41,12 +34,20 @@ function main() {
   }
 
   const docsRoot = args["docs-root"] || COMPONENT_DOCS_DIR;
+  const docsRootResolved = path.resolve(docsRoot);
+  const componentDocsDir =
+    path.basename(docsRootResolved) === "components"
+      ? docsRootResolved
+      : path.join(docsRootResolved, "components");
   const agent = args.agent || "auto";
-  const componentName = args["component-name"] || "";
+  const rawComponentName = args["component-name"] || "";
+  const normalized = normalizeComponentName(rawComponentName);
+  const componentName = normalized.displayName;
+  const componentSlug = normalized.fileSlug;
   const outputPath =
     args.output ||
-    (componentName
-      ? path.join(docsRoot, `${toSafeFileName(componentName)}.md`)
+    (componentSlug
+      ? path.join(componentDocsDir, `${componentSlug}.md`)
       : null);
 
   if (outputPath) {
@@ -85,9 +86,9 @@ function main() {
     runAgentPrompt({
       prompt,
       agent,
-      label: `doc-from-figma-url-${toSafeFileName(componentName || "component")}`,
+      label: `doc-from-figma-url-${componentNameToSnakeCase(componentName || "component")}`,
     });
-    formatMarkdown({ outputPath, docsRoot });
+    formatMarkdown({ outputPath, docsRoot: componentDocsDir });
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);

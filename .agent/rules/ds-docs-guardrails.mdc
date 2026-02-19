@@ -16,6 +16,7 @@ globs:
 ## Structure and consistency
 
 - Use stable headings and the same section order for pages of the same type. See `component-doc-structure.mdc` for component pages.
+- Apply canonical `component_name` normalization and deterministic path rules from `component-name-normalization.mdc`.
 - Every component doc should start with a one-line description immediately after the H1.
 - Prefer tables for properties, states, and token mappings. Use consistent column order across all tables of the same kind.
 - Apply page taxonomy from `docs-taxonomy.mdc` (`component`, `overview`, `foundation`, `workflow`) and keep scope boundaries clear.

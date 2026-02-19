@@ -163,7 +163,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
-- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links).
+- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming).
 
 ### Documentation folders
 
@@ -183,6 +183,10 @@ Component pages are governed by rules in `.agent/rules/` and must include:
 - Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
 - Figma node IDs are allowed for source traceability (for example in `node-id` URLs)
+- `component_name` normalization contract:
+  - treat `component_name` as display name input (`Alert`, `StatusBar`, `Status Bar`)
+  - infer default file paths with `snake_case` (`status_bar`)
+  - explicit path flags (`--output`, `--spec-file`) always take precedence
 
 For markdown rendered to Figma, prefer the supported subset:
 
@@ -221,7 +225,7 @@ Useful flags:
 
 - `--docs-root docs/components` (default)
 - `--component-name <Name>`
-- `--output <path/to/component.md>`
+- `--output <path/to/component.md>` (default inferred as `docs/components/<snake_case>.md`)
 - `--agent <codex|claude|gemini>`
 
 ### 2) Spec YAML -> component markdown
@@ -239,8 +243,8 @@ npm run ds:component-doc -- \
 Useful flags:
 
 - `--component-name <Name>`
-- `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<name>.yml`)
-- `--output <path/to/component.md>`
+- `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
+- `--output <path/to/component.md>` (default: `docs/components/<snake_case>.md`)
 - `--docs-root <path>` (default: `docs`)
 - `--skip-validation true`
 - `--force true` (ignore incremental cache)
@@ -263,7 +267,7 @@ Useful flags:
 - `--url <figma-url>`
 - `--component-set-node-id <figma-node-id>` (deterministic fallback when URL is not used)
 - `--component-name <Name>`
-- `--output <path/to/spec.yml>`
+- `--output <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
 - `--spec-root <path>` (default: `docs/_spec/components`)
 - `--template <path>` (default: `docs/_spec/components/_template.yml`)
 - `--registry <path>` (default: `docs/_generated/token-registry.json`)

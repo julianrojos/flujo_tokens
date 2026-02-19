@@ -4,6 +4,10 @@ import path from "node:path";
 import { COMPONENT_DOCS_DIR, DOCS_SPEC_DIR } from "./paths.mjs";
 import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./token-registry.mjs";
 import { parseMarkdownFrontmatter, parseYamlDocument } from "./parse-frontmatter.mjs";
+import {
+  componentNameToSnakeCase,
+  isSnakeCaseFileSlug,
+} from "./component-name.mjs";
 
 const ALLOWED_DOC_STATUS = new Set(["draft", "ready", "needs-review"]);
 
@@ -410,6 +414,24 @@ function validateOverviewFrontmatter(filePath, frontmatter, report) {
   }
 
   validateFrontmatter(filePath, frontmatter, report);
+}
+
+function validateComponentDocFileName(filePath, report) {
+  const fileBase = path.basename(filePath, path.extname(filePath));
+  if (isSnakeCaseFileSlug(fileBase)) return;
+
+  const suggestedBase = componentNameToSnakeCase(fileBase);
+  const suggestedPath = suggestedBase
+    ? path.join(path.dirname(filePath), `${suggestedBase}.md`)
+    : null;
+
+  report.errors.push({
+    code: "NAME01",
+    file: filePath,
+    message:
+      "Component markdown filename must be snake_case (example: `status_bar.md`).",
+    suggested: suggestedPath ? path.relative(process.cwd(), suggestedPath) : undefined,
+  });
 }
 
 function validateVariableIds(filePath, rawMarkdown, report, lineStarts) {
@@ -1078,6 +1100,35 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
   }
 
   validateSpecPropertyOrder(filePath, parsed.properties, report);
+
+  const specBase = path.basename(filePath, path.extname(filePath));
+  if (!isSnakeCaseFileSlug(specBase)) {
+    const suggestedBase = componentNameToSnakeCase(specBase);
+    const suggestedPath = suggestedBase
+      ? path.join(path.dirname(filePath), `${suggestedBase}.yml`)
+      : null;
+    report.errors.push({
+      code: "NAME01",
+      file: filePath,
+      message: "Component spec filename must be snake_case (example: `status_bar.yml`).",
+      suggested: suggestedPath ? path.relative(process.cwd(), suggestedPath) : undefined,
+    });
+  }
+
+  const specDisplayName = String(parsed.name || "").trim();
+  if (specDisplayName && !isTbdMarker(specDisplayName)) {
+    const expectedBase = componentNameToSnakeCase(specDisplayName);
+    if (expectedBase && expectedBase !== specBase) {
+      report.errors.push({
+        code: "NAME02",
+        file: filePath,
+        message:
+          `Spec \`name: ${specDisplayName}\` does not match filename. ` +
+          `Expected \`${expectedBase}.yml\`.`,
+        suggested: path.relative(process.cwd(), path.join(path.dirname(filePath), `${expectedBase}.yml`)),
+      });
+    }
+  }
 }
 
 function validateSpecYamlFiles(specRoot, report, registryIndexes, explicitSpecFilePath = null) {
@@ -1169,6 +1220,7 @@ export function validateDocs(options = {}) {
       continue;
     }
 
+    validateComponentDocFileName(filePath, report);
     validateComponentFrontmatter(filePath, frontmatter, report);
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset);
     validateVariableIds(filePath, raw, report, lineStarts);

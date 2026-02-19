@@ -76,4 +76,5 @@ qa              # Array of verification statements
 ## File naming
 
 - One file per component: `{component_name_snake_case}.yml` (e.g., `status_bar.yml`).
+- File naming and `component_name` normalization must follow `component-name-normalization.mdc`.
 - Template at `docs/_spec/components/_template.yml` — copy for new components.

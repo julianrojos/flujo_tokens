@@ -5,6 +5,15 @@ description: Generate one component spec YAML from a Figma component set (URL or
 
 # ds-spec-from-figma
 
+## Applicable rules
+
+This skill must comply with:
+
+- `component-spec-yaml.mdc`
+- `component-name-normalization.mdc`
+- `token-references.mdc`
+- `ds-docs-guardrails.mdc`
+
 ## When to use
 
 Use this skill when:
@@ -36,8 +45,17 @@ npm run ds:spec-from-figma -- \
 
 - Uses the agent + Figma MCP workflow to inspect the component set.
 - Writes one YAML file using the project spec template.
+- Normalizes `component_name` as display name and infers default path as `docs/_spec/components/<snake_case>.yml`.
 - Prefills `token_mapping` TBD values using `docs/_generated/token-registry.json`.
 - Validates the generated spec via `validateDocs` (`SPEC01` checks).
+
+## Naming contract
+
+- `component_name` is display name input (`Alert`, `StatusBar`, `Status Bar`).
+- Default output path uses `snake_case`:
+  - `Alert` -> `docs/_spec/components/alert.yml`
+  - `StatusBar` / `Status Bar` -> `docs/_spec/components/status_bar.yml`
+- If `--output` is provided, it takes precedence.
 
 ## Useful flags
 

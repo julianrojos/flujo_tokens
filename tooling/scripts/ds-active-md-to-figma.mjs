@@ -8,6 +8,7 @@ import {
   FIGMA_DOC_MODELS_DIR,
   FIGMA_DOC_THEME_PATH,
 } from "./lib/paths.mjs";
+import { normalizeComponentName } from "./lib/component-name.mjs";
 import {
   computeFingerprint,
   shouldSkipTask,
@@ -16,15 +17,6 @@ import {
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
-
-function toComponentName(raw) {
-  return String(raw)
-    .replace(/\.[^.]+$/, "")
-    .split(/[^a-zA-Z0-9]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join("");
-}
 
 function runOrFail(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });
@@ -74,7 +66,8 @@ function main() {
 
   const fileBase = path.basename(markdownPath, path.extname(markdownPath));
   const agent = args.agent || "auto";
-  const componentName = args["component-name"] || toComponentName(fileBase);
+  const componentName =
+    normalizeComponentName(args["component-name"] || fileBase).displayName || "Component";
   const generatedDir = args["generated-dir"] || FIGMA_DOC_MODELS_DIR;
   const themePath = args.theme || FIGMA_DOC_THEME_PATH;
   const docModelPath = path.join(generatedDir, `${fileBase}.doc-model.json`);

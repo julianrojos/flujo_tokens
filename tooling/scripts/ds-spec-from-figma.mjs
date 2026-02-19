@@ -11,6 +11,7 @@ import { validateDocs } from "./lib/docs-validator.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
+import { componentNameToSnakeCase, componentNameToDisplayName, normalizeComponentName } from "./lib/component-name.mjs";
 
 const SPEC_COMPONENTS_DIR = path.join(DOCS_SPEC_DIR, "components");
 const SPEC_TEMPLATE_PATH = path.join(SPEC_COMPONENTS_DIR, "_template.yml");
@@ -31,23 +32,6 @@ const SPEC_TOP_LEVEL_ORDER = [
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function toSafeFileName(raw) {
-  return String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function toPascalCase(raw) {
-  return String(raw || "")
-    .trim()
-    .split(/[^a-zA-Z0-9]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join("");
 }
 
 function normalizeNodeId(raw) {
@@ -289,9 +273,9 @@ function formatYamlFile(outputPath) {
   }
 }
 
-function buildOutputPath(args, specRoot, componentName, nodeId) {
+function buildOutputPath(args, specRoot, componentSlug, nodeId) {
   if (args.output) return path.resolve(args.output);
-  if (componentName) return path.join(path.resolve(specRoot), `${toSafeFileName(componentName)}.yml`);
+  if (componentSlug) return path.join(path.resolve(specRoot), `${componentSlug}.yml`);
   if (nodeId) return path.join(path.resolve(specRoot), `component_${nodeId.replace(":", "_")}.yml`);
   return "";
 }
@@ -341,8 +325,8 @@ function buildPrompt({
 
 function ensureSpecMetadata(spec, { componentName, nodeId, fileKeyFromUrl }) {
   if (!isPlainObject(spec.figma)) spec.figma = {};
-  if (componentName && isTbdMarker(spec.name)) spec.name = toPascalCase(componentName);
-  if (componentName && !String(spec.name || "").trim()) spec.name = toPascalCase(componentName);
+  if (componentName && isTbdMarker(spec.name)) spec.name = componentNameToDisplayName(componentName);
+  if (componentName && !String(spec.name || "").trim()) spec.name = componentNameToDisplayName(componentName);
 
   if (fileKeyFromUrl && (!spec.figma.file || isTbdMarker(spec.figma.file))) {
     spec.figma.file = fileKeyFromUrl;
@@ -382,7 +366,10 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   const figmaUrl = String(args.url || "").trim();
   const explicitNodeId = normalizeNodeId(args["component-set-node-id"] || "");
-  const componentName = String(args["component-name"] || "").trim();
+  const rawComponentName = String(args["component-name"] || "").trim();
+  const normalizedName = normalizeComponentName(rawComponentName);
+  const componentName = normalizedName.displayName;
+  const componentSlug = normalizedName.fileSlug;
   const specRoot = args["spec-root"] || SPEC_COMPONENTS_DIR;
   const templatePath = path.resolve(args.template || SPEC_TEMPLATE_PATH);
   const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
@@ -393,14 +380,14 @@ function main() {
   const fileKeyFromUrl = parsedUrl.fileKey;
   const nodeId = explicitNodeId || parsedUrl.nodeId;
 
-  if (!figmaUrl && !nodeId && !componentName) {
+  if (!figmaUrl && !nodeId && !rawComponentName) {
     console.error(
       "Missing Figma source.\nUse one of:\n- --url <figma-url>\n- --component-set-node-id <node-id>\n- --component-name <name> (less deterministic)"
     );
     process.exit(1);
   }
 
-  const outputPath = buildOutputPath(args, specRoot, componentName, nodeId);
+  const outputPath = buildOutputPath(args, specRoot, componentSlug, nodeId);
   if (!outputPath) {
     console.error("Missing output target.\nProvide --output or --component-name.");
     process.exit(1);
@@ -437,7 +424,7 @@ function main() {
     runAgentPrompt({
       prompt,
       agent,
-      label: `spec-from-figma-${toSafeFileName(componentName || nodeId || "component")}`,
+      label: `spec-from-figma-${componentNameToSnakeCase(componentName || nodeId || "component")}`,
     });
 
     if (!fs.existsSync(outputPath)) {

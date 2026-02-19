@@ -1,0 +1,41 @@
+---
+description: Canonical normalization contract for `component_name` and deterministic file paths across documentation skills.
+globs:
+  - "tooling/scripts/*.mjs"
+  - "docs/components/*.md"
+  - "docs/_spec/components/*.yml"
+---
+
+# Component name normalization
+
+## Canonical meaning
+
+- `component_name` is treated as a display name input.
+- Display names are normalized to PascalCase for metadata and prompts (examples: `Alert`, `StatusBar`).
+- File paths derived from a component name MUST use `snake_case`.
+
+Examples:
+
+- `Alert` -> `alert`
+- `StatusBar` -> `status_bar`
+- `Status Bar` -> `status_bar`
+- `status_bar` -> `status_bar`
+
+## Deterministic path contract
+
+When file paths are inferred from `component_name`, the same input MUST always produce the same paths:
+
+- Spec YAML: `docs/_spec/components/<snake_case>.yml`
+- Component Markdown: `docs/components/<snake_case>.md`
+
+Path precedence:
+
+1. Explicit path flags (`--output`, `--spec-file`) take priority.
+2. If explicit path is missing, infer from normalized `<snake_case>`.
+3. If `component_name` is missing and inference is still required, use deterministic fallback (for example node-id based naming).
+
+## Consistency requirements
+
+- Skills and scripts that write specs or component markdown MUST share the same normalization logic.
+- Mixed conventions (`PascalCase` files, spaces, hyphens, or random casing) are not allowed for generated file names.
+- Validation should report non-canonical file names and mismatches between spec `name` and file slug.
