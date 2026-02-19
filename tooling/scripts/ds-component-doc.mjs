@@ -134,6 +134,22 @@ function syncGapsSection({ specPath, markdownPath, registryPath }) {
   return gaps.length;
 }
 
+function resolveStyleReferencePath({ componentDocsDir, outputPath }) {
+  if (!fs.existsSync(componentDocsDir)) return "";
+
+  const outputBaseName = path.basename(outputPath);
+  const candidates = fs
+    .readdirSync(componentDocsDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name)
+    .filter((name) => name.endsWith(".md") && name !== "overview.md")
+    .sort((a, b) => a.localeCompare(b, "en"));
+
+  const nonTargetCandidate = candidates.find((name) => name !== outputBaseName);
+  const selected = nonTargetCandidate || candidates.find((name) => name === outputBaseName) || "";
+  return selected ? path.resolve(path.join(componentDocsDir, selected)) : "";
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const rawComponentName = String(args["component-name"] || "").trim();
@@ -191,6 +207,7 @@ function main() {
     args.output || path.join(componentDocsDir, `${componentSlug}.md`)
   );
   const overviewPath = path.resolve(path.join(componentDocsDir, "overview.md"));
+  const styleReferencePath = resolveStyleReferencePath({ componentDocsDir, outputPath });
   const safeName = componentNameToSnakeCase(effectiveComponentName || componentSlug || "component");
 
   if (!fs.existsSync(specPath)) {
@@ -256,7 +273,7 @@ function main() {
     "",
     "Sources",
     `- Spec YAML (source of truth): ${specPath}`,
-    `- Existing docs style reference: ${path.resolve(path.join(componentDocsDir, "alert.md"))}`,
+    styleReferencePath ? `- Existing docs style reference: ${styleReferencePath}` : "",
     `- Output component markdown path (required): ${outputPath}`,
     `- Overview path to keep in sync: ${overviewPath}`,
     "",
