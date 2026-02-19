@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { PROJECT_ROOT } from "./paths.mjs";
 
 const STYLE_REFERENCE_FILE = "_style_reference.md";
 const OVERVIEW_FILE = "overview.md";
@@ -7,6 +8,12 @@ const OVERVIEW_FILE = "overview.md";
 export function resolveStyleReferencePath({ componentDocsDir, outputPath }) {
   const docsDir = path.resolve(String(componentDocsDir || ""));
   if (!docsDir || !fs.existsSync(docsDir)) return "";
+  const projectRootWithSep = PROJECT_ROOT.endsWith(path.sep)
+    ? PROJECT_ROOT
+    : `${PROJECT_ROOT}${path.sep}`;
+  if (docsDir !== PROJECT_ROOT && !docsDir.startsWith(projectRootWithSep)) {
+    return "";
+  }
   let stats;
   try {
     stats = fs.statSync(docsDir);
