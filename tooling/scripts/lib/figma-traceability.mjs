@@ -12,7 +12,9 @@ function stableSortDeep(value) {
 
   if (isPlainObject(value)) {
     const sorted = {};
-    for (const key of Object.keys(value).sort((a, b) => a.localeCompare(b, "en"))) {
+    for (const key of Object.keys(value).sort((a, b) =>
+      a.localeCompare(b, "en"),
+    )) {
       sorted[key] = stableSortDeep(value[key]);
     }
     return sorted;
@@ -29,9 +31,7 @@ function sha256(input) {
 
 function normalizeStringArray(value) {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => String(item ?? "").trim())
-    .filter(Boolean);
+  return value.map((item) => String(item ?? "").trim()).filter(Boolean);
 }
 
 function normalizePropertyForSnapshot(property) {
@@ -63,7 +63,9 @@ function parseProperties(spec) {
 function computeVariantsCount(properties) {
   const variantAxes = properties
     .map((property) => ({
-      type: String(property.type ?? "").trim().toLowerCase(),
+      type: String(property.type ?? "")
+        .trim()
+        .toLowerCase(),
       values: normalizeStringArray(property.values),
     }))
     .filter((axis) => axis.type === "enum");
@@ -89,20 +91,14 @@ function getNormalizedComponentSetNodeId(spec) {
 
 export function deriveFigmaFrontmatterTraceability(spec) {
   const safeSpec = isPlainObject(spec) ? spec : {};
-  const figma = isPlainObject(safeSpec.figma) ? safeSpec.figma : {};
   const properties = parseProperties(safeSpec);
   const normalizedProperties = properties.map((property) =>
-    normalizePropertyForSnapshot(property)
+    normalizePropertyForSnapshot(property),
   );
   const componentSetNodeId = getNormalizedComponentSetNodeId(safeSpec);
 
   const snapshot = {
-    figma: {
-      file: String(figma.file ?? "").trim(),
-      page: String(figma.page ?? "").trim(),
-      component_set: String(figma.component_set ?? "").trim(),
-      component_set_node_id: componentSetNodeId,
-    },
+    component_set_node_id: componentSetNodeId,
     properties: normalizedProperties,
   };
 

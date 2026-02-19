@@ -31,7 +31,7 @@ This contract defines the only canonical order for component documentation:
   - `pipeline.ds_component_doc.contract_version`
   - `pipeline.ds_component_doc.spec_sha256`
   - `pipeline.ds_component_doc.token_registry_sha256`
-  - `pipeline.ds_component_doc.generator_script_sha256`
+  - `pipeline.ds_component_doc.generator_script_sha256` (optional diagnostic hash; not a blocking drift field)
 
 ## Bypass policy
 

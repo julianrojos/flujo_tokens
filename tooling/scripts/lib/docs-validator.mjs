@@ -3,8 +3,14 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 import { COMPONENT_DOCS_DIR, DOCS_SPEC_DIR } from "./paths.mjs";
-import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./token-registry.mjs";
-import { parseMarkdownFrontmatter, parseYamlDocument } from "./parse-frontmatter.mjs";
+import {
+  loadTokenRegistry,
+  DEFAULT_TOKEN_REGISTRY_PATH,
+} from "./token-registry.mjs";
+import {
+  parseMarkdownFrontmatter,
+  parseYamlDocument,
+} from "./parse-frontmatter.mjs";
 import {
   extractGapsFromSpec,
   buildGapsChecklistLines,
@@ -30,7 +36,12 @@ import {
 export { CANONICAL_H2_ORDER, REQUIRED_CANONICAL_H2 } from "./docs-config.mjs";
 export { OPTIONAL_CANONICAL_H2 } from "./docs-config.mjs";
 const REQUIRED_H2 = REQUIRED_CANONICAL_H2;
-const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A11y"]);
+const COLLECTION_PREFIXES = new Set([
+  "Semantic",
+  "Primitives",
+  "Components",
+  "A11y",
+]);
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
 const SLASH_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9-]+){1,}/g;
 const VARIABLE_ID_RE = /VariableID:[A-Za-z0-9:-]+/g;
@@ -38,8 +49,12 @@ const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
 const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
-const RULE_MANIFEST_PATH = path.resolve(process.cwd(), ".agent", "rules", "_manifest.yml");
-const DS_COMPONENT_DOC_SCRIPT_PATH = path.resolve(process.cwd(), "tooling", "scripts", "ds-component-doc.mjs");
+const RULE_MANIFEST_PATH = path.resolve(
+  process.cwd(),
+  ".agent",
+  "rules",
+  "_manifest.yml",
+);
 const TRACEABILITY_CONTRACT_VERSION = "1";
 const SPEC_PROPERTY_GROUP_ORDER = new Map([
   ["variant", 1],
@@ -54,7 +69,6 @@ const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
 const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 const HASH_RE = /^[a-f0-9]{64}$/i;
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
-
 
 function normalizeSlashPathCandidate(tokenPath) {
   const parts = tokenPath.split("/");
@@ -88,7 +102,10 @@ function lineFromOffset(lineStarts, offset) {
   while (left <= right) {
     const mid = Math.floor((left + right) / 2);
     const start = lineStarts[mid];
-    const nextStart = mid + 1 < lineStarts.length ? lineStarts[mid + 1] : Number.MAX_SAFE_INTEGER;
+    const nextStart =
+      mid + 1 < lineStarts.length
+        ? lineStarts[mid + 1]
+        : Number.MAX_SAFE_INTEGER;
     if (offset >= start && offset < nextStart) return mid + 1;
     if (offset < start) right = mid - 1;
     else left = mid + 1;
@@ -110,7 +127,12 @@ function collectSpecFiles(specRoot) {
   if (!fs.existsSync(specRoot)) return [];
   return fs
     .readdirSync(specRoot, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".yml") && entry.name !== "_template.yml")
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.endsWith(".yml") &&
+        entry.name !== "_template.yml",
+    )
     .map((entry) => path.join(specRoot, entry.name))
     .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
 }
@@ -201,7 +223,14 @@ function extractResolvedTokenRefsFromText(text, registryIndexes) {
     const candidates = extractTokenCandidatesFromSpan(span);
     for (const item of candidates) {
       const tokenPath = item.token;
-      if (!looksLikeTokenPath(tokenPath, registryIndexes.dotRoots, registryIndexes.slashRoots)) continue;
+      if (
+        !looksLikeTokenPath(
+          tokenPath,
+          registryIndexes.dotRoots,
+          registryIndexes.slashRoots,
+        )
+      )
+        continue;
       const resolution = resolveTokenCandidate(tokenPath, registryIndexes);
       if (!resolution.ok) continue;
       const dedupeKey = `${tokenPath}|${resolution.resolvedAs}`;
@@ -221,8 +250,12 @@ function extractResolvedTokenRefsFromText(text, registryIndexes) {
 function inferFallbackKind(tokenRefs) {
   const types = new Set(
     tokenRefs
-      .map((ref) => String(ref.entry?.type || "").trim().toLowerCase())
-      .filter(Boolean)
+      .map((ref) =>
+        String(ref.entry?.type || "")
+          .trim()
+          .toLowerCase(),
+      )
+      .filter(Boolean),
   );
   if (types.size !== 1) return "generic";
   const onlyType = Array.from(types)[0];
@@ -251,8 +284,13 @@ function isFallbackCompatible(raw, kind) {
 
   if (kind === "color") {
     if (CSS_COLOR_FUNC_RE.test(value)) return true;
-    const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
-    return parts.every((part) => HEX_COLOR_RE.test(part) || /^transparent$/i.test(part));
+    const parts = value
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return parts.every(
+      (part) => HEX_COLOR_RE.test(part) || /^transparent$/i.test(part),
+    );
   }
   if (kind === "dimension") {
     return CSS_DIMENSION_RE.test(value);
@@ -274,13 +312,20 @@ function extractFallbackFromLine(line, registryIndexes) {
 
   for (const span of codeSpans) {
     const isTokenLike = extractTokenCandidatesFromSpan(span).some((candidate) =>
-      looksLikeTokenPath(candidate.token, registryIndexes.dotRoots, registryIndexes.slashRoots)
+      looksLikeTokenPath(
+        candidate.token,
+        registryIndexes.dotRoots,
+        registryIndexes.slashRoots,
+      ),
     );
     if (!isTokenLike && hasConcreteFallbackValue(span)) return span;
   }
 
   const explicitFallbackMatch = rawLine.match(/fallback[^:]*:\s*([^|]+)$/i);
-  if (explicitFallbackMatch && hasConcreteFallbackValue(explicitFallbackMatch[1])) {
+  if (
+    explicitFallbackMatch &&
+    hasConcreteFallbackValue(explicitFallbackMatch[1])
+  ) {
     return explicitFallbackMatch[1];
   }
 
@@ -293,7 +338,10 @@ function extractFallbackFromLine(line, registryIndexes) {
 }
 
 function normalizeHeadingText(text) {
-  return String(text || "").trim().replace(/\s+/g, " ").toLowerCase();
+  return String(text || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 }
 
 function collectH2Headings(content) {
@@ -316,12 +364,15 @@ function validateSectionOrder(
   report,
   lineStarts,
   baseOffset = 0,
-  options = {}
+  options = {},
 ) {
   const allowExtraH2 = Boolean(options.allowExtraH2);
   const headings = collectH2Headings(content);
   const canonicalIndex = new Map(
-    CANONICAL_H2_ORDER.map((heading, index) => [normalizeHeadingText(heading), index])
+    CANONICAL_H2_ORDER.map((heading, index) => [
+      normalizeHeadingText(heading),
+      index,
+    ]),
   );
   const firstOccurrence = new Map();
   const duplicateHeadings = new Set();
@@ -378,7 +429,9 @@ function validateSectionOrder(
     }
 
     if (currentIndex < previousCanonicalIndex) {
-      const expectedNext = CANONICAL_H2_ORDER[Math.max(previousCanonicalIndex, 0)] || "the previous canonical heading";
+      const expectedNext =
+        CANONICAL_H2_ORDER[Math.max(previousCanonicalIndex, 0)] ||
+        "the previous canonical heading";
       report.errors.push({
         code: "SEC01",
         file: filePath,
@@ -398,7 +451,8 @@ function validateFrontmatter(filePath, frontmatter, report) {
     report.errors.push({
       code: "FM02",
       file: filePath,
-      message: "Frontmatter `doc_status` must be one of: draft, ready, needs-review.",
+      message:
+        "Frontmatter `doc_status` must be one of: draft, ready, needs-review.",
     });
   }
 }
@@ -410,7 +464,8 @@ function validateOptionalVersionBlock({
   report,
   context,
 }) {
-  if (versionNode === undefined || versionNode === null || versionNode === "") return;
+  if (versionNode === undefined || versionNode === null || versionNode === "")
+    return;
 
   if (!isPlainObject(versionNode)) {
     report.errors.push({
@@ -436,8 +491,7 @@ function validateOptionalVersionBlock({
       report.errors.push({
         code: "VER01",
         file: filePath,
-        message:
-          `${context} version \`${key}\` must be a SemVer string (for example \`1.2.3\`).`,
+        message: `${context} version \`${key}\` must be a SemVer string (for example \`1.2.3\`).`,
       });
     }
   }
@@ -538,8 +592,12 @@ function readComponentSpecByDocPath(componentDocPath, specRoot, options = {}) {
   const explicitSpecFilePath = options.specFilePath
     ? path.resolve(String(options.specFilePath))
     : "";
-  const fileBase = path.basename(componentDocPath, path.extname(componentDocPath));
-  const specPath = explicitSpecFilePath || path.join(specRoot, `${fileBase}.yml`);
+  const fileBase = path.basename(
+    componentDocPath,
+    path.extname(componentDocPath),
+  );
+  const specPath =
+    explicitSpecFilePath || path.join(specRoot, `${fileBase}.yml`);
   if (!fs.existsSync(specPath)) {
     return {
       specPath,
@@ -554,11 +612,15 @@ function readComponentSpecByDocPath(componentDocPath, specRoot, options = {}) {
   try {
     const parsed = parseYamlDocument(
       fs.readFileSync(specPath, "utf8"),
-      `spec YAML (${path.basename(specPath)})`
+      `spec YAML (${path.basename(specPath)})`,
     );
-    const status = String(parsed.status || "").trim().toLowerCase();
+    const status = String(parsed.status || "")
+      .trim()
+      .toLowerCase();
     const figma = isPlainObject(parsed.figma) ? parsed.figma : {};
-    const componentSetNodeIdRaw = String(figma.component_set_node_id || "").trim();
+    const componentSetNodeIdRaw = String(
+      figma.component_set_node_id || "",
+    ).trim();
     return {
       specPath,
       exists: true,
@@ -586,7 +648,7 @@ function validateMarkdownTraceabilityNodeId(
   frontmatter,
   specRoot,
   report,
-  specResolution = {}
+  specResolution = {},
 ) {
   const figma = isPlainObject(frontmatter.figma) ? frontmatter.figma : {};
   const markdownNodeIdRaw = String(figma.component_set_node_id || "").trim();
@@ -596,7 +658,8 @@ function validateMarkdownTraceabilityNodeId(
     report.errors.push({
       code: "TRACE01",
       file: filePath,
-      message: "Frontmatter figma.component_set_node_id must not be `TBD` when declared.",
+      message:
+        "Frontmatter figma.component_set_node_id must not be `TBD` when declared.",
     });
     return;
   }
@@ -663,7 +726,7 @@ function validateGeneratedTraceability(
   specRoot,
   registryPath,
   report,
-  specResolution = {}
+  specResolution = {},
 ) {
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   if (!spec.exists || spec.parseError) return;
@@ -673,8 +736,13 @@ function validateGeneratedTraceability(
     registryPath,
   });
 
-  const pipeline = isPlainObject(frontmatter.pipeline) ? frontmatter.pipeline : null;
-  const dsDoc = pipeline && isPlainObject(pipeline.ds_component_doc) ? pipeline.ds_component_doc : null;
+  const pipeline = isPlainObject(frontmatter.pipeline)
+    ? frontmatter.pipeline
+    : null;
+  const dsDoc =
+    pipeline && isPlainObject(pipeline.ds_component_doc)
+      ? pipeline.ds_component_doc
+      : null;
   if (!dsDoc) {
     report.errors.push({
       code: "TRACE02",
@@ -701,9 +769,6 @@ function validateGeneratedTraceability(
   const expected = {
     spec_sha256: sha256FileCached(spec.specPath),
     token_registry_sha256: sha256FileCached(registryPath),
-    generator_script_sha256: fs.existsSync(DS_COMPONENT_DOC_SCRIPT_PATH)
-      ? sha256FileCached(DS_COMPONENT_DOC_SCRIPT_PATH)
-      : "",
   };
 
   for (const [field, expectedValue] of Object.entries(expected)) {
@@ -734,13 +799,25 @@ function validateGeneratedTraceability(
       report.errors.push({
         code: "TRACE02",
         file: filePath,
-        message:
-          `Traceability drift in pipeline.ds_component_doc.${field}. Regenerate markdown using the suggested command.`,
+        message: `Traceability drift in pipeline.ds_component_doc.${field}. Regenerate markdown using the suggested command.`,
         expected: expectedValue,
         actual: actualValue,
         suggested: regenerateCommand,
       });
     }
+  }
+
+  const generatorScriptHash = String(
+    dsDoc.generator_script_sha256 || "",
+  ).trim();
+  if (generatorScriptHash && !HASH_RE.test(generatorScriptHash)) {
+    report.errors.push({
+      code: "TRACE02",
+      file: filePath,
+      message:
+        "Invalid hash format in pipeline.ds_component_doc.generator_script_sha256; expected a 64-char sha256 hex string.",
+      suggested: regenerateCommand,
+    });
   }
 
   const figma = isPlainObject(frontmatter.figma) ? frontmatter.figma : {};
@@ -768,8 +845,7 @@ function validateGeneratedTraceability(
       report.errors.push({
         code: "TRACE03",
         file: filePath,
-        message:
-          `Traceability drift in figma.${fieldName}. Regenerate markdown using the suggested command.`,
+        message: `Traceability drift in figma.${fieldName}. Regenerate markdown using the suggested command.`,
         expected: expectedValue,
         actual: parsed,
         suggested: regenerateCommand,
@@ -788,7 +864,7 @@ function validateGapsSectionContract(
   registry,
   report,
   lineStarts,
-  specResolution = {}
+  specResolution = {},
 ) {
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   const section = extractGapsSection(rawMarkdown);
@@ -810,8 +886,7 @@ function validateGapsSectionContract(
     report.errors.push({
       code: "GAP01",
       file: filePath,
-      message:
-        `Unable to validate Gaps / TBD contract because spec could not be parsed: ${spec.parseError}`,
+      message: `Unable to validate Gaps / TBD contract because spec could not be parsed: ${spec.parseError}`,
       suggested: path.relative(process.cwd(), spec.specPath),
     });
     return;
@@ -849,8 +924,7 @@ function validateGapsSectionContract(
     report.errors.push({
       code: "GAP01",
       file: filePath,
-      message:
-        `Missing required \`## Gaps / TBD\` section. The linked spec has unresolved gaps.${readyStatusWithGapsNote}`,
+      message: `Missing required \`## Gaps / TBD\` section. The linked spec has unresolved gaps.${readyStatusWithGapsNote}`,
     });
     return;
   }
@@ -861,21 +935,21 @@ function validateGapsSectionContract(
       code: "GAP01",
       file: filePath,
       line: lineFromOffset(lineStarts, section.start),
-      message:
-        `\`## Gaps / TBD\` must contain checklist items in canonical checkbox format.${readyStatusWithGapsNote}`,
+      message: `\`## Gaps / TBD\` must contain checklist items in canonical checkbox format.${readyStatusWithGapsNote}`,
     });
     return;
   }
 
   const checkboxFormat = /^-\s+\[\s\]\s+\[[A-Z0-9_]+\]\s+.+$/;
-  const invalidLine = rawSectionLines.find((line) => !checkboxFormat.test(line));
+  const invalidLine = rawSectionLines.find(
+    (line) => !checkboxFormat.test(line),
+  );
   if (invalidLine) {
     report.errors.push({
       code: "GAP01",
       file: filePath,
       line: lineFromOffset(lineStarts, section.start),
-      message:
-        `Every Gaps item must use checkbox format: \`- [ ] [GAP_TYPE] ...\`.${readyStatusWithGapsNote}`,
+      message: `Every Gaps item must use checkbox format: \`- [ ] [GAP_TYPE] ...\`.${readyStatusWithGapsNote}`,
       details: invalidLine,
     });
     return;
@@ -884,15 +958,15 @@ function validateGapsSectionContract(
   const actualLines = rawSectionLines;
   const sameLength = actualLines.length === expectedLines.length;
   const sameOrder =
-    sameLength && actualLines.every((line, index) => line === expectedLines[index]);
+    sameLength &&
+    actualLines.every((line, index) => line === expectedLines[index]);
   if (sameOrder) return;
 
   report.errors.push({
     code: "GAP01",
     file: filePath,
     line: lineFromOffset(lineStarts, section.start),
-    message:
-      `Gaps section does not match canonical deterministic content generated from spec + token registry.${readyStatusWithGapsNote}`,
+    message: `Gaps section does not match canonical deterministic content generated from spec + token registry.${readyStatusWithGapsNote}`,
     expected: expectedLines,
     actual: actualLines,
   });
@@ -900,7 +974,10 @@ function validateGapsSectionContract(
 
 function extractSectionBody(rawMarkdown, headingTitle) {
   const markdown = String(rawMarkdown || "");
-  const escaped = String(headingTitle || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escaped = String(headingTitle || "").replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&",
+  );
   const headingRegex = new RegExp(`^##\\s+${escaped}\\s*$`, "m");
   const headingMatch = headingRegex.exec(markdown);
   if (!headingMatch) return "";
@@ -910,7 +987,9 @@ function extractSectionBody(rawMarkdown, headingTitle) {
   const contentStart = headingEnd === -1 ? markdown.length : headingEnd + 1;
   const rest = markdown.slice(contentStart);
   const nextHeadingMatch = /^##\s+/m.exec(rest);
-  const end = nextHeadingMatch ? contentStart + nextHeadingMatch.index : markdown.length;
+  const end = nextHeadingMatch
+    ? contentStart + nextHeadingMatch.index
+    : markdown.length;
   return markdown.slice(contentStart, end).trim();
 }
 
@@ -933,20 +1012,25 @@ function validateReadyLifecycleConsistency(
   specRoot,
   report,
   lineStarts,
-  specResolution = {}
+  specResolution = {},
 ) {
-  const docStatus = String(frontmatter.doc_status || "").trim().toLowerCase();
+  const docStatus = String(frontmatter.doc_status || "")
+    .trim()
+    .toLowerCase();
   const figma = isPlainObject(frontmatter.figma) ? frontmatter.figma : {};
   const lastVerified = String(figma.last_verified || "").trim();
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
-  const specStatus = String(spec.status || "").trim().toLowerCase();
+  const specStatus = String(spec.status || "")
+    .trim()
+    .toLowerCase();
 
   if (docStatus === "ready") {
     if (!spec.exists) {
       report.errors.push({
         code: "READY01",
         file: filePath,
-        message: "Component markdown is `ready` but linked spec file is missing.",
+        message:
+          "Component markdown is `ready` but linked spec file is missing.",
         suggested: path.relative(process.cwd(), spec.specPath),
       });
       return;
@@ -965,8 +1049,7 @@ function validateReadyLifecycleConsistency(
       report.errors.push({
         code: "READY01",
         file: filePath,
-        message:
-          `Component markdown is \`ready\` but spec status is \`${specStatus || "missing"}\`.`,
+        message: `Component markdown is \`ready\` but spec status is \`${specStatus || "missing"}\`.`,
         suggested: path.relative(process.cwd(), spec.specPath),
       });
     }
@@ -987,23 +1070,34 @@ function validateReadyLifecycleConsistency(
       });
     }
     const discrepancyStatuses = findDiscrepancyStatuses(rawMarkdown);
-    if (discrepancyStatuses.some((status) => status === "open" || status === "accepted")) {
+    if (
+      discrepancyStatuses.some(
+        (status) => status === "open" || status === "accepted",
+      )
+    ) {
       report.errors.push({
         code: "READY01",
         file: filePath,
-        line: lineFromOffset(lineStarts, rawMarkdown.indexOf("## Design–Token Discrepancies")),
+        line: lineFromOffset(
+          lineStarts,
+          rawMarkdown.indexOf("## Design–Token Discrepancies"),
+        ),
         message:
           "Component markdown is `ready` but has unresolved Design–Token Discrepancies (`open` or `accepted`).",
       });
     }
   }
 
-  if (spec.exists && !spec.parseError && specStatus === "ready" && docStatus !== "ready") {
+  if (
+    spec.exists &&
+    !spec.parseError &&
+    specStatus === "ready" &&
+    docStatus !== "ready"
+  ) {
     report.errors.push({
       code: "READY01",
       file: filePath,
-      message:
-        `Spec status is \`ready\` but component markdown doc_status is \`${docStatus || "missing"}\`.`,
+      message: `Spec status is \`ready\` but component markdown doc_status is \`${docStatus || "missing"}\`.`,
       suggested: path.relative(process.cwd(), spec.specPath),
     });
   }
@@ -1023,7 +1117,9 @@ function validateComponentDocFileName(filePath, report) {
     file: filePath,
     message:
       "Component markdown filename must be snake_case (example: `status_bar.md`).",
-    suggested: suggestedPath ? path.relative(process.cwd(), suggestedPath) : undefined,
+    suggested: suggestedPath
+      ? path.relative(process.cwd(), suggestedPath)
+      : undefined,
   });
 }
 
@@ -1040,7 +1136,14 @@ function validateVariableIds(filePath, rawMarkdown, report, lineStarts) {
   }
 }
 
-function validateTokenReferences(filePath, content, registryIndexes, report, lineStarts, baseOffset = 0) {
+function validateTokenReferences(
+  filePath,
+  content,
+  registryIndexes,
+  report,
+  lineStarts,
+  baseOffset = 0,
+) {
   const codeSpanRegex = /`([^`\n]+)`/g;
   let spanMatch;
   const seen = new Set();
@@ -1052,7 +1155,14 @@ function validateTokenReferences(filePath, content, registryIndexes, report, lin
 
     for (const item of candidates) {
       const tokenPath = item.token;
-      if (!looksLikeTokenPath(tokenPath, registryIndexes.dotRoots, registryIndexes.slashRoots)) continue;
+      if (
+        !looksLikeTokenPath(
+          tokenPath,
+          registryIndexes.dotRoots,
+          registryIndexes.slashRoots,
+        )
+      )
+        continue;
 
       const absoluteOffset = baseOffset + spanOffset + item.localOffset;
       const line = lineFromOffset(lineStarts, absoluteOffset);
@@ -1078,7 +1188,9 @@ function validateTokenReferences(filePath, content, registryIndexes, report, lin
 }
 
 function normalizeCellText(cell) {
-  return String(cell || "").replace(/`/g, "").trim();
+  return String(cell || "")
+    .replace(/`/g, "")
+    .trim();
 }
 
 function isTableLine(line) {
@@ -1145,8 +1257,12 @@ function collectMarkdownTables(content) {
 }
 
 function findHeaderIndex(cells, needle) {
-  const key = String(needle || "").trim().toLowerCase();
-  return cells.findIndex((cell) => normalizeCellText(cell).toLowerCase().includes(key));
+  const key = String(needle || "")
+    .trim()
+    .toLowerCase();
+  return cells.findIndex((cell) =>
+    normalizeCellText(cell).toLowerCase().includes(key),
+  );
 }
 
 function tableCellHasTokenReference(cell, registryIndexes) {
@@ -1157,19 +1273,31 @@ function isMissingFallbackValue(cell) {
   return !hasConcreteFallbackValue(cell);
 }
 
-function validateTokenFallbacks(filePath, content, registryIndexes, report, lineStarts, baseOffset = 0) {
+function validateTokenFallbacks(
+  filePath,
+  content,
+  registryIndexes,
+  report,
+  lineStarts,
+  baseOffset = 0,
+) {
   const tables = collectMarkdownTables(content);
   for (const table of tables) {
     const tokenCol = findHeaderIndex(table.headerCells, "token");
     if (tokenCol < 0) continue;
 
-    const rowsWithTokenRefs = table.rows.map((row) => {
-      const tokenCell = row.cells[tokenCol] || "";
-      if (/^`?tbd`?$/i.test(normalizeCellText(tokenCell))) return null;
-      const tokenRefs = extractResolvedTokenRefsFromText(tokenCell, registryIndexes);
-      if (tokenRefs.length === 0) return null;
-      return { row, tokenRefs };
-    }).filter(Boolean);
+    const rowsWithTokenRefs = table.rows
+      .map((row) => {
+        const tokenCell = row.cells[tokenCol] || "";
+        if (/^`?tbd`?$/i.test(normalizeCellText(tokenCell))) return null;
+        const tokenRefs = extractResolvedTokenRefsFromText(
+          tokenCell,
+          registryIndexes,
+        );
+        if (tokenRefs.length === 0) return null;
+        return { row, tokenRefs };
+      })
+      .filter(Boolean);
     if (rowsWithTokenRefs.length === 0) continue;
 
     const fallbackCol = findHeaderIndex(table.headerCells, "fallback");
@@ -1193,7 +1321,8 @@ function validateTokenFallbacks(filePath, content, registryIndexes, report, line
           code: "TOK02",
           file: filePath,
           line,
-          message: "Token reference row is missing fallback value in `Fallback` column.",
+          message:
+            "Token reference row is missing fallback value in `Fallback` column.",
         });
         continue;
       }
@@ -1204,8 +1333,8 @@ function validateTokenFallbacks(filePath, content, registryIndexes, report, line
           fallbackKind === "color"
             ? "a concrete color fallback (hex/rgb/hsl)"
             : fallbackKind === "dimension"
-            ? "a concrete dimension fallback (px/rem/number)"
-            : "a concrete fallback value";
+              ? "a concrete dimension fallback (px/rem/number)"
+              : "a concrete fallback value";
         report.errors.push({
           code: "TOK02",
           file: filePath,
@@ -1216,7 +1345,15 @@ function validateTokenFallbacks(filePath, content, registryIndexes, report, line
     }
   }
 
-  validateProseTokenFallbacks(filePath, content, registryIndexes, report, lineStarts, baseOffset, tables);
+  validateProseTokenFallbacks(
+    filePath,
+    content,
+    registryIndexes,
+    report,
+    lineStarts,
+    baseOffset,
+    tables,
+  );
 }
 
 function validateProseTokenFallbacks(
@@ -1226,7 +1363,7 @@ function validateProseTokenFallbacks(
   report,
   lineStarts,
   baseOffset = 0,
-  tables = collectMarkdownTables(content)
+  tables = collectMarkdownTables(content),
 ) {
   const lines = String(content || "").split("\n");
   const lineOffsets = [];
@@ -1238,7 +1375,9 @@ function validateProseTokenFallbacks(
 
   const tableLineSet = new Set();
   for (const table of tables) {
-    const firstLine = lines.findIndex((_, idx) => lineOffsets[idx] === table.headerOffset);
+    const firstLine = lines.findIndex(
+      (_, idx) => lineOffsets[idx] === table.headerOffset,
+    );
     if (firstLine < 0) continue;
     const lastLine = firstLine + table.rows.length + 1;
     for (let i = firstLine; i <= lastLine; i += 1) tableLineSet.add(i);
@@ -1271,7 +1410,8 @@ function validateProseTokenFallbacks(
         code: "TOK02",
         file: filePath,
         line: lineNumber,
-        message: "Token reference in prose is missing a concrete fallback value.",
+        message:
+          "Token reference in prose is missing a concrete fallback value.",
       });
       continue;
     }
@@ -1282,8 +1422,8 @@ function validateProseTokenFallbacks(
         fallbackKind === "color"
           ? "a concrete color fallback (hex/rgb/hsl)"
           : fallbackKind === "dimension"
-          ? "a concrete dimension fallback (px/rem/number)"
-          : "a concrete fallback value";
+            ? "a concrete dimension fallback (px/rem/number)"
+            : "a concrete fallback value";
       report.errors.push({
         code: "TOK02",
         file: filePath,
@@ -1355,12 +1495,15 @@ function validateOverviewLinks(docsRoot, componentFiles, report) {
         code: "LINK02",
         file: overviewPath,
         line: lineFromOffset(lineStarts, lineOffset),
-        message: "Component list entries must use `- [Display Name](snake_case.md)` format.",
+        message:
+          "Component list entries must use `- [Display Name](snake_case.md)` format.",
       });
       continue;
     }
 
-    const displayName = String(parsed[1] || "").trim().replace(/\s+/g, " ");
+    const displayName = String(parsed[1] || "")
+      .trim()
+      .replace(/\s+/g, " ");
     const target = String(parsed[2] || "").trim();
 
     if (!displayName) {
@@ -1443,7 +1586,11 @@ function validateOverviewLinks(docsRoot, componentFiles, report) {
   for (let i = 0; i < entries.length; i += 1) {
     const current = entries[i];
     const expected = sortedEntries[i];
-    if (current.displayName === expected.displayName && current.target === expected.target) continue;
+    if (
+      current.displayName === expected.displayName &&
+      current.target === expected.target
+    )
+      continue;
     report.errors.push({
       code: "LINK02",
       file: overviewPath,
@@ -1489,15 +1636,22 @@ function validateSpecMarkdownPairing({
   explicitFilePath,
   report,
 }) {
-  const componentSet = new Set(componentFiles.map((filePath) => path.resolve(filePath)));
+  const componentSet = new Set(
+    componentFiles.map((filePath) => path.resolve(filePath)),
+  );
   const explicitPairMode = Boolean(explicitFilePath && explicitSpecFilePath);
-  const resolvedExplicitFilePath = explicitFilePath ? path.resolve(explicitFilePath) : "";
+  const resolvedExplicitFilePath = explicitFilePath
+    ? path.resolve(explicitFilePath)
+    : "";
   const resolvedExplicitSpecFilePath = explicitSpecFilePath
     ? path.resolve(explicitSpecFilePath)
     : "";
 
   for (const componentFile of componentFiles) {
-    if (explicitPairMode && path.resolve(componentFile) === resolvedExplicitFilePath) {
+    if (
+      explicitPairMode &&
+      path.resolve(componentFile) === resolvedExplicitFilePath
+    ) {
       if (fs.existsSync(resolvedExplicitSpecFilePath)) continue;
       report.errors.push({
         code: "PAIR01",
@@ -1524,13 +1678,20 @@ function validateSpecMarkdownPairing({
   const specFilesForPairing = explicitSpecFilePath
     ? [path.resolve(explicitSpecFilePath)]
     : checkSpecs
-    ? collectSpecFiles(specRoot)
-    : [];
+      ? collectSpecFiles(specRoot)
+      : [];
 
   for (const specFile of specFilesForPairing) {
-    if (explicitPairMode && path.resolve(specFile) === resolvedExplicitSpecFilePath) {
+    if (
+      explicitPairMode &&
+      path.resolve(specFile) === resolvedExplicitSpecFilePath
+    ) {
       const expectedMarkdownPath = resolvedExplicitFilePath;
-      if (componentSet.has(expectedMarkdownPath) || fs.existsSync(expectedMarkdownPath)) continue;
+      if (
+        componentSet.has(expectedMarkdownPath) ||
+        fs.existsSync(expectedMarkdownPath)
+      )
+        continue;
       report.errors.push({
         code: "PAIR01",
         file: specFile,
@@ -1543,7 +1704,11 @@ function validateSpecMarkdownPairing({
 
     const slug = path.basename(specFile, path.extname(specFile));
     const expectedMarkdownPath = path.resolve(docsRoot, `${slug}.md`);
-    if (componentSet.has(expectedMarkdownPath) || fs.existsSync(expectedMarkdownPath)) continue;
+    if (
+      componentSet.has(expectedMarkdownPath) ||
+      fs.existsSync(expectedMarkdownPath)
+    )
+      continue;
     report.errors.push({
       code: "PAIR01",
       file: specFile,
@@ -1563,7 +1728,11 @@ function toCliPath(filePath) {
   return relative;
 }
 
-function buildTraceabilityRegenerationCommand({ markdownPath, specPath, registryPath }) {
+function buildTraceabilityRegenerationCommand({
+  markdownPath,
+  specPath,
+  registryPath,
+}) {
   const specArg = JSON.stringify(toCliPath(specPath));
   const outputArg = JSON.stringify(toCliPath(markdownPath));
   const registryArg = JSON.stringify(toCliPath(registryPath));
@@ -1600,7 +1769,9 @@ function isTbdMarker(value) {
 }
 
 function normalizeSpecPropertyGroup(typeValue) {
-  const normalizedType = String(typeValue || "").trim().toLowerCase();
+  const normalizedType = String(typeValue || "")
+    .trim()
+    .toLowerCase();
   return SPEC_PROPERTY_GROUP_ORDER.get(normalizedType) || 5;
 }
 
@@ -1665,7 +1836,12 @@ function validateSpecPropertyOrder(filePath, properties, report) {
   }
 }
 
-function validateSpecTokenMapping(filePath, tokenMapping, registryIndexes, report) {
+function validateSpecTokenMapping(
+  filePath,
+  tokenMapping,
+  registryIndexes,
+  report,
+) {
   if (tokenMapping === undefined || tokenMapping === null) return;
   if (!isPlainObject(tokenMapping)) {
     report.errors.push({
@@ -1812,7 +1988,12 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
   }
 
   if (registryIndexes) {
-    validateSpecTokenMapping(filePath, parsed.token_mapping, registryIndexes, report);
+    validateSpecTokenMapping(
+      filePath,
+      parsed.token_mapping,
+      registryIndexes,
+      report,
+    );
   }
 
   validateOptionalVersionBlock({
@@ -1834,8 +2015,11 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
     report.errors.push({
       code: "NAME01",
       file: filePath,
-      message: "Component spec filename must be snake_case (example: `status_bar.yml`).",
-      suggested: suggestedPath ? path.relative(process.cwd(), suggestedPath) : undefined,
+      message:
+        "Component spec filename must be snake_case (example: `status_bar.yml`).",
+      suggested: suggestedPath
+        ? path.relative(process.cwd(), suggestedPath)
+        : undefined,
     });
   }
 
@@ -1849,13 +2033,21 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
         message:
           `Spec \`name: ${specDisplayName}\` does not match filename. ` +
           `Expected \`${expectedBase}.yml\`.`,
-        suggested: path.relative(process.cwd(), path.join(path.dirname(filePath), `${expectedBase}.yml`)),
+        suggested: path.relative(
+          process.cwd(),
+          path.join(path.dirname(filePath), `${expectedBase}.yml`),
+        ),
       });
     }
   }
 }
 
-function validateSpecYamlFiles(specRoot, report, registryIndexes, explicitSpecFilePath = null) {
+function validateSpecYamlFiles(
+  specRoot,
+  report,
+  registryIndexes,
+  explicitSpecFilePath = null,
+) {
   const files = explicitSpecFilePath
     ? [path.resolve(explicitSpecFilePath)]
     : collectSpecFiles(specRoot);
@@ -1908,7 +2100,7 @@ function loadRuleManifest(manifestPath) {
   try {
     const parsed = parseYamlDocument(
       fs.readFileSync(resolvedPath, "utf8"),
-      `rule manifest (${path.basename(resolvedPath)})`
+      `rule manifest (${path.basename(resolvedPath)})`,
     );
     const checks = isPlainObject(parsed.checks) ? parsed.checks : {};
     return {
@@ -1935,7 +2127,9 @@ function annotateFindingsWithManifest(findings, manifestChecks) {
     const manifestEntry = manifestChecks[code];
     if (!isPlainObject(manifestEntry)) continue;
     const ruleIds = Array.isArray(manifestEntry.rule_ids)
-      ? manifestEntry.rule_ids.map((value) => String(value || "").trim()).filter(Boolean)
+      ? manifestEntry.rule_ids
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
       : [];
     finding.rule_ids = ruleIds;
     if (typeof manifestEntry.blocking === "boolean") {
@@ -1947,15 +2141,25 @@ function annotateFindingsWithManifest(findings, manifestChecks) {
 export function validateDocs(options = {}) {
   const docsRoot = path.resolve(options.docsRoot || COMPONENT_DOCS_DIR);
   const specRoot = path.resolve(options.specRoot || SPEC_COMPONENTS_DIR);
-  const explicitSpecFilePath = options.specFilePath ? path.resolve(options.specFilePath) : null;
-  const registryPath = path.resolve(options.registryPath || DEFAULT_TOKEN_REGISTRY_PATH);
-  const explicitFilePath = options.filePath ? path.resolve(options.filePath) : null;
+  const explicitSpecFilePath = options.specFilePath
+    ? path.resolve(options.specFilePath)
+    : null;
+  const registryPath = path.resolve(
+    options.registryPath || DEFAULT_TOKEN_REGISTRY_PATH,
+  );
+  const explicitFilePath = options.filePath
+    ? path.resolve(options.filePath)
+    : null;
   const allowExtraH2 = options.allowExtraH2 === true;
-  const checkOverview = explicitFilePath ? false : options.checkOverview !== false;
+  const checkOverview = explicitFilePath
+    ? false
+    : options.checkOverview !== false;
   const checkSpecs = explicitFilePath ? false : options.checkSpecs !== false;
 
   const report = createBaseReport();
-  const manifestInfo = loadRuleManifest(options.manifestPath || RULE_MANIFEST_PATH);
+  const manifestInfo = loadRuleManifest(
+    options.manifestPath || RULE_MANIFEST_PATH,
+  );
   report.governance.manifestPath = manifestInfo.path;
   report.governance.manifestLoaded = manifestInfo.loaded;
   if (manifestInfo.error) {
@@ -1984,8 +2188,12 @@ export function validateDocs(options = {}) {
 
   const registryIndexes = buildRegistryIndexes(registry);
   const markdownFiles = collectMarkdownFiles(docsRoot, explicitFilePath);
-  const overviewFiles = markdownFiles.filter((filePath) => path.basename(filePath) === "overview.md");
-  const componentFiles = markdownFiles.filter((filePath) => path.basename(filePath) !== "overview.md");
+  const overviewFiles = markdownFiles.filter(
+    (filePath) => path.basename(filePath) === "overview.md",
+  );
+  const componentFiles = markdownFiles.filter(
+    (filePath) => path.basename(filePath) !== "overview.md",
+  );
 
   validateSpecMarkdownPairing({
     componentFiles,
@@ -1997,9 +2205,10 @@ export function validateDocs(options = {}) {
     report,
   });
 
-  const specResolution = explicitFilePath && explicitSpecFilePath
-    ? { specFilePath: explicitSpecFilePath }
-    : {};
+  const specResolution =
+    explicitFilePath && explicitSpecFilePath
+      ? { specFilePath: explicitSpecFilePath }
+      : {};
 
   for (const filePath of markdownFiles) {
     if (!fs.existsSync(filePath)) {
@@ -2025,14 +2234,20 @@ export function validateDocs(options = {}) {
 
     validateComponentDocFileName(filePath, report);
     validateComponentFrontmatter(filePath, frontmatter, report);
-    validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report, specResolution);
+    validateMarkdownTraceabilityNodeId(
+      filePath,
+      frontmatter,
+      specRoot,
+      report,
+      specResolution,
+    );
     validateGeneratedTraceability(
       filePath,
       frontmatter,
       specRoot,
       registryPath,
       report,
-      specResolution
+      specResolution,
     );
     validateGapsSectionContract(
       filePath,
@@ -2041,7 +2256,7 @@ export function validateDocs(options = {}) {
       registry,
       report,
       lineStarts,
-      specResolution
+      specResolution,
     );
     validateReadyLifecycleConsistency(
       filePath,
@@ -2050,18 +2265,37 @@ export function validateDocs(options = {}) {
       specRoot,
       report,
       lineStarts,
-      specResolution
+      specResolution,
     );
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset, {
       allowExtraH2,
     });
     validateVariableIds(filePath, raw, report, lineStarts);
-    validateTokenReferences(filePath, content, registryIndexes, report, lineStarts, contentOffset);
-    validateTokenFallbacks(filePath, content, registryIndexes, report, lineStarts, contentOffset);
+    validateTokenReferences(
+      filePath,
+      content,
+      registryIndexes,
+      report,
+      lineStarts,
+      contentOffset,
+    );
+    validateTokenFallbacks(
+      filePath,
+      content,
+      registryIndexes,
+      report,
+      lineStarts,
+      contentOffset,
+    );
   }
 
   if (checkSpecs) {
-    validateSpecYamlFiles(specRoot, report, registryIndexes, explicitSpecFilePath);
+    validateSpecYamlFiles(
+      specRoot,
+      report,
+      registryIndexes,
+      explicitSpecFilePath,
+    );
   }
 
   if (checkOverview) {
