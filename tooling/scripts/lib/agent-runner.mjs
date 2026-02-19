@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { commandExists } from "./command-exists.mjs";
+import { logger } from "./logger.mjs";
 
 function run(command, args, options = {}) {
   return spawnSync(command, args, {
@@ -91,6 +92,9 @@ function writePromptFallback(prompt, label) {
 export function runAgentPrompt({ prompt, agent, label, passthrough = true }) {
   const cwd = process.cwd();
   const selectedAgent = pickAgent(agent);
+  logger.debug(
+    `runAgentPrompt: selected agent="${selectedAgent || "none"}" (requested="${String(agent || "auto")}").`,
+  );
   if (!selectedAgent) {
     const promptPath = writePromptFallback(prompt, label);
     throw new Error(
@@ -109,6 +113,9 @@ export function runAgentPrompt({ prompt, agent, label, passthrough = true }) {
   const installedCandidates = candidates.filter((candidate) =>
     commandExists(candidate.command),
   );
+  logger.debug(
+    `runAgentPrompt: ${installedCandidates.length}/${candidates.length} candidate command variants available for "${selectedAgent}".`,
+  );
   if (!installedCandidates.length) {
     const promptPath = writePromptFallback(prompt, label);
     throw new Error(
@@ -119,6 +126,9 @@ export function runAgentPrompt({ prompt, agent, label, passthrough = true }) {
   let lastFailure = null;
 
   for (const candidate of installedCandidates) {
+    logger.debug(
+      `runAgentPrompt: trying "${candidate.command} ${candidate.args.join(" ")}"`,
+    );
     const result = run(candidate.command, candidate.args, {
       stdio: "pipe",
       cwd,
@@ -141,6 +151,9 @@ export function runAgentPrompt({ prompt, agent, label, passthrough = true }) {
     }
 
     lastFailure = { candidate, result };
+    logger.debug(
+      `runAgentPrompt: candidate failed with status=${String(result.status ?? "unknown")}.`,
+    );
 
     if (isLikelyCliShapeError(result)) {
       continue;
