@@ -28,6 +28,7 @@ npm install
 - **`npm run generate:registry`**: Executes the same token pipeline and also exports `docs/_generated/token-registry.json` for documentation validation.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 - **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
+- **`npm run ds:token-diff`**: Compares current token registry with a previous version (file or git ref), groups changes (`Added`, `Modified`, `Removed`), and classifies breaking vs non-breaking diffs.
 
 ### Usage
 
@@ -110,6 +111,22 @@ Incremental sync example:
 
 ```bash
 npm run ds:tokens-sync
+```
+
+Token diff examples:
+
+```bash
+# Compare against HEAD registry snapshot
+npm run ds:token-diff
+
+# Compare against an explicit previous file and write artifacts
+npm run ds:token-diff -- \
+  --before docs/_generated/token-registry.prev.json \
+  --out-json docs/_generated/token-diffs/latest.json \
+  --out-md docs/_generated/token-diffs/latest.md
+
+# Fail CI when breaking changes exist
+npm run ds:token-diff -- --strict true
 ```
 
 ### Typography unit coercion (runtime)
