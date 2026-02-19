@@ -598,6 +598,11 @@ function validateGeneratedTraceability(
 ) {
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   if (!spec.exists || spec.parseError) return;
+  const regenerateCommand = buildTraceabilityRegenerationCommand({
+    markdownPath: filePath,
+    specPath: spec.specPath,
+    registryPath,
+  });
 
   const pipeline = isPlainObject(frontmatter.pipeline) ? frontmatter.pipeline : null;
   const dsDoc = pipeline && isPlainObject(pipeline.ds_component_doc) ? pipeline.ds_component_doc : null;
@@ -606,7 +611,8 @@ function validateGeneratedTraceability(
       code: "TRACE02",
       file: filePath,
       message:
-        "Missing frontmatter `pipeline.ds_component_doc` traceability block. Regenerate markdown via `ds:component-doc`.",
+        "Missing frontmatter `pipeline.ds_component_doc` traceability block. Regenerate markdown using the suggested command.",
+      suggested: regenerateCommand,
     });
     return;
   }
@@ -618,7 +624,8 @@ function validateGeneratedTraceability(
       file: filePath,
       message:
         `Unsupported traceability contract version: \`${contractVersion || "<missing>"}\`. ` +
-        `Expected \`${TRACEABILITY_CONTRACT_VERSION}\`.`,
+        `Expected \`${TRACEABILITY_CONTRACT_VERSION}\`. Regenerate markdown using the suggested command.`,
+      suggested: regenerateCommand,
     });
   }
 
@@ -636,7 +643,10 @@ function validateGeneratedTraceability(
       report.errors.push({
         code: "TRACE02",
         file: filePath,
-        message: `Missing frontmatter traceability field: pipeline.ds_component_doc.${field}.`,
+        message:
+          `Missing frontmatter traceability field: pipeline.ds_component_doc.${field}. ` +
+          "Regenerate markdown using the suggested command.",
+        suggested: regenerateCommand,
       });
       continue;
     }
@@ -645,7 +655,9 @@ function validateGeneratedTraceability(
         code: "TRACE02",
         file: filePath,
         message:
-          `Invalid hash format in pipeline.ds_component_doc.${field}; expected a 64-char sha256 hex string.`,
+          `Invalid hash format in pipeline.ds_component_doc.${field}; expected a 64-char sha256 hex string. ` +
+          "Regenerate markdown using the suggested command.",
+        suggested: regenerateCommand,
       });
       continue;
     }
@@ -654,9 +666,10 @@ function validateGeneratedTraceability(
         code: "TRACE02",
         file: filePath,
         message:
-          `Traceability drift in pipeline.ds_component_doc.${field}. Regenerate markdown via ds-component-doc.`,
+          `Traceability drift in pipeline.ds_component_doc.${field}. Regenerate markdown using the suggested command.`,
         expected: expectedValue,
         actual: actualValue,
+        suggested: regenerateCommand,
       });
     }
   }
@@ -1448,6 +1461,22 @@ function normalizeNodeId(raw) {
     if (parts.length === 2) return `${parts[0]}:${parts[1]}`;
   }
   return value;
+}
+
+function toCliPath(filePath) {
+  const resolved = path.resolve(String(filePath || ""));
+  const relative = path.relative(process.cwd(), resolved);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    return resolved;
+  }
+  return relative;
+}
+
+function buildTraceabilityRegenerationCommand({ markdownPath, specPath, registryPath }) {
+  const specArg = JSON.stringify(toCliPath(specPath));
+  const outputArg = JSON.stringify(toCliPath(markdownPath));
+  const registryArg = JSON.stringify(toCliPath(registryPath));
+  return `npm run ds:component-doc -- --spec-file ${specArg} --output ${outputArg} --registry ${registryArg} --force true`;
 }
 
 const FILE_HASH_CACHE = new Map();
