@@ -2163,10 +2163,13 @@ export function validateDocs(options = {}) {
     ? path.resolve(options.filePath)
     : null;
   const allowExtraH2 = options.allowExtraH2 === true;
+  const checkPairing = options.checkPairing !== false;
   const checkOverview = explicitFilePath
     ? false
     : options.checkOverview !== false;
-  const checkSpecs = explicitFilePath ? false : options.checkSpecs !== false;
+  const checkSpecs =
+    options.checkSpecs !== false &&
+    (!explicitFilePath || Boolean(explicitSpecFilePath));
 
   const report = createBaseReport();
   const manifestInfo = loadRuleManifest(
@@ -2207,15 +2210,17 @@ export function validateDocs(options = {}) {
     (filePath) => path.basename(filePath) !== "overview.md",
   );
 
-  validateSpecMarkdownPairing({
-    componentFiles,
-    docsRoot,
-    specRoot,
-    checkSpecs,
-    explicitSpecFilePath,
-    explicitFilePath,
-    report,
-  });
+  if (checkPairing) {
+    validateSpecMarkdownPairing({
+      componentFiles,
+      docsRoot,
+      specRoot,
+      checkSpecs,
+      explicitSpecFilePath,
+      explicitFilePath,
+      report,
+    });
+  }
 
   const specResolution =
     explicitFilePath && explicitSpecFilePath

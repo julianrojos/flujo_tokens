@@ -36,6 +36,7 @@ function validateSpecPreflight(specPath, tokenRegistryPath) {
     registryPath: tokenRegistryPath,
     checkOverview: false,
     checkSpecs: true,
+    checkPairing: false,
     specFilePath: specPath,
   });
 

@@ -556,6 +556,7 @@ function validateGeneratedSpec(outputPath, registryPath) {
     registryPath,
     checkOverview: false,
     checkSpecs: true,
+    checkPairing: false,
     specFilePath: outputPath,
   });
 

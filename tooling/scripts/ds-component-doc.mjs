@@ -108,6 +108,7 @@ function validateSpecPreflight(specPath, registryPath) {
     registryPath,
     checkOverview: false,
     checkSpecs: true,
+    checkPairing: false,
   });
 
   if (report.ok) return;
