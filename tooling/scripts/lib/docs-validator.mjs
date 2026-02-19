@@ -1113,6 +1113,49 @@ function validateOverviewLinks(docsRoot, componentFiles, report) {
   }
 }
 
+function validateSpecMarkdownPairing({
+  componentFiles,
+  docsRoot,
+  specRoot,
+  checkSpecs,
+  explicitSpecFilePath,
+  report,
+}) {
+  const componentSet = new Set(componentFiles.map((filePath) => path.resolve(filePath)));
+
+  for (const componentFile of componentFiles) {
+    const slug = path.basename(componentFile, path.extname(componentFile));
+    const expectedSpecPath = path.resolve(specRoot, `${slug}.yml`);
+    if (fs.existsSync(expectedSpecPath)) continue;
+    report.errors.push({
+      code: "PAIR01",
+      file: componentFile,
+      message:
+        "Component markdown must have a matching spec YAML file: " +
+        `${path.relative(process.cwd(), expectedSpecPath)}.`,
+    });
+  }
+
+  const specFilesForPairing = explicitSpecFilePath
+    ? [path.resolve(explicitSpecFilePath)]
+    : checkSpecs
+    ? collectSpecFiles(specRoot)
+    : [];
+
+  for (const specFile of specFilesForPairing) {
+    const slug = path.basename(specFile, path.extname(specFile));
+    const expectedMarkdownPath = path.resolve(docsRoot, `${slug}.md`);
+    if (componentSet.has(expectedMarkdownPath) || fs.existsSync(expectedMarkdownPath)) continue;
+    report.errors.push({
+      code: "PAIR01",
+      file: specFile,
+      message:
+        "Component spec YAML must have a matching markdown file: " +
+        `${path.relative(process.cwd(), expectedMarkdownPath)}.`,
+    });
+  }
+}
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
@@ -1459,6 +1502,15 @@ export function validateDocs(options = {}) {
   const markdownFiles = collectMarkdownFiles(docsRoot, explicitFilePath);
   const overviewFiles = markdownFiles.filter((filePath) => path.basename(filePath) === "overview.md");
   const componentFiles = markdownFiles.filter((filePath) => path.basename(filePath) !== "overview.md");
+
+  validateSpecMarkdownPairing({
+    componentFiles,
+    docsRoot,
+    specRoot,
+    checkSpecs,
+    explicitSpecFilePath,
+    report,
+  });
 
   for (const filePath of markdownFiles) {
     if (!fs.existsSync(filePath)) {

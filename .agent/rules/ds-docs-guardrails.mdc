@@ -30,6 +30,9 @@ globs:
 - Canonical order is mandatory: `(1) spec YAML -> (2) component markdown -> (3) Figma section render (optional)`.
 - Step `(2)` must not run without a valid spec file at `docs/_spec/components/<snake_case>.yml` (or explicit `--spec-file`).
 - Step `(3)` must not run without an existing markdown file at `docs/components/<snake_case>.md` (or explicit `--markdown`).
+- Component docs and specs must keep a strict 1:1 mapping by filename slug:
+  - `docs/components/<snake_case>.md` <-> `docs/_spec/components/<snake_case>.yml`
+  - no markdown without spec, and no spec without markdown.
 - Use fail-fast behavior for precondition errors: stop immediately and return an actionable error message with the next command to run.
 - Validation is a gate, not a recommendation:
   - After step `(1)`, run docs validation for the generated spec and block on errors.

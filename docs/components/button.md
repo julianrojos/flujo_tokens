@@ -199,8 +199,5 @@ Current variant dimensions in Figma:
 
 ## Gaps / TBD
 
-- Minimum width token binding is unresolved in current Figma variable metadata (`minWidth` token name returns `null`).
-- Icon color token mapping is not directly exposed at the `Button` component-set level (icons are nested instances).
-- Focus-state visual token mapping is not represented as a dedicated variant axis.
-- Label-length and truncation policy for long button text are not specified in the current component set metadata.
-- Contrast verification results are pending accessibility audit.
+- [ ] [SCHEMA_TBD] `token_mapping.container.min_width.default` is `TBD`. Specification value is unresolved.
+- [ ] [SCHEMA_TBD] `token_mapping.icon.color.default` is `TBD`. Specification value is unresolved.
