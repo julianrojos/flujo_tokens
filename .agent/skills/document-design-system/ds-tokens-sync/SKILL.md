@@ -1,10 +1,10 @@
 ---
 name: ds-tokens-sync
-description: Generate deterministic Markdown docs from Figma Variables token JSON exports (Primitives, Typography, Semantic, Components, A11y), including alias resolution and warnings.
-version: "1.1.0"
+description: Regenerate token CSS outputs and token registry from JSON inputs using the project CLI.
+version: "1.2.0"
 requires_rules:
   - ds-docs-guardrails: ">=1.0.0"
-  - token-references: ">=1.0.0"
+  - token-registry-validation: ">=1.0.0"
 compatible_agents:
   - codex
   - claude
@@ -17,107 +17,64 @@ compatible_agents:
 
 Use this skill when:
 
-- Token JSON exports changed
-- You need updated inventories, alias resolution, and modes docs
-- You want a stable, non-hand-edited “generated” section for Foundations/Components to link to
+- Token JSON exports changed in `input/`
+- You need refreshed token CSS outputs
+- You need an updated `docs/_generated/token-registry.json` before docs validation
 
 ## Inputs (ask only if missing)
 
-- `docs_root` (default: `docs/`)
-- `token_files` (default list below; user may override)
-  - `_Primitives.json`
-  - `_Typography.json`
-  - `Semantic.json`
-  - `Components.json`
-  - `A11y.json`
+- `input_dir` (default: `input/`)
+- `single` (default: `false`; when `true`, emits one CSS file)
+- `force` (default: `false`; bypasses cache skip)
 
 ## Applicable rules
 
 This skill must produce output that complies with:
 
-- `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
-- `token-references.mdc` — token path formatting and naming patterns in generated tables
+- `ds-docs-guardrails.mdc` — generated artifacts are deterministic and not hand-edited
+- `token-registry-validation.mdc` — downstream docs/spec token references rely on this registry
 
 ## Required behavior
 
-- Read all provided token files
-- Do not invent meaning; only document what is present
-- Token paths in generated tables must follow the formatting conventions in `token-references.mdc` (inline code, grouped by semantic category)
-- Detect and report:
-  - Unresolved `{alias}` references
-  - Circular alias chains
-  - Duplicate token keys (if present across files)
-- Keep ordering stable and predictable (alphabetical within groups)
+1. Verify `input_dir` contains `.json` token files.
+2. Run the project command (`ds:tokens-sync`) with requested flags.
+3. Preserve deterministic outputs and cache behavior (`--force true` only when needed).
+4. Do not claim markdown inventory artifacts from this command.
 
-## Alias resolution rules
+## Outputs
 
-- Treat any `$value` like `{Some.Path.To.Token}` as an alias
-- Resolve recursively until:
-  - a concrete value is found, or
-  - resolution fails, or
-  - a cycle is detected
-- For each alias token, record:
-  - `alias_of` (direct)
-  - `chain` (A → B → C)
-  - `resolves_to` (final concrete value if possible)
+Default split mode (`single=false`):
 
-## Outputs (write to ${docs_root}/\_generated/)
+- `output/primitives.css`
+- `output/tokens.css`
+- `docs/_generated/token-registry.json`
 
-Generate (overwrite these files each run):
+Single mode (`single=true`):
 
-1. `${docs_root}/_generated/tokens.inventory.md`
-2. `${docs_root}/_generated/tokens.alias-resolution.md`
-3. `${docs_root}/_generated/a11y.modes.md`
+- `output/custom-properties.css`
+- `docs/_generated/token-registry.json`
 
-### tokens.inventory.md (structure)
+Non-goal:
 
-- Heading + sources (list of JSON files)
-- “Observed namespaces / tiers” (what top-level groups exist)
-- Inventory tables grouped by:
-  - Color
-  - Typography
-  - Dimension (spacing/sizing/radius/border widths/hit area tokens)
-  - Elevation/Shadow
-  - Other (whatever exists)
-- Each table row:
-  - Token path (in code formatting)
-  - Raw value (as in JSON)
-  - Notes (empty unless explicitly inferable)
+- This command does **not** generate markdown inventory files such as `tokens.inventory.md` or `tokens.alias-resolution.md`.
 
-### tokens.alias-resolution.md (structure)
-
-- Summary counts: total tokens, aliases, resolved, unresolved, cycles
-- Table:
-  - Token
-  - alias_of
-  - chain
-  - resolves_to
-  - status (resolved/unresolved/cycle)
-
-### a11y.modes.md (structure)
-
-- Document any mode/grouping patterns present (e.g., desktop/mobile modes)
-- Extract any hit-area minimums or A11y dimensions if explicitly present
-- Do not assert WCAG compliance; only state values found
-
-## End with a Doc report
-
-Print:
-
-- Generated files list
-- Counts + warnings list
-- Top 5 unresolved/cycle examples
-
-## Incremental execution (CLI)
-
-Use the project command for change detection:
+## Commands
 
 ```bash
 npm run ds:tokens-sync
 ```
 
-Force regeneration:
-
 ```bash
 npm run ds:tokens-sync -- --force true
 ```
+
+```bash
+npm run ds:tokens-sync -- --single true
+```
+
+## End with a brief report
+
+- Mode used (`split` or `single`)
+- Input directory and JSON file count
+- Output files generated (or skipped due to cache)
+- Suggested next step (`validate:docs`, `ds:component-doc`, or `ds:spec-from-figma`)

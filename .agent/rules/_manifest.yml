@@ -360,4 +360,4 @@ matrix:
         markdown-lifecycle-status,
         docs-pipeline-contract,
       ]
-    ds-tokens-sync: [token-references, ds-docs-guardrails]
+    ds-tokens-sync: [token-registry-validation, ds-docs-guardrails]

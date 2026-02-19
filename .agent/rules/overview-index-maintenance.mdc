@@ -2,7 +2,6 @@
 description: Keeps section overview/index pages synchronized when component or foundation docs change.
 globs:
   - "docs/components/*.md"
-  - "docs/foundations/*.md"
   - "docs/**/overview.md"
 ---
 
@@ -23,10 +22,11 @@ When a component/foundation page is created, deleted, or renamed, update its ove
 - Ensure links point to existing files.
 - For exact format/order/uniqueness constraints, follow `overview-components-canonical-list.mdc`.
 
-## Foundations
+## Foundations (optional section)
 
 - Source pages: `docs/foundations/*.md` (excluding `overview.md`)
 - Index page: `docs/foundations/overview.md`
+- Apply this block only when `docs/foundations/` exists in the repository.
 - Keep link lists updated and remove stale entries.
 
 ## Consistency checks

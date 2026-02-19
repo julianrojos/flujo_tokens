@@ -1,7 +1,7 @@
 ---
 name: ds-init-docs
-description: Bootstrap a Markdown documentation site for a Design System (Get Started, Foundations, Components, A11y) without code, designed for Figma-first teams.
-version: "1.2.0"
+description: Bootstrap a Markdown documentation structure for a Design System with a components-first baseline and optional extra sections.
+version: "1.3.0"
 requires_rules:
   - ds-docs-guardrails: ">=1.0.0"
   - docs-taxonomy: ">=1.0.0"
@@ -20,26 +20,30 @@ compatible_agents:
 Use this skill when the user wants to:
 
 - Start documenting a Design System in Markdown in the repo
-- Create a consistent IA: Get Started → Foundations → Components → A11y
-- Set up folder structure + index pages + navigation stubs
+- Establish the baseline structure required by the current docs pipeline
+- Optionally scaffold extra IA sections (Foundations, workflows, accessibility overviews)
 
 ## Inputs (ask only if missing)
 
 - `docs_root` (default: `docs/`)
 - `system_name` (default: `Iter`)
+- `include_optional_sections` (default: `false`)
 - `repo_conventions` (optional: preferred naming, language, tone)
 
 ## Output (files to create if missing)
 
-Create these files/directories (do not overwrite if already present; append safely if needed):
+Baseline outputs (always):
 
-- `${docs_root}/index.md`
-- `${docs_root}/get-started/overview.md`
-- `${docs_root}/foundations/overview.md`
 - `${docs_root}/components/overview.md`
-- `${docs_root}/a11y/overview.md`
 - `${docs_root}/_generated/` (empty dir; generated docs later)
 - `${docs_root}/_spec/components/` (empty dir; component specs live here)
+
+Optional outputs (`include_optional_sections=true` or explicit user request):
+
+- `${docs_root}/index.md`
+- `${docs_root}/foundations/overview.md`
+- `${docs_root}/workflows/overview.md`
+- `${docs_root}/a11y/overview.md`
 
 ## Applicable rules
 
@@ -63,29 +67,7 @@ All generated documentation must comply with:
 
 ## Templates (write directly into the created files)
 
-### ${docs_root}/index.md
-
-- Title: `${system_name}`
-- Sections:
-  - Get started (links)
-  - Foundations (links)
-  - Components (links)
-  - Accessibility (links)
-  - How docs are generated (tokens vs specs)
-
-### ${docs_root}/get-started/overview.md
-
-- What is the DS
-- Who it’s for
-- How to navigate docs
-- Contribution flow (high level)
-
-### ${docs_root}/foundations/overview.md
-
-- What foundations cover
-- Link list of foundation pages (to be created/maintained by ds-foundations)
-
-### ${docs_root}/components/overview.md
+### Baseline: ${docs_root}/components/overview.md
 
 - One-page-per-component policy
 - Each component page follows the structure defined in `component-doc-structure.mdc` (required frontmatter + ordered sections)
@@ -94,7 +76,28 @@ All generated documentation must comply with:
   2. Run ds-component-doc
 - Definition of done checklist (short)
 
-### ${docs_root}/a11y/overview.md
+### Optional: ${docs_root}/index.md
+
+- Title: `${system_name}`
+- Sections:
+  - Components (links)
+  - Foundations (links, if enabled)
+  - Workflows (links, if enabled)
+  - Accessibility (links, if enabled)
+  - How docs are generated (tokens vs specs)
+
+### Optional: ${docs_root}/foundations/overview.md
+
+- What foundations cover
+- Link list of foundation pages (to be created/maintained by ds-foundations)
+
+### Optional: ${docs_root}/workflows/overview.md
+
+- Workflow index for maintenance runbooks
+- Links to docs generation and validation flows
+- Ownership and update policy
+
+### Optional: ${docs_root}/a11y/overview.md
 
 - Accessibility goals
 - What is documented here (focus, hit area, color contrast notes) — per `accessibility-docs.mdc`
@@ -106,4 +109,4 @@ After writing files, output:
 
 - Created files list
 - Files skipped (already existed)
-- Next suggested step: run `ds-tokens-sync`, then `ds-foundations`
+- Next suggested step: run `ds:tokens-sync`, then `ds-component-doc`

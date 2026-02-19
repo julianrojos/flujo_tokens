@@ -2,7 +2,6 @@
 description: Standard section for documenting Design <-> Token mismatches in component and foundation docs.
 globs:
   - "docs/components/*.md"
-  - "docs/foundations/*.md"
 ---
 
 # Design <-> Token discrepancies
@@ -13,6 +12,7 @@ Use a dedicated section to track mismatches between Figma design intent and toke
 
 - Section title: `## Design–Token Discrepancies`
 - Component docs: place after `## Related Components` and before `## Gaps / TBD` (see `component-doc-structure.mdc`).
+- Foundations docs may reuse this section when a foundations section exists in the repo.
 - If no discrepancies exist, omit the section entirely.
 
 ## Required table format

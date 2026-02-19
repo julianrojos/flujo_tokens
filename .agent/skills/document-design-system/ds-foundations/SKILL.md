@@ -1,7 +1,7 @@
 ---
 name: ds-foundations
-description: Build Foundations pages (Color, Typography, Spacing/Sizing, Elevation, Iconography, A11y) in Markdown, linking to generated token inventories and avoiding invented guidance.
-version: "1.2.0"
+description: Build optional Foundations pages (Color, Typography, Spacing/Sizing, Elevation, Iconography, A11y) in Markdown using the token registry as source of truth.
+version: "1.3.0"
 requires_rules:
   - ds-docs-guardrails: ">=1.0.0"
   - docs-taxonomy: ">=1.0.0"
@@ -23,7 +23,8 @@ compatible_agents:
 Use this skill when:
 
 - You want “Foundations” docs that read like a Design System site (not a token dump)
-- Tokens exist and `ds-tokens-sync` has generated `_generated/*`
+- `docs/foundations/` exists, or the user explicitly asks to create it
+- Tokens exist and `ds:tokens-sync` has generated `docs/_generated/token-registry.json`
 - You want consistent pages: purpose + structure + relevant token groups + TBD gaps
 
 ## Inputs (ask only if missing)
@@ -33,11 +34,13 @@ Use this skill when:
 
 ## Dependencies
 
-- Requires `${docs_root}/_generated/tokens.inventory.md` and `${docs_root}/_generated/tokens.alias-resolution.md`
-- If missing, instruct to run `ds-tokens-sync` first and STOP
+- Requires `${docs_root}/_generated/token-registry.json`
+- Optional supporting artifacts (if present): `${docs_root}/_generated/tokens.inventory.md`, `${docs_root}/_generated/tokens.alias-resolution.md`, `${docs_root}/_generated/a11y.modes.md`
+- If missing, instruct to run `ds:tokens-sync` first and STOP
 
 ## Output files (create/update)
 
+- Apply only when foundations docs are requested for this repo.
 - `${docs_root}/foundations/color.md`
 - `${docs_root}/foundations/typography.md`
 - `${docs_root}/foundations/spacing-sizing.md`
@@ -62,7 +65,7 @@ This skill must produce output that complies with:
 
 - Do not invent usage rules.
 - If a guideline is not explicitly supported by naming or metadata, mark `TBD` and list what's needed.
-- Always link to `_generated/` for the authoritative token tables.
+- Always link to `_generated/token-registry.json` as the authoritative token source.
 - Token paths in foundation pages must follow `token-references.mdc` (inline code + fallback).
 
 ## Page patterns (fixed sections)
@@ -73,8 +76,9 @@ This skill must produce output that complies with:
 2. Semantic model (Background/Surface/Action/Text/Icon/Focus etc. if present)
 3. Key token groups (list the relevant token prefixes, not every token)
 4. “See also” links:
-   - `_generated/tokens.inventory.md`
-   - `_generated/tokens.alias-resolution.md`
+   - `_generated/token-registry.json`
+   - `_generated/tokens.inventory.md` (optional if available)
+   - `_generated/tokens.alias-resolution.md` (optional if available)
 5. Gaps / TBD
 
 ### typography.md
@@ -101,14 +105,14 @@ This skill must produce output that complies with:
 
 1. What’s documented here (guidelines + token hooks)
 2. Icon color tokens (if present)
-3. Minimum hit area link to a11y.modes
+3. Minimum hit area values from registry (if present)
 4. Asset inventory policy (TBD unless repo has assets folder)
 5. Gaps / TBD
 
 ### a11y.md
 
 1. A11y foundations (scope)
-2. Modes (link `_generated/a11y.modes.md`)
+2. Modes (link `_generated/a11y.modes.md` if available)
 3. Focus indicator tokens (if present) — follow `accessibility-docs.mdc` for focus outline token conventions
 4. Touch targets (values only) — reference A11y hit area tokens per `accessibility-docs.mdc`
 5. Gaps / TBD
