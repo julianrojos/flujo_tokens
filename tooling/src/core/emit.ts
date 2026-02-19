@@ -12,6 +12,7 @@ import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
 import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, buildPathKey } from '../utils/paths.js';
 import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName } from '../utils/strings.js';
 import { coerceTypographyDimension, coerceBorderDimension } from '../utils/coerce.js';
+import { withPathSegment } from '../utils/path-stack.js';
 
 function replaceW3cReferences(
     input: string,
@@ -224,17 +225,13 @@ export function findTokenById(
         const value = (tokensData as any)[key];
 
         if (isPlainObject(value)) {
-            currentPath.push(key);
-            try {
+            const found = withPathSegment(currentPath, key, () => {
                 if ('$id' in value && matchesId((value as any).$id)) {
                     return currentPath.slice();
                 }
-
-                const found = findTokenById(value as Record<string, any>, target, currentPath, depth + 1);
-                if (found) return found;
-            } finally {
-                currentPath.pop();
-            }
+                return findTokenById(value as Record<string, any>, target, currentPath, depth + 1);
+            });
+            if (found) return found;
         }
     }
 
@@ -543,9 +540,7 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
     const colorPart = (() => {
         if (rawColor == null) return 'rgba(0, 0, 0, 1)';
 
-        const baseLen = currentPath.length;
-        currentPath.push('color');
-        try {
+        return withPathSegment(currentPath, 'color', () => {
             if (isVariableAlias(rawColor)) {
                 return processVariableAlias(ctx, rawColor, currentPath, visitedRefs);
             }
@@ -583,9 +578,7 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
 
             console.warn(`⚠️  Unsupported shadow color format at ${pathStr(currentPath)}; defaulting to black`);
             return 'rgba(0, 0, 0, 1)';
-        } finally {
-            currentPath.length = baseLen;
-        }
+        });
     })();
 
     if (type === 'INNER_SHADOW') return `inset ${offsetXStr} ${offsetYStr} ${radiusStr} ${spreadStr} ${colorPart}`;
