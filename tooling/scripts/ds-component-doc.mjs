@@ -310,6 +310,7 @@ function main() {
     if (!skipValidation) {
       const report = validateDocs({
         filePath: outputPath,
+        specFilePath: specPath,
         registryPath,
         checkOverview: false,
         checkSpecs: false,

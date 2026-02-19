@@ -465,9 +465,12 @@ function validateOverviewFrontmatter(filePath, frontmatter, report) {
   validateFrontmatter(filePath, frontmatter, report);
 }
 
-function readComponentSpecByDocPath(componentDocPath, specRoot) {
+function readComponentSpecByDocPath(componentDocPath, specRoot, options = {}) {
+  const explicitSpecFilePath = options.specFilePath
+    ? path.resolve(String(options.specFilePath))
+    : "";
   const fileBase = path.basename(componentDocPath, path.extname(componentDocPath));
-  const specPath = path.join(specRoot, `${fileBase}.yml`);
+  const specPath = explicitSpecFilePath || path.join(specRoot, `${fileBase}.yml`);
   if (!fs.existsSync(specPath)) {
     return {
       specPath,
@@ -509,7 +512,13 @@ function readComponentSpecByDocPath(componentDocPath, specRoot) {
   }
 }
 
-function validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report) {
+function validateMarkdownTraceabilityNodeId(
+  filePath,
+  frontmatter,
+  specRoot,
+  report,
+  specResolution = {}
+) {
   const figma = isPlainObject(frontmatter.figma) ? frontmatter.figma : {};
   const markdownNodeIdRaw = String(figma.component_set_node_id || "").trim();
   if (!markdownNodeIdRaw) return;
@@ -534,7 +543,7 @@ function validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, rep
     return;
   }
 
-  const spec = readComponentSpecByDocPath(filePath, specRoot);
+  const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   if (!spec.exists) {
     report.errors.push({
       code: "TRACE01",
@@ -579,8 +588,15 @@ function validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, rep
   }
 }
 
-function validateGeneratedTraceability(filePath, frontmatter, specRoot, registryPath, report) {
-  const spec = readComponentSpecByDocPath(filePath, specRoot);
+function validateGeneratedTraceability(
+  filePath,
+  frontmatter,
+  specRoot,
+  registryPath,
+  report,
+  specResolution = {}
+) {
+  const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   if (!spec.exists || spec.parseError) return;
 
   const pipeline = isPlainObject(frontmatter.pipeline) ? frontmatter.pipeline : null;
@@ -646,8 +662,16 @@ function validateGeneratedTraceability(filePath, frontmatter, specRoot, registry
   }
 }
 
-function validateGapsSectionContract(filePath, rawMarkdown, specRoot, registry, report, lineStarts) {
-  const spec = readComponentSpecByDocPath(filePath, specRoot);
+function validateGapsSectionContract(
+  filePath,
+  rawMarkdown,
+  specRoot,
+  registry,
+  report,
+  lineStarts,
+  specResolution = {}
+) {
+  const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   const section = extractGapsSection(rawMarkdown);
 
   if (!spec.exists) {
@@ -783,11 +807,19 @@ function findDiscrepancyStatuses(rawMarkdown) {
   return matches;
 }
 
-function validateReadyLifecycleConsistency(filePath, rawMarkdown, frontmatter, specRoot, report, lineStarts) {
+function validateReadyLifecycleConsistency(
+  filePath,
+  rawMarkdown,
+  frontmatter,
+  specRoot,
+  report,
+  lineStarts,
+  specResolution = {}
+) {
   const docStatus = String(frontmatter.doc_status || "").trim().toLowerCase();
   const figma = isPlainObject(frontmatter.figma) ? frontmatter.figma : {};
   const lastVerified = String(figma.last_verified || "").trim();
-  const spec = readComponentSpecByDocPath(filePath, specRoot);
+  const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   const specStatus = String(spec.status || "").trim().toLowerCase();
 
   if (docStatus === "ready") {
@@ -1335,11 +1367,29 @@ function validateSpecMarkdownPairing({
   specRoot,
   checkSpecs,
   explicitSpecFilePath,
+  explicitFilePath,
   report,
 }) {
   const componentSet = new Set(componentFiles.map((filePath) => path.resolve(filePath)));
+  const explicitPairMode = Boolean(explicitFilePath && explicitSpecFilePath);
+  const resolvedExplicitFilePath = explicitFilePath ? path.resolve(explicitFilePath) : "";
+  const resolvedExplicitSpecFilePath = explicitSpecFilePath
+    ? path.resolve(explicitSpecFilePath)
+    : "";
 
   for (const componentFile of componentFiles) {
+    if (explicitPairMode && path.resolve(componentFile) === resolvedExplicitFilePath) {
+      if (fs.existsSync(resolvedExplicitSpecFilePath)) continue;
+      report.errors.push({
+        code: "PAIR01",
+        file: componentFile,
+        message:
+          "Component markdown must have a matching spec YAML file: " +
+          `${path.relative(process.cwd(), resolvedExplicitSpecFilePath)}.`,
+      });
+      continue;
+    }
+
     const slug = path.basename(componentFile, path.extname(componentFile));
     const expectedSpecPath = path.resolve(specRoot, `${slug}.yml`);
     if (fs.existsSync(expectedSpecPath)) continue;
@@ -1359,6 +1409,19 @@ function validateSpecMarkdownPairing({
     : [];
 
   for (const specFile of specFilesForPairing) {
+    if (explicitPairMode && path.resolve(specFile) === resolvedExplicitSpecFilePath) {
+      const expectedMarkdownPath = resolvedExplicitFilePath;
+      if (componentSet.has(expectedMarkdownPath) || fs.existsSync(expectedMarkdownPath)) continue;
+      report.errors.push({
+        code: "PAIR01",
+        file: specFile,
+        message:
+          "Component spec YAML must have a matching markdown file: " +
+          `${path.relative(process.cwd(), expectedMarkdownPath)}.`,
+      });
+      continue;
+    }
+
     const slug = path.basename(specFile, path.extname(specFile));
     const expectedMarkdownPath = path.resolve(docsRoot, `${slug}.md`);
     if (componentSet.has(expectedMarkdownPath) || fs.existsSync(expectedMarkdownPath)) continue;
@@ -1802,8 +1865,13 @@ export function validateDocs(options = {}) {
     specRoot,
     checkSpecs,
     explicitSpecFilePath,
+    explicitFilePath,
     report,
   });
+
+  const specResolution = explicitFilePath && explicitSpecFilePath
+    ? { specFilePath: explicitSpecFilePath }
+    : {};
 
   for (const filePath of markdownFiles) {
     if (!fs.existsSync(filePath)) {
@@ -1829,10 +1897,33 @@ export function validateDocs(options = {}) {
 
     validateComponentDocFileName(filePath, report);
     validateComponentFrontmatter(filePath, frontmatter, report);
-    validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report);
-    validateGeneratedTraceability(filePath, frontmatter, specRoot, registryPath, report);
-    validateGapsSectionContract(filePath, raw, specRoot, registry, report, lineStarts);
-    validateReadyLifecycleConsistency(filePath, raw, frontmatter, specRoot, report, lineStarts);
+    validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report, specResolution);
+    validateGeneratedTraceability(
+      filePath,
+      frontmatter,
+      specRoot,
+      registryPath,
+      report,
+      specResolution
+    );
+    validateGapsSectionContract(
+      filePath,
+      raw,
+      specRoot,
+      registry,
+      report,
+      lineStarts,
+      specResolution
+    );
+    validateReadyLifecycleConsistency(
+      filePath,
+      raw,
+      frontmatter,
+      specRoot,
+      report,
+      lineStarts,
+      specResolution
+    );
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset, {
       allowExtraH2,
     });

@@ -236,6 +236,7 @@ function main() {
   if (!skipValidation) {
     const validationReport = validateDocs({
       filePath: markdownPath,
+      specFilePath: specPath,
       checkOverview: false,
       registryPath: tokenRegistryPath,
     });
