@@ -43,10 +43,11 @@ function formatMarkdown(outputPath) {
   }
 }
 
-function validateSpecPreflight(specPath) {
+function validateSpecPreflight(specPath, registryPath) {
   const report = validateDocs({
     docsRoot: path.join(PROJECT_ROOT, "__docs_validation_stub__"),
     specFilePath: specPath,
+    registryPath,
     checkOverview: false,
     checkSpecs: true,
   });
@@ -209,7 +210,7 @@ function main() {
 
   if (!skipValidation) {
     try {
-      validateSpecPreflight(specPath);
+      validateSpecPreflight(specPath, registryPath);
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
       process.exit(1);
@@ -309,6 +310,7 @@ function main() {
     if (!skipValidation) {
       const report = validateDocs({
         filePath: outputPath,
+        registryPath,
         checkOverview: false,
         checkSpecs: false,
       });
