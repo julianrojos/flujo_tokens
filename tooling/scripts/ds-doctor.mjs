@@ -10,6 +10,14 @@ import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-regi
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { commandExists } from "./lib/command-exists.mjs";
+import {
+  compareComponentRegistryToSources,
+  DEFAULT_COMPONENT_DOCS_DIR,
+  DEFAULT_COMPONENT_REGISTRY_PATH,
+  DEFAULT_COMPONENT_SPECS_DIR,
+  DEFAULT_RENDER_PAYLOADS_DIR,
+  DEFAULT_VISUAL_PROOFS_DIR,
+} from "./lib/component-registry/index.mjs";
 
 const ALLOWED_CHECK_STATUS = new Set(["pass", "fail", "warn"]);
 
@@ -147,6 +155,15 @@ function main() {
   const docsRoot = path.resolve(args["docs-root"] || path.join(DOCS_ROOT, "components"));
   const specRoot = path.resolve(args["spec-root"] || path.join(DOCS_SPEC_DIR, "components"));
   const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
+  const componentRegistryPath = path.resolve(
+    args["component-registry"] || DEFAULT_COMPONENT_REGISTRY_PATH,
+  );
+  const renderPayloadDir = path.resolve(
+    args["render-dir"] || DEFAULT_RENDER_PAYLOADS_DIR,
+  );
+  const visualProofDir = path.resolve(
+    args["proof-dir"] || DEFAULT_VISUAL_PROOFS_DIR,
+  );
   const manifestPath = path.resolve(args.manifest || path.join(PROJECT_ROOT, ".agent", "rules", "_manifest.yml"));
   const rawComponentName = String(args["component-name"] || "").trim();
   const skipValidate = String(args["skip-validate"] || "false") === "true";
@@ -239,6 +256,58 @@ function main() {
         registryPath,
         error: error instanceof Error ? error.message : String(error),
       })
+    );
+  }
+
+  try {
+    const componentRegistryCheck = compareComponentRegistryToSources({
+      registryPath: componentRegistryPath,
+      specsDir: specRoot || DEFAULT_COMPONENT_SPECS_DIR,
+      docsDir: docsRoot || DEFAULT_COMPONENT_DOCS_DIR,
+      renderDir: renderPayloadDir,
+      proofsDir: visualProofDir,
+    });
+    if (componentRegistryCheck.exists && componentRegistryCheck.matches) {
+      checks.push(
+        createCheck(
+          "COMPONENT_REGISTRY",
+          "pass",
+          "Component registry is present and synchronized.",
+          {
+            componentRegistryPath,
+            fingerprint: componentRegistryCheck.expected.fingerprint_sha256,
+            components: componentRegistryCheck.expected.summary.total_components,
+          },
+        ),
+      );
+    } else {
+      checks.push(
+        createCheck(
+          "COMPONENT_REGISTRY",
+          "fail",
+          componentRegistryCheck.exists
+            ? "Component registry is out of sync with docs/spec/render/proof artifacts."
+            : "Component registry is missing.",
+          {
+            componentRegistryPath,
+            exists: componentRegistryCheck.exists,
+            hint: "Run `npm run ds:registry:sync`.",
+          },
+        ),
+      );
+    }
+  } catch (error) {
+    checks.push(
+      createCheck(
+        "COMPONENT_REGISTRY",
+        "fail",
+        "Component registry check failed.",
+        {
+          componentRegistryPath,
+          error: error instanceof Error ? error.message : String(error),
+          hint: "Run `npm run ds:registry:sync` to regenerate a valid registry.",
+        },
+      ),
     );
   }
 

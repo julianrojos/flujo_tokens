@@ -12,6 +12,7 @@ import {
 } from "./lib/component-name.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
+import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
 
 const NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 
@@ -439,6 +440,7 @@ function main() {
       `${markdownPrefix}${nextContent.replace(/^\n+/, "")}`,
       "utf8",
     );
+    syncComponentRegistry();
   }
 
   const report = {

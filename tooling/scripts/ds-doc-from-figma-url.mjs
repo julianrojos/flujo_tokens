@@ -30,6 +30,7 @@ import {
   captureFileSnapshot,
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
+import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
 
 const USAGE = {
   command:
@@ -203,6 +204,8 @@ function main() {
           `Current hash: ${drift.hash}`,
       );
     }
+
+    syncComponentRegistry();
   } catch (error) {
     restoreFileSnapshot(outputPath, outputSnapshot);
     console.error(error instanceof Error ? error.message : String(error));

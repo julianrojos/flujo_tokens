@@ -53,6 +53,7 @@ import {
   captureFileSnapshot,
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
+import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const USAGE = {
@@ -559,6 +560,15 @@ function main() {
   } catch (error) {
     restoreFileSnapshot(outputPath, outputSnapshot);
     console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+
+  try {
+    syncComponentRegistry();
+  } catch (error) {
+    console.error(
+      `Component registry sync failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exit(1);
   }
 }

@@ -25,6 +25,7 @@ import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { isTbdMarker } from "./lib/tbd.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
+import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
 
 function isValidNodeId(raw) {
   return /^[A-Za-z0-9]+:[A-Za-z0-9]+$/.test(String(raw || "").trim());
@@ -497,6 +498,8 @@ function main() {
         }
       }
     }
+
+    syncComponentRegistry();
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : String(error));
   }

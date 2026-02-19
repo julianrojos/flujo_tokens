@@ -167,8 +167,11 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, and upserts `### Visual Proof` inside `## Overview`.
+- **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec/render/proof status.
+- **`npm run ds:registry:validate`**: Validates component registry schema and checks drift between registry content and current source artifacts.
+- **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from the component registry in canonical sorted format.
 - **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
-- **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
+- **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
   - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
@@ -180,6 +183,7 @@ This workflow documents Design System components from Figma and can also render 
 - `docs/components/`: component documentation pages (e.g. `alert.md`)
 - `docs/_spec/`: documentation specs and visual theme contract
 - `docs/_generated/figma_doc_models/`: generated intermediate artifacts for markdown -> Figma rendering
+- `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
 
 ### Documentation governance (rules)
 
@@ -394,10 +398,28 @@ Useful flags:
 - `--spec-file <path/to/spec.yml>` (single file mode)
 - `--dry-run true`
 
+### 4d) Component registry and overview sync
+
+```bash
+npm run ds:registry:sync
+npm run ds:registry:validate
+npm run ds:registry:overview
+```
+
+Useful flags:
+
+- `--registry <path>` (default: `docs/_generated/component-registry.json`)
+- `--spec-root <path>` (default: `docs/_spec/components`)
+- `--docs-root <path>` (default: `docs/components`)
+- `--render-dir <path>` (default: `docs/_generated/figma_doc_models`)
+- `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
+- `--dry-run true` (supported by `ds:registry:sync` and `ds:registry:overview`)
+
 Recommended sequence before rendering:
 
 ```bash
 npm run generate:registry
+npm run ds:registry:validate
 npm run validate:docs
 ```
 
