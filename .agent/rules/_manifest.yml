@@ -1,5 +1,12 @@
 version: 1
 
+enforcement:
+  blocking_source: checks
+  informational_only:
+    - rules[].blocking
+    - matrix.by_doc_type
+    - matrix.by_skill
+
 rules:
   - id: accessibility-docs
     file: accessibility-docs.mdc
@@ -275,27 +282,34 @@ matrix:
     design-tokens-advisor: [skill-versioning]
     ds-component-doc:
       [
+        ds-docs-guardrails,
         frontmatter-contract,
         component-doc-structure,
         component-doc-content,
+        component-spec-yaml,
+        component-spec-properties-order,
         component-figma-traceability,
         component-name-normalization,
+        markdown-lifecycle-status,
         accessibility-docs,
         design-token-discrepancies,
         token-references,
         token-registry-validation,
         docs-language-tone,
+        overview-index-maintenance,
+        overview-components-canonical-list,
         docs-pipeline-contract,
       ]
     ds-component-docs:
       [
-        frontmatter-contract,
+        docs-pipeline-contract,
+        component-spec-yaml,
         component-doc-structure,
         component-doc-content,
+        frontmatter-contract,
         component-figma-traceability,
         component-name-normalization,
         markdown-lifecycle-status,
-        docs-pipeline-contract,
         ds-docs-guardrails,
       ]
     ds-spec-from-figma:
@@ -305,17 +319,20 @@ matrix:
         component-name-normalization,
         token-references,
         token-registry-validation,
+        ds-docs-guardrails,
         docs-pipeline-contract,
       ]
     ds-markdown-to-figma-section:
       [
+        component-doc-structure,
+        ds-docs-guardrails,
         docs-pipeline-contract,
         figma-doc-rendering,
-        figma-doc-rendering-implementation,
         markdown-figma-subset,
       ]
     ds-foundations:
       [
+        ds-docs-guardrails,
         docs-taxonomy,
         token-references,
         token-registry-validation,
@@ -323,7 +340,8 @@ matrix:
         docs-language-tone,
         overview-index-maintenance,
       ]
-    ds-init-docs: [docs-taxonomy, ds-docs-guardrails, docs-language-tone]
+    ds-init-docs:
+      [ds-docs-guardrails, docs-taxonomy, frontmatter-contract, docs-language-tone]
     ds-migrate-legacy-component:
       [
         component-spec-yaml,

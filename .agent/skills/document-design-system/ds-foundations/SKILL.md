@@ -1,11 +1,15 @@
 ---
 name: ds-foundations
 description: Build Foundations pages (Color, Typography, Spacing/Sizing, Elevation, Iconography, A11y) in Markdown, linking to generated token inventories and avoiding invented guidance.
-version: "1.1.0"
+version: "1.2.0"
 requires_rules:
+  - ds-docs-guardrails: ">=1.0.0"
   - docs-taxonomy: ">=1.0.0"
   - token-references: ">=1.0.0"
+  - token-registry-validation: ">=1.0.0"
+  - accessibility-docs: ">=1.0.0"
   - docs-language-tone: ">=1.0.0"
+  - overview-index-maintenance: ">=1.0.0"
 compatible_agents:
   - codex
   - claude
@@ -48,6 +52,7 @@ This skill must produce output that complies with:
 
 - `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
 - `token-references.mdc` — token path formatting, fallback values, and naming patterns in all foundation pages
+- `token-registry-validation.mdc` — validation of token references against the generated registry
 - `accessibility-docs.mdc` — conventions for documenting focus, hit area, and contrast in `a11y.md`
 - `docs-taxonomy.mdc` — page type classification (`foundation`)
 - `docs-language-tone.mdc` — language and tone consistency

@@ -1,12 +1,17 @@
 ---
 name: ds-component-docs
 description: Orchestrate end-to-end component documentation using the existing spec -> markdown -> figma -> visual-proof pipeline.
-version: "1.0.0"
+version: "1.1.0"
 requires_rules:
   - docs-pipeline-contract: ">=1.0.0"
+  - component-spec-yaml: ">=1.0.0"
   - component-doc-structure: ">=1.0.0"
   - component-doc-content: ">=1.0.0"
+  - component-figma-traceability: ">=1.0.0"
+  - component-name-normalization: ">=1.0.0"
+  - frontmatter-contract: ">=1.0.0"
   - markdown-lifecycle-status: ">=1.0.0"
+  - ds-docs-guardrails: ">=1.0.0"
 compatible_agents:
   - codex
   - claude
@@ -56,6 +61,7 @@ If the component name or source of truth is missing, ask before writing files.
 5. **Visual proof stage**
 - Capture evidence with `ds:capture-visual-proof`.
 - Keep proof metadata in `docs/_generated/visual-proofs/`.
+- Required before promoting component docs to `doc_status: ready`.
 
 6. **Lifecycle drift stage**
 - Run `ds:mark-needs-review` when upstream inputs changed.
@@ -69,7 +75,7 @@ If the component name or source of truth is missing, ask before writing files.
 - Updated spec (`docs/_spec/components/<snake_case>.yml`) when needed.
 - Updated markdown (`docs/components/<snake_case>.md`).
 - Updated overview entry (`docs/components/overview.md`) through existing generation flow.
-- Optional visual proof artifact (`docs/_generated/visual-proofs/<snake_case>.json`).
+- Visual proof artifact (`docs/_generated/visual-proofs/<snake_case>.json`) when claiming `doc_status: ready`.
 
 ## Completion report (required)
 

@@ -1,10 +1,14 @@
 ---
 name: ds-spec-from-figma
 description: Generate one component spec YAML from a Figma component set (URL or node-id), then validate it against the token registry.
-version: "1.1.0"
+version: "1.1.1"
 requires_rules:
   - component-spec-yaml: ">=1.0.0"
+  - component-spec-properties-order: ">=1.0.0"
   - component-name-normalization: ">=1.0.0"
+  - token-references: ">=1.0.0"
+  - token-registry-validation: ">=1.0.0"
+  - ds-docs-guardrails: ">=1.0.0"
   - docs-pipeline-contract: ">=1.0.0"
 compatible_agents:
   - codex
@@ -19,8 +23,10 @@ compatible_agents:
 This skill must comply with:
 
 - `component-spec-yaml.mdc`
+- `component-spec-properties-order.mdc`
 - `component-name-normalization.mdc`
 - `token-references.mdc`
+- `token-registry-validation.mdc`
 - `ds-docs-guardrails.mdc`
 - `docs-pipeline-contract.mdc`
 

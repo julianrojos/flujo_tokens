@@ -1,11 +1,24 @@
 ---
 name: ds-component-doc
 description: Generate a single component documentation page (one-by-one) from a minimal Figma-first spec YAML plus token references, without code examples.
-version: "1.3.0"
+version: "1.3.1"
 requires_rules:
+  - ds-docs-guardrails: ">=1.0.0"
+  - frontmatter-contract: ">=1.0.0"
   - component-doc-structure: ">=1.0.0"
   - component-doc-content: ">=1.0.0"
   - component-spec-yaml: ">=1.0.0"
+  - component-spec-properties-order: ">=1.0.0"
+  - token-references: ">=1.0.0"
+  - token-registry-validation: ">=1.0.0"
+  - accessibility-docs: ">=1.0.0"
+  - component-figma-traceability: ">=1.0.0"
+  - markdown-lifecycle-status: ">=1.0.0"
+  - design-token-discrepancies: ">=1.0.0"
+  - docs-language-tone: ">=1.0.0"
+  - component-name-normalization: ">=1.0.0"
+  - overview-index-maintenance: ">=1.0.0"
+  - overview-components-canonical-list: ">=1.0.0"
   - docs-pipeline-contract: ">=1.0.0"
 compatible_agents:
   - codex

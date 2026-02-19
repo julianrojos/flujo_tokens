@@ -1,10 +1,12 @@
 ---
 name: ds-init-docs
 description: Bootstrap a Markdown documentation site for a Design System (Get Started, Foundations, Components, A11y) without code, designed for Figma-first teams.
-version: "1.1.0"
+version: "1.2.0"
 requires_rules:
   - ds-docs-guardrails: ">=1.0.0"
   - docs-taxonomy: ">=1.0.0"
+  - frontmatter-contract: ">=1.0.0"
+  - docs-language-tone: ">=1.0.0"
 compatible_agents:
   - codex
   - claude
@@ -41,7 +43,12 @@ Create these files/directories (do not overwrite if already present; append safe
 
 ## Applicable rules
 
-All generated documentation must comply with `ds-docs-guardrails.mdc`.
+All generated documentation must comply with:
+
+- `ds-docs-guardrails.mdc`
+- `docs-taxonomy.mdc`
+- `frontmatter-contract.mdc`
+- `docs-language-tone.mdc`
 
 ## Style & rules
 

@@ -1,8 +1,9 @@
 ---
 name: ds-audit-consistency
 description: Audit consistency across component spec YAML, markdown docs, and token registry traceability checks.
-version: "1.1.0"
+version: "1.1.1"
 requires_rules:
+  - component-figma-traceability: ">=1.0.0"
   - docs-pipeline-contract: ">=1.0.0"
   - token-registry-validation: ">=1.0.0"
   - markdown-lifecycle-status: ">=1.0.0"
