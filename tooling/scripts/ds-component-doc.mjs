@@ -53,7 +53,7 @@ import {
   captureFileSnapshot,
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
-import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
+import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -273,6 +273,10 @@ function main() {
     path.basename(docsRootInput) === "components"
       ? docsRootInput
       : path.join(docsRootInput, "components");
+  const docsRootDir =
+    path.basename(docsRootInput) === "components"
+      ? path.dirname(docsRootInput)
+      : docsRootInput;
   const specRoot = args["spec-root"] || path.join(DOCS_SPEC_DIR, "components");
   const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
@@ -568,10 +572,17 @@ function main() {
   }
 
   try {
-    syncComponentRegistry();
+    syncDocumentationIndices({
+      docsDir: componentDocsDir,
+      overviewPath,
+      specsDir: path.dirname(specPath),
+      proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
+      renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
+      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+    });
   } catch (error) {
     console.error(
-      `Component registry sync failed: ${error instanceof Error ? error.message : String(error)}`,
+      `Documentation index refresh failed: ${error instanceof Error ? error.message : String(error)}`,
     );
     process.exit(1);
   }

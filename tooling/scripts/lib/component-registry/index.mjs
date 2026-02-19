@@ -17,3 +17,5 @@ export {
   readComponentRegistry,
   syncComponentRegistry,
 } from "./sync.mjs";
+export { syncComponentOverview } from "./overview-sync.mjs";
+export { syncDocumentationIndices } from "./refresh.mjs";

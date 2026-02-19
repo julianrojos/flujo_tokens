@@ -25,7 +25,7 @@ import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { isTbdMarker } from "./lib/tbd.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
-import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
+import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
 function isValidNodeId(raw) {
@@ -548,6 +548,8 @@ function main() {
     console.error(`Markdown file not found: ${markdownPath}`);
     process.exit(1);
   }
+  const docsDir = path.dirname(markdownPath);
+  const docsRootDir = path.dirname(docsDir);
 
   const fileBase = path.basename(markdownPath, path.extname(markdownPath));
   const normalizedName = normalizeComponentName(
@@ -1126,7 +1128,14 @@ function main() {
       }
     }
 
-    syncComponentRegistry();
+    syncDocumentationIndices({
+      docsDir,
+      overviewPath: path.join(docsDir, "overview.md"),
+      specsDir: path.dirname(specPath),
+      proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
+      renderDir: path.resolve(generatedDir),
+      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+    });
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : String(error));
   }

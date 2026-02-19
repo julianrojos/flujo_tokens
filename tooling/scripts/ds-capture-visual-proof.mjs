@@ -12,7 +12,7 @@ import {
 } from "./lib/component-name.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
-import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
+import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 
 const NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 
@@ -304,6 +304,10 @@ function main() {
     path.basename(docsRootInput) === "components"
       ? docsRootInput
       : path.join(docsRootInput, "components");
+  const docsRootDir =
+    path.basename(docsRootInput) === "components"
+      ? path.dirname(docsRootInput)
+      : docsRootInput;
   const specRoot = path.resolve(
     args["spec-root"] || path.join(DOCS_SPEC_DIR, "components"),
   );
@@ -314,7 +318,7 @@ function main() {
     args["spec-file"] || path.join(specRoot, `${componentSlug}.yml`),
   );
   const proofDir = path.resolve(
-    args["proof-dir"] || path.join(DOCS_ROOT, "_generated", "visual-proofs"),
+    args["proof-dir"] || path.join(docsRootDir, "_generated", "visual-proofs"),
   );
   const format = String(args.format || "png").trim().toLowerCase();
   const scale = Number(args.scale || 2);
@@ -440,7 +444,14 @@ function main() {
       `${markdownPrefix}${nextContent.replace(/^\n+/, "")}`,
       "utf8",
     );
-    syncComponentRegistry();
+    syncDocumentationIndices({
+      docsDir: componentDocsDir,
+      overviewPath: path.join(componentDocsDir, "overview.md"),
+      specsDir: path.dirname(specPath),
+      proofsDir: proofDir,
+      renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
+      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+    });
   }
 
   const report = {

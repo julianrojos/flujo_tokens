@@ -25,7 +25,7 @@ import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./lib/docs-config.mjs";
 import { buildAgentPrompt, RULE_BLOCKS } from "./lib/prompts.mjs";
 import { GOLDEN_COMPONENT_SPEC_SAMPLE_PATH } from "./lib/doc-templates.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
-import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
+import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 
 const SPEC_COMPONENTS_DIR = path.join(DOCS_SPEC_DIR, "components");
 const SPEC_TEMPLATE_PATH = path.join(SPEC_COMPONENTS_DIR, "_template.yml");
@@ -600,6 +600,8 @@ function main() {
   const componentName = normalizedName.displayName;
   const componentSlug = normalizedName.fileSlug;
   const specRoot = args["spec-root"] || SPEC_COMPONENTS_DIR;
+  const resolvedSpecRoot = path.resolve(specRoot);
+  const docsRootDir = path.dirname(path.dirname(resolvedSpecRoot));
   const templatePath = path.resolve(args.template || SPEC_TEMPLATE_PATH);
   const registryPath = path.resolve(
     args.registry || DEFAULT_TOKEN_REGISTRY_PATH,
@@ -754,7 +756,14 @@ function main() {
       validationReport = validation.report;
     }
 
-    const registrySync = syncComponentRegistry();
+    const indicesSync = syncDocumentationIndices({
+      specsDir: resolvedSpecRoot,
+      docsDir: path.join(docsRootDir, "components"),
+      overviewPath: path.join(docsRootDir, "components", "overview.md"),
+      proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
+      renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
+      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+    });
 
     process.stdout.write(
       `${JSON.stringify(
@@ -772,11 +781,12 @@ function main() {
                 warnings: validationReport.summary.warnings,
               }
             : { skipped: true },
-          componentRegistry: {
-            changed: registrySync.changed,
-            written: registrySync.written,
-            registryPath: registrySync.registryPath,
-            fingerprint: registrySync.fingerprint,
+          documentationIndices: {
+            changed: indicesSync.changed,
+            written: indicesSync.written,
+            registryPath: indicesSync.registry.registryPath,
+            registryFingerprint: indicesSync.registry.fingerprint,
+            overviewPath: indicesSync.overview.overviewPath,
           },
         },
         null,

@@ -30,7 +30,7 @@ import {
   captureFileSnapshot,
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
-import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
+import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
 const USAGE = {
@@ -89,6 +89,10 @@ function main() {
     path.basename(docsRootResolved) === "components"
       ? docsRootResolved
       : path.join(docsRootResolved, "components");
+  const docsRootDir =
+    path.basename(docsRootResolved) === "components"
+      ? path.dirname(docsRootResolved)
+      : docsRootResolved;
   const agent = args.agent || "auto";
   const rawComponentName = args["component-name"] || "";
   const normalized = normalizeComponentName(rawComponentName);
@@ -209,7 +213,14 @@ function main() {
       );
     }
 
-    syncComponentRegistry();
+    syncDocumentationIndices({
+      docsDir: componentDocsDir,
+      overviewPath: path.join(componentDocsDir, "overview.md"),
+      specsDir: path.join(docsRootDir, "_spec", "components"),
+      proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
+      renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
+      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+    });
   } catch (error) {
     restoreFileSnapshot(outputPath, outputSnapshot);
     console.error(error instanceof Error ? error.message : String(error));
