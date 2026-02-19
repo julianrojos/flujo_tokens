@@ -15,7 +15,8 @@
     "ds:component-doc": "node tooling/scripts/ds-component-doc.mjs",
     "ds:doc-from-figma-url": "node tooling/scripts/ds-doc-from-figma-url.mjs",
     "ds:active-md-to-figma": "node tooling/scripts/ds-active-md-to-figma.mjs",
-    "ds:spec-from-figma": "node tooling/scripts/ds-spec-from-figma.mjs"
+    "ds:spec-from-figma": "node tooling/scripts/ds-spec-from-figma.mjs",
+    "ds:doctor": "node tooling/scripts/ds-doctor.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
