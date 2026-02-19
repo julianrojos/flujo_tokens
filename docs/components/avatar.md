@@ -5,13 +5,14 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474
   page: Avatar
   component: Avatar
+  component_set_node_id: 146:474
   last_verified: "2026-02-19"
 pipeline:
   ds_component_doc:
     contract_version: "1"
-    spec_sha256: c1df7ce9b6ef2b9aa0c1228598d1bb0301e45036b6327daf27105713aa338f2f
+    spec_sha256: 3e130edcae6a6f7bb0164e3026360a11d867a30e625e3ddafc53bbc74baeaf4e
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
-    generator_script_sha256: b339a68ac7ef34b3cfc99b8b3afecc126fe2a21056182b8d0ffe5642a7925158
+    generator_script_sha256: a1c709db54049eacb6f51b020134df6110fbfed9fcae5ba506df40502d85e7fc
 ---
 
 # Avatar

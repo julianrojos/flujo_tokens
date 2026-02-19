@@ -52,7 +52,7 @@
       },
       "figma": {
         "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474",
-        "component_set_node_id": null
+        "component_set_node_id": "146:474"
       },
       "render": {
         "exists": true
@@ -63,7 +63,7 @@
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "29985853621d98b587ee99f7c7f28593090fb14b770b0c8fa0a1f2c7bd99fc88"
+      "fingerprint_sha256": "40db745a5a4f02d86082ac1eada2f2a760d66dd86f8a0b8eff0256c4ffe19c18"
     },
     {
       "slug": "bottom_bar",
@@ -162,6 +162,70 @@
       "fingerprint_sha256": "574ad0bd9894ff2f8b0ded952430d0accc6bde2a4960fa9531cb55b2bae4712c"
     },
     {
+      "slug": "image",
+      "display_name": "Image",
+      "paths": {
+        "spec": "docs/_spec/components/image.yml",
+        "doc": "docs/components/image.md",
+        "render_payload": "docs/_generated/figma_doc_models/image.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/image.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=668-57",
+        "component_set_node_id": "668:57"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "4f72c626ae23c4a35685a4bd15f84ea7f5ccc28f04807a5ee9da85126d802304"
+    },
+    {
+      "slug": "percentage_pie_graph",
+      "display_name": "Percentage Pie Graph",
+      "paths": {
+        "spec": "docs/_spec/components/percentage_pie_graph.yml",
+        "doc": "docs/components/percentage_pie_graph.md",
+        "render_payload": "docs/_generated/figma_doc_models/percentage_pie_graph.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/percentage_pie_graph.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2479-2696",
+        "component_set_node_id": "2479:2696"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "607e437370bbabd074c2e298798e10117fa3dee51ecc6fed8fc868f84611972e"
+    },
+    {
       "slug": "status_bar",
       "display_name": "Status Bar",
       "paths": {
@@ -227,19 +291,19 @@
     }
   ],
   "summary": {
-    "total_components": 7,
-    "with_spec": 7,
-    "with_doc": 7,
+    "total_components": 9,
+    "with_spec": 9,
+    "with_doc": 9,
     "with_render_payload": 5,
     "with_visual_proof": 0,
     "ready_for_publish": 0,
     "by_pipeline_stage": {
       "missing-spec": 0,
       "spec": 0,
-      "markdown": 2,
+      "markdown": 4,
       "render": 5,
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "1ebe4ed9b1904a7228744b8cd4370fae964695164ebb72a0c08c33e898290315"
+  "fingerprint_sha256": "33e74b3ae1b505002c453253ab75545abcddfcf7bfbefdd57e44e46867186400"
 }

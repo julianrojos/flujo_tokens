@@ -4,6 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Avatar
   component_set: Avatar
+  component_set_node_id: 146:474
 
 summary:
   purpose: Displays a profile image inside a bordered rounded square.

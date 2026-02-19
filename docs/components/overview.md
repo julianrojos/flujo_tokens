@@ -31,6 +31,8 @@ One page per component. This documentation is design-first (Figma) and token-bac
 - [Bottom Bar](bottom_bar.md)
 - [Bottom Bar Button](bottom_bar_button.md)
 - [Button](button.md)
+- [Image](image.md)
+- [Percentage Pie Graph](percentage_pie_graph.md)
 - [Status Bar](status_bar.md)
 - [Topbar](topbar.md)
 
