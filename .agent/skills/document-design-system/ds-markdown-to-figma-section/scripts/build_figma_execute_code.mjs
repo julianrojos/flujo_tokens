@@ -660,6 +660,24 @@ function findRootPage(node) {
   return null;
 }
 
+function resolveGlobalXY(node) {
+  let x = 0;
+  let y = 0;
+  let current = node;
+  let depth = 0;
+  const MAX_DEPTH = 64;
+
+  while (current && depth < MAX_DEPTH) {
+    x += Number(current.x || 0);
+    y += Number(current.y || 0);
+    if (current.type === "PAGE") break;
+    current = current.parent;
+    depth += 1;
+  }
+
+  return { x, y };
+}
+
 function getAbsoluteBounds(node) {
   if (!node) {
     return { x: 0, y: 0, width: 0, height: 0 };
@@ -680,9 +698,10 @@ function getAbsoluteBounds(node) {
     return { x, y, width, height };
   }
 
+  const global = resolveGlobalXY(node);
   return {
-    x: Number(node.x || 0),
-    y: Number(node.y || 0),
+    x: global.x,
+    y: global.y,
     width,
     height,
   };
