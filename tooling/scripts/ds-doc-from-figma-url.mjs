@@ -7,6 +7,7 @@ import { parseArgs } from "./lib/parse-args.mjs";
 import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
+import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 
 function formatMarkdown({ outputPath, docsRoot }) {
   const target = outputPath
@@ -53,6 +54,10 @@ function main() {
   if (outputPath) {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   }
+  const styleReferencePath = resolveStyleReferencePath({
+    componentDocsDir,
+    outputPath,
+  });
 
   const prompt = [
     "Context",
@@ -61,7 +66,7 @@ function main() {
     "",
     "Sources",
     `- Figma URL: ${figmaUrl}`,
-    "- Existing docs style reference: docs/components/alert.md",
+    styleReferencePath ? `- Existing docs style reference: ${styleReferencePath}` : "",
     outputPath
       ? `- Output path (required): ${outputPath}`
       : "- Output path: one file under docs/components/ based on the real component name.",

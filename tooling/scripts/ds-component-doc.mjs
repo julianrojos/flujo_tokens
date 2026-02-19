@@ -13,6 +13,7 @@ import { validateDocs } from "./lib/docs-validator.mjs";
 import { parseMarkdownFrontmatter, parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
+import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
 import {
   normalizeComponentName,
@@ -132,22 +133,6 @@ function syncGapsSection({ specPath, markdownPath, registryPath }) {
     fs.writeFileSync(markdownPath, nextMarkdown, "utf8");
   }
   return gaps.length;
-}
-
-function resolveStyleReferencePath({ componentDocsDir, outputPath }) {
-  if (!fs.existsSync(componentDocsDir)) return "";
-
-  const outputBaseName = path.basename(outputPath);
-  const candidates = fs
-    .readdirSync(componentDocsDir, { withFileTypes: true })
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name)
-    .filter((name) => name.endsWith(".md") && name !== "overview.md")
-    .sort((a, b) => a.localeCompare(b, "en"));
-
-  const nonTargetCandidate = candidates.find((name) => name !== outputBaseName);
-  const selected = nonTargetCandidate || candidates.find((name) => name === outputBaseName) || "";
-  return selected ? path.resolve(path.join(componentDocsDir, selected)) : "";
 }
 
 function main() {
