@@ -13,6 +13,7 @@ This skill must comply with:
 - `component-name-normalization.mdc`
 - `token-references.mdc`
 - `ds-docs-guardrails.mdc`
+- `docs-pipeline-contract.mdc`
 
 ## When to use
 
@@ -67,4 +68,5 @@ npm run ds:spec-from-figma -- \
 - `--template <path>` (default: `docs/_spec/components/_template.yml`)
 - `--registry <path>` (default: `docs/_generated/token-registry.json`)
 - `--skip-validation true`
+- `--force true` (required when using `--skip-validation true`)
 - `--agent <codex|claude|gemini>`

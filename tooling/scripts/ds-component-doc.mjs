@@ -92,6 +92,14 @@ function main() {
   const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
   const agent = args.agent || "auto";
 
+  if (skipValidation && !force) {
+    console.error(
+      "Validation gate bypass requires explicit force.\n" +
+        "Use `--skip-validation true --force true` only for exceptional cases."
+    );
+    process.exit(1);
+  }
+
   try {
     loadTokenRegistry(registryPath);
   } catch (error) {

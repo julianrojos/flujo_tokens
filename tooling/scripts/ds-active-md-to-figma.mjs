@@ -156,6 +156,14 @@ function main() {
   const syncStatePath = args["sync-state"] || undefined;
   const tokenRegistryPath = args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
 
+  if (skipValidation && !force) {
+    console.error(
+      "Validation gate bypass requires explicit force.\n" +
+        "Use `--skip-validation true --force true` only for exceptional cases."
+    );
+    process.exit(1);
+  }
+
   let specStatus = "draft";
   let specNodeId = "";
   try {

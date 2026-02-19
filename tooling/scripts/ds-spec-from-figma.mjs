@@ -373,8 +373,17 @@ function main() {
   const specRoot = args["spec-root"] || SPEC_COMPONENTS_DIR;
   const templatePath = path.resolve(args.template || SPEC_TEMPLATE_PATH);
   const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
+  const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
   const agent = args.agent || "auto";
+
+  if (skipValidation && !force) {
+    console.error(
+      "Validation gate bypass requires explicit force.\n" +
+        "Use `--skip-validation true --force true` only for exceptional cases."
+    );
+    process.exit(1);
+  }
 
   const parsedUrl = parseFigmaUrl(figmaUrl);
   const fileKeyFromUrl = parsedUrl.fileKey;

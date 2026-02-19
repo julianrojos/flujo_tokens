@@ -30,6 +30,7 @@ This skill must produce output that complies with:
 - `component-name-normalization.mdc` — canonical `component_name` normalization and deterministic paths
 - `overview-index-maintenance.mdc` — required synchronization of `docs/components/overview.md`
 - `overview-components-canonical-list.mdc` — canonical component list format and strict ordering in overview
+- `docs-pipeline-contract.mdc` — canonical stage order, preconditions, and validation gates
 
 When in doubt, the rules are the source of truth.
 

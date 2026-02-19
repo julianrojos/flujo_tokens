@@ -23,6 +23,7 @@ This skill must comply with:
 - `component-doc-structure.mdc` — the Markdown input is expected to follow the required frontmatter + ordered sections
 - `ds-docs-guardrails.mdc` — no invented content; `VariableID:*` is prohibited in visible docs
 - `markdown-figma-subset.mdc` — supported markdown subset and table authoring constraints
+- `docs-pipeline-contract.mdc` — canonical stage order, preconditions, and validation gates
 
 ## Inputs (ask only if missing)
 
@@ -50,6 +51,7 @@ This skill must comply with:
 - Markdown file exists and is readable.
 - Theme file exists and is readable.
 - The component exists in Figma as a `COMPONENT_SET`.
+- Matching component spec exists (`docs/_spec/components/<snake_case>.yml`).
 
 If any precondition fails, STOP and report the exact blocker.
 

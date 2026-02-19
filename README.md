@@ -194,6 +194,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - do not render to Figma without an existing component markdown
   - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
   - validation is a gate after spec and markdown generation
+  - see `.agent/rules/docs-pipeline-contract.mdc` for the full stage contract
 - `## Gaps / TBD` contract is enforced:
   - include only when linked spec has unresolved gaps
   - omit when linked spec has no unresolved gaps
@@ -271,6 +272,7 @@ Preflight behavior:
 - Fails fast if the spec file does not exist.
 - Validates the target spec before generating markdown; generation is blocked on spec errors.
 - Synchronizes `## Gaps / TBD` from spec + token registry using canonical checkbox format.
+- Validation bypass requires `--force true` when `--skip-validation true` is used.
 
 ### 3) Figma component -> spec YAML
 
@@ -294,6 +296,7 @@ Useful flags:
 - `--template <path>` (default: `docs/_spec/components/_template.yml`)
 - `--registry <path>` (default: `docs/_generated/token-registry.json`)
 - `--skip-validation true`
+- `--force true` (required when using `--skip-validation true`)
 - `--agent <codex|claude|gemini>`
 
 Note: when `--url` or `--component-set-node-id` provides a node id, `ds:spec-from-figma` persists it into `figma.component_set_node_id` in the generated spec.
@@ -322,6 +325,7 @@ For exceptional cases only, you can bypass preflight with `--skip-validation tru
 It also enforces pipeline freshness: if the source spec is newer than the markdown (or changed since last markdown generation), rendering is blocked until markdown is regenerated. Use `--force true` only for explicit bypass.
 For node resolution, it uses: `--component-set-id` first, then `spec.figma.component_set_node_id`, then name lookup for `draft` specs only.
 If a `ready` spec has no valid `figma.component_set_node_id`, rendering is blocked.
+Validation bypass requires `--force true` when `--skip-validation true` is used.
 
 Recommended sequence before rendering:
 

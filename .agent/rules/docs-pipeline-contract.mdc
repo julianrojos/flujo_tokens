@@ -1,0 +1,39 @@
+---
+description: Canonical contract for the Design System documentation pipeline, including stage order, preconditions, validation gates, and fail-fast behavior.
+globs:
+  - "docs/components/*.md"
+  - "docs/_spec/components/*.yml"
+  - "tooling/scripts/*.mjs"
+---
+
+# Documentation pipeline contract
+
+This contract defines the only canonical order for component documentation:
+
+1. `spec` stage: create/update `docs/_spec/components/<snake_case>.yml`
+2. `markdown` stage: create/update `docs/components/<snake_case>.md` from spec
+3. `figma` stage (optional): render markdown as Figma section
+
+## Preconditions (hard fail)
+
+- `markdown` stage requires an existing spec file.
+- `figma` stage requires an existing markdown file and its matching spec file.
+- `ready` specs require a valid `figma.component_set_node_id`.
+- The mapping is strict and 1:1 by slug:
+  - `docs/_spec/components/<slug>.yml` <-> `docs/components/<slug>.md`
+
+## Validation gates (blocking)
+
+- After `spec` stage, run docs validation for the generated spec and block on errors.
+- After `markdown` stage, run docs validation for the generated markdown and block on errors.
+- `figma` stage is blocked when validation fails or markdown is stale relative to its spec.
+
+## Bypass policy
+
+- Validation bypass is exceptional and must be explicit.
+- If a command supports bypass (`--skip-validation`), it must require `--force true`.
+
+## Failure behavior
+
+- Fail fast on first unmet precondition.
+- Error messages must be actionable and include the next command to run.
