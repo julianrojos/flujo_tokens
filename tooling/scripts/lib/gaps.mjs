@@ -286,10 +286,15 @@ export function upsertGapsSection(rawMarkdown, gaps) {
     if (!section) return markdown;
     const before = markdown.slice(0, section.start).replace(/\s+$/, "");
     const after = markdown.slice(section.end).replace(/^\s+/, "");
-    if (!before && !after) return "";
-    if (!before) return `${after.trimStart()}\n`;
-    if (!after) return `${before}\n`;
-    return `${before}\n\n${after}`;
+    let next = "";
+    if (!before && !after) {
+      // Safety guard: never collapse the whole document to empty when pruning gaps.
+      return markdown;
+    }
+    if (!before) next = `${after.trimStart()}\n`;
+    else if (!after) next = `${before}\n`;
+    else next = `${before}\n\n${after}`;
+    return next.trim().length === 0 ? markdown : next;
   }
 
   const newSection = `## Gaps / TBD\n\n${lines.join("\n")}\n`;
