@@ -1,7 +1,7 @@
 ---
 name: ds-tokens-sync
 description: Regenerate token CSS outputs and token registry from JSON inputs using the project CLI.
-version: "1.2.1"
+version: "1.2.2"
 requires_rules:
   - ds-docs-guardrails: ">=1.0.0"
   - token-registry-validation: ">=1.0.0"
@@ -41,6 +41,7 @@ This skill must produce output that complies with:
 3. Preserve deterministic outputs and cache behavior (`--force true` only when needed).
 4. Do not claim markdown inventory artifacts from this command.
 5. When impact visibility is needed, run token diff after sync (`ds:token-diff`).
+6. For dependency health diagnostics, run token graph analysis (`ds:token-graph`).
 
 ## Outputs
 
@@ -81,6 +82,11 @@ npm run ds:token-diff
 ```bash
 # Compare against an explicit previous registry file
 npm run ds:token-diff -- --before docs/_generated/token-registry.prev.json
+```
+
+```bash
+# Analyze alias/dependency graph and detect cycles/indirection hotspots
+npm run ds:token-graph
 ```
 
 ## End with a brief report
