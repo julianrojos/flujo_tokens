@@ -9,7 +9,7 @@ import yaml from "js-yaml";
 
 import { parseArgs } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
-import { validateDocs } from "./lib/docs-validator.mjs";
+import { validateDocs, CANONICAL_H2_ORDER } from "./lib/docs-validator.mjs";
 import { parseMarkdownFrontmatter, parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
@@ -28,6 +28,8 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const TRACEABILITY_CONTRACT_VERSION = "1";
+const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, 10);
+const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(10);
 
 function formatMarkdown(outputPath) {
   const result = spawnSync("npx", ["prettier", "--write", outputPath], {
@@ -264,6 +266,12 @@ function main() {
     "",
     "Constraints",
     "- Do not invent properties, variants, states, accessibility, or token semantics.",
+    "- Use only canonical H2 sections in exact canonical order.",
+    `- Required H2 order: ${REQUIRED_CANONICAL_H2.join(" -> ")}.`,
+    `- Optional H2 (include only when applicable, still canonical order): ${OPTIONAL_CANONICAL_H2.join(
+      " -> "
+    )}.`,
+    "- Do not create extra H2 headings outside the canonical set.",
     "- If spec lacks information, keep explicit `TBD` values.",
     "- Never use Figma internal variable IDs (VariableID) in user-facing prose/tables.",
     "- If spec includes figma.component_set_node_id, mirror it in markdown frontmatter figma.component_set_node_id.",

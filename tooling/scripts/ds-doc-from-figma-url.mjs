@@ -6,8 +6,12 @@ import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
+import { CANONICAL_H2_ORDER } from "./lib/docs-validator.mjs";
 import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
+
+const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, 10);
+const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(10);
 
 function formatMarkdown({ outputPath, docsRoot }) {
   const target = outputPath
@@ -74,6 +78,12 @@ function main() {
     "Constraints",
     "- Use figma MCP workflow and inspect the referenced component/set.",
     "- Documentation only. Do not generate component implementation code.",
+    "- Use only canonical H2 sections in exact canonical order.",
+    `- Required H2 order: ${REQUIRED_CANONICAL_H2.join(" -> ")}.`,
+    `- Optional H2 (include only when applicable, still canonical order): ${OPTIONAL_CANONICAL_H2.join(
+      " -> "
+    )}.`,
+    "- Do not create extra H2 headings outside the canonical set.",
     "- Do not invent properties, variants, states, or token semantics.",
     "- Never use Figma internal variable IDs (VariableID) in user-facing prose/tables.",
     "- Figma node IDs are allowed for source traceability (for example in `node-id` URLs).",
