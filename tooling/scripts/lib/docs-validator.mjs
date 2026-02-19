@@ -115,11 +115,28 @@ function lineFromOffset(lineStarts, offset) {
 function collectMarkdownFiles(docsRoot, explicitFilePath) {
   if (explicitFilePath) return [path.resolve(explicitFilePath)];
   if (!fs.existsSync(docsRoot)) return [];
-  return fs
-    .readdirSync(docsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map((entry) => path.join(docsRoot, entry.name))
-    .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+  const files = [];
+  const queue = [path.resolve(docsRoot)];
+
+  while (queue.length > 0) {
+    const currentDir = queue.shift();
+    if (!currentDir) break;
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const absolutePath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        queue.push(absolutePath);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith(".md")) {
+        files.push(absolutePath);
+      }
+    }
+  }
+
+  return files.sort((a, b) =>
+    a.localeCompare(b, "en", { sensitivity: "base" }),
+  );
 }
 
 function collectSpecFiles(specRoot) {
@@ -1176,14 +1193,50 @@ function normalizeCellText(cell) {
 
 function isTableLine(line) {
   const trimmed = String(line || "").trim();
-  return trimmed.startsWith("|") && trimmed.includes("|");
+  if (!trimmed || /^```/.test(trimmed)) return false;
+  const pipeCount = (trimmed.match(/\|/g) || []).length;
+  return pipeCount >= 1;
 }
 
 function parseTableCells(line) {
   let trimmed = String(line || "").trim();
   if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
   if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
-  return trimmed.split("|").map((cell) => cell.trim());
+  const cells = [];
+  let current = "";
+  let inCode = false;
+
+  for (let i = 0; i < trimmed.length; i += 1) {
+    const ch = trimmed[i];
+
+    if (ch === "\\") {
+      const next = trimmed[i + 1];
+      if (next === "|" || next === "\\" || next === "`") {
+        current += next;
+        i += 1;
+        continue;
+      }
+      current += ch;
+      continue;
+    }
+
+    if (ch === "`") {
+      inCode = !inCode;
+      current += ch;
+      continue;
+    }
+
+    if (ch === "|" && !inCode) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += ch;
+  }
+
+  cells.push(current.trim());
+  return cells;
 }
 
 function isSeparatorRow(cells) {
@@ -1371,7 +1424,6 @@ function validateProseTokenFallbacks(
 
     const tokenRefs = extractResolvedTokenRefsFromText(line, registryIndexes);
     if (tokenRefs.length === 0) continue;
-    if (/tbd/i.test(line)) continue;
 
     let fallback = extractFallbackFromLine(line, registryIndexes);
     if (!fallback) {
@@ -1782,6 +1834,7 @@ function splitSpecTokenValue(rawValue) {
 
 function normalizeSpecPropertyGroup(typeValue) {
   const normalizedType = String(typeValue || "")
+    .replace(/#.*$/, "")
     .trim()
     .toLowerCase();
   return SPEC_PROPERTY_GROUP_ORDER.get(normalizedType) || 5;
