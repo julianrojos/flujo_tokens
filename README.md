@@ -407,6 +407,8 @@ If a `ready` spec has no valid `figma.component_set_node_id`, rendering is block
 Validation bypass requires `--force true` when `--skip-validation true` is used.
 By default, this command also attempts visual proof capture after rendering.
 Use `--capture-proof false` to skip it, or `--capture-proof-strict true` to fail when capture cannot be completed.
+The render step now validates agent output strictly: it must include `target_section_id`, `target_section_name`, `offset_x_applied`, and `theme_name`.
+If `theme_name` does not match the loaded theme file (`docs/_spec/figma_doc_theme.yml` by default), the command fails (unless `--force true` is explicitly provided).
 
 ### 4b) Capture visual proof (standalone)
 

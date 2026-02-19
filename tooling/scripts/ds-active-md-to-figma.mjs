@@ -94,6 +94,157 @@ function detectMarkdownStaleness({ specPath, markdownPath, syncStatePath }) {
   return { stale: false, reason: "timestamp_fallback_allows_render" };
 }
 
+function extractJsonObjects(rawText) {
+  const text = String(rawText || "").trim();
+  if (!text) return [];
+
+  const objects = [];
+  const seen = new Set();
+  const pushCandidate = (candidate) => {
+    const normalized = String(candidate || "").trim();
+    if (!normalized || seen.has(normalized)) return;
+    try {
+      const parsed = JSON.parse(normalized);
+      if (parsed && typeof parsed === "object") {
+        objects.push(parsed);
+        seen.add(normalized);
+      }
+    } catch {
+      // Ignore invalid JSON candidates.
+    }
+  };
+
+  pushCandidate(text);
+
+  const fencedMatches = text.matchAll(/```json\s*([\s\S]*?)```/gi);
+  for (const match of fencedMatches) {
+    pushCandidate(match[1] || "");
+  }
+
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === "\"") {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth += 1;
+      continue;
+    }
+    if (ch === "}") {
+      if (depth > 0) depth -= 1;
+      if (depth === 0 && start !== -1) {
+        pushCandidate(text.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+
+  return objects;
+}
+
+function firstPresent(...values) {
+  for (const value of values) {
+    if (value !== undefined && value !== null && String(value).trim() !== "") {
+      return value;
+    }
+  }
+  return null;
+}
+
+function normalizeRenderReport(raw) {
+  const report = raw && typeof raw === "object" ? raw : {};
+  const unsupportedBlocksRaw = firstPresent(
+    report.unsupported_blocks,
+    report.unsupportedBlocks,
+  );
+  const unsupportedBlocks = Array.isArray(unsupportedBlocksRaw)
+    ? unsupportedBlocksRaw
+    : [];
+  const unsupportedBlocksCount = Number.isFinite(Number(unsupportedBlocksRaw))
+    ? Number(unsupportedBlocksRaw)
+    : unsupportedBlocks.length;
+
+  const offsetXRaw = firstPresent(
+    report.offset_x_applied,
+    report.offsetXApplied,
+  );
+  const offsetXApplied = Number.isFinite(Number(offsetXRaw))
+    ? Number(offsetXRaw)
+    : null;
+
+  return {
+    ok: report.ok !== false,
+    raw: report,
+    targetSectionId: firstPresent(
+      report.target_section_id,
+      report.targetSectionId,
+    ),
+    targetSectionName: firstPresent(
+      report.target_section_name,
+      report.targetSectionName,
+    ),
+    themeName: firstPresent(report.theme_name, report.themeName),
+    offsetXApplied,
+    unsupportedBlocks,
+    unsupportedBlocksCount,
+  };
+}
+
+function parseRenderReportFromOutput(rawText) {
+  const candidates = extractJsonObjects(rawText);
+  if (candidates.length === 0) return null;
+
+  const withRenderKeys = candidates.filter((candidate) => {
+    const normalized = normalizeRenderReport(candidate);
+    return Boolean(
+      normalized.targetSectionId ||
+        normalized.targetSectionName ||
+        normalized.themeName,
+    );
+  });
+  const selected =
+    withRenderKeys.length > 0
+      ? withRenderKeys[withRenderKeys.length - 1]
+      : candidates[candidates.length - 1];
+  return normalizeRenderReport(selected);
+}
+
+function readThemeName(themePath) {
+  const parsed = parseYamlDocument(
+    fs.readFileSync(themePath, "utf8"),
+    `theme YAML (${path.basename(themePath)})`,
+  );
+  const name = String(parsed?.name || "").trim();
+  if (!name) {
+    throw new Error(
+      `Missing required theme name in ${themePath}. Expected top-level "name".`,
+    );
+  }
+  return name;
+}
+
+function writeRenderAgentOutput({ generatedDir, fileBase, content }) {
+  const outputPath = path.resolve(generatedDir, `${fileBase}.render-agent-output.txt`);
+  fs.writeFileSync(outputPath, String(content || ""), "utf8");
+  return outputPath;
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const activeMarkdown =
@@ -271,6 +422,7 @@ function main() {
   const agent = args.agent || "auto";
   const generatedDir = args["generated-dir"] || FIGMA_DOC_MODELS_DIR;
   const themePath = args.theme || FIGMA_DOC_THEME_PATH;
+  const expectedThemeName = readThemeName(themePath);
   const docModelPath = path.join(generatedDir, `${fileBase}.doc-model.json`);
   const executePath = path.join(generatedDir, `${fileBase}.figma-execute.js`);
   const payloadPath = path.join(
@@ -435,29 +587,113 @@ function main() {
     "",
     "Constraints",
     "- Read the generated figma_execute script from disk.",
-    "- Execute it with figma_execute.",
-    "- Keep section idempotent and place it 200px to the right of the component section.",
+    "- Execute that exact script with figma_execute (no reimplementation, no manual fallback rendering).",
+    `- Keep section idempotent and place it ${String(offsetX)}px to the right of the component section.`,
     "- Do not alter unrelated components/sections.",
     "- Report unsupported markdown blocks if any.",
+    "- Return exactly one JSON object and no prose.",
     "",
     "Expected Output",
-    "- Return: target_section_id, target_section_name, offset_x_applied, unsupported_blocks count.",
+    "- JSON keys: target_section_id, target_section_name, offset_x_applied, theme_name, unsupported_blocks_count.",
   ]
     .filter(Boolean)
     .join("\n");
 
   try {
-    runAgentPrompt({
+    const agentResponse = runAgentPrompt({
       prompt,
       agent,
       label: `active-md-to-figma-${fileBase}`,
+      passthrough: false,
     });
+    const renderReport = parseRenderReportFromOutput(agentResponse.stdout);
+    if (!renderReport) {
+      const outputPath = writeRenderAgentOutput({
+        generatedDir,
+        fileBase,
+        content: agentResponse.stdout,
+      });
+      throw new Error(
+        "Unable to parse render report JSON from agent output.\n" +
+          `Expected keys: target_section_id, target_section_name, offset_x_applied, theme_name.\n` +
+          `Saved raw agent output: ${outputPath}`,
+      );
+    }
+    if (!renderReport.targetSectionId || !renderReport.targetSectionName) {
+      const outputPath = writeRenderAgentOutput({
+        generatedDir,
+        fileBase,
+        content: agentResponse.stdout,
+      });
+      throw new Error(
+        "Render report is missing target section identifiers.\n" +
+          `Saved raw agent output: ${outputPath}`,
+      );
+    }
+    if (!renderReport.themeName) {
+      const outputPath = writeRenderAgentOutput({
+        generatedDir,
+        fileBase,
+        content: agentResponse.stdout,
+      });
+      throw new Error(
+        "Render report is missing theme_name. This usually means the generated themed renderer was not executed.\n" +
+          `Expected theme: ${expectedThemeName}\n` +
+          `Saved raw agent output: ${outputPath}`,
+      );
+    }
+    if (renderReport.themeName !== expectedThemeName) {
+      const message =
+        "Theme mismatch detected in render report.\n" +
+        `Expected theme: ${expectedThemeName}\n` +
+        `Reported theme: ${renderReport.themeName}`;
+      if (!force) {
+        throw new Error(`${message}\nUse --force true only for explicit emergency bypass.`);
+      }
+      console.warn(`${message}\nWarning: continuing because --force true was provided.`);
+    }
+    const expectedOffsetX = Number(offsetX);
+    if (
+      Number.isFinite(expectedOffsetX) &&
+      Number.isFinite(renderReport.offsetXApplied) &&
+      Math.abs(renderReport.offsetXApplied - expectedOffsetX) > 1
+    ) {
+      const message =
+        "Unexpected render offset reported by agent.\n" +
+        `Expected offset_x: ${expectedOffsetX}\n` +
+        `Reported offset_x: ${renderReport.offsetXApplied}`;
+      if (!force) {
+        throw new Error(`${message}\nUse --force true only for explicit emergency bypass.`);
+      }
+      console.warn(`${message}\nWarning: continuing because --force true was provided.`);
+    }
+
+    process.stdout.write(
+      `${JSON.stringify(
+        {
+          ok: true,
+          markdownPath,
+          target_section_id: renderReport.targetSectionId,
+          target_section_name: renderReport.targetSectionName,
+          offset_x_applied: renderReport.offsetXApplied,
+          theme_name: renderReport.themeName,
+          unsupported_blocks_count: renderReport.unsupportedBlocksCount,
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
     updateTaskState({
       taskId: renderTaskId,
       fingerprint: renderFingerprint,
       outputs: [executePath, payloadPath],
       metadata: {
         command: "figma_execute_render",
+        targetSectionId: renderReport.targetSectionId,
+        targetSectionName: renderReport.targetSectionName,
+        themeName: renderReport.themeName,
+        unsupportedBlocksCount: renderReport.unsupportedBlocksCount,
       },
       statePath: syncStatePath,
     });
