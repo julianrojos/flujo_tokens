@@ -29,6 +29,7 @@ import { isPlainObject } from "./is-plain-object.mjs";
 import { normalizeNodeId } from "./node-id.mjs";
 import { deriveFigmaFrontmatterTraceability } from "./figma-traceability.mjs";
 import { isTbdMarker } from "./tbd.mjs";
+import { extractSectionBody } from "./markdown-sections.mjs";
 import {
   ALLOWED_DOC_STATUS,
   CANONICAL_H2_ORDER,
@@ -36,18 +37,12 @@ import {
   REQUIRED_CANONICAL_H2,
   SPEC_ALLOWED_STATUS,
   SPEC_REQUIRED_TOP_LEVEL_FIELDS,
+  TOKEN_COLLECTION_PREFIXES,
   TRACEABILITY_CONTRACT_VERSION,
 } from "./docs-config.mjs";
 
 export { CANONICAL_H2_ORDER, REQUIRED_CANONICAL_H2 } from "./docs-config.mjs";
 export { OPTIONAL_CANONICAL_H2 } from "./docs-config.mjs";
-const REQUIRED_H2 = REQUIRED_CANONICAL_H2;
-const COLLECTION_PREFIXES = new Set([
-  "Semantic",
-  "Primitives",
-  "Components",
-  "A11y",
-]);
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
 const SLASH_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9-]+){1,}/g;
 const VARIABLE_ID_RE_SOURCE = "VariableID:[A-Za-z0-9:-]+";
@@ -72,7 +67,7 @@ const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
 function normalizeSlashPathCandidate(tokenPath) {
   const parts = tokenPath.split("/");
-  if (parts.length > 1 && COLLECTION_PREFIXES.has(parts[0])) {
+  if (parts.length > 1 && TOKEN_COLLECTION_PREFIXES.has(parts[0])) {
     return parts.slice(1).join("/");
   }
   return tokenPath;
@@ -170,7 +165,7 @@ function looksLikeTokenPath(candidate, dotRoots, slashRoots) {
   if (!candidate) return false;
   if (candidate.includes("/")) {
     const first = candidate.split("/")[0];
-    if (slashRoots.has(first) || COLLECTION_PREFIXES.has(first)) return true;
+    if (slashRoots.has(first) || TOKEN_COLLECTION_PREFIXES.has(first)) return true;
     return false;
   }
   if (candidate.includes(".")) {
@@ -396,7 +391,7 @@ function validateSectionOrder(
     });
   }
 
-  for (const required of REQUIRED_H2) {
+  for (const required of REQUIRED_CANONICAL_H2) {
     const key = normalizeHeadingText(required);
     const found = firstOccurrence.get(key);
     if (!found) {
@@ -970,27 +965,6 @@ function validateGapsSectionContract(
     expected: expectedLines,
     actual: actualLines,
   });
-}
-
-function extractSectionBody(rawMarkdown, headingTitle) {
-  const markdown = String(rawMarkdown || "");
-  const escaped = String(headingTitle || "").replace(
-    /[.*+?^${}()|[\]\\]/g,
-    "\\$&",
-  );
-  const headingRegex = new RegExp(`^##\\s+${escaped}\\s*$`, "m");
-  const headingMatch = headingRegex.exec(markdown);
-  if (!headingMatch) return "";
-
-  const start = headingMatch.index;
-  const headingEnd = markdown.indexOf("\n", start);
-  const contentStart = headingEnd === -1 ? markdown.length : headingEnd + 1;
-  const rest = markdown.slice(contentStart);
-  const nextHeadingMatch = /^##\s+/m.exec(rest);
-  const end = nextHeadingMatch
-    ? contentStart + nextHeadingMatch.index
-    : markdown.length;
-  return markdown.slice(contentStart, end).trim();
 }
 
 function findDiscrepancyStatuses(rawMarkdown) {

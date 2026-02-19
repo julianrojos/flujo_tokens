@@ -16,6 +16,12 @@ export const CANONICAL_H2_ORDER = [
 export const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, 10);
 export const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(10);
 export const TRACEABILITY_CONTRACT_VERSION = "1";
+export const TOKEN_COLLECTION_PREFIXES = new Set([
+  "Semantic",
+  "Primitives",
+  "Components",
+  "A11y",
+]);
 
 export const ALLOWED_DOC_STATUS = new Set(["draft", "ready", "needs-review"]);
 export const SPEC_ALLOWED_STATUS = new Set(["draft", "ready"]);

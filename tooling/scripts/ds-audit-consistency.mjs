@@ -10,8 +10,9 @@ import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-regi
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
+import { extractSectionBody } from "./lib/markdown-sections.mjs";
+import { TOKEN_COLLECTION_PREFIXES } from "./lib/docs-config.mjs";
 
-const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A11y"]);
 const TOKEN_CODES = new Set(["TOK01", "TOK02", "TOK03", "SPEC01", "TOKEN_MISSING", "TOKEN_AMBIGUOUS", "TOKEN_DEPRECATED"]);
 
 function collectComponentPairs({ docsRoot, specRoot, componentName }) {
@@ -47,22 +48,6 @@ function collectComponentPairs({ docsRoot, specRoot, componentName }) {
       markdownPath: markdownBySlug.get(slug) || "",
       specPath: specBySlug.get(slug) || "",
     }));
-}
-
-function extractSectionBody(rawMarkdown, headingTitle) {
-  const markdown = String(rawMarkdown || "");
-  const escaped = String(headingTitle || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const headingRegex = new RegExp(`^##\\s+${escaped}\\s*$`, "m");
-  const headingMatch = headingRegex.exec(markdown);
-  if (!headingMatch) return "";
-
-  const start = headingMatch.index;
-  const headingEnd = markdown.indexOf("\n", start);
-  const contentStart = headingEnd === -1 ? markdown.length : headingEnd + 1;
-  const rest = markdown.slice(contentStart);
-  const nextHeadingMatch = /^##\s+/m.exec(rest);
-  const end = nextHeadingMatch ? contentStart + nextHeadingMatch.index : markdown.length;
-  return markdown.slice(contentStart, end).trim();
 }
 
 function normalizeStringArray(value) {
@@ -136,7 +121,7 @@ function resolveTokenForms(token, lookup) {
   if (value.includes(".")) {
     const parts = value.split(".").filter(Boolean);
     const slash =
-      parts.length > 1 && COLLECTION_PREFIXES.has(parts[0]) ? parts.slice(1).join("/") : parts.join("/");
+      parts.length > 1 && TOKEN_COLLECTION_PREFIXES.has(parts[0]) ? parts.slice(1).join("/") : parts.join("/");
     return Array.from(new Set([value, slash].filter(Boolean)));
   }
 

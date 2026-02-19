@@ -1,4 +1,5 @@
 import { isPlainObject } from "./is-plain-object.mjs";
+import { TOKEN_COLLECTION_PREFIXES } from "./docs-config.mjs";
 
 const GAP_TYPE = Object.freeze({
   SCHEMA_TBD: "SCHEMA_TBD",
@@ -14,8 +15,6 @@ const GAP_TYPE_ORDER = new Map([
   [GAP_TYPE.A11Y_TBD, 4],
 ]);
 
-const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A11y"]);
-
 function isGapMarker(raw) {
   return /^(?:tbd|unknown|unverified|not[-_\s]?defined)$/i.test(String(raw || "").trim());
 }
@@ -27,7 +26,7 @@ function normalizeTokenPathCandidate(tokenPath) {
   let normalized = raw;
   if (normalized.includes("/")) {
     const parts = normalized.split("/");
-    if (parts.length > 1 && COLLECTION_PREFIXES.has(parts[0])) {
+    if (parts.length > 1 && TOKEN_COLLECTION_PREFIXES.has(parts[0])) {
       normalized = parts.slice(1).join("/");
     }
   }
