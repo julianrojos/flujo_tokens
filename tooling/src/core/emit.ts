@@ -14,6 +14,18 @@ import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafeP
 import { coerceTypographyDimension, coerceBorderDimension } from '../utils/coerce.js';
 import { withPathSegment } from '../utils/path-stack.js';
 
+const tokenDataIdentity = new WeakMap<object, number>();
+let tokenDataIdentitySeq = 0;
+
+function getTokenDataIdentity(tokensData: Record<string, any>): number {
+    const key = tokensData as unknown as object;
+    const existing = tokenDataIdentity.get(key);
+    if (existing) return existing;
+    const next = ++tokenDataIdentitySeq;
+    tokenDataIdentity.set(key, next);
+    return next;
+}
+
 function replaceW3cReferences(
     input: string,
     replacer: (match: string, tokenPath: string) => string
@@ -245,10 +257,11 @@ export function findTokenByIdCached(tokensData: Record<string, any>, targetId: s
     const key = typeof targetId === 'string' ? targetId.trim() : '';
     if (!key) return null;
 
-    if (findTokenByIdCache.has(key)) return findTokenByIdCache.get(key)!;
+    const scopedKey = `${getTokenDataIdentity(tokensData)}::${key}`;
+    if (findTokenByIdCache.has(scopedKey)) return findTokenByIdCache.get(scopedKey)!;
 
     const found = findTokenById(tokensData, key);
-    findTokenByIdCache.set(key, found);
+    findTokenByIdCache.set(scopedKey, found);
     return found;
 }
 
@@ -560,10 +573,7 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
                     const channels = [r0, g0, b0];
                     const hasChannelGreaterThanOne = channels.some(c => c > 1);
                     const allWithinUnitRange = channels.every(c => c >= 0 && c <= 1);
-                    const isBinaryAmbiguous = channels.every(c => Number.isInteger(c) && (c === 0 || c === 1));
-
-                    // Ambiguous case like {r:1,g:1,b:1}: prefer byte scale to avoid misreading as white.
-                    const isNormalized = !hasChannelGreaterThanOne && allWithinUnitRange && !isBinaryAmbiguous;
+                    const isNormalized = !hasChannelGreaterThanOne && allWithinUnitRange;
                     const to255 = (c: number, normalized: boolean): number =>
                         normalized ? Math.round((c || 0) * 255) : Math.round(c || 0);
 
@@ -576,8 +586,8 @@ export function processShadow(ctx: EmissionContext, shadowObj: unknown, currentP
                 }
             }
 
-            console.warn(`⚠️  Unsupported shadow color format at ${pathStr(currentPath)}; defaulting to black`);
-            return 'rgba(0, 0, 0, 1)';
+            console.warn(`⚠️  Unsupported shadow color format at ${pathStr(currentPath)}; defaulting to transparent`);
+            return 'rgba(0, 0, 0, 0)';
         });
     })();
 

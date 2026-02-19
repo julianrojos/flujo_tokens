@@ -44,15 +44,17 @@ export function isValidCssVariableName(name: string): boolean {
  * Builds a CSS custom property name from a kebab-cased prefix:
  *   ["colors", "brand", "primary"] → "--colors-brand-primary"
  *
- * If all segments are empty, this returns `"--"`. Call sites validate the name and omit invalid
- * declarations while reporting diagnostics.
+ * If all segments are empty, returns a safe fallback name to avoid emitting an invalid `"--"` token.
  */
 export function buildCssVarNameFromPrefix(prefix: string[]): string {
+    const normalized = prefix.filter((segment) => String(segment || '').trim().length > 0);
+    if (normalized.length === 0) return '--unknown-token';
+
     let out = '--';
     let first = true;
 
-    for (let i = 0; i < prefix.length; i++) {
-        const p = prefix[i];
+    for (let i = 0; i < normalized.length; i++) {
+        const p = normalized[i];
         if (!p) continue;
         if (!first) out += '-';
         out += p;
