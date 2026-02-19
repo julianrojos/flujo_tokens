@@ -144,13 +144,46 @@ function parseFigmaUrl(figmaUrl) {
   }
 
   const pathnameParts = url.pathname.split("/").filter(Boolean);
-  const designIndex = pathnameParts.findIndex((part) => part === "design");
+  const keyRootIndex = pathnameParts.findIndex(
+    (part) => part === "design" || part === "file",
+  );
   const fileKey =
-    designIndex >= 0 && pathnameParts[designIndex + 1]
-      ? pathnameParts[designIndex + 1]
+    keyRootIndex >= 0 && pathnameParts[keyRootIndex + 1]
+      ? pathnameParts[keyRootIndex + 1]
       : "";
 
-  const nodeId = normalizeNodeId(url.searchParams.get("node-id") || "");
+  const nodeParamKeys = ["node-id", "node_id", "nodeId"];
+  let rawNodeId = "";
+  for (const key of nodeParamKeys) {
+    const value = url.searchParams.get(key);
+    if (value) {
+      rawNodeId = value;
+      break;
+    }
+  }
+
+  if (!rawNodeId) {
+    const hashRaw = String(url.hash || "").replace(/^#/, "");
+    if (hashRaw) {
+      const hashParams = new URLSearchParams(hashRaw.replace(/^[/?]+/, ""));
+      for (const key of nodeParamKeys) {
+        const value = hashParams.get(key);
+        if (value) {
+          rawNodeId = value;
+          break;
+        }
+      }
+
+      if (!rawNodeId) {
+        const match = hashRaw.match(/(?:^|[?&])node-?id=([^&]+)/i);
+        if (match && match[1]) {
+          rawNodeId = decodeURIComponent(match[1]);
+        }
+      }
+    }
+  }
+
+  const nodeId = normalizeNodeId(rawNodeId);
   return { fileKey, nodeId };
 }
 
