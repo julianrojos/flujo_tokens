@@ -1,7 +1,12 @@
 import path from "node:path";
 
 function splitComponentWords(raw) {
-  const input = String(raw || "").trim();
+  const input =
+    typeof raw === "string"
+      ? raw.trim()
+      : typeof raw === "number" && Number.isFinite(raw)
+        ? String(raw)
+        : "";
   if (!input) return [];
 
   return input

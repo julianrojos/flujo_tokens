@@ -11,18 +11,32 @@ import { componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { commandExists } from "./lib/command-exists.mjs";
 
+const ALLOWED_CHECK_STATUS = new Set(["pass", "fail", "warn"]);
+
 function createCheck(id, status, message, details = {}) {
+  const normalizedStatus = ALLOWED_CHECK_STATUS.has(status) ? status : "fail";
   return {
     id,
-    status,
+    status: normalizedStatus,
     message,
     details,
   };
 }
 
 function printAndExit(report) {
-  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  process.exit(report.ok ? 0 : 1);
+  try {
+    process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+    process.exit(report.ok ? 0 : 1);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    process.stderr.write(
+      `Failed to serialize doctor report as JSON: ${reason}\n`,
+    );
+    process.stderr.write(
+      `Fallback report status: ok=${String(Boolean(report && report.ok))}\n`,
+    );
+    process.exit(1);
+  }
 }
 
 function main() {

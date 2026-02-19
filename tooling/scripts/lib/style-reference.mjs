@@ -7,6 +7,13 @@ const OVERVIEW_FILE = "overview.md";
 export function resolveStyleReferencePath({ componentDocsDir, outputPath }) {
   const docsDir = path.resolve(String(componentDocsDir || ""));
   if (!docsDir || !fs.existsSync(docsDir)) return "";
+  let stats;
+  try {
+    stats = fs.statSync(docsDir);
+  } catch {
+    return "";
+  }
+  if (!stats.isDirectory()) return "";
 
   const outputBaseName = outputPath ? path.basename(String(outputPath)) : "";
   const candidates = fs

@@ -23,7 +23,12 @@ export const GOLDEN_COMPONENT_SPEC_SAMPLE_PATH = path.resolve(
 );
 
 function sanitizeComponentName(rawName) {
-  const value = String(rawName || "").trim();
+  const value =
+    typeof rawName === "string"
+      ? rawName.trim()
+      : typeof rawName === "number" && Number.isFinite(rawName)
+        ? String(rawName)
+        : "";
   if (value) return value;
   return "Component";
 }

@@ -6,7 +6,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = path.resolve(__dirname, "..", "..", "..");
 
 export function resolveProjectPath(...parts) {
-  return path.join(PROJECT_ROOT, ...parts);
+  const resolved = path.resolve(PROJECT_ROOT, ...parts);
+  const rootWithSep = PROJECT_ROOT.endsWith(path.sep)
+    ? PROJECT_ROOT
+    : `${PROJECT_ROOT}${path.sep}`;
+  if (resolved !== PROJECT_ROOT && !resolved.startsWith(rootWithSep)) {
+    throw new Error(
+      `Resolved path escapes project root: ${resolved} (root: ${PROJECT_ROOT})`,
+    );
+  }
+  return resolved;
 }
 
 export const DOCS_ROOT = resolveProjectPath("docs");
