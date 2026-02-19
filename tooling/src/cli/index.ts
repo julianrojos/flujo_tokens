@@ -17,7 +17,7 @@ import { resetRuntimeState } from '../runtime/state.js';
 import { createSummary, createProcessingContext } from '../runtime/context.js';
 
 // Utils
-import { toKebabCase } from '../utils/strings.js';
+import { normalizeModeName, normalizePreferredMode, matchesPreferredMode, formatModeLabel } from '../utils/modes.js';
 import { printExecutionSummary, logChangeDetection, printModeSummary, printModeFallbackSummary } from '../utils/reporting.js';
 
 // Core
@@ -219,38 +219,6 @@ if (MODE_STRICT && !PREFERRED_MODE) {
     );
 }
 
-function normalizeModeName(modeKey: string | undefined): string {
-    if (!modeKey) return '';
-    const trimmed = modeKey.trim();
-    return trimmed ? toKebabCase(trimmed) : '';
-}
-
-function normalizePreferredModeInput(mode?: string): string | undefined {
-    const trimmed = mode?.trim().toLowerCase();
-    if (!trimmed) return undefined;
-
-    let cleaned = trimmed.replace(/^[^a-z0-9]+/i, '');
-    if (cleaned.startsWith('mode')) {
-        cleaned = cleaned.slice(4).replace(/^[^a-z0-9]+/i, '') || cleaned;
-    }
-
-    const normalized = cleaned.replace(/[^a-z0-9]+/g, '');
-    return normalized || undefined;
-}
-
-function matchesPreferredModeKey(modeKey: string, preferred?: string): boolean {
-    if (!preferred) return false;
-    const normalizedMode = normalizeModeName(modeKey).replace(/^mode[-_]?/i, '').replace(/[^a-z0-9]+/gi, '').toLowerCase();
-    return normalizedMode === preferred;
-}
-
-function formatModeLabel(modeKey: string | undefined): string {
-    const normalized = normalizeModeName(modeKey);
-    const withoutPrefix = normalized.replace(/^mode[-_]?/i, '');
-    const label = withoutPrefix || normalized || (modeKey ?? '');
-    return label.toUpperCase();
-}
-
 function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
     if (a.size !== b.size) return false;
     for (const value of a) {
@@ -326,9 +294,9 @@ async function main() {
 
     // Do not emit a dedicated mode-default scope: default values belong in :root.
     let emittedModes = sortedModes.filter(modeKey => !isModeDefaultKey(modeKey));
-    const preferredForEmission = normalizePreferredModeInput(PREFERRED_MODE);
+    const preferredForEmission = normalizePreferredMode(PREFERRED_MODE);
     if (preferredForEmission) {
-        const preferredModes = emittedModes.filter(modeKey => matchesPreferredModeKey(modeKey, preferredForEmission));
+        const preferredModes = emittedModes.filter(modeKey => matchesPreferredMode(modeKey, preferredForEmission));
         if (preferredModes.length > 0) {
             emittedModes = preferredModes;
         } else {

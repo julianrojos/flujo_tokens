@@ -8,6 +8,7 @@ import { MAX_DEPTH } from '../runtime/config.js';
 import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, warnedInvalidTokenDetails, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
+import { normalizePreferredMode, matchesPreferredMode as matchesPreferredModeAny } from '../utils/modes.js';
 
 /**
  * Safety guard against infinite recursion or unexpectedly deep JSON structures.
@@ -32,26 +33,9 @@ function compareByCodeUnit(a: string, b: string): number {
     return a > b ? 1 : a < b ? -1 : 0;
 }
 
-function normalizePreferredMode(preferredMode?: string): string | undefined {
-    const trimmed = preferredMode?.trim().toLowerCase();
-    if (!trimmed) return undefined;
-
-    // Drop leading non-alphanumerics and the common "mode" prefix to align with export keys.
-    let cleaned = trimmed.replace(/^[^a-z0-9]+/i, '');
-    if (cleaned.startsWith('mode')) {
-        cleaned = cleaned.slice(4).replace(/^[^a-z0-9]+/i, '') || cleaned;
-    }
-
-    const normalized = cleaned.replace(/[^a-z0-9]+/g, '');
-    return normalized || undefined;
-}
-
 function matchesPreferredMode(key: string, preferred?: string): boolean {
-    if (!preferred) return false;
     if (!isModeKey(key)) return false;
-    const tail = key.slice(4);
-    const normalized = tail.replace(/^[^a-z0-9]+/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
-    return normalized === preferred;
+    return matchesPreferredModeAny(key, preferred);
 }
 
 function warnPreferredModeFallbackOnce(path: string, preferred: string | undefined, modeKey: string | undefined, hasValue: boolean): void {
