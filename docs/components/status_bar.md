@@ -40,9 +40,9 @@ Each status bar contains:
 
 ### Properties
 
-| Name | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| `Background` | `VARIANT` | `Transparent` | `true` | Background style. Options: `Transparent`, `Brand`. |
+| Name         | Type      | Default       | Required | Description                                        |
+| ------------ | --------- | ------------- | -------- | -------------------------------------------------- |
+| `Background` | `VARIANT` | `Transparent` | `true`   | Background style. Options: `Transparent`, `Brand`. |
 
 ## Visual Specifications
 
@@ -80,18 +80,18 @@ Each status bar contains:
 
 ### Token Mapping
 
-| Part | Condition | Token | Fallback |
-| --- | --- | --- | --- |
+| Part                   | Condition          | Token                              | Fallback  |
+| ---------------------- | ------------------ | ---------------------------------- | --------- |
 | `container.background` | `Background=Brand` | `Color/Background/Brand/Secondary` | `#C9E0BE` |
-| `time_group.color` | all variants | `Color/BW/Black` | `#000000` |
-| `icons_row.color` | all variants | `Color/BW/Black` | `#000000` |
+| `time_group.color`     | all variants       | `Color/BW/Black`                   | `#000000` |
+| `icons_row.color`      | all variants       | `Color/BW/Black`                   | `#000000` |
 
 ## Variants
 
-| Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
-| --- | --- | --- | --- |
-| `Background=Transparent` | `—` | `Transparent` | No background fill |
-| `Background=Brand` | `Color/Background/Brand/Secondary` | `#C9E0BE` | Brand secondary surface fill |
+| Variant                  | Differentiating token(s)           | Fallback value(s) | Visual indicator             |
+| ------------------------ | ---------------------------------- | ----------------- | ---------------------------- |
+| `Background=Transparent` | `—`                                | `Transparent`     | No background fill           |
+| `Background=Brand`       | `Color/Background/Brand/Secondary` | `#C9E0BE`         | Brand secondary surface fill |
 
 ## States
 
@@ -144,6 +144,4 @@ This component is not keyboard-interactive.
 
 ## Gaps / TBD
 
-- No dark mode or high-contrast variant.
-- No configurable properties for time or signal/battery values.
-- No platform variants beyond the current iPhone layout.
+- [ ] [A11Y_TBD] `accessibility.role` is `TBD`. Accessibility detail is unresolved.

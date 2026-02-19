@@ -8,7 +8,10 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
+import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
+import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
+import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
 import {
   normalizeComponentName,
   componentNameFromFilePath,
@@ -59,6 +62,21 @@ function validateSpecPreflight(specPath) {
   );
 }
 
+function syncGapsSection({ specPath, markdownPath, registryPath }) {
+  const spec = parseYamlDocument(
+    fs.readFileSync(specPath, "utf8"),
+    `spec YAML (${path.basename(specPath)})`
+  );
+  const registry = loadTokenRegistry(registryPath);
+  const gaps = extractGapsFromSpec({ spec, registry });
+  const currentMarkdown = fs.readFileSync(markdownPath, "utf8");
+  const nextMarkdown = upsertGapsSection(currentMarkdown, gaps);
+  if (nextMarkdown !== currentMarkdown) {
+    fs.writeFileSync(markdownPath, nextMarkdown, "utf8");
+  }
+  return gaps.length;
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const rawComponentName = String(args["component-name"] || "").trim();
@@ -71,7 +89,17 @@ function main() {
   const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
   const syncStatePath = args["sync-state"] || undefined;
+  const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
   const agent = args.agent || "auto";
+
+  try {
+    loadTokenRegistry(registryPath);
+  } catch (error) {
+    console.error(
+      `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`
+    );
+    process.exit(1);
+  }
 
   if (!rawComponentName && !args["spec-file"]) {
     console.error("Missing --component-name or --spec-file.");
@@ -123,7 +151,7 @@ function main() {
 
   const taskId = `ds-component-doc:${specPath}->${outputPath}`;
   const fingerprint = computeFingerprint({
-    files: [specPath, __filename],
+    files: [specPath, __filename, registryPath],
     values: {
       componentName: effectiveComponentName || path.basename(specPath, path.extname(specPath)),
       outputPath,
@@ -169,11 +197,12 @@ function main() {
     "",
     "Constraints",
     "- Do not invent properties, variants, states, accessibility, or token semantics.",
-    "- If spec lacks information, keep explicit `TBD` values and include `## Gaps / TBD`.",
+    "- If spec lacks information, keep explicit `TBD` values.",
     "- Never use Figma internal variable IDs (VariableID) in user-facing prose/tables.",
     "- If spec includes figma.component_set_node_id, mirror it in markdown frontmatter figma.component_set_node_id.",
     "- Keep language and tone consistent with existing component docs.",
     "- Update overview links if needed so the component is discoverable.",
+    "- `## Gaps / TBD` is auto-managed by the pipeline and should not contain custom freeform entries.",
     "",
     "Expected Output",
     "- Write/update the markdown file at the exact output path.",
@@ -183,10 +212,16 @@ function main() {
     .join("\n");
 
   try {
+    let gapsCount = 0;
     runAgentPrompt({
       prompt,
       agent,
       label: `component-doc-${safeName}`,
+    });
+    gapsCount = syncGapsSection({
+      specPath,
+      markdownPath: outputPath,
+      registryPath,
     });
     formatMarkdown(outputPath);
 
@@ -217,6 +252,8 @@ function main() {
       metadata: {
         command: "ds-component-doc",
         specPath,
+        registryPath,
+        gapsCount,
         specHashAtGeneration: computeFingerprint({ files: [specPath] }),
         markdownHashAtGeneration: computeFingerprint({ files: [outputPath] }),
       },

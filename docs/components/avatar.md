@@ -33,9 +33,9 @@ Each avatar contains:
 
 ### Properties
 
-| Name | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| `—` | `—` | `—` | `—` | This component has no exposed Figma component properties. |
+| Name | Type | Default | Required | Description                                               |
+| ---- | ---- | ------- | -------- | --------------------------------------------------------- |
+| `—`  | `—`  | `—`     | `—`      | This component has no exposed Figma component properties. |
 
 ## Visual Specifications
 
@@ -63,11 +63,11 @@ Each avatar contains:
 
 ### Token Mapping
 
-| Part | Condition | Token | Fallback |
-| --- | --- | --- | --- |
-| `container.border-color` | all variants | `Color/Border/Neutral/Default` | `#9A9090` |
-| `container.border-radius` | all variants | `Dimension/Border/Radius/200` | `8px` |
-| `container.border-width` | all variants | `Dimension/Border/Width/200` | `2px` |
+| Part                      | Condition    | Token                          | Fallback  |
+| ------------------------- | ------------ | ------------------------------ | --------- |
+| `container.border-color`  | all variants | `Color/Border/Neutral/Default` | `#9A9090` |
+| `container.border-radius` | all variants | `Dimension/Border/Radius/200`  | `8px`     |
+| `container.border-width`  | all variants | `Dimension/Border/Width/200`   | `2px`     |
 
 ## Variants
 
@@ -123,9 +123,3 @@ This component is not keyboard-interactive by itself.
 
 - [Bottom Bar](bottom_bar.md): Use for navigation actions; avatar may appear inside destinations opened from navigation.
 - [Alert](alert.md): Use for feedback messaging; avatar should not be used as feedback status.
-
-## Gaps / TBD
-
-- No size variants (`sm`, `md`, `lg`, etc.) in Figma.
-- No explicit fallback variant for empty/missing image.
-- No explicit interaction states (`hover`, `focus`, `selected`, `disabled`).

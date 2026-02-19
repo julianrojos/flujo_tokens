@@ -177,8 +177,4 @@ The root container has no independent interaction state. State behavior is contr
 
 ## Gaps / TBD
 
-- Item-level token differences for `Default` vs `Selected` are `TBD` in current docs.
-- Root-level selected-index control is not exposed as a single property in this component.
-- No badge/counter slot is defined for notifications.
-- No documented dark-mode variant for the root container.
-- No explicit overflow behavior is defined for long labels.
+- [ ] [SCHEMA_TBD] `token_mapping.container.background.default` is `TBD`. Specification value is unresolved.

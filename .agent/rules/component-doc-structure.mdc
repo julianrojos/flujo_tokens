@@ -93,9 +93,19 @@ Each component page must start with the frontmatter contract defined in `compone
 
 ### 13. `## Gaps / TBD`
 
-- Only present if there are unresolved items.
-- Bullet list of what is missing or unverified.
-- Remove this section entirely once all gaps are resolved.
+- This section is **binary and deterministic**:
+  - Include it when unresolved gaps exist in the linked spec.
+  - Omit it entirely when no unresolved gaps exist.
+- Each item must use checkbox format:
+  - `- [ ] [SCHEMA_TBD] ...`
+  - `- [ ] [TOKEN_INVALID] ...`
+  - `- [ ] [CONTENT_UNKNOWN] ...`
+  - `- [ ] [A11Y_TBD] ...`
+- Canonical ordering is mandatory:
+  1. `SCHEMA_TBD`
+  2. `TOKEN_INVALID`
+  3. `CONTENT_UNKNOWN`
+  4. `A11Y_TBD`
 
 ## General rules
 

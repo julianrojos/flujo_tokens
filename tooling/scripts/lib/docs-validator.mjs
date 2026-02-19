@@ -5,6 +5,12 @@ import { COMPONENT_DOCS_DIR, DOCS_SPEC_DIR } from "./paths.mjs";
 import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./token-registry.mjs";
 import { parseMarkdownFrontmatter, parseYamlDocument } from "./parse-frontmatter.mjs";
 import {
+  extractGapsFromSpec,
+  buildGapsChecklistLines,
+  extractGapsSection,
+  extractNonEmptySectionLines,
+} from "./gaps.mjs";
+import {
   componentNameToSnakeCase,
   isSnakeCaseFileSlug,
 } from "./component-name.mjs";
@@ -427,6 +433,7 @@ function readComponentSpecByDocPath(componentDocPath, specRoot) {
       status: "",
       componentSetNodeIdRaw: "",
       componentSetNodeId: "",
+      parsed: null,
     };
   }
 
@@ -444,6 +451,7 @@ function readComponentSpecByDocPath(componentDocPath, specRoot) {
       status,
       componentSetNodeIdRaw,
       componentSetNodeId: normalizeNodeId(componentSetNodeIdRaw),
+      parsed,
       parseError: null,
     };
   } catch (error) {
@@ -453,6 +461,7 @@ function readComponentSpecByDocPath(componentDocPath, specRoot) {
       status: "",
       componentSetNodeIdRaw: "",
       componentSetNodeId: "",
+      parsed: null,
       parseError: error instanceof Error ? error.message : String(error),
     };
   }
@@ -526,6 +535,111 @@ function validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, rep
       suggested: path.relative(process.cwd(), spec.specPath),
     });
   }
+}
+
+function validateGapsSectionContract(filePath, rawMarkdown, specRoot, registry, report, lineStarts) {
+  const spec = readComponentSpecByDocPath(filePath, specRoot);
+  const section = extractGapsSection(rawMarkdown);
+
+  if (!spec.exists) {
+    if (section) {
+      report.warnings.push({
+        code: "GAP00",
+        file: filePath,
+        line: section ? lineFromOffset(lineStarts, section.start) : undefined,
+        message:
+          "Gaps section exists but linked spec file is missing; deterministic gap checks were skipped.",
+      });
+    }
+    return;
+  }
+
+  if (spec.parseError || !spec.parsed) {
+    report.errors.push({
+      code: "GAP01",
+      file: filePath,
+      message:
+        `Unable to validate Gaps / TBD contract because spec could not be parsed: ${spec.parseError}`,
+      suggested: path.relative(process.cwd(), spec.specPath),
+    });
+    return;
+  }
+
+  const gaps = extractGapsFromSpec({ spec: spec.parsed, registry });
+  const expectedLines = buildGapsChecklistLines(gaps);
+
+  if (spec.status === "ready" && gaps.length > 0) {
+    report.errors.push({
+      code: "GAP02",
+      file: spec.specPath,
+      message:
+        "Spec status is `ready` but unresolved gaps still exist. Resolve gaps or set status back to `draft`.",
+    });
+  }
+
+  if (expectedLines.length === 0) {
+    if (!section) return;
+    report.errors.push({
+      code: "GAP01",
+      file: filePath,
+      line: lineFromOffset(lineStarts, section.start),
+      message:
+        "`## Gaps / TBD` must be omitted when the linked spec has no unresolved gaps.",
+    });
+    return;
+  }
+
+  if (!section) {
+    report.errors.push({
+      code: "GAP01",
+      file: filePath,
+      message:
+        "Missing required `## Gaps / TBD` section. The linked spec has unresolved gaps.",
+    });
+    return;
+  }
+
+  const rawSectionLines = extractNonEmptySectionLines(section.body);
+  if (rawSectionLines.length === 0) {
+    report.errors.push({
+      code: "GAP01",
+      file: filePath,
+      line: lineFromOffset(lineStarts, section.start),
+      message:
+        "`## Gaps / TBD` must contain checklist items in canonical checkbox format.",
+    });
+    return;
+  }
+
+  const checkboxFormat = /^-\s+\[\s\]\s+\[[A-Z0-9_]+\]\s+.+$/;
+  const invalidLine = rawSectionLines.find((line) => !checkboxFormat.test(line));
+  if (invalidLine) {
+    report.errors.push({
+      code: "GAP01",
+      file: filePath,
+      line: lineFromOffset(lineStarts, section.start),
+      message:
+        "Every Gaps item must use checkbox format: `- [ ] [GAP_TYPE] ...`.",
+      details: invalidLine,
+    });
+    return;
+  }
+
+  const actualLines = rawSectionLines;
+  const sameLength = actualLines.length === expectedLines.length;
+  const sameOrder =
+    sameLength && actualLines.every((line, index) => line === expectedLines[index]);
+  if (sameOrder) return;
+
+  report.errors.push({
+    code: "GAP01",
+    file: filePath,
+    line: lineFromOffset(lineStarts, section.start),
+    message:
+      "Gaps section does not match canonical deterministic content generated from spec + token registry.",
+    expected: expectedLines,
+    actual: actualLines,
+  });
 }
 
 function validateComponentDocFileName(filePath, report) {
@@ -1371,6 +1485,7 @@ export function validateDocs(options = {}) {
     validateComponentDocFileName(filePath, report);
     validateComponentFrontmatter(filePath, frontmatter, report);
     validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report);
+    validateGapsSectionContract(filePath, raw, specRoot, registry, report, lineStarts);
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset);
     validateVariableIds(filePath, raw, report, lineStarts);
     validateTokenReferences(filePath, content, registryIndexes, report, lineStarts, contentOffset);

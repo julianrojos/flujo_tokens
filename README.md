@@ -163,7 +163,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
-- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, `component_set_node_id` format/requirements, and spec↔markdown traceability consistency when markdown declares the node id).
+- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, and deterministic `Gaps / TBD` contract).
 
 ### Documentation folders
 
@@ -193,6 +193,10 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - do not run markdown generation without a valid spec
   - do not render to Figma without an existing component markdown
   - validation is a gate after spec and markdown generation
+- `## Gaps / TBD` contract is enforced:
+  - include only when linked spec has unresolved gaps
+  - omit when linked spec has no unresolved gaps
+  - checklist format required: `- [ ] [GAP_TYPE] ...` in canonical order
 - Deterministic placement contract:
   - prefer `figma.component_set_node_id` from the spec
   - in `ready` specs, `figma.component_set_node_id` is mandatory
@@ -256,6 +260,7 @@ Useful flags:
 - `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
 - `--output <path/to/component.md>` (default: `docs/components/<snake_case>.md`)
 - `--docs-root <path>` (default: `docs`)
+- `--registry <path>` (default: `docs/_generated/token-registry.json`)
 - `--skip-validation true`
 - `--force true` (ignore incremental cache)
 - `--agent <codex|claude|gemini>`
@@ -264,6 +269,7 @@ Preflight behavior:
 
 - Fails fast if the spec file does not exist.
 - Validates the target spec before generating markdown; generation is blocked on spec errors.
+- Synchronizes `## Gaps / TBD` from spec + token registry using canonical checkbox format.
 
 ### 3) Figma component -> spec YAML
 

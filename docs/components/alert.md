@@ -40,10 +40,10 @@ Current variant dimensions in Figma:
 
 ### Properties
 
-| Name | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
-| `Type` | `VARIANT` | `Information` | `true` | Semantic alert type. Options: `Information`, `Warning`, `Positive`. |
-| `Change_Message_Text` | `TEXT` | `Text text text` | `TBD` | Overrides the main alert message copy. |
+| Name                  | Type      | Default          | Required | Description                                                         |
+| --------------------- | --------- | ---------------- | -------- | ------------------------------------------------------------------- |
+| `Type`                | `VARIANT` | `Information`    | `true`   | Semantic alert type. Options: `Information`, `Warning`, `Positive`. |
+| `Change_Message_Text` | `TEXT`    | `Text text text` | `TBD`    | Overrides the main alert message copy.                              |
 
 ## Visual Specifications
 
@@ -73,18 +73,18 @@ Current variant dimensions in Figma:
 
 ### Token Mapping
 
-| Part | Condition | Token | Fallback |
-| --- | --- | --- | --- |
+| Part                   | Condition    | Token                               | Fallback  |
+| ---------------------- | ------------ | ----------------------------------- | --------- |
 | `container.background` | all variants | `Color/Background/Feedback/Default` | `#FFFFFF` |
-| `text.color` | all variants | `Color/Text/Neutral/Default` | `#483F3F` |
+| `text.color`           | all variants | `Color/Text/Neutral/Default`        | `#483F3F` |
 
 ## Variants
 
-| Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
-| --- | --- | --- | --- |
+| Variant       | Differentiating token(s)                                               | Fallback value(s)    | Visual indicator                                         |
+| ------------- | ---------------------------------------------------------------------- | -------------------- | -------------------------------------------------------- |
 | `Information` | `Color/Border/Feedback/Information`, `Color/Icon/Feedback/Information` | `#BAA06B`, `#9D8555` | `information-circle-contained` icon + information border |
-| `Warning` | `Color/Border/Feedback/Danger`, `Color/Icon/Feedback/Danger` | `#B22222`, `#B22222` | `x-circle-contained` icon + warning border |
-| `Positive` | `Color/Border/Feedback/Success`, `Color/Icon/Feedback/Success` | `#299157`, `#299157` | `check-contained` icon + success border |
+| `Warning`     | `Color/Border/Feedback/Danger`, `Color/Icon/Feedback/Danger`           | `#B22222`, `#B22222` | `x-circle-contained` icon + warning border               |
+| `Positive`    | `Color/Border/Feedback/Success`, `Color/Icon/Feedback/Success`         | `#299157`, `#299157` | `check-contained` icon + success border                  |
 
 ## States
 
@@ -140,8 +140,3 @@ This component is not keyboard-interactive in the current Figma configuration.
 
 - [Status Bar](status_bar.md): Use for fixed device/system chrome, not inline feedback messaging.
 - [Bottom Bar](bottom_bar.md): Use for persistent action navigation, not semantic feedback.
-
-## Gaps / TBD
-
-- Required status for `Change_Message_Text` in Figma is `TBD`.
-- Accessibility behavior for interactive/dismissible alert variants is `TBD`.
