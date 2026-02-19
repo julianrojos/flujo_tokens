@@ -10,9 +10,15 @@ import yaml from "js-yaml";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
-import { parseMarkdownFrontmatter, parseYamlDocument } from "./lib/parse-frontmatter.mjs";
+import {
+  parseMarkdownFrontmatter,
+  parseYamlDocument,
+} from "./lib/parse-frontmatter.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
-import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
+import {
+  DEFAULT_TOKEN_REGISTRY_PATH,
+  loadTokenRegistry,
+} from "./lib/token-registry.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
@@ -60,7 +66,8 @@ function validateSpecPreflight(specPath, registryPath) {
   if (report.ok) return;
 
   const specErrors = report.errors.filter(
-    (error) => path.resolve(String(error.file || "")) === path.resolve(specPath)
+    (error) =>
+      path.resolve(String(error.file || "")) === path.resolve(specPath),
   );
 
   const payload = {
@@ -70,7 +77,7 @@ function validateSpecPreflight(specPath, registryPath) {
   throw new Error(
     "Spec validation failed. Markdown generation was blocked.\n" +
       `Run: npm run validate:docs -- --spec-file "${specPath}" --no-overview true\n` +
-      `${JSON.stringify(payload, null, 2)}`
+      `${JSON.stringify(payload, null, 2)}`,
   );
 }
 
@@ -112,7 +119,7 @@ function upsertTraceabilityFrontmatter({
   const fm = isPlainObject(frontmatter) ? { ...frontmatter } : {};
   const spec = parseYamlDocument(
     fs.readFileSync(specPath, "utf8"),
-    `spec YAML (${path.basename(specPath)})`
+    `spec YAML (${path.basename(specPath)})`,
   );
   const figmaTraceability = deriveFigmaFrontmatterTraceability(spec);
 
@@ -162,7 +169,7 @@ function upsertTraceabilityFrontmatter({
 function syncGapsSection({ specPath, markdownPath, registryPath }) {
   const spec = parseYamlDocument(
     fs.readFileSync(specPath, "utf8"),
-    `spec YAML (${path.basename(specPath)})`
+    `spec YAML (${path.basename(specPath)})`,
   );
   const registry = loadTokenRegistry(registryPath);
   const gaps = extractGapsFromSpec({ spec, registry });
@@ -186,13 +193,15 @@ function main() {
   const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
   const syncStatePath = args["sync-state"] || undefined;
-  const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
+  const registryPath = path.resolve(
+    args.registry || DEFAULT_TOKEN_REGISTRY_PATH,
+  );
   const agent = args.agent || "auto";
 
   if (skipValidation && !force) {
     console.error(
       "Validation gate bypass requires explicit force.\n" +
-        "Use `--skip-validation true --force true` only for exceptional cases."
+        "Use `--skip-validation true --force true` only for exceptional cases.",
     );
     process.exit(1);
   }
@@ -201,7 +210,7 @@ function main() {
     loadTokenRegistry(registryPath);
   } catch (error) {
     console.error(
-      `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`
+      `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`,
     );
     process.exit(1);
   }
@@ -216,30 +225,37 @@ function main() {
   const componentSlugFromArg = normalizedFromArg.fileSlug;
   if (!args["spec-file"] && !componentSlugFromArg) {
     console.error(
-      "Invalid --component-name for path inference. Provide a valid component name, or pass --spec-file/--output explicitly."
+      "Invalid --component-name for path inference. Provide a valid component name, or pass --spec-file/--output explicitly.",
     );
     process.exit(1);
   }
   const specPath = path.resolve(
-    args["spec-file"] || path.join(specRoot, `${componentSlugFromArg}.yml`)
+    args["spec-file"] || path.join(specRoot, `${componentSlugFromArg}.yml`),
   );
   const normalizedFromSpecPath = componentNameFromFilePath(specPath);
   const componentSlug = componentSlugFromArg || normalizedFromSpecPath.fileSlug;
-  const effectiveComponentName = componentName || normalizedFromSpecPath.displayName;
+  const effectiveComponentName =
+    componentName || normalizedFromSpecPath.displayName;
 
   const outputPath = path.resolve(
-    args.output || path.join(componentDocsDir, `${componentSlug}.md`)
+    args.output || path.join(componentDocsDir, `${componentSlug}.md`),
   );
   const overviewPath = path.resolve(path.join(componentDocsDir, "overview.md"));
-  const styleReferencePath = resolveStyleReferencePath({ componentDocsDir, outputPath });
-  const safeName = componentNameToSnakeCase(effectiveComponentName || componentSlug || "component");
+  const styleReferencePath = resolveStyleReferencePath({
+    componentDocsDir,
+    outputPath,
+  });
+  const safeName = componentNameToSnakeCase(
+    effectiveComponentName || componentSlug || "component",
+  );
 
   if (!fs.existsSync(specPath)) {
-    const suggestedName = effectiveComponentName || componentSlug || "Component";
+    const suggestedName =
+      effectiveComponentName || componentSlug || "Component";
     console.error(
       "Missing required spec file.\n" +
         `Spec: ${specPath}\n` +
-        `Run: npm run ds:spec-from-figma -- --component-name "${suggestedName}" --output "${specPath}"`
+        `Run: npm run ds:spec-from-figma -- --component-name "${suggestedName}" --output "${specPath}"`,
     );
     process.exit(1);
   }
@@ -259,7 +275,9 @@ function main() {
   const fingerprint = computeFingerprint({
     files: [specPath, __filename, registryPath],
     values: {
-      componentName: effectiveComponentName || path.basename(specPath, path.extname(specPath)),
+      componentName:
+        effectiveComponentName ||
+        path.basename(specPath, path.extname(specPath)),
       outputPath,
       docsRoot: docsRootInput,
     },
@@ -284,8 +302,8 @@ function main() {
           hint: "Use --force true to regenerate markdown.",
         },
         null,
-        2
-      )}\n`
+        2,
+      )}\n`,
     );
     return;
   }
@@ -297,7 +315,9 @@ function main() {
     ],
     sources: [
       `Spec YAML (source of truth): ${specPath}`,
-      styleReferencePath ? `Existing docs style reference: ${styleReferencePath}` : "",
+      styleReferencePath
+        ? `Existing docs style reference: ${styleReferencePath}`
+        : "",
       `Output component markdown path (required): ${outputPath}`,
       `Overview path to keep in sync: ${overviewPath}`,
     ],
@@ -310,6 +330,14 @@ function main() {
       "Keep language and tone consistent with existing component docs.",
       "Update overview links if needed so the component is discoverable.",
       RULE_BLOCKS.GAPS_AUTOMANAGED,
+    ],
+    examples: [
+      "GOOD token reference: `Semantic.Color.Focus-Outline.Inner` (#3B82F6).",
+      "BAD token reference: Semantic.Color.Focus-Outline.Inner (#3B82F6) without backticks.",
+      "GOOD fallback marker for unknown value: `TBD`.",
+      "BAD unknown markers: `pending`, `unknown`, `to be defined`.",
+      "GOOD H2 flow: `Overview -> Anatomy -> Component API -> ... -> Related Components`.",
+      "BAD extra H2: `## Examples` or `## Changelog`.",
     ],
     expectedOutput: [
       "Write/update the markdown file at the exact output path.",
@@ -353,8 +381,8 @@ function main() {
               errors: report.errors,
             },
             null,
-            2
-          )}`
+            2,
+          )}`,
         );
       }
     }

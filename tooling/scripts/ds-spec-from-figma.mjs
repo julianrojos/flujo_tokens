@@ -10,8 +10,15 @@ import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
-import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
-import { componentNameToSnakeCase, componentNameToDisplayName, normalizeComponentName } from "./lib/component-name.mjs";
+import {
+  DEFAULT_TOKEN_REGISTRY_PATH,
+  loadTokenRegistry,
+} from "./lib/token-registry.mjs";
+import {
+  componentNameToSnakeCase,
+  componentNameToDisplayName,
+  normalizeComponentName,
+} from "./lib/component-name.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./lib/docs-config.mjs";
@@ -168,7 +175,8 @@ function extractKeywords(raw) {
 }
 
 function scoreTokenCandidate(entry, keywords) {
-  const haystack = `${String(entry.path || "")} ${String(entry.slashPath || "")}`.toLowerCase();
+  const haystack =
+    `${String(entry.path || "")} ${String(entry.slashPath || "")}`.toLowerCase();
   let score = 0;
 
   for (const keyword of keywords) {
@@ -213,12 +221,18 @@ function prefillTokenMapping(node, componentTokenCandidates, keyPath = "") {
   let filledCount = 0;
 
   const entries = Object.entries(node);
-  const isConditionMap = entries.length > 0 && entries.every(([, value]) => typeof value === "string");
+  const isConditionMap =
+    entries.length > 0 &&
+    entries.every(([, value]) => typeof value === "string");
 
   if (isConditionMap) {
     for (const [condition, value] of entries) {
       if (!isTbdMarker(value)) continue;
-      const suggestion = pickBestTokenPath(componentTokenCandidates, keyPath, condition);
+      const suggestion = pickBestTokenPath(
+        componentTokenCandidates,
+        keyPath,
+        condition,
+      );
       if (!suggestion) continue;
       node[condition] = suggestion;
       filledCount += 1;
@@ -231,7 +245,11 @@ function prefillTokenMapping(node, componentTokenCandidates, keyPath = "") {
 
     if (typeof value === "string") {
       if (!isTbdMarker(value)) continue;
-      const suggestion = pickBestTokenPath(componentTokenCandidates, nextPath, key);
+      const suggestion = pickBestTokenPath(
+        componentTokenCandidates,
+        nextPath,
+        key,
+      );
       if (!suggestion) continue;
       node[key] = suggestion;
       filledCount += 1;
@@ -239,7 +257,11 @@ function prefillTokenMapping(node, componentTokenCandidates, keyPath = "") {
     }
 
     if (isPlainObject(value)) {
-      filledCount += prefillTokenMapping(value, componentTokenCandidates, nextPath);
+      filledCount += prefillTokenMapping(
+        value,
+        componentTokenCandidates,
+        nextPath,
+      );
     }
   }
 
@@ -248,9 +270,13 @@ function prefillTokenMapping(node, componentTokenCandidates, keyPath = "") {
 
 function countTbdValues(value) {
   if (typeof value === "string") return isTbdMarker(value) ? 1 : 0;
-  if (Array.isArray(value)) return value.reduce((sum, item) => sum + countTbdValues(item), 0);
+  if (Array.isArray(value))
+    return value.reduce((sum, item) => sum + countTbdValues(item), 0);
   if (isPlainObject(value)) {
-    return Object.values(value).reduce((sum, item) => sum + countTbdValues(item), 0);
+    return Object.values(value).reduce(
+      (sum, item) => sum + countTbdValues(item),
+      0,
+    );
   }
   return 0;
 }
@@ -260,7 +286,9 @@ function formatYamlFile(outputPath) {
     stdio: "inherit",
   });
   if (result.error) {
-    throw new Error(`Failed to run Prettier for YAML output: ${result.error.message}`);
+    throw new Error(
+      `Failed to run Prettier for YAML output: ${result.error.message}`,
+    );
   }
   if ((result.status ?? 1) !== 0) {
     throw new Error(`Prettier exited with code ${result.status}`);
@@ -269,8 +297,13 @@ function formatYamlFile(outputPath) {
 
 function buildOutputPath(args, specRoot, componentSlug, nodeId) {
   if (args.output) return path.resolve(args.output);
-  if (componentSlug) return path.join(path.resolve(specRoot), `${componentSlug}.yml`);
-  if (nodeId) return path.join(path.resolve(specRoot), `component_${nodeId.replace(":", "_")}.yml`);
+  if (componentSlug)
+    return path.join(path.resolve(specRoot), `${componentSlug}.yml`);
+  if (nodeId)
+    return path.join(
+      path.resolve(specRoot),
+      `component_${nodeId.replace(":", "_")}.yml`,
+    );
   return "";
 }
 
@@ -291,7 +324,9 @@ function buildPrompt({
       fileKeyFromUrl ? `Figma file key from URL: ${fileKeyFromUrl}` : "",
     ],
     sources: [
-      figmaUrl ? `Figma URL: ${figmaUrl}` : "Figma URL: not provided (use node id or name lookup).",
+      figmaUrl
+        ? `Figma URL: ${figmaUrl}`
+        : "Figma URL: not provided (use node id or name lookup).",
       `Spec template: ${templatePath}`,
       `Token registry: ${registryPath}`,
       "Existing spec reference: docs/_spec/components/alert.yml",
@@ -301,6 +336,7 @@ function buildPrompt({
       RULE_BLOCKS.FIGMA_MCP_WORKFLOW,
       "Write YAML only (no markdown, no code fences).",
       `Include required top-level fields: ${SPEC_REQUIRED_TOP_LEVEL_FIELDS.join(", ")}.`,
+      `Top-level YAML key order must be: ${SPEC_TOP_LEVEL_ORDER.join(" -> ")}.`,
       "Set figma.file, figma.page, figma.component_set from evidence.",
       "Set figma.component_set_node_id when node-id is available from URL/context.",
       "In token_mapping, use token paths that exist in the token registry.",
@@ -317,13 +353,19 @@ function buildPrompt({
 
 function ensureSpecMetadata(spec, { componentName, nodeId, fileKeyFromUrl }) {
   if (!isPlainObject(spec.figma)) spec.figma = {};
-  if (componentName && isTbdMarker(spec.name)) spec.name = componentNameToDisplayName(componentName);
-  if (componentName && !String(spec.name || "").trim()) spec.name = componentNameToDisplayName(componentName);
+  if (componentName && isTbdMarker(spec.name))
+    spec.name = componentNameToDisplayName(componentName);
+  if (componentName && !String(spec.name || "").trim())
+    spec.name = componentNameToDisplayName(componentName);
 
   if (fileKeyFromUrl && (!spec.figma.file || isTbdMarker(spec.figma.file))) {
     spec.figma.file = fileKeyFromUrl;
   }
-  if (nodeId && (!spec.figma.component_set_node_id || isTbdMarker(spec.figma.component_set_node_id))) {
+  if (
+    nodeId &&
+    (!spec.figma.component_set_node_id ||
+      isTbdMarker(spec.figma.component_set_node_id))
+  ) {
     spec.figma.component_set_node_id = nodeId;
   }
   return spec;
@@ -340,8 +382,11 @@ function validateGeneratedSpec(outputPath, registryPath) {
 
   if (report.ok) return report;
 
-  const relevantErrors = report.errors.filter((error) => path.resolve(error.file || "") === path.resolve(outputPath));
-  const errorsToShow = relevantErrors.length > 0 ? relevantErrors : report.errors;
+  const relevantErrors = report.errors.filter(
+    (error) => path.resolve(error.file || "") === path.resolve(outputPath),
+  );
+  const errorsToShow =
+    relevantErrors.length > 0 ? relevantErrors : report.errors;
   throw new Error(
     `Generated spec failed validation.\n${JSON.stringify(
       {
@@ -349,8 +394,8 @@ function validateGeneratedSpec(outputPath, registryPath) {
         errors: errorsToShow,
       },
       null,
-      2
-    )}`
+      2,
+    )}`,
   );
 }
 
@@ -364,7 +409,9 @@ function main() {
   const componentSlug = normalizedName.fileSlug;
   const specRoot = args["spec-root"] || SPEC_COMPONENTS_DIR;
   const templatePath = path.resolve(args.template || SPEC_TEMPLATE_PATH);
-  const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
+  const registryPath = path.resolve(
+    args.registry || DEFAULT_TOKEN_REGISTRY_PATH,
+  );
   const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
   const agent = args.agent || "auto";
@@ -372,7 +419,7 @@ function main() {
   if (skipValidation && !force) {
     console.error(
       "Validation gate bypass requires explicit force.\n" +
-        "Use `--skip-validation true --force true` only for exceptional cases."
+        "Use `--skip-validation true --force true` only for exceptional cases.",
     );
     process.exit(1);
   }
@@ -383,14 +430,16 @@ function main() {
 
   if (!figmaUrl && !nodeId && !rawComponentName) {
     console.error(
-      "Missing Figma source.\nUse one of:\n- --url <figma-url>\n- --component-set-node-id <node-id>\n- --component-name <name> (less deterministic)"
+      "Missing Figma source.\nUse one of:\n- --url <figma-url>\n- --component-set-node-id <node-id>\n- --component-name <name> (less deterministic)",
     );
     process.exit(1);
   }
 
   const outputPath = buildOutputPath(args, specRoot, componentSlug, nodeId);
   if (!outputPath) {
-    console.error("Missing output target.\nProvide --output or --component-name.");
+    console.error(
+      "Missing output target.\nProvide --output or --component-name.",
+    );
     process.exit(1);
   }
 
@@ -404,7 +453,7 @@ function main() {
     registryIndex = loadTokenRegistry(registryPath);
   } catch (error) {
     console.error(
-      `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`
+      `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`,
     );
     process.exit(1);
   }
@@ -429,16 +478,18 @@ function main() {
     });
 
     if (!fs.existsSync(outputPath)) {
-      throw new Error(`Expected generated spec file not found at ${outputPath}`);
+      throw new Error(
+        `Expected generated spec file not found at ${outputPath}`,
+      );
     }
 
     const templateSpec = parseYamlDocument(
       fs.readFileSync(templatePath, "utf8"),
-      `spec template (${templatePath})`
+      `spec template (${templatePath})`,
     );
     const generatedSpecRaw = parseYamlDocument(
       fs.readFileSync(outputPath, "utf8"),
-      `generated spec (${outputPath})`
+      `generated spec (${outputPath})`,
     );
 
     const mergedSpec = mergeWithTemplate(templateSpec, generatedSpecRaw);
@@ -447,12 +498,12 @@ function main() {
     const registryEntries = extractUniqueRegistryEntries(registryIndex);
     const tokenCandidates = pickComponentTokenCandidates(
       registryEntries,
-      mergedSpec.name || componentName
+      mergedSpec.name || componentName,
     );
     const prefilledCount = prefillTokenMapping(
       mergedSpec.token_mapping,
       tokenCandidates,
-      "token_mapping"
+      "token_mapping",
     );
 
     const normalizedSpec = normalizeSpecOrder(mergedSpec);
@@ -463,7 +514,7 @@ function main() {
         noRefs: true,
         sortKeys: false,
       }),
-      "utf8"
+      "utf8",
     );
     formatYamlFile(outputPath);
 
@@ -490,8 +541,8 @@ function main() {
             : { skipped: true },
         },
         null,
-        2
-      )}\n`
+        2,
+      )}\n`,
     );
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

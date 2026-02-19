@@ -6,7 +6,10 @@ import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
-import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
+import {
+  normalizeComponentName,
+  componentNameToSnakeCase,
+} from "./lib/component-name.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import {
   buildAgentPrompt,
@@ -34,7 +37,7 @@ function main() {
   const figmaUrl = args.url;
   if (!figmaUrl) {
     console.error(
-      "Missing --url\nExample: npm run ds:doc-from-figma-url -- --url \"https://www.figma.com/design/...\" --agent codex"
+      'Missing --url\nExample: npm run ds:doc-from-figma-url -- --url "https://www.figma.com/design/..." --agent codex',
     );
     process.exit(1);
   }
@@ -52,9 +55,7 @@ function main() {
   const componentSlug = normalized.fileSlug;
   const outputPath =
     args.output ||
-    (componentSlug
-      ? path.join(componentDocsDir, `${componentSlug}.md`)
-      : null);
+    (componentSlug ? path.join(componentDocsDir, `${componentSlug}.md`) : null);
 
   if (outputPath) {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -71,7 +72,9 @@ function main() {
     ],
     sources: [
       `Figma URL: ${figmaUrl}`,
-      styleReferencePath ? `Existing docs style reference: ${styleReferencePath}` : "",
+      styleReferencePath
+        ? `Existing docs style reference: ${styleReferencePath}`
+        : "",
       outputPath
         ? `Output path (required): ${outputPath}`
         : "Output path: one file under docs/components/ based on the real component name.",
@@ -85,6 +88,13 @@ function main() {
       "Figma node IDs are allowed for source traceability (for example in `node-id` URLs).",
       "Include component metadata/frontmatter expected by project rules.",
       "Do not document system_cover or non-component pages.",
+    ],
+    examples: [
+      "GOOD token reference: `Semantic.Color.Text.Neutral.Default` (#121212).",
+      "BAD token reference: VariableID:123:456.",
+      "GOOD unresolved marker: `TBD`.",
+      "BAD unresolved markers: `pending` or `unknown`.",
+      "GOOD H2 order: canonical sections only, no extra H2 headings.",
     ],
     expectedOutput: [
       "Write/update the markdown file in the repo.",
