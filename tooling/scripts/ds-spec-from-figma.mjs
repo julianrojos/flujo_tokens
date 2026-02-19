@@ -196,21 +196,26 @@ function pickBestTokenPath(candidates, keyPath, condition) {
 
   let best = null;
   let bestScore = 0;
+  let bestScoreCount = 0;
   for (const candidate of candidates) {
     const score = scoreTokenCandidate(candidate, keywords);
     if (score > bestScore) {
       bestScore = score;
       best = candidate;
+      bestScoreCount = score > 0 ? 1 : 0;
       continue;
     }
     if (score === bestScore && best && score > 0) {
+      bestScoreCount += 1;
       const currentLen = String(candidate.path || "").length;
       const bestLen = String(best.path || "").length;
       if (currentLen < bestLen) best = candidate;
     }
   }
 
-  if (!best || bestScore < 2) return "";
+  const isStrongMatch = bestScore >= 2;
+  const isUniqueSingleKeywordMatch = bestScore === 1 && bestScoreCount === 1;
+  if (!best || (!isStrongMatch && !isUniqueSingleKeywordMatch)) return "";
   return String(best.slashPath || best.path || "").trim();
 }
 
