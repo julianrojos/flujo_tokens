@@ -17,25 +17,17 @@ import {
 } from "./component-name.mjs";
 import { isPlainObject } from "./is-plain-object.mjs";
 import { normalizeNodeId } from "./node-id.mjs";
+import {
+  ALLOWED_DOC_STATUS,
+  CANONICAL_H2_ORDER,
+  COMPONENT_REQUIRED_FIGMA_FRONTMATTER_FIELDS,
+  REQUIRED_CANONICAL_H2,
+  SPEC_ALLOWED_STATUS,
+  SPEC_REQUIRED_TOP_LEVEL_FIELDS,
+} from "./docs-config.mjs";
 
-const ALLOWED_DOC_STATUS = new Set(["draft", "ready", "needs-review"]);
-
-export const CANONICAL_H2_ORDER = [
-  "Overview",
-  "Anatomy",
-  "Component API",
-  "Visual Specifications",
-  "Variants",
-  "States",
-  "Usage Guidelines",
-  "Content Guidelines",
-  "Accessibility",
-  "Related Components",
-  "Design–Token Discrepancies",
-  "Gaps / TBD",
-];
-export const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, 10);
-export const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(10);
+export { CANONICAL_H2_ORDER, REQUIRED_CANONICAL_H2 } from "./docs-config.mjs";
+export { OPTIONAL_CANONICAL_H2 } from "./docs-config.mjs";
 const REQUIRED_H2 = REQUIRED_CANONICAL_H2;
 const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A11y"]);
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
@@ -48,20 +40,6 @@ const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
 const RULE_MANIFEST_PATH = path.resolve(process.cwd(), ".agent", "rules", "_manifest.yml");
 const DS_COMPONENT_DOC_SCRIPT_PATH = path.resolve(process.cwd(), "tooling", "scripts", "ds-component-doc.mjs");
 const TRACEABILITY_CONTRACT_VERSION = "1";
-const SPEC_ALLOWED_STATUS = new Set(["draft", "ready"]);
-const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
-  "name",
-  "status",
-  "figma",
-  "summary",
-  "anatomy",
-  "properties",
-  "content_guidelines",
-  "best_practices",
-  "accessibility",
-  "token_mapping",
-  "qa",
-];
 const SPEC_PROPERTY_GROUP_ORDER = new Map([
   ["variant", 1],
   ["enum", 1],
@@ -435,7 +413,6 @@ function validateComponentFrontmatter(filePath, frontmatter, report) {
   validateFrontmatter(filePath, frontmatter, report);
 
   const figma = frontmatter.figma;
-  const requiredFigmaFields = ["file_url", "page", "component", "last_verified"];
   if (!figma || typeof figma !== "object" || Array.isArray(figma)) {
     report.errors.push({
       code: "FM01",
@@ -445,7 +422,7 @@ function validateComponentFrontmatter(filePath, frontmatter, report) {
     return;
   }
 
-  for (const field of requiredFigmaFields) {
+  for (const field of COMPONENT_REQUIRED_FIGMA_FRONTMATTER_FIELDS) {
     const value = String(figma[field] ?? "").trim();
     if (!value) {
       report.errors.push({

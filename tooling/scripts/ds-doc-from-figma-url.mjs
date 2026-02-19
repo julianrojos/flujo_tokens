@@ -9,7 +9,7 @@ import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import {
   REQUIRED_CANONICAL_H2,
   OPTIONAL_CANONICAL_H2,
-} from "./lib/docs-validator.mjs";
+} from "./lib/docs-config.mjs";
 import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 
