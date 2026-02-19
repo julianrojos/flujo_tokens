@@ -109,6 +109,24 @@ function validateSpecPreflight(specPath, registryPath) {
   );
 }
 
+function buildValidationFeedbackPrompt({
+  basePrompt,
+  outputPath,
+  specPath,
+  validationErrors,
+}) {
+  return (
+    `${basePrompt}\n\n` +
+    "Validation Feedback\n" +
+    `- The generated markdown at \`${outputPath}\` failed docs validation.\n` +
+    `- Source spec remains \`${specPath}\`.\n` +
+    "- Fix the existing markdown file in place and keep the same output path.\n" +
+    "- Preserve canonical H2 headings, table schemas, and frontmatter contract.\n" +
+    "- Validation errors (JSON):\n" +
+    `${JSON.stringify(validationErrors, null, 2)}\n`
+  );
+}
+
 function sha256File(filePath) {
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(filePath));
@@ -207,6 +225,16 @@ function syncGapsSection({ specPath, markdownPath, registryPath }) {
     fs.writeFileSync(markdownPath, nextMarkdown, "utf8");
   }
   return gaps.length;
+}
+
+function validateGeneratedMarkdown({ outputPath, specPath, registryPath }) {
+  return validateDocs({
+    filePath: outputPath,
+    specFilePath: specPath,
+    registryPath,
+    checkOverview: false,
+    checkSpecs: false,
+  });
 }
 
 function main() {
@@ -385,70 +413,91 @@ function main() {
 
   try {
     let gapsCount = 0;
+    const finalizeGeneratedMarkdown = () => {
+      if (!fs.existsSync(outputPath)) {
+        throw new Error(
+          `Agent did not produce markdown output at: ${outputPath}`,
+        );
+      }
+      normalizeAgentOutputFile(outputPath);
+      gapsCount = syncGapsSection({
+        specPath,
+        markdownPath: outputPath,
+        registryPath,
+      });
+      upsertTraceabilityFrontmatter({
+        markdownPath: outputPath,
+        specPath,
+        registryPath,
+        generatorScriptPath: __filename,
+      });
+      formatMarkdown(outputPath);
+
+      const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
+      const outputContract = validateAgentOutputContract({
+        markdown: generatedMarkdown,
+        expectedComponentName: effectiveComponentName,
+        unresolvedGapCount: gapsCount,
+      });
+      if (!outputContract.ok) {
+        const reportPath = writeAgentOutputErrorReport({
+          componentSlug,
+          scriptName: "ds-component-doc",
+          markdownPath: outputPath,
+          errors: outputContract.errors,
+          rawOutput: generatedMarkdown,
+        });
+        throw new Error(
+          "Generated markdown failed output contract.\n" +
+            `Report: ${reportPath}\n` +
+            `${JSON.stringify({ file: outputPath, errors: outputContract.errors }, null, 2)}`,
+        );
+      }
+    };
+
     runAgentPrompt({
       prompt,
       agent,
       label: `component-doc-${safeName}`,
     });
-    if (!fs.existsSync(outputPath)) {
-      throw new Error(
-        `Agent did not produce markdown output at: ${outputPath}`,
-      );
-    }
-    normalizeAgentOutputFile(outputPath);
-    gapsCount = syncGapsSection({
-      specPath,
-      markdownPath: outputPath,
-      registryPath,
-    });
-    upsertTraceabilityFrontmatter({
-      markdownPath: outputPath,
-      specPath,
-      registryPath,
-      generatorScriptPath: __filename,
-    });
-    formatMarkdown(outputPath);
-
-    const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
-    const outputContract = validateAgentOutputContract({
-      markdown: generatedMarkdown,
-      expectedComponentName: effectiveComponentName,
-      unresolvedGapCount: gapsCount,
-    });
-    if (!outputContract.ok) {
-      const reportPath = writeAgentOutputErrorReport({
-        componentSlug,
-        scriptName: "ds-component-doc",
-        markdownPath: outputPath,
-        errors: outputContract.errors,
-        rawOutput: generatedMarkdown,
-      });
-      throw new Error(
-        "Generated markdown failed output contract.\n" +
-          `Report: ${reportPath}\n` +
-          `${JSON.stringify({ file: outputPath, errors: outputContract.errors }, null, 2)}`,
-      );
-    }
+    finalizeGeneratedMarkdown();
 
     if (!skipValidation) {
-      const report = validateDocs({
-        filePath: outputPath,
-        specFilePath: specPath,
+      let report = validateGeneratedMarkdown({
+        outputPath,
+        specPath,
         registryPath,
-        checkOverview: false,
-        checkSpecs: false,
       });
       if (!report.ok) {
-        throw new Error(
-          `Generated markdown failed validation.\n${JSON.stringify(
-            {
-              file: outputPath,
-              errors: report.errors,
-            },
-            null,
-            2,
-          )}`,
-        );
+        const feedbackPrompt = buildValidationFeedbackPrompt({
+          basePrompt: prompt,
+          outputPath,
+          specPath,
+          validationErrors: report.errors,
+        });
+        runAgentPrompt({
+          prompt: feedbackPrompt,
+          agent,
+          label: `component-doc-repair-${safeName}`,
+        });
+        finalizeGeneratedMarkdown();
+        report = validateGeneratedMarkdown({
+          outputPath,
+          specPath,
+          registryPath,
+        });
+        if (!report.ok) {
+          throw new Error(
+            `Generated markdown failed validation after automatic repair.\n${JSON.stringify(
+              {
+                file: outputPath,
+                errors: report.errors,
+              },
+              null,
+              2,
+            )}`,
+          );
+        }
       }
     }
 

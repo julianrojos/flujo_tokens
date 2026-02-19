@@ -473,22 +473,29 @@ function validateGeneratedSpec(outputPath, registryPath) {
     specFilePath: outputPath,
   });
 
-  if (report.ok) return report;
-
   const relevantErrors = report.errors.filter(
     (error) => path.resolve(error.file || "") === path.resolve(outputPath),
   );
-  const errorsToShow =
-    relevantErrors.length > 0 ? relevantErrors : report.errors;
-  throw new Error(
-    `Generated spec failed validation.\n${JSON.stringify(
-      {
-        file: outputPath,
-        errors: errorsToShow,
-      },
-      null,
-      2,
-    )}`,
+  return {
+    ok: report.ok,
+    report,
+    errors: relevantErrors.length > 0 ? relevantErrors : report.errors,
+  };
+}
+
+function buildSpecValidationFeedbackPrompt({
+  basePrompt,
+  outputPath,
+  validationErrors,
+}) {
+  return (
+    `${basePrompt}\n\n` +
+    "Validation Feedback\n" +
+    `- The generated spec at \`${outputPath}\` failed validation.\n` +
+    "- Fix the same output file in place.\n" +
+    "- Keep required top-level fields and canonical key order.\n" +
+    "- Validation errors (JSON):\n" +
+    `${JSON.stringify(validationErrors, null, 2)}\n`
   );
 }
 
@@ -568,56 +575,91 @@ function main() {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 
   try {
+    const materializeAndWriteSpec = () => {
+      if (!fs.existsSync(outputPath)) {
+        throw new Error(
+          `Expected generated spec file not found at ${outputPath}`,
+        );
+      }
+
+      const templateSpec = parseYamlDocument(
+        fs.readFileSync(templatePath, "utf8"),
+        `spec template (${templatePath})`,
+      );
+      const generatedSpecRaw = parseYamlDocument(
+        fs.readFileSync(outputPath, "utf8"),
+        `generated spec (${outputPath})`,
+      );
+
+      const mergedSpec = mergeWithTemplate(templateSpec, generatedSpecRaw);
+      ensureSpecMetadata(mergedSpec, { componentName, nodeId, fileKeyFromUrl });
+
+      const registryEntries = extractUniqueRegistryEntries(registryIndex);
+      const tokenCandidates = pickComponentTokenCandidates(
+        registryEntries,
+        mergedSpec.name || componentName,
+      );
+      const prefilledCount = prefillTokenMapping(
+        mergedSpec.token_mapping,
+        tokenCandidates,
+        "token_mapping",
+      );
+
+      const normalizedSpec = normalizeSpecOrder(mergedSpec);
+      fs.writeFileSync(
+        outputPath,
+        yaml.dump(normalizedSpec, {
+          lineWidth: 120,
+          noRefs: true,
+          sortKeys: false,
+        }),
+        "utf8",
+      );
+      formatYamlFile(outputPath);
+
+      return {
+        normalizedSpec,
+        prefilledCount,
+      };
+    };
+
     runAgentPrompt({
       prompt,
       agent,
       label: `spec-from-figma-${componentNameToSnakeCase(componentName || nodeId || "component")}`,
     });
-
-    if (!fs.existsSync(outputPath)) {
-      throw new Error(
-        `Expected generated spec file not found at ${outputPath}`,
-      );
-    }
-
-    const templateSpec = parseYamlDocument(
-      fs.readFileSync(templatePath, "utf8"),
-      `spec template (${templatePath})`,
-    );
-    const generatedSpecRaw = parseYamlDocument(
-      fs.readFileSync(outputPath, "utf8"),
-      `generated spec (${outputPath})`,
-    );
-
-    const mergedSpec = mergeWithTemplate(templateSpec, generatedSpecRaw);
-    ensureSpecMetadata(mergedSpec, { componentName, nodeId, fileKeyFromUrl });
-
-    const registryEntries = extractUniqueRegistryEntries(registryIndex);
-    const tokenCandidates = pickComponentTokenCandidates(
-      registryEntries,
-      mergedSpec.name || componentName,
-    );
-    const prefilledCount = prefillTokenMapping(
-      mergedSpec.token_mapping,
-      tokenCandidates,
-      "token_mapping",
-    );
-
-    const normalizedSpec = normalizeSpecOrder(mergedSpec);
-    fs.writeFileSync(
-      outputPath,
-      yaml.dump(normalizedSpec, {
-        lineWidth: 120,
-        noRefs: true,
-        sortKeys: false,
-      }),
-      "utf8",
-    );
-    formatYamlFile(outputPath);
+    let { normalizedSpec, prefilledCount } = materializeAndWriteSpec();
 
     let validationReport = null;
     if (!skipValidation) {
-      validationReport = validateGeneratedSpec(outputPath, registryPath);
+      let validation = validateGeneratedSpec(outputPath, registryPath);
+      if (!validation.ok) {
+        const feedbackPrompt = buildSpecValidationFeedbackPrompt({
+          basePrompt: prompt,
+          outputPath,
+          validationErrors: validation.errors,
+        });
+        runAgentPrompt({
+          prompt: feedbackPrompt,
+          agent,
+          label: `spec-from-figma-repair-${componentNameToSnakeCase(componentName || nodeId || "component")}`,
+        });
+        ({ normalizedSpec, prefilledCount } = materializeAndWriteSpec());
+        validation = validateGeneratedSpec(outputPath, registryPath);
+        if (!validation.ok) {
+          throw new Error(
+            `Generated spec failed validation after automatic repair.\n${JSON.stringify(
+              {
+                file: outputPath,
+                errors: validation.errors,
+              },
+              null,
+              2,
+            )}`,
+          );
+        }
+      }
+      validationReport = validation.report;
     }
 
     process.stdout.write(
