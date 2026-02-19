@@ -64,9 +64,17 @@ const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
 const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 const HASH_RE = /^[a-f0-9]{64}$/i;
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const MARKDOWN_LINK_RE = /(?<!!)\[[^\]]*\]\(([^)\n]+)\)/g;
 const TOKEN_COLLECTION_PREFIXES_LOWER = new Set(
   [...TOKEN_COLLECTION_PREFIXES].map((value) => String(value).toLowerCase()),
 );
+const PLACEHOLDER_PATTERNS = [
+  { regex: /\bTODO\b/gi, label: "TODO" },
+  { regex: /\bXXX\b/gi, label: "XXX" },
+  { regex: /\{placeholder\}/gi, label: "{placeholder}" },
+  { regex: /<placeholder>/gi, label: "<placeholder>" },
+];
+const HEADING_ANCHOR_CACHE = new Map();
 
 function normalizeSlashPathCandidate(tokenPath) {
   const parts = tokenPath.split("/");
@@ -1240,6 +1248,181 @@ function validateVariableIds(filePath, rawMarkdown, report, lineStarts) {
       file: filePath,
       line: lineFromOffset(lineStarts, match.index),
       message: `Forbidden Figma variable ID found: \`${match[0]}\`.`,
+    });
+  }
+}
+
+function validateEditorialPlaceholders(
+  filePath,
+  content,
+  report,
+  lineStarts,
+  baseOffset = 0,
+) {
+  const source = String(content || "");
+  for (const pattern of PLACEHOLDER_PATTERNS) {
+    pattern.regex.lastIndex = 0;
+    let match;
+    while ((match = pattern.regex.exec(source)) !== null) {
+      report.errors.push({
+        code: "QLT01",
+        file: filePath,
+        line: lineFromOffset(lineStarts, baseOffset + match.index),
+        message: `Unresolved editorial placeholder marker found: \`${pattern.label}\`.`,
+      });
+    }
+  }
+}
+
+function normalizeMarkdownAnchor(value) {
+  const raw = String(value || "").trim().replace(/^#/, "");
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw).trim().toLowerCase();
+  } catch {
+    return raw.trim().toLowerCase();
+  }
+}
+
+function slugifyHeading(text) {
+  const normalized = String(text || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[`*_~()[\]{}!?.:,;'"\\/<>@#$%^&+=|]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return normalized;
+}
+
+function collectHeadingAnchorsFromMarkdown(rawMarkdown) {
+  let content = String(rawMarkdown || "");
+  try {
+    ({ content } = parseMarkdownFrontmatter(content));
+  } catch {
+    // Fall back to raw markdown when frontmatter parsing fails.
+  }
+
+  const headingRegex = /^#{1,6}\s+(.+?)\s*$/gm;
+  const counts = new Map();
+  const anchors = new Set();
+  let match;
+  while ((match = headingRegex.exec(content)) !== null) {
+    const base = slugifyHeading(match[1]);
+    if (!base) continue;
+    const count = counts.get(base) || 0;
+    const slug = count === 0 ? base : `${base}-${count}`;
+    counts.set(base, count + 1);
+    anchors.add(slug);
+  }
+  return anchors;
+}
+
+function getHeadingAnchorsForFile(filePath) {
+  const resolved = path.resolve(filePath);
+  if (HEADING_ANCHOR_CACHE.has(resolved)) {
+    return HEADING_ANCHOR_CACHE.get(resolved);
+  }
+  if (!fs.existsSync(resolved)) {
+    const empty = new Set();
+    HEADING_ANCHOR_CACHE.set(resolved, empty);
+    return empty;
+  }
+  const raw = fs.readFileSync(resolved, "utf8");
+  const anchors = collectHeadingAnchorsFromMarkdown(raw);
+  HEADING_ANCHOR_CACHE.set(resolved, anchors);
+  return anchors;
+}
+
+function normalizeLinkTarget(rawTarget) {
+  let target = String(rawTarget || "").trim();
+  if (!target) return "";
+  if (target.startsWith("<") && target.endsWith(">")) {
+    target = target.slice(1, -1).trim();
+  }
+  const whitespaceIndex = target.search(/\s/);
+  if (whitespaceIndex > 0) {
+    target = target.slice(0, whitespaceIndex).trim();
+  }
+  return target;
+}
+
+function isExternalLinkTarget(target) {
+  const value = String(target || "").trim();
+  if (!value) return false;
+  if (value.startsWith("#")) return false;
+  if (value.startsWith("//")) return true;
+  return /^[a-z][a-z0-9+.-]*:/i.test(value);
+}
+
+function resolveInternalLink(filePath, target) {
+  const hashIndex = target.indexOf("#");
+  const pathPart = hashIndex >= 0 ? target.slice(0, hashIndex) : target;
+  const anchorPart = hashIndex >= 0 ? target.slice(hashIndex + 1) : "";
+
+  const resolvedPath = pathPart
+    ? pathPart.startsWith("/")
+      ? path.resolve(process.cwd(), pathPart.slice(1))
+      : path.resolve(path.dirname(filePath), pathPart)
+    : path.resolve(filePath);
+
+  return {
+    resolvedPath,
+    anchor: normalizeMarkdownAnchor(anchorPart),
+  };
+}
+
+function validateInternalLinks(filePath, rawMarkdown, report, lineStarts) {
+  let content = String(rawMarkdown || "");
+  let contentOffset = 0;
+  try {
+    const parsed = parseMarkdownFrontmatter(rawMarkdown);
+    content = parsed.content;
+    contentOffset = String(rawMarkdown || "").length - String(content || "").length;
+  } catch {
+    content = String(rawMarkdown || "");
+    contentOffset = 0;
+  }
+
+  MARKDOWN_LINK_RE.lastIndex = 0;
+  let match;
+  while ((match = MARKDOWN_LINK_RE.exec(content)) !== null) {
+    const normalizedTarget = normalizeLinkTarget(match[1]);
+    if (!normalizedTarget) continue;
+    if (isExternalLinkTarget(normalizedTarget)) continue;
+
+    const line = lineFromOffset(lineStarts, contentOffset + match.index);
+    const { resolvedPath, anchor } = resolveInternalLink(
+      filePath,
+      normalizedTarget,
+    );
+
+    if (!fs.existsSync(resolvedPath)) {
+      report.errors.push({
+        code: "LINK03",
+        file: filePath,
+        line,
+        message: `Internal link target does not exist: \`${normalizedTarget}\`.`,
+        suggested: path.relative(process.cwd(), resolvedPath),
+      });
+      continue;
+    }
+
+    if (!anchor) continue;
+    if (path.extname(resolvedPath).toLowerCase() !== ".md") continue;
+
+    const anchors = getHeadingAnchorsForFile(resolvedPath);
+    if (anchors.has(anchor)) continue;
+
+    report.errors.push({
+      code: "LINK03",
+      file: filePath,
+      line,
+      message:
+        `Internal link anchor is missing in target file: \`${normalizedTarget}\`.`,
+      suggested: path.relative(process.cwd(), resolvedPath),
     });
   }
 }
@@ -2419,6 +2602,14 @@ export function validateDocs(options = {}) {
     report.summary.filesChecked += 1;
     if (isOverview) {
       validateOverviewFrontmatter(filePath, frontmatter, report);
+      validateEditorialPlaceholders(
+        filePath,
+        content,
+        report,
+        lineStarts,
+        contentOffset,
+      );
+      validateInternalLinks(filePath, raw, report, lineStarts);
       continue;
     }
 
@@ -2467,6 +2658,14 @@ export function validateDocs(options = {}) {
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset, {
       allowExtraH2,
     });
+    validateEditorialPlaceholders(
+      filePath,
+      content,
+      report,
+      lineStarts,
+      contentOffset,
+    );
+    validateInternalLinks(filePath, raw, report, lineStarts);
     validateVariableIds(filePath, raw, report, lineStarts);
     validateTokenReferences(
       filePath,

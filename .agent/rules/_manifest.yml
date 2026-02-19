@@ -192,6 +192,9 @@ checks:
   LINK02:
     rule_ids: [overview-components-canonical-list]
     blocking: true
+  LINK03:
+    rule_ids: [ds-docs-guardrails]
+    blocking: true
   GAP00:
     rule_ids: [component-doc-structure]
     blocking: false
@@ -206,6 +209,9 @@ checks:
     blocking: true
   READY01:
     rule_ids: [markdown-lifecycle-status, component-spec-yaml, ds-docs-guardrails]
+    blocking: true
+  QLT01:
+    rule_ids: [ds-docs-guardrails]
     blocking: true
   VIS01:
     rule_ids: [component-doc-content, markdown-lifecycle-status, ds-docs-guardrails]
@@ -279,6 +285,17 @@ matrix:
         token-registry-validation,
         docs-language-tone,
         docs-pipeline-contract,
+      ]
+    ds-component-docs:
+      [
+        frontmatter-contract,
+        component-doc-structure,
+        component-doc-content,
+        component-figma-traceability,
+        component-name-normalization,
+        markdown-lifecycle-status,
+        docs-pipeline-contract,
+        ds-docs-guardrails,
       ]
     ds-spec-from-figma:
       [

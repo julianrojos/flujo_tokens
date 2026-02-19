@@ -67,6 +67,15 @@ Structure defines _where_ content goes; this rule defines _how_ to write each se
 
 - Include when-to-use and when-not-to-use guidance.
 - Include actionable do/don't bullets.
+- Include a `### Behavior` subsection (or equivalent inline block) that captures:
+  - interaction notes,
+  - responsive behavior,
+  - overflow/truncation behavior,
+  - i18n/RTL implications when applicable.
+- Include a `### Examples` subsection with at least:
+  - one basic usage example,
+  - one contextual/real-world usage example.
+- If behavior or examples are not yet verified, use explicit `TBD` placeholders and track them in `## Gaps / TBD`.
 
 ### `## Content Guidelines`
 

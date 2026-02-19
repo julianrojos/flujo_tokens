@@ -170,7 +170,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
 - **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
-- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, and deterministic `Gaps / TBD` contract).
+- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
   - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
   - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
   - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, no unresolved discrepancy rows, and concrete `### Visual Proof` screenshot URL).
@@ -193,6 +193,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
 - Stable section order from `component-doc-structure.mdc`
   - H2 headings are strict: only canonical allowed section titles, in canonical order
 - `### Visual Proof` must live inside `## Overview` (never as an extra H2)
+- `## Usage Guidelines` should include `### Behavior` and `### Examples` subsections (use `TBD` if evidence is missing)
 - Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
 - Figma node IDs are allowed for source traceability (for example in `node-id` URLs)
@@ -211,6 +212,9 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - include only when linked spec has unresolved gaps
   - omit when linked spec has no unresolved gaps
   - checklist format required: `- [ ] [GAP_TYPE] ...` in canonical order
+- Editorial quality gates:
+  - no `TODO` / `XXX` / `{placeholder}` / `<placeholder>`
+  - internal markdown links must resolve to existing local targets
 - Deterministic placement contract:
   - prefer `figma.component_set_node_id` from the spec
   - in `ready` specs, `figma.component_set_node_id` is mandatory

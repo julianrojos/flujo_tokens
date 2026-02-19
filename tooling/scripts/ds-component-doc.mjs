@@ -415,6 +415,7 @@ function main() {
       "Use the skeleton file as the source layout: keep all H2 headings and table columns unchanged.",
       "Fill placeholders with concrete content, but do not add or remove H2 sections.",
       "Inside `## Overview`, include a `### Visual Proof` subsection. If no screenshot proof exists yet, keep explicit `TBD` placeholders.",
+      "Inside `## Usage Guidelines`, include `### Behavior` and `### Examples` subsections. Use `TBD` if evidence is missing.",
       "If spec lacks information, keep explicit `TBD` values.",
       RULE_BLOCKS.NO_INTERNAL_IDS,
       "If spec includes figma.component_set_node_id, mirror it in markdown frontmatter figma.component_set_node_id.",

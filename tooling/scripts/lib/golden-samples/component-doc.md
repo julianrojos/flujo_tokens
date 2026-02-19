@@ -74,6 +74,18 @@ The **Example Button** triggers a primary action in flows where a single clear n
 
 - Do not use for passive navigation links.
 
+### Behavior
+
+- Interactions: responds to pointer and keyboard activation.
+- Responsive behavior: keeps readable label and icon spacing across breakpoints.
+- Overflow/truncation: avoid multiline labels; truncate only when explicitly allowed.
+- i18n/RTL: verify icon placement and alignment in RTL layouts.
+
+### Examples
+
+1. Basic: submit action in a standard form footer.
+2. Contextual: primary action in a confirmation dialog with secondary cancel action.
+
 ## Content Guidelines
 
 - Use imperative verbs (for example: "Save", "Continue", "Send").

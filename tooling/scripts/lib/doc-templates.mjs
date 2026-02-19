@@ -109,6 +109,18 @@ A concise summary of what the component does.
 
 - TBD
 
+### Behavior
+
+- Interactions: TBD
+- Responsive behavior: TBD
+- Overflow/truncation: TBD
+- i18n/RTL: TBD
+
+### Examples
+
+1. Basic: TBD
+2. Contextual: TBD
+
 ## Content Guidelines
 
 - Tone: TBD

@@ -12,6 +12,7 @@ globs:
 - **Never invent** system-specific facts, component behavior, token semantics, dimensions, or color values. Every stated value must come from Figma, token JSON, or an explicit design decision.
 - If information is missing or unverified, write `TBD` and add an item under **Gaps / TBD**.
 - No code examples for now (design-only documentation).
+- Do not leave editorial placeholders such as `TODO`, `XXX`, `{placeholder}`, or `<placeholder>` in committed docs.
 
 ## Structure and consistency
 
@@ -65,3 +66,4 @@ npm run ds:capture-visual-proof -- --component-name <ComponentName> --agent code
 - Follow language and tone rules from `docs-language-tone.mdc`.
 - For component docs, include Figma traceability metadata from `component-figma-traceability.mdc`.
 - Keep overview/index pages synchronized per `overview-index-maintenance.mdc`.
+- Ensure internal markdown links resolve to real local targets.
