@@ -68,7 +68,7 @@ function computeVariantsCount(properties) {
         .toLowerCase(),
       values: normalizeStringArray(property.values),
     }))
-    .filter((axis) => axis.type === "enum");
+    .filter((axis) => axis.type === "enum" || axis.type === "variant");
 
   if (variantAxes.length === 0) return 1;
 
