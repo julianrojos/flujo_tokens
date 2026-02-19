@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "source": {
+    "registry_path": "docs/_generated/component-registry.json",
+    "registry_fingerprint_sha256": "0c0e08b0d87a8c72878f3d0bba0255e1eb82336b7193cd9de6e1d2ec8e08f35d"
+  },
+  "summary": {
+    "total_components": 5,
+    "ready": 0,
+    "needs_review": 3,
+    "draft": 2,
+    "missing": 0,
+    "with_visual_proof": 0,
+    "average_coverage_percent": 75,
+    "by_pipeline_stage": {
+      "render": 5
+    }
+  },
+  "filters": {
+    "needs_review": {
+      "items": [
+        "Alert",
+        "Avatar",
+        "Button"
+      ],
+      "total": 3,
+      "truncated": false
+    },
+    "missing_visual_proof": {
+      "items": [
+        "Alert",
+        "Avatar",
+        "Bottom Bar",
+        "Button",
+        "Status Bar"
+      ],
+      "total": 5,
+      "truncated": false
+    },
+    "blocked_in_pipeline": {
+      "items": [
+        {
+          "component": "Alert",
+          "stage": "render"
+        },
+        {
+          "component": "Avatar",
+          "stage": "render"
+        },
+        {
+          "component": "Bottom Bar",
+          "stage": "render"
+        },
+        {
+          "component": "Button",
+          "stage": "render"
+        },
+        {
+          "component": "Status Bar",
+          "stage": "render"
+        }
+      ],
+      "total": 5,
+      "truncated": false
+    }
+  },
+  "components": [
+    {
+      "slug": "alert",
+      "display_name": "Alert",
+      "pipeline_stage": "render",
+      "status": "needs-review",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "needs-review",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/alert.yml",
+        "doc": "docs/components/alert.md",
+        "render_payload": "docs/_generated/figma_doc_models/alert.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/alert.json"
+      }
+    },
+    {
+      "slug": "avatar",
+      "display_name": "Avatar",
+      "pipeline_stage": "render",
+      "status": "needs-review",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "needs-review",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/avatar.yml",
+        "doc": "docs/components/avatar.md",
+        "render_payload": "docs/_generated/figma_doc_models/avatar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/avatar.json"
+      }
+    },
+    {
+      "slug": "bottom_bar",
+      "display_name": "Bottom Bar",
+      "pipeline_stage": "render",
+      "status": "draft",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/bottom_bar.yml",
+        "doc": "docs/components/bottom_bar.md",
+        "render_payload": "docs/_generated/figma_doc_models/bottom_bar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/bottom_bar.json"
+      }
+    },
+    {
+      "slug": "button",
+      "display_name": "Button",
+      "pipeline_stage": "render",
+      "status": "needs-review",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "needs-review",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/button.yml",
+        "doc": "docs/components/button.md",
+        "render_payload": "docs/_generated/figma_doc_models/button.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/button.json"
+      }
+    },
+    {
+      "slug": "status_bar",
+      "display_name": "Status Bar",
+      "pipeline_stage": "render",
+      "status": "draft",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/status_bar.yml",
+        "doc": "docs/components/status_bar.md",
+        "render_payload": "docs/_generated/figma_doc_models/status_bar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/status_bar.json"
+      }
+    }
+  ],
+  "fingerprint_sha256": "6ccc7a228229bc20135bd58a5212f4b670e64c8ab5cc78cab371755b5517660c"
+}

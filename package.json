@@ -25,6 +25,7 @@
     "ds:registry:sync": "node tooling/scripts/ds-registry-sync.mjs",
     "ds:registry:validate": "node tooling/scripts/ds-registry-validate.mjs",
     "ds:registry:overview": "node tooling/scripts/ds-registry-overview.mjs",
+    "ds:registry:report": "node tooling/scripts/ds-registry-report.mjs",
     "ds:audit-consistency": "node tooling/scripts/ds-audit-consistency.mjs",
     "ds:doctor": "node tooling/scripts/ds-doctor.mjs"
   },
