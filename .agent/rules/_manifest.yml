@@ -38,6 +38,11 @@ rules:
     owner: docs-governance
     applies_to: [markdown, spec]
     blocking: true
+  - id: component-indices-sync
+    file: component-indices-sync.mdc
+    owner: docs-governance
+    applies_to: [pipeline, markdown]
+    blocking: true
   - id: component-name-normalization
     file: component-name-normalization.mdc
     owner: docs-governance

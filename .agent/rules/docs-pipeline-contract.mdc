@@ -39,6 +39,19 @@ This contract defines the only canonical order for component documentation:
   - `pipeline.ds_component_doc.token_registry_sha256`
   - `pipeline.ds_component_doc.generator_script_sha256` (optional diagnostic hash; not a blocking drift field)
 
+## Component index synchronization (blocking)
+
+After any stage that mutates component docs/spec/render/proof artifacts, refresh these two files together in one atomic step:
+
+- `docs/_generated/component-registry.json`
+- `docs/components/overview.md`
+
+Required behavior:
+
+- Both files are updated from the same source state.
+- If either write fails, restore both files to pre-run snapshots.
+- Prefer `npm run ds:registry:refresh` for deterministic synchronization.
+
 ## Bypass policy
 
 - Validation bypass is exceptional and must be explicit.

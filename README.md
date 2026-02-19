@@ -201,11 +201,12 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:component-doc`**: Generates one component markdown page from a spec YAML with incremental change detection (spec hash -> markdown). Use `--force true` to regenerate.
 - **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
-- **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
+- **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow. On success, it atomically refreshes component indices (`component-registry.json` + `overview.md`).
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, and upserts `### Visual Proof` inside `## Overview`.
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
 - **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec/render/proof status.
+- **`npm run ds:registry:refresh`**: Atomically refreshes `docs/_generated/component-registry.json` and `docs/components/overview.md` together (rollback on failure).
 - **`npm run ds:registry:validate`**: Validates component registry schema and checks drift between registry content and current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from the component registry in canonical sorted format.
 - **`npm run ds:registry:report`**: Generates read-only registry projections (`docs/COMPONENTS_INDEX.md` and `docs/_generated/components-health.json`) without scanning specs/docs again.
@@ -251,6 +252,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - do not run markdown generation without a valid spec
   - do not render to Figma without an existing component markdown
   - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
+  - component index artifacts must be refreshed atomically (`docs/_generated/component-registry.json` + `docs/components/overview.md`)
   - validation is a gate after spec and markdown generation
   - see `.agent/rules/docs-pipeline-contract.mdc` for the full stage contract
 - `## Gaps / TBD` contract is enforced:

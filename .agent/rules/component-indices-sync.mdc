@@ -1,0 +1,36 @@
+---
+description: Keep component registry JSON and components overview markdown synchronized atomically.
+globs:
+  - "tooling/scripts/ds-*.mjs"
+  - "tooling/scripts/lib/component-registry/*.mjs"
+  - "docs/_generated/component-registry.json"
+  - "docs/components/overview.md"
+---
+
+# Component indices synchronization
+
+Component index artifacts must be refreshed together as a single operation:
+
+- `docs/_generated/component-registry.json`
+- `docs/components/overview.md`
+
+## Required behavior
+
+- Any pipeline command that updates component docs/spec/proof metadata must trigger an **atomic refresh** of both files.
+- Do not run "registry-only" updates from documentation generation flows.
+- If one index write fails, restore both files to their pre-run snapshots.
+
+## Canonical command
+
+Use:
+
+```bash
+npm run ds:registry:refresh
+```
+
+This command is the authoritative path for synchronized index updates.
+
+## Scope
+
+- Applies to: `ds:doc-from-figma-url`, `ds:component-doc`, `ds:spec-from-figma`, `ds:capture-visual-proof`, and markdown-to-Figma workflows that mutate component status metadata.
+- May be used by other scripts as a finalization step when they modify component artifacts.
