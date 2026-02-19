@@ -22,7 +22,9 @@ function normalizeHexColor(rawValue) {
 
 function getVarReference(rawValue) {
   if (typeof rawValue !== "string") return null;
-  const match = rawValue.trim().match(/^var\(\s*(--[a-z0-9\-_]+)\s*(?:,\s*[^)]+)?\)$/i);
+  const match = rawValue
+    .trim()
+    .match(/^var\(\s*(--[a-z0-9\-_]+)\s*(?:,\s*[^)]+)?\)$/i);
   return match ? match[1] : null;
 }
 
@@ -144,7 +146,12 @@ function resolveEntryDimension(entry, byCssVar, cache, stack = new Set()) {
     return null;
   }
 
-  const resolved = resolveEntryDimension(referencedEntry, byCssVar, cache, stack);
+  const resolved = resolveEntryDimension(
+    referencedEntry,
+    byCssVar,
+    cache,
+    stack,
+  );
   cache[cacheKey] = resolved;
   stack.delete(cacheKey);
   return resolved;
@@ -170,13 +177,19 @@ function buildColorTokenIndex(registryIndex) {
 
     const dotPath = asTokenKey(entry.path);
     const slashPath = asTokenKey(entry.slashPath);
-    const collection = String(entry.collection || "").trim().toLowerCase();
+    const collection = String(entry.collection || "")
+      .trim()
+      .toLowerCase();
 
     addTokenAlias(colorIndex, dotPath, resolvedHex);
     addTokenAlias(colorIndex, slashPath, resolvedHex);
 
     if (dotPath.includes(".")) {
-      addTokenAlias(colorIndex, dotPath.split(".").slice(1).join("."), resolvedHex);
+      addTokenAlias(
+        colorIndex,
+        dotPath.split(".").slice(1).join("."),
+        resolvedHex,
+      );
     }
 
     if (collection && slashPath) {
@@ -187,8 +200,16 @@ function buildColorTokenIndex(registryIndex) {
     // Compatibility alias for legacy shorthand (for example `_primitives/BW/White`).
     if (collection === "primitives" && slashPath.startsWith("Color/")) {
       const primitiveShortPath = slashPath.slice("Color/".length);
-      addTokenAlias(colorIndex, `primitives/${primitiveShortPath}`, resolvedHex);
-      addTokenAlias(colorIndex, `_primitives/${primitiveShortPath}`, resolvedHex);
+      addTokenAlias(
+        colorIndex,
+        `primitives/${primitiveShortPath}`,
+        resolvedHex,
+      );
+      addTokenAlias(
+        colorIndex,
+        `_primitives/${primitiveShortPath}`,
+        resolvedHex,
+      );
     }
   }
 
@@ -215,7 +236,9 @@ function buildDimensionTokenIndex(registryIndex) {
 
     const dotPath = asTokenKey(entry.path);
     const slashPath = asTokenKey(entry.slashPath);
-    const collection = String(entry.collection || "").trim().toLowerCase();
+    const collection = String(entry.collection || "")
+      .trim()
+      .toLowerCase();
 
     addTokenNumberAlias(dimensionIndex, dotPath, resolvedNumber);
     addTokenNumberAlias(dimensionIndex, slashPath, resolvedNumber);
@@ -224,13 +247,21 @@ function buildDimensionTokenIndex(registryIndex) {
       addTokenNumberAlias(
         dimensionIndex,
         dotPath.split(".").slice(1).join("."),
-        resolvedNumber
+        resolvedNumber,
       );
     }
 
     if (collection && slashPath) {
-      addTokenNumberAlias(dimensionIndex, `${collection}/${slashPath}`, resolvedNumber);
-      addTokenNumberAlias(dimensionIndex, `_${collection}/${slashPath}`, resolvedNumber);
+      addTokenNumberAlias(
+        dimensionIndex,
+        `${collection}/${slashPath}`,
+        resolvedNumber,
+      );
+      addTokenNumberAlias(
+        dimensionIndex,
+        `_${collection}/${slashPath}`,
+        resolvedNumber,
+      );
     }
   }
 
@@ -254,7 +285,9 @@ function loadTokenIndexes(registryPath) {
     };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    console.warn(`[build_figma_execute_code] Token registry ignored (${reason})`);
+    console.warn(
+      `[build_figma_execute_code] Token registry ignored (${reason})`,
+    );
     return {
       tokenColors: Object.create(null),
       tokenDimensions: Object.create(null),
@@ -627,6 +660,52 @@ function findRootPage(node) {
   return null;
 }
 
+function getAbsoluteBounds(node) {
+  if (!node) {
+    return { x: 0, y: 0, width: 0, height: 0 };
+  }
+
+  const width = Number(node.width || 0);
+  const height = Number(node.height || 0);
+  const transform = node.absoluteTransform;
+
+  if (
+    Array.isArray(transform) &&
+    transform.length >= 2 &&
+    Array.isArray(transform[0]) &&
+    Array.isArray(transform[1])
+  ) {
+    const x = Number(transform[0][2] || 0);
+    const y = Number(transform[1][2] || 0);
+    return { x, y, width, height };
+  }
+
+  return {
+    x: Number(node.x || 0),
+    y: Number(node.y || 0),
+    width,
+    height,
+  };
+}
+
+function resolvePageForSection(componentSection, componentSet) {
+  if (
+    componentSection &&
+    componentSection.parent &&
+    componentSection.parent.type === "PAGE"
+  ) {
+    return componentSection.parent;
+  }
+
+  const fromSection = findRootPage(componentSection);
+  if (fromSection) return fromSection;
+
+  const fromComponent = findRootPage(componentSet);
+  if (fromComponent) return fromComponent;
+
+  return figma.currentPage || null;
+}
+
 function toSafeName(raw) {
   return String(raw || "")
     .replace(/[\\\\/:*?"<>|]/g, "-")
@@ -963,12 +1042,13 @@ if (!componentSection) {
   };
 }
 
-const page = findRootPage(componentSection);
+const page = resolvePageForSection(componentSection, componentSet);
 if (!page) {
   return {
     ok: false,
-    error: "Unable to resolve PAGE ancestor for component section",
+    error: "Unable to resolve PAGE context for documentation section placement",
     componentSectionId: componentSection.id,
+    componentSetId: componentSet.id,
   };
 }
 
@@ -998,8 +1078,9 @@ const sectionWidth = Number(getPath(theme, "layout.section.width", 940));
 const minSectionHeight = Number(getPath(theme, "layout.section.min_height", 1100));
 
 docSection.name = docSectionName;
-docSection.x = componentSection.x + componentSection.width + offsetX;
-docSection.y = componentSection.y;
+const componentSectionBounds = getAbsoluteBounds(componentSection);
+docSection.x = componentSectionBounds.x + componentSectionBounds.width + offsetX;
+docSection.y = componentSectionBounds.y;
 docSection.resizeWithoutConstraints(sectionWidth, minSectionHeight);
 clearChildren(docSection);
 
@@ -1206,19 +1287,22 @@ function main() {
   const model = JSON.parse(fs.readFileSync(modelPath, "utf8"));
   const theme = parseYamlDocument(
     fs.readFileSync(themePath, "utf8"),
-    `theme file (${themePath})`
+    `theme file (${themePath})`,
   );
-  const tokenRegistryPath = args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
+  const tokenRegistryPath =
+    args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
   const { tokenColors, tokenDimensions } = loadTokenIndexes(tokenRegistryPath);
 
-  const componentName = args["component-name"] || model.componentName || model.title || "Component";
+  const componentName =
+    args["component-name"] || model.componentName || model.title || "Component";
   const outPath =
     args.out ||
     `${FIGMA_DOC_MODELS_DIR}/${String(componentName).toLowerCase()}.figma-execute.js`;
   const payloadOutPath =
     args["payload-out"] ||
     `${FIGMA_DOC_MODELS_DIR}/${String(componentName).toLowerCase()}.render-payload.json`;
-  const offsetX = args["offset-x"] != null ? Number(args["offset-x"]) : undefined;
+  const offsetX =
+    args["offset-x"] != null ? Number(args["offset-x"]) : undefined;
 
   const payload = {
     model,
@@ -1236,7 +1320,11 @@ function main() {
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, `${executeCode}\n`, "utf8");
-  fs.writeFileSync(payloadOutPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  fs.writeFileSync(
+    payloadOutPath,
+    `${JSON.stringify(payload, null, 2)}\n`,
+    "utf8",
+  );
 
   console.log(
     JSON.stringify(
@@ -1256,8 +1344,8 @@ function main() {
           : null,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 }
 
