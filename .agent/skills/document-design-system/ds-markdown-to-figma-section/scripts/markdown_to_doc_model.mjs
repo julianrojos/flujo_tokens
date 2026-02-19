@@ -16,7 +16,12 @@ function isTableSeparator(line) {
 }
 
 function isLikelyTableRow(line) {
-  return /\|/.test(line);
+  const source = String(line || "");
+  const pipeCount = (source.match(/\|/g) || []).length;
+  if (pipeCount < 2) return false;
+  const trimmed = source.trim();
+  if (!trimmed) return false;
+  return true;
 }
 
 function normalizeText(text) {
@@ -36,7 +41,8 @@ function pushInlineSegment(segments, text, style) {
 function parseInlineFormatting(raw) {
   const input = String(raw == null ? "" : raw);
   // Order matters: bold_italic (***) before bold (**) before italic (_) before code (`)
-  const tokenRegex = /(\*\*\*([^*]+?)\*\*\*|\*\*([^*]+?)\*\*|_([^_\n]+?)_|`([^`\n]+?)`)/g;
+  const tokenRegex =
+    /(\*\*\*([^*]+?)\*\*\*|\*\*([^*]+?)\*\*|_([^_\n]+?)_|`([^`\n]+?)`)/g;
   const segments = [];
   let plainText = "";
   let cursor = 0;
@@ -134,7 +140,7 @@ function parseMarkdown(markdown) {
       isTableSeparator(lines[i + 1])
     ) {
       const parsedHeader = parseTableRow(line).map((cell) =>
-        parseInlineFormatting(cell)
+        parseInlineFormatting(cell),
       );
       const header = parsedHeader.map((cell) => cell.text);
       const headerSegments = parsedHeader.map((cell) => cell.segments);
@@ -147,7 +153,7 @@ function parseMarkdown(markdown) {
         if (!currentTrimmed || !isLikelyTableRow(current)) break;
         if (!isTableSeparator(current)) {
           const parsedRow = parseTableRow(current).map((cell) =>
-            parseInlineFormatting(cell)
+            parseInlineFormatting(cell),
           );
           rows.push(parsedRow.map((cell) => cell.text));
           rowSegments.push(parsedRow.map((cell) => cell.segments));
@@ -164,26 +170,32 @@ function parseMarkdown(markdown) {
       continue;
     }
 
-    const unorderedMatch = trimmed.match(/^[-*]\s+(.+)$/);
-    const orderedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+    const unorderedMatch = line.match(/^(\s*)[-*]\s+(.+)$/);
+    const orderedMatch = line.match(/^(\s*)(\d+)\.\s+(.+)$/);
     if (unorderedMatch || orderedMatch) {
       const ordered = Boolean(orderedMatch);
+      const baseIndent = ordered
+        ? orderedMatch[1].length
+        : unorderedMatch[1].length;
       const items = [];
       let index = 1;
 
       while (i < lines.length) {
-        const candidate = lines[i].trim();
+        const rawCandidate = lines[i];
+        const candidate = rawCandidate.trim();
         if (!candidate) break;
         if (ordered) {
-          const m = candidate.match(/^(\d+)\.\s+(.+)$/);
+          const m = rawCandidate.match(/^(\s*)(\d+)\.\s+(.+)$/);
           if (!m) break;
-          const inline = parseInlineFormatting(normalizeText(m[2]));
+          if (m[1].length !== baseIndent) break;
+          const inline = parseInlineFormatting(normalizeText(m[3]));
           items.push({ index, text: inline.text, segments: inline.segments });
           index += 1;
         } else {
-          const m = candidate.match(/^[-*]\s+(.+)$/);
+          const m = rawCandidate.match(/^(\s*)[-*]\s+(.+)$/);
           if (!m) break;
-          const inline = parseInlineFormatting(normalizeText(m[1]));
+          if (m[1].length !== baseIndent) break;
+          const inline = parseInlineFormatting(normalizeText(m[2]));
           items.push({ text: inline.text, segments: inline.segments });
         }
         i += 1;
@@ -218,7 +230,9 @@ function parseMarkdown(markdown) {
     }
 
     if (paragraphLines.length > 0) {
-      const inline = parseInlineFormatting(normalizeText(paragraphLines.join(" ")));
+      const inline = parseInlineFormatting(
+        normalizeText(paragraphLines.join(" ")),
+      );
       blocks.push({
         type: "paragraph",
         text: inline.text,
@@ -252,7 +266,9 @@ function summarizeBlocks(blocks) {
 }
 
 function deriveTitle(blocks, fallbackName) {
-  const h1 = blocks.find((block) => block.type === "heading" && block.level === 1);
+  const h1 = blocks.find(
+    (block) => block.type === "heading" && block.level === 1,
+  );
   return h1?.text || fallbackName || "Untitled";
 }
 
@@ -261,7 +277,7 @@ function main() {
   const markdownPath = args.markdown;
   if (!markdownPath) {
     console.error(
-      "Missing --markdown. Example: --markdown docs/components/alert.md"
+      "Missing --markdown. Example: --markdown docs/components/alert.md",
     );
     process.exit(1);
   }
@@ -270,7 +286,8 @@ function main() {
     args["component-name"] ||
     path.basename(markdownPath, path.extname(markdownPath));
   const outPath =
-    args.out || `${FIGMA_DOC_MODELS_DIR}/${componentName.toLowerCase()}.doc-model.json`;
+    args.out ||
+    `${FIGMA_DOC_MODELS_DIR}/${componentName.toLowerCase()}.doc-model.json`;
 
   const markdown = fs.readFileSync(markdownPath, "utf8");
   const { content } = parseMarkdownFrontmatter(markdown);
@@ -298,8 +315,8 @@ function main() {
         totalBlocks: blocks.length,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
 }
 
