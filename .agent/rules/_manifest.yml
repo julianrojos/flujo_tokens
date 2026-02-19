@@ -21,6 +21,11 @@ rules:
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+  - id: component-doc-content
+    file: component-doc-content.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
   - id: component-figma-traceability
     file: component-figma-traceability.mdc
     owner: docs-governance

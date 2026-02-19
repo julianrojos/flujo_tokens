@@ -18,7 +18,9 @@ Use this skill when:
 This skill must produce output that complies with:
 
 - `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
-- `component-doc-structure.mdc` — mandatory frontmatter + section order and content
+- `frontmatter-contract.mdc` — unified frontmatter contract for markdown pages
+- `component-doc-structure.mdc` — mandatory section order and allowed H2 set
+- `component-doc-content.mdc` — section-level writing guidance
 - `component-spec-yaml.mdc` — required fields and conventions for the input YAML
 - `component-spec-properties-order.mdc` — deterministic ordering of `properties` entries in spec YAML
 - `token-references.mdc` — token path formatting, fallback values, and naming patterns
@@ -84,7 +86,7 @@ See `component-spec-yaml.mdc` for full field conventions and validation rules.
 
 ## Component page structure
 
-Follow the structure defined in `component-doc-structure.mdc` (required frontmatter + ordered sections). The skill generates all sections from the spec YAML, filling `TBD` where data is missing.
+Follow the structure defined in `component-doc-structure.mdc` and content guidance from `component-doc-content.mdc`. The skill generates all sections from the spec YAML, filling `TBD` where data is missing.
 
 Summary of sections (see rule for full details):
 
@@ -128,7 +130,7 @@ If extra detail is needed, use `###` subsections inside the closest allowed H2.
 Per `component-doc-structure.mdc`, use this table format:
 
 | Name | Type | Default | Required | Description |
-|------|------|---------|----------|-------------|
+| ---- | ---- | ------- | -------- | ----------- |
 
 - `Type` column uses Figma property types: `VARIANT`, `TEXT`, `BOOLEAN`, `INSTANCE_SWAP`.
 - For `VARIANT` types, list allowed values in the `Description` column.
@@ -140,7 +142,7 @@ Per `component-doc-structure.mdc`, use this table format:
 - If `token_mapping` includes conditional mappings, render them as:
 
   | Part | Condition | Token | Fallback |
-  |------|-----------|-------|----------|
+  | ---- | --------- | ----- | -------- |
 
 - Resolve aliases when possible; otherwise show raw reference and mark `unresolved`.
 - Never include `VariableID:*`.
