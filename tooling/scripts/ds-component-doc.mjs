@@ -25,6 +25,11 @@ import { isPlainObject } from "./lib/is-plain-object.mjs";
 import { deriveFigmaFrontmatterTraceability } from "./lib/figma-traceability.mjs";
 import { normalizeAgentOutputFile } from "./lib/agent-output-normalizer.mjs";
 import {
+  validateAgentOutputContract,
+  writeAgentOutputErrorReport,
+} from "./lib/agent-output-contract.mjs";
+import { updateAgentDriftBaseline } from "./lib/agent-drift-detector.mjs";
+import {
   buildAgentPrompt,
   canonicalH2ConstraintLines,
   RULE_BLOCKS,
@@ -53,6 +58,24 @@ function formatMarkdown(outputPath) {
   if ((result.status ?? 1) !== 0) {
     throw new Error(`Prettier exited with code ${result.status}`);
   }
+}
+
+function captureFileSnapshot(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return { exists: false, content: "" };
+  }
+  return {
+    exists: true,
+    content: fs.readFileSync(filePath, "utf8"),
+  };
+}
+
+function restoreFileSnapshot(filePath, snapshot) {
+  if (!snapshot.exists) {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return;
+  }
+  fs.writeFileSync(filePath, snapshot.content, "utf8");
 }
 
 function validateSpecPreflight(specPath, registryPath) {
@@ -309,6 +332,8 @@ function main() {
     return;
   }
 
+  const outputSnapshot = captureFileSnapshot(outputPath);
+
   const prompt = buildAgentPrompt({
     context: [
       "Generate one component documentation markdown from a spec YAML.",
@@ -372,6 +397,27 @@ function main() {
     });
     formatMarkdown(outputPath);
 
+    const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
+    const outputContract = validateAgentOutputContract({
+      markdown: generatedMarkdown,
+      expectedComponentName: effectiveComponentName,
+      unresolvedGapCount: gapsCount,
+    });
+    if (!outputContract.ok) {
+      const reportPath = writeAgentOutputErrorReport({
+        componentSlug,
+        scriptName: "ds-component-doc",
+        markdownPath: outputPath,
+        errors: outputContract.errors,
+        rawOutput: generatedMarkdown,
+      });
+      throw new Error(
+        "Generated markdown failed output contract.\n" +
+          `Report: ${reportPath}\n` +
+          `${JSON.stringify({ file: outputPath, errors: outputContract.errors }, null, 2)}`,
+      );
+    }
+
     if (!skipValidation) {
       const report = validateDocs({
         filePath: outputPath,
@@ -394,6 +440,20 @@ function main() {
       }
     }
 
+    const drift = updateAgentDriftBaseline({
+      markdownPath: outputPath,
+      componentSlug,
+      scriptName: "ds-component-doc",
+    });
+    if (drift.driftDetected) {
+      console.warn(
+        "Output contract drift detected.\n" +
+          `Baseline: ${drift.baselinePath}\n` +
+          `Previous hash: ${drift.previousHash}\n` +
+          `Current hash: ${drift.hash}`,
+      );
+    }
+
     updateTaskState({
       taskId,
       fingerprint,
@@ -403,12 +463,14 @@ function main() {
         specPath,
         registryPath,
         gapsCount,
+        outputContractHash: drift.hash,
         specHashAtGeneration: computeFingerprint({ files: [specPath] }),
         markdownHashAtGeneration: computeFingerprint({ files: [outputPath] }),
       },
       statePath: syncStatePath,
     });
   } catch (error) {
+    restoreFileSnapshot(outputPath, outputSnapshot);
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }

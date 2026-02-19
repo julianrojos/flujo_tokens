@@ -13,6 +13,11 @@ import {
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { normalizeAgentOutputFile } from "./lib/agent-output-normalizer.mjs";
 import {
+  validateAgentOutputContract,
+  writeAgentOutputErrorReport,
+} from "./lib/agent-output-contract.mjs";
+import { updateAgentDriftBaseline } from "./lib/agent-drift-detector.mjs";
+import {
   buildAgentPrompt,
   canonicalH2ConstraintLines,
   RULE_BLOCKS,
@@ -31,6 +36,25 @@ function formatMarkdown({ outputPath, docsRoot }) {
   if ((result.status ?? 1) !== 0) {
     throw new Error(`Prettier exited with code ${result.status}`);
   }
+}
+
+function captureFileSnapshot(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) {
+    return { exists: false, content: "" };
+  }
+  return {
+    exists: true,
+    content: fs.readFileSync(filePath, "utf8"),
+  };
+}
+
+function restoreFileSnapshot(filePath, snapshot) {
+  if (!filePath) return;
+  if (!snapshot.exists) {
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    return;
+  }
+  fs.writeFileSync(filePath, snapshot.content, "utf8");
 }
 
 function main() {
@@ -102,6 +126,7 @@ function main() {
       "Return a short report with: final path, doc_status value, and unresolved TBD count.",
     ],
   });
+  const outputSnapshot = captureFileSnapshot(outputPath);
 
   try {
     runAgentPrompt({
@@ -113,7 +138,47 @@ function main() {
       normalizeAgentOutputFile(outputPath);
     }
     formatMarkdown({ outputPath, docsRoot: componentDocsDir });
+
+    if (outputPath && fs.existsSync(outputPath)) {
+      const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
+      const outputContract = validateAgentOutputContract({
+        markdown: generatedMarkdown,
+        expectedComponentName: componentName || undefined,
+      });
+      if (!outputContract.ok) {
+        const reportPath = writeAgentOutputErrorReport({
+          componentSlug:
+            componentSlug ||
+            path.basename(outputPath, path.extname(outputPath)),
+          scriptName: "ds-doc-from-figma-url",
+          markdownPath: outputPath,
+          errors: outputContract.errors,
+          rawOutput: generatedMarkdown,
+        });
+        throw new Error(
+          "Generated markdown failed output contract.\n" +
+            `Report: ${reportPath}\n` +
+            `${JSON.stringify({ file: outputPath, errors: outputContract.errors }, null, 2)}`,
+        );
+      }
+
+      const drift = updateAgentDriftBaseline({
+        markdownPath: outputPath,
+        componentSlug:
+          componentSlug || path.basename(outputPath, path.extname(outputPath)),
+        scriptName: "ds-doc-from-figma-url",
+      });
+      if (drift.driftDetected) {
+        console.warn(
+          "Output contract drift detected.\n" +
+            `Baseline: ${drift.baselinePath}\n` +
+            `Previous hash: ${drift.previousHash}\n` +
+            `Current hash: ${drift.hash}`,
+        );
+      }
+    }
   } catch (error) {
+    restoreFileSnapshot(outputPath, outputSnapshot);
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
