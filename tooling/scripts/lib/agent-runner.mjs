@@ -88,13 +88,13 @@ function writePromptFallback(prompt, label) {
   return filePath;
 }
 
-export function runAgentPrompt({ prompt, agent, label }) {
+export function runAgentPrompt({ prompt, agent, label, passthrough = true }) {
   const cwd = process.cwd();
   const selectedAgent = pickAgent(agent);
   if (!selectedAgent) {
     const promptPath = writePromptFallback(prompt, label);
     throw new Error(
-      `No compatible agent CLI found (codex/claude/gemini). Prompt saved at ${promptPath}`
+      `No compatible agent CLI found (codex/claude/gemini). Prompt saved at ${promptPath}`,
     );
   }
 
@@ -102,17 +102,17 @@ export function runAgentPrompt({ prompt, agent, label }) {
   if (!candidates.length) {
     const promptPath = writePromptFallback(prompt, label);
     throw new Error(
-      `Unsupported agent "${selectedAgent}". Prompt saved at ${promptPath}`
+      `Unsupported agent "${selectedAgent}". Prompt saved at ${promptPath}`,
     );
   }
 
   const installedCandidates = candidates.filter((candidate) =>
-    commandExists(candidate.command)
+    commandExists(candidate.command),
   );
   if (!installedCandidates.length) {
     const promptPath = writePromptFallback(prompt, label);
     throw new Error(
-      `Agent "${selectedAgent}" is not installed. Prompt saved at ${promptPath}`
+      `Agent "${selectedAgent}" is not installed. Prompt saved at ${promptPath}`,
     );
   }
 
@@ -125,13 +125,18 @@ export function runAgentPrompt({ prompt, agent, label }) {
     });
 
     if ((result.status ?? 1) === 0) {
-      if (result.stdout) process.stdout.write(result.stdout);
-      if (result.stderr) process.stderr.write(result.stderr);
+      const stdout = result.stdout ? String(result.stdout) : "";
+      const stderr = result.stderr ? String(result.stderr) : "";
+      if (passthrough && stdout) process.stdout.write(stdout);
+      if (passthrough && stderr) process.stderr.write(stderr);
       return {
         ok: true,
         agent: selectedAgent,
         command: candidate.command,
         args: candidate.args,
+        status: Number(result.status ?? 0),
+        stdout,
+        stderr,
       };
     }
 
@@ -141,10 +146,12 @@ export function runAgentPrompt({ prompt, agent, label }) {
       continue;
     }
 
-    if (result.stdout) process.stdout.write(result.stdout);
-    if (result.stderr) process.stderr.write(result.stderr);
+    const stdout = result.stdout ? String(result.stdout) : "";
+    const stderr = result.stderr ? String(result.stderr) : "";
+    if (passthrough && stdout) process.stdout.write(stdout);
+    if (passthrough && stderr) process.stderr.write(stderr);
     throw new Error(
-      `Agent command failed: ${candidate.command} ${candidate.args.join(" ")}`
+      `Agent command failed: ${candidate.command} ${candidate.args.join(" ")}`,
     );
   }
 
@@ -153,6 +160,6 @@ export function runAgentPrompt({ prompt, agent, label }) {
     process.stderr.write(lastFailure.result.stderr);
   }
   throw new Error(
-    `Could not run "${selectedAgent}" in non-interactive mode with known flags. Prompt saved at ${promptPath}`
+    `Could not run "${selectedAgent}" in non-interactive mode with known flags. Prompt saved at ${promptPath}`,
   );
 }
