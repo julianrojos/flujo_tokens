@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
@@ -26,18 +24,7 @@ import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { isTbdMarker } from "./lib/tbd.mjs";
-
-function runOrFail(command, args) {
-  const result = spawnSync(command, args, { stdio: "inherit" });
-  if (result.error) {
-    throw new Error(result.error.message);
-  }
-  if ((result.status ?? 1) !== 0) {
-    throw new Error(
-      `${command} ${args.join(" ")} failed with code ${result.status}`,
-    );
-  }
-}
+import { runOrThrow } from "./lib/exec.mjs";
 
 function isValidNodeId(raw) {
   return /^[A-Za-z0-9]+:[A-Za-z0-9]+$/.test(String(raw || "").trim());
@@ -314,7 +301,7 @@ function main() {
   });
 
   if (!modelSync.skip) {
-    runOrFail("node", [
+    runOrThrow("node", [
       ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs",
       "--markdown",
       markdownPath,
@@ -380,7 +367,7 @@ function main() {
   });
 
   if (!executeSync.skip) {
-    runOrFail("node", stepBArgs);
+    runOrThrow("node", stepBArgs);
     updateTaskState({
       taskId: executeTaskId,
       fingerprint: executeFingerprint,

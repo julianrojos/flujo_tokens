@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
@@ -26,20 +25,13 @@ import {
   canonicalH2ConstraintLines,
   RULE_BLOCKS,
 } from "./lib/prompts.mjs";
+import { runOrThrow } from "./lib/exec.mjs";
 
 function formatMarkdown({ outputPath, docsRoot }) {
   const target = outputPath
     ? path.resolve(outputPath)
     : path.join(path.resolve(docsRoot), "**/*.md");
-  const result = spawnSync("npx", ["prettier", "--write", target], {
-    stdio: "inherit",
-  });
-  if (result.error) {
-    throw new Error(`Failed to run Prettier: ${result.error.message}`);
-  }
-  if ((result.status ?? 1) !== 0) {
-    throw new Error(`Prettier exited with code ${result.status}`);
-  }
+  runOrThrow("npx", ["prettier", "--write", target]);
 }
 
 function captureFileSnapshot(filePath) {

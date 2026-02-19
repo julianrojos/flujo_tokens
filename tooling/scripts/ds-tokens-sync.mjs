@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +11,7 @@ import {
   shouldSkipTask,
   updateTaskState,
 } from "./lib/cache-utils.mjs";
+import { runOrThrow } from "./lib/exec.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,16 +24,6 @@ function collectInputJsonFiles(inputDir) {
     .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
     .map((entry) => path.join(inputDir, entry.name))
     .sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
-}
-
-function runOrFail(command, args) {
-  const result = spawnSync(command, args, { stdio: "inherit" });
-  if (result.error) {
-    throw new Error(result.error.message);
-  }
-  if ((result.status ?? 1) !== 0) {
-    throw new Error(`${command} ${args.join(" ")} failed with code ${result.status}`);
-  }
 }
 
 function main() {
@@ -130,7 +119,7 @@ function main() {
   }
 
   try {
-    runOrFail("npx", generatorArgs);
+  runOrThrow("npx", generatorArgs);
     updateTaskState({
       taskId,
       fingerprint,

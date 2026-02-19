@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
@@ -25,6 +24,7 @@ import { isTbdMarker } from "./lib/tbd.mjs";
 import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./lib/docs-config.mjs";
 import { buildAgentPrompt, RULE_BLOCKS } from "./lib/prompts.mjs";
 import { GOLDEN_COMPONENT_SPEC_SAMPLE_PATH } from "./lib/doc-templates.mjs";
+import { runOrThrow } from "./lib/exec.mjs";
 
 const SPEC_COMPONENTS_DIR = path.join(DOCS_SPEC_DIR, "components");
 const SPEC_TEMPLATE_PATH = path.join(SPEC_COMPONENTS_DIR, "_template.yml");
@@ -372,17 +372,7 @@ function countTbdValues(value) {
 }
 
 function formatYamlFile(outputPath) {
-  const result = spawnSync("npx", ["prettier", "--write", outputPath], {
-    stdio: "inherit",
-  });
-  if (result.error) {
-    throw new Error(
-      `Failed to run Prettier for YAML output: ${result.error.message}`,
-    );
-  }
-  if ((result.status ?? 1) !== 0) {
-    throw new Error(`Prettier exited with code ${result.status}`);
-  }
+  runOrThrow("npx", ["prettier", "--write", outputPath]);
 }
 
 function buildOutputPath(args, specRoot, componentSlug, nodeId) {
