@@ -23,6 +23,109 @@ function createCheck(id, status, message, details = {}) {
   };
 }
 
+function uniqueSorted(values) {
+  return Array.from(new Set(values)).sort((a, b) =>
+    a.localeCompare(b, "en", { sensitivity: "base" }),
+  );
+}
+
+function collectManifestRuleFiles(manifest) {
+  const rules = Array.isArray(manifest?.rules) ? manifest.rules : [];
+  return uniqueSorted(
+    rules
+      .map((entry) =>
+        entry && typeof entry === "object" ? String(entry.file || "").trim() : "",
+      )
+      .filter(Boolean),
+  );
+}
+
+function collectRuleFilesOnDisk(manifestPath) {
+  const rulesDir = path.dirname(path.resolve(manifestPath));
+  if (!fs.existsSync(rulesDir)) return [];
+  return uniqueSorted(
+    fs
+      .readdirSync(rulesDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".mdc"))
+      .map((entry) => entry.name),
+  );
+}
+
+function collectSkillFiles(skillsRoot) {
+  const root = path.resolve(skillsRoot);
+  if (!fs.existsSync(root)) return [];
+  const files = [];
+  const queue = [root];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) break;
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        queue.push(fullPath);
+        continue;
+      }
+      if (entry.isFile() && entry.name === "SKILL.md") {
+        files.push(fullPath);
+      }
+    }
+  }
+  return files.sort((a, b) => a.localeCompare(b, "en", { sensitivity: "base" }));
+}
+
+function parseSkillFrontmatter(skillPath) {
+  const raw = fs.readFileSync(skillPath, "utf8");
+  const match = raw.match(/^---\n([\s\S]*?)\n---\n/);
+  if (!match) {
+    throw new Error("Missing YAML frontmatter block.");
+  }
+  return parseYamlDocument(match[1], `skill frontmatter (${path.basename(skillPath)})`);
+}
+
+function validateSkillVersioning(skillsRoot) {
+  const skillFiles = collectSkillFiles(skillsRoot);
+  const issues = [];
+
+  for (const filePath of skillFiles) {
+    try {
+      const frontmatter = parseSkillFrontmatter(filePath);
+      const missing = [];
+
+      const version = String(frontmatter.version || "").trim();
+      if (!version) missing.push("version");
+
+      if (!Array.isArray(frontmatter.requires_rules) || frontmatter.requires_rules.length === 0) {
+        missing.push("requires_rules");
+      }
+
+      if (
+        !Array.isArray(frontmatter.compatible_agents) ||
+        frontmatter.compatible_agents.length === 0
+      ) {
+        missing.push("compatible_agents");
+      }
+
+      if (missing.length > 0) {
+        issues.push({
+          file: filePath,
+          missing,
+        });
+      }
+    } catch (error) {
+      issues.push({
+        file: filePath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return {
+    checked: skillFiles.length,
+    issues,
+  };
+}
+
 function printAndExit(report) {
   try {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
@@ -70,12 +173,49 @@ function main() {
     );
   } else {
     try {
-      parseYamlDocument(fs.readFileSync(manifestPath, "utf8"), "rules manifest");
+      const parsedManifest = parseYamlDocument(
+        fs.readFileSync(manifestPath, "utf8"),
+        "rules manifest",
+      );
       checks.push(
         createCheck("RULE_MANIFEST", "pass", "Rules manifest is readable.", {
           manifestPath,
         })
       );
+
+      const manifestRuleFiles = collectManifestRuleFiles(parsedManifest);
+      const diskRuleFiles = collectRuleFilesOnDisk(manifestPath);
+      const missingInManifest = diskRuleFiles.filter(
+        (fileName) => !manifestRuleFiles.includes(fileName),
+      );
+      const missingOnDisk = manifestRuleFiles.filter(
+        (fileName) => !diskRuleFiles.includes(fileName),
+      );
+
+      if (missingInManifest.length === 0 && missingOnDisk.length === 0) {
+        checks.push(
+          createCheck(
+            "RULE_MANIFEST_COVERAGE",
+            "pass",
+            "Rules manifest covers all rule files on disk.",
+            {
+              ruleFiles: diskRuleFiles.length,
+            },
+          ),
+        );
+      } else {
+        checks.push(
+          createCheck(
+            "RULE_MANIFEST_COVERAGE",
+            "fail",
+            "Rules manifest and on-disk rule files are out of sync.",
+            {
+              missingInManifest,
+              missingOnDisk,
+            },
+          ),
+        );
+      }
     } catch (error) {
       checks.push(
         createCheck("RULE_MANIFEST", "fail", "Rules manifest is invalid YAML.", {
@@ -115,6 +255,33 @@ function main() {
       createCheck("AGENTS", "fail", "No supported agent CLI found in PATH.", {
         supportedAgents,
       })
+    );
+  }
+
+  const skillsRoot = path.join(PROJECT_ROOT, ".agent", "skills");
+  const skillVersioning = validateSkillVersioning(skillsRoot);
+  if (skillVersioning.issues.length === 0) {
+    checks.push(
+      createCheck(
+        "SKILL_VERSIONING",
+        "pass",
+        "All local skills include required versioning metadata.",
+        {
+          checked: skillVersioning.checked,
+        },
+      ),
+    );
+  } else {
+    checks.push(
+      createCheck(
+        "SKILL_VERSIONING",
+        "fail",
+        "One or more skills are missing required versioning metadata.",
+        {
+          checked: skillVersioning.checked,
+          issues: skillVersioning.issues,
+        },
+      ),
     );
   }
 

@@ -1,6 +1,14 @@
 ---
 name: ds-init-docs
 description: Bootstrap a Markdown documentation site for a Design System (Get Started, Foundations, Components, A11y) without code, designed for Figma-first teams.
+version: "1.1.0"
+requires_rules:
+  - ds-docs-guardrails: ">=1.0.0"
+  - docs-taxonomy: ">=1.0.0"
+compatible_agents:
+  - codex
+  - claude
+  - gemini
 ---
 
 # ds-init-docs

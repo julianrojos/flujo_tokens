@@ -5,6 +5,8 @@ This repository has two independent workflows:
 1. Token compilation from JSON (DTCG) to CSS custom properties.
 2. Component documentation from Figma to Markdown and back to Figma sections.
 
+For the end-to-end docs pipeline entry point, see `MASTER_WORKFLOW.md`.
+
 ## 1) Token Compilation (CSS Custom Properties Generator)
 
 TypeScript CLI that converts JSON design tokens (DTCG) into CSS custom properties for `:root` and mode scopes.
@@ -164,12 +166,14 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
-- **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, rule manifest, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
+- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, and upserts `### Visual Proof` inside `## Overview`.
+- **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
+- **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, and deterministic `Gaps / TBD` contract).
   - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
   - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
-  - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, and no unresolved discrepancy rows).
+  - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, no unresolved discrepancy rows, and concrete `### Visual Proof` screenshot URL).
 
 ### Documentation folders
 
@@ -188,6 +192,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - optional `figma.component_set_node_id` (must match spec if declared)
 - Stable section order from `component-doc-structure.mdc`
   - H2 headings are strict: only canonical allowed section titles, in canonical order
+- `### Visual Proof` must live inside `## Overview` (never as an extra H2)
 - Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
 - Figma node IDs are allowed for source traceability (for example in `node-id` URLs)
@@ -196,7 +201,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - infer default file paths with `snake_case` (`status_bar`)
   - explicit path flags (`--output`, `--spec-file`) always take precedence
 - Canonical pipeline order is enforced:
-  - `(1) spec` -> `(2) markdown` -> `(3) Figma render (optional)`
+  - `(1) spec` -> `(2) markdown` -> `(3) Figma render (optional)` -> `(4) visual proof capture`
   - do not run markdown generation without a valid spec
   - do not render to Figma without an existing component markdown
   - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
@@ -351,6 +356,39 @@ It also enforces pipeline freshness: if the source spec is newer than the markdo
 For node resolution, it uses: `--component-set-id` first, then `spec.figma.component_set_node_id`, then name lookup for `draft` specs only.
 If a `ready` spec has no valid `figma.component_set_node_id`, rendering is blocked.
 Validation bypass requires `--force true` when `--skip-validation true` is used.
+By default, this command also attempts visual proof capture after rendering.
+Use `--capture-proof false` to skip it, or `--capture-proof-strict true` to fail when capture cannot be completed.
+
+### 4b) Capture visual proof (standalone)
+
+```bash
+npm run ds:capture-visual-proof -- \
+  --component-name Alert \
+  --agent codex
+```
+
+Useful flags:
+
+- `--component-name <Name>`
+- `--markdown <path/to/component.md>`
+- `--spec-file <path/to/spec.yml>`
+- `--component-set-id <figma-node-id>` (override spec node id)
+- `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
+- `--format <png|jpg|svg|pdf>`
+- `--scale <number>`
+- `--dry-run true`
+
+### 4c) Auto-mark stale docs as needs-review
+
+```bash
+npm run ds:mark-needs-review
+```
+
+Useful flags:
+
+- `--file <path/to/component.md>` (single file mode)
+- `--spec-file <path/to/spec.yml>` (single file mode)
+- `--dry-run true`
 
 Recommended sequence before rendering:
 
@@ -398,6 +436,8 @@ Useful flags:
 - `--theme <path>` (default: `docs/_spec/figma_doc_theme.yml`)
 - `--token-registry <path>` (default: `docs/_generated/token-registry.json`)
 - `--offset-x <number>` (default: `200`)
+- `--capture-proof <true|false>` (default: `true`)
+- `--capture-proof-strict <true|false>` (default: `false`)
 - `--force true` (ignore incremental cache and always rebuild + re-render)
 - `--agent <codex|claude|gemini>`
 

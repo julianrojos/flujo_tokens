@@ -1,6 +1,15 @@
 ---
 name: ds-audit-consistency
 description: Audit consistency across component spec YAML, markdown docs, and token registry traceability checks.
+version: "1.1.0"
+requires_rules:
+  - docs-pipeline-contract: ">=1.0.0"
+  - token-registry-validation: ">=1.0.0"
+  - markdown-lifecycle-status: ">=1.0.0"
+compatible_agents:
+  - codex
+  - claude
+  - gemini
 ---
 
 # ds-audit-consistency
@@ -54,4 +63,3 @@ npm run ds:audit-consistency -- \
 
 - JSON report with per-component checks and pass/fail
 - Suggested fix commands for regeneration and validation
-

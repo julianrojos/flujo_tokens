@@ -1,6 +1,14 @@
 ---
 name: ds-tokens-sync
 description: Generate deterministic Markdown docs from Figma Variables token JSON exports (Primitives, Typography, Semantic, Components, A11y), including alias resolution and warnings.
+version: "1.1.0"
+requires_rules:
+  - ds-docs-guardrails: ">=1.0.0"
+  - token-references: ">=1.0.0"
+compatible_agents:
+  - codex
+  - claude
+  - gemini
 ---
 
 # ds-tokens-sync

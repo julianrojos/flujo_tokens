@@ -1,6 +1,15 @@
 ---
 name: ds-foundations
 description: Build Foundations pages (Color, Typography, Spacing/Sizing, Elevation, Iconography, A11y) in Markdown, linking to generated token inventories and avoiding invented guidance.
+version: "1.1.0"
+requires_rules:
+  - docs-taxonomy: ">=1.0.0"
+  - token-references: ">=1.0.0"
+  - docs-language-tone: ">=1.0.0"
+compatible_agents:
+  - codex
+  - claude
+  - gemini
 ---
 
 # ds-foundations
@@ -16,7 +25,7 @@ Use this skill when:
 ## Inputs (ask only if missing)
 
 - `docs_root` (default: `docs/`)
-- `language` (default: Spanish if repo is Spanish; otherwise keep consistent with repo)
+- `language` (default: English; override only when explicitly requested by the user)
 
 ## Dependencies
 

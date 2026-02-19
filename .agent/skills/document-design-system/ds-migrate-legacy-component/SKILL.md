@@ -1,6 +1,15 @@
 ---
 name: ds-migrate-legacy-component
 description: Migrate legacy component documentation into the canonical spec + markdown pipeline with deterministic validation gates.
+version: "1.1.0"
+requires_rules:
+  - component-spec-yaml: ">=1.0.0"
+  - component-doc-structure: ">=1.0.0"
+  - docs-pipeline-contract: ">=1.0.0"
+compatible_agents:
+  - codex
+  - claude
+  - gemini
 ---
 
 # ds-migrate-legacy-component
@@ -90,4 +99,3 @@ Return a migration report with:
 - `hardcoded_values_replaced`
 - `validation_errors_remaining`
 - `next_actions`
-

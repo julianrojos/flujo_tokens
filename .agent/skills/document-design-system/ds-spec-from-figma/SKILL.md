@@ -1,6 +1,15 @@
 ---
 name: ds-spec-from-figma
 description: Generate one component spec YAML from a Figma component set (URL or node-id), then validate it against the token registry.
+version: "1.1.0"
+requires_rules:
+  - component-spec-yaml: ">=1.0.0"
+  - component-name-normalization: ">=1.0.0"
+  - docs-pipeline-contract: ">=1.0.0"
+compatible_agents:
+  - codex
+  - claude
+  - gemini
 ---
 
 # ds-spec-from-figma

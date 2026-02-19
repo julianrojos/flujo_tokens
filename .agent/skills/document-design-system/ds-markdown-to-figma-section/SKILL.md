@@ -1,6 +1,15 @@
 ---
 name: ds-markdown-to-figma-section
 description: Render a component markdown doc into a styled Figma documentation section placed 200px to the right of the component section, using the shared theme contract in docs/_spec/figma_doc_theme.yml.
+version: "1.2.0"
+requires_rules:
+  - figma-doc-rendering: ">=1.0.0"
+  - markdown-figma-subset: ">=1.0.0"
+  - docs-pipeline-contract: ">=1.0.0"
+compatible_agents:
+  - codex
+  - claude
+  - gemini
 ---
 
 # ds-markdown-to-figma-section
@@ -114,6 +123,9 @@ Notes:
    - `theme_name`
    - `offset_x_applied`
    - `unsupported_blocks`
+9. Capture a visual proof after render:
+   - Run `ds:capture-visual-proof` for the same component.
+   - Ensure `### Visual Proof` in markdown `## Overview` points to the latest screenshot.
 
 ## Idempotency and naming rules
 
