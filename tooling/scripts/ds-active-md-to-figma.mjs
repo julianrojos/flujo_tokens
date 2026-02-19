@@ -167,6 +167,43 @@ function firstPresent(...values) {
   return null;
 }
 
+function getPathValue(source, pathExpression, fallbackValue = null) {
+  const root = source && typeof source === "object" ? source : null;
+  if (!root) return fallbackValue;
+  const pathParts = String(pathExpression || "")
+    .split(".")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  let current = root;
+  for (const part of pathParts) {
+    if (
+      !current ||
+      typeof current !== "object" ||
+      !Object.prototype.hasOwnProperty.call(current, part)
+    ) {
+      return fallbackValue;
+    }
+    current = current[part];
+  }
+  return current == null ? fallbackValue : current;
+}
+
+function asFiniteNumber(rawValue) {
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function asBoolean(rawValue) {
+  if (typeof rawValue === "boolean") return rawValue;
+  if (typeof rawValue === "number") return rawValue !== 0;
+  if (typeof rawValue === "string") {
+    const normalized = rawValue.trim().toLowerCase();
+    if (["true", "1", "yes"].includes(normalized)) return true;
+    if (["false", "0", "no"].includes(normalized)) return false;
+  }
+  return null;
+}
+
 function normalizeRenderReport(raw) {
   const report = raw && typeof raw === "object" ? raw : {};
   const unsupportedBlocksRaw = firstPresent(
@@ -188,6 +225,15 @@ function normalizeRenderReport(raw) {
     ? Number(offsetXRaw)
     : null;
 
+  const renderedCountRaw = firstPresent(
+    report.renderedCount,
+    report.rendered_count,
+  );
+  const renderedCount =
+    renderedCountRaw && typeof renderedCountRaw === "object"
+      ? renderedCountRaw
+      : null;
+
   return {
     ok: report.ok !== false,
     raw: report,
@@ -203,6 +249,15 @@ function normalizeRenderReport(raw) {
     offsetXApplied,
     unsupportedBlocks,
     unsupportedBlocksCount,
+    componentSetId: firstPresent(
+      report.component_set_id,
+      report.componentSetId,
+    ),
+    componentSectionId: firstPresent(
+      report.component_section_id,
+      report.componentSectionId,
+    ),
+    renderedCount,
   };
 }
 
@@ -239,10 +294,227 @@ function readThemeName(themePath) {
   return name;
 }
 
-function writeRenderAgentOutput({ generatedDir, fileBase, content }) {
-  const outputPath = path.resolve(generatedDir, `${fileBase}.render-agent-output.txt`);
+function writeAgentOutput({ generatedDir, fileBase, suffix, content }) {
+  const safeSuffix = String(suffix || "agent-output").trim();
+  const outputPath = path.resolve(generatedDir, `${fileBase}.${safeSuffix}.txt`);
   fs.writeFileSync(outputPath, String(content || ""), "utf8");
   return outputPath;
+}
+
+function readRenderExpectations({ payloadPath, componentName }) {
+  if (!fs.existsSync(payloadPath)) {
+    throw new Error(
+      "Missing render payload for structural checks.\n" +
+        `Expected: ${path.resolve(payloadPath)}`,
+    );
+  }
+
+  const parsed = JSON.parse(fs.readFileSync(payloadPath, "utf8"));
+  const model =
+    parsed && typeof parsed.model === "object" ? parsed.model : {};
+  const blocks = Array.isArray(model.blocks) ? model.blocks : [];
+  const expectedCardCount = blocks.filter(
+    (block) => block?.type === "heading" && Number(block.level) === 2,
+  ).length;
+  const expectedTableCount = blocks.filter(
+    (block) => block?.type === "table",
+  ).length;
+  const sectionNamePattern = String(
+    getPathValue(parsed, "theme.layout.target.section_name_pattern", "Doc/{component_name}"),
+  ).trim();
+  const expectedSectionName = sectionNamePattern.includes("{component_name}")
+    ? sectionNamePattern.replaceAll("{component_name}", componentName)
+    : sectionNamePattern || `Doc/${componentName}`;
+
+  return {
+    expectedCardCount,
+    expectedTableCount,
+    expectedSectionName,
+  };
+}
+
+function validatePrimaryRenderReport({ renderReport, expectations }) {
+  const issues = [];
+  if (!renderReport.ok) {
+    issues.push("Render report marked the run as not ok.");
+  }
+  if (!renderReport.componentSetId) {
+    issues.push("Missing component_set_id in render report.");
+  }
+  if (!renderReport.componentSectionId) {
+    issues.push("Missing component_section_id in render report.");
+  }
+  if (!renderReport.renderedCount) {
+    issues.push("Missing rendered_count block in render report.");
+  } else {
+    const renderedTableCount = asFiniteNumber(renderReport.renderedCount.table);
+    if (renderedTableCount == null) {
+      issues.push("Missing rendered_count.table in render report.");
+    } else if (renderedTableCount !== expectations.expectedTableCount) {
+      issues.push(
+        `Rendered table count mismatch (expected ${expectations.expectedTableCount}, got ${renderedTableCount}).`,
+      );
+    }
+  }
+  return {
+    ok: issues.length === 0,
+    issues,
+  };
+}
+
+function buildRenderAuditPrompt({
+  figmaUrl,
+  targetSectionId,
+  targetSectionName,
+  expectedSectionName,
+  expectedCardCount,
+  expectedTableCount,
+}) {
+  return [
+    "Context",
+    "- Validate that the Figma documentation section was rendered by the themed markdown renderer (not a fallback renderer).",
+    "",
+    "Sources",
+    figmaUrl ? `- Figma URL (if connection needed): ${figmaUrl}` : "",
+    `- Target section id: ${targetSectionId}`,
+    `- Target section name from render report: ${targetSectionName}`,
+    `- Expected section name: ${expectedSectionName}`,
+    `- Expected H2 card count: ${expectedCardCount}`,
+    `- Expected table count: ${expectedTableCount}`,
+    "",
+    "Constraints",
+    "- Read-only audit: do not modify any node.",
+    "- Use figma_execute to inspect only descendants of the target section id.",
+    '- has_doc_canvas: true only if a direct child FRAME named "Doc Canvas" exists.',
+    '- card_count: number of descendant FRAME nodes with names starting with "Card/".',
+    '- table_container_count: number of descendant FRAME nodes named exactly "Table".',
+    '- header_row_count: number of descendant FRAME nodes named exactly "Header Row".',
+    '- body_row_count: number of descendant FRAME nodes named exactly "Body Row".',
+    "- pass must be true only when the structure is consistent with the expected themed renderer output.",
+    "- Return exactly one JSON object and no prose.",
+    "",
+    "Expected Output",
+    "- JSON keys: ok, pass, target_section_id, target_section_name, has_doc_canvas, card_count, table_container_count, header_row_count, body_row_count, reasons.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function normalizeRenderAuditReport(raw) {
+  const report = raw && typeof raw === "object" ? raw : {};
+  return {
+    ok: report.ok !== false,
+    pass: asBoolean(firstPresent(report.pass, report.valid, report.is_valid)),
+    targetSectionId: firstPresent(
+      report.target_section_id,
+      report.targetSectionId,
+    ),
+    targetSectionName: firstPresent(
+      report.target_section_name,
+      report.targetSectionName,
+    ),
+    hasDocCanvas: asBoolean(
+      firstPresent(report.has_doc_canvas, report.hasDocCanvas),
+    ),
+    cardCount: asFiniteNumber(firstPresent(report.card_count, report.cardCount)),
+    tableContainerCount: asFiniteNumber(
+      firstPresent(report.table_container_count, report.tableContainerCount),
+    ),
+    headerRowCount: asFiniteNumber(
+      firstPresent(report.header_row_count, report.headerRowCount),
+    ),
+    bodyRowCount: asFiniteNumber(
+      firstPresent(report.body_row_count, report.bodyRowCount),
+    ),
+    reasons: Array.isArray(report.reasons) ? report.reasons : [],
+    raw: report,
+  };
+}
+
+function parseRenderAuditFromOutput(rawText) {
+  const candidates = extractJsonObjects(rawText);
+  if (candidates.length === 0) return null;
+  const withAuditKeys = candidates.filter((candidate) =>
+    Object.prototype.hasOwnProperty.call(candidate, "has_doc_canvas") ||
+    Object.prototype.hasOwnProperty.call(candidate, "hasDocCanvas") ||
+    Object.prototype.hasOwnProperty.call(candidate, "card_count") ||
+    Object.prototype.hasOwnProperty.call(candidate, "cardCount"),
+  );
+  const selected =
+    withAuditKeys.length > 0
+      ? withAuditKeys[withAuditKeys.length - 1]
+      : candidates[candidates.length - 1];
+  return normalizeRenderAuditReport(selected);
+}
+
+function validateRenderAudit({ audit, renderReport, expectations }) {
+  const issues = [];
+  if (!audit.ok) {
+    issues.push("Audit report marked the run as not ok.");
+  }
+  if (audit.pass !== true) {
+    issues.push("Audit report did not pass structural validation.");
+  }
+  if (!audit.targetSectionId) {
+    issues.push("Audit report is missing target_section_id.");
+  }
+  if (!audit.targetSectionName) {
+    issues.push("Audit report is missing target_section_name.");
+  }
+  if (
+    audit.targetSectionId &&
+    renderReport.targetSectionId &&
+    String(audit.targetSectionId) !== String(renderReport.targetSectionId)
+  ) {
+    issues.push("Audit target_section_id does not match render report.");
+  }
+  if (audit.hasDocCanvas !== true) {
+    issues.push('Missing direct "Doc Canvas" frame in rendered section.');
+  }
+  if (audit.cardCount == null || audit.cardCount < expectations.expectedCardCount) {
+    issues.push(
+      `Card count below expected H2 sections (expected >= ${expectations.expectedCardCount}, got ${String(audit.cardCount)}).`,
+    );
+  }
+  if (
+    expectations.expectedSectionName &&
+    audit.targetSectionName &&
+    String(audit.targetSectionName) !== String(expectations.expectedSectionName)
+  ) {
+    issues.push(
+      `Section name mismatch (expected "${expectations.expectedSectionName}", got "${audit.targetSectionName}").`,
+    );
+  }
+  if (expectations.expectedTableCount > 0) {
+    if (
+      audit.tableContainerCount == null ||
+      audit.tableContainerCount < expectations.expectedTableCount
+    ) {
+      issues.push(
+        `Table container count below expected tables (expected >= ${expectations.expectedTableCount}, got ${String(audit.tableContainerCount)}).`,
+      );
+    }
+    if (
+      audit.headerRowCount == null ||
+      audit.headerRowCount < expectations.expectedTableCount
+    ) {
+      issues.push(
+        `Header row count below expected tables (expected >= ${expectations.expectedTableCount}, got ${String(audit.headerRowCount)}).`,
+      );
+    }
+    if (
+      audit.bodyRowCount == null ||
+      audit.bodyRowCount < expectations.expectedTableCount
+    ) {
+      issues.push(
+        `Body row count below expected tables (expected >= ${expectations.expectedTableCount}, got ${String(audit.bodyRowCount)}).`,
+      );
+    }
+  }
+  return {
+    ok: issues.length === 0,
+    issues,
+  };
 }
 
 function main() {
@@ -576,6 +848,17 @@ function main() {
     return;
   }
 
+  let renderExpectations;
+  try {
+    renderExpectations = readRenderExpectations({
+      payloadPath,
+      componentName,
+    });
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+
   const prompt = [
     "Context",
     "- Render markdown documentation into a Figma section using generated script artifacts.",
@@ -594,7 +877,7 @@ function main() {
     "- Return exactly one JSON object and no prose.",
     "",
     "Expected Output",
-    "- JSON keys: target_section_id, target_section_name, offset_x_applied, theme_name, unsupported_blocks_count.",
+    "- JSON keys: target_section_id, target_section_name, offset_x_applied, theme_name, unsupported_blocks_count, component_set_id, component_section_id, rendered_count.",
   ]
     .filter(Boolean)
     .join("\n");
@@ -608,9 +891,10 @@ function main() {
     });
     const renderReport = parseRenderReportFromOutput(agentResponse.stdout);
     if (!renderReport) {
-      const outputPath = writeRenderAgentOutput({
+      const outputPath = writeAgentOutput({
         generatedDir,
         fileBase,
+        suffix: "render-agent-output",
         content: agentResponse.stdout,
       });
       throw new Error(
@@ -620,9 +904,10 @@ function main() {
       );
     }
     if (!renderReport.targetSectionId || !renderReport.targetSectionName) {
-      const outputPath = writeRenderAgentOutput({
+      const outputPath = writeAgentOutput({
         generatedDir,
         fileBase,
+        suffix: "render-agent-output",
         content: agentResponse.stdout,
       });
       throw new Error(
@@ -631,9 +916,10 @@ function main() {
       );
     }
     if (!renderReport.themeName) {
-      const outputPath = writeRenderAgentOutput({
+      const outputPath = writeAgentOutput({
         generatedDir,
         fileBase,
+        suffix: "render-agent-output",
         content: agentResponse.stdout,
       });
       throw new Error(
@@ -668,6 +954,73 @@ function main() {
       console.warn(`${message}\nWarning: continuing because --force true was provided.`);
     }
 
+    const primaryReportValidation = validatePrimaryRenderReport({
+      renderReport,
+      expectations: renderExpectations,
+    });
+    if (!primaryReportValidation.ok) {
+      const outputPath = writeAgentOutput({
+        generatedDir,
+        fileBase,
+        suffix: "render-agent-output",
+        content: agentResponse.stdout,
+      });
+      throw new Error(
+        "Render report failed strict primary validation.\n" +
+          primaryReportValidation.issues.map((issue) => `- ${issue}`).join("\n") +
+          "\n" +
+          `Saved raw agent output: ${outputPath}`,
+      );
+    }
+
+    const auditPrompt = buildRenderAuditPrompt({
+      figmaUrl,
+      targetSectionId: String(renderReport.targetSectionId),
+      targetSectionName: String(renderReport.targetSectionName),
+      expectedSectionName: renderExpectations.expectedSectionName,
+      expectedCardCount: renderExpectations.expectedCardCount,
+      expectedTableCount: renderExpectations.expectedTableCount,
+    });
+    const auditResponse = runAgentPrompt({
+      prompt: auditPrompt,
+      agent,
+      label: `active-md-to-figma-audit-${fileBase}`,
+      passthrough: false,
+    });
+    const auditReport = parseRenderAuditFromOutput(auditResponse.stdout);
+    if (!auditReport) {
+      const outputPath = writeAgentOutput({
+        generatedDir,
+        fileBase,
+        suffix: "render-audit-output",
+        content: auditResponse.stdout,
+      });
+      throw new Error(
+        "Unable to parse render structure audit report JSON from agent output.\n" +
+          "Expected keys: has_doc_canvas, card_count, table_container_count, header_row_count, body_row_count.\n" +
+          `Saved raw audit output: ${outputPath}`,
+      );
+    }
+    const auditValidation = validateRenderAudit({
+      audit: auditReport,
+      renderReport,
+      expectations: renderExpectations,
+    });
+    if (!auditValidation.ok) {
+      const outputPath = writeAgentOutput({
+        generatedDir,
+        fileBase,
+        suffix: "render-audit-output",
+        content: auditResponse.stdout,
+      });
+      throw new Error(
+        "Render structure audit failed. Themed renderer output is inconsistent; fallback-like render blocked.\n" +
+          auditValidation.issues.map((issue) => `- ${issue}`).join("\n") +
+          "\n" +
+          `Saved raw audit output: ${outputPath}`,
+      );
+    }
+
     process.stdout.write(
       `${JSON.stringify(
         {
@@ -694,6 +1047,13 @@ function main() {
         targetSectionName: renderReport.targetSectionName,
         themeName: renderReport.themeName,
         unsupportedBlocksCount: renderReport.unsupportedBlocksCount,
+        structureAudit: {
+          hasDocCanvas: true,
+          cardCount: auditReport.cardCount,
+          tableContainerCount: auditReport.tableContainerCount,
+          headerRowCount: auditReport.headerRowCount,
+          bodyRowCount: auditReport.bodyRowCount,
+        },
       },
       statePath: syncStatePath,
     });
