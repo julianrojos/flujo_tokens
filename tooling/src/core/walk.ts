@@ -74,14 +74,6 @@ export function selectModeKey(keys: string[], options: ModeSelectOptions = {}): 
     return source.find(isModeDefaultKey) ?? source.find(isModeKey);
 }
 
-/**
- * Selects a mode key deterministically without sorting the entire key list.
- * This preserves the same selection you would get from sorted keys + `pickModeKey()`.
- */
-export function pickModeKeyDeterministic(keys: string[], preferredMode?: string): string | undefined {
-    return selectModeKey(keys, { preferredMode, sort: true });
-}
-
 function pickModeDefaultKey(keys: string[], sortKeys: boolean): string | undefined {
     if (sortKeys) {
         return keys.find(isModeDefaultKey);
