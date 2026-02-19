@@ -16,6 +16,7 @@ import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-regi
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
+import { deriveFigmaFrontmatterTraceability } from "./lib/figma-traceability.mjs";
 import {
   buildAgentPrompt,
   canonicalH2ConstraintLines,
@@ -79,6 +80,27 @@ function sha256File(filePath) {
   return hash.digest("hex");
 }
 
+function orderFigmaFrontmatter(figma) {
+  const preferredOrder = [
+    "file_url",
+    "page",
+    "component",
+    "component_set_node_id",
+    "last_verified",
+    "component_hash",
+    "properties_count",
+    "variants_count",
+  ];
+  const ordered = {};
+  for (const key of preferredOrder) {
+    if (key in figma) ordered[key] = figma[key];
+  }
+  for (const [key, value] of Object.entries(figma)) {
+    if (!(key in ordered)) ordered[key] = value;
+  }
+  return ordered;
+}
+
 function upsertTraceabilityFrontmatter({
   markdownPath,
   specPath,
@@ -88,6 +110,20 @@ function upsertTraceabilityFrontmatter({
   const rawMarkdown = fs.readFileSync(markdownPath, "utf8");
   const { frontmatter, content } = parseMarkdownFrontmatter(rawMarkdown);
   const fm = isPlainObject(frontmatter) ? { ...frontmatter } : {};
+  const spec = parseYamlDocument(
+    fs.readFileSync(specPath, "utf8"),
+    `spec YAML (${path.basename(specPath)})`
+  );
+  const figmaTraceability = deriveFigmaFrontmatterTraceability(spec);
+
+  if (!isPlainObject(fm.figma)) fm.figma = {};
+  if (figmaTraceability.componentSetNodeId) {
+    fm.figma.component_set_node_id = figmaTraceability.componentSetNodeId;
+  }
+  fm.figma.component_hash = figmaTraceability.componentHash;
+  fm.figma.properties_count = figmaTraceability.propertiesCount;
+  fm.figma.variants_count = figmaTraceability.variantsCount;
+  fm.figma = orderFigmaFrontmatter(fm.figma);
 
   if (!isPlainObject(fm.pipeline)) fm.pipeline = {};
   if (!isPlainObject(fm.pipeline.ds_component_doc)) {

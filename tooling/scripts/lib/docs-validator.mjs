@@ -17,6 +17,7 @@ import {
 } from "./component-name.mjs";
 import { isPlainObject } from "./is-plain-object.mjs";
 import { normalizeNodeId } from "./node-id.mjs";
+import { deriveFigmaFrontmatterTraceability } from "./figma-traceability.mjs";
 import {
   ALLOWED_DOC_STATUS,
   CANONICAL_H2_ORDER,
@@ -432,6 +433,44 @@ function validateComponentFrontmatter(filePath, frontmatter, report) {
       });
     }
   }
+
+  const componentHash = String(figma.component_hash ?? "").trim();
+  if (componentHash) {
+    if (isTbdMarker(componentHash) || !HASH_RE.test(componentHash)) {
+      report.errors.push({
+        code: "FM01",
+        file: filePath,
+        message:
+          "Frontmatter figma.component_hash must be a 64-char sha256 hex string when declared.",
+      });
+    }
+  }
+
+  const validateOptionalCountField = (fieldName) => {
+    const raw = figma[fieldName];
+    if (raw === undefined || raw === null || raw === "") return;
+    const text = String(raw).trim();
+    if (!text) return;
+    if (isTbdMarker(text)) {
+      report.errors.push({
+        code: "FM01",
+        file: filePath,
+        message: `Frontmatter figma.${fieldName} must be a non-negative integer when declared.`,
+      });
+      return;
+    }
+    const value = Number(text);
+    if (!Number.isInteger(value) || value < 0) {
+      report.errors.push({
+        code: "FM01",
+        file: filePath,
+        message: `Frontmatter figma.${fieldName} must be a non-negative integer when declared.`,
+      });
+    }
+  };
+
+  validateOptionalCountField("properties_count");
+  validateOptionalCountField("variants_count");
 }
 
 function validateOverviewFrontmatter(filePath, frontmatter, report) {
@@ -654,6 +693,43 @@ function validateGeneratedTraceability(
       });
     }
   }
+
+  const figma = isPlainObject(frontmatter.figma) ? frontmatter.figma : {};
+  const expectedFigma = deriveFigmaFrontmatterTraceability(spec.parsed);
+
+  const componentHash = String(figma.component_hash || "").trim();
+  if (componentHash && componentHash !== expectedFigma.componentHash) {
+    report.errors.push({
+      code: "TRACE03",
+      file: filePath,
+      message:
+        "Traceability drift in figma.component_hash. Regenerate markdown using the suggested command.",
+      expected: expectedFigma.componentHash,
+      actual: componentHash,
+      suggested: regenerateCommand,
+    });
+  }
+
+  const compareOptionalCount = (fieldName, expectedValue) => {
+    const raw = figma[fieldName];
+    if (raw === undefined || raw === null || raw === "") return;
+    const parsed = Number(String(raw).trim());
+    if (!Number.isInteger(parsed)) return;
+    if (parsed !== expectedValue) {
+      report.errors.push({
+        code: "TRACE03",
+        file: filePath,
+        message:
+          `Traceability drift in figma.${fieldName}. Regenerate markdown using the suggested command.`,
+        expected: expectedValue,
+        actual: parsed,
+        suggested: regenerateCommand,
+      });
+    }
+  };
+
+  compareOptionalCount("properties_count", expectedFigma.propertiesCount);
+  compareOptionalCount("variants_count", expectedFigma.variantsCount);
 }
 
 function validateGapsSectionContract(
