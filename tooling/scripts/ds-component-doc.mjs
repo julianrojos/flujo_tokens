@@ -9,7 +9,11 @@ import yaml from "js-yaml";
 
 import { parseArgs } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
-import { validateDocs, CANONICAL_H2_ORDER } from "./lib/docs-validator.mjs";
+import {
+  validateDocs,
+  REQUIRED_CANONICAL_H2,
+  OPTIONAL_CANONICAL_H2,
+} from "./lib/docs-validator.mjs";
 import { parseMarkdownFrontmatter, parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH, loadTokenRegistry } from "./lib/token-registry.mjs";
@@ -29,8 +33,6 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const TRACEABILITY_CONTRACT_VERSION = "1";
-const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, 10);
-const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(10);
 
 function formatMarkdown(outputPath) {
   const result = spawnSync("npx", ["prettier", "--write", outputPath], {

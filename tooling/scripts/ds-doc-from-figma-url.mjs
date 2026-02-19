@@ -6,12 +6,12 @@ import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
-import { CANONICAL_H2_ORDER } from "./lib/docs-validator.mjs";
+import {
+  REQUIRED_CANONICAL_H2,
+  OPTIONAL_CANONICAL_H2,
+} from "./lib/docs-validator.mjs";
 import { normalizeComponentName, componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
-
-const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, 10);
-const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(10);
 
 function formatMarkdown({ outputPath, docsRoot }) {
   const target = outputPath
