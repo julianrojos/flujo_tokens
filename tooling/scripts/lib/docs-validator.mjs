@@ -57,6 +57,7 @@ const SPEC_PROPERTY_GROUP_ORDER = new Map([
 const CANONICAL_COMPONENT_LIST_HEADING = "component list";
 const OVERVIEW_ENTRY_RE = /^-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
+const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 
 
 function normalizeSlashPathCandidate(tokenPath) {
@@ -414,6 +415,117 @@ function validateOverviewFrontmatter(filePath, frontmatter, report) {
   }
 
   validateFrontmatter(filePath, frontmatter, report);
+}
+
+function readComponentSpecByDocPath(componentDocPath, specRoot) {
+  const fileBase = path.basename(componentDocPath, path.extname(componentDocPath));
+  const specPath = path.join(specRoot, `${fileBase}.yml`);
+  if (!fs.existsSync(specPath)) {
+    return {
+      specPath,
+      exists: false,
+      status: "",
+      componentSetNodeIdRaw: "",
+      componentSetNodeId: "",
+    };
+  }
+
+  try {
+    const parsed = parseYamlDocument(
+      fs.readFileSync(specPath, "utf8"),
+      `spec YAML (${path.basename(specPath)})`
+    );
+    const status = String(parsed.status || "").trim().toLowerCase();
+    const figma = isPlainObject(parsed.figma) ? parsed.figma : {};
+    const componentSetNodeIdRaw = String(figma.component_set_node_id || "").trim();
+    return {
+      specPath,
+      exists: true,
+      status,
+      componentSetNodeIdRaw,
+      componentSetNodeId: normalizeNodeId(componentSetNodeIdRaw),
+      parseError: null,
+    };
+  } catch (error) {
+    return {
+      specPath,
+      exists: true,
+      status: "",
+      componentSetNodeIdRaw: "",
+      componentSetNodeId: "",
+      parseError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report) {
+  const figma = isPlainObject(frontmatter.figma) ? frontmatter.figma : {};
+  const markdownNodeIdRaw = String(figma.component_set_node_id || "").trim();
+  if (!markdownNodeIdRaw) return;
+
+  if (isTbdMarker(markdownNodeIdRaw)) {
+    report.errors.push({
+      code: "TRACE01",
+      file: filePath,
+      message: "Frontmatter figma.component_set_node_id must not be `TBD` when declared.",
+    });
+    return;
+  }
+
+  const markdownNodeId = normalizeNodeId(markdownNodeIdRaw);
+  if (!isValidNodeId(markdownNodeId)) {
+    report.errors.push({
+      code: "TRACE01",
+      file: filePath,
+      message:
+        "Frontmatter figma.component_set_node_id must use Figma node-id format `123:456`.",
+    });
+    return;
+  }
+
+  const spec = readComponentSpecByDocPath(filePath, specRoot);
+  if (!spec.exists) {
+    report.errors.push({
+      code: "TRACE01",
+      file: filePath,
+      message:
+        "Traceability mismatch: markdown declares figma.component_set_node_id but linked spec file is missing.",
+      suggested: path.relative(process.cwd(), spec.specPath),
+    });
+    return;
+  }
+
+  if (spec.parseError) {
+    report.errors.push({
+      code: "TRACE01",
+      file: filePath,
+      message: `Linked spec cannot be parsed for traceability check: ${spec.parseError}`,
+      suggested: path.relative(process.cwd(), spec.specPath),
+    });
+    return;
+  }
+
+  if (!spec.componentSetNodeIdRaw || isTbdMarker(spec.componentSetNodeIdRaw)) {
+    report.errors.push({
+      code: "TRACE01",
+      file: filePath,
+      message:
+        "Traceability mismatch: markdown has figma.component_set_node_id but spec does not declare a concrete figma.component_set_node_id.",
+      suggested: path.relative(process.cwd(), spec.specPath),
+    });
+    return;
+  }
+
+  if (spec.componentSetNodeId !== markdownNodeId) {
+    report.errors.push({
+      code: "TRACE01",
+      file: filePath,
+      message:
+        `Traceability mismatch: markdown figma.component_set_node_id (${markdownNodeId}) ` +
+        `differs from spec value (${spec.componentSetNodeId}).`,
+      suggested: path.relative(process.cwd(), spec.specPath),
+    });
+  }
 }
 
 function validateComponentDocFileName(filePath, report) {
@@ -891,6 +1003,23 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function normalizeNodeId(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  if (value.includes(":")) return value;
+  if (value.includes("-")) {
+    const parts = value.split("-").filter(Boolean);
+    if (parts.length === 2) return `${parts[0]}:${parts[1]}`;
+  }
+  return value;
+}
+
+function isValidNodeId(raw) {
+  const normalized = normalizeNodeId(raw);
+  if (!normalized) return false;
+  return FIGMA_NODE_ID_RE.test(normalized);
+}
+
 function splitSpecTokenValue(rawValue) {
   return String(rawValue || "")
     .split(",")
@@ -1093,6 +1222,25 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
         });
       }
     }
+
+    const rawNodeId = String(figma.component_set_node_id ?? "").trim();
+    const hasConcreteNodeId = rawNodeId && !isTbdMarker(rawNodeId);
+    if (hasConcreteNodeId && !isValidNodeId(rawNodeId)) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message:
+          "Field figma.component_set_node_id must use Figma node-id format `123:456` when declared.",
+      });
+    }
+    if (status === "ready" && !hasConcreteNodeId) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message:
+          "Field figma.component_set_node_id is required for `ready` specs to guarantee deterministic Figma placement.",
+      });
+    }
   }
 
   if (registryIndexes) {
@@ -1222,6 +1370,7 @@ export function validateDocs(options = {}) {
 
     validateComponentDocFileName(filePath, report);
     validateComponentFrontmatter(filePath, frontmatter, report);
+    validateMarkdownTraceabilityNodeId(filePath, frontmatter, specRoot, report);
     validateSectionOrder(filePath, content, report, lineStarts, contentOffset);
     validateVariableIds(filePath, raw, report, lineStarts);
     validateTokenReferences(filePath, content, registryIndexes, report, lineStarts, contentOffset);

@@ -309,7 +309,7 @@ function buildPrompt({
     "- Write YAML only (no markdown, no code fences).",
     `- Include required top-level fields: ${requiredFields.join(", ")}.`,
     "- Set figma.file, figma.page, figma.component_set from evidence.",
-    "- Add optional figma.component_set_node_id when node-id is known.",
+    "- Set figma.component_set_node_id when node-id is available from URL/context.",
     "- In token_mapping, use token paths that exist in the token registry.",
     "- If a field is not inferable, set it to `TBD` instead of guessing.",
     "- Never use Figma VariableID values in YAML content.",

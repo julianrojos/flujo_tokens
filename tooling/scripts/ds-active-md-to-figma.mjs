@@ -20,6 +20,7 @@ import {
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
+import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 
 function runOrFail(command, args) {
   const result = spawnSync(command, args, { stdio: "inherit" });
@@ -29,6 +30,25 @@ function runOrFail(command, args) {
   if ((result.status ?? 1) !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with code ${result.status}`);
   }
+}
+
+function normalizeNodeId(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  if (value.includes(":")) return value;
+  if (value.includes("-")) {
+    const parts = value.split("-").filter(Boolean);
+    if (parts.length === 2) return `${parts[0]}:${parts[1]}`;
+  }
+  return value;
+}
+
+function isValidNodeId(raw) {
+  return /^[A-Za-z0-9]+:[A-Za-z0-9]+$/.test(String(raw || "").trim());
+}
+
+function isTbd(raw) {
+  return /^tbd$/i.test(String(raw || "").trim());
 }
 
 function validateSpecPreflight(specPath, tokenRegistryPath) {
@@ -134,6 +154,76 @@ function main() {
   const skipValidation = String(args["skip-validation"] || "false") === "true";
   const force = String(args.force || "false") === "true";
   const syncStatePath = args["sync-state"] || undefined;
+  const tokenRegistryPath = args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
+
+  let specStatus = "draft";
+  let specNodeId = "";
+  try {
+    const specParsed = parseYamlDocument(
+      fs.readFileSync(specPath, "utf8"),
+      `spec YAML (${path.basename(specPath)})`
+    );
+    specStatus = String(specParsed.status || "draft").trim().toLowerCase();
+    const specFigma = specParsed && typeof specParsed.figma === "object" ? specParsed.figma : {};
+    const specNodeIdRaw = String(specFigma?.component_set_node_id || "").trim();
+    if (specNodeIdRaw && !isTbd(specNodeIdRaw)) {
+      const normalizedSpecNodeId = normalizeNodeId(specNodeIdRaw);
+      if (!isValidNodeId(normalizedSpecNodeId)) {
+        if (specStatus === "ready") {
+          console.error(
+            "Invalid figma.component_set_node_id in ready spec.\n" +
+              `Spec: ${specPath}\n` +
+              "Expected format: 123:456"
+          );
+          process.exit(1);
+        }
+        console.warn(
+          `Warning: ignoring invalid figma.component_set_node_id in spec (${specNodeIdRaw}).`
+        );
+      } else {
+        specNodeId = normalizedSpecNodeId;
+      }
+    }
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+
+  const cliNodeIdRaw = String(args["component-set-id"] || "").trim();
+  const cliNodeId = cliNodeIdRaw ? normalizeNodeId(cliNodeIdRaw) : "";
+  if (cliNodeId && !isValidNodeId(cliNodeId)) {
+    console.error(
+      "Invalid --component-set-id format.\n" +
+        `Provided: ${cliNodeIdRaw}\n` +
+        "Expected format: 123:456"
+    );
+    process.exit(1);
+  }
+
+  if (cliNodeId && specNodeId && cliNodeId !== specNodeId && !force) {
+    console.error(
+      "Traceability mismatch between CLI and spec.\n" +
+        `CLI --component-set-id: ${cliNodeId}\n` +
+        `Spec figma.component_set_node_id: ${specNodeId}\n` +
+        "Use --force true only if you intentionally want to override the spec."
+    );
+    process.exit(1);
+  }
+
+  const resolvedComponentSetId = cliNodeId || specNodeId || "";
+  if (!resolvedComponentSetId) {
+    if (specStatus === "ready") {
+      console.error(
+        "Missing figma.component_set_node_id for ready spec.\n" +
+          `Spec: ${specPath}\n` +
+          "Add figma.component_set_node_id to the spec to keep Figma placement deterministic."
+      );
+      process.exit(1);
+    }
+    console.warn(
+      "Warning: component_set_node_id not available. Falling back to name-based lookup (non-deterministic)."
+    );
+  }
 
   if (!skipValidation) {
     const validationReport = validateDocs({
@@ -147,7 +237,7 @@ function main() {
     }
 
     try {
-      validateSpecPreflight(specPath, args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH);
+      validateSpecPreflight(specPath, tokenRegistryPath);
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
       process.exit(1);
@@ -180,8 +270,6 @@ function main() {
   const executePath = path.join(generatedDir, `${fileBase}.figma-execute.js`);
   const payloadPath = path.join(generatedDir, `${fileBase}.render-payload.json`);
   const offsetX = args["offset-x"] || "200";
-  const componentSetId = args["component-set-id"] || "";
-  const tokenRegistryPath = args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
   const figmaUrl = args.url || "";
   const markdownToModelScriptPath = path.resolve(
     ".agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs"
@@ -245,8 +333,8 @@ function main() {
     payloadPath,
   ];
 
-  if (componentSetId) {
-    stepBArgs.push("--component-set-id", componentSetId);
+  if (resolvedComponentSetId) {
+    stepBArgs.push("--component-set-id", resolvedComponentSetId);
   }
   stepBArgs.push("--token-registry", tokenRegistryPath);
 
@@ -255,7 +343,7 @@ function main() {
     files: [docModelPath, themePath, modelToExecuteScriptPath, tokenRegistryPath],
     values: {
       componentName,
-      componentSetId,
+      componentSetId: resolvedComponentSetId,
       offsetX: String(offsetX),
       executePath: path.resolve(executePath),
       payloadPath: path.resolve(payloadPath),
@@ -287,7 +375,7 @@ function main() {
     files: [executePath, payloadPath],
     values: {
       componentName,
-      componentSetId,
+      componentSetId: resolvedComponentSetId,
       figmaUrl,
       offsetX: String(offsetX),
     },

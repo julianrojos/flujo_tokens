@@ -163,7 +163,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
-- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming).
+- **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, `component_set_node_id` format/requirements, and spec↔markdown traceability consistency when markdown declares the node id).
 
 ### Documentation folders
 
@@ -179,6 +179,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - `doc_type: component`
   - `doc_status: draft | ready | needs-review`
   - `figma.file_url`, `figma.page`, `figma.component`, `figma.last_verified`
+  - optional `figma.component_set_node_id` (must match spec if declared)
 - Stable section order from `component-doc-structure.mdc`
 - Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
@@ -192,6 +193,10 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - do not run markdown generation without a valid spec
   - do not render to Figma without an existing component markdown
   - validation is a gate after spec and markdown generation
+- Deterministic placement contract:
+  - prefer `figma.component_set_node_id` from the spec
+  - in `ready` specs, `figma.component_set_node_id` is mandatory
+  - runtime resolution order: `--component-set-id` -> `spec.figma.component_set_node_id` -> name lookup (`draft` only)
 
 For markdown rendered to Figma, prefer the supported subset:
 
@@ -284,6 +289,8 @@ Useful flags:
 - `--skip-validation true`
 - `--agent <codex|claude|gemini>`
 
+Note: when `--url` or `--component-set-node-id` provides a node id, `ds:spec-from-figma` persists it into `figma.component_set_node_id` in the generated spec.
+
 ### 4) Active markdown -> Figma section
 
 Render markdown to a Figma documentation section:
@@ -306,6 +313,8 @@ ANTIGRAVITY_ACTIVE_FILE=docs/components/alert.md npm run ds:active-md-to-figma -
 This command runs a validation preflight first. If the markdown references tokens missing from `docs/_generated/token-registry.json`, rendering is blocked.
 For exceptional cases only, you can bypass preflight with `--skip-validation true`.
 It also enforces pipeline freshness: if the source spec is newer than the markdown (or changed since last markdown generation), rendering is blocked until markdown is regenerated. Use `--force true` only for explicit bypass.
+For node resolution, it uses: `--component-set-id` first, then `spec.figma.component_set_node_id`, then name lookup for `draft` specs only.
+If a `ready` spec has no valid `figma.component_set_node_id`, rendering is blocked.
 
 Recommended sequence before rendering:
 
@@ -341,6 +350,8 @@ Useful flags:
 - `--offset-x <number>` (default: `200`)
 - `--force true` (ignore incremental cache and always rebuild + re-render)
 - `--agent <codex|claude|gemini>`
+
+If `--component-set-id` conflicts with `spec.figma.component_set_node_id`, the command fails unless `--force true` is provided.
 
 Theme color values can be:
 

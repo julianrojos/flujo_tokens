@@ -20,6 +20,7 @@ figma:
   file_url: "https://www.figma.com/design/<file>/<name>?node-id=<node>"
   page: "<FigmaPageName>"
   component: "<ComponentOrSetName>"
+  component_set_node_id: "123:456" # optional, but if present must match linked spec
   last_verified: "YYYY-MM-DD"
 ---
 ```
@@ -33,6 +34,8 @@ If a value is unknown, use `TBD` instead of guessing.
 - `figma.last_verified` records the latest manual verification date.
 - Keep a direct source link in `## Overview` (human-readable URL text is fine).
 - Include `node-id` in the source URL when available to preserve exact node traceability.
+- If `figma.component_set_node_id` is present, it must be valid (`123:456`) and match the linked component spec value.
+- Spec YAML is the canonical source for `component_set_node_id`; markdown may mirror it for readability.
 
 ## Prohibited values
 

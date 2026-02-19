@@ -15,7 +15,7 @@ Every spec YAML must include these fields (use `TBD` for unknown values, never o
 ```
 name            # PascalCase component name (e.g., Alert, StatusBar)
 status          # Only "draft" or "ready"
-figma           # Object: file, page, component_set
+figma           # Object: file, page, component_set, optional component_set_node_id
 summary         # Object: purpose, when_to_use, when_not_to_use
 anatomy         # Array of { id, description }
 properties      # Array of { name, type, values, default, required, description }
@@ -39,6 +39,10 @@ qa              # Array of verification statements
 - `file`: Figma file key (not full URL).
 - `page`: Page name in Figma.
 - `component_set`: Component set name (not node ID).
+- `component_set_node_id`: Figma node id for deterministic placement (`123:456` format).
+  - Recommended in `draft`.
+  - Required in `ready`.
+  - If provided, skills that need deterministic Figma lookup must use this value.
 
 ### `anatomy`
 - Each item has `id` (snake_case, e.g., `leading_icon`) and `description`.
@@ -68,6 +72,14 @@ qa              # Array of verification statements
 - Values are objects keyed by condition (e.g., `"state=default"`, `"type=warning"`).
 - Token paths must be real JSON keys — never `VariableID:*` or Figma node IDs.
 - Use `TBD` as value when token is unknown.
+
+## Deterministic placement contract
+
+- `figma.component_set_node_id` is the canonical traceability key for render placement.
+- Resolution precedence in runtime tools should be:
+  1. explicit CLI override (for controlled/manual execution),
+  2. `figma.component_set_node_id` from spec,
+  3. name-based lookup (allowed only when deterministic ID is unavailable).
 
 ### `qa`
 - Minimum 2 items: property match check + token validity check.

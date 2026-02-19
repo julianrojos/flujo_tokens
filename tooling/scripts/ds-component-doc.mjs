@@ -171,6 +171,7 @@ function main() {
     "- Do not invent properties, variants, states, accessibility, or token semantics.",
     "- If spec lacks information, keep explicit `TBD` values and include `## Gaps / TBD`.",
     "- Never use Figma internal variable IDs (VariableID) in user-facing prose/tables.",
+    "- If spec includes figma.component_set_node_id, mirror it in markdown frontmatter figma.component_set_node_id.",
     "- Keep language and tone consistent with existing component docs.",
     "- Update overview links if needed so the component is discoverable.",
     "",
