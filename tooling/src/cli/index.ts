@@ -498,7 +498,13 @@ async function main() {
     if (REGISTRY_ENABLED) {
         const baseScopeProcessingCtx = scopeProcessingContexts.find(({ scope }) => !scope.mode)?.processingCtx;
         if (!baseScopeProcessingCtx) {
-            throw new Error('Internal error: base scope context not found for registry export.');
+            const availableScopes = scopeProcessingContexts
+                .map(({ scope }) => (scope.mode ? `mode:${scope.mode}` : 'base'))
+                .join(', ');
+            throw new Error(
+                `Registry export requires a base scope (no mode), but none was found. ` +
+                `Available scopes: ${availableScopes || '<none>'}.`,
+            );
         }
 
         console.log('🧾 Exporting token registry...');

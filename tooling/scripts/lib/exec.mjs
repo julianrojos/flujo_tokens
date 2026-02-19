@@ -5,6 +5,20 @@ function formatCommand(command, args) {
 }
 
 export function runOrThrow(command, args = [], options = {}) {
+  if (typeof command !== "string" || !command.trim()) {
+    throw new Error("Invalid command: expected a non-empty string.");
+  }
+  if (!Array.isArray(args)) {
+    throw new Error("Invalid command arguments: expected an array of strings.");
+  }
+  for (const arg of args) {
+    if (typeof arg !== "string") {
+      throw new Error(
+        `Invalid command argument for \`${command}\`: ${String(arg)}`,
+      );
+    }
+  }
+
   const result = spawnSync(command, args, {
     stdio: options.stdio || "inherit",
     cwd: options.cwd || process.cwd(),
