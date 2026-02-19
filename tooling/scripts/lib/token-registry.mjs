@@ -10,7 +10,14 @@ export function loadTokenRegistry(registryPath = DEFAULT_TOKEN_REGISTRY_PATH) {
     throw new Error(`Token registry not found: ${absolutePath}`);
   }
 
-  const raw = fs.readFileSync(absolutePath, "utf8");
+  let raw;
+  try {
+    raw = fs.readFileSync(absolutePath, "utf8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read token registry at ${absolutePath}: ${message}`);
+  }
+
   let parsed;
   try {
     parsed = JSON.parse(raw);
