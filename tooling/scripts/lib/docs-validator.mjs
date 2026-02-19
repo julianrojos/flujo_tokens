@@ -1730,10 +1730,22 @@ function buildTraceabilityRegenerationCommand({
 }
 
 const FILE_HASH_CACHE = new Map();
+const FILE_HASH_CACHE_MAX_ENTRIES = 1_000;
+
+export function clearFileHashCache() {
+  FILE_HASH_CACHE.clear();
+}
 
 function sha256FileCached(filePath) {
   const resolved = path.resolve(filePath);
-  if (FILE_HASH_CACHE.has(resolved)) return FILE_HASH_CACHE.get(resolved);
+  const cached = FILE_HASH_CACHE.get(resolved);
+  if (cached) return cached;
+
+  if (FILE_HASH_CACHE.size >= FILE_HASH_CACHE_MAX_ENTRIES) {
+    const firstKey = FILE_HASH_CACHE.keys().next().value;
+    if (typeof firstKey === "string") FILE_HASH_CACHE.delete(firstKey);
+  }
+
   const hash = crypto.createHash("sha256");
   hash.update(fs.readFileSync(resolved));
   const digest = hash.digest("hex");
