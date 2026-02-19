@@ -2,7 +2,7 @@
   "model": {
     "version": 2,
     "componentName": "Button",
-    "markdownPath": "docs/components/button.md",
+    "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/button.md",
     "title": "Button",
     "blocks": [
       {
@@ -114,7 +114,9 @@
                 "text": "Disabled",
                 "style": "code"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Type: Primary, Secondary, Cancel",
@@ -147,7 +149,9 @@
                 "text": "Cancel",
                 "style": "code"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -184,7 +188,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "View txt (BOOLEAN)",
@@ -205,7 +211,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "View icn left (BOOLEAN)",
@@ -226,7 +234,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "View icn right (BOOLEAN)",
@@ -247,7 +257,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "↳ Change icn left (INSTANCE_SWAP)",
@@ -268,7 +280,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "↳ Change icn right (INSTANCE_SWAP)",
@@ -289,7 +303,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -520,7 +536,9 @@
                 "text": "133 x 44",
                 "style": "code"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -606,42 +624,42 @@
             "↳ Change txt",
             "TEXT",
             "Button",
-            "TBD",
-            "Overrides the label copy."
+            "false",
+            "Overrides the visible label text."
           ],
           [
             "View txt",
             "BOOLEAN",
             "true",
-            "TBD",
+            "false",
             "Toggles label visibility."
           ],
           [
             "View icn left",
             "BOOLEAN",
             "true",
-            "TBD",
+            "false",
             "Toggles leading icon visibility."
           ],
           [
             "View icn right",
             "BOOLEAN",
             "true",
-            "TBD",
+            "false",
             "Toggles trailing icon visibility."
           ],
           [
             "↳ Change icn left",
             "INSTANCE_SWAP",
-            "65:430",
-            "TBD",
+            "arrow-left-square-contained",
+            "false",
             "Swaps the leading icon instance from preferred icon options."
           ],
           [
             "↳ Change icn right",
             "INSTANCE_SWAP",
-            "65:434",
-            "TBD",
+            "arrow-right-square-contained",
+            "false",
             "Swaps the trailing icon instance from preferred icon options."
           ]
         ],
@@ -787,13 +805,13 @@
             ],
             [
               {
-                "text": "TBD",
+                "text": "false",
                 "style": "code"
               }
             ],
             [
               {
-                "text": "Overrides the label copy.",
+                "text": "Overrides the visible label text.",
                 "style": "normal"
               }
             ]
@@ -819,7 +837,7 @@
             ],
             [
               {
-                "text": "TBD",
+                "text": "false",
                 "style": "code"
               }
             ],
@@ -851,7 +869,7 @@
             ],
             [
               {
-                "text": "TBD",
+                "text": "false",
                 "style": "code"
               }
             ],
@@ -883,7 +901,7 @@
             ],
             [
               {
-                "text": "TBD",
+                "text": "false",
                 "style": "code"
               }
             ],
@@ -909,13 +927,13 @@
             ],
             [
               {
-                "text": "65:430",
+                "text": "arrow-left-square-contained",
                 "style": "code"
               }
             ],
             [
               {
-                "text": "TBD",
+                "text": "false",
                 "style": "code"
               }
             ],
@@ -941,13 +959,13 @@
             ],
             [
               {
-                "text": "65:434",
+                "text": "arrow-right-square-contained",
                 "style": "code"
               }
             ],
             [
               {
-                "text": "TBD",
+                "text": "false",
                 "style": "code"
               }
             ],
@@ -1005,7 +1023,9 @@
                 "text": ", center-aligned on both axes",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Size: 133 x 44",
@@ -1022,7 +1042,9 @@
                 "text": "133 x 44",
                 "style": "code"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Item spacing: 8px via Dimension/Spacing/400 (8)",
@@ -1059,7 +1081,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Padding: 10px all sides via Dimension/Spacing/500 (10)",
@@ -1096,7 +1120,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Corner radius: 8px via Dimension/Border/Radius/200 (8)",
@@ -1133,7 +1159,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Border width: 1px via Dimension/Border/Width/100 (1)",
@@ -1170,7 +1198,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Border color: Color/Border/Neutral/Alpha-10 (#0000001A)",
@@ -1199,7 +1229,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Minimum height token: A11y/Dimension/Min-Hit-Area (24)",
@@ -1228,7 +1260,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Minimum width token: TBD (binding exists but token name is unresolved in current file metadata)",
@@ -1249,7 +1283,9 @@
                 "text": " (binding exists but token name is unresolved in current file metadata)",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -1303,7 +1339,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Font style: Regular via Font/Weight/Regular (regular)",
@@ -1340,7 +1378,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Font size: 16 via Font/Size/300 (16)",
@@ -1377,7 +1417,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Line height: 24 via Font/Line-Height/300 (24)",
@@ -1414,7 +1456,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Letter spacing: 0%",
@@ -1431,7 +1475,9 @@
                 "text": "0%",
                 "style": "code"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -1473,7 +1519,9 @@
                 "text": "24 x 24",
                 "style": "code"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Trailing icon: default arrow-right-square-contained, 24 x 24",
@@ -1498,7 +1546,9 @@
                 "text": "24 x 24",
                 "style": "code"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Icon color token mapping: TBD at this component-set level (icons are nested instances)",
@@ -1519,7 +1569,9 @@
                 "text": " at this component-set level (icons are nested instances)",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -1629,7 +1681,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Hover state shadow tokens: Dimension/Shadow/X/Default/200 (0), Dimension/Shadow/Y/Default/200 (4), Dimension/Shadow/Blur/Default/200 (16), Dimension/Shadow/Spread/Default/200 (0), Color/Shadow/200 (#00000029)",
@@ -1722,7 +1776,9 @@
                 "text": ")",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Active / Disabled: no bound effect tokens in current variants",
@@ -1735,7 +1791,9 @@
                 "text": ": no bound effect tokens in current variants",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -3239,7 +3297,9 @@
                 "text": " token set.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Hover: Uses each type’s /Hover background token and the shadow 200 token set.",
@@ -3268,7 +3328,9 @@
                 "text": " token set.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Active: Uses each type’s /Active background token and removes shadow tokens.",
@@ -3289,7 +3351,9 @@
                 "text": " background token and removes shadow tokens.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Disabled: Uses shared disabled tokens Color/Background/Action/Disabled/Default (#ECECEC) and Color/Text/Action/On-Disabled (#5D5252) across all three types.",
@@ -3334,7 +3398,9 @@
                 "text": ") across all three types.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Focus: TBD in this component set (no dedicated focus variant axis in Figma).",
@@ -3355,7 +3421,9 @@
                 "text": " in this component set (no dedicated focus variant axis in Figma).",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Loading: Not defined in this component set.",
@@ -3368,7 +3436,9 @@
                 "text": ": Not defined in this component set.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -3398,7 +3468,9 @@
                 "text": ": Use for explicit user-triggered actions in flows where text and optional directional icons improve clarity.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "When not to use: Do not use this component as persistent navigation chrome.",
@@ -3411,7 +3483,9 @@
                 "text": ": Do not use this component as persistent navigation chrome.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Do: Keep State and Type aligned with interaction and semantic intent.",
@@ -3440,7 +3514,9 @@
                 "text": " aligned with interaction and semantic intent.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Do: Keep icon visibility and label visibility consistent with the accessible name strategy.",
@@ -3453,7 +3529,9 @@
                 "text": ": Keep icon visibility and label visibility consistent with the accessible name strategy.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Don't: Use disabled styling for non-disabled actions.",
@@ -3466,7 +3544,9 @@
                 "text": ": Use disabled styling for non-disabled actions.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Don't: Replace semantic action tokens with ad-hoc color values.",
@@ -3479,7 +3559,9 @@
                 "text": ": Replace semantic action tokens with ad-hoc color values.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -3505,7 +3587,9 @@
                 "text": "Prefer short action labels in sentence case (for example, imperative verb phrases).",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Keep punctuation minimal unless required by the product voice.",
@@ -3514,7 +3598,9 @@
                 "text": "Keep punctuation minimal unless required by the product voice.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Label length limit: TBD (no explicit max width/content rule found on the component set).",
@@ -3531,7 +3617,9 @@
                 "text": " (no explicit max width/content rule found on the component set).",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Truncation behavior: TBD (no explicit truncation rule found on the component set).",
@@ -3548,7 +3636,9 @@
                 "text": " (no explicit truncation rule found on the component set).",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "If View txt=false, accessible labeling requirements become mandatory (aria-label/aria-labelledby).",
@@ -3581,7 +3671,9 @@
                 "text": ").",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -3634,7 +3726,9 @@
                 "text": " preferred).",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Required ARIA attributes for default text buttons: none when visible label is present.",
@@ -3643,7 +3737,9 @@
                 "text": "Required ARIA attributes for default text buttons: none when visible label is present.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "If label text is hidden (View txt=false), provide aria-label or aria-labelledby.",
@@ -3676,7 +3772,9 @@
                 "text": ".",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -3810,7 +3908,9 @@
                 "text": "Focus behavior should follow native button behavior in tab order.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Focus outline token mapping is TBD in this component set.",
@@ -3827,7 +3927,9 @@
                 "text": " in this component set.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Expected focus tokens: Semantic.Color.Focus-Outline.Inner (#FFFFFF) and Semantic.Color.Focus-Outline.Outer (#567680).",
@@ -3868,7 +3970,9 @@
                 "text": ").",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -3902,7 +4006,9 @@
                 "text": "), the label text provides the accessible name.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "For icon-only usage (View txt=false), set an explicit accessible name.",
@@ -3919,7 +4025,9 @@
                 "text": "), set an explicit accessible name.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Descriptive helper text linkage (aria-describedby) is TBD for this component family.",
@@ -3944,7 +4052,9 @@
                 "text": " for this component family.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -3970,7 +4080,9 @@
                 "text": "The component uses both color and icon/text content to convey meaning.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Disabled variants remain visually distinct from interactive states.",
@@ -3979,7 +4091,9 @@
                 "text": "Disabled variants remain visually distinct from interactive states.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "Verified contrast ratios are TBD (pending audit).",
@@ -3996,7 +4110,9 @@
                 "text": ".",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -4022,7 +4138,9 @@
                 "text": "[Bottom Bar](bottom_bar.md): Use for persistent navigation/action regions, not for standalone action controls.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           },
           {
             "text": "[Alert](alert.md): Use for feedback messaging, not action triggering.",
@@ -4031,7 +4149,9 @@
                 "text": "[Alert](alert.md): Use for feedback messaging, not action triggering.",
                 "style": "normal"
               }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       },
@@ -4051,73 +4171,58 @@
         "ordered": false,
         "items": [
           {
-            "text": "Minimum width token binding is unresolved in current Figma variable metadata (minWidth token name returns null).",
+            "text": "[ ] [SCHEMATBD] `tokenmapping.container.min_width.default is TBD`. Specification value is unresolved.",
             "segments": [
               {
-                "text": "Minimum width token binding is unresolved in current Figma variable metadata (",
+                "text": "[ ] [SCHEMA",
                 "style": "normal"
               },
               {
-                "text": "minWidth",
+                "text": "TBD] `token",
+                "style": "italic"
+              },
+              {
+                "text": "mapping.container.min_width.default",
+                "style": "normal"
+              },
+              {
+                "text": " is ",
                 "style": "code"
               },
               {
-                "text": " token name returns ",
+                "text": "TBD`. Specification value is unresolved.",
+                "style": "normal"
+              }
+            ],
+            "depth": 0,
+            "ordered": false
+          },
+          {
+            "text": "[ ] [SCHEMATBD] `tokenmapping.icon.color.default is TBD`. Specification value is unresolved.",
+            "segments": [
+              {
+                "text": "[ ] [SCHEMA",
                 "style": "normal"
               },
               {
-                "text": "null",
+                "text": "TBD] `token",
+                "style": "italic"
+              },
+              {
+                "text": "mapping.icon.color.default",
+                "style": "normal"
+              },
+              {
+                "text": " is ",
                 "style": "code"
               },
               {
-                "text": ").",
+                "text": "TBD`. Specification value is unresolved.",
                 "style": "normal"
               }
-            ]
-          },
-          {
-            "text": "Icon color token mapping is not directly exposed at the Button component-set level (icons are nested instances).",
-            "segments": [
-              {
-                "text": "Icon color token mapping is not directly exposed at the ",
-                "style": "normal"
-              },
-              {
-                "text": "Button",
-                "style": "code"
-              },
-              {
-                "text": " component-set level (icons are nested instances).",
-                "style": "normal"
-              }
-            ]
-          },
-          {
-            "text": "Focus-state visual token mapping is not represented as a dedicated variant axis.",
-            "segments": [
-              {
-                "text": "Focus-state visual token mapping is not represented as a dedicated variant axis.",
-                "style": "normal"
-              }
-            ]
-          },
-          {
-            "text": "Label-length and truncation policy for long button text are not specified in the current component set metadata.",
-            "segments": [
-              {
-                "text": "Label-length and truncation policy for long button text are not specified in the current component set metadata.",
-                "style": "normal"
-              }
-            ]
-          },
-          {
-            "text": "Contrast verification results are pending accessibility audit.",
-            "segments": [
-              {
-                "text": "Contrast verification results are pending accessibility audit.",
-                "style": "normal"
-              }
-            ]
+            ],
+            "depth": 0,
+            "ordered": false
           }
         ]
       }
@@ -4161,15 +4266,15 @@
     },
     "theme": {
       "colors": {
-        "page_bg": "#FFFAF0",
-        "section_border": "#C9E0BE",
+        "page_bg": "Color/BW/White",
+        "section_border": "Color/Border/Neutral/Default",
         "canvas_shadow": "#00000014",
-        "card_bg": "#FFFFFF",
-        "card_border": "#E7DDCF",
+        "card_bg": "Color/Background/Surface/Card",
+        "card_border": "Color/Border/Neutral/Default",
         "table_header_bg": "#F5F0E6",
         "title_text": "#495841",
         "heading_text": "#495841",
-        "body_text": "#483F3F",
+        "body_text": "Color/Text/Neutral/Default",
         "muted_text": "#716666",
         "chip_bg": "#E8F0E4",
         "chip_border": "#C9E0BE",
@@ -4177,10 +4282,10 @@
         "header_accent": "#C9E0BE"
       },
       "radii": {
-        "canvas": 20,
-        "card": 12,
-        "chip": 999,
-        "header_accent": 12
+        "canvas": "Dimension/Border/Radius/200",
+        "card": "Dimension/Border/Radius/200",
+        "chip": "Dimension/Border/Radius/200",
+        "header_accent": "Dimension/Border/Radius/200"
       },
       "strokes": {
         "section_border": 1.5,
@@ -4296,7 +4401,7 @@
           "fills": {
             "color": "header_accent"
           },
-          "radius": 12,
+          "radius": "Dimension/Border/Radius/200",
           "padding": {
             "top": 16,
             "right": 24,
@@ -4328,7 +4433,7 @@
           "color": "card_border",
           "weight": 1
         },
-        "radius": 12
+        "radius": "Dimension/Border/Radius/200"
       },
       "table_card": {
         "extends": "card",
@@ -4362,6 +4467,1602 @@
         "unsupported_blocks"
       ]
     }
+  },
+  "tokenColors": {
+    "components.bottom-bar.background-default": "#ececec",
+    "bottom-bar/background-default": "#ececec",
+    "bottom-bar.background-default": "#ececec",
+    "components/bottom-bar/background-default": "#ececec",
+    "_components/bottom-bar/background-default": "#ececec",
+    "components.bottom-bar.background-selected": "#ffffff",
+    "bottom-bar/background-selected": "#ffffff",
+    "bottom-bar.background-selected": "#ffffff",
+    "components/bottom-bar/background-selected": "#ffffff",
+    "_components/bottom-bar/background-selected": "#ffffff",
+    "primitives.color.blue.100": "#dff7ff",
+    "color/blue/100": "#dff7ff",
+    "color.blue.100": "#dff7ff",
+    "primitives/color/blue/100": "#dff7ff",
+    "_primitives/color/blue/100": "#dff7ff",
+    "primitives/blue/100": "#dff7ff",
+    "_primitives/blue/100": "#dff7ff",
+    "primitives.color.blue.200": "#c5f0ff",
+    "color/blue/200": "#c5f0ff",
+    "color.blue.200": "#c5f0ff",
+    "primitives/color/blue/200": "#c5f0ff",
+    "_primitives/color/blue/200": "#c5f0ff",
+    "primitives/blue/200": "#c5f0ff",
+    "_primitives/blue/200": "#c5f0ff",
+    "primitives.color.blue.300": "#add8e6",
+    "color/blue/300": "#add8e6",
+    "color.blue.300": "#add8e6",
+    "primitives/color/blue/300": "#add8e6",
+    "_primitives/color/blue/300": "#add8e6",
+    "primitives/blue/300": "#add8e6",
+    "_primitives/blue/300": "#add8e6",
+    "primitives.color.blue.400": "#96bfcc",
+    "color/blue/400": "#96bfcc",
+    "color.blue.400": "#96bfcc",
+    "primitives/color/blue/400": "#96bfcc",
+    "_primitives/color/blue/400": "#96bfcc",
+    "primitives/blue/400": "#96bfcc",
+    "_primitives/blue/400": "#96bfcc",
+    "primitives.color.blue.500": "#7fa6b3",
+    "color/blue/500": "#7fa6b3",
+    "color.blue.500": "#7fa6b3",
+    "primitives/color/blue/500": "#7fa6b3",
+    "_primitives/color/blue/500": "#7fa6b3",
+    "primitives/blue/500": "#7fa6b3",
+    "_primitives/blue/500": "#7fa6b3",
+    "primitives.color.blue.600": "#6a8e99",
+    "color/blue/600": "#6a8e99",
+    "color.blue.600": "#6a8e99",
+    "primitives/color/blue/600": "#6a8e99",
+    "_primitives/color/blue/600": "#6a8e99",
+    "primitives/blue/600": "#6a8e99",
+    "_primitives/blue/600": "#6a8e99",
+    "primitives.color.blue.700": "#567680",
+    "color/blue/700": "#567680",
+    "color.blue.700": "#567680",
+    "primitives/color/blue/700": "#567680",
+    "_primitives/color/blue/700": "#567680",
+    "primitives/blue/700": "#567680",
+    "_primitives/blue/700": "#567680",
+    "primitives.color.blue.800": "#435e67",
+    "color/blue/800": "#435e67",
+    "color.blue.800": "#435e67",
+    "primitives/color/blue/800": "#435e67",
+    "_primitives/color/blue/800": "#435e67",
+    "primitives/blue/800": "#435e67",
+    "_primitives/blue/800": "#435e67",
+    "primitives.color.blue.900": "#31464d",
+    "color/blue/900": "#31464d",
+    "color.blue.900": "#31464d",
+    "primitives/color/blue/900": "#31464d",
+    "_primitives/color/blue/900": "#31464d",
+    "primitives/blue/900": "#31464d",
+    "_primitives/blue/900": "#31464d",
+    "primitives.color.bw.black": "#000000",
+    "color/bw/black": "#000000",
+    "color.bw.black": "#000000",
+    "primitives/color/bw/black": "#000000",
+    "_primitives/color/bw/black": "#000000",
+    "primitives/bw/black": "#000000",
+    "_primitives/bw/black": "#000000",
+    "primitives.color.bw.black-05": "#0000000d",
+    "color/bw/black-05": "#0000000d",
+    "color.bw.black-05": "#0000000d",
+    "primitives/color/bw/black-05": "#0000000d",
+    "_primitives/color/bw/black-05": "#0000000d",
+    "primitives/bw/black-05": "#0000000d",
+    "_primitives/bw/black-05": "#0000000d",
+    "primitives.color.bw.black-07": "#00000014",
+    "color/bw/black-07": "#00000014",
+    "color.bw.black-07": "#00000014",
+    "primitives/color/bw/black-07": "#00000014",
+    "_primitives/color/bw/black-07": "#00000014",
+    "primitives/bw/black-07": "#00000014",
+    "_primitives/bw/black-07": "#00000014",
+    "primitives.color.bw.black-10": "#0000001a",
+    "color/bw/black-10": "#0000001a",
+    "color.bw.black-10": "#0000001a",
+    "primitives/color/bw/black-10": "#0000001a",
+    "_primitives/color/bw/black-10": "#0000001a",
+    "primitives/bw/black-10": "#0000001a",
+    "_primitives/bw/black-10": "#0000001a",
+    "primitives.color.bw.black-16": "#00000029",
+    "color/bw/black-16": "#00000029",
+    "color.bw.black-16": "#00000029",
+    "primitives/color/bw/black-16": "#00000029",
+    "_primitives/color/bw/black-16": "#00000029",
+    "primitives/bw/black-16": "#00000029",
+    "_primitives/bw/black-16": "#00000029",
+    "primitives.color.bw.black-20": "#00000033",
+    "color/bw/black-20": "#00000033",
+    "color.bw.black-20": "#00000033",
+    "primitives/color/bw/black-20": "#00000033",
+    "_primitives/color/bw/black-20": "#00000033",
+    "primitives/bw/black-20": "#00000033",
+    "_primitives/bw/black-20": "#00000033",
+    "primitives.color.bw.white": "#ffffff",
+    "color/bw/white": "#ffffff",
+    "color.bw.white": "#ffffff",
+    "primitives/color/bw/white": "#ffffff",
+    "_primitives/color/bw/white": "#ffffff",
+    "primitives/bw/white": "#ffffff",
+    "_primitives/bw/white": "#ffffff",
+    "primitives.color.cucumber.100": "#e0f7d6",
+    "color/cucumber/100": "#e0f7d6",
+    "color.cucumber.100": "#e0f7d6",
+    "primitives/color/cucumber/100": "#e0f7d6",
+    "_primitives/color/cucumber/100": "#e0f7d6",
+    "primitives/cucumber/100": "#e0f7d6",
+    "_primitives/cucumber/100": "#e0f7d6",
+    "primitives.color.cucumber.200": "#c9e0be",
+    "color/cucumber/200": "#c9e0be",
+    "color.cucumber.200": "#c9e0be",
+    "primitives/color/cucumber/200": "#c9e0be",
+    "_primitives/color/cucumber/200": "#c9e0be",
+    "primitives/cucumber/200": "#c9e0be",
+    "_primitives/cucumber/200": "#c9e0be",
+    "primitives.color.cucumber.300": "#b2c9a7",
+    "color/cucumber/300": "#b2c9a7",
+    "color.cucumber.300": "#b2c9a7",
+    "primitives/color/cucumber/300": "#b2c9a7",
+    "_primitives/color/cucumber/300": "#b2c9a7",
+    "primitives/cucumber/300": "#b2c9a7",
+    "_primitives/cucumber/300": "#b2c9a7",
+    "primitives.color.cucumber.400": "#9cb391",
+    "color/cucumber/400": "#9cb391",
+    "color.cucumber.400": "#9cb391",
+    "primitives/color/cucumber/400": "#9cb391",
+    "_primitives/color/cucumber/400": "#9cb391",
+    "primitives/cucumber/400": "#9cb391",
+    "_primitives/cucumber/400": "#9cb391",
+    "primitives.color.cucumber.500": "#869c7c",
+    "color/cucumber/500": "#869c7c",
+    "color.cucumber.500": "#869c7c",
+    "primitives/color/cucumber/500": "#869c7c",
+    "_primitives/color/cucumber/500": "#869c7c",
+    "primitives/cucumber/500": "#869c7c",
+    "_primitives/cucumber/500": "#869c7c",
+    "primitives.color.cucumber.600": "#718568",
+    "color/cucumber/600": "#718568",
+    "color.cucumber.600": "#718568",
+    "primitives/color/cucumber/600": "#718568",
+    "_primitives/color/cucumber/600": "#718568",
+    "primitives/cucumber/600": "#718568",
+    "_primitives/cucumber/600": "#718568",
+    "primitives.color.cucumber.700": "#5d6f54",
+    "color/cucumber/700": "#5d6f54",
+    "color.cucumber.700": "#5d6f54",
+    "primitives/color/cucumber/700": "#5d6f54",
+    "_primitives/color/cucumber/700": "#5d6f54",
+    "primitives/cucumber/700": "#5d6f54",
+    "_primitives/cucumber/700": "#5d6f54",
+    "primitives.color.cucumber.800": "#495841",
+    "color/cucumber/800": "#495841",
+    "color.cucumber.800": "#495841",
+    "primitives/color/cucumber/800": "#495841",
+    "_primitives/color/cucumber/800": "#495841",
+    "primitives/cucumber/800": "#495841",
+    "_primitives/cucumber/800": "#495841",
+    "primitives.color.cucumber.900": "#35412f",
+    "color/cucumber/900": "#35412f",
+    "color.cucumber.900": "#35412f",
+    "primitives/color/cucumber/900": "#35412f",
+    "_primitives/color/cucumber/900": "#35412f",
+    "primitives/cucumber/900": "#35412f",
+    "_primitives/cucumber/900": "#35412f",
+    "primitives.color.extra-palette.bermuda": "#88d8d0",
+    "color/extra-palette/bermuda": "#88d8d0",
+    "color.extra-palette.bermuda": "#88d8d0",
+    "primitives/color/extra-palette/bermuda": "#88d8d0",
+    "_primitives/color/extra-palette/bermuda": "#88d8d0",
+    "primitives/extra-palette/bermuda": "#88d8d0",
+    "_primitives/extra-palette/bermuda": "#88d8d0",
+    "primitives.color.extra-palette.english-cream": "#fffaf0",
+    "color/extra-palette/english-cream": "#fffaf0",
+    "color.extra-palette.english-cream": "#fffaf0",
+    "primitives/color/extra-palette/english-cream": "#fffaf0",
+    "_primitives/color/extra-palette/english-cream": "#fffaf0",
+    "primitives/extra-palette/english-cream": "#fffaf0",
+    "_primitives/extra-palette/english-cream": "#fffaf0",
+    "primitives.color.extra-palette.lavender": "#b7a4c4",
+    "color/extra-palette/lavender": "#b7a4c4",
+    "color.extra-palette.lavender": "#b7a4c4",
+    "primitives/color/extra-palette/lavender": "#b7a4c4",
+    "_primitives/color/extra-palette/lavender": "#b7a4c4",
+    "primitives/extra-palette/lavender": "#b7a4c4",
+    "_primitives/extra-palette/lavender": "#b7a4c4",
+    "primitives.color.extra-palette.lime-cream": "#f0f9c5",
+    "color/extra-palette/lime-cream": "#f0f9c5",
+    "color.extra-palette.lime-cream": "#f0f9c5",
+    "primitives/color/extra-palette/lime-cream": "#f0f9c5",
+    "_primitives/color/extra-palette/lime-cream": "#f0f9c5",
+    "primitives/extra-palette/lime-cream": "#f0f9c5",
+    "_primitives/extra-palette/lime-cream": "#f0f9c5",
+    "primitives.color.extra-palette.moon-raker": "#e6e6fa",
+    "color/extra-palette/moon-raker": "#e6e6fa",
+    "color.extra-palette.moon-raker": "#e6e6fa",
+    "primitives/color/extra-palette/moon-raker": "#e6e6fa",
+    "_primitives/color/extra-palette/moon-raker": "#e6e6fa",
+    "primitives/extra-palette/moon-raker": "#e6e6fa",
+    "_primitives/extra-palette/moon-raker": "#e6e6fa",
+    "primitives.color.grey.100": "#ececec",
+    "color/grey/100": "#ececec",
+    "color.grey.100": "#ececec",
+    "primitives/color/grey/100": "#ececec",
+    "_primitives/color/grey/100": "#ececec",
+    "primitives/grey/100": "#ececec",
+    "_primitives/grey/100": "#ececec",
+    "primitives.color.grey.200": "#d7d4d4",
+    "color/grey/200": "#d7d4d4",
+    "color.grey.200": "#d7d4d4",
+    "primitives/color/grey/200": "#d7d4d4",
+    "_primitives/color/grey/200": "#d7d4d4",
+    "primitives/grey/200": "#d7d4d4",
+    "_primitives/grey/200": "#d7d4d4",
+    "primitives.color.grey.300": "#c3bdbd",
+    "color/grey/300": "#c3bdbd",
+    "color.grey.300": "#c3bdbd",
+    "primitives/color/grey/300": "#c3bdbd",
+    "_primitives/color/grey/300": "#c3bdbd",
+    "primitives/grey/300": "#c3bdbd",
+    "_primitives/grey/300": "#c3bdbd",
+    "primitives.color.grey.400": "#aea6a6",
+    "color/grey/400": "#aea6a6",
+    "color.grey.400": "#aea6a6",
+    "primitives/color/grey/400": "#aea6a6",
+    "_primitives/color/grey/400": "#aea6a6",
+    "primitives/grey/400": "#aea6a6",
+    "_primitives/grey/400": "#aea6a6",
+    "primitives.color.grey.500": "#9a9090",
+    "color/grey/500": "#9a9090",
+    "color.grey.500": "#9a9090",
+    "primitives/color/grey/500": "#9a9090",
+    "_primitives/color/grey/500": "#9a9090",
+    "primitives/grey/500": "#9a9090",
+    "_primitives/grey/500": "#9a9090",
+    "primitives.color.grey.600": "#867b7b",
+    "color/grey/600": "#867b7b",
+    "color.grey.600": "#867b7b",
+    "primitives/color/grey/600": "#867b7b",
+    "_primitives/color/grey/600": "#867b7b",
+    "primitives/grey/600": "#867b7b",
+    "_primitives/grey/600": "#867b7b",
+    "primitives.color.grey.700": "#716666",
+    "color/grey/700": "#716666",
+    "color.grey.700": "#716666",
+    "primitives/color/grey/700": "#716666",
+    "_primitives/color/grey/700": "#716666",
+    "primitives/grey/700": "#716666",
+    "_primitives/grey/700": "#716666",
+    "primitives.color.grey.800": "#5d5252",
+    "color/grey/800": "#5d5252",
+    "color.grey.800": "#5d5252",
+    "primitives/color/grey/800": "#5d5252",
+    "_primitives/color/grey/800": "#5d5252",
+    "primitives/grey/800": "#5d5252",
+    "_primitives/grey/800": "#5d5252",
+    "primitives.color.grey.900": "#483f3f",
+    "color/grey/900": "#483f3f",
+    "color.grey.900": "#483f3f",
+    "primitives/color/grey/900": "#483f3f",
+    "_primitives/color/grey/900": "#483f3f",
+    "primitives/grey/900": "#483f3f",
+    "_primitives/grey/900": "#483f3f",
+    "primitives.color.ocean-green.100": "#d0ffe5",
+    "color/ocean-green/100": "#d0ffe5",
+    "color.ocean-green.100": "#d0ffe5",
+    "primitives/color/ocean-green/100": "#d0ffe5",
+    "_primitives/color/ocean-green/100": "#d0ffe5",
+    "primitives/ocean-green/100": "#d0ffe5",
+    "_primitives/ocean-green/100": "#d0ffe5",
+    "primitives.color.ocean-green.200": "#b0ffd3",
+    "color/ocean-green/200": "#b0ffd3",
+    "color.ocean-green.200": "#b0ffd3",
+    "primitives/color/ocean-green/200": "#b0ffd3",
+    "_primitives/color/ocean-green/200": "#b0ffd3",
+    "primitives/ocean-green/200": "#b0ffd3",
+    "_primitives/ocean-green/200": "#b0ffd3",
+    "primitives.color.ocean-green.300": "#90ffc1",
+    "color/ocean-green/300": "#90ffc1",
+    "color.ocean-green.300": "#90ffc1",
+    "primitives/color/ocean-green/300": "#90ffc1",
+    "_primitives/color/ocean-green/300": "#90ffc1",
+    "primitives/ocean-green/300": "#90ffc1",
+    "_primitives/ocean-green/300": "#90ffc1",
+    "primitives.color.ocean-green.400": "#6df7aa",
+    "color/ocean-green/400": "#6df7aa",
+    "color.ocean-green.400": "#6df7aa",
+    "primitives/color/ocean-green/400": "#6df7aa",
+    "_primitives/color/ocean-green/400": "#6df7aa",
+    "primitives/ocean-green/400": "#6df7aa",
+    "_primitives/ocean-green/400": "#6df7aa",
+    "primitives.color.ocean-green.500": "#52d58d",
+    "color/ocean-green/500": "#52d58d",
+    "color.ocean-green.500": "#52d58d",
+    "primitives/color/ocean-green/500": "#52d58d",
+    "_primitives/color/ocean-green/500": "#52d58d",
+    "primitives/ocean-green/500": "#52d58d",
+    "_primitives/ocean-green/500": "#52d58d",
+    "primitives.color.ocean-green.600": "#3cb371",
+    "color/ocean-green/600": "#3cb371",
+    "color.ocean-green.600": "#3cb371",
+    "primitives/color/ocean-green/600": "#3cb371",
+    "_primitives/color/ocean-green/600": "#3cb371",
+    "primitives/ocean-green/600": "#3cb371",
+    "_primitives/ocean-green/600": "#3cb371",
+    "primitives.color.ocean-green.700": "#299157",
+    "color/ocean-green/700": "#299157",
+    "color.ocean-green.700": "#299157",
+    "primitives/color/ocean-green/700": "#299157",
+    "_primitives/color/ocean-green/700": "#299157",
+    "primitives/ocean-green/700": "#299157",
+    "_primitives/ocean-green/700": "#299157",
+    "primitives.color.ocean-green.800": "#1a6f40",
+    "color/ocean-green/800": "#1a6f40",
+    "color.ocean-green.800": "#1a6f40",
+    "primitives/color/ocean-green/800": "#1a6f40",
+    "_primitives/color/ocean-green/800": "#1a6f40",
+    "primitives/ocean-green/800": "#1a6f40",
+    "_primitives/ocean-green/800": "#1a6f40",
+    "primitives.color.ocean-green.900": "#0e4d2a",
+    "color/ocean-green/900": "#0e4d2a",
+    "color.ocean-green.900": "#0e4d2a",
+    "primitives/color/ocean-green/900": "#0e4d2a",
+    "_primitives/color/ocean-green/900": "#0e4d2a",
+    "primitives/ocean-green/900": "#0e4d2a",
+    "_primitives/ocean-green/900": "#0e4d2a",
+    "primitives.color.raw-umber.100": "#fff3db",
+    "color/raw-umber/100": "#fff3db",
+    "color.raw-umber.100": "#fff3db",
+    "primitives/color/raw-umber/100": "#fff3db",
+    "_primitives/color/raw-umber/100": "#fff3db",
+    "primitives/raw-umber/100": "#fff3db",
+    "_primitives/raw-umber/100": "#fff3db",
+    "primitives.color.raw-umber.200": "#fde9c0",
+    "color/raw-umber/200": "#fde9c0",
+    "color.raw-umber.200": "#fde9c0",
+    "primitives/color/raw-umber/200": "#fde9c0",
+    "_primitives/color/raw-umber/200": "#fde9c0",
+    "primitives/raw-umber/200": "#fde9c0",
+    "_primitives/raw-umber/200": "#fde9c0",
+    "primitives.color.raw-umber.300": "#f5d9a0",
+    "color/raw-umber/300": "#f5d9a0",
+    "color.raw-umber.300": "#f5d9a0",
+    "primitives/color/raw-umber/300": "#f5d9a0",
+    "_primitives/color/raw-umber/300": "#f5d9a0",
+    "primitives/raw-umber/300": "#f5d9a0",
+    "_primitives/raw-umber/300": "#f5d9a0",
+    "primitives.color.raw-umber.400": "#d7bc84",
+    "color/raw-umber/400": "#d7bc84",
+    "color.raw-umber.400": "#d7bc84",
+    "primitives/color/raw-umber/400": "#d7bc84",
+    "_primitives/color/raw-umber/400": "#d7bc84",
+    "primitives/raw-umber/400": "#d7bc84",
+    "_primitives/raw-umber/400": "#d7bc84",
+    "primitives.color.raw-umber.500": "#baa06b",
+    "color/raw-umber/500": "#baa06b",
+    "color.raw-umber.500": "#baa06b",
+    "primitives/color/raw-umber/500": "#baa06b",
+    "_primitives/color/raw-umber/500": "#baa06b",
+    "primitives/raw-umber/500": "#baa06b",
+    "_primitives/raw-umber/500": "#baa06b",
+    "primitives.color.raw-umber.600": "#9d8555",
+    "color/raw-umber/600": "#9d8555",
+    "color.raw-umber.600": "#9d8555",
+    "primitives/color/raw-umber/600": "#9d8555",
+    "_primitives/color/raw-umber/600": "#9d8555",
+    "primitives/raw-umber/600": "#9d8555",
+    "_primitives/raw-umber/600": "#9d8555",
+    "primitives.color.raw-umber.700": "#806b40",
+    "color/raw-umber/700": "#806b40",
+    "color.raw-umber.700": "#806b40",
+    "primitives/color/raw-umber/700": "#806b40",
+    "_primitives/color/raw-umber/700": "#806b40",
+    "primitives/raw-umber/700": "#806b40",
+    "_primitives/raw-umber/700": "#806b40",
+    "primitives.color.raw-umber.800": "#63512e",
+    "color/raw-umber/800": "#63512e",
+    "color.raw-umber.800": "#63512e",
+    "primitives/color/raw-umber/800": "#63512e",
+    "_primitives/color/raw-umber/800": "#63512e",
+    "primitives/raw-umber/800": "#63512e",
+    "_primitives/raw-umber/800": "#63512e",
+    "primitives.color.raw-umber.900": "#46391e",
+    "color/raw-umber/900": "#46391e",
+    "color.raw-umber.900": "#46391e",
+    "primitives/color/raw-umber/900": "#46391e",
+    "_primitives/color/raw-umber/900": "#46391e",
+    "primitives/raw-umber/900": "#46391e",
+    "_primitives/raw-umber/900": "#46391e",
+    "primitives.color.red.100": "#ffc6c6",
+    "color/red/100": "#ffc6c6",
+    "color.red.100": "#ffc6c6",
+    "primitives/color/red/100": "#ffc6c6",
+    "_primitives/color/red/100": "#ffc6c6",
+    "primitives/red/100": "#ffc6c6",
+    "_primitives/red/100": "#ffc6c6",
+    "primitives.color.red.200": "#ff9f9f",
+    "color/red/200": "#ff9f9f",
+    "color.red.200": "#ff9f9f",
+    "primitives/color/red/200": "#ff9f9f",
+    "_primitives/color/red/200": "#ff9f9f",
+    "primitives/red/200": "#ff9f9f",
+    "_primitives/red/200": "#ff9f9f",
+    "primitives.color.red.300": "#ff7878",
+    "color/red/300": "#ff7878",
+    "color.red.300": "#ff7878",
+    "primitives/color/red/300": "#ff7878",
+    "_primitives/color/red/300": "#ff7878",
+    "primitives/red/300": "#ff7878",
+    "_primitives/red/300": "#ff7878",
+    "primitives.color.red.400": "#f64e4e",
+    "color/red/400": "#f64e4e",
+    "color.red.400": "#f64e4e",
+    "primitives/color/red/400": "#f64e4e",
+    "_primitives/color/red/400": "#f64e4e",
+    "primitives/red/400": "#f64e4e",
+    "_primitives/red/400": "#f64e4e",
+    "primitives.color.red.500": "#d43636",
+    "color/red/500": "#d43636",
+    "color.red.500": "#d43636",
+    "primitives/color/red/500": "#d43636",
+    "_primitives/color/red/500": "#d43636",
+    "primitives/red/500": "#d43636",
+    "_primitives/red/500": "#d43636",
+    "primitives.color.red.600": "#b22222",
+    "color/red/600": "#b22222",
+    "color.red.600": "#b22222",
+    "primitives/color/red/600": "#b22222",
+    "_primitives/color/red/600": "#b22222",
+    "primitives/red/600": "#b22222",
+    "_primitives/red/600": "#b22222",
+    "primitives.color.red.700": "#901212",
+    "color/red/700": "#901212",
+    "color.red.700": "#901212",
+    "primitives/color/red/700": "#901212",
+    "_primitives/color/red/700": "#901212",
+    "primitives/red/700": "#901212",
+    "_primitives/red/700": "#901212",
+    "primitives.color.red.800": "#6e0707",
+    "color/red/800": "#6e0707",
+    "color.red.800": "#6e0707",
+    "primitives/color/red/800": "#6e0707",
+    "_primitives/color/red/800": "#6e0707",
+    "primitives/red/800": "#6e0707",
+    "_primitives/red/800": "#6e0707",
+    "primitives.color.red.900": "#4c0000",
+    "color/red/900": "#4c0000",
+    "color.red.900": "#4c0000",
+    "primitives/color/red/900": "#4c0000",
+    "_primitives/color/red/900": "#4c0000",
+    "primitives/red/900": "#4c0000",
+    "_primitives/red/900": "#4c0000",
+    "semantic.color.background.action.danger.active": "#901212",
+    "color/background/action/danger/active": "#901212",
+    "color.background.action.danger.active": "#901212",
+    "semantic/color/background/action/danger/active": "#901212",
+    "_semantic/color/background/action/danger/active": "#901212",
+    "semantic.color.background.action.danger.default": "#b22222",
+    "color/background/action/danger/default": "#b22222",
+    "color.background.action.danger.default": "#b22222",
+    "semantic/color/background/action/danger/default": "#b22222",
+    "_semantic/color/background/action/danger/default": "#b22222",
+    "semantic.color.background.action.danger.hover": "#d43636",
+    "color/background/action/danger/hover": "#d43636",
+    "color.background.action.danger.hover": "#d43636",
+    "semantic/color/background/action/danger/hover": "#d43636",
+    "_semantic/color/background/action/danger/hover": "#d43636",
+    "semantic.color.background.action.disabled.default": "#ececec",
+    "color/background/action/disabled/default": "#ececec",
+    "color.background.action.disabled.default": "#ececec",
+    "semantic/color/background/action/disabled/default": "#ececec",
+    "_semantic/color/background/action/disabled/default": "#ececec",
+    "semantic.color.background.action.primary.active": "#96bfcc",
+    "color/background/action/primary/active": "#96bfcc",
+    "color.background.action.primary.active": "#96bfcc",
+    "semantic/color/background/action/primary/active": "#96bfcc",
+    "_semantic/color/background/action/primary/active": "#96bfcc",
+    "semantic.color.background.action.primary.default": "#add8e6",
+    "color/background/action/primary/default": "#add8e6",
+    "color.background.action.primary.default": "#add8e6",
+    "semantic/color/background/action/primary/default": "#add8e6",
+    "_semantic/color/background/action/primary/default": "#add8e6",
+    "semantic.color.background.action.primary.hover": "#c5f0ff",
+    "color/background/action/primary/hover": "#c5f0ff",
+    "color.background.action.primary.hover": "#c5f0ff",
+    "semantic/color/background/action/primary/hover": "#c5f0ff",
+    "_semantic/color/background/action/primary/hover": "#c5f0ff",
+    "semantic.color.background.action.secondary.active": "#b2c9a7",
+    "color/background/action/secondary/active": "#b2c9a7",
+    "color.background.action.secondary.active": "#b2c9a7",
+    "semantic/color/background/action/secondary/active": "#b2c9a7",
+    "_semantic/color/background/action/secondary/active": "#b2c9a7",
+    "semantic.color.background.action.secondary.default": "#c9e0be",
+    "color/background/action/secondary/default": "#c9e0be",
+    "color.background.action.secondary.default": "#c9e0be",
+    "semantic/color/background/action/secondary/default": "#c9e0be",
+    "_semantic/color/background/action/secondary/default": "#c9e0be",
+    "semantic.color.background.action.secondary.hover": "#e0f7d6",
+    "color/background/action/secondary/hover": "#e0f7d6",
+    "color.background.action.secondary.hover": "#e0f7d6",
+    "semantic/color/background/action/secondary/hover": "#e0f7d6",
+    "_semantic/color/background/action/secondary/hover": "#e0f7d6",
+    "semantic.color.background.brand.primary": "#add8e6",
+    "color/background/brand/primary": "#add8e6",
+    "color.background.brand.primary": "#add8e6",
+    "semantic/color/background/brand/primary": "#add8e6",
+    "_semantic/color/background/brand/primary": "#add8e6",
+    "semantic.color.background.brand.secondary": "#c9e0be",
+    "color/background/brand/secondary": "#c9e0be",
+    "color.background.brand.secondary": "#c9e0be",
+    "semantic/color/background/brand/secondary": "#c9e0be",
+    "_semantic/color/background/brand/secondary": "#c9e0be",
+    "semantic.color.background.brand.secondary-dark": "#495841",
+    "color/background/brand/secondary-dark": "#495841",
+    "color.background.brand.secondary-dark": "#495841",
+    "semantic/color/background/brand/secondary-dark": "#495841",
+    "_semantic/color/background/brand/secondary-dark": "#495841",
+    "semantic.color.background.brand.tertiary": "#b7a4c4",
+    "color/background/brand/tertiary": "#b7a4c4",
+    "color.background.brand.tertiary": "#b7a4c4",
+    "semantic/color/background/brand/tertiary": "#b7a4c4",
+    "_semantic/color/background/brand/tertiary": "#b7a4c4",
+    "semantic.color.background.decorative.100": "#c5f0ff",
+    "color/background/decorative/100": "#c5f0ff",
+    "color.background.decorative.100": "#c5f0ff",
+    "semantic/color/background/decorative/100": "#c5f0ff",
+    "_semantic/color/background/decorative/100": "#c5f0ff",
+    "semantic.color.background.decorative.200": "#fffaf0",
+    "color/background/decorative/200": "#fffaf0",
+    "color.background.decorative.200": "#fffaf0",
+    "semantic/color/background/decorative/200": "#fffaf0",
+    "_semantic/color/background/decorative/200": "#fffaf0",
+    "semantic.color.background.decorative.300": "#88d8d0",
+    "color/background/decorative/300": "#88d8d0",
+    "color.background.decorative.300": "#88d8d0",
+    "semantic/color/background/decorative/300": "#88d8d0",
+    "_semantic/color/background/decorative/300": "#88d8d0",
+    "semantic.color.background.decorative.400": "#ffc6c6",
+    "color/background/decorative/400": "#ffc6c6",
+    "color.background.decorative.400": "#ffc6c6",
+    "semantic/color/background/decorative/400": "#ffc6c6",
+    "_semantic/color/background/decorative/400": "#ffc6c6",
+    "semantic.color.background.decorative.500": "#e6e6fa",
+    "color/background/decorative/500": "#e6e6fa",
+    "color.background.decorative.500": "#e6e6fa",
+    "semantic/color/background/decorative/500": "#e6e6fa",
+    "_semantic/color/background/decorative/500": "#e6e6fa",
+    "semantic.color.background.decorative.600": "#f0f9c5",
+    "color/background/decorative/600": "#f0f9c5",
+    "color.background.decorative.600": "#f0f9c5",
+    "semantic/color/background/decorative/600": "#f0f9c5",
+    "_semantic/color/background/decorative/600": "#f0f9c5",
+    "semantic.color.background.feedback.default": "#ffffff",
+    "color/background/feedback/default": "#ffffff",
+    "color.background.feedback.default": "#ffffff",
+    "semantic/color/background/feedback/default": "#ffffff",
+    "_semantic/color/background/feedback/default": "#ffffff",
+    "semantic.color.background.overlay.media": "#0000001a",
+    "color/background/overlay/media": "#0000001a",
+    "color.background.overlay.media": "#0000001a",
+    "semantic/color/background/overlay/media": "#0000001a",
+    "_semantic/color/background/overlay/media": "#0000001a",
+    "semantic.color.background.overlay.modal": "#00000033",
+    "color/background/overlay/modal": "#00000033",
+    "color.background.overlay.modal": "#00000033",
+    "semantic/color/background/overlay/modal": "#00000033",
+    "_semantic/color/background/overlay/modal": "#00000033",
+    "semantic.color.background.surface.card": "#fffaf0",
+    "color/background/surface/card": "#fffaf0",
+    "color.background.surface.card": "#fffaf0",
+    "semantic/color/background/surface/card": "#fffaf0",
+    "_semantic/color/background/surface/card": "#fffaf0",
+    "semantic.color.background.surface.control": "#ffffff",
+    "color/background/surface/control": "#ffffff",
+    "color.background.surface.control": "#ffffff",
+    "semantic/color/background/surface/control": "#ffffff",
+    "_semantic/color/background/surface/control": "#ffffff",
+    "semantic.color.border.feedback.danger": "#b22222",
+    "color/border/feedback/danger": "#b22222",
+    "color.border.feedback.danger": "#b22222",
+    "semantic/color/border/feedback/danger": "#b22222",
+    "_semantic/color/border/feedback/danger": "#b22222",
+    "semantic.color.border.feedback.information": "#baa06b",
+    "color/border/feedback/information": "#baa06b",
+    "color.border.feedback.information": "#baa06b",
+    "semantic/color/border/feedback/information": "#baa06b",
+    "_semantic/color/border/feedback/information": "#baa06b",
+    "semantic.color.border.feedback.success": "#299157",
+    "color/border/feedback/success": "#299157",
+    "color.border.feedback.success": "#299157",
+    "semantic/color/border/feedback/success": "#299157",
+    "_semantic/color/border/feedback/success": "#299157",
+    "semantic.color.border.neutral.alpha-05": "#0000000d",
+    "color/border/neutral/alpha-05": "#0000000d",
+    "color.border.neutral.alpha-05": "#0000000d",
+    "semantic/color/border/neutral/alpha-05": "#0000000d",
+    "_semantic/color/border/neutral/alpha-05": "#0000000d",
+    "semantic.color.border.neutral.alpha-10": "#0000001a",
+    "color/border/neutral/alpha-10": "#0000001a",
+    "color.border.neutral.alpha-10": "#0000001a",
+    "semantic/color/border/neutral/alpha-10": "#0000001a",
+    "_semantic/color/border/neutral/alpha-10": "#0000001a",
+    "semantic.color.border.neutral.alpha-20": "#00000033",
+    "color/border/neutral/alpha-20": "#00000033",
+    "color.border.neutral.alpha-20": "#00000033",
+    "semantic/color/border/neutral/alpha-20": "#00000033",
+    "_semantic/color/border/neutral/alpha-20": "#00000033",
+    "semantic.color.border.neutral.default": "#9a9090",
+    "color/border/neutral/default": "#9a9090",
+    "color.border.neutral.default": "#9a9090",
+    "semantic/color/border/neutral/default": "#9a9090",
+    "_semantic/color/border/neutral/default": "#9a9090",
+    "semantic.color.border.neutral.emphasis": "#5d5252",
+    "color/border/neutral/emphasis": "#5d5252",
+    "color.border.neutral.emphasis": "#5d5252",
+    "semantic/color/border/neutral/emphasis": "#5d5252",
+    "_semantic/color/border/neutral/emphasis": "#5d5252",
+    "semantic.color.border.neutral.subtle": "#d7d4d4",
+    "color/border/neutral/subtle": "#d7d4d4",
+    "color.border.neutral.subtle": "#d7d4d4",
+    "semantic/color/border/neutral/subtle": "#d7d4d4",
+    "_semantic/color/border/neutral/subtle": "#d7d4d4",
+    "semantic.color.focus-outline.inner": "#ffffff",
+    "color/focus-outline/inner": "#ffffff",
+    "color.focus-outline.inner": "#ffffff",
+    "semantic/color/focus-outline/inner": "#ffffff",
+    "_semantic/color/focus-outline/inner": "#ffffff",
+    "semantic.color.focus-outline.outer": "#567680",
+    "color/focus-outline/outer": "#567680",
+    "color.focus-outline.outer": "#567680",
+    "semantic/color/focus-outline/outer": "#567680",
+    "_semantic/color/focus-outline/outer": "#567680",
+    "semantic.color.icon.action.on-danger": "#ffffff",
+    "color/icon/action/on-danger": "#ffffff",
+    "color.icon.action.on-danger": "#ffffff",
+    "semantic/color/icon/action/on-danger": "#ffffff",
+    "_semantic/color/icon/action/on-danger": "#ffffff",
+    "semantic.color.icon.action.on-disabled": "#5d5252",
+    "color/icon/action/on-disabled": "#5d5252",
+    "color.icon.action.on-disabled": "#5d5252",
+    "semantic/color/icon/action/on-disabled": "#5d5252",
+    "_semantic/color/icon/action/on-disabled": "#5d5252",
+    "semantic.color.icon.action.on-primary": "#483f3f",
+    "color/icon/action/on-primary": "#483f3f",
+    "color.icon.action.on-primary": "#483f3f",
+    "semantic/color/icon/action/on-primary": "#483f3f",
+    "_semantic/color/icon/action/on-primary": "#483f3f",
+    "semantic.color.icon.action.on-secondary": "#483f3f",
+    "color/icon/action/on-secondary": "#483f3f",
+    "color.icon.action.on-secondary": "#483f3f",
+    "semantic/color/icon/action/on-secondary": "#483f3f",
+    "_semantic/color/icon/action/on-secondary": "#483f3f",
+    "semantic.color.icon.feedback.danger": "#b22222",
+    "color/icon/feedback/danger": "#b22222",
+    "color.icon.feedback.danger": "#b22222",
+    "semantic/color/icon/feedback/danger": "#b22222",
+    "_semantic/color/icon/feedback/danger": "#b22222",
+    "semantic.color.icon.feedback.information": "#9d8555",
+    "color/icon/feedback/information": "#9d8555",
+    "color.icon.feedback.information": "#9d8555",
+    "semantic/color/icon/feedback/information": "#9d8555",
+    "_semantic/color/icon/feedback/information": "#9d8555",
+    "semantic.color.icon.feedback.success": "#299157",
+    "color/icon/feedback/success": "#299157",
+    "color.icon.feedback.success": "#299157",
+    "semantic/color/icon/feedback/success": "#299157",
+    "_semantic/color/icon/feedback/success": "#299157",
+    "semantic.color.icon.neutral.default": "#483f3f",
+    "color/icon/neutral/default": "#483f3f",
+    "color.icon.neutral.default": "#483f3f",
+    "semantic/color/icon/neutral/default": "#483f3f",
+    "_semantic/color/icon/neutral/default": "#483f3f",
+    "semantic.color.icon.overlay.on-overlay": "#ffffff",
+    "color/icon/overlay/on-overlay": "#ffffff",
+    "color.icon.overlay.on-overlay": "#ffffff",
+    "semantic/color/icon/overlay/on-overlay": "#ffffff",
+    "_semantic/color/icon/overlay/on-overlay": "#ffffff",
+    "semantic.color.shadow.100": "#00000014",
+    "color/shadow/100": "#00000014",
+    "color.shadow.100": "#00000014",
+    "semantic/color/shadow/100": "#00000014",
+    "_semantic/color/shadow/100": "#00000014",
+    "semantic.color.shadow.200": "#00000029",
+    "color/shadow/200": "#00000029",
+    "color.shadow.200": "#00000029",
+    "semantic/color/shadow/200": "#00000029",
+    "_semantic/color/shadow/200": "#00000029",
+    "semantic.color.shadow.300": "#00000033",
+    "color/shadow/300": "#00000033",
+    "color.shadow.300": "#00000033",
+    "semantic/color/shadow/300": "#00000033",
+    "_semantic/color/shadow/300": "#00000033",
+    "semantic.color.text.action.on-danger": "#ffffff",
+    "color/text/action/on-danger": "#ffffff",
+    "color.text.action.on-danger": "#ffffff",
+    "semantic/color/text/action/on-danger": "#ffffff",
+    "_semantic/color/text/action/on-danger": "#ffffff",
+    "semantic.color.text.action.on-disabled": "#5d5252",
+    "color/text/action/on-disabled": "#5d5252",
+    "color.text.action.on-disabled": "#5d5252",
+    "semantic/color/text/action/on-disabled": "#5d5252",
+    "_semantic/color/text/action/on-disabled": "#5d5252",
+    "semantic.color.text.action.on-primary": "#483f3f",
+    "color/text/action/on-primary": "#483f3f",
+    "color.text.action.on-primary": "#483f3f",
+    "semantic/color/text/action/on-primary": "#483f3f",
+    "_semantic/color/text/action/on-primary": "#483f3f",
+    "semantic.color.text.action.on-secondary": "#483f3f",
+    "color/text/action/on-secondary": "#483f3f",
+    "color.text.action.on-secondary": "#483f3f",
+    "semantic/color/text/action/on-secondary": "#483f3f",
+    "_semantic/color/text/action/on-secondary": "#483f3f",
+    "semantic.color.text.feedback.danger": "#b22222",
+    "color/text/feedback/danger": "#b22222",
+    "color.text.feedback.danger": "#b22222",
+    "semantic/color/text/feedback/danger": "#b22222",
+    "_semantic/color/text/feedback/danger": "#b22222",
+    "semantic.color.text.feedback.success": "#1a6f40",
+    "color/text/feedback/success": "#1a6f40",
+    "color.text.feedback.success": "#1a6f40",
+    "semantic/color/text/feedback/success": "#1a6f40",
+    "_semantic/color/text/feedback/success": "#1a6f40",
+    "semantic.color.text.link.default": "#495841",
+    "color/text/link/default": "#495841",
+    "color.text.link.default": "#495841",
+    "semantic/color/text/link/default": "#495841",
+    "_semantic/color/text/link/default": "#495841",
+    "semantic.color.text.neutral.default": "#483f3f",
+    "color/text/neutral/default": "#483f3f",
+    "color.text.neutral.default": "#483f3f",
+    "semantic/color/text/neutral/default": "#483f3f",
+    "_semantic/color/text/neutral/default": "#483f3f",
+    "semantic.color.text.neutral.muted": "#5d5252",
+    "color/text/neutral/muted": "#5d5252",
+    "color.text.neutral.muted": "#5d5252",
+    "semantic/color/text/neutral/muted": "#5d5252",
+    "_semantic/color/text/neutral/muted": "#5d5252",
+    "semantic.color.text.neutral.subtle": "#716666",
+    "color/text/neutral/subtle": "#716666",
+    "color.text.neutral.subtle": "#716666",
+    "semantic/color/text/neutral/subtle": "#716666",
+    "_semantic/color/text/neutral/subtle": "#716666",
+    "semantic.color.text.overlay.on-overlay": "#ffffff",
+    "color/text/overlay/on-overlay": "#ffffff",
+    "color.text.overlay.on-overlay": "#ffffff",
+    "semantic/color/text/overlay/on-overlay": "#ffffff",
+    "_semantic/color/text/overlay/on-overlay": "#ffffff"
+  },
+  "tokenDimensions": {
+    "a11y.a11y.dimension.min-hit-area": 24,
+    "a11y/dimension/min-hit-area": 24,
+    "a11y.dimension.min-hit-area": 24,
+    "a11y/a11y/dimension/min-hit-area": 24,
+    "_a11y/a11y/dimension/min-hit-area": 24,
+    "primitives.dimension.a11y.min-hit-area-desktop-aa": 24,
+    "dimension/a11y/min-hit-area-desktop-aa": 24,
+    "dimension.a11y.min-hit-area-desktop-aa": 24,
+    "primitives/dimension/a11y/min-hit-area-desktop-aa": 24,
+    "_primitives/dimension/a11y/min-hit-area-desktop-aa": 24,
+    "primitives.dimension.a11y.min-hit-area-mobile-aaa": 48,
+    "dimension/a11y/min-hit-area-mobile-aaa": 48,
+    "dimension.a11y.min-hit-area-mobile-aaa": 48,
+    "primitives/dimension/a11y/min-hit-area-mobile-aaa": 48,
+    "_primitives/dimension/a11y/min-hit-area-mobile-aaa": 48,
+    "primitives.dimension.border.radius.1000": 1000,
+    "dimension/border/radius/1000": 1000,
+    "dimension.border.radius.1000": 1000,
+    "primitives/dimension/border/radius/1000": 1000,
+    "_primitives/dimension/border/radius/1000": 1000,
+    "primitives.dimension.border.radius.11": 11,
+    "dimension/border/radius/11": 11,
+    "dimension.border.radius.11": 11,
+    "primitives/dimension/border/radius/11": 11,
+    "_primitives/dimension/border/radius/11": 11,
+    "primitives.dimension.border.radius.12": 12,
+    "dimension/border/radius/12": 12,
+    "dimension.border.radius.12": 12,
+    "primitives/dimension/border/radius/12": 12,
+    "_primitives/dimension/border/radius/12": 12,
+    "primitives.dimension.border.radius.16": 16,
+    "dimension/border/radius/16": 16,
+    "dimension.border.radius.16": 16,
+    "primitives/dimension/border/radius/16": 16,
+    "_primitives/dimension/border/radius/16": 16,
+    "primitives.dimension.border.radius.4": 4,
+    "dimension/border/radius/4": 4,
+    "dimension.border.radius.4": 4,
+    "primitives/dimension/border/radius/4": 4,
+    "_primitives/dimension/border/radius/4": 4,
+    "primitives.dimension.border.radius.8": 8,
+    "dimension/border/radius/8": 8,
+    "dimension.border.radius.8": 8,
+    "primitives/dimension/border/radius/8": 8,
+    "_primitives/dimension/border/radius/8": 8,
+    "primitives.dimension.border.radius.9": 9,
+    "dimension/border/radius/9": 9,
+    "dimension.border.radius.9": 9,
+    "primitives/dimension/border/radius/9": 9,
+    "_primitives/dimension/border/radius/9": 9,
+    "primitives.dimension.border.width.1": 1,
+    "dimension/border/width/1": 1,
+    "dimension.border.width.1": 1,
+    "primitives/dimension/border/width/1": 1,
+    "_primitives/dimension/border/width/1": 1,
+    "primitives.dimension.border.width.2": 2,
+    "dimension/border/width/2": 2,
+    "dimension.border.width.2": 2,
+    "primitives/dimension/border/width/2": 2,
+    "_primitives/dimension/border/width/2": 2,
+    "primitives.dimension.shadow.blur.12": 12,
+    "dimension/shadow/blur/12": 12,
+    "dimension.shadow.blur.12": 12,
+    "primitives/dimension/shadow/blur/12": 12,
+    "_primitives/dimension/shadow/blur/12": 12,
+    "primitives.dimension.shadow.blur.16": 16,
+    "dimension/shadow/blur/16": 16,
+    "dimension.shadow.blur.16": 16,
+    "primitives/dimension/shadow/blur/16": 16,
+    "_primitives/dimension/shadow/blur/16": 16,
+    "primitives.dimension.shadow.blur.20": 20,
+    "dimension/shadow/blur/20": 20,
+    "dimension.shadow.blur.20": 20,
+    "primitives/dimension/shadow/blur/20": 20,
+    "_primitives/dimension/shadow/blur/20": 20,
+    "primitives.dimension.shadow.blur.8": 8,
+    "dimension/shadow/blur/8": 8,
+    "dimension.shadow.blur.8": 8,
+    "primitives/dimension/shadow/blur/8": 8,
+    "_primitives/dimension/shadow/blur/8": 8,
+    "primitives.dimension.shadow.spread.-12": -12,
+    "dimension/shadow/spread/-12": -12,
+    "dimension.shadow.spread.-12": -12,
+    "primitives/dimension/shadow/spread/-12": -12,
+    "_primitives/dimension/shadow/spread/-12": -12,
+    "primitives.dimension.shadow.spread.-16": -16,
+    "dimension/shadow/spread/-16": -16,
+    "dimension.shadow.spread.-16": -16,
+    "primitives/dimension/shadow/spread/-16": -16,
+    "_primitives/dimension/shadow/spread/-16": -16,
+    "primitives.dimension.shadow.spread.-2": -2,
+    "dimension/shadow/spread/-2": -2,
+    "dimension.shadow.spread.-2": -2,
+    "primitives/dimension/shadow/spread/-2": -2,
+    "_primitives/dimension/shadow/spread/-2": -2,
+    "primitives.dimension.shadow.spread.-4": -4,
+    "dimension/shadow/spread/-4": -4,
+    "dimension.shadow.spread.-4": -4,
+    "primitives/dimension/shadow/spread/-4": -4,
+    "_primitives/dimension/shadow/spread/-4": -4,
+    "primitives.dimension.shadow.spread.-6": -6,
+    "dimension/shadow/spread/-6": -6,
+    "dimension.shadow.spread.-6": -6,
+    "primitives/dimension/shadow/spread/-6": -6,
+    "_primitives/dimension/shadow/spread/-6": -6,
+    "primitives.dimension.shadow.spread.-8": -8,
+    "dimension/shadow/spread/-8": -8,
+    "dimension.shadow.spread.-8": -8,
+    "primitives/dimension/shadow/spread/-8": -8,
+    "_primitives/dimension/shadow/spread/-8": -8,
+    "primitives.dimension.shadow.spread.0": 0,
+    "dimension/shadow/spread/0": 0,
+    "dimension.shadow.spread.0": 0,
+    "primitives/dimension/shadow/spread/0": 0,
+    "_primitives/dimension/shadow/spread/0": 0,
+    "primitives.dimension.shadow.x.-10": -10,
+    "dimension/shadow/x/-10": -10,
+    "dimension.shadow.x.-10": -10,
+    "primitives/dimension/shadow/x/-10": -10,
+    "_primitives/dimension/shadow/x/-10": -10,
+    "primitives.dimension.shadow.x.-12": -12,
+    "dimension/shadow/x/-12": -12,
+    "dimension.shadow.x.-12": -12,
+    "primitives/dimension/shadow/x/-12": -12,
+    "_primitives/dimension/shadow/x/-12": -12,
+    "primitives.dimension.shadow.x.-16": -16,
+    "dimension/shadow/x/-16": -16,
+    "dimension.shadow.x.-16": -16,
+    "primitives/dimension/shadow/x/-16": -16,
+    "_primitives/dimension/shadow/x/-16": -16,
+    "primitives.dimension.shadow.x.-18": -18,
+    "dimension/shadow/x/-18": -18,
+    "dimension.shadow.x.-18": -18,
+    "primitives/dimension/shadow/x/-18": -18,
+    "_primitives/dimension/shadow/x/-18": -18,
+    "primitives.dimension.shadow.x.-2": -2,
+    "dimension/shadow/x/-2": -2,
+    "dimension.shadow.x.-2": -2,
+    "primitives/dimension/shadow/x/-2": -2,
+    "_primitives/dimension/shadow/x/-2": -2,
+    "primitives.dimension.shadow.x.-4": -4,
+    "dimension/shadow/x/-4": -4,
+    "dimension.shadow.x.-4": -4,
+    "primitives/dimension/shadow/x/-4": -4,
+    "_primitives/dimension/shadow/x/-4": -4,
+    "primitives.dimension.shadow.x.-8": -8,
+    "dimension/shadow/x/-8": -8,
+    "dimension.shadow.x.-8": -8,
+    "primitives/dimension/shadow/x/-8": -8,
+    "_primitives/dimension/shadow/x/-8": -8,
+    "primitives.dimension.shadow.x.0": 0,
+    "dimension/shadow/x/0": 0,
+    "dimension.shadow.x.0": 0,
+    "primitives/dimension/shadow/x/0": 0,
+    "_primitives/dimension/shadow/x/0": 0,
+    "primitives.dimension.shadow.x.10": 10,
+    "dimension/shadow/x/10": 10,
+    "dimension.shadow.x.10": 10,
+    "primitives/dimension/shadow/x/10": 10,
+    "_primitives/dimension/shadow/x/10": 10,
+    "primitives.dimension.shadow.x.12": 12,
+    "dimension/shadow/x/12": 12,
+    "dimension.shadow.x.12": 12,
+    "primitives/dimension/shadow/x/12": 12,
+    "_primitives/dimension/shadow/x/12": 12,
+    "primitives.dimension.shadow.x.16": 16,
+    "dimension/shadow/x/16": 16,
+    "dimension.shadow.x.16": 16,
+    "primitives/dimension/shadow/x/16": 16,
+    "_primitives/dimension/shadow/x/16": 16,
+    "primitives.dimension.shadow.x.18": 18,
+    "dimension/shadow/x/18": 18,
+    "dimension.shadow.x.18": 18,
+    "primitives/dimension/shadow/x/18": 18,
+    "_primitives/dimension/shadow/x/18": 18,
+    "primitives.dimension.shadow.x.2": 2,
+    "dimension/shadow/x/2": 2,
+    "dimension.shadow.x.2": 2,
+    "primitives/dimension/shadow/x/2": 2,
+    "_primitives/dimension/shadow/x/2": 2,
+    "primitives.dimension.shadow.x.4": 4,
+    "dimension/shadow/x/4": 4,
+    "dimension.shadow.x.4": 4,
+    "primitives/dimension/shadow/x/4": 4,
+    "_primitives/dimension/shadow/x/4": 4,
+    "primitives.dimension.shadow.x.8": 8,
+    "dimension/shadow/x/8": 8,
+    "dimension.shadow.x.8": 8,
+    "primitives/dimension/shadow/x/8": 8,
+    "_primitives/dimension/shadow/x/8": 8,
+    "primitives.dimension.shadow.y.-10": -10,
+    "dimension/shadow/y/-10": -10,
+    "dimension.shadow.y.-10": -10,
+    "primitives/dimension/shadow/y/-10": -10,
+    "_primitives/dimension/shadow/y/-10": -10,
+    "primitives.dimension.shadow.y.-12": -12,
+    "dimension/shadow/y/-12": -12,
+    "dimension.shadow.y.-12": -12,
+    "primitives/dimension/shadow/y/-12": -12,
+    "_primitives/dimension/shadow/y/-12": -12,
+    "primitives.dimension.shadow.y.-16": -16,
+    "dimension/shadow/y/-16": -16,
+    "dimension.shadow.y.-16": -16,
+    "primitives/dimension/shadow/y/-16": -16,
+    "_primitives/dimension/shadow/y/-16": -16,
+    "primitives.dimension.shadow.y.-18": -18,
+    "dimension/shadow/y/-18": -18,
+    "dimension.shadow.y.-18": -18,
+    "primitives/dimension/shadow/y/-18": -18,
+    "_primitives/dimension/shadow/y/-18": -18,
+    "primitives.dimension.shadow.y.-2": -2,
+    "dimension/shadow/y/-2": -2,
+    "dimension.shadow.y.-2": -2,
+    "primitives/dimension/shadow/y/-2": -2,
+    "_primitives/dimension/shadow/y/-2": -2,
+    "primitives.dimension.shadow.y.-4": -4,
+    "dimension/shadow/y/-4": -4,
+    "dimension.shadow.y.-4": -4,
+    "primitives/dimension/shadow/y/-4": -4,
+    "_primitives/dimension/shadow/y/-4": -4,
+    "primitives.dimension.shadow.y.-6": -6,
+    "dimension/shadow/y/-6": -6,
+    "dimension.shadow.y.-6": -6,
+    "primitives/dimension/shadow/y/-6": -6,
+    "_primitives/dimension/shadow/y/-6": -6,
+    "primitives.dimension.shadow.y.-8": -8,
+    "dimension/shadow/y/-8": -8,
+    "dimension.shadow.y.-8": -8,
+    "primitives/dimension/shadow/y/-8": -8,
+    "_primitives/dimension/shadow/y/-8": -8,
+    "primitives.dimension.shadow.y.0": 0,
+    "dimension/shadow/y/0": 0,
+    "dimension.shadow.y.0": 0,
+    "primitives/dimension/shadow/y/0": 0,
+    "_primitives/dimension/shadow/y/0": 0,
+    "primitives.dimension.shadow.y.10": 10,
+    "dimension/shadow/y/10": 10,
+    "dimension.shadow.y.10": 10,
+    "primitives/dimension/shadow/y/10": 10,
+    "_primitives/dimension/shadow/y/10": 10,
+    "primitives.dimension.shadow.y.12": 12,
+    "dimension/shadow/y/12": 12,
+    "dimension.shadow.y.12": 12,
+    "primitives/dimension/shadow/y/12": 12,
+    "_primitives/dimension/shadow/y/12": 12,
+    "primitives.dimension.shadow.y.16": 16,
+    "dimension/shadow/y/16": 16,
+    "dimension.shadow.y.16": 16,
+    "primitives/dimension/shadow/y/16": 16,
+    "_primitives/dimension/shadow/y/16": 16,
+    "primitives.dimension.shadow.y.18": 18,
+    "dimension/shadow/y/18": 18,
+    "dimension.shadow.y.18": 18,
+    "primitives/dimension/shadow/y/18": 18,
+    "_primitives/dimension/shadow/y/18": 18,
+    "primitives.dimension.shadow.y.2": 2,
+    "dimension/shadow/y/2": 2,
+    "dimension.shadow.y.2": 2,
+    "primitives/dimension/shadow/y/2": 2,
+    "_primitives/dimension/shadow/y/2": 2,
+    "primitives.dimension.shadow.y.4": 4,
+    "dimension/shadow/y/4": 4,
+    "dimension.shadow.y.4": 4,
+    "primitives/dimension/shadow/y/4": 4,
+    "_primitives/dimension/shadow/y/4": 4,
+    "primitives.dimension.shadow.y.6": 6,
+    "dimension/shadow/y/6": 6,
+    "dimension.shadow.y.6": 6,
+    "primitives/dimension/shadow/y/6": 6,
+    "_primitives/dimension/shadow/y/6": 6,
+    "primitives.dimension.shadow.y.8": 8,
+    "dimension/shadow/y/8": 8,
+    "dimension.shadow.y.8": 8,
+    "primitives/dimension/shadow/y/8": 8,
+    "_primitives/dimension/shadow/y/8": 8,
+    "primitives.dimension.spacing.10": 10,
+    "dimension/spacing/10": 10,
+    "dimension.spacing.10": 10,
+    "primitives/dimension/spacing/10": 10,
+    "_primitives/dimension/spacing/10": 10,
+    "primitives.dimension.spacing.12": 12,
+    "dimension/spacing/12": 12,
+    "dimension.spacing.12": 12,
+    "primitives/dimension/spacing/12": 12,
+    "_primitives/dimension/spacing/12": 12,
+    "primitives.dimension.spacing.14": 14,
+    "dimension/spacing/14": 14,
+    "dimension.spacing.14": 14,
+    "primitives/dimension/spacing/14": 14,
+    "_primitives/dimension/spacing/14": 14,
+    "primitives.dimension.spacing.16": 16,
+    "dimension/spacing/16": 16,
+    "dimension.spacing.16": 16,
+    "primitives/dimension/spacing/16": 16,
+    "_primitives/dimension/spacing/16": 16,
+    "primitives.dimension.spacing.2": 2,
+    "dimension/spacing/2": 2,
+    "dimension.spacing.2": 2,
+    "primitives/dimension/spacing/2": 2,
+    "_primitives/dimension/spacing/2": 2,
+    "primitives.dimension.spacing.24": 24,
+    "dimension/spacing/24": 24,
+    "dimension.spacing.24": 24,
+    "primitives/dimension/spacing/24": 24,
+    "_primitives/dimension/spacing/24": 24,
+    "primitives.dimension.spacing.32": 32,
+    "dimension/spacing/32": 32,
+    "dimension.spacing.32": 32,
+    "primitives/dimension/spacing/32": 32,
+    "_primitives/dimension/spacing/32": 32,
+    "primitives.dimension.spacing.4": 4,
+    "dimension/spacing/4": 4,
+    "dimension.spacing.4": 4,
+    "primitives/dimension/spacing/4": 4,
+    "_primitives/dimension/spacing/4": 4,
+    "primitives.dimension.spacing.40": 40,
+    "dimension/spacing/40": 40,
+    "dimension.spacing.40": 40,
+    "primitives/dimension/spacing/40": 40,
+    "_primitives/dimension/spacing/40": 40,
+    "primitives.dimension.spacing.48": 48,
+    "dimension/spacing/48": 48,
+    "dimension.spacing.48": 48,
+    "primitives/dimension/spacing/48": 48,
+    "_primitives/dimension/spacing/48": 48,
+    "primitives.dimension.spacing.6": 6,
+    "dimension/spacing/6": 6,
+    "dimension.spacing.6": 6,
+    "primitives/dimension/spacing/6": 6,
+    "_primitives/dimension/spacing/6": 6,
+    "primitives.dimension.spacing.8": 8,
+    "dimension/spacing/8": 8,
+    "dimension.spacing.8": 8,
+    "primitives/dimension/spacing/8": 8,
+    "_primitives/dimension/spacing/8": 8,
+    "semantic.dimension.border.radius.100": 4,
+    "dimension/border/radius/100": 4,
+    "dimension.border.radius.100": 4,
+    "semantic/dimension/border/radius/100": 4,
+    "_semantic/dimension/border/radius/100": 4,
+    "semantic.dimension.border.radius.200": 8,
+    "dimension/border/radius/200": 8,
+    "dimension.border.radius.200": 8,
+    "semantic/dimension/border/radius/200": 8,
+    "_semantic/dimension/border/radius/200": 8,
+    "semantic.dimension.border.radius.300": 12,
+    "dimension/border/radius/300": 12,
+    "dimension.border.radius.300": 12,
+    "semantic/dimension/border/radius/300": 12,
+    "_semantic/dimension/border/radius/300": 12,
+    "semantic.dimension.border.radius.400": 16,
+    "dimension/border/radius/400": 16,
+    "dimension.border.radius.400": 16,
+    "semantic/dimension/border/radius/400": 16,
+    "_semantic/dimension/border/radius/400": 16,
+    "semantic.dimension.border.radius.full": 1000,
+    "dimension/border/radius/full": 1000,
+    "dimension.border.radius.full": 1000,
+    "semantic/dimension/border/radius/full": 1000,
+    "_semantic/dimension/border/radius/full": 1000,
+    "semantic.dimension.border.width.100": 1,
+    "dimension/border/width/100": 1,
+    "dimension.border.width.100": 1,
+    "semantic/dimension/border/width/100": 1,
+    "_semantic/dimension/border/width/100": 1,
+    "semantic.dimension.border.width.200": 2,
+    "dimension/border/width/200": 2,
+    "dimension.border.width.200": 2,
+    "semantic/dimension/border/width/200": 2,
+    "_semantic/dimension/border/width/200": 2,
+    "semantic.dimension.focus-outline.radius.inner": 9,
+    "dimension/focus-outline/radius/inner": 9,
+    "dimension.focus-outline.radius.inner": 9,
+    "semantic/dimension/focus-outline/radius/inner": 9,
+    "_semantic/dimension/focus-outline/radius/inner": 9,
+    "semantic.dimension.focus-outline.radius.outer": 11,
+    "dimension/focus-outline/radius/outer": 11,
+    "dimension.focus-outline.radius.outer": 11,
+    "semantic/dimension/focus-outline/radius/outer": 11,
+    "_semantic/dimension/focus-outline/radius/outer": 11,
+    "semantic.dimension.focus-outline.width.inner": 2,
+    "dimension/focus-outline/width/inner": 2,
+    "dimension.focus-outline.width.inner": 2,
+    "semantic/dimension/focus-outline/width/inner": 2,
+    "_semantic/dimension/focus-outline/width/inner": 2,
+    "semantic.dimension.focus-outline.width.outer": 2,
+    "dimension/focus-outline/width/outer": 2,
+    "dimension.focus-outline.width.outer": 2,
+    "semantic/dimension/focus-outline/width/outer": 2,
+    "_semantic/dimension/focus-outline/width/outer": 2,
+    "semantic.dimension.shadow.blur.bottom.100": 12,
+    "dimension/shadow/blur/bottom/100": 12,
+    "dimension.shadow.blur.bottom.100": 12,
+    "semantic/dimension/shadow/blur/bottom/100": 12,
+    "_semantic/dimension/shadow/blur/bottom/100": 12,
+    "semantic.dimension.shadow.blur.bottom.200": 16,
+    "dimension/shadow/blur/bottom/200": 16,
+    "dimension.shadow.blur.bottom.200": 16,
+    "semantic/dimension/shadow/blur/bottom/200": 16,
+    "_semantic/dimension/shadow/blur/bottom/200": 16,
+    "semantic.dimension.shadow.blur.bottom.300": 20,
+    "dimension/shadow/blur/bottom/300": 20,
+    "dimension.shadow.blur.bottom.300": 20,
+    "semantic/dimension/shadow/blur/bottom/300": 20,
+    "_semantic/dimension/shadow/blur/bottom/300": 20,
+    "semantic.dimension.shadow.blur.default.100": 12,
+    "dimension/shadow/blur/default/100": 12,
+    "dimension.shadow.blur.default.100": 12,
+    "semantic/dimension/shadow/blur/default/100": 12,
+    "_semantic/dimension/shadow/blur/default/100": 12,
+    "semantic.dimension.shadow.blur.default.200": 16,
+    "dimension/shadow/blur/default/200": 16,
+    "dimension.shadow.blur.default.200": 16,
+    "semantic/dimension/shadow/blur/default/200": 16,
+    "_semantic/dimension/shadow/blur/default/200": 16,
+    "semantic.dimension.shadow.blur.default.300": 20,
+    "dimension/shadow/blur/default/300": 20,
+    "dimension.shadow.blur.default.300": 20,
+    "semantic/dimension/shadow/blur/default/300": 20,
+    "_semantic/dimension/shadow/blur/default/300": 20,
+    "semantic.dimension.shadow.blur.left.100": 12,
+    "dimension/shadow/blur/left/100": 12,
+    "dimension.shadow.blur.left.100": 12,
+    "semantic/dimension/shadow/blur/left/100": 12,
+    "_semantic/dimension/shadow/blur/left/100": 12,
+    "semantic.dimension.shadow.blur.left.200": 16,
+    "dimension/shadow/blur/left/200": 16,
+    "dimension.shadow.blur.left.200": 16,
+    "semantic/dimension/shadow/blur/left/200": 16,
+    "_semantic/dimension/shadow/blur/left/200": 16,
+    "semantic.dimension.shadow.blur.left.300": 20,
+    "dimension/shadow/blur/left/300": 20,
+    "dimension.shadow.blur.left.300": 20,
+    "semantic/dimension/shadow/blur/left/300": 20,
+    "_semantic/dimension/shadow/blur/left/300": 20,
+    "semantic.dimension.shadow.blur.right.100": 12,
+    "dimension/shadow/blur/right/100": 12,
+    "dimension.shadow.blur.right.100": 12,
+    "semantic/dimension/shadow/blur/right/100": 12,
+    "_semantic/dimension/shadow/blur/right/100": 12,
+    "semantic.dimension.shadow.blur.right.200": 16,
+    "dimension/shadow/blur/right/200": 16,
+    "dimension.shadow.blur.right.200": 16,
+    "semantic/dimension/shadow/blur/right/200": 16,
+    "_semantic/dimension/shadow/blur/right/200": 16,
+    "semantic.dimension.shadow.blur.right.300": 20,
+    "dimension/shadow/blur/right/300": 20,
+    "dimension.shadow.blur.right.300": 20,
+    "semantic/dimension/shadow/blur/right/300": 20,
+    "_semantic/dimension/shadow/blur/right/300": 20,
+    "semantic.dimension.shadow.blur.top.100": 12,
+    "dimension/shadow/blur/top/100": 12,
+    "dimension.shadow.blur.top.100": 12,
+    "semantic/dimension/shadow/blur/top/100": 12,
+    "_semantic/dimension/shadow/blur/top/100": 12,
+    "semantic.dimension.shadow.blur.top.200": 16,
+    "dimension/shadow/blur/top/200": 16,
+    "dimension.shadow.blur.top.200": 16,
+    "semantic/dimension/shadow/blur/top/200": 16,
+    "_semantic/dimension/shadow/blur/top/200": 16,
+    "semantic.dimension.shadow.blur.top.300": 20,
+    "dimension/shadow/blur/top/300": 20,
+    "dimension.shadow.blur.top.300": 20,
+    "semantic/dimension/shadow/blur/top/300": 20,
+    "_semantic/dimension/shadow/blur/top/300": 20,
+    "semantic.dimension.shadow.spread.bottom.100": -6,
+    "dimension/shadow/spread/bottom/100": -6,
+    "dimension.shadow.spread.bottom.100": -6,
+    "semantic/dimension/shadow/spread/bottom/100": -6,
+    "_semantic/dimension/shadow/spread/bottom/100": -6,
+    "semantic.dimension.shadow.spread.bottom.200": -8,
+    "dimension/shadow/spread/bottom/200": -8,
+    "dimension.shadow.spread.bottom.200": -8,
+    "semantic/dimension/shadow/spread/bottom/200": -8,
+    "_semantic/dimension/shadow/spread/bottom/200": -8,
+    "semantic.dimension.shadow.spread.bottom.300": -8,
+    "dimension/shadow/spread/bottom/300": -8,
+    "dimension.shadow.spread.bottom.300": -8,
+    "semantic/dimension/shadow/spread/bottom/300": -8,
+    "_semantic/dimension/shadow/spread/bottom/300": -8,
+    "semantic.dimension.shadow.spread.default.100": 0,
+    "dimension/shadow/spread/default/100": 0,
+    "dimension.shadow.spread.default.100": 0,
+    "semantic/dimension/shadow/spread/default/100": 0,
+    "_semantic/dimension/shadow/spread/default/100": 0,
+    "semantic.dimension.shadow.spread.default.200": 0,
+    "dimension/shadow/spread/default/200": 0,
+    "dimension.shadow.spread.default.200": 0,
+    "semantic/dimension/shadow/spread/default/200": 0,
+    "_semantic/dimension/shadow/spread/default/200": 0,
+    "semantic.dimension.shadow.spread.default.300": 0,
+    "dimension/shadow/spread/default/300": 0,
+    "dimension.shadow.spread.default.300": 0,
+    "semantic/dimension/shadow/spread/default/300": 0,
+    "_semantic/dimension/shadow/spread/default/300": 0,
+    "semantic.dimension.shadow.spread.left.100": -6,
+    "dimension/shadow/spread/left/100": -6,
+    "dimension.shadow.spread.left.100": -6,
+    "semantic/dimension/shadow/spread/left/100": -6,
+    "_semantic/dimension/shadow/spread/left/100": -6,
+    "semantic.dimension.shadow.spread.left.200": -8,
+    "dimension/shadow/spread/left/200": -8,
+    "dimension.shadow.spread.left.200": -8,
+    "semantic/dimension/shadow/spread/left/200": -8,
+    "_semantic/dimension/shadow/spread/left/200": -8,
+    "semantic.dimension.shadow.spread.left.300": -8,
+    "dimension/shadow/spread/left/300": -8,
+    "dimension.shadow.spread.left.300": -8,
+    "semantic/dimension/shadow/spread/left/300": -8,
+    "_semantic/dimension/shadow/spread/left/300": -8,
+    "semantic.dimension.shadow.spread.right.100": -6,
+    "dimension/shadow/spread/right/100": -6,
+    "dimension.shadow.spread.right.100": -6,
+    "semantic/dimension/shadow/spread/right/100": -6,
+    "_semantic/dimension/shadow/spread/right/100": -6,
+    "semantic.dimension.shadow.spread.right.200": -8,
+    "dimension/shadow/spread/right/200": -8,
+    "dimension.shadow.spread.right.200": -8,
+    "semantic/dimension/shadow/spread/right/200": -8,
+    "_semantic/dimension/shadow/spread/right/200": -8,
+    "semantic.dimension.shadow.spread.right.300": -8,
+    "dimension/shadow/spread/right/300": -8,
+    "dimension.shadow.spread.right.300": -8,
+    "semantic/dimension/shadow/spread/right/300": -8,
+    "_semantic/dimension/shadow/spread/right/300": -8,
+    "semantic.dimension.shadow.spread.top.100": -6,
+    "dimension/shadow/spread/top/100": -6,
+    "dimension.shadow.spread.top.100": -6,
+    "semantic/dimension/shadow/spread/top/100": -6,
+    "_semantic/dimension/shadow/spread/top/100": -6,
+    "semantic.dimension.shadow.spread.top.200": -8,
+    "dimension/shadow/spread/top/200": -8,
+    "dimension.shadow.spread.top.200": -8,
+    "semantic/dimension/shadow/spread/top/200": -8,
+    "_semantic/dimension/shadow/spread/top/200": -8,
+    "semantic.dimension.shadow.spread.top.300": -8,
+    "dimension/shadow/spread/top/300": -8,
+    "dimension.shadow.spread.top.300": -8,
+    "semantic/dimension/shadow/spread/top/300": -8,
+    "_semantic/dimension/shadow/spread/top/300": -8,
+    "semantic.dimension.shadow.x.bottom.100": 0,
+    "dimension/shadow/x/bottom/100": 0,
+    "dimension.shadow.x.bottom.100": 0,
+    "semantic/dimension/shadow/x/bottom/100": 0,
+    "_semantic/dimension/shadow/x/bottom/100": 0,
+    "semantic.dimension.shadow.x.bottom.200": 0,
+    "dimension/shadow/x/bottom/200": 0,
+    "dimension.shadow.x.bottom.200": 0,
+    "semantic/dimension/shadow/x/bottom/200": 0,
+    "_semantic/dimension/shadow/x/bottom/200": 0,
+    "semantic.dimension.shadow.x.bottom.300": 0,
+    "dimension/shadow/x/bottom/300": 0,
+    "dimension.shadow.x.bottom.300": 0,
+    "semantic/dimension/shadow/x/bottom/300": 0,
+    "_semantic/dimension/shadow/x/bottom/300": 0,
+    "semantic.dimension.shadow.x.default.100": 0,
+    "dimension/shadow/x/default/100": 0,
+    "dimension.shadow.x.default.100": 0,
+    "semantic/dimension/shadow/x/default/100": 0,
+    "_semantic/dimension/shadow/x/default/100": 0,
+    "semantic.dimension.shadow.x.default.200": 0,
+    "dimension/shadow/x/default/200": 0,
+    "dimension.shadow.x.default.200": 0,
+    "semantic/dimension/shadow/x/default/200": 0,
+    "_semantic/dimension/shadow/x/default/200": 0,
+    "semantic.dimension.shadow.x.default.300": 0,
+    "dimension/shadow/x/default/300": 0,
+    "dimension.shadow.x.default.300": 0,
+    "semantic/dimension/shadow/x/default/300": 0,
+    "_semantic/dimension/shadow/x/default/300": 0,
+    "semantic.dimension.shadow.x.left.100": -8,
+    "dimension/shadow/x/left/100": -8,
+    "dimension.shadow.x.left.100": -8,
+    "semantic/dimension/shadow/x/left/100": -8,
+    "_semantic/dimension/shadow/x/left/100": -8,
+    "semantic.dimension.shadow.x.left.200": -10,
+    "dimension/shadow/x/left/200": -10,
+    "dimension.shadow.x.left.200": -10,
+    "semantic/dimension/shadow/x/left/200": -10,
+    "_semantic/dimension/shadow/x/left/200": -10,
+    "semantic.dimension.shadow.x.left.300": -18,
+    "dimension/shadow/x/left/300": -18,
+    "dimension.shadow.x.left.300": -18,
+    "semantic/dimension/shadow/x/left/300": -18,
+    "_semantic/dimension/shadow/x/left/300": -18,
+    "semantic.dimension.shadow.x.right.100": 8,
+    "dimension/shadow/x/right/100": 8,
+    "dimension.shadow.x.right.100": 8,
+    "semantic/dimension/shadow/x/right/100": 8,
+    "_semantic/dimension/shadow/x/right/100": 8,
+    "semantic.dimension.shadow.x.right.200": 10,
+    "dimension/shadow/x/right/200": 10,
+    "dimension.shadow.x.right.200": 10,
+    "semantic/dimension/shadow/x/right/200": 10,
+    "_semantic/dimension/shadow/x/right/200": 10,
+    "semantic.dimension.shadow.x.right.300": 18,
+    "dimension/shadow/x/right/300": 18,
+    "dimension.shadow.x.right.300": 18,
+    "semantic/dimension/shadow/x/right/300": 18,
+    "_semantic/dimension/shadow/x/right/300": 18,
+    "semantic.dimension.shadow.x.top.100": 0,
+    "dimension/shadow/x/top/100": 0,
+    "dimension.shadow.x.top.100": 0,
+    "semantic/dimension/shadow/x/top/100": 0,
+    "_semantic/dimension/shadow/x/top/100": 0,
+    "semantic.dimension.shadow.x.top.200": 0,
+    "dimension/shadow/x/top/200": 0,
+    "dimension.shadow.x.top.200": 0,
+    "semantic/dimension/shadow/x/top/200": 0,
+    "_semantic/dimension/shadow/x/top/200": 0,
+    "semantic.dimension.shadow.x.top.300": 0,
+    "dimension/shadow/x/top/300": 0,
+    "dimension.shadow.x.top.300": 0,
+    "semantic/dimension/shadow/x/top/300": 0,
+    "_semantic/dimension/shadow/x/top/300": 0,
+    "semantic.dimension.shadow.y.bottom.100": 8,
+    "dimension/shadow/y/bottom/100": 8,
+    "dimension.shadow.y.bottom.100": 8,
+    "semantic/dimension/shadow/y/bottom/100": 8,
+    "_semantic/dimension/shadow/y/bottom/100": 8,
+    "semantic.dimension.shadow.y.bottom.200": 10,
+    "dimension/shadow/y/bottom/200": 10,
+    "dimension.shadow.y.bottom.200": 10,
+    "semantic/dimension/shadow/y/bottom/200": 10,
+    "_semantic/dimension/shadow/y/bottom/200": 10,
+    "semantic.dimension.shadow.y.bottom.300": 18,
+    "dimension/shadow/y/bottom/300": 18,
+    "dimension.shadow.y.bottom.300": 18,
+    "semantic/dimension/shadow/y/bottom/300": 18,
+    "_semantic/dimension/shadow/y/bottom/300": 18,
+    "semantic.dimension.shadow.y.default.100": 4,
+    "dimension/shadow/y/default/100": 4,
+    "dimension.shadow.y.default.100": 4,
+    "semantic/dimension/shadow/y/default/100": 4,
+    "_semantic/dimension/shadow/y/default/100": 4,
+    "semantic.dimension.shadow.y.default.200": 4,
+    "dimension/shadow/y/default/200": 4,
+    "dimension.shadow.y.default.200": 4,
+    "semantic/dimension/shadow/y/default/200": 4,
+    "_semantic/dimension/shadow/y/default/200": 4,
+    "semantic.dimension.shadow.y.default.300": 8,
+    "dimension/shadow/y/default/300": 8,
+    "dimension.shadow.y.default.300": 8,
+    "semantic/dimension/shadow/y/default/300": 8,
+    "_semantic/dimension/shadow/y/default/300": 8,
+    "semantic.dimension.shadow.y.left.100": 0,
+    "dimension/shadow/y/left/100": 0,
+    "dimension.shadow.y.left.100": 0,
+    "semantic/dimension/shadow/y/left/100": 0,
+    "_semantic/dimension/shadow/y/left/100": 0,
+    "semantic.dimension.shadow.y.left.200": 0,
+    "dimension/shadow/y/left/200": 0,
+    "dimension.shadow.y.left.200": 0,
+    "semantic/dimension/shadow/y/left/200": 0,
+    "_semantic/dimension/shadow/y/left/200": 0,
+    "semantic.dimension.shadow.y.left.300": 0,
+    "dimension/shadow/y/left/300": 0,
+    "dimension.shadow.y.left.300": 0,
+    "semantic/dimension/shadow/y/left/300": 0,
+    "_semantic/dimension/shadow/y/left/300": 0,
+    "semantic.dimension.shadow.y.right.100": 0,
+    "dimension/shadow/y/right/100": 0,
+    "dimension.shadow.y.right.100": 0,
+    "semantic/dimension/shadow/y/right/100": 0,
+    "_semantic/dimension/shadow/y/right/100": 0,
+    "semantic.dimension.shadow.y.right.200": 0,
+    "dimension/shadow/y/right/200": 0,
+    "dimension.shadow.y.right.200": 0,
+    "semantic/dimension/shadow/y/right/200": 0,
+    "_semantic/dimension/shadow/y/right/200": 0,
+    "semantic.dimension.shadow.y.right.300": 0,
+    "dimension/shadow/y/right/300": 0,
+    "dimension.shadow.y.right.300": 0,
+    "semantic/dimension/shadow/y/right/300": 0,
+    "_semantic/dimension/shadow/y/right/300": 0,
+    "semantic.dimension.shadow.y.top.100": -8,
+    "dimension/shadow/y/top/100": -8,
+    "dimension.shadow.y.top.100": -8,
+    "semantic/dimension/shadow/y/top/100": -8,
+    "_semantic/dimension/shadow/y/top/100": -8,
+    "semantic.dimension.shadow.y.top.200": -10,
+    "dimension/shadow/y/top/200": -10,
+    "dimension.shadow.y.top.200": -10,
+    "semantic/dimension/shadow/y/top/200": -10,
+    "_semantic/dimension/shadow/y/top/200": -10,
+    "semantic.dimension.shadow.y.top.300": -18,
+    "dimension/shadow/y/top/300": -18,
+    "dimension.shadow.y.top.300": -18,
+    "semantic/dimension/shadow/y/top/300": -18,
+    "_semantic/dimension/shadow/y/top/300": -18,
+    "semantic.dimension.spacing.100": 2,
+    "dimension/spacing/100": 2,
+    "dimension.spacing.100": 2,
+    "semantic/dimension/spacing/100": 2,
+    "_semantic/dimension/spacing/100": 2,
+    "semantic.dimension.spacing.200": 4,
+    "dimension/spacing/200": 4,
+    "dimension.spacing.200": 4,
+    "semantic/dimension/spacing/200": 4,
+    "_semantic/dimension/spacing/200": 4,
+    "semantic.dimension.spacing.300": 6,
+    "dimension/spacing/300": 6,
+    "dimension.spacing.300": 6,
+    "semantic/dimension/spacing/300": 6,
+    "_semantic/dimension/spacing/300": 6,
+    "semantic.dimension.spacing.400": 8,
+    "dimension/spacing/400": 8,
+    "dimension.spacing.400": 8,
+    "semantic/dimension/spacing/400": 8,
+    "_semantic/dimension/spacing/400": 8,
+    "semantic.dimension.spacing.500": 10,
+    "dimension/spacing/500": 10,
+    "dimension.spacing.500": 10,
+    "semantic/dimension/spacing/500": 10,
+    "_semantic/dimension/spacing/500": 10,
+    "semantic.dimension.spacing.600": 12,
+    "dimension/spacing/600": 12,
+    "dimension.spacing.600": 12,
+    "semantic/dimension/spacing/600": 12,
+    "_semantic/dimension/spacing/600": 12,
+    "semantic.dimension.spacing.700": 14,
+    "dimension/spacing/700": 14,
+    "dimension.spacing.700": 14,
+    "semantic/dimension/spacing/700": 14,
+    "_semantic/dimension/spacing/700": 14,
+    "semantic.dimension.spacing.800": 16,
+    "dimension/spacing/800": 16,
+    "dimension.spacing.800": 16,
+    "semantic/dimension/spacing/800": 16,
+    "_semantic/dimension/spacing/800": 16,
+    "semantic.dimension.spacing.900": 24,
+    "dimension/spacing/900": 24,
+    "dimension.spacing.900": 24,
+    "semantic/dimension/spacing/900": 24,
+    "_semantic/dimension/spacing/900": 24,
+    "semantic.font.line-height.100": 1,
+    "font/line-height/100": 1,
+    "font.line-height.100": 1,
+    "semantic/font/line-height/100": 1,
+    "_semantic/font/line-height/100": 1,
+    "semantic.font.line-height.200": 1.25,
+    "font/line-height/200": 1.25,
+    "font.line-height.200": 1.25,
+    "semantic/font/line-height/200": 1.25,
+    "_semantic/font/line-height/200": 1.25,
+    "semantic.font.line-height.300": 1.5,
+    "font/line-height/300": 1.5,
+    "font.line-height.300": 1.5,
+    "semantic/font/line-height/300": 1.5,
+    "_semantic/font/line-height/300": 1.5,
+    "semantic.font.line-height.400": 1.5,
+    "font/line-height/400": 1.5,
+    "font.line-height.400": 1.5,
+    "semantic/font/line-height/400": 1.5,
+    "_semantic/font/line-height/400": 1.5,
+    "semantic.font.line-height.500": 1.625,
+    "font/line-height/500": 1.625,
+    "font.line-height.500": 1.625,
+    "semantic/font/line-height/500": 1.625,
+    "_semantic/font/line-height/500": 1.625,
+    "semantic.font.line-height.600": 1.875,
+    "font/line-height/600": 1.875,
+    "font.line-height.600": 1.875,
+    "semantic/font/line-height/600": 1.875,
+    "_semantic/font/line-height/600": 1.875,
+    "semantic.font.line-height.700": 2.125,
+    "font/line-height/700": 2.125,
+    "font.line-height.700": 2.125,
+    "semantic/font/line-height/700": 2.125,
+    "_semantic/font/line-height/700": 2.125,
+    "semantic.font.line-height.800": 2.375,
+    "font/line-height/800": 2.375,
+    "font.line-height.800": 2.375,
+    "semantic/font/line-height/800": 2.375,
+    "_semantic/font/line-height/800": 2.375,
+    "semantic.font.line-height.900": 2.625,
+    "font/line-height/900": 2.625,
+    "font.line-height.900": 2.625,
+    "semantic/font/line-height/900": 2.625,
+    "_semantic/font/line-height/900": 2.625,
+    "typography.font.line-height.12": 1,
+    "font/line-height/12": 1,
+    "font.line-height.12": 1,
+    "typography/font/line-height/12": 1,
+    "_typography/font/line-height/12": 1,
+    "typography.font.line-height.14": 1.25,
+    "font/line-height/14": 1.25,
+    "font.line-height.14": 1.25,
+    "typography/font/line-height/14": 1.25,
+    "_typography/font/line-height/14": 1.25,
+    "typography.font.line-height.16": 1.5,
+    "font/line-height/16": 1.5,
+    "font.line-height.16": 1.5,
+    "typography/font/line-height/16": 1.5,
+    "_typography/font/line-height/16": 1.5,
+    "typography.font.line-height.18": 1.5,
+    "font/line-height/18": 1.5,
+    "font.line-height.18": 1.5,
+    "typography/font/line-height/18": 1.5,
+    "_typography/font/line-height/18": 1.5,
+    "typography.font.line-height.20": 1.625,
+    "font/line-height/20": 1.625,
+    "font.line-height.20": 1.625,
+    "typography/font/line-height/20": 1.625,
+    "_typography/font/line-height/20": 1.625,
+    "typography.font.line-height.24": 1.875,
+    "font/line-height/24": 1.875,
+    "font.line-height.24": 1.875,
+    "typography/font/line-height/24": 1.875,
+    "_typography/font/line-height/24": 1.875,
+    "typography.font.line-height.28": 2.125,
+    "font/line-height/28": 2.125,
+    "font.line-height.28": 2.125,
+    "typography/font/line-height/28": 2.125,
+    "_typography/font/line-height/28": 2.125,
+    "typography.font.line-height.32": 2.375,
+    "font/line-height/32": 2.375,
+    "font.line-height.32": 2.375,
+    "typography/font/line-height/32": 2.375,
+    "_typography/font/line-height/32": 2.375,
+    "typography.font.line-height.36": 2.625,
+    "font/line-height/36": 2.625,
+    "font.line-height.36": 2.625,
+    "typography/font/line-height/36": 2.625,
+    "_typography/font/line-height/36": 2.625
   },
   "options": {
     "componentName": "Button",

@@ -5,13 +5,14 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097
   page: Button
   component: Button
-  last_verified: "2026-02-18"
+  component_set_node_id: 68:4097
+  last_verified: "2026-02-19"
 pipeline:
   ds_component_doc:
     contract_version: "1"
     spec_sha256: 8bf5d1c6914100273851da1035f5d0abebf80c643c8d16b2a8aa57bec58cfa44
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
-    generator_script_sha256: b339a68ac7ef34b3cfc99b8b3afecc126fe2a21056182b8d0ffe5642a7925158
+    generator_script_sha256: 0a97e706c998422920cda46896d72747026c04af88cea96d91e2bff2fe14bf97
 ---
 
 # Button
@@ -38,6 +39,12 @@ All 12 variants share the same frame size and auto-layout structure.
 
 Source: [Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097)
 
+### Visual Proof
+
+- Screenshot URL: `TBD`
+- Source node id: `68:4097`
+- Proof artifact: `TBD`
+
 ## Anatomy
 
 | Part              | Type                     | Size / Values | Description                     |
@@ -59,12 +66,12 @@ Current variant dimensions in Figma:
 | -------------------- | --------------- | --------- | -------- | -------------------------------------------------------------------------- |
 | `State`              | `VARIANT`       | `Default` | `true`   | Interaction state axis. Options: `Default`, `Hover`, `Active`, `Disabled`. |
 | `Type`               | `VARIANT`       | `Primary` | `true`   | Semantic style axis. Options: `Primary`, `Secondary`, `Cancel`.            |
-| `↳ Change txt`       | `TEXT`          | `Button`  | `TBD`    | Overrides the label copy.                                                  |
-| `View txt`           | `BOOLEAN`       | `true`    | `TBD`    | Toggles label visibility.                                                  |
-| `View icn left`      | `BOOLEAN`       | `true`    | `TBD`    | Toggles leading icon visibility.                                           |
-| `View icn right`     | `BOOLEAN`       | `true`    | `TBD`    | Toggles trailing icon visibility.                                          |
-| `↳ Change icn left`  | `INSTANCE_SWAP` | `65:430`  | `TBD`    | Swaps the leading icon instance from preferred icon options.               |
-| `↳ Change icn right` | `INSTANCE_SWAP` | `65:434`  | `TBD`    | Swaps the trailing icon instance from preferred icon options.              |
+| `↳ Change txt`       | `TEXT`          | `Button`  | `false`  | Overrides the visible label text.                                          |
+| `View txt`           | `BOOLEAN`       | `true`    | `false`  | Toggles label visibility.                                                  |
+| `View icn left`      | `BOOLEAN`       | `true`    | `false`  | Toggles leading icon visibility.                                           |
+| `View icn right`     | `BOOLEAN`       | `true`    | `false`  | Toggles trailing icon visibility.                                          |
+| `↳ Change icn left`  | `INSTANCE_SWAP` | `arrow-left-square-contained`  | `false`  | Swaps the leading icon instance from preferred icon options.               |
+| `↳ Change icn right` | `INSTANCE_SWAP` | `arrow-right-square-contained` | `false`  | Swaps the trailing icon instance from preferred icon options.              |
 
 ## Visual Specifications
 
@@ -148,12 +155,22 @@ Current variant dimensions in Figma:
 
 ## Usage Guidelines
 
+### Behavior
+
 - **When to use**: Use for explicit user-triggered actions in flows where text and optional directional icons improve clarity.
 - **When not to use**: Do not use this component as persistent navigation chrome.
 - **Do**: Keep `State` and `Type` aligned with interaction and semantic intent.
 - **Do**: Keep icon visibility and label visibility consistent with the accessible name strategy.
 - **Don't**: Use disabled styling for non-disabled actions.
 - **Don't**: Replace semantic action tokens with ad-hoc color values.
+- Responsive behavior: `TBD`
+- Overflow / truncation behavior: `TBD`
+- i18n / RTL behavior: `TBD`
+
+### Examples
+
+- Basic example: Primary action with visible text (`View txt=true`) and no icons.
+- Contextual example: Directional action using text plus trailing icon (`View icn right=true`).
 
 ## Content Guidelines
 

@@ -113,7 +113,9 @@
               "text": "Disabled",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Type: Primary, Secondary, Cancel",
@@ -146,7 +148,9 @@
               "text": "Cancel",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -183,7 +187,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "View txt (BOOLEAN)",
@@ -204,7 +210,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "View icn left (BOOLEAN)",
@@ -225,7 +233,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "View icn right (BOOLEAN)",
@@ -246,7 +256,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "↳ Change icn left (INSTANCE_SWAP)",
@@ -267,7 +279,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "↳ Change icn right (INSTANCE_SWAP)",
@@ -288,7 +302,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -309,6 +325,68 @@
         {
           "text": "Source: [Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097)",
           "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Visual Proof",
+      "segments": [
+        {
+          "text": "Visual Proof",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Screenshot URL: TBD",
+          "segments": [
+            {
+              "text": "Screenshot URL: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Source node id: 68:4097",
+          "segments": [
+            {
+              "text": "Source node id: ",
+              "style": "normal"
+            },
+            {
+              "text": "68:4097",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Proof artifact: TBD",
+          "segments": [
+            {
+              "text": "Proof artifact: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -519,7 +597,9 @@
               "text": "133 x 44",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -605,42 +685,42 @@
           "↳ Change txt",
           "TEXT",
           "Button",
-          "TBD",
-          "Overrides the label copy."
+          "false",
+          "Overrides the visible label text."
         ],
         [
           "View txt",
           "BOOLEAN",
           "true",
-          "TBD",
+          "false",
           "Toggles label visibility."
         ],
         [
           "View icn left",
           "BOOLEAN",
           "true",
-          "TBD",
+          "false",
           "Toggles leading icon visibility."
         ],
         [
           "View icn right",
           "BOOLEAN",
           "true",
-          "TBD",
+          "false",
           "Toggles trailing icon visibility."
         ],
         [
           "↳ Change icn left",
           "INSTANCE_SWAP",
-          "65:430",
-          "TBD",
+          "arrow-left-square-contained",
+          "false",
           "Swaps the leading icon instance from preferred icon options."
         ],
         [
           "↳ Change icn right",
           "INSTANCE_SWAP",
-          "65:434",
-          "TBD",
+          "arrow-right-square-contained",
+          "false",
           "Swaps the trailing icon instance from preferred icon options."
         ]
       ],
@@ -786,13 +866,13 @@
           ],
           [
             {
-              "text": "TBD",
+              "text": "false",
               "style": "code"
             }
           ],
           [
             {
-              "text": "Overrides the label copy.",
+              "text": "Overrides the visible label text.",
               "style": "normal"
             }
           ]
@@ -818,7 +898,7 @@
           ],
           [
             {
-              "text": "TBD",
+              "text": "false",
               "style": "code"
             }
           ],
@@ -850,7 +930,7 @@
           ],
           [
             {
-              "text": "TBD",
+              "text": "false",
               "style": "code"
             }
           ],
@@ -882,7 +962,7 @@
           ],
           [
             {
-              "text": "TBD",
+              "text": "false",
               "style": "code"
             }
           ],
@@ -908,13 +988,13 @@
           ],
           [
             {
-              "text": "65:430",
+              "text": "arrow-left-square-contained",
               "style": "code"
             }
           ],
           [
             {
-              "text": "TBD",
+              "text": "false",
               "style": "code"
             }
           ],
@@ -940,13 +1020,13 @@
           ],
           [
             {
-              "text": "65:434",
+              "text": "arrow-right-square-contained",
               "style": "code"
             }
           ],
           [
             {
-              "text": "TBD",
+              "text": "false",
               "style": "code"
             }
           ],
@@ -1004,7 +1084,9 @@
               "text": ", center-aligned on both axes",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Size: 133 x 44",
@@ -1021,7 +1103,9 @@
               "text": "133 x 44",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Item spacing: 8px via Dimension/Spacing/400 (8)",
@@ -1058,7 +1142,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Padding: 10px all sides via Dimension/Spacing/500 (10)",
@@ -1095,7 +1181,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Corner radius: 8px via Dimension/Border/Radius/200 (8)",
@@ -1132,7 +1220,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Border width: 1px via Dimension/Border/Width/100 (1)",
@@ -1169,7 +1259,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Border color: Color/Border/Neutral/Alpha-10 (#0000001A)",
@@ -1198,7 +1290,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Minimum height token: A11y/Dimension/Min-Hit-Area (24)",
@@ -1227,7 +1321,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Minimum width token: TBD (binding exists but token name is unresolved in current file metadata)",
@@ -1248,7 +1344,9 @@
               "text": " (binding exists but token name is unresolved in current file metadata)",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1302,7 +1400,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Font style: Regular via Font/Weight/Regular (regular)",
@@ -1339,7 +1439,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Font size: 16 via Font/Size/300 (16)",
@@ -1376,7 +1478,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Line height: 24 via Font/Line-Height/300 (24)",
@@ -1413,7 +1517,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Letter spacing: 0%",
@@ -1430,7 +1536,9 @@
               "text": "0%",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1472,7 +1580,9 @@
               "text": "24 x 24",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Trailing icon: default arrow-right-square-contained, 24 x 24",
@@ -1497,7 +1607,9 @@
               "text": "24 x 24",
               "style": "code"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Icon color token mapping: TBD at this component-set level (icons are nested instances)",
@@ -1518,7 +1630,9 @@
               "text": " at this component-set level (icons are nested instances)",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -1628,7 +1742,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Hover state shadow tokens: Dimension/Shadow/X/Default/200 (0), Dimension/Shadow/Y/Default/200 (4), Dimension/Shadow/Blur/Default/200 (16), Dimension/Shadow/Spread/Default/200 (0), Color/Shadow/200 (#00000029)",
@@ -1721,7 +1837,9 @@
               "text": ")",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Active / Disabled: no bound effect tokens in current variants",
@@ -1734,7 +1852,9 @@
               "text": ": no bound effect tokens in current variants",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -3238,7 +3358,9 @@
               "text": " token set.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Hover: Uses each type’s /Hover background token and the shadow 200 token set.",
@@ -3267,7 +3389,9 @@
               "text": " token set.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Active: Uses each type’s /Active background token and removes shadow tokens.",
@@ -3288,7 +3412,9 @@
               "text": " background token and removes shadow tokens.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Disabled: Uses shared disabled tokens Color/Background/Action/Disabled/Default (#ECECEC) and Color/Text/Action/On-Disabled (#5D5252) across all three types.",
@@ -3333,7 +3459,9 @@
               "text": ") across all three types.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Focus: TBD in this component set (no dedicated focus variant axis in Figma).",
@@ -3354,7 +3482,9 @@
               "text": " in this component set (no dedicated focus variant axis in Figma).",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Loading: Not defined in this component set.",
@@ -3367,7 +3497,9 @@
               "text": ": Not defined in this component set.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -3378,6 +3510,17 @@
       "segments": [
         {
           "text": "Usage Guidelines",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Behavior",
+      "segments": [
+        {
+          "text": "Behavior",
           "style": "normal"
         }
       ]
@@ -3397,7 +3540,9 @@
               "text": ": Use for explicit user-triggered actions in flows where text and optional directional icons improve clarity.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "When not to use: Do not use this component as persistent navigation chrome.",
@@ -3410,7 +3555,9 @@
               "text": ": Do not use this component as persistent navigation chrome.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Do: Keep State and Type aligned with interaction and semantic intent.",
@@ -3439,7 +3586,9 @@
               "text": " aligned with interaction and semantic intent.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Do: Keep icon visibility and label visibility consistent with the accessible name strategy.",
@@ -3452,7 +3601,9 @@
               "text": ": Keep icon visibility and label visibility consistent with the accessible name strategy.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Don't: Use disabled styling for non-disabled actions.",
@@ -3465,7 +3616,9 @@
               "text": ": Use disabled styling for non-disabled actions.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Don't: Replace semantic action tokens with ad-hoc color values.",
@@ -3478,7 +3631,109 @@
               "text": ": Replace semantic action tokens with ad-hoc color values.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Responsive behavior: TBD",
+          "segments": [
+            {
+              "text": "Responsive behavior: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Overflow / truncation behavior: TBD",
+          "segments": [
+            {
+              "text": "Overflow / truncation behavior: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "i18n / RTL behavior: TBD",
+          "segments": [
+            {
+              "text": "i18n / RTL behavior: ",
+              "style": "normal"
+            },
+            {
+              "text": "TBD",
+              "style": "code"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        }
+      ]
+    },
+    {
+      "type": "heading",
+      "level": 3,
+      "text": "Examples",
+      "segments": [
+        {
+          "text": "Examples",
+          "style": "normal"
+        }
+      ]
+    },
+    {
+      "type": "list",
+      "ordered": false,
+      "items": [
+        {
+          "text": "Basic example: Primary action with visible text (View txt=true) and no icons.",
+          "segments": [
+            {
+              "text": "Basic example: Primary action with visible text (",
+              "style": "normal"
+            },
+            {
+              "text": "View txt=true",
+              "style": "code"
+            },
+            {
+              "text": ") and no icons.",
+              "style": "normal"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "Contextual example: Directional action using text plus trailing icon (View icn right=true).",
+          "segments": [
+            {
+              "text": "Contextual example: Directional action using text plus trailing icon (",
+              "style": "normal"
+            },
+            {
+              "text": "View icn right=true",
+              "style": "code"
+            },
+            {
+              "text": ").",
+              "style": "normal"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -3504,7 +3759,9 @@
               "text": "Prefer short action labels in sentence case (for example, imperative verb phrases).",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Keep punctuation minimal unless required by the product voice.",
@@ -3513,7 +3770,9 @@
               "text": "Keep punctuation minimal unless required by the product voice.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Label length limit: TBD (no explicit max width/content rule found on the component set).",
@@ -3530,7 +3789,9 @@
               "text": " (no explicit max width/content rule found on the component set).",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Truncation behavior: TBD (no explicit truncation rule found on the component set).",
@@ -3547,7 +3808,9 @@
               "text": " (no explicit truncation rule found on the component set).",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "If View txt=false, accessible labeling requirements become mandatory (aria-label/aria-labelledby).",
@@ -3580,7 +3843,9 @@
               "text": ").",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -3633,7 +3898,9 @@
               "text": " preferred).",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Required ARIA attributes for default text buttons: none when visible label is present.",
@@ -3642,7 +3909,9 @@
               "text": "Required ARIA attributes for default text buttons: none when visible label is present.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "If label text is hidden (View txt=false), provide aria-label or aria-labelledby.",
@@ -3675,7 +3944,9 @@
               "text": ".",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -3809,7 +4080,9 @@
               "text": "Focus behavior should follow native button behavior in tab order.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Focus outline token mapping is TBD in this component set.",
@@ -3826,7 +4099,9 @@
               "text": " in this component set.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Expected focus tokens: Semantic.Color.Focus-Outline.Inner (#FFFFFF) and Semantic.Color.Focus-Outline.Outer (#567680).",
@@ -3867,7 +4142,9 @@
               "text": ").",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -3901,7 +4178,9 @@
               "text": "), the label text provides the accessible name.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "For icon-only usage (View txt=false), set an explicit accessible name.",
@@ -3918,7 +4197,9 @@
               "text": "), set an explicit accessible name.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Descriptive helper text linkage (aria-describedby) is TBD for this component family.",
@@ -3943,7 +4224,9 @@
               "text": " for this component family.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -3969,7 +4252,9 @@
               "text": "The component uses both color and icon/text content to convey meaning.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Disabled variants remain visually distinct from interactive states.",
@@ -3978,7 +4263,9 @@
               "text": "Disabled variants remain visually distinct from interactive states.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "Verified contrast ratios are TBD (pending audit).",
@@ -3995,7 +4282,9 @@
               "text": ".",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -4021,7 +4310,9 @@
               "text": "[Bottom Bar](bottom_bar.md): Use for persistent navigation/action regions, not for standalone action controls.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         },
         {
           "text": "[Alert](alert.md): Use for feedback messaging, not action triggering.",
@@ -4030,7 +4321,9 @@
               "text": "[Alert](alert.md): Use for feedback messaging, not action triggering.",
               "style": "normal"
             }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     },
@@ -4050,81 +4343,66 @@
       "ordered": false,
       "items": [
         {
-          "text": "Minimum width token binding is unresolved in current Figma variable metadata (minWidth token name returns null).",
+          "text": "[ ] [SCHEMATBD] `tokenmapping.container.min_width.default is TBD`. Specification value is unresolved.",
           "segments": [
             {
-              "text": "Minimum width token binding is unresolved in current Figma variable metadata (",
+              "text": "[ ] [SCHEMA",
               "style": "normal"
             },
             {
-              "text": "minWidth",
+              "text": "TBD] `token",
+              "style": "italic"
+            },
+            {
+              "text": "mapping.container.min_width.default",
+              "style": "normal"
+            },
+            {
+              "text": " is ",
               "style": "code"
             },
             {
-              "text": " token name returns ",
+              "text": "TBD`. Specification value is unresolved.",
+              "style": "normal"
+            }
+          ],
+          "depth": 0,
+          "ordered": false
+        },
+        {
+          "text": "[ ] [SCHEMATBD] `tokenmapping.icon.color.default is TBD`. Specification value is unresolved.",
+          "segments": [
+            {
+              "text": "[ ] [SCHEMA",
               "style": "normal"
             },
             {
-              "text": "null",
+              "text": "TBD] `token",
+              "style": "italic"
+            },
+            {
+              "text": "mapping.icon.color.default",
+              "style": "normal"
+            },
+            {
+              "text": " is ",
               "style": "code"
             },
             {
-              "text": ").",
+              "text": "TBD`. Specification value is unresolved.",
               "style": "normal"
             }
-          ]
-        },
-        {
-          "text": "Icon color token mapping is not directly exposed at the Button component-set level (icons are nested instances).",
-          "segments": [
-            {
-              "text": "Icon color token mapping is not directly exposed at the ",
-              "style": "normal"
-            },
-            {
-              "text": "Button",
-              "style": "code"
-            },
-            {
-              "text": " component-set level (icons are nested instances).",
-              "style": "normal"
-            }
-          ]
-        },
-        {
-          "text": "Focus-state visual token mapping is not represented as a dedicated variant axis.",
-          "segments": [
-            {
-              "text": "Focus-state visual token mapping is not represented as a dedicated variant axis.",
-              "style": "normal"
-            }
-          ]
-        },
-        {
-          "text": "Label-length and truncation policy for long button text are not specified in the current component set metadata.",
-          "segments": [
-            {
-              "text": "Label-length and truncation policy for long button text are not specified in the current component set metadata.",
-              "style": "normal"
-            }
-          ]
-        },
-        {
-          "text": "Contrast verification results are pending accessibility audit.",
-          "segments": [
-            {
-              "text": "Contrast verification results are pending accessibility audit.",
-              "style": "normal"
-            }
-          ]
+          ],
+          "depth": 0,
+          "ordered": false
         }
       ]
     }
   ],
   "stats": {
-    "headings": 23,
+    "headings": 26,
     "paragraphs": 6,
-    "lists": 16,
+    "lists": 18,
     "tables": 5,
     "codeBlocks": 0
   }
