@@ -5,7 +5,7 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474
   page: Avatar
   component: Avatar
-  last_verified: "2026-02-18"
+  last_verified: "2026-02-19"
 pipeline:
   ds_component_doc:
     contract_version: "1"
@@ -27,6 +27,12 @@ In Figma, this component is defined as a single `COMPONENT` (`Avatar`) with fixe
 - One image layer (`Img_bg`) inside a clipped container
 
 Source: [Avatar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474)
+
+### Visual Proof
+
+- Screenshot URL: `TBD`
+- Source node id: `146:474`
+- Proof artifact: `TBD`
 
 ## Anatomy
 

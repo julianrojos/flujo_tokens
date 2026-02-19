@@ -5,7 +5,7 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2064-65
   page: Bars
   component: Bottom_Bar
-  last_verified: "2026-02-18"
+  last_verified: "2026-02-19"
 pipeline:
   ds_component_doc:
     contract_version: "1"
@@ -26,6 +26,12 @@ It contains five `Bottom_Bar_Button` instances arranged horizontally.
 
 Source: [Bottom_Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2064-65)
 
+### Visual Proof
+
+- Screenshot URL: `TBD`
+- Source node id: `2064:65`
+- Proof artifact: `TBD`
+
 ## Anatomy
 
 Each bottom bar contains:
@@ -38,7 +44,6 @@ Each bottom bar contains:
 ## Component API
 
 The root `Bottom_Bar` component does not expose root-level component properties. Available properties are exposed by each nested `Bottom_Bar_Button` item.
-P
 
 ### Properties
 
@@ -167,8 +172,8 @@ The root container has no independent interaction state. State behavior is contr
 
 ### Hit area requirements
 
-- Desktop minimum hit area token: `A11y.A11y.modeDesktop.Dimension.Min-Hit-Area` (`TBD` resolved value).
-- Mobile minimum hit area token: `A11y.A11y.modeMobile.Dimension.Min-Hit-Area` (`TBD` resolved value).
+- Desktop minimum hit area token: `A11y.A11y.modeDesktop.Dimension.Min-Hit-Area` (`24px`).
+- Mobile minimum hit area token: `A11y.A11y.modeMobile.Dimension.Min-Hit-Area` (`44px`).
 
 ## Related Components
 

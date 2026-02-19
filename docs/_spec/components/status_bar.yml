@@ -4,6 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Bars
   component_set: Status-Bar
+  component_set_node_id: 713:202
 
 summary:
   purpose: Represents top system status row for iPhone-oriented layouts.
