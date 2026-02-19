@@ -30,14 +30,14 @@ Input markdown is expected to follow the authoring subset from `markdown-figma-s
 
 ## Supported block types
 
-| Block type       | Markdown source     | Notes                                        |
-|------------------|---------------------|----------------------------------------------|
-| `header`         | `# H1`             | Only the first H1 becomes the section header |
-| `card_title`     | `## H2`            | Major section dividers                       |
-| `inline_heading` | `### H3`           | Subsection labels within a card              |
-| `paragraph`      | Body text           | Plain text blocks                            |
-| `list`           | `- item` or `1. item` | Bulleted or numbered lists                |
-| `table`          | Markdown table      | Rendered as grid layout                      |
+| Block type       | Markdown source       | Notes                                        |
+| ---------------- | --------------------- | -------------------------------------------- |
+| `header`         | `# H1`                | Only the first H1 becomes the section header |
+| `card_title`     | `## H2`               | Major section dividers                       |
+| `inline_heading` | `### H3`              | Subsection labels within a card              |
+| `paragraph`      | Body text             | Plain text blocks                            |
+| `list`           | `- item` or `1. item` | Bulleted or numbered lists                   |
+| `table`          | Markdown table        | Rendered as grid layout                      |
 
 - **Unsupported blocks** (e.g., code fences, images, blockquotes) must generate a **warning log**, not fail silently.
 - The warning should include the line number and block type.
@@ -67,6 +67,6 @@ Input markdown is expected to follow the authoring subset from `markdown-figma-s
 
 ## Prohibited content in Figma sections
 
-- Never render `VariableID:*` references in visible text.
+- Follow `prohibited-patterns.mdc`.
 - Figma node IDs may be rendered when present in documentation for source traceability.
 - Token paths shown in the Figma section should match the Markdown source exactly.

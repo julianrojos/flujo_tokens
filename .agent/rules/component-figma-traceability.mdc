@@ -8,27 +8,10 @@ globs:
 
 This rule applies to component pages in `docs/components/` (excluding `overview.md`).
 
-## Required frontmatter contract
+## Frontmatter source of truth
 
-Component docs must include this metadata block:
-
-```md
----
-doc_type: component
-doc_status: draft # draft | ready | needs-review
-figma:
-  file_url: "https://www.figma.com/design/<file>/<name>?node-id=<node>"
-  page: "<FigmaPageName>"
-  component: "<ComponentOrSetName>"
-  component_set_node_id: "123:456" # optional, but if present must match linked spec
-  last_verified: "YYYY-MM-DD"
-  component_hash: "<sha256>" # optional deterministic snapshot hash from the verified component spec
-  properties_count: 0 # optional non-negative integer
-  variants_count: 0 # optional non-negative integer
----
-```
-
-If a value is unknown, use `TBD` instead of guessing.
+Use `frontmatter-contract.mdc` as the canonical schema for `doc_type`, `doc_status`, and `figma` metadata fields.
+This rule adds component-specific traceability constraints on top of that contract.
 
 ## Traceability rules
 
@@ -45,6 +28,4 @@ If a value is unknown, use `TBD` instead of guessing.
 
 ## Prohibited values
 
-- Do not use `VariableID:*` as metadata.
-- Node IDs are allowed in traceability URLs and metadata notes.
-- Do not use node IDs as token identifiers.
+Follow `prohibited-patterns.mdc`.

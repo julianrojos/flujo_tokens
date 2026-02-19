@@ -20,28 +20,30 @@ globs:
 Tokens in this project follow a three-tier architecture. Use the canonical dot-separated path from the JSON source.
 
 ### Primitive tokens
+
 - Pattern: `{Collection}.{Group}.{Scale}`
 - Examples: `Blue.300`, `Cucumber.800`, `Neutral.100`
 - These are raw values; avoid referencing them directly in component docs — prefer semantic aliases.
 
 ### Semantic tokens
+
 - Pattern: `Semantic.{Category}.{Subcategory}.{Variant}`
 - Examples: `Semantic.Color.Focus-Outline.Inner`, `Semantic.Color.Text.Neutral.Default`
 - In docs shorthand (Figma-style slash paths) is also acceptable: `Color/Text/Neutral/Default`.
 
 ### Component tokens
+
 - Pattern: `Components.{Component}.{Part}.{State}`
 - Examples: `Components.Alert.Background.Default`, `Components.StatusBar.Border.Active`
 
 ### Accessibility tokens
+
 - Pattern: `A11y.A11y.{mode}.Dimension.{Property}`
 - Examples: `A11y.A11y.modeDesktop.Dimension.Min-Hit-Area`, `A11y.A11y.modeMobile.Dimension.Min-Hit-Area`
 
 ## Prohibited references
 
-- **Never** use `VariableID:123:456` or any Figma internal variable ID.
-- **Never** use Figma node IDs (e.g., `1234:5678`) as token identifiers.
-- **Never** use CSS custom property names (`--semantic-color-...`) in design docs — those belong to code, not design documentation.
+Follow `prohibited-patterns.mdc`.
 
 ## Grouping in tables
 
@@ -57,7 +59,7 @@ When listing multiple tokens, group them by semantic category:
 
 When a token varies by state or variant, use a table with condition columns:
 
-| Part       | Condition          | Token                                      | Fallback  |
-|------------|--------------------|---------------------------------------------|-----------|
-| `border`   | `type=information` | `Color/Border/Feedback/Information`         | `#BAA06B` |
-| `border`   | `type=warning`     | `Color/Border/Feedback/Danger`              | `#B22222` |
+| Part     | Condition          | Token                               | Fallback  |
+| -------- | ------------------ | ----------------------------------- | --------- |
+| `border` | `type=information` | `Color/Border/Feedback/Information` | `#BAA06B` |
+| `border` | `type=warning`     | `Color/Border/Feedback/Danger`      | `#B22222` |

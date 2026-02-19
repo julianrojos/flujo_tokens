@@ -40,14 +40,14 @@ globs:
 ## Figma references
 
 - Reference Figma by **component set name** and **property name** only.
-- Never include Figma internal variable IDs (`VariableID:*`) in prose, tables, or YAML specs.
+- Follow `prohibited-patterns.mdc`.
 - Figma node IDs are allowed for traceability (for example, `node-id` in source URLs or explicit node references in metadata).
 - Do not use node IDs as token identifiers; keep token references human-readable.
 - For deterministic markdown -> Figma placement, prefer `figma.component_set_node_id` from the spec YAML.
 
 ## Metadata
 
-- Component docs must declare `doc_status` in frontmatter: `draft`, `ready`, or `needs-review` (see `markdown-lifecycle-status.mdc`).
+- Component docs must declare `doc_status` in frontmatter: `draft`, `ready`, or `needs-review` (see `frontmatter-contract.mdc` and `markdown-lifecycle-status.mdc`).
 - Component spec YAMLs must declare `status`: `draft` or `ready`.
 - Component specs in `ready` status must include a concrete `figma.component_set_node_id`.
 - Generated files in `docs/_generated/` must not be hand-edited; they are overwritten by skills.

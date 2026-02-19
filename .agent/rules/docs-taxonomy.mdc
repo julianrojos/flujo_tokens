@@ -13,19 +13,10 @@ All docs under `docs/` must be classified into one of these page types:
 - `foundation`: token-driven foundations page (`docs/foundations/*.md`, excluding `overview.md`)
 - `workflow`: process/runbook page (`docs/get-started/*.md`, `docs/a11y/*.md`, or explicit workflow folders)
 
-## Required `doc_type` metadata
+## Metadata contract
 
-When creating or updating a doc page, include YAML frontmatter with a `doc_type` value from the list above.
-
-Example:
-
-```md
----
-doc_type: component
----
-```
-
-If an existing page has no frontmatter yet, add it on the next substantive edit.
+Use `frontmatter-contract.mdc` for required frontmatter fields and allowed values.
+This rule defines taxonomy scope and page intent boundaries, not field validation details.
 
 ## Scope discipline
 

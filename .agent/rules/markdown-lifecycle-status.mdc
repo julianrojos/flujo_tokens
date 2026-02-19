@@ -17,6 +17,7 @@ Markdown docs use `doc_status` with these values only:
 
 ## Required status metadata
 
+- Required frontmatter fields and allowed values are defined in `frontmatter-contract.mdc`.
 - Component docs (`docs/components/*.md`, excluding `overview.md`) must declare `doc_status` in YAML frontmatter.
 - Overview/foundation/workflow pages should also declare `doc_status` when edited.
 

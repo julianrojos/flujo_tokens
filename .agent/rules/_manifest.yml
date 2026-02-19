@@ -1,6 +1,16 @@
 version: 1
 
 rules:
+  - id: frontmatter-contract
+    file: frontmatter-contract.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
+  - id: prohibited-patterns
+    file: prohibited-patterns.mdc
+    owner: docs-governance
+    applies_to: [spec, markdown, pipeline]
+    blocking: true
   - id: ds-docs-guardrails
     file: ds-docs-guardrails.mdc
     owner: docs-governance
@@ -85,10 +95,11 @@ checks:
     rule_ids: [ds-docs-guardrails, docs-pipeline-contract]
     blocking: true
   FM01:
-    rule_ids: [component-figma-traceability, docs-taxonomy]
+    rule_ids:
+      [frontmatter-contract, component-figma-traceability, docs-taxonomy]
     blocking: true
   FM02:
-    rule_ids: [markdown-lifecycle-status]
+    rule_ids: [frontmatter-contract, markdown-lifecycle-status]
     blocking: true
   SEC01:
     rule_ids: [component-doc-structure]
@@ -103,7 +114,13 @@ checks:
     rule_ids: [token-references, token-registry-validation]
     blocking: true
   TOK03:
-    rule_ids: [ds-docs-guardrails, token-references, token-registry-validation]
+    rule_ids:
+      [
+        prohibited-patterns,
+        ds-docs-guardrails,
+        token-references,
+        token-registry-validation,
+      ]
     blocking: true
   SPEC01:
     rule_ids: [component-spec-yaml, token-registry-validation]
