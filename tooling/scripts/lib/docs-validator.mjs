@@ -18,7 +18,7 @@ import {
 
 const ALLOWED_DOC_STATUS = new Set(["draft", "ready", "needs-review"]);
 
-export const REQUIRED_H2 = [
+export const CANONICAL_H2_ORDER = [
   "Overview",
   "Anatomy",
   "Component API",
@@ -29,9 +29,10 @@ export const REQUIRED_H2 = [
   "Content Guidelines",
   "Accessibility",
   "Related Components",
+  "Design–Token Discrepancies",
+  "Gaps / TBD",
 ];
-
-const OPTIONAL_H2_TAIL = new Set(["Design–Token Discrepancies", "Gaps / TBD"]);
+const REQUIRED_H2 = CANONICAL_H2_ORDER.slice(0, 10);
 const COLLECTION_PREFIXES = new Set(["Semantic", "Primitives", "Components", "A11y"]);
 const DOT_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\.[A-Za-z0-9-]+){1,}/g;
 const SLASH_TOKEN_RE = /[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9-]+){1,}/g;
@@ -325,49 +326,85 @@ function collectH2Headings(content) {
   return headings;
 }
 
-function validateSectionOrder(filePath, content, report, lineStarts, baseOffset = 0) {
+function validateSectionOrder(
+  filePath,
+  content,
+  report,
+  lineStarts,
+  baseOffset = 0,
+  options = {}
+) {
+  const allowExtraH2 = Boolean(options.allowExtraH2);
   const headings = collectH2Headings(content);
-  const indexByHeading = new Map();
-  for (const item of headings) {
-    if (!indexByHeading.has(item.normalized)) indexByHeading.set(item.normalized, item);
+  const canonicalIndex = new Map(
+    CANONICAL_H2_ORDER.map((heading, index) => [normalizeHeadingText(heading), index])
+  );
+  const firstOccurrence = new Map();
+  const duplicateHeadings = new Set();
+
+  for (const heading of headings) {
+    if (firstOccurrence.has(heading.normalized)) {
+      duplicateHeadings.add(heading.normalized);
+      continue;
+    }
+    firstOccurrence.set(heading.normalized, heading);
   }
 
-  let previousOffset = -1;
-  for (const heading of REQUIRED_H2) {
-    const key = normalizeHeadingText(heading);
-    const found = indexByHeading.get(key);
+  for (const normalizedHeading of duplicateHeadings) {
+    const first = firstOccurrence.get(normalizedHeading);
+    if (!first) continue;
+    report.errors.push({
+      code: "SEC01",
+      file: filePath,
+      line: lineFromOffset(lineStarts, baseOffset + first.offset),
+      message: `Duplicate H2 heading is not allowed: \`## ${first.heading}\`.`,
+    });
+  }
+
+  for (const required of REQUIRED_H2) {
+    const key = normalizeHeadingText(required);
+    const found = firstOccurrence.get(key);
     if (!found) {
       report.errors.push({
         code: "SEC01",
         file: filePath,
-        message: `Missing required H2 heading: \`## ${heading}\`.`,
-      });
-      continue;
-    }
-
-    if (found.offset < previousOffset) {
-      report.errors.push({
-        code: "SEC01",
-        file: filePath,
-        line: lineFromOffset(lineStarts, baseOffset + found.offset),
-        message: `Heading out of order: \`## ${heading}\`.`,
+        message: `Missing required H2 heading: \`## ${required}\`.`,
       });
     }
-    previousOffset = Math.max(previousOffset, found.offset);
   }
 
+  let previousCanonicalIndex = -1;
   for (const heading of headings) {
-    if (
-      !REQUIRED_H2.some((item) => normalizeHeadingText(item) === heading.normalized) &&
-      !OPTIONAL_H2_TAIL.has(heading.heading)
-    ) {
-      report.warnings.push({
+    const currentIndex = canonicalIndex.get(heading.normalized);
+    if (currentIndex == null) {
+      const finding = {
         code: "SEC02",
         file: filePath,
         line: lineFromOffset(lineStarts, baseOffset + heading.offset),
-        message: `Unexpected H2 heading: \`## ${heading.heading}\`.`,
+        message:
+          `Unauthorized H2 heading: \`## ${heading.heading}\`. ` +
+          `Allowed H2 headings: ${CANONICAL_H2_ORDER.join(", ")}.`,
+      };
+      if (allowExtraH2) {
+        report.warnings.push(finding);
+      } else {
+        report.errors.push(finding);
+      }
+      continue;
+    }
+
+    if (currentIndex < previousCanonicalIndex) {
+      const expectedNext = CANONICAL_H2_ORDER[Math.max(previousCanonicalIndex, 0)] || "the previous canonical heading";
+      report.errors.push({
+        code: "SEC01",
+        file: filePath,
+        line: lineFromOffset(lineStarts, baseOffset + heading.offset),
+        message:
+          `Heading out of canonical order: \`## ${heading.heading}\`. ` +
+          `Move it after \`## ${expectedNext}\` according to canonical H2 order.`,
       });
     }
+    previousCanonicalIndex = Math.max(previousCanonicalIndex, currentIndex);
   }
 }
 
@@ -1718,6 +1755,7 @@ export function validateDocs(options = {}) {
   const explicitSpecFilePath = options.specFilePath ? path.resolve(options.specFilePath) : null;
   const registryPath = path.resolve(options.registryPath || DEFAULT_TOKEN_REGISTRY_PATH);
   const explicitFilePath = options.filePath ? path.resolve(options.filePath) : null;
+  const allowExtraH2 = options.allowExtraH2 === true;
   const checkOverview = explicitFilePath ? false : options.checkOverview !== false;
   const checkSpecs = explicitFilePath ? false : options.checkSpecs !== false;
 
@@ -1791,7 +1829,9 @@ export function validateDocs(options = {}) {
     validateGeneratedTraceability(filePath, frontmatter, specRoot, registryPath, report);
     validateGapsSectionContract(filePath, raw, specRoot, registry, report, lineStarts);
     validateReadyLifecycleConsistency(filePath, raw, frontmatter, specRoot, report, lineStarts);
-    validateSectionOrder(filePath, content, report, lineStarts, contentOffset);
+    validateSectionOrder(filePath, content, report, lineStarts, contentOffset, {
+      allowExtraH2,
+    });
     validateVariableIds(filePath, raw, report, lineStarts);
     validateTokenReferences(filePath, content, registryIndexes, report, lineStarts, contentOffset);
     validateTokenFallbacks(filePath, content, registryIndexes, report, lineStarts, contentOffset);

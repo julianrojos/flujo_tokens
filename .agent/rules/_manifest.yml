@@ -80,7 +80,7 @@ checks:
     blocking: true
   SEC02:
     rule_ids: [component-doc-structure]
-    blocking: false
+    blocking: true
   TOK01:
     rule_ids: [token-references]
     blocking: true

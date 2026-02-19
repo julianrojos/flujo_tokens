@@ -185,6 +185,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - `figma.file_url`, `figma.page`, `figma.component`, `figma.last_verified`
   - optional `figma.component_set_node_id` (must match spec if declared)
 - Stable section order from `component-doc-structure.mdc`
+  - H2 headings are strict: only canonical allowed section titles, in canonical order
 - Optional `## Design–Token Discrepancies` when design/token mismatches are real
 - No Figma internal variable IDs (`VariableID:*`) in user-facing prose/tables
 - Figma node IDs are allowed for source traceability (for example in `node-id` URLs)
@@ -343,6 +344,7 @@ Validation command options:
 - `npm run validate:docs` -> full docs + specs + overview checks
 - `npm run validate:docs -- --file docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
 - `npm run validate:docs -- --spec-file docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
+- `npm run validate:docs -- --allow-extra-h2 true` -> temporary transition mode (downgrades unauthorized H2 from error to warning)
 - validation output includes `rule_ids` per finding when mapped in `.agent/rules/_manifest.yml`
 
 Doctor command examples:

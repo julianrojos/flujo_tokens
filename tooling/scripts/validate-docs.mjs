@@ -17,12 +17,14 @@ function main() {
   const strict = String(args.strict || "false") === "true";
   const noOverview = String(args["no-overview"] || "false") === "true";
   const noSpecs = String(args["no-specs"] || "false") === "true";
+  const allowExtraH2 = String(args["allow-extra-h2"] || "false") === "true";
 
   const report = validateDocs({
     docsRoot,
     registryPath,
     filePath,
     specFilePath,
+    allowExtraH2,
     checkOverview: !noOverview,
     checkSpecs: !noSpecs,
   });

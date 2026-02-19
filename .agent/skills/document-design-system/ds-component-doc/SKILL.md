@@ -116,6 +116,9 @@ Then use this section order:
 12. `## Design–Token Discrepancies` — only when mismatches are verifiable; follow `design-token-discrepancies.mdc`
 13. `## Gaps / TBD` — auto-generated from all missing fields
 
+Do not generate any extra H2 sections outside this canonical list.
+If extra detail is needed, use `###` subsections inside the closest allowed H2.
+
 ## Properties table format
 
 Per `component-doc-structure.mdc`, use this table format:

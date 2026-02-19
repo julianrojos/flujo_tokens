@@ -14,6 +14,24 @@ Each component page must start with the frontmatter contract defined in `compone
 
 ## Required sections (in order)
 
+Only these H2 headings are allowed in component pages, in this exact canonical order:
+
+1. `## Overview`
+2. `## Anatomy`
+3. `## Component API`
+4. `## Visual Specifications`
+5. `## Variants`
+6. `## States`
+7. `## Usage Guidelines`
+8. `## Content Guidelines`
+9. `## Accessibility`
+10. `## Related Components`
+11. `## Design–Token Discrepancies` (optional, only when real mismatches exist)
+12. `## Gaps / TBD` (optional, deterministic binary contract)
+
+No other H2 headings are permitted (`## Examples`, `## Changelog`, etc.).
+If additional details are needed, place them under `###` inside the nearest allowed H2.
+
 ### 1. `# {ComponentName}`
 
 - Immediately followed by a **single-line description** of what the component does.
@@ -109,7 +127,7 @@ Each component page must start with the frontmatter contract defined in `compone
 
 ## General rules
 
-- Do not add sections outside this list without explicit justification.
+- Do not add H2 headings outside the canonical allowed list.
 - Keep prose short and scannable — prefer bullets and tables over paragraphs.
 - One component per file. File name matches component name in `snake_case` (e.g., `status_bar.md`).
 - Keep language and tone aligned with `docs-language-tone.mdc`.
