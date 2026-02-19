@@ -25,20 +25,3 @@ export function runOrThrow(command, args = [], options = {}) {
 
   return result;
 }
-
-export function runAndCapture(command, args = [], options = {}) {
-  const result = spawnSync(command, args, {
-    stdio: "pipe",
-    cwd: options.cwd || process.cwd(),
-    env: options.env || process.env,
-  });
-
-  return {
-    status: Number(result.status ?? 1),
-    error: result.error || null,
-    stdout: result.stdout ? String(result.stdout) : "",
-    stderr: result.stderr ? String(result.stderr) : "",
-    command,
-    args,
-  };
-}
