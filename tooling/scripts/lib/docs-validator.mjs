@@ -1421,7 +1421,16 @@ function validateOverviewLinks(docsRoot, componentFiles, report) {
 
   const overviewRaw = fs.readFileSync(overviewPath, "utf8");
   const lineStarts = buildLineStarts(overviewRaw);
-  const { content } = parseMarkdownFrontmatter(overviewRaw);
+  let content = overviewRaw;
+  try {
+    ({ content } = parseMarkdownFrontmatter(overviewRaw));
+  } catch (error) {
+    report.errors.push({
+      code: "FM01",
+      file: overviewPath,
+      message: `Invalid markdown frontmatter: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
   const contentOffset = overviewRaw.length - content.length;
 
   const headingRegex = /^##\s+(.+?)\s*$/gim;
@@ -2192,7 +2201,17 @@ export function validateDocs(options = {}) {
 
     const raw = fs.readFileSync(filePath, "utf8");
     const lineStarts = buildLineStarts(raw);
-    const { frontmatter, content } = parseMarkdownFrontmatter(raw);
+    let frontmatter = {};
+    let content = raw;
+    try {
+      ({ frontmatter, content } = parseMarkdownFrontmatter(raw));
+    } catch (error) {
+      report.errors.push({
+        code: "FM01",
+        file: filePath,
+        message: `Invalid markdown frontmatter: ${error instanceof Error ? error.message : String(error)}`,
+      });
+    }
     const contentOffset = raw.length - content.length;
     const isOverview = path.basename(filePath) === "overview.md";
 
