@@ -26,6 +26,7 @@ import { normalizeNodeId } from "./lib/node-id.mjs";
 import { isTbdMarker } from "./lib/tbd.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
 import { syncComponentRegistry } from "./lib/component-registry/index.mjs";
+import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
 function isValidNodeId(raw) {
   return /^[A-Za-z0-9]+:[A-Za-z0-9]+$/.test(String(raw || "").trim());
@@ -294,11 +295,21 @@ function readThemeName(themePath) {
   return name;
 }
 
-function writeAgentOutput({ generatedDir, fileBase, suffix, content }) {
+function writeAgentOutput({ tempArtifacts, generatedDir, fileBase, suffix, content }) {
   const safeSuffix = String(suffix || "agent-output").trim();
   const outputPath = path.resolve(generatedDir, `${fileBase}.${safeSuffix}.txt`);
-  fs.writeFileSync(outputPath, String(content || ""), "utf8");
-  return outputPath;
+  return tempArtifacts.writeTrackedFile(outputPath, content, "utf8");
+}
+
+function cleanupLegacyTempOutputs({ tempArtifacts, generatedDir, fileBase }) {
+  const allowedNames = new Set([
+    `${fileBase}.render-agent-output.txt`,
+    `${fileBase}.render-audit-output.txt`,
+  ]);
+  return tempArtifacts.purgeMatching({
+    dir: generatedDir,
+    matcher: (name) => allowedNames.has(name),
+  });
 }
 
 function readRenderExpectations({ payloadPath, componentName }) {
@@ -693,6 +704,20 @@ function main() {
 
   const agent = args.agent || "auto";
   const generatedDir = args["generated-dir"] || FIGMA_DOC_MODELS_DIR;
+  const tempArtifacts = new TempArtifactManager();
+  tempArtifacts.attachProcessHooks();
+  const staleArtifacts = cleanupLegacyTempOutputs({
+    tempArtifacts,
+    generatedDir,
+    fileBase,
+  });
+  if (staleArtifacts.length > 0) {
+    console.warn(
+      `Removed stale temporary artifacts for ${fileBase}: ${staleArtifacts
+        .map((artifactPath) => path.basename(artifactPath))
+        .join(", ")}`,
+    );
+  }
   const themePath = args.theme || FIGMA_DOC_THEME_PATH;
   const expectedThemeName = readThemeName(themePath);
   const docModelPath = path.join(generatedDir, `${fileBase}.doc-model.json`);
@@ -892,6 +917,7 @@ function main() {
     const renderReport = parseRenderReportFromOutput(agentResponse.stdout);
     if (!renderReport) {
       const outputPath = writeAgentOutput({
+        tempArtifacts,
         generatedDir,
         fileBase,
         suffix: "render-agent-output",
@@ -905,6 +931,7 @@ function main() {
     }
     if (!renderReport.targetSectionId || !renderReport.targetSectionName) {
       const outputPath = writeAgentOutput({
+        tempArtifacts,
         generatedDir,
         fileBase,
         suffix: "render-agent-output",
@@ -917,6 +944,7 @@ function main() {
     }
     if (!renderReport.themeName) {
       const outputPath = writeAgentOutput({
+        tempArtifacts,
         generatedDir,
         fileBase,
         suffix: "render-agent-output",
@@ -960,6 +988,7 @@ function main() {
     });
     if (!primaryReportValidation.ok) {
       const outputPath = writeAgentOutput({
+        tempArtifacts,
         generatedDir,
         fileBase,
         suffix: "render-agent-output",
@@ -990,6 +1019,7 @@ function main() {
     const auditReport = parseRenderAuditFromOutput(auditResponse.stdout);
     if (!auditReport) {
       const outputPath = writeAgentOutput({
+        tempArtifacts,
         generatedDir,
         fileBase,
         suffix: "render-audit-output",
@@ -1008,6 +1038,7 @@ function main() {
     });
     if (!auditValidation.ok) {
       const outputPath = writeAgentOutput({
+        tempArtifacts,
         generatedDir,
         fileBase,
         suffix: "render-audit-output",
