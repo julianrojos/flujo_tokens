@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { TokenCollectionTree } from "@/types/token-tree";
+import type { TokenCollectionTree, TokenTreeNode } from "@/types/token-tree";
 import { collectExpandableNodeIds, countTokens, findExpandedPathByQuery } from "./tree-utils";
 import { TokenTreeNodeItem } from "./token-tree-node";
 
@@ -35,6 +35,28 @@ export function TokenTreeModal({
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
 
   const roots = useMemo(() => collections.map((collection) => collection.root), [collections]);
+  const tokenValueByCssVar = useMemo(() => {
+    const byCssVar = new Map<string, string>();
+
+    const walk = (node: TokenTreeNode) => {
+      if (node.type === "token") {
+        const cssVar = String(node.tokenData?.cssVar || "").trim();
+        const resolvedValue = String(node.tokenData?.resolvedValue || "").trim();
+        if (cssVar && resolvedValue && !byCssVar.has(cssVar)) {
+          byCssVar.set(cssVar, resolvedValue);
+        }
+      }
+      for (const child of node.children) {
+        walk(child);
+      }
+    };
+
+    for (const root of roots) {
+      walk(root);
+    }
+
+    return byCssVar;
+  }, [roots]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -195,6 +217,7 @@ export function TokenTreeModal({
                     expandedNodeIds={expandedNodeIds}
                     onToggle={toggleNode}
                     query={query}
+                    tokenValueByCssVar={tokenValueByCssVar}
                   />
                 ))}
               </div>
