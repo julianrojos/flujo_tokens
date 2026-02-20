@@ -91,6 +91,9 @@ Ready spec constraint:
 
 - For `status: ready`, all property defaults must be concrete (not `TBD`), and `enum` defaults must match one of the `values`.
 
+> **`values: ["TBD"]` is never valid for `status: ready`.**
+> A single-entry `values` array whose only element is the string `"TBD"` does not satisfy the concrete-default requirement — the value is still unknown regardless of whether it technically matches the array entry. Validators must reject any `enum` property where `values` contains `"TBD"` as one of its entries when the spec is `status: ready`. Replace with real variant values before promoting.
+
 ### `best_practices`
 
 - Always include both `do` and `dont` arrays.
