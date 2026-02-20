@@ -1,5 +1,5 @@
 ---
-description: Structure and validation rules for component spec YAML files — the source of truth before Markdown generation.
+description: Structure and validation rules for component spec YAML files - the source of truth before Markdown generation.
 globs:
   - "docs/_spec/components/*.yml"
 ---
@@ -29,7 +29,8 @@ qa              # Array of verification statements
 ## Optional top-level fields
 
 ```
-version         # Optional object: { spec, component } with SemVer values
+version               # Optional object: { spec, component } with SemVer values
+related_components    # Optional array of snake_case component names (e.g., [button, tag])
 ```
 
 ## Field conventions
@@ -61,23 +62,23 @@ version         # Optional object: { spec, component } with SemVer values
 ### `properties`
 
 - Must map 1:1 with the Figma component set properties.
-- `type`: Use canonical spec types — `enum`, `text`, `boolean`, `instance_swap`.
+- `type`: Use canonical spec types - `enum`, `text`, `boolean`, `instance_swap`.
 - `values`: Array of allowed values for `enum`; omit for `text`, `boolean`, and `instance_swap`.
 - `default`: The Figma default value.
 - `required`: `true` or `false`.
 - Ordering MUST be deterministic and follow `component-spec-properties-order.mdc`.
 
-**Type mapping decision table** — canonical source of truth. All other rules and skills must reference this table, not duplicate it.
+**Type mapping decision table** - canonical source of truth. All other rules and skills must reference this table, not duplicate it.
 
 Type comparison is **case-insensitive** (`Enum`, `ENUM`, and `enum` are equivalent).
 
 | Spec `type` | Figma display type | `values` field | `default` format | Ordering group | On unknown |
 | ----------- | ------------------ | -------------- | ---------------- | -------------- | ---------- |
-| `enum` | `VARIANT` | Required — array of allowed string values | One of the `values` entries, or `TBD` if unknown | 1 | — |
-| `text` | `TEXT` | Omit | Any string, or `TBD` if unknown | 2 | — |
-| `boolean` | `BOOLEAN` | Omit | `true` or `false` (unquoted), or `TBD` if unknown | 3 | — |
-| `instance_swap` | `INSTANCE_SWAP` | Omit | Component name string, or `TBD` if unknown | 4 | — |
-| anything else | _(invalid)_ | — | — | 5 | Stop; report error `SPEC01` with the invalid type value; do not render the property |
+| `enum` | `VARIANT` | Required - array of allowed string values | One of the `values` entries, or `TBD` if unknown | 1 | - |
+| `text` | `TEXT` | Omit | Any string, or `TBD` if unknown | 2 | - |
+| `boolean` | `BOOLEAN` | Omit | `true` or `false` (unquoted), or `TBD` if unknown | 3 | - |
+| `instance_swap` | `INSTANCE_SWAP` | Omit | Component name string, or `TBD` if unknown | 4 | - |
+| anything else | _(invalid)_ | - | - | 5 | Stop; report error `SPEC01` with the invalid type value; do not render the property |
 
 No other `type` values are valid. `null`, empty string, and missing `type` are treated as unknown and trigger the same `SPEC01` error.
 
@@ -104,7 +105,7 @@ Ready spec constraint:
 
 - Keys follow pattern: `{anatomy_id}.{css_property}` (e.g., `container.background`, `label.color`).
 - Values are objects keyed by condition (e.g., `"state=default"`, `"type=warning"`).
-- Token paths must be real JSON keys — follow `prohibited-patterns.mdc`.
+- Token paths must be real JSON keys - follow `prohibited-patterns.mdc`.
 - Use `TBD` as value when token is unknown.
 
 ## Deterministic placement contract
@@ -122,6 +123,14 @@ Ready spec constraint:
 
 ## File naming
 
-- One file per component: `{component_name_snake_case}.yml` (e.g., `status_bar.yml`).
-- File naming and `component_name` normalization must follow `component-name-normalization.mdc`.
-- Template at `docs/_spec/components/_template.yml` — copy for new components.
+- One file per component: `<snake_case>.yml` (e.g., `status_bar.yml`).
+- File naming and `name` normalization must follow `component-name-normalization.mdc`.
+
+## Template
+
+`docs/_spec/components/_template.yml` is the canonical structural template - copy it for every new component.
+
+- Every required top-level field is present; use `TBD` for unknown values (never omit fields).
+- `properties` defaults to `[]` so a newly copied draft spec stays valid; uncomment the type-group examples and replace placeholders with concrete values.
+- Do NOT create a new spec by writing fields from memory; always start from the template to prevent omissions.
+- The template is the structural authority; this rule is the semantic authority.

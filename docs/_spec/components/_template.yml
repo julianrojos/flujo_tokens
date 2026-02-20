@@ -1,27 +1,70 @@
-name: TBD
-status: draft # draft | ready
+# -----------------------------------------------------------------------------
+# Component spec template - governed by .agent/rules/component-spec-yaml.mdc
+# -----------------------------------------------------------------------------
+# Usage:
+#   1. Copy this file to docs/_spec/components/<snake_case>.yml
+#   2. Replace every TBD with a real value sourced from Figma.
+#   3. Do NOT omit any field; keep TBD until the value is confirmed.
+#   4. Delete these header comments from the copied file.
+# -----------------------------------------------------------------------------
+
+name: TBD                  # PascalCase; must match the Figma component set name exactly
+status: draft              # draft | ready  (ready requires all TBDs resolved)
+
+# Optional - uncomment when version tracking is needed:
+# version:
+#   spec: "0.1.0"          # SemVer for this spec file
+#   component: "0.1.0"     # SemVer for the component in Figma
+
 figma:
-  file: TBD
-  page: TBD
-  component_set: TBD
-  component_set_node_id: TBD # recommended in draft; required in ready (e.g., "2304:1892")
+  file: TBD                # Figma file key (not the full URL)
+  page: TBD                # Page name in Figma
+  component_set: TBD       # Component set name (not the node ID)
+  component_set_node_id: TBD  # "1234:567" format - recommended in draft, required in ready
 
 summary:
   purpose: TBD
   when_to_use: TBD
   when_not_to_use: TBD
 
-anatomy:
+anatomy:                   # Visual reading order: top-to-bottom, left-to-right; id must be snake_case
   - id: container
     description: TBD
 
-properties:
-  - name: state
-    type: enum
-    values: [default]
-    default: default
-    required: true
-    description: "Figma property for interaction states."
+properties: []             # Must map 1:1 with Figma component set properties
+                           # Order: enum -> text -> boolean -> instance_swap (component-spec-properties-order.mdc)
+
+  # Uncomment and fill the examples below.
+  # Note: enum `values` must be a list of concrete strings (not TBD).
+
+  # -- Group 1: enum (renders as VARIANT in Figma) ---------------------------
+  # - name: TBD
+  #   type: enum
+  #   values: [default]    # Replace with all allowed values (must be concrete strings)
+  #   default: TBD         # Must be one of the values entries (or TBD in draft)
+  #   required: true
+  #   description: TBD
+
+  # -- Group 2: text (renders as TEXT in Figma) ------------------------------
+  # - name: TBD
+  #   type: text
+  #   default: TBD         # Any string value
+  #   required: false
+  #   description: TBD
+
+  # -- Group 3: boolean (renders as BOOLEAN in Figma) ------------------------
+  # - name: TBD
+  #   type: boolean
+  #   default: false       # true or false, unquoted
+  #   required: false
+  #   description: TBD
+
+  # -- Group 4: instance_swap (renders as INSTANCE_SWAP in Figma) ------------
+  # - name: TBD
+  #   type: instance_swap
+  #   default: TBD         # Component name string
+  #   required: false
+  #   description: TBD
 
 content_guidelines:
   rules:
@@ -34,7 +77,7 @@ best_practices:
     - TBD
 
 accessibility:
-  role: TBD
+  role: TBD                # ARIA role, e.g., button, alert, navigation
   focus:
     tokens:
       inner: "Semantic.Color.Focus-Outline.Inner"
@@ -46,13 +89,18 @@ accessibility:
     rules:
       - TBD
 
-token_mapping:
-  # Example:
-  # container.background:
-  #   "state=default": "Components.<Component>.Background.Default"
+token_mapping:             # Keys: "{anatomy_id}.{css_property}"; values keyed by condition string
+  container.background:
+    "state=default": TBD   # Replace TBD with a real token path, e.g. "Components.Alert.Background.Default"
+  # container.border:
+  #   "state=default": TBD
+  # label.color:
+  #   "state=default": TBD
+  # label.typography.family:
+  #   default: TBD
 
-qa:
+qa:                        # Minimum 2 items; add component-specific invariants below
   - "Properties match the Figma component set."
   - "Token mapping uses real token keys."
 
-related_components: []
+related_components: []     # Optional - list of related snake_case component names
