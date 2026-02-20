@@ -233,23 +233,6 @@ Prioridad: P2.
 
 🔝 TOP 10 PROPUESTAS PRIORIZADAS
 
-1. Vista de Detalle de Token/Componente (Drawer/Modal)
-   Impacto: Alto | Esfuerzo: Medio
-
-Descripción: Al hacer click en una fila, abrir un drawer lateral con:
-
-Para Tokens:
-Todos los metadatos (path completo, alias, referencias)
-Historial de cambios (si hay git)
-Lista completa de usos con contexto (archivo + línea + snippet)
-Enlace a documentación si existe
-Para Componentes:
-Spec completo embebido
-Visual proof en grande
-Lista de tokens usados
-Timeline de pipeline
-Por qué es #1: Centraliza información dispersa, reduce necesidad de navegar entre archivos.
-
 2. Búsqueda Global con Atajo de Teclado (Cmd+K)
    Impacto: Alto | Esfuerzo: Bajo-Medio
 
