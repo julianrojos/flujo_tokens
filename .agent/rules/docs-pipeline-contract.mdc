@@ -31,6 +31,7 @@ This contract defines the only canonical order for component documentation:
 
 - After `spec` stage, run `npm run validate:docs` for the generated spec and block on errors.
 - After `markdown` stage, run `npm run validate:docs` for the generated markdown and block on errors.
+- Before promoting a component to `doc_status: ready`, run `npm run validate:token-refs -- --component-name <name>` and block if `unresolved_tokens > 0` or `wrong_format_tokens > 0`.
 - `figma` stage is blocked when validation fails or markdown is stale relative to its spec.
 - `visual-proof` stage must fail when screenshot capture cannot produce a concrete URL.
 - Generated markdown must include a deterministic traceability block in frontmatter:

@@ -11,6 +11,7 @@
     "generate:registry": "tsx tooling/src/cli/index.ts --registry",
     "generate:strict": "tsx tooling/src/cli/index.ts --mode-strict",
     "validate:docs": "node tooling/scripts/validate-docs.mjs",
+    "validate:token-refs": "node tooling/scripts/ds-validate-token-refs.mjs",
     "ds:tokens-sync": "node tooling/scripts/ds-tokens-sync.mjs",
     "ds:token-diff": "node tooling/scripts/ds-token-diff.mjs",
     "ds:token-graph": "node tooling/scripts/ds-token-graph.mjs",

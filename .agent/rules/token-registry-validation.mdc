@@ -17,21 +17,39 @@ This rule defines how token references must be validated against `docs/_generate
 
 ## Error codes
 
-- `TOKEN_MISSING`: Token path does not resolve in registry (includes case mismatches).
-- `TOKEN_AMBIGUOUS`: Multiple possible matches prevent deterministic resolution.
-- `TOKEN_DEPRECATED`: Token resolves but is marked as deprecated in registry metadata.
+Internal governance codes emitted by the validator:
 
-Implementation note:
-- The current validator emits base governance codes (`TOK01`, `TOK02`, `TOK03`, `SPEC01`).
-- `validate:docs -- --check token-registry` exposes a token-focused report and maps those to token-registry-centric error codes when possible.
+| Code | Source | Meaning |
+| ---- | ------ | ------- |
+| `TOK01` | Markdown prose | Token path not found in registry |
+| `TOK02` | Markdown prose | Token path deprecated |
+| `TOK03` | Markdown prose | Forbidden `VariableID:*` format |
+| `SPEC01` | Spec YAML `token_mapping` | Token path not found in registry |
 
-## Validation command
+The standalone token-ref report (see below) maps these to four buckets:
+`unresolved_tokens`, `wrong_format_tokens`, `case_mismatch_tokens`, `deprecated_tokens`.
+
+## Validation commands
+
+**Focused token-reference report** (preferred for CI and pre-promote checks):
 
 ```bash
-npm run validate:docs -- --check token-registry
+npm run validate:token-refs
 ```
 
-This command is a focused gate. Use full validation for release checks:
+Options:
+```bash
+npm run validate:token-refs -- --component-name Alert      # single component
+npm run validate:token-refs -- --spec-file docs/_spec/components/alert.yml
+npm run validate:token-refs -- --file docs/components/alert.md
+npm run validate:token-refs -- --json                      # machine-readable JSON
+npm run validate:token-refs -- --no-specs                  # skip spec YAML files
+npm run validate:token-refs -- --no-markdown               # skip markdown files
+```
+
+Exit codes: `0` clean · `1` unresolved tokens · `2` wrong-format tokens · `3` both.
+
+**Full docs validation** (structural + token + all other rules):
 
 ```bash
 npm run validate:docs
