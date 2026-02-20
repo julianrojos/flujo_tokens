@@ -107,6 +107,10 @@
             "generator_script_sha256": {
               "$ref": "#/$defs/sha256_hex",
               "description": "SHA-256 of the generator script at generation time. Optional: omitted when script hash is unavailable."
+            },
+            "content_sha256": {
+              "$ref": "#/$defs/sha256_hex",
+              "description": "SHA-256 of the markdown body (excluding frontmatter) at generation time. Used for drift detection: if content changes after generation, content_sha256 will no longer match. Optional: set by ds:component-doc.mjs, can be updated manually with `npm run ds:compute-traceability -- --file <path> --update`."
             }
           }
         }

@@ -255,8 +255,30 @@ function upsertTraceabilityFrontmatter({
   const normalizedContent = String(content || "").replace(/^\n+/, "");
   const nextMarkdown = `---\n${frontmatterYaml.trimEnd()}\n---\n\n${normalizedContent}`;
 
-  if (nextMarkdown !== rawMarkdown) {
-    fs.writeFileSync(markdownPath, nextMarkdown, "utf8");
+  // Compute content_sha256 after final markdown is assembled.
+  const contentSha256 = crypto
+    .createHash("sha256")
+    .update(normalizedContent)
+    .digest("hex");
+  fm.pipeline.ds_component_doc.content_sha256 = contentSha256;
+
+  // Rebuild markdown with updated pipeline block including content_sha256.
+  const finalOrderedFm = {};
+  for (const key of preferredOrder) {
+    if (key in fm) finalOrderedFm[key] = fm[key];
+  }
+  for (const [key, value] of Object.entries(fm)) {
+    if (!(key in finalOrderedFm)) finalOrderedFm[key] = value;
+  }
+  const finalFrontmatterYaml = yaml.dump(finalOrderedFm, {
+    lineWidth: 120,
+    noRefs: true,
+    sortKeys: false,
+  });
+  const finalMarkdown = `---\n${finalFrontmatterYaml.trimEnd()}\n---\n\n${normalizedContent}`;
+
+  if (finalMarkdown !== rawMarkdown) {
+    fs.writeFileSync(markdownPath, finalMarkdown, "utf8");
   }
 }
 
