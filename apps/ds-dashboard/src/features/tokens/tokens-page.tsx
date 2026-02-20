@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/table";
 import { ContrastCheckerModal } from "./accessibility/contrast-checker-modal";
 import { buildSemanticColorOptions } from "./accessibility/semantic-color-options";
+import { useContrastChecker } from "./accessibility/use-contrast-checker";
 
 function resolveColorSwatch(value: string): string | null {
   const raw = String(value || "").trim();
@@ -45,9 +46,7 @@ export function TokensPage() {
   const [error, setError] = useState<string | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
   const [usageSyncing, setUsageSyncing] = useState(false);
-  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
-  const [selectedBackgroundPath, setSelectedBackgroundPath] = useState("");
-  const [selectedForegroundPath, setSelectedForegroundPath] = useState("");
+  const contrastChecker = useContrastChecker();
 
   useEffect(() => {
     const load = async () => {
@@ -126,35 +125,34 @@ export function TokensPage() {
   const showAccessibilityButton = type === "color";
 
   useEffect(() => {
-    if (!showAccessibilityButton && accessibilityOpen) {
-      setAccessibilityOpen(false);
+    if (!showAccessibilityButton && contrastChecker.isOpen) {
+      contrastChecker.setIsOpen(false);
     }
-  }, [showAccessibilityButton, accessibilityOpen]);
+  }, [showAccessibilityButton, contrastChecker.isOpen, contrastChecker.setIsOpen]);
 
   useEffect(() => {
-    const validBackground = semanticColorOptions.background.some(
-      (item) => item.tokenPath === selectedBackgroundPath,
+    contrastChecker.syncWithOptions(
+      semanticColorOptions.background,
+      semanticColorOptions.foreground,
     );
-    if (!validBackground) {
-      setSelectedBackgroundPath(
-        semanticColorOptions.background[0]?.tokenPath || "",
-      );
-    }
-
-    const validForeground = semanticColorOptions.foreground.some(
-      (item) => item.tokenPath === selectedForegroundPath,
-    );
-    if (!validForeground) {
-      setSelectedForegroundPath(
-        semanticColorOptions.foreground[0]?.tokenPath || "",
-      );
-    }
   }, [
     semanticColorOptions.background,
     semanticColorOptions.foreground,
-    selectedBackgroundPath,
-    selectedForegroundPath,
+    contrastChecker.syncWithOptions,
   ]);
+
+  const contrastResult = useMemo(
+    () =>
+      contrastChecker.buildResult(
+        semanticColorOptions.background,
+        semanticColorOptions.foreground,
+      ),
+    [
+      contrastChecker.buildResult,
+      semanticColorOptions.background,
+      semanticColorOptions.foreground,
+    ],
+  );
 
   const refreshUsage = async () => {
     setUsageSyncing(true);
@@ -238,13 +236,13 @@ export function TokensPage() {
             {showAccessibilityButton ? (
               <Button
                 variant="outline"
-                onClick={() => setAccessibilityOpen(true)}
                 disabled={
                   semanticColorOptions.background.length === 0 ||
                   semanticColorOptions.foreground.length === 0
                 }
                 title="Open color accessibility checker"
                 aria-label="Open color accessibility checker"
+                onClick={() => contrastChecker.setIsOpen(true)}
               >
                 <Accessibility className="h-4 w-4" />
               </Button>
@@ -357,14 +355,20 @@ export function TokensPage() {
       </Card>
 
       <ContrastCheckerModal
-        open={accessibilityOpen}
-        onClose={() => setAccessibilityOpen(false)}
+        open={contrastChecker.isOpen}
+        onClose={() => contrastChecker.setIsOpen(false)}
         backgroundOptions={semanticColorOptions.background}
         foregroundOptions={semanticColorOptions.foreground}
-        backgroundTokenPath={selectedBackgroundPath}
-        foregroundTokenPath={selectedForegroundPath}
-        onBackgroundChange={setSelectedBackgroundPath}
-        onForegroundChange={setSelectedForegroundPath}
+        backgroundTokenPath={contrastChecker.backgroundTokenPath}
+        foregroundTokenPath={contrastChecker.foregroundTokenPath}
+        onBackgroundChange={contrastChecker.setBackgroundTokenPath}
+        onForegroundChange={contrastChecker.setForegroundTokenPath}
+        elementType={contrastChecker.elementType}
+        onElementTypeChange={contrastChecker.setElementType}
+        textSize={contrastChecker.textSize}
+        onTextSizeChange={contrastChecker.setTextSize}
+        result={contrastResult}
+        onReset={contrastChecker.reset}
       />
     </div>
   );

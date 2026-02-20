@@ -1,4 +1,6 @@
 export type SemanticColorCategory = "background" | "foreground" | "both";
+export type ElementType = "text" | "icon" | null;
+export type TextSize = "normal" | "large";
 
 export interface SemanticColorOption {
   tokenPath: string;
@@ -9,19 +11,30 @@ export interface SemanticColorOption {
   category: SemanticColorCategory;
 }
 
-export interface WcagContrastResult {
+export interface ContrastContext {
+  elementType: ElementType;
+  textSize: TextSize;
+}
+
+export interface ContrastLevelResult {
+  passes: boolean | null;
+  requiredRatio: number | null;
+  criterion: string;
+}
+
+export interface ContrastCheckResult {
   ratio: number;
-  levelA: {
-    status: "informative";
-    message: string;
-  };
-  levelAA: {
-    normalText: boolean;
-    largeText: boolean;
-    nonTextUi: boolean;
-  };
-  levelAAA: {
-    normalText: boolean;
-    largeText: boolean;
-  };
+  aa: ContrastLevelResult;
+  aaa: ContrastLevelResult;
+  backgroundColor: string;
+  foregroundColor: string;
+  context: ContrastContext;
+}
+
+export interface TextSizeOption {
+  value: TextSize;
+  label: string;
+  description: string;
+  thresholdAA: number;
+  thresholdAAA: number;
 }
