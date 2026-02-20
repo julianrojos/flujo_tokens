@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Accessibility, ArrowLeftRight, TreePine, RefreshCcw } from "lucide-react";
+import {
+  Accessibility,
+  ArrowLeftRight,
+  ArrowUpDown,
+  TreePine,
+  RefreshCcw,
+} from "lucide-react";
 
 import {
   fetchTokenCollectionTrees,
@@ -51,6 +57,14 @@ function dedupeColorOptionsByPath<T extends { tokenPath: string }>(items: T[]): 
   return Array.from(map.values());
 }
 
+type SortField =
+  | "path"
+  | "collection"
+  | "type"
+  | "cssVar"
+  | "resolvedValue"
+  | "usageCount";
+
 export function TokensPage() {
   const [entries, setEntries] = useState<TokenEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
@@ -58,6 +72,8 @@ export function TokensPage() {
   const [search, setSearch] = useState("");
   const [collection, setCollection] = useState("all");
   const [type, setType] = useState("all");
+  const [sortField, setSortField] = useState<SortField>("path");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
@@ -115,7 +131,7 @@ export function TokensPage() {
 
   const filtered = useMemo(() => {
     const lowered = search.trim().toLowerCase();
-    return entries.filter((entry) => {
+    const next = entries.filter((entry) => {
       const matchesSearch =
         !lowered ||
         entry.path.toLowerCase().includes(lowered) ||
@@ -126,7 +142,25 @@ export function TokensPage() {
       const matchesType = type === "all" || entry.type === type;
       return matchesSearch && matchesCollection && matchesType;
     });
-  }, [entries, search, collection, type]);
+
+    next.sort((a, b) => {
+      const valueFor = (entry: TokenEntry): string | number => {
+        if (sortField === "path") return entry.path.toLowerCase();
+        if (sortField === "collection") return entry.collection.toLowerCase();
+        if (sortField === "type") return entry.type.toLowerCase();
+        if (sortField === "cssVar") return entry.cssVar.toLowerCase();
+        if (sortField === "resolvedValue") return entry.resolvedValue.toLowerCase();
+        return usageByPath[entry.path]?.usageCount ?? 0;
+      };
+
+      const aValue = valueFor(a);
+      const bValue = valueFor(b);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return sortDir === "asc" ? comparison : comparison * -1;
+    });
+
+    return next;
+  }, [entries, search, collection, type, sortField, sortDir, usageByPath]);
 
   const summary = useMemo(() => {
     const byCollection: Record<string, number> = {};
@@ -136,6 +170,15 @@ export function TokensPage() {
     }
     return byCollection;
   }, [entries]);
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortField(field);
+    setSortDir("asc");
+  };
 
   const semanticColorOptions = useMemo(
     () => buildSemanticColorOptions(entries),
@@ -351,12 +394,66 @@ export function TokensPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Token Path</TableHead>
-                <TableHead>Collection</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>CSS Variable</TableHead>
-                <TableHead>Resolved Value</TableHead>
-                <TableHead>Used In</TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    aria-label="Sort by token path"
+                    onClick={() => toggleSort("path")}
+                  >
+                    Token Path <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    aria-label="Sort by collection"
+                    onClick={() => toggleSort("collection")}
+                  >
+                    Collection <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    aria-label="Sort by type"
+                    onClick={() => toggleSort("type")}
+                  >
+                    Type <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    aria-label="Sort by CSS variable"
+                    onClick={() => toggleSort("cssVar")}
+                  >
+                    CSS Variable <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    aria-label="Sort by resolved value"
+                    onClick={() => toggleSort("resolvedValue")}
+                  >
+                    Resolved Value <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    aria-label="Sort by usage count"
+                    onClick={() => toggleSort("usageCount")}
+                  >
+                    Used In <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
