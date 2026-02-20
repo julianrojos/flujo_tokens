@@ -382,6 +382,8 @@ Useful flags:
 - `--component-map-out <path/to/map.json>` (only for file URL discovery mode)
 - `--capture-proof <true|false>` (default: `true`)
 - `--capture-proof-strict <true|false>` (default: `false`)
+- `--capture-proof-variants <true|false>` (default: `true`)
+- `--capture-proof-variant-limit <number>` (default: `6`)
 - `--allow-doc-status-change true` (exceptional override; requires `--force true`)
 - `--force true` (required when `--allow-doc-status-change true`)
 - `--agent <codex|claude|gemini>`
@@ -544,6 +546,9 @@ Useful flags:
 - `--store-local-image <true|false>` (default: `true`)
 - `--require-local-image <true|false>` (default: `true`)
 - `--download-timeout-ms <number>` (default: `30000`)
+- `--figma-token <token>` (or `FIGMA_TOKEN`; required to capture variant screenshots via REST API)
+- `--include-variants <true|false>` (default: `true`)
+- `--variant-limit <number>` (default: `6`)
 - `--dry-run true`
 
 ### 4c) Auto-mark stale docs as needs-review

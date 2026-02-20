@@ -14,6 +14,7 @@ import {
 import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
+import { fetchFigmaImages, fetchFigmaNodes } from "./lib/figma-api.mjs";
 
 const NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 
@@ -43,6 +44,11 @@ const USAGE = {
     {
       name: "--url <figma-url>",
       description: "Optional Figma URL context for the agent.",
+    },
+    {
+      name: "--figma-token <token>",
+      description:
+        "Figma token for variant capture via REST API (falls back to FIGMA_TOKEN).",
     },
     {
       name: "--agent <codex|claude|gemini|auto>",
@@ -88,6 +94,18 @@ const USAGE = {
       defaultValue: "30000",
     },
     {
+      name: "--include-variants <true|false>",
+      description:
+        "Capture one screenshot per variant (for component sets).",
+      defaultValue: "true",
+    },
+    {
+      name: "--variant-limit <number>",
+      description:
+        "Maximum number of variants to capture (sorted deterministically).",
+      defaultValue: "6",
+    },
+    {
       name: "--dry-run <true|false>",
       description: "Report changes without writing files.",
       defaultValue: "false",
@@ -118,6 +136,15 @@ function parsePositiveInteger(rawValue, optionName, fallback) {
     );
   }
   return Math.floor(parsed);
+}
+
+function normalizeVariantSlug(rawValue) {
+  return String(rawValue || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64);
 }
 
 function writeBufferAtomic(filePath, data) {
@@ -276,6 +303,80 @@ function splitFrontmatter(rawMarkdown) {
   return { frontmatterRaw, content };
 }
 
+function parseFigmaFileKeyFromUrl(figmaUrl) {
+  const raw = String(figmaUrl || "").trim();
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw);
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const markerIndex = parts.findIndex(
+      (part) =>
+        part.toLowerCase() === "design" || part.toLowerCase() === "file",
+    );
+    if (markerIndex === -1) return "";
+    return String(parts[markerIndex + 1] || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function loadSpecFigma(specPath) {
+  if (!fs.existsSync(specPath)) return {};
+  const spec = parseYamlDocument(
+    fs.readFileSync(specPath, "utf8"),
+    `spec YAML (${path.basename(specPath)})`,
+  );
+  return spec && typeof spec.figma === "object" && !Array.isArray(spec.figma)
+    ? spec.figma
+    : {};
+}
+
+function resolveFigmaFileKey({ figmaUrl, specFigma }) {
+  const fromUrl = parseFigmaFileKeyFromUrl(figmaUrl);
+  if (fromUrl) return fromUrl;
+  const fromSpec = String(specFigma?.file || "").trim();
+  if (fromSpec && fromSpec.toUpperCase() !== "TBD") return fromSpec;
+  return "";
+}
+
+function extractVariantNodes(nodePayload, rootNodeId) {
+  const nodes = nodePayload && typeof nodePayload === "object" ? nodePayload.nodes : null;
+  const root = nodes && nodes[rootNodeId] && nodes[rootNodeId].document
+    ? nodes[rootNodeId].document
+    : null;
+  if (!root || typeof root !== "object") return [];
+
+  const rootType = String(root.type || "").toUpperCase();
+  const variants = [];
+
+  if (rootType === "COMPONENT_SET" && Array.isArray(root.children)) {
+    for (const child of root.children) {
+      if (!child || typeof child !== "object") continue;
+      if (String(child.type || "").toUpperCase() !== "COMPONENT") continue;
+      const childId = normalizeNodeId(String(child.id || "").trim());
+      if (!childId || !isValidNodeId(childId)) continue;
+      variants.push({
+        nodeId: childId,
+        name: String(child.name || childId).trim() || childId,
+      });
+    }
+  } else if (rootType === "COMPONENT") {
+    const rootId = normalizeNodeId(String(root.id || rootNodeId).trim()) || rootNodeId;
+    if (rootId && isValidNodeId(rootId)) {
+      variants.push({
+        nodeId: rootId,
+        name: String(root.name || rootId).trim() || rootId,
+      });
+    }
+  }
+
+  return variants.sort((a, b) =>
+    `${a.name}|${a.nodeId}`.localeCompare(`${b.name}|${b.nodeId}`, "en", {
+      sensitivity: "base",
+    }),
+  );
+}
+
 function extractFirstJsonObject(rawText) {
   const text = String(rawText || "").trim();
   if (!text) return null;
@@ -336,7 +437,7 @@ function extractFirstJsonObject(rawText) {
   return null;
 }
 
-function resolveNodeId({ cliNodeIdRaw, specPath }) {
+function resolveNodeId({ cliNodeIdRaw, specPath, specFigma }) {
   const cliNodeId = normalizeNodeId(String(cliNodeIdRaw || "").trim());
   if (cliNodeId) {
     if (!isValidNodeId(cliNodeId)) {
@@ -353,14 +454,7 @@ function resolveNodeId({ cliNodeIdRaw, specPath }) {
     );
   }
 
-  const spec = parseYamlDocument(
-    fs.readFileSync(specPath, "utf8"),
-    `spec YAML (${path.basename(specPath)})`,
-  );
-  const figma =
-    spec && typeof spec.figma === "object" && !Array.isArray(spec.figma)
-      ? spec.figma
-      : {};
+  const figma = specFigma && typeof specFigma === "object" ? specFigma : {};
   const nodeId = normalizeNodeId(String(figma.component_set_node_id || "").trim());
   if (!nodeId || !isValidNodeId(nodeId)) {
     throw new Error(
@@ -493,6 +587,7 @@ async function main() {
   const specPath = path.resolve(
     args["spec-file"] || path.join(specRoot, `${componentSlug}.yml`),
   );
+  const specFigma = loadSpecFigma(specPath);
   const proofDir = path.resolve(
     args["proof-dir"] || path.join(docsRootDir, "_generated", "visual-proofs"),
   );
@@ -520,6 +615,21 @@ async function main() {
     "--download-timeout-ms",
     30000,
   );
+  const includeVariants = parseBooleanOption(
+    args["include-variants"],
+    "--include-variants",
+    true,
+  );
+  const variantLimit = parsePositiveInteger(
+    args["variant-limit"],
+    "--variant-limit",
+    6,
+  );
+  const figmaToken = String(args["figma-token"] || process.env.FIGMA_TOKEN || "").trim();
+  const figmaFileKey = resolveFigmaFileKey({
+    figmaUrl,
+    specFigma,
+  });
 
   if (!fs.existsSync(markdownPath)) {
     console.error(`Markdown file not found: ${markdownPath}`);
@@ -535,6 +645,7 @@ async function main() {
     nodeId = resolveNodeId({
       cliNodeIdRaw: args["component-set-id"],
       specPath,
+      specFigma,
     });
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
@@ -595,6 +706,7 @@ async function main() {
     width: null,
     height: null,
   };
+  const variantProofs = [];
 
   if (storeLocalImage) {
     try {
@@ -632,6 +744,120 @@ async function main() {
       console.warn(
         `Warning: local visual proof image was not stored (${reason}).`,
       );
+    }
+  }
+
+  if (includeVariants) {
+    if (!figmaToken || !figmaFileKey) {
+      console.warn(
+        "Variant capture skipped: missing FIGMA token or file key.",
+      );
+    } else {
+      try {
+        const variantTree = await fetchFigmaNodes({
+          fileKey: figmaFileKey,
+          nodeIds: [normalizedNodeId],
+          token: figmaToken,
+          depth: 2,
+          timeoutMs: downloadTimeoutMs,
+        });
+        const variantNodes = extractVariantNodes(variantTree, normalizedNodeId).slice(
+          0,
+          variantLimit,
+        );
+
+        if (variantNodes.length > 0) {
+          const imagePayload = await fetchFigmaImages({
+            fileKey: figmaFileKey,
+            nodeIds: variantNodes.map((variant) => variant.nodeId),
+            token: figmaToken,
+            format,
+            scale,
+            timeoutMs: downloadTimeoutMs,
+          });
+
+          const imageMap =
+            imagePayload && typeof imagePayload.images === "object"
+              ? imagePayload.images
+              : {};
+
+          for (let index = 0; index < variantNodes.length; index += 1) {
+            const variant = variantNodes[index];
+            const screenshotUrl = String(imageMap[variant.nodeId] || "").trim();
+            if (!/^https?:\/\/\S+$/i.test(screenshotUrl)) continue;
+
+            const variantInfo = {
+              name: variant.name,
+              node_id: variant.nodeId,
+              screenshot_url: screenshotUrl,
+              image_path: null,
+              image_sha256: null,
+              image_bytes: null,
+              image_content_type: null,
+              image_width: null,
+              image_height: null,
+              captured_at: capturedAt,
+            };
+
+            if (storeLocalImage) {
+              try {
+                const downloaded = await downloadBinary(
+                  screenshotUrl,
+                  downloadTimeoutMs,
+                );
+                const extension = normalizeImageExtension(
+                  format,
+                  downloaded.contentType,
+                  screenshotUrl,
+                );
+                const variantSlug = normalizeVariantSlug(variant.name) || `variant_${index + 1}`;
+                const localVariantPath = path.join(
+                  proofImageDir,
+                  "variants",
+                  `${componentSlug || "component"}__${String(index + 1).padStart(2, "0")}__${variantSlug}.${extension}`,
+                );
+                const dimensions = extractImageDimensions(
+                  downloaded.buffer,
+                  extension,
+                );
+                if (!dryRun) {
+                  writeBufferAtomic(localVariantPath, downloaded.buffer);
+                }
+                variantInfo.image_path = path
+                  .relative(docsRootDir, localVariantPath)
+                  .split(path.sep)
+                  .join("/");
+                variantInfo.image_sha256 = sha256Hex(downloaded.buffer);
+                variantInfo.image_bytes = downloaded.buffer.byteLength;
+                variantInfo.image_content_type =
+                  downloaded.contentType || `image/${extension}`;
+                variantInfo.image_width = dimensions.width;
+                variantInfo.image_height = dimensions.height;
+              } catch (error) {
+                const reason =
+                  error instanceof Error ? error.message : String(error);
+                if (requireLocalImage) {
+                  throw new Error(
+                    `Unable to persist local image for variant '${variant.name}': ${reason}`,
+                  );
+                }
+                console.warn(
+                  `Warning: local image for variant '${variant.name}' was not stored (${reason}).`,
+                );
+              }
+            }
+
+            variantProofs.push(variantInfo);
+          }
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        if (requireLocalImage) {
+          console.error(`Variant capture failed: ${reason}`);
+          process.exit(1);
+        }
+        console.warn(`Warning: variant capture failed (${reason}).`);
+      }
     }
   }
 
@@ -676,6 +902,8 @@ async function main() {
       width: localImageInfo.width,
       height: localImageInfo.height,
     },
+    variants_count: variantProofs.length,
+    variants: variantProofs,
   };
 
   const rawMarkdown = fs.readFileSync(markdownPath, "utf8");
@@ -691,6 +919,9 @@ async function main() {
     `- Source node: \`${normalizedNodeId}\``,
     ...(localImageInfo.sha256
       ? [`- Image hash: \`${localImageInfo.sha256}\``]
+      : []),
+    ...(variantProofs.length > 0
+      ? [`- Variants captured: \`${variantProofs.length}\``]
       : []),
     `- Artifact: \`${artifactPathForMarkdown}\``,
   ];
@@ -739,6 +970,7 @@ async function main() {
     format,
     scale,
     imageSha256: localImageInfo.sha256,
+    variantsCount: variantProofs.length,
   };
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }

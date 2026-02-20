@@ -195,6 +195,38 @@ function hasVisualProofAsset(visualProof) {
   return Boolean(visualProof.screenshotUrl || visualProof.imagePath);
 }
 
+function normalizeVisualVariant(rawVariant) {
+  if (!isPlainObject(rawVariant)) return null;
+
+  const nodeIdRaw = normalizeNodeId(String(rawVariant.node_id || "").trim());
+  const nodeId = isValidNodeId(nodeIdRaw) ? nodeIdRaw : null;
+  const screenshotRaw = String(rawVariant.screenshot_url || "").trim();
+  const screenshotUrl = isValidHttpUrl(screenshotRaw) ? screenshotRaw : null;
+  const imagePath = normalizeProofImagePath(rawVariant.image_path || "");
+  const capturedAt = normalizeOptionalIsoDate(rawVariant.captured_at);
+  const name = String(rawVariant.name || "").trim() || nodeId || "Variant";
+
+  return {
+    name,
+    node_id: nodeId,
+    screenshot_url: screenshotUrl,
+    image_path: imagePath,
+    captured_at: capturedAt,
+    image_sha256: String(rawVariant.image_sha256 || "").trim() || null,
+    image_bytes: Number.isFinite(Number(rawVariant.image_bytes))
+      ? Number(rawVariant.image_bytes)
+      : null,
+    image_content_type:
+      String(rawVariant.image_content_type || "").trim() || null,
+    image_width: Number.isFinite(Number(rawVariant.image_width))
+      ? Number(rawVariant.image_width)
+      : null,
+    image_height: Number.isFinite(Number(rawVariant.image_height))
+      ? Number(rawVariant.image_height)
+      : null,
+  };
+}
+
 function readVisualProofState(proofPath) {
   if (!fileExists(proofPath)) {
     return {
@@ -209,6 +241,7 @@ function readVisualProofState(proofPath) {
       imageContentType: null,
       imageWidth: null,
       imageHeight: null,
+      variants: [],
     };
   }
 
@@ -237,6 +270,18 @@ function readVisualProofState(proofPath) {
 
   const rawNodeId = normalizeNodeId(String(parsed.node_id || "").trim());
   const nodeId = isValidNodeId(rawNodeId) ? rawNodeId : null;
+  const variants = Array.isArray(parsed.variants)
+    ? parsed.variants
+        .map((variant) => normalizeVisualVariant(variant))
+        .filter(Boolean)
+        .sort((a, b) =>
+          `${a.name}|${a.node_id || ""}`.localeCompare(
+            `${b.name}|${b.node_id || ""}`,
+            "en",
+            { sensitivity: "base" },
+          ),
+        )
+    : [];
 
   return {
     exists: true,
@@ -257,6 +302,7 @@ function readVisualProofState(proofPath) {
     imageHeight: Number.isFinite(Number(parsed?.image?.height || parsed.image_height))
       ? Number(parsed?.image?.height || parsed.image_height)
       : null,
+    variants,
   };
 }
 
@@ -350,6 +396,8 @@ function buildComponentEntry({ slug, specsDir, docsDir, proofsDir, renderDir }) 
       image_content_type: visualProof.imageContentType,
       image_width: visualProof.imageWidth,
       image_height: visualProof.imageHeight,
+      variants_count: visualProof.variants.length,
+      variants: visualProof.variants,
     },
     pipeline_stage: stage,
     ready_for_publish: readyForPublish,

@@ -44,6 +44,53 @@ function isDocsRelativePath(value) {
   return Boolean(normalized) && normalized.startsWith("docs/");
 }
 
+function validateVisualVariant(errors, variant, prefix) {
+  if (!isPlainObject(variant)) {
+    pushError(
+      errors,
+      "COMPONENT_PROOF_VARIANT_TYPE",
+      "visual_proof.variants entries must be objects.",
+      prefix,
+    );
+    return;
+  }
+  const name = String(variant.name || "").trim();
+  if (!name) {
+    pushError(
+      errors,
+      "COMPONENT_PROOF_VARIANT_NAME",
+      "visual_proof.variants[].name is required.",
+      `${prefix}.name`,
+    );
+  }
+  const screenshotUrl = variant.screenshot_url;
+  if (
+    screenshotUrl !== null &&
+    screenshotUrl !== undefined &&
+    !isValidHttpUrl(screenshotUrl)
+  ) {
+    pushError(
+      errors,
+      "COMPONENT_PROOF_VARIANT_URL",
+      "visual_proof.variants[].screenshot_url must be null or a valid http(s) URL.",
+      `${prefix}.screenshot_url`,
+    );
+  }
+  const imagePath = variant.image_path;
+  if (
+    imagePath !== null &&
+    imagePath !== undefined &&
+    !isDocsRelativePath(imagePath)
+  ) {
+    pushError(
+      errors,
+      "COMPONENT_PROOF_VARIANT_IMAGE_PATH",
+      "visual_proof.variants[].image_path must be null or a docs-relative path.",
+      `${prefix}.image_path`,
+    );
+  }
+}
+
 function pushError(errors, code, message, jsonPath) {
   errors.push({ code, message, path: jsonPath });
 }
@@ -210,6 +257,25 @@ export function validateComponentRegistry(registry) {
           "visual_proof.image_path must be null or a docs-relative path.",
           `${prefix}.visual_proof.image_path`,
         );
+      }
+      if (
+        component.visual_proof.variants !== undefined &&
+        !Array.isArray(component.visual_proof.variants)
+      ) {
+        pushError(
+          errors,
+          "COMPONENT_PROOF_VARIANTS_TYPE",
+          "visual_proof.variants must be an array when present.",
+          `${prefix}.visual_proof.variants`,
+        );
+      } else if (Array.isArray(component.visual_proof.variants)) {
+        for (let variantIndex = 0; variantIndex < component.visual_proof.variants.length; variantIndex += 1) {
+          validateVisualVariant(
+            errors,
+            component.visual_proof.variants[variantIndex],
+            `${prefix}.visual_proof.variants[${variantIndex}]`,
+          );
+        }
       }
     }
 

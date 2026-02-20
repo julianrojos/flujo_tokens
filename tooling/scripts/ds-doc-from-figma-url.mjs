@@ -115,6 +115,18 @@ const USAGE = {
       defaultValue: "false",
     },
     {
+      name: "--capture-proof-variants <true|false>",
+      description:
+        "Capture variant screenshots alongside main visual proof.",
+      defaultValue: "true",
+    },
+    {
+      name: "--capture-proof-variant-limit <number>",
+      description:
+        "Max number of variants to capture per component.",
+      defaultValue: "6",
+    },
+    {
       name: "--force <true|false>",
       description: "Required when allowing doc_status changes.",
       defaultValue: "false",
@@ -269,6 +281,18 @@ async function main() {
     "--capture-proof-strict",
     false,
   );
+  const captureProofVariants = parseBooleanOption(
+    args["capture-proof-variants"],
+    "--capture-proof-variants",
+    true,
+  );
+  const captureProofVariantLimit = Number(args["capture-proof-variant-limit"] || 6);
+  if (!Number.isFinite(captureProofVariantLimit) || captureProofVariantLimit <= 0) {
+    console.error(
+      `Invalid --capture-proof-variant-limit value: ${args["capture-proof-variant-limit"]}`,
+    );
+    process.exit(1);
+  }
 
   if (!outputPath) {
     console.error(
@@ -481,7 +505,12 @@ async function main() {
             "png",
             "--agent",
             agent,
+            "--include-variants",
+            captureProofVariants ? "true" : "false",
+            "--variant-limit",
+            String(Math.floor(captureProofVariantLimit)),
             ...(figmaUrl ? ["--url", figmaUrl] : []),
+            ...(figmaToken ? ["--figma-token", figmaToken] : []),
           ]);
         } catch (error) {
           const message = `Automatic visual proof capture failed: ${
