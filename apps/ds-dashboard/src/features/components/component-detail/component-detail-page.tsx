@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, Camera, ExternalLink } from "lucide-react";
 
 import {
   fetchComponentRegistry,
@@ -24,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FigmaCaptureModal } from "./figma-capture-modal";
 
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
@@ -110,10 +111,19 @@ function statusBadge(status: string) {
   return "neutral" as const;
 }
 
-function buildAssetUrl(projectPath: string | null | undefined) {
+function buildAssetUrl(
+  projectPath: string | null | undefined,
+  cacheKey?: string | null,
+) {
   const value = String(projectPath || "").trim();
   if (!value) return null;
-  return `/api/asset?path=${encodeURIComponent(value)}`;
+  const search = new URLSearchParams({
+    path: value,
+  });
+  if (cacheKey) {
+    search.set("t", cacheKey);
+  }
+  return `/api/asset?${search.toString()}`;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -128,6 +138,9 @@ export function ComponentDetailPage() {
   const [spec, setSpec] = useState<ComponentSpec | null>(null);
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
   const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
+  const [captureModalOpen, setCaptureModalOpen] = useState(false);
+  const [captureSummary, setCaptureSummary] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -159,7 +172,7 @@ export function ComponentDetailPage() {
       }
     };
     void load();
-  }, [slug]);
+  }, [slug, reloadNonce]);
 
   const displayNameBySlug = useMemo(() => {
     const map: Record<string, string> = {};
@@ -169,7 +182,10 @@ export function ComponentDetailPage() {
 
   const usesSlugs = usage?.uses ?? [];
   const usedInSlugs = usage?.used_in ?? [];
-  const localProofImageUrl = buildAssetUrl(item?.visual_proof?.image_path);
+  const localProofImageUrl = buildAssetUrl(
+    item?.visual_proof?.image_path,
+    item?.visual_proof?.captured_at || null,
+  );
   const visualProofSrc =
     localProofImageUrl || item?.visual_proof?.screenshot_url || null;
   const visualVariantSources = useMemo(() => {
@@ -178,7 +194,7 @@ export function ComponentDetailPage() {
       : [];
     return variants
       .map((variant, index) => {
-        const localUrl = buildAssetUrl(variant.image_path);
+        const localUrl = buildAssetUrl(variant.image_path, variant.captured_at || null);
         const src = localUrl || variant.screenshot_url || null;
         if (!src) return null;
         return {
@@ -263,6 +279,12 @@ export function ComponentDetailPage() {
         </div>
       ) : null}
 
+      {captureSummary ? (
+        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-700">
+          {captureSummary}
+        </div>
+      ) : null}
+
       {!loading && !error && !item ? (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
           Component <span className="font-mono">{slug}</span> not found in registry.
@@ -288,6 +310,17 @@ export function ComponentDetailPage() {
                   <CardDescription className="mt-1 font-mono text-xs">{item.slug}</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                  {item.figma.file_url ? (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => setCaptureModalOpen(true)}
+                      aria-label={`Capture visual proof for ${item.display_name}`}
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      Update screenshot
+                    </Button>
+                  ) : null}
                   {item.doc.exists && item.paths.doc ? (
                     <Link
                       to={{
@@ -471,83 +504,102 @@ export function ComponentDetailPage() {
           )}
 
           {/* Visual proof */}
-          {item.visual_proof.exists && visualProofSrc ? (
-            <Card>
-              <CardHeader>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
                 <CardTitle>Visual Proof</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <img
-                  src={visualProofSrc}
-                  alt={`Visual proof for ${item.display_name}`}
-                  className="max-w-full rounded-lg border border-border"
-                />
-                <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-muted-foreground md:grid-cols-2">
-                  <div>
-                    <dt className="font-medium text-foreground/80">Captured at</dt>
-                    <dd>{item.visual_proof.captured_at || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-foreground/80">Node ID</dt>
-                    <dd className="font-mono">
-                      {item.visual_proof.node_id || item.figma.component_set_node_id || "—"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-foreground/80">Image hash</dt>
-                    <dd className="font-mono break-all">
-                      {item.visual_proof.image_sha256 || "—"}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-foreground/80">Resolution</dt>
-                    <dd>
-                      {item.visual_proof.image_width && item.visual_proof.image_height
-                        ? `${item.visual_proof.image_width} × ${item.visual_proof.image_height}`
-                        : "—"}
-                    </dd>
-                  </div>
-                </dl>
-                {visualVariantSources.length > 0 ? (
-                  <div className="mt-5 space-y-3">
-                    <div className="text-sm font-semibold">Variants</div>
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {visualVariantSources.map((variant) => (
-                        <div
-                          key={variant.key}
-                          className="rounded-md border border-border p-2"
-                        >
-                          <div className="mb-2 flex items-center justify-between gap-2 text-xs">
-                            <span className="font-medium">{variant.name}</span>
-                            {variant.nodeId ? (
-                              <span className="font-mono text-muted-foreground">
-                                {variant.nodeId}
-                              </span>
-                            ) : null}
-                          </div>
-                          <img
-                            src={variant.src}
-                            alt={`Variant ${variant.name} of ${item.display_name}`}
-                            className="max-w-full rounded border border-border"
-                          />
-                          <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-                            {variant.capturedAt ? (
-                              <span>Captured: {variant.capturedAt}</span>
-                            ) : null}
-                            {variant.imageSha256 ? (
-                              <span className="font-mono break-all">
-                                Hash: {variant.imageSha256}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                {item.figma.file_url ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCaptureModalOpen(true)}
+                    aria-label={`Capture visual proof for ${item.display_name}`}
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    Capture from Figma
+                  </Button>
                 ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {item.visual_proof.exists && visualProofSrc ? (
+                <>
+                  <img
+                    src={visualProofSrc}
+                    alt={`Visual proof for ${item.display_name}`}
+                    className="max-w-full rounded-lg border border-border"
+                  />
+                  <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-muted-foreground md:grid-cols-2">
+                    <div>
+                      <dt className="font-medium text-foreground/80">Captured at</dt>
+                      <dd>{item.visual_proof.captured_at || "—"}</dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-foreground/80">Node ID</dt>
+                      <dd className="font-mono">
+                        {item.visual_proof.node_id || item.figma.component_set_node_id || "—"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-foreground/80">Image hash</dt>
+                      <dd className="font-mono break-all">
+                        {item.visual_proof.image_sha256 || "—"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="font-medium text-foreground/80">Resolution</dt>
+                      <dd>
+                        {item.visual_proof.image_width && item.visual_proof.image_height
+                          ? `${item.visual_proof.image_width} × ${item.visual_proof.image_height}`
+                          : "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                  {visualVariantSources.length > 0 ? (
+                    <div className="mt-5 space-y-3">
+                      <div className="text-sm font-semibold">Variants</div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {visualVariantSources.map((variant) => (
+                          <div
+                            key={variant.key}
+                            className="rounded-md border border-border p-2"
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-2 text-xs">
+                              <span className="font-medium">{variant.name}</span>
+                              {variant.nodeId ? (
+                                <span className="font-mono text-muted-foreground">
+                                  {variant.nodeId}
+                                </span>
+                              ) : null}
+                            </div>
+                            <img
+                              src={variant.src}
+                              alt={`Variant ${variant.name} of ${item.display_name}`}
+                              className="max-w-full rounded border border-border"
+                            />
+                            <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                              {variant.capturedAt ? (
+                                <span>Captured: {variant.capturedAt}</span>
+                              ) : null}
+                              {variant.imageSha256 ? (
+                                <span className="font-mono break-all">
+                                  Hash: {variant.imageSha256}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="rounded-md border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  No visual proof available yet for this component.
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Component relationships */}
           <div className="grid gap-4 md:grid-cols-2">
@@ -606,6 +658,21 @@ export function ComponentDetailPage() {
             </Card>
           </div>
         </>
+      ) : null}
+
+      {item ? (
+        <FigmaCaptureModal
+          open={captureModalOpen}
+          onClose={() => setCaptureModalOpen(false)}
+          defaultFigmaUrl={item.figma.file_url || ""}
+          componentSlug={item.slug}
+          onCaptured={(summary) => {
+            setCaptureSummary(
+              `Capture completed: ${summary.capturedCount} captured, ${summary.failedCount} failed, ${summary.skippedCount} skipped.`,
+            );
+            setReloadNonce((prev) => prev + 1);
+          }}
+        />
       ) : null}
     </div>
   );
