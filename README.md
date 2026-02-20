@@ -31,6 +31,7 @@ npm install
 - **`npm run ds:token-diff`**: Compares current token registry with a previous version (file or git ref), groups changes (`Added`, `Modified`, `Removed`), and classifies breaking vs non-breaking diffs.
 - **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
 - **`npm run ds:token-usage-index`**: Builds `docs/_generated/token-usage-index.json` from component specs (`docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
+- **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` by combining the token registry, usage index, and token graph, plus optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
 
 ### Usage
 
@@ -161,6 +162,16 @@ npm run ds:token-usage-index -- --format text --dry-run true
 
 # Fail CI when unresolved references exist
 npm run ds:token-usage-index -- --strict-unresolved true
+```
+
+Token health examples:
+
+```bash
+# Generate operational health snapshot
+npm run ds:token-health
+
+# Print summary without writing files
+npm run ds:token-health -- --format text --dry-run true
 ```
 
 ### Typography unit coercion (runtime)
