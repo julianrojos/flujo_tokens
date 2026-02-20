@@ -2,7 +2,9 @@ import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import { Boxes, Layers3 } from "lucide-react";
 
 import { ComponentsPage } from "@/features/components/components-page";
+import { ComponentDetailPage } from "@/features/components/component-detail/component-detail-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
+import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-page";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -98,7 +100,9 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/components" replace />} />
             <Route path="/components" element={<ComponentsPage />} />
+            <Route path="/components/:slug" element={<ComponentDetailPage />} />
             <Route path="/tokens" element={<TokensPage />} />
+            <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
           </Routes>
         </main>
       </div>
