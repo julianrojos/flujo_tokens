@@ -172,6 +172,33 @@ export function ComponentDetailPage() {
   const localProofImageUrl = buildAssetUrl(item?.visual_proof?.image_path);
   const visualProofSrc =
     localProofImageUrl || item?.visual_proof?.screenshot_url || null;
+  const visualVariantSources = useMemo(() => {
+    const variants = Array.isArray(item?.visual_proof?.variants)
+      ? item.visual_proof.variants
+      : [];
+    return variants
+      .map((variant, index) => {
+        const localUrl = buildAssetUrl(variant.image_path);
+        const src = localUrl || variant.screenshot_url || null;
+        if (!src) return null;
+        return {
+          key: `${variant.node_id || variant.name || "variant"}-${index}`,
+          name: variant.name || `Variant ${index + 1}`,
+          src,
+          nodeId: variant.node_id || null,
+          capturedAt: variant.captured_at || null,
+          imageSha256: variant.image_sha256 || null,
+        };
+      })
+      .filter(Boolean) as Array<{
+      key: string;
+      name: string;
+      src: string;
+      nodeId: string | null;
+      capturedAt: string | null;
+      imageSha256: string | null;
+    }>;
+  }, [item]);
 
   const resolveTokenMeta = useMemo(() => {
     if (!tokenRegistry) return null;
@@ -481,6 +508,43 @@ export function ComponentDetailPage() {
                     </dd>
                   </div>
                 </dl>
+                {visualVariantSources.length > 0 ? (
+                  <div className="mt-5 space-y-3">
+                    <div className="text-sm font-semibold">Variants</div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {visualVariantSources.map((variant) => (
+                        <div
+                          key={variant.key}
+                          className="rounded-md border border-border p-2"
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-2 text-xs">
+                            <span className="font-medium">{variant.name}</span>
+                            {variant.nodeId ? (
+                              <span className="font-mono text-muted-foreground">
+                                {variant.nodeId}
+                              </span>
+                            ) : null}
+                          </div>
+                          <img
+                            src={variant.src}
+                            alt={`Variant ${variant.name} of ${item.display_name}`}
+                            className="max-w-full rounded border border-border"
+                          />
+                          <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                            {variant.capturedAt ? (
+                              <span>Captured: {variant.capturedAt}</span>
+                            ) : null}
+                            {variant.imageSha256 ? (
+                              <span className="font-mono break-all">
+                                Hash: {variant.imageSha256}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}

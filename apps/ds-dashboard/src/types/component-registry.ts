@@ -40,6 +40,19 @@ export interface ComponentRegistryItem {
     image_content_type?: string | null;
     image_width?: number | null;
     image_height?: number | null;
+    variants_count?: number | null;
+    variants?: Array<{
+      name: string;
+      node_id?: string | null;
+      screenshot_url?: string | null;
+      image_path?: string | null;
+      captured_at?: string | null;
+      image_sha256?: string | null;
+      image_bytes?: number | null;
+      image_content_type?: string | null;
+      image_width?: number | null;
+      image_height?: number | null;
+    }>;
   };
   pipeline_stage: PipelineStage;
   ready_for_publish: boolean;
