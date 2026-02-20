@@ -1108,13 +1108,20 @@ function validateVisualProofSection(
     });
   }
 
-  if (!/\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/i.test(visualProof.body)) {
+  const hasHttpScreenshotLink = /\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/i.test(
+    visualProof.body,
+  );
+  const hasLocalProofImage = /!\[[^\]]*\]\((?:\.\.?\/|docs\/)[^)]+visual-proofs\/images\/[^)\s]+\)/i.test(
+    visualProof.body,
+  );
+
+  if (!hasHttpScreenshotLink && !hasLocalProofImage) {
     report.errors.push({
       code: "VIS01",
       file: filePath,
       line: lineFromOffset(lineStarts, fallbackOffset),
       message:
-        "Component markdown is `ready` but `### Visual Proof` has no concrete screenshot URL.",
+        "Component markdown is `ready` but `### Visual Proof` has no concrete screenshot reference (URL or local image).",
     });
   }
 }

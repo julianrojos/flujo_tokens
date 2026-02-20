@@ -6,6 +6,7 @@ import {
 } from "../component-name.mjs";
 import { isPlainObject } from "../is-plain-object.mjs";
 import { normalizeNodeId } from "../node-id.mjs";
+import { PROJECT_ROOT } from "../paths.mjs";
 import {
   parseMarkdownFrontmatter,
   parseYamlDocument,
@@ -166,13 +167,48 @@ function readRenderState(renderPath) {
   };
 }
 
+function normalizeOptionalIsoDate(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString();
+}
+
+function normalizeProofImagePath(rawPath) {
+  const value = String(rawPath || "").trim();
+  if (!value) return null;
+
+  const absolute = path.isAbsolute(value)
+    ? path.resolve(value)
+    : path.resolve(PROJECT_ROOT, value);
+
+  if (!fileExists(absolute)) return null;
+  try {
+    return toProjectRelativePath(absolute);
+  } catch {
+    return null;
+  }
+}
+
+function hasVisualProofAsset(visualProof) {
+  return Boolean(visualProof.screenshotUrl || visualProof.imagePath);
+}
+
 function readVisualProofState(proofPath) {
   if (!fileExists(proofPath)) {
     return {
       exists: false,
       screenshotUrl: null,
+      imagePath: null,
       sourceUrl: null,
       nodeId: null,
+      capturedAt: null,
+      imageSha256: null,
+      imageBytes: null,
+      imageContentType: null,
+      imageWidth: null,
+      imageHeight: null,
     };
   }
 
@@ -188,8 +224,13 @@ function readVisualProofState(proofPath) {
     throw new Error(`Invalid visual proof JSON (${proofPath}): top-level object required.`);
   }
 
-  const screenshotRaw = String(parsed.image_url || parsed.url || "").trim();
+  const screenshotRaw = String(
+    parsed.screenshot_url || parsed.image_url || parsed.url || "",
+  ).trim();
   const screenshotUrl = isValidHttpUrl(screenshotRaw) ? screenshotRaw : null;
+  const imagePath = normalizeProofImagePath(
+    parsed?.image?.path || parsed.image_path || "",
+  );
 
   const sourceRaw = String(parsed.source_url || "").trim();
   const sourceUrl = isValidHttpUrl(sourceRaw) ? sourceRaw : null;
@@ -200,13 +241,27 @@ function readVisualProofState(proofPath) {
   return {
     exists: true,
     screenshotUrl,
+    imagePath,
     sourceUrl,
     nodeId,
+    capturedAt: normalizeOptionalIsoDate(parsed.captured_at),
+    imageSha256: String(parsed?.image?.sha256 || parsed.image_sha256 || "").trim() || null,
+    imageBytes: Number.isFinite(Number(parsed?.image?.bytes || parsed.image_bytes))
+      ? Number(parsed?.image?.bytes || parsed.image_bytes)
+      : null,
+    imageContentType:
+      String(parsed?.image?.content_type || parsed.image_content_type || "").trim() || null,
+    imageWidth: Number.isFinite(Number(parsed?.image?.width || parsed.image_width))
+      ? Number(parsed?.image?.width || parsed.image_width)
+      : null,
+    imageHeight: Number.isFinite(Number(parsed?.image?.height || parsed.image_height))
+      ? Number(parsed?.image?.height || parsed.image_height)
+      : null,
   };
 }
 
 function inferPipelineStage({ spec, doc, render, visualProof }) {
-  if (visualProof.exists && visualProof.screenshotUrl) return "visual-proof";
+  if (visualProof.exists && hasVisualProofAsset(visualProof)) return "visual-proof";
   if (render.exists) return "render";
   if (doc.exists) return "markdown";
   if (spec.exists) return "spec";
@@ -254,7 +309,7 @@ function buildComponentEntry({ slug, specsDir, docsDir, proofsDir, renderDir }) 
   const readyForPublish =
     spec.status === "ready" &&
     doc.status === "ready" &&
-    Boolean(visualProof.screenshotUrl);
+    hasVisualProofAsset(visualProof);
 
   const entry = {
     slug,
@@ -287,6 +342,14 @@ function buildComponentEntry({ slug, specsDir, docsDir, proofsDir, renderDir }) 
     visual_proof: {
       exists: visualProof.exists,
       screenshot_url: visualProof.screenshotUrl,
+      image_path: visualProof.imagePath,
+      captured_at: visualProof.capturedAt,
+      node_id: visualProof.nodeId,
+      image_sha256: visualProof.imageSha256,
+      image_bytes: visualProof.imageBytes,
+      image_content_type: visualProof.imageContentType,
+      image_width: visualProof.imageWidth,
+      image_height: visualProof.imageHeight,
     },
     pipeline_stage: stage,
     ready_for_publish: readyForPublish,
@@ -317,7 +380,10 @@ function buildSummary(components) {
     with_render_payload: components.filter((component) => component.render.exists)
       .length,
     with_visual_proof: components.filter(
-      (component) => component.visual_proof.exists && component.visual_proof.screenshot_url,
+      (component) =>
+        component.visual_proof.exists &&
+        (component.visual_proof.screenshot_url ||
+          component.visual_proof.image_path),
     ).length,
     ready_for_publish: components.filter((component) => component.ready_for_publish)
       .length,

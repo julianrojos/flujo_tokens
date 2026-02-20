@@ -27,11 +27,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "ead812a607aafe36c682203a3354aca1f6ffa3a7e18b6b61ad0caa71e39b2b35"
+      "fingerprint_sha256": "dbbf736e2d7a3b570a665254d440876278a059eeb952658a5edb43ae1f7aa9b0"
     },
     {
       "slug": "avatar",
@@ -59,11 +67,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "40db745a5a4f02d86082ac1eada2f2a760d66dd86f8a0b8eff0256c4ffe19c18"
+      "fingerprint_sha256": "e894cc55abce4325bd4749923aee3b081f1a6500dfe4df3f5dfd5eab6d18c1f9"
     },
     {
       "slug": "bottom_bar",
@@ -91,11 +107,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "6d64fb8aeee5d9819547f6bd953940ce3f8170c7e708d3b15114e3283843ae6f"
+      "fingerprint_sha256": "46fca853e7536859c53574076f59c9af9142f0f346ca8646e708d1587d908f86"
     },
     {
       "slug": "bottom_bar_button",
@@ -123,11 +147,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "5c562bf3b01eaabb2abc18446ffbc33c2999c292634aa9954bc0faf5d1c0ed16"
+      "fingerprint_sha256": "1b8f027efe4fbdf6280fbf2843614ddc99065a4b9c9e3d32873e874da4095dd7"
     },
     {
       "slug": "button",
@@ -155,11 +187,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "574ad0bd9894ff2f8b0ded952430d0accc6bde2a4960fa9531cb55b2bae4712c"
+      "fingerprint_sha256": "155dbd32166abcbca5841999f3b68989ea421a9fea7aa026367953059921f0d8"
     },
     {
       "slug": "checkbox",
@@ -187,11 +227,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "5c6387b7af7a7acf84e58b4849426ff97c54bf72b89727920bed3322140f3d6d"
+      "fingerprint_sha256": "f147b520b840713a956560999b59184ede4af50aaf18c4b447b2c03247789876"
     },
     {
       "slug": "checkbox_label",
@@ -219,11 +267,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "62cc7e984fc53a0f5ba594b61703c195f2e1e3463ab521e2f14cc57119f9ca2e"
+      "fingerprint_sha256": "c1c70f44b7f0ef3051214800031da7440c67f3f6c4b42c47c644d4502e752917"
     },
     {
       "slug": "checkbox_label_list",
@@ -251,11 +307,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "136571df1228ea4013a11b2a4bbdf70820661438b1a3f70c3b0de39e5597a2d4"
+      "fingerprint_sha256": "4f719ab3804e31511a23b6fe3127079ea1694cb80b479a8d2f36f4f9751353a2"
     },
     {
       "slug": "image",
@@ -283,11 +347,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "4f72c626ae23c4a35685a4bd15f84ea7f5ccc28f04807a5ee9da85126d802304"
+      "fingerprint_sha256": "a076f9c8804487baa3fac76a03a57b957044a3715cf84bf7567a72ec7ec0e2ae"
     },
     {
       "slug": "percentage_pie_graph",
@@ -315,11 +387,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "607e437370bbabd074c2e298798e10117fa3dee51ecc6fed8fc868f84611972e"
+      "fingerprint_sha256": "9d93e3e71902aa1a34472431a857b3605de13ea7228d8566c7783f0a3348ab87"
     },
     {
       "slug": "radio_button",
@@ -347,11 +427,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "acb4422e74aac09bd7cdf057748c8b8079a15a734fa7bf09c8fec45f67b504a5"
+      "fingerprint_sha256": "f9ec9dc3a909d83b06e5301b6d73b6c24d11e29c1ced5780052ed2e4fd8bc471"
     },
     {
       "slug": "radio_button_label",
@@ -379,11 +467,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "8ec11a8a08c6fc5793a475b721f814e3eb7b209e72c1a7d351efd37e1f925786"
+      "fingerprint_sha256": "e2301db622fb9e5fb7009b86011890325187d1963b594917d378f4dfa45194bb"
     },
     {
       "slug": "radio_button_list",
@@ -411,11 +507,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "3c7da7d7f4c95130b6bf79b30f7eeaebe6ea2c8f6ee82c867ea765da5028a1cd"
+      "fingerprint_sha256": "b3d621059e50579c0b7d693dc4197b2093401d640d954df7f3f55214d4054838"
     },
     {
       "slug": "status_bar",
@@ -443,11 +547,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "58d9932533d6d839d24bb087791a50e1b150e5ce729bdb298d8c29e23d767f24"
+      "fingerprint_sha256": "8f1c8ef9a6fe14bb502692b3144dcd1fa3b9dda3690b5e0071bedaa30532f69e"
     },
     {
       "slug": "step",
@@ -475,11 +587,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "8886016019fbc74408770a24dd51ffc51f2a4e0149ef0f5b15654252dbba4f7e"
+      "fingerprint_sha256": "b1f6596eccaf75209870eac8f2d21891de1394a05fd15d1f4998498e39fc1c4b"
     },
     {
       "slug": "stepper",
@@ -507,11 +627,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "a40b246d29fc95fd46afed5b797a632bbd1d9f0301d329019d8c1c05439209b9"
+      "fingerprint_sha256": "387e79d079e68b14451e5ffe4bc3abe0652569d5538aa32d23e8bbfae7ab380e"
     },
     {
       "slug": "tag",
@@ -539,11 +667,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "ccec040ef07dbb7f0212e65cff1556fc63ccd45fb0f1995c6cc040e6c98d79a1"
+      "fingerprint_sha256": "03c36f18140a72012a545a2c6d53bd4eb0793d853ca42a81a45f1e6b49812364"
     },
     {
       "slug": "tags_list",
@@ -571,11 +707,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "7410c24416831a5ae38b5ada31d9f3e691cff6861fd43520af0fc220b4855dbf"
+      "fingerprint_sha256": "1583f7ef6547ef016c3cf6eda7a4afbf2eec3ae283d4142fae239a05e349ac03"
     },
     {
       "slug": "text_area",
@@ -603,11 +747,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "445e05de2d28c907cdb1aa3082027fbd83696de3ce536007f90711364405e9e6"
+      "fingerprint_sha256": "73064cbe66e57e2198c8bf44e9af646aae6d9184319274eb6a528a09bd7abfed"
     },
     {
       "slug": "text_input",
@@ -635,11 +787,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "50871622a69c3bd99303acbaa99fd34d5e80b37c75b8e48a55098056be9bc12f"
+      "fingerprint_sha256": "7b1ff8221135abc72aeff18a5887fc2d8f27ba5b21dbc2b25fd6017a768c5a4a"
     },
     {
       "slug": "topbar",
@@ -667,11 +827,19 @@
       },
       "visual_proof": {
         "exists": false,
-        "screenshot_url": null
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null
       },
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
-      "fingerprint_sha256": "d756bd267034a431e81a2e963a2e73c673b95be488ffbcd47925ba63d8b2921a"
+      "fingerprint_sha256": "cda3645e9c6d8ad3ab9388bf1ecd942af485a2806488aa977aaedbc8808cefc1"
     }
   ],
   "summary": {
@@ -689,5 +857,5 @@
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "0e916c0e1c3a366496f116efb6cd9fbfb8598303f7e14351bd25e1c27a169cf4"
+  "fingerprint_sha256": "879ef8e0a1d3ac4ff09a362c80b74993edaf416d39c5818105e1ee1e68f613c5"
 }

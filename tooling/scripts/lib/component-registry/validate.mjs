@@ -12,7 +12,10 @@ const STATUS_DOC_RE = /^(?:missing|unknown|draft|ready|needs-review)$/;
 const HASH_RE = /^[a-f0-9]{64}$/i;
 
 function expectedStage(component) {
-  if (component.visual_proof.exists && component.visual_proof.screenshot_url) {
+  if (
+    component.visual_proof.exists &&
+    (component.visual_proof.screenshot_url || component.visual_proof.image_path)
+  ) {
     return "visual-proof";
   }
   if (component.render.exists) return "render";
@@ -34,6 +37,11 @@ function validatePathShape(pathValue, expectedSuffix) {
   const value = String(pathValue || "");
   if (!value.startsWith("docs/")) return false;
   return value.endsWith(expectedSuffix);
+}
+
+function isDocsRelativePath(value) {
+  const normalized = String(value || "").trim();
+  return Boolean(normalized) && normalized.startsWith("docs/");
 }
 
 function pushError(errors, code, message, jsonPath) {
@@ -190,6 +198,19 @@ export function validateComponentRegistry(registry) {
           `${prefix}.visual_proof.screenshot_url`,
         );
       }
+      const imagePath = component.visual_proof.image_path;
+      if (
+        imagePath !== null &&
+        imagePath !== undefined &&
+        !isDocsRelativePath(imagePath)
+      ) {
+        pushError(
+          errors,
+          "COMPONENT_PROOF_IMAGE_PATH",
+          "visual_proof.image_path must be null or a docs-relative path.",
+          `${prefix}.visual_proof.image_path`,
+        );
+      }
     }
 
     const stage = String(component.pipeline_stage || "");
@@ -218,7 +239,10 @@ export function validateComponentRegistry(registry) {
       const expectedReady =
         component.spec?.status === "ready" &&
         component.doc?.status === "ready" &&
-        Boolean(component.visual_proof?.screenshot_url);
+        Boolean(
+          component.visual_proof?.screenshot_url ||
+            component.visual_proof?.image_path,
+        );
       if (component.ready_for_publish !== expectedReady) {
         pushError(
           errors,
@@ -272,7 +296,10 @@ export function validateComponentRegistry(registry) {
       with_doc: components.filter((component) => component.doc?.exists).length,
       with_render_payload: components.filter((component) => component.render?.exists).length,
       with_visual_proof: components.filter(
-        (component) => component.visual_proof?.exists && component.visual_proof?.screenshot_url,
+        (component) =>
+          component.visual_proof?.exists &&
+          (component.visual_proof?.screenshot_url ||
+            component.visual_proof?.image_path),
       ).length,
       ready_for_publish: components.filter((component) => component.ready_for_publish).length,
       by_pipeline_stage: countByStage(components),

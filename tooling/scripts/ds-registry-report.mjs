@@ -114,7 +114,11 @@ function toYesNo(value) {
 }
 
 function hasVisualProof(component) {
-  return Boolean(component.visual_proof?.exists && component.visual_proof?.screenshot_url);
+  return Boolean(
+    component.visual_proof?.exists &&
+      (component.visual_proof?.screenshot_url ||
+        component.visual_proof?.image_path),
+  );
 }
 
 function computeCoverage(component) {

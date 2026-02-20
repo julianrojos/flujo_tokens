@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -64,6 +65,29 @@ const USAGE = {
       defaultValue: "docs/_generated/visual-proofs",
     },
     {
+      name: "--proof-image-dir <path>",
+      description:
+        "Output directory for local visual proof images.",
+      defaultValue: "docs/_generated/visual-proofs/images",
+    },
+    {
+      name: "--store-local-image <true|false>",
+      description:
+        "Download screenshot URL and persist a local image for deterministic dashboard rendering.",
+      defaultValue: "true",
+    },
+    {
+      name: "--require-local-image <true|false>",
+      description:
+        "Fail when local image persistence fails.",
+      defaultValue: "true",
+    },
+    {
+      name: "--download-timeout-ms <number>",
+      description: "Timeout for screenshot URL download in milliseconds.",
+      defaultValue: "30000",
+    },
+    {
       name: "--dry-run <true|false>",
       description: "Report changes without writing files.",
       defaultValue: "false",
@@ -77,6 +101,158 @@ const USAGE = {
 
 function isValidNodeId(value) {
   return NODE_ID_RE.test(String(value || "").trim());
+}
+
+function parseBooleanOption(rawValue, optionName, fallback = false) {
+  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  throw new Error(`Invalid ${optionName} value: ${rawValue}. Allowed: true, false.`);
+}
+
+function parsePositiveInteger(rawValue, optionName, fallback) {
+  const parsed = Number(rawValue ?? fallback);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(
+      `Invalid ${optionName} value: ${rawValue}. Expected a positive number.`,
+    );
+  }
+  return Math.floor(parsed);
+}
+
+function writeBufferAtomic(filePath, data) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tempPath, data);
+  fs.renameSync(tempPath, filePath);
+}
+
+function writeTextAtomic(filePath, content) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tempPath, content, "utf8");
+  fs.renameSync(tempPath, filePath);
+}
+
+function sha256Hex(buffer) {
+  return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+
+function contentTypeToExtension(contentType) {
+  const value = String(contentType || "").trim().toLowerCase();
+  if (value.includes("image/png")) return "png";
+  if (value.includes("image/jpeg")) return "jpg";
+  if (value.includes("image/webp")) return "webp";
+  if (value.includes("image/svg+xml")) return "svg";
+  if (value.includes("application/pdf")) return "pdf";
+  return "";
+}
+
+function normalizeImageExtension(format, contentType, imageUrl) {
+  const byContentType = contentTypeToExtension(contentType);
+  if (byContentType) return byContentType;
+
+  const byFormat = String(format || "").trim().toLowerCase();
+  if (["png", "jpg", "jpeg", "webp", "svg", "pdf"].includes(byFormat)) {
+    return byFormat === "jpeg" ? "jpg" : byFormat;
+  }
+
+  let pathname = "";
+  try {
+    pathname = new URL(String(imageUrl || "")).pathname;
+  } catch {
+    pathname = "";
+  }
+  const ext = path.extname(pathname).replace(/^\./, "").toLowerCase();
+  if (["png", "jpg", "jpeg", "webp", "svg", "pdf"].includes(ext)) {
+    return ext === "jpeg" ? "jpg" : ext;
+  }
+
+  return "png";
+}
+
+function extractImageDimensions(buffer, extension) {
+  const ext = String(extension || "").toLowerCase();
+
+  if (ext === "png" && buffer.length >= 24) {
+    const signature = buffer.subarray(0, 8);
+    const expected = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    if (signature.equals(expected)) {
+      const width = buffer.readUInt32BE(16);
+      const height = buffer.readUInt32BE(20);
+      if (width > 0 && height > 0) return { width, height };
+    }
+    return { width: null, height: null };
+  }
+
+  if ((ext === "jpg" || ext === "jpeg") && buffer.length >= 4) {
+    if (buffer[0] !== 0xff || buffer[1] !== 0xd8) {
+      return { width: null, height: null };
+    }
+
+    let offset = 2;
+    while (offset + 9 < buffer.length) {
+      if (buffer[offset] !== 0xff) {
+        offset += 1;
+        continue;
+      }
+      const marker = buffer[offset + 1];
+      if (marker === 0xd8 || marker === 0xd9) {
+        offset += 2;
+        continue;
+      }
+      const segmentLength = buffer.readUInt16BE(offset + 2);
+      if (segmentLength < 2) break;
+
+      const isSof =
+        (marker >= 0xc0 && marker <= 0xc3) ||
+        (marker >= 0xc5 && marker <= 0xc7) ||
+        (marker >= 0xc9 && marker <= 0xcb) ||
+        (marker >= 0xcd && marker <= 0xcf);
+
+      if (isSof && offset + 8 < buffer.length) {
+        const height = buffer.readUInt16BE(offset + 5);
+        const width = buffer.readUInt16BE(offset + 7);
+        if (width > 0 && height > 0) return { width, height };
+        break;
+      }
+
+      offset += 2 + segmentLength;
+    }
+  }
+
+  return { width: null, height: null };
+}
+
+async function downloadBinary(url, timeoutMs) {
+  if (typeof fetch !== "function") {
+    throw new Error("Global fetch is unavailable. Use Node.js 18+.");
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { Accept: "*/*" },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} ${response.statusText}`);
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return {
+      buffer: Buffer.from(arrayBuffer),
+      contentType: String(response.headers.get("content-type") || "").trim(),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (String(message).toLowerCase().includes("abort")) {
+      throw new Error(`Download timed out after ${timeoutMs}ms.`);
+    }
+    throw new Error(message);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function splitFrontmatter(rawMarkdown) {
@@ -275,7 +451,7 @@ function buildCapturePrompt({
     .join("\n");
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (String(args.help || "false") === "true") {
     printUsage(USAGE, { exitCode: 0 });
@@ -320,11 +496,30 @@ function main() {
   const proofDir = path.resolve(
     args["proof-dir"] || path.join(docsRootDir, "_generated", "visual-proofs"),
   );
+  const proofImageDir = path.resolve(
+    args["proof-image-dir"] ||
+      path.join(docsRootDir, "_generated", "visual-proofs", "images"),
+  );
   const format = String(args.format || "png").trim().toLowerCase();
   const scale = Number(args.scale || 2);
   const figmaUrl = String(args.url || "").trim();
   const agent = String(args.agent || process.env.DS_AGENT || "auto");
-  const dryRun = String(args["dry-run"] || "false") === "true";
+  const dryRun = parseBooleanOption(args["dry-run"], "--dry-run", false);
+  const storeLocalImage = parseBooleanOption(
+    args["store-local-image"],
+    "--store-local-image",
+    true,
+  );
+  const requireLocalImage = parseBooleanOption(
+    args["require-local-image"],
+    "--require-local-image",
+    true,
+  );
+  const downloadTimeoutMs = parsePositiveInteger(
+    args["download-timeout-ms"],
+    "--download-timeout-ms",
+    30000,
+  );
 
   if (!fs.existsSync(markdownPath)) {
     console.error(`Markdown file not found: ${markdownPath}`);
@@ -392,10 +587,68 @@ function main() {
     proofDir,
     `${componentSlug || "component"}.json`,
   );
-  const artifactPathForMarkdown = path.relative(
-    path.dirname(markdownPath),
-    proofFilePath,
-  ) || path.basename(proofFilePath);
+  const localImageInfo = {
+    path: null,
+    sha256: null,
+    bytes: null,
+    contentType: null,
+    width: null,
+    height: null,
+  };
+
+  if (storeLocalImage) {
+    try {
+      const downloaded = await downloadBinary(imageUrlRaw, downloadTimeoutMs);
+      const extension = normalizeImageExtension(
+        format,
+        downloaded.contentType,
+        imageUrlRaw,
+      );
+      const localImagePath = path.join(
+        proofImageDir,
+        `${componentSlug || "component"}.${extension}`,
+      );
+      const dimensions = extractImageDimensions(downloaded.buffer, extension);
+
+      if (!dryRun) {
+        writeBufferAtomic(localImagePath, downloaded.buffer);
+      }
+
+      localImageInfo.path = localImagePath;
+      localImageInfo.sha256 = sha256Hex(downloaded.buffer);
+      localImageInfo.bytes = downloaded.buffer.byteLength;
+      localImageInfo.contentType =
+        downloaded.contentType || `image/${extension}`;
+      localImageInfo.width = dimensions.width;
+      localImageInfo.height = dimensions.height;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      if (requireLocalImage) {
+        console.error(
+          `Unable to persist local visual proof image: ${reason}`,
+        );
+        process.exit(1);
+      }
+      console.warn(
+        `Warning: local visual proof image was not stored (${reason}).`,
+      );
+    }
+  }
+
+  const artifactPathForMarkdown =
+    (
+      path.relative(path.dirname(markdownPath), proofFilePath) ||
+      path.basename(proofFilePath)
+    ).split(path.sep).join("/");
+  const localImagePathForMarkdown = localImageInfo.path
+    ? (
+        path.relative(path.dirname(markdownPath), localImageInfo.path) ||
+        path.basename(localImageInfo.path)
+      ).split(path.sep).join("/")
+    : "";
+  const localImagePathForJson = localImageInfo.path
+    ? path.relative(docsRootDir, localImageInfo.path).split(path.sep).join("/")
+    : null;
 
   const proofPayload = {
     component: componentSlug || path.basename(markdownPath, path.extname(markdownPath)),
@@ -405,9 +658,24 @@ function main() {
     node_id: normalizedNodeId,
     format,
     scale,
+    screenshot_url: imageUrlRaw,
     image_url: imageUrlRaw,
+    image_path: localImagePathForJson,
+    image_sha256: localImageInfo.sha256,
+    image_bytes: localImageInfo.bytes,
+    image_content_type: localImageInfo.contentType,
+    image_width: localImageInfo.width,
+    image_height: localImageInfo.height,
     captured_at: capturedAt,
     captured_with: "figma_take_screenshot",
+    image: {
+      path: localImagePathForJson,
+      sha256: localImageInfo.sha256,
+      bytes: localImageInfo.bytes,
+      content_type: localImageInfo.contentType,
+      width: localImageInfo.width,
+      height: localImageInfo.height,
+    },
   };
 
   const rawMarkdown = fs.readFileSync(markdownPath, "utf8");
@@ -416,8 +684,14 @@ function main() {
   const visualSectionLines = [
     "### Visual Proof",
     "",
+    ...(localImagePathForMarkdown
+      ? [`![Visual proof snapshot](${localImagePathForMarkdown})`, ""]
+      : []),
     `- Screenshot: [Captured (${capturedDate})](${imageUrlRaw})`,
     `- Source node: \`${normalizedNodeId}\``,
+    ...(localImageInfo.sha256
+      ? [`- Image hash: \`${localImageInfo.sha256}\``]
+      : []),
     `- Artifact: \`${artifactPathForMarkdown}\``,
   ];
 
@@ -431,18 +705,16 @@ function main() {
 
   if (!dryRun) {
     fs.mkdirSync(proofDir, { recursive: true });
-    fs.writeFileSync(
+    writeTextAtomic(
       proofFilePath,
       `${JSON.stringify(proofPayload, null, 2)}\n`,
-      "utf8",
     );
     const markdownPrefix = frontmatterRaw
       ? `${frontmatterRaw}\n`
       : "";
-    fs.writeFileSync(
+    writeTextAtomic(
       markdownPath,
       `${markdownPrefix}${nextContent.replace(/^\n+/, "")}`,
-      "utf8",
     );
     syncDocumentationIndices({
       docsDir: componentDocsDir,
@@ -461,12 +733,17 @@ function main() {
     markdownPath,
     specPath,
     proofFilePath,
+    localImagePath: localImageInfo.path,
     screenshotUrl: imageUrlRaw,
     nodeId: normalizedNodeId,
     format,
     scale,
+    imageSha256: localImageInfo.sha256,
   };
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
 
-main();
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

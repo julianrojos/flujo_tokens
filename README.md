@@ -216,9 +216,9 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
-- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
+- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata JSON + local image) by default. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
-- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, and upserts `### Visual Proof` inside `## Overview`.
+- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, stores a local proof image under `docs/_generated/visual-proofs/images/`, and upserts `### Visual Proof` inside `## Overview` (including local image preview, screenshot URL, node id, and artifact link).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
 - **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec/render/proof status.
 - **`npm run ds:registry:refresh`**: Atomically refreshes `docs/_generated/component-registry.json` and `docs/components/overview.md` together (rollback on failure).
@@ -234,7 +234,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
   - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
   - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
-  - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, no unresolved discrepancy rows, and concrete `### Visual Proof` screenshot URL).
+  - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, no unresolved discrepancy rows, and concrete `### Visual Proof` screenshot reference: URL or local proof image).
 
 ### Documentation folders
 
@@ -242,6 +242,8 @@ This workflow documents Design System components from Figma and can also render 
 - `docs/_spec/`: documentation specs and visual theme contract
 - `docs/_generated/figma_doc_models/`: generated intermediate artifacts for markdown -> Figma rendering
 - `docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
+- `docs/_generated/visual-proofs/`: proof metadata (`<slug>.json`)
+- `docs/_generated/visual-proofs/images/`: local screenshot assets (`<slug>.png`, etc.)
 - `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
 - `docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
 - `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
@@ -378,6 +380,8 @@ Useful flags:
 - `--figma-token <token>` (or `FIGMA_TOKEN` env var; required for file URL discovery mode)
 - `--auto-component-map <true|false>` (default: `true`)
 - `--component-map-out <path/to/map.json>` (only for file URL discovery mode)
+- `--capture-proof <true|false>` (default: `true`)
+- `--capture-proof-strict <true|false>` (default: `false`)
 - `--allow-doc-status-change true` (exceptional override; requires `--force true`)
 - `--force true` (required when `--allow-doc-status-change true`)
 - `--agent <codex|claude|gemini>`
@@ -534,8 +538,12 @@ Useful flags:
 - `--spec-file <path/to/spec.yml>`
 - `--component-set-id <figma-node-id>` (override spec node id)
 - `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
+- `--proof-image-dir <path>` (default: `docs/_generated/visual-proofs/images`)
 - `--format <png|jpg|svg|pdf>`
 - `--scale <number>`
+- `--store-local-image <true|false>` (default: `true`)
+- `--require-local-image <true|false>` (default: `true`)
+- `--download-timeout-ms <number>` (default: `30000`)
 - `--dry-run true`
 
 ### 4c) Auto-mark stale docs as needs-review

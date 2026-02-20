@@ -103,6 +103,18 @@ const USAGE = {
       defaultValue: "false",
     },
     {
+      name: "--capture-proof <true|false>",
+      description:
+        "Capture visual proof automatically after markdown generation.",
+      defaultValue: "true",
+    },
+    {
+      name: "--capture-proof-strict <true|false>",
+      description:
+        "Fail when automatic visual proof capture fails.",
+      defaultValue: "false",
+    },
+    {
       name: "--force <true|false>",
       description: "Required when allowing doc_status changes.",
       defaultValue: "false",
@@ -246,6 +258,17 @@ async function main() {
     : componentSlug
       ? path.resolve(path.join(componentDocsDir, `${componentSlug}.md`))
       : "";
+  const outputSlug = componentSlug || path.basename(outputPath, path.extname(outputPath));
+  const captureProof = parseBooleanOption(
+    args["capture-proof"],
+    "--capture-proof",
+    true,
+  );
+  const captureProofStrict = parseBooleanOption(
+    args["capture-proof-strict"],
+    "--capture-proof-strict",
+    false,
+  );
 
   if (!outputPath) {
     console.error(
@@ -286,6 +309,16 @@ async function main() {
     "scripts",
     "ds-token-usage-index.mjs",
   );
+  const captureVisualProofScriptPath = path.join(
+    PROJECT_ROOT,
+    "tooling",
+    "scripts",
+    "ds-capture-visual-proof.mjs",
+  );
+  const visualProofDir = path.join(docsRootDir, "_generated", "visual-proofs");
+  const visualProofImageDir = path.join(visualProofDir, "images");
+  const visualProofPath = path.join(visualProofDir, `${outputSlug}.json`);
+  const visualProofImagePath = path.join(visualProofImageDir, `${outputSlug}.png`);
   const scopeSnapshot = captureScopedWriteSnapshot({
     directories: [componentDocsDir, specComponentsDir],
     files: [registryIndexPath, tokenUsageIndexPath],
@@ -297,6 +330,8 @@ async function main() {
     registryIndexPath,
     tokenUsageIndexPath,
     figmaMapOutPath,
+    visualProofPath,
+    visualProofImagePath,
   ];
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -419,11 +454,52 @@ async function main() {
       );
     }
 
+    if (captureProof) {
+      const nodeId = String(figmaFileDescriptor.nodeIdFromUrl || "").trim();
+      if (!nodeId) {
+        const message =
+          "Visual proof capture skipped: no node-id was resolved from the Figma URL.";
+        if (captureProofStrict) {
+          throw new Error(message);
+        }
+        console.warn(message);
+      } else {
+        try {
+          runOrThrow(process.execPath, [
+            captureVisualProofScriptPath,
+            "--markdown",
+            outputPath,
+            "--spec-file",
+            path.join(specComponentsDir, `${outputSlug}.yml`),
+            "--component-set-id",
+            nodeId,
+            "--proof-dir",
+            visualProofDir,
+            "--proof-image-dir",
+            visualProofImageDir,
+            "--format",
+            "png",
+            "--agent",
+            agent,
+            ...(figmaUrl ? ["--url", figmaUrl] : []),
+          ]);
+        } catch (error) {
+          const message = `Automatic visual proof capture failed: ${
+            error instanceof Error ? error.message : String(error)
+          }`;
+          if (captureProofStrict) {
+            throw new Error(message);
+          }
+          console.warn(message);
+        }
+      }
+    }
+
     syncDocumentationIndices({
       docsDir: componentDocsDir,
       overviewPath,
       specsDir: specComponentsDir,
-      proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
+      proofsDir: visualProofDir,
       renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
       registryPath: registryIndexPath,
     });
