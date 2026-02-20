@@ -7,6 +7,22 @@ export interface TokenUsageOccurrence {
   detail: string;
 }
 
+export interface TokenUsageUnresolvedRef {
+  kind: TokenUsageKind;
+  source: string;
+  owner: string;
+  keyPath: string;
+  tokenPath: string;
+  reason: string;
+  suggested: string | null;
+}
+
+export interface TokenUsageWarning {
+  kind: string;
+  source: string;
+  message: string;
+}
+
 export interface TokenUsageEntry {
   path: string;
   slashPath: string;
@@ -30,6 +46,8 @@ export interface TokenUsageIndexSummary {
 export interface TokenUsageIndex {
   ok: boolean;
   summary: TokenUsageIndexSummary;
+  warnings: TokenUsageWarning[];
+  unresolved: TokenUsageUnresolvedRef[];
   entries: TokenUsageEntry[];
   byPath: Record<string, TokenUsageEntry>;
   bySlashPath: Record<string, TokenUsageEntry>;

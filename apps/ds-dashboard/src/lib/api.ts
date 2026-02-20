@@ -6,6 +6,7 @@ import type { TokenUsageIndex } from "@/types/token-usage-index";
 import type { TokenGraphViz } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
 import type { ComponentsHealthReport } from "@/types/components-health";
+import type { TokenDiffReport } from "@/types/token-diff";
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -54,6 +55,11 @@ export function fetchTokenHealth() {
 
 export function fetchComponentsHealth() {
   return getJson<ComponentsHealthReport>("/api/components-health");
+}
+
+export function fetchTokenDiff(beforeRef: string) {
+  const params = new URLSearchParams({ beforeRef });
+  return getJson<TokenDiffReport>(`/api/token-diff?${params.toString()}`);
 }
 
 export interface ComponentSpecPayload {

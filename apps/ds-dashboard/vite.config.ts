@@ -111,6 +111,79 @@ function runNpmScript(args: {
   });
 }
 
+function validateGitRef(raw: string) {
+  const value = String(raw || "").trim();
+  if (!value) return null;
+  if (value.length > 140) return null;
+  if (value.includes(":")) return null;
+  if (/\s/.test(value)) return null;
+  if (!/^[A-Za-z0-9._/~-]+$/.test(value)) return null;
+  return value;
+}
+
+function runNodeJsonCommand(args: {
+  repoRoot: string;
+  res: {
+    statusCode: number;
+    setHeader: (name: string, value: string) => void;
+    end: (body: string | Buffer) => void;
+  };
+  commandLabel: string;
+  scriptPath: string;
+  scriptArgs: string[];
+}) {
+  const child = spawn("node", [args.scriptPath, ...args.scriptArgs], {
+    cwd: args.repoRoot,
+    shell: false,
+  });
+
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk) => {
+    stdout += String(chunk);
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+
+  child.on("error", (error) => {
+    sendJson(args.res, 500, {
+      ok: false,
+      command: args.commandLabel,
+      message: error instanceof Error ? error.message : String(error),
+      stdout: stdout.trim(),
+      stderr: stderr.trim(),
+    });
+  });
+
+  child.on("close", (code) => {
+    if (code !== 0) {
+      sendJson(args.res, 500, {
+        ok: false,
+        command: args.commandLabel,
+        code,
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+      });
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(stdout);
+      sendJson(args.res, 200, parsed);
+    } catch (error) {
+      sendJson(args.res, 500, {
+        ok: false,
+        command: args.commandLabel,
+        message: "Command returned invalid JSON.",
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+        parse_error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
+}
+
 function guessContentType(filePath: string) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".png") return "image/png";
@@ -471,6 +544,12 @@ function createLocalDataApi() {
     "_generated",
     "components-health.json",
   );
+  const tokenDiffScriptPath = path.join(
+    repoRoot,
+    "tooling",
+    "scripts",
+    "ds-token-diff.mjs",
+  );
 
   const middleware: Middleware = async (req, res, next) => {
     const method = String(req.method || "GET").toUpperCase();
@@ -528,6 +607,28 @@ function createLocalDataApi() {
       if (method === "GET" && url === "/api/components-health") {
         const raw = await fs.readFile(componentsHealthPath, "utf8");
         sendJson(res, 200, JSON.parse(raw));
+        return;
+      }
+
+      if (method === "GET" && url === "/api/token-diff") {
+        const beforeRefRaw = searchParams.get("beforeRef") ?? "HEAD~1";
+        const beforeRef = validateGitRef(beforeRefRaw);
+        if (!beforeRef) {
+          sendJson(res, 400, {
+            ok: false,
+            message:
+              "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ -",
+          });
+          return;
+        }
+
+        runNodeJsonCommand({
+          repoRoot,
+          res,
+          commandLabel: `node tooling/scripts/ds-token-diff.mjs --before-ref ${beforeRef} --format json`,
+          scriptPath: tokenDiffScriptPath,
+          scriptArgs: ["--before-ref", beforeRef, "--format", "json"],
+        });
         return;
       }
 
