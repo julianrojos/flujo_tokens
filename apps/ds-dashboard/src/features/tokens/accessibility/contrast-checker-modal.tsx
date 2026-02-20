@@ -24,6 +24,10 @@ interface ContrastCheckerModalProps {
   foregroundTokenPath: string;
   onBackgroundChange: (tokenPath: string) => void;
   onForegroundChange: (tokenPath: string) => void;
+  includePrimitivesBackground: boolean;
+  onIncludePrimitivesBackgroundChange: (value: boolean) => void;
+  includePrimitivesForeground: boolean;
+  onIncludePrimitivesForegroundChange: (value: boolean) => void;
   elementType: ElementType;
   onElementTypeChange: (elementType: ElementType) => void;
   textSize: TextSize;
@@ -48,6 +52,10 @@ export function ContrastCheckerModal({
   foregroundTokenPath,
   onBackgroundChange,
   onForegroundChange,
+  includePrimitivesBackground,
+  onIncludePrimitivesBackgroundChange,
+  includePrimitivesForeground,
+  onIncludePrimitivesForegroundChange,
   elementType,
   onElementTypeChange,
   textSize,
@@ -129,18 +137,44 @@ export function ContrastCheckerModal({
           </div>
 
           <div className="grid gap-4 p-5 md:grid-cols-2">
-            <ColorSelect
-              label="Background (Semantic)"
-              options={backgroundOptions}
-              value={backgroundTokenPath}
-              onChange={onBackgroundChange}
-            />
-            <ColorSelect
-              label="Foreground (Text/Icon Semantic)"
-              options={foregroundOptions}
-              value={foregroundTokenPath}
-              onChange={onForegroundChange}
-            />
+            <div>
+              <ColorSelect
+                label="Background (Semantic)"
+                options={backgroundOptions}
+                value={backgroundTokenPath}
+                onChange={onBackgroundChange}
+              />
+              <label className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border"
+                  checked={includePrimitivesBackground}
+                  onChange={(event) =>
+                    onIncludePrimitivesBackgroundChange(event.target.checked)
+                  }
+                />
+                Include primitive colors in background options
+              </label>
+            </div>
+            <div>
+              <ColorSelect
+                label="Foreground (Text/Icon Semantic)"
+                options={foregroundOptions}
+                value={foregroundTokenPath}
+                onChange={onForegroundChange}
+              />
+              <label className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border"
+                  checked={includePrimitivesForeground}
+                  onChange={(event) =>
+                    onIncludePrimitivesForegroundChange(event.target.checked)
+                  }
+                />
+                Include primitive colors in foreground options
+              </label>
+            </div>
 
             <div className="md:col-span-2">
               <ElementTypeSelector value={elementType} onChange={onElementTypeChange} />

@@ -91,6 +91,7 @@ export function buildSemanticColorOptions(entries: TokenEntry[]): {
   all: SemanticColorOption[];
   background: SemanticColorOption[];
   foreground: SemanticColorOption[];
+  primitives: SemanticColorOption[];
 } {
   const indexes = buildIndexes(entries);
   const semanticColorEntries = entries.filter(
@@ -125,5 +126,26 @@ export function buildSemanticColorOptions(entries: TokenEntry[]): {
     .filter((option) => option.category === "foreground" || option.category === "both")
     .sort(compareOptions);
 
-  return { all, background, foreground };
+  const primitiveColorEntries = entries.filter(
+    (entry) =>
+      String(entry.type || "").toLowerCase() === "color" &&
+      String(entry.collection || "").toLowerCase() === "primitives",
+  );
+
+  const primitives: SemanticColorOption[] = [];
+  for (const entry of primitiveColorEntries) {
+    const hexValue = resolveEntryToHex(entry, indexes);
+    if (!hexValue) continue;
+    primitives.push({
+      tokenPath: entry.path,
+      tokenSlashPath: entry.slashPath,
+      cssVar: entry.cssVar,
+      label: `Primitive · ${labelFor(entry)}`,
+      hexValue,
+      category: "both",
+    });
+  }
+  primitives.sort(compareOptions);
+
+  return { all, background, foreground, primitives };
 }

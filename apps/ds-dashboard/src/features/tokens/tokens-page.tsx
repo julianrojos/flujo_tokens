@@ -35,6 +35,14 @@ function resolveColorSwatch(value: string): string | null {
   return null;
 }
 
+function dedupeColorOptionsByPath<T extends { tokenPath: string }>(items: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const item of items) {
+    if (!map.has(item.tokenPath)) map.set(item.tokenPath, item);
+  }
+  return Array.from(map.values());
+}
+
 export function TokensPage() {
   const [entries, setEntries] = useState<TokenEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
@@ -121,6 +129,32 @@ export function TokensPage() {
     () => buildSemanticColorOptions(entries),
     [entries],
   );
+  const backgroundColorOptions = useMemo(() => {
+    if (!contrastChecker.includePrimitivesBackground) {
+      return semanticColorOptions.background;
+    }
+    return dedupeColorOptionsByPath([
+      ...semanticColorOptions.background,
+      ...semanticColorOptions.primitives,
+    ]);
+  }, [
+    contrastChecker.includePrimitivesBackground,
+    semanticColorOptions.background,
+    semanticColorOptions.primitives,
+  ]);
+  const foregroundColorOptions = useMemo(() => {
+    if (!contrastChecker.includePrimitivesForeground) {
+      return semanticColorOptions.foreground;
+    }
+    return dedupeColorOptionsByPath([
+      ...semanticColorOptions.foreground,
+      ...semanticColorOptions.primitives,
+    ]);
+  }, [
+    contrastChecker.includePrimitivesForeground,
+    semanticColorOptions.foreground,
+    semanticColorOptions.primitives,
+  ]);
 
   const showAccessibilityButton = type === "color";
 
@@ -132,25 +166,25 @@ export function TokensPage() {
 
   useEffect(() => {
     contrastChecker.syncWithOptions(
-      semanticColorOptions.background,
-      semanticColorOptions.foreground,
+      backgroundColorOptions,
+      foregroundColorOptions,
     );
   }, [
-    semanticColorOptions.background,
-    semanticColorOptions.foreground,
+    backgroundColorOptions,
+    foregroundColorOptions,
     contrastChecker.syncWithOptions,
   ]);
 
   const contrastResult = useMemo(
     () =>
       contrastChecker.buildResult(
-        semanticColorOptions.background,
-        semanticColorOptions.foreground,
+        backgroundColorOptions,
+        foregroundColorOptions,
       ),
     [
       contrastChecker.buildResult,
-      semanticColorOptions.background,
-      semanticColorOptions.foreground,
+      backgroundColorOptions,
+      foregroundColorOptions,
     ],
   );
 
@@ -237,8 +271,8 @@ export function TokensPage() {
               <Button
                 variant="outline"
                 disabled={
-                  semanticColorOptions.background.length === 0 ||
-                  semanticColorOptions.foreground.length === 0
+                  backgroundColorOptions.length === 0 ||
+                  foregroundColorOptions.length === 0
                 }
                 title="Open color accessibility checker"
                 aria-label="Open color accessibility checker"
@@ -357,12 +391,20 @@ export function TokensPage() {
       <ContrastCheckerModal
         open={contrastChecker.isOpen}
         onClose={() => contrastChecker.setIsOpen(false)}
-        backgroundOptions={semanticColorOptions.background}
-        foregroundOptions={semanticColorOptions.foreground}
+        backgroundOptions={backgroundColorOptions}
+        foregroundOptions={foregroundColorOptions}
         backgroundTokenPath={contrastChecker.backgroundTokenPath}
         foregroundTokenPath={contrastChecker.foregroundTokenPath}
         onBackgroundChange={contrastChecker.setBackgroundTokenPath}
         onForegroundChange={contrastChecker.setForegroundTokenPath}
+        includePrimitivesBackground={contrastChecker.includePrimitivesBackground}
+        onIncludePrimitivesBackgroundChange={
+          contrastChecker.setIncludePrimitivesBackground
+        }
+        includePrimitivesForeground={contrastChecker.includePrimitivesForeground}
+        onIncludePrimitivesForegroundChange={
+          contrastChecker.setIncludePrimitivesForeground
+        }
         elementType={contrastChecker.elementType}
         onElementTypeChange={contrastChecker.setElementType}
         textSize={contrastChecker.textSize}

@@ -15,12 +15,16 @@ export function useContrastChecker() {
   const [isOpen, setIsOpen] = useState(false);
   const [backgroundTokenPath, setBackgroundTokenPath] = useState("");
   const [foregroundTokenPath, setForegroundTokenPath] = useState("");
+  const [includePrimitivesBackground, setIncludePrimitivesBackground] = useState(false);
+  const [includePrimitivesForeground, setIncludePrimitivesForeground] = useState(false);
   const [elementType, setElementType] = useState<ElementType>(null);
   const [textSize, setTextSize] = useState<TextSize>("normal");
 
   const reset = useCallback(() => {
     setBackgroundTokenPath("");
     setForegroundTokenPath("");
+    setIncludePrimitivesBackground(false);
+    setIncludePrimitivesForeground(false);
     setElementType(null);
     setTextSize("normal");
   }, []);
@@ -66,6 +70,10 @@ export function useContrastChecker() {
     setBackgroundTokenPath,
     foregroundTokenPath,
     setForegroundTokenPath,
+    includePrimitivesBackground,
+    setIncludePrimitivesBackground,
+    includePrimitivesForeground,
+    setIncludePrimitivesForeground,
     elementType,
     setElementType,
     textSize,
