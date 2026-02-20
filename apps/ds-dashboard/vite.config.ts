@@ -10,7 +10,12 @@ import { computeImpactReport } from "./src/lib/impact";
 import type { ImpactWcagPairConfig } from "./src/types/impact";
 
 type Middleware = (
-  req: { method?: string; url?: string },
+  req: {
+    method?: string;
+    url?: string;
+    headers?: Record<string, string | string[] | undefined>;
+    on: (event: string, listener: (chunk?: Buffer | string) => void) => void;
+  },
   res: {
     statusCode: number;
     setHeader: (name: string, value: string) => void;
@@ -50,6 +55,66 @@ function sendJson(
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));
+}
+
+async function readJsonBody(req: {
+  on: (event: string, listener: (chunk?: Buffer | string) => void) => void;
+}) {
+  const chunks: Buffer[] = [];
+  return await new Promise<Record<string, unknown>>((resolve, reject) => {
+    req.on("data", (chunk) => {
+      if (!chunk) return;
+      const nextChunk = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+      chunks.push(nextChunk);
+      const size = chunks.reduce((sum, item) => sum + item.byteLength, 0);
+      if (size > 1_000_000) {
+        reject(new Error("Request body too large."));
+      }
+    });
+    req.on("end", () => {
+      if (chunks.length === 0) {
+        resolve({});
+        return;
+      }
+      const raw = Buffer.concat(chunks).toString("utf8").trim();
+      if (!raw) {
+        resolve({});
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          reject(new Error("Expected JSON object body."));
+          return;
+        }
+        resolve(parsed as Record<string, unknown>);
+      } catch (error) {
+        reject(
+          new Error(
+            `Invalid JSON body: ${error instanceof Error ? error.message : String(error)}`,
+          ),
+        );
+      }
+    });
+    req.on("error", (error) => {
+      reject(error instanceof Error ? error : new Error(String(error)));
+    });
+  });
+}
+
+function toBooleanString(value: unknown, fallback: boolean) {
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "false") return normalized;
+  }
+  return fallback ? "true" : "false";
+}
+
+function toNumberString(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return String(fallback);
+  return String(parsed);
 }
 
 function runNpmScript(args: {
@@ -576,6 +641,12 @@ function createLocalDataApi() {
     "scripts",
     "ds-token-diff.mjs",
   );
+  const captureFromFigmaUrlScriptPath = path.join(
+    repoRoot,
+    "tooling",
+    "scripts",
+    "ds-capture-from-figma-url.mjs",
+  );
 
   const middleware: Middleware = async (req, res, next) => {
     const method = String(req.method || "GET").toUpperCase();
@@ -872,6 +943,88 @@ function createLocalDataApi() {
 
       if (method === "POST" && url === "/api/refresh-components-health") {
         runNpmScript({ repoRoot, res, script: "ds:registry:report" });
+        return;
+      }
+
+      if (method === "POST" && url === "/api/capture-figma-screenshot") {
+        const body = await readJsonBody(req);
+        const figmaUrl = String(body.figmaUrl ?? body.url ?? "").trim();
+        if (!figmaUrl) {
+          sendJson(res, 400, {
+            ok: false,
+            message: "figmaUrl is required in request body.",
+          });
+          return;
+        }
+
+        let parsedUrl: URL;
+        try {
+          parsedUrl = new URL(figmaUrl);
+        } catch {
+          sendJson(res, 400, { ok: false, message: "Invalid figmaUrl." });
+          return;
+        }
+        const host = String(parsedUrl.hostname || "").toLowerCase();
+        if (!host.endsWith("figma.com")) {
+          sendJson(res, 400, {
+            ok: false,
+            message: `URL host is not figma.com: ${host}`,
+          });
+          return;
+        }
+
+        const componentSlug = String(body.componentSlug ?? "").trim().toLowerCase();
+        const includeVariants = toBooleanString(body.includeVariants, true);
+        const requireExistingDoc = toBooleanString(body.requireExistingDoc, true);
+        const continueOnError = toBooleanString(body.continueOnError, true);
+        const refreshIndices = toBooleanString(body.refreshIndices, true);
+        const dryRun = toBooleanString(body.dryRun, false);
+        const variantLimit = toNumberString(body.variantLimit, 6);
+        const scale = toNumberString(body.scale, 2);
+        const format = String(body.format ?? "png").trim().toLowerCase() || "png";
+        const mainCaptureMode =
+          String(body.mainCaptureMode ?? "rest").trim().toLowerCase() || "rest";
+        const componentKind =
+          String(body.componentKind ?? "component_set")
+            .trim()
+            .toLowerCase() || "component_set";
+        const commandArgs = [
+          "--url",
+          figmaUrl,
+          "--include-variants",
+          includeVariants,
+          "--variant-limit",
+          variantLimit,
+          "--require-existing-doc",
+          requireExistingDoc,
+          "--continue-on-error",
+          continueOnError,
+          "--refresh-indices",
+          refreshIndices,
+          "--dry-run",
+          dryRun,
+          "--scale",
+          scale,
+          "--format",
+          format,
+          "--main-capture-mode",
+          mainCaptureMode,
+          "--component-kind",
+          componentKind,
+        ];
+        if (componentSlug) {
+          commandArgs.push("--component-slug", componentSlug);
+        }
+
+        runNodeJsonCommand({
+          repoRoot,
+          res,
+          commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${commandArgs.join(
+            " ",
+          )}`,
+          scriptPath: captureFromFigmaUrlScriptPath,
+          scriptArgs: commandArgs,
+        });
         return;
       }
     } catch (error) {

@@ -142,6 +142,49 @@ export interface FileSnippetPayload {
   snippet: string;
 }
 
+export interface CaptureFigmaScreenshotArgs {
+  figmaUrl: string;
+  componentSlug?: string;
+  includeVariants?: boolean;
+  variantLimit?: number;
+  requireExistingDoc?: boolean;
+  continueOnError?: boolean;
+  refreshIndices?: boolean;
+  dryRun?: boolean;
+  scale?: number;
+  format?: string;
+  mainCaptureMode?: "auto" | "agent" | "rest";
+  componentKind?: "component_set" | "component" | "all";
+}
+
+export interface CaptureFigmaScreenshotResult {
+  ok: boolean;
+  source?: {
+    figma_url?: string;
+    file_key?: string;
+    node_id_from_url?: string | null;
+  };
+  total_candidates?: number;
+  targets_total?: number;
+  captured?: Array<{
+    slug: string;
+    node_id: string;
+    markdown_path: string;
+    proof_file_path?: string | null;
+    screenshot_url?: string | null;
+    local_image_path?: string | null;
+    variants_count?: number;
+  }>;
+  failed?: Array<{
+    slug: string;
+    node_id: string;
+    markdown_path: string;
+    error: string;
+  }>;
+  skipped?: Array<Record<string, unknown>>;
+  indices_refreshed?: boolean;
+}
+
 export function fetchFile(filePath: string) {
   const params = new URLSearchParams({ path: filePath });
   return getJson<FilePayload>(`/api/file?${params.toString()}`);
@@ -160,4 +203,16 @@ export function fetchFileSnippet(args: {
   if (args.before !== undefined) params.set("before", String(args.before));
   if (args.after !== undefined) params.set("after", String(args.after));
   return getJson<FileSnippetPayload>(`/api/file-snippet?${params.toString()}`);
+}
+
+export function captureFigmaScreenshot(
+  args: CaptureFigmaScreenshotArgs,
+) {
+  return getJson<CaptureFigmaScreenshotResult>("/api/capture-figma-screenshot", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
 }
