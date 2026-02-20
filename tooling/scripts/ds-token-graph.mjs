@@ -9,6 +9,7 @@ import { DOCS_ROOT, PROJECT_ROOT } from "./lib/paths.mjs";
 
 const DEFAULT_REGISTRY_PATH = path.join(DOCS_ROOT, "_generated", "token-registry.json");
 const DEFAULT_OUT_JSON_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.json");
+const DEFAULT_OUT_VIZ_JSON_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.viz.json");
 const DEFAULT_OUT_MD_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.md");
 const DEFAULT_OUT_MERMAID_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.mmd");
 const DEFAULT_MERMAID_MAX_EDGES = 2000;
@@ -28,6 +29,12 @@ const USAGE = {
       name: "--out-json <path>",
       description: "JSON report output path.",
       defaultValue: "docs/_generated/token-graph.json",
+    },
+    {
+      name: "--out-viz-json <path>",
+      description:
+        "JSON graph output optimized for UI visualization (nodes + edges).",
+      defaultValue: "docs/_generated/token-graph.viz.json",
     },
     {
       name: "--out-md <path>",
@@ -237,6 +244,56 @@ function nodeIdFromEntry(entry) {
 
 function displayKeyFromNode(node) {
   return node.path || node.slashPath || node.cssVar || node.id;
+}
+
+function buildVizGraph(graph, cyclesData) {
+  const cycleNodeIds = Array.from(cyclesData.cycleNodeIds).sort((a, b) =>
+    displayKeyFromNode(graph.nodeById.get(a)).localeCompare(
+      displayKeyFromNode(graph.nodeById.get(b)),
+      "en",
+      { sensitivity: "base" },
+    ),
+  );
+
+  const nodes = graph.nodes.map((node) => ({
+    id: node.id,
+    path: node.path,
+    slashPath: node.slashPath,
+    cssVar: node.cssVar,
+    type: node.type,
+    collection: node.collection,
+    resolvedValue: node.resolvedValue,
+    displayKey: node.displayKey,
+    inDegree: graph.inDegree.get(node.id) || 0,
+    outDegree: (graph.adjacency.get(node.id) || []).length,
+    isCycleMember: cyclesData.cycleNodeIds.has(node.id),
+  }));
+
+  const edges = [];
+  for (const sourceId of graph.nodes.map((n) => n.id)) {
+    const targets = graph.adjacency.get(sourceId) || [];
+    for (const targetId of targets) {
+      edges.push({ source: sourceId, target: targetId });
+    }
+  }
+
+  edges.sort((a, b) => {
+    const aFrom = displayKeyFromNode(graph.nodeById.get(a.source));
+    const bFrom = displayKeyFromNode(graph.nodeById.get(b.source));
+    const byFrom = aFrom.localeCompare(bFrom, "en", { sensitivity: "base" });
+    if (byFrom !== 0) return byFrom;
+    const aTo = displayKeyFromNode(graph.nodeById.get(a.target));
+    const bTo = displayKeyFromNode(graph.nodeById.get(b.target));
+    return aTo.localeCompare(bTo, "en", { sensitivity: "base" });
+  });
+
+  return {
+    ok: true,
+    nodes,
+    edges,
+    cycles: cyclesData.cycles,
+    cycle_node_ids: cycleNodeIds,
+  };
 }
 
 function extractCssVarReferences(resolvedValue) {
@@ -821,6 +878,11 @@ function main() {
     const outJsonPath = resolveSafePath(args["out-json"] || DEFAULT_OUT_JSON_PATH, "--out-json", {
       allowOutsideProject,
     });
+    const outVizJsonPath = resolveSafePath(
+      args["out-viz-json"] || DEFAULT_OUT_VIZ_JSON_PATH,
+      "--out-viz-json",
+      { allowOutsideProject },
+    );
     const outMdPath = resolveSafePath(args["out-md"] || DEFAULT_OUT_MD_PATH, "--out-md", {
       allowOutsideProject,
     });
@@ -920,9 +982,34 @@ function main() {
 
     const markdown = buildMarkdownReport(report, maxItems);
     const mermaid = noMermaid ? "" : buildMermaid(graph, mermaidMaxEdges);
+    const vizCore = buildVizGraph(graph, cyclesData);
+    const viz = {
+      source: {
+        registry_path: registryPath,
+      },
+      summary: {
+        nodes: graph.nodes.length,
+        edges: graph.edgeCount,
+        cycles: cyclesData.cycles.length,
+        cycle_nodes: cyclesData.cycleNodeIds.size,
+        unresolved_css_var_refs_total: unresolved.length,
+        ambiguous_css_vars_total: graph.ambiguousCssVars.length,
+        graph_collisions: graph.collisions.length,
+      },
+      ...vizCore,
+    };
+    const vizFingerprintCore = {
+      source: viz.source,
+      summary: viz.summary,
+      nodes: viz.nodes,
+      edges: viz.edges,
+      cycle_node_ids: viz.cycle_node_ids,
+    };
+    viz.fingerprint = fingerprint(vizFingerprintCore);
 
     const writeResults = {
       json: writeTextFileIfChanged(outJsonPath, `${JSON.stringify(report, null, 2)}\n`, { dryRun }),
+      viz_json: writeTextFileIfChanged(outVizJsonPath, `${JSON.stringify(viz, null, 2)}\n`, { dryRun }),
       markdown: writeTextFileIfChanged(outMdPath, markdown, { dryRun }),
       mermaid: noMermaid
         ? null
@@ -930,6 +1017,7 @@ function main() {
     };
     const changedFiles = [
       writeResults.json,
+      writeResults.viz_json,
       writeResults.markdown,
       writeResults.mermaid,
     ]
@@ -938,6 +1026,7 @@ function main() {
       .map((item) => item.path);
     const writtenFiles = [
       writeResults.json,
+      writeResults.viz_json,
       writeResults.markdown,
       writeResults.mermaid,
     ]
@@ -950,6 +1039,7 @@ function main() {
       dry_run: dryRun,
       outputs: {
         json: outJsonPath,
+        viz_json: outVizJsonPath,
         markdown: outMdPath,
         mermaid: noMermaid ? null : outMermaidPath,
       },
