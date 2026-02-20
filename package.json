@@ -15,6 +15,7 @@
     "ds:token-diff": "node tooling/scripts/ds-token-diff.mjs",
     "ds:token-graph": "node tooling/scripts/ds-token-graph.mjs",
     "ds:token-usage-index": "node tooling/scripts/ds-token-usage-index.mjs",
+    "ds:figma-component-map": "node tooling/scripts/ds-figma-component-map.mjs",
     "ds:component-doc": "node tooling/scripts/ds-component-doc.mjs",
     "ds:capture-visual-proof": "node tooling/scripts/ds-capture-visual-proof.mjs",
     "ds:mark-needs-review": "node tooling/scripts/ds-mark-needs-review.mjs",

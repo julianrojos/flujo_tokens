@@ -214,6 +214,7 @@ This workflow documents Design System components from Figma and can also render 
 
 - **`npm run ds:component-doc`**: Generates one component markdown page from a spec YAML with incremental change detection (spec hash -> markdown). Use `--force true` to regenerate.
 - **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
+- **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow. On success, it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
@@ -240,6 +241,7 @@ This workflow documents Design System components from Figma and can also render 
 - `docs/components/`: component documentation pages (e.g. `alert.md`)
 - `docs/_spec/`: documentation specs and visual theme contract
 - `docs/_generated/figma_doc_models/`: generated intermediate artifacts for markdown -> Figma rendering
+- `docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
 - `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
 - `docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
 - `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
@@ -453,6 +455,30 @@ Useful flags:
 - `--agent <codex|claude|gemini>`
 
 Note: when `--url` or `--component-set-node-id` provides a node id, `ds:spec-from-figma` persists it into `figma.component_set_node_id` in the generated spec.
+
+### 3b) Figma file URL -> component map (all pages)
+
+Extract all component nodes for one Figma file and persist a deterministic map:
+
+```bash
+npm run ds:figma-component-map -- \
+  --url "https://www.figma.com/design/<fileKey>/<slug>" \
+  --token "$FIGMA_TOKEN"
+```
+
+Default output:
+
+- `docs/_generated/figma-component-map/<fileKey>.json`
+
+Useful flags:
+
+- `--out <path/to/map.json>`
+- `--depth <number>` (optional Figma API depth override)
+- `--include-instances <true|false>` (default: `true`)
+- `--strict-unresolved-instances <true|false>` (default: `false`)
+- `--format <json|text>` (default: `json`)
+- `--timeout-ms <number>` (default: `30000`)
+- `--dry-run true`
 
 ### 4) Active markdown -> Figma section
 
