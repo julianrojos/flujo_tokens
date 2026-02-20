@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Accessibility, TreePine, RefreshCcw } from "lucide-react";
 
 import {
@@ -51,6 +52,7 @@ function dedupeColorOptionsByPath<T extends { tokenPath: string }>(items: T[]): 
 }
 
 export function TokensPage() {
+  const navigate = useNavigate();
   const [entries, setEntries] = useState<TokenEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
   const [usageSummary, setUsageSummary] = useState<TokenUsageIndexSummary | null>(null);
@@ -385,7 +387,11 @@ export function TokensPage() {
                         .filter((value, index, all) => all.indexOf(value) === index)
                         .slice(0, 2) ?? [];
                     return (
-                      <TableRow key={entry.path}>
+                      <TableRow
+                        key={entry.path}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/tokens/${encodeURIComponent(entry.path)}`)}
+                      >
                         <TableCell>
                           <div className="font-medium">{entry.path}</div>
                           <div className="text-xs text-muted-foreground">
