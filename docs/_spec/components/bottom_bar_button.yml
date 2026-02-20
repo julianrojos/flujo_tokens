@@ -33,7 +33,6 @@ properties:
     description: Overrides the item label text.
   - name: Change_Bottom_Bar_Button_Icon
     type: instance_swap
-    values: [TBD]
     default: TBD
     required: false
     description: Replaces the icon instance.

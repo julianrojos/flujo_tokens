@@ -10,7 +10,7 @@ figma:
 pipeline:
   ds_component_doc:
     contract_version: "1"
-    spec_sha256: 241db2197bc8ac26f02b9c727694cf95e706546ceb47128b1debdc8e5c863cb1
+    spec_sha256: 9dded29730a6f55650f1dbffaa00513446d584bbbd6ed6c514354eb9256bbfa9
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: d1a7b2a3735f7e1e853c3a53811b9edec4b68c51b73d75b1ed818033f2baba15
 ---
@@ -157,5 +157,4 @@ Each button item contains:
 - [ ] [SCHEMA_TBD] `token_mapping.label.color.default` is `TBD`. Specification value is unresolved.
 - [ ] [SCHEMA_TBD] `token_mapping.label.color.selected` is `TBD`. Specification value is unresolved.
 - [ ] [CONTENT_UNKNOWN] `properties.[2].default` is `TBD`. Content/anatomy/property detail is unresolved.
-- [ ] [CONTENT_UNKNOWN] `properties.[2].values.[0]` is `TBD`. Content/anatomy/property detail is unresolved.
 - [ ] [A11Y_TBD] `accessibility.role` is `TBD`. Accessibility detail is unresolved.

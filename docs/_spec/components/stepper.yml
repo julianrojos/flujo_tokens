@@ -19,25 +19,21 @@ anatomy:
 properties:
   - name: Show_Step_1
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of step 1.
   - name: Show_Step_2
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of step 2.
   - name: Show_Step_3
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of step 3.
   - name: Show_Step_4
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of step 4.

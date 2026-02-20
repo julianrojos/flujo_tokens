@@ -48,31 +48,26 @@ properties:
     description: Helper or validation message text override.
   - name: Show_Icon
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles leading icon visibility.
   - name: Show_Message
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles message visibility.
   - name: Show_message_layer
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles message layer container visibility.
   - name: Show_label
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles label visibility.
   - name: Type-Icon
     type: instance_swap
-    values: []
     default: "65:928"
     required: false
     description: Leading icon slot instance.

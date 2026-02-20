@@ -21,7 +21,6 @@ anatomy:
 properties:
   - name: Change_Text
     type: text
-    values: [Label]
     default: Label
     required: false
     description: Overrides visible label text content.

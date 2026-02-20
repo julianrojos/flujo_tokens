@@ -19,37 +19,31 @@ anatomy:
 properties:
   - name: Show_Radio_Button_Label_1
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of option 1.
   - name: Show_Radio_Button_Label_2
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of option 2.
   - name: Show_Radio_Button_Label_3
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of option 3.
   - name: Show_Radio_Button_Label_4
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of option 4.
   - name: Show_Radio_Button_Label_5
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of option 5.
   - name: Show_Radio_Button_Label_6
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Toggles visibility of option 6.

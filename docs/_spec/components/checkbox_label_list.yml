@@ -19,61 +19,51 @@ anatomy:
 properties:
   - name: Show_Checkbox__Label_1
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 1.
   - name: Show_Checkbox__Label_2
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 2.
   - name: Show_Checkbox__Label_3
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 3.
   - name: Show_Checkbox__Label_4
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 4.
   - name: Show_Checkbox__Label_6
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 6.
   - name: Show_Checkbox__Label_7
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 7.
   - name: Show_Checkbox__Label_8
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 8.
   - name: Show_Checkbox__Label_9
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 9.
   - name: Show_Checkbox__Label_10
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 10.
   - name: Show_Checkbox__Label_11
     type: boolean
-    values: [true, false]
     default: true
     required: false
     description: Controls visibility of row 11.
