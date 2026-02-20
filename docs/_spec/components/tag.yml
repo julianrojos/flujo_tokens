@@ -50,8 +50,8 @@ accessibility:
       inner: "Semantic.Color.Focus-Outline.Inner"
       outer: "Semantic.Color.Focus-Outline.Outer"
   hit_area:
-    desktop_token: "A11y.A11y.modeDesktop.Dimension.Min-Hit-Area"
-    mobile_token: "A11y.A11y.modeMobile.Dimension.Min-Hit-Area"
+    desktop_token: "A11y.A11y.Dimension.Min-Hit-Area"
+    mobile_token: "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA"
   labeling:
     rules:
       - If interactive wrappers are used, provide an accessible name matching visible text.

@@ -55,10 +55,14 @@ The Accessibility section must address **all five areas** below. If one does not
 ## Hit area requirements
 
 - Reference the A11y collection tokens for minimum hit areas:
-  - Desktop: `A11y.A11y.modeDesktop.Dimension.Min-Hit-Area`
-  - Mobile: `A11y.A11y.modeMobile.Dimension.Min-Hit-Area`
+  - Desktop (AA): `A11y.A11y.Dimension.Min-Hit-Area` → resolves to `24px`
+  - Mobile (AAA): `Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA` → resolves to `48px`
 - State the resolved values when known.
 - If the component is non-interactive, this subsection can be omitted.
+
+> **Registry note:** `A11y.A11y.modeDesktop.Dimension.Min-Hit-Area` and
+> `A11y.A11y.modeMobile.Dimension.Min-Hit-Area` do not exist in the token registry.
+> Always use the paths above, which are verified against `docs/_generated/token-registry.json`.
 
 ## Rules for spec YAML
 
@@ -72,8 +76,8 @@ accessibility:
       inner: "Semantic.Color.Focus-Outline.Inner"
       outer: "Semantic.Color.Focus-Outline.Outer"
   hit_area:
-    desktop_token: "A11y.A11y.modeDesktop.Dimension.Min-Hit-Area"
-    mobile_token: "A11y.A11y.modeMobile.Dimension.Min-Hit-Area"
+    desktop_token: "A11y.A11y.Dimension.Min-Hit-Area"
+    mobile_token: "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA"
   labeling:
     rules:
       - <rule or TBD>
