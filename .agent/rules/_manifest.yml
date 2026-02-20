@@ -23,6 +23,22 @@ rules:
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
+  - id: component-doc-content
+    file: component-doc-content.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: false
+    deprecated: true
+    superseded_by: component-doc
+    deprecation_note: "Merged into component-doc.mdc. Replace any requires_rules reference with 'component-doc'."
+  - id: component-doc-structure
+    file: component-doc-structure.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: false
+    deprecated: true
+    superseded_by: component-doc
+    deprecation_note: "Merged into component-doc.mdc. Replace any requires_rules reference with 'component-doc'."
   - id: component-doc
     file: component-doc.mdc
     owner: docs-governance
@@ -236,6 +252,10 @@ checks:
   VIS01:
     rule_ids: [component-doc, markdown-lifecycle-status, ds-docs-guardrails]
     blocking: true
+  DEP01:
+    rule_ids: [component-doc-content, component-doc-structure]
+    blocking: true
+    description: "Detects requires_rules references to deprecated rules. Migrate to superseded_by target."
   SLOT01:
     rule_ids: [skill-input-output-contract, skill-versioning]
     blocking: true
