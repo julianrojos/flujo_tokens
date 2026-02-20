@@ -51,12 +51,28 @@ function collectManifestRuleFiles(manifest) {
 function collectRuleFilesOnDisk(manifestPath) {
   const rulesDir = path.dirname(path.resolve(manifestPath));
   if (!fs.existsSync(rulesDir)) return [];
+  const isDeprecatedRuleFile = (fileName) => {
+    const fullPath = path.join(rulesDir, fileName);
+    try {
+      const raw = fs.readFileSync(fullPath, "utf8");
+      const match = raw.match(/^---\n([\s\S]*?)\n---\n/);
+      if (!match) return false;
+      const frontmatter = parseYamlDocument(
+        match[1],
+        `rule frontmatter (${path.basename(fullPath)})`,
+      );
+      return frontmatter && frontmatter.deprecated === true;
+    } catch {
+      // If the rule can't be parsed, treat it as non-deprecated so coverage still flags it.
+      return false;
+    }
+  };
   return uniqueSorted(
     fs
       .readdirSync(rulesDir, { withFileTypes: true })
       .filter((entry) => entry.isFile() && entry.name.endsWith(".mdc"))
       .map((entry) => entry.name),
-  );
+  ).filter((fileName) => !isDeprecatedRuleFile(fileName));
 }
 
 function collectSkillFiles(skillsRoot) {
