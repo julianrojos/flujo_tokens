@@ -12,7 +12,7 @@ type Middleware = (
   res: {
     statusCode: number;
     setHeader: (name: string, value: string) => void;
-    end: (body: string) => void;
+    end: (body: string | Buffer) => void;
   },
   next: () => void,
 ) => void | Promise<void>;
@@ -39,7 +39,7 @@ function sendJson(
   res: {
     statusCode: number;
     setHeader: (name: string, value: string) => void;
-    end: (body: string) => void;
+    end: (body: string | Buffer) => void;
   },
   statusCode: number,
   payload: unknown,
@@ -48,6 +48,17 @@ function sendJson(
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));
+}
+
+function guessContentType(filePath: string) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".svg") return "image/svg+xml";
+  if (ext === ".pdf") return "application/pdf";
+  if (ext === ".gif") return "image/gif";
+  return "application/octet-stream";
 }
 
 const MAX_FILE_BYTES = 450_000;
@@ -504,6 +515,34 @@ function createLocalDataApi() {
           matchedBy,
           snippet: snippet.snippet,
         });
+        return;
+      }
+
+      if (method === "GET" && url === "/api/asset") {
+        const requested = searchParams.get("path") ?? "";
+        const absPath = resolveRepoFilePath(repoRoot, requested);
+        if (!absPath) {
+          sendJson(res, 400, { ok: false, message: "Invalid asset path." });
+          return;
+        }
+
+        try {
+          const stat = await fs.stat(absPath);
+          if (!stat.isFile()) {
+            sendJson(res, 404, { ok: false, message: "Asset not found." });
+            return;
+          }
+          const buffer = await fs.readFile(absPath);
+          res.statusCode = 200;
+          res.setHeader("Content-Type", guessContentType(absPath));
+          res.setHeader("Cache-Control", "no-store");
+          res.end(buffer);
+        } catch (error) {
+          sendJson(res, 404, {
+            ok: false,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
         return;
       }
 

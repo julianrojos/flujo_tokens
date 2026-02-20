@@ -110,6 +110,12 @@ function statusBadge(status: string) {
   return "neutral" as const;
 }
 
+function buildAssetUrl(projectPath: string | null | undefined) {
+  const value = String(projectPath || "").trim();
+  if (!value) return null;
+  return `/api/asset?path=${encodeURIComponent(value)}`;
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ComponentDetailPage() {
@@ -163,6 +169,9 @@ export function ComponentDetailPage() {
 
   const usesSlugs = usage?.uses ?? [];
   const usedInSlugs = usage?.used_in ?? [];
+  const localProofImageUrl = buildAssetUrl(item?.visual_proof?.image_path);
+  const visualProofSrc =
+    localProofImageUrl || item?.visual_proof?.screenshot_url || null;
 
   const resolveTokenMeta = useMemo(() => {
     if (!tokenRegistry) return null;
@@ -435,17 +444,43 @@ export function ComponentDetailPage() {
           )}
 
           {/* Visual proof */}
-          {item.visual_proof.exists && item.visual_proof.screenshot_url ? (
+          {item.visual_proof.exists && visualProofSrc ? (
             <Card>
               <CardHeader>
                 <CardTitle>Visual Proof</CardTitle>
               </CardHeader>
               <CardContent>
                 <img
-                  src={item.visual_proof.screenshot_url}
+                  src={visualProofSrc}
                   alt={`Visual proof for ${item.display_name}`}
                   className="max-w-full rounded-lg border border-border"
                 />
+                <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-muted-foreground md:grid-cols-2">
+                  <div>
+                    <dt className="font-medium text-foreground/80">Captured at</dt>
+                    <dd>{item.visual_proof.captured_at || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground/80">Node ID</dt>
+                    <dd className="font-mono">
+                      {item.visual_proof.node_id || item.figma.component_set_node_id || "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground/80">Image hash</dt>
+                    <dd className="font-mono break-all">
+                      {item.visual_proof.image_sha256 || "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground/80">Resolution</dt>
+                    <dd>
+                      {item.visual_proof.image_width && item.visual_proof.image_height
+                        ? `${item.visual_proof.image_width} × ${item.visual_proof.image_height}`
+                        : "—"}
+                    </dd>
+                  </div>
+                </dl>
               </CardContent>
             </Card>
           ) : null}
