@@ -8,6 +8,8 @@ globs:
 
 Spec files in `docs/_spec/components/` are the structured source of truth for each component. The `ds-component-doc` skill consumes these to generate Markdown pages.
 
+> **Machine-readable version:** `tooling/schemas/component-spec.schema.json` contains the complete structural schema as JSON-Schema (draft-07). Use this for validation via ajv (or any JSON-Schema validator) instead of writing custom parsing logic. Agents and scripts must import this schema, not duplicate the constraints.
+
 ## Required top-level fields
 
 Every spec YAML must include these fields (use `TBD` for unknown values, never omit):
