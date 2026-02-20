@@ -216,7 +216,7 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
-- **`npm run ds:doc-from-figma-url`**: Connects to a Figma component URL and writes a component markdown page in `docs/components/` through an agent + MCP workflow. On success, it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
+- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, and upserts `### Visual Proof` inside `## Overview`.
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
@@ -375,9 +375,18 @@ Useful flags:
 - `--docs-root docs/components` (default)
 - `--component-name <Name>`
 - `--output <path/to/component.md>` (default inferred as `docs/components/<snake_case>.md`)
+- `--figma-token <token>` (or `FIGMA_TOKEN` env var; required for file URL discovery mode)
+- `--auto-component-map <true|false>` (default: `true`)
+- `--component-map-out <path/to/map.json>` (only for file URL discovery mode)
 - `--allow-doc-status-change true` (exceptional override; requires `--force true`)
 - `--force true` (required when `--allow-doc-status-change true`)
 - `--agent <codex|claude|gemini>`
+
+If the provided URL has no `node-id`, the command switches to discovery mode and writes:
+
+- `docs/_generated/figma-component-map/<fileKey>.json`
+
+Then it prints a sample list of component URLs so you can rerun documentation for a specific node.
 
 ### 2) Spec YAML -> component markdown
 

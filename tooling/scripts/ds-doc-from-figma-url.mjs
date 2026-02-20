@@ -42,6 +42,12 @@ import {
 import { runOrThrow } from "./lib/exec.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
+import { fetchFigmaFile } from "./lib/figma-api.mjs";
+import {
+  buildFigmaComponentMap,
+  buildFigmaComponentMapSummary,
+  parseFigmaFileUrl,
+} from "./lib/figma-component-map.mjs";
 
 const USAGE = {
   command:
@@ -51,13 +57,30 @@ const USAGE = {
   options: [
     {
       name: "--url <figma-url>",
-      description: "Figma URL with node-id for the component.",
+      description:
+        "Figma component URL (with node-id) or file URL (without node-id for discovery mode).",
       required: true,
     },
     {
       name: "--component-name <name>",
       description:
         "Display name hint for H1 and output naming (required when --output is omitted).",
+    },
+    {
+      name: "--figma-token <token>",
+      description:
+        "Figma PAT for file-level component discovery. Falls back to FIGMA_TOKEN env var.",
+    },
+    {
+      name: "--auto-component-map <true|false>",
+      description:
+        "When URL has no node-id, auto-generate component map and exit with next steps.",
+      defaultValue: "true",
+    },
+    {
+      name: "--component-map-out <path>",
+      description:
+        "Optional output path for file-level component map JSON (only used for URL without node-id).",
     },
     {
       name: "--output <path>",
@@ -103,7 +126,33 @@ const FRONTMATTER_EVIDENCE_PREFIXES = Object.freeze([
   "pipeline.ds_component_doc",
 ]);
 
-function main() {
+function parseBooleanOption(rawValue, optionName, fallback = false) {
+  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  throw new Error(`Invalid ${optionName} value: ${rawValue}. Allowed: true, false.`);
+}
+
+function writeJsonFileAtomic(filePath, payload) {
+  const resolved = path.resolve(filePath);
+  fs.mkdirSync(path.dirname(resolved), { recursive: true });
+  const tempPath = `${resolved}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+  fs.renameSync(tempPath, resolved);
+  return resolved;
+}
+
+function renderComponentUrlSuggestions(componentMap, maxItems = 20) {
+  const rows = Array.isArray(componentMap?.component_urls)
+    ? componentMap.component_urls
+    : [];
+  return rows
+    .slice(0, Math.max(1, Math.floor(maxItems)))
+    .map((row) => `- ${row.kind} | ${row.name} | ${row.url}`)
+    .join("\n");
+}
+
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   const tempArtifacts = new TempArtifactManager();
   tempArtifacts.attachProcessHooks();
@@ -115,6 +164,11 @@ function main() {
   if (!figmaUrl) {
     printUsage(USAGE, { stream: "stderr", exitCode: 1 });
   }
+  const autoComponentMap = parseBooleanOption(
+    args["auto-component-map"],
+    "--auto-component-map",
+    true,
+  );
 
   const docsRoot = args["docs-root"] || COMPONENT_DOCS_DIR;
   const docsRootResolved = path.resolve(docsRoot);
@@ -126,6 +180,59 @@ function main() {
     path.basename(docsRootResolved) === "components"
       ? path.dirname(docsRootResolved)
       : docsRootResolved;
+  const figmaFileDescriptor = parseFigmaFileUrl(figmaUrl);
+  const fileMapDefaultPath = path.join(
+    docsRootDir,
+    "_generated",
+    "figma-component-map",
+    `${figmaFileDescriptor.fileKey}.json`,
+  );
+  const figmaMapOutPath = args["component-map-out"]
+    ? path.resolve(args["component-map-out"])
+    : fileMapDefaultPath;
+  const figmaToken = String(args["figma-token"] || process.env.FIGMA_TOKEN || "").trim();
+  const isFileLevelUrl = !figmaFileDescriptor.nodeIdFromUrl;
+
+  if (isFileLevelUrl) {
+    if (!autoComponentMap) {
+      console.error(
+        "Figma URL has no node-id and automatic file component mapping is disabled.\n" +
+          "Either pass a component URL with node-id, or enable --auto-component-map true.",
+      );
+      process.exit(1);
+    }
+    if (!figmaToken) {
+      console.error(
+        "Figma file URL detected (no node-id), but no API token is available.\n" +
+          "Provide --figma-token <token> or set FIGMA_TOKEN to auto-discover component URLs.",
+      );
+      process.exit(1);
+    }
+
+    const filePayload = await fetchFigmaFile({
+      fileKey: figmaFileDescriptor.fileKey,
+      token: figmaToken,
+    });
+    const componentMap = buildFigmaComponentMap({
+      filePayload,
+      fileDescriptor: figmaFileDescriptor,
+      includeInstances: true,
+    });
+    const writtenPath = writeJsonFileAtomic(figmaMapOutPath, componentMap);
+    const summary = buildFigmaComponentMapSummary(componentMap);
+    const suggestions = renderComponentUrlSuggestions(componentMap, 20);
+
+    console.log(
+      "Figma file URL processed in discovery mode.\n" +
+        `Component map: ${writtenPath}\n` +
+        `Components found: ${summary.stats.component_nodes_total} (${summary.stats.component_sets} sets, ${summary.stats.components} components)\n` +
+        `Pages: ${summary.stats.pages}\n` +
+        "Next step: pick one component URL and rerun ds:doc-from-figma-url with --component-name.\n" +
+        `${suggestions ? `Sample component URLs:\n${suggestions}\n` : ""}`,
+    );
+    return;
+  }
+
   const agent = args.agent || "auto";
   const force = String(args.force || "false") === "true";
   const allowDocStatusChange =
@@ -189,6 +296,7 @@ function main() {
     overviewPath,
     registryIndexPath,
     tokenUsageIndexPath,
+    figmaMapOutPath,
   ];
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
@@ -352,4 +460,7 @@ function main() {
   }
 }
 
-main();
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});
