@@ -11,6 +11,50 @@ compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: docs_root
+    type: path
+    required: false
+    default: "docs/"
+    description: "Root directory where the documentation structure will be scaffolded."
+  - name: system_name
+    type: string
+    required: false
+    default: "Iter"
+    description: "Design system name used in generated index and overview pages."
+  - name: include_optional_sections
+    type: boolean
+    required: false
+    default: false
+    description: "When true, also scaffolds foundations/, workflows/, a11y/, and index.md."
+  - name: repo_conventions
+    type: string
+    required: false
+    description: "Free-text override for naming convention, language, or tone preferences."
+outputs:
+  - name: components_overview
+    type: path
+    value: "${docs_root}/components/overview.md"
+    description: "Components index page (always created)."
+  - name: index_file
+    type: path
+    value: "${docs_root}/index.md"
+    description: "Top-level design system index (only when include_optional_sections=true)."
+  - name: foundations_overview
+    type: path
+    value: "${docs_root}/foundations/overview.md"
+    description: "Foundations section overview (only when include_optional_sections=true)."
+  - name: workflows_overview
+    type: path
+    value: "${docs_root}/workflows/overview.md"
+    description: "Workflows section overview (only when include_optional_sections=true)."
+  - name: a11y_overview
+    type: path
+    value: "${docs_root}/a11y/overview.md"
+    description: "Accessibility section overview (only when include_optional_sections=true)."
+  - name: report
+    type: report
+    description: "List of created files, skipped files, and suggested next steps."
 ---
 
 # ds-init-docs

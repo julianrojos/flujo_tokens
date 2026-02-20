@@ -12,6 +12,38 @@ compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: task
+    type: enum
+    required: true
+    description: "Primary task type: 'create', 'audit', 'refactor', 'migrate', or 'document'."
+    values:
+      - create
+      - audit
+      - refactor
+      - migrate
+      - document
+  - name: target_platforms
+    type: string
+    required: false
+    default: "web"
+    description: "Target platforms for token output (e.g. 'web', 'web,ios', 'web,android')."
+  - name: themes
+    type: string
+    required: false
+    description: "Comma-separated theme modes to support (e.g. 'light,dark', 'light,dark,high-contrast')."
+  - name: token_source
+    type: path
+    required: false
+    description: "Path to existing token file(s) to audit or refactor (JSON, CSS, or Figma export)."
+  - name: stack
+    type: string
+    required: false
+    description: "CSS stack in use (e.g. 'css', 'sass', 'tailwind', 'css-modules', 'css-in-js')."
+outputs:
+  - name: report
+    type: report
+    description: "Architecture analysis, recommendations, migration plan, or documentation output depending on the task type."
 author: "Design Systems Pro"
 tags:
   - design-tokens

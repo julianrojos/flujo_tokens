@@ -12,6 +12,49 @@ compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: component_name
+    type: component_name
+    required: true
+    description: "Display name of the component to render (e.g. 'Button'). Used to resolve default markdown and spec paths."
+  - name: markdown_path
+    type: path
+    required: false
+    default: "docs/components/${component_name_snake_case}.md"
+    description: "Path to the source markdown file. Must follow the structure defined in component-doc.mdc."
+  - name: theme_path
+    type: path
+    required: false
+    default: "docs/_spec/figma_doc_theme.yml"
+    description: "Path to the Figma documentation theme contract YAML."
+  - name: component_set_node_id
+    type: string
+    required: false
+    description: "Figma component set node ID ('1234:567' format). Preferred for deterministic placement. Required when figma_file_url is absent."
+  - name: figma_file_url
+    type: string
+    required: false
+    description: "Figma file URL. Used to connect when Desktop Bridge is not already active."
+  - name: offset_x
+    type: string
+    required: false
+    default: "200"
+    description: "Horizontal offset in pixels from the right edge of the component section. Defaults to theme value."
+outputs:
+  - name: figma_section_id
+    type: string
+    description: "Figma node ID of the created or updated documentation section."
+  - name: render_payload
+    type: path
+    value: "docs/_generated/figma_doc_models/${component_name_snake_case}.render-payload.json"
+    description: "Render payload snapshot for reproducibility and traceability."
+  - name: doc_model
+    type: path
+    value: "docs/_generated/figma_doc_models/${component_name_snake_case}.doc-model.json"
+    description: "Intermediate doc model JSON produced by Step A of the pipeline."
+  - name: report
+    type: report
+    description: "Rendered section name, node ID, block counts, unsupported blocks, and applied offset."
 ---
 
 # ds-markdown-to-figma-section

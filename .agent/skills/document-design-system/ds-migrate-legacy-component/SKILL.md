@@ -15,6 +15,47 @@ compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: component_name
+    type: component_name
+    required: true
+    description: "Display name of the component to migrate (e.g. 'Button'). Used to resolve spec and markdown target paths."
+  - name: legacy_markdown_path
+    type: path
+    required: true
+    description: "Path to the existing (non-canonical) markdown file to be migrated."
+  - name: docs_root
+    type: path
+    required: false
+    default: "docs/"
+    description: "Root documentation directory."
+  - name: spec_root
+    type: path
+    required: false
+    default: "${docs_root}/_spec/components"
+    description: "Directory where the canonical spec YAML will be created or updated."
+  - name: registry
+    type: path
+    required: false
+    default: "${docs_root}/_generated/token-registry.json"
+    description: "Token registry path used to validate and replace hardcoded token values."
+  - name: force
+    type: boolean
+    required: false
+    default: false
+    description: "When true, overwrites existing spec/markdown files even if they already exist."
+outputs:
+  - name: spec_file
+    type: path
+    value: "${spec_root}/${component_name_snake_case}.yml"
+    description: "Created or repaired canonical spec YAML."
+  - name: markdown_file
+    type: path
+    value: "${docs_root}/components/${component_name_snake_case}.md"
+    description: "Regenerated canonical markdown documentation page."
+  - name: report
+    type: report
+    description: "Migration report with auto-migrated fields, TBD fields, replaced hardcoded values, remaining validation errors, and next actions."
 ---
 
 # ds-migrate-legacy-component

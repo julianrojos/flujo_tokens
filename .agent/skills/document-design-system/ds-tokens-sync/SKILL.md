@@ -9,6 +9,42 @@ compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: input_dir
+    type: path
+    required: false
+    default: "input/"
+    description: "Directory containing source token JSON files exported from Figma."
+  - name: single
+    type: boolean
+    required: false
+    default: false
+    description: "When true, emits a single combined CSS file (custom-properties.css) instead of split outputs."
+  - name: force
+    type: boolean
+    required: false
+    default: false
+    description: "When true, bypasses cache and regenerates all outputs unconditionally."
+outputs:
+  - name: registry
+    type: path
+    value: "docs/_generated/token-registry.json"
+    description: "Generated token registry JSON. Required by all downstream doc generation skills."
+  - name: primitives_css
+    type: path
+    value: "output/primitives.css"
+    description: "Primitives CSS file (split mode only; omitted when single=true)."
+  - name: tokens_css
+    type: path
+    value: "output/tokens.css"
+    description: "Semantic tokens CSS file (split mode only; omitted when single=true)."
+  - name: custom_properties_css
+    type: path
+    value: "output/custom-properties.css"
+    description: "Combined CSS file (single mode only; omitted when single=false)."
+  - name: report
+    type: report
+    description: "Mode used, input file count, output files generated or skipped, and suggested next step."
 ---
 
 # ds-tokens-sync

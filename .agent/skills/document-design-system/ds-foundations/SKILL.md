@@ -14,6 +14,59 @@ compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: docs_root
+    type: path
+    required: false
+    default: "docs/"
+    description: "Root documentation directory. Token registry and foundation pages are resolved relative to this path."
+  - name: language
+    type: string
+    required: false
+    default: "English"
+    description: "Language for generated page content. Override only when explicitly requested."
+  - name: registry
+    type: path
+    required: false
+    default: "${docs_root}/_generated/token-registry.json"
+    description: "Path to the token registry JSON. Must exist before running this skill."
+  - name: dry_run
+    type: boolean
+    required: false
+    default: false
+    description: "When true, prints planned changes without writing files."
+outputs:
+  - name: color_page
+    type: path
+    value: "${docs_root}/foundations/color.md"
+    description: "Color foundations page."
+  - name: typography_page
+    type: path
+    value: "${docs_root}/foundations/typography.md"
+    description: "Typography foundations page."
+  - name: spacing_page
+    type: path
+    value: "${docs_root}/foundations/spacing-sizing.md"
+    description: "Spacing and sizing foundations page."
+  - name: elevation_page
+    type: path
+    value: "${docs_root}/foundations/elevation.md"
+    description: "Elevation foundations page."
+  - name: iconography_page
+    type: path
+    value: "${docs_root}/foundations/iconography.md"
+    description: "Iconography foundations page."
+  - name: a11y_page
+    type: path
+    value: "${docs_root}/foundations/a11y.md"
+    description: "Accessibility foundations page."
+  - name: overview_file
+    type: path
+    value: "${docs_root}/foundations/overview.md"
+    description: "Foundations overview index (updated to link all generated pages)."
+  - name: report
+    type: report
+    description: "Pages written or updated, missing dependencies, and TBD sections."
 ---
 
 # ds-foundations

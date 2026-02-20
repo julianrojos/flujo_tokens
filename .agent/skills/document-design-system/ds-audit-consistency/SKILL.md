@@ -11,6 +11,30 @@ compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: component_name
+    type: component_name
+    required: false
+    description: "Display name of the component to audit (e.g. 'Button'). When omitted, all components are audited."
+  - name: docs_root
+    type: path
+    required: false
+    default: "docs/components"
+    description: "Directory containing component markdown files."
+  - name: spec_root
+    type: path
+    required: false
+    default: "docs/_spec/components"
+    description: "Directory containing component spec YAML files."
+  - name: registry
+    type: path
+    required: false
+    default: "docs/_generated/token-registry.json"
+    description: "Token registry used to validate token references."
+outputs:
+  - name: report
+    type: report
+    description: "JSON audit report with per-component pass/fail results and suggested fix commands."
 ---
 
 # ds-audit-consistency
