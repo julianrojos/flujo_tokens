@@ -6,6 +6,7 @@ import { ComponentDetailPage } from "@/features/components/component-detail/comp
 import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { TokenGraphPage } from "@/features/tokens/token-graph/token-graph-page";
+import { TokenDiffPage } from "@/features/tokens/token-diff/token-diff-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
 import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-page";
 import { cn } from "@/lib/utils";
@@ -118,6 +119,7 @@ export default function App() {
             <Route path="/components" element={<ComponentsPage />} />
             <Route path="/components/:slug" element={<ComponentDetailPage />} />
             <Route path="/tokens" element={<TokensPage />} />
+            <Route path="/tokens/diff" element={<TokenDiffPage />} />
             <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
             <Route path="/token-graph" element={<TokenGraphPage />} />
             <Route path="/file" element={<FileViewerPage />} />

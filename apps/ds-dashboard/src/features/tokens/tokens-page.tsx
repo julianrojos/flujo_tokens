@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Accessibility, TreePine, RefreshCcw } from "lucide-react";
+import { Accessibility, ArrowLeftRight, TreePine, RefreshCcw } from "lucide-react";
 
 import {
   fetchTokenCollectionTrees,
@@ -282,6 +282,12 @@ export function TokensPage() {
             </div>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+            <Link to="/tokens/diff">
+              <Button variant="outline">
+                <ArrowLeftRight className="mr-2 h-4 w-4" />
+                Compare
+              </Button>
+            </Link>
             <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
               <RefreshCcw className="mr-2 h-4 w-4" />
               {usageSyncing ? "Syncing usage..." : "Sync Usage Index"}
