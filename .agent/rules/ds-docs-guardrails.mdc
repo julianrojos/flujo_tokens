@@ -16,8 +16,8 @@ globs:
 
 ## Structure and consistency
 
-- Use stable headings and the same section order for pages of the same type. See `component-doc-structure.mdc` for component pages.
-- Component pages must use only the canonical allowed H2 headings from `component-doc-structure.mdc` (no extra H2 sections).
+- Use stable headings and the same section order for pages of the same type. See `component-doc.mdc` for component pages.
+- Component pages must use only the canonical allowed H2 headings from `component-doc.mdc` (no extra H2 sections).
 - Apply canonical `component_name` normalization and deterministic path rules from `component-name-normalization.mdc`.
 - Every component doc should start with a one-line description immediately after the H1.
 - Component pages should include `### Visual Proof` inside `## Overview` (not as a new H2). This subsection stores screenshot evidence and traceability details.

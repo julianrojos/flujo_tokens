@@ -20,7 +20,7 @@ This rule defines a safe migration path for versioned skills.
 name: ds-component-doc
 version: "1.2.0" # SemVer
 requires_rules:
-  - component-doc-structure: ">=1.0.0"
+  - component-doc: ">=1.0.0"
   - token-references: ">=1.1.0"
 compatible_agents:
   - codex

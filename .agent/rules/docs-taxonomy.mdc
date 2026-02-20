@@ -28,5 +28,5 @@ This rule defines taxonomy scope and page intent boundaries, not field validatio
 
 ## Cross-rule references
 
-- Component pages must also follow `component-doc-structure.mdc`.
+- Component pages must also follow `component-doc.mdc`.
 - Global integrity and no-invention behavior is defined in `ds-docs-guardrails.mdc`.

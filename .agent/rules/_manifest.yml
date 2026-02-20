@@ -23,13 +23,8 @@ rules:
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
-  - id: component-doc-content
-    file: component-doc-content.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
-  - id: component-doc-structure
-    file: component-doc-structure.mdc
+  - id: component-doc
+    file: component-doc.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
@@ -168,10 +163,10 @@ checks:
     rule_ids: [frontmatter-contract, markdown-lifecycle-status]
     blocking: true
   SEC01:
-    rule_ids: [component-doc-structure]
+    rule_ids: [component-doc]
     blocking: true
   SEC02:
-    rule_ids: [component-doc-structure]
+    rule_ids: [component-doc]
     blocking: true
   TOK01:
     rule_ids: [token-references, token-registry-validation]
@@ -213,10 +208,10 @@ checks:
     rule_ids: [ds-docs-guardrails]
     blocking: true
   GAP00:
-    rule_ids: [component-doc-structure]
+    rule_ids: [component-doc]
     blocking: false
   GAP01:
-    rule_ids: [component-doc-structure, ds-docs-guardrails]
+    rule_ids: [component-doc, ds-docs-guardrails]
     blocking: true
   GAP02:
     rule_ids: [component-spec-yaml, markdown-lifecycle-status]
@@ -231,7 +226,7 @@ checks:
     rule_ids: [ds-docs-guardrails]
     blocking: true
   VIS01:
-    rule_ids: [component-doc-content, markdown-lifecycle-status, ds-docs-guardrails]
+    rule_ids: [component-doc, markdown-lifecycle-status, ds-docs-guardrails]
     blocking: true
   VER01:
     rule_ids: [component-versioning]
@@ -251,8 +246,7 @@ matrix:
     component:
       [
         frontmatter-contract,
-        component-doc-structure,
-        component-doc-content,
+        component-doc,
         component-figma-traceability,
         accessibility-docs,
         design-token-discrepancies,
@@ -302,8 +296,7 @@ matrix:
       [
         ds-docs-guardrails,
         frontmatter-contract,
-        component-doc-structure,
-        component-doc-content,
+        component-doc,
         component-spec-yaml,
         component-spec-properties-order,
         component-figma-traceability,
@@ -323,8 +316,7 @@ matrix:
       [
         docs-pipeline-contract,
         component-spec-yaml,
-        component-doc-structure,
-        component-doc-content,
+        component-doc,
         frontmatter-contract,
         component-figma-traceability,
         component-name-normalization,
@@ -345,7 +337,7 @@ matrix:
       ]
     ds-markdown-to-figma-section:
       [
-        component-doc-structure,
+        component-doc,
         ds-docs-guardrails,
         docs-pipeline-contract,
         figma-doc-rendering,
@@ -366,7 +358,7 @@ matrix:
     ds-migrate-legacy-component:
       [
         component-spec-yaml,
-        component-doc-structure,
+        component-doc,
         component-figma-traceability,
         component-name-normalization,
         token-references,

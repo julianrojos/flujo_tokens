@@ -1,62 +1,9 @@
 ---
-description: Mandatory section-order contract for component documentation pages.
+description: "Deprecated. Merged into component-doc.mdc."
+deprecated: true
 globs:
-  - "docs/components/*.md"
+  - ".agent/rules/component-doc-structure.mdc"
 ---
 
-# Component documentation structure
-
-Every component page in `docs/components/` (excluding `overview.md`) must follow this structural contract.
-
-## Frontmatter dependency
-
-Frontmatter fields and traceability metadata are defined in:
-
-- `frontmatter-contract.mdc`
-- `component-figma-traceability.mdc`
-
-## Required sections (in order)
-
-Only these H2 headings are allowed in component pages, in this exact canonical order:
-
-1. `## Overview`
-2. `## Anatomy`
-3. `## Component API`
-4. `## Visual Specifications`
-5. `## Variants`
-6. `## States`
-7. `## Usage Guidelines`
-8. `## Content Guidelines`
-9. `## Accessibility`
-10. `## Related Components`
-11. `## Design–Token Discrepancies` (optional, only when real mismatches exist)
-12. `## Gaps / TBD` (optional, deterministic binary contract)
-
-No other H2 headings are permitted (`## Examples`, `## Changelog`, etc.).
-If additional details are needed, place them under `###` inside the nearest allowed H2.
-
-## `## Gaps / TBD` deterministic contract
-
-- This section is **binary and deterministic**:
-  - Include it when unresolved gaps exist in the linked spec.
-  - Omit it entirely when no unresolved gaps exist.
-- Each item must use checkbox format:
-  - `- [ ] [SCHEMA_TBD] ...`
-  - `- [ ] [TOKEN_INVALID] ...`
-  - `- [ ] [CONTENT_UNKNOWN] ...`
-  - `- [ ] [A11Y_TBD] ...`
-- Canonical ordering is mandatory:
-  1. `SCHEMA_TBD`
-  2. `TOKEN_INVALID`
-  3. `CONTENT_UNKNOWN`
-  4. `A11Y_TBD`
-
-## General rules
-
-- Every required section (1-10) must be present; when data is missing, use `TBD` instead of omitting sections.
-- Do not add H2 headings outside the canonical allowed list.
-- One component per file. File name matches component name in `snake_case` (for example, `status_bar.md`).
-
-## Content guidance
-
-For section-by-section writing guidance, use `component-doc-content.mdc`.
+> **Deprecated.** This rule has been merged into `component-doc.mdc`.
+> Update any `requires_rules` references from `component-doc-structure` to `component-doc`.

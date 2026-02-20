@@ -27,7 +27,7 @@ If used, these blocks may be simplified or warned by the renderer.
 
 ## Canonical task-list exception
 
-- `## Gaps / TBD` must keep checkbox items (`- [ ] ...`) as required by `component-doc-structure.mdc`.
+- `## Gaps / TBD` must keep checkbox items (`- [ ] ...`) as required by `component-doc.mdc`.
 - Outside `## Gaps / TBD`, avoid task lists to reduce rendering degradation in Figma.
 
 ## Table authoring constraints
