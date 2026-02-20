@@ -1,0 +1,77 @@
+name: UserCard
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Cards
+  component_set: User-Card
+  component_set_node_id: '2046:7286'
+summary:
+  purpose: Documentation scaffold for User Card extracted from Figma component set metadata.
+  when_to_use: Use User Card when this pattern is needed in the interface and matches its Figma variants.
+  when_not_to_use: Do not use User Card for scenarios not represented by its current variant/property contract.
+anatomy:
+  - id: container
+    description: Primary visual container for User Card.
+  - id: content
+    description: Child content area controlled by text/slot/component properties.
+properties:
+  - name: Property 1
+    type: enum
+    default: Person_Left
+    required: true
+    description: Variant selector extracted from Figma property `Property 1`.
+    values:
+      - Person_Left
+      - Person_Right
+  - name: Show_Tags_List
+    type: boolean
+    default: true
+    required: false
+    description: Property extracted from Figma property `Show_Tags_List`.
+  - name: Show_User_Rating
+    type: boolean
+    default: true
+    required: false
+    description: Property extracted from Figma property `Show_User_Rating`.
+  - name: Show_User_Right
+    type: boolean
+    default: true
+    required: false
+    description: Property extracted from Figma property `Show_User_Right`.
+  - name: Show_User_Stats
+    type: boolean
+    default: true
+    required: false
+    description: Property extracted from Figma property `Show_User_Stats`.
+content_guidelines:
+  rules:
+    - Keep content concise and aligned with product voice.
+    - Do not exceed space available in the default variant without overflow handling.
+best_practices:
+  do:
+    - Use the variant and property contract exactly as defined in Figma.
+    - Validate visual behavior before promoting to ready status.
+  dont:
+    - Do not overload this component with semantics it was not designed for.
+    - Do not hardcode colors or spacing outside the token system.
+accessibility:
+  role: TBD
+  focus:
+    tokens:
+      inner: Semantic.Color.Focus-Outline.Inner
+      outer: Semantic.Color.Focus-Outline.Outer
+  hit_area:
+    desktop_token: A11y.A11y.modeDesktop.Dimension.Min-Hit-Area
+    mobile_token: A11y.A11y.modeMobile.Dimension.Min-Hit-Area
+  labeling:
+    rules:
+      - Provide an accessible name when interactive.
+      - Avoid redundant announcements for decorative content.
+token_mapping:
+  container.background:
+    property_1=Person_Left: TBD
+    property_1=Person_Right: TBD
+qa:
+  - Properties match the Figma component set.
+  - Token mapping uses real token keys or explicit TBD values pending verification.
+related_components: []
