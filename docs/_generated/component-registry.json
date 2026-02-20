@@ -418,6 +418,70 @@
       "fingerprint_sha256": "7410c24416831a5ae38b5ada31d9f3e691cff6861fd43520af0fc220b4855dbf"
     },
     {
+      "slug": "text_area",
+      "display_name": "Text Area",
+      "paths": {
+        "spec": "docs/_spec/components/text_area.yml",
+        "doc": "docs/components/text_area.md",
+        "render_payload": "docs/_generated/figma_doc_models/text_area.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/text_area.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=225-420&t=Ct0aRp93us7M1VzZ-4",
+        "component_set_node_id": "225:420"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "445e05de2d28c907cdb1aa3082027fbd83696de3ce536007f90711364405e9e6"
+    },
+    {
+      "slug": "text_input",
+      "display_name": "Text Input",
+      "paths": {
+        "spec": "docs/_spec/components/text_input.yml",
+        "doc": "docs/components/text_input.md",
+        "render_payload": "docs/_generated/figma_doc_models/text_input.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/text_input.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=204-483&t=Ct0aRp93us7M1VzZ-4",
+        "component_set_node_id": "204:483"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "50871622a69c3bd99303acbaa99fd34d5e80b37c75b8e48a55098056be9bc12f"
+    },
+    {
       "slug": "topbar",
       "display_name": "Topbar",
       "paths": {
@@ -451,19 +515,19 @@
     }
   ],
   "summary": {
-    "total_components": 14,
-    "with_spec": 14,
-    "with_doc": 14,
+    "total_components": 16,
+    "with_spec": 16,
+    "with_doc": 16,
     "with_render_payload": 5,
     "with_visual_proof": 0,
     "ready_for_publish": 0,
     "by_pipeline_stage": {
       "missing-spec": 0,
       "spec": 0,
-      "markdown": 9,
+      "markdown": 11,
       "render": 5,
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "175cfc43e3c15d7268a76f64e4f65add9434612586d6ad3f2620d3cbf9d78139"
+  "fingerprint_sha256": "95d2015438041a95ebb7ff5e486e16b03c06db6fa286e1f66ab029c1090530ea"
 }

@@ -39,5 +39,7 @@ One page per component. This documentation is design-first (Figma) and token-bac
 - [Status Bar](status_bar.md)
 - [Tag](tag.md)
 - [Tags List](tags_list.md)
+- [Text Area](text_area.md)
+- [Text Input](text_input.md)
 - [Topbar](topbar.md)
 
