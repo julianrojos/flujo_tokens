@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ArrowUpDown, ExternalLink, RefreshCcw } from "lucide-react";
 
 import {
@@ -48,6 +49,7 @@ function statusBadge(status: string) {
 }
 
 export function ComponentsPage() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<ComponentRegistryItem[]>([]);
   const [usageBySlug, setUsageBySlug] = useState<
     ComponentUsageIndex["by_slug"]
@@ -304,7 +306,11 @@ export function ComponentsPage() {
                     </TableRow>
                   ))
                 : filtered.map((item) => (
-                    <TableRow key={item.slug}>
+                    <TableRow
+                      key={item.slug}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/components/${item.slug}`)}
+                    >
                       <TableCell>
                         {item.figma.file_url ? (
                           <a
@@ -314,6 +320,7 @@ export function ComponentsPage() {
                             className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary"
                             title={`Open ${item.display_name} in Figma`}
                             aria-label={`Open ${item.display_name} in Figma`}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink className="h-4 w-4" />
                             <span>{item.display_name}</span>
