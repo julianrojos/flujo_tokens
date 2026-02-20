@@ -11,7 +11,8 @@ globs:
 
 - **Never** use `VariableID:*` in user-facing prose, tables, or YAML specs.
 - **Never** use Figma node IDs as token identifiers.
-- **Allowed**: node IDs in traceability metadata (`figma.component_set_node_id`) and source URLs (`node-id`).
+- **Allowed**: node IDs in traceability metadata (`figma.component_set_node_id`) and source URLs (`node-id`), but only when they conform to the Node ID format contract defined in `component-figma-traceability.mdc`.
+- Any node ID string that does not conform to that contract is treated as a prohibited value.
 
 ## Documentation/code boundary
 

@@ -21,11 +21,26 @@ This rule adds component-specific traceability constraints on top of that contra
 - Optional typed traceability fields (`component_set_node_id`, `component_hash`, `properties_count`, `variants_count`) must be omitted when unknown (`TBD` is not valid for these fields).
 - Keep a direct source link in `## Overview` (human-readable URL text is fine).
 - Include `node-id` in the source URL when available to preserve exact node traceability.
-- If `figma.component_set_node_id` is present, it must be valid (`123:456`) and match the linked component spec value.
+- If `figma.component_set_node_id` is present, it must match `^\d+:\d+$` (for example `2304:1892`) and match the linked component spec value.
 - Spec YAML is the canonical source for `component_set_node_id`; markdown may mirror it for readability.
-- If `figma.component_hash` is present, it must be a 64-char SHA-256 hex string.
+- If `figma.component_hash` is present, it must match `^[0-9a-fA-F]{64}$` (64-char SHA-256 hex; normalize to lowercase before storing).
 - If present, `figma.properties_count` and `figma.variants_count` must be non-negative integers.
 - For deterministic maintenance, these optional fields should be regenerated from the linked component spec instead of edited manually.
+
+## Node ID format contract
+
+Figma node IDs appear in two contexts with different separators. Both are validated by regex. **This is the canonical definition**; other rules that reference node ID format must point here.
+
+| Context | Format | Regex | Example |
+| ------- | ------ | ----- | ------- |
+| YAML / frontmatter (`component_set_node_id`) | colon-separated | `^\d+:\d+$` | `2304:1892` |
+| Figma URL query parameter (`node-id=…`) | hyphen-separated | `^\d+-\d+$` | `2304-1892` |
+
+Rules:
+- **Never** mix formats: colon IDs in YAML, hyphen IDs in URLs — never the reverse.
+- A node ID that does not match its expected pattern is invalid. Skills must stop and report check `TRACE01`; `validate:docs` must also flag it as a blocking `TRACE01` error.
+- `VariableID:*` strings do not match `^\d+:\d+$` and are always prohibited (see `prohibited-patterns.mdc`).
+- Validation tooling must enforce `^\d+:\d+$` exactly. Any tooling that currently accepts a broader pattern (e.g. `[A-Za-z0-9]+:[A-Za-z0-9]+`) must be updated to align with this contract.
 
 ## Prohibited values
 
