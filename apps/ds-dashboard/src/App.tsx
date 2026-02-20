@@ -3,6 +3,7 @@ import { Boxes, Layers3 } from "lucide-react";
 
 import { ComponentsPage } from "@/features/components/components-page";
 import { ComponentDetailPage } from "@/features/components/component-detail/component-detail-page";
+import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
 import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-page";
 import { cn } from "@/lib/utils";
@@ -103,6 +104,7 @@ export default function App() {
             <Route path="/components/:slug" element={<ComponentDetailPage />} />
             <Route path="/tokens" element={<TokensPage />} />
             <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
+            <Route path="/file" element={<FileViewerPage />} />
           </Routes>
         </main>
       </div>

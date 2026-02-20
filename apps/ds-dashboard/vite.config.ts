@@ -3,9 +3,9 @@ import fsSync from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
+import yaml from "js-yaml";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
-import yaml from "js-yaml";
 
 type Middleware = (
   req: { method?: string; url?: string },
@@ -48,6 +48,51 @@ function sendJson(
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));
+}
+
+const MAX_FILE_BYTES = 450_000;
+const MAX_SNIPPET_LINES = 15;
+
+function clampInt(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function resolveRepoFilePath(repoRoot: string, requestedPath: string) {
+  const raw = String(requestedPath || "").trim();
+  if (!raw) return null;
+  const resolved = path.resolve(repoRoot, raw);
+  const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : `${repoRoot}${path.sep}`;
+  if (resolved !== repoRoot && !resolved.startsWith(rootWithSep)) return null;
+  return resolved;
+}
+
+async function readTextFileLimited(absPath: string, maxBytes: number) {
+  const buffer = await fs.readFile(absPath);
+  const truncated = buffer.byteLength > maxBytes;
+  const sliced = truncated ? buffer.subarray(0, maxBytes) : buffer;
+  return { content: sliced.toString("utf8"), truncated };
+}
+
+function findLineForQuery(content: string, query: string): number | null {
+  const q = String(query || "").trim();
+  if (!q) return null;
+  const haystack = content.toLowerCase();
+  const needle = q.toLowerCase();
+  const idx = haystack.indexOf(needle);
+  if (idx === -1) return null;
+  const before = content.slice(0, idx);
+  return before.split("\n").length;
+}
+
+function buildSnippet(content: string, line: number, before: number, after: number) {
+  const lines = content.split("\n");
+  const target = clampInt(line, 1, Math.max(1, lines.length));
+  const safeBefore = clampInt(before, 0, MAX_SNIPPET_LINES - 1);
+  const safeAfter = clampInt(after, 0, MAX_SNIPPET_LINES - 1 - safeBefore);
+  const startLine = clampInt(target - safeBefore, 1, target);
+  const endLine = clampInt(target + safeAfter, target, lines.length);
+  const snippetLines = lines.slice(startLine - 1, endLine);
+  return { targetLine: target, startLine, endLine, snippet: snippetLines.join("\n") };
 }
 
 function buildTokenCollectionTrees(entries: TokenRegistryEntry[]) {
@@ -339,7 +384,9 @@ function createLocalDataApi() {
 
   const middleware: Middleware = async (req, res, next) => {
     const method = String(req.method || "GET").toUpperCase();
-    const url = String(req.url || "").split("?")[0];
+    const requestUrl = new URL(String(req.url || ""), "http://localhost");
+    const url = requestUrl.pathname;
+    const searchParams = requestUrl.searchParams;
 
     try {
       if (method === "GET" && url === "/api/component-registry") {
@@ -373,6 +420,90 @@ function createLocalDataApi() {
       if (method === "GET" && url === "/api/token-usage-index") {
         const raw = await fs.readFile(tokenUsageIndexPath, "utf8");
         sendJson(res, 200, JSON.parse(raw));
+        return;
+      }
+
+      if (method === "GET" && url === "/api/file") {
+        const requested = searchParams.get("path") ?? searchParams.get("file") ?? "";
+        const absPath = resolveRepoFilePath(repoRoot, requested);
+        if (!absPath) {
+          sendJson(res, 400, { ok: false, message: "Invalid file path." });
+          return;
+        }
+        try {
+          const payload = await readTextFileLimited(absPath, MAX_FILE_BYTES);
+          sendJson(res, 200, {
+            ok: true,
+            file: requested,
+            truncated: payload.truncated,
+            content: payload.content,
+          });
+        } catch (error) {
+          sendJson(res, 404, {
+            ok: false,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+        return;
+      }
+
+      if (method === "GET" && url === "/api/file-snippet") {
+        const requested = searchParams.get("file") ?? "";
+        const absPath = resolveRepoFilePath(repoRoot, requested);
+        if (!absPath) {
+          sendJson(res, 400, { ok: false, message: "Invalid file path." });
+          return;
+        }
+
+        const rawLine = searchParams.get("line");
+        const rawBefore = searchParams.get("before");
+        const rawAfter = searchParams.get("after");
+        const before = rawBefore ? Number.parseInt(rawBefore, 10) : 2;
+        const after = rawAfter ? Number.parseInt(rawAfter, 10) : 2;
+        const query = searchParams.get("q") ?? "";
+
+        let line = rawLine ? Number.parseInt(rawLine, 10) : NaN;
+        if (rawLine && !Number.isFinite(line)) {
+          sendJson(res, 400, { ok: false, message: "Invalid line parameter." });
+          return;
+        }
+
+        let content = "";
+        try {
+          const payload = await readTextFileLimited(absPath, MAX_FILE_BYTES);
+          content = payload.content;
+        } catch (error) {
+          sendJson(res, 404, {
+            ok: false,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          return;
+        }
+
+        let matchedBy: "line" | "query" = "line";
+        if (!rawLine) {
+          const detected = findLineForQuery(content, query);
+          if (!detected) {
+            sendJson(res, 404, {
+              ok: false,
+              message: "Query not found in file.",
+            });
+            return;
+          }
+          line = detected;
+          matchedBy = "query";
+        }
+
+        const snippet = buildSnippet(content, line, before, after);
+        sendJson(res, 200, {
+          ok: true,
+          file: requested,
+          line: snippet.targetLine,
+          startLine: snippet.startLine,
+          endLine: snippet.endLine,
+          matchedBy,
+          snippet: snippet.snippet,
+        });
         return;
       }
 
