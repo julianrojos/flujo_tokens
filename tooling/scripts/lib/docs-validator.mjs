@@ -26,7 +26,7 @@ import {
   isSnakeCaseFileSlug,
 } from "./component-name.mjs";
 import { isPlainObject } from "./is-plain-object.mjs";
-import { normalizeNodeId } from "./node-id.mjs";
+import { normalizeNodeId, isValidNodeId, FIGMA_NODE_ID_RE } from "./node-id.mjs";
 import { deriveFigmaFrontmatterTraceability } from "./figma-traceability.mjs";
 import { isTbdMarker } from "./tbd.mjs";
 import { extractSectionBody } from "./markdown-sections.mjs";
@@ -59,7 +59,6 @@ const RULE_MANIFEST_PATH = resolveProjectPath(".agent", "rules", "_manifest.yml"
 const CANONICAL_COMPONENT_LIST_HEADING = "component list";
 const OVERVIEW_ENTRY_RE = /^-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
-const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 const HASH_RE = /^[a-f0-9]{64}$/i;
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 const MARKDOWN_LINK_RE = /(?<!!)\[[^\]]*\]\(([^)\n]+)\)/g;
@@ -2115,12 +2114,6 @@ function sha256FileCached(filePath) {
   const digest = hash.digest("hex");
   FILE_HASH_CACHE.set(resolved, { digest, size, mtimeMs });
   return digest;
-}
-
-function isValidNodeId(raw) {
-  const normalized = normalizeNodeId(raw);
-  if (!normalized) return false;
-  return FIGMA_NODE_ID_RE.test(normalized);
 }
 
 function splitSpecTokenValue(rawValue) {

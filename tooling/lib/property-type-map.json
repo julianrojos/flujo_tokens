@@ -6,7 +6,8 @@
   "source_of_truth_for": [
     "component-spec-yaml.mdc (type mapping decision table)",
     "component-spec-properties-order.mdc (ordering group column)",
-    "tooling/scripts/lib/spec-property-types.mjs (JS runtime mirror)"
+    "tooling/scripts/lib/spec-property-types.mjs (JS runtime mirror)",
+    "tooling/scripts/lib/node-id.mjs (FIGMA_NODE_ID_RE — figma_node_id.pattern)"
   ],
   "normalization": {
     "case_insensitive": true,
@@ -90,6 +91,10 @@
     "pattern":        "^\\d+:\\d+$",
     "description":    "Figma node ID format: two integers separated by a colon (e.g. 123:456).",
     "examples":       ["1:234", "68:4097", "2304:1892"],
-    "note":           "docs-validator.mjs uses the more permissive /^[A-Za-z0-9]+:[A-Za-z0-9]+$/ pattern. The canonical pattern here (digits-only) matches all real Figma node IDs observed in this project and should be preferred in new validators."
+    "source_of_truth_for": [
+      "tooling/scripts/lib/node-id.mjs (FIGMA_NODE_ID_RE)",
+      "tooling/schemas/component-spec.schema.json ($defs.figma_node_id)",
+      "component-figma-traceability.mdc (Node ID format contract)"
+    ]
   }
 }

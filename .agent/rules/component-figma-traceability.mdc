@@ -40,7 +40,7 @@ Rules:
 - **Never** mix formats: colon IDs in YAML, hyphen IDs in URLs — never the reverse.
 - A node ID that does not match its expected pattern is invalid. Skills must stop and report check `TRACE01`; `validate:docs` must also flag it as a blocking `TRACE01` error.
 - `VariableID:*` strings do not match `^\d+:\d+$` and are always prohibited (see `prohibited-patterns.mdc`).
-- Validation tooling must enforce `^\d+:\d+$` exactly. Any tooling that currently accepts a broader pattern (e.g. `[A-Za-z0-9]+:[A-Za-z0-9]+`) must be updated to align with this contract.
+- Validation tooling enforces `^\d+:\d+$` exactly. The regex is sourced from `tooling/lib/property-type-map.json → figma_node_id.pattern` and exported as `FIGMA_NODE_ID_RE` from `tooling/scripts/lib/node-id.mjs`. All validators must import from that module instead of hardcoding the pattern.
 
 ## Prohibited values
 
