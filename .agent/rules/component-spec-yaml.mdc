@@ -78,9 +78,7 @@ Type comparison is **case-insensitive** (`Enum`, `ENUM`, and `enum` are equivale
 | `text` | `TEXT` | Omit | Any string, or `TBD` if unknown | 2 | - |
 | `boolean` | `BOOLEAN` | Omit | `true` or `false` (unquoted), or `TBD` if unknown | 3 | - |
 | `instance_swap` | `INSTANCE_SWAP` | Omit | Component name string, or `TBD` if unknown | 4 | - |
-| anything else | _(invalid)_ | - | - | 5 | Stop; report error `SPEC01` with the invalid type value; do not render the property |
-
-No other `type` values are valid. `null`, empty string, and missing `type` are treated as unknown and trigger the same `SPEC01` error.
+| anything else (including `null`, `""`, missing) | _(invalid)_ | - | - | 5 | Stop; report error `SPEC01` with the invalid type value; do not render the property |
 
 The "Stop; report error" instruction applies to **generating skills and scripts** (for example `ds:component-doc`, `ds:spec-from-figma`) and to `validate:docs`. Specs that violate this table are invalid and must be fixed before markdown generation.
 
