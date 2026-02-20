@@ -375,6 +375,29 @@ function createLocalDataApi() {
         return;
       }
 
+      const specMatch = method === "GET" && url.match(/^\/api\/component-spec\/([^/]+)$/);
+      if (specMatch) {
+        const slug = decodeURIComponent(String(specMatch[1]));
+        const registryRaw = await fs.readFile(componentRegistryPath, "utf8");
+        const registry = JSON.parse(registryRaw) as { components?: ComponentRegistryRow[] };
+        const component = (registry.components ?? []).find(
+          (c) => String(c.slug ?? "") === slug,
+        );
+        if (!component) {
+          sendJson(res, 404, { ok: false, message: `Component '${slug}' not found` });
+          return;
+        }
+        const specRelPath = String(component.paths?.spec ?? "").trim();
+        if (!specRelPath) {
+          sendJson(res, 404, { ok: false, message: `No spec path for '${slug}'` });
+          return;
+        }
+        const specAbsPath = path.resolve(repoRoot, specRelPath);
+        const raw = await fs.readFile(specAbsPath, "utf8");
+        sendJson(res, 200, { ok: true, slug, path: specRelPath, raw });
+        return;
+      }
+
       if (method === "POST" && url === "/api/refresh-registry") {
         const child = spawn("npm", ["run", "ds:registry:refresh"], {
           cwd: repoRoot,

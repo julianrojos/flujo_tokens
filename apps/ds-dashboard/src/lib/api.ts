@@ -41,6 +41,19 @@ export function fetchTokenUsageIndex() {
   return getJson<TokenUsageIndex>("/api/token-usage-index");
 }
 
+export interface ComponentSpecPayload {
+  ok: boolean;
+  slug: string;
+  path: string;
+  raw: string;
+}
+
+export function fetchComponentSpec(slug: string) {
+  return getJson<ComponentSpecPayload>(
+    `/api/component-spec/${encodeURIComponent(slug)}`,
+  );
+}
+
 export async function refreshRegistry() {
   return getJson<{ ok: boolean; output?: string; stderr?: string }>(
     "/api/refresh-registry",
