@@ -296,7 +296,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - `doc_status: draft | ready | needs-review`
   - `figma.file_url`, `figma.page`, `figma.component`, `figma.last_verified`
   - optional `figma.component_set_node_id` (must match spec if declared)
-- Stable section order from `component-doc-structure.mdc`
+- Stable section order from `component-doc.mdc`
   - H2 headings are strict: only canonical allowed section titles, in canonical order
 - `### Visual Proof` must live inside `## Overview` (never as an extra H2)
 - `## Usage Guidelines` should include `### Behavior` and `### Examples` subsections (use `TBD` if evidence is missing)
