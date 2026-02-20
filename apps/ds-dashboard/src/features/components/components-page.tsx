@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowUpDown, RefreshCcw } from "lucide-react";
+import { ArrowUpDown, ExternalLink, RefreshCcw } from "lucide-react";
 
-import { fetchComponentRegistry, refreshRegistry } from "@/lib/api";
+import {
+  fetchComponentRegistry,
+  fetchComponentUsageIndex,
+  refreshRegistry,
+} from "@/lib/api";
 import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,6 +49,9 @@ function statusBadge(status: string) {
 
 export function ComponentsPage() {
   const [rows, setRows] = useState<ComponentRegistryItem[]>([]);
+  const [usageBySlug, setUsageBySlug] = useState<
+    ComponentUsageIndex["by_slug"]
+  >({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -57,8 +65,12 @@ export function ComponentsPage() {
     setLoading(true);
     setError(null);
     try {
-      const payload = await fetchComponentRegistry();
-      setRows(payload.components ?? []);
+      const [registryPayload, usagePayload] = await Promise.all([
+        fetchComponentRegistry(),
+        fetchComponentUsageIndex().catch(() => ({ by_slug: {} })),
+      ]);
+      setRows(registryPayload.components ?? []);
+      setUsageBySlug(usagePayload.by_slug ?? {});
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -76,10 +88,7 @@ export function ComponentsPage() {
       const matchesSearch =
         !lowered ||
         item.display_name.toLowerCase().includes(lowered) ||
-        item.slug.toLowerCase().includes(lowered) ||
-        String(item.figma.component_set_node_id || "")
-          .toLowerCase()
-          .includes(lowered);
+        item.slug.toLowerCase().includes(lowered);
       const matchesStage = stage === "all" || item.pipeline_stage === stage;
       const matchesDoc = docStatus === "all" || item.doc.status === docStatus;
       return matchesSearch && matchesStage && matchesDoc;
@@ -111,6 +120,14 @@ export function ComponentsPage() {
     ).length;
     const withProof = rows.filter((item) => item.visual_proof.exists).length;
     return { total, ready, needsReview, withProof };
+  }, [rows]);
+
+  const displayNameBySlug = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const row of rows) {
+      map[row.slug] = row.display_name;
+    }
+    return map;
   }, [rows]);
 
   const toggleSort = (field: SortField) => {
@@ -175,7 +192,7 @@ export function ComponentsPage() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por nombre, slug o node id"
+              placeholder="Buscar por nombre o slug"
               className="md:w-72"
             />
             <Select
@@ -254,8 +271,8 @@ export function ComponentsPage() {
                     Spec status <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>Node ID</TableHead>
-                <TableHead>Proof</TableHead>
+                <TableHead>Figma</TableHead>
+                <TableHead>Used In</TableHead>
                 <TableHead>
                   <button
                     type="button"
@@ -310,11 +327,31 @@ export function ComponentsPage() {
                           {item.spec.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {item.figma.component_set_node_id ?? "-"}
+                      <TableCell>
+                        {item.figma.file_url ? (
+                          <a
+                            href={item.figma.file_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                            title="Open component in Figma"
+                            aria-label={`Open ${item.display_name} in Figma`}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          "-"
+                        )}
                       </TableCell>
                       <TableCell>
-                        {item.visual_proof.exists ? "Yes" : "No"}
+                        {(() => {
+                          const usedInSlugs = usageBySlug[item.slug]?.used_in ?? [];
+                          if (usedInSlugs.length === 0) return "-";
+                          const labels = usedInSlugs.map(
+                            (slug) => displayNameBySlug[slug] || slug,
+                          );
+                          return labels.join(", ");
+                        })()}
                       </TableCell>
                       <TableCell>
                         {item.ready_for_publish ? "Yes" : "No"}
