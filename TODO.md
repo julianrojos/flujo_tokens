@@ -227,10 +227,6 @@ Integración visual de ds-token-diff y ds-token-graph
 Valor: convertir scripts CLI en vistas operativas (cambios y cadenas de alias/ciclos).
 Prioridad: P2.
 
-Capa de robustez: validación runtime + error boundary + tests clave
-Valor: menos roturas silenciosas ante cambios de esquema en JSON generados.
-Prioridad: P2.
-
 🔝 TOP 10 PROPUESTAS PRIORIZADAS
 
 2. Búsqueda Global con Atajo de Teclado (Cmd+K)
@@ -326,17 +322,6 @@ Hover para ver preview en popover
 Click para abrir en modal con zoom
 Indicador visual de “needs update” si el spec cambió
 Por qué es #9: Hace tangible el estado de los componentes sin salir del dashboard.
-
-10. Dark/Light Theme Toggle para el Dashboard
-    Impacto: Bajo-Medio | Esfuerzo: Bajo
-
-Descripción:
-
-Toggle en header para cambiar tema del dashboard
-Respetar preferencia del sistema
-Persistir en localStorage
-Coherente con el DS que está documentando
-Por qué es #10: Meta: el dashboard debe ejemplificar el DS que documenta.
 
 📋 Otras 10 Propuestas (No priorizadas top 10)
 Historial de Cambios por Token (git blame embebido)
