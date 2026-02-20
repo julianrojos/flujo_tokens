@@ -254,6 +254,12 @@ The repository includes a local dashboard app under `apps/ds-dashboard` with two
 
 No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
 
+Tokens accessibility checker:
+
+- In `Tokens & Properties`, when `Type` filter is set to `color`, an accessibility icon button appears next to the type selector.
+- The button opens a contrast modal with two semantic color selects (background and foreground for text/icon).
+- The modal computes WCAG 2.2 contrast results dynamically (ratio + Level A informational note + Level AA/AAA pass-fail indicators).
+
 Setup:
 
 ```bash
