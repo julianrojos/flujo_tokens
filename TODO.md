@@ -188,3 +188,181 @@ JSON report to stdout + `docs/_generated/qa-report.json`
 - `package.json` — add script `"ds:qa"`
 
 ---
+
+### DESIGN SYSTEM ADMIN
+
+Estado en URL + deep links de filtros/orden
+Valor: compartir vistas exactas (/tokens?type=color&collection=Semantic...) y reproducibilidad total.
+Prioridad: P0.
+
+Indicador de frescura de datos + refresh unificado
+Valor: saber si component-registry/token-usage-index están desactualizados y refrescar todo en un solo botón.
+Prioridad: P0.
+
+Buscador global (command palette)
+Valor: buscar componentes, tokens y paths desde un único input con atajo de teclado.
+Prioridad: P0.
+
+Panel de detalle (drawer) para fila seleccionada
+Valor: ver trazabilidad completa sin salir de la tabla (spec/doc/proof/figma/used-in).
+Prioridad: P1.
+
+Mapa de impacto cruzado Token → Componentes y Componente → Dependencias
+Valor: análisis de impacto antes de cambiar tokens o componentes.
+Prioridad: P1.
+
+Vista “Health Board” con issues accionables
+Valor: agrupar en bloques: missing proof, needs-review, missing figma link, tokens sin uso, etc.
+Prioridad: P1.
+
+Centro de ejecuciones del pipeline dentro del dashboard
+Valor: lanzar scripts (ds:registry:refresh, ds:token-usage-index, etc.) y ver resultado/logs en UI.
+Prioridad: P1.
+
+Virtualización/paginación de tablas grandes
+Valor: rendimiento estable cuando crezcan tokens/componentes.
+Prioridad: P1.
+
+Integración visual de ds-token-diff y ds-token-graph
+Valor: convertir scripts CLI en vistas operativas (cambios y cadenas de alias/ciclos).
+Prioridad: P2.
+
+Capa de robustez: validación runtime + error boundary + tests clave
+Valor: menos roturas silenciosas ante cambios de esquema en JSON generados.
+Prioridad: P2.
+
+🔝 TOP 10 PROPUESTAS PRIORIZADAS
+
+1. Vista de Detalle de Token/Componente (Drawer/Modal)
+   Impacto: Alto | Esfuerzo: Medio
+
+Descripción: Al hacer click en una fila, abrir un drawer lateral con:
+
+Para Tokens:
+Todos los metadatos (path completo, alias, referencias)
+Historial de cambios (si hay git)
+Lista completa de usos con contexto (archivo + línea + snippet)
+Enlace a documentación si existe
+Para Componentes:
+Spec completo embebido
+Visual proof en grande
+Lista de tokens usados
+Timeline de pipeline
+Por qué es #1: Centraliza información dispersa, reduce necesidad de navegar entre archivos.
+
+2. Búsqueda Global con Atajo de Teclado (Cmd+K)
+   Impacto: Alto | Esfuerzo: Bajo-Medio
+
+Descripción:
+
+Modal de búsqueda global accesible con Cmd+K o Ctrl+K
+Búsqueda unificada en tokens y componentes
+Resultados agrupados por tipo
+Navegación con teclado
+Recientes y favoritos
+Por qué es #2: Mejora radicalmente la discoverability y velocidad de navegación.
+
+3. Exportar Datos Filtrados (CSV/JSON)
+   Impacto: Alto | Esfuerzo: Bajo
+
+Descripción:
+
+Botón “Export” en cada página
+Opciones: CSV, JSON, Markdown table
+Exporta datos actuales (con filtros aplicados)
+Útil para reportes, auditorías, compartir con stakeholders
+Por qué es #3: Habilita workflows externos y reporting sin esfuerzo adicional.
+
+4. Vista de Comparación (Diff View) para Tokens
+   Impacto: Alto | Esfuerzo: Medio
+
+Descripción:
+
+Comparar token registry actual vs versión anterior (git diff)
+Highlight de cambios: añadidos (verde), modificados (amarillo), eliminados (rojo)
+Mostrar impacto del cambio (dónde se usa el token modificado)
+Integración con npm run ds:token-diff
+Por qué es #4: Crítico para change management y breaking changes detection.
+
+5. Gráfico de Dependencias de Tokens (Graph Visualization)
+   Impacto: Medio-Alto | Esfuerzo: Medio-Alto
+
+Descripción:
+
+Visualización gráfica del árbol de dependencias
+Nodos: tokens, aristas: referencias
+Filtrado por token seleccionado
+Detección visual de ciclos
+Zoom + pan
+Integración con npm run ds:token-graph
+Por qué es #5: Hace tangible la complejidad del sistema de tokens.
+
+6. Favoritos / Bookmarks
+   Impacto: Medio | Esfuerzo: Bajo
+
+Descripción:
+
+Marcar tokens/componentes como favoritos (localStorage)
+Sección “Favorites” en sidebar
+Quick access para revisión frecuente
+Útil para auditors y maintainers
+Por qué es #6: Baja fricción para workflows recurrentes.
+
+7. Vista de “Token Health” Dashboard
+   Impacto: Medio | Esfuerzo: Medio
+
+Descripción:
+
+Métricas de salud del design system:
+Tokens sin usar (unused)
+Tokens con muchos usos (high coupling)
+Aliases rotos
+Colores que no pasan WCAG
+Componentes sin spec/doc
+Gráficos de tendencias (si hay histórico)
+Por qué es #7: Proporciona visibilidad operativa del estado del DS.
+
+8. Filtros Avanzados con Guardado de Vistas
+   Impacto: Medio | Esfuerzo: Medio
+
+Descripción:
+
+Filtros combinados complejos (ej: “color tokens de Primitives sin usar”)
+Guardar combinaciones de filtros como “vistas”
+Vistas compartidas vía URL params
+Ej: /tokens?view=unused-colors
+Por qué es #8: Potencia la capacidad de análisis sin añadir complejidad permanente.
+
+9. Integración de Visual Proof en Components Page
+   Impacto: Medio | Esfuerzo: Bajo
+
+Descripción:
+
+Thumbnail de visual proof en la tabla
+Hover para ver preview en popover
+Click para abrir en modal con zoom
+Indicador visual de “needs update” si el spec cambió
+Por qué es #9: Hace tangible el estado de los componentes sin salir del dashboard.
+
+10. Dark/Light Theme Toggle para el Dashboard
+    Impacto: Bajo-Medio | Esfuerzo: Bajo
+
+Descripción:
+
+Toggle en header para cambiar tema del dashboard
+Respetar preferencia del sistema
+Persistir en localStorage
+Coherente con el DS que está documentando
+Por qué es #10: Meta: el dashboard debe ejemplificar el DS que documenta.
+
+📋 Otras 10 Propuestas (No priorizadas top 10)
+Historial de Cambios por Token (git blame embebido)
+Búsqueda por Imagen (subir screenshot → encontrar componente)
+Modo “Review” (marcar tokens/componentes para revisión)
+Comentarios/Notas en tokens (para documentación interna)
+Integración con GitHub Issues (crear issue desde token/componente)
+Vista de “Orphaned Tokens” (sin alias ni usos)
+Timeline de Pipeline (cuándo se generó cada doc)
+Búsqueda por Valor (ej: “#ffffff” → encontrar todos los blancos)
+Agrupación por “Owner” (quién mantiene cada token/componente)
+Modo Presentación (ocultar UI, solo datos para demos)
