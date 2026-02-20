@@ -45,6 +45,11 @@ import {
   TOKEN_COLLECTION_PREFIXES,
   TRACEABILITY_CONTRACT_VERSION,
 } from "./docs-config.mjs";
+import {
+  GAP_ERROR_CODES,
+  GAP_CHECK_MESSAGES,
+  GAPS_VALIDATION,
+} from "./gaps-contract.mjs";
 
 export { CANONICAL_H2_ORDER, REQUIRED_CANONICAL_H2 } from "./docs-config.mjs";
 export { OPTIONAL_CANONICAL_H2 } from "./docs-config.mjs";
@@ -920,11 +925,10 @@ function validateGapsSectionContract(
   if (!spec.exists) {
     if (section) {
       report.warnings.push({
-        code: "GAP00",
+        code: GAP_ERROR_CODES.GAP00,
         file: filePath,
         line: section ? lineFromOffset(lineStarts, section.start) : undefined,
-        message:
-          "Gaps section exists but linked spec file is missing; deterministic gap checks were skipped.",
+        message: GAP_CHECK_MESSAGES.GAP00,
       });
     }
     return;
@@ -932,9 +936,9 @@ function validateGapsSectionContract(
 
   if (spec.parseError || !spec.parsed) {
     report.errors.push({
-      code: "GAP01",
+      code: GAP_ERROR_CODES.GAP01,
       file: filePath,
-      message: `Unable to validate Gaps / TBD contract because spec could not be parsed: ${spec.parseError}`,
+      message: `${GAP_CHECK_MESSAGES.GAP01_spec_parse_error}: ${spec.parseError}`,
       suggested: path.relative(process.cwd(), spec.specPath),
     });
     return;
@@ -944,35 +948,33 @@ function validateGapsSectionContract(
   const expectedLines = buildGapsChecklistLines(gaps);
   const hasReadyStatusWithGaps = spec.status === "ready" && gaps.length > 0;
   const readyStatusWithGapsNote = hasReadyStatusWithGaps
-    ? " Linked spec is also invalid: status `ready` with unresolved gaps (GAP02)."
+    ? GAP_CHECK_MESSAGES.GAP02_note
     : "";
 
   if (hasReadyStatusWithGaps) {
     report.errors.push({
-      code: "GAP02",
+      code: GAP_ERROR_CODES.GAP02,
       file: spec.specPath,
-      message:
-        "Spec status is `ready` but unresolved gaps still exist. Resolve gaps or set status back to `draft`.",
+      message: GAP_CHECK_MESSAGES.GAP02_ready_with_gaps,
     });
   }
 
   if (expectedLines.length === 0) {
     if (!section) return;
     report.errors.push({
-      code: "GAP01",
+      code: GAP_ERROR_CODES.GAP01,
       file: filePath,
       line: lineFromOffset(lineStarts, section.start),
-      message:
-        "`## Gaps / TBD` must be omitted when the linked spec has no unresolved gaps.",
+      message: GAP_CHECK_MESSAGES.GAP01_section_not_needed,
     });
     return;
   }
 
   if (!section) {
     report.errors.push({
-      code: "GAP01",
+      code: GAP_ERROR_CODES.GAP01,
       file: filePath,
-      message: `Missing required \`## Gaps / TBD\` section. The linked spec has unresolved gaps.${readyStatusWithGapsNote}`,
+      message: `${GAP_CHECK_MESSAGES.GAP01_section_missing}${readyStatusWithGapsNote}`,
     });
     return;
   }
@@ -980,24 +982,23 @@ function validateGapsSectionContract(
   const rawSectionLines = extractNonEmptySectionLines(section.body);
   if (rawSectionLines.length === 0) {
     report.errors.push({
-      code: "GAP01",
+      code: GAP_ERROR_CODES.GAP01,
       file: filePath,
       line: lineFromOffset(lineStarts, section.start),
-      message: `\`## Gaps / TBD\` must contain checklist items in canonical checkbox format.${readyStatusWithGapsNote}`,
+      message: `${GAP_CHECK_MESSAGES.GAP01_section_empty}${readyStatusWithGapsNote}`,
     });
     return;
   }
 
-  const checkboxFormat = /^-\s+\[\s\]\s+\[[A-Z0-9_]+\]\s+.+$/;
   const invalidLine = rawSectionLines.find(
-    (line) => !checkboxFormat.test(line),
+    (line) => !GAPS_VALIDATION.checkboxFormatRegex.test(line),
   );
   if (invalidLine) {
     report.errors.push({
-      code: "GAP01",
+      code: GAP_ERROR_CODES.GAP01,
       file: filePath,
       line: lineFromOffset(lineStarts, section.start),
-      message: `Every Gaps item must use checkbox format: \`- [ ] [GAP_TYPE] ...\`.${readyStatusWithGapsNote}`,
+      message: `${GAP_CHECK_MESSAGES.GAP01_invalid_item_format}${readyStatusWithGapsNote}`,
       details: invalidLine,
     });
     return;
@@ -1011,10 +1012,10 @@ function validateGapsSectionContract(
   if (sameOrder) return;
 
   report.errors.push({
-    code: "GAP01",
+    code: GAP_ERROR_CODES.GAP01,
     file: filePath,
     line: lineFromOffset(lineStarts, section.start),
-    message: `Gaps section does not match canonical deterministic content generated from spec + token registry.${readyStatusWithGapsNote}`,
+    message: `${GAP_CHECK_MESSAGES.GAP01_content_mismatch}${readyStatusWithGapsNote}`,
     expected: expectedLines,
     actual: actualLines,
   });

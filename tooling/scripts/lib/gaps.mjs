@@ -1,19 +1,6 @@
 import { isPlainObject } from "./is-plain-object.mjs";
 import { TOKEN_COLLECTION_PREFIXES } from "./docs-config.mjs";
-
-const GAP_TYPE = Object.freeze({
-  SCHEMA_TBD: "SCHEMA_TBD",
-  TOKEN_INVALID: "TOKEN_INVALID",
-  CONTENT_UNKNOWN: "CONTENT_UNKNOWN",
-  A11Y_TBD: "A11Y_TBD",
-});
-
-const GAP_TYPE_ORDER = new Map([
-  [GAP_TYPE.SCHEMA_TBD, 1],
-  [GAP_TYPE.TOKEN_INVALID, 2],
-  [GAP_TYPE.CONTENT_UNKNOWN, 3],
-  [GAP_TYPE.A11Y_TBD, 4],
-]);
+import { GAP_TYPE, GAP_TYPE_ORDER, classifyGapType } from "./gaps-contract.mjs";
 const TOKEN_COLLECTION_PREFIXES_LOWER = new Set(
   [...TOKEN_COLLECTION_PREFIXES].map((value) => String(value).toLowerCase()),
 );
@@ -89,20 +76,9 @@ function splitTokenValues(raw) {
     .filter(Boolean);
 }
 
+// Delegated to gaps-contract.mjs as the single source of truth for gap type classification
 function classifyUnknownPath(pathKey) {
-  const key = String(pathKey || "").toLowerCase();
-  if (key.startsWith("accessibility.")) return GAP_TYPE.A11Y_TBD;
-  if (
-    key.startsWith("anatomy.") ||
-    key.startsWith("properties.") ||
-    key.startsWith("summary.") ||
-    key.startsWith("content_guidelines.") ||
-    key.startsWith("best_practices.") ||
-    key.startsWith("related_components.")
-  ) {
-    return GAP_TYPE.CONTENT_UNKNOWN;
-  }
-  return GAP_TYPE.SCHEMA_TBD;
+  return classifyGapType(pathKey);
 }
 
 function createGap(type, pathKey, value, message, suggested = "") {
