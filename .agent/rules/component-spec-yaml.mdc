@@ -42,7 +42,12 @@ related_components    # Optional array of snake_case component names (e.g., [but
 ### `status`
 
 - `draft`: Incomplete or unverified. `ready`: Reviewed and matches Figma.
-- No other values allowed.
+- No other values allowed. `needs-review` is **not valid** here.
+
+> **Note:** The `status` field in spec YAML is intentionally more restrictive than the `doc_status`
+> field in markdown frontmatter. Markdown pages support a third state (`needs-review`) to signal
+> that an already-published page needs re-validation after upstream changes. Spec files do not have
+> this intermediate state — a spec is either incomplete (`draft`) or verified (`ready`).
 
 ### `figma`
 

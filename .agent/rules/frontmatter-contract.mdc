@@ -17,6 +17,10 @@ doc_type: component | overview | foundation | workflow
 doc_status: draft | ready | needs-review
 ```
 
+> **Scope:** `doc_status` applies only to **markdown documentation pages** (`docs/**/*.md`).
+> It is distinct from the `status` field in component spec YAML files (`docs/_spec/components/*.yml`),
+> which only accepts `draft` or `ready`. The `needs-review` value is not valid in spec YAML files.
+
 ## Component page contract (`docs/components/*.md`, excluding `overview.md`)
 
 Component pages must include a `figma` block:
