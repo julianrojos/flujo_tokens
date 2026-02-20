@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
+import { COMPONENT_DOCS_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { parseMarkdownFrontmatter } from "./lib/parse-frontmatter.mjs";
 import {
@@ -39,6 +39,7 @@ import {
   assertScopedWritePolicy,
   captureScopedWriteSnapshot,
 } from "./lib/scoped-write-guard.mjs";
+import { runOrThrow } from "./lib/exec.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
@@ -162,12 +163,33 @@ function main() {
     "_generated",
     "component-registry.json",
   );
+  const tokenUsageIndexPath = path.join(
+    docsRootDir,
+    "_generated",
+    "token-usage-index.json",
+  );
+  const tokenRegistryPath = path.join(
+    docsRootDir,
+    "_generated",
+    "token-registry.json",
+  );
+  const tokenUsageScriptPath = path.join(
+    PROJECT_ROOT,
+    "tooling",
+    "scripts",
+    "ds-token-usage-index.mjs",
+  );
   const scopeSnapshot = captureScopedWriteSnapshot({
     directories: [componentDocsDir, specComponentsDir],
-    files: [registryIndexPath],
+    files: [registryIndexPath, tokenUsageIndexPath],
     extensions: [".md", ".yml", ".json"],
   });
-  const allowedWritePaths = [outputPath, overviewPath, registryIndexPath];
+  const allowedWritePaths = [
+    outputPath,
+    overviewPath,
+    registryIndexPath,
+    tokenUsageIndexPath,
+  ];
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   const skeletonPath = writeComponentDocSkeleton({
@@ -297,6 +319,15 @@ function main() {
       renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
       registryPath: registryIndexPath,
     });
+    runOrThrow(process.execPath, [
+      tokenUsageScriptPath,
+      "--registry",
+      tokenRegistryPath,
+      "--spec-root",
+      specComponentsDir,
+      "--out",
+      tokenUsageIndexPath,
+    ]);
     assertScopedWritePolicy({
       snapshot: scopeSnapshot,
       allowedPaths: allowedWritePaths,
