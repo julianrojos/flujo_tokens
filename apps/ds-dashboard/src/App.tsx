@@ -1,8 +1,9 @@
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
-import { Boxes, GitBranch, Layers3 } from "lucide-react";
+import { Activity, Boxes, GitBranch, Layers3 } from "lucide-react";
 
 import { ComponentsPage } from "@/features/components/components-page";
 import { ComponentDetailPage } from "@/features/components/component-detail/component-detail-page";
+import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { TokenGraphPage } from "@/features/tokens/token-graph/token-graph-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
@@ -10,6 +11,12 @@ import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-pag
 import { cn } from "@/lib/utils";
 
 const navItems = [
+  {
+    to: "/health",
+    label: "Health",
+    description: "Métricas operativas",
+    icon: Activity,
+  },
   {
     to: "/tokens",
     label: "Tokens & Properties",
@@ -107,6 +114,7 @@ export default function App() {
 
           <Routes>
             <Route path="/" element={<Navigate to="/components" replace />} />
+            <Route path="/health" element={<HealthDashboardPage />} />
             <Route path="/components" element={<ComponentsPage />} />
             <Route path="/components/:slug" element={<ComponentDetailPage />} />
             <Route path="/tokens" element={<TokensPage />} />
