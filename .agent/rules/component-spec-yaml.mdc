@@ -62,17 +62,30 @@ version         # Optional object: { spec, component } with SemVer values
 
 - Must map 1:1 with the Figma component set properties.
 - `type`: Use canonical spec types — `enum`, `text`, `boolean`, `instance_swap`.
-- `values`: Array of allowed values for enums; omit for text/boolean.
+- `values`: Array of allowed values for `enum`; omit for `text`, `boolean`, and `instance_swap`.
 - `default`: The Figma default value.
 - `required`: `true` or `false`.
 - Ordering MUST be deterministic and follow `component-spec-properties-order.mdc`.
 
-Type mapping for markdown docs:
+**Type mapping decision table** — canonical source of truth. All other rules and skills must reference this table, not duplicate it.
 
-- `enum` -> `VARIANT`
-- `text` -> `TEXT`
-- `boolean` -> `BOOLEAN`
-- `instance_swap` -> `INSTANCE_SWAP`
+Type comparison is **case-insensitive** (`Enum`, `ENUM`, and `enum` are equivalent).
+
+| Spec `type` | Figma display type | `values` field | `default` format | Ordering group | On unknown |
+| ----------- | ------------------ | -------------- | ---------------- | -------------- | ---------- |
+| `enum` | `VARIANT` | Required — array of allowed string values | One of the `values` entries, or `TBD` if unknown | 1 | — |
+| `text` | `TEXT` | Omit | Any string, or `TBD` if unknown | 2 | — |
+| `boolean` | `BOOLEAN` | Omit | `true` or `false` (unquoted), or `TBD` if unknown | 3 | — |
+| `instance_swap` | `INSTANCE_SWAP` | Omit | Component name string, or `TBD` if unknown | 4 | — |
+| anything else | _(invalid)_ | — | — | 5 | Stop; report error `SPEC01` with the invalid type value; do not render the property |
+
+No other `type` values are valid. `null`, empty string, and missing `type` are treated as unknown and trigger the same `SPEC01` error.
+
+The "Stop; report error" instruction applies to **generating skills and scripts** (for example `ds:component-doc`, `ds:spec-from-figma`) and to `validate:docs`. Specs that violate this table are invalid and must be fixed before markdown generation.
+
+Ready spec constraint:
+
+- For `status: ready`, all property defaults must be concrete (not `TBD`), and `enum` defaults must match one of the `values`.
 
 ### `best_practices`
 

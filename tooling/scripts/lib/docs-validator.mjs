@@ -31,6 +31,11 @@ import { deriveFigmaFrontmatterTraceability } from "./figma-traceability.mjs";
 import { isTbdMarker } from "./tbd.mjs";
 import { extractSectionBody } from "./markdown-sections.mjs";
 import {
+  SPEC_PROPERTY_ALLOWED_TYPES,
+  getSpecPropertyTypeInfo,
+  normalizeSpecPropertyType,
+} from "./spec-property-types.mjs";
+import {
   ALLOWED_DOC_STATUS,
   CANONICAL_H2_ORDER,
   COMPONENT_REQUIRED_FIGMA_FRONTMATTER_FIELDS,
@@ -51,13 +56,6 @@ const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
 const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
 const RULE_MANIFEST_PATH = resolveProjectPath(".agent", "rules", "_manifest.yml");
-const SPEC_PROPERTY_GROUP_ORDER = new Map([
-  ["variant", 1],
-  ["enum", 1],
-  ["text", 2],
-  ["boolean", 3],
-  ["instance_swap", 4],
-]);
 const CANONICAL_COMPONENT_LIST_HEADING = "component list";
 const OVERVIEW_ENTRY_RE = /^-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
@@ -2125,27 +2123,21 @@ function splitSpecTokenValue(rawValue) {
     .filter(Boolean);
 }
 
-function normalizeSpecPropertyGroup(typeValue) {
-  const normalizedType = String(typeValue || "")
-    .replace(/#.*$/, "")
-    .trim()
-    .toLowerCase();
-  return SPEC_PROPERTY_GROUP_ORDER.get(normalizedType) || 5;
-}
-
-function validateSpecPropertyOrder(filePath, properties, report) {
-  if (properties === undefined || properties === null) return;
+function validateSpecPropertyContracts(filePath, specStatus, properties, report) {
+  if (properties === undefined || properties === null) return { hasInvalidTypes: false };
   if (!Array.isArray(properties)) {
     report.errors.push({
       code: "SPEC01",
       file: filePath,
       message: "Field `properties` must be an array.",
     });
-    return;
+    return { hasInvalidTypes: true };
   }
 
-  let previousGroup = -1;
-  const seenNames = new Set();
+  const allowedTypeList = Array.from(SPEC_PROPERTY_ALLOWED_TYPES).sort((a, b) =>
+    a.localeCompare(b, "en", { sensitivity: "base" }),
+  );
+  let hasInvalidTypes = false;
 
   for (let i = 0; i < properties.length; i += 1) {
     const prop = properties[i];
@@ -2159,14 +2151,191 @@ function validateSpecPropertyOrder(filePath, properties, report) {
     }
 
     const propName = String(prop.name || "").trim();
-    const propType = String(prop.type || "").trim();
     if (!propName) {
       report.errors.push({
         code: "SPEC01",
         file: filePath,
         message: `Property entry at index ${i} is missing \`name\`.`,
       });
-    } else {
+      continue;
+    }
+
+    const rawType = prop.type;
+    const normalizedType = normalizeSpecPropertyType(rawType);
+    const typeInfo = getSpecPropertyTypeInfo(rawType);
+    if (!typeInfo) {
+      hasInvalidTypes = true;
+      const suggested =
+        normalizedType === "variant"
+          ? "enum"
+          : normalizedType === "instance-swap"
+            ? "instance_swap"
+            : "";
+      const suggestionText = suggested
+        ? ` Suggested: \`type: ${suggested}\`.`
+        : "";
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message:
+          `Invalid property type for \`${propName}\`: \`${String(rawType ?? "").trim() || "missing"}\`. ` +
+          `Expected one of: ${allowedTypeList.map((t) => `\`${t}\``).join(", ")}.` +
+          suggestionText,
+      });
+      continue;
+    }
+
+    if (!("default" in prop)) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Property \`${propName}\` is missing required field: \`default\`.`,
+      });
+    }
+
+    if (!("required" in prop)) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Property \`${propName}\` is missing required field: \`required\`.`,
+      });
+    } else if (typeof prop.required !== "boolean") {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Property \`${propName}\` field \`required\` must be a boolean.`,
+      });
+    }
+
+    if (!("description" in prop)) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Property \`${propName}\` is missing required field: \`description\`.`,
+      });
+    } else if (
+      typeof prop.description !== "string" ||
+      String(prop.description).trim().length === 0
+    ) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Property \`${propName}\` field \`description\` must be a non-empty string.`,
+      });
+    }
+
+    if (typeInfo.requiresValues) {
+      if (!("values" in prop)) {
+        report.errors.push({
+          code: "SPEC01",
+          file: filePath,
+          message: `Enum property \`${propName}\` is missing required field: \`values\`.`,
+        });
+      } else if (!Array.isArray(prop.values)) {
+        report.errors.push({
+          code: "SPEC01",
+          file: filePath,
+          message: `Enum property \`${propName}\` field \`values\` must be an array of strings.`,
+        });
+      } else {
+        const values = prop.values.map((value) => String(value ?? "").trim());
+        if (values.length === 0) {
+          report.errors.push({
+            code: "SPEC01",
+            file: filePath,
+            message: `Enum property \`${propName}\` field \`values\` must not be empty.`,
+          });
+        }
+        const invalid = values.find((value) => !value || isTbdMarker(value));
+        if (invalid) {
+          report.errors.push({
+            code: "SPEC01",
+            file: filePath,
+            message: `Enum property \`${propName}\` field \`values\` must contain concrete non-TBD strings.`,
+            details: invalid,
+          });
+        }
+
+        if ("default" in prop) {
+          const defaultValue = prop.default;
+          const defaultAsString = String(defaultValue ?? "").trim();
+          const isDefaultTbd =
+            typeof defaultValue === "string" && isTbdMarker(defaultAsString);
+          if (specStatus === "ready" && isDefaultTbd) {
+            report.errors.push({
+              code: "SPEC01",
+              file: filePath,
+              message: `Spec is \`ready\` but enum property \`${propName}\` has \`default: TBD\`.`,
+            });
+          } else if (!isDefaultTbd && defaultAsString && !values.includes(defaultAsString)) {
+            report.errors.push({
+              code: "SPEC01",
+              file: filePath,
+              message:
+                `Enum property \`${propName}\` has default \`${defaultAsString}\` not listed in \`values\`.`,
+            });
+          }
+        }
+      }
+    } else if ("values" in prop && prop.values !== undefined) {
+      report.errors.push({
+        code: "SPEC01",
+        file: filePath,
+        message: `Property \`${propName}\` must omit \`values\` unless \`type: enum\`.`,
+      });
+    }
+
+    if ("default" in prop) {
+      const defaultValue = prop.default;
+      const defaultAsString = typeof defaultValue === "string" ? defaultValue.trim() : "";
+      const isDefaultTbd = typeof defaultValue === "string" && isTbdMarker(defaultAsString);
+      if (specStatus === "ready" && isDefaultTbd) {
+        report.errors.push({
+          code: "SPEC01",
+          file: filePath,
+          message: `Spec is \`ready\` but property \`${propName}\` has \`default: TBD\`.`,
+        });
+      }
+
+      if (!isDefaultTbd) {
+        if (normalizedType === "boolean" && typeof defaultValue !== "boolean") {
+          report.errors.push({
+            code: "SPEC01",
+            file: filePath,
+            message: `Boolean property \`${propName}\` field \`default\` must be \`true\` or \`false\` (unquoted).`,
+          });
+        }
+        if (
+          (normalizedType === "text" || normalizedType === "instance_swap") &&
+          typeof defaultValue !== "string"
+        ) {
+          report.errors.push({
+            code: "SPEC01",
+            file: filePath,
+            message: `Property \`${propName}\` field \`default\` must be a string or \`TBD\`.`,
+          });
+        }
+      }
+    }
+  }
+
+  return { hasInvalidTypes };
+}
+
+function validateSpecPropertyOrder(filePath, properties, report, options = {}) {
+  if (properties === undefined || properties === null) return;
+  if (!Array.isArray(properties)) return;
+
+  const skipGroupOrder = options.skipGroupOrder === true;
+  let previousGroup = -1;
+  const seenNames = new Set();
+
+  for (let i = 0; i < properties.length; i += 1) {
+    const prop = properties[i];
+    if (!isPlainObject(prop)) continue;
+
+    const propName = String(prop.name || "").trim();
+    if (propName) {
       const nameKey = propName.toLowerCase();
       if (seenNames.has(nameKey)) {
         report.errors.push({
@@ -2179,14 +2348,17 @@ function validateSpecPropertyOrder(filePath, properties, report) {
       }
     }
 
-    const currentGroup = normalizeSpecPropertyGroup(propType);
+    if (skipGroupOrder) continue;
+
+    const typeInfo = getSpecPropertyTypeInfo(prop.type);
+    const currentGroup = typeInfo ? typeInfo.orderingGroup : 5;
     if (currentGroup < previousGroup) {
       report.errors.push({
         code: "DET01",
         file: filePath,
         message:
           "Properties must follow canonical type group order: " +
-          "variant/enum -> text -> boolean -> instance_swap -> other.",
+          "enum -> text -> boolean -> instance_swap -> other.",
       });
       break;
     }
@@ -2362,7 +2534,15 @@ function validateSpecYamlFile(filePath, report, registryIndexes) {
     context: "Spec",
   });
 
-  validateSpecPropertyOrder(filePath, parsed.properties, report);
+  const propertyContracts = validateSpecPropertyContracts(
+    filePath,
+    String(parsed.status || "").trim(),
+    parsed.properties,
+    report,
+  );
+  validateSpecPropertyOrder(filePath, parsed.properties, report, {
+    skipGroupOrder: Boolean(propertyContracts && propertyContracts.hasInvalidTypes),
+  });
 
   const specBase = path.basename(filePath, path.extname(filePath));
   if (!isSnakeCaseFileSlug(specBase)) {

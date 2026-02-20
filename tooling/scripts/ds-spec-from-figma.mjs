@@ -26,6 +26,10 @@ import { buildAgentPrompt, RULE_BLOCKS } from "./lib/prompts.mjs";
 import { GOLDEN_COMPONENT_SPEC_SAMPLE_PATH } from "./lib/doc-templates.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
 import {
+  coerceSpecPropertyType,
+  getSpecPropertyTypeInfo,
+} from "./lib/spec-property-types.mjs";
+import {
   captureFileSnapshot,
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
@@ -129,13 +133,6 @@ const PROPERTY_FIELD_ORDER = [
   "required",
   "description",
 ];
-const PROPERTY_TYPE_ORDER = new Map([
-  ["variant", 1],
-  ["enum", 1],
-  ["text", 2],
-  ["boolean", 3],
-  ["instance_swap", 4],
-]);
 const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
   "name",
   "figma.file",
@@ -145,19 +142,6 @@ const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
   "properties",
   "anatomy",
 ]);
-
-function normalizePropertyType(rawType) {
-  const withoutSuffix = String(rawType || "")
-    .trim()
-    .split("#")[0]
-    .trim();
-  if (!withoutSuffix) return "";
-
-  return withoutSuffix
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/[\s-]+/g, "_")
-    .toLowerCase();
-}
 
 function parseFigmaUrl(figmaUrl) {
   if (!figmaUrl) return { fileKey: "", nodeId: "" };
@@ -276,15 +260,19 @@ function normalizeSpecOrder(spec) {
       index,
     }));
     stableDecorated.sort((a, b) => {
-      const typeA = normalizePropertyType(a.item.type);
-      const typeB = normalizePropertyType(b.item.type);
-      const groupA = PROPERTY_TYPE_ORDER.get(typeA) || Number.MAX_SAFE_INTEGER;
-      const groupB = PROPERTY_TYPE_ORDER.get(typeB) || Number.MAX_SAFE_INTEGER;
+      const typeA = coerceSpecPropertyType(a.item.type);
+      const typeB = coerceSpecPropertyType(b.item.type);
+      const infoA = typeA ? getSpecPropertyTypeInfo(typeA) : null;
+      const infoB = typeB ? getSpecPropertyTypeInfo(typeB) : null;
+      const groupA = infoA ? infoA.orderingGroup : Number.MAX_SAFE_INTEGER;
+      const groupB = infoB ? infoB.orderingGroup : Number.MAX_SAFE_INTEGER;
       if (groupA !== groupB) return groupA - groupB;
       return a.index - b.index;
     });
 
     ordered.properties = stableDecorated.map(({ item }) => {
+      const canonicalType = coerceSpecPropertyType(item.type);
+      if (canonicalType) item.type = canonicalType;
       const propertyOrdered = {};
       for (const key of PROPERTY_FIELD_ORDER) {
         if (key in item) propertyOrdered[key] = item[key];

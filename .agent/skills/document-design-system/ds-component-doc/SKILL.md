@@ -163,13 +163,8 @@ Per `component-doc.mdc`, use this table format:
 | Name | Type | Default | Required | Description |
 | ---- | ---- | ------- | -------- | ----------- |
 
-- `Type` column uses Figma property types: `VARIANT`, `TEXT`, `BOOLEAN`, `INSTANCE_SWAP`.
-- Convert from spec canonical property types before rendering:
-  - `enum` -> `VARIANT`
-  - `text` -> `TEXT`
-  - `boolean` -> `BOOLEAN`
-  - `instance_swap` -> `INSTANCE_SWAP`
-- For `VARIANT` types, list allowed values in the `Description` column.
+- Apply the **type mapping decision table** from `component-spec-yaml.mdc` to convert spec `type` to the Figma display type for the `Type` column.
+- For `VARIANT` types, list the allowed values (from `values` in the spec) in the `Description` column.
 
 ## Token references in output
 

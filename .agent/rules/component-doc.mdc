@@ -89,12 +89,8 @@ If additional details are needed, place them under `###` inside the nearest allo
 
 - Include `### Properties` with table schema:
   `| Name | Type | Default | Required | Description |`
-- `Type` values: `VARIANT`, `TEXT`, `BOOLEAN`, `INSTANCE_SWAP`.
-- When mapping from spec YAML, convert canonical spec types as:
-  - `enum` -> `VARIANT`
-  - `text` -> `TEXT`
-  - `boolean` -> `BOOLEAN`
-  - `instance_swap` -> `INSTANCE_SWAP`
+- Convert spec `type` values to Figma display types using the **type mapping decision table** in `component-spec-yaml.mdc`. That table is the single source of truth; do not duplicate the mapping here.
+- Spec types are canonical **lowercase** (e.g. `enum`, `boolean`); Figma display types are **uppercase** (e.g. `VARIANT`, `BOOLEAN`).
 
 ### `## Visual Specifications`
 

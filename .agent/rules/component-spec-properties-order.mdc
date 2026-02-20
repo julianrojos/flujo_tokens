@@ -18,15 +18,7 @@ The `properties` array MUST be sorted by groups in this exact order:
 4. Instance swaps (`INSTANCE_SWAP`)
 5. Other or unknown types
 
-Type normalization for grouping:
-
-- Group 1: `variant`, `enum`
-- Group 2: `text`
-- Group 3: `boolean`
-- Group 4: `instance_swap`
-- Group 5: any other type
-
-Comparison is case-insensitive.
+Group numbers and type-to-group mapping are defined in the **"Ordering group" column** of the type mapping decision table in `component-spec-yaml.mdc`. Consult that column for the canonical group assignment of each `type` value.
 
 ## Intra-group deterministic order
 
