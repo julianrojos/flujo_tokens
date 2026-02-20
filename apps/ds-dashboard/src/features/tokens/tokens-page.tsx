@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCcw } from "lucide-react";
+import { Accessibility, RefreshCcw } from "lucide-react";
 
 import { fetchTokenRegistry, fetchTokenUsageIndex, refreshTokenUsageIndex } from "@/lib/api";
 import type { TokenEntry } from "@/types/token-registry";
@@ -23,6 +23,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ContrastCheckerModal } from "./accessibility/contrast-checker-modal";
+import { buildSemanticColorOptions } from "./accessibility/semantic-color-options";
 
 function resolveColorSwatch(value: string): string | null {
   const raw = String(value || "").trim();
@@ -43,6 +45,9 @@ export function TokensPage() {
   const [error, setError] = useState<string | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
   const [usageSyncing, setUsageSyncing] = useState(false);
+  const [accessibilityOpen, setAccessibilityOpen] = useState(false);
+  const [selectedBackgroundPath, setSelectedBackgroundPath] = useState("");
+  const [selectedForegroundPath, setSelectedForegroundPath] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -112,6 +117,44 @@ export function TokensPage() {
     }
     return byCollection;
   }, [entries]);
+
+  const semanticColorOptions = useMemo(
+    () => buildSemanticColorOptions(entries),
+    [entries],
+  );
+
+  const showAccessibilityButton = type === "color";
+
+  useEffect(() => {
+    if (!showAccessibilityButton && accessibilityOpen) {
+      setAccessibilityOpen(false);
+    }
+  }, [showAccessibilityButton, accessibilityOpen]);
+
+  useEffect(() => {
+    const validBackground = semanticColorOptions.background.some(
+      (item) => item.tokenPath === selectedBackgroundPath,
+    );
+    if (!validBackground) {
+      setSelectedBackgroundPath(
+        semanticColorOptions.background[0]?.tokenPath || "",
+      );
+    }
+
+    const validForeground = semanticColorOptions.foreground.some(
+      (item) => item.tokenPath === selectedForegroundPath,
+    );
+    if (!validForeground) {
+      setSelectedForegroundPath(
+        semanticColorOptions.foreground[0]?.tokenPath || "",
+      );
+    }
+  }, [
+    semanticColorOptions.background,
+    semanticColorOptions.foreground,
+    selectedBackgroundPath,
+    selectedForegroundPath,
+  ]);
 
   const refreshUsage = async () => {
     setUsageSyncing(true);
@@ -192,6 +235,20 @@ export function TokensPage() {
                 </option>
               ))}
             </Select>
+            {showAccessibilityButton ? (
+              <Button
+                variant="outline"
+                onClick={() => setAccessibilityOpen(true)}
+                disabled={
+                  semanticColorOptions.background.length === 0 ||
+                  semanticColorOptions.foreground.length === 0
+                }
+                title="Open color accessibility checker"
+                aria-label="Open color accessibility checker"
+              >
+                <Accessibility className="h-4 w-4" />
+              </Button>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent>
@@ -298,6 +355,17 @@ export function TokensPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <ContrastCheckerModal
+        open={accessibilityOpen}
+        onClose={() => setAccessibilityOpen(false)}
+        backgroundOptions={semanticColorOptions.background}
+        foregroundOptions={semanticColorOptions.foreground}
+        backgroundTokenPath={selectedBackgroundPath}
+        foregroundTokenPath={selectedForegroundPath}
+        onBackgroundChange={setSelectedBackgroundPath}
+        onForegroundChange={setSelectedForegroundPath}
+      />
     </div>
   );
 }
