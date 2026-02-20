@@ -6,7 +6,7 @@ figma:
   page: Tag
   component: Tags-List
   component_set_node_id: 2075:295
-  last_verified: "2026-02-19"
+  last_verified: "2026-02-20"
 pipeline:
   ds_component_doc:
     contract_version: "1"

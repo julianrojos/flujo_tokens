@@ -1,0 +1,115 @@
+name: TextInput
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Text Fields
+  component_set: Text-Input
+  component_set_node_id: 204:483
+
+summary:
+  purpose: Captures single-line user input with semantic validation variants.
+  when_to_use: Use for short textual input fields in forms.
+  when_not_to_use: Do not use for multi-line or long-form input.
+
+anatomy:
+  - id: field_container
+    description: Main field frame containing icon, value/placeholder, and optional message.
+  - id: label
+    description: Optional text label shown above or aligned with the field.
+  - id: support_message
+    description: Optional helper or validation message text.
+
+properties:
+  - name: Type
+    type: enum
+    values: [Default, Filled, Success, Error]
+    default: Default
+    required: true
+    description: Visual and semantic state variant of the text input.
+  - name: Change_Placeholder
+    type: text
+    default: Placeholder
+    required: false
+    description: Placeholder text for empty state.
+  - name: Change_Value
+    type: text
+    default: Value
+    required: false
+    description: Current input value text.
+  - name: ↳ Change_Label
+    type: text
+    default: Label
+    required: false
+    description: Label copy override.
+  - name: ↳ Change_Message
+    type: text
+    default: Message
+    required: false
+    description: Helper or validation message text override.
+  - name: Show_Icon
+    type: boolean
+    values: [true, false]
+    default: true
+    required: false
+    description: Toggles leading icon visibility.
+  - name: Show_Message
+    type: boolean
+    values: [true, false]
+    default: true
+    required: false
+    description: Toggles message visibility.
+  - name: Show_message_layer
+    type: boolean
+    values: [true, false]
+    default: true
+    required: false
+    description: Toggles message layer container visibility.
+  - name: Show_label
+    type: boolean
+    values: [true, false]
+    default: true
+    required: false
+    description: Toggles label visibility.
+  - name: Type-Icon
+    type: instance_swap
+    values: []
+    default: "65:928"
+    required: false
+    description: Leading icon slot instance.
+
+content_guidelines:
+  rules:
+    - Use concise labels and placeholder text.
+    - Error and success messages must be short and actionable.
+
+best_practices:
+  do:
+    - Use clear label text and explicit validation feedback.
+    - Keep icon usage semantic and consistent.
+  dont:
+    - Do not replace labels with placeholder-only content.
+    - Do not use text input for multi-line content.
+
+accessibility:
+  role: textbox
+  focus:
+    tokens:
+      inner: Semantic.Color.Focus-Outline.Inner
+      outer: Semantic.Color.Focus-Outline.Outer
+  hit_area:
+    desktop_token: A11y.A11y.Dimension.Min-Hit-Area
+    mobile_token: Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA
+  labeling:
+    rules:
+      - Label text should be programmatically associated with the input control.
+      - Validation message association should use aria-describedby when present.
+
+token_mapping:
+  field_container.background:
+    default: TBD
+  support_message.color:
+    error: TBD
+
+qa:
+  - Properties match the Figma component set.
+  - Variant names match the Figma source values.
