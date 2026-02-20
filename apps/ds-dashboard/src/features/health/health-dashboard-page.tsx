@@ -417,7 +417,7 @@ export function HealthDashboardPage() {
                             <TableCell className="text-xs text-muted-foreground">
                               <div className="flex flex-wrap gap-1">
                                 {(row.reasons || []).map((reason) => (
-                                  <Badge key={reason} variant="outline">
+                                  <Badge key={reason} variant="neutral">
                                     {reason}
                                   </Badge>
                                 ))}
@@ -641,4 +641,3 @@ export function HealthDashboardPage() {
     </div>
   );
 }
-
