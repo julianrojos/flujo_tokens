@@ -271,7 +271,6 @@ export function ComponentsPage() {
                     Spec status <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>Figma</TableHead>
                 <TableHead>Used In</TableHead>
                 <TableHead>
                   <button
@@ -288,7 +287,7 @@ export function ComponentsPage() {
               {!loading && filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={6}
                     className="text-center text-muted-foreground"
                   >
                     No components match your filters.
@@ -299,7 +298,7 @@ export function ComponentsPage() {
               {loading
                 ? Array.from({ length: 6 }).map((_, index) => (
                     <TableRow key={`loading-${index}`}>
-                      <TableCell colSpan={7} className="text-muted-foreground">
+                      <TableCell colSpan={6} className="text-muted-foreground">
                         Loading components...
                       </TableCell>
                     </TableRow>
@@ -307,7 +306,21 @@ export function ComponentsPage() {
                 : filtered.map((item) => (
                     <TableRow key={item.slug}>
                       <TableCell>
-                        <div className="font-medium">{item.display_name}</div>
+                        {item.figma.file_url ? (
+                          <a
+                            href={item.figma.file_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary"
+                            title={`Open ${item.display_name} in Figma`}
+                            aria-label={`Open ${item.display_name} in Figma`}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            <span>{item.display_name}</span>
+                          </a>
+                        ) : (
+                          <div className="font-medium">{item.display_name}</div>
+                        )}
                         <div className="text-xs text-muted-foreground">
                           {item.slug}
                         </div>
@@ -326,22 +339,6 @@ export function ComponentsPage() {
                         <Badge variant={statusBadge(item.spec.status)}>
                           {item.spec.status}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {item.figma.file_url ? (
-                          <a
-                            href={item.figma.file_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                            title="Open component in Figma"
-                            aria-label={`Open ${item.display_name} in Figma`}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        ) : (
-                          "-"
-                        )}
                       </TableCell>
                       <TableCell>
                         {(() => {
