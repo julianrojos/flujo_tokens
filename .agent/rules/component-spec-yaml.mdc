@@ -75,6 +75,8 @@ related_components    # Optional array of snake_case component names (e.g., [but
 
 **Type mapping decision table** - canonical source of truth. All other rules and skills must reference this table, not duplicate it.
 
+> **Machine-readable version:** `tooling/lib/property-type-map.json` contains this table as structured data (bidirectional maps, ordering groups, `values` field rules, ready-spec constraints, and Figma node-ID pattern). Scripts must import the JSON instead of duplicating the table. Agents may read the JSON directly when they need to look up a type value programmatically.
+
 Type comparison is **case-insensitive** (`Enum`, `ENUM`, and `enum` are equivalent).
 
 | Spec `type` | Figma display type | `values` field | `default` format | Ordering group | On unknown |
