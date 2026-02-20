@@ -4,6 +4,8 @@ import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenCollectionTreeIndex } from "@/types/token-tree";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
 import type { TokenGraphViz } from "@/types/token-graph";
+import type { TokenHealthReport } from "@/types/token-health";
+import type { ComponentsHealthReport } from "@/types/components-health";
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -46,6 +48,14 @@ export function fetchTokenGraph() {
   return getJson<TokenGraphViz>("/api/token-graph");
 }
 
+export function fetchTokenHealth() {
+  return getJson<TokenHealthReport>("/api/token-health");
+}
+
+export function fetchComponentsHealth() {
+  return getJson<ComponentsHealthReport>("/api/components-health");
+}
+
 export interface ComponentSpecPayload {
   ok: boolean;
   slug: string;
@@ -77,6 +87,20 @@ export async function refreshTokenUsageIndex() {
 export async function refreshTokenGraph() {
   return getJson<{ ok: boolean; output?: string; stderr?: string }>(
     "/api/refresh-token-graph",
+    { method: "POST" },
+  );
+}
+
+export async function refreshTokenHealth() {
+  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
+    "/api/refresh-token-health",
+    { method: "POST" },
+  );
+}
+
+export async function refreshComponentsHealth() {
+  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
+    "/api/refresh-components-health",
     { method: "POST" },
   );
 }

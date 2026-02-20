@@ -50,6 +50,67 @@ function sendJson(
   res.end(JSON.stringify(payload));
 }
 
+function runNpmScript(args: {
+  repoRoot: string;
+  res: {
+    statusCode: number;
+    setHeader: (name: string, value: string) => void;
+    end: (body: string | Buffer) => void;
+  };
+  script: string;
+  commandLabel?: string;
+}) {
+  const script = String(args.script || "").trim();
+  if (!script) {
+    sendJson(args.res, 400, { ok: false, message: "Missing script name." });
+    return;
+  }
+
+  const commandLabel = args.commandLabel || `npm run ${script}`;
+  const child = spawn("npm", ["run", script], {
+    cwd: args.repoRoot,
+    shell: false,
+  });
+
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (chunk) => {
+    stdout += String(chunk);
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += String(chunk);
+  });
+
+  child.on("error", (error) => {
+    sendJson(args.res, 500, {
+      ok: false,
+      command: commandLabel,
+      message: error instanceof Error ? error.message : String(error),
+      stdout: stdout.trim(),
+      stderr: stderr.trim(),
+    });
+  });
+
+  child.on("close", (code) => {
+    if (code === 0) {
+      sendJson(args.res, 200, {
+        ok: true,
+        command: commandLabel,
+        output: stdout.trim(),
+      });
+      return;
+    }
+
+    sendJson(args.res, 500, {
+      ok: false,
+      command: commandLabel,
+      code,
+      stdout: stdout.trim(),
+      stderr: stderr.trim(),
+    });
+  });
+}
+
 function guessContentType(filePath: string) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".png") return "image/png";
@@ -398,6 +459,18 @@ function createLocalDataApi() {
     "_generated",
     "token-usage-index.json",
   );
+  const tokenHealthPath = path.join(
+    repoRoot,
+    "docs",
+    "_generated",
+    "token-health.json",
+  );
+  const componentsHealthPath = path.join(
+    repoRoot,
+    "docs",
+    "_generated",
+    "components-health.json",
+  );
 
   const middleware: Middleware = async (req, res, next) => {
     const method = String(req.method || "GET").toUpperCase();
@@ -442,6 +515,18 @@ function createLocalDataApi() {
 
       if (method === "GET" && url === "/api/token-graph") {
         const raw = await fs.readFile(tokenGraphVizPath, "utf8");
+        sendJson(res, 200, JSON.parse(raw));
+        return;
+      }
+
+      if (method === "GET" && url === "/api/token-health") {
+        const raw = await fs.readFile(tokenHealthPath, "utf8");
+        sendJson(res, 200, JSON.parse(raw));
+        return;
+      }
+
+      if (method === "GET" && url === "/api/components-health") {
+        const raw = await fs.readFile(componentsHealthPath, "utf8");
         sendJson(res, 200, JSON.parse(raw));
         return;
       }
@@ -588,110 +673,27 @@ function createLocalDataApi() {
       }
 
       if (method === "POST" && url === "/api/refresh-registry") {
-        const child = spawn("npm", ["run", "ds:registry:refresh"], {
-          cwd: repoRoot,
-          shell: false,
-        });
-
-        let stdout = "";
-        let stderr = "";
-        child.stdout.on("data", (chunk) => {
-          stdout += String(chunk);
-        });
-        child.stderr.on("data", (chunk) => {
-          stderr += String(chunk);
-        });
-
-        child.on("close", (code) => {
-          if (code === 0) {
-            sendJson(res, 200, {
-              ok: true,
-              command: "npm run ds:registry:refresh",
-              output: stdout.trim(),
-            });
-            return;
-          }
-
-          sendJson(res, 500, {
-            ok: false,
-            command: "npm run ds:registry:refresh",
-            code,
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-          });
-        });
+        runNpmScript({ repoRoot, res, script: "ds:registry:refresh" });
         return;
       }
 
       if (method === "POST" && url === "/api/refresh-token-usage-index") {
-        const child = spawn("npm", ["run", "ds:token-usage-index"], {
-          cwd: repoRoot,
-          shell: false,
-        });
-
-        let stdout = "";
-        let stderr = "";
-        child.stdout.on("data", (chunk) => {
-          stdout += String(chunk);
-        });
-        child.stderr.on("data", (chunk) => {
-          stderr += String(chunk);
-        });
-
-        child.on("close", (code) => {
-          if (code === 0) {
-            sendJson(res, 200, {
-              ok: true,
-              command: "npm run ds:token-usage-index",
-              output: stdout.trim(),
-            });
-            return;
-          }
-
-          sendJson(res, 500, {
-            ok: false,
-            command: "npm run ds:token-usage-index",
-            code,
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-          });
-        });
+        runNpmScript({ repoRoot, res, script: "ds:token-usage-index" });
         return;
       }
 
       if (method === "POST" && url === "/api/refresh-token-graph") {
-        const child = spawn("npm", ["run", "ds:token-graph"], {
-          cwd: repoRoot,
-          shell: false,
-        });
+        runNpmScript({ repoRoot, res, script: "ds:token-graph" });
+        return;
+      }
 
-        let stdout = "";
-        let stderr = "";
-        child.stdout.on("data", (chunk) => {
-          stdout += String(chunk);
-        });
-        child.stderr.on("data", (chunk) => {
-          stderr += String(chunk);
-        });
+      if (method === "POST" && url === "/api/refresh-token-health") {
+        runNpmScript({ repoRoot, res, script: "ds:token-health" });
+        return;
+      }
 
-        child.on("close", (code) => {
-          if (code === 0) {
-            sendJson(res, 200, {
-              ok: true,
-              command: "npm run ds:token-graph",
-              output: stdout.trim(),
-            });
-            return;
-          }
-
-          sendJson(res, 500, {
-            ok: false,
-            command: "npm run ds:token-graph",
-            code,
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-          });
-        });
+      if (method === "POST" && url === "/api/refresh-components-health") {
+        runNpmScript({ repoRoot, res, script: "ds:registry:report" });
         return;
       }
     } catch (error) {
