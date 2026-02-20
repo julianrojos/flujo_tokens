@@ -4,3 +4,6 @@ node_modules/
 *.log
 *.tsbuildinfo
 docs/_generated/.sync-state.json
+apps/ds-dashboard/dist/
+apps/ds-dashboard/vite.config.js
+apps/ds-dashboard/vite.config.d.ts

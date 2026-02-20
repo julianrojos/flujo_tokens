@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { RefreshCcw } from "lucide-react";
 
-import { fetchTokenRegistry } from "@/lib/api";
+import { fetchTokenRegistry, fetchTokenUsageIndex, refreshTokenUsageIndex } from "@/lib/api";
 import type { TokenEntry } from "@/types/token-registry";
+import type { TokenUsageEntry, TokenUsageIndexSummary } from "@/types/token-usage-index";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -31,19 +34,41 @@ function resolveColorSwatch(value: string): string | null {
 
 export function TokensPage() {
   const [entries, setEntries] = useState<TokenEntry[]>([]);
+  const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
+  const [usageSummary, setUsageSummary] = useState<TokenUsageIndexSummary | null>(null);
   const [search, setSearch] = useState("");
   const [collection, setCollection] = useState("all");
   const [type, setType] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [usageError, setUsageError] = useState<string | null>(null);
+  const [usageSyncing, setUsageSyncing] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
+      setUsageError(null);
       try {
-        const payload = await fetchTokenRegistry();
-        setEntries(payload.entries ?? []);
+        const [registryPayload, usagePayload] = await Promise.all([
+          fetchTokenRegistry(),
+          fetchTokenUsageIndex().catch((cause) => {
+            setUsageError(
+              cause instanceof Error
+                ? cause.message
+                : "Token usage index is unavailable. Run `npm run ds:token-usage-index`.",
+            );
+            return null;
+          }),
+        ]);
+        setEntries(registryPayload.entries ?? []);
+        if (usagePayload) {
+          setUsageByPath(usagePayload.byPath ?? {});
+          setUsageSummary(usagePayload.summary ?? null);
+        } else {
+          setUsageByPath({});
+          setUsageSummary(null);
+        }
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -88,6 +113,21 @@ export function TokensPage() {
     return byCollection;
   }, [entries]);
 
+  const refreshUsage = async () => {
+    setUsageSyncing(true);
+    setUsageError(null);
+    try {
+      await refreshTokenUsageIndex();
+      const payload = await fetchTokenUsageIndex();
+      setUsageByPath(payload.byPath ?? {});
+      setUsageSummary(payload.summary ?? null);
+    } catch (cause) {
+      setUsageError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setUsageSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-5 animate-fade-slide-in">
       <section className="grid gap-4 md:grid-cols-4">
@@ -120,6 +160,10 @@ export function TokensPage() {
             </CardDescription>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+            <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              {usageSyncing ? "Syncing usage..." : "Sync Usage Index"}
+            </Button>
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -156,6 +200,11 @@ export function TokensPage() {
               {error}
             </div>
           ) : null}
+          {usageError ? (
+            <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
+              Usage index unavailable: {usageError}
+            </div>
+          ) : null}
 
           <Table>
             <TableHeader>
@@ -165,13 +214,14 @@ export function TokensPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>CSS Variable</TableHead>
                 <TableHead>Resolved Value</TableHead>
+                <TableHead>Used In</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {!loading && filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="text-center text-muted-foreground"
                   >
                     No tokens match your filters.
@@ -182,13 +232,23 @@ export function TokensPage() {
               {loading
                 ? Array.from({ length: 8 }).map((_, index) => (
                     <TableRow key={`token-loading-${index}`}>
-                      <TableCell colSpan={5} className="text-muted-foreground">
+                      <TableCell colSpan={6} className="text-muted-foreground">
                         Loading tokens...
                       </TableCell>
                     </TableRow>
                   ))
                 : filtered.map((entry) => {
                     const swatch = resolveColorSwatch(entry.resolvedValue);
+                    const usage = usageByPath[entry.path];
+                    const usageCount = usage?.usageCount ?? 0;
+                    const specCount = usage?.usageByKind?.["component-spec"] ?? 0;
+                    const cssAliasCount = usage?.usageByKind?.["css-alias"] ?? 0;
+                    const usageOwners =
+                      usage?.usedIn
+                        ?.map((item) => item.owner)
+                        .filter(Boolean)
+                        .filter((value, index, all) => all.indexOf(value) === index)
+                        .slice(0, 2) ?? [];
                     return (
                       <TableRow key={entry.path}>
                         <TableCell>
@@ -214,6 +274,21 @@ export function TokensPage() {
                               />
                             ) : null}
                             {entry.resolvedValue}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Badge variant="neutral">{usageCount} refs</Badge>
+                            {usageSummary ? (
+                              <div className="text-xs text-muted-foreground">
+                                specs {specCount} · css {cssAliasCount}
+                              </div>
+                            ) : null}
+                            {usageOwners.length > 0 ? (
+                              <div className="font-mono text-xs text-muted-foreground">
+                                {usageOwners.join(", ")}
+                              </div>
+                            ) : null}
                           </div>
                         </TableCell>
                       </TableRow>

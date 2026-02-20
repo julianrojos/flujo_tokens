@@ -30,6 +30,7 @@ npm install
 - **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
 - **`npm run ds:token-diff`**: Compares current token registry with a previous version (file or git ref), groups changes (`Added`, `Modified`, `Removed`), and classifies breaking vs non-breaking diffs.
 - **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
+- **`npm run ds:token-usage-index`**: Builds `docs/_generated/token-usage-index.json` from component specs (`docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
 
 ### Usage
 
@@ -149,6 +150,19 @@ npm run ds:token-graph -- --strict-unresolved true --strict-collisions true
 npm run ds:token-graph -- --mermaid-max-edges 1000
 ```
 
+Token usage index examples:
+
+```bash
+# Generate usage index JSON for dashboard + audits
+npm run ds:token-usage-index
+
+# Print human-readable summary without writing files
+npm run ds:token-usage-index -- --format text --dry-run true
+
+# Fail CI when unresolved references exist
+npm run ds:token-usage-index -- --strict-unresolved true
+```
+
 ### Typography unit coercion (runtime)
 
 - To avoid touching exported JSONs, during emission typography dimensions are converted when token paths match font size/line-height conventions (`font.size`, `font.lineHeight`, `fontSize`, `lineHeight`):
@@ -227,6 +241,7 @@ This workflow documents Design System components from Figma and can also render 
 - `docs/_spec/`: documentation specs and visual theme contract
 - `docs/_generated/figma_doc_models/`: generated intermediate artifacts for markdown -> Figma rendering
 - `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
+- `docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
 - `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
 - `docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
 
@@ -234,7 +249,7 @@ This workflow documents Design System components from Figma and can also render 
 
 The repository includes a local dashboard app under `apps/ds-dashboard` with two left sidebar sections:
 
-- `Tokens & Properties` (custom properties + token inventory from `docs/_generated/token-registry.json`)
+- `Tokens & Properties` (custom properties + token inventory from `docs/_generated/token-registry.json`, plus `Used In` from `docs/_generated/token-usage-index.json`)
 - `Componentes` (component pipeline state from `docs/_generated/component-registry.json`)
 
 No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
@@ -250,6 +265,14 @@ Run:
 ```bash
 npm run dashboard:dev
 ```
+
+Before opening the Tokens view, ensure token usage data is generated at least once:
+
+```bash
+npm run ds:token-usage-index
+```
+
+The dashboard also exposes a `Sync Usage Index` action in the Tokens page that runs this command locally.
 
 Build/preview:
 

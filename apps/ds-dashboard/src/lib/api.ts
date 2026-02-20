@@ -1,5 +1,6 @@
 import type { ComponentRegistry } from "@/types/component-registry";
 import type { TokenRegistry } from "@/types/token-registry";
+import type { TokenUsageIndex } from "@/types/token-usage-index";
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -26,9 +27,20 @@ export function fetchTokenRegistry() {
   return getJson<TokenRegistry>("/api/token-registry");
 }
 
+export function fetchTokenUsageIndex() {
+  return getJson<TokenUsageIndex>("/api/token-usage-index");
+}
+
 export async function refreshRegistry() {
   return getJson<{ ok: boolean; output?: string; stderr?: string }>(
     "/api/refresh-registry",
+    { method: "POST" },
+  );
+}
+
+export async function refreshTokenUsageIndex() {
+  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
+    "/api/refresh-token-usage-index",
     { method: "POST" },
   );
 }

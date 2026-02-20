@@ -44,6 +44,12 @@ function createLocalDataApi() {
     "_generated",
     "token-registry.json",
   );
+  const tokenUsageIndexPath = path.join(
+    repoRoot,
+    "docs",
+    "_generated",
+    "token-usage-index.json",
+  );
 
   const middleware: Middleware = async (req, res, next) => {
     const method = String(req.method || "GET").toUpperCase();
@@ -58,6 +64,12 @@ function createLocalDataApi() {
 
       if (method === "GET" && url === "/api/token-registry") {
         const raw = await fs.readFile(tokenRegistryPath, "utf8");
+        sendJson(res, 200, JSON.parse(raw));
+        return;
+      }
+
+      if (method === "GET" && url === "/api/token-usage-index") {
+        const raw = await fs.readFile(tokenUsageIndexPath, "utf8");
         sendJson(res, 200, JSON.parse(raw));
         return;
       }
@@ -90,6 +102,42 @@ function createLocalDataApi() {
           sendJson(res, 500, {
             ok: false,
             command: "npm run ds:registry:refresh",
+            code,
+            stdout: stdout.trim(),
+            stderr: stderr.trim(),
+          });
+        });
+        return;
+      }
+
+      if (method === "POST" && url === "/api/refresh-token-usage-index") {
+        const child = spawn("npm", ["run", "ds:token-usage-index"], {
+          cwd: repoRoot,
+          shell: false,
+        });
+
+        let stdout = "";
+        let stderr = "";
+        child.stdout.on("data", (chunk) => {
+          stdout += String(chunk);
+        });
+        child.stderr.on("data", (chunk) => {
+          stderr += String(chunk);
+        });
+
+        child.on("close", (code) => {
+          if (code === 0) {
+            sendJson(res, 200, {
+              ok: true,
+              command: "npm run ds:token-usage-index",
+              output: stdout.trim(),
+            });
+            return;
+          }
+
+          sendJson(res, 500, {
+            ok: false,
+            command: "npm run ds:token-usage-index",
             code,
             stdout: stdout.trim(),
             stderr: stderr.trim(),
