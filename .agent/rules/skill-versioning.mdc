@@ -26,7 +26,27 @@ compatible_agents:
   - codex
   - claude
   - gemini
+inputs:                        # Required — see skill-input-output-contract.mdc for type definitions
+  - name: component_name
+    type: component_name
+    required: true
+    description: "..."
+  - name: docs_root
+    type: path
+    required: false
+    default: "docs/"
+    description: "..."
+outputs:                       # Required — declare all file artifacts and report outputs
+  - name: markdown_file
+    type: path
+    value: "${docs_root}/components/${component_name_snake_case}.md"
+    description: "..."
+  - name: report
+    type: report
+    description: "..."
 ```
+
+`inputs` and `outputs` are required for all new or modified skills. Slot type definitions and agent behavior contract are in `skill-input-output-contract.mdc`.
 
 ## Optional changelog block
 

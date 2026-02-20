@@ -19,10 +19,42 @@ requires_rules:
   - overview-index-maintenance: ">=1.0.0"
   - overview-components-canonical-list: ">=1.0.0"
   - docs-pipeline-contract: ">=1.0.0"
+  - skill-input-output-contract: ">=1.0.0"
 compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: component_name
+    type: component_name
+    required: true
+    description: "Display name of the component (e.g. 'Alert', 'Status Bar'). Normalized to snake_case for all file paths."
+  - name: docs_root
+    type: path
+    required: false
+    default: "docs/"
+    description: "Root documentation directory."
+  - name: spec_file
+    type: path
+    required: false
+    default: "${docs_root}/_spec/components/${component_name_snake_case}.yml"
+    description: "Path to the component spec YAML. Pass --spec-file to override."
+  - name: token_files
+    type: path[]
+    required: false
+    description: "Additional token JSON files for resolving token values."
+outputs:
+  - name: markdown_file
+    type: path
+    value: "${docs_root}/components/${component_name_snake_case}.md"
+    description: "Generated or updated component documentation page."
+  - name: overview_file
+    type: path
+    value: "${docs_root}/components/overview.md"
+    description: "Updated component overview index."
+  - name: report
+    type: report
+    description: "Summary of page path written, missing spec fields, and unresolved token references."
 ---
 
 # ds-component-doc

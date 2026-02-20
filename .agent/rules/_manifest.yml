@@ -133,6 +133,11 @@ rules:
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
+  - id: skill-input-output-contract
+    file: skill-input-output-contract.mdc
+    owner: docs-governance
+    applies_to: [skills]
+    blocking: true
   - id: skill-versioning
     file: skill-versioning.mdc
     owner: docs-governance
@@ -231,6 +236,9 @@ checks:
   VIS01:
     rule_ids: [component-doc, markdown-lifecycle-status, ds-docs-guardrails]
     blocking: true
+  SLOT01:
+    rule_ids: [skill-input-output-contract, skill-versioning]
+    blocking: true
   VER01:
     rule_ids: [component-versioning]
     blocking: true
@@ -292,7 +300,7 @@ matrix:
         evidence-gated-mutations,
         prohibited-patterns,
       ]
-    skills: [skill-versioning]
+    skills: [skill-versioning, skill-input-output-contract]
   by_skill:
     design-tokens-advisor: [skill-versioning]
     ds-component-doc:
@@ -314,6 +322,7 @@ matrix:
         overview-components-canonical-list,
         docs-pipeline-contract,
         evidence-gated-mutations,
+        skill-input-output-contract,
       ]
     ds-component-orchestrator:
       [
@@ -326,6 +335,7 @@ matrix:
         markdown-lifecycle-status,
         ds-docs-guardrails,
         evidence-gated-mutations,
+        skill-input-output-contract,
       ]
     ds-spec-from-figma:
       [
@@ -337,6 +347,7 @@ matrix:
         ds-docs-guardrails,
         docs-pipeline-contract,
         evidence-gated-mutations,
+        skill-input-output-contract,
       ]
     ds-markdown-to-figma-section:
       [

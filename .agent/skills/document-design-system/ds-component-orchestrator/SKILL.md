@@ -11,10 +11,50 @@ requires_rules:
   - frontmatter-contract: ">=1.0.0"
   - markdown-lifecycle-status: ">=1.0.0"
   - ds-docs-guardrails: ">=1.0.0"
+  - skill-input-output-contract: ">=1.0.0"
 compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: component_name
+    type: component_name
+    required: true
+    description: "Display name of the component to document end-to-end (e.g. 'Button', 'Status Bar')."
+  - name: figma_url
+    type: string
+    required: false
+    description: "Figma design URL for spec extraction. Required when spec is missing or outdated."
+  - name: component_set_node_id
+    type: string
+    required: false
+    description: "Figma component set node ID in '1234:567' format. Alternative to figma_url."
+  - name: docs_root
+    type: path
+    required: false
+    default: "docs/"
+    description: "Root documentation directory."
+  - name: render_figma
+    type: boolean
+    required: false
+    default: false
+    description: "Whether to run the Figma render stage (ds:active-md-to-figma)."
+outputs:
+  - name: spec_file
+    type: path
+    value: "${docs_root}/_spec/components/${component_name_snake_case}.yml"
+    description: "Updated spec YAML (produced when the spec stage ran)."
+  - name: markdown_file
+    type: path
+    value: "${docs_root}/components/${component_name_snake_case}.md"
+    description: "Updated component documentation page."
+  - name: overview_file
+    type: path
+    value: "${docs_root}/components/overview.md"
+    description: "Updated overview index."
+  - name: report
+    type: report
+    description: "Files changed, commands run, validation status, gaps, and next actions to reach doc_status: ready."
 ---
 
 # ds-component-orchestrator

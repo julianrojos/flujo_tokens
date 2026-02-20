@@ -10,10 +10,62 @@ requires_rules:
   - token-registry-validation: ">=1.0.0"
   - ds-docs-guardrails: ">=1.0.0"
   - docs-pipeline-contract: ">=1.0.0"
+  - skill-input-output-contract: ">=1.0.0"
 compatible_agents:
   - codex
   - claude
   - gemini
+inputs:
+  - name: component_name
+    type: component_name
+    required: true
+    description: "Display name of the component (e.g. 'Alert', 'Status Bar'). Normalized to snake_case for file paths."
+  - name: figma_url
+    type: string
+    required: false
+    description: "Full Figma design URL including node-id. Either this or component_set_node_id must be supplied."
+  - name: component_set_node_id
+    type: string
+    required: false
+    description: "Figma component set node ID in '1234:567' format. Either this or figma_url must be supplied."
+  - name: spec_root
+    type: path
+    required: false
+    default: "docs/_spec/components"
+    description: "Directory where spec YAML files are stored."
+  - name: output
+    type: path
+    required: false
+    default: "${spec_root}/${component_name_snake_case}.yml"
+    description: "Destination path for the generated spec YAML. Pass --output to override."
+  - name: template
+    type: path
+    required: false
+    default: "docs/_spec/components/_template.yml"
+    description: "Spec template to copy from."
+  - name: registry
+    type: path
+    required: false
+    default: "docs/_generated/token-registry.json"
+    description: "Token registry for prefilling token_mapping TBD values."
+  - name: skip_validation
+    type: boolean
+    required: false
+    default: false
+    description: "Skip SPEC01 validation after generation. Requires force: true."
+  - name: force
+    type: boolean
+    required: false
+    default: false
+    description: "Force overwrite of an existing spec file."
+outputs:
+  - name: spec_file
+    type: path
+    value: "${output}"
+    description: "Generated component spec YAML."
+  - name: report
+    type: report
+    description: "Summary of fields written, prefilled tokens, and validation results."
 ---
 
 # ds-spec-from-figma
