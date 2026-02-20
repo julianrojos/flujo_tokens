@@ -1,9 +1,10 @@
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
-import { Boxes, Layers3 } from "lucide-react";
+import { Boxes, GitBranch, Layers3 } from "lucide-react";
 
 import { ComponentsPage } from "@/features/components/components-page";
 import { ComponentDetailPage } from "@/features/components/component-detail/component-detail-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
+import { TokenGraphPage } from "@/features/tokens/token-graph/token-graph-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
 import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-page";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,12 @@ const navItems = [
     label: "Componentes",
     description: "Estado y pipeline documental",
     icon: Boxes,
+  },
+  {
+    to: "/token-graph",
+    label: "Token Graph",
+    description: "Dependencias y ciclos",
+    icon: GitBranch,
   },
 ];
 
@@ -104,6 +111,7 @@ export default function App() {
             <Route path="/components/:slug" element={<ComponentDetailPage />} />
             <Route path="/tokens" element={<TokensPage />} />
             <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
+            <Route path="/token-graph" element={<TokenGraphPage />} />
             <Route path="/file" element={<FileViewerPage />} />
           </Routes>
         </main>

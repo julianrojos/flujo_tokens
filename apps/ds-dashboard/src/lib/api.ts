@@ -3,6 +3,7 @@ import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenCollectionTreeIndex } from "@/types/token-tree";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
+import type { TokenGraphViz } from "@/types/token-graph";
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -41,6 +42,10 @@ export function fetchTokenUsageIndex() {
   return getJson<TokenUsageIndex>("/api/token-usage-index");
 }
 
+export function fetchTokenGraph() {
+  return getJson<TokenGraphViz>("/api/token-graph");
+}
+
 export interface ComponentSpecPayload {
   ok: boolean;
   slug: string;
@@ -65,6 +70,13 @@ export async function refreshRegistry() {
 export async function refreshTokenUsageIndex() {
   return getJson<{ ok: boolean; output?: string; stderr?: string }>(
     "/api/refresh-token-usage-index",
+    { method: "POST" },
+  );
+}
+
+export async function refreshTokenGraph() {
+  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
+    "/api/refresh-token-graph",
     { method: "POST" },
   );
 }
