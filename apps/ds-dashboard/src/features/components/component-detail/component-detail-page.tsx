@@ -1,14 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 
-import { fetchComponentRegistry, fetchComponentUsageIndex, fetchComponentSpec } from "@/lib/api";
+import {
+  fetchComponentRegistry,
+  fetchComponentSpec,
+  fetchComponentUsageIndex,
+  fetchTokenRegistry,
+  fetchTokenUsageIndex,
+} from "@/lib/api";
 import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
-import type { ComponentUsageEntry } from "@/types/component-usage-index";
+import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component-usage-index";
 import type { ComponentSpec } from "@/types/component-spec";
+import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
+import type { TokenUsageIndex } from "@/types/token-usage-index";
 import { ComponentSpecViewer } from "./component-spec-viewer";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,6 +24,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
 // ─── Pipeline timeline ────────────────────────────────────────────────────────
 
@@ -110,6 +120,8 @@ export function ComponentDetailPage() {
   const [usage, setUsage] = useState<ComponentUsageEntry | null>(null);
   const [allItems, setAllItems] = useState<ComponentRegistryItem[]>([]);
   const [spec, setSpec] = useState<ComponentSpec | null>(null);
+  const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
+  const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,16 +131,21 @@ export function ComponentDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const [registry, usageIndex, specPayload] = await Promise.all([
+        const [registry, usageIndex, specPayload, tokenRegistryPayload, tokenUsagePayload] =
+          await Promise.all([
           fetchComponentRegistry(),
-          fetchComponentUsageIndex().catch(() => ({ by_slug: {} })),
+          fetchComponentUsageIndex().catch(() => EMPTY_COMPONENT_USAGE_INDEX),
           fetchComponentSpec(slug).catch(() => null),
+          fetchTokenRegistry().catch(() => null),
+          fetchTokenUsageIndex().catch(() => null),
         ]);
         const found = registry.components.find((c) => c.slug === slug) ?? null;
         setItem(found);
         setAllItems(registry.components);
         setUsage(usageIndex.by_slug[slug] ?? null);
         setSpec(specPayload?.ok && specPayload.parsed ? (specPayload.parsed as ComponentSpec) : null);
+        setTokenRegistry(tokenRegistryPayload);
+        setTokenUsageIndex(tokenUsagePayload);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -146,6 +163,51 @@ export function ComponentDetailPage() {
 
   const usesSlugs = usage?.uses ?? [];
   const usedInSlugs = usage?.used_in ?? [];
+
+  const resolveTokenMeta = useMemo(() => {
+    if (!tokenRegistry) return null;
+    return (tokenRef: string): { token: TokenEntry | null; usageCount: number | null } => {
+      const ref = String(tokenRef || "").trim();
+      if (!ref) return { token: null, usageCount: null };
+      const token =
+        tokenRegistry.bySlashPath?.[ref] ?? tokenRegistry.byPath?.[ref] ?? null;
+      if (!token) return { token: null, usageCount: null };
+      const usageEntry =
+        tokenUsageIndex?.byPath?.[token.path] ??
+        tokenUsageIndex?.bySlashPath?.[token.slashPath] ??
+        null;
+      return { token, usageCount: usageEntry ? usageEntry.usageCount : null };
+    };
+  }, [tokenRegistry, tokenUsageIndex]);
+
+  const tokensUsed = useMemo(() => {
+    if (!spec?.token_mapping) return [];
+    const map = new Map<
+      string,
+      { ref: string; occurrences: number; token: TokenEntry | null; usageCount: number | null }
+    >();
+
+    for (const [, conditions] of Object.entries(spec.token_mapping)) {
+      for (const [, tokenRef] of Object.entries(conditions || {})) {
+        const ref = String(tokenRef || "").trim();
+        if (!ref || ref.toUpperCase() === "TBD") continue;
+        const existing = map.get(ref);
+        if (existing) {
+          existing.occurrences += 1;
+          continue;
+        }
+        const resolved = resolveTokenMeta ? resolveTokenMeta(ref) : { token: null, usageCount: null };
+        map.set(ref, {
+          ref,
+          occurrences: 1,
+          token: resolved.token,
+          usageCount: resolved.usageCount,
+        });
+      }
+    }
+
+    return Array.from(map.values()).sort((a, b) => a.ref.localeCompare(b.ref, "en", { sensitivity: "base" }));
+  }, [resolveTokenMeta, spec?.token_mapping]);
 
   return (
     <div className="space-y-5 animate-fade-slide-in">
@@ -189,19 +251,32 @@ export function ComponentDetailPage() {
                   <CardTitle className="text-xl">{item.display_name}</CardTitle>
                   <CardDescription className="mt-1 font-mono text-xs">{item.slug}</CardDescription>
                 </div>
-                {item.figma.file_url ? (
-                  <Button variant="outline" size="sm" asChild>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  {item.doc.exists && item.paths.doc ? (
+                    <Link
+                      to={{
+                        pathname: "/file",
+                        search: new URLSearchParams({ path: item.paths.doc }).toString(),
+                      }}
+                      className={buttonVariants({ variant: "outline", size: "sm" })}
+                      aria-label={`Open ${item.display_name} documentation`}
+                    >
+                      Docs
+                    </Link>
+                  ) : null}
+                  {item.figma.file_url ? (
                     <a
                       href={item.figma.file_url}
                       target="_blank"
                       rel="noreferrer"
+                      className={buttonVariants({ variant: "outline", size: "sm" })}
                       aria-label={`Open ${item.display_name} in Figma`}
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Figma
                     </a>
-                  </Button>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -234,6 +309,90 @@ export function ComponentDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Tokens used */}
+          {spec?.token_mapping ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Tokens used</CardTitle>
+                <CardDescription>
+                  Tokens referenciados en <span className="font-mono text-xs">token_mapping</span>.
+                  {tokenUsageIndex ? null : (
+                    <span className="text-amber-600">
+                      {" "}
+                      Usage index unavailable (refs counts will be missing).
+                    </span>
+                  )}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {tokensUsed.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No hay tokens referenciados (o todos son TBD).
+                  </p>
+                ) : (
+                  <div className="overflow-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border text-xs text-muted-foreground">
+                        <tr>
+                          <th className="py-2 pr-3">Token</th>
+                          <th className="py-2 pr-3">Type</th>
+                          <th className="py-2 pr-3">CSS Var</th>
+                          <th className="py-2 pr-3">Resolved</th>
+                          <th className="py-2 pr-3">Refs</th>
+                          <th className="py-2 pr-3">Occurrences</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tokensUsed.map((row) => (
+                          <tr key={row.ref} className="border-b border-border/60">
+                            <td className="py-2 pr-3">
+                              {row.token ? (
+                                <Link
+                                  to={`/tokens/${encodeURIComponent(row.token.path)}`}
+                                  className="font-mono text-xs text-primary hover:underline"
+                                >
+                                  {row.ref}
+                                </Link>
+                              ) : (
+                                <span className="font-mono text-xs">{row.ref}</span>
+                              )}
+                              {row.token ? (
+                                <div className="mt-0.5 text-xs text-muted-foreground">
+                                  {row.token.collection}.{row.token.slashPath.replace(/\//g, ".")}
+                                </div>
+                              ) : (
+                                <div className="mt-0.5 text-xs text-amber-700">
+                                  Token not found in registry
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2 pr-3">{row.token?.type ?? "—"}</td>
+                            <td className="py-2 pr-3 font-mono text-xs">
+                              {row.token?.cssVar ?? "—"}
+                            </td>
+                            <td className="py-2 pr-3 font-mono text-xs">
+                              {row.token?.resolvedValue ?? "—"}
+                            </td>
+                            <td className="py-2 pr-3">
+                              {row.usageCount !== null ? (
+                                <Badge variant="neutral">{row.usageCount} refs</Badge>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="py-2 pr-3">
+                              <Badge variant="neutral">{row.occurrences}×</Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
           {/* Pipeline */}
           <Card>
             <CardHeader>
@@ -258,7 +417,10 @@ export function ComponentDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <ComponentSpecViewer spec={spec} />
+                <ComponentSpecViewer
+                  spec={spec}
+                  resolveToken={resolveTokenMeta ?? undefined}
+                />
               </CardContent>
             </Card>
           ) : (

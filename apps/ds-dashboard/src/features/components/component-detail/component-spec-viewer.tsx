@@ -1,4 +1,5 @@
 import type { ComponentSpec, SpecProperty } from "@/types/component-spec";
+import type { TokenEntry } from "@/types/token-registry";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -8,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Link } from "react-router-dom";
 
 const TYPE_DISPLAY: Record<string, string> = {
   enum: "VARIANT",
@@ -62,9 +64,10 @@ function PropertyRow({ prop }: { prop: SpecProperty }) {
 
 interface ComponentSpecViewerProps {
   spec: ComponentSpec;
+  resolveToken?: (tokenRef: string) => { token: TokenEntry | null; usageCount: number | null };
 }
 
-export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
+export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerProps) {
   return (
     <div className="space-y-6">
       {/* Summary */}
@@ -152,23 +155,53 @@ export function ComponentSpecViewer({ spec }: ComponentSpecViewerProps) {
                     <TableRow>
                       <TableHead>Condition</TableHead>
                       <TableHead>Token</TableHead>
+                      <TableHead>Resolved</TableHead>
+                      <TableHead>Refs</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Object.entries(conditions).map(([condition, token]) => (
-                      <TableRow key={condition}>
-                        <TableCell className="font-mono text-xs text-muted-foreground">
-                          {condition}
-                        </TableCell>
-                        <TableCell>
-                          {token === "TBD" ? (
-                            <Badge variant="warning">TBD</Badge>
-                          ) : (
-                            <code className="font-mono text-xs">{token}</code>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {Object.entries(conditions).map(([condition, tokenRef]) => {
+                      const meta = resolveToken ? resolveToken(tokenRef) : null;
+                      return (
+                        <TableRow key={condition}>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {condition}
+                          </TableCell>
+                          <TableCell className="space-y-0.5">
+                            {tokenRef === "TBD" ? (
+                              <Badge variant="warning">TBD</Badge>
+                            ) : meta?.token ? (
+                              <>
+                                <Link
+                                  to={`/tokens/${encodeURIComponent(meta.token.path)}`}
+                                  className="font-mono text-xs text-primary hover:underline"
+                                >
+                                  {tokenRef}
+                                </Link>
+                                <div className="font-mono text-[11px] text-muted-foreground">
+                                  {meta.token.cssVar}
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <code className="font-mono text-xs">{tokenRef}</code>
+                                <Badge variant="warning">Unknown</Badge>
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {meta?.token ? meta.token.resolvedValue : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {meta && meta.usageCount !== null ? (
+                              <Badge variant="neutral">{meta.usageCount} refs</Badge>
+                            ) : (
+                              "—"
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
