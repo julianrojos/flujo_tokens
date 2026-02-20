@@ -85,33 +85,33 @@ If key inputs are missing, use explicit placeholders and surface pending decisio
 
 ---
 
-# Reglas W3C DTCG (obligatorio)
+# W3C DTCG Rules (required)
 
-## 1) Tokens vs grupos (estructura)
+## 1) Tokens vs groups (structure)
 
-- **Token**: objeto con **`$value`**.
-- **Grupo**: objeto que contiene tokens/grupos, sin `$value`.
-- Nunca mezcles: un mismo objeto no puede ser token y grupo a la vez.
+- **Token**: an object with **`$value`**.
+- **Group**: an object that contains tokens/groups, without `$value`.
+- Never mix: the same object cannot be both a token and a group.
 
-## 2) Propiedades reservadas (`$*`)
+## 2) Reserved properties (`$*`)
 
-- `$value` (requerido en tokens): valor explícito o referencia (alias).
-- `$type` (requerido o heredado): tipo DTCG (case-sensitive).
-- `$description` (muy recomendado): propósito / contexto.
-- `$deprecated` (opcional): marca deprecación y guía de reemplazo.
-- `$extensions` (opcional): metadata no crítica (ownership, tooling hints).
+- `$value` (required in tokens): explicit value or reference (alias).
+- `$type` (required or inherited): DTCG type (case-sensitive).
+- `$description` (strongly recommended): purpose/context.
+- `$deprecated` (optional): deprecation marker and replacement guidance.
+- `$extensions` (optional): non-critical metadata (ownership, tooling hints).
 
-**Prohibido**: inferir `$type` mirando el valor. Si no hay `$type` efectivo (en token o heredado), el token es inválido.
+**Forbidden**: inferring `$type` from the value. If there is no effective `$type` (explicit or inherited), the token is invalid.
 
-## 3) Naming (compatibilidad + mapping a CSS)
+## 3) Naming (compatibility + CSS mapping)
 
-- Los nombres de tokens/grupos **NO** pueden empezar por `$`.
-- Los nombres de tokens/grupos **NO** pueden contener: `{`, `}`, `.`.
-- Recomendación fuerte: kebab-case, sin espacios, jerarquías claras.
+- Token/group names **MUST NOT** start with `$`.
+- Token/group names **MUST NOT** contain `{`, `}`, `.`.
+- Strong recommendation: kebab-case, no spaces, clear hierarchies.
 
-## 4) Tipos DTCG (2025.10)
+## 4) DTCG types (2025.10)
 
-### Tipos “singulares” (normativos)
+### Singular types (normative)
 
 - `color`
 - `dimension`
@@ -121,9 +121,9 @@ If key inputs are missing, use explicit placeholders and surface pending decisio
 - `cubicBezier`
 - `number`
 
-> Tipos extra (p.ej. “percentage”, “string”, “integer”) trátalos como **custom** y documenta impacto en tooling.
+> Extra types (for example, "percentage", "string", "integer") should be treated as **custom** and their tooling impact should be documented.
 
-### Tipos compuestos (Composite types)
+### Composite types
 
 - `strokeStyle`
 - `border`
@@ -132,164 +132,163 @@ If key inputs are missing, use explicit placeholders and surface pending decisio
 - `gradient`
 - `typography`
 
-**Regla**: si `$type` es compuesto, `$value` es un objeto (o array, según tipo) y sus subpropiedades deben
-ser valores válidos o referencias a tokens del tipo correcto.
+**Rule**: if `$type` is composite, `$value` is an object (or an array, depending on the type) and its subproperties must be valid values or references to tokens of the correct type.
 
 ---
 
-## 5) Formatos de valor (lo esencial)
+## 5) Value formats (essentials)
 
 ### `color`
 
-`$value` es un objeto con:
+`$value` is an object with:
 
 - `colorSpace` (p.ej. `"srgb"`)
-- `components` (array numérico; normalmente 3)
+- `components` (numeric array; typically 3)
 - `alpha` (opcional)
-- `hex` (opcional; útil para export CSS rápido)
+- `hex` (optional; useful for quick CSS export)
 
 ### `dimension`
 
-`$value` es un objeto: `{ "value": <number>, "unit": "px" | "rem" }`
+`$value` is an object: `{ "value": <number>, "unit": "px" | "rem" }`
 
 ### `duration`
 
-`$value` es un objeto: `{ "value": <number>, "unit": "ms" | "s" }`
+`$value` is an object: `{ "value": <number>, "unit": "ms" | "s" }`
 
 ### `number`
 
-`$value` es un número unitless (p.ej. `line-height`, `z-index`, posiciones de stops en gradient).
+`$value` is a unitless number (for example `line-height`, `z-index`, gradient stop positions).
 
 ### `fontFamily`
 
-`$value` es string o array de strings (fallbacks).
+`$value` is a string or an array of strings (fallbacks).
 
 ### `fontWeight`
 
-`$value` es número (1–1000) o keyword permitido (según tabla del spec).
+`$value` is a number (1–1000) or an allowed keyword (per the spec table).
 
 ---
 
-## 6) Referencias (aliases) y `$ref` (property-level)
+## 6) References (aliases) and `$ref` (property-level)
 
-### Alias estándar (curly braces)
+### Standard alias (curly braces)
 
-- Sintaxis: `{path.to.token}`
-- Alternativa: `{#/json/pointer/path}`
+- Syntax: `{path.to.token}`
+- Alternative: `{#/json/pointer/path}`
 
-### `$ref` (JSON Pointer) para referenciar partes de valores compuestos
+### `$ref` (JSON Pointer) to reference parts of composite values
 
-- **Obligatorio** si necesitas apuntar a una propiedad interna (no se puede con `{...}`).
-- Ejemplo: `{ "$ref": "#/base/text/$value/fontFamily" }`
+- **Required** when you need to point to an internal property (you cannot do this with `{...}`).
+- Example: `{ "$ref": "#/base/text/$value/fontFamily" }`
 
-**Reglas**
+**Rules**
 
-- Sin ciclos.
-- Profundidad razonable (ideal: 3–4 saltos máximo).
+- No cycles.
+- Reasonable depth (ideally max 3–4 hops).
 
 ---
 
-## 7) Tokens compuestos (composite) y flattening a CSS
+## 7) Composite tokens and CSS flattening
 
-- En JSON: mantén el `$value` como objeto/array según el tipo (no “aplanes” en el source of truth).
-- En CSS: **aplana** a variables individuales o utilidades (nunca emitas `[object Object]`).
+- In JSON: keep `$value` as an object/array per the type (do not flatten the source of truth).
+- In CSS: **flatten** into individual variables or utilities (never emit `[object Object]`).
 
-Ejemplo (typography) → CSS flatten:
+Example (typography) -> CSS flatten:
 
 - `typography.heading.h1.$value.fontSize` → `--ds-typography-heading-h1-font-size`
 
 ---
 
-# Arquitectura recomendada (capas / tiers)
+# Recommended architecture (tiers)
 
-## Tier 1 — Primitivos (foundation)
+## Tier 1 — Primitives (foundation)
 
-- Valores crudos y escalas (paletas, spacing base, radius base, etc.).
-- No deberían consumirse directamente en componentes finales.
+- Raw values and scales (palettes, base spacing, base radius, etc.).
+- Should not be consumed directly by final components.
 
-## Tier 2 — Semánticos (intent)
+## Tier 2 — Semantics (intent)
 
-- Intención de UI: `color.text.default`, `color.bg.surface`, `focus.ring`, `border.subtle`, etc.
-- Referencian primitivos. Aquí vive la mayor parte del theming (light/dark/brand).
+- UI intent: `color.text.default`, `color.bg.surface`, `focus.ring`, `border.subtle`, etc.
+- Reference primitives. Most theming (light/dark/brand) lives here.
 
-## Tier 3 — Componente (contract)
+## Tier 3 — Component (contract)
 
-- Variables contractuales por componente: `button.bg.default`, `input.border.focus`, etc.
-- Referencian semánticos. Ideal para aislar variantes y evitar overrides globales.
+- Per-component contractual variables: `button.bg.default`, `input.border.focus`, etc.
+- Reference semantics. Ideal to isolate variants and avoid global overrides.
 
-✅ Regla clave: componentes consumen semánticos / component tokens; no primitivos directos (salvo excepciones justificadas).
-
----
-
-## Tokens de estructura (no visuales)
-
-- **Z-index / elevation**: define escala semántica (`layer-base`, `layer-overlay`, `layer-modal`, `layer-toast`).
-  Evita valores crudos tipo `9999`.
-- **Breakpoints**: define tamaños de viewport como tokens (aunque no todo tooling los compile directo a media queries).
-  Documenta cómo se consumen (CSS build-time, JS matchMedia, etc.).
+Key rule: components consume semantics/component tokens, not raw primitives (except for explicitly justified exceptions).
 
 ---
 
-# CSS Custom Properties (obligatorio)
+## Structural tokens (non-visual)
 
-## 1) Naming y mapping
+- **Z-index / elevation**: define a semantic scale (`layer-base`, `layer-overlay`, `layer-modal`, `layer-toast`).
+  Avoid raw values like `9999`.
+- **Breakpoints**: define viewport sizes as tokens (not all tooling compiles them directly into media queries).
+  Document how they are consumed (CSS build-time, JS `matchMedia`, etc.).
 
-- Usa `kebab-case` y un prefijo estable: `--ds-`.
-- Mapea rutas DTCG a CSS:
-  - claves → kebab-case (si no lo están)
-  - separador jerárquico → `-`
-  - ejemplo: `color.primitive.blue.500` → `--ds-color-primitive-blue-500`
+---
 
-## 2) Scope (global vs componente)
+# CSS Custom Properties (required)
 
-- `:root`: primitivos + semánticos globales.
-- `.Component`: tokens de componente y overrides de variantes.
+## 1) Naming and mapping
 
-## 3) Theming por cascada (recomendado)
+- Use `kebab-case` and a stable prefix: `--ds-`.
+- Map DTCG paths to CSS:
+  - keys -> kebab-case (if they are not already)
+  - hierarchy separator -> `-`
+  - example: `color.primitive.blue.500` -> `--ds-color-primitive-blue-500`
+
+## 2) Scope (global vs component)
+
+- `:root`: global primitives and semantics.
+- `.Component`: component-scoped tokens and variant overrides.
+
+## 3) Cascade theming (recommended)
 
 - Base: `:root`
-- Overrides por atributo (combinables):
+- Attribute overrides (composable):
   - `[data-theme="dark"]`
   - `[data-brand="acme"]`
   - `[data-theme="dark"][data-brand="acme"]`
 
-**CRÍTICO**: define `color-scheme` en bloques de tema para que el navegador adapte UI nativa (scrollbars, inputs, etc.).
+**Critical**: define `color-scheme` in theme blocks so the browser adapts native UI (scrollbars, inputs, etc.).
 
-## 4) Uso correcto de `var()`
+## 4) Correct `var()` usage
 
-- Componentes consumen `var(--token)`.
-- `var(--token, fallback)` solo para migración o casos runtime donde un token podría faltar.
+- Components consume `var(--token)`.
+- Use `var(--token, fallback)` only for migration or runtime cases where a token could be missing.
 
-## 5) Unitless en CSS
+## 5) Unitless values in CSS
 
-- `line-height`: unitless (desde token `number`).
-- `font-weight`: número (desde token `fontWeight`).
-- `z-index`: número (token `number`).
+- `line-height`: unitless (from token type `number`).
+- `font-weight`: number (from token type `fontWeight`).
+- `z-index`: number (token type `number`).
 
-## 6) Performance (mínimo viable)
+## 6) Performance (minimum viable)
 
-- Cambia **semánticos** en temas (menos overrides).
-- Evita redefinir cientos de variables por componente sin necesidad.
-- Evita `!important` en tokens.
-- Considera **split** de outputs: `tokens.base.css`, `tokens.theme-dark.css`, `tokens.brand-acme.css`.
+- Change **semantics** in themes (fewer overrides).
+- Avoid redefining hundreds of variables per component without need.
+- Avoid `!important` on tokens.
+- Consider splitting outputs: `tokens.base.css`, `tokens.theme-dark.css`, `tokens.brand-acme.css`.
 
-## 7) `@property` (opcional, progressive enhancement)
+## 7) `@property` (optional, progressive enhancement)
 
-- Útil para transiciones de valores tipados (colores/longitudes/tiempos) cuando el soporte lo permite.
-- No lo hagas requisito: úsalo como mejora progresiva (`@supports` si procede).
+- Useful for transitions on typed values (colors/lengths/times) when support allows.
+- Do not require it: treat it as progressive enhancement (`@supports` where appropriate).
 
-## 8) CSS moderno (opcional, progressive enhancement)
+## 8) Modern CSS (optional, progressive enhancement)
 
-Si tu soporte lo permite, evita explotar tokens para opacidades:
+If your support matrix allows it, avoid exploding tokens just to encode opacity variants:
 
-- Preferible: `color-mix()` o Relative Color Syntax sobre un token base.
-- Mantén tokens “atómicos” y genera variantes en runtime cuando sea seguro.
+- Prefer `color-mix()` or Relative Color Syntax on a base token.
+- Keep tokens atomic and generate variants at runtime when safe.
 
 ---
 
-# Patrones comunes (listos para usar)
+# Common patterns (ready to use)
 
-## Patrón 1 — Theme switching (con UI nativa)
+## Pattern 1 — Theme switching (with native UI adaptation)
 
 ```css
 :root {
@@ -305,7 +304,7 @@ Si tu soporte lo permite, evita explotar tokens para opacidades:
 }
 ```
 
-## Patrón 2 — Responsive tokens (build-time)
+## Pattern 2 — Responsive tokens (build-time)
 
 ```css
 :root {
@@ -323,7 +322,7 @@ Si tu soporte lo permite, evita explotar tokens para opacidades:
 }
 ```
 
-## Patrón 3 — Variants por componente (scoped tokens)
+## Pattern 3 — Component variants (scoped tokens)
 
 ```css
 .Button {
@@ -339,24 +338,24 @@ Si tu soporte lo permite, evita explotar tokens para opacidades:
 }
 ```
 
-## Patrón 4 — Multi-brand (precedencia)
+## Pattern 4 — Multi-brand (precedence)
 
 ```css
 :root {
   /* base */
 }
 [data-brand="acme"] {
-  /* overrides semánticos */
+  /* semantic overrides */
 }
 [data-theme="dark"] {
-  /* overrides semánticos */
+  /* semantic overrides */
 }
 [data-brand="acme"][data-theme="dark"] {
-  /* combinación */
+  /* combined overrides */
 }
 ```
 
-## Patrón 5 — High contrast
+## Pattern 5 — High contrast
 
 ```css
 @media (prefers-contrast: high) {
@@ -371,48 +370,48 @@ Si tu soporte lo permite, evita explotar tokens para opacidades:
 
 ---
 
-# Documentación, versionado y deprecación (mínimo viable)
+# Documentation, versioning, and deprecation (minimum viable)
 
-## Qué documentar por token (mínimo)
+## What to document per token (minimum)
 
-- Propósito (qué resuelve)
-- Referencias (a qué primitivo/semántico apunta)
-- Casos de uso (dónde sí / dónde no)
-- Estado (activo / deprecated / planned)
+- Purpose (what it solves)
+- References (which primitive/semantic it points to)
+- Usage (where yes / where no)
+- Status (active / deprecated / planned)
 
-## SemVer para tokens
+## SemVer for tokens
 
-- **PATCH**: corrección sin cambiar contrato.
-- **MINOR**: nuevos tokens/aliases compatibles.
-- **MAJOR**: renombres, cambios de significado, eliminaciones.
+- **PATCH**: fix without changing the contract.
+- **MINOR**: new tokens/compatible aliases.
+- **MAJOR**: renames, meaning changes, removals.
 
-**Política práctica**:
+Practical policy:
 
-- En renombres: mantener alias antiguo como `$deprecated` durante al menos 1 minor / 1 ciclo de release.
-
----
-
-# Plan de migración (si ya existe un sistema)
-
-1. **Assessment**: inventario de variables actuales + hardcodes + hotspots de UI.
-2. **Planning**: taxonomy + naming + tiers + source of truth + SemVer + deprecaciones.
-3. **Implementation**: primero primitives y semantics; migración por “islas” (componente a componente).
-4. **Validation**: regresión visual + a11y (contraste/focus) + smoke tests + perf (runtime theming).
+- For renames: keep the old alias as `$deprecated` for at least 1 minor / 1 release cycle.
 
 ---
 
-# Validación y testing (recomendado)
+# Migration plan (when a system already exists)
 
-- **Visual regression**: capturas por componente/estado/tema.
-- **A11y**: contraste de tokens de color, focus visible, estados disabled.
+1. **Assessment**: inventory current variables + hardcodes + UI hotspots.
+2. **Planning**: taxonomy + naming + tiers + source of truth + SemVer + deprecations.
+3. **Implementation**: primitives and semantics first; migrate in islands (component by component).
+4. **Validation**: visual regression + a11y (contrast/focus) + smoke tests + perf (runtime theming).
+
+---
+
+# Validation and testing (recommended)
+
+- **Visual regression**: captures per component/state/theme.
+- **A11y**: contrast on color tokens, focus visible, disabled states.
 - **Linting/CI**:
-  - validar estructura DTCG (token vs grupo; `$type` efectivo).
-  - validar naming (sin `{}`, `.`, espacios; kebab-case recomendado).
-  - detectar literales nuevos en componentes (reglas tipo “no-raw-hex/no-raw-px”).
+  - validate DTCG structure (token vs group; effective `$type`).
+  - validate naming (no `{}`, `.`, spaces; kebab-case recommended).
+  - detect new literals in components (rules like "no-raw-hex/no-raw-px").
 
 ---
 
-# Estructura recomendada de carpetas
+# Recommended folder structure
 
 ```
 design-tokens/
@@ -458,30 +457,30 @@ design-tokens/
 
 ---
 
-# Output esperado
+# Expected output
 
-Entrega (según necesidad) en este orden:
-A) **Arquitectura** (tiers, naming, theming, decisiones)  
-B) **Tokens DTCG (JSON)** (mínimo válido + escalable)  
-C) **CSS Custom Properties** (`:root` + temas/marcas + componente si aplica)  
-D) **Checklist** + próximos pasos (migración/adopción/testing)
-
----
-
-# Constraints (NO negociar)
-
-- No mezcles token y grupo en el mismo objeto.
-- No dejes tokens sin `$type` efectivo (explícito o heredado).
-- `dimension` y `duration` deben usar formato objeto `{ value, unit }` con unidades válidas.
-- No uses `$extensions` para info crítica para interpretar un token.
-- Evita referencias circulares y cadenas profundas sin necesidad.
-- No inventes valores de marca si el usuario no los dio: usa placeholders.
+Deliver (as needed) in this order:
+A) **Architecture** (tiers, naming, theming, decisions)  
+B) **DTCG tokens (JSON)** (minimum valid + scalable)  
+C) **CSS Custom Properties** (`:root` + themes/brands + component scope when applicable)  
+D) **Checklist** + next steps (migration/adoption/testing)
 
 ---
 
-# Ejemplos
+# Constraints (non-negotiable)
 
-## Ejemplo 1 — Primitivo → semántico + dimension + number
+- Do not mix token and group in the same object.
+- Do not leave tokens without an effective `$type` (explicit or inherited).
+- `dimension` and `duration` must use object format `{ value, unit }` with valid units.
+- Do not use `$extensions` for critical interpretation data.
+- Avoid circular references and unnecessarily deep chains.
+- Do not invent brand values if the user did not provide them: use placeholders.
+
+---
+
+# Examples
+
+## Example 1 — Primitive -> semantic + dimension + number
 
 ```json
 {
@@ -504,7 +503,7 @@ D) **Checklist** + próximos pasos (migración/adopción/testing)
       "text": {
         "action": {
           "$value": "{color.primitive.blue.500}",
-          "$description": "Texto interactivo"
+          "$description": "Interactive text"
         }
       }
     }
@@ -521,14 +520,14 @@ D) **Checklist** + próximos pasos (migración/adopción/testing)
       "$type": "number",
       "default": {
         "$value": 1.5,
-        "$description": "Line-height unitless por defecto"
+        "$description": "Default unitless line-height"
       }
     }
   }
 }
 ```
 
-## Ejemplo 2 — Token compuesto `typography` + `$ref`
+## Example 2 — Composite `typography` token + `$ref`
 
 ```json
 {
@@ -557,7 +556,7 @@ D) **Checklist** + próximos pasos (migración/adopción/testing)
 }
 ```
 
-## Ejemplo 3 — CSS output (root + theme + componente)
+## Example 3 — CSS output (root + theme + component)
 
 ```css
 :root {
@@ -572,7 +571,7 @@ D) **Checklist** + próximos pasos (migración/adopción/testing)
 
 [data-theme="dark"] {
   color-scheme: dark;
-  --ds-color-semantic-text-action: #93c5fd; /* placeholder si no hay token dark todavía */
+  --ds-color-semantic-text-action: #93c5fd; /* placeholder if dark token is not available yet */
 }
 
 .Button {
