@@ -1,20 +1,19 @@
-export const CANONICAL_H2_ORDER = [
-  "Overview",
-  "Anatomy",
-  "Component API",
-  "Visual Specifications",
-  "Variants",
-  "States",
-  "Usage Guidelines",
-  "Content Guidelines",
-  "Accessibility",
-  "Related Components",
-  "Design–Token Discrepancies",
-  "Gaps / TBD",
-];
+/**
+ * Runtime mirror of tooling/lib/markdown-sections.json.
+ *
+ * CANONICAL_H2_ORDER and its derived slices are derived from the JSON file,
+ * which is the single source of truth. To change the section list or order,
+ * edit the JSON and this module will reflect it automatically.
+ */
+import { createRequire } from "node:module";
 
-export const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, 10);
-export const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(10);
+const require = createRequire(import.meta.url);
+const SECTIONS = require("../../lib/markdown-sections.json");
+
+export const CANONICAL_H2_ORDER = SECTIONS.canonical_h2_order;
+export const REQUIRED_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(0, SECTIONS.required_count);
+export const OPTIONAL_CANONICAL_H2 = CANONICAL_H2_ORDER.slice(SECTIONS.required_count);
+
 export const TRACEABILITY_CONTRACT_VERSION = "1";
 export const TOKEN_COLLECTION_PREFIXES = new Set([
   "Semantic",

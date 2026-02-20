@@ -17,6 +17,8 @@ Frontmatter fields and traceability metadata are defined in:
 
 ## Required sections (in order)
 
+> **Machine-readable version:** `tooling/lib/markdown-sections.json` contains this section list as structured data — heading name, index, required flag, conditional rules, and per-section notes. Scripts and agents must import the JSON instead of hardcoding the list.
+
 Only these H2 headings are allowed in component pages, in this exact canonical order:
 
 1. `## Overview`
