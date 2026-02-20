@@ -22,6 +22,8 @@
     "ds:sort-spec": "node tooling/scripts/ds-sort-spec.mjs",
     "ds:compute-traceability": "node tooling/scripts/ds-compute-traceability.mjs",
     "ds:capture-visual-proof": "node tooling/scripts/ds-capture-visual-proof.mjs",
+    "ds:capture-from-url": "node tooling/scripts/ds-capture-from-figma-url.mjs",
+    "ds:capture-from-figma-document": "node tooling/scripts/ds-capture-from-figma-url.mjs",
     "ds:mark-needs-review": "node tooling/scripts/ds-mark-needs-review.mjs",
     "ds:regenerate-docs": "node tooling/scripts/ds-regenerate-docs.mjs",
     "ds:doc-from-figma-url": "node tooling/scripts/ds-doc-from-figma-url.mjs",

@@ -56,6 +56,12 @@ const USAGE = {
       defaultValue: "auto",
     },
     {
+      name: "--main-capture-mode <auto|agent|rest>",
+      description:
+        "Capture strategy for main screenshot. `auto` prefers REST when FIGMA token+file key are available.",
+      defaultValue: "auto",
+    },
+    {
       name: "--format <png|jpg|svg|pdf>",
       description: "Screenshot format passed to figma_take_screenshot.",
       defaultValue: "png",
@@ -111,6 +117,12 @@ const USAGE = {
       defaultValue: "false",
     },
     {
+      name: "--skip-index-sync <true|false>",
+      description:
+        "Skip registry+overview synchronization (useful when orchestrating batch captures).",
+      defaultValue: "false",
+    },
+    {
       name: "--help",
       description: "Show this help message.",
     },
@@ -136,6 +148,18 @@ function parsePositiveInteger(rawValue, optionName, fallback) {
     );
   }
   return Math.floor(parsed);
+}
+
+function parseMainCaptureMode(rawValue) {
+  const normalized = String(rawValue || "auto")
+    .trim()
+    .toLowerCase();
+  if (normalized === "auto" || normalized === "agent" || normalized === "rest") {
+    return normalized;
+  }
+  throw new Error(
+    `Invalid --main-capture-mode value: ${rawValue}. Allowed: auto, agent, rest.`,
+  );
 }
 
 function normalizeVariantSlug(rawValue) {
@@ -317,6 +341,58 @@ function parseFigmaFileKeyFromUrl(figmaUrl) {
     return String(parts[markerIndex + 1] || "").trim();
   } catch {
     return "";
+  }
+}
+
+function resolveProofImageAbsolutePath({ docsRootDir, imagePath }) {
+  const raw = String(imagePath || "").trim();
+  if (!raw) return "";
+  const absolute = path.isAbsolute(raw)
+    ? path.resolve(raw)
+    : path.resolve(docsRootDir, raw);
+  const rootWithSep = docsRootDir.endsWith(path.sep)
+    ? docsRootDir
+    : `${docsRootDir}${path.sep}`;
+  if (absolute !== docsRootDir && !absolute.startsWith(rootWithSep)) return "";
+  return absolute;
+}
+
+function collectProofImagePaths({ proofPayload, docsRootDir }) {
+  if (!proofPayload || typeof proofPayload !== "object") return [];
+  const paths = [];
+  const topImagePath = String(
+    proofPayload?.image?.path || proofPayload.image_path || "",
+  ).trim();
+  if (topImagePath) paths.push(topImagePath);
+  const variants = Array.isArray(proofPayload.variants) ? proofPayload.variants : [];
+  for (const variant of variants) {
+    if (!variant || typeof variant !== "object") continue;
+    const variantPath = String(variant.image_path || "").trim();
+    if (variantPath) paths.push(variantPath);
+  }
+  return paths
+    .map((item) =>
+      resolveProofImageAbsolutePath({
+        docsRootDir,
+        imagePath: item,
+      }),
+    )
+    .filter(Boolean);
+}
+
+function removeEmptyParentDirs(startDir, stopDir) {
+  let current = path.resolve(startDir);
+  const stop = path.resolve(stopDir);
+  while (current.startsWith(stop)) {
+    if (current === stop) break;
+    try {
+      const entries = fs.readdirSync(current);
+      if (entries.length > 0) break;
+      fs.rmdirSync(current);
+      current = path.dirname(current);
+    } catch {
+      break;
+    }
   }
 }
 
@@ -599,7 +675,13 @@ async function main() {
   const scale = Number(args.scale || 2);
   const figmaUrl = String(args.url || "").trim();
   const agent = String(args.agent || process.env.DS_AGENT || "auto");
+  const mainCaptureMode = parseMainCaptureMode(args["main-capture-mode"]);
   const dryRun = parseBooleanOption(args["dry-run"], "--dry-run", false);
+  const skipIndexSync = parseBooleanOption(
+    args["skip-index-sync"],
+    "--skip-index-sync",
+    false,
+  );
   const storeLocalImage = parseBooleanOption(
     args["store-local-image"],
     "--store-local-image",
@@ -653,32 +735,72 @@ async function main() {
   }
 
   const prompt = buildCapturePrompt({ figmaUrl, nodeId, format, scale });
-  let response;
-  try {
-    response = runAgentPrompt({
-      prompt,
-      agent,
-      label: `capture-visual-proof-${componentSlug || "component"}`,
-      passthrough: false,
-    });
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
+  const canUseRest = Boolean(figmaToken && figmaFileKey);
+  const useRestForMainCapture =
+    mainCaptureMode === "rest" || (mainCaptureMode === "auto" && canUseRest);
 
-  const payload = extractFirstJsonObject(response.stdout || "");
-  if (!payload || typeof payload !== "object") {
-    console.error(
-      "Unable to parse JSON screenshot payload from agent output. " +
-        "Run again with --agent codex and verify MCP connectivity.",
-    );
-    process.exit(1);
-  }
+  let imageUrlRaw = "";
+  let normalizedNodeId = nodeId;
 
-  const imageUrlRaw =
-    String(payload.image_url || payload.url || payload.imageUrl || "").trim();
-  const nodeIdRaw = String(payload.node_id || payload.nodeId || nodeId).trim();
-  const normalizedNodeId = normalizeNodeId(nodeIdRaw) || nodeId;
+  if (useRestForMainCapture) {
+    if (!figmaToken || !figmaFileKey) {
+      console.error(
+        "Main capture mode `rest` requires --figma-token (or FIGMA_TOKEN) and a resolvable Figma file key.",
+      );
+      process.exit(1);
+    }
+    try {
+      const imagePayload = await fetchFigmaImages({
+        fileKey: figmaFileKey,
+        nodeIds: [nodeId],
+        token: figmaToken,
+        format,
+        scale,
+        timeoutMs: downloadTimeoutMs,
+      });
+      const imageMap =
+        imagePayload && typeof imagePayload.images === "object"
+          ? imagePayload.images
+          : {};
+      imageUrlRaw = String(imageMap[nodeId] || "").trim();
+      normalizedNodeId = nodeId;
+    } catch (error) {
+      console.error(
+        `Main screenshot capture via REST failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      process.exit(1);
+    }
+  } else {
+    let response;
+    try {
+      response = runAgentPrompt({
+        prompt,
+        agent,
+        label: `capture-visual-proof-${componentSlug || "component"}`,
+        passthrough: false,
+      });
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+
+    const payload = extractFirstJsonObject(response.stdout || "");
+    if (!payload || typeof payload !== "object") {
+      console.error(
+        "Unable to parse JSON screenshot payload from agent output. " +
+          "Run again with --agent codex and verify MCP connectivity.",
+      );
+      process.exit(1);
+    }
+
+    imageUrlRaw = String(
+      payload.image_url || payload.url || payload.imageUrl || "",
+    ).trim();
+    const nodeIdRaw = String(payload.node_id || payload.nodeId || nodeId).trim();
+    normalizedNodeId = normalizeNodeId(nodeIdRaw) || nodeId;
+  }
 
   if (!/^https?:\/\/\S+$/i.test(imageUrlRaw)) {
     console.error(
@@ -707,6 +829,18 @@ async function main() {
     height: null,
   };
   const variantProofs = [];
+  let previousProofImagePaths = [];
+  if (!dryRun && fs.existsSync(proofFilePath)) {
+    try {
+      const previousPayload = JSON.parse(fs.readFileSync(proofFilePath, "utf8"));
+      previousProofImagePaths = collectProofImagePaths({
+        proofPayload: previousPayload,
+        docsRootDir,
+      });
+    } catch {
+      previousProofImagePaths = [];
+    }
+  }
 
   if (storeLocalImage) {
     try {
@@ -934,6 +1068,8 @@ async function main() {
     process.exit(1);
   }
 
+  const deletedStaleImages = [];
+
   if (!dryRun) {
     fs.mkdirSync(proofDir, { recursive: true });
     writeTextAtomic(
@@ -947,14 +1083,41 @@ async function main() {
       markdownPath,
       `${markdownPrefix}${nextContent.replace(/^\n+/, "")}`,
     );
-    syncDocumentationIndices({
-      docsDir: componentDocsDir,
-      overviewPath: path.join(componentDocsDir, "overview.md"),
-      specsDir: path.dirname(specPath),
-      proofsDir: proofDir,
-      renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
-      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
-    });
+
+    const keepPaths = new Set();
+    if (localImageInfo.path) keepPaths.add(path.resolve(localImageInfo.path));
+    for (const variant of variantProofs) {
+      const absoluteVariantPath = resolveProofImageAbsolutePath({
+        docsRootDir,
+        imagePath: variant.image_path || "",
+      });
+      if (absoluteVariantPath) keepPaths.add(absoluteVariantPath);
+    }
+    for (const oldPath of previousProofImagePaths) {
+      const absoluteOldPath = path.resolve(oldPath);
+      if (keepPaths.has(absoluteOldPath)) continue;
+      if (!fs.existsSync(absoluteOldPath)) continue;
+      try {
+        fs.unlinkSync(absoluteOldPath);
+        deletedStaleImages.push(
+          path.relative(docsRootDir, absoluteOldPath).split(path.sep).join("/"),
+        );
+        removeEmptyParentDirs(path.dirname(absoluteOldPath), proofImageDir);
+      } catch {
+        // Best-effort cleanup; do not fail capture flow for stale artifacts.
+      }
+    }
+
+    if (!skipIndexSync) {
+      syncDocumentationIndices({
+        docsDir: componentDocsDir,
+        overviewPath: path.join(componentDocsDir, "overview.md"),
+        specsDir: path.dirname(specPath),
+        proofsDir: proofDir,
+        renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
+        registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+      });
+    }
   }
 
   const report = {
@@ -971,6 +1134,9 @@ async function main() {
     scale,
     imageSha256: localImageInfo.sha256,
     variantsCount: variantProofs.length,
+    mainCaptureMode: useRestForMainCapture ? "rest" : "agent",
+    indexSyncSkipped: skipIndexSync,
+    deletedStaleImages,
   };
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
