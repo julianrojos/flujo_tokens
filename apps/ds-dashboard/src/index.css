@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 196 37% 97%;
+  --foreground: 220 23% 18%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 23% 18%;
+  --border: 198 26% 84%;
+  --ring: 177 84% 28%;
+  --muted: 195 25% 92%;
+  --muted-foreground: 215 14% 41%;
+  --primary: 177 84% 28%;
+  --primary-foreground: 180 20% 98%;
+  --accent: 34 88% 89%;
+  --accent-foreground: 22 43% 23%;
+  --radius: 0.85rem;
+}
+
+* {
+  @apply border-border;
+}
+
+body {
+  @apply min-h-screen bg-background text-foreground antialiased;
+  background-image:
+    radial-gradient(
+      circle at 8% 12%,
+      rgba(22, 163, 148, 0.14),
+      transparent 38%
+    ),
+    radial-gradient(
+      circle at 88% 86%,
+      rgba(245, 158, 11, 0.16),
+      transparent 34%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(247, 252, 252, 0.98),
+      rgba(240, 248, 248, 0.95)
+    );
+}
+
+#root {
+  min-height: 100vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
