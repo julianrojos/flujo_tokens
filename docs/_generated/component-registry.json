@@ -162,6 +162,102 @@
       "fingerprint_sha256": "574ad0bd9894ff2f8b0ded952430d0accc6bde2a4960fa9531cb55b2bae4712c"
     },
     {
+      "slug": "checkbox",
+      "display_name": "Checkbox",
+      "paths": {
+        "spec": "docs/_spec/components/checkbox.yml",
+        "doc": "docs/components/checkbox.md",
+        "render_payload": "docs/_generated/figma_doc_models/checkbox.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/checkbox.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu?node-id=524-494",
+        "component_set_node_id": "524:494"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "5c6387b7af7a7acf84e58b4849426ff97c54bf72b89727920bed3322140f3d6d"
+    },
+    {
+      "slug": "checkbox_label",
+      "display_name": "Checkbox Label",
+      "paths": {
+        "spec": "docs/_spec/components/checkbox_label.yml",
+        "doc": "docs/components/checkbox_label.md",
+        "render_payload": "docs/_generated/figma_doc_models/checkbox_label.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/checkbox_label.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=487-267&t=Ct0aRp93us7M1VzZ-4",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "62cc7e984fc53a0f5ba594b61703c195f2e1e3463ab521e2f14cc57119f9ca2e"
+    },
+    {
+      "slug": "checkbox_label_list",
+      "display_name": "Checkbox Label List",
+      "paths": {
+        "spec": "docs/_spec/components/checkbox_label_list.yml",
+        "doc": "docs/components/checkbox_label_list.md",
+        "render_payload": "docs/_generated/figma_doc_models/checkbox_label_list.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/checkbox_label_list.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2371-2320&t=Ct0aRp93us7M1VzZ-4",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "136571df1228ea4013a11b2a4bbdf70820661438b1a3f70c3b0de39e5597a2d4"
+    },
+    {
       "slug": "image",
       "display_name": "Image",
       "paths": {
@@ -355,19 +451,19 @@
     }
   ],
   "summary": {
-    "total_components": 11,
-    "with_spec": 11,
-    "with_doc": 11,
+    "total_components": 14,
+    "with_spec": 14,
+    "with_doc": 14,
     "with_render_payload": 5,
     "with_visual_proof": 0,
     "ready_for_publish": 0,
     "by_pipeline_stage": {
       "missing-spec": 0,
       "spec": 0,
-      "markdown": 6,
+      "markdown": 9,
       "render": 5,
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "b65a4e5ac9ca60d1976c4cbe98535fdd06f9193b1896d0bdd518e6a281f84659"
+  "fingerprint_sha256": "175cfc43e3c15d7268a76f64e4f65add9434612586d6ad3f2620d3cbf9d78139"
 }
