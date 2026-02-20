@@ -312,6 +312,9 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - do not run markdown generation without a valid spec
   - do not render to Figma without an existing component markdown
   - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
+  - optional spec `related_components` is validated:
+    - values must be `snake_case` slugs, unique, and must not self-reference
+    - in `ready` specs, every entry must resolve to an existing component spec YAML
   - component index artifacts must be refreshed atomically (`docs/_generated/component-registry.json` + `docs/components/overview.md`)
   - validation is a gate after spec and markdown generation
   - see `.agent/rules/docs-pipeline-contract.mdc` for the full stage contract

@@ -108,6 +108,13 @@ Ready spec constraint:
 - Token paths must be real JSON keys - follow `prohibited-patterns.mdc`.
 - Use `TBD` as value when token is unknown.
 
+### `related_components` (optional)
+
+- Array of `snake_case` component slugs (no file extensions).
+- Duplicates are not allowed (case-insensitive).
+- Must not include the current component's slug.
+- For `status: ready`, every entry must resolve to an existing spec file at `docs/_spec/components/<slug>.yml`.
+
 ## Deterministic placement contract
 
 - `figma.component_set_node_id` is the canonical traceability key for render placement.

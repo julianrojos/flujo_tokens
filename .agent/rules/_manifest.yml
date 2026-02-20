@@ -180,6 +180,9 @@ checks:
   SPEC01:
     rule_ids: [component-spec-yaml, token-registry-validation]
     blocking: true
+  REL01:
+    rule_ids: [component-spec-yaml]
+    blocking: false
   DET01:
     rule_ids: [component-spec-properties-order]
     blocking: true
