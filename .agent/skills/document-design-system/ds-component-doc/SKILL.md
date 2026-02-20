@@ -5,8 +5,7 @@ version: "1.3.1"
 requires_rules:
   - ds-docs-guardrails: ">=1.0.0"
   - frontmatter-contract: ">=1.0.0"
-  - component-doc-structure: ">=1.0.0"
-  - component-doc-content: ">=1.0.0"
+  - component-doc: ">=1.0.0"
   - component-spec-yaml: ">=1.0.0"
   - component-spec-properties-order: ">=1.0.0"
   - token-references: ">=1.0.0"
@@ -42,8 +41,7 @@ This skill must produce output that complies with:
 
 - `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
 - `frontmatter-contract.mdc` — unified frontmatter contract for markdown pages
-- `component-doc-structure.mdc` — mandatory section order and allowed H2 set
-- `component-doc-content.mdc` — section-level writing guidance
+- `component-doc.mdc` — section order, allowed H2 set, and section-level writing guidance
 - `component-spec-yaml.mdc` — required fields and conventions for the input YAML
 - `component-spec-properties-order.mdc` — deterministic ordering of `properties` entries in spec YAML
 - `token-references.mdc` — token path formatting, fallback values, and naming patterns
@@ -109,7 +107,7 @@ See `component-spec-yaml.mdc` for full field conventions and validation rules.
 
 ## Component page structure
 
-Follow the structure defined in `component-doc-structure.mdc` and content guidance from `component-doc-content.mdc`. The skill generates all sections from the spec YAML, filling `TBD` where data is missing.
+Follow the structure and content guidance defined in `component-doc.mdc`. The skill generates all sections from the spec YAML, filling `TBD` where data is missing.
 
 Summary of sections (see rule for full details):
 
@@ -160,7 +158,7 @@ Visual proof guidance:
 
 ## Properties table format
 
-Per `component-doc-structure.mdc`, use this table format:
+Per `component-doc.mdc`, use this table format:
 
 | Name | Type | Default | Required | Description |
 | ---- | ---- | ------- | -------- | ----------- |

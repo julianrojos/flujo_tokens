@@ -4,7 +4,7 @@ description: Render a component markdown doc into a styled Figma documentation s
 version: "1.2.1"
 requires_rules:
   - figma-doc-rendering: ">=1.0.0"
-  - component-doc-structure: ">=1.0.0"
+  - component-doc: ">=1.0.0"
   - ds-docs-guardrails: ">=1.0.0"
   - markdown-figma-subset: ">=1.0.0"
   - docs-pipeline-contract: ">=1.0.0"
@@ -31,7 +31,7 @@ Do not use this skill for non-component pages.
 This skill must comply with:
 
 - `figma-doc-rendering.mdc` — block types, determinism, theme contract, section placement, and table rendering rules
-- `component-doc-structure.mdc` — the Markdown input is expected to follow the required frontmatter + ordered sections
+- `component-doc.mdc` — the Markdown input is expected to follow the required frontmatter + ordered sections
 - `ds-docs-guardrails.mdc` — no invented content; `VariableID:*` is prohibited in visible docs
 - `markdown-figma-subset.mdc` — supported markdown subset and table authoring constraints
 - `docs-pipeline-contract.mdc` — canonical stage order, preconditions, and validation gates

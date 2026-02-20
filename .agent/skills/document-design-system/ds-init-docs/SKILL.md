@@ -70,7 +70,7 @@ All generated documentation must comply with:
 ### Baseline: ${docs_root}/components/overview.md
 
 - One-page-per-component policy
-- Each component page follows the structure defined in `component-doc-structure.mdc` (required frontmatter + ordered sections)
+- Each component page follows the structure defined in `component-doc.mdc` (required frontmatter + ordered sections)
 - How to add a component:
   1. Create spec YAML in `_spec/components/<Component>.yml` (see `component-spec-yaml.mdc`)
   2. Run ds-component-doc

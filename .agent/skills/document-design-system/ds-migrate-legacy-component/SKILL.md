@@ -5,7 +5,7 @@ version: "1.1.1"
 requires_rules:
   - component-name-normalization: ">=1.0.0"
   - component-spec-yaml: ">=1.0.0"
-  - component-doc-structure: ">=1.0.0"
+  - component-doc: ">=1.0.0"
   - component-figma-traceability: ">=1.0.0"
   - token-references: ">=1.0.0"
   - token-registry-validation: ">=1.0.0"
@@ -40,7 +40,7 @@ It does not generate implementation code for UI components.
 Migration output must comply with:
 - `component-name-normalization.mdc`
 - `component-spec-yaml.mdc`
-- `component-doc-structure.mdc`
+- `component-doc.mdc`
 - `component-figma-traceability.mdc`
 - `token-references.mdc`
 - `token-registry-validation.mdc`

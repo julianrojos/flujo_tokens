@@ -5,8 +5,7 @@ version: "1.1.0"
 requires_rules:
   - docs-pipeline-contract: ">=1.0.0"
   - component-spec-yaml: ">=1.0.0"
-  - component-doc-structure: ">=1.0.0"
-  - component-doc-content: ">=1.0.0"
+  - component-doc: ">=1.0.0"
   - component-figma-traceability: ">=1.0.0"
   - component-name-normalization: ">=1.0.0"
   - frontmatter-contract: ">=1.0.0"
@@ -51,7 +50,7 @@ If the component name or source of truth is missing, ask before writing files.
 
 3. **Markdown stage**
 - Generate/update markdown via `ds:component-doc`.
-- Preserve canonical H2 contract from `component-doc-structure.mdc`.
+- Preserve canonical H2 contract from `component-doc.mdc`.
 - Ensure `## Overview` includes `### Visual Proof`.
 - Ensure `## Usage Guidelines` includes behavior/examples guidance.
 
