@@ -43,15 +43,23 @@ outputs:
   - name: spec_file
     type: path
     value: "${docs_root}/_spec/components/${component_name_snake_case}.yml"
-    description: "Updated spec YAML (produced when the spec stage ran)."
+    conditional: true
+    condition: "Only when the spec stage runs (spec is missing or outdated). Skipped when a valid up-to-date spec already exists."
+    description: "Created or updated spec YAML."
   - name: markdown_file
     type: path
     value: "${docs_root}/components/${component_name_snake_case}.md"
-    description: "Updated component documentation page."
+    description: "Updated component documentation page (always produced)."
   - name: overview_file
     type: path
     value: "${docs_root}/components/overview.md"
-    description: "Updated overview index."
+    description: "Updated overview index (always produced as part of markdown stage)."
+  - name: visual_proof_file
+    type: path
+    value: "${docs_root}/_generated/visual-proofs/${component_name_snake_case}.json"
+    conditional: true
+    condition: "Only when the visual proof stage runs (required before doc_status: ready)."
+    description: "Visual proof artifact capturing screenshot evidence for the component."
   - name: report
     type: report
     description: "Files changed, commands run, validation status, gaps, and next actions to reach doc_status: ready."

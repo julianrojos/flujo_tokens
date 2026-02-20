@@ -28,8 +28,17 @@ outputs:
   - name: <slot_name>
     type: <slot_type>
     value: <expression>     # path expression for file outputs; omit for report type
+    conditional: true|false # omit or set false for always-produced outputs
+    condition: "..."        # required when conditional: true — human-readable condition
     description: "..."
 ```
+
+### `conditional` and `condition` fields
+
+- `conditional: true` marks an output that is **not always produced**.
+- `condition` (required when `conditional: true`) describes the circumstance under which the output is produced (e.g. `"Only when spec stage runs (spec missing or outdated)."`).
+- When `conditional` is omitted or `false`, the agent MUST produce the output or explicitly report a failure.
+- When `conditional: true`, the agent MUST either produce the output or include a one-line note in the report confirming the condition did not apply — no error is raised.
 
 ## Canonical slot types
 
@@ -63,8 +72,9 @@ When executing a skill, an agent MUST:
 1. Read `inputs` from frontmatter — this is the authoritative parameter list.
 2. For each input where `required: true` and no `default` is declared: prompt the user before proceeding. Never invent a value.
 3. For each input where `required: false` and no value is provided: apply `default` if declared; skip the slot if absent.
-4. Produce all declared `outputs`, or explicitly report why an output was not generated.
-5. Never derive parameter values from prose sections alone; slots are the source of truth.
+4. For each output where `conditional` is absent or `false`: produce the output, or explicitly report a failure if it was not generated.
+5. For each output where `conditional: true`: produce the output when its `condition` is met; otherwise note in the report that the condition did not apply. This is not an error.
+6. Never derive parameter values from prose sections alone; slots are the source of truth.
 
 ## Orchestration contract
 
