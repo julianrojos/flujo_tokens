@@ -46,6 +46,7 @@ export interface ComponentSpecPayload {
   slug: string;
   path: string;
   raw: string;
+  parsed: unknown;
 }
 
 export function fetchComponentSpec(slug: string) {

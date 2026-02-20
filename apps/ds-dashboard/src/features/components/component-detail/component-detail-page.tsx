@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 
-import { fetchComponentRegistry, fetchComponentUsageIndex } from "@/lib/api";
+import { fetchComponentRegistry, fetchComponentUsageIndex, fetchComponentSpec } from "@/lib/api";
 import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
 import type { ComponentUsageEntry } from "@/types/component-usage-index";
+import type { ComponentSpec } from "@/types/component-spec";
+import { ComponentSpecViewer } from "./component-spec-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -107,6 +109,7 @@ export function ComponentDetailPage() {
   const [item, setItem] = useState<ComponentRegistryItem | null>(null);
   const [usage, setUsage] = useState<ComponentUsageEntry | null>(null);
   const [allItems, setAllItems] = useState<ComponentRegistryItem[]>([]);
+  const [spec, setSpec] = useState<ComponentSpec | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,14 +119,16 @@ export function ComponentDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const [registry, usageIndex] = await Promise.all([
+        const [registry, usageIndex, specPayload] = await Promise.all([
           fetchComponentRegistry(),
           fetchComponentUsageIndex().catch(() => ({ by_slug: {} })),
+          fetchComponentSpec(slug).catch(() => null),
         ]);
         const found = registry.components.find((c) => c.slug === slug) ?? null;
         setItem(found);
         setAllItems(registry.components);
         setUsage(usageIndex.by_slug[slug] ?? null);
+        setSpec(specPayload?.ok && specPayload.parsed ? (specPayload.parsed as ComponentSpec) : null);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -242,6 +247,30 @@ export function ComponentDetailPage() {
               <PipelineTimeline current={item.pipeline_stage} />
             </CardContent>
           </Card>
+
+          {/* Spec */}
+          {spec ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Component Spec</CardTitle>
+                <CardDescription className="font-mono text-xs">
+                  {item.paths.spec}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ComponentSpecViewer spec={spec} />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>Component Spec</CardTitle>
+                <CardDescription className="text-amber-600">
+                  Spec file not available for this component.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
 
           {/* Visual proof */}
           {item.visual_proof.exists && item.visual_proof.screenshot_url ? (

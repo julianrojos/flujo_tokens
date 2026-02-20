@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import yaml from "js-yaml";
 
 type Middleware = (
   req: { method?: string; url?: string },
@@ -394,7 +395,13 @@ function createLocalDataApi() {
         }
         const specAbsPath = path.resolve(repoRoot, specRelPath);
         const raw = await fs.readFile(specAbsPath, "utf8");
-        sendJson(res, 200, { ok: true, slug, path: specRelPath, raw });
+        let parsed: unknown = null;
+        try {
+          parsed = yaml.load(raw);
+        } catch {
+          // parsed stays null; frontend can fall back to raw display
+        }
+        sendJson(res, 200, { ok: true, slug, path: specRelPath, raw, parsed });
         return;
       }
 
