@@ -16,6 +16,24 @@ type Middleware = (
   next: () => void,
 ) => void | Promise<void>;
 
+type TokenRegistryEntry = {
+  path?: string;
+  slashPath?: string;
+  cssVar?: string;
+  type?: string;
+  resolvedValue?: string;
+  collection?: string;
+};
+
+type TokenTreeNode = {
+  id: string;
+  name: string;
+  type: "collection" | "group" | "token";
+  path: string;
+  children: TokenTreeNode[];
+  tokenData?: TokenRegistryEntry;
+};
+
 function sendJson(
   res: {
     statusCode: number;
@@ -29,6 +47,115 @@ function sendJson(
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
   res.end(JSON.stringify(payload));
+}
+
+function buildTokenCollectionTrees(entries: TokenRegistryEntry[]) {
+  const byCollection = new Map<string, TokenRegistryEntry[]>();
+  for (const entry of entries) {
+    const collection = String(entry.collection || "Uncategorized").trim() || "Uncategorized";
+    if (!byCollection.has(collection)) byCollection.set(collection, []);
+    byCollection.get(collection)?.push(entry);
+  }
+
+  const collections = Array.from(byCollection.entries())
+    .sort(([a], [b]) => a.localeCompare(b, "en", { sensitivity: "base" }))
+    .map(([collection, collectionEntries]) => {
+      const root: TokenTreeNode = {
+        id: `collection:${collection}`,
+        name: collection,
+        type: "collection",
+        path: collection,
+        children: [],
+      };
+      const nodeByPath = new Map<string, TokenTreeNode>();
+      nodeByPath.set(root.path, root);
+
+      const sortedEntries = collectionEntries
+        .slice()
+        .sort((a, b) =>
+          String(a.path || a.slashPath || "").localeCompare(
+            String(b.path || b.slashPath || ""),
+            "en",
+            { sensitivity: "base" },
+          ),
+        );
+
+      for (const entry of sortedEntries) {
+        const slashPath = String(entry.slashPath || "").trim();
+        const pathValue = String(entry.path || "").trim();
+        const normalizedPath = slashPath || pathValue.replace(/\./g, "/");
+        if (!normalizedPath) continue;
+        const rawSegments = normalizedPath.split("/").filter(Boolean);
+        const segments =
+          rawSegments[0]?.localeCompare(collection, "en", { sensitivity: "base" }) === 0
+            ? rawSegments.slice(1)
+            : rawSegments;
+        if (segments.length === 0) continue;
+
+        let currentPath = collection;
+        let parent = root;
+        for (let i = 0; i < segments.length; i += 1) {
+          const segment = segments[i];
+          const isLeaf = i === segments.length - 1;
+          currentPath = `${currentPath}/${segment}`;
+
+          if (isLeaf) {
+            const tokenNode: TokenTreeNode = {
+              id: `token:${currentPath}`,
+              name: segment,
+              type: "token",
+              path: currentPath,
+              children: [],
+              tokenData: entry,
+            };
+            parent.children.push(tokenNode);
+            continue;
+          }
+
+          let groupNode = nodeByPath.get(currentPath);
+          if (!groupNode) {
+            groupNode = {
+              id: `group:${currentPath}`,
+              name: segment,
+              type: "group",
+              path: currentPath,
+              children: [],
+            };
+            nodeByPath.set(currentPath, groupNode);
+            parent.children.push(groupNode);
+          }
+          parent = groupNode;
+        }
+      }
+
+      const sortTree = (nodes: TokenTreeNode[]) => {
+        nodes.sort((a, b) => {
+          if (a.type !== b.type) {
+            if (a.type === "token") return 1;
+            if (b.type === "token") return -1;
+          }
+          return a.name.localeCompare(b.name, "en", { sensitivity: "base" });
+        });
+        for (const node of nodes) {
+          if (node.children.length > 0) sortTree(node.children);
+        }
+      };
+      sortTree(root.children);
+
+      return {
+        collection,
+        tokenCount: collectionEntries.length,
+        root,
+      };
+    });
+
+  return {
+    collections,
+    summary: {
+      collections: collections.length,
+      tokens: entries.length,
+    },
+  };
 }
 
 type ComponentRegistryRow = {
@@ -231,6 +358,14 @@ function createLocalDataApi() {
       if (method === "GET" && url === "/api/token-registry") {
         const raw = await fs.readFile(tokenRegistryPath, "utf8");
         sendJson(res, 200, JSON.parse(raw));
+        return;
+      }
+
+      if (method === "GET" && url === "/api/token-collection-trees") {
+        const raw = await fs.readFile(tokenRegistryPath, "utf8");
+        const parsed = JSON.parse(raw) as { entries?: TokenRegistryEntry[] };
+        const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
+        sendJson(res, 200, buildTokenCollectionTrees(entries));
         return;
       }
 

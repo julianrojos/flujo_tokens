@@ -1,7 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { Accessibility, RefreshCcw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Accessibility, TreePine, RefreshCcw } from "lucide-react";
 
-import { fetchTokenRegistry, fetchTokenUsageIndex, refreshTokenUsageIndex } from "@/lib/api";
+import {
+  fetchTokenCollectionTrees,
+  fetchTokenRegistry,
+  fetchTokenUsageIndex,
+  refreshTokenUsageIndex,
+} from "@/lib/api";
+import type { TokenCollectionTreeIndex } from "@/types/token-tree";
 import type { TokenEntry } from "@/types/token-registry";
 import type { TokenUsageEntry, TokenUsageIndexSummary } from "@/types/token-usage-index";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +32,7 @@ import {
 import { ContrastCheckerModal } from "./accessibility/contrast-checker-modal";
 import { buildSemanticColorOptions } from "./accessibility/semantic-color-options";
 import { useContrastChecker } from "./accessibility/use-contrast-checker";
+import { TokenTreeModal } from "./token-tree/token-tree-modal";
 
 function resolveColorSwatch(value: string): string | null {
   const raw = String(value || "").trim();
@@ -54,6 +61,10 @@ export function TokensPage() {
   const [error, setError] = useState<string | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
   const [usageSyncing, setUsageSyncing] = useState(false);
+  const [treeModalOpen, setTreeModalOpen] = useState(false);
+  const [treeData, setTreeData] = useState<TokenCollectionTreeIndex | null>(null);
+  const [treeLoading, setTreeLoading] = useState(false);
+  const [treeError, setTreeError] = useState<string | null>(null);
   const contrastChecker = useContrastChecker();
 
   useEffect(() => {
@@ -203,6 +214,29 @@ export function TokensPage() {
     }
   };
 
+  const loadTokenCollectionTrees = useCallback(
+    async (force: boolean) => {
+      if (treeLoading) return;
+      if (!force && treeData) return;
+      setTreeLoading(true);
+      setTreeError(null);
+      try {
+        const payload = await fetchTokenCollectionTrees();
+        setTreeData(payload);
+      } catch (cause) {
+        setTreeError(cause instanceof Error ? cause.message : String(cause));
+      } finally {
+        setTreeLoading(false);
+      }
+    },
+    [treeData, treeLoading],
+  );
+
+  useEffect(() => {
+    if (!treeModalOpen) return;
+    void loadTokenCollectionTrees(false);
+  }, [loadTokenCollectionTrees, treeModalOpen]);
+
   return (
     <div className="space-y-5 animate-fade-slide-in">
       <section className="grid gap-4 md:grid-cols-4">
@@ -227,12 +261,24 @@ export function TokensPage() {
 
       <Card>
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <CardTitle>Tokens & Custom Properties</CardTitle>
-            <CardDescription>
-              Inventory local de `token-registry.json` con filtros por colección
-              y tipo.
-            </CardDescription>
+          <div className="flex items-start gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 px-0"
+              title="Open token collections tree"
+              aria-label="Open token collections tree"
+              onClick={() => setTreeModalOpen(true)}
+            >
+              <TreePine className="h-4 w-4" />
+            </Button>
+            <div>
+              <CardTitle>Tokens & Custom Properties</CardTitle>
+              <CardDescription>
+                Inventory local de `token-registry.json` con filtros por colección
+                y tipo.
+              </CardDescription>
+            </div>
           </div>
           <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
             <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
@@ -411,6 +457,18 @@ export function TokensPage() {
         onTextSizeChange={contrastChecker.setTextSize}
         result={contrastResult}
         onReset={contrastChecker.reset}
+      />
+
+      <TokenTreeModal
+        open={treeModalOpen}
+        onClose={() => setTreeModalOpen(false)}
+        collections={treeData?.collections ?? []}
+        summary={treeData?.summary ?? null}
+        loading={treeLoading}
+        error={treeError}
+        onReload={() => {
+          void loadTokenCollectionTrees(true);
+        }}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import type { ComponentRegistry } from "@/types/component-registry";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import type { TokenRegistry } from "@/types/token-registry";
+import type { TokenCollectionTreeIndex } from "@/types/token-tree";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -30,6 +31,10 @@ export function fetchComponentUsageIndex() {
 
 export function fetchTokenRegistry() {
   return getJson<TokenRegistry>("/api/token-registry");
+}
+
+export function fetchTokenCollectionTrees() {
+  return getJson<TokenCollectionTreeIndex>("/api/token-collection-trees");
 }
 
 export function fetchTokenUsageIndex() {
