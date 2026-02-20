@@ -213,6 +213,9 @@ This workflow documents Design System components from Figma and can also render 
 - **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
 - **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
+- **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
+- **`npm run dashboard:build`**: Builds the local dashboard app.
+- **`npm run dashboard:preview`**: Previews the dashboard production build locally.
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
   - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
   - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
@@ -226,6 +229,34 @@ This workflow documents Design System components from Figma and can also render 
 - `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
 - `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
 - `docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
+
+### Local dashboard (React, local-only)
+
+The repository includes a local dashboard app under `apps/ds-dashboard` with two left sidebar sections:
+
+- `Tokens & Properties` (custom properties + token inventory from `docs/_generated/token-registry.json`)
+- `Componentes` (component pipeline state from `docs/_generated/component-registry.json`)
+
+No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
+
+Setup:
+
+```bash
+npm --prefix apps/ds-dashboard install
+```
+
+Run:
+
+```bash
+npm run dashboard:dev
+```
+
+Build/preview:
+
+```bash
+npm run dashboard:build
+npm run dashboard:preview
+```
 
 ### Documentation governance (rules)
 
@@ -259,6 +290,11 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - include only when linked spec has unresolved gaps
   - omit when linked spec has no unresolved gaps
   - checklist format required: `- [ ] [GAP_TYPE] ...` in canonical order
+- Evidence-gated mutations are enforced for component docs/specs:
+  - default mode is deny-by-default for key/value mutations
+  - known values can only change when verifiable evidence proves they are wrong, incomplete, outdated, or missing
+  - known values cannot be downgraded to unknown markers (`TBD`, empty, etc.) without explicit forced override
+  - component-targeted generation is scope-limited to target file + index artifacts; out-of-scope writes are blocked and rolled back
 - Editorial quality gates:
   - no `TODO` / `XXX` / `{placeholder}` / `<placeholder>`
   - internal markdown links must resolve to existing local targets
@@ -305,6 +341,8 @@ Useful flags:
 - `--docs-root docs/components` (default)
 - `--component-name <Name>`
 - `--output <path/to/component.md>` (default inferred as `docs/components/<snake_case>.md`)
+- `--allow-doc-status-change true` (exceptional override; requires `--force true`)
+- `--force true` (required when `--allow-doc-status-change true`)
 - `--agent <codex|claude|gemini>`
 
 ### 2) Spec YAML -> component markdown
@@ -328,6 +366,7 @@ Useful flags:
 - `--registry <path>` (default: `docs/_generated/token-registry.json`)
 - `--skip-validation true`
 - `--force true` (ignore incremental cache)
+- `--allow-doc-status-change true` (exceptional override; requires `--force true`)
 - `--agent <codex|claude|gemini>`
 
 Preflight behavior:
@@ -378,6 +417,7 @@ Useful flags:
 - `--registry <path>` (default: `docs/_generated/token-registry.json`)
 - `--skip-validation true`
 - `--force true` (required when using `--skip-validation true`)
+- `--allow-non-evidence-updates true` (exceptional override; requires `--force true`)
 - `--agent <codex|claude|gemini>`
 
 Note: when `--url` or `--component-set-node-id` provides a node id, `ds:spec-from-figma` persists it into `figma.component_set_node_id` in the generated spec.
