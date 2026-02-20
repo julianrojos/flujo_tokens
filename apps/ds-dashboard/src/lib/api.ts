@@ -7,6 +7,7 @@ import type { TokenGraphViz } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type { TokenDiffReport } from "@/types/token-diff";
+import type { ImpactReport } from "@/types/impact";
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -60,6 +61,19 @@ export function fetchComponentsHealth() {
 export function fetchTokenDiff(beforeRef: string) {
   const params = new URLSearchParams({ beforeRef });
   return getJson<TokenDiffReport>(`/api/token-diff?${params.toString()}`);
+}
+
+export function fetchImpact(args: {
+  tokenPath: string;
+  newValue?: string | null;
+  depth?: number;
+}) {
+  const params = new URLSearchParams({ tokenPath: args.tokenPath });
+  if (args.newValue) params.set("newValue", args.newValue);
+  if (typeof args.depth === "number" && Number.isFinite(args.depth)) {
+    params.set("depth", String(args.depth));
+  }
+  return getJson<ImpactReport>(`/api/impact?${params.toString()}`);
 }
 
 export interface ComponentSpecPayload {

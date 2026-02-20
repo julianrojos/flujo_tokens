@@ -330,20 +330,31 @@ export function TokenDetailPage() {
         <>
           <Card>
             <CardHeader>
-              <div className="flex items-start gap-4">
-                {swatch ? (
-                  <span
-                    className="mt-1 h-12 w-12 flex-none rounded-lg border border-border shadow-sm"
-                    style={{ backgroundColor: swatch }}
-                    aria-label={`Color swatch ${swatch}`}
-                  />
-                ) : null}
-                <div className="min-w-0">
-                  <CardTitle className="break-all font-mono text-base">{token.path}</CardTitle>
-                  <CardDescription className="mt-1 font-mono text-xs">
-                    {token.slashPath}
-                  </CardDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  {swatch ? (
+                    <span
+                      className="mt-1 h-12 w-12 flex-none rounded-lg border border-border shadow-sm"
+                      style={{ backgroundColor: swatch }}
+                      aria-label={`Color swatch ${swatch}`}
+                    />
+                  ) : null}
+                  <div className="min-w-0">
+                    <CardTitle className="break-all font-mono text-base">{token.path}</CardTitle>
+                    <CardDescription className="mt-1 font-mono text-xs">
+                      {token.slashPath}
+                    </CardDescription>
+                  </div>
                 </div>
+                <Link
+                  to={{
+                    pathname: "/impact",
+                    search: new URLSearchParams({ token: token.path, depth: "4" }).toString(),
+                  }}
+                  className="text-xs font-semibold text-primary hover:underline"
+                >
+                  Analyze impact →
+                </Link>
               </div>
             </CardHeader>
             <CardContent>

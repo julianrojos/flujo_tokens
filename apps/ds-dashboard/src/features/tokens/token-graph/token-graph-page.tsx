@@ -317,6 +317,18 @@ export function TokenGraphPage() {
                 >
                   Open token detail →
                 </Link>
+                <Link
+                  to={{
+                    pathname: "/impact",
+                    search: new URLSearchParams({
+                      token: selectedNode.path,
+                      depth: String(Math.max(2, depth)),
+                    }).toString(),
+                  }}
+                  className="mt-2 block text-sm font-semibold text-primary hover:underline"
+                >
+                  Analyze impact →
+                </Link>
               </div>
             </CardContent>
           </Card>

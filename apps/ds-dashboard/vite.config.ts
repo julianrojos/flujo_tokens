@@ -6,6 +6,8 @@ import { spawn } from "node:child_process";
 import yaml from "js-yaml";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
+import { computeImpactReport } from "./src/lib/impact";
+import type { ImpactWcagPairConfig } from "./src/types/impact";
 
 type Middleware = (
   req: { method?: string; url?: string },
@@ -119,6 +121,29 @@ function validateGitRef(raw: string) {
   if (/\s/.test(value)) return null;
   if (!/^[A-Za-z0-9._/~^-]+$/.test(value)) return null;
   return value;
+}
+
+function normalizeImpactWcagPairs(raw: unknown): ImpactWcagPairConfig[] {
+  const list = Array.isArray((raw as { pairs?: unknown[] })?.pairs)
+    ? ((raw as { pairs?: unknown[] }).pairs ?? [])
+    : [];
+
+  const pairs: ImpactWcagPairConfig[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const foreground = String(row.foreground ?? "").trim();
+    const background = String(row.background ?? "").trim();
+    if (!foreground || !background) continue;
+    const level = String(row.level ?? "AA").trim().toUpperCase() === "AAA" ? "AAA" : "AA";
+    const textSize =
+      String(row.textSize ?? "normal").trim().toLowerCase() === "large"
+        ? "large"
+        : "normal";
+    pairs.push({ foreground, background, level, textSize });
+  }
+
+  return pairs;
 }
 
 function runNodeJsonCommand(args: {
@@ -544,6 +569,7 @@ function createLocalDataApi() {
     "_generated",
     "components-health.json",
   );
+  const wcagPairsPath = path.join(repoRoot, "tooling", "config", "wcag-pairs.json");
   const tokenDiffScriptPath = path.join(
     repoRoot,
     "tooling",
@@ -630,6 +656,57 @@ function createLocalDataApi() {
           scriptArgs: ["--before-ref", beforeRef, "--format", "json"],
         });
         return;
+      }
+
+      if (method === "GET" && url === "/api/impact") {
+        const tokenPath = String(searchParams.get("tokenPath") ?? "").trim();
+        if (!tokenPath) {
+          sendJson(res, 400, { ok: false, message: "tokenPath query param is required." });
+          return;
+        }
+
+        const newValueRaw = searchParams.get("newValue");
+        const newValue = newValueRaw ? String(newValueRaw).trim() : null;
+        const depthRaw = searchParams.get("depth");
+        const depthParsed = depthRaw ? Number.parseInt(String(depthRaw), 10) : Number.NaN;
+        const depth = Number.isFinite(depthParsed) ? depthParsed : undefined;
+
+        const [
+          tokenRegistryRaw,
+          tokenGraphRaw,
+          tokenUsageRaw,
+          tokenHealthRaw,
+          componentRegistryRaw,
+          wcagPairsRaw,
+        ] = await Promise.all([
+          fs.readFile(tokenRegistryPath, "utf8"),
+          fs.readFile(tokenGraphVizPath, "utf8"),
+          fs.readFile(tokenUsageIndexPath, "utf8"),
+          fs.readFile(tokenHealthPath, "utf8").catch(() => "null"),
+          fs.readFile(componentRegistryPath, "utf8").catch(() => "null"),
+          fs.readFile(wcagPairsPath, "utf8").catch(() => '{"pairs": []}'),
+        ]);
+
+        try {
+          const report = computeImpactReport({
+            tokenPath,
+            newValue,
+            depth,
+            tokenRegistry: JSON.parse(tokenRegistryRaw),
+            tokenGraph: JSON.parse(tokenGraphRaw),
+            tokenUsageIndex: JSON.parse(tokenUsageRaw),
+            tokenHealth: JSON.parse(tokenHealthRaw),
+            componentRegistry: JSON.parse(componentRegistryRaw),
+            wcagPairs: normalizeImpactWcagPairs(JSON.parse(wcagPairsRaw)),
+          });
+          sendJson(res, 200, report);
+          return;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          const notFound = message.includes("not found");
+          sendJson(res, notFound ? 404 : 400, { ok: false, message });
+          return;
+        }
       }
 
       if (method === "GET" && url === "/api/file") {

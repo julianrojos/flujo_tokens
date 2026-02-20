@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
-import { Activity, Boxes, GitBranch, Layers3, Search } from "lucide-react";
+import { Activity, Boxes, GitBranch, Layers3, Search, Zap } from "lucide-react";
 
 import { ComponentsPage } from "@/features/components/components-page";
 import { ComponentDetailPage } from "@/features/components/component-detail/component-detail-page";
 import { GlobalCommandPalette } from "@/features/command-palette/global-command-palette";
 import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
+import { ImpactExplorerPage } from "@/features/impact/impact-explorer-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { TokenGraphPage } from "@/features/tokens/token-graph/token-graph-page";
 import { TokenDiffPage } from "@/features/tokens/token-diff/token-diff-page";
@@ -37,6 +38,12 @@ const navItems = [
     label: "Token Graph",
     description: "Dependencias y ciclos",
     icon: GitBranch,
+  },
+  {
+    to: "/impact",
+    label: "Impact Explorer",
+    description: "What breaks if X changes",
+    icon: Zap,
   },
 ];
 
@@ -162,6 +169,7 @@ export default function App() {
               <Route path="/tokens/diff" element={<TokenDiffPage />} />
               <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
               <Route path="/token-graph" element={<TokenGraphPage />} />
+              <Route path="/impact" element={<ImpactExplorerPage />} />
               <Route path="/file" element={<FileViewerPage />} />
             </Routes>
           </main>

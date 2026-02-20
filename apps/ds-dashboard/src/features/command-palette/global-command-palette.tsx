@@ -164,6 +164,13 @@ export function GlobalCommandPalette({
         run: () => navigate("/token-graph"),
       },
       {
+        id: "go:impact",
+        title: "Open Impact Explorer",
+        subtitle: "Go to /impact",
+        keywords: ["open", "impact", "blast", "radius"],
+        run: () => navigate("/impact"),
+      },
+      {
         id: "go:token-diff",
         title: "Open Token Diff",
         subtitle: "Go to /tokens/diff",
@@ -523,4 +530,3 @@ export function GlobalCommandPalette({
     document.body,
   );
 }
-
