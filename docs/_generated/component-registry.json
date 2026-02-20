@@ -48,7 +48,7 @@
       },
       "doc": {
         "exists": true,
-        "status": "draft"
+        "status": "needs-review"
       },
       "figma": {
         "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474",
@@ -63,7 +63,7 @@
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "485414afca740f658a1e23b756fbfc3b4be7bbe85cef31cdc5b76a875b292384"
+      "fingerprint_sha256": "40db745a5a4f02d86082ac1eada2f2a760d66dd86f8a0b8eff0256c4ffe19c18"
     },
     {
       "slug": "bottom_bar",
@@ -369,5 +369,5 @@
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "ea23b652d55799264a5b9226e90dc573c4fb2127380f1a70679450aa87d4a319"
+  "fingerprint_sha256": "b65a4e5ac9ca60d1976c4cbe98535fdd06f9193b1896d0bdd518e6a281f84659"
 }
