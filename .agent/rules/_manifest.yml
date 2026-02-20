@@ -319,7 +319,7 @@ matrix:
         docs-pipeline-contract,
         evidence-gated-mutations,
       ]
-    ds-component-docs:
+    ds-component-orchestrator:
       [
         docs-pipeline-contract,
         component-spec-yaml,

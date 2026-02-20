@@ -322,6 +322,102 @@
       "fingerprint_sha256": "607e437370bbabd074c2e298798e10117fa3dee51ecc6fed8fc868f84611972e"
     },
     {
+      "slug": "radio_button",
+      "display_name": "Radio Button",
+      "paths": {
+        "spec": "docs/_spec/components/radio_button.yml",
+        "doc": "docs/components/radio_button.md",
+        "render_payload": "docs/_generated/figma_doc_models/radio_button.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/radio_button.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1971&t=Ct0aRp93us7M1VzZ-4",
+        "component_set_node_id": "2304:1971"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "acb4422e74aac09bd7cdf057748c8b8079a15a734fa7bf09c8fec45f67b504a5"
+    },
+    {
+      "slug": "radio_button_label",
+      "display_name": "Radio Button Label",
+      "paths": {
+        "spec": "docs/_spec/components/radio_button_label.yml",
+        "doc": "docs/components/radio_button_label.md",
+        "render_payload": "docs/_generated/figma_doc_models/radio_button_label.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/radio_button_label.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2304-1984&t=Ct0aRp93us7M1VzZ-4",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "8ec11a8a08c6fc5793a475b721f814e3eb7b209e72c1a7d351efd37e1f925786"
+    },
+    {
+      "slug": "radio_button_list",
+      "display_name": "Radio Button List",
+      "paths": {
+        "spec": "docs/_spec/components/radio_button_list.yml",
+        "doc": "docs/components/radio_button_list.md",
+        "render_payload": "docs/_generated/figma_doc_models/radio_button_list.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/radio_button_list.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2335-2158&t=Ct0aRp93us7M1VzZ-4",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "3c7da7d7f4c95130b6bf79b30f7eeaebe6ea2c8f6ee82c867ea765da5028a1cd"
+    },
+    {
       "slug": "status_bar",
       "display_name": "Status Bar",
       "paths": {
@@ -352,6 +448,70 @@
       "pipeline_stage": "render",
       "ready_for_publish": false,
       "fingerprint_sha256": "58d9932533d6d839d24bb087791a50e1b150e5ce729bdb298d8c29e23d767f24"
+    },
+    {
+      "slug": "step",
+      "display_name": "Step",
+      "paths": {
+        "spec": "docs/_spec/components/step.yml",
+        "doc": "docs/components/step.md",
+        "render_payload": "docs/_generated/figma_doc_models/step.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/step.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2282-1793&t=Ct0aRp93us7M1VzZ-4",
+        "component_set_node_id": "2282:1793"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "8886016019fbc74408770a24dd51ffc51f2a4e0149ef0f5b15654252dbba4f7e"
+    },
+    {
+      "slug": "stepper",
+      "display_name": "Stepper",
+      "paths": {
+        "spec": "docs/_spec/components/stepper.yml",
+        "doc": "docs/components/stepper.md",
+        "render_payload": "docs/_generated/figma_doc_models/stepper.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/stepper.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2282-1820&t=Ct0aRp93us7M1VzZ-",
+        "component_set_node_id": null
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "a40b246d29fc95fd46afed5b797a632bbd1d9f0301d329019d8c1c05439209b9"
     },
     {
       "slug": "tag",
@@ -515,19 +675,19 @@
     }
   ],
   "summary": {
-    "total_components": 16,
-    "with_spec": 16,
-    "with_doc": 16,
+    "total_components": 21,
+    "with_spec": 21,
+    "with_doc": 21,
     "with_render_payload": 5,
     "with_visual_proof": 0,
     "ready_for_publish": 0,
     "by_pipeline_stage": {
       "missing-spec": 0,
       "spec": 0,
-      "markdown": 11,
+      "markdown": 16,
       "render": 5,
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "95d2015438041a95ebb7ff5e486e16b03c06db6fa286e1f66ab029c1090530ea"
+  "fingerprint_sha256": "0e916c0e1c3a366496f116efb6cd9fbfb8598303f7e14351bd25e1c27a169cf4"
 }

@@ -1,5 +1,5 @@
 ---
-name: ds-component-docs
+name: ds-component-orchestrator
 description: Orchestrate end-to-end component documentation using the existing spec -> markdown -> figma -> visual-proof pipeline.
 version: "1.1.0"
 requires_rules:
@@ -18,7 +18,7 @@ compatible_agents:
   - gemini
 ---
 
-# ds-component-docs
+# ds-component-orchestrator
 
 ## When to use
 

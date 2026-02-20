@@ -1,0 +1,80 @@
+name: Stepper
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Stepper
+  component_set: Stepper
+
+summary:
+  purpose: Composes multiple Step items to communicate process progress.
+  when_to_use: Use for multi-step workflows with clear ordering.
+  when_not_to_use: Do not use for unordered or optional-only task groups.
+
+anatomy:
+  - id: stepper_container
+    description: Wrapper that arranges Step instances in order.
+  - id: step_item
+    description: Repeated Step instance element.
+
+properties:
+  - name: Show_Step_1
+    type: boolean
+    values: [true, false]
+    default: true
+    required: false
+    description: Toggles visibility of step 1.
+  - name: Show_Step_2
+    type: boolean
+    values: [true, false]
+    default: true
+    required: false
+    description: Toggles visibility of step 2.
+  - name: Show_Step_3
+    type: boolean
+    values: [true, false]
+    default: true
+    required: false
+    description: Toggles visibility of step 3.
+  - name: Show_Step_4
+    type: boolean
+    values: [true, false]
+    default: true
+    required: false
+    description: Toggles visibility of step 4.
+
+content_guidelines:
+  rules:
+    - Keep step labels short and sequential.
+    - Keep shown steps aligned with the actual workflow stages.
+
+best_practices:
+  do:
+    - Keep process order stable across screens.
+    - Highlight exactly one current step in nested Step instances.
+  dont:
+    - Do not hide mandatory steps without equivalent progress feedback.
+    - Do not reorder steps dynamically without explicit rationale.
+
+accessibility:
+  role: list
+  focus:
+    tokens:
+      inner: Semantic.Color.Focus-Outline.Inner
+      outer: Semantic.Color.Focus-Outline.Outer
+  hit_area:
+    desktop_token: A11y.A11y.Dimension.Min-Hit-Area
+    mobile_token: Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA
+  labeling:
+    rules:
+      - Stepper group should expose progress semantics for assistive technologies.
+      - Current-step announcement behavior is TBD.
+
+token_mapping:
+  stepper_container.gap:
+    default: TBD
+  step_item.connector:
+    default: TBD
+
+qa:
+  - Properties match the Figma component definition.
+  - Visibility toggles map to Step instances in order.
