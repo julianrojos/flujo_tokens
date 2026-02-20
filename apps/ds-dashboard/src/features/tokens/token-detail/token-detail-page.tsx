@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
-import { fetchTokenRegistry, fetchTokenUsageIndex } from "@/lib/api";
-import type { TokenEntry } from "@/types/token-registry";
-import type { TokenUsageEntry, TokenUsageOccurrence } from "@/types/token-usage-index";
+import { fetchFileSnippet, fetchTokenRegistry, fetchTokenUsageIndex } from "@/lib/api";
+import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
+import type { FileSnippetPayload } from "@/lib/api";
+import type {
+  TokenUsageEntry,
+  TokenUsageOccurrence,
+} from "@/types/token-usage-index";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,13 +40,96 @@ const KIND_LABELS: Record<string, string> = {
   "css-alias": "CSS alias",
 };
 
+function extractLineNumber(detail: string): number | null {
+  const match = String(detail || "").match(/\bline:(\d+)\b/i);
+  if (!match) return null;
+  const parsed = Number.parseInt(match[1], 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function resolveAliasTarget(registry: TokenRegistry | null, aliasOf: string | undefined) {
+  const ref = String(aliasOf || "").trim();
+  if (!registry || !ref) return null;
+  return registry.byPath?.[ref] ?? registry.bySlashPath?.[ref] ?? null;
+}
+
 function UsageGroup({
   kind,
   occurrences,
+  token,
 }: {
   kind: string;
   occurrences: TokenUsageOccurrence[];
+  token: TokenEntry;
 }) {
+  const [snippets, setSnippets] = useState<
+    Record<
+      string,
+      {
+        open: boolean;
+        loading?: boolean;
+        payload?: FileSnippetPayload;
+        error?: string;
+      }
+    >
+  >({});
+
+  const queryHints = useMemo(() => {
+    const hints = [token.slashPath, token.path].map((v) => String(v || "").trim());
+    return hints.filter(Boolean).filter((v, i, all) => all.indexOf(v) === i);
+  }, [token.path, token.slashPath]);
+
+  const toggleSnippet = async (key: string, occ: TokenUsageOccurrence) => {
+    const prev = snippets[key];
+    const nextOpen = !(prev?.open ?? false);
+    setSnippets((current) => ({
+      ...current,
+      [key]: { ...current[key], open: nextOpen },
+    }));
+    if (!nextOpen) return;
+    if (prev?.payload || prev?.loading) return;
+
+    setSnippets((current) => ({
+      ...current,
+      [key]: { open: true, loading: true },
+    }));
+
+    const file = String(occ.source || "").trim();
+    const line = extractLineNumber(occ.detail || "");
+    try {
+      let payload: FileSnippetPayload | null = null;
+      if (file && line) {
+        payload = await fetchFileSnippet({ file, line, before: 2, after: 3 });
+      } else if (file) {
+        for (const q of queryHints) {
+          try {
+            payload = await fetchFileSnippet({ file, q, before: 2, after: 3 });
+            break;
+          } catch {
+            // try next query
+          }
+        }
+      }
+
+      if (!payload) {
+        throw new Error("Snippet unavailable for this occurrence.");
+      }
+
+      setSnippets((current) => ({
+        ...current,
+        [key]: { open: true, payload },
+      }));
+    } catch (cause) {
+      setSnippets((current) => ({
+        ...current,
+        [key]: {
+          open: true,
+          error: cause instanceof Error ? cause.message : String(cause),
+        },
+      }));
+    }
+  };
+
   return (
     <div>
       <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -55,18 +142,93 @@ function UsageGroup({
             <TableHead>Owner</TableHead>
             <TableHead>Source</TableHead>
             <TableHead>Detail</TableHead>
+            <TableHead className="w-28">Context</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {occurrences.map((occ, i) => (
-            <TableRow key={`${occ.owner}-${occ.source}-${i}`}>
-              <TableCell className="font-medium">{occ.owner || "—"}</TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {occ.source || "—"}
-              </TableCell>
-              <TableCell className="font-mono text-xs">{occ.detail || "—"}</TableCell>
-            </TableRow>
-          ))}
+          {occurrences.map((occ, i) => {
+            const key = `${kind}:${occ.owner}:${occ.source}:${occ.detail}:${i}`;
+            const state = snippets[key];
+            const file = String(occ.source || "").trim();
+            const line = extractLineNumber(occ.detail || "");
+            const fileLabel = file ? (line ? `${file}:${line}` : file) : "—";
+
+            return (
+              <Fragment key={key}>
+                <TableRow key={key}>
+                  <TableCell className="font-medium">{occ.owner || "—"}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {file ? (
+                      <Link
+                        to={{
+                          pathname: "/file",
+                          search: new URLSearchParams({
+                            path: file,
+                            ...(line ? { line: String(line) } : {}),
+                          }).toString(),
+                        }}
+                        className="hover:text-primary hover:underline"
+                      >
+                        {fileLabel}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">{occ.detail || "—"}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        void toggleSnippet(key, occ);
+                      }}
+                    >
+                      {state?.open ? "Hide" : "Snippet"}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+
+                {state?.open ? (
+                  <TableRow key={`${key}:snippet`}>
+                    <TableCell colSpan={4} className="bg-muted/30">
+                      {state.loading ? (
+                        <div className="text-sm text-muted-foreground">Loading snippet…</div>
+                      ) : state.error ? (
+                        <div className="text-sm text-red-700">{state.error}</div>
+                      ) : state.payload ? (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <Badge variant="neutral">
+                              L{state.payload.line} ({state.payload.matchedBy})
+                            </Badge>
+                            <span>
+                              lines {state.payload.startLine}–{state.payload.endLine}
+                            </span>
+                            <Link
+                              to={{
+                                pathname: "/file",
+                                search: new URLSearchParams({
+                                  path: state.payload.file,
+                                  line: String(state.payload.line),
+                                }).toString(),
+                              }}
+                              className="hover:text-primary hover:underline"
+                            >
+                              Open file
+                            </Link>
+                          </div>
+                          <pre className="max-h-56 overflow-auto rounded-lg border border-border bg-background/60 p-3 text-xs">
+                            <code className="font-mono">{state.payload.snippet}</code>
+                          </pre>
+                        </div>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </Fragment>
+            );
+          })}
         </TableBody>
       </Table>
     </div>
@@ -78,6 +240,7 @@ export function TokenDetailPage() {
   const navigate = useNavigate();
   const decoded = tokenPath ? decodeURIComponent(tokenPath) : "";
 
+  const [registry, setRegistry] = useState<TokenRegistry | null>(null);
   const [token, setToken] = useState<TokenEntry | null>(null);
   const [usage, setUsage] = useState<TokenUsageEntry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,6 +256,7 @@ export function TokenDetailPage() {
           fetchTokenRegistry(),
           fetchTokenUsageIndex().catch(() => null),
         ]);
+        setRegistry(registry);
         setToken(registry.byPath[decoded] ?? null);
         setUsage(usageIndex?.byPath[decoded] ?? null);
       } catch (cause) {
@@ -128,6 +292,11 @@ export function TokenDetailPage() {
     }
     return sorted;
   }, [usage]);
+
+  const aliasTarget = useMemo(
+    () => (token ? resolveAliasTarget(registry, token.aliasOf) : null),
+    [registry, token],
+  );
 
   return (
     <div className="space-y-5 animate-fade-slide-in">
@@ -204,6 +373,26 @@ export function TokenDetailPage() {
                     {token.resolvedValue}
                   </dd>
                 </div>
+                {token.aliasOf ? (
+                  <div className="col-span-2 md:col-span-4">
+                    <dt className="text-xs text-muted-foreground">Alias Of</dt>
+                    <dd className="mt-0.5">
+                      {aliasTarget ? (
+                        <button
+                          type="button"
+                          className="font-mono text-xs text-primary hover:underline"
+                          onClick={() =>
+                            navigate(`/tokens/${encodeURIComponent(aliasTarget.path)}`)
+                          }
+                        >
+                          {token.aliasOf}
+                        </button>
+                      ) : (
+                        <span className="font-mono text-xs">{token.aliasOf}</span>
+                      )}
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
             </CardContent>
           </Card>
@@ -228,7 +417,12 @@ export function TokenDetailPage() {
             {usage && occurrencesByKind.size > 0 ? (
               <CardContent className="space-y-6">
                 {Array.from(occurrencesByKind.entries()).map(([kind, occurrences]) => (
-                  <UsageGroup key={kind} kind={kind} occurrences={occurrences} />
+                  <UsageGroup
+                    key={kind}
+                    kind={kind}
+                    occurrences={occurrences}
+                    token={token}
+                  />
                 ))}
               </CardContent>
             ) : null}

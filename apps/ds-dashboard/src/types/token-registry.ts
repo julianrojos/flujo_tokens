@@ -4,6 +4,7 @@ export interface TokenEntry {
   cssVar: string;
   type: string;
   resolvedValue: string;
+  aliasOf?: string;
   collection: string;
 }
 
