@@ -48,7 +48,7 @@
       },
       "doc": {
         "exists": true,
-        "status": "needs-review"
+        "status": "draft"
       },
       "figma": {
         "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=146-474",
@@ -63,7 +63,7 @@
       },
       "pipeline_stage": "render",
       "ready_for_publish": false,
-      "fingerprint_sha256": "40db745a5a4f02d86082ac1eada2f2a760d66dd86f8a0b8eff0256c4ffe19c18"
+      "fingerprint_sha256": "485414afca740f658a1e23b756fbfc3b4be7bbe85cef31cdc5b76a875b292384"
     },
     {
       "slug": "bottom_bar",
@@ -258,6 +258,70 @@
       "fingerprint_sha256": "58d9932533d6d839d24bb087791a50e1b150e5ce729bdb298d8c29e23d767f24"
     },
     {
+      "slug": "tag",
+      "display_name": "Tag",
+      "paths": {
+        "spec": "docs/_spec/components/tag.yml",
+        "doc": "docs/components/tag.md",
+        "render_payload": "docs/_generated/figma_doc_models/tag.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/tag.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2018-271",
+        "component_set_node_id": "2018:271"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "ccec040ef07dbb7f0212e65cff1556fc63ccd45fb0f1995c6cc040e6c98d79a1"
+    },
+    {
+      "slug": "tags_list",
+      "display_name": "Tags List",
+      "paths": {
+        "spec": "docs/_spec/components/tags_list.yml",
+        "doc": "docs/components/tags_list.md",
+        "render_payload": "docs/_generated/figma_doc_models/tags_list.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/tags_list.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2075-295",
+        "component_set_node_id": "2075:295"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "7410c24416831a5ae38b5ada31d9f3e691cff6861fd43520af0fc220b4855dbf"
+    },
+    {
       "slug": "topbar",
       "display_name": "Topbar",
       "paths": {
@@ -291,19 +355,19 @@
     }
   ],
   "summary": {
-    "total_components": 9,
-    "with_spec": 9,
-    "with_doc": 9,
+    "total_components": 11,
+    "with_spec": 11,
+    "with_doc": 11,
     "with_render_payload": 5,
     "with_visual_proof": 0,
     "ready_for_publish": 0,
     "by_pipeline_stage": {
       "missing-spec": 0,
       "spec": 0,
-      "markdown": 4,
+      "markdown": 6,
       "render": 5,
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "33e74b3ae1b505002c453253ab75545abcddfcf7bfbefdd57e44e46867186400"
+  "fingerprint_sha256": "ea23b652d55799264a5b9226e90dc573c4fb2127380f1a70679450aa87d4a319"
 }

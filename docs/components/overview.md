@@ -34,5 +34,7 @@ One page per component. This documentation is design-first (Figma) and token-bac
 - [Image](image.md)
 - [Percentage Pie Graph](percentage_pie_graph.md)
 - [Status Bar](status_bar.md)
+- [Tag](tag.md)
+- [Tags List](tags_list.md)
 - [Topbar](topbar.md)
 
