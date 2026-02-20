@@ -212,6 +212,48 @@
       "fingerprint_sha256": "23f3ac79c7fb53815ace7cb623b4eda866224b45e034d9717c418f9ace7b21b1"
     },
     {
+      "slug": "card_icon_container",
+      "display_name": "Card Icon Container",
+      "paths": {
+        "spec": "docs/_spec/components/card_icon_container.yml",
+        "doc": "docs/components/card_icon_container.md",
+        "render_payload": "docs/_generated/figma_doc_models/card_icon_container.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/card_icon_container.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2053-7862",
+        "component_set_node_id": "2053:7862"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "f84cdf47f2614a0f3fdb74c7e92b098c5e569f4c03b0393629aeefd315f3adb6"
+    },
+    {
       "slug": "checkbox",
       "display_name": "Checkbox",
       "paths": {
@@ -338,6 +380,174 @@
       "fingerprint_sha256": "40e538ae56b2409d9660387935288e1989334fa2e03a4a16c5f4722f32408279"
     },
     {
+      "slug": "focus_outline",
+      "display_name": "Focus Outline",
+      "paths": {
+        "spec": "docs/_spec/components/focus_outline.yml",
+        "doc": "docs/components/focus_outline.md",
+        "render_payload": "docs/_generated/figma_doc_models/focus_outline.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/focus_outline.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=4562-6483",
+        "component_set_node_id": "4562:6483"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "c731573a6f4c9fe8f103cb9d9283ee65bde65d1ee38651fab94c7af1c603e4cf"
+    },
+    {
+      "slug": "icon_card_horizontal",
+      "display_name": "Icon Card Horizontal",
+      "paths": {
+        "spec": "docs/_spec/components/icon_card_horizontal.yml",
+        "doc": "docs/components/icon_card_horizontal.md",
+        "render_payload": "docs/_generated/figma_doc_models/icon_card_horizontal.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/icon_card_horizontal.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2097-613",
+        "component_set_node_id": "2097:613"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "3ee31adff6a80e100e88b3ce1de902269423e8ebab99e0a81d51139742689524"
+    },
+    {
+      "slug": "icon_card_vertical",
+      "display_name": "Icon Card Vertical",
+      "paths": {
+        "spec": "docs/_spec/components/icon_card_vertical.yml",
+        "doc": "docs/components/icon_card_vertical.md",
+        "render_payload": "docs/_generated/figma_doc_models/icon_card_vertical.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/icon_card_vertical.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2168-1387",
+        "component_set_node_id": "2168:1387"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "1dbabfd97150f59c6a8d081a74df2f6d9c7d62bc8da04318e4e4518b8e6fdd15"
+    },
+    {
+      "slug": "illustration_block",
+      "display_name": "Illustration Block",
+      "paths": {
+        "spec": "docs/_spec/components/illustration_block.yml",
+        "doc": "docs/components/illustration_block.md",
+        "render_payload": "docs/_generated/figma_doc_models/illustration_block.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/illustration_block.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2049-7813",
+        "component_set_node_id": "2049:7813"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "de09b5b40584504aab4c4800d032c22d107ad9ac4cc08725d63275612f5d6342"
+    },
+    {
       "slug": "image",
       "display_name": "Image",
       "paths": {
@@ -378,6 +588,90 @@
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
       "fingerprint_sha256": "596b80aa3ab598c458cca43f98fde0ee4ccd532a53dcc9de8f029045f970cb0d"
+    },
+    {
+      "slug": "image_card",
+      "display_name": "Image Card",
+      "paths": {
+        "spec": "docs/_spec/components/image_card.yml",
+        "doc": "docs/components/image_card.md",
+        "render_payload": "docs/_generated/figma_doc_models/image_card.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/image_card.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=124-4606",
+        "component_set_node_id": "124:4606"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "0768ec50d2cb5f77e136fc0278c34b9b07acf4df5d410b68c73eeef3f1d37162"
+    },
+    {
+      "slug": "overlay",
+      "display_name": "Overlay",
+      "paths": {
+        "spec": "docs/_spec/components/overlay.yml",
+        "doc": "docs/components/overlay.md",
+        "render_payload": "docs/_generated/figma_doc_models/overlay.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/overlay.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=4584-8670",
+        "component_set_node_id": "4584:8670"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "e926988c2f6be0d7ce7cfbb66709f9fcb96c909b06ef97e39a61a068f00c9d5b"
     },
     {
       "slug": "percentage_pie_graph",
@@ -548,6 +842,90 @@
       "fingerprint_sha256": "6d269812150d10dbc35d0774274dc0084a2790577681ab113b80be5869bc368c"
     },
     {
+      "slug": "rating_stars",
+      "display_name": "Rating Stars",
+      "paths": {
+        "spec": "docs/_spec/components/rating_stars.yml",
+        "doc": "docs/components/rating_stars.md",
+        "render_payload": "docs/_generated/figma_doc_models/rating_stars.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/rating_stars.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=683-264",
+        "component_set_node_id": "683:264"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "fe0415ac8444452fd7a4c68ad90a90174a4d2ff736e3253245af07b9cce24b8c"
+    },
+    {
+      "slug": "star",
+      "display_name": "Star",
+      "paths": {
+        "spec": "docs/_spec/components/star.yml",
+        "doc": "docs/components/star.md",
+        "render_payload": "docs/_generated/figma_doc_models/star.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/star.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=683-239",
+        "component_set_node_id": "683:239"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "f548dc0d45c9b42c2743b0314dbf9cd7ac396006862c16c291ef3d840cb1a98e"
+    },
+    {
       "slug": "status_bar",
       "display_name": "Status Bar",
       "paths": {
@@ -672,6 +1050,48 @@
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
       "fingerprint_sha256": "9d6e94f0d0eb65925825d7b24ca56ef387f0d4ccabc84f31d4fbf935d56855ab"
+    },
+    {
+      "slug": "tab",
+      "display_name": "Tab",
+      "paths": {
+        "spec": "docs/_spec/components/tab.yml",
+        "doc": "docs/components/tab.md",
+        "render_payload": "docs/_generated/figma_doc_models/tab.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/tab.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2429-2493",
+        "component_set_node_id": "2429:2493"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "b8b100d10ef983300884d532b1279cbdb4c4aa8a1c493e0d73dd878b95148a25"
     },
     {
       "slug": "tag",
@@ -882,22 +1302,64 @@
       "pipeline_stage": "markdown",
       "ready_for_publish": false,
       "fingerprint_sha256": "751dd388631a171e9a9b9bbb68eb9382886ac468b43bf6594d0bd35f2d43eab6"
+    },
+    {
+      "slug": "user_card",
+      "display_name": "User Card",
+      "paths": {
+        "spec": "docs/_spec/components/user_card.yml",
+        "doc": "docs/components/user_card.md",
+        "render_payload": "docs/_generated/figma_doc_models/user_card.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/user_card.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2046-7286",
+        "component_set_node_id": "2046:7286"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": false,
+        "screenshot_url": null,
+        "image_path": null,
+        "captured_at": null,
+        "node_id": null,
+        "image_sha256": null,
+        "image_bytes": null,
+        "image_content_type": null,
+        "image_width": null,
+        "image_height": null,
+        "variants_count": 0,
+        "variants": []
+      },
+      "pipeline_stage": "markdown",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "0dd1e76928b739fd04f803dc0a98509a49d2133518db2298e66b8f444e275dc4"
     }
   ],
   "summary": {
-    "total_components": 21,
-    "with_spec": 21,
-    "with_doc": 21,
+    "total_components": 32,
+    "with_spec": 32,
+    "with_doc": 32,
     "with_render_payload": 5,
     "with_visual_proof": 0,
     "ready_for_publish": 0,
     "by_pipeline_stage": {
       "missing-spec": 0,
       "spec": 0,
-      "markdown": 16,
+      "markdown": 27,
       "render": 5,
       "visual-proof": 0
     }
   },
-  "fingerprint_sha256": "806eeaec95f7ce546aa811f32704c2f7da43681df2794327da0d0a5b49b17554"
+  "fingerprint_sha256": "1be1bf3c8cfcdea682de63cfa9dfb05e57530573310d16aab5f6d75ee2135b48"
 }
