@@ -38,7 +38,7 @@ properties: []             # Must map 1:1 with Figma component set properties
   # Note: enum `values` must be a list of concrete strings (not TBD).
 
   # -- Group 1: enum (renders as VARIANT in Figma) ---------------------------
-  # - name: TBD
+  # - name: state
   #   type: enum
   #   values: [default]    # Replace with all allowed values (must be concrete strings)
   #   default: TBD         # Must be one of the values entries (or TBD in draft)
