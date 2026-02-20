@@ -117,7 +117,7 @@ function validateGitRef(raw: string) {
   if (value.length > 140) return null;
   if (value.includes(":")) return null;
   if (/\s/.test(value)) return null;
-  if (!/^[A-Za-z0-9._/~-]+$/.test(value)) return null;
+  if (!/^[A-Za-z0-9._/~^-]+$/.test(value)) return null;
   return value;
 }
 
@@ -617,7 +617,7 @@ function createLocalDataApi() {
           sendJson(res, 400, {
             ok: false,
             message:
-              "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ -",
+              "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
           });
           return;
         }
