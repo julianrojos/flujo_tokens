@@ -191,64 +191,152 @@ JSON report to stdout + `docs/_generated/qa-report.json`
 
 ### DESIGN SYSTEM ADMIN
 
-Estado en URL + deep links de filtros/orden
-Valor: compartir vistas exactas (/tokens?type=color&collection=Semantic...) y reproducibilidad total.
-Prioridad: P0.
+## Roadmap P0-P2 (DS Dashboard)
 
-Indicador de frescura de datos + refresh unificado
-Valor: saber si component-registry/token-usage-index están desactualizados y refrescar todo en un solo botón.
-Prioridad: P0.
+Objetivo: convertir el dashboard en referencia para gestión de tokens y documentación de design systems.
 
-Buscador global (command palette)
-Valor: buscar componentes, tokens y paths desde un único input con atajo de teclado.
-Prioridad: P0.
+### P0 - Core product
 
-Panel de detalle (drawer) para fila seleccionada
-Valor: ver trazabilidad completa sin salir de la tabla (spec/doc/proof/figma/used-in).
-Prioridad: P1.
+1. **Command Palette + búsqueda global unificada**  
+   Impacto: Muy alto | Esfuerzo: Medio  
+   Esbozo técnico:
+   - Añadir `useCommandPalette` global en `App`.
+   - Indexar `token-registry`, `component-registry`, alertas de health y acciones frecuentes.
+   - Abrir con `Cmd/Ctrl+K`, búsqueda fuzzy y resultados agrupados.
 
-Mapa de impacto cruzado Token → Componentes y Componente → Dependencias
-Valor: análisis de impacto antes de cambiar tokens o componentes.
-Prioridad: P1.
+2. **Impact Explorer ("What breaks if I change X?")**  
+   Impacto: Muy alto | Esfuerzo: Alto  
+   Esbozo técnico:
+   - Endpoint `/api/impact?tokenPath&newValue`.
+   - Combinar `token-graph` (dependencias transitivas) + `token-usage-index` (uso real) + simulación WCAG.
+   - UI con severidad, blast radius y tabla de componentes/props afectados.
 
-Vista “Health Board” con issues accionables
-Valor: agrupar en bloques: missing proof, needs-review, missing figma link, tokens sin uso, etc.
-Prioridad: P1.
+3. **Health Action Board (de informativo a accionable)**  
+   Impacto: Muy alto | Esfuerzo: Medio  
+   Esbozo técnico:
+   - Vista `/health/actions` con issues tipados: `unused`, `broken`, `wcag`, `missing-*`.
+   - CTA por issue: abrir snippet, copiar ruta, ejecutar script, marcar como conocido.
+   - Filtros por severidad y dominio (tokens/componentes).
 
-Centro de ejecuciones del pipeline dentro del dashboard
-Valor: lanzar scripts (ds:registry:refresh, ds:token-usage-index, etc.) y ver resultado/logs en UI.
-Prioridad: P1.
+4. **Deep Links + URL State + Saved Views**  
+   Impacto: Muy alto | Esfuerzo: Bajo-Medio  
+   Esbozo técnico:
+   - Hook `useSearchParamsState` para filtros/sorts.
+   - URL como source of truth en `tokens`, `components`, `health`, `diff`.
+   - Guardar vistas en `localStorage` + botón "Copy link to this view".
 
-Virtualización/paginación de tablas grandes
-Valor: rendimiento estable cuando crezcan tokens/componentes.
-Prioridad: P1.
+5. **Pipeline Executor con progreso en tiempo real (SSE)**  
+   Impacto: Alto | Esfuerzo: Alto  
+   Esbozo técnico:
+   - Endpoint `/api/run-pipeline` que reciba `steps[]`.
+   - Streaming por `text/event-stream` con estado por paso y logs.
+   - Panel runner reutilizable con resumen final de cambios.
 
-Integración visual de ds-token-diff y ds-token-graph
-Valor: convertir scripts CLI en vistas operativas (cambios y cadenas de alias/ciclos).
-Prioridad: P2.
+6. **Release Workbench (pre-flight checks)**  
+   Impacto: Alto | Esfuerzo: Medio  
+   Esbozo técnico:
+   - Vista `/release` con gates: diff estricto, health, unresolved, registry report.
+   - Semáforo por gate y salida accionable por error.
+   - Re-ejecución selectiva de checks fallidos.
 
-🔝 TOP 10 PROPUESTAS PRIORIZADAS
+### P1 - Diferenciación
 
-2. Búsqueda Global con Atajo de Teclado (Cmd+K)
-   Impacto: Alto | Esfuerzo: Bajo-Medio
+7. **Token Exporter multi-formato**  
+   Impacto: Alto | Esfuerzo: Bajo-Medio  
+   Esbozo técnico:
+   - Exportar subconjuntos filtrados/seleccionados a `CSS`, `JSON`, `Tailwind`, `Style Dictionary`.
+   - Transformers puros en `src/lib/exporters/*`.
+   - Preview + copy + download.
 
-Descripción:
+8. **Comparación de Componentes A vs B**  
+   Impacto: Alto | Esfuerzo: Medio  
+   Esbozo técnico:
+   - Ruta `/components/compare?a=&b=`.
+   - Diff semántico de spec y `token_mapping`.
+   - Comparativa de pipeline stage, cobertura y visual proof.
 
-Modal de búsqueda global accesible con Cmd+K o Ctrl+K
-Búsqueda unificada en tokens y componentes
-Resultados agrupados por tipo
-Navegación con teclado
-Recientes y favoritos
-Por qué es #2: Mejora radicalmente la discoverability y velocidad de navegación.
+9. **Coverage Heatmap del design system**  
+   Impacto: Alto | Esfuerzo: Medio  
+   Esbozo técnico:
+   - Vista `/coverage` con grid por componente.
+   - Color/tamaño por métrica seleccionada (stage, coverage, adoption, proof).
+   - Drilldown al detalle del componente.
 
-📋 Otras 10 Propuestas (No priorizadas top 10)
-Historial de Cambios por Token (git blame embebido)
-Búsqueda por Imagen (subir screenshot → encontrar componente)
-Modo “Review” (marcar tokens/componentes para revisión)
-Comentarios/Notas en tokens (para documentación interna)
-Integración con GitHub Issues (crear issue desde token/componente)
-Vista de “Orphaned Tokens” (sin alias ni usos)
-Timeline de Pipeline (cuándo se generó cada doc)
-Búsqueda por Valor (ej: “#ffffff” → encontrar todos los blancos)
-Agrupación por “Owner” (quién mantiene cada token/componente)
-Modo Presentación (ocultar UI, solo datos para demos)
+10. **Triage de unresolved refs**  
+    Impacto: Alto | Esfuerzo: Medio  
+    Esbozo técnico:
+    - Vista dedicada basada en `token-usage-index.unresolved`.
+    - Agrupar por `kind/source/owner` y priorizar por riesgo.
+    - Acceso directo a `/file-snippet`.
+
+11. **Tendencias históricas de health**  
+    Impacto: Alto | Esfuerzo: Medio  
+    Esbozo técnico:
+    - Guardar snapshots de KPIs por ejecución.
+    - Serie temporal para breaking, WCAG fail, coverage, unresolved.
+    - Vista de tendencia semanal/mensual.
+
+12. **Alertas de regresión**  
+    Impacto: Alto | Esfuerzo: Medio  
+    Esbozo técnico:
+    - Reglas de delta contra snapshot previo.
+    - Banner de regresiones nuevas y listado priorizado.
+    - Integración con Workbench para bloquear release.
+
+13. **Governance Score por token/componente**  
+    Impacto: Medio-Alto | Esfuerzo: Medio  
+    Esbozo técnico:
+    - Score compuesto por uso, riesgo, estado de docs/pipeline y calidad.
+    - Explicabilidad por factores.
+    - Ordenación por score para priorizar backlog.
+
+14. **Consolidation Advisor (duplicados/casi duplicados)**  
+    Impacto: Medio-Alto | Esfuerzo: Medio-Alto  
+    Esbozo técnico:
+    - Detección por similitud de valor/tipo/naming.
+    - Sugerir token canónico + tokens candidatos a aliasar/deprecar.
+    - Estimar impacto antes de consolidar.
+
+15. **Virtualización de tablas grandes**  
+    Impacto: Medio | Esfuerzo: Bajo-Medio  
+    Esbozo técnico:
+    - Integrar `@tanstack/react-virtual` empezando por `TokensPage`.
+    - Mantener API visual actual de tablas.
+    - Extender a `components` y tablas densas de detalle.
+
+### P2 - Premium capabilities
+
+16. **Inline Spec Editor (solo dev) con validación**  
+    Impacto: Medio | Esfuerzo: Alto  
+    Esbozo técnico:
+    - Editor YAML embebido en detalle de componente.
+    - Validación de schema en tiempo real + diff antes de guardar.
+    - Guardado seguro y refresh automático de registry.
+
+17. **Visual Proof Compare (before/after)**  
+    Impacto: Medio | Esfuerzo: Medio  
+    Esbozo técnico:
+    - Comparador visual split/slider entre versiones de proof.
+    - Selección por fecha/hash.
+    - Indicador de drift visual.
+
+18. **Modo Review con anotaciones locales**  
+    Impacto: Medio | Esfuerzo: Bajo-Medio  
+    Esbozo técnico:
+    - Checklist por item + notas persistidas en `localStorage`.
+    - Filtros por estado (`pending`, `reviewed`, `blocked`).
+    - Vista de seguimiento por sesión.
+
+19. **Naming Debt Detector + sugerencias de normalización**  
+    Impacto: Medio | Esfuerzo: Medio  
+    Esbozo técnico:
+    - Reglas de naming y detección de outliers.
+    - Propuestas de rename con impacto en referencias.
+    - Reporte exportable para cleanup plan.
+
+20. **Panel de jobs y telemetría del pipeline**  
+    Impacto: Medio | Esfuerzo: Medio  
+    Esbozo técnico:
+    - Historial de ejecuciones locales con duración y estado.
+    - Métricas de éxito/fallo por step.
+    - Reutilizar datos del Pipeline Executor.
