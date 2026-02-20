@@ -25,6 +25,15 @@ import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./lib/docs-config.mjs";
 import { buildAgentPrompt, RULE_BLOCKS } from "./lib/prompts.mjs";
 import { GOLDEN_COMPONENT_SPEC_SAMPLE_PATH } from "./lib/doc-templates.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
+import {
+  captureFileSnapshot,
+  restoreFileSnapshot,
+} from "./lib/file-snapshot.mjs";
+import { assertEvidenceGatedScalarChanges } from "./lib/evidence-gated-mutations.mjs";
+import {
+  assertScopedWritePolicy,
+  captureScopedWriteSnapshot,
+} from "./lib/scoped-write-guard.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 
 const SPEC_COMPONENTS_DIR = path.join(DOCS_SPEC_DIR, "components");
@@ -81,6 +90,12 @@ const USAGE = {
       defaultValue: "false",
     },
     {
+      name: "--allow-non-evidence-updates <true|false>",
+      description:
+        "Allow changing existing known spec values outside evidence-backed fields (requires --force true).",
+      defaultValue: "false",
+    },
+    {
       name: "--help",
       description: "Show this help message.",
     },
@@ -120,6 +135,15 @@ const PROPERTY_TYPE_ORDER = new Map([
   ["text", 2],
   ["boolean", 3],
   ["instance_swap", 4],
+]);
+const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
+  "name",
+  "figma.file",
+  "figma.page",
+  "figma.component_set",
+  "figma.component_set_node_id",
+  "properties",
+  "anatomy",
 ]);
 
 function normalizePropertyType(rawType) {
@@ -520,6 +544,7 @@ function buildPrompt({
       "Set figma.component_set_node_id when node-id is available from URL/context.",
       "In token_mapping, use token paths that exist in the token registry.",
       "Prefer token paths from the provided token menu before proposing any other registry path.",
+      "If the output spec already exists, keep existing non-TBD values unless Figma evidence explicitly proves they are wrong, incomplete, outdated, or missing.",
       "If a field is not inferable, set it to `TBD` instead of guessing.",
       RULE_BLOCKS.NO_VARIABLE_IDS,
       "Keep language in English and concise.",
@@ -608,12 +633,22 @@ function main() {
   );
   const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
+  const allowNonEvidenceUpdates =
+    String(args["allow-non-evidence-updates"] || "false") === "true";
   const agent = args.agent || "auto";
 
   if (skipValidation && !force) {
     console.error(
       "Validation gate bypass requires explicit force.\n" +
         "Use `--skip-validation true --force true` only for exceptional cases.",
+    );
+    process.exit(1);
+  }
+
+  if (allowNonEvidenceUpdates && !force) {
+    console.error(
+      "Evidence gate bypass requires explicit force.\n" +
+        "Use `--allow-non-evidence-updates true --force true` only for exceptional cases.",
     );
     process.exit(1);
   }
@@ -636,6 +671,29 @@ function main() {
     );
     process.exit(1);
   }
+  const outputSnapshot = captureFileSnapshot(outputPath);
+  let existingSpec = null;
+  if (outputSnapshot.exists) {
+    try {
+      existingSpec = parseYamlDocument(
+        outputSnapshot.content,
+        `existing spec (${outputPath})`,
+      );
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+  }
+  const overviewPath = path.resolve(path.join(docsRootDir, "components", "overview.md"));
+  const registryIndexPath = path.resolve(
+    path.join(docsRootDir, "_generated", "component-registry.json"),
+  );
+  const scopeSnapshot = captureScopedWriteSnapshot({
+    directories: [resolvedSpecRoot, path.join(docsRootDir, "components")],
+    files: [registryIndexPath],
+    extensions: [".yml", ".md", ".json"],
+  });
+  const allowedWritePaths = [outputPath, overviewPath, registryIndexPath];
 
   if (!fs.existsSync(templatePath)) {
     console.error(`Spec template not found: ${templatePath}`);
@@ -700,6 +758,14 @@ function main() {
       );
 
       const normalizedSpec = normalizeSpecOrder(mergedSpec);
+      if (existingSpec && !allowNonEvidenceUpdates) {
+        assertEvidenceGatedScalarChanges({
+          before: existingSpec,
+          after: normalizedSpec,
+          allowedKnownToKnownPrefixes: SPEC_EVIDENCE_BACKED_PREFIXES,
+          label: `${outputPath} spec`,
+        });
+      }
       fs.writeFileSync(
         outputPath,
         yaml.dump(normalizedSpec, {
@@ -759,10 +825,15 @@ function main() {
     const indicesSync = syncDocumentationIndices({
       specsDir: resolvedSpecRoot,
       docsDir: path.join(docsRootDir, "components"),
-      overviewPath: path.join(docsRootDir, "components", "overview.md"),
+      overviewPath,
       proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
       renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
-      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+      registryPath: registryIndexPath,
+    });
+    assertScopedWritePolicy({
+      snapshot: scopeSnapshot,
+      allowedPaths: allowedWritePaths,
+      label: "ds-spec-from-figma",
     });
 
     process.stdout.write(
@@ -794,7 +865,20 @@ function main() {
       )}\n`,
     );
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    restoreFileSnapshot(outputPath, outputSnapshot);
+    let scopeMessage = "";
+    try {
+      assertScopedWritePolicy({
+        snapshot: scopeSnapshot,
+        allowedPaths: allowedWritePaths,
+        label: "ds-spec-from-figma",
+      });
+    } catch (scopeError) {
+      scopeMessage = `\n${scopeError instanceof Error ? scopeError.message : String(scopeError)}`;
+    }
+    console.error(
+      `${error instanceof Error ? error.message : String(error)}${scopeMessage}`,
+    );
     process.exit(1);
   }
 }

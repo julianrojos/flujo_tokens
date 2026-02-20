@@ -5,6 +5,7 @@ import path from "node:path";
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
+import { parseMarkdownFrontmatter } from "./lib/parse-frontmatter.mjs";
 import {
   normalizeComponentName,
   componentNameToSnakeCase,
@@ -30,6 +31,14 @@ import {
   captureFileSnapshot,
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
+import {
+  assertDocStatusStable,
+  assertEvidenceGatedScalarChanges,
+} from "./lib/evidence-gated-mutations.mjs";
+import {
+  assertScopedWritePolicy,
+  captureScopedWriteSnapshot,
+} from "./lib/scoped-write-guard.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
@@ -64,11 +73,34 @@ const USAGE = {
       defaultValue: "auto",
     },
     {
+      name: "--allow-doc-status-change <true|false>",
+      description:
+        "Allow doc_status changes in frontmatter (requires --force true).",
+      defaultValue: "false",
+    },
+    {
+      name: "--force <true|false>",
+      description: "Required when allowing doc_status changes.",
+      defaultValue: "false",
+    },
+    {
       name: "--help",
       description: "Show this help message.",
     },
   ],
 };
+
+const FRONTMATTER_EVIDENCE_PREFIXES = Object.freeze([
+  "figma.file_url",
+  "figma.page",
+  "figma.component",
+  "figma.component_set_node_id",
+  "figma.last_verified",
+  "figma.component_hash",
+  "figma.properties_count",
+  "figma.variants_count",
+  "pipeline.ds_component_doc",
+]);
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
@@ -94,6 +126,9 @@ function main() {
       ? path.dirname(docsRootResolved)
       : docsRootResolved;
   const agent = args.agent || "auto";
+  const force = String(args.force || "false") === "true";
+  const allowDocStatusChange =
+    String(args["allow-doc-status-change"] || "false") === "true";
   const rawComponentName = args["component-name"] || "";
   const normalized = normalizeComponentName(rawComponentName);
   const componentName = normalized.displayName;
@@ -111,6 +146,28 @@ function main() {
     );
     process.exit(1);
   }
+
+  if (allowDocStatusChange && !force) {
+    console.error(
+      "doc_status override requires explicit force.\n" +
+        "Use `--allow-doc-status-change true --force true` only for exceptional cases.",
+    );
+    process.exit(1);
+  }
+
+  const specComponentsDir = path.join(docsRootDir, "_spec", "components");
+  const overviewPath = path.join(componentDocsDir, "overview.md");
+  const registryIndexPath = path.join(
+    docsRootDir,
+    "_generated",
+    "component-registry.json",
+  );
+  const scopeSnapshot = captureScopedWriteSnapshot({
+    directories: [componentDocsDir, specComponentsDir],
+    files: [registryIndexPath],
+    extensions: [".md", ".yml", ".json"],
+  });
+  const allowedWritePaths = [outputPath, overviewPath, registryIndexPath];
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   const skeletonPath = writeComponentDocSkeleton({
@@ -162,6 +219,9 @@ function main() {
     ],
   });
   const outputSnapshot = captureFileSnapshot(outputPath);
+  const previousFrontmatter = outputSnapshot.exists
+    ? parseMarkdownFrontmatter(outputSnapshot.content).frontmatter
+    : {};
 
   try {
     runAgentPrompt({
@@ -178,6 +238,22 @@ function main() {
     formatMarkdownTarget(outputPath);
 
     const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
+    const { frontmatter: generatedFrontmatter } =
+      parseMarkdownFrontmatter(generatedMarkdown);
+    if (outputSnapshot.exists) {
+      assertDocStatusStable({
+        beforeFrontmatter: previousFrontmatter,
+        afterFrontmatter: generatedFrontmatter,
+        allowDocStatusChange,
+        label: `${outputPath} frontmatter`,
+      });
+      assertEvidenceGatedScalarChanges({
+        before: previousFrontmatter,
+        after: generatedFrontmatter,
+        allowedKnownToKnownPrefixes: FRONTMATTER_EVIDENCE_PREFIXES,
+        label: `${outputPath} frontmatter`,
+      });
+    }
     const outputContract = validateAgentOutputContract({
       markdown: generatedMarkdown,
       expectedComponentName: componentName || undefined,
@@ -215,15 +291,32 @@ function main() {
 
     syncDocumentationIndices({
       docsDir: componentDocsDir,
-      overviewPath: path.join(componentDocsDir, "overview.md"),
-      specsDir: path.join(docsRootDir, "_spec", "components"),
+      overviewPath,
+      specsDir: specComponentsDir,
       proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
       renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
-      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+      registryPath: registryIndexPath,
+    });
+    assertScopedWritePolicy({
+      snapshot: scopeSnapshot,
+      allowedPaths: allowedWritePaths,
+      label: "ds-doc-from-figma-url",
     });
   } catch (error) {
     restoreFileSnapshot(outputPath, outputSnapshot);
-    console.error(error instanceof Error ? error.message : String(error));
+    let scopeMessage = "";
+    try {
+      assertScopedWritePolicy({
+        snapshot: scopeSnapshot,
+        allowedPaths: allowedWritePaths,
+        label: "ds-doc-from-figma-url",
+      });
+    } catch (scopeError) {
+      scopeMessage = `\n${scopeError instanceof Error ? scopeError.message : String(scopeError)}`;
+    }
+    console.error(
+      `${error instanceof Error ? error.message : String(error)}${scopeMessage}`,
+    );
     process.exit(1);
   }
 }

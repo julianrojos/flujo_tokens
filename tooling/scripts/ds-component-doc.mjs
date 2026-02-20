@@ -53,6 +53,14 @@ import {
   captureFileSnapshot,
   restoreFileSnapshot,
 } from "./lib/file-snapshot.mjs";
+import {
+  assertDocStatusStable,
+  assertEvidenceGatedScalarChanges,
+} from "./lib/evidence-gated-mutations.mjs";
+import {
+  assertScopedWritePolicy,
+  captureScopedWriteSnapshot,
+} from "./lib/scoped-write-guard.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
 
@@ -97,11 +105,29 @@ const USAGE = {
       defaultValue: "false",
     },
     {
+      name: "--allow-doc-status-change <true|false>",
+      description:
+        "Allow doc_status changes in frontmatter (requires --force true).",
+      defaultValue: "false",
+    },
+    {
       name: "--help",
       description: "Show this help message.",
     },
   ],
 };
+
+const FRONTMATTER_EVIDENCE_PREFIXES = Object.freeze([
+  "figma.file_url",
+  "figma.page",
+  "figma.component",
+  "figma.component_set_node_id",
+  "figma.last_verified",
+  "figma.component_hash",
+  "figma.properties_count",
+  "figma.variants_count",
+  "pipeline.ds_component_doc",
+]);
 
 function validateSpecPreflight(specPath, registryPath) {
   const report = validateDocs({
@@ -280,6 +306,8 @@ function main() {
   const specRoot = args["spec-root"] || path.join(DOCS_SPEC_DIR, "components");
   const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
+  const allowDocStatusChange =
+    String(args["allow-doc-status-change"] || "false") === "true";
   const syncStatePath = args["sync-state"] || undefined;
   const registryPath = path.resolve(
     args.registry || DEFAULT_TOKEN_REGISTRY_PATH,
@@ -290,6 +318,14 @@ function main() {
     console.error(
       "Validation gate bypass requires explicit force.\n" +
         "Use `--skip-validation true --force true` only for exceptional cases.",
+    );
+    process.exit(1);
+  }
+
+  if (allowDocStatusChange && !force) {
+    console.error(
+      "doc_status override requires explicit force.\n" +
+        "Use `--allow-doc-status-change true --force true` only for exceptional cases.",
     );
     process.exit(1);
   }
@@ -329,6 +365,15 @@ function main() {
     args.output || path.join(componentDocsDir, `${componentSlug}.md`),
   );
   const overviewPath = path.resolve(path.join(componentDocsDir, "overview.md"));
+  const registryIndexPath = path.resolve(
+    path.join(docsRootDir, "_generated", "component-registry.json"),
+  );
+  const scopeSnapshot = captureScopedWriteSnapshot({
+    directories: [componentDocsDir, path.dirname(specPath)],
+    files: [registryIndexPath],
+    extensions: [".md", ".yml", ".json"],
+  });
+  const allowedWritePaths = [outputPath, overviewPath, registryIndexPath];
   const styleReferencePath = resolveStyleReferencePath({
     componentDocsDir,
     outputPath,
@@ -402,6 +447,9 @@ function main() {
   }
 
   const outputSnapshot = captureFileSnapshot(outputPath);
+  const previousFrontmatter = outputSnapshot.exists
+    ? parseMarkdownFrontmatter(outputSnapshot.content).frontmatter
+    : {};
 
   const prompt = buildAgentPrompt({
     context: [
@@ -469,6 +517,22 @@ function main() {
       formatMarkdownTarget(outputPath);
 
       const generatedMarkdown = fs.readFileSync(outputPath, "utf8");
+      const { frontmatter: generatedFrontmatter } =
+        parseMarkdownFrontmatter(generatedMarkdown);
+      if (outputSnapshot.exists) {
+        assertDocStatusStable({
+          beforeFrontmatter: previousFrontmatter,
+          afterFrontmatter: generatedFrontmatter,
+          allowDocStatusChange,
+          label: `${outputPath} frontmatter`,
+        });
+        assertEvidenceGatedScalarChanges({
+          before: previousFrontmatter,
+          after: generatedFrontmatter,
+          allowedKnownToKnownPrefixes: FRONTMATTER_EVIDENCE_PREFIXES,
+          label: `${outputPath} frontmatter`,
+        });
+      }
       const outputContract = validateAgentOutputContract({
         markdown: generatedMarkdown,
         expectedComponentName: effectiveComponentName,
@@ -565,24 +629,34 @@ function main() {
       },
       statePath: syncStatePath,
     });
-  } catch (error) {
-    restoreFileSnapshot(outputPath, outputSnapshot);
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
 
-  try {
     syncDocumentationIndices({
       docsDir: componentDocsDir,
       overviewPath,
       specsDir: path.dirname(specPath),
       proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
       renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
-      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+      registryPath: registryIndexPath,
+    });
+    assertScopedWritePolicy({
+      snapshot: scopeSnapshot,
+      allowedPaths: allowedWritePaths,
+      label: "ds-component-doc",
     });
   } catch (error) {
+    restoreFileSnapshot(outputPath, outputSnapshot);
+    let scopeMessage = "";
+    try {
+      assertScopedWritePolicy({
+        snapshot: scopeSnapshot,
+        allowedPaths: allowedWritePaths,
+        label: "ds-component-doc",
+      });
+    } catch (scopeError) {
+      scopeMessage = `\n${scopeError instanceof Error ? scopeError.message : String(scopeError)}`;
+    }
     console.error(
-      `Documentation index refresh failed: ${error instanceof Error ? error.message : String(error)}`,
+      `${error instanceof Error ? error.message : String(error)}${scopeMessage}`,
     );
     process.exit(1);
   }
