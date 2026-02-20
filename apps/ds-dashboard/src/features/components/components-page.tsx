@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ArrowUpDown, ExternalLink, RefreshCcw } from "lucide-react";
 
 import {
@@ -49,7 +49,6 @@ function statusBadge(status: string) {
 }
 
 export function ComponentsPage() {
-  const navigate = useNavigate();
   const [rows, setRows] = useState<ComponentRegistryItem[]>([]);
   const [usageBySlug, setUsageBySlug] = useState<
     ComponentUsageIndex["by_slug"]
@@ -306,30 +305,37 @@ export function ComponentsPage() {
                     </TableRow>
                   ))
                 : filtered.map((item) => (
-                    <TableRow
-                      key={item.slug}
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/components/${item.slug}`)}
-                    >
+                    <TableRow key={item.slug}>
                       <TableCell>
-                        {item.figma.file_url ? (
-                          <a
-                            href={item.figma.file_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary"
-                            title={`Open ${item.display_name} in Figma`}
-                            aria-label={`Open ${item.display_name} in Figma`}
-                            onClick={(e) => e.stopPropagation()}
+                        <div className="flex items-center gap-2">
+                          {item.figma.file_url ? (
+                            <a
+                              href={item.figma.file_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center text-muted-foreground hover:text-primary"
+                              title={`Open ${item.display_name} in Figma`}
+                              aria-label={`Open ${item.display_name} in Figma`}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          ) : null}
+                          <Link
+                            to={`/components/${item.slug}`}
+                            className="font-medium text-foreground hover:text-primary hover:underline"
+                            aria-label={`Open ${item.display_name} detail`}
                           >
-                            <ExternalLink className="h-4 w-4" />
-                            <span>{item.display_name}</span>
-                          </a>
-                        ) : (
-                          <div className="font-medium">{item.display_name}</div>
-                        )}
+                            {item.display_name}
+                          </Link>
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          {item.slug}
+                          <Link
+                            to={`/components/${item.slug}`}
+                            className="font-mono hover:text-primary hover:underline"
+                            aria-label={`Open ${item.slug} detail`}
+                          >
+                            {item.slug}
+                          </Link>
                         </div>
                       </TableCell>
                       <TableCell>

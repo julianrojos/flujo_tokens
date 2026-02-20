@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Accessibility, TreePine, RefreshCcw } from "lucide-react";
 
 import {
@@ -52,7 +52,6 @@ function dedupeColorOptionsByPath<T extends { tokenPath: string }>(items: T[]): 
 }
 
 export function TokensPage() {
-  const navigate = useNavigate();
   const [entries, setEntries] = useState<TokenEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
   const [usageSummary, setUsageSummary] = useState<TokenUsageIndexSummary | null>(null);
@@ -387,15 +386,25 @@ export function TokensPage() {
                         .filter((value, index, all) => all.indexOf(value) === index)
                         .slice(0, 2) ?? [];
                     return (
-                      <TableRow
-                        key={entry.path}
-                        className="cursor-pointer"
-                        onClick={() => navigate(`/tokens/${encodeURIComponent(entry.path)}`)}
-                      >
+                      <TableRow key={entry.path}>
                         <TableCell>
-                          <div className="font-medium">{entry.path}</div>
+                          <div className="font-medium">
+                            <Link
+                              to={`/tokens/${encodeURIComponent(entry.path)}`}
+                              className="hover:text-primary hover:underline"
+                              aria-label={`Open ${entry.path} detail`}
+                            >
+                              {entry.path}
+                            </Link>
+                          </div>
                           <div className="text-xs text-muted-foreground">
-                            {entry.slashPath}
+                            <Link
+                              to={`/tokens/${encodeURIComponent(entry.path)}`}
+                              className="font-mono hover:text-primary hover:underline"
+                              aria-label={`Open ${entry.path} detail`}
+                            >
+                              {entry.slashPath}
+                            </Link>
                           </div>
                         </TableCell>
                         <TableCell>
