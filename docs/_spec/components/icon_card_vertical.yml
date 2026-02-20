@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Cards
   component_set: Icon-Card-Vertical
-  component_set_node_id: '2168:1387'
+  component_set_node_id: "2168:1387"
 summary:
   purpose: Documentation scaffold for Icon Card Vertical extracted from Figma component set metadata.
   when_to_use: Use Icon Card Vertical when this pattern is needed in the interface and matches its Figma variants.
@@ -17,9 +17,6 @@ anatomy:
 properties:
   - name: Background
     type: enum
-    default: Palette_1
-    required: true
-    description: Variant selector extracted from Figma property `Background`.
     values:
       - Palette_2
       - Palette_3
@@ -27,6 +24,9 @@ properties:
       - Palette_6
       - Palette_7
       - Palette_1
+    default: Palette_1
+    required: true
+    description: Variant selector extracted from Figma property `Background`.
   - name: Change_Card_Text
     type: text
     default: Icon card text icon card text icon card text icon card text icon ca
@@ -39,7 +39,7 @@ properties:
     description: Property extracted from Figma property `Change_Card_Title`.
   - name: Change_Icon
     type: instance_swap
-    default: '65:1033'
+    default: "65:1033"
     required: false
     description: Property extracted from Figma property `Change_Icon`.
 content_guidelines:

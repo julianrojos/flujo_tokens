@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Cards
   component_set: Icon-Card-Horizontal
-  component_set_node_id: '2097:613'
+  component_set_node_id: "2097:613"
 summary:
   purpose: Documentation scaffold for Icon Card Horizontal extracted from Figma component set metadata.
   when_to_use: Use Icon Card Horizontal when this pattern is needed in the interface and matches its Figma variants.
@@ -17,12 +17,12 @@ anatomy:
 properties:
   - name: Icon_Position
     type: enum
-    default: Left
-    required: true
-    description: Variant selector extracted from Figma property `Icon_Position`.
     values:
       - Left
       - Right
+    default: Left
+    required: true
+    description: Variant selector extracted from Figma property `Icon_Position`.
   - name: Show_Card_Footer
     type: boolean
     default: true

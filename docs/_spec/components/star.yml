@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Rating Stars
   component_set: Star
-  component_set_node_id: '683:239'
+  component_set_node_id: "683:239"
 summary:
   purpose: Documentation scaffold for Star extracted from Figma component set metadata.
   when_to_use: Use Star when this pattern is needed in the interface and matches its Figma variants.
@@ -17,12 +17,12 @@ anatomy:
 properties:
   - name: State
     type: enum
-    default: Selected
-    required: true
-    description: Variant selector extracted from Figma property `State`.
     values:
       - Selected
       - Not_Selected
+    default: Selected
+    required: true
+    description: Variant selector extracted from Figma property `State`.
 content_guidelines:
   rules:
     - Keep content concise and aligned with product voice.

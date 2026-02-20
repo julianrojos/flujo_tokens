@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Tabs
   component_set: Tab
-  component_set_node_id: '2429:2493'
+  component_set_node_id: "2429:2493"
 summary:
   purpose: Documentation scaffold for Tab extracted from Figma component set metadata.
   when_to_use: Use Tab when this pattern is needed in the interface and matches its Figma variants.
@@ -17,12 +17,12 @@ anatomy:
 properties:
   - name: State
     type: enum
-    default: Default
-    required: true
-    description: Variant selector extracted from Figma property `State`.
     values:
       - Default
       - Selected
+    default: Default
+    required: true
+    description: Variant selector extracted from Figma property `State`.
   - name: Change_Tab_Text
     type: text
     default: TBD

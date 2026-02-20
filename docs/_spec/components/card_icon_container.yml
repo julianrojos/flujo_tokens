@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Cards
   component_set: Card-Icon-Container
-  component_set_node_id: '2053:7862'
+  component_set_node_id: "2053:7862"
 summary:
   purpose: Documentation scaffold for Card Icon Container extracted from Figma component set metadata.
   when_to_use: Use Card Icon Container when this pattern is needed in the interface and matches its Figma variants.
@@ -17,9 +17,6 @@ anatomy:
 properties:
   - name: Background_Color
     type: enum
-    default: Background_Color1
-    required: true
-    description: Variant selector extracted from Figma property `Background_Color`.
     values:
       - Background_Color1
       - Background_Color2
@@ -27,9 +24,12 @@ properties:
       - Background_Color4
       - Background_Color5
       - Background_Color6
+    default: Background_Color1
+    required: true
+    description: Variant selector extracted from Figma property `Background_Color`.
   - name: Change_Icon
     type: instance_swap
-    default: '65:710'
+    default: "65:710"
     required: false
     description: Property extracted from Figma property `Change_Icon`.
 content_guidelines:

@@ -42,6 +42,30 @@ export function getSpecPropertyTypeInfo(rawType) {
   return CANONICAL_TYPES[normalized] || null;
 }
 
+/**
+ * Canonical field order within each property object in a spec YAML.
+ * Sourced from component-spec-properties-order.mdc § "Canonical field order".
+ * Used by ds:sort-spec and validate:docs (DET01).
+ */
+export const PROPERTY_FIELD_ORDER = Object.freeze([
+  "name", "type", "values", "default", "required", "description",
+]);
+
+/**
+ * Returns true if all property objects have fields in canonical order.
+ * Only checks fields that are present in the object (subset check).
+ */
+export function hasCanonicalPropertyFieldOrder(properties) {
+  if (!Array.isArray(properties)) return true;
+  for (const prop of properties) {
+    if (!prop || typeof prop !== "object" || Array.isArray(prop)) continue;
+    const keys = Object.keys(prop).filter((k) => PROPERTY_FIELD_ORDER.includes(k));
+    const expected = PROPERTY_FIELD_ORDER.filter((k) => k in prop);
+    if (keys.join(",") !== expected.join(",")) return false;
+  }
+  return true;
+}
+
 export function coerceSpecPropertyType(rawType) {
   const normalized = normalizeSpecPropertyType(rawType);
   if (!normalized) return "";

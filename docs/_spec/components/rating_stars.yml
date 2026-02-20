@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Rating Stars
   component_set: Rating_Stars
-  component_set_node_id: '683:264'
+  component_set_node_id: "683:264"
 summary:
   purpose: Documentation scaffold for Rating Stars extracted from Figma component set metadata.
   when_to_use: Use Rating Stars when this pattern is needed in the interface and matches its Figma variants.
@@ -17,16 +17,16 @@ anatomy:
 properties:
   - name: Stars_Number
     type: enum
-    default: '5'
+    values:
+      - "5"
+      - "4"
+      - "3"
+      - "1"
+      - "2"
+      - "0"
+    default: "5"
     required: true
     description: Variant selector extracted from Figma property `Stars_Number`.
-    values:
-      - '5'
-      - '4'
-      - '3'
-      - '1'
-      - '2'
-      - '0'
 content_guidelines:
   rules:
     - Keep content concise and aligned with product voice.

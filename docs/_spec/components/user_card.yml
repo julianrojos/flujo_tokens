@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Cards
   component_set: User-Card
-  component_set_node_id: '2046:7286'
+  component_set_node_id: "2046:7286"
 summary:
   purpose: Documentation scaffold for User Card extracted from Figma component set metadata.
   when_to_use: Use User Card when this pattern is needed in the interface and matches its Figma variants.
@@ -17,12 +17,12 @@ anatomy:
 properties:
   - name: Property 1
     type: enum
-    default: Person_Left
-    required: true
-    description: Variant selector extracted from Figma property `Property 1`.
     values:
       - Person_Left
       - Person_Right
+    default: Person_Left
+    required: true
+    description: Variant selector extracted from Figma property `Property 1`.
   - name: Show_Tags_List
     type: boolean
     default: true

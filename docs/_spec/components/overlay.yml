@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Overlay
   component_set: Overlay
-  component_set_node_id: '4584:8670'
+  component_set_node_id: "4584:8670"
 summary:
   purpose: Documentation scaffold for Overlay extracted from Figma component set metadata.
   when_to_use: Use Overlay when this pattern is needed in the interface and matches its Figma variants.
@@ -17,12 +17,12 @@ anatomy:
 properties:
   - name: Property 1
     type: enum
-    default: Modal
-    required: true
-    description: Variant selector extracted from Figma property `Property 1`.
     values:
       - Modal
       - Media
+    default: Modal
+    required: true
+    description: Variant selector extracted from Figma property `Property 1`.
 content_guidelines:
   rules:
     - Keep content concise and aligned with product voice.

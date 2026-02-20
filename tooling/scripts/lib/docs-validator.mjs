@@ -34,6 +34,8 @@ import {
   SPEC_PROPERTY_ALLOWED_TYPES,
   getSpecPropertyTypeInfo,
   normalizeSpecPropertyType,
+  PROPERTY_FIELD_ORDER,
+  hasCanonicalPropertyFieldOrder,
 } from "./spec-property-types.mjs";
 import {
   ALLOWED_DOC_STATUS,
@@ -2364,6 +2366,18 @@ function validateSpecPropertyOrder(filePath, properties, report, options = {}) {
       break;
     }
     previousGroup = currentGroup;
+  }
+
+  // Check canonical field order within each property object (name, type, values, default, required, description)
+  if (!hasCanonicalPropertyFieldOrder(properties)) {
+    report.errors.push({
+      code: "DET01",
+      file: filePath,
+      message:
+        "Property fields must follow canonical order: " +
+        PROPERTY_FIELD_ORDER.join(", ") +
+        ". Fix with: npm run ds:sort-spec -- --file <spec>",
+    });
   }
 }
 

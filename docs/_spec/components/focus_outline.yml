@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Focus Outline
   component_set: Focus-Outline
-  component_set_node_id: '4562:6483'
+  component_set_node_id: "4562:6483"
 summary:
   purpose: Documentation scaffold for Focus Outline extracted from Figma component set metadata.
   when_to_use: Use Focus Outline when this pattern is needed in the interface and matches its Figma variants.
@@ -17,12 +17,12 @@ anatomy:
 properties:
   - name: Radius
     type: enum
-    default: square
-    required: true
-    description: Variant selector extracted from Figma property `Radius`.
     values:
       - square
       - rounded
+    default: square
+    required: true
+    description: Variant selector extracted from Figma property `Radius`.
 content_guidelines:
   rules:
     - Keep content concise and aligned with product voice.

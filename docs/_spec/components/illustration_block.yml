@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Illustration message
   component_set: Illustration-Block
-  component_set_node_id: '2049:7813'
+  component_set_node_id: "2049:7813"
 summary:
   purpose: Documentation scaffold for Illustration Block extracted from Figma component set metadata.
   when_to_use: Use Illustration Block when this pattern is needed in the interface and matches its Figma variants.
@@ -17,12 +17,12 @@ anatomy:
 properties:
   - name: Orientation
     type: enum
-    default: Illustration_Left
-    required: true
-    description: Variant selector extracted from Figma property `Orientation`.
     values:
       - Illustration_Left
       - Illustration_Right
+    default: Illustration_Left
+    required: true
+    description: Variant selector extracted from Figma property `Orientation`.
   - name: Change_Text
     type: text
     default: Your message here
@@ -30,7 +30,7 @@ properties:
     description: Property extracted from Figma property `Change_Text`.
   - name: Change_Illustration
     type: instance_swap
-    default: '2065:135'
+    default: "2065:135"
     required: false
     description: Property extracted from Figma property `Change_Illustration`.
 content_guidelines:

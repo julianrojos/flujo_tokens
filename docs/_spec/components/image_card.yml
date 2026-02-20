@@ -4,7 +4,7 @@ figma:
   file: 3hGC1ju0d5AKzaoI9pKIyu
   page: Cards
   component_set: Image-Card
-  component_set_node_id: '124:4606'
+  component_set_node_id: "124:4606"
 summary:
   purpose: Documentation scaffold for Image Card extracted from Figma component set metadata.
   when_to_use: Use Image Card when this pattern is needed in the interface and matches its Figma variants.
@@ -17,12 +17,12 @@ anatomy:
 properties:
   - name: Type
     type: enum
-    default: Vertical
-    required: true
-    description: Variant selector extracted from Figma property `Type`.
     values:
       - Vertical
       - Horizontal
+    default: Vertical
+    required: true
+    description: Variant selector extracted from Figma property `Type`.
   - name: Change_Coments_Count
     type: text
     default: TBD
