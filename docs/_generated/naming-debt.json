@@ -1,0 +1,499 @@
+{
+  "ok": true,
+  "generatedAt": "2026-02-21T02:53:07.536Z",
+  "summary": {
+    "totalTokens": 318,
+    "totalViolations": 14,
+    "issuesBySeverity": {
+      "error": 0,
+      "warning": 5,
+      "info": 9
+    },
+    "autoFixable": 0,
+    "manualReview": 5,
+    "overallScore": 99,
+    "collectionsWithDebt": 1
+  },
+  "scoreByCollection": {
+    "A11y": {
+      "collection": "A11y",
+      "totalTokens": 1,
+      "score": 100,
+      "cleanPercent": 100,
+      "issuesBySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 0
+      }
+    },
+    "Components": {
+      "collection": "Components",
+      "totalTokens": 2,
+      "score": 100,
+      "cleanPercent": 100,
+      "issuesBySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 0
+      }
+    },
+    "Primitives": {
+      "collection": "Primitives",
+      "totalTokens": 132,
+      "score": 100,
+      "cleanPercent": 100,
+      "issuesBySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 0
+      }
+    },
+    "Semantic": {
+      "collection": "Semantic",
+      "totalTokens": 161,
+      "score": 98,
+      "cleanPercent": 94,
+      "issuesBySeverity": {
+        "error": 0,
+        "warning": 5,
+        "info": 9
+      }
+    },
+    "Typography": {
+      "collection": "Typography",
+      "totalTokens": 22,
+      "score": 100,
+      "cleanPercent": 100,
+      "issuesBySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 0
+      }
+    }
+  },
+  "violations": [
+    {
+      "tokenPath": "Semantic.Color.Background.Feedback.Default",
+      "tokenSlashPath": "Color/Background/Feedback/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "synonym-inconsistency",
+      "category": "consistency",
+      "severity": "warning",
+      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "evidence": [
+        "default",
+        "primary"
+      ],
+      "fix": "manual",
+      "confidence": 0.8,
+      "suggestedPath": "Semantic.Color.Background.Feedback.Primary",
+      "suggestedSlashPath": "Color/Background/Feedback/Primary",
+      "proposalIndex": 1
+    },
+    {
+      "tokenPath": "Semantic.Color.Border.Neutral.Default",
+      "tokenSlashPath": "Color/Border/Neutral/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "synonym-inconsistency",
+      "category": "consistency",
+      "severity": "warning",
+      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "evidence": [
+        "default",
+        "primary"
+      ],
+      "fix": "manual",
+      "confidence": 0.8,
+      "suggestedPath": "Semantic.Color.Border.Neutral.Primary",
+      "suggestedSlashPath": "Color/Border/Neutral/Primary",
+      "proposalIndex": 2
+    },
+    {
+      "tokenPath": "Semantic.Color.Icon.Neutral.Default",
+      "tokenSlashPath": "Color/Icon/Neutral/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "synonym-inconsistency",
+      "category": "consistency",
+      "severity": "warning",
+      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "evidence": [
+        "default",
+        "primary"
+      ],
+      "fix": "manual",
+      "confidence": 0.8,
+      "suggestedPath": "Semantic.Color.Icon.Neutral.Primary",
+      "suggestedSlashPath": "Color/Icon/Neutral/Primary",
+      "proposalIndex": 3
+    },
+    {
+      "tokenPath": "Semantic.Color.Text.Link.Default",
+      "tokenSlashPath": "Color/Text/Link/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "synonym-inconsistency",
+      "category": "consistency",
+      "severity": "warning",
+      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "evidence": [
+        "default",
+        "primary"
+      ],
+      "fix": "manual",
+      "confidence": 0.8,
+      "suggestedPath": "Semantic.Color.Text.Link.Primary",
+      "suggestedSlashPath": "Color/Text/Link/Primary",
+      "proposalIndex": 0
+    },
+    {
+      "tokenPath": "Semantic.Color.Text.Neutral.Default",
+      "tokenSlashPath": "Color/Text/Neutral/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "synonym-inconsistency",
+      "category": "consistency",
+      "severity": "warning",
+      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "evidence": [
+        "default",
+        "primary"
+      ],
+      "fix": "manual",
+      "confidence": 0.8,
+      "suggestedPath": "Semantic.Color.Text.Neutral.Primary",
+      "suggestedSlashPath": "Color/Text/Neutral/Primary",
+      "proposalIndex": 4
+    },
+    {
+      "tokenPath": "Semantic.Color.Background.Action.Danger.Default",
+      "tokenSlashPath": "Color/Background/Action/Danger/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "Semantic.Color.Background.Action.Disabled.Default",
+      "tokenSlashPath": "Color/Background/Action/Disabled/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "Semantic.Color.Background.Action.Primary.Default",
+      "tokenSlashPath": "Color/Background/Action/Primary/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "Semantic.Color.Background.Action.Secondary.Default",
+      "tokenSlashPath": "Color/Background/Action/Secondary/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "Semantic.Color.Background.Feedback.Default",
+      "tokenSlashPath": "Color/Background/Feedback/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "Semantic.Color.Border.Neutral.Default",
+      "tokenSlashPath": "Color/Border/Neutral/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "Semantic.Color.Icon.Neutral.Default",
+      "tokenSlashPath": "Color/Icon/Neutral/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "Semantic.Color.Text.Link.Default",
+      "tokenSlashPath": "Color/Text/Link/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "Semantic.Color.Text.Neutral.Default",
+      "tokenSlashPath": "Color/Text/Neutral/Default",
+      "collection": "Semantic",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'Default' can hide intent.",
+      "evidence": [
+        "Default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    }
+  ],
+  "renameProposals": [
+    {
+      "currentPath": "Semantic.Color.Text.Link.Default",
+      "currentSlashPath": "Color/Text/Link/Default",
+      "suggestedPath": "Semantic.Color.Text.Link.Primary",
+      "suggestedSlashPath": "Color/Text/Link/Primary",
+      "rationale": "Normalize vocabulary inside the same semantic scope.",
+      "category": "consistency",
+      "fix": "manual",
+      "confidence": 0.8,
+      "directRefs": 0,
+      "transitiveRefs": 0,
+      "affectedSpecs": [],
+      "affectedCssFiles": [],
+      "riskLevel": "safe",
+      "breakingChange": false,
+      "effort": "quick_win"
+    },
+    {
+      "currentPath": "Semantic.Color.Background.Feedback.Default",
+      "currentSlashPath": "Color/Background/Feedback/Default",
+      "suggestedPath": "Semantic.Color.Background.Feedback.Primary",
+      "suggestedSlashPath": "Color/Background/Feedback/Primary",
+      "rationale": "Normalize vocabulary inside the same semantic scope.",
+      "category": "consistency",
+      "fix": "manual",
+      "confidence": 0.8,
+      "directRefs": 1,
+      "transitiveRefs": 0,
+      "affectedSpecs": [
+        "alert"
+      ],
+      "affectedCssFiles": [],
+      "riskLevel": "low",
+      "breakingChange": false,
+      "effort": "quick_win"
+    },
+    {
+      "currentPath": "Semantic.Color.Border.Neutral.Default",
+      "currentSlashPath": "Color/Border/Neutral/Default",
+      "suggestedPath": "Semantic.Color.Border.Neutral.Primary",
+      "suggestedSlashPath": "Color/Border/Neutral/Primary",
+      "rationale": "Normalize vocabulary inside the same semantic scope.",
+      "category": "consistency",
+      "fix": "manual",
+      "confidence": 0.8,
+      "directRefs": 1,
+      "transitiveRefs": 0,
+      "affectedSpecs": [
+        "avatar"
+      ],
+      "affectedCssFiles": [],
+      "riskLevel": "low",
+      "breakingChange": false,
+      "effort": "quick_win"
+    },
+    {
+      "currentPath": "Semantic.Color.Icon.Neutral.Default",
+      "currentSlashPath": "Color/Icon/Neutral/Default",
+      "suggestedPath": "Semantic.Color.Icon.Neutral.Primary",
+      "suggestedSlashPath": "Color/Icon/Neutral/Primary",
+      "rationale": "Normalize vocabulary inside the same semantic scope.",
+      "category": "consistency",
+      "fix": "manual",
+      "confidence": 0.8,
+      "directRefs": 2,
+      "transitiveRefs": 1,
+      "affectedSpecs": [
+        "bottom_bar"
+      ],
+      "affectedCssFiles": [
+        "output/tokens.css"
+      ],
+      "riskLevel": "low",
+      "breakingChange": true,
+      "effort": "quick_win"
+    },
+    {
+      "currentPath": "Semantic.Color.Text.Neutral.Default",
+      "currentSlashPath": "Color/Text/Neutral/Default",
+      "suggestedPath": "Semantic.Color.Text.Neutral.Primary",
+      "suggestedSlashPath": "Color/Text/Neutral/Primary",
+      "rationale": "Normalize vocabulary inside the same semantic scope.",
+      "category": "consistency",
+      "fix": "manual",
+      "confidence": 0.8,
+      "directRefs": 3,
+      "transitiveRefs": 1,
+      "affectedSpecs": [
+        "alert",
+        "bottom_bar"
+      ],
+      "affectedCssFiles": [
+        "output/tokens.css"
+      ],
+      "riskLevel": "low",
+      "breakingChange": true,
+      "effort": "quick_win"
+    }
+  ],
+  "quickWins": [
+    "Semantic.Color.Text.Link.Default",
+    "Semantic.Color.Background.Feedback.Default",
+    "Semantic.Color.Border.Neutral.Default",
+    "Semantic.Color.Icon.Neutral.Default",
+    "Semantic.Color.Text.Neutral.Default"
+  ],
+  "requiresPlanning": [],
+  "renamePlan": [
+    {
+      "step": 1,
+      "currentPath": "Semantic.Color.Text.Link.Default",
+      "suggestedPath": "Semantic.Color.Text.Link.Primary",
+      "category": "consistency",
+      "fix": "manual",
+      "riskLevel": "safe",
+      "affectedFiles": []
+    },
+    {
+      "step": 2,
+      "currentPath": "Semantic.Color.Background.Feedback.Default",
+      "suggestedPath": "Semantic.Color.Background.Feedback.Primary",
+      "category": "consistency",
+      "fix": "manual",
+      "riskLevel": "low",
+      "affectedFiles": [
+        "alert"
+      ]
+    },
+    {
+      "step": 3,
+      "currentPath": "Semantic.Color.Border.Neutral.Default",
+      "suggestedPath": "Semantic.Color.Border.Neutral.Primary",
+      "category": "consistency",
+      "fix": "manual",
+      "riskLevel": "low",
+      "affectedFiles": [
+        "avatar"
+      ]
+    },
+    {
+      "step": 4,
+      "currentPath": "Semantic.Color.Icon.Neutral.Default",
+      "suggestedPath": "Semantic.Color.Icon.Neutral.Primary",
+      "category": "consistency",
+      "fix": "manual",
+      "riskLevel": "low",
+      "affectedFiles": [
+        "bottom_bar",
+        "output/tokens.css"
+      ]
+    },
+    {
+      "step": 5,
+      "currentPath": "Semantic.Color.Text.Neutral.Default",
+      "suggestedPath": "Semantic.Color.Text.Neutral.Primary",
+      "category": "consistency",
+      "fix": "manual",
+      "riskLevel": "low",
+      "affectedFiles": [
+        "alert",
+        "bottom_bar",
+        "output/tokens.css"
+      ]
+    }
+  ]
+}
