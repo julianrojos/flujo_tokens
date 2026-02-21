@@ -19,6 +19,18 @@ import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
 import { ImpactExplorerPage } from "@/features/impact/impact-explorer-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarProvider,
+} from "@/components/ui/sidebar";
 import { TokenGraphPage } from "@/features/tokens/token-graph/token-graph-page";
 import { TokenDiffPage } from "@/features/tokens/token-diff/token-diff-page";
 import { NamingDebtPage } from "@/features/tokens/naming-debt/naming-debt-page";
@@ -121,9 +133,9 @@ export default function App() {
   return (
     <>
       <div className="min-h-screen bg-background text-foreground">
-        <div className="relative mx-auto flex min-h-screen w-full max-w-[1600px]">
-          <aside className="sticky top-0 hidden h-screen w-72 flex-col border-r border-border/70 bg-card/85 p-5 backdrop-blur-lg lg:flex">
-            <div className="mb-6">
+        <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1600px]">
+          <Sidebar>
+            <SidebarHeader className="mb-1">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Local Dashboard
               </p>
@@ -133,123 +145,128 @@ export default function App() {
               <p className="mt-2 text-sm text-muted-foreground">
                 Datos locales del repositorio, sin servidor externo.
               </p>
-            </div>
+            </SidebarHeader>
 
-            <nav className="flex flex-col gap-2">
+            <SidebarContent>
               {navSections.map((section) => (
-                <div key={section.id} className="space-y-1">
-                  <p className="px-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    {section.label}
-                  </p>
-                  {section.items.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        className={({ isActive }) =>
-                          cn(
-                            "group rounded-xl border border-transparent px-3 py-3 transition",
-                            isActive
-                              ? "border-primary/20 bg-primary/10"
-                              : "hover:border-border/70 hover:bg-accent/60",
-                          )
-                        }
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="rounded-md border border-border/70 bg-background p-2 text-muted-foreground group-hover:text-foreground">
-                            <Icon className="h-4 w-4" />
-                          </span>
-                          <div>
-                            <p className="text-sm font-semibold">{item.label}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {item.description}
-                            </p>
-                          </div>
-                        </div>
-                      </NavLink>
-                    );
-                  })}
-                </div>
+                <SidebarGroup key={section.id}>
+                  <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
+                  <SidebarMenu>
+                    {section.items.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <SidebarMenuItem key={item.to}>
+                          <NavLink
+                            to={item.to}
+                            className={({ isActive }) =>
+                              cn(
+                                "group block rounded-xl border border-transparent px-3 py-3 transition",
+                                isActive
+                                  ? "border-primary/20 bg-primary/10"
+                                  : "hover:border-border/70 hover:bg-accent/60",
+                              )
+                            }
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="rounded-md bg-muted/50 p-2 text-muted-foreground group-hover:text-foreground">
+                                <Icon className="h-4 w-4" />
+                              </span>
+                              <div>
+                                <p className="text-sm font-semibold">{item.label}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {item.description}
+                                </p>
+                              </div>
+                            </div>
+                          </NavLink>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroup>
               ))}
-            </nav>
+            </SidebarContent>
 
-            <button
-              type="button"
-              className="mt-auto flex items-center justify-between rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground"
-              onClick={() => setCommandPaletteOpen(true)}
-            >
-              <span className="inline-flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Search
-              </span>
-              <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[11px]">
-                ⌘K
-              </kbd>
-            </button>
-          </aside>
+            <SidebarFooter>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                onClick={() => setCommandPaletteOpen(true)}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Search className="h-4 w-4" />
+                  Search
+                </span>
+                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[11px]">
+                  ⌘K
+                </kbd>
+              </button>
+            </SidebarFooter>
+          </Sidebar>
 
-          <main className="w-full flex-1 p-4 md:p-6 lg:p-8">
-            <header className="mb-5 rounded-xl border border-border/70 bg-card/75 p-4 shadow-panel backdrop-blur-lg lg:hidden">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Menu
-              </p>
-              <div className="mt-3 space-y-3">
-                {navSections.map((section) => (
-                  <div key={section.id} className="space-y-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      {section.label}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {section.items.map((item) => (
-                        <NavLink
-                          key={item.to}
-                          to={item.to}
-                          className={({ isActive }) =>
-                            cn(
-                              "rounded-md px-3 py-2 text-sm font-semibold transition",
-                              isActive
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-foreground",
-                            )
-                          }
-                        >
-                          {item.label}
-                        </NavLink>
-                      ))}
+          <SidebarInset>
+            <main className="w-full p-4 md:p-6 lg:p-8">
+              <header className="mb-5 rounded-xl border border-border/70 bg-card/75 p-4 shadow-panel backdrop-blur-lg lg:hidden">
+                <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                  Menu
+                </p>
+                <div className="mt-3 space-y-3">
+                  {navSections.map((section) => (
+                    <div key={section.id} className="space-y-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        {section.label}
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {section.items.map((item) => (
+                          <NavLink
+                            key={item.to}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              cn(
+                                "rounded-md px-3 py-2 text-sm font-semibold transition",
+                                isActive
+                                  ? "bg-primary text-primary-foreground"
+                                  : "bg-muted text-foreground",
+                              )
+                            }
+                          >
+                            {item.label}
+                          </NavLink>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
-                  onClick={() => setCommandPaletteOpen(true)}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Search className="h-4 w-4" />
-                    Search
-                  </span>
-                </button>
-              </div>
-            </header>
+                  ))}
+                  <button
+                    type="button"
+                    className="rounded-md border border-border px-3 py-2 text-sm font-semibold text-muted-foreground transition hover:bg-accent hover:text-foreground"
+                    onClick={() => setCommandPaletteOpen(true)}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Search className="h-4 w-4" />
+                      Search
+                    </span>
+                  </button>
+                </div>
+              </header>
 
-            <AppBreadcrumb />
+              <AppBreadcrumb />
 
-            <Routes>
-              <Route path="/" element={<Navigate to="/health" replace />} />
-              <Route path="/health" element={<HealthDashboardPage />} />
-              <Route path="/components" element={<ComponentsPage />} />
-              <Route path="/components/:slug" element={<ComponentDetailPage />} />
-              <Route path="/tokens" element={<TokensPage />} />
-              <Route path="/tokens/naming-debt" element={<NamingDebtPage />} />
-              <Route path="/tokens/diff" element={<TokenDiffPage />} />
-              <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
-              <Route path="/token-graph" element={<TokenGraphPage />} />
-              <Route path="/impact" element={<ImpactExplorerPage />} />
-              <Route path="/file" element={<FileViewerPage />} />
-            </Routes>
-          </main>
-        </div>
+              <Routes>
+                <Route path="/" element={<Navigate to="/health" replace />} />
+                <Route path="/health" element={<HealthDashboardPage />} />
+                <Route path="/components" element={<ComponentsPage />} />
+                <Route path="/components/:slug" element={<ComponentDetailPage />} />
+                <Route path="/tokens" element={<TokensPage />} />
+                <Route path="/tokens/naming-debt" element={<NamingDebtPage />} />
+                <Route path="/tokens/diff" element={<TokenDiffPage />} />
+                <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
+                <Route path="/token-graph" element={<TokenGraphPage />} />
+                <Route path="/impact" element={<ImpactExplorerPage />} />
+                <Route path="/file" element={<FileViewerPage />} />
+              </Routes>
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
       </div>
 
       <GlobalCommandPalette
