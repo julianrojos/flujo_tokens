@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "generatedAt": "2026-02-21T02:53:07.536Z",
+  "generatedAt": "2026-02-21T04:38:56.733Z",
   "summary": {
     "totalTokens": 318,
     "totalViolations": 14,
@@ -80,7 +80,7 @@
       "ruleId": "synonym-inconsistency",
       "category": "consistency",
       "severity": "warning",
-      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "message": "Inconsistent synonym usage in the same scope. Prefer 'primary' over 'Default'.",
       "evidence": [
         "default",
         "primary"
@@ -99,7 +99,7 @@
       "ruleId": "synonym-inconsistency",
       "category": "consistency",
       "severity": "warning",
-      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "message": "Inconsistent synonym usage in the same scope. Prefer 'primary' over 'Default'.",
       "evidence": [
         "default",
         "primary"
@@ -118,7 +118,7 @@
       "ruleId": "synonym-inconsistency",
       "category": "consistency",
       "severity": "warning",
-      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "message": "Inconsistent synonym usage in the same scope. Prefer 'primary' over 'Default'.",
       "evidence": [
         "default",
         "primary"
@@ -137,7 +137,7 @@
       "ruleId": "synonym-inconsistency",
       "category": "consistency",
       "severity": "warning",
-      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "message": "Inconsistent synonym usage in the same scope. Prefer 'primary' over 'Default'.",
       "evidence": [
         "default",
         "primary"
@@ -156,7 +156,7 @@
       "ruleId": "synonym-inconsistency",
       "category": "consistency",
       "severity": "warning",
-      "message": "Inconsistent synonym usage in Semantic/color. Prefer 'primary' over 'Default'.",
+      "message": "Inconsistent synonym usage in the same scope. Prefer 'primary' over 'Default'.",
       "evidence": [
         "default",
         "primary"

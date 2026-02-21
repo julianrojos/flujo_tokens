@@ -234,42 +234,35 @@ Objetivo: convertir el dashboard en referencia para gestión de tokens y documen
    - Transformers puros en `src/lib/exporters/*`.
    - Preview + copy + download.
 
-8. **Comparación de Componentes A vs B**  
-   Impacto: Alto | Esfuerzo: Medio  
-   Esbozo técnico:
-   - Ruta `/components/compare?a=&b=`.
-   - Diff semántico de spec y `token_mapping`.
-   - Comparativa de pipeline stage, cobertura y visual proof.
-
-9. **Coverage Heatmap del design system**  
+8. **Coverage Heatmap del design system**  
    Impacto: Alto | Esfuerzo: Medio  
    Esbozo técnico:
    - Vista `/coverage` con grid por componente.
    - Color/tamaño por métrica seleccionada (stage, coverage, adoption, proof).
    - Drilldown al detalle del componente.
 
-10. **Triage de unresolved refs**  
-    Impacto: Alto | Esfuerzo: Medio  
-    Esbozo técnico:
-    - Vista dedicada basada en `token-usage-index.unresolved`.
-    - Agrupar por `kind/source/owner` y priorizar por riesgo.
-    - Acceso directo a `/file-snippet`.
+9. **Triage de unresolved refs**  
+   Impacto: Alto | Esfuerzo: Medio  
+   Esbozo técnico:
+   - Vista dedicada basada en `token-usage-index.unresolved`.
+   - Agrupar por `kind/source/owner` y priorizar por riesgo.
+   - Acceso directo a `/file-snippet`.
 
-11. **Tendencias históricas de health**  
+10. **Tendencias históricas de health**  
     Impacto: Alto | Esfuerzo: Medio  
     Esbozo técnico:
     - Guardar snapshots de KPIs por ejecución.
     - Serie temporal para breaking, WCAG fail, coverage, unresolved.
     - Vista de tendencia semanal/mensual.
 
-12. **Alertas de regresión**  
+11. **Alertas de regresión**  
     Impacto: Alto | Esfuerzo: Medio  
     Esbozo técnico:
     - Reglas de delta contra snapshot previo.
     - Banner de regresiones nuevas y listado priorizado.
     - Integración con Workbench para bloquear release.
 
-13. **Virtualización de tablas grandes**  
+12. **Virtualización de tablas grandes**  
     Impacto: Medio | Esfuerzo: Bajo-Medio  
     Esbozo técnico:
     - Integrar `@tanstack/react-virtual` empezando por `TokensPage`.
