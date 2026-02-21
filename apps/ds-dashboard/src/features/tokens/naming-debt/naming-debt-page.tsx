@@ -158,7 +158,7 @@ export function NamingDebtPage() {
       <Card>
         <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <CardTitle>Naming Debt Detector</CardTitle>
+            <CardTitle>Naming Quality Analyzer</CardTitle>
             <CardDescription>
               Detects naming inconsistencies and suggests normalization plans with impact estimates.
             </CardDescription>
@@ -171,7 +171,7 @@ export function NamingDebtPage() {
             <Button
               variant="outline"
               disabled={!report}
-              onClick={() => report && downloadJson("naming-debt-report.json", report)}
+              onClick={() => report && downloadJson("naming-quality-report.json", report)}
             >
               <Download className="mr-2 h-4 w-4" />
               Export JSON
@@ -228,7 +228,7 @@ export function NamingDebtPage() {
               <CardContent className="space-y-2">
                 {!report ? (
                   <p className="text-sm text-muted-foreground">
-                    {loading ? "Loading report..." : "No naming debt report available."}
+                    {loading ? "Loading report..." : "No naming quality report available."}
                   </p>
                 ) : (
                   Object.values(report.scoreByCollection)
@@ -313,7 +313,7 @@ export function NamingDebtPage() {
             <CardHeader>
               <CardTitle>Top rename proposals</CardTitle>
               <CardDescription>
-                Risk-ranked proposals enriched with reference impact.
+                Risk-ranked proposals enriched with estimated reference impact.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -368,4 +368,3 @@ export function NamingDebtPage() {
     </div>
   );
 }
-

@@ -109,10 +109,10 @@ function buildHealthIssueItems(
     items.push({
       id: "health:naming-debt",
       kind: "health-issue",
-      title: `${namingDebt.summary.totalViolations} naming debt issues`,
-      subtitle: "Naming Debt",
+      title: `${namingDebt.summary.totalViolations} naming quality issues`,
+      subtitle: "Naming Quality",
       href: "/tokens/naming-debt",
-      keywords: ["naming", "debt", "normalization", "tokens"],
+      keywords: ["naming", "quality", "normalization", "tokens"],
     });
   }
 

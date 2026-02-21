@@ -332,7 +332,7 @@ export function TokensPage() {
               </Button>
             </Link>
             <Link to="/tokens/naming-debt">
-              <Button variant="outline">Naming Debt</Button>
+              <Button variant="outline">Naming Quality</Button>
             </Link>
             <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
               <RefreshCcw className="mr-2 h-4 w-4" />

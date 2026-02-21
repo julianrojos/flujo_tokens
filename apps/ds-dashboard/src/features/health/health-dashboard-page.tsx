@@ -305,7 +305,7 @@ export function HealthDashboardPage() {
     if (namingDebt && namingDebt.summary.issuesBySeverity.error > 0) {
       issues.push({
         id: "naming-errors",
-        label: "Naming debt (errors)",
+        label: "Naming quality (errors)",
         description: "High-severity naming inconsistencies in token taxonomy.",
         count: namingDebt.summary.issuesBySeverity.error,
         severity: "critical",
@@ -314,7 +314,7 @@ export function HealthDashboardPage() {
     } else if (namingDebt && namingDebt.summary.issuesBySeverity.warning > 0) {
       issues.push({
         id: "naming-warnings",
-        label: "Naming debt (warnings)",
+        label: "Naming quality (warnings)",
         description: "Normalization opportunities detected in token vocabulary.",
         count: namingDebt.summary.issuesBySeverity.warning,
         severity: "warning",

@@ -82,8 +82,8 @@ const navSections: NavSection[] = [
       },
       {
         to: "/tokens/naming-debt",
-        label: "Naming Debt",
-        description: "Normalization opportunities",
+        label: "Naming Quality",
+        description: "Consistency analysis and renames",
         icon: NotebookPen,
       },
     ],

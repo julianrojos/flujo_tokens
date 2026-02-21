@@ -1,9 +1,83 @@
-import type { NamingDebtCategory, NamingDebtFixType, NamingDebtReport, NamingDebtRenameProposal, NamingDebtRiskLevel, NamingDebtSeverity, NamingDebtViolation } from "../types/naming-debt";
+import type {
+  NamingDebtCategory,
+  NamingDebtFixType,
+  NamingDebtRenameProposal,
+  NamingDebtReport,
+  NamingDebtRiskLevel,
+  NamingDebtSeverity,
+  NamingDebtViolation,
+} from "../types/naming-debt";
 import type { TokenGraphViz } from "../types/token-graph";
 import type { TokenRegistry } from "../types/token-registry";
 import type { TokenUsageIndex } from "../types/token-usage-index";
 
 type RegistryToken = TokenRegistry["entries"][number];
+
+export type NamingDebtScopeMode = "global" | "collection" | "collection-type";
+
+export interface NamingDebtConfigInput {
+  ambiguousAbbreviations?: Record<string, string>;
+  genericTerminalSegments?: string[];
+  synonymGroups?: string[][];
+  maxPathDepth?: number;
+  ignoreCollections?: string[];
+  scopeMode?: NamingDebtScopeMode;
+  severityWeights?: Partial<Record<NamingDebtSeverity, number>>;
+  riskThresholds?: {
+    mediumImpact?: number;
+    highImpact?: number;
+    mediumSpecs?: number;
+    highSpecs?: number;
+  };
+}
+
+type NamingDebtConfig = {
+  ambiguousAbbreviations: Map<string, string>;
+  genericTerminalSegments: Set<string>;
+  synonymGroups: string[][];
+  maxPathDepth: number;
+  ignoreCollections: Set<string>;
+  scopeMode: NamingDebtScopeMode;
+  severityWeights: Record<NamingDebtSeverity, number>;
+  riskThresholds: {
+    mediumImpact: number;
+    highImpact: number;
+    mediumSpecs: number;
+    highSpecs: number;
+  };
+};
+
+const DEFAULT_RISK_THRESHOLDS = {
+  mediumImpact: 8,
+  highImpact: 25,
+  mediumSpecs: 4,
+  highSpecs: 10,
+} as const;
+
+const DEFAULT_CONFIG: Required<NamingDebtConfigInput> = {
+  ambiguousAbbreviations: {
+    bg: "background",
+    fg: "foreground",
+    btn: "button",
+    lbl: "label",
+    txt: "text",
+    nav: "navigation",
+    clr: "color",
+  },
+  genericTerminalSegments: ["base", "default", "value", "token", "item", "misc", "general"],
+  synonymGroups: [
+    ["background", "bg", "surface", "fill"],
+    ["foreground", "fg", "text", "content"],
+    ["border", "outline", "stroke", "divider"],
+    ["primary", "brand", "main", "default"],
+    ["small", "sm", "compact", "xs"],
+  ],
+  maxPathDepth: 7,
+  ignoreCollections: [],
+  scopeMode: "collection-type",
+  severityWeights: { error: 10, warning: 4, info: 1 },
+  riskThresholds: DEFAULT_RISK_THRESHOLDS,
+};
 
 type NamingRuleResult = {
   category: NamingDebtCategory;
@@ -23,48 +97,11 @@ type NamingRule = {
 };
 
 type NamingRuleContext = {
+  config: NamingDebtConfig;
   synonymVariantsByScope: Map<string, Set<string>>;
+  synonymCanonicalByVariant: Map<string, string>;
+  synonymGroupIndexByVariant: Map<string, number>;
 };
-
-const AMBIGUOUS_ABBREVIATIONS = new Map<string, string>([
-  ["bg", "background"],
-  ["fg", "foreground"],
-  ["btn", "button"],
-  ["lbl", "label"],
-  ["txt", "text"],
-  ["nav", "navigation"],
-  ["clr", "color"],
-  ["iconbtn", "icon_button"],
-]);
-
-const GENERIC_TERMINAL_SEGMENTS = new Set([
-  "base",
-  "default",
-  "value",
-  "token",
-  "item",
-  "misc",
-  "general",
-]);
-
-const SYNONYM_GROUPS = [
-  ["background", "bg", "surface", "fill"],
-  ["foreground", "fg", "text", "content"],
-  ["border", "outline", "stroke", "divider"],
-  ["primary", "brand", "main", "default"],
-  ["small", "sm", "compact", "xs"],
-] as const;
-
-const SYNONYM_CANONICAL = new Map<string, string>();
-const SYNONYM_GROUP_INDEX = new Map<string, number>();
-for (let groupIndex = 0; groupIndex < SYNONYM_GROUPS.length; groupIndex += 1) {
-  const group = SYNONYM_GROUPS[groupIndex];
-  const canonical = group[0];
-  for (const variant of group) {
-    SYNONYM_CANONICAL.set(variant, canonical);
-    SYNONYM_GROUP_INDEX.set(variant, groupIndex);
-  }
-}
 
 function normalizeTerm(value: string) {
   return String(value || "")
@@ -98,7 +135,11 @@ function applyCasePattern(sourceSegment: string, replacement: string) {
   return replacement;
 }
 
-function replaceSegmentPreservingPath(token: RegistryToken, replaceAtIndex: number, nextSegment: string) {
+function replaceSegmentPreservingPath(
+  token: RegistryToken,
+  replaceAtIndex: number,
+  nextSegment: string,
+) {
   const pathSegments = splitPath(token.path);
   const slashSegments = splitSlashPath(token.slashPath);
   if (replaceAtIndex < 0 || replaceAtIndex >= pathSegments.length) return null;
@@ -118,14 +159,106 @@ function replaceSegmentPreservingPath(token: RegistryToken, replaceAtIndex: numb
   };
 }
 
-function buildSynonymScopeMap(tokens: RegistryToken[]) {
+function mergeConfig(input?: NamingDebtConfigInput): NamingDebtConfig {
+  const mergedAbbreviations = {
+    ...DEFAULT_CONFIG.ambiguousAbbreviations,
+    ...(input?.ambiguousAbbreviations || {}),
+  };
+  const mergedGenericTerminals = [
+    ...DEFAULT_CONFIG.genericTerminalSegments,
+    ...(input?.genericTerminalSegments || []),
+  ];
+  const synonymGroups =
+    input?.synonymGroups && input.synonymGroups.length > 0
+      ? input.synonymGroups
+      : DEFAULT_CONFIG.synonymGroups;
+
+  const severityWeights = {
+    ...DEFAULT_CONFIG.severityWeights,
+    ...(input?.severityWeights || {}),
+  } as Record<NamingDebtSeverity, number>;
+
+  const riskThresholds = {
+    ...DEFAULT_CONFIG.riskThresholds,
+    ...(input?.riskThresholds || {}),
+  };
+
+  return {
+    ambiguousAbbreviations: new Map(
+      Object.entries(mergedAbbreviations).map(([key, value]) => [
+        normalizeTerm(key),
+        normalizeTerm(value),
+      ]),
+    ),
+    genericTerminalSegments: new Set(
+      mergedGenericTerminals.map((item) => normalizeTerm(item)).filter(Boolean),
+    ),
+    synonymGroups: synonymGroups
+      .map((group) => group.map((variant) => normalizeTerm(variant)).filter(Boolean))
+      .filter((group) => group.length > 0),
+    maxPathDepth: Math.max(2, Math.floor(input?.maxPathDepth ?? DEFAULT_CONFIG.maxPathDepth)),
+    ignoreCollections: new Set(
+      (input?.ignoreCollections ?? DEFAULT_CONFIG.ignoreCollections)
+        .map((collection) => String(collection || "").trim())
+        .filter(Boolean),
+    ),
+    scopeMode: input?.scopeMode ?? DEFAULT_CONFIG.scopeMode,
+    severityWeights,
+    riskThresholds: {
+      mediumImpact: Math.max(
+        1,
+        Math.floor(riskThresholds.mediumImpact ?? DEFAULT_RISK_THRESHOLDS.mediumImpact),
+      ),
+      highImpact: Math.max(
+        2,
+        Math.floor(riskThresholds.highImpact ?? DEFAULT_RISK_THRESHOLDS.highImpact),
+      ),
+      mediumSpecs: Math.max(
+        1,
+        Math.floor(riskThresholds.mediumSpecs ?? DEFAULT_RISK_THRESHOLDS.mediumSpecs),
+      ),
+      highSpecs: Math.max(
+        2,
+        Math.floor(riskThresholds.highSpecs ?? DEFAULT_RISK_THRESHOLDS.highSpecs),
+      ),
+    },
+  };
+}
+
+function buildSynonymIndexes(config: NamingDebtConfig) {
+  const synonymCanonicalByVariant = new Map<string, string>();
+  const synonymGroupIndexByVariant = new Map<string, number>();
+
+  config.synonymGroups.forEach((group, groupIndex) => {
+    const canonical = group[0];
+    for (const variant of group) {
+      synonymCanonicalByVariant.set(variant, canonical);
+      synonymGroupIndexByVariant.set(variant, groupIndex);
+    }
+  });
+
+  return {
+    synonymCanonicalByVariant,
+    synonymGroupIndexByVariant,
+  };
+}
+
+function buildSynonymScopeMap(tokens: RegistryToken[], context: NamingRuleContext) {
   const byScope = new Map<string, Set<string>>();
   for (const token of tokens) {
     const segments = splitPath(token.path);
     for (let index = 1; index < segments.length; index += 1) {
       const variant = normalizeTerm(segments[index]);
-      if (!variant || !SYNONYM_GROUP_INDEX.has(variant)) continue;
-      const scope = `${token.collection}:${token.type}:${SYNONYM_GROUP_INDEX.get(variant)}:${index}`;
+      const groupIndex = context.synonymGroupIndexByVariant.get(variant);
+      if (groupIndex === undefined) continue;
+
+      const keyBase = `${groupIndex}:${index}`;
+      const scope =
+        context.config.scopeMode === "global"
+          ? keyBase
+          : context.config.scopeMode === "collection"
+            ? `${token.collection}:${keyBase}`
+            : `${token.collection}:${token.type}:${keyBase}`;
       if (!byScope.has(scope)) byScope.set(scope, new Set());
       byScope.get(scope)!.add(variant);
     }
@@ -137,10 +270,8 @@ function buildGraphDependentsIndex(graph: TokenGraphViz | null | undefined) {
   if (!graph) return new Map<string, number>();
 
   const inById = new Map<string, string[]>();
-  const nodeIdByPath = new Map<string, string>();
   for (const node of graph.nodes || []) {
     inById.set(node.id, []);
-    nodeIdByPath.set(node.path, node.id);
   }
   for (const edge of graph.edges || []) {
     if (!inById.has(edge.target)) continue;
@@ -170,11 +301,22 @@ function toRiskLevel(args: {
   directRefs: number;
   transitiveRefs: number;
   affectedSpecs: number;
+  config: NamingDebtConfig;
 }) {
   const totalImpact = args.directRefs + args.transitiveRefs;
   if (totalImpact === 0) return "safe" as const;
-  if (totalImpact >= 25 || args.affectedSpecs >= 10) return "high" as const;
-  if (totalImpact >= 8 || args.affectedSpecs >= 4) return "medium" as const;
+  if (
+    totalImpact >= args.config.riskThresholds.highImpact ||
+    args.affectedSpecs >= args.config.riskThresholds.highSpecs
+  ) {
+    return "high" as const;
+  }
+  if (
+    totalImpact >= args.config.riskThresholds.mediumImpact ||
+    args.affectedSpecs >= args.config.riskThresholds.mediumSpecs
+  ) {
+    return "medium" as const;
+  }
   return "low" as const;
 }
 
@@ -184,129 +326,153 @@ function effortByRisk(riskLevel: NamingDebtRiskLevel) {
   return "breaking" as const;
 }
 
-const NAMING_RULES: NamingRule[] = [
-  {
-    id: "mixed-separators",
-    check: (token) => {
-      const segments = splitPath(token.path);
-      for (let index = 1; index < segments.length; index += 1) {
-        const segment = segments[index];
-        if (!segment.includes("_")) continue;
-        const replacement = segment.replace(/_+/g, "-");
-        const suggested = replaceSegmentPreservingPath(token, index, replacement);
-        return {
-          category: "casing",
-          severity: "warning",
-          message: "Segment mixes unsupported separators. Prefer kebab/camel style without underscores.",
-          evidence: [segment],
-          fix: suggested ? "auto" : "manual",
-          confidence: 0.95,
-          suggestedPath: suggested?.suggestedPath,
-          suggestedSlashPath: suggested?.suggestedSlashPath,
-          rationale: "Normalize separator style for deterministic naming.",
-        };
-      }
-      return null;
+function createRules(): NamingRule[] {
+  return [
+    {
+      id: "mixed-separators",
+      check: (token) => {
+        const segments = splitPath(token.path);
+        for (let index = 1; index < segments.length; index += 1) {
+          const segment = segments[index];
+          if (!segment.includes("_")) continue;
+          const replacement = segment.replace(/_+/g, "-");
+          const suggested = replaceSegmentPreservingPath(token, index, replacement);
+          return {
+            category: "casing",
+            severity: "warning",
+            message:
+              "Segment contains underscore separators; normalize separator style for better consistency.",
+            evidence: [segment],
+            fix: suggested ? "auto" : "manual",
+            confidence: 0.95,
+            suggestedPath: suggested?.suggestedPath,
+            suggestedSlashPath: suggested?.suggestedSlashPath,
+            rationale: "Normalize separator style for deterministic naming.",
+          };
+        }
+        return null;
+      },
     },
-  },
-  {
-    id: "ambiguous-abbreviation",
-    check: (token) => {
-      const segments = splitPath(token.path);
-      for (let index = 1; index < segments.length; index += 1) {
-        const normalized = normalizeTerm(segments[index]);
-        const canonical = AMBIGUOUS_ABBREVIATIONS.get(normalized);
-        if (!canonical) continue;
-        const suggested = replaceSegmentPreservingPath(token, index, canonical);
+    {
+      id: "ambiguous-abbreviation",
+      check: (token, context) => {
+        const segments = splitPath(token.path);
+        for (let index = 1; index < segments.length; index += 1) {
+          const normalized = normalizeTerm(segments[index]);
+          const canonical = context.config.ambiguousAbbreviations.get(normalized);
+          if (!canonical) continue;
+          const suggested = replaceSegmentPreservingPath(token, index, canonical);
+          return {
+            category: "vocabulary",
+            severity: "warning",
+            message: `Ambiguous abbreviation '${segments[index]}' detected. Prefer '${canonical}'.`,
+            evidence: [segments[index]],
+            fix: suggested ? "auto" : "manual",
+            confidence: 0.9,
+            suggestedPath: suggested?.suggestedPath,
+            suggestedSlashPath: suggested?.suggestedSlashPath,
+            rationale: "Expand abbreviations to improve semantic clarity.",
+          };
+        }
+        return null;
+      },
+    },
+    {
+      id: "generic-terminal",
+      check: (token, context) => {
+        const segments = splitPath(token.path);
+        if (segments.length < 2) return null;
+        const terminal = normalizeTerm(segments[segments.length - 1]);
+        if (!context.config.genericTerminalSegments.has(terminal)) return null;
         return {
           category: "vocabulary",
-          severity: "warning",
-          message: `Ambiguous abbreviation '${segments[index]}' detected. Prefer '${canonical}'.`,
-          evidence: [segments[index]],
-          fix: suggested ? "auto" : "manual",
-          confidence: 0.9,
-          suggestedPath: suggested?.suggestedPath,
-          suggestedSlashPath: suggested?.suggestedSlashPath,
-          rationale: "Expand abbreviations to improve semantic clarity.",
+          severity: "info",
+          message: `Generic terminal segment '${segments[segments.length - 1]}' can hide intent.`,
+          evidence: [segments[segments.length - 1]],
+          fix: "manual",
+          confidence: 0.7,
+          rationale: "Use a more descriptive terminal segment when possible.",
         };
-      }
-      return null;
+      },
     },
-  },
-  {
-    id: "generic-terminal",
-    check: (token) => {
-      const segments = splitPath(token.path);
-      if (segments.length < 2) return null;
-      const terminal = normalizeTerm(segments[segments.length - 1]);
-      if (!GENERIC_TERMINAL_SEGMENTS.has(terminal)) return null;
-      return {
-        category: "vocabulary",
-        severity: "info",
-        message: `Generic terminal segment '${segments[segments.length - 1]}' can hide intent.`,
-        evidence: [segments[segments.length - 1]],
-        fix: "manual",
-        confidence: 0.7,
-        rationale: "Use a more descriptive terminal segment when possible.",
-      };
-    },
-  },
-  {
-    id: "path-depth-outlier",
-    check: (token) => {
-      const depth = splitPath(token.path).length;
-      if (depth <= 7) return null;
-      return {
-        category: "structure",
-        severity: "info",
-        message: `Path depth is ${depth} segments; consider reducing hierarchy complexity.`,
-        evidence: [String(depth)],
-        fix: "manual",
-        confidence: 0.65,
-        rationale: "Deep token paths tend to increase cognitive load and maintenance cost.",
-      };
-    },
-  },
-  {
-    id: "synonym-inconsistency",
-    check: (token, context) => {
-      const segments = splitPath(token.path);
-      for (let index = 1; index < segments.length; index += 1) {
-        const variant = normalizeTerm(segments[index]);
-        const groupIndex = SYNONYM_GROUP_INDEX.get(variant);
-        if (groupIndex === undefined) continue;
-        const scope = `${token.collection}:${token.type}:${groupIndex}:${index}`;
-        const variantsInScope = context.synonymVariantsByScope.get(scope);
-        if (!variantsInScope || variantsInScope.size <= 1) continue;
-        const canonical = SYNONYM_CANONICAL.get(variant);
-        if (!canonical || canonical === variant) continue;
-        const suggested = replaceSegmentPreservingPath(token, index, canonical);
+    {
+      id: "path-depth-outlier",
+      check: (token, context) => {
+        const depth = splitPath(token.path).length;
+        if (depth <= context.config.maxPathDepth) return null;
         return {
-          category: "consistency",
-          severity: "warning",
-          message: `Inconsistent synonym usage in ${token.collection}/${token.type}. Prefer '${canonical}' over '${segments[index]}'.`,
-          evidence: Array.from(variantsInScope).sort((left, right) => left.localeCompare(right)),
-          fix: suggested ? "manual" : "manual",
-          confidence: 0.8,
-          suggestedPath: suggested?.suggestedPath,
-          suggestedSlashPath: suggested?.suggestedSlashPath,
-          rationale: "Normalize vocabulary inside the same semantic scope.",
+          category: "structure",
+          severity: "info",
+          message: `Path depth is ${depth} segments (threshold ${context.config.maxPathDepth}).`,
+          evidence: [String(depth)],
+          fix: "manual",
+          confidence: 0.65,
+          rationale: "Deep token paths tend to increase cognitive load and maintenance cost.",
         };
-      }
-      return null;
+      },
     },
-  },
-];
+    {
+      id: "synonym-inconsistency",
+      check: (token, context) => {
+        const segments = splitPath(token.path);
+        for (let index = 1; index < segments.length; index += 1) {
+          const variant = normalizeTerm(segments[index]);
+          const groupIndex = context.synonymGroupIndexByVariant.get(variant);
+          if (groupIndex === undefined) continue;
+          const scopeBase = `${groupIndex}:${index}`;
+          const scope =
+            context.config.scopeMode === "global"
+              ? scopeBase
+              : context.config.scopeMode === "collection"
+                ? `${token.collection}:${scopeBase}`
+                : `${token.collection}:${token.type}:${scopeBase}`;
+          const variantsInScope = context.synonymVariantsByScope.get(scope);
+          if (!variantsInScope || variantsInScope.size <= 1) continue;
+          const canonical = context.synonymCanonicalByVariant.get(variant);
+          if (!canonical || canonical === variant) continue;
+          const suggested = replaceSegmentPreservingPath(token, index, canonical);
+          return {
+            category: "consistency",
+            severity: "warning",
+            message: `Inconsistent synonym usage in the same scope. Prefer '${canonical}' over '${segments[index]}'.`,
+            evidence: Array.from(variantsInScope).sort((left, right) =>
+              left.localeCompare(right),
+            ),
+            fix: "manual",
+            confidence: 0.8,
+            suggestedPath: suggested?.suggestedPath,
+            suggestedSlashPath: suggested?.suggestedSlashPath,
+            rationale: "Normalize vocabulary inside the same semantic scope.",
+          };
+        }
+        return null;
+      },
+    },
+  ];
+}
 
 export function analyzeNamingDebt(args: {
   tokenRegistry: TokenRegistry;
   tokenUsageIndex?: TokenUsageIndex | null;
   tokenGraph?: TokenGraphViz | null;
+  config?: NamingDebtConfigInput;
 }): NamingDebtReport {
-  const tokens = args.tokenRegistry.entries || [];
+  const config = mergeConfig(args.config);
+  const { synonymCanonicalByVariant, synonymGroupIndexByVariant } = buildSynonymIndexes(config);
+
+  const allTokens = args.tokenRegistry.entries || [];
+  const tokens = allTokens.filter(
+    (token) => !config.ignoreCollections.has(String(token.collection || "").trim()),
+  );
+
   const context: NamingRuleContext = {
-    synonymVariantsByScope: buildSynonymScopeMap(tokens),
+    config,
+    synonymCanonicalByVariant,
+    synonymGroupIndexByVariant,
+    synonymVariantsByScope: new Map<string, Set<string>>(),
   };
+  context.synonymVariantsByScope = buildSynonymScopeMap(tokens, context);
+  const rules = createRules();
 
   const violations: NamingDebtViolation[] = [];
   const proposalSeed: Array<{
@@ -321,7 +487,7 @@ export function analyzeNamingDebt(args: {
   }> = [];
 
   for (const token of tokens) {
-    for (const rule of NAMING_RULES) {
+    for (const rule of rules) {
       const outcome = rule.check(token, context);
       if (!outcome) continue;
 
@@ -395,6 +561,7 @@ export function analyzeNamingDebt(args: {
       directRefs,
       transitiveRefs,
       affectedSpecs: affectedSpecs.length,
+      config,
     });
     const breakingChange = affectedCssFiles.length > 0 || transitiveRefs > 0;
 
@@ -424,11 +591,11 @@ export function analyzeNamingDebt(args: {
       medium: 2,
       high: 3,
     };
-    const riskDiff = riskRank[left.riskLevel] - riskRank[right.riskLevel];
-    if (riskDiff !== 0) return riskDiff;
-    const refsDiff =
+    const byRisk = riskRank[left.riskLevel] - riskRank[right.riskLevel];
+    if (byRisk !== 0) return byRisk;
+    const byRefs =
       left.directRefs + left.transitiveRefs - (right.directRefs + right.transitiveRefs);
-    if (refsDiff !== 0) return refsDiff;
+    if (byRefs !== 0) return byRefs;
     return left.currentPath.localeCompare(right.currentPath, "en", { sensitivity: "base" });
   });
 
@@ -504,8 +671,11 @@ export function analyzeNamingDebt(args: {
       info: 0,
       tokensWithIssues: new Set<string>(),
     };
-    const debtPoints = issues.error * 10 + issues.warning * 4 + issues.info * 1;
-    const maxPoints = Math.max(1, totalTokens * 10);
+    const debtPoints =
+      issues.error * config.severityWeights.error +
+      issues.warning * config.severityWeights.warning +
+      issues.info * config.severityWeights.info;
+    const maxPoints = Math.max(1, totalTokens * config.severityWeights.error);
     const score = Math.max(0, Math.round(100 - (debtPoints / maxPoints) * 100));
     const cleanPercent = Math.round(
       ((totalTokens - issues.tokensWithIssues.size) / Math.max(1, totalTokens)) * 100,
@@ -532,8 +702,10 @@ export function analyzeNamingDebt(args: {
   );
 
   const overallDebtPoints =
-    issuesBySeverity.error * 10 + issuesBySeverity.warning * 4 + issuesBySeverity.info * 1;
-  const overallMaxPoints = Math.max(1, tokens.length * 10);
+    issuesBySeverity.error * config.severityWeights.error +
+    issuesBySeverity.warning * config.severityWeights.warning +
+    issuesBySeverity.info * config.severityWeights.info;
+  const overallMaxPoints = Math.max(1, tokens.length * config.severityWeights.error);
   const overallScore = Math.max(
     0,
     Math.round(100 - (overallDebtPoints / overallMaxPoints) * 100),
@@ -567,7 +739,11 @@ export function analyzeNamingDebt(args: {
       manualReview: renameProposals.filter((proposal) => proposal.fix === "manual").length,
       overallScore,
       collectionsWithDebt: Object.values(scoreByCollection).filter(
-        (item) => item.issuesBySeverity.error + item.issuesBySeverity.warning + item.issuesBySeverity.info > 0,
+        (item) =>
+          item.issuesBySeverity.error +
+            item.issuesBySeverity.warning +
+            item.issuesBySeverity.info >
+          0,
       ).length,
     },
     scoreByCollection,
@@ -578,4 +754,3 @@ export function analyzeNamingDebt(args: {
     renamePlan,
   };
 }
-

@@ -18,6 +18,7 @@ import type { SpecValidationResult } from "./src/types/spec-editor";
 import type { TokenRegistry } from "./src/types/token-registry";
 import type { TokenGraphViz } from "./src/types/token-graph";
 import type { TokenUsageIndex } from "./src/types/token-usage-index";
+import type { NamingDebtConfigInput } from "./src/lib/naming-debt";
 
 type Middleware = (
   req: {
@@ -900,21 +901,25 @@ async function computeNamingDebtReport(args: {
   tokenRegistryPath: string;
   tokenUsageIndexPath: string;
   tokenGraphVizPath: string;
+  namingDebtConfigPath: string;
 }): Promise<NamingDebtReport> {
-  const [tokenRegistryRaw, tokenUsageRaw, tokenGraphRaw] = await Promise.all([
+  const [tokenRegistryRaw, tokenUsageRaw, tokenGraphRaw, namingConfigRaw] = await Promise.all([
     fs.readFile(args.tokenRegistryPath, "utf8"),
     fs.readFile(args.tokenUsageIndexPath, "utf8").catch(() => "null"),
     fs.readFile(args.tokenGraphVizPath, "utf8").catch(() => "null"),
+    fs.readFile(args.namingDebtConfigPath, "utf8").catch(() => "null"),
   ]);
 
   const tokenRegistry = JSON.parse(tokenRegistryRaw) as TokenRegistry;
   const tokenUsageIndex = tokenUsageRaw ? (JSON.parse(tokenUsageRaw) as TokenUsageIndex | null) : null;
   const tokenGraph = tokenGraphRaw ? (JSON.parse(tokenGraphRaw) as TokenGraphViz | null) : null;
+  const config = namingConfigRaw ? (JSON.parse(namingConfigRaw) as NamingDebtConfigInput | null) : null;
 
   return analyzeNamingDebt({
     tokenRegistry,
     tokenUsageIndex,
     tokenGraph,
+    config: config || undefined,
   });
 }
 
@@ -958,6 +963,7 @@ function createLocalDataApi() {
   );
   const healthHistoryPath = path.join(repoRoot, "docs", "_generated", "health-history.json");
   const namingDebtCachePath = path.join(repoRoot, "docs", "_generated", "naming-debt.json");
+  const namingDebtConfigPath = path.join(repoRoot, "tooling", "config", "naming-debt.config.json");
   const wcagPairsPath = path.join(repoRoot, "tooling", "config", "wcag-pairs.json");
   const tokenDiffScriptPath = path.join(
     repoRoot,
@@ -1074,6 +1080,7 @@ function createLocalDataApi() {
           tokenRegistryPath,
           tokenUsageIndexPath,
           tokenGraphVizPath,
+          namingDebtConfigPath,
         });
         await fs.mkdir(path.dirname(namingDebtCachePath), { recursive: true });
         await fs.writeFile(namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
@@ -1771,6 +1778,7 @@ function createLocalDataApi() {
           tokenRegistryPath,
           tokenUsageIndexPath,
           tokenGraphVizPath,
+          namingDebtConfigPath,
         });
         await fs.mkdir(path.dirname(namingDebtCachePath), { recursive: true });
         await fs.writeFile(namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
