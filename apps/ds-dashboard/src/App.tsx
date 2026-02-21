@@ -22,14 +22,16 @@ import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
+  SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { TokenGraphPage } from "@/features/tokens/token-graph/token-graph-page";
 import { TokenDiffPage } from "@/features/tokens/token-diff/token-diff-page";
@@ -118,6 +120,7 @@ const navItems = navSections.flatMap((section) => section.items);
 
 export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -134,15 +137,36 @@ export default function App() {
     <>
       <div className="min-h-screen bg-background text-foreground">
         <SidebarProvider className="relative mx-auto min-h-screen w-full max-w-[1600px]">
-          <Sidebar>
+          <Sidebar collapsed={sidebarCollapsed}>
             <SidebarHeader className="mb-1">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                Local Dashboard
-              </p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight">
+              <div className="mb-2 flex items-center justify-between">
+                <p
+                  className={cn(
+                    "text-xs uppercase tracking-[0.18em] text-muted-foreground",
+                    sidebarCollapsed && "sr-only",
+                  )}
+                >
+                  Local Dashboard
+                </p>
+                <SidebarTrigger
+                  collapsed={sidebarCollapsed}
+                  onClick={() => setSidebarCollapsed((value) => !value)}
+                />
+              </div>
+              <h1
+                className={cn(
+                  "mt-2 text-2xl font-semibold tracking-tight",
+                  sidebarCollapsed && "sr-only",
+                )}
+              >
                 Design System
               </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p
+                className={cn(
+                  "mt-2 text-sm text-muted-foreground",
+                  sidebarCollapsed && "sr-only",
+                )}
+              >
                 Datos locales del repositorio, sin servidor externo.
               </p>
             </SidebarHeader>
@@ -150,58 +174,49 @@ export default function App() {
             <SidebarContent>
               {navSections.map((section) => (
                 <SidebarGroup key={section.id}>
-                  <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
-                  <SidebarMenu>
-                    {section.items.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <SidebarMenuItem key={item.to}>
-                          <NavLink
-                            to={item.to}
-                            className={({ isActive }) =>
-                              cn(
-                                "group block rounded-xl border border-transparent px-3 py-3 transition",
-                                isActive
-                                  ? "border-primary/20 bg-primary/10"
-                                  : "hover:border-border/70 hover:bg-accent/60",
-                              )
-                            }
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="rounded-md bg-muted/50 p-2 text-muted-foreground group-hover:text-foreground">
-                                <Icon className="h-4 w-4" />
-                              </span>
-                              <div>
-                                <p className="text-sm font-semibold">{item.label}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {item.description}
-                                </p>
-                              </div>
-                            </div>
-                          </NavLink>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
+                  <SidebarGroupLabel className={cn(sidebarCollapsed && "sr-only")}>
+                    {section.label}
+                  </SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {section.items.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <SidebarMenuItem key={item.to}>
+                            <NavLink to={item.to} className="block">
+                              {({ isActive }) => (
+                                <SidebarMenuButton
+                                  isActive={isActive}
+                                  title={sidebarCollapsed ? item.label : undefined}
+                                >
+                                  <div
+                                    className={cn(
+                                      "flex items-center gap-3",
+                                      sidebarCollapsed && "justify-center",
+                                    )}
+                                  >
+                                    <span className="rounded-md bg-muted/50 p-2 text-muted-foreground group-hover:text-foreground">
+                                      <Icon className="h-4 w-4" />
+                                    </span>
+                                    <div className={cn(sidebarCollapsed && "hidden")}>
+                                      <p className="text-sm font-semibold">{item.label}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {item.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </SidebarMenuButton>
+                              )}
+                            </NavLink>
+                          </SidebarMenuItem>
+                        );
+                      })}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
                 </SidebarGroup>
               ))}
             </SidebarContent>
 
-            <SidebarFooter>
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-lg border border-border/70 bg-background px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground"
-                onClick={() => setCommandPaletteOpen(true)}
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Search className="h-4 w-4" />
-                  Search
-                </span>
-                <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[11px]">
-                  ⌘K
-                </kbd>
-              </button>
-            </SidebarFooter>
           </Sidebar>
 
           <SidebarInset>
@@ -249,7 +264,24 @@ export default function App() {
                 </div>
               </header>
 
-              <AppBreadcrumb />
+              <div className="mb-4 flex items-center gap-3">
+                <div className="min-w-0 flex-1">
+                  <AppBreadcrumb />
+                </div>
+                <button
+                  type="button"
+                  className="hidden shrink-0 items-center justify-between gap-3 rounded-lg border border-border/70 bg-card/70 px-3 py-2 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground lg:flex"
+                  onClick={() => setCommandPaletteOpen(true)}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Search className="h-4 w-4" />
+                    Search
+                  </span>
+                  <kbd className="rounded border bg-muted px-1.5 py-0.5 text-[11px]">
+                    ⌘K
+                  </kbd>
+                </button>
+              </div>
 
               <Routes>
                 <Route path="/" element={<Navigate to="/health" replace />} />

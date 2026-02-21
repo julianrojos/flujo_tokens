@@ -1,6 +1,7 @@
 import { Fragment, useMemo } from "react";
 import { Link, matchPath, useLocation } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Crumb = {
   label: string;
@@ -63,14 +64,14 @@ function buildCrumbs(pathname: string): Crumb[] {
   return [];
 }
 
-export function AppBreadcrumb() {
+export function AppBreadcrumb({ className }: { className?: string }) {
   const location = useLocation();
   const crumbs = useMemo(() => buildCrumbs(location.pathname), [location.pathname]);
 
   if (crumbs.length === 0) return null;
 
   return (
-    <div className="mb-4 rounded-lg border border-border/70 bg-card/70 px-3 py-2">
+    <div className={cn("rounded-lg border border-border/70 bg-card/70 px-3 py-2", className)}>
       <nav aria-label="Breadcrumb">
         <ol className="flex flex-wrap items-center gap-1.5 text-xs">
           {crumbs.map((crumb, index) => {
