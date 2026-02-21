@@ -4,10 +4,12 @@ import { ArrowLeft, ArrowRight, ArrowUpDown, Check, Copy } from "lucide-react";
 
 import {
   fetchFileSnippet,
+  fetchComponentRegistry,
   fetchTokenHealth,
   fetchTokenRegistry,
   fetchTokenUsageIndex,
 } from "@/lib/api";
+import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
 import type { FileSnippetPayload } from "@/lib/api";
 import type {
@@ -47,6 +49,27 @@ const KIND_LABELS: Record<string, string> = {
   "component-spec": "Component spec",
   "css-alias": "CSS alias",
 };
+
+const COMPONENT_STAGE_LABELS: Record<PipelineStage, string> = {
+  "missing-spec": "Missing spec",
+  spec: "Spec",
+  markdown: "Markdown",
+  render: "Render",
+  "visual-proof": "Visual proof",
+};
+
+type ComponentUsageMode = "direct" | "via_alias";
+
+interface ComponentTokenUsage {
+  slug: string;
+  displayName: string;
+  pipelineStage: PipelineStage | null;
+  mode: ComponentUsageMode;
+  occurrences: number;
+  slots: string[];
+  conditions: string[];
+  aliasChains: string[][];
+}
 
 function extractLineNumber(detail: string): number | null {
   const match = String(detail || "").match(/\bline:(\d+)\b/i);
@@ -121,6 +144,24 @@ function buildAliasChain(registry: TokenRegistry | null, token: TokenEntry | nul
   }
 
   return { chain, brokenRef, hasCycle };
+}
+
+function stageBadge(stage: PipelineStage): "success" | "warning" | "neutral" {
+  if (stage === "render" || stage === "visual-proof") return "success";
+  if (stage === "markdown") return "warning";
+  return "neutral";
+}
+
+function parseComponentUsageDetail(detail: string) {
+  const raw = String(detail || "").trim();
+  if (!raw) return { slot: null as string | null, condition: null as string | null };
+  const tokenMappingMatch = raw.match(/^token_mapping\.([^:]+)(?::(.+))?$/i);
+  if (!tokenMappingMatch) {
+    return { slot: null as string | null, condition: null as string | null };
+  }
+  const slot = tokenMappingMatch[1] ? tokenMappingMatch[1].trim() : null;
+  const condition = tokenMappingMatch[2] ? tokenMappingMatch[2].trim() : null;
+  return { slot, condition };
 }
 
 function UsageGroup({
@@ -403,7 +444,9 @@ export function TokenDetailPage() {
   const [registry, setRegistry] = useState<TokenRegistry | null>(null);
   const [token, setToken] = useState<TokenEntry | null>(null);
   const [usage, setUsage] = useState<TokenUsageEntry | null>(null);
+  const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
   const [tokenHealth, setTokenHealth] = useState<TokenHealthReport | null>(null);
+  const [components, setComponents] = useState<ComponentRegistryItem[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -414,15 +457,18 @@ export function TokenDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const [registry, usageIndex, health] = await Promise.all([
+        const [registry, usageIndex, health, componentRegistry] = await Promise.all([
           fetchTokenRegistry(),
           fetchTokenUsageIndex().catch(() => null),
           fetchTokenHealth().catch(() => null),
+          fetchComponentRegistry().catch(() => null),
         ]);
         setRegistry(registry);
         setToken(registry.byPath[decoded] ?? null);
         setUsage(usageIndex?.byPath[decoded] ?? null);
+        setUsageByPath(usageIndex?.byPath ?? {});
         setTokenHealth(health);
+        setComponents(componentRegistry?.components ?? []);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -478,6 +524,169 @@ export function TokenDetailPage() {
     currentTokenIndex >= 0 && currentTokenIndex < scopedTokens.length - 1
       ? scopedTokens[currentTokenIndex + 1]
       : null;
+  const componentMode = searchParams.get("cmode") || "all";
+  const componentQuery = String(searchParams.get("cq") || "").trim().toLowerCase();
+
+  const componentBySlug = useMemo(() => {
+    const map: Record<string, ComponentRegistryItem> = {};
+    for (const component of components) {
+      map[component.slug] = component;
+    }
+    return map;
+  }, [components]);
+
+  const reverseAliasMap = useMemo(() => {
+    const map = new Map<string, TokenEntry[]>();
+    if (!registry) return map;
+    for (const entry of registry.entries ?? []) {
+      if (!entry.aliasOf) continue;
+      const target = resolveAliasTarget(registry, entry.aliasOf);
+      if (!target) continue;
+      const list = map.get(target.path) ?? [];
+      list.push(entry);
+      map.set(target.path, list);
+    }
+    return map;
+  }, [registry]);
+
+  const aliasDescendantChains = useMemo(() => {
+    const chains = new Map<string, TokenEntry[]>();
+    if (!token) return chains;
+    const queue: Array<{ entry: TokenEntry; chain: TokenEntry[] }> = [{ entry: token, chain: [token] }];
+    const visited = new Set<string>([token.path]);
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) break;
+      const children = reverseAliasMap.get(current.entry.path) ?? [];
+      for (const child of children) {
+        if (visited.has(child.path)) continue;
+        const chain = [child, ...current.chain];
+        chains.set(child.path, chain);
+        visited.add(child.path);
+        queue.push({ entry: child, chain });
+      }
+    }
+    return chains;
+  }, [reverseAliasMap, token]);
+
+  const componentUsages = useMemo(() => {
+    if (!token) return [] as ComponentTokenUsage[];
+
+    const rows = new Map<
+      string,
+      {
+        slug: string;
+        displayName: string;
+        pipelineStage: PipelineStage | null;
+        mode: ComponentUsageMode;
+        occurrences: number;
+        slotSet: Set<string>;
+        conditionSet: Set<string>;
+        aliasChainMap: Map<string, string[]>;
+      }
+    >();
+
+    const ensureRow = (slug: string) => {
+      const trimmed = String(slug || "").trim();
+      if (!trimmed) return null;
+      const component = componentBySlug[trimmed];
+      const existing = rows.get(trimmed);
+      if (existing) return existing;
+      const created = {
+        slug: trimmed,
+        displayName: component?.display_name ?? trimmed,
+        pipelineStage: component?.pipeline_stage ?? null,
+        mode: "via_alias" as ComponentUsageMode,
+        occurrences: 0,
+        slotSet: new Set<string>(),
+        conditionSet: new Set<string>(),
+        aliasChainMap: new Map<string, string[]>(),
+      };
+      rows.set(trimmed, created);
+      return created;
+    };
+
+    const registerOccurrence = (
+      occ: TokenUsageOccurrence,
+      mode: ComponentUsageMode,
+      aliasChain: string[] | null,
+    ) => {
+      if (occ.kind !== "component-spec") return;
+      const row = ensureRow(occ.owner);
+      if (!row) return;
+
+      row.occurrences += 1;
+      const parsed = parseComponentUsageDetail(occ.detail || "");
+      if (parsed.slot) row.slotSet.add(parsed.slot);
+      if (parsed.condition) row.conditionSet.add(parsed.condition);
+
+      if (mode === "direct") {
+        row.mode = "direct";
+        row.aliasChainMap.clear();
+      } else if (row.mode !== "direct" && aliasChain && aliasChain.length > 1) {
+        const signature = aliasChain.join(" -> ");
+        if (!row.aliasChainMap.has(signature)) {
+          row.aliasChainMap.set(signature, aliasChain);
+        }
+      }
+    };
+
+    const directUsage = usageByPath[token.path];
+    for (const occ of directUsage?.usedIn ?? []) {
+      registerOccurrence(occ, "direct", null);
+    }
+
+    for (const [aliasPath, chain] of aliasDescendantChains) {
+      const aliasUsage = usageByPath[aliasPath];
+      if (!aliasUsage) continue;
+      const chainPaths = chain.map((entry) => entry.path);
+      for (const occ of aliasUsage.usedIn ?? []) {
+        registerOccurrence(occ, "via_alias", chainPaths);
+      }
+    }
+
+    return Array.from(rows.values())
+      .map((row) => ({
+        slug: row.slug,
+        displayName: row.displayName,
+        pipelineStage: row.pipelineStage,
+        mode: row.mode,
+        occurrences: row.occurrences,
+        slots: Array.from(row.slotSet).sort((a, b) => a.localeCompare(b)),
+        conditions: Array.from(row.conditionSet).sort((a, b) => a.localeCompare(b)),
+        aliasChains: Array.from(row.aliasChainMap.values()),
+      }))
+      .sort((left, right) => left.displayName.localeCompare(right.displayName));
+  }, [aliasDescendantChains, componentBySlug, token, usageByPath]);
+
+  const filteredComponentUsages = useMemo(() => {
+    return componentUsages.filter((entry) => {
+      const matchesMode = componentMode === "all" || entry.mode === componentMode;
+      if (!matchesMode) return false;
+      if (!componentQuery) return true;
+      const searchable = [
+        entry.displayName,
+        entry.slug,
+        ...entry.slots,
+        ...entry.conditions,
+        ...entry.aliasChains.map((chain) => chain.join(" ")),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return searchable.includes(componentQuery);
+    });
+  }, [componentMode, componentQuery, componentUsages]);
+
+  const componentUsageSummary = useMemo(() => {
+    const direct = componentUsages.filter((entry) => entry.mode === "direct").length;
+    const viaAlias = componentUsages.filter((entry) => entry.mode === "via_alias").length;
+    return {
+      total: componentUsages.length,
+      direct,
+      viaAlias,
+      occurrences: componentUsages.reduce((sum, entry) => sum + entry.occurrences, 0),
+    };
+  }, [componentUsages]);
 
   const occurrencesByKind = useMemo(() => {
     if (!usage?.usedIn?.length) return new Map<string, TokenUsageOccurrence[]>();
@@ -572,6 +781,13 @@ export function TokenDetailPage() {
   }, [token, tokenHealth]);
 
   const setUsageFilter = (key: "uk" | "uo" | "uq", value: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (!value || value === "all") next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next, { replace: true });
+  };
+
+  const setComponentFilter = (key: "cmode" | "cq", value: string) => {
     const next = new URLSearchParams(searchParams);
     if (!value || value === "all") next.delete(key);
     else next.set(key, value);
@@ -840,6 +1056,134 @@ export function TokenDetailPage() {
               </div>
             </div>
           ) : null}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Components Using This Token</CardTitle>
+              <CardDescription>
+                {componentUsageSummary.total} component
+                {componentUsageSummary.total !== 1 ? "s" : ""} ·{" "}
+                {componentUsageSummary.direct} direct · {componentUsageSummary.viaAlias} via alias
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {componentUsageSummary.total > 0 ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant={componentMode === "all" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setComponentFilter("cmode", "all")}
+                    >
+                      All ({componentUsageSummary.total})
+                    </Button>
+                    <Button
+                      variant={componentMode === "direct" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setComponentFilter("cmode", "direct")}
+                    >
+                      Direct ({componentUsageSummary.direct})
+                    </Button>
+                    <Button
+                      variant={componentMode === "via_alias" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setComponentFilter("cmode", "via_alias")}
+                    >
+                      Via alias ({componentUsageSummary.viaAlias})
+                    </Button>
+                    <Input
+                      value={componentQuery}
+                      onChange={(event) => setComponentFilter("cq", event.target.value)}
+                      placeholder="Filter components"
+                      className="ml-auto min-w-[220px] max-w-sm"
+                    />
+                  </div>
+
+                  {filteredComponentUsages.length > 0 ? (
+                    <ul className="space-y-2">
+                      {filteredComponentUsages.map((entry) => (
+                        <li key={entry.slug} className="rounded-lg border border-border/70 p-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={entry.mode === "direct" ? "text-emerald-600" : "text-amber-600"}
+                              aria-hidden="true"
+                            >
+                              {entry.mode === "direct" ? "●" : "◎"}
+                            </span>
+                            <Link
+                              to={`/components/${entry.slug}`}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {entry.displayName}
+                            </Link>
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {entry.slug}
+                            </span>
+                            {entry.pipelineStage ? (
+                              <Badge variant={stageBadge(entry.pipelineStage)}>
+                                {COMPONENT_STAGE_LABELS[entry.pipelineStage]}
+                              </Badge>
+                            ) : null}
+                            <Badge variant={entry.mode === "direct" ? "success" : "neutral"}>
+                              {entry.mode === "direct" ? "Direct" : "Via alias"}
+                            </Badge>
+                            <Badge variant="neutral">{entry.occurrences} refs</Badge>
+                          </div>
+
+                          <div className="mt-1 text-xs text-muted-foreground">
+                            {entry.slots.length > 0 ? entry.slots.join(" · ") : "slot: n/a"}
+                            {entry.conditions.length > 0
+                              ? ` · ${entry.conditions.join(" · ")}`
+                              : ""}
+                          </div>
+
+                          {entry.mode === "via_alias" && entry.aliasChains.length > 0 ? (
+                            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                              {entry.aliasChains.slice(0, 3).map((chain, index) => (
+                                <div key={`${entry.slug}-${index}`} className="flex flex-wrap items-center gap-1">
+                                  <span>via</span>
+                                  {chain.map((path, chainIndex) => {
+                                    const registryEntry =
+                                      registry?.byPath?.[path] ?? registry?.bySlashPath?.[path] ?? null;
+                                    const label = registryEntry?.slashPath ?? path;
+                                    return (
+                                      <Fragment key={`${path}-${chainIndex}`}>
+                                        {chainIndex > 0 ? <span>→</span> : null}
+                                        <button
+                                          type="button"
+                                          className="font-mono text-primary hover:underline"
+                                          onClick={() =>
+                                            navigate({
+                                              pathname: `/tokens/${encodeURIComponent(path)}`,
+                                              search: searchParams.toString(),
+                                            })
+                                          }
+                                        >
+                                          {label}
+                                        </button>
+                                      </Fragment>
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No component matches the current component usage filters.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No component specs reference this token directly or via alias. It may be used in CSS only — check the Usage section below.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
