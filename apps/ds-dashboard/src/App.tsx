@@ -1,6 +1,15 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes, Navigate } from "react-router-dom";
-import { Activity, Boxes, GitBranch, Layers3, Search, Zap } from "lucide-react";
+import {
+  Activity,
+  ArrowLeftRight,
+  Boxes,
+  GitBranch,
+  Layers3,
+  type LucideIcon,
+  Search,
+  Zap,
+} from "lucide-react";
 
 import { ComponentsPage } from "@/features/components/components-page";
 import { ComponentDetailPage } from "@/features/components/component-detail/component-detail-page";
@@ -8,44 +17,84 @@ import { GlobalCommandPalette } from "@/features/command-palette/global-command-
 import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
 import { ImpactExplorerPage } from "@/features/impact/impact-explorer-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
+import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { TokenGraphPage } from "@/features/tokens/token-graph/token-graph-page";
 import { TokenDiffPage } from "@/features/tokens/token-diff/token-diff-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
 import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-page";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+type NavItem = {
+  to: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+type NavSection = {
+  id: string;
+  label: string;
+  items: NavItem[];
+};
+
+const navSections: NavSection[] = [
   {
-    to: "/health",
-    label: "Health",
-    description: "Métricas operativas",
-    icon: Activity,
+    id: "system",
+    label: "System",
+    items: [
+      {
+        to: "/health",
+        label: "Health",
+        description: "Operational status",
+        icon: Activity,
+      },
+    ],
   },
   {
-    to: "/tokens",
-    label: "Tokens & Properties",
-    description: "Custom properties y tokens",
-    icon: Layers3,
+    id: "tokens",
+    label: "Tokens",
+    items: [
+      {
+        to: "/tokens",
+        label: "Explore",
+        description: "Registry and properties",
+        icon: Layers3,
+      },
+      {
+        to: "/tokens/diff",
+        label: "Compare",
+        description: "Changes and breaking risk",
+        icon: ArrowLeftRight,
+      },
+      {
+        to: "/token-graph",
+        label: "Graph",
+        description: "Dependencies and cycles",
+        icon: GitBranch,
+      },
+      {
+        to: "/impact",
+        label: "Impact",
+        description: "What breaks if X changes",
+        icon: Zap,
+      },
+    ],
   },
   {
-    to: "/components",
-    label: "Componentes",
-    description: "Estado y pipeline documental",
-    icon: Boxes,
-  },
-  {
-    to: "/token-graph",
-    label: "Token Graph",
-    description: "Dependencias y ciclos",
-    icon: GitBranch,
-  },
-  {
-    to: "/impact",
-    label: "Impact Explorer",
-    description: "What breaks if X changes",
-    icon: Zap,
+    id: "components",
+    label: "Components",
+    items: [
+      {
+        to: "/components",
+        label: "Explore",
+        description: "Status and docs pipeline",
+        icon: Boxes,
+      },
+    ],
   },
 ];
+
+const navItems = navSections.flatMap((section) => section.items);
 
 export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -79,35 +128,42 @@ export default function App() {
             </div>
 
             <nav className="flex flex-col gap-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      cn(
-                        "group rounded-xl border border-transparent px-3 py-3 transition",
-                        isActive
-                          ? "border-primary/20 bg-primary/10"
-                          : "hover:border-border/70 hover:bg-accent/60",
-                      )
-                    }
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="rounded-md border border-border/70 bg-background p-2 text-muted-foreground group-hover:text-foreground">
-                        <Icon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold">{item.label}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.description}
-                        </p>
-                      </div>
-                    </div>
-                  </NavLink>
-                );
-              })}
+              {navSections.map((section) => (
+                <div key={section.id} className="space-y-1">
+                  <p className="px-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                    {section.label}
+                  </p>
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={({ isActive }) =>
+                          cn(
+                            "group rounded-xl border border-transparent px-3 py-3 transition",
+                            isActive
+                              ? "border-primary/20 bg-primary/10"
+                              : "hover:border-border/70 hover:bg-accent/60",
+                          )
+                        }
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="rounded-md border border-border/70 bg-background p-2 text-muted-foreground group-hover:text-foreground">
+                            <Icon className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <p className="text-sm font-semibold">{item.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.description}
+                            </p>
+                          </div>
+                        </div>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              ))}
             </nav>
 
             <button
@@ -130,22 +186,31 @@ export default function App() {
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Menu
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    className={({ isActive }) =>
-                      cn(
-                        "rounded-md px-3 py-2 text-sm font-semibold transition",
-                        isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground",
-                      )
-                    }
-                  >
-                    {item.label}
-                  </NavLink>
+              <div className="mt-3 space-y-3">
+                {navSections.map((section) => (
+                  <div key={section.id} className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      {section.label}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {section.items.map((item) => (
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            cn(
+                              "rounded-md px-3 py-2 text-sm font-semibold transition",
+                              isActive
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-foreground",
+                            )
+                          }
+                        >
+                          {item.label}
+                        </NavLink>
+                      ))}
+                    </div>
+                  </div>
                 ))}
                 <button
                   type="button"
@@ -160,8 +225,10 @@ export default function App() {
               </div>
             </header>
 
+            <AppBreadcrumb />
+
             <Routes>
-              <Route path="/" element={<Navigate to="/components" replace />} />
+              <Route path="/" element={<Navigate to="/health" replace />} />
               <Route path="/health" element={<HealthDashboardPage />} />
               <Route path="/components" element={<ComponentsPage />} />
               <Route path="/components/:slug" element={<ComponentDetailPage />} />
