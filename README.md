@@ -229,6 +229,27 @@ npm run ds:health:record
 
 This workflow documents Design System components from Figma and can also render those markdown docs back into Figma sections.
 
+### Master Pipeline (Orchestrator)
+
+The recommended way to run the component documentation workflow is via the **`ds:pipeline`** orchestrator. It automatically plans and executes the entire sequence deterministically (Token sync -> Spec -> Markdown -> Figma Render -> Visual Proof -> Gate) by reading the component registry.
+
+```bash
+# Run the pipeline for all components
+npm run ds:pipeline -- --all
+
+# Run the pipeline for a specific component
+npm run ds:pipeline -- --component Alert
+
+# Plan and preview what needs to be run (identifies orphans)
+npm run ds:pipeline -- --status-only
+
+# Run from a specific step (spec | markdown | render | proof)
+npm run ds:pipeline -- --component Alert --from-step markdown
+
+# Include Figma rendering in the execution
+npm run ds:pipeline -- --component Alert --render-figma
+```
+
 ### Documentation Scripts
 
 - **`npm run ds:component-doc`**: Generates one component markdown page from a spec YAML with incremental change detection (spec hash -> markdown). Use `--force true` to regenerate.
