@@ -16,7 +16,7 @@ Crear un skill de auditoría que:
 - Compare propiedades del spec YAML vs propiedades reales del `COMPONENT_SET` en Figma.
 - Genere un reporte de cobertura y discrepancias.
 
-### 4. Batch para `ds-component-doc` y `ds-markdown-to-figma`
+### ~~4. Batch para `ds-component-doc` y `ds-markdown-to-figma`~~ (Completado)
 
 **Problema**  
 Ambos skills procesan un solo componente por invocación. Con un DS de 20-50 componentes esto es tedioso.
