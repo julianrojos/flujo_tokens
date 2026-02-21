@@ -39,6 +39,7 @@
     "ds:registry:report": "node tooling/scripts/ds-registry-report.mjs",
     "ds:audit-consistency": "node tooling/scripts/ds-audit-consistency.mjs",
     "ds:doctor": "node tooling/scripts/ds-doctor.mjs",
+    "ds:pipeline": "node tooling/scripts/ds-pipeline.mjs",
     "dashboard:dev": "npm --prefix apps/ds-dashboard run dev",
     "dashboard:build": "npm --prefix apps/ds-dashboard run build",
     "dashboard:preview": "npm --prefix apps/ds-dashboard run preview"
