@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Camera, ExternalLink, FilePenLine } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, ExternalLink, FilePenLine } from "lucide-react";
 
 import {
   fetchComponentRegistry,
@@ -110,6 +110,13 @@ function statusBadge(status: string) {
   if (status === "ready") return "success" as const;
   if (status === "needs-review") return "warning" as const;
   return "neutral" as const;
+}
+
+function truncateHash(value: string | null | undefined, size = 8) {
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  if (raw.length <= size) return raw;
+  return `${raw.slice(0, size)}…`;
 }
 
 function buildAssetUrl(
@@ -272,11 +279,33 @@ export function ComponentDetailPage() {
     void load();
   }, [slug, reloadNonce]);
 
-  const displayNameBySlug = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const c of allItems) map[c.slug] = c.display_name;
+  const componentBySlug = useMemo(() => {
+    const map: Record<string, ComponentRegistryItem> = {};
+    for (const component of allItems) {
+      map[component.slug] = component;
+    }
     return map;
   }, [allItems]);
+  const orderedSlugs = useMemo(() => {
+    return allItems
+      .slice()
+      .sort((left, right) => {
+        const leftValue = `${left.display_name} ${left.slug}`.toLowerCase();
+        const rightValue = `${right.display_name} ${right.slug}`.toLowerCase();
+        return leftValue.localeCompare(rightValue);
+      })
+      .map((component) => component.slug);
+  }, [allItems]);
+  const currentPosition = useMemo(() => {
+    if (!slug) return -1;
+    return orderedSlugs.indexOf(slug);
+  }, [orderedSlugs, slug]);
+  const previousSlug =
+    currentPosition > 0 ? orderedSlugs[currentPosition - 1] : null;
+  const nextSlug =
+    currentPosition >= 0 && currentPosition < orderedSlugs.length - 1
+      ? orderedSlugs[currentPosition + 1]
+      : null;
 
   const usesSlugs = usage?.uses ?? [];
   const usedInSlugs = usage?.used_in ?? [];
@@ -330,42 +359,90 @@ export function ComponentDetailPage() {
     };
   }, [tokenRegistry, tokenUsageIndex]);
 
-  const tokensUsed = useMemo(() => {
-    if (!spec?.token_mapping) return [];
-    const map = new Map<
-      string,
-      { ref: string; occurrences: number; token: TokenEntry | null; usageCount: number | null }
-    >();
+  const nextStep = useMemo(() => {
+    if (!item) return null;
 
-    for (const [, conditions] of Object.entries(spec.token_mapping)) {
-      for (const [, tokenRef] of Object.entries(conditions || {})) {
-        const ref = String(tokenRef || "").trim();
-        if (!ref || ref.toUpperCase() === "TBD") continue;
-        const existing = map.get(ref);
-        if (existing) {
-          existing.occurrences += 1;
-          continue;
-        }
-        const resolved = resolveTokenMeta ? resolveTokenMeta(ref) : { token: null, usageCount: null };
-        map.set(ref, {
-          ref,
-          occurrences: 1,
-          token: resolved.token,
-          usageCount: resolved.usageCount,
-        });
-      }
+    if (item.pipeline_stage === "missing-spec") {
+      return {
+        title: "Next step",
+        description: "Create the component spec to move into the spec stage.",
+        cta: "Create spec",
+        onClick: () => setSpecEditorOpen(true),
+      };
     }
 
-    return Array.from(map.values()).sort((a, b) => a.ref.localeCompare(b.ref, "en", { sensitivity: "base" }));
-  }, [resolveTokenMeta, spec?.token_mapping]);
+    if (item.pipeline_stage === "spec") {
+      return {
+        title: "Next step",
+        description: "Complete and validate the spec before generating markdown docs.",
+        cta: "Edit spec",
+        onClick: () => setSpecEditorOpen(true),
+      };
+    }
+
+    if (item.pipeline_stage === "markdown" || item.pipeline_stage === "render") {
+      if (item.figma.file_url) {
+        return {
+          title: "Next step",
+          description: "Capture visual proof from Figma to complete documentation evidence.",
+          cta: "Capture visual proof",
+          onClick: () => setCaptureModalOpen(true),
+        };
+      }
+      return {
+        title: "Next step",
+        description: "Add a Figma source URL to capture visual proof for this component.",
+        cta: null,
+        onClick: null,
+      };
+    }
+
+    return {
+      title: "Next step",
+      description: "Component is in visual-proof stage. Verify docs and publish when ready.",
+      cta: item.paths.doc ? "Open docs" : null,
+      onClick: item.paths.doc
+        ? () =>
+            navigate({
+              pathname: "/file",
+              search: new URLSearchParams({ path: item.paths.doc }).toString(),
+            })
+        : null,
+    };
+  }, [item, navigate]);
 
   return (
     <div className="space-y-5 animate-fade-slide-in">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" size="sm" onClick={() => navigate("/components")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Componentes
         </Button>
+        {previousSlug ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/components/${previousSlug}`)}
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Prev
+          </Button>
+        ) : null}
+        {nextSlug ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/components/${nextSlug}`)}
+          >
+            Next
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        ) : null}
+        {orderedSlugs.length > 0 && currentPosition >= 0 ? (
+          <span className="text-xs text-muted-foreground">
+            {currentPosition + 1} / {orderedSlugs.length}
+          </span>
+        ) : null}
         {!loading && item ? (
           <Badge variant={stageBadge(item.pipeline_stage)}>{item.pipeline_stage}</Badge>
         ) : null}
@@ -390,11 +467,26 @@ export function ComponentDetailPage() {
       ) : null}
 
       {loading ? (
-        <Card>
-          <CardContent className="p-6 text-sm text-muted-foreground">
-            Loading component…
-          </CardContent>
-        </Card>
+        <>
+          <Card>
+            <CardHeader>
+              <div className="h-6 w-48 animate-pulse rounded bg-muted/70" />
+              <div className="h-4 w-28 animate-pulse rounded bg-muted/60" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="h-4 w-full animate-pulse rounded bg-muted/60" />
+              <div className="h-4 w-4/5 animate-pulse rounded bg-muted/60" />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <div className="h-5 w-36 animate-pulse rounded bg-muted/70" />
+            </CardHeader>
+            <CardContent>
+              <div className="aspect-video w-full animate-pulse rounded-lg bg-muted/60" />
+            </CardContent>
+          </Card>
+        </>
       ) : null}
 
       {!loading && item ? (
@@ -408,28 +500,6 @@ export function ComponentDetailPage() {
                   <CardDescription className="mt-1 font-mono text-xs">{item.slug}</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
-                  {item.paths.spec ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSpecEditorOpen(true)}
-                      aria-label={`${spec ? "Edit" : "Create"} spec for ${item.display_name}`}
-                    >
-                      <FilePenLine className="mr-2 h-4 w-4" />
-                      {spec ? "Edit spec" : "Create spec"}
-                    </Button>
-                  ) : null}
-                  {item.figma.file_url ? (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => setCaptureModalOpen(true)}
-                      aria-label={`Capture visual proof for ${item.display_name}`}
-                    >
-                      <Camera className="mr-2 h-4 w-4" />
-                      Update screenshot
-                    </Button>
-                  ) : null}
                   {item.doc.exists && item.paths.doc ? (
                     <Link
                       to={{
@@ -458,118 +528,138 @@ export function ComponentDetailPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm md:grid-cols-4">
-                <div>
-                  <dt className="text-xs text-muted-foreground">Doc status</dt>
-                  <dd className="mt-0.5">
-                    <Badge variant={statusBadge(item.doc.status)}>{item.doc.status}</Badge>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Spec status</dt>
-                  <dd className="mt-0.5">
-                    <Badge variant={statusBadge(item.spec.status)}>{item.spec.status}</Badge>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Ready for publish</dt>
-                  <dd className="mt-0.5 font-medium">{item.ready_for_publish ? "Yes" : "No"}</dd>
-                </div>
-                {item.figma.component_set_node_id ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={stageBadge(item.pipeline_stage)}>
+                  Stage: {STAGE_LABELS[item.pipeline_stage]}
+                </Badge>
+                <Badge variant={statusBadge(item.doc.status)}>Doc: {item.doc.status}</Badge>
+                <Badge variant={statusBadge(item.spec.status)}>Spec: {item.spec.status}</Badge>
+                <Badge variant={item.ready_for_publish ? "success" : "neutral"}>
+                  Ready: {item.ready_for_publish ? "Yes" : "No"}
+                </Badge>
+              </div>
+              <details className="mt-4 rounded-lg border border-border/70 bg-background/60 p-3">
+                <summary className="cursor-pointer text-sm font-semibold">Technical details</summary>
+                <dl className="mt-3 grid grid-cols-1 gap-2 text-xs text-muted-foreground md:grid-cols-2">
                   <div>
-                    <dt className="text-xs text-muted-foreground">Figma node</dt>
-                    <dd className="mt-0.5 font-mono text-xs">
-                      {item.figma.component_set_node_id}
-                    </dd>
+                    <dt className="font-medium text-foreground/80">Spec path</dt>
+                    <dd className="font-mono">{item.paths.spec || "—"}</dd>
                   </div>
-                ) : null}
-              </dl>
+                  <div>
+                    <dt className="font-medium text-foreground/80">Doc path</dt>
+                    <dd className="font-mono">{item.paths.doc || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground/80">Figma node</dt>
+                    <dd className="font-mono">{item.figma.component_set_node_id || "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium text-foreground/80">Visual hash</dt>
+                    <dd className="font-mono">{truncateHash(item.visual_proof.image_sha256)}</dd>
+                  </div>
+                </dl>
+              </details>
             </CardContent>
           </Card>
 
-          {/* Tokens used */}
-          {spec?.token_mapping ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Tokens used</CardTitle>
-                <CardDescription>
-                  Tokens referenciados en <span className="font-mono text-xs">token_mapping</span>.
-                  {tokenUsageIndex ? null : (
-                    <span className="text-amber-600">
-                      {" "}
-                      Usage index unavailable (refs counts will be missing).
-                    </span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {tokensUsed.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No hay tokens referenciados (o todos son TBD).
-                  </p>
-                ) : (
-                  <div className="overflow-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="border-b border-border text-xs text-muted-foreground">
-                        <tr>
-                          <th className="py-2 pr-3">Token</th>
-                          <th className="py-2 pr-3">Type</th>
-                          <th className="py-2 pr-3">CSS Var</th>
-                          <th className="py-2 pr-3">Resolved</th>
-                          <th className="py-2 pr-3">Refs</th>
-                          <th className="py-2 pr-3">Occurrences</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tokensUsed.map((row) => (
-                          <tr key={row.ref} className="border-b border-border/60">
-                            <td className="py-2 pr-3">
-                              {row.token ? (
-                                <Link
-                                  to={`/tokens/${encodeURIComponent(row.token.path)}`}
-                                  className="font-mono text-xs text-primary hover:underline"
-                                >
-                                  {row.ref}
-                                </Link>
-                              ) : (
-                                <span className="font-mono text-xs">{row.ref}</span>
-                              )}
-                              {row.token ? (
-                                <div className="mt-0.5 text-xs text-muted-foreground">
-                                  {row.token.collection}.{row.token.slashPath.replace(/\//g, ".")}
-                                </div>
-                              ) : (
-                                <div className="mt-0.5 text-xs text-amber-700">
-                                  Token not found in registry
-                                </div>
-                              )}
-                            </td>
-                            <td className="py-2 pr-3">{row.token?.type ?? "—"}</td>
-                            <td className="py-2 pr-3 font-mono text-xs">
-                              {row.token?.cssVar ?? "—"}
-                            </td>
-                            <td className="py-2 pr-3 font-mono text-xs">
-                              {row.token?.resolvedValue ?? "—"}
-                            </td>
-                            <td className="py-2 pr-3">
-                              {row.usageCount !== null ? (
-                                <Badge variant="neutral">{row.usageCount} refs</Badge>
-                              ) : (
-                                "—"
-                              )}
-                            </td>
-                            <td className="py-2 pr-3">
-                              <Badge variant="neutral">{row.occurrences}×</Badge>
-                            </td>
-                          </tr>
+          {/* Visual proof */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>Visual Proof</CardTitle>
+                {item.figma.file_url ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCaptureModalOpen(true)}
+                    aria-label={`Capture visual proof for ${item.display_name}`}
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    {item.visual_proof.exists ? "Update screenshot" : "Capture from Figma"}
+                  </Button>
+                ) : null}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {item.visual_proof.exists && visualProofSrc ? (
+                <>
+                  <img
+                    src={visualProofSrc}
+                    alt={`Visual proof for ${item.display_name}`}
+                    className="max-w-full rounded-lg border border-border"
+                  />
+                  <details className="mt-3 rounded-lg border border-border/70 bg-background/60 p-3 text-xs">
+                    <summary className="cursor-pointer font-semibold">Capture metadata</summary>
+                    <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 text-muted-foreground md:grid-cols-2">
+                      <div>
+                        <dt className="font-medium text-foreground/80">Captured at</dt>
+                        <dd>{item.visual_proof.captured_at || "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-foreground/80">Node ID</dt>
+                        <dd className="font-mono">
+                          {item.visual_proof.node_id || item.figma.component_set_node_id || "—"}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-foreground/80">Image hash</dt>
+                        <dd className="font-mono">{truncateHash(item.visual_proof.image_sha256)}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-medium text-foreground/80">Resolution</dt>
+                        <dd>
+                          {item.visual_proof.image_width && item.visual_proof.image_height
+                            ? `${item.visual_proof.image_width} × ${item.visual_proof.image_height}`
+                            : "—"}
+                        </dd>
+                      </div>
+                    </dl>
+                  </details>
+                  {visualVariantSources.length > 0 ? (
+                    <div className="mt-5 space-y-3">
+                      <div className="text-sm font-semibold">Variants</div>
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {visualVariantSources.map((variant) => (
+                          <div
+                            key={variant.key}
+                            className="rounded-md border border-border p-2"
+                          >
+                            <div className="mb-2 flex items-center justify-between gap-2 text-xs">
+                              <span className="font-medium">{variant.name}</span>
+                              {variant.nodeId ? (
+                                <span className="font-mono text-muted-foreground">
+                                  {variant.nodeId}
+                                </span>
+                              ) : null}
+                            </div>
+                            <img
+                              src={variant.src}
+                              alt={`Variant ${variant.name} of ${item.display_name}`}
+                              className="max-w-full rounded border border-border"
+                            />
+                            <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
+                              {variant.capturedAt ? (
+                                <span>Captured: {variant.capturedAt}</span>
+                              ) : null}
+                              {variant.imageSha256 ? (
+                                <span className="font-mono">
+                                  Hash: {truncateHash(variant.imageSha256)}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <div className="rounded-md border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                  No visual proof available yet for this component.
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Pipeline */}
           <Card>
@@ -582,6 +672,17 @@ export function ComponentDetailPage() {
             </CardHeader>
             <CardContent>
               <PipelineTimeline current={item.pipeline_stage} />
+              {nextStep ? (
+                <div className="mt-4 rounded-lg border border-border/70 bg-background/60 p-3">
+                  <p className="text-sm font-semibold">{nextStep.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{nextStep.description}</p>
+                  {nextStep.cta && nextStep.onClick ? (
+                    <Button variant="outline" size="sm" className="mt-3" onClick={nextStep.onClick}>
+                      {nextStep.cta}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -636,104 +737,6 @@ export function ComponentDetailPage() {
             </Card>
           )}
 
-          {/* Visual proof */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle>Visual Proof</CardTitle>
-                {item.figma.file_url ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCaptureModalOpen(true)}
-                    aria-label={`Capture visual proof for ${item.display_name}`}
-                  >
-                    <Camera className="mr-2 h-4 w-4" />
-                    Capture from Figma
-                  </Button>
-                ) : null}
-              </div>
-            </CardHeader>
-            <CardContent>
-              {item.visual_proof.exists && visualProofSrc ? (
-                <>
-                  <img
-                    src={visualProofSrc}
-                    alt={`Visual proof for ${item.display_name}`}
-                    className="max-w-full rounded-lg border border-border"
-                  />
-                  <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-xs text-muted-foreground md:grid-cols-2">
-                    <div>
-                      <dt className="font-medium text-foreground/80">Captured at</dt>
-                      <dd>{item.visual_proof.captured_at || "—"}</dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium text-foreground/80">Node ID</dt>
-                      <dd className="font-mono">
-                        {item.visual_proof.node_id || item.figma.component_set_node_id || "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium text-foreground/80">Image hash</dt>
-                      <dd className="font-mono break-all">
-                        {item.visual_proof.image_sha256 || "—"}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="font-medium text-foreground/80">Resolution</dt>
-                      <dd>
-                        {item.visual_proof.image_width && item.visual_proof.image_height
-                          ? `${item.visual_proof.image_width} × ${item.visual_proof.image_height}`
-                          : "—"}
-                      </dd>
-                    </div>
-                  </dl>
-                  {visualVariantSources.length > 0 ? (
-                    <div className="mt-5 space-y-3">
-                      <div className="text-sm font-semibold">Variants</div>
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {visualVariantSources.map((variant) => (
-                          <div
-                            key={variant.key}
-                            className="rounded-md border border-border p-2"
-                          >
-                            <div className="mb-2 flex items-center justify-between gap-2 text-xs">
-                              <span className="font-medium">{variant.name}</span>
-                              {variant.nodeId ? (
-                                <span className="font-mono text-muted-foreground">
-                                  {variant.nodeId}
-                                </span>
-                              ) : null}
-                            </div>
-                            <img
-                              src={variant.src}
-                              alt={`Variant ${variant.name} of ${item.display_name}`}
-                              className="max-w-full rounded border border-border"
-                            />
-                            <div className="mt-2 grid gap-1 text-[11px] text-muted-foreground">
-                              {variant.capturedAt ? (
-                                <span>Captured: {variant.capturedAt}</span>
-                              ) : null}
-                              {variant.imageSha256 ? (
-                                <span className="font-mono break-all">
-                                  Hash: {variant.imageSha256}
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <div className="rounded-md border border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
-                  No visual proof available yet for this component.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Component relationships */}
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
@@ -753,9 +756,17 @@ export function ComponentDetailPage() {
                           className="text-sm text-primary hover:underline"
                           onClick={() => navigate(`/components/${s}`)}
                         >
-                          {displayNameBySlug[s] ?? s}
+                          {componentBySlug[s]?.display_name ?? s}
                         </button>
                         <span className="ml-2 font-mono text-xs text-muted-foreground">{s}</span>
+                        {componentBySlug[s]?.pipeline_stage ? (
+                          <Badge
+                            variant={stageBadge(componentBySlug[s].pipeline_stage)}
+                            className="ml-2"
+                          >
+                            {STAGE_LABELS[componentBySlug[s].pipeline_stage]}
+                          </Badge>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -780,9 +791,17 @@ export function ComponentDetailPage() {
                           className="text-sm text-primary hover:underline"
                           onClick={() => navigate(`/components/${s}`)}
                         >
-                          {displayNameBySlug[s] ?? s}
+                          {componentBySlug[s]?.display_name ?? s}
                         </button>
                         <span className="ml-2 font-mono text-xs text-muted-foreground">{s}</span>
+                        {componentBySlug[s]?.pipeline_stage ? (
+                          <Badge
+                            variant={stageBadge(componentBySlug[s].pipeline_stage)}
+                            className="ml-2"
+                          >
+                            {STAGE_LABELS[componentBySlug[s].pipeline_stage]}
+                          </Badge>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
