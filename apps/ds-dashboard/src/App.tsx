@@ -6,6 +6,7 @@ import {
   Boxes,
   GitBranch,
   Layers3,
+  NotebookPen,
   type LucideIcon,
   Search,
   Zap,
@@ -20,6 +21,7 @@ import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { TokenGraphPage } from "@/features/tokens/token-graph/token-graph-page";
 import { TokenDiffPage } from "@/features/tokens/token-diff/token-diff-page";
+import { NamingDebtPage } from "@/features/tokens/naming-debt/naming-debt-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
 import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-page";
 import { cn } from "@/lib/utils";
@@ -77,6 +79,12 @@ const navSections: NavSection[] = [
         label: "Impact",
         description: "What breaks if X changes",
         icon: Zap,
+      },
+      {
+        to: "/tokens/naming-debt",
+        label: "Naming Debt",
+        description: "Normalization opportunities",
+        icon: NotebookPen,
       },
     ],
   },
@@ -233,6 +241,7 @@ export default function App() {
               <Route path="/components" element={<ComponentsPage />} />
               <Route path="/components/:slug" element={<ComponentDetailPage />} />
               <Route path="/tokens" element={<TokensPage />} />
+              <Route path="/tokens/naming-debt" element={<NamingDebtPage />} />
               <Route path="/tokens/diff" element={<TokenDiffPage />} />
               <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
               <Route path="/token-graph" element={<TokenGraphPage />} />

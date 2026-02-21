@@ -3,10 +3,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchComponentRegistry,
   fetchComponentsHealth,
+  fetchNamingDebt,
   fetchTokenHealth,
   fetchTokenRegistry,
 } from "@/lib/api";
 import type { ComponentsHealthReport } from "@/types/components-health";
+import type { NamingDebtReport } from "@/types/naming-debt";
 import type { TokenHealthReport } from "@/types/token-health";
 
 export type GlobalSearchItemKind = "token" | "component" | "health-issue";
@@ -23,6 +25,7 @@ export interface GlobalSearchItem {
 function buildHealthIssueItems(
   tokenHealth: TokenHealthReport | null,
   componentsHealth: ComponentsHealthReport | null,
+  namingDebt: NamingDebtReport | null,
 ) {
   const items: GlobalSearchItem[] = [];
 
@@ -102,6 +105,17 @@ function buildHealthIssueItems(
     }
   }
 
+  if (namingDebt && namingDebt.summary.totalViolations > 0) {
+    items.push({
+      id: "health:naming-debt",
+      kind: "health-issue",
+      title: `${namingDebt.summary.totalViolations} naming debt issues`,
+      subtitle: "Naming Debt",
+      href: "/tokens/naming-debt",
+      keywords: ["naming", "debt", "normalization", "tokens"],
+    });
+  }
+
   return items;
 }
 
@@ -116,12 +130,13 @@ export function useGlobalSearch() {
     setLoading(true);
     setError(null);
     try {
-      const [tokenRegistry, componentRegistry, tokenHealth, componentsHealth] =
+      const [tokenRegistry, componentRegistry, tokenHealth, componentsHealth, namingDebt] =
         await Promise.all([
           fetchTokenRegistry(),
           fetchComponentRegistry(),
           fetchTokenHealth().catch(() => null),
           fetchComponentsHealth().catch(() => null),
+          fetchNamingDebt().catch(() => null),
         ]);
 
       const tokenItems: GlobalSearchItem[] = (tokenRegistry.entries ?? []).map((entry) => ({
@@ -144,7 +159,11 @@ export function useGlobalSearch() {
         keywords: [item.display_name, item.slug, item.pipeline_stage, item.doc.status],
       }));
 
-      const healthItems = buildHealthIssueItems(tokenHealth, componentsHealth);
+      const healthItems = buildHealthIssueItems(
+        tokenHealth,
+        componentsHealth,
+        namingDebt,
+      );
 
       setTokens(tokenItems);
       setComponents(componentItems);
@@ -175,4 +194,3 @@ export function useGlobalSearch() {
     reloadIndex,
   };
 }
-

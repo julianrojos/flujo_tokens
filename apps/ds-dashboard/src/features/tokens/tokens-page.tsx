@@ -331,6 +331,9 @@ export function TokensPage() {
                 Compare
               </Button>
             </Link>
+            <Link to="/tokens/naming-debt">
+              <Button variant="outline">Naming Debt</Button>
+            </Link>
             <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
               <RefreshCcw className="mr-2 h-4 w-4" />
               {usageSyncing ? "Syncing usage..." : "Sync Usage Index"}

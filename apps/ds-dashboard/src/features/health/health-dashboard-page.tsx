@@ -6,6 +6,7 @@ import {
   captureHealthSnapshot,
   fetchComponentsHealth,
   fetchHealthHistory,
+  fetchNamingDebt,
   fetchTokenHealth,
   refreshComponentsHealth,
   refreshTokenHealth,
@@ -16,6 +17,7 @@ import type {
   HealthHistoryRange,
   HealthHistoryReport,
 } from "@/types/health-history";
+import type { NamingDebtReport } from "@/types/naming-debt";
 import type { TokenHealthReport } from "@/types/token-health";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,6 +90,8 @@ export function HealthDashboardPage() {
   const [history, setHistory] = useState<HealthHistoryReport | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [namingDebt, setNamingDebt] = useState<NamingDebtReport | null>(null);
+  const [namingError, setNamingError] = useState<string | null>(null);
   const [historyRange, setHistoryRange] = useState<HealthHistoryRange>("30d");
   const [historyBucket, setHistoryBucket] = useState<HealthHistoryBucket>("day");
   const [snapshotting, setSnapshotting] = useState(false);
@@ -96,10 +100,12 @@ export function HealthDashboardPage() {
     setLoading(true);
     setTokenError(null);
     setComponentsError(null);
+    setNamingError(null);
 
-    const [tokensResult, componentsResult] = await Promise.allSettled([
+    const [tokensResult, componentsResult, namingResult] = await Promise.allSettled([
       fetchTokenHealth(),
       fetchComponentsHealth(),
+      fetchNamingDebt(),
     ]);
 
     if (tokensResult.status === "fulfilled") {
@@ -121,6 +127,17 @@ export function HealthDashboardPage() {
         componentsResult.reason instanceof Error
           ? componentsResult.reason.message
           : String(componentsResult.reason),
+      );
+    }
+
+    if (namingResult.status === "fulfilled") {
+      setNamingDebt(namingResult.value);
+    } else {
+      setNamingDebt(null);
+      setNamingError(
+        namingResult.reason instanceof Error
+          ? namingResult.reason.message
+          : String(namingResult.reason),
       );
     }
 
@@ -219,7 +236,12 @@ export function HealthDashboardPage() {
       ) +
       Math.min(20, (tokenHealth.summary.wcag_failures_total / tokensTotal) * 140);
 
-    const tokenScore = Math.round(Math.max(0, 100 - tokenPenalty));
+    const tokenScoreBase = Math.round(Math.max(0, 100 - tokenPenalty));
+    const namingScore = namingDebt?.summary.overallScore ?? null;
+    const tokenScore =
+      namingScore === null
+        ? tokenScoreBase
+        : Math.round(tokenScoreBase * 0.8 + namingScore * 0.2);
 
     const componentsScore = Math.round(
       (componentsHealth.summary.ready / componentsTotal) * 45 +
@@ -280,6 +302,26 @@ export function HealthDashboardPage() {
       },
     ];
 
+    if (namingDebt && namingDebt.summary.issuesBySeverity.error > 0) {
+      issues.push({
+        id: "naming-errors",
+        label: "Naming debt (errors)",
+        description: "High-severity naming inconsistencies in token taxonomy.",
+        count: namingDebt.summary.issuesBySeverity.error,
+        severity: "critical",
+        to: "/tokens/naming-debt",
+      });
+    } else if (namingDebt && namingDebt.summary.issuesBySeverity.warning > 0) {
+      issues.push({
+        id: "naming-warnings",
+        label: "Naming debt (warnings)",
+        description: "Normalization opportunities detected in token vocabulary.",
+        count: namingDebt.summary.issuesBySeverity.warning,
+        severity: "warning",
+        to: "/tokens/naming-debt",
+      });
+    }
+
     const criticalIssues = issues.filter(
       (issue) => issue.severity === "critical" && issue.count > 0,
     ).length;
@@ -324,6 +366,7 @@ export function HealthDashboardPage() {
 
     return {
       tokenScore,
+      namingScore,
       componentsScore,
       overallScore,
       issues,
@@ -334,7 +377,7 @@ export function HealthDashboardPage() {
       pipeline,
       atRiskComponents,
     };
-  }, [componentsHealth, tokenHealth]);
+  }, [componentsHealth, namingDebt, tokenHealth]);
 
   return (
     <div className="space-y-6 animate-fade-slide-in">
@@ -455,7 +498,7 @@ export function HealthDashboardPage() {
 
       {dashboard ? (
         <>
-          <section className="grid gap-4 md:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-5">
             <Card className="md:col-span-2">
               <CardHeader>
                 <CardDescription>System status</CardDescription>
@@ -493,6 +536,32 @@ export function HealthDashboardPage() {
               </CardHeader>
               <CardContent className="text-xs text-muted-foreground">
                 Avg coverage {componentsHealth?.summary.average_coverage_percent ?? 0}%
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardDescription>Naming score</CardDescription>
+                <CardTitle>
+                  {dashboard.namingScore !== null ? `${dashboard.namingScore}/100` : "—"}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-xs text-muted-foreground">
+                {namingDebt ? (
+                  <span>
+                    {namingDebt.summary.totalViolations} issues ·{" "}
+                    <Link
+                      to="/tokens/naming-debt"
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      Open report
+                    </Link>
+                  </span>
+                ) : namingError ? (
+                  <span>Naming report unavailable</span>
+                ) : (
+                  <span>Loading naming report...</span>
+                )}
               </CardContent>
             </Card>
           </section>

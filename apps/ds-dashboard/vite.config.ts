@@ -8,12 +8,16 @@ import yaml from "js-yaml";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { computeImpactReport } from "./src/lib/impact";
+import { analyzeNamingDebt } from "./src/lib/naming-debt";
 import { buildSpecDiff } from "./src/lib/spec-diff";
 import { validateComponentSpec } from "./src/lib/spec-validator";
 import type { ComponentSpec } from "./src/types/component-spec";
 import type { ImpactWcagPairConfig } from "./src/types/impact";
+import type { NamingDebtReport } from "./src/types/naming-debt";
 import type { SpecValidationResult } from "./src/types/spec-editor";
 import type { TokenRegistry } from "./src/types/token-registry";
+import type { TokenGraphViz } from "./src/types/token-graph";
+import type { TokenUsageIndex } from "./src/types/token-usage-index";
 
 type Middleware = (
   req: {
@@ -892,6 +896,28 @@ function buildSpecValidationPayload(args: {
   };
 }
 
+async function computeNamingDebtReport(args: {
+  tokenRegistryPath: string;
+  tokenUsageIndexPath: string;
+  tokenGraphVizPath: string;
+}): Promise<NamingDebtReport> {
+  const [tokenRegistryRaw, tokenUsageRaw, tokenGraphRaw] = await Promise.all([
+    fs.readFile(args.tokenRegistryPath, "utf8"),
+    fs.readFile(args.tokenUsageIndexPath, "utf8").catch(() => "null"),
+    fs.readFile(args.tokenGraphVizPath, "utf8").catch(() => "null"),
+  ]);
+
+  const tokenRegistry = JSON.parse(tokenRegistryRaw) as TokenRegistry;
+  const tokenUsageIndex = tokenUsageRaw ? (JSON.parse(tokenUsageRaw) as TokenUsageIndex | null) : null;
+  const tokenGraph = tokenGraphRaw ? (JSON.parse(tokenGraphRaw) as TokenGraphViz | null) : null;
+
+  return analyzeNamingDebt({
+    tokenRegistry,
+    tokenUsageIndex,
+    tokenGraph,
+  });
+}
+
 function createLocalDataApi() {
   const repoRoot = path.resolve(__dirname, "../..");
   const componentRegistryPath = path.join(
@@ -931,6 +957,7 @@ function createLocalDataApi() {
     "components-health.json",
   );
   const healthHistoryPath = path.join(repoRoot, "docs", "_generated", "health-history.json");
+  const namingDebtCachePath = path.join(repoRoot, "docs", "_generated", "naming-debt.json");
   const wcagPairsPath = path.join(repoRoot, "tooling", "config", "wcag-pairs.json");
   const tokenDiffScriptPath = path.join(
     repoRoot,
@@ -1030,6 +1057,27 @@ function createLocalDataApi() {
           },
           range,
         });
+        return;
+      }
+
+      if (method === "GET" && url === "/api/naming-debt") {
+        const refresh = String(searchParams.get("refresh") ?? "false").trim() === "true";
+        if (!refresh) {
+          const cached = await fs.readFile(namingDebtCachePath, "utf8").catch(() => "");
+          if (cached.trim()) {
+            sendJson(res, 200, JSON.parse(cached));
+            return;
+          }
+        }
+
+        const report = await computeNamingDebtReport({
+          tokenRegistryPath,
+          tokenUsageIndexPath,
+          tokenGraphVizPath,
+        });
+        await fs.mkdir(path.dirname(namingDebtCachePath), { recursive: true });
+        await fs.writeFile(namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+        sendJson(res, 200, report);
         return;
       }
 
@@ -1715,6 +1763,23 @@ function createLocalDataApi() {
 
       if (method === "POST" && url === "/api/refresh-components-health") {
         runNpmScript({ repoRoot, res, script: "ds:registry:report" });
+        return;
+      }
+
+      if (method === "POST" && url === "/api/refresh-naming-debt") {
+        const report = await computeNamingDebtReport({
+          tokenRegistryPath,
+          tokenUsageIndexPath,
+          tokenGraphVizPath,
+        });
+        await fs.mkdir(path.dirname(namingDebtCachePath), { recursive: true });
+        await fs.writeFile(namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+        sendJson(res, 200, {
+          ok: true,
+          generatedAt: report.generatedAt,
+          totalViolations: report.summary.totalViolations,
+          overallScore: report.summary.overallScore,
+        });
         return;
       }
 
