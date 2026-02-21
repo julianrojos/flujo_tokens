@@ -4,7 +4,7 @@ import {
   Accessibility,
   ArrowLeftRight,
   ArrowUpDown,
-  TreePine,
+  FolderTree,
   RefreshCcw,
 } from "lucide-react";
 
@@ -314,7 +314,7 @@ export function TokensPage() {
               aria-label="Open token collections tree"
               onClick={() => setTreeModalOpen(true)}
             >
-              <TreePine className="h-4 w-4" />
+              <FolderTree className="h-4 w-4" />
             </Button>
             <div>
               <CardTitle>Tokens & Custom Properties</CardTitle>
@@ -491,12 +491,19 @@ export function TokensPage() {
                         .filter(Boolean)
                         .filter((value, index, all) => all.indexOf(value) === index)
                         .slice(0, 2) ?? [];
+                    const detailParams = new URLSearchParams();
+                    if (collection !== "all") detailParams.set("fromCollection", collection);
+                    if (type !== "all") detailParams.set("fromType", type);
+                    if (search.trim()) detailParams.set("fromSearch", search.trim());
+                    const detailHref = `/tokens/${encodeURIComponent(entry.path)}${
+                      detailParams.size ? `?${detailParams.toString()}` : ""
+                    }`;
                     return (
                       <TableRow key={entry.path}>
                         <TableCell>
                           <div className="font-medium">
                             <Link
-                              to={`/tokens/${encodeURIComponent(entry.path)}`}
+                              to={detailHref}
                               className="hover:text-primary hover:underline"
                               aria-label={`Open ${entry.path} detail`}
                             >
@@ -505,7 +512,7 @@ export function TokensPage() {
                           </div>
                           <div className="text-xs text-muted-foreground">
                             <Link
-                              to={`/tokens/${encodeURIComponent(entry.path)}`}
+                              to={detailHref}
                               className="font-mono hover:text-primary hover:underline"
                               aria-label={`Open ${entry.path} detail`}
                             >
