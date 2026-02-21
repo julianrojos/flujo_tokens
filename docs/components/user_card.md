@@ -36,9 +36,13 @@ Source: [User-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `2046:7286`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/user_card.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/71856f73-f68e-4047-a3d7-fd4a1998e21a)
+- Source node: `2046:7286`
+- Image hash: `ff3613ebef0b86f854f05ab3e2f64ff7f41af058e14764a7fc3e846c2fb3fdfb`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/user_card.json`
 
 ## Anatomy
 

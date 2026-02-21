@@ -32,9 +32,13 @@ Source: [Overlay in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/P
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `4584:8670`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/overlay.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/946b2bb5-4b34-46f6-a313-9831bdf4cfea)
+- Source node: `4584:8670`
+- Image hash: `c019eecb3890691d8dbebba054ece7be9ab363a536064bc902668c564add9fc4`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/overlay.json`
 
 ## Anatomy
 

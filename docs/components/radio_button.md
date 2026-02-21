@@ -27,9 +27,13 @@ The **Radio Button** component represents one mutually exclusive selection contr
 
 ### Visual Proof
 
-- Screenshot: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/radio_button.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/22f87d2f-8ef1-45e7-a23f-9dac6a16dfcf)
 - Source node: `2304:1971`
-- Artifact: `TBD`
+- Image hash: `46d3aebb56f22b9da60cbd1be3a12ecdafa8a4783260ef35c77d845ed2ea4606`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/radio_button.json`
 
 ## Anatomy
 

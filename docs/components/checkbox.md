@@ -27,9 +27,13 @@ The **Checkbox** component captures a binary checked or unchecked selection stat
 
 ### Visual Proof
 
-- Screenshot: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/checkbox.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/d0cff6fe-ec45-48d8-9f9c-bd9eb1697512)
 - Source node: `524:494`
-- Artifact: `TBD`
+- Image hash: `a8ae5f9a168e2cffbd434baf1f95f23a1f04a416d84d297fb546d59b984258b8`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/checkbox.json`
 
 ## Anatomy
 

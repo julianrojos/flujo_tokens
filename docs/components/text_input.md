@@ -27,9 +27,13 @@ The **Text Input** component captures single-line textual data with optional lab
 
 ### Visual Proof
 
-- Screenshot: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/text_input.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3401b15a-12ae-47e0-aa73-8e52669f7bfa)
 - Source node: `204:483`
-- Artifact: `TBD`
+- Image hash: `770b100e74c938dba04ea05f4562fdc72703bb6f44498cbf4e0d3247c28995f1`
+- Variants captured: `4`
+- Artifact: `../_generated/visual-proofs/text_input.json`
 
 ## Anatomy
 

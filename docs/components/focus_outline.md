@@ -32,9 +32,13 @@ Source: [Focus-Outline in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9p
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `4562:6483`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/focus_outline.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/c3779572-337e-40c8-b2f8-9fe287e5dc63)
+- Source node: `4562:6483`
+- Image hash: `477abcbdcffaa4192a6cb0625dd1a7d46fb0fcbbebf27d697e7b27e4235ea6a0`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/focus_outline.json`
 
 ## Anatomy
 

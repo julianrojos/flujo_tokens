@@ -1,0 +1,54 @@
+{
+  "component": "illustration_block",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/illustration_block.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/illustration_block.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2049-7813",
+  "node_id": "2049:7813",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/a9030242-1269-44a7-ab07-4e4205147369",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/a9030242-1269-44a7-ab07-4e4205147369",
+  "image_path": "_generated/visual-proofs/images/illustration_block.png",
+  "image_sha256": "6405f3c7af3bc5bd3a74c6ca7f79b2e3674900cce14f46669d9c25beedc86dd0",
+  "image_bytes": 37412,
+  "image_content_type": "image/png",
+  "image_width": 896,
+  "image_height": 904,
+  "captured_at": "2026-02-21T11:58:50.770Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/illustration_block.png",
+    "sha256": "6405f3c7af3bc5bd3a74c6ca7f79b2e3674900cce14f46669d9c25beedc86dd0",
+    "bytes": 37412,
+    "content_type": "image/png",
+    "width": 896,
+    "height": 904
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "Orientation=Illustration_Left",
+      "node_id": "2049:7812",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/0ab834a4-271d-4bc8-9c19-08b803a66823",
+      "image_path": "_generated/visual-proofs/images/variants/illustration_block__01__orientation_illustration_left.png",
+      "image_sha256": "7e78e67d5c476df4bf12e272358c549d34be13f9d4d241372ac533aa113ed8e0",
+      "image_bytes": 17028,
+      "image_content_type": "image/png",
+      "image_width": 816,
+      "image_height": 392,
+      "captured_at": "2026-02-21T11:58:50.770Z"
+    },
+    {
+      "name": "Orientation=Illustration_Right",
+      "node_id": "2050:7822",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/ad1b811e-8fd4-4718-81f9-1011677bc539",
+      "image_path": "_generated/visual-proofs/images/variants/illustration_block__02__orientation_illustration_right.png",
+      "image_sha256": "f26e191f5f91617ea126bd1ffb2bb4b5cfb2d218a5b6ee632626df2c7d6d94f0",
+      "image_bytes": 17032,
+      "image_content_type": "image/png",
+      "image_width": 816,
+      "image_height": 392,
+      "captured_at": "2026-02-21T11:58:50.770Z"
+    }
+  ]
+}

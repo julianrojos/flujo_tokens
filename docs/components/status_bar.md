@@ -33,9 +33,13 @@ Source: [Status-Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIy
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `713:202`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/status_bar.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/115dcd4a-aee0-4bd1-9626-0736b7a66898)
+- Source node: `713:202`
+- Image hash: `4576067bbd9b29573dcb4a2fc69ffc4217c9a84472a58feeaadd91197ec4c639`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/status_bar.json`
 
 ## Anatomy
 

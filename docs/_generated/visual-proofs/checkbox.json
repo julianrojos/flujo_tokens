@@ -1,0 +1,54 @@
+{
+  "component": "checkbox",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/checkbox.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/checkbox.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=524-494",
+  "node_id": "524:494",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/d0cff6fe-ec45-48d8-9f9c-bd9eb1697512",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/d0cff6fe-ec45-48d8-9f9c-bd9eb1697512",
+  "image_path": "_generated/visual-proofs/images/checkbox.png",
+  "image_sha256": "a8ae5f9a168e2cffbd434baf1f95f23a1f04a416d84d297fb546d59b984258b8",
+  "image_bytes": 2595,
+  "image_content_type": "image/png",
+  "image_width": 134,
+  "image_height": 228,
+  "captured_at": "2026-02-21T11:58:35.910Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/checkbox.png",
+    "sha256": "a8ae5f9a168e2cffbd434baf1f95f23a1f04a416d84d297fb546d59b984258b8",
+    "bytes": 2595,
+    "content_type": "image/png",
+    "width": 134,
+    "height": 228
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "State=Checked",
+      "node_id": "524:492",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/e97d15b8-c769-42cb-8d4c-f8f329f4a211",
+      "image_path": "_generated/visual-proofs/images/variants/checkbox__01__state_checked.png",
+      "image_sha256": "51dd651b678f498df8bc1a366a05bbc9faf407cec60617220247e0eaffd7c8c9",
+      "image_bytes": 904,
+      "image_content_type": "image/png",
+      "image_width": 48,
+      "image_height": 48,
+      "captured_at": "2026-02-21T11:58:35.910Z"
+    },
+    {
+      "name": "State=Default",
+      "node_id": "524:493",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/726f1c58-4529-43cb-8e85-5bdf52d25b59",
+      "image_path": "_generated/visual-proofs/images/variants/checkbox__02__state_default.png",
+      "image_sha256": "fb67f5c5e5c5969e901f5f4a01919d367d8f8031f985fae0b6d35faaebdaccfb",
+      "image_bytes": 587,
+      "image_content_type": "image/png",
+      "image_width": 48,
+      "image_height": 48,
+      "captured_at": "2026-02-21T11:58:35.910Z"
+    }
+  ]
+}

@@ -33,9 +33,13 @@ Source: [Card-Icon-Container in Figma](https://www.figma.com/design/3hGC1ju0d5AK
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `2053:7862`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/card_icon_container.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/055475f8-c777-46e4-81f9-28c00443abe2)
+- Source node: `2053:7862`
+- Image hash: `24eda7362b4193d85778248d1a4f97744d8ce0a998b7faac4e6b8b5564c2d43e`
+- Variants captured: `6`
+- Artifact: `../_generated/visual-proofs/card_icon_container.json`
 
 ## Anatomy
 

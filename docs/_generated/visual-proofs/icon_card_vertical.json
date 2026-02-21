@@ -1,0 +1,102 @@
+{
+  "component": "icon_card_vertical",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/icon_card_vertical.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/icon_card_vertical.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2168-1387",
+  "node_id": "2168:1387",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/d5b991d8-2b98-4593-ba80-a1d16042b83e",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/d5b991d8-2b98-4593-ba80-a1d16042b83e",
+  "image_path": "_generated/visual-proofs/images/icon_card_vertical.png",
+  "image_sha256": "381dda19495e8c38d2c50d225e5125cc0dc7971e1da525a20ead1e132d5e1fd5",
+  "image_bytes": 153549,
+  "image_content_type": "image/png",
+  "image_width": 2438,
+  "image_height": 510,
+  "captured_at": "2026-02-21T11:58:09.377Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/icon_card_vertical.png",
+    "sha256": "381dda19495e8c38d2c50d225e5125cc0dc7971e1da525a20ead1e132d5e1fd5",
+    "bytes": 153549,
+    "content_type": "image/png",
+    "width": 2438,
+    "height": 510
+  },
+  "variants_count": 6,
+  "variants": [
+    {
+      "name": "Background=Palette_1",
+      "node_id": "2168:1386",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/7291d83b-8cdb-41e4-9645-a2636303ad7e",
+      "image_path": "_generated/visual-proofs/images/variants/icon_card_vertical__01__background_palette_1.png",
+      "image_sha256": "8f332c98c24b16bf830eee5781f098b26abdf95b0615fbc9c9294cb2e3e1fd46",
+      "image_bytes": 24271,
+      "image_content_type": "image/png",
+      "image_width": 358,
+      "image_height": 440,
+      "captured_at": "2026-02-21T11:58:09.377Z"
+    },
+    {
+      "name": "Background=Palette_2",
+      "node_id": "2168:1388",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/ea31f781-a68d-491d-925b-cda4fd4b67bd",
+      "image_path": "_generated/visual-proofs/images/variants/icon_card_vertical__02__background_palette_2.png",
+      "image_sha256": "980cb51fe5691428edb5a5d86327657cb974d09762b6acfed0305fc3b30eb211",
+      "image_bytes": 24904,
+      "image_content_type": "image/png",
+      "image_width": 358,
+      "image_height": 440,
+      "captured_at": "2026-02-21T11:58:09.377Z"
+    },
+    {
+      "name": "Background=Palette_3",
+      "node_id": "2168:1398",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/818fecf4-049b-4837-a9a4-e810d8434102",
+      "image_path": "_generated/visual-proofs/images/variants/icon_card_vertical__03__background_palette_3.png",
+      "image_sha256": "10946d1f1bedb425f5e24b4fb86242854a35846747a2ba2ced6f19684e51ea65",
+      "image_bytes": 24546,
+      "image_content_type": "image/png",
+      "image_width": 358,
+      "image_height": 440,
+      "captured_at": "2026-02-21T11:58:09.377Z"
+    },
+    {
+      "name": "Background=Palette_4",
+      "node_id": "2168:1408",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/6ff163aa-fcf8-47aa-b604-97dae25eed2b",
+      "image_path": "_generated/visual-proofs/images/variants/icon_card_vertical__04__background_palette_4.png",
+      "image_sha256": "daabee666483207691591ea6761f90cf92f73586dfadaec0f670df11d958cfe1",
+      "image_bytes": 23718,
+      "image_content_type": "image/png",
+      "image_width": 358,
+      "image_height": 440,
+      "captured_at": "2026-02-21T11:58:09.377Z"
+    },
+    {
+      "name": "Background=Palette_6",
+      "node_id": "2168:1418",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/0e12daac-8c57-46f2-8d2c-7817dcf97e1a",
+      "image_path": "_generated/visual-proofs/images/variants/icon_card_vertical__05__background_palette_6.png",
+      "image_sha256": "5246fa6de01fe0066472acefbaefea0e9fa400a56a81bd7e5a5c922e069f48b0",
+      "image_bytes": 24930,
+      "image_content_type": "image/png",
+      "image_width": 358,
+      "image_height": 440,
+      "captured_at": "2026-02-21T11:58:09.377Z"
+    },
+    {
+      "name": "Background=Palette_7",
+      "node_id": "2168:1428",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/1fdceca6-f374-46b8-b4ea-7b9bbfa45b38",
+      "image_path": "_generated/visual-proofs/images/variants/icon_card_vertical__06__background_palette_7.png",
+      "image_sha256": "203fec73d5e535d829a7e7f25a3ec8950268e374cc8fad8e72a6cdea5ec8b7e5",
+      "image_bytes": 24855,
+      "image_content_type": "image/png",
+      "image_width": 358,
+      "image_height": 440,
+      "captured_at": "2026-02-21T11:58:09.377Z"
+    }
+  ]
+}

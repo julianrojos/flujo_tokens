@@ -1,0 +1,78 @@
+{
+  "component": "text_input",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/text_input.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/text_input.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=204-483",
+  "node_id": "204:483",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3401b15a-12ae-47e0-aa73-8e52669f7bfa",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3401b15a-12ae-47e0-aa73-8e52669f7bfa",
+  "image_path": "_generated/visual-proofs/images/text_input.png",
+  "image_sha256": "770b100e74c938dba04ea05f4562fdc72703bb6f44498cbf4e0d3247c28995f1",
+  "image_bytes": 34898,
+  "image_content_type": "image/png",
+  "image_width": 548,
+  "image_height": 1322,
+  "captured_at": "2026-02-21T12:00:06.718Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/text_input.png",
+    "sha256": "770b100e74c938dba04ea05f4562fdc72703bb6f44498cbf4e0d3247c28995f1",
+    "bytes": 34898,
+    "content_type": "image/png",
+    "width": 548,
+    "height": 1322
+  },
+  "variants_count": 4,
+  "variants": [
+    {
+      "name": "Type=Default",
+      "node_id": "204:414",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/877bd583-1991-431f-87a5-e6a444c299d6",
+      "image_path": "_generated/visual-proofs/images/variants/text_input__01__type_default.png",
+      "image_sha256": "1fb6ffc3bbb89c1f1c4953dc2e22e85b3e16d326215ee9a807f0aa1652163b1a",
+      "image_bytes": 7876,
+      "image_content_type": "image/png",
+      "image_width": 484,
+      "image_height": 184,
+      "captured_at": "2026-02-21T12:00:06.718Z"
+    },
+    {
+      "name": "Type=Error",
+      "node_id": "204:502",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/961f77b5-d987-447d-81c6-03f55759a8ca",
+      "image_path": "_generated/visual-proofs/images/variants/text_input__02__type_error.png",
+      "image_sha256": "4eeb1da17a845f766590b05e39d1fdba2d60d2657d4569a497b8945dc21d42c6",
+      "image_bytes": 6832,
+      "image_content_type": "image/png",
+      "image_width": 484,
+      "image_height": 176,
+      "captured_at": "2026-02-21T12:00:06.718Z"
+    },
+    {
+      "name": "Type=Filled",
+      "node_id": "204:484",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/7e02f5ed-0bf6-41cf-b025-a27b3a035afa",
+      "image_path": "_generated/visual-proofs/images/variants/text_input__03__type_filled.png",
+      "image_sha256": "dc822a40a46fabe5153806ecd671e11a2ae1300233bac442d0f4b072355755c4",
+      "image_bytes": 6758,
+      "image_content_type": "image/png",
+      "image_width": 484,
+      "image_height": 184,
+      "captured_at": "2026-02-21T12:00:06.718Z"
+    },
+    {
+      "name": "Type=Success",
+      "node_id": "204:493",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/f4a4dd08-9212-4368-9d7d-5cb8646d0c29",
+      "image_path": "_generated/visual-proofs/images/variants/text_input__04__type_success.png",
+      "image_sha256": "a001143e70752dbd12913dde3268306c76261b9abbc32fec8ce2a2d3af29b669",
+      "image_bytes": 7293,
+      "image_content_type": "image/png",
+      "image_width": 484,
+      "image_height": 184,
+      "captured_at": "2026-02-21T12:00:06.718Z"
+    }
+  ]
+}

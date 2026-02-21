@@ -33,9 +33,13 @@ Source: [Icon-Card-Horizontal in Figma](https://www.figma.com/design/3hGC1ju0d5A
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `2097:613`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/icon_card_horizontal.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/c59571aa-f925-4a98-9f22-4214394804a9)
+- Source node: `2097:613`
+- Image hash: `c1659855665707566eabf32f3987859932d25bf246eaea7090abe652bd52cb50`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/icon_card_horizontal.json`
 
 ## Anatomy
 

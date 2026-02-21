@@ -35,9 +35,13 @@ Source: [Icon-Card-Vertical in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `2168:1387`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/icon_card_vertical.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/d5b991d8-2b98-4593-ba80-a1d16042b83e)
+- Source node: `2168:1387`
+- Image hash: `381dda19495e8c38d2c50d225e5125cc0dc7971e1da525a20ead1e132d5e1fd5`
+- Variants captured: `6`
+- Artifact: `../_generated/visual-proofs/icon_card_vertical.json`
 
 ## Anatomy
 

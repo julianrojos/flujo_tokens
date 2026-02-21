@@ -36,9 +36,13 @@ Source: [Image-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIy
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `124:4606`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/image_card.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/ed3ab793-eb9b-48a9-a856-1f1b104ec1d4)
+- Source node: `124:4606`
+- Image hash: `fc3c1cb2c256dcf23d3b75a286b052aa3d4b01ebd84d3df16fc2528b10d4048b`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/image_card.json`
 
 ## Anatomy
 

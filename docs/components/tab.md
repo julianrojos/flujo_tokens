@@ -33,9 +33,13 @@ Source: [Tab in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `2429:2493`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/tab.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3a493655-579c-4c39-a9b4-479de00a03a8)
+- Source node: `2429:2493`
+- Image hash: `297fb2a82ed68d4af647af425957361da23d82be1b0fc61dcc301bbacb7c8c3e`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/tab.json`
 
 ## Anatomy
 

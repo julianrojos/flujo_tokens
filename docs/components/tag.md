@@ -30,9 +30,13 @@ Source: [Tag in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `2018:271`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/tag.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/ad4e2762-f396-4f1d-962c-08570abc2741)
+- Source node: `2018:271`
+- Image hash: `a0606bfd668098805a7f174fb2990569848959eab0bb2a2d88506ae612547cac`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/tag.json`
 
 ## Anatomy
 

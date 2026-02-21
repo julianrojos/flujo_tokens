@@ -1,0 +1,102 @@
+{
+  "component": "rating_stars",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/rating_stars.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/rating_stars.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=683-264",
+  "node_id": "683:264",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/2f5e2cb0-7365-4ada-be2d-b16e1a998d19",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/2f5e2cb0-7365-4ada-be2d-b16e1a998d19",
+  "image_path": "_generated/visual-proofs/images/rating_stars.png",
+  "image_sha256": "e2e4bb2acd1f57abb331876fbf39222e81c5d9cc2014be456fcca93d3e409b6d",
+  "image_bytes": 9781,
+  "image_content_type": "image/png",
+  "image_width": 262,
+  "image_height": 460,
+  "captured_at": "2026-02-21T11:59:19.844Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/rating_stars.png",
+    "sha256": "e2e4bb2acd1f57abb331876fbf39222e81c5d9cc2014be456fcca93d3e409b6d",
+    "bytes": 9781,
+    "content_type": "image/png",
+    "width": 262,
+    "height": 460
+  },
+  "variants_count": 6,
+  "variants": [
+    {
+      "name": "Stars_Number=0",
+      "node_id": "683:337",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/2302115f-60f0-4fef-963f-4dad7a7a10c7",
+      "image_path": "_generated/visual-proofs/images/variants/rating_stars__01__stars_number_0.png",
+      "image_sha256": "a6f64a7965fb41f984ec4d365a286935ba444b355df65130bf767178faa8e202",
+      "image_bytes": 1040,
+      "image_content_type": "image/png",
+      "image_width": 182,
+      "image_height": 30,
+      "captured_at": "2026-02-21T11:59:19.844Z"
+    },
+    {
+      "name": "Stars_Number=1",
+      "node_id": "683:319",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/a6a2302e-b0be-4c97-9077-c49d0863c46c",
+      "image_path": "_generated/visual-proofs/images/variants/rating_stars__02__stars_number_1.png",
+      "image_sha256": "2bbeb946414c1025b6a1b441519cfbfb2f4d53eb743cf1f7c79862f8ab5f054b",
+      "image_bytes": 1444,
+      "image_content_type": "image/png",
+      "image_width": 182,
+      "image_height": 30,
+      "captured_at": "2026-02-21T11:59:19.844Z"
+    },
+    {
+      "name": "Stars_Number=2",
+      "node_id": "683:301",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/e5f2f258-e4a5-4c13-9d94-0a0cdfb1432e",
+      "image_path": "_generated/visual-proofs/images/variants/rating_stars__03__stars_number_2.png",
+      "image_sha256": "25ba8cbb9e750e4598a7d1888e6d74cee67b1c76c2aefba544b7b5aed0b65aeb",
+      "image_bytes": 1432,
+      "image_content_type": "image/png",
+      "image_width": 182,
+      "image_height": 30,
+      "captured_at": "2026-02-21T11:59:19.844Z"
+    },
+    {
+      "name": "Stars_Number=3",
+      "node_id": "683:283",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/126942ef-5009-4885-b1aa-3c5feb60a631",
+      "image_path": "_generated/visual-proofs/images/variants/rating_stars__04__stars_number_3.png",
+      "image_sha256": "25be74b147161b53bc9d29801d76bd76e0027e812d0a5f3138eda7944d741745",
+      "image_bytes": 1464,
+      "image_content_type": "image/png",
+      "image_width": 182,
+      "image_height": 30,
+      "captured_at": "2026-02-21T11:59:19.844Z"
+    },
+    {
+      "name": "Stars_Number=4",
+      "node_id": "683:265",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/7c2f132d-6b6d-43b5-97c3-84aa397574c5",
+      "image_path": "_generated/visual-proofs/images/variants/rating_stars__05__stars_number_4.png",
+      "image_sha256": "9a64c369e4a49802fe9f498033cfbfdf8882a8e7c385d1dc8fe42c708ab8cf6c",
+      "image_bytes": 1454,
+      "image_content_type": "image/png",
+      "image_width": 182,
+      "image_height": 30,
+      "captured_at": "2026-02-21T11:59:19.844Z"
+    },
+    {
+      "name": "Stars_Number=5",
+      "node_id": "683:263",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/03c88b4f-d775-4a29-a89b-3077753eaace",
+      "image_path": "_generated/visual-proofs/images/variants/rating_stars__06__stars_number_5.png",
+      "image_sha256": "6da682bd8da2a8bdedb929569e9d4d4941b11dc76f5dc537776463d7058c4151",
+      "image_bytes": 1124,
+      "image_content_type": "image/png",
+      "image_width": 182,
+      "image_height": 30,
+      "captured_at": "2026-02-21T11:59:19.844Z"
+    }
+  ]
+}

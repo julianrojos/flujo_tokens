@@ -31,9 +31,13 @@ Source: [Bottom_Bar_Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKza
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `694:170`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/bottom_bar_button.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/782d720c-715e-47c3-9d69-7fc1bbc78e7d)
+- Source node: `694:170`
+- Image hash: `6aa9b379aac06728c09a4523181e8208465da185aaff517ba765deaf83d0f19c`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/bottom_bar_button.json`
 
 ## Anatomy
 

@@ -32,9 +32,13 @@ Source: [Star in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `683:239`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/star.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/f9d0b73a-2afc-4b28-989f-9ef9db54687d)
+- Source node: `683:239`
+- Image hash: `645dcc5407933343c695cb0b589348371df8e93941dd1edf58f80361b25ad6b6`
+- Variants captured: `2`
+- Artifact: `../_generated/visual-proofs/star.json`
 
 ## Anatomy
 

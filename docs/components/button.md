@@ -41,9 +41,13 @@ Source: [Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PF
 
 ### Visual Proof
 
-- Screenshot URL: `TBD`
-- Source node id: `68:4097`
-- Proof artifact: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/button.png)
+
+- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/a00aff69-d085-4e86-b9d3-ca09707999bc)
+- Source node: `68:4097`
+- Image hash: `0c321f7cbd1b6a771b00124d1854d9b82297cf4a3671fa7ec4a06bdde6dc7c84`
+- Variants captured: `6`
+- Artifact: `../_generated/visual-proofs/button.json`
 
 ## Anatomy
 
