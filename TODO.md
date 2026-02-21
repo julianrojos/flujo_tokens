@@ -2,19 +2,6 @@
 
 ## DOCUMENTACIÓN
 
-### 1. Skill de orquestación (`ds-pipeline`)
-
-**Problema**  
-Hoy cada skill es independiente y el usuario debe saber el orden correcto y ejecutarlos uno a uno. No hay validación cruzada entre pasos.
-
-**Propuesta**  
-Crear un skill orquestador que:
-
-- Acepte un comando tipo `run pipeline [from-step]` o `run pipeline --component Alert`.
-- Valide precondiciones antes de cada paso (existencia de JSON, `_generated/`, spec YAML).
-- Ejecute la cadena completa o parcial, reportando progreso.
-- Detecte qué componentes tienen docs pero no render en Figma (y viceversa).
-
 ### 3. Validación y QA automática (`ds-qa`)
 
 **Problema**  
@@ -284,10 +271,3 @@ Objetivo: convertir el dashboard en referencia para gestión de tokens y documen
     - Checklist por item + notas persistidas en `localStorage`.
     - Filtros por estado (`pending`, `reviewed`, `blocked`).
     - Vista de seguimiento por sesión.
-
-19. **Naming Debt Detector + sugerencias de normalización**  
-    Impacto: Medio | Esfuerzo: Medio  
-    Esbozo técnico:
-    - Reglas de naming y detección de outliers.
-    - Propuestas de rename con impacto en referencias.
-    - Reporte exportable para cleanup plan.
