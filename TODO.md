@@ -197,20 +197,6 @@ Objetivo: convertir el dashboard en referencia para gestión de tokens y documen
 
 ### P0 - Core product
 
-1. **Command Palette + búsqueda global unificada**  
-   Impacto: Muy alto | Esfuerzo: Medio  
-   Esbozo técnico:
-   - Añadir `useCommandPalette` global en `App`.
-   - Indexar `token-registry`, `component-registry`, alertas de health y acciones frecuentes.
-   - Abrir con `Cmd/Ctrl+K`, búsqueda fuzzy y resultados agrupados.
-
-2. **Impact Explorer ("What breaks if I change X?")**  
-   Impacto: Muy alto | Esfuerzo: Alto  
-   Esbozo técnico:
-   - Endpoint `/api/impact?tokenPath&newValue`.
-   - Combinar `token-graph` (dependencias transitivas) + `token-usage-index` (uso real) + simulación WCAG.
-   - UI con severidad, blast radius y tabla de componentes/props afectados.
-
 3. **Health Action Board (de informativo a accionable)**  
    Impacto: Muy alto | Esfuerzo: Medio  
    Esbozo técnico:
@@ -283,21 +269,7 @@ Objetivo: convertir el dashboard en referencia para gestión de tokens y documen
     - Banner de regresiones nuevas y listado priorizado.
     - Integración con Workbench para bloquear release.
 
-13. **Governance Score por token/componente**  
-    Impacto: Medio-Alto | Esfuerzo: Medio  
-    Esbozo técnico:
-    - Score compuesto por uso, riesgo, estado de docs/pipeline y calidad.
-    - Explicabilidad por factores.
-    - Ordenación por score para priorizar backlog.
-
-14. **Consolidation Advisor (duplicados/casi duplicados)**  
-    Impacto: Medio-Alto | Esfuerzo: Medio-Alto  
-    Esbozo técnico:
-    - Detección por similitud de valor/tipo/naming.
-    - Sugerir token canónico + tokens candidatos a aliasar/deprecar.
-    - Estimar impacto antes de consolidar.
-
-15. **Virtualización de tablas grandes**  
+13. **Virtualización de tablas grandes**  
     Impacto: Medio | Esfuerzo: Bajo-Medio  
     Esbozo técnico:
     - Integrar `@tanstack/react-virtual` empezando por `TokensPage`.
@@ -305,13 +277,6 @@ Objetivo: convertir el dashboard en referencia para gestión de tokens y documen
     - Extender a `components` y tablas densas de detalle.
 
 ### P2 - Premium capabilities
-
-16. **Inline Spec Editor (solo dev) con validación**  
-    Impacto: Medio | Esfuerzo: Alto  
-    Esbozo técnico:
-    - Editor YAML embebido en detalle de componente.
-    - Validación de schema en tiempo real + diff antes de guardar.
-    - Guardado seguro y refresh automático de registry.
 
 17. **Visual Proof Compare (before/after)**  
     Impacto: Medio | Esfuerzo: Medio  
@@ -333,10 +298,3 @@ Objetivo: convertir el dashboard en referencia para gestión de tokens y documen
     - Reglas de naming y detección de outliers.
     - Propuestas de rename con impacto en referencias.
     - Reporte exportable para cleanup plan.
-
-20. **Panel de jobs y telemetría del pipeline**  
-    Impacto: Medio | Esfuerzo: Medio  
-    Esbozo técnico:
-    - Historial de ejecuciones locales con duración y estado.
-    - Métricas de éxito/fallo por step.
-    - Reutilizar datos del Pipeline Executor.
