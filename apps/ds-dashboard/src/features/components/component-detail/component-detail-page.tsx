@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Camera, ExternalLink } from "lucide-react";
+import { ArrowLeft, Camera, ExternalLink, FilePenLine } from "lucide-react";
 
 import {
   fetchComponentRegistry,
@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { FigmaCaptureModal } from "./figma-capture-modal";
+import { SpecEditorDrawer } from "@/features/spec-editor/spec-editor-drawer";
 
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
@@ -126,6 +127,89 @@ function buildAssetUrl(
   return `/api/asset?${search.toString()}`;
 }
 
+function toPascalCase(value: string) {
+  return String(value || "")
+    .replace(/[_\-.]+/g, " ")
+    .split(" ")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join("");
+}
+
+function extractFigmaFileKey(figmaUrl: string | null | undefined) {
+  const source = String(figmaUrl || "").trim();
+  if (!source) return "TBD";
+  try {
+    const parsed = new URL(source);
+    const match = parsed.pathname.match(/\/(?:design|file)\/([^/]+)/i);
+    return match?.[1] || "TBD";
+  } catch {
+    return "TBD";
+  }
+}
+
+function buildSpecTemplate(item: ComponentRegistryItem) {
+  const name = toPascalCase(item.display_name || item.slug);
+  const figmaFileKey = extractFigmaFileKey(item.figma.file_url);
+  const nodeId = String(item.figma.component_set_node_id || "").trim();
+  const nodeIdLine = nodeId ? `  component_set_node_id: ${nodeId}\n` : "";
+  return [
+    `name: ${name}`,
+    "status: draft",
+    "figma:",
+    `  file: ${figmaFileKey}`,
+    "  page: TBD",
+    `  component_set: ${name}`,
+    nodeIdLine ? `${nodeIdLine.trimEnd()}` : null,
+    "summary:",
+    "  purpose: TBD",
+    "  when_to_use: TBD",
+    "  when_not_to_use: TBD",
+    "anatomy:",
+    "  - id: container",
+    "    description: TBD",
+    "properties:",
+    "  - name: state",
+    "    type: enum",
+    "    values:",
+    "      - Default",
+    "    default: Default",
+    "    required: true",
+    "    description: TBD",
+    "content_guidelines:",
+    "  rules:",
+    "    - TBD",
+    "best_practices:",
+    "  do:",
+    "    - TBD",
+    "  dont:",
+    "    - TBD",
+    "accessibility:",
+    "  role: TBD",
+    "  focus:",
+    "    tokens:",
+    "      inner: TBD",
+    "      outer: TBD",
+    "  hit_area:",
+    "    desktop_token: TBD",
+    "    mobile_token: TBD",
+    "  labeling:",
+    "    rules:",
+    "      - TBD",
+    "token_mapping:",
+    "  container.background:",
+    "    state=Default: TBD",
+    "qa:",
+    '  - "Properties match Figma component-set controls."',
+    '  - "Token references resolve in token registry."',
+    "related_components: []",
+    "",
+  ]
+    .filter((row): row is string => Boolean(row))
+    .join("\n");
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ComponentDetailPage() {
@@ -136,9 +220,12 @@ export function ComponentDetailPage() {
   const [usage, setUsage] = useState<ComponentUsageEntry | null>(null);
   const [allItems, setAllItems] = useState<ComponentRegistryItem[]>([]);
   const [spec, setSpec] = useState<ComponentSpec | null>(null);
+  const [specRaw, setSpecRaw] = useState("");
+  const [specRawHash, setSpecRawHash] = useState<string | null>(null);
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
   const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
+  const [specEditorOpen, setSpecEditorOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -162,7 +249,18 @@ export function ComponentDetailPage() {
         setItem(found);
         setAllItems(registry.components);
         setUsage(usageIndex.by_slug[slug] ?? null);
-        setSpec(specPayload?.ok && specPayload.parsed ? (specPayload.parsed as ComponentSpec) : null);
+        const hasSpec = Boolean(specPayload?.ok && specPayload.exists);
+        setSpec(
+          hasSpec && specPayload?.parsed ? (specPayload.parsed as ComponentSpec) : null,
+        );
+        setSpecRawHash(specPayload?.rawHash ?? null);
+        setSpecRaw(
+          hasSpec
+            ? specPayload?.raw ?? ""
+            : found
+              ? buildSpecTemplate(found)
+              : "",
+        );
         setTokenRegistry(tokenRegistryPayload);
         setTokenUsageIndex(tokenUsagePayload);
       } catch (cause) {
@@ -310,6 +408,17 @@ export function ComponentDetailPage() {
                   <CardDescription className="mt-1 font-mono text-xs">{item.slug}</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                  {item.paths.spec ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSpecEditorOpen(true)}
+                      aria-label={`${spec ? "Edit" : "Create"} spec for ${item.display_name}`}
+                    >
+                      <FilePenLine className="mr-2 h-4 w-4" />
+                      {spec ? "Edit spec" : "Create spec"}
+                    </Button>
+                  ) : null}
                   {item.figma.file_url ? (
                     <Button
                       variant="default"
@@ -480,10 +589,22 @@ export function ComponentDetailPage() {
           {spec ? (
             <Card>
               <CardHeader>
-                <CardTitle>Component Spec</CardTitle>
-                <CardDescription className="font-mono text-xs">
-                  {item.paths.spec}
-                </CardDescription>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <CardTitle>Component Spec</CardTitle>
+                    <CardDescription className="font-mono text-xs">
+                      {item.paths.spec}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSpecEditorOpen(true)}
+                  >
+                    <FilePenLine className="mr-2 h-4 w-4" />
+                    Edit spec
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <ComponentSpecViewer
@@ -495,10 +616,22 @@ export function ComponentDetailPage() {
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>Component Spec</CardTitle>
-                <CardDescription className="text-amber-600">
-                  Spec file not available for this component.
-                </CardDescription>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <CardTitle>Component Spec</CardTitle>
+                    <CardDescription className="text-amber-600">
+                      Spec file not available for this component.
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSpecEditorOpen(true)}
+                  >
+                    <FilePenLine className="mr-2 h-4 w-4" />
+                    Create spec
+                  </Button>
+                </div>
               </CardHeader>
             </Card>
           )}
@@ -658,6 +791,23 @@ export function ComponentDetailPage() {
             </Card>
           </div>
         </>
+      ) : null}
+
+      {item ? (
+        <SpecEditorDrawer
+          open={specEditorOpen}
+          slug={item.slug}
+          displayName={item.display_name}
+          specPath={item.paths.spec || null}
+          initialRaw={specRaw}
+          initialHash={specRawHash}
+          tokenRegistry={tokenRegistry}
+          onClose={() => setSpecEditorOpen(false)}
+          onSaved={({ message }) => {
+            setCaptureSummary(message);
+            setReloadNonce((prev) => prev + 1);
+          }}
+        />
       ) : null}
 
       {item ? (

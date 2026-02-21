@@ -2,12 +2,18 @@ import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 
 import yaml from "js-yaml";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { computeImpactReport } from "./src/lib/impact";
+import { buildSpecDiff } from "./src/lib/spec-diff";
+import { validateComponentSpec } from "./src/lib/spec-validator";
+import type { ComponentSpec } from "./src/types/component-spec";
 import type { ImpactWcagPairConfig } from "./src/types/impact";
+import type { SpecValidationResult } from "./src/types/spec-editor";
+import type { TokenRegistry } from "./src/types/token-registry";
 
 type Middleware = (
   req: {
@@ -281,6 +287,49 @@ function runNpmScript(args: {
   });
 }
 
+async function runCommandCapture(args: {
+  cwd: string;
+  command: string;
+  commandArgs: string[];
+}) {
+  return await new Promise<{
+    ok: boolean;
+    code: number;
+    stdout: string;
+    stderr: string;
+  }>((resolve) => {
+    const child = spawn(args.command, args.commandArgs, {
+      cwd: args.cwd,
+      shell: false,
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on("error", (error) => {
+      resolve({
+        ok: false,
+        code: 1,
+        stdout: stdout.trim(),
+        stderr: `${stderr}\n${error instanceof Error ? error.message : String(error)}`.trim(),
+      });
+    });
+    child.on("close", (code) => {
+      resolve({
+        ok: code === 0,
+        code: typeof code === "number" ? code : 1,
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+      });
+    });
+  });
+}
+
 function validateGitRef(raw: string) {
   const value = String(raw || "").trim();
   if (!value) return null;
@@ -405,6 +454,8 @@ function guessContentType(filePath: string) {
 
 const MAX_FILE_BYTES = 450_000;
 const MAX_SNIPPET_LINES = 15;
+const MAX_SPEC_BYTES = 100_000;
+const COMPONENT_SLUG_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 
 function clampInt(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -417,6 +468,58 @@ function resolveRepoFilePath(repoRoot: string, requestedPath: string) {
   const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : `${repoRoot}${path.sep}`;
   if (resolved !== repoRoot && !resolved.startsWith(rootWithSep)) return null;
   return resolved;
+}
+
+function isDevRuntime() {
+  return process.env.NODE_ENV === "development";
+}
+
+function sha256Text(value: string) {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function sanitizeSlug(raw: string) {
+  const slug = String(raw || "").trim().toLowerCase();
+  if (!COMPONENT_SLUG_RE.test(slug)) return null;
+  return slug;
+}
+
+async function resolveComponentSpecTarget(args: {
+  repoRoot: string;
+  componentRegistryPath: string;
+  slug: string;
+}) {
+  const registryRaw = await fs.readFile(args.componentRegistryPath, "utf8");
+  const registry = JSON.parse(registryRaw) as { components?: ComponentRegistryRow[] };
+  const component = (registry.components ?? []).find(
+    (candidate) => String(candidate.slug ?? "").trim().toLowerCase() === args.slug,
+  );
+  if (!component) {
+    return { ok: false as const, message: `Component '${args.slug}' not found.` };
+  }
+
+  const specRelPath = String(component.paths?.spec ?? "").trim();
+  if (!specRelPath) {
+    return {
+      ok: false as const,
+      message: `Component '${args.slug}' does not define a spec path.`,
+    };
+  }
+
+  const specAbsPath = resolveRepoFilePath(args.repoRoot, specRelPath);
+  if (!specAbsPath) {
+    return {
+      ok: false as const,
+      message: `Spec path for '${args.slug}' is outside repository root.`,
+    };
+  }
+
+  return {
+    ok: true as const,
+    component,
+    specRelPath,
+    specAbsPath,
+  };
 }
 
 async function readTextFileLimited(absPath: string, maxBytes: number) {
@@ -714,6 +817,81 @@ function buildComponentUsageIndex(
   };
 }
 
+function parseYamlSafely(raw: string) {
+  try {
+    const parsed = yaml.load(raw);
+    return {
+      parsed: (parsed ?? null) as ComponentSpec | null,
+      parseError: null as string | null,
+    };
+  } catch (error) {
+    return {
+      parsed: null,
+      parseError: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+type SpecValidationPayload = {
+  ok: true;
+  slug: string;
+  path: string;
+  rawHash: string | null;
+  parsed: ComponentSpec | null;
+  validation: SpecValidationResult;
+  diff: ReturnType<typeof buildSpecDiff>;
+};
+
+function buildSpecValidationPayload(args: {
+  slug: string;
+  path: string;
+  raw: string;
+  baselineParsed: ComponentSpec | null;
+  tokenRegistry: TokenRegistry | null;
+}): SpecValidationPayload {
+  const parsedCandidate = parseYamlSafely(args.raw);
+  if (!parsedCandidate.parsed) {
+    return {
+      ok: true as const,
+      slug: args.slug,
+      path: args.path,
+      rawHash: null,
+      parsed: null,
+      validation: {
+        valid: false,
+        blockingIssueCount: 1,
+        warningCount: 0,
+        issues: [
+          {
+            severity: "error" as const,
+            code: "SPEC_YAML_PARSE_ERROR",
+            path: "$",
+            message: parsedCandidate.parseError || "Unable to parse YAML.",
+            requiresConfirmation: false,
+          },
+        ],
+      },
+      diff: [] as ReturnType<typeof buildSpecDiff>,
+    };
+  }
+
+  const validation = validateComponentSpec(parsedCandidate.parsed, {
+    tokenRegistry: args.tokenRegistry,
+    previousSpec: args.baselineParsed,
+  });
+
+  const diff = buildSpecDiff(args.baselineParsed, parsedCandidate.parsed);
+  return {
+    ok: true as const,
+    slug: args.slug,
+    path: args.path,
+    rawHash: sha256Text(args.raw),
+    parsed: parsedCandidate.parsed,
+    validation,
+    diff,
+  };
+}
+
 function createLocalDataApi() {
   const repoRoot = path.resolve(__dirname, "../..");
   const componentRegistryPath = path.join(
@@ -771,6 +949,12 @@ function createLocalDataApi() {
     "tooling",
     "scripts",
     "ds-capture-from-figma-url.mjs",
+  );
+  const specBackupsDirPath = path.join(
+    repoRoot,
+    "docs",
+    "_generated",
+    "spec-backups",
   );
 
   const middleware: Middleware = async (req, res, next) => {
@@ -1036,30 +1220,476 @@ function createLocalDataApi() {
 
       const specMatch = method === "GET" && url.match(/^\/api\/component-spec\/([^/]+)$/);
       if (specMatch) {
-        const slug = decodeURIComponent(String(specMatch[1]));
-        const registryRaw = await fs.readFile(componentRegistryPath, "utf8");
-        const registry = JSON.parse(registryRaw) as { components?: ComponentRegistryRow[] };
-        const component = (registry.components ?? []).find(
-          (c) => String(c.slug ?? "") === slug,
-        );
-        if (!component) {
-          sendJson(res, 404, { ok: false, message: `Component '${slug}' not found` });
+        const slug = sanitizeSlug(decodeURIComponent(String(specMatch[1])));
+        if (!slug) {
+          sendJson(res, 400, { ok: false, message: "Invalid component slug." });
           return;
         }
-        const specRelPath = String(component.paths?.spec ?? "").trim();
-        if (!specRelPath) {
-          sendJson(res, 404, { ok: false, message: `No spec path for '${slug}'` });
+
+        const target = await resolveComponentSpecTarget({
+          repoRoot,
+          componentRegistryPath,
+          slug,
+        });
+        if (!target.ok) {
+          sendJson(res, 404, { ok: false, message: target.message });
           return;
         }
-        const specAbsPath = path.resolve(repoRoot, specRelPath);
-        const raw = await fs.readFile(specAbsPath, "utf8");
-        let parsed: unknown = null;
+
+        let raw = "";
+        let exists = true;
         try {
-          parsed = yaml.load(raw);
-        } catch {
-          // parsed stays null; frontend can fall back to raw display
+          raw = await fs.readFile(target.specAbsPath, "utf8");
+        } catch (error) {
+          const code =
+            typeof error === "object" &&
+            error &&
+            "code" in error
+              ? String((error as { code?: string }).code || "")
+              : "";
+          if (code === "ENOENT") {
+            exists = false;
+            raw = "";
+          } else {
+            throw error;
+          }
         }
-        sendJson(res, 200, { ok: true, slug, path: specRelPath, raw, parsed });
+
+        const parsedPayload = parseYamlSafely(raw);
+        sendJson(res, 200, {
+          ok: true,
+          slug,
+          path: target.specRelPath,
+          exists,
+          raw,
+          rawHash: exists ? sha256Text(raw) : null,
+          parsed: parsedPayload.parsed,
+          parseError: parsedPayload.parseError,
+        });
+        return;
+      }
+
+      const validateSpecMatch =
+        method === "POST" && url.match(/^\/api\/component-spec\/([^/]+)\/validate$/);
+      if (validateSpecMatch) {
+        if (!isDevRuntime()) {
+          sendJson(res, 403, { ok: false, message: "Spec editing is only enabled in development mode." });
+          return;
+        }
+
+        const slug = sanitizeSlug(decodeURIComponent(String(validateSpecMatch[1])));
+        if (!slug) {
+          sendJson(res, 400, { ok: false, message: "Invalid component slug." });
+          return;
+        }
+
+        const target = await resolveComponentSpecTarget({
+          repoRoot,
+          componentRegistryPath,
+          slug,
+        });
+        if (!target.ok) {
+          sendJson(res, 404, { ok: false, message: target.message });
+          return;
+        }
+
+        const body = await readJsonBody(req);
+        const raw = String(body.raw ?? "");
+        if (!raw.trim()) {
+          sendJson(res, 200, {
+            ok: true,
+            slug,
+            path: target.specRelPath,
+            rawHash: null,
+            parsed: null,
+            validation: {
+              valid: false,
+              blockingIssueCount: 1,
+              warningCount: 0,
+              issues: [
+                {
+                  severity: "error",
+                  code: "SPEC_EMPTY",
+                  path: "$",
+                  message: "Spec content cannot be empty.",
+                },
+              ],
+            },
+            diff: [],
+          });
+          return;
+        }
+        if (Buffer.byteLength(raw, "utf8") > MAX_SPEC_BYTES) {
+          sendJson(res, 200, {
+            ok: true,
+            slug,
+            path: target.specRelPath,
+            rawHash: null,
+            parsed: null,
+            validation: {
+              valid: false,
+              blockingIssueCount: 1,
+              warningCount: 0,
+              issues: [
+                {
+                  severity: "error",
+                  code: "SPEC_TOO_LARGE",
+                  path: "$",
+                  message: `Spec exceeds ${MAX_SPEC_BYTES} bytes.`,
+                },
+              ],
+            },
+            diff: [],
+          });
+          return;
+        }
+
+        let currentRaw = "";
+        try {
+          currentRaw = await fs.readFile(target.specAbsPath, "utf8");
+        } catch {
+          currentRaw = "";
+        }
+        const baselineParsed = parseYamlSafely(currentRaw).parsed;
+        const tokenRegistryRaw = await fs.readFile(tokenRegistryPath, "utf8").catch(() => "");
+        const tokenRegistry = tokenRegistryRaw
+          ? (JSON.parse(tokenRegistryRaw) as TokenRegistry)
+          : null;
+
+        const payload = buildSpecValidationPayload({
+          slug,
+          path: target.specRelPath,
+          raw,
+          baselineParsed,
+          tokenRegistry,
+        });
+        sendJson(res, 200, payload);
+        return;
+      }
+
+      const saveSpecMatch = method === "POST" && url.match(/^\/api\/component-spec\/([^/]+)\/save$/);
+      if (saveSpecMatch) {
+        if (!isDevRuntime()) {
+          sendJson(res, 403, { ok: false, message: "Spec editing is only enabled in development mode." });
+          return;
+        }
+
+        const slug = sanitizeSlug(decodeURIComponent(String(saveSpecMatch[1])));
+        if (!slug) {
+          sendJson(res, 400, { ok: false, message: "Invalid component slug." });
+          return;
+        }
+
+        const target = await resolveComponentSpecTarget({
+          repoRoot,
+          componentRegistryPath,
+          slug,
+        });
+        if (!target.ok) {
+          sendJson(res, 404, { ok: false, message: target.message });
+          return;
+        }
+
+        const body = await readJsonBody(req);
+        const raw = String(body.raw ?? "");
+        const expectedHash =
+          body.expectedHash === null || body.expectedHash === undefined
+            ? null
+            : String(body.expectedHash).trim() || null;
+        const refreshRegistryAfterSave = body.refreshRegistry !== false;
+        const confirmRiskyChanges = body.confirmRiskyChanges === true;
+
+        if (!raw.trim()) {
+          sendJson(res, 200, {
+            ok: false,
+            slug,
+            path: target.specRelPath,
+            rawHash: null,
+            backupPath: null,
+            parsed: null,
+            validation: {
+              valid: false,
+              blockingIssueCount: 1,
+              warningCount: 0,
+              issues: [
+                {
+                  severity: "error",
+                  code: "SPEC_EMPTY",
+                  path: "$",
+                  message: "Spec content cannot be empty.",
+                },
+              ],
+            },
+            diff: [],
+            message: "Spec content cannot be empty.",
+          });
+          return;
+        }
+
+        if (Buffer.byteLength(raw, "utf8") > MAX_SPEC_BYTES) {
+          sendJson(res, 200, {
+            ok: false,
+            slug,
+            path: target.specRelPath,
+            rawHash: null,
+            backupPath: null,
+            parsed: null,
+            validation: {
+              valid: false,
+              blockingIssueCount: 1,
+              warningCount: 0,
+              issues: [
+                {
+                  severity: "error",
+                  code: "SPEC_TOO_LARGE",
+                  path: "$",
+                  message: `Spec exceeds ${MAX_SPEC_BYTES} bytes.`,
+                },
+              ],
+            },
+            diff: [],
+            message: `Spec exceeds ${MAX_SPEC_BYTES} bytes.`,
+          });
+          return;
+        }
+
+        let currentRaw = "";
+        let currentExists = true;
+        try {
+          currentRaw = await fs.readFile(target.specAbsPath, "utf8");
+        } catch (error) {
+          const code =
+            typeof error === "object" &&
+            error &&
+            "code" in error
+              ? String((error as { code?: string }).code || "")
+              : "";
+          if (code === "ENOENT") {
+            currentRaw = "";
+            currentExists = false;
+          } else {
+            throw error;
+          }
+        }
+
+        const currentHash = currentExists ? sha256Text(currentRaw) : null;
+        if (expectedHash && expectedHash !== currentHash) {
+          sendJson(res, 200, {
+            ok: false,
+            slug,
+            path: target.specRelPath,
+            rawHash: currentHash,
+            backupPath: null,
+            parsed: null,
+            validation: {
+              valid: false,
+              blockingIssueCount: 1,
+              warningCount: 0,
+              issues: [
+                {
+                  severity: "error",
+                  code: "SPEC_CONFLICT",
+                  path: "$",
+                  message:
+                    "Spec file changed on disk since you opened the editor. Reload to merge latest content.",
+                },
+              ],
+            },
+            diff: [],
+            message: "Spec file changed on disk; reload before saving.",
+          });
+          return;
+        }
+
+        const baselineParsed = parseYamlSafely(currentRaw).parsed;
+        const tokenRegistryRaw = await fs.readFile(tokenRegistryPath, "utf8").catch(() => "");
+        const tokenRegistry = tokenRegistryRaw
+          ? (JSON.parse(tokenRegistryRaw) as TokenRegistry)
+          : null;
+
+        const validationPayload = buildSpecValidationPayload({
+          slug,
+          path: target.specRelPath,
+          raw,
+          baselineParsed,
+          tokenRegistry,
+        });
+
+        if (!validationPayload.validation.valid) {
+          sendJson(res, 200, {
+            ok: false,
+            slug,
+            path: target.specRelPath,
+            rawHash: currentHash,
+            backupPath: null,
+            parsed: validationPayload.parsed,
+            validation: validationPayload.validation,
+            diff: validationPayload.diff,
+            message: "Spec has validation errors.",
+          });
+          return;
+        }
+
+        const requiresConfirmation = validationPayload.validation.issues.some(
+          (issue) => issue.requiresConfirmation === true,
+        );
+        if (requiresConfirmation && !confirmRiskyChanges) {
+          sendJson(res, 200, {
+            ok: false,
+            slug,
+            path: target.specRelPath,
+            rawHash: currentHash,
+            backupPath: null,
+            parsed: validationPayload.parsed,
+            validation: validationPayload.validation,
+            diff: validationPayload.diff,
+            requiresConfirmation: true,
+            message: "This change includes risky fields and requires explicit confirmation.",
+          });
+          return;
+        }
+
+        await fs.mkdir(path.dirname(target.specAbsPath), { recursive: true });
+        await fs.mkdir(specBackupsDirPath, { recursive: true });
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const backupTimestampPath = path.join(specBackupsDirPath, `${slug}.${timestamp}.yml`);
+        const backupLatestPath = path.join(specBackupsDirPath, `${slug}.last.yml`);
+        const backupContent = currentExists ? currentRaw : "";
+        await fs.writeFile(backupTimestampPath, backupContent, "utf8");
+        await fs.writeFile(backupLatestPath, backupContent, "utf8");
+
+        const tempPath = `${target.specAbsPath}.tmp-${Date.now()}`;
+        await fs.writeFile(tempPath, raw, "utf8");
+        await fs.rename(tempPath, target.specAbsPath);
+
+        let refreshed = false;
+        let refreshOutput = "";
+        if (refreshRegistryAfterSave) {
+          const refresh = await runCommandCapture({
+            cwd: repoRoot,
+            command: "npm",
+            commandArgs: ["run", "ds:registry:refresh"],
+          });
+          refreshed = refresh.ok;
+          refreshOutput = [refresh.stdout, refresh.stderr].filter(Boolean).join("\n").trim();
+          if (!refresh.ok) {
+            sendJson(res, 200, {
+              ok: false,
+              slug,
+              path: target.specRelPath,
+              rawHash: sha256Text(raw),
+              backupPath: path.relative(repoRoot, backupLatestPath),
+              parsed: validationPayload.parsed,
+              validation: validationPayload.validation,
+              diff: validationPayload.diff,
+              refreshed,
+              refreshOutput,
+              message: "Spec saved, but registry refresh failed.",
+            });
+            return;
+          }
+        }
+
+        sendJson(res, 200, {
+          ok: true,
+          slug,
+          path: target.specRelPath,
+          rawHash: sha256Text(raw),
+          backupPath: path.relative(repoRoot, backupLatestPath),
+          parsed: validationPayload.parsed,
+          validation: validationPayload.validation,
+          diff: validationPayload.diff,
+          refreshed,
+          refreshOutput,
+          message: "Spec saved successfully.",
+        });
+        return;
+      }
+
+      const restoreSpecMatch =
+        method === "POST" && url.match(/^\/api\/component-spec\/([^/]+)\/restore-backup$/);
+      if (restoreSpecMatch) {
+        if (!isDevRuntime()) {
+          sendJson(res, 403, { ok: false, message: "Spec editing is only enabled in development mode." });
+          return;
+        }
+
+        const slug = sanitizeSlug(decodeURIComponent(String(restoreSpecMatch[1])));
+        if (!slug) {
+          sendJson(res, 400, { ok: false, message: "Invalid component slug." });
+          return;
+        }
+
+        const target = await resolveComponentSpecTarget({
+          repoRoot,
+          componentRegistryPath,
+          slug,
+        });
+        if (!target.ok) {
+          sendJson(res, 404, { ok: false, message: target.message });
+          return;
+        }
+
+        const body = await readJsonBody(req);
+        const refreshRegistryAfterRestore = body.refreshRegistry !== false;
+        const backupLatestPath = path.join(specBackupsDirPath, `${slug}.last.yml`);
+        const backupExists = await fs
+          .stat(backupLatestPath)
+          .then((stat) => stat.isFile())
+          .catch(() => false);
+        if (!backupExists) {
+          sendJson(res, 200, {
+            ok: false,
+            slug,
+            path: target.specRelPath,
+            restoredFrom: null,
+            rawHash: null,
+            message: "No backup file found for this component.",
+          });
+          return;
+        }
+
+        const backupRaw = await fs.readFile(backupLatestPath, "utf8");
+        if (!backupRaw.trim()) {
+          sendJson(res, 200, {
+            ok: false,
+            slug,
+            path: target.specRelPath,
+            restoredFrom: path.relative(repoRoot, backupLatestPath),
+            rawHash: null,
+            message: "Backup exists but is empty; restore skipped.",
+          });
+          return;
+        }
+
+        await fs.mkdir(path.dirname(target.specAbsPath), { recursive: true });
+        const tempPath = `${target.specAbsPath}.tmp-restore-${Date.now()}`;
+        await fs.writeFile(tempPath, backupRaw, "utf8");
+        await fs.rename(tempPath, target.specAbsPath);
+
+        let refreshed = false;
+        let refreshOutput = "";
+        if (refreshRegistryAfterRestore) {
+          const refresh = await runCommandCapture({
+            cwd: repoRoot,
+            command: "npm",
+            commandArgs: ["run", "ds:registry:refresh"],
+          });
+          refreshed = refresh.ok;
+          refreshOutput = [refresh.stdout, refresh.stderr].filter(Boolean).join("\n").trim();
+        }
+
+        sendJson(res, 200, {
+          ok: true,
+          slug,
+          path: target.specRelPath,
+          restoredFrom: path.relative(repoRoot, backupLatestPath),
+          rawHash: sha256Text(backupRaw),
+          refreshed,
+          refreshOutput,
+          message: "Spec restored from latest backup.",
+        });
         return;
       }
 

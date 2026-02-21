@@ -14,6 +14,11 @@ import type {
   HealthHistoryRange,
   HealthHistoryReport,
 } from "@/types/health-history";
+import type {
+  ComponentSpecRestoreResponse,
+  ComponentSpecSaveResponse,
+  ComponentSpecValidateResponse,
+} from "@/types/spec-editor";
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -97,13 +102,71 @@ export interface ComponentSpecPayload {
   ok: boolean;
   slug: string;
   path: string;
+  exists: boolean;
   raw: string;
+  rawHash: string | null;
   parsed: unknown;
+  parseError?: string | null;
 }
 
 export function fetchComponentSpec(slug: string) {
   return getJson<ComponentSpecPayload>(
     `/api/component-spec/${encodeURIComponent(slug)}`,
+  );
+}
+
+export function validateComponentSpecInput(args: { slug: string; raw: string }) {
+  return getJson<ComponentSpecValidateResponse>(
+    `/api/component-spec/${encodeURIComponent(args.slug)}/validate`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ raw: args.raw }),
+    },
+  );
+}
+
+export function saveComponentSpec(args: {
+  slug: string;
+  raw: string;
+  expectedHash?: string | null;
+  refreshRegistry?: boolean;
+  confirmRiskyChanges?: boolean;
+}) {
+  return getJson<ComponentSpecSaveResponse>(
+    `/api/component-spec/${encodeURIComponent(args.slug)}/save`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        raw: args.raw,
+        expectedHash: args.expectedHash ?? null,
+        refreshRegistry: args.refreshRegistry !== false,
+        confirmRiskyChanges: args.confirmRiskyChanges === true,
+      }),
+    },
+  );
+}
+
+export function restoreComponentSpecBackup(args: {
+  slug: string;
+  refreshRegistry?: boolean;
+}) {
+  return getJson<ComponentSpecRestoreResponse>(
+    `/api/component-spec/${encodeURIComponent(args.slug)}/restore-backup`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        refreshRegistry: args.refreshRegistry !== false,
+      }),
+    },
   );
 }
 
