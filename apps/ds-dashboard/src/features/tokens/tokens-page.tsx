@@ -397,7 +397,7 @@ export function TokensPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -407,7 +407,7 @@ export function TokensPage() {
                     Token Path <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -417,7 +417,7 @@ export function TokensPage() {
                     Collection <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -427,7 +427,7 @@ export function TokensPage() {
                     Type <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -437,7 +437,7 @@ export function TokensPage() {
                     CSS Variable <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -447,7 +447,7 @@ export function TokensPage() {
                     Resolved Value <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"

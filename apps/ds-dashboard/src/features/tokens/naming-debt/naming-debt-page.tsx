@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, RefreshCcw } from "lucide-react";
+import { ArrowUpDown, Download, RefreshCcw } from "lucide-react";
 
 import { fetchNamingDebt, refreshNamingDebt } from "@/lib/api";
 import type {
@@ -66,6 +66,14 @@ export function NamingDebtPage() {
   const [severity, setSeverity] = useState<"all" | NamingDebtSeverity>("all");
   const [category, setCategory] = useState<"all" | NamingDebtCategory>("all");
   const [collection, setCollection] = useState("all");
+  const [violationSort, setViolationSort] = useState<{
+    field: "token" | "rule" | "severity" | "category" | "suggestion";
+    dir: "asc" | "desc";
+  }>({ field: "severity", dir: "desc" });
+  const [proposalSort, setProposalSort] = useState<{
+    field: "current" | "suggested" | "risk" | "refs" | "affectedSpecs";
+    dir: "asc" | "desc";
+  }>({ field: "risk", dir: "asc" });
 
   const load = async (forceRefresh = false) => {
     setError(null);
@@ -110,8 +118,71 @@ export function NamingDebtPage() {
 
   const topProposals = useMemo(() => {
     if (!report) return [];
-    return report.renameProposals.slice(0, 20);
-  }, [report]);
+    const riskRank: Record<string, number> = {
+      safe: 0,
+      low: 1,
+      medium: 2,
+      high: 3,
+    };
+    const rows = report.renameProposals.slice();
+    rows.sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (proposalSort.field === "current") return row.currentPath.toLowerCase();
+        if (proposalSort.field === "suggested") return row.suggestedPath.toLowerCase();
+        if (proposalSort.field === "risk") return riskRank[row.riskLevel] ?? 99;
+        if (proposalSort.field === "refs") return row.directRefs + row.transitiveRefs;
+        return row.affectedSpecs.length;
+      };
+      const aValue = valueFor(left);
+      const bValue = valueFor(right);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return proposalSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows.slice(0, 20);
+  }, [proposalSort, report]);
+
+  const sortedViolations = useMemo(() => {
+    const rows = filteredViolations.slice();
+    const severityRank: Record<NamingDebtSeverity, number> = {
+      error: 2,
+      warning: 1,
+      info: 0,
+    };
+    rows.sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (violationSort.field === "token") return row.tokenPath.toLowerCase();
+        if (violationSort.field === "rule") return row.ruleId.toLowerCase();
+        if (violationSort.field === "severity") return severityRank[row.severity] ?? -1;
+        if (violationSort.field === "category") return row.category.toLowerCase();
+        return (row.suggestedPath || "").toLowerCase();
+      };
+      const aValue = valueFor(left);
+      const bValue = valueFor(right);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return violationSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [filteredViolations, violationSort]);
+
+  const toggleViolationSort = (
+    field: "token" | "rule" | "severity" | "category" | "suggestion",
+  ) => {
+    setViolationSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
+
+  const toggleProposalSort = (
+    field: "current" | "suggested" | "risk" | "refs" | "affectedSpecs",
+  ) => {
+    setProposalSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -260,29 +331,69 @@ export function NamingDebtPage() {
               <CardHeader>
                 <CardTitle>Violations</CardTitle>
                 <CardDescription>
-                  {filteredViolations.length} item(s) matching current filters.
+                  {sortedViolations.length} item(s) matching current filters.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Token</TableHead>
-                      <TableHead>Rule</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Suggestion</TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleViolationSort("token")}
+                        >
+                          Token <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleViolationSort("rule")}
+                        >
+                          Rule <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleViolationSort("severity")}
+                        >
+                          Severity <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleViolationSort("category")}
+                        >
+                          Category <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleViolationSort("suggestion")}
+                        >
+                          Suggestion <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {!loading && filteredViolations.length === 0 ? (
+                    {!loading && sortedViolations.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={5} className="text-center text-muted-foreground">
                           No violations match current filters.
                         </TableCell>
                       </TableRow>
                     ) : null}
-                    {(loading ? [] : filteredViolations.slice(0, 60)).map((row, index) => (
+                    {(loading ? [] : sortedViolations.slice(0, 60)).map((row, index) => (
                       <TableRow key={`${row.tokenPath}:${row.ruleId}:${index}`}>
                         <TableCell className="align-top">
                           <Link
@@ -320,12 +431,52 @@ export function NamingDebtPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Current</TableHead>
-                    <TableHead>Suggested</TableHead>
-                    <TableHead>Risk</TableHead>
-                    <TableHead>Refs</TableHead>
-                    <TableHead>Affected specs</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleProposalSort("current")}
+                      >
+                        Current <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleProposalSort("suggested")}
+                      >
+                        Suggested <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleProposalSort("risk")}
+                      >
+                        Risk <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleProposalSort("refs")}
+                      >
+                        Refs <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleProposalSort("affectedSpecs")}
+                      >
+                        Affected specs <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, RefreshCcw } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, CheckCircle2, RefreshCcw } from "lucide-react";
 
 import {
   captureHealthSnapshot,
@@ -95,6 +95,18 @@ export function HealthDashboardPage() {
   const [historyRange, setHistoryRange] = useState<HealthHistoryRange>("30d");
   const [historyBucket, setHistoryBucket] = useState<HealthHistoryBucket>("day");
   const [snapshotting, setSnapshotting] = useState(false);
+  const [brokenAliasSort, setBrokenAliasSort] = useState<{
+    field: "token" | "alias" | "reason";
+    dir: "asc" | "desc";
+  }>({ field: "token", dir: "asc" });
+  const [wcagSort, setWcagSort] = useState<{
+    field: "foreground" | "background" | "ratio";
+    dir: "asc" | "desc";
+  }>({ field: "ratio", dir: "desc" });
+  const [atRiskSort, setAtRiskSort] = useState<{
+    field: "component" | "stage" | "status" | "coverage";
+    dir: "asc" | "desc";
+  }>({ field: "coverage", dir: "desc" });
 
   const load = async () => {
     setLoading(true);
@@ -378,6 +390,79 @@ export function HealthDashboardPage() {
       atRiskComponents,
     };
   }, [componentsHealth, namingDebt, tokenHealth]);
+
+  const sortedBrokenAliases = useMemo(() => {
+    const rows = tokenHealth?.broken_aliases.items?.slice(0, 8) ?? [];
+    rows.sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (brokenAliasSort.field === "token") return row.token.toLowerCase();
+        if (brokenAliasSort.field === "alias") return row.aliasCssVar.toLowerCase();
+        return row.reason.toLowerCase();
+      };
+      const aValue = valueFor(left);
+      const bValue = valueFor(right);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return brokenAliasSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [brokenAliasSort, tokenHealth]);
+
+  const sortedWcagFailures = useMemo(() => {
+    const rows = tokenHealth?.wcag_failures.items?.slice(0, 8) ?? [];
+    rows.sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (wcagSort.field === "foreground") return row.foreground.toLowerCase();
+        if (wcagSort.field === "background") return row.background.toLowerCase();
+        return Number(row.contrastRatio) - Number(row.requiredRatio);
+      };
+      const aValue = valueFor(left);
+      const bValue = valueFor(right);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return wcagSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [tokenHealth, wcagSort]);
+
+  const sortedAtRiskComponents = useMemo(() => {
+    const rows = dashboard?.atRiskComponents?.slice() ?? [];
+    rows.sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (atRiskSort.field === "component") return row.display_name.toLowerCase();
+        if (atRiskSort.field === "stage") return row.pipeline_stage.toLowerCase();
+        if (atRiskSort.field === "status") return row.status.toLowerCase();
+        return row.coverage;
+      };
+      const aValue = valueFor(left);
+      const bValue = valueFor(right);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return atRiskSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [atRiskSort, dashboard]);
+
+  const toggleBrokenAliasSort = (field: "token" | "alias" | "reason") => {
+    setBrokenAliasSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
+
+  const toggleWcagSort = (field: "foreground" | "background" | "ratio") => {
+    setWcagSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
+
+  const toggleAtRiskSort = (field: "component" | "stage" | "status" | "coverage") => {
+    setAtRiskSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
 
   return (
     <div className="space-y-6 animate-fade-slide-in">
@@ -674,14 +759,38 @@ export function HealthDashboardPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Token</TableHead>
-                        <TableHead>Alias CSS var</TableHead>
-                        <TableHead>Reason</TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleBrokenAliasSort("token")}
+                          >
+                            Token <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleBrokenAliasSort("alias")}
+                          >
+                            Alias CSS var <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleBrokenAliasSort("reason")}
+                          >
+                            Reason <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {tokenHealth?.broken_aliases.items.length ? (
-                        tokenHealth.broken_aliases.items.slice(0, 8).map((row) => (
+                      {sortedBrokenAliases.length ? (
+                        sortedBrokenAliases.map((row) => (
                           <TableRow key={`${row.token}:${row.aliasCssVar}`}>
                             <TableCell className="font-mono text-xs">
                               <Link
@@ -715,14 +824,38 @@ export function HealthDashboardPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Foreground</TableHead>
-                        <TableHead>Background</TableHead>
-                        <TableHead>Ratio</TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleWcagSort("foreground")}
+                          >
+                            Foreground <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleWcagSort("background")}
+                          >
+                            Background <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleWcagSort("ratio")}
+                          >
+                            Ratio <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {tokenHealth?.wcag_failures.items.length ? (
-                        tokenHealth.wcag_failures.items.slice(0, 8).map((row) => (
+                      {sortedWcagFailures.length ? (
+                        sortedWcagFailures.map((row) => (
                           <TableRow
                             key={`${row.foreground}:${row.background}:${row.level}:${row.textSize}`}
                           >
@@ -806,15 +939,47 @@ export function HealthDashboardPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Component</TableHead>
-                        <TableHead>Stage</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Coverage</TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleAtRiskSort("component")}
+                          >
+                            Component <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleAtRiskSort("stage")}
+                          >
+                            Stage <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
+                        <TableHead showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleAtRiskSort("status")}
+                          >
+                            Status <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
+                        <TableHead className="text-right" showSortIcon={false}>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1"
+                            onClick={() => toggleAtRiskSort("coverage")}
+                          >
+                            Coverage <ArrowUpDown className="h-3.5 w-3.5" />
+                          </button>
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {dashboard.atRiskComponents.length ? (
-                        dashboard.atRiskComponents.map((row) => (
+                      {sortedAtRiskComponents.length ? (
+                        sortedAtRiskComponents.map((row) => (
                           <TableRow key={row.slug}>
                             <TableCell>
                               <Link

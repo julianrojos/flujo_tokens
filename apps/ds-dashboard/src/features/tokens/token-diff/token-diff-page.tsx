@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { RefreshCcw, X } from "lucide-react";
+import { ArrowUpDown, RefreshCcw, X } from "lucide-react";
 
 import { fetchTokenDiff, fetchTokenGraph, fetchTokenUsageIndex } from "@/lib/api";
 import type { TokenDiffReport } from "@/types/token-diff";
@@ -267,6 +267,10 @@ export function TokenDiffPage() {
   const [showOnlyBreaking, setShowOnlyBreaking] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedChange | null>(null);
+  const [tableSort, setTableSort] = useState<{
+    field: "token" | "status" | "uses" | "dependents" | "notes";
+    dir: "asc" | "desc";
+  }>({ field: "status", dir: "desc" });
 
   const presets = [
     { value: "HEAD~1", label: "HEAD~1" },
@@ -376,6 +380,21 @@ export function TokenDiffPage() {
       fieldsChanged?: string[];
     }>,
   ) => {
+    const sortedRows = rows.slice().sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (tableSort.field === "token") return row.tokenPath.toLowerCase();
+        if (tableSort.field === "status") return row.change_class === "breaking" ? 1 : 0;
+        if (tableSort.field === "uses") return usageByPath[row.tokenPath]?.usageCount ?? -1;
+        if (tableSort.field === "dependents")
+          return buildGraphImpact(graph, row.tokenPath).dependents.length;
+        return (row.fieldsChanged || []).join(",").toLowerCase();
+      };
+      const aValue = valueFor(left);
+      const bValue = valueFor(right);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return tableSort.dir === "asc" ? comparison : comparison * -1;
+    });
+
     return (
       <Card>
         <CardHeader>
@@ -386,16 +405,89 @@ export function TokenDiffPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Token</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Uses</TableHead>
-                <TableHead className="text-right">Dependents</TableHead>
-                <TableHead>Notes</TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setTableSort((current) =>
+                        current.field === "token"
+                          ? { field: "token", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "token", dir: "asc" },
+                      )
+                    }
+                  >
+                    Token <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setTableSort((current) =>
+                        current.field === "status"
+                          ? { field: "status", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "status", dir: "asc" },
+                      )
+                    }
+                  >
+                    Status <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead className="text-right" showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setTableSort((current) =>
+                        current.field === "uses"
+                          ? { field: "uses", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "uses", dir: "asc" },
+                      )
+                    }
+                  >
+                    Uses <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead className="text-right" showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setTableSort((current) =>
+                        current.field === "dependents"
+                          ? {
+                              field: "dependents",
+                              dir: current.dir === "asc" ? "desc" : "asc",
+                            }
+                          : { field: "dependents", dir: "asc" },
+                      )
+                    }
+                  >
+                    Dependents <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setTableSort((current) =>
+                        current.field === "notes"
+                          ? { field: "notes", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "notes", dir: "asc" },
+                      )
+                    }
+                  >
+                    Notes <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.length ? (
-                rows.map((row) => {
+              {sortedRows.length ? (
+                sortedRows.map((row) => {
                   const usageCount = usageByPath[row.tokenPath]?.usageCount ?? null;
                   const impact = buildGraphImpact(graph, row.tokenPath);
                   const risky = row.fieldsChanged
@@ -671,4 +763,3 @@ export function TokenDiffPage() {
     </div>
   );
 }
-

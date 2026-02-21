@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createSearchParams, Link, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ShieldAlert, Target } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, ShieldAlert, Target } from "lucide-react";
 
 import { fetchImpact, fetchTokenRegistry } from "@/lib/api";
 import { normalizeToHex6 } from "@/features/tokens/accessibility/color-utils";
@@ -55,6 +55,21 @@ function displayColor(value: string | null) {
   return normalized ?? value ?? "—";
 }
 
+type SortDirection = "asc" | "desc";
+type AffectedTokenSortField = "severity" | "token" | "depth" | "uses" | "reasons";
+type AffectedComponentSortField =
+  | "severity"
+  | "component"
+  | "pipeline"
+  | "tokens"
+  | "occurrences"
+  | "visualProof";
+type WcagSortField = "pair" | "level" | "original" | "simulated" | "status";
+
+function compareValues(left: string | number, right: string | number) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 export function ImpactExplorerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tokenParam = searchParams.get("token") ?? "";
@@ -69,6 +84,18 @@ export function ImpactExplorerPage() {
   const [loading, setLoading] = useState(false);
   const [loadingTokens, setLoadingTokens] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [affectedTokenSort, setAffectedTokenSort] = useState<{
+    field: AffectedTokenSortField;
+    dir: SortDirection;
+  }>({ field: "severity", dir: "desc" });
+  const [affectedComponentSort, setAffectedComponentSort] = useState<{
+    field: AffectedComponentSortField;
+    dir: SortDirection;
+  }>({ field: "severity", dir: "desc" });
+  const [wcagSort, setWcagSort] = useState<{ field: WcagSortField; dir: SortDirection }>({
+    field: "status",
+    dir: "desc",
+  });
   const autoQueryRef = useRef("");
 
   useEffect(() => {
@@ -162,6 +189,95 @@ export function ImpactExplorerPage() {
     [report],
   );
   const typedNewColor = useMemo(() => normalizeToHex6(newValueInput), [newValueInput]);
+
+  const sortedAffectedTokens = useMemo(() => {
+    if (!report) return [];
+    const severityRank: Record<ImpactSeverity, number> = {
+      low: 0,
+      medium: 1,
+      high: 2,
+      critical: 3,
+    };
+    const rows = report.affectedTokens.slice();
+    rows.sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (affectedTokenSort.field === "severity") return severityRank[row.severity];
+        if (affectedTokenSort.field === "token") return row.path.toLowerCase();
+        if (affectedTokenSort.field === "depth") return row.depth;
+        if (affectedTokenSort.field === "uses") return row.usageCount;
+        return row.reasons.join(" ").toLowerCase();
+      };
+      const comparison = compareValues(valueFor(left), valueFor(right));
+      return affectedTokenSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [affectedTokenSort, report]);
+
+  const sortedAffectedComponents = useMemo(() => {
+    if (!report) return [];
+    const severityRank: Record<ImpactSeverity, number> = {
+      low: 0,
+      medium: 1,
+      high: 2,
+      critical: 3,
+    };
+    const rows = report.affectedComponents.slice();
+    rows.sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (affectedComponentSort.field === "severity") return severityRank[row.severity];
+        if (affectedComponentSort.field === "component") return row.displayName.toLowerCase();
+        if (affectedComponentSort.field === "pipeline") return row.pipelineStage.toLowerCase();
+        if (affectedComponentSort.field === "tokens") return row.affectedTokenPaths.length;
+        if (affectedComponentSort.field === "occurrences") return row.occurrences;
+        return row.visualProofAvailable ? 1 : 0;
+      };
+      const comparison = compareValues(valueFor(left), valueFor(right));
+      return affectedComponentSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [affectedComponentSort, report]);
+
+  const sortedWcagSimulation = useMemo(() => {
+    if (!report) return [];
+    const rows = report.wcagSimulation.slice();
+    rows.sort((left, right) => {
+      const valueFor = (row: (typeof rows)[number]) => {
+        if (wcagSort.field === "pair")
+          return `${row.foreground} ${row.background}`.toLowerCase();
+        if (wcagSort.field === "level") return `${row.level}-${row.textSize}`.toLowerCase();
+        if (wcagSort.field === "original") return row.originalRatio;
+        if (wcagSort.field === "simulated") return row.simulatedRatio ?? -1;
+        return row.regression ? 2 : row.simulatedPass ? 1 : 0;
+      };
+      const comparison = compareValues(valueFor(left), valueFor(right));
+      return wcagSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [report, wcagSort]);
+
+  const toggleAffectedTokenSort = (field: AffectedTokenSortField) => {
+    setAffectedTokenSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
+
+  const toggleAffectedComponentSort = (field: AffectedComponentSortField) => {
+    setAffectedComponentSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
+
+  const toggleWcagSort = (field: WcagSortField) => {
+    setWcagSort((current) =>
+      current.field === field
+        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" },
+    );
+  };
 
   return (
     <div className="space-y-5 animate-fade-slide-in">
@@ -337,15 +453,55 @@ export function ImpactExplorerPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Severity</TableHead>
-                    <TableHead>Token</TableHead>
-                    <TableHead>Depth</TableHead>
-                    <TableHead>Uses</TableHead>
-                    <TableHead>Reasons</TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedTokenSort("severity")}
+                      >
+                        Severity <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedTokenSort("token")}
+                      >
+                        Token <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedTokenSort("depth")}
+                      >
+                        Depth <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedTokenSort("uses")}
+                      >
+                        Uses <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedTokenSort("reasons")}
+                      >
+                        Reasons <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {report.affectedTokens.map((row) => (
+                  {sortedAffectedTokens.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell>
                         <Badge variant={severityBadgeVariant(row.severity)}>
@@ -383,12 +539,60 @@ export function ImpactExplorerPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Severity</TableHead>
-                    <TableHead>Component</TableHead>
-                    <TableHead>Pipeline</TableHead>
-                    <TableHead>Tokens</TableHead>
-                    <TableHead>Occurrences</TableHead>
-                    <TableHead>Visual proof</TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedComponentSort("severity")}
+                      >
+                        Severity <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedComponentSort("component")}
+                      >
+                        Component <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedComponentSort("pipeline")}
+                      >
+                        Pipeline <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedComponentSort("tokens")}
+                      >
+                        Tokens <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedComponentSort("occurrences")}
+                      >
+                        Occurrences <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
+                    <TableHead showSortIcon={false}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1"
+                        onClick={() => toggleAffectedComponentSort("visualProof")}
+                      >
+                        Visual proof <ArrowUpDown className="h-3.5 w-3.5" />
+                      </button>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -399,7 +603,7 @@ export function ImpactExplorerPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    report.affectedComponents.map((component) => (
+                    sortedAffectedComponents.map((component) => (
                       <TableRow key={component.slug}>
                         <TableCell>
                           <Badge variant={severityBadgeVariant(component.severity)}>
@@ -447,15 +651,55 @@ export function ImpactExplorerPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Pair</TableHead>
-                      <TableHead>Level</TableHead>
-                      <TableHead>Original</TableHead>
-                      <TableHead>Simulated</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleWcagSort("pair")}
+                        >
+                          Pair <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleWcagSort("level")}
+                        >
+                          Level <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleWcagSort("original")}
+                        >
+                          Original <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleWcagSort("simulated")}
+                        >
+                          Simulated <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() => toggleWcagSort("status")}
+                        >
+                          Status <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {report.wcagSimulation.map((row) => (
+                    {sortedWcagSimulation.map((row) => (
                       <TableRow key={`${row.foreground}|${row.background}|${row.level}|${row.textSize}`}>
                         <TableCell className="font-mono text-xs">
                           {row.foreground} / {row.background}

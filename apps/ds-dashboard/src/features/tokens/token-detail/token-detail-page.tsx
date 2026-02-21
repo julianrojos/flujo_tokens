@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpDown } from "lucide-react";
 
 import { fetchFileSnippet, fetchTokenRegistry, fetchTokenUsageIndex } from "@/lib/api";
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
@@ -73,11 +73,34 @@ function UsageGroup({
       }
     >
   >({});
+  const [sort, setSort] = useState<{
+    field: "owner" | "source" | "detail";
+    dir: "asc" | "desc";
+  }>({ field: "owner", dir: "asc" });
 
   const queryHints = useMemo(() => {
     const hints = [token.slashPath, token.path].map((v) => String(v || "").trim());
     return hints.filter(Boolean).filter((v, i, all) => all.indexOf(v) === i);
   }, [token.path, token.slashPath]);
+
+  const sortedOccurrences = useMemo(() => {
+    const rows = occurrences.slice();
+    rows.sort((left, right) => {
+      const lineLeft = extractLineNumber(left.detail || "") ?? 0;
+      const lineRight = extractLineNumber(right.detail || "") ?? 0;
+      const valueFor = (row: TokenUsageOccurrence, line: number) => {
+        if (sort.field === "owner") return String(row.owner || "").toLowerCase();
+        if (sort.field === "source")
+          return `${String(row.source || "").toLowerCase()}:${line}`;
+        return String(row.detail || "").toLowerCase();
+      };
+      const aValue = valueFor(left, lineLeft);
+      const bValue = valueFor(right, lineRight);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return sort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [occurrences, sort]);
 
   const toggleSnippet = async (key: string, occ: TokenUsageOccurrence) => {
     const prev = snippets[key];
@@ -139,14 +162,58 @@ function UsageGroup({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Owner</TableHead>
-            <TableHead>Source</TableHead>
-            <TableHead>Detail</TableHead>
-            <TableHead className="w-28">Context</TableHead>
+            <TableHead showSortIcon={false}>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1"
+                onClick={() =>
+                  setSort((current) =>
+                    current.field === "owner"
+                      ? { field: "owner", dir: current.dir === "asc" ? "desc" : "asc" }
+                      : { field: "owner", dir: "asc" },
+                  )
+                }
+              >
+                Owner <ArrowUpDown className="h-3.5 w-3.5" />
+              </button>
+            </TableHead>
+            <TableHead showSortIcon={false}>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1"
+                onClick={() =>
+                  setSort((current) =>
+                    current.field === "source"
+                      ? { field: "source", dir: current.dir === "asc" ? "desc" : "asc" }
+                      : { field: "source", dir: "asc" },
+                  )
+                }
+              >
+                Source <ArrowUpDown className="h-3.5 w-3.5" />
+              </button>
+            </TableHead>
+            <TableHead showSortIcon={false}>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1"
+                onClick={() =>
+                  setSort((current) =>
+                    current.field === "detail"
+                      ? { field: "detail", dir: current.dir === "asc" ? "desc" : "asc" }
+                      : { field: "detail", dir: "asc" },
+                  )
+                }
+              >
+                Detail <ArrowUpDown className="h-3.5 w-3.5" />
+              </button>
+            </TableHead>
+            <TableHead className="w-28" showSortIcon={false}>
+              Context
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {occurrences.map((occ, i) => {
+          {sortedOccurrences.map((occ, i) => {
             const key = `${kind}:${occ.owner}:${occ.source}:${occ.detail}:${i}`;
             const state = snippets[key];
             const file = String(occ.source || "").trim();

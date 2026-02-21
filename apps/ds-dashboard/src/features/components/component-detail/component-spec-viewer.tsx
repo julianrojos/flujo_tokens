@@ -1,5 +1,7 @@
+import { useMemo, useState } from "react";
 import type { ComponentSpec, SpecProperty } from "@/types/component-spec";
 import type { TokenEntry } from "@/types/token-registry";
+import { ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -68,6 +70,59 @@ interface ComponentSpecViewerProps {
 }
 
 export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerProps) {
+  const [propertySort, setPropertySort] = useState<{
+    field: "name" | "type" | "values" | "default" | "required" | "description";
+    dir: "asc" | "desc";
+  }>({ field: "name", dir: "asc" });
+  const [tokenMappingSort, setTokenMappingSort] = useState<{
+    field: "condition" | "token" | "resolved" | "refs";
+    dir: "asc" | "desc";
+  }>({ field: "condition", dir: "asc" });
+
+  const sortedProperties = useMemo(() => {
+    const rows = (spec.properties ?? []).slice();
+    rows.sort((left, right) => {
+      const valueFor = (prop: SpecProperty) => {
+        if (propertySort.field === "name") return prop.name.toLowerCase();
+        if (propertySort.field === "type") return prop.type.toLowerCase();
+        if (propertySort.field === "values") return (prop.values || []).join("|").toLowerCase();
+        if (propertySort.field === "default") return String(prop.default ?? "").toLowerCase();
+        if (propertySort.field === "required") return prop.required ? 1 : 0;
+        return String(prop.description ?? "").toLowerCase();
+      };
+      const aValue = valueFor(left);
+      const bValue = valueFor(right);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return propertySort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  }, [propertySort, spec.properties]);
+
+  const sortMappingEntries = (conditions: Record<string, string>) => {
+    const rows = Object.entries(conditions);
+    rows.sort(([leftCondition, leftTokenRef], [rightCondition, rightTokenRef]) => {
+      const leftMeta = resolveToken ? resolveToken(leftTokenRef) : null;
+      const rightMeta = resolveToken ? resolveToken(rightTokenRef) : null;
+      const valueFor = (
+        condition: string,
+        tokenRef: string,
+        meta: { token: TokenEntry | null; usageCount: number | null } | null,
+      ) => {
+        if (tokenMappingSort.field === "condition") return condition.toLowerCase();
+        if (tokenMappingSort.field === "token") return tokenRef.toLowerCase();
+        if (tokenMappingSort.field === "resolved") {
+          return String(meta?.token?.resolvedValue ?? "").toLowerCase();
+        }
+        return meta?.usageCount ?? -1;
+      };
+      const aValue = valueFor(leftCondition, leftTokenRef, leftMeta);
+      const bValue = valueFor(rightCondition, rightTokenRef, rightMeta);
+      const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      return tokenMappingSort.dir === "asc" ? comparison : comparison * -1;
+    });
+    return rows;
+  };
+
   return (
     <div className="space-y-6">
       {/* Summary */}
@@ -123,16 +178,103 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Values</TableHead>
-                <TableHead>Default</TableHead>
-                <TableHead>Required</TableHead>
-                <TableHead>Description</TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setPropertySort((current) =>
+                        current.field === "name"
+                          ? { field: "name", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "name", dir: "asc" },
+                      )
+                    }
+                  >
+                    Name <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setPropertySort((current) =>
+                        current.field === "type"
+                          ? { field: "type", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "type", dir: "asc" },
+                      )
+                    }
+                  >
+                    Type <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setPropertySort((current) =>
+                        current.field === "values"
+                          ? { field: "values", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "values", dir: "asc" },
+                      )
+                    }
+                  >
+                    Values <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setPropertySort((current) =>
+                        current.field === "default"
+                          ? { field: "default", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "default", dir: "asc" },
+                      )
+                    }
+                  >
+                    Default <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setPropertySort((current) =>
+                        current.field === "required"
+                          ? { field: "required", dir: current.dir === "asc" ? "desc" : "asc" }
+                          : { field: "required", dir: "asc" },
+                      )
+                    }
+                  >
+                    Required <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() =>
+                      setPropertySort((current) =>
+                        current.field === "description"
+                          ? {
+                              field: "description",
+                              dir: current.dir === "asc" ? "desc" : "asc",
+                            }
+                          : { field: "description", dir: "asc" },
+                      )
+                    }
+                  >
+                    Description <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {spec.properties.map((prop) => (
+              {sortedProperties.map((prop) => (
                 <PropertyRow key={prop.name} prop={prop} />
               ))}
             </TableBody>
@@ -153,14 +295,76 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Condition</TableHead>
-                      <TableHead>Token</TableHead>
-                      <TableHead>Resolved</TableHead>
-                      <TableHead>Refs</TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() =>
+                            setTokenMappingSort((current) =>
+                              current.field === "condition"
+                                ? {
+                                    field: "condition",
+                                    dir: current.dir === "asc" ? "desc" : "asc",
+                                  }
+                                : { field: "condition", dir: "asc" },
+                            )
+                          }
+                        >
+                          Condition <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() =>
+                            setTokenMappingSort((current) =>
+                              current.field === "token"
+                                ? { field: "token", dir: current.dir === "asc" ? "desc" : "asc" }
+                                : { field: "token", dir: "asc" },
+                            )
+                          }
+                        >
+                          Token <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() =>
+                            setTokenMappingSort((current) =>
+                              current.field === "resolved"
+                                ? {
+                                    field: "resolved",
+                                    dir: current.dir === "asc" ? "desc" : "asc",
+                                  }
+                                : { field: "resolved", dir: "asc" },
+                            )
+                          }
+                        >
+                          Resolved <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
+                      <TableHead showSortIcon={false}>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1"
+                          onClick={() =>
+                            setTokenMappingSort((current) =>
+                              current.field === "refs"
+                                ? { field: "refs", dir: current.dir === "asc" ? "desc" : "asc" }
+                                : { field: "refs", dir: "asc" },
+                            )
+                          }
+                        >
+                          Refs <ArrowUpDown className="h-3.5 w-3.5" />
+                        </button>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {Object.entries(conditions).map(([condition, tokenRef]) => {
+                    {sortMappingEntries(conditions).map(([condition, tokenRef]) => {
                       const meta = resolveToken ? resolveToken(tokenRef) : null;
                       return (
                         <TableRow key={condition}>

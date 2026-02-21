@@ -34,6 +34,7 @@ type SortField =
   | "pipeline_stage"
   | "doc_status"
   | "spec_status"
+  | "usage_count"
   | "ready_for_publish";
 
 function stageBadge(stage: string) {
@@ -101,6 +102,7 @@ export function ComponentsPage() {
         if (sortField === "pipeline_stage") return row.pipeline_stage;
         if (sortField === "doc_status") return row.doc.status;
         if (sortField === "spec_status") return row.spec.status;
+        if (sortField === "usage_count") return usageBySlug[row.slug]?.used_in.length ?? 0;
         return row.ready_for_publish ? 1 : 0;
       };
 
@@ -236,7 +238,7 @@ export function ComponentsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -245,7 +247,7 @@ export function ComponentsPage() {
                     Component <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -254,7 +256,7 @@ export function ComponentsPage() {
                     Stage <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -263,7 +265,7 @@ export function ComponentsPage() {
                     Doc status <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"
@@ -272,8 +274,16 @@ export function ComponentsPage() {
                     Spec status <ArrowUpDown className="h-3.5 w-3.5" />
                   </button>
                 </TableHead>
-                <TableHead>Used In</TableHead>
-                <TableHead>
+                <TableHead showSortIcon={false}>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1"
+                    onClick={() => toggleSort("usage_count")}
+                  >
+                    Used In <ArrowUpDown className="h-3.5 w-3.5" />
+                  </button>
+                </TableHead>
+                <TableHead showSortIcon={false}>
                   <button
                     type="button"
                     className="inline-flex items-center gap-1"

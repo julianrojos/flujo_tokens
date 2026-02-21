@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ArrowUpDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -53,17 +54,32 @@ TableRow.displayName = "TableRow";
 
 export const TableHead = React.forwardRef<
   HTMLTableCellElement,
-  React.ThHTMLAttributes<HTMLTableCellElement>
->(({ className, ...props }, ref) => (
-  <th
-    ref={ref}
-    className={cn(
-      "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground",
-      className,
-    )}
-    {...props}
-  />
-));
+  React.ThHTMLAttributes<HTMLTableCellElement> & { showSortIcon?: boolean }
+>(({ className, children, showSortIcon = true, ...props }, ref) => {
+  const isRightAligned = className?.includes("text-right");
+  return (
+    <th
+      ref={ref}
+      className={cn(
+        "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+        className,
+      )}
+      {...props}
+    >
+      <div
+        className={cn(
+          "flex w-full items-center gap-2",
+          isRightAligned ? "justify-end" : "justify-between",
+        )}
+      >
+        <span className="inline-flex min-w-0 items-center gap-1">{children}</span>
+        {showSortIcon ? (
+          <ArrowUpDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden="true" />
+        ) : null}
+      </div>
+    </th>
+  );
+});
 TableHead.displayName = "TableHead";
 
 export const TableCell = React.forwardRef<
