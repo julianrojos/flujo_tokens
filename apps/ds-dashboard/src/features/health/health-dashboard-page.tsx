@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { AlertTriangle, ArrowUpDown, CheckCircle2, RefreshCcw } from "lucide-react";
 
 import {
@@ -79,6 +79,7 @@ function stageOrder(stage: string) {
 }
 
 export function HealthDashboardPage() {
+  const location = useLocation();
   const [tokenHealth, setTokenHealth] = useState<TokenHealthReport | null>(null);
   const [componentsHealth, setComponentsHealth] =
     useState<ComponentsHealthReport | null>(null);
@@ -107,6 +108,15 @@ export function HealthDashboardPage() {
     field: "component" | "stage" | "status" | "coverage";
     dir: "asc" | "desc";
   }>({ field: "coverage", dir: "desc" });
+
+  const scrollToHashTarget = useCallback((hash: string, behavior: ScrollBehavior = "smooth") => {
+    const id = decodeURIComponent(hash.replace(/^#/, "")).trim();
+    if (!id) return false;
+    const target = document.getElementById(id);
+    if (!target) return false;
+    target.scrollIntoView({ behavior, block: "start" });
+    return true;
+  }, []);
 
   const load = async () => {
     setLoading(true);
@@ -182,6 +192,42 @@ export function HealthDashboardPage() {
     void loadHistory({ range: historyRange, bucket: historyBucket });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyRange, historyBucket]);
+
+  useEffect(() => {
+    if (!location.hash || loading) return;
+    let cancelled = false;
+    let attempts = 0;
+
+    const run = () => {
+      if (cancelled) return;
+      if (scrollToHashTarget(location.hash, "smooth")) return;
+      attempts += 1;
+      if (attempts < 10) {
+        window.setTimeout(run, 80);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.hash, loading, scrollToHashTarget]);
+
+  const handleIssueViewClick = useCallback(
+    (event: React.MouseEvent<HTMLAnchorElement>, to: string) => {
+      const hashIndex = to.indexOf("#");
+      if (hashIndex < 0) return;
+
+      const targetPath = to.slice(0, hashIndex) || location.pathname;
+      const targetHash = to.slice(hashIndex);
+      if (targetPath !== location.pathname) return;
+
+      event.preventDefault();
+      window.history.replaceState(null, "", `${location.pathname}${targetHash}`);
+      scrollToHashTarget(targetHash, "smooth");
+    },
+    [location.pathname, scrollToHashTarget],
+  );
 
   const handleRefreshTokenHealth = async () => {
     setRefreshingTokens(true);
@@ -270,7 +316,7 @@ export function HealthDashboardPage() {
         description: "Alias links pointing to non-existing targets.",
         count: tokenHealth.summary.broken_aliases_total,
         severity: "critical",
-        to: "/tokens",
+        to: "/health#issue-broken-aliases",
       },
       {
         id: "broken-css-var-refs",
@@ -278,7 +324,7 @@ export function HealthDashboardPage() {
         description: "References that fail token resolution.",
         count: tokenHealth.summary.broken_css_var_refs_total,
         severity: "critical",
-        to: "/tokens",
+        to: "/health#issue-broken-css-var-refs",
       },
       {
         id: "wcag-failures",
@@ -286,7 +332,7 @@ export function HealthDashboardPage() {
         description: "Contrast pairs below required ratio.",
         count: tokenHealth.summary.wcag_failures_total,
         severity: "critical",
-        to: "/tokens",
+        to: "/health#issue-wcag-failures",
       },
       {
         id: "needs-review",
@@ -294,7 +340,7 @@ export function HealthDashboardPage() {
         description: "Components not ready for publish.",
         count: componentsHealth.summary.needs_review,
         severity: "warning",
-        to: "/components",
+        to: "/health#issue-needs-review-components",
       },
       {
         id: "missing-visual-proof",
@@ -302,7 +348,7 @@ export function HealthDashboardPage() {
         description: "Components missing screenshot evidence.",
         count: componentsHealth.filters.missing_visual_proof.total,
         severity: "warning",
-        to: "/components",
+        to: "/health#issue-missing-visual-proof",
       },
       {
         id: "unused-tokens",
@@ -310,7 +356,7 @@ export function HealthDashboardPage() {
         description: "Tokens currently not used by specs or aliases.",
         count: tokenHealth.summary.unused_tokens_total,
         severity: "warning",
-        to: "/tokens",
+        to: "/health#issue-unused-tokens",
       },
     ];
 
@@ -321,7 +367,7 @@ export function HealthDashboardPage() {
         description: "High-severity naming inconsistencies in token taxonomy.",
         count: namingDebt.summary.issuesBySeverity.error,
         severity: "critical",
-        to: "/tokens/naming-debt",
+        to: "/tokens/naming-debt?severity=error",
       });
     } else if (namingDebt && namingDebt.summary.issuesBySeverity.warning > 0) {
       issues.push({
@@ -330,7 +376,7 @@ export function HealthDashboardPage() {
         description: "Normalization opportunities detected in token vocabulary.",
         count: namingDebt.summary.issuesBySeverity.warning,
         severity: "warning",
-        to: "/tokens/naming-debt",
+        to: "/tokens/naming-debt?severity=warning",
       });
     }
 
@@ -406,6 +452,22 @@ export function HealthDashboardPage() {
     });
     return rows;
   }, [brokenAliasSort, tokenHealth]);
+
+  const sortedBrokenCssVarRefs = useMemo(() => {
+    const rows = tokenHealth?.broken_css_var_refs.items?.slice(0, 8) ?? [];
+    rows.sort((left, right) => {
+      const leftValue = `${left.from} ${left.cssVar} ${left.reason}`.toLowerCase();
+      const rightValue = `${right.from} ${right.cssVar} ${right.reason}`.toLowerCase();
+      return leftValue.localeCompare(rightValue);
+    });
+    return rows;
+  }, [tokenHealth]);
+
+  const topUnusedTokens = useMemo(() => {
+    const rows = tokenHealth?.unused_tokens.items?.slice() ?? [];
+    rows.sort((left, right) => left.path.localeCompare(right.path));
+    return rows.slice(0, 10);
+  }, [tokenHealth]);
 
   const sortedWcagFailures = useMemo(() => {
     const rows = tokenHealth?.wcag_failures.items?.slice(0, 8) ?? [];
@@ -690,6 +752,7 @@ export function HealthDashboardPage() {
                         </div>
                         <Link
                           to={issue.to}
+                          onClick={(event) => handleIssueViewClick(event, issue.to)}
                           className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                         >
                           View
@@ -754,7 +817,44 @@ export function HealthDashboardPage() {
                   </div>
                 ) : null}
 
-                <div>
+                <div id="issue-unused-tokens" className="scroll-mt-24">
+                  <div className="mb-2 text-sm font-semibold">Unused tokens</div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Token</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Collection</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {topUnusedTokens.length ? (
+                        topUnusedTokens.map((row) => (
+                          <TableRow key={row.path}>
+                            <TableCell className="font-mono text-xs">
+                              <Link
+                                className="underline decoration-border/60 underline-offset-4"
+                                to={`/tokens/${encodeURIComponent(row.path)}`}
+                              >
+                                {row.path}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="text-xs">{row.type}</TableCell>
+                            <TableCell className="text-xs">{row.collection}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                            No unused tokens detected.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div id="issue-broken-aliases" className="scroll-mt-24">
                   <div className="mb-2 text-sm font-semibold">Broken aliases</div>
                   <Table>
                     <TableHeader>
@@ -819,7 +919,46 @@ export function HealthDashboardPage() {
                   </Table>
                 </div>
 
-                <div>
+                <div id="issue-broken-css-var-refs" className="scroll-mt-24">
+                  <div className="mb-2 text-sm font-semibold">Broken CSS var refs</div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>From token</TableHead>
+                        <TableHead>CSS variable</TableHead>
+                        <TableHead>Reason</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sortedBrokenCssVarRefs.length ? (
+                        sortedBrokenCssVarRefs.map((row) => (
+                          <TableRow key={`${row.from}:${row.cssVar}`}>
+                            <TableCell className="font-mono text-xs">
+                              <Link
+                                className="underline decoration-border/60 underline-offset-4"
+                                to={`/tokens/${encodeURIComponent(row.from)}`}
+                              >
+                                {row.from}
+                              </Link>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">{row.cssVar}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">
+                              {row.reason}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-sm text-muted-foreground">
+                            No broken CSS var references detected.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div id="issue-wcag-failures" className="scroll-mt-24">
                   <div className="mb-2 text-sm font-semibold">WCAG failures</div>
                   <Table>
                     <TableHeader>
@@ -893,7 +1032,10 @@ export function HealthDashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="rounded-lg border border-border/70 bg-background/60 p-3">
+                <div
+                  id="issue-needs-review-components"
+                  className="scroll-mt-24 rounded-lg border border-border/70 bg-background/60 p-3"
+                >
                   <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
                     <AlertTriangle className="h-4 w-4 text-amber-600" />
                     Needs review
@@ -915,7 +1057,10 @@ export function HealthDashboardPage() {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border/70 bg-background/60 p-3">
+                <div
+                  id="issue-missing-visual-proof"
+                  className="scroll-mt-24 rounded-lg border border-border/70 bg-background/60 p-3"
+                >
                   <div className="mb-2 text-sm font-semibold">Missing visual proof</div>
                   <div className="flex flex-wrap gap-2">
                     {componentsHealth?.filters.missing_visual_proof.items.length ? (
