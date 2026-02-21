@@ -42,6 +42,109 @@ type TokenTreeNode = {
   tokenData?: TokenRegistryEntry;
 };
 
+type HealthHistoryRange = "7d" | "30d" | "90d";
+
+type HealthHistorySnapshot = {
+  captured_at: string;
+  metrics: {
+    breaking_changes: number | null;
+    wcag_failures_total: number;
+    coverage_avg: number;
+    unresolved_total: number;
+    unused_tokens_total: number;
+    needs_review_total: number;
+  };
+  fingerprints: {
+    token_health: string;
+    components_health: string;
+    token_usage: string;
+    token_diff: string;
+    signature_sha256: string;
+  };
+  meta: {
+    before_ref: string;
+  };
+};
+
+function normalizeHealthHistoryRange(raw: string | null): HealthHistoryRange {
+  const value = String(raw || "").trim().toLowerCase();
+  if (value === "7d" || value === "90d") return value;
+  return "30d";
+}
+
+function rangeDays(range: HealthHistoryRange) {
+  if (range === "7d") return 7;
+  if (range === "90d") return 90;
+  return 30;
+}
+
+function normalizeHealthHistoryPayload(raw: unknown) {
+  const base = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const rawSnapshots = Array.isArray(base.snapshots) ? base.snapshots : [];
+  const snapshots: HealthHistorySnapshot[] = [];
+
+  for (const item of rawSnapshots) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const capturedAt = String(row.captured_at || "").trim();
+    if (!capturedAt) continue;
+
+    const metrics = (row.metrics as Record<string, unknown> | undefined) || {};
+    const fingerprints = (row.fingerprints as Record<string, unknown> | undefined) || {};
+    const meta = (row.meta as Record<string, unknown> | undefined) || {};
+
+    snapshots.push({
+      captured_at: capturedAt,
+      metrics: {
+        breaking_changes:
+          metrics.breaking_changes === null
+            ? null
+            : Number.isFinite(Number(metrics.breaking_changes))
+              ? Number(metrics.breaking_changes)
+              : null,
+        wcag_failures_total: Number(metrics.wcag_failures_total || 0),
+        coverage_avg: Number(metrics.coverage_avg || 0),
+        unresolved_total: Number(metrics.unresolved_total || 0),
+        unused_tokens_total: Number(metrics.unused_tokens_total || 0),
+        needs_review_total: Number(metrics.needs_review_total || 0),
+      },
+      fingerprints: {
+        token_health: String(fingerprints.token_health || ""),
+        components_health: String(fingerprints.components_health || ""),
+        token_usage: String(fingerprints.token_usage || ""),
+        token_diff: String(fingerprints.token_diff || ""),
+        signature_sha256: String(fingerprints.signature_sha256 || ""),
+      },
+      meta: {
+        before_ref: String(meta.before_ref || "HEAD~1"),
+      },
+    });
+  }
+
+  snapshots.sort((left, right) => left.captured_at.localeCompare(right.captured_at));
+
+  return {
+    ok: true,
+    schema_version: Number(base.schema_version || 1),
+    generated_at: String(base.generated_at || new Date().toISOString()),
+    retention_days: Number(base.retention_days || 120),
+    snapshots,
+    summary: {
+      snapshots_total: snapshots.length,
+      latest_at: snapshots.length ? snapshots[snapshots.length - 1].captured_at : null,
+    },
+  };
+}
+
+function filterSnapshotsByRange(snapshots: HealthHistorySnapshot[], range: HealthHistoryRange) {
+  const days = rangeDays(range);
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  return snapshots.filter((snapshot) => {
+    const epoch = new Date(snapshot.captured_at).getTime();
+    return Number.isFinite(epoch) && epoch >= cutoff;
+  });
+}
+
 function sendJson(
   res: {
     statusCode: number;
@@ -649,12 +752,19 @@ function createLocalDataApi() {
     "_generated",
     "components-health.json",
   );
+  const healthHistoryPath = path.join(repoRoot, "docs", "_generated", "health-history.json");
   const wcagPairsPath = path.join(repoRoot, "tooling", "config", "wcag-pairs.json");
   const tokenDiffScriptPath = path.join(
     repoRoot,
     "tooling",
     "scripts",
     "ds-token-diff.mjs",
+  );
+  const healthSnapshotScriptPath = path.join(
+    repoRoot,
+    "tooling",
+    "scripts",
+    "ds-health-snapshot.mjs",
   );
   const captureFromFigmaUrlScriptPath = path.join(
     repoRoot,
@@ -719,6 +829,23 @@ function createLocalDataApi() {
       if (method === "GET" && url === "/api/components-health") {
         const raw = await fs.readFile(componentsHealthPath, "utf8");
         sendJson(res, 200, JSON.parse(raw));
+        return;
+      }
+
+      if (method === "GET" && url === "/api/health-history") {
+        const range = normalizeHealthHistoryRange(searchParams.get("range"));
+        const raw = await fs.readFile(healthHistoryPath, "utf8").catch(() => "");
+        const parsed = normalizeHealthHistoryPayload(raw ? JSON.parse(raw) : null);
+        const snapshots = filterSnapshotsByRange(parsed.snapshots, range);
+        sendJson(res, 200, {
+          ...parsed,
+          snapshots,
+          summary: {
+            snapshots_total: snapshots.length,
+            latest_at: snapshots.length ? snapshots[snapshots.length - 1].captured_at : null,
+          },
+          range,
+        });
         return;
       }
 
@@ -958,6 +1085,48 @@ function createLocalDataApi() {
 
       if (method === "POST" && url === "/api/refresh-components-health") {
         runNpmScript({ repoRoot, res, script: "ds:registry:report" });
+        return;
+      }
+
+      if (method === "POST" && url === "/api/capture-health-snapshot") {
+        const body = await readJsonBody(req);
+        const beforeRefRaw = String(body.beforeRef ?? "HEAD~1").trim();
+        const beforeRef = validateGitRef(beforeRefRaw);
+        if (!beforeRef) {
+          sendJson(res, 400, {
+            ok: false,
+            message:
+              "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+          });
+          return;
+        }
+
+        const retentionDaysRaw = Number(body.retentionDays);
+        const retentionDays =
+          Number.isFinite(retentionDaysRaw) && retentionDaysRaw > 0
+            ? String(Math.floor(retentionDaysRaw))
+            : "120";
+
+        const skipDiff = toBooleanString(body.skipDiff, false);
+
+        runNodeJsonCommand({
+          repoRoot,
+          res,
+          commandLabel:
+            `node tooling/scripts/ds-health-snapshot.mjs --before-ref ${beforeRef} ` +
+            `--retention-days ${retentionDays} --skip-diff ${skipDiff}`,
+          scriptPath: healthSnapshotScriptPath,
+          scriptArgs: [
+            "--before-ref",
+            beforeRef,
+            "--retention-days",
+            retentionDays,
+            "--skip-diff",
+            skipDiff,
+            "--format",
+            "json",
+          ],
+        });
         return;
       }
 

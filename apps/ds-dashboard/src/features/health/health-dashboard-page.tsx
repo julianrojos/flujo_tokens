@@ -3,12 +3,19 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, RefreshCcw } from "lucide-react";
 
 import {
+  captureHealthSnapshot,
   fetchComponentsHealth,
+  fetchHealthHistory,
   fetchTokenHealth,
   refreshComponentsHealth,
   refreshTokenHealth,
 } from "@/lib/api";
 import type { ComponentsHealthReport } from "@/types/components-health";
+import type {
+  HealthHistoryBucket,
+  HealthHistoryRange,
+  HealthHistoryReport,
+} from "@/types/health-history";
 import type { TokenHealthReport } from "@/types/token-health";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +26,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -27,6 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { HealthTrendsChart } from "./health-trends-chart";
 
 type DashboardIssue = {
   id: string;
@@ -35,6 +44,12 @@ type DashboardIssue = {
   count: number;
   severity: "critical" | "warning";
   to: string;
+};
+
+const RANGE_LABEL: Record<HealthHistoryRange, string> = {
+  "7d": "last 7 days",
+  "30d": "last 30 days",
+  "90d": "last 90 days",
 };
 
 function formatDate(iso: string | undefined) {
@@ -70,6 +85,12 @@ export function HealthDashboardPage() {
   const [componentsError, setComponentsError] = useState<string | null>(null);
   const [refreshingTokens, setRefreshingTokens] = useState(false);
   const [refreshingComponents, setRefreshingComponents] = useState(false);
+  const [history, setHistory] = useState<HealthHistoryReport | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyRange, setHistoryRange] = useState<HealthHistoryRange>("30d");
+  const [historyBucket, setHistoryBucket] = useState<HealthHistoryBucket>("day");
+  const [snapshotting, setSnapshotting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -110,6 +131,29 @@ export function HealthDashboardPage() {
     void load();
   }, []);
 
+  const loadHistory = async (options?: {
+    range?: HealthHistoryRange;
+    bucket?: HealthHistoryBucket;
+  }) => {
+    const range = options?.range ?? historyRange;
+    const bucket = options?.bucket ?? historyBucket;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const payload = await fetchHealthHistory({ range, bucket });
+      setHistory(payload);
+    } catch (cause) {
+      setHistoryError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadHistory({ range: historyRange, bucket: historyBucket });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyRange, historyBucket]);
+
   const handleRefreshTokenHealth = async () => {
     setRefreshingTokens(true);
     setTokenError(null);
@@ -137,6 +181,22 @@ export function HealthDashboardPage() {
       setComponentsError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setRefreshingComponents(false);
+    }
+  };
+
+  const handleCaptureSnapshot = async () => {
+    setSnapshotting(true);
+    setHistoryError(null);
+    try {
+      await captureHealthSnapshot();
+      await Promise.all([
+        load(),
+        loadHistory({ range: historyRange, bucket: historyBucket }),
+      ]);
+    } catch (cause) {
+      setHistoryError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSnapshotting(false);
     }
   };
 
@@ -288,6 +348,14 @@ export function HealthDashboardPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
+            onClick={handleCaptureSnapshot}
+            disabled={snapshotting}
+          >
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            {snapshotting ? "Capturing…" : "Capture snapshot"}
+          </Button>
+          <Button
+            variant="outline"
             onClick={handleRefreshTokenHealth}
             disabled={refreshingTokens}
           >
@@ -326,6 +394,64 @@ export function HealthDashboardPage() {
           </div>
         </div>
       ) : null}
+
+      <section className="space-y-3">
+        <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-card/50 p-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="text-sm font-semibold">Health trends</div>
+            <div className="text-xs text-muted-foreground">
+              Track weekly/monthly evolution of breaking, WCAG, unresolved refs and coverage.
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={historyRange}
+              onChange={(event) => setHistoryRange(event.target.value as HealthHistoryRange)}
+            >
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+            </Select>
+            <Select
+              value={historyBucket}
+              onChange={(event) => setHistoryBucket(event.target.value as HealthHistoryBucket)}
+            >
+              <option value="day">Daily</option>
+              <option value="week">Weekly</option>
+            </Select>
+            <Button
+              variant="outline"
+              onClick={() => void loadHistory({ range: historyRange, bucket: historyBucket })}
+              disabled={historyLoading}
+            >
+              {historyLoading ? "Loading…" : "Reload trends"}
+            </Button>
+          </div>
+        </div>
+
+        {historyError ? (
+          <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
+            {historyError}
+            <div className="mt-2 text-xs text-red-700/80">
+              Tip: run <code>npm run ds:health-snapshot</code>
+            </div>
+          </div>
+        ) : null}
+
+        {history ? (
+          <HealthTrendsChart
+            snapshots={history.snapshots}
+            rangeLabel={RANGE_LABEL[historyRange]}
+            bucket={historyBucket}
+          />
+        ) : (
+          <Card>
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              {historyLoading ? "Loading health history…" : "No health history available yet."}
+            </CardContent>
+          </Card>
+        )}
+      </section>
 
       {dashboard ? (
         <>

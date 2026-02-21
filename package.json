@@ -17,6 +17,8 @@
     "ds:token-graph": "node tooling/scripts/ds-token-graph.mjs",
     "ds:token-usage-index": "node tooling/scripts/ds-token-usage-index.mjs",
     "ds:token-health": "npm run generate:registry && npm run ds:token-usage-index && npm run ds:token-graph && node tooling/scripts/ds-token-health.mjs",
+    "ds:health-snapshot": "node tooling/scripts/ds-health-snapshot.mjs",
+    "ds:health:record": "npm run ds:token-health && npm run ds:registry:report && npm run ds:health-snapshot",
     "ds:figma-component-map": "node tooling/scripts/ds-figma-component-map.mjs",
     "ds:component-doc": "node tooling/scripts/ds-component-doc.mjs",
     "ds:sort-spec": "node tooling/scripts/ds-sort-spec.mjs",

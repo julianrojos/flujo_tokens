@@ -32,6 +32,8 @@ npm install
 - **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
 - **`npm run ds:token-usage-index`**: Builds `docs/_generated/token-usage-index.json` from component specs (`docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
 - **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` by combining the token registry, usage index, and token graph, plus optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
+- **`npm run ds:health-snapshot`**: Captures one historical KPI snapshot into `docs/_generated/health-history.json` (breaking changes, WCAG failures, coverage average, unresolved refs, etc.) for dashboard trends.
+- **`npm run ds:health:record`**: Convenience command that regenerates token/component health artifacts and immediately captures a new historical snapshot.
 
 ### Usage
 
@@ -172,6 +174,12 @@ npm run ds:token-health
 
 # Print summary without writing files
 npm run ds:token-health -- --format text --dry-run true
+
+# Capture one historical KPI snapshot for trends
+npm run ds:health-snapshot
+
+# Regenerate health artifacts + capture snapshot in one step
+npm run ds:health:record
 ```
 
 ### Typography unit coercion (runtime)

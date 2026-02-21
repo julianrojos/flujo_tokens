@@ -8,6 +8,12 @@ import type { TokenHealthReport } from "@/types/token-health";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type { TokenDiffReport } from "@/types/token-diff";
 import type { ImpactReport } from "@/types/impact";
+import type {
+  CaptureHealthSnapshotResult,
+  HealthHistoryBucket,
+  HealthHistoryRange,
+  HealthHistoryReport,
+} from "@/types/health-history";
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
@@ -56,6 +62,17 @@ export function fetchTokenHealth() {
 
 export function fetchComponentsHealth() {
   return getJson<ComponentsHealthReport>("/api/components-health");
+}
+
+export function fetchHealthHistory(args?: {
+  range?: HealthHistoryRange;
+  bucket?: HealthHistoryBucket;
+}) {
+  const params = new URLSearchParams();
+  if (args?.range) params.set("range", args.range);
+  if (args?.bucket) params.set("bucket", args.bucket);
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return getJson<HealthHistoryReport>(`/api/health-history${suffix}`);
 }
 
 export function fetchTokenDiff(beforeRef: string) {
@@ -123,6 +140,20 @@ export async function refreshComponentsHealth() {
     "/api/refresh-components-health",
     { method: "POST" },
   );
+}
+
+export async function captureHealthSnapshot(args?: {
+  beforeRef?: string;
+  retentionDays?: number;
+  skipDiff?: boolean;
+}) {
+  return getJson<CaptureHealthSnapshotResult>("/api/capture-health-snapshot", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args || {}),
+  });
 }
 
 export interface FilePayload {
