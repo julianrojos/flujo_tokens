@@ -304,7 +304,7 @@ export function TokensPage() {
       </section>
 
       <Card>
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
+        <CardHeader className="gap-4">
           <div className="flex items-start gap-2">
             <Button
               variant="outline"
@@ -324,7 +324,7 @@ export function TokensPage() {
               </CardDescription>
             </div>
           </div>
-          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+          <div className="flex w-full flex-wrap gap-2">
             <Link to="/tokens/diff">
               <Button variant="outline">
                 <ArrowLeftRight className="mr-2 h-4 w-4" />
@@ -342,7 +342,7 @@ export function TokensPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por token path, CSS var o valor"
-              className="md:w-80"
+              className="w-full md:w-80"
             />
             <Select
               value={collection}
