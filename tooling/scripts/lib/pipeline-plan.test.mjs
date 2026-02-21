@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createPlan } from './pipeline-plan.mjs';
+import { generateReport } from './pipeline-report.mjs';
 
 test('PipelinePlan: correct execution graph for a targeted component', async () => {
     const plan = await createPlan({ component: 'alert', 'dry-run': true });
@@ -78,4 +79,56 @@ test('PipelinePlan: figma_node_id is bubbled up to compPlan', async () => {
     if (!comp) return;
     // alert has a figma mapping in the registry
     assert.ok(comp.figma_node_id !== undefined, 'figma_node_id must be present in compPlan');
+});
+
+// --- Exit code / report tests ---
+
+test('Report: JSON output includes success:false when hasFailures is true', async () => {
+    const plan = {
+        components: { alert: { slug: 'alert', steps: [] } },
+        orphans: { figma_only: [], doc_only: [], spec_only: [] }
+    };
+    const executionState = {
+        global: { tokensSync: 'Success', finalGate: 'Validation Failed' },
+        components: { alert: { success: false, logs: ['error'] } }
+    };
+    const meta = { hasFailures: true, failedComponents: ['alert'] };
+
+    // Capture JSON output
+    const origLog = console.log;
+    let captured = '';
+    console.log = (msg) => { captured += msg; };
+    try {
+        generateReport(plan, executionState, { json: true }, meta);
+    } finally {
+        console.log = origLog;
+    }
+
+    const parsed = JSON.parse(captured);
+    assert.strictEqual(parsed.success, false, 'JSON report must include success: false');
+    assert.deepStrictEqual(parsed.failedComponents, ['alert'], 'JSON report must list failed components');
+});
+
+test('Report: JSON output includes success:true when no failures', async () => {
+    const plan = {
+        components: { alert: { slug: 'alert', steps: [] } },
+        orphans: { figma_only: [], doc_only: [], spec_only: [] }
+    };
+    const executionState = {
+        global: { tokensSync: 'Success', finalGate: 'Success' },
+        components: { alert: { success: true, logs: [] } }
+    };
+
+    const origLog = console.log;
+    let captured = '';
+    console.log = (msg) => { captured += msg; };
+    try {
+        generateReport(plan, executionState, { json: true }, { hasFailures: false, failedComponents: [] });
+    } finally {
+        console.log = origLog;
+    }
+
+    const parsed = JSON.parse(captured);
+    assert.strictEqual(parsed.success, true, 'JSON report must include success: true');
+    assert.deepStrictEqual(parsed.failedComponents, [], 'No failed components');
 });

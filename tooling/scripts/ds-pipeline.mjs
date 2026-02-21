@@ -134,11 +134,21 @@ async function main() {
     const valOk = runGlobalCmd('Stage F: Validating Final Docs', 'npm', ['run', 'validate:docs'], planOpts.json);
     executionState.global.finalGate = valOk ? 'Success' : 'Validation Failed';
 
-    generateReport(plan, executionState, planOpts);
-    
-    if (!valOk && !planOpts['dry-run']) {
+    // Accumulate component-level failures
+    const failedComponents = Object.entries(executionState.components)
+        .filter(([, m]) => m.success === false)
+        .map(([slug]) => slug);
+
+    const hasFailures = failedComponents.length > 0 || !valOk;
+
+    generateReport(plan, executionState, planOpts, { hasFailures, failedComponents });
+
+    if (hasFailures && !planOpts['dry-run']) {
         process.exit(1);
     }
 }
 
-main().catch(console.error);
+main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+});

@@ -2,14 +2,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { DOCS_ROOT } from "./paths.mjs";
 
-export function generateReport(plan, executionState = {}, options = {}) {
+export function generateReport(plan, executionState = {}, options = {}, meta = {}) {
     const isDryRun = options['dry-run'] || options['status-only'];
-    
+    const { hasFailures = false, failedComponents = [] } = meta;
+
     if (options.json) {
         console.log(JSON.stringify({
             timestamp: new Date().toISOString(),
+            success: !hasFailures,
             options,
             orphans: plan.orphans,
+            failedComponents,
             executionSummary: {
                 ...executionState,
                 plan: plan.components
@@ -64,7 +67,18 @@ export function generateReport(plan, executionState = {}, options = {}) {
         }
     }
 
-    console.log('\n');
+    console.log('');
+
+    // Failure summary
+    if (hasFailures && !isDryRun) {
+        console.log(`${bright}${fgRed}❌ PIPELINE FINISHED WITH ERRORS${reset}`);
+        if (failedComponents.length > 0) {
+            console.log(`   Failed components: ${failedComponents.join(', ')}`);
+        }
+        console.log('');
+    } else if (!isDryRun) {
+        console.log(`${bright}${fgGreen}✅ PIPELINE COMPLETED SUCCESSFULLY${reset}\n`);
+    }
 
     // Dump to file
     if (!isDryRun) {
@@ -75,8 +89,10 @@ export function generateReport(plan, executionState = {}, options = {}) {
             const reportPath = path.join(reportDir, 'pipeline-report.json');
             fs.writeFileSync(reportPath, JSON.stringify({
                 timestamp: new Date().toISOString(),
+                success: !hasFailures,
                 options,
                 orphans: plan.orphans,
+                failedComponents,
                 executionSummary: executionState
             }, null, 2), 'utf8');
             console.log(`${fgGreen}✅ Report saved to ${reportPath}${reset}`);
