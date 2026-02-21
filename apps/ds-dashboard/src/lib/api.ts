@@ -159,13 +159,33 @@ export interface CaptureFigmaScreenshotArgs {
 
 export interface CaptureFigmaScreenshotResult {
   ok: boolean;
+  dryRun?: boolean;
   source?: {
     figma_url?: string;
     file_key?: string;
     node_id_from_url?: string | null;
   };
+  requested?: {
+    component_kind?: string;
+    include_variants?: boolean;
+    variant_limit?: number;
+    scale?: number;
+    format?: string;
+    require_existing_doc?: boolean;
+    main_capture_mode?: string;
+  };
   total_candidates?: number;
   targets_total?: number;
+  targets?: Array<{
+    slug: string;
+    node_id: string;
+    kind?: string;
+    page_name?: string | null;
+    markdown_path: string;
+    spec_path?: string;
+    spec_exists?: boolean;
+    figma_url?: string;
+  }>;
   captured?: Array<{
     slug: string;
     node_id: string;
@@ -183,6 +203,12 @@ export interface CaptureFigmaScreenshotResult {
   }>;
   skipped?: Array<Record<string, unknown>>;
   indices_refreshed?: boolean;
+  registry_refresh?: {
+    ok?: boolean;
+    output?: string;
+    stderr?: string;
+  };
+  error?: string;
 }
 
 export function fetchFile(filePath: string) {

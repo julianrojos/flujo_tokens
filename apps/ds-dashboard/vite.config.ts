@@ -221,6 +221,7 @@ function runNodeJsonCommand(args: {
   commandLabel: string;
   scriptPath: string;
   scriptArgs: string[];
+  allowNonZeroJson?: boolean;
 }) {
   const child = spawn("node", [args.scriptPath, ...args.scriptArgs], {
     cwd: args.repoRoot,
@@ -248,6 +249,20 @@ function runNodeJsonCommand(args: {
 
   child.on("close", (code) => {
     if (code !== 0) {
+      if (args.allowNonZeroJson) {
+        try {
+          const parsed = JSON.parse(stdout || "{}");
+          sendJson(args.res, 200, {
+            ...parsed,
+            ok: false,
+            exit_code: code,
+            stderr: stderr.trim() || undefined,
+          });
+          return;
+        } catch {
+          // fall through to structured error payload
+        }
+      }
       sendJson(args.res, 500, {
         ok: false,
         command: args.commandLabel,
@@ -1024,6 +1039,7 @@ function createLocalDataApi() {
           )}`,
           scriptPath: captureFromFigmaUrlScriptPath,
           scriptArgs: commandArgs,
+          allowNonZeroJson: true,
         });
         return;
       }
