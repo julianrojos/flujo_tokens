@@ -81,6 +81,43 @@ test('PipelinePlan: figma_node_id is bubbled up to compPlan', async () => {
     assert.ok(comp.figma_node_id !== undefined, 'figma_node_id must be present in compPlan');
 });
 
+// --- only-step tests ---
+
+test('PipelinePlan: --only-step markdown filters all other steps and forces markdown needed', async () => {
+    const plan = await createPlan({ component: 'alert', 'only-step': 'markdown' });
+    const comp = plan.components.alert;
+    if (!comp) return;
+
+    const steps = comp.steps;
+    const markdownStep = steps.find(s => s.id === 'markdown');
+    const otherSteps = steps.filter(s => s.id !== 'markdown');
+
+    assert.strictEqual(markdownStep.needed, true, 'markdown step must be needed when targeted by --only-step');
+    for (const step of otherSteps) {
+        assert.strictEqual(step.needed, false, `step '${step.id}' must not be needed when filtered by --only-step markdown`);
+        assert.ok(step.reason.includes('Filtered by --only-step'), `step '${step.id}' reason must mention filter`);
+    }
+});
+
+test('PipelinePlan: --only-step render forces render needed regardless of --render-figma flag', async () => {
+    // Without --render-figma, render would normally be needed:false
+    const plan = await createPlan({ component: 'alert', 'only-step': 'render' });
+    const comp = plan.components.alert;
+    if (!comp) return;
+
+    const renderStep = comp.steps.find(s => s.id === 'render');
+    assert.strictEqual(renderStep.needed, true, 'render step must be forced needed by --only-step even without --render-figma');
+    assert.ok(renderStep.reason.includes('Forced by --only-step'), 'reason must reflect forced state');
+});
+
+test('PipelinePlan: invalid --only-step throws a clear error', async () => {
+    await assert.rejects(
+        () => createPlan({ component: 'alert', 'only-step': 'not_a_step' }),
+        /Invalid --only-step value/,
+        'Should throw with descriptive message for unknown only-step'
+    );
+});
+
 // --- Exit code / report tests ---
 
 test('Report: JSON output includes success:false when hasFailures is true', async () => {

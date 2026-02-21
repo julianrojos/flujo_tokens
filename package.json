@@ -31,6 +31,8 @@
     "ds:doc-from-figma-url": "node tooling/scripts/ds-doc-from-figma-url.mjs",
     "ds:active-md-to-figma": "node tooling/scripts/ds-active-md-to-figma.mjs",
     "ds:spec-from-figma": "node tooling/scripts/ds-spec-from-figma.mjs",
+    "ds:component-doc:all": "node tooling/scripts/ds-pipeline.mjs --all --only-step markdown",
+    "ds:render-figma:all": "node tooling/scripts/ds-pipeline.mjs --all --only-step render",
     "ds:foundations:sync": "node tooling/scripts/ds-foundations-sync.mjs",
     "ds:registry:sync": "node tooling/scripts/ds-registry-sync.mjs",
     "ds:registry:refresh": "node tooling/scripts/ds-registry-refresh.mjs",

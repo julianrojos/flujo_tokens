@@ -69,6 +69,34 @@ export function generateReport(plan, executionState = {}, options = {}, meta = {
 
     console.log('');
 
+    // Calculate global metrics
+    let stats = { processed: 0, errors: 0, skippedCached: 0, skippedOnlyStep: 0 };
+    for (const [slug, data] of Object.entries(plan.components)) {
+        if (data.orphanStatus) {
+            stats.skippedCached++;
+            continue;
+        }
+        const neededSteps = data.steps.filter(s => s.needed);
+        if (neededSteps.length === 0) {
+            const skippedByOnlyStep = data.steps.some(s => s.reason && s.reason.includes('Filtered by --only-step'));
+            if (skippedByOnlyStep) {
+                stats.skippedOnlyStep++;
+            } else {
+                stats.skippedCached++;
+            }
+        } else {
+            const execData = executionState?.components?.[slug];
+            if (execData) {
+                execData.success === false ? stats.errors++ : stats.processed++;
+            } else {
+                stats.skippedCached++; // planned but not executed (dry-run / status-only)
+            }
+        }
+    }
+
+    console.log(`${bright}📊 SUMMARY${reset}   processed: ${stats.processed}   errors: ${stats.errors}   skipped (cached): ${stats.skippedCached}   skipped (only-step): ${stats.skippedOnlyStep}`);
+    console.log('');
+
     // Failure summary
     if (hasFailures && !isDryRun) {
         console.log(`${bright}${fgRed}❌ PIPELINE FINISHED WITH ERRORS${reset}`);

@@ -20,6 +20,12 @@ export async function createPlan(options = {}) {
       `Must be one of: ${[...VALID_FROM_STEPS].join(', ')}.`
     );
   }
+  if (options['only-step'] && !VALID_FROM_STEPS.has(options['only-step'])) {
+    throw new Error(
+      `Invalid --only-step value: "${options['only-step']}". ` +
+      `Must be one of: ${[...VALID_FROM_STEPS].join(', ')}.`
+    );
+  }
   const plan = {
     components: {},
     orphans: {
@@ -127,6 +133,18 @@ export async function createPlan(options = {}) {
                 stepPlan.reason = `Skipped due to --from-step=${options['from-step']}`;
             }
         }
+
+        if (options['only-step']) {
+            if (stepObj.id !== options['only-step']) {
+                stepPlan.needed = false;
+                stepPlan.reason = `Filtered by --only-step=${options['only-step']}`;
+            } else if (!stepPlan.blocked) {
+                stepPlan.needed = true;
+                if (stepPlan.reason === 'Up to date or skipped' || stepPlan.reason.startsWith('render-figma not requested')) {
+                    stepPlan.reason = `Forced by --only-step=${options['only-step']}`;
+                }
+            }
+        }
         
         return stepPlan;
     });
@@ -138,7 +156,8 @@ export async function createPlan(options = {}) {
     if (specStep && mdStep && !hasSpec && !specStep.needed && !specStep.blocked && mdStep.needed) {
       const fromStepSkip = options['from-step'] &&
         PIPELINE_STEPS.findIndex(s => s.id === 'spec') < PIPELINE_STEPS.findIndex(s => s.id === options['from-step']);
-      if (!fromStepSkip) {
+      const onlyStepSkip = options['only-step'] && options['only-step'] !== 'spec' && hasSpec;
+      if (!fromStepSkip && !onlyStepSkip) {
         mdStep.blocked = true;
         mdStep.reason = 'Blocked: spec missing and spec step skipped';
       }
