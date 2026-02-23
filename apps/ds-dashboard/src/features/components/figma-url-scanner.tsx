@@ -119,12 +119,6 @@ function getFigmaUrlValidationError(rawUrl: string): string | null {
     return "URL host must be figma.com.";
   }
 
-  const hasNodeIdInQuery = parsed.searchParams.has("node-id");
-  const hasNodeIdInHash = /(?:^|[&#])node-id=/.test(parsed.hash);
-  if (!hasNodeIdInQuery && !hasNodeIdInHash) {
-    return "The URL must include a node-id parameter.";
-  }
-
   return null;
 }
 
@@ -211,7 +205,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
           }),
         );
       }
-      if (data.ok && onSuccess) {
+      if (data.ok && capturedCount > 0 && onSuccess) {
         await Promise.resolve(onSuccess());
       }
     } catch (error) {
@@ -236,7 +230,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
     result?.registry_refresh?.stderr ||
     "Scan failed";
 
-  const primarySuccessSlug = result?.targets?.[0]?.slug || result?.captured?.[0]?.slug || "unknown";
+  const primarySuccessSlug = result?.captured?.[0]?.slug || result?.targets?.[0]?.slug || null;
 
   const urlValidationError = getFigmaUrlValidationError(url);
   const canSubmit = !loading && !isSystemLoading && !!activeSystem && !urlValidationError;
@@ -373,7 +367,9 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
             <div className="space-y-1 min-w-0">
               <p className="font-medium">
                 {result.ok
-                  ? `Component "${primarySuccessSlug}" scanned successfully`
+                  ? primarySuccessSlug
+                    ? `Component "${primarySuccessSlug}" scanned successfully`
+                    : `Scan completed — ${capturedCount} component(s) captured`
                   : derivedError}
               </p>
               {result.ok ? (
