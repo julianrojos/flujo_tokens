@@ -28,6 +28,7 @@ export interface TokenGraphViz {
   ok: boolean;
   source: {
     registry_path: string;
+    graph_viz_path?: string;
   };
   summary: {
     nodes: number;

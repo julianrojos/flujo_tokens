@@ -23,6 +23,7 @@ export function TokenGraphViewer(props: {
   graph: PositionedGraph;
   selectedId: string | null;
   onSelect: (id: string) => void;
+  graphFilePath?: string;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [viewport, setViewport] = useState<Viewport>(() => initialViewport());
@@ -196,7 +197,7 @@ export function TokenGraphViewer(props: {
             to={{
               pathname: "/file",
               search: new URLSearchParams({
-                path: "docs/_generated/token-graph.viz.json",
+                path: props.graphFilePath || "docs/_generated/token-graph.viz.json",
               }).toString(),
             }}
             className="hover:text-primary hover:underline"

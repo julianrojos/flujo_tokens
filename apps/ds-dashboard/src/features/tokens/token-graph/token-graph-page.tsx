@@ -281,6 +281,7 @@ export function TokenGraphPage() {
                   graph={positioned}
                   selectedId={selectedId}
                   onSelect={(id) => setSelectedId(id)}
+                  graphFilePath={graph?.source?.graph_viz_path}
                 />
               ) : (
                 <div className="text-sm text-muted-foreground">
