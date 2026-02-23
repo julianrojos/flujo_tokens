@@ -24,6 +24,9 @@ interface ScanResult {
   warnings?: ScanError[];
   errors?: ScanError[];
   artifacts?: string[];
+  stderr?: string;
+  stdout?: string;
+  command?: string;
 }
 
 interface FigmaUrlScannerProps {
@@ -182,12 +185,22 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
             ) : (
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             )}
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <p className="font-medium">
                 {result.ok
                   ? `Component "${result.componentSlug ?? "unknown"}" scanned successfully`
-                  : result.message ?? "Scan failed"}
+                  : result.message ?? result.stderr ?? "Scan failed"}
               </p>
+              {/* Show stderr detail when present (e.g. Missing Figma token) */}
+              {!result.ok && result.stderr && result.stderr !== result.message && (
+                <p className="text-xs font-mono opacity-80 break-all">{result.stderr}</p>
+              )}
+              {!result.ok && !result.stderr && !result.message && (
+                <p className="text-xs opacity-80">
+                  Make sure <code>FIGMA_TOKEN</code> is set in your{" "}
+                  <code>.env</code> file and the dashboard server is restarted.
+                </p>
+              )}
               {result.warnings && result.warnings.length > 0 && (
                 <ul className="list-inside list-disc text-xs opacity-80">
                   {result.warnings.map((w, i) => (
