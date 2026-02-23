@@ -110,15 +110,23 @@ async function requestFigmaJson({
     clearTimeout(timer);
   }
 
-  const rawText = await response.text();
-  const payload = safeJsonParse(rawText);
   if (!response.ok) {
+    // Error responses are small — safe to read as text
+    const rawText = await response.text();
+    const payload = safeJsonParse(rawText);
     const details = buildErrorDetails(payload);
     const retryAfter = readRetryAfterSeconds(response);
     const retryHint = retryAfter !== null ? ` Retry after ${retryAfter}s.` : "";
     throw new Error(
       `Figma API error ${response.status} for ${apiUrl.toString()}.${details ? ` ${details}.` : ""}${retryHint}`,
     );
+  }
+  // Use response.json() directly — avoids creating full text string in memory
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error(`Figma API returned non-JSON response for ${apiUrl.toString()}.`);
   }
   if (!payload || typeof payload !== "object") {
     throw new Error(`Figma API returned non-JSON response for ${apiUrl.toString()}.`);
@@ -193,10 +201,9 @@ export async function fetchFigmaFile({
     clearTimeout(timer);
   }
 
-  const rawText = await response.text();
-  const payload = safeJsonParse(rawText);
-
   if (!response.ok) {
+    const rawText = await response.text();
+    const payload = safeJsonParse(rawText);
     const details = buildErrorDetails(payload);
     const retryAfter = readRetryAfterSeconds(response);
     const retryHint = retryAfter !== null ? ` Retry after ${retryAfter}s.` : "";
@@ -205,6 +212,12 @@ export async function fetchFigmaFile({
     );
   }
 
+  let payload;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error(`Figma API returned non-JSON response for ${endpoint}.`);
+  }
   if (!payload || typeof payload !== "object") {
     throw new Error(`Figma API returned non-JSON response for ${endpoint}.`);
   }
