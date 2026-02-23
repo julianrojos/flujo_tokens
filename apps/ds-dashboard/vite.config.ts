@@ -35,14 +35,8 @@ type Middleware = (
   next: () => void,
 ) => void | Promise<void>;
 
-type TokenRegistryEntry = {
-  path?: string;
-  slashPath?: string;
-  cssVar?: string;
-  type?: string;
-  resolvedValue?: string;
-  collection?: string;
-};
+import type { TokenEntry } from "./src/types/token-registry";
+import type { HealthHistoryRange, HealthHistorySnapshot } from "./src/types/health-history";
 
 type TokenTreeNode = {
   id: string;
@@ -50,31 +44,7 @@ type TokenTreeNode = {
   type: "collection" | "group" | "token";
   path: string;
   children: TokenTreeNode[];
-  tokenData?: TokenRegistryEntry;
-};
-
-type HealthHistoryRange = "7d" | "30d" | "90d";
-
-type HealthHistorySnapshot = {
-  captured_at: string;
-  metrics: {
-    breaking_changes: number | null;
-    wcag_failures_total: number;
-    coverage_avg: number;
-    unresolved_total: number;
-    unused_tokens_total: number;
-    needs_review_total: number;
-  };
-  fingerprints: {
-    token_health: string;
-    components_health: string;
-    token_usage: string;
-    token_diff: string;
-    signature_sha256: string;
-  };
-  meta: {
-    before_ref: string;
-  };
+  tokenData?: TokenEntry;
 };
 
 function normalizeHealthHistoryRange(raw: string | null): HealthHistoryRange {
@@ -570,8 +540,8 @@ function buildSnippet(content: string, line: number, before: number, after: numb
   return { targetLine: target, startLine, endLine, snippet: snippetLines.join("\n") };
 }
 
-function buildTokenCollectionTrees(entries: TokenRegistryEntry[]) {
-  const byCollection = new Map<string, TokenRegistryEntry[]>();
+function buildTokenCollectionTrees(entries: TokenEntry[]) {
+  const byCollection = new Map<string, TokenEntry[]>();
   for (const entry of entries) {
     const collection = String(entry.collection || "Uncategorized").trim() || "Uncategorized";
     if (!byCollection.has(collection)) byCollection.set(collection, []);
@@ -1424,7 +1394,7 @@ function createLocalDataApi() {
 
       if (method === "GET" && url === "/api/token-collection-trees") {
         const raw = await fs.readFile(tokenRegistryPath, "utf8");
-        const parsed = JSON.parse(raw) as { entries?: TokenRegistryEntry[] };
+        const parsed = JSON.parse(raw) as { entries?: TokenEntry[] };
         const entries = Array.isArray(parsed.entries) ? parsed.entries : [];
         sendJson(res, 200, buildTokenCollectionTrees(entries));
         return;
