@@ -3,8 +3,7 @@
 import path from "node:path";
 
 import { parseArgs } from "./lib/parse-args.mjs";
-import { COMPONENT_DOCS_DIR } from "./lib/paths.mjs";
-import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
+import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 
 const TOKEN_REGISTRY_CHECK = "token-registry";
@@ -50,9 +49,10 @@ function projectTokenRegistryReport(report) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
+  const ctx = resolveSystemContextSafe({ system: args.system });
 
-  const docsRoot = args["docs-root"] || COMPONENT_DOCS_DIR;
-  const registryPath = args.registry || DEFAULT_TOKEN_REGISTRY_PATH;
+  const docsRoot = args["docs-root"] || ctx.paths.docs;
+  const registryPath = args.registry || ctx.paths.tokenRegistry;
   const filePath = args.file ? path.resolve(args.file) : null;
   const specFilePath = args["spec-file"] ? path.resolve(args["spec-file"]) : null;
   const strict = String(args.strict || "false") === "true";

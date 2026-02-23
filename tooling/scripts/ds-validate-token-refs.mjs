@@ -30,11 +30,7 @@
 import path from "node:path";
 
 import { parseArgs } from "./lib/parse-args.mjs";
-import {
-  COMPONENT_DOCS_DIR,
-  DOCS_SPEC_DIR,
-  resolveProjectPath,
-} from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 
@@ -235,6 +231,8 @@ function computeExitCode(report) {
 function main() {
   const args = parseArgs(process.argv.slice(2));
 
+  const ctx = resolveSystemContextSafe({ system: args.system });
+
   const componentName = args["component-name"] || args.component || null;
   const registryPath  = args.registry || DEFAULT_TOKEN_REGISTRY_PATH;
   const jsonOutput    = String(args.json || "false") === "true";
@@ -250,11 +248,11 @@ function main() {
       .replace(/([a-z])([A-Z])/g, "$1_$2")
       .replace(/[\s-]+/g, "_")
       .toLowerCase();
-    filePath     = noMarkdown ? null : resolveProjectPath("docs", "components", `${snake}.md`);
-    specFilePath = noSpecs    ? null : resolveProjectPath("docs", "_spec", "components", `${snake}.yml`);
+    filePath     = noMarkdown ? null : path.join(ctx.paths.docs, `${snake}.md`);
+    specFilePath = noSpecs    ? null : path.join(ctx.paths.specs, `${snake}.yml`);
   }
 
-  const docsRoot = noMarkdown ? null : (args["docs-root"] || COMPONENT_DOCS_DIR);
+  const docsRoot = noMarkdown ? null : (args["docs-root"] || ctx.paths.docs);
 
   let baseReport;
   try {

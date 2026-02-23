@@ -5,13 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { DOCS_ROOT, PROJECT_ROOT, resolveProjectPath } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
-const DEFAULT_REGISTRY_PATH = path.join(DOCS_ROOT, "_generated", "token-registry.json");
-const DEFAULT_USAGE_INDEX_PATH = path.join(DOCS_ROOT, "_generated", "token-usage-index.json");
-const DEFAULT_GRAPH_VIZ_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.viz.json");
-const DEFAULT_OUT_JSON_PATH = path.join(DOCS_ROOT, "_generated", "token-health.json");
-const DEFAULT_WCAG_PAIRS_PATH = resolveProjectPath("tooling", "config", "wcag-pairs.json");
 const CSS_VAR_REF_RE = /var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)/gi;
 const SIMPLE_CSS_VAR_ALIAS_RE = /^var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)\s*$/i;
 
@@ -425,11 +420,13 @@ function main() {
   }
 
   try {
-    const registryPath = resolveSafePath(args.registry || DEFAULT_REGISTRY_PATH, "--registry");
-    const usageIndexPath = resolveSafePath(args["usage-index"] || DEFAULT_USAGE_INDEX_PATH, "--usage-index");
-    const graphVizPath = resolveSafePath(args["graph-viz"] || DEFAULT_GRAPH_VIZ_PATH, "--graph-viz");
-    const wcagPairsPath = resolveSafePath(args["wcag-pairs"] || DEFAULT_WCAG_PAIRS_PATH, "--wcag-pairs");
-    const outJsonPath = resolveSafePath(args["out-json"] || DEFAULT_OUT_JSON_PATH, "--out-json");
+    const ctx = resolveSystemContextSafe({ system: args.system });
+    const genDir = ctx.paths.generated;
+    const registryPath = resolveSafePath(args.registry || path.join(genDir, "token-registry.json"), "--registry");
+    const usageIndexPath = resolveSafePath(args["usage-index"] || path.join(genDir, "token-usage-index.json"), "--usage-index");
+    const graphVizPath = resolveSafePath(args["graph-viz"] || path.join(genDir, "token-graph.viz.json"), "--graph-viz");
+    const wcagPairsPath = resolveSafePath(args["wcag-pairs"] || path.join(PROJECT_ROOT, "tooling", "config", "wcag-pairs.json"), "--wcag-pairs");
+    const outJsonPath = resolveSafePath(args["out-json"] || path.join(genDir, "token-health.json"), "--out-json");
 
     const maxItems = parseIntegerOption(args["max-items"], "--max-items", 100, 1);
     const highUsageThreshold = parseIntegerOption(

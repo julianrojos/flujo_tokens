@@ -6,9 +6,8 @@ import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { DOCS_ROOT } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
-const DEFAULT_REGISTRY_PATH = path.join(DOCS_ROOT, "_generated", "token-registry.json");
 const DEFAULT_BEFORE_REF = "HEAD";
 const IDENTITY_FIELDS = ["path", "slashPath", "cssVar"];
 const COMPARE_FIELDS = ["path", "slashPath", "cssVar", "type", "collection", "resolvedValue"];
@@ -396,7 +395,8 @@ function main() {
   }
 
   const strict = String(args.strict || "false") === "true";
-  const currentPath = path.resolve(args.current || DEFAULT_REGISTRY_PATH);
+  const ctx = resolveSystemContextSafe({ system: args.system });
+  const currentPath = path.resolve(args.current || ctx.paths.tokenRegistry);
   const beforePath = String(args.before || "").trim();
   const beforeRef = String(args["before-ref"] || DEFAULT_BEFORE_REF).trim();
   const registryAtRef = String(args["registry-at-ref"] || "docs/_generated/token-registry.json").trim();

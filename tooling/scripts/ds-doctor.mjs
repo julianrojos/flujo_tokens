@@ -6,18 +6,11 @@ import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
-import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
+import { loadTokenRegistry } from "./lib/token-registry.mjs";
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
-import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
 import { commandExists } from "./lib/command-exists.mjs";
-import {
-  compareComponentRegistryToSources,
-  DEFAULT_COMPONENT_DOCS_DIR,
-  DEFAULT_COMPONENT_REGISTRY_PATH,
-  DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_RENDER_PAYLOADS_DIR,
-  DEFAULT_VISUAL_PROOFS_DIR,
-} from "./lib/component-registry/index.mjs";
+import { compareComponentRegistryToSources } from "./lib/component-registry/index.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
 const ALLOWED_CHECK_STATUS = new Set(["pass", "fail", "warn"]);
 
@@ -168,17 +161,19 @@ function printAndExit(report) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const docsRoot = path.resolve(args["docs-root"] || path.join(DOCS_ROOT, "components"));
-  const specRoot = path.resolve(args["spec-root"] || path.join(DOCS_SPEC_DIR, "components"));
-  const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
+  const ctx = resolveSystemContextSafe({ system: args.system });
+
+  const docsRoot = path.resolve(args["docs-root"] || ctx.paths.docs);
+  const specRoot = path.resolve(args["spec-root"] || ctx.paths.specs);
+  const registryPath = path.resolve(args.registry || ctx.paths.tokenRegistry);
   const componentRegistryPath = path.resolve(
-    args["component-registry"] || DEFAULT_COMPONENT_REGISTRY_PATH,
+    args["component-registry"] || ctx.paths.registry,
   );
   const renderPayloadDir = path.resolve(
-    args["render-dir"] || DEFAULT_RENDER_PAYLOADS_DIR,
+    args["render-dir"] || path.join(ctx.paths.generated, "figma_doc_models"),
   );
   const visualProofDir = path.resolve(
-    args["proof-dir"] || DEFAULT_VISUAL_PROOFS_DIR,
+    args["proof-dir"] || path.join(ctx.paths.generated, "visual-proofs"),
   );
   const manifestPath = path.resolve(args.manifest || path.join(PROJECT_ROOT, ".agent", "rules", "_manifest.yml"));
   const rawComponentName = String(args["component-name"] || "").trim();
@@ -278,8 +273,8 @@ function main() {
   try {
     const componentRegistryCheck = compareComponentRegistryToSources({
       registryPath: componentRegistryPath,
-      specsDir: specRoot || DEFAULT_COMPONENT_SPECS_DIR,
-      docsDir: docsRoot || DEFAULT_COMPONENT_DOCS_DIR,
+      specsDir: specRoot || ctx.paths.specs,
+      docsDir: docsRoot || ctx.paths.docs,
       renderDir: renderPayloadDir,
       proofsDir: visualProofDir,
     });

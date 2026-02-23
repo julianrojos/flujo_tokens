@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { COMPONENT_DOCS_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { parseMarkdownFrontmatter } from "./lib/parse-frontmatter.mjs";
 import {
@@ -194,7 +194,9 @@ async function main() {
     true,
   );
 
-  const docsRoot = args["docs-root"] || COMPONENT_DOCS_DIR;
+  const ctx = resolveSystemContextSafe({ system: args.system });
+
+  const docsRoot = args["docs-root"] || ctx.paths.docs;
   const docsRootResolved = path.resolve(docsRoot);
   const componentDocsDir =
     path.basename(docsRootResolved) === "components"

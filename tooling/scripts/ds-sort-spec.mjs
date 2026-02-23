@@ -35,7 +35,7 @@ import { createRequire } from "node:module";
 import yaml from "js-yaml";
 
 import { parseArgs } from "./lib/parse-args.mjs";
-import { DOCS_SPEC_DIR } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
 import {
   normalizeSpecPropertyType,
@@ -213,7 +213,7 @@ function processSpecFile(filePath, { check = false } = {}) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2), {
-    string: ["file"],
+    string: ["file", "system"],
     boolean: ["all", "check", "json"],
     alias: { f: "file", a: "all", c: "check" },
   });
@@ -226,13 +226,16 @@ async function main() {
     console.error("Usage:");
     console.error("  npm run ds:sort-spec -- --file <path>");
     console.error("  npm run ds:sort-spec -- --all [--check]");
+    console.error("Options: --file, --all, --check, --system <id>, --json");
     process.exit(1);
   }
 
   // Resolve list of files to process
   let files = [];
   if (hasAll) {
-    const specDir = path.join(DOCS_SPEC_DIR, "components");
+    const ctx = resolveSystemContextSafe({ system: args.system });
+    const specDir = ctx.paths.specs;
+
     if (!fs.existsSync(specDir)) {
       console.error(`ERROR: Spec dir not found: ${specDir}`);
       process.exit(1);

@@ -12,7 +12,7 @@ import {
 } from "./lib/figma-component-map.mjs";
 import { fetchFigmaFile } from "./lib/figma-api.mjs";
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
-import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
 const USAGE = {
   command:
@@ -274,12 +274,17 @@ function runNodeScriptJson({ repoRoot, scriptPath, scriptArgs }) {
   }
 }
 
-function resolveDocsPaths({ docsRootInput, slug }) {
-  const docsRootResolved = path.resolve(docsRootInput);
+function resolveDocsPaths({ ctx, docsRootOverride, slug }) {
+  const docsRoot = docsRootOverride || ctx.paths.docs;
+  const docsRootResolved = path.resolve(docsRoot);
+  
+  // If we have ctx, we can use its paths, but if the user overrode docsRoot,
+  // we still need to derive the relative structure.
   const componentDocsDir =
     path.basename(docsRootResolved) === "components"
       ? docsRootResolved
       : path.join(docsRootResolved, "components");
+      
   const docsRootDir =
     path.basename(docsRootResolved) === "components"
       ? path.dirname(docsRootResolved)
@@ -311,7 +316,8 @@ async function main() {
     );
   }
 
-  const docsRootInput = String(args["docs-root"] || DOCS_ROOT).trim();
+  const ctx = resolveSystemContextSafe({ system: args.system });
+  const docsRootOverride = args["docs-root"] ? String(args["docs-root"]).trim() : null;
   const componentSlugOverride = String(args["component-slug"] || "")
     .trim()
     .toLowerCase();
@@ -345,11 +351,11 @@ async function main() {
   const agent = String(args.agent || "auto").trim();
   const mainCaptureMode = parseMainCaptureMode(args["main-capture-mode"]);
   const proofDir = path.resolve(
-    args["proof-dir"] || path.join(DOCS_ROOT, "_generated", "visual-proofs"),
+    args["proof-dir"] || path.join(ctx.paths.generated, "visual-proofs"),
   );
   const proofImageDir = path.resolve(
     args["proof-image-dir"] ||
-      path.join(DOCS_ROOT, "_generated", "visual-proofs", "images"),
+      path.join(ctx.paths.generated, "visual-proofs", "images"),
   );
 
   const descriptor = parseFigmaFileUrl(figmaUrl);
@@ -428,7 +434,8 @@ async function main() {
     }
 
     const resolvedPaths = resolveDocsPaths({
-      docsRootInput,
+      ctx,
+      docsRootOverride,
       slug: inferredSlug,
     });
     const markdownExists = fs.existsSync(resolvedPaths.markdownPath);

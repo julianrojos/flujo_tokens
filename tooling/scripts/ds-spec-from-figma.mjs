@@ -8,7 +8,7 @@ import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
-import { DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 import {
   DEFAULT_TOKEN_REGISTRY_PATH,
   loadTokenRegistry,
@@ -40,8 +40,6 @@ import {
 } from "./lib/scoped-write-guard.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 
-const SPEC_COMPONENTS_DIR = path.join(DOCS_SPEC_DIR, "components");
-const SPEC_TEMPLATE_PATH = path.join(SPEC_COMPONENTS_DIR, "_template.yml");
 const USAGE = {
   command:
     'npm run ds:spec-from-figma -- --url "https://www.figma.com/design/...&node-id=123-456" --component-name Alert',
@@ -98,6 +96,10 @@ const USAGE = {
       description:
         "Allow changing existing known spec values outside evidence-backed fields (requires --force true).",
       defaultValue: "false",
+    },
+    {
+      name: "--system <id>",
+      description: "Target design system context.",
     },
     {
       name: "--help",
@@ -606,18 +608,20 @@ function main() {
     printUsage(USAGE, { exitCode: 0 });
   }
 
+  const ctx = resolveSystemContextSafe({ system: args.system });
+
   const figmaUrl = String(args.url || "").trim();
   const explicitNodeId = normalizeNodeId(args["component-set-node-id"] || "");
   const rawComponentName = String(args["component-name"] || "").trim();
   const normalizedName = normalizeComponentName(rawComponentName);
   const componentName = normalizedName.displayName;
   const componentSlug = normalizedName.fileSlug;
-  const specRoot = args["spec-root"] || SPEC_COMPONENTS_DIR;
+  const specRoot = args["spec-root"] || ctx.paths.specs;
   const resolvedSpecRoot = path.resolve(specRoot);
-  const docsRootDir = path.dirname(path.dirname(resolvedSpecRoot));
-  const templatePath = path.resolve(args.template || SPEC_TEMPLATE_PATH);
+  const docsRootDir = ctx.paths.docs;
+  const templatePath = path.resolve(args.template || path.join(resolvedSpecRoot, "_template.yml"));
   const registryPath = path.resolve(
-    args.registry || DEFAULT_TOKEN_REGISTRY_PATH,
+    args.registry || ctx.paths.tokenRegistry,
   );
   const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
@@ -672,12 +676,10 @@ function main() {
       process.exit(1);
     }
   }
-  const overviewPath = path.resolve(path.join(docsRootDir, "components", "overview.md"));
-  const registryIndexPath = path.resolve(
-    path.join(docsRootDir, "_generated", "component-registry.json"),
-  );
+  const overviewPath = path.resolve(path.join(ctx.paths.docs, "overview.md"));
+  const registryIndexPath = path.resolve(ctx.paths.registry);
   const scopeSnapshot = captureScopedWriteSnapshot({
-    directories: [resolvedSpecRoot, path.join(docsRootDir, "components")],
+    directories: [resolvedSpecRoot, ctx.paths.docs],
     files: [registryIndexPath],
     extensions: [".yml", ".md", ".json"],
   });

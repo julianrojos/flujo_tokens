@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { DOCS_ROOT, PROJECT_ROOT } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, resolveSystemContext, PROJECT_ROOT } from "./lib/system-context.mjs";
 import { fetchFigmaFile } from "./lib/figma-api.mjs";
 import {
   parseFigmaFileUrl,
@@ -13,9 +13,9 @@ import {
   renderFigmaComponentMapText,
 } from "./lib/figma-component-map.mjs";
 
+const _defaultCtx = resolveSystemContextSafe();
 const DEFAULT_OUTPUT_DIR = path.join(
-  DOCS_ROOT,
-  "_generated",
+  _defaultCtx.paths.generated,
   "figma-component-map",
 );
 const DEFAULT_TIMEOUT_MS = 30_000;

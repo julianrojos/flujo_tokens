@@ -2,12 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "./lib/parse-args.mjs";
-import {
-  DOCS_SPEC_DIR,
-  FIGMA_DOC_MODELS_DIR,
-  FIGMA_DOC_THEME_PATH,
-  PROJECT_ROOT,
-} from "./lib/paths.mjs";
+import { resolveSystemContextSafe, DEFAULT_THEME_PATH, PROJECT_ROOT } from "./lib/system-context.mjs";
 import {
   normalizeComponentName,
   componentNameToSnakeCase,
@@ -551,6 +546,8 @@ function main() {
   const docsDir = path.dirname(markdownPath);
   const docsRootDir = path.dirname(docsDir);
 
+  const ctx = resolveSystemContextSafe({ system: args.system });
+
   const fileBase = path.basename(markdownPath, path.extname(markdownPath));
   const normalizedName = normalizeComponentName(
     args["component-name"] || fileBase,
@@ -560,7 +557,7 @@ function main() {
     normalizedName.fileSlug || componentNameToSnakeCase(fileBase);
   const specPath = path.resolve(
     args["spec-file"] ||
-      path.join(DOCS_SPEC_DIR, "components", `${componentSlug}.yml`),
+      path.join(ctx.paths.specs, `${componentSlug}.yml`),
   );
 
   if (!fs.existsSync(specPath)) {
@@ -576,7 +573,7 @@ function main() {
   const force = String(args.force || "false") === "true";
   const syncStatePath = args["sync-state"] || undefined;
   const tokenRegistryPath =
-    args["token-registry"] || DEFAULT_TOKEN_REGISTRY_PATH;
+    args["token-registry"] || ctx.paths.tokenRegistry;
   const captureProof = String(args["capture-proof"] || "true") !== "false";
   const captureProofStrict = String(args["capture-proof-strict"] || "false") === "true";
 
@@ -705,7 +702,7 @@ function main() {
   }
 
   const agent = args.agent || "auto";
-  const generatedDir = args["generated-dir"] || FIGMA_DOC_MODELS_DIR;
+  const generatedDir = args["generated-dir"] || path.join(ctx.paths.generated, "figma_doc_models");
   const tempArtifacts = new TempArtifactManager();
   tempArtifacts.attachProcessHooks();
   const staleArtifacts = cleanupLegacyTempOutputs({
@@ -720,7 +717,7 @@ function main() {
         .join(", ")}`,
     );
   }
-  const themePath = args.theme || FIGMA_DOC_THEME_PATH;
+  const themePath = args.theme || DEFAULT_THEME_PATH;
   const expectedThemeName = readThemeName(themePath);
   const docModelPath = path.join(generatedDir, `${fileBase}.doc-model.json`);
   const executePath = path.join(generatedDir, `${fileBase}.figma-execute.js`);
@@ -1111,6 +1108,9 @@ function main() {
           "--agent",
           agent,
         ];
+        if (args.system) {
+          proofArgs.push("--system", args.system);
+        }
         if (figmaUrl) {
           proofArgs.push("--url", figmaUrl);
         }
@@ -1129,12 +1129,12 @@ function main() {
     }
 
     syncDocumentationIndices({
-      docsDir,
-      overviewPath: path.join(docsDir, "overview.md"),
-      specsDir: path.dirname(specPath),
-      proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
-      renderDir: path.resolve(generatedDir),
-      registryPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+      docsDir: ctx.paths.docs,
+      overviewPath: path.join(ctx.paths.docs, "overview.md"),
+      specsDir: ctx.paths.specs,
+      proofsDir: path.join(ctx.paths.generated, "visual-proofs"),
+      renderDir: path.join(ctx.paths.generated, "figma_doc_models"),
+      registryPath: ctx.paths.registry,
     });
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : String(error));

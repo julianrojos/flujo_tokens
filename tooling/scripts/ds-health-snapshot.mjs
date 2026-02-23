@@ -6,20 +6,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { DOCS_ROOT, PROJECT_ROOT, resolveProjectPath } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
-const DEFAULT_TOKEN_HEALTH_PATH = path.join(DOCS_ROOT, "_generated", "token-health.json");
-const DEFAULT_COMPONENTS_HEALTH_PATH = path.join(
-  DOCS_ROOT,
-  "_generated",
-  "components-health.json",
-);
-const DEFAULT_TOKEN_USAGE_INDEX_PATH = path.join(
-  DOCS_ROOT,
-  "_generated",
-  "token-usage-index.json",
-);
-const DEFAULT_OUT_PATH = path.join(DOCS_ROOT, "_generated", "health-history.json");
 const DEFAULT_RETENTION_DAYS = 120;
 
 const USAGE = {
@@ -182,7 +170,7 @@ function formatDateBucket(isoTimestamp) {
 }
 
 function parseBreakingChangesFromTokenDiff(beforeRef) {
-  const scriptPath = resolveProjectPath("tooling", "scripts", "ds-token-diff.mjs");
+  const scriptPath = path.join(PROJECT_ROOT, "tooling", "scripts", "ds-token-diff.mjs");
   const result = spawnSync(
     process.execPath,
     [scriptPath, "--before-ref", beforeRef, "--format", "json"],
@@ -299,19 +287,22 @@ function main() {
     throw new Error("Invalid --before-ref value.");
   }
 
+  const ctx = resolveSystemContextSafe({ system: args.system });
+  const genDir = ctx.paths.generated;
+
   const tokenHealthPath = resolveSafePath(
-    args["token-health"] || DEFAULT_TOKEN_HEALTH_PATH,
+    args["token-health"] || path.join(genDir, "token-health.json"),
     "--token-health",
   );
   const componentsHealthPath = resolveSafePath(
-    args["components-health"] || DEFAULT_COMPONENTS_HEALTH_PATH,
+    args["components-health"] || path.join(genDir, "components-health.json"),
     "--components-health",
   );
   const tokenUsageIndexPath = resolveSafePath(
-    args["token-usage-index"] || DEFAULT_TOKEN_USAGE_INDEX_PATH,
+    args["token-usage-index"] || path.join(genDir, "token-usage-index.json"),
     "--token-usage-index",
   );
-  const outPath = resolveSafePath(args.out || DEFAULT_OUT_PATH, "--out");
+  const outPath = resolveSafePath(args.out || path.join(genDir, "health-history.json"), "--out");
 
   const tokenHealth = readJsonRequired(tokenHealthPath, "token health");
   const componentsHealth = readJsonRequired(componentsHealthPath, "components health");

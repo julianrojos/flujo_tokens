@@ -44,6 +44,7 @@ type CliOptions = {
     help: boolean;
     mode?: string;
     modeStrict: boolean;
+    system?: string;
 };
 
 type ModeScope = {
@@ -71,24 +72,57 @@ Options:
       --output-primitives <file>  Primitives CSS output (default: ./output/primitives.css)
       --output-tokens <file>      Tokens CSS output (default: ./output/tokens.css)
       --registry       Also export docs token registry JSON (default: off)
-      --registry-output <file>    Token registry output (default: ./docs/_generated/token-registry.json)
+      --registry-output <file>    Token registry output (default: system dependent)
+      --system <id>        Set active design system (default: from config)
   -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
       --mode-strict    Fail if preferred mode is missing in any node (default: off)
       --mode-loose     Allow fallback to available mode if preferred is missing (default: on)
 `);
 }
 
+function getSystemPaths(systemId?: string) {
+    const root = path.resolve(__dirname, '../../..');
+    const configRaw = fs.readFileSync(path.join(root, 'tooling/config/design-systems.json'), 'utf8');
+    const config = JSON.parse(configRaw);
+    const sid = systemId || config.defaultSystem;
+    const sys = config.systems.find((s: any) => s.id === sid);
+    if (!sys) throw new Error(`Unknown system: ${sid}`);
+    return {
+        inputDir: path.resolve(root, sys.inputDir),
+        outputPrimitives: path.resolve(root, sys.outputDir, 'primitives.css'),
+        outputTokens: path.resolve(root, sys.outputDir, 'tokens.css'),
+        outputFile: path.resolve(root, sys.outputDir, 'custom-properties.css'),
+        registryOutput: path.resolve(root, sys.docsDir, '_generated/token-registry.json'),
+    };
+}
+
 function parseArgs(argv: string[]): CliOptions | null {
-    let inputDir = path.resolve(__dirname, '../../../input');
-    let outputFile = path.resolve(__dirname, '../../../output/custom-properties.css');
-    let outputPrimitives = path.resolve(__dirname, '../../../output/primitives.css');
-    let outputTokens = path.resolve(__dirname, '../../../output/tokens.css');
-    let registryOutput = path.resolve(__dirname, '../../../docs/_generated/token-registry.json');
     let split = true;
     let registry = false;
     let help = false;
     let mode: string | undefined;
     let modeStrict = false;
+    let systemId: string | undefined;
+
+    // First pass loop just to find systemId
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+        if (arg === '--system') {
+            if (!argv[i + 1]) {
+                console.error('❌ Missing value for --system');
+                return null;
+            }
+            systemId = argv[i + 1];
+            break;
+        }
+    }
+
+    const sysPaths = getSystemPaths(systemId);
+    let inputDir = sysPaths.inputDir;
+    let outputFile = sysPaths.outputFile;
+    let outputPrimitives = sysPaths.outputPrimitives;
+    let outputTokens = sysPaths.outputTokens;
+    let registryOutput = sysPaths.registryOutput;
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -184,11 +218,16 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
+        if (arg === '--system') {
+            i++;
+            continue;
+        }
+
         console.error(`❌ Unknown argument: ${arg}`);
         return null;
     }
 
-    return { inputDir, outputFile, outputPrimitives, outputTokens, registryOutput, split, registry, help, mode, modeStrict };
+    return { inputDir, outputFile, outputPrimitives, outputTokens, registryOutput, split, registry, help, mode, modeStrict, system: systemId };
 }
 
 const parsed = parseArgs(process.argv.slice(2));

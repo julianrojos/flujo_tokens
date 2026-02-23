@@ -7,16 +7,9 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { DOCS_ROOT, PROJECT_ROOT, resolveProjectPath } from "./lib/paths.mjs";
+import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { isTbdMarker } from "./lib/tbd.mjs";
 
-const DEFAULT_REGISTRY_PATH = path.join(DOCS_ROOT, "_generated", "token-registry.json");
-const DEFAULT_SPEC_ROOT = path.join(DOCS_ROOT, "_spec", "components");
-const DEFAULT_OUT_PATH = path.join(DOCS_ROOT, "_generated", "token-usage-index.json");
-const DEFAULT_CSS_FILES = [
-  resolveProjectPath("output", "primitives.css"),
-  resolveProjectPath("output", "tokens.css"),
-];
 const CSS_VAR_REF_RE = /var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)/gi;
 const CSS_CUSTOM_PROP_DECL_RE = /(--[a-z0-9-]+)\s*:\s*([^;]+);/gi;
 const A11Y_MODE_DOT_RE = /^A11y\.A11y\.mode[A-Za-z0-9_-]+\./;
@@ -62,6 +55,10 @@ const USAGE = {
       name: "--dry-run <true|false>",
       description: "Compute and print report without writing files.",
       defaultValue: "false",
+    },
+    {
+      name: "--system <id>",
+      description: "Target design system context.",
     },
     {
       name: "--help",
@@ -533,19 +530,25 @@ function main() {
     false,
   );
   const dryRun = parseBooleanOption(args["dry-run"], "--dry-run", false);
+  const ctx = resolveSystemContextSafe({ system: args.system });
 
   const registryPath = resolveBoundPath(
-    args.registry || DEFAULT_REGISTRY_PATH,
+    args.registry || ctx.paths.tokenRegistry,
     "--registry",
   );
-  const specRoot = resolveBoundPath(args["spec-root"] || DEFAULT_SPEC_ROOT, "--spec-root");
-  const outPath = resolveBoundPath(args.out || DEFAULT_OUT_PATH, "--out");
+  const specRoot = resolveBoundPath(args["spec-root"] || ctx.paths.specs, "--spec-root");
+  const outPath = resolveBoundPath(args.out || path.join(ctx.paths.generated, "token-usage-index.json"), "--out");
+  const defaultCssFiles = [
+    resolveBoundPath(path.join(ctx.paths.output, "primitives.css"), "default css"),
+    resolveBoundPath(path.join(ctx.paths.output, "tokens.css"), "default css"),
+  ];
+
   const cssFiles = String(args["css-files"] || "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean)
     .map((value) => resolveBoundPath(value, "--css-files"));
-  const cssFilesToScan = cssFiles.length > 0 ? cssFiles : DEFAULT_CSS_FILES;
+  const cssFilesToScan = cssFiles.length > 0 ? cssFiles : defaultCssFiles;
 
   try {
     const registryRaw = readTextFile(registryPath, "token registry");

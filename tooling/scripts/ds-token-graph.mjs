@@ -5,13 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { DOCS_ROOT, PROJECT_ROOT } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
-const DEFAULT_REGISTRY_PATH = path.join(DOCS_ROOT, "_generated", "token-registry.json");
-const DEFAULT_OUT_JSON_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.json");
-const DEFAULT_OUT_VIZ_JSON_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.viz.json");
-const DEFAULT_OUT_MD_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.md");
-const DEFAULT_OUT_MERMAID_PATH = path.join(DOCS_ROOT, "_generated", "token-graph.mmd");
 const DEFAULT_MERMAID_MAX_EDGES = 2000;
 const CSS_VAR_REF_RE = /var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)/gi;
 
@@ -867,27 +862,29 @@ function main() {
   }
 
   try {
+    const ctx = resolveSystemContextSafe({ system: args.system });
+    const genDir = ctx.paths.generated;
     const allowOutsideProject = parseBooleanOption(
       args["allow-outside-project"],
       "--allow-outside-project",
       false,
     );
-    const registryPath = resolveSafePath(args.registry || DEFAULT_REGISTRY_PATH, "--registry", {
+    const registryPath = resolveSafePath(args.registry || path.join(genDir, "token-registry.json"), "--registry", {
       allowOutsideProject,
     });
-    const outJsonPath = resolveSafePath(args["out-json"] || DEFAULT_OUT_JSON_PATH, "--out-json", {
+    const outJsonPath = resolveSafePath(args["out-json"] || path.join(genDir, "token-graph.json"), "--out-json", {
       allowOutsideProject,
     });
     const outVizJsonPath = resolveSafePath(
-      args["out-viz-json"] || DEFAULT_OUT_VIZ_JSON_PATH,
+      args["out-viz-json"] || path.join(genDir, "token-graph.viz.json"),
       "--out-viz-json",
       { allowOutsideProject },
     );
-    const outMdPath = resolveSafePath(args["out-md"] || DEFAULT_OUT_MD_PATH, "--out-md", {
+    const outMdPath = resolveSafePath(args["out-md"] || path.join(genDir, "token-graph.md"), "--out-md", {
       allowOutsideProject,
     });
     const outMermaidPath = resolveSafePath(
-      args["out-mermaid"] || DEFAULT_OUT_MERMAID_PATH,
+      args["out-mermaid"] || path.join(genDir, "token-graph.mmd"),
       "--out-mermaid",
       { allowOutsideProject },
     );

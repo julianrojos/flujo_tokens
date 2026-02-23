@@ -9,11 +9,9 @@ import {
   readComponentRegistry,
 } from "./lib/component-registry/index.mjs";
 import { normalizeSortKey, stableHash } from "./lib/component-registry/utils.mjs";
-import { PROJECT_ROOT, resolveProjectPath } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
 const REPORT_SCHEMA_VERSION = 1;
-const DEFAULT_OUT_MD_PATH = resolveProjectPath("docs", "COMPONENTS_INDEX.md");
-const DEFAULT_OUT_JSON_PATH = resolveProjectPath("docs", "_generated", "components-health.json");
 
 const USAGE = {
   command: "npm run ds:registry:report [-- --dry-run true]",
@@ -59,6 +57,10 @@ const USAGE = {
       name: "--dry-run <true|false>",
       description: "Compute and report without writing output files.",
       defaultValue: "false",
+    },
+    {
+      name: "--system <id>",
+      description: "Target design system context.",
     },
     {
       name: "--help",
@@ -363,17 +365,21 @@ function main() {
     const noMd = parseBooleanOption(args["no-md"], "--no-md", false);
     const noJson = parseBooleanOption(args["no-json"], "--no-json", false);
     const maxFilterItems = parseIntegerOption(args["max-filter-items"], "--max-filter-items", 20, 1);
+    const ctx = resolveSystemContextSafe({ system: args.system });
 
     if (noMd && noJson) {
       throw new Error("At least one output must be enabled. Use --no-md false or --no-json false.");
     }
 
+    const defaultOutMdPath = path.join(ctx.paths.docs, "COMPONENTS_INDEX.md");
+    const defaultOutJsonPath = path.join(ctx.paths.generated, "components-health.json");
+
     const registryPath = assertPathInsideProject(
-      args.registry || DEFAULT_COMPONENT_REGISTRY_PATH,
+      args.registry || ctx.paths.registry,
       "--registry",
     );
-    const markdownPath = assertPathInsideProject(args["out-md"] || DEFAULT_OUT_MD_PATH, "--out-md");
-    const jsonPath = assertPathInsideProject(args["out-json"] || DEFAULT_OUT_JSON_PATH, "--out-json");
+    const markdownPath = assertPathInsideProject(args["out-md"] || defaultOutMdPath, "--out-md");
+    const jsonPath = assertPathInsideProject(args["out-json"] || defaultOutJsonPath, "--out-json");
 
     const { registry } = readComponentRegistry(registryPath);
     const projected = sortProjectedComponents(

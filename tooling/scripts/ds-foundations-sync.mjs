@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { DOCS_ROOT } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
 const USAGE = {
   command: "npm run ds:foundations:sync -- --create-root true",
@@ -855,7 +855,8 @@ function main() {
     printUsage(USAGE, { exitCode: 0 });
   }
 
-  const docsRoot = path.resolve(args["docs-root"] || DOCS_ROOT);
+  const ctx = resolveSystemContextSafe({ system: args.system });
+  const docsRoot = path.resolve(args["docs-root"] || path.resolve(PROJECT_ROOT, ctx.docsDir));
   const foundationsRoot = path.resolve(
     args["foundations-root"] || path.join(docsRoot, "foundations"),
   );

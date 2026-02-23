@@ -8,7 +8,7 @@ import { parseMarkdownFrontmatter, parseYamlDocument } from "./lib/parse-frontma
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
-import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
+import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { extractSectionBody } from "./lib/markdown-sections.mjs";
 import { TOKEN_COLLECTION_PREFIXES } from "./lib/docs-config.mjs";
@@ -291,8 +291,9 @@ function buildSuggestedCommands({ markdownPath, specPath, registryPath }) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const docsRoot = path.resolve(args["docs-root"] || path.join(DOCS_ROOT, "components"));
-  const specRoot = path.resolve(args["spec-root"] || path.join(DOCS_SPEC_DIR, "components"));
+  const ctx = resolveSystemContextSafe({ system: args.system });
+  const docsRoot = path.resolve(args["docs-root"] || ctx.paths.docs);
+  const specRoot = path.resolve(args["spec-root"] || ctx.paths.specs);
   const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
   const componentName = String(args["component-name"] || "").trim();
 

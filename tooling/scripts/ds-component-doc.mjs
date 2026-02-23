@@ -13,11 +13,8 @@ import {
   parseMarkdownFrontmatter,
   parseYamlDocument,
 } from "./lib/parse-frontmatter.mjs";
-import { DOCS_ROOT, DOCS_SPEC_DIR, PROJECT_ROOT } from "./lib/paths.mjs";
-import {
-  DEFAULT_TOKEN_REGISTRY_PATH,
-  loadTokenRegistry,
-} from "./lib/token-registry.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
+import { loadTokenRegistry } from "./lib/token-registry.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
@@ -111,6 +108,10 @@ const USAGE = {
       defaultValue: "false",
     },
     {
+      name: "--system <id>",
+      description: "Target design system context.",
+    },
+    {
       name: "--help",
       description: "Show this help message.",
     },
@@ -129,9 +130,9 @@ const FRONTMATTER_EVIDENCE_PREFIXES = Object.freeze([
   "pipeline.ds_component_doc",
 ]);
 
-function validateSpecPreflight(specPath, registryPath) {
+function validateSpecPreflight(specPath, registryPath, ctx) {
   const report = validateDocs({
-    docsRoot: path.join(PROJECT_ROOT, "__docs_validation_stub__"),
+    docsRoot: path.join(ctx.paths.docs, "__docs_validation_stub__"),
     specFilePath: specPath,
     registryPath,
     checkOverview: false,
@@ -315,8 +316,10 @@ function main() {
     printUsage(USAGE, { exitCode: 0 });
   }
 
+  const ctx = resolveSystemContextSafe({ system: args.system });
+
   const rawComponentName = String(args["component-name"] || "").trim();
-  const docsRootInput = path.resolve(args["docs-root"] || DOCS_ROOT);
+  const docsRootInput = path.resolve(args["docs-root"] || ctx.paths.docs);
   const componentDocsDir =
     path.basename(docsRootInput) === "components"
       ? docsRootInput
@@ -325,14 +328,14 @@ function main() {
     path.basename(docsRootInput) === "components"
       ? path.dirname(docsRootInput)
       : docsRootInput;
-  const specRoot = args["spec-root"] || path.join(DOCS_SPEC_DIR, "components");
+  const specRoot = args["spec-root"] || ctx.paths.specs;
   const force = String(args.force || "false") === "true";
   const skipValidation = String(args["skip-validation"] || "false") === "true";
   const allowDocStatusChange =
     String(args["allow-doc-status-change"] || "false") === "true";
   const syncStatePath = args["sync-state"] || undefined;
   const registryPath = path.resolve(
-    args.registry || DEFAULT_TOKEN_REGISTRY_PATH,
+    args.registry || ctx.paths.tokenRegistry,
   );
   const agent = args.agent || "auto";
 
@@ -422,7 +425,7 @@ function main() {
 
   if (!skipValidation) {
     try {
-      validateSpecPreflight(specPath, registryPath);
+      validateSpecPreflight(specPath, registryPath, ctx);
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
       process.exit(1);

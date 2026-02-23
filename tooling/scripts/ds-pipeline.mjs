@@ -5,7 +5,7 @@ import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { createPlan } from "./lib/pipeline-plan.mjs";
 import { generateReport } from "./lib/pipeline-report.mjs";
 import { executeComponentTasks } from "./lib/component-orchestrator.mjs";
-import { PROJECT_ROOT } from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
 const CLI_CONFIG = {
   command: "ds:pipeline [options]",
@@ -19,6 +19,7 @@ const CLI_CONFIG = {
     { name: "--dry-run", description: "Plan but do not execute" },
     { name: "--status-only", description: "Only show plan and orphan status" },
     { name: "--strict", description: "Fail on first error" },
+    { name: "--system", description: "Target design system (default: iter)" },
     { name: "--json", description: "Output silent JSON" },
     { name: "--help", description: "Show help" }
   ]
@@ -38,12 +39,14 @@ async function main() {
     // ds:doctor does not support --ignore; we capture its JSON output and filter
     // only the checks that are fatal for the pipeline (paths + registries).
     // Non-fatal checks: RULE_MANIFEST_COVERAGE, AGENTS, VALIDATE_DOCS.
+    const ctx = resolveSystemContextSafe(opts);
     const FATAL_PREFLIGHT_CHECKS = new Set(['PATH_DOCS', 'PATH_SPECS', 'TOKEN_REGISTRY', 'COMPONENT_REGISTRY']);
-    const registryExists = fs.existsSync(path.join(PROJECT_ROOT, "docs/_generated/component-registry.json"));
+    const registryExists = fs.existsSync(ctx.paths.registry);
     if (!opts['status-only'] || !registryExists) {
         if (!opts.json) console.log('\n\x1b[35m=== RUNNING PREFLIGHT (ds:doctor) ===\x1b[0m');
 
-        const docRes = spawnSync('npm', ['run', 'ds:doctor', '--', '--json'], {
+        const preflightSysArgs = opts.system ? ['--system', opts.system] : [];
+        const docRes = spawnSync('npm', ['run', 'ds:doctor', '--', ...preflightSysArgs, '--json'], {
             cwd: PROJECT_ROOT,
             shell: true,
             stdio: 'pipe',
@@ -87,6 +90,8 @@ async function main() {
         'dry-run': opts['dry-run'] === "true" || !!opts['dry-run'],
         'status-only': opts['status-only'] === "true" || !!opts['status-only'],
         strict: opts.strict === "true" || !!opts.strict,
+        system: opts.system,
+        dsContext: ctx,
         json: opts.json === "true" || !!opts.json
     };
 
@@ -114,7 +119,10 @@ async function main() {
         return res.status === 0;
     };
 
-    const tokensOk = runGlobalCmd('Stage A: Syncing Token Registry', 'npm', ['run', 'generate:registry'], planOpts.json);
+    const sysArgs = opts.system ? ['--', '--system', opts.system] : [];
+    
+    // We update generate:registry and others to accept the system flag
+    const tokensOk = runGlobalCmd('Stage A: Syncing Token Registry', 'npm', ['run', 'generate:registry', ...sysArgs], planOpts.json);
     executionState.global.tokensSync = tokensOk ? 'Success' : 'Failed';
 
     if (!tokensOk && !planOpts['dry-run']) {
@@ -140,7 +148,7 @@ async function main() {
     }
 
     if (!opts.json) console.log(`\n\x1b[35m--- Global Validations ---\x1b[0m`);
-    const valOk = runGlobalCmd('Stage F: Validating Final Docs', 'npm', ['run', 'validate:docs'], planOpts.json);
+    const valOk = runGlobalCmd('Stage F: Validating Final Docs', 'npm', ['run', 'validate:docs', ...sysArgs], planOpts.json);
     executionState.global.finalGate = valOk ? 'Success' : 'Validation Failed';
 
     // Accumulate component-level failures

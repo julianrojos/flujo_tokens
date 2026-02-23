@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parseArgs } from "./lib/parse-args.mjs";
-import { PROJECT_ROOT } from "./lib/paths.mjs";
+import { PROJECT_ROOT } from "./lib/system-context.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import {
   computeFingerprint,

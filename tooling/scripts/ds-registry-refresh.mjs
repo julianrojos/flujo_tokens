@@ -3,15 +3,8 @@
 import path from "node:path";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import {
-  DEFAULT_COMPONENT_DOCS_DIR,
-  DEFAULT_COMPONENT_OVERVIEW_PATH,
-  DEFAULT_COMPONENT_REGISTRY_PATH,
-  DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_RENDER_PAYLOADS_DIR,
-  DEFAULT_VISUAL_PROOFS_DIR,
-  syncDocumentationIndices,
-} from "./lib/component-registry/index.mjs";
+import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
 const USAGE = {
   command: "npm run ds:registry:refresh [-- --dry-run true]",
@@ -54,6 +47,10 @@ const USAGE = {
       defaultValue: "false",
     },
     {
+      name: "--system <id>",
+      description: "Target design system context.",
+    },
+    {
       name: "--help",
       description: "Show this help message.",
     },
@@ -67,15 +64,16 @@ function main() {
   }
 
   const dryRun = String(args["dry-run"] || "false") === "true";
+  const ctx = resolveSystemContextSafe({ system: args.system });
 
   try {
     const report = syncDocumentationIndices({
-      registryPath: path.resolve(args.registry || DEFAULT_COMPONENT_REGISTRY_PATH),
-      overviewPath: path.resolve(args.overview || DEFAULT_COMPONENT_OVERVIEW_PATH),
-      specsDir: path.resolve(args["spec-root"] || DEFAULT_COMPONENT_SPECS_DIR),
-      docsDir: path.resolve(args["docs-root"] || DEFAULT_COMPONENT_DOCS_DIR),
-      renderDir: path.resolve(args["render-dir"] || DEFAULT_RENDER_PAYLOADS_DIR),
-      proofsDir: path.resolve(args["proof-dir"] || DEFAULT_VISUAL_PROOFS_DIR),
+      registryPath: path.resolve(args.registry || ctx.paths.registry),
+      overviewPath: path.resolve(args.overview || path.join(ctx.paths.docs, "overview.md")),
+      specsDir: path.resolve(args["spec-root"] || ctx.paths.specs),
+      docsDir: path.resolve(args["docs-root"] || ctx.paths.docs),
+      renderDir: path.resolve(args["render-dir"] || path.join(ctx.paths.generated, "figma_doc_models")),
+      proofsDir: path.resolve(args["proof-dir"] || path.join(ctx.paths.generated, "visual-proofs")),
       dryRun,
     });
 

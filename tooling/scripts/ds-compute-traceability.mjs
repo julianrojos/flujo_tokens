@@ -30,7 +30,7 @@ import {
   parseMarkdownFrontmatter,
   parseYamlDocument,
 } from "./lib/parse-frontmatter.mjs";
-import { DOCS_ROOT } from "./lib/paths.mjs";
+// system-context.mjs is used by other pipeline scripts; this file derives PROJECT_ROOT locally
 import { isPlainObject } from "./lib/is-plain-object.mjs";
 
 const __filename = fileURLToPath(import.meta.url);

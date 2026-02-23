@@ -11,7 +11,7 @@ import {
   componentNameToSnakeCase,
   normalizeComponentName,
 } from "./lib/component-name.mjs";
-import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
+import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { fetchFigmaImages, fetchFigmaNodes } from "./lib/figma-api.mjs";
@@ -121,6 +121,10 @@ const USAGE = {
       description:
         "Skip registry+overview synchronization (useful when orchestrating batch captures).",
       defaultValue: "false",
+    },
+    {
+      name: "--system <id>",
+      description: "Target design system context.",
     },
     {
       name: "--help",
@@ -645,7 +649,9 @@ async function main() {
     printUsage(USAGE, { stream: "stderr", exitCode: 1 });
   }
 
-  const docsRootInput = path.resolve(args["docs-root"] || DOCS_ROOT);
+  const ctx = resolveSystemContextSafe({ system: args.system });
+
+  const docsRootInput = path.resolve(args["docs-root"] || ctx.paths.docs);
   const componentDocsDir =
     path.basename(docsRootInput) === "components"
       ? docsRootInput
@@ -655,7 +661,7 @@ async function main() {
       ? path.dirname(docsRootInput)
       : docsRootInput;
   const specRoot = path.resolve(
-    args["spec-root"] || path.join(DOCS_SPEC_DIR, "components"),
+    args["spec-root"] || ctx.paths.specs,
   );
   const markdownPath = path.resolve(
     explicitMarkdownPath || path.join(componentDocsDir, `${componentSlug}.md`),
@@ -665,11 +671,11 @@ async function main() {
   );
   const specFigma = loadSpecFigma(specPath);
   const proofDir = path.resolve(
-    args["proof-dir"] || path.join(docsRootDir, "_generated", "visual-proofs"),
+    args["proof-dir"] || path.join(ctx.paths.generated, "visual-proofs"),
   );
   const proofImageDir = path.resolve(
     args["proof-image-dir"] ||
-      path.join(docsRootDir, "_generated", "visual-proofs", "images"),
+      path.join(ctx.paths.generated, "visual-proofs", "images"),
   );
   const format = String(args.format || "png").trim().toLowerCase();
   const scale = Number(args.scale || 2);

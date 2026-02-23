@@ -5,15 +5,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { parseArgs } from "./lib/parse-args.mjs";
-import {
-  COMPONENT_DOCS_DIR,
-  DOCS_SPEC_DIR,
-  resolveProjectPath,
-} from "./lib/paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
 
-const COMPONENT_DOC_SCRIPT_PATH = resolveProjectPath(
+const COMPONENT_DOC_SCRIPT_PATH = path.join(
+  PROJECT_ROOT,
   "tooling",
   "scripts",
   "ds-component-doc.mjs",
@@ -42,12 +39,13 @@ function normalizeComponentFilter(rawValue) {
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const docsRootInput = path.resolve(args["docs-root"] || COMPONENT_DOCS_DIR);
+  const ctx = resolveSystemContextSafe({ system: args.system });
+  const docsRootInput = path.resolve(args["docs-root"] || ctx.paths.docs);
   const componentDocsDir =
     path.basename(docsRootInput) === "components"
       ? docsRootInput
       : path.join(docsRootInput, "components");
-  const specRoot = path.resolve(args["spec-root"] || path.join(DOCS_SPEC_DIR, "components"));
+  const specRoot = path.resolve(args["spec-root"] || ctx.paths.specs);
   const registryPath = path.resolve(args.registry || DEFAULT_TOKEN_REGISTRY_PATH);
   const agent = String(args.agent || process.env.DS_AGENT || "auto");
   const force = String(args.force || "true") === "false" ? "false" : "true";

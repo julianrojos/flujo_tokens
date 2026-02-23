@@ -7,7 +7,7 @@ import yaml from "js-yaml";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { parseMarkdownFrontmatter } from "./lib/parse-frontmatter.mjs";
-import { DOCS_ROOT, DOCS_SPEC_DIR } from "./lib/paths.mjs";
+import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 
 const HASH_RE = /^[a-f0-9]{64}$/i;
@@ -167,9 +167,11 @@ function main() {
     printUsage(USAGE, { exitCode: 0 });
   }
 
-  const docsRootInput = path.resolve(args["docs-root"] || path.join(DOCS_ROOT, "components"));
+  const ctx = resolveSystemContextSafe({ system: args.system });
+
+  const docsRootInput = path.resolve(args["docs-root"] || ctx.paths.docs);
   const specRoot = path.resolve(
-    args["spec-root"] || path.join(DOCS_SPEC_DIR, "components"),
+    args["spec-root"] || ctx.paths.specs,
   );
   const registryPath = path.resolve(
     args.registry || DEFAULT_TOKEN_REGISTRY_PATH,
