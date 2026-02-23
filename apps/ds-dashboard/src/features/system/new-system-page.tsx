@@ -64,7 +64,7 @@ export function NewSystemPage() {
   const [figmaApiTokenRef, setFigmaApiTokenRef] = useState("");
   const [collectionsInput, setCollectionsInput] = useState("");
   const [compileVariablesOnCapture, setCompileVariablesOnCapture] = useState(true);
-  const [makeDefault, setMakeDefault] = useState(true);
+  const [makeDefault, setMakeDefault] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedSystemId, setSavedSystemId] = useState("");
