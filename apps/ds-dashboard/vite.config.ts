@@ -976,7 +976,9 @@ function normalizeCollectionList(raw: unknown) {
 function ensureRelativeDir(raw: unknown, fallback: string) {
   const value = String(raw || "").trim() || fallback;
   const normalized = value.replace(/\\/g, "/");
-  const cleaned = normalized.replace(/^\/+/, "").replace(/\/+$/, "");
+  const segments = normalized.split("/").filter(Boolean);
+  if (segments.some((s) => s === "..")) return fallback;
+  const cleaned = segments.join("/");
   return cleaned || fallback;
 }
 
@@ -991,17 +993,30 @@ function normalizeFigmaApiTokenRef(raw: unknown, fallback?: string) {
   return source;
 }
 
-function resolveSafeSystemPathsForDeletion(system: any, repoRoot: string) {
+function resolveSafeSystemPathsForDeletion(
+  system: any,
+  repoRoot: string,
+  survivingSystems: any[],
+) {
   const candidates = [system?.inputDir, system?.outputDir, system?.docsDir]
     .map((value) => String(value || "").trim())
     .filter(Boolean);
   const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : `${repoRoot}${path.sep}`;
-  const safePaths: string[] = [];
 
+  const survivingDirs = new Set(
+    survivingSystems.flatMap((s: any) =>
+      [s?.inputDir, s?.outputDir, s?.docsDir]
+        .map((v: unknown) => path.resolve(repoRoot, String(v || "").trim()))
+        .filter(Boolean),
+    ),
+  );
+
+  const safePaths: string[] = [];
   for (const candidate of candidates) {
     const absolute = path.resolve(repoRoot, candidate);
     if (absolute === repoRoot) continue;
     if (!absolute.startsWith(rootWithSep)) continue;
+    if (survivingDirs.has(absolute)) continue;
     safePaths.push(absolute);
   }
 
@@ -1059,7 +1074,8 @@ function buildEmptyTokenHealthReport(args: {
     ? [{ id: "bootstrap-missing", message: String(args.reason) }]
     : [];
   return {
-    ok: true,
+    ok: false,
+    bootstrapped: true,
     schema_version: 1,
     generated_at: new Date().toISOString(),
     source: {
@@ -1104,6 +1120,8 @@ function buildEmptyComponentsHealthReport(args: {
   componentRegistryPath: string;
 }) {
   return {
+    ok: false,
+    bootstrapped: true,
     schema_version: 1,
     source: {
       registry_path: args.componentRegistryPath,
@@ -1319,7 +1337,7 @@ function createLocalDataApi() {
           };
 
           const removedPaths = targetSystem
-            ? resolveSafeSystemPathsForDeletion(targetSystem, workspaceRoot)
+            ? resolveSafeSystemPathsForDeletion(targetSystem, workspaceRoot, nextSystems)
             : [];
           for (const targetPath of removedPaths) {
             if (!fsSync.existsSync(targetPath)) continue;
@@ -1422,7 +1440,6 @@ function createLocalDataApi() {
         try {
           const raw = await fs.readFile(tokenHealthPath, "utf8");
           sendJson(res, 200, JSON.parse(raw));
-          return;
         } catch (error) {
           const code =
             typeof error === "object" && error && "code" in error
@@ -1430,20 +1447,6 @@ function createLocalDataApi() {
               : "";
           if (code !== "ENOENT") throw error;
 
-          const refresh = await runCommandCapture({
-            cwd: repoRoot,
-            command: "npm",
-            commandArgs: ["run", "ds:token-health", "--", "--system", systemId],
-          });
-          if (refresh.ok) {
-            const refreshedRaw = await fs.readFile(tokenHealthPath, "utf8").catch(() => "");
-            if (refreshedRaw.trim()) {
-              sendJson(res, 200, JSON.parse(refreshedRaw));
-              return;
-            }
-          }
-
-          const diagnostics = [refresh.stdout, refresh.stderr].filter(Boolean).join("\n").trim();
           sendJson(
             res,
             200,
@@ -1453,8 +1456,7 @@ function createLocalDataApi() {
               tokenGraphVizPath,
               wcagPairsPath,
               reason:
-                diagnostics ||
-                "Missing token-health artifact for this system and bootstrap generation failed.",
+                "Token health artifact not found. Run the pipeline or capture components first.",
             }),
           );
         }
@@ -1465,26 +1467,12 @@ function createLocalDataApi() {
         try {
           const raw = await fs.readFile(componentsHealthPath, "utf8");
           sendJson(res, 200, JSON.parse(raw));
-          return;
         } catch (error) {
           const code =
             typeof error === "object" && error && "code" in error
               ? String((error as { code?: string }).code || "")
               : "";
           if (code !== "ENOENT") throw error;
-
-          const refresh = await runCommandCapture({
-            cwd: repoRoot,
-            command: "npm",
-            commandArgs: ["run", "ds:registry:report", "--", "--system", systemId],
-          });
-          if (refresh.ok) {
-            const refreshedRaw = await fs.readFile(componentsHealthPath, "utf8").catch(() => "");
-            if (refreshedRaw.trim()) {
-              sendJson(res, 200, JSON.parse(refreshedRaw));
-              return;
-            }
-          }
 
           sendJson(
             res,
