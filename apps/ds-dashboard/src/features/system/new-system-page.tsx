@@ -16,13 +16,6 @@ function toSystemId(rawName: string) {
     .slice(0, 64);
 }
 
-function parseCollectionInput(raw: string) {
-  return raw
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 function extractFigmaFileIdFromUrl(rawUrl: string): string {
   const value = rawUrl.trim();
   if (!value) return "";
@@ -60,9 +53,7 @@ export function NewSystemPage() {
   const [systemIdOverride, setSystemIdOverride] = useState("");
   const [appName, setAppName] = useState("");
   const [figmaFileUrl, setFigmaFileUrl] = useState("");
-  const [figmaFileId, setFigmaFileId] = useState("");
   const [figmaApiTokenRef, setFigmaApiTokenRef] = useState("");
-  const [collectionsInput, setCollectionsInput] = useState("");
   const [compileVariablesOnCapture, setCompileVariablesOnCapture] = useState(true);
   const [makeDefault, setMakeDefault] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -74,12 +65,13 @@ export function NewSystemPage() {
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
   const safeId = generatedSystemId || "my-new-system";
   const safeName = systemName.trim() || "My New System";
+  const figmaFileId = extractFigmaFileIdFromUrl(figmaFileUrl);
   const safeInputDir = `input/${safeId}`;
   const safeOutputDir = `output/${safeId}`;
   const safeDocsDir = `docs/${safeId}`;
+  const collections: string[] = [];
 
   const configExample = useMemo(() => {
-    const collections = parseCollectionInput(collectionsInput);
     const renderedCollections =
       collections.length > 0
         ? collections.map((collection) => `    "${collection}"`).join(",\n")
@@ -101,10 +93,10 @@ ${renderedCollections}
 }`;
   }, [
     appName,
-    collectionsInput,
     figmaApiTokenRef,
     figmaFileId,
     compileVariablesOnCapture,
+    collections,
     safeDocsDir,
     safeId,
     safeInputDir,
@@ -127,7 +119,7 @@ ${renderedCollections}
         inputDir: safeInputDir,
         outputDir: safeOutputDir,
         docsDir: safeDocsDir,
-        collections: parseCollectionInput(collectionsInput),
+        collections,
         compileVariablesOnCapture,
         makeDefault,
       });
@@ -232,24 +224,10 @@ ${renderedCollections}
                 onChange={(e) => {
                   const nextUrl = e.target.value;
                   setFigmaFileUrl(nextUrl);
-                  const extractedFileId = extractFigmaFileIdFromUrl(nextUrl);
-                  if (extractedFileId) setFigmaFileId(extractedFileId);
                 }}
               />
             </div>
-
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Figma file id
-              </label>
-              <Input
-                placeholder="e.g. cILQ4oLJbChpzfTg5Q9jhb"
-                value={figmaFileId}
-                onChange={(e) => setFigmaFileId(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5 md:col-span-2">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Figma token env reference
               </label>
@@ -260,19 +238,6 @@ ${renderedCollections}
               />
             </div>
 
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Collections (comma separated, optional)
-              </label>
-              <Input
-                value={collectionsInput}
-                onChange={(e) => setCollectionsInput(e.target.value)}
-                placeholder="Primitives, Typography, Semantic, Components, A11y"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Leave empty to auto-populate on first capture.
-              </p>
-            </div>
           </div>
 
           <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm">
