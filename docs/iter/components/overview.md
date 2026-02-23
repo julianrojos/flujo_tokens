@@ -41,6 +41,7 @@ One page per component. This documentation is design-first (Figma) and token-bac
 - [Illustration Block](illustration_block.md)
 - [Image](image.md)
 - [Image Card](image_card.md)
+- [Notification](notification.md)
 - [Overlay](overlay.md)
 - [Percentage Pie Graph](percentage_pie_graph.md)
 - [Radio Button](radio_button.md)

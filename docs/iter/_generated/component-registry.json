@@ -1063,6 +1063,73 @@
       "fingerprint_sha256": "839406ab1dfba439637f97c7516ff44d8ce701f142ec8e7ab4958bc157bcd701"
     },
     {
+      "slug": "notification",
+      "display_name": "Notification",
+      "paths": {
+        "spec": "docs/iter/_spec/components/notification.yml",
+        "doc": "docs/iter/components/notification.md",
+        "render_payload": "docs/iter/_generated/figma_doc_models/notification.render-payload.json",
+        "visual_proof": "docs/iter/_generated/visual-proofs/notification.json"
+      },
+      "spec": {
+        "exists": true,
+        "status": "draft"
+      },
+      "doc": {
+        "exists": true,
+        "status": "draft"
+      },
+      "figma": {
+        "file_url": "https://www.figma.com/design/ERurQSl12VmCGYlk1ciOH3/Simple-Design-System-Community-?node-id=124-8256",
+        "component_set_node_id": "124:8256"
+      },
+      "render": {
+        "exists": false
+      },
+      "visual_proof": {
+        "exists": true,
+        "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/be5cb0f7-7ddf-414b-a1fc-0c04dcdc1e5d",
+        "image_path": null,
+        "captured_at": "2026-02-23T14:45:13.228Z",
+        "node_id": "124:8256",
+        "image_sha256": "34c887c3ad15a7d6635bc64c1458159e5cc6a961a87321b30c9ffaf0a9de2519",
+        "image_bytes": 21398,
+        "image_content_type": "image/png",
+        "image_width": 680,
+        "image_height": 640,
+        "variants_count": 2,
+        "variants": [
+          {
+            "name": "Variant=Alert",
+            "node_id": "124:8257",
+            "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3a06f437-a1fa-4b3e-a17d-f1d3f24e7021",
+            "image_path": null,
+            "captured_at": "2026-02-23T14:45:13.228Z",
+            "image_sha256": "306f67e32e3a4fab5e60c305a2d0907d64cb37351df6a465ecba03dbe0e6123c",
+            "image_bytes": 10204,
+            "image_content_type": "image/png",
+            "image_width": 600,
+            "image_height": 256
+          },
+          {
+            "name": "Variant=Message",
+            "node_id": "56:11759",
+            "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/146e8e66-6796-41e5-ad0c-6771c806d64c",
+            "image_path": null,
+            "captured_at": "2026-02-23T14:45:13.228Z",
+            "image_sha256": "48c36aa98a6d20fffa2b90953802b47de08bacfe9edfafa2541f62dbf99f4f72",
+            "image_bytes": 8650,
+            "image_content_type": "image/png",
+            "image_width": 600,
+            "image_height": 256
+          }
+        ]
+      },
+      "pipeline_stage": "visual-proof",
+      "ready_for_publish": false,
+      "fingerprint_sha256": "a29355ec0a028637bace0288b66bbe1043f96eddbc6f8b6fccf50dd9dc0de61d"
+    },
+    {
       "slug": "overlay",
       "display_name": "Overlay",
       "paths": {
@@ -2174,19 +2241,19 @@
     }
   ],
   "summary": {
-    "total_components": 32,
-    "with_spec": 32,
-    "with_doc": 32,
+    "total_components": 33,
+    "with_spec": 33,
+    "with_doc": 33,
     "with_render_payload": 5,
-    "with_visual_proof": 23,
+    "with_visual_proof": 24,
     "ready_for_publish": 0,
     "by_pipeline_stage": {
       "missing-spec": 0,
       "spec": 0,
       "markdown": 7,
       "render": 2,
-      "visual-proof": 23
+      "visual-proof": 24
     }
   },
-  "fingerprint_sha256": "2bc6cf1ecaa23d3bf725f2b0015cbc7898497d24cad1ad7a6a50957564573a8a"
+  "fingerprint_sha256": "c0cbb12775598f87d012ae34dc32a766380fb430c75ce5e8d3e8e9367119d363"
 }
