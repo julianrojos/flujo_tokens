@@ -63,17 +63,17 @@ export function DesignSystemsAdminPage() {
   const sortedSystems = useMemo(
     () =>
       [...systems].sort((left, right) => {
-        const leftId = String(left.id || "").toLowerCase();
-        const rightId = String(right.id || "").toLowerCase();
-        const leftIsDefaultId = leftId === "default";
-        const rightIsDefaultId = rightId === "default";
-        if (leftIsDefaultId && !rightIsDefaultId) return -1;
-        if (!leftIsDefaultId && rightIsDefaultId) return 1;
+        const leftId = String(left.id || "");
+        const rightId = String(right.id || "");
+        const leftIsDefault = leftId === defaultSystem;
+        const rightIsDefault = rightId === defaultSystem;
+        if (leftIsDefault && !rightIsDefault) return -1;
+        if (!leftIsDefault && rightIsDefault) return 1;
         return String(left.name || "").localeCompare(String(right.name || ""), "en", {
           sensitivity: "base",
         });
       }),
-    [systems],
+    [systems, defaultSystem],
   );
 
   const load = async () => {
@@ -192,7 +192,7 @@ export function DesignSystemsAdminPage() {
         </Link>
       </div>
       <p className="mb-6 text-sm text-muted-foreground">
-        System "default" appears first; remaining systems are sorted alphabetically. Edit fields and save, or delete systems.
+        Default system appears first; remaining systems are sorted alphabetically. Edit fields and save, or delete systems.
       </p>
 
       {error ? (
