@@ -6,6 +6,7 @@ import {
   fetchComponentRegistry,
   fetchComponentSpec,
   fetchComponentUsageIndex,
+  fetchFile,
   fetchTokenRegistry,
   fetchTokenUsageIndex,
 } from "@/lib/api";
@@ -218,6 +219,94 @@ function buildSpecTemplate(item: ComponentRegistryItem) {
     .join("\n");
 }
 
+function stripFrontmatter(markdown: string) {
+  const raw = String(markdown || "");
+  if (!raw.startsWith("---\n")) return raw;
+  const end = raw.indexOf("\n---\n", 4);
+  if (end < 0) return raw;
+  return raw.slice(end + 5);
+}
+
+function extractMarkdownH2Sections(markdown: string) {
+  const body = stripFrontmatter(markdown).replace(/\r\n/g, "\n");
+  const headings = Array.from(body.matchAll(/^##\s+(.+?)\s*$/gm));
+  const sections: Record<string, string> = {};
+
+  for (let index = 0; index < headings.length; index += 1) {
+    const current = headings[index];
+    const title = String(current[1] || "").trim();
+    const start = (current.index ?? 0) + current[0].length;
+    const next = headings[index + 1];
+    const end = next?.index ?? body.length;
+    const content = body.slice(start, end).trim();
+    sections[title] = content;
+  }
+
+  return sections;
+}
+
+function extractMarkdownImages(markdown: string) {
+  const source = String(markdown || "");
+  const matches = Array.from(source.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g));
+  return matches
+    .map((match) => {
+      const alt = String(match[1] || "").trim();
+      const src = String(match[2] || "").trim();
+      if (!src) return null;
+      return { alt, src };
+    })
+    .filter(Boolean) as Array<{ alt: string; src: string }>;
+}
+
+function stripMarkdownImageLines(markdown: string) {
+  return String(markdown || "")
+    .replace(/^\s*!\[[^\]]*\]\([^)]+\)\s*$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function resolveRelativeProjectPath(baseFilePath: string, relativePath: string) {
+  const baseParts = String(baseFilePath || "")
+    .split("/")
+    .filter(Boolean);
+  if (baseParts.length > 0) baseParts.pop();
+  const nextParts = String(relativePath || "")
+    .split("/")
+    .filter((part) => part.length > 0);
+
+  const stack = [...baseParts];
+  for (const part of nextParts) {
+    if (part === ".") continue;
+    if (part === "..") {
+      if (stack.length > 0) stack.pop();
+      continue;
+    }
+    stack.push(part);
+  }
+  return stack.join("/");
+}
+
+function resolveMarkdownImageSrc(args: {
+  src: string;
+  docPath?: string | null;
+  cacheKey?: string | null;
+}) {
+  const source = String(args.src || "").trim();
+  if (!source) return null;
+  if (/^(https?:)?\/\//i.test(source)) return source;
+  if (source.startsWith("data:")) return source;
+  if (source.startsWith("/api/asset?")) return source;
+
+  const cacheKey = args.cacheKey || null;
+  if (source.startsWith("/")) {
+    return buildAssetUrl(source.replace(/^\/+/, ""), cacheKey);
+  }
+  const docPath = String(args.docPath || "").trim();
+  if (!docPath) return source;
+  const resolved = resolveRelativeProjectPath(docPath, source);
+  return buildAssetUrl(resolved, cacheKey);
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function ComponentDetailPage() {
@@ -232,6 +321,7 @@ export function ComponentDetailPage() {
   const [specRawHash, setSpecRawHash] = useState<string | null>(null);
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
   const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
+  const [docMarkdown, setDocMarkdown] = useState<string | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
   const [specEditorOpen, setSpecEditorOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
@@ -269,6 +359,12 @@ export function ComponentDetailPage() {
               ? buildSpecTemplate(found)
               : "",
         );
+        if (found?.paths.doc) {
+          const docPayload = await fetchFile(found.paths.doc).catch(() => null);
+          setDocMarkdown(docPayload?.ok ? docPayload.content : null);
+        } else {
+          setDocMarkdown(null);
+        }
         setTokenRegistry(tokenRegistryPayload);
         setTokenUsageIndex(tokenUsagePayload);
       } catch (cause) {
@@ -359,6 +455,29 @@ export function ComponentDetailPage() {
       return { token, usageCount: usageEntry ? usageEntry.usageCount : null };
     };
   }, [tokenRegistry, tokenUsageIndex]);
+  const docSections = useMemo(
+    () => (docMarkdown ? extractMarkdownH2Sections(docMarkdown) : {}),
+    [docMarkdown],
+  );
+  const docSectionRows = useMemo(
+    () =>
+      [
+        { title: "Overview", content: docSections["Overview"] || "" },
+        { title: "Anatomy", content: docSections["Anatomy"] || "" },
+        { title: "Component API", content: docSections["Component API"] || "" },
+        {
+          title: "Visual Specifications",
+          content: docSections["Visual Specifications"] || "",
+        },
+      ]
+        .map((section) => {
+          const images = extractMarkdownImages(section.content);
+          const text = stripMarkdownImageLines(section.content);
+          return { title: section.title, content: text, images };
+        })
+        .filter((section) => section.content.length > 0 || section.images.length > 0),
+    [docSections],
+  );
 
   const nextStep = useMemo(() => {
     if (!item) return null;
@@ -746,6 +865,69 @@ export function ComponentDetailPage() {
               </CardHeader>
             </Card>
           )}
+
+          {/* Markdown documentation sections */}
+          {item.doc.exists ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Markdown Documentation</CardTitle>
+                <CardDescription>
+                  Extracted sections from the component doc file.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {docSectionRows.length > 0 ? (
+                  docSectionRows.map((section) => (
+                    <div
+                      key={section.title}
+                      className="rounded-md border border-border/70 bg-background/60 p-3"
+                    >
+                      <h4 className="mb-2 text-sm font-semibold">{section.title}</h4>
+                      {section.images.length > 0 ? (
+                        <div className="mb-3 space-y-3">
+                          {section.images.map((image, index) => {
+                            const resolvedSrc = resolveMarkdownImageSrc({
+                              src: image.src,
+                              docPath: item.paths.doc,
+                              cacheKey: item.visual_proof?.captured_at || null,
+                            });
+                            if (!resolvedSrc) return null;
+                            return (
+                              <figure
+                                key={`${section.title}-${image.src}-${index}`}
+                                className="space-y-1"
+                              >
+                                <img
+                                  src={resolvedSrc}
+                                  alt={image.alt || `${section.title} image ${index + 1}`}
+                                  className="w-full rounded-md border border-border/70 bg-white object-contain"
+                                  loading="lazy"
+                                />
+                                {image.alt ? (
+                                  <figcaption className="text-[11px] text-muted-foreground">
+                                    {image.alt}
+                                  </figcaption>
+                                ) : null}
+                              </figure>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      {section.content ? (
+                        <pre className="whitespace-pre-wrap break-words text-xs leading-6 text-muted-foreground">
+                          {section.content}
+                        </pre>
+                      ) : null}
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No `## Overview`, `## Anatomy`, `## Component API`, or `## Visual Specifications` sections found in markdown.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
 
           {/* Component relationships */}
           <div className="grid gap-4 md:grid-cols-2">
