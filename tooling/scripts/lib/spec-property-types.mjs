@@ -26,8 +26,6 @@ const CANONICAL_TYPES = Object.freeze(
   ),
 );
 
-export const SPEC_PROPERTY_TYPE_DECISION_TABLE = CANONICAL_TYPES;
-
 export const SPEC_PROPERTY_ALLOWED_TYPES = new Set(Object.keys(CANONICAL_TYPES));
 
 export function normalizeSpecPropertyType(rawType) {

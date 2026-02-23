@@ -3,10 +3,6 @@ import { spawnSync } from "node:child_process";
 const COMMAND_EXISTS_CACHE = new Map();
 const COMMAND_EXISTS_CACHE_MAX_AGE_MS = 5_000;
 
-export function clearCommandExistsCache() {
-  COMMAND_EXISTS_CACHE.clear();
-}
-
 export function commandExists(command) {
   const key = String(command || "").trim();
   if (!key) return false;

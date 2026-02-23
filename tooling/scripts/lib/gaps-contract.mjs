@@ -127,36 +127,3 @@ export function classifyGapType(pathKey) {
   }
   return GAP_TYPE.SCHEMA_TBD;
 }
-
-/**
- * Sorting key for gaps (used when building canonical checklist order).
- * Returns a tuple (type_rank, path, value) for deterministic ordering.
- */
-export function gapSortKey(gap) {
-  const typeRank = GAP_TYPE_ORDER.get(gap.type) || 99;
-  return [typeRank, gap.path, gap.value];
-}
-
-/**
- * Validation summary: all rules that must be satisfied for a valid gaps section.
- * Reference: component-doc.mdc § "Gaps / TBD"
- */
-export const GAPS_VALIDATION_SUMMARY = Object.freeze({
-  description:
-    "## Gaps / TBD section must be present iff spec has unresolved gaps, " +
-    "contain checklist items in canonical format, and match deterministically generated content.",
-  rules: [
-    "If spec has no gaps → section must be absent",
-    "If spec has gaps → section must be present",
-    "If spec has gaps → each checklist item must match format: - [ ] [TYPE] description",
-    "If spec has gaps → checklist content must match canonical deterministic output",
-    "If spec status is 'ready' → no gaps allowed (GAP02 error)",
-  ],
-  errorCodes: ["GAP00", "GAP01", "GAP02"],
-  relatedSections: [
-    "frontmatter-contract.mdc (gap section notes)",
-    "component-doc.mdc (full gaps section specification)",
-    "tooling/scripts/lib/gaps.mjs (gap extraction logic)",
-    "tooling/scripts/lib/docs-validator.mjs (gap validation logic)",
-  ],
-});

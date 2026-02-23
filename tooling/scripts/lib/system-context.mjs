@@ -74,7 +74,3 @@ export function resolveSystemContextSafe(opts = {}) {
     return { id: "_legacy", docsDir: "docs", paths: {} };
   }
 }
-
-export function resolveProjectPath(...parts) {
-  return path.resolve(PROJECT_ROOT, ...parts);
-}

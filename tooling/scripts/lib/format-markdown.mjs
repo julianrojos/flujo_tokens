@@ -9,22 +9,3 @@ export function formatMarkdownTarget(targetPath) {
   }
   runOrThrow("npx", ["prettier", "--write", resolvedTarget]);
 }
-
-export function formatMarkdownScope({ outputPath, docsRoot }) {
-  let target;
-  if (outputPath) {
-    target = path.resolve(String(outputPath));
-    if (!fs.existsSync(target)) {
-      throw new Error(`Markdown file not found for formatting: ${target}`);
-    }
-  } else {
-    const resolvedDocsRoot = path.resolve(String(docsRoot || ""));
-    if (!resolvedDocsRoot || !fs.existsSync(resolvedDocsRoot)) {
-      throw new Error(
-        `Markdown docs root not found for formatting: ${resolvedDocsRoot}`,
-      );
-    }
-    target = path.join(resolvedDocsRoot, "**/*.md");
-  }
-  runOrThrow("npx", ["prettier", "--write", target]);
-}

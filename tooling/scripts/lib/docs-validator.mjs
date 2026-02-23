@@ -1600,10 +1600,6 @@ function findHeaderIndex(cells, needle) {
   );
 }
 
-function tableCellHasTokenReference(cell, registryIndexes) {
-  return extractResolvedTokenRefsFromText(cell, registryIndexes).length > 0;
-}
-
 function isMissingFallbackValue(cell) {
   return !hasConcreteFallbackValue(cell);
 }
@@ -2084,10 +2080,6 @@ function buildTraceabilityRegenerationCommand({
 
 const FILE_HASH_CACHE = new Map();
 const FILE_HASH_CACHE_MAX_ENTRIES = 1_000;
-
-export function clearFileHashCache() {
-  FILE_HASH_CACHE.clear();
-}
 
 function sha256FileCached(filePath) {
   const resolved = path.resolve(filePath);

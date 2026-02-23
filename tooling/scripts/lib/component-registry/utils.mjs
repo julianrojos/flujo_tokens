@@ -51,15 +51,6 @@ export function fileExists(filePath) {
   return fs.statSync(filePath).isFile();
 }
 
-export function readJsonFile(filePath, label) {
-  try {
-    return JSON.parse(fs.readFileSync(filePath, "utf8"));
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid ${label} at ${filePath}: ${reason}`);
-  }
-}
-
 export function normalizeDisplayLabel(raw) {
   const source = String(raw || "")
     .replace(/\.[^.]+$/, "")
