@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
-import { createDesignSystem } from "@/lib/api";
+import { captureFigmaScreenshot, createDesignSystem } from "@/lib/api";
 import { useDesignSystem } from "@/lib/design-system-context";
 
 function toSystemId(rawName: string) {
@@ -68,6 +68,7 @@ export function NewSystemPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedSystemId, setSavedSystemId] = useState("");
+  const [complexFileModal, setComplexFileModal] = useState<{ componentCount: number } | null>(null);
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -113,8 +114,7 @@ ${renderedCollections}
 
   const canSave = !!systemName.trim() && !!generatedSystemId && !saving;
 
-  const handleCreateSystem = async () => {
-    if (!canSave) return;
+  const doCreate = async () => {
     setSaving(true);
     setSaveError(null);
     try {
@@ -139,6 +139,40 @@ ${renderedCollections}
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleCreateSystem = async () => {
+    if (!canSave) return;
+    setSaveError(null);
+
+    const trimmedUrl = figmaFileUrl.trim();
+    if (trimmedUrl) {
+      setSaving(true);
+      try {
+        const scanResult = await captureFigmaScreenshot({
+          figmaUrl: trimmedUrl,
+          dryRun: true,
+          componentKind: "component_set",
+        });
+        const count =
+          scanResult.targets_total ?? scanResult.targets?.length ?? 0;
+        if (count > 1) {
+          setSaving(false);
+          setComplexFileModal({ componentCount: count });
+          return;
+        }
+      } catch {
+        // Scan failed — proceed without blocking creation
+      }
+      setSaving(false);
+    }
+
+    await doCreate();
+  };
+
+  const handleConfirmCreate = () => {
+    setComplexFileModal(null);
+    void doCreate();
   };
 
   return (
@@ -301,6 +335,28 @@ ${renderedCollections}
           </pre>
         </section>
       </div>
+
+      {/* Complex Figma file confirmation modal */}
+      {complexFileModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
+            <h2 className="mb-2 text-lg font-semibold">Complex Figma file detected</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              This file contains{" "}
+              <strong>{complexFileModal.componentCount}</strong> component sets.
+              Do you want to add the full design system?
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setComplexFileModal(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmCreate}>
+                Yes, add full design system
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
