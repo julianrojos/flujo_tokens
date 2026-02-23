@@ -342,6 +342,35 @@ function writeTextAtomic(filePath, content) {
   fs.renameSync(tempPath, filePath);
 }
 
+function buildOverviewSeed() {
+  return `---
+doc_type: overview
+doc_status: draft
+---
+
+# Components Overview
+
+## Component list
+
+`;
+}
+
+function ensureSystemDocsScaffold({ docsRootDir, componentDocsDir }) {
+  const specsDir = path.join(docsRootDir, "_spec", "components");
+  const generatedDir = path.join(docsRootDir, "_generated");
+  const overviewPath = path.join(componentDocsDir, "overview.md");
+
+  fs.mkdirSync(componentDocsDir, { recursive: true });
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.mkdirSync(generatedDir, { recursive: true });
+
+  if (!fs.existsSync(overviewPath)) {
+    writeTextAtomic(overviewPath, buildOverviewSeed());
+  }
+
+  return { specsDir, generatedDir, overviewPath };
+}
+
 function buildMarkdownSeed({ slug, candidateName, nodeUrl, nodeId }) {
   const displayName = componentNameToDisplayName(candidateName || slug) || "Component";
   return `---
@@ -480,6 +509,11 @@ async function main() {
     path.basename(docsRootResolved) === "components"
       ? path.dirname(docsRootResolved)
       : docsRootResolved;
+  const componentDocsDir =
+    path.basename(docsRootResolved) === "components"
+      ? docsRootResolved
+      : path.join(docsRootResolved, "components");
+  ensureSystemDocsScaffold({ docsRootDir, componentDocsDir });
   const componentRegistryPath = path.join(
     docsRootDir,
     "_generated",

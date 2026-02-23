@@ -42,6 +42,8 @@ import { NamingDebtPage } from "@/features/tokens/naming-debt/naming-debt-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
 import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-page";
 import { cn } from "@/lib/utils";
+import { fetchComponentRegistry } from "@/lib/api";
+import { useDesignSystem } from "@/lib/design-system-context";
 
 type NavItem = {
   to: string;
@@ -130,8 +132,12 @@ const navItems = navSections.flatMap((section) => section.items);
 export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [enabledSystems, setEnabledSystems] = useState<Record<string, boolean>>({});
   const location = useLocation();
+  const { activeSystem } = useDesignSystem();
   const isNewSystemRoute = location.pathname === "/system/new";
+  const isSystemEnabled = !!activeSystem && !!enabledSystems[activeSystem];
+  const shouldLockSidebar = isNewSystemRoute && !isSystemEnabled;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -142,6 +148,42 @@ export default function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!activeSystem) return;
+    let cancelled = false;
+    const loadSystemState = async () => {
+      try {
+        const registry = await fetchComponentRegistry();
+        const hasComponents = Array.isArray(registry.components) && registry.components.length > 0;
+        if (!cancelled) {
+          setEnabledSystems((prev) => ({ ...prev, [activeSystem]: hasComponents }));
+        }
+      } catch {
+        if (!cancelled) {
+          setEnabledSystems((prev) => ({ ...prev, [activeSystem]: false }));
+        }
+      }
+    };
+    void loadSystemState();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSystem]);
+
+  useEffect(() => {
+    const onSystemCaptured = (event: Event) => {
+      const customEvent = event as CustomEvent<{ systemId?: string; capturedCount?: number }>;
+      const systemId = String(customEvent.detail?.systemId || "").trim();
+      const capturedCount = Number(customEvent.detail?.capturedCount || 0);
+      if (!systemId || capturedCount <= 0) return;
+      setEnabledSystems((prev) => ({ ...prev, [systemId]: true }));
+    };
+    window.addEventListener("ds:system-captured-first-component", onSystemCaptured);
+    return () => {
+      window.removeEventListener("ds:system-captured-first-component", onSystemCaptured);
+    };
   }, []);
 
   return (
@@ -167,7 +209,7 @@ export default function App() {
               <SystemSwitcher collapsed={sidebarCollapsed} />
             </SidebarHeader>
 
-            <SidebarContent className={cn(isNewSystemRoute && "pointer-events-none opacity-40 grayscale")}>
+            <SidebarContent className={cn(shouldLockSidebar && "pointer-events-none opacity-40 grayscale")}>
               {navSections.map((section) => (
                 <SidebarGroup key={section.id}>
                   <SidebarGroupLabel className={cn(sidebarCollapsed && "sr-only")}>

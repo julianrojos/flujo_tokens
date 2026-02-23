@@ -203,6 +203,14 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         continueOnError: true,
       });
       setResult(data as ScannerResult);
+      const capturedCount = Array.isArray(data.captured) ? data.captured.length : 0;
+      if (data.ok && activeSystem && capturedCount > 0) {
+        window.dispatchEvent(
+          new CustomEvent("ds:system-captured-first-component", {
+            detail: { systemId: activeSystem, capturedCount },
+          }),
+        );
+      }
       if (data.ok && onSuccess) {
         await Promise.resolve(onSuccess());
       }
