@@ -122,7 +122,6 @@ const USAGE = {
   ],
 };
 
-const DEFAULT_AUTO_COLLECTIONS = ["Primitives", "Typography", "Semantic", "Components", "A11y"];
 
 function parseBooleanOption(rawValue, optionName, fallback = false) {
   const normalized = String(rawValue ?? fallback).trim().toLowerCase();
@@ -414,7 +413,7 @@ function ensureCollectionsConfigured({ repoRoot, systemId }) {
   if (Array.isArray(target.collections) && target.collections.length > 0) return;
 
   const inferred = inferCollectionsFromInputDir(repoRoot, target.inputDir);
-  const collections = inferred.length > 0 ? inferred : DEFAULT_AUTO_COLLECTIONS;
+  const collections = inferred.length > 0 ? inferred : ["Primitives", "Typography", "Semantic", "Components", "A11y"];
   target.collections = collections;
   config.systems[targetIndex] = target;
   writeDesignSystemsConfigAtomic(configPath, config);
