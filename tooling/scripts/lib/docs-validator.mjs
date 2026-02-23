@@ -3,10 +3,9 @@ import path from "node:path";
 import crypto from "node:crypto";
 
 import {
-  COMPONENT_DOCS_DIR,
-  DOCS_SPEC_DIR,
-  resolveProjectPath,
-} from "./paths.mjs";
+  resolveSystemContextSafe,
+  PROJECT_ROOT,
+} from "./system-context.mjs";
 import {
   loadTokenRegistry,
   DEFAULT_TOKEN_REGISTRY_PATH,
@@ -61,8 +60,10 @@ const VARIABLE_ID_RE_SOURCE = "\\bVariableID:[A-Za-z0-9:-]+\\b";
 const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const CSS_COLOR_FUNC_RE = /^(?:rgb|rgba|hsl|hsla)\(/i;
 const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
-const SPEC_COMPONENTS_DIR = `${DOCS_SPEC_DIR}/components`;
-const RULE_MANIFEST_PATH = resolveProjectPath(".agent", "rules", "_manifest.yml");
+
+const _defaultCtx = resolveSystemContextSafe();
+const SPEC_COMPONENTS_DIR = _defaultCtx.paths.specs;
+const RULE_MANIFEST_PATH = path.join(PROJECT_ROOT, ".agent", "rules", "_manifest.yml");
 const CANONICAL_COMPONENT_LIST_HEADING = "component list";
 const OVERVIEW_ENTRY_RE = /^-\s+\[([^\]]+)\]\(([^)]+)\)\s*$/;
 const OVERVIEW_TARGET_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*\.md$/;
@@ -2798,7 +2799,7 @@ function annotateFindingsWithManifest(findings, manifestChecks) {
 }
 
 export function validateDocs(options = {}) {
-  const docsRoot = path.resolve(options.docsRoot || COMPONENT_DOCS_DIR);
+  const docsRoot = path.resolve(options.docsRoot || _defaultCtx.paths.docs);
   const specRoot = path.resolve(options.specRoot || SPEC_COMPONENTS_DIR);
   const explicitSpecFilePath = options.specFilePath
     ? path.resolve(options.specFilePath)

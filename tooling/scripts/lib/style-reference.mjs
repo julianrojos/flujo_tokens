@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { PROJECT_ROOT } from "./paths.mjs";
+import { PROJECT_ROOT } from "./system-context.mjs";
 
 const STYLE_REFERENCE_FILE = "_style_reference.md";
 const OVERVIEW_FILE = "overview.md";

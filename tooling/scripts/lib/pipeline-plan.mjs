@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { PROJECT_ROOT } from "./paths.mjs";
 import { componentNameToSnakeCase } from "./component-name.mjs";
+import { resolveSystemContext } from "./system-context.mjs";
 
 const PIPELINE_STEPS = [
   { id: 'spec', role: 'metadata', desc: 'Generate/Update Spec YAML' },
@@ -36,7 +36,8 @@ export async function createPlan(options = {}) {
     summary: {}
   };
 
-  const registryPath = path.resolve(PROJECT_ROOT, "docs/_generated/component-registry.json");
+  const ctx = options.dsContext || resolveSystemContext({});
+  const registryPath = ctx.paths.registry;
   let registryContents;
   try {
       registryContents = JSON.parse(fs.readFileSync(registryPath, "utf8"));

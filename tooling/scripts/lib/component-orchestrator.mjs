@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { PROJECT_ROOT } from "./paths.mjs";
+import { PROJECT_ROOT } from "./system-context.mjs";
 
 export function executeComponentTasks(componentPlan, globalOptions = {}) {
     const { slug, steps } = componentPlan;
+    const sysArgs = globalOptions.system ? ['--system', globalOptions.system] : [];
     const results = {
         success: true,
         logs: []
@@ -52,22 +53,36 @@ export function executeComponentTasks(componentPlan, globalOptions = {}) {
                     if (componentPlan.figma_node_id) {
                         specArgs.push('--component-set-node-id', componentPlan.figma_node_id);
                     }
+                    if (globalOptions.system) {
+                        specArgs.push('--system', globalOptions.system);
+                    }
                     res = runCmd('node', specArgs);
                 }
                 break;
             case 'markdown':
-                res = runCmd('node', [
-                    'tooling/scripts/ds-component-doc.mjs',
-                    '--component-name', slug,
-                    '--registry', 'docs/_generated/token-registry.json',
-                    '--force', 'true'
-                ]);
+                {
+                    const mdArgs = [
+                        'tooling/scripts/ds-component-doc.mjs',
+                        '--component-name', slug,
+                        '--force', 'true'
+                    ];
+                    if (globalOptions.system) {
+                        mdArgs.push('--system', globalOptions.system);
+                    }
+                    res = runCmd('node', mdArgs);
+                }
                 break;
             case 'render':
-                res = runCmd('node', ['tooling/scripts/ds-active-md-to-figma.mjs', '--markdown', `docs/components/${slug}.md`]);
+                {
+                    const renderArgs = ['tooling/scripts/ds-active-md-to-figma.mjs', '--component-name', slug];
+                    if (globalOptions.system) {
+                        renderArgs.push('--system', globalOptions.system);
+                    }
+                    res = runCmd('node', renderArgs);
+                }
                 break;
             case 'proof':
-                res = runCmd('npm', ['run', 'ds:capture-visual-proof', '--', '--component-name', slug]);
+                res = runCmd('npm', ['run', 'ds:capture-visual-proof', '--', ...sysArgs, '--component-name', slug]);
                 break;
             default:
                 res = { success: true }; 

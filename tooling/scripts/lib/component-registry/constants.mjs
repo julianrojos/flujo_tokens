@@ -1,29 +1,18 @@
 import path from "node:path";
 
-import {
-  COMPONENT_DOCS_DIR,
-  DOCS_SPEC_DIR,
-  FIGMA_DOC_MODELS_DIR,
-  resolveProjectPath,
-} from "../paths.mjs";
+import { resolveSystemContextSafe, PROJECT_ROOT } from "../system-context.mjs";
+
+const _defaultCtx = resolveSystemContextSafe();
 
 export const COMPONENT_REGISTRY_SCHEMA_VERSION = 1;
 
-export const DEFAULT_COMPONENT_SPECS_DIR = path.join(DOCS_SPEC_DIR, "components");
-export const DEFAULT_COMPONENT_DOCS_DIR = COMPONENT_DOCS_DIR;
-export const DEFAULT_VISUAL_PROOFS_DIR = resolveProjectPath(
-  "docs",
-  "_generated",
-  "visual-proofs",
-);
-export const DEFAULT_RENDER_PAYLOADS_DIR = FIGMA_DOC_MODELS_DIR;
-export const DEFAULT_COMPONENT_REGISTRY_PATH = resolveProjectPath(
-  "docs",
-  "_generated",
-  "component-registry.json",
-);
+export const DEFAULT_COMPONENT_SPECS_DIR = _defaultCtx.paths.specs;
+export const DEFAULT_COMPONENT_DOCS_DIR = _defaultCtx.paths.docs;
+export const DEFAULT_VISUAL_PROOFS_DIR = path.join(_defaultCtx.paths.generated, "visual-proofs");
+export const DEFAULT_RENDER_PAYLOADS_DIR = path.join(_defaultCtx.paths.generated, "figma_doc_models");
+export const DEFAULT_COMPONENT_REGISTRY_PATH = _defaultCtx.paths.registry;
 export const DEFAULT_COMPONENT_OVERVIEW_PATH = path.join(
-  COMPONENT_DOCS_DIR,
+  _defaultCtx.paths.docs,
   "overview.md",
 );
 

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { DOCS_ROOT } from "./paths.mjs";
+import { resolveSystemContext } from "./system-context.mjs";
 
 export function generateReport(plan, executionState = {}, options = {}, meta = {}) {
     const isDryRun = options['dry-run'] || options['status-only'];
@@ -111,7 +111,8 @@ export function generateReport(plan, executionState = {}, options = {}, meta = {
     // Dump to file
     if (!isDryRun) {
         try {
-            const reportDir = path.join(DOCS_ROOT, '_generated');
+            const ctx = options.dsContext || resolveSystemContext({});
+            const reportDir = ctx.paths.generated;
             if (!fs.existsSync(reportDir)) fs.mkdirSync(reportDir, { recursive: true });
             
             const reportPath = path.join(reportDir, 'pipeline-report.json');

@@ -6,7 +6,7 @@ import {
 } from "../component-name.mjs";
 import { isPlainObject } from "../is-plain-object.mjs";
 import { normalizeNodeId } from "../node-id.mjs";
-import { PROJECT_ROOT } from "../paths.mjs";
+import { PROJECT_ROOT } from "../system-context.mjs";
 import {
   parseMarkdownFrontmatter,
   parseYamlDocument,
