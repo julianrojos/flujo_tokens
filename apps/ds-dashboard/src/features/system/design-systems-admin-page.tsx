@@ -58,11 +58,17 @@ export function DesignSystemsAdminPage() {
 
   const sortedSystems = useMemo(
     () =>
-      [...systems].sort((left, right) =>
-        String(left.name || "").localeCompare(String(right.name || ""), "en", {
+      [...systems].sort((left, right) => {
+        const leftId = String(left.id || "").toLowerCase();
+        const rightId = String(right.id || "").toLowerCase();
+        const leftIsDefaultId = leftId === "default";
+        const rightIsDefaultId = rightId === "default";
+        if (leftIsDefaultId && !rightIsDefaultId) return -1;
+        if (!leftIsDefaultId && rightIsDefaultId) return 1;
+        return String(left.name || "").localeCompare(String(right.name || ""), "en", {
           sensitivity: "base",
-        }),
-      ),
+        });
+      }),
     [systems],
   );
 
@@ -155,7 +161,7 @@ export function DesignSystemsAdminPage() {
     <div className="mx-auto max-w-5xl py-8">
       <h1 className="mb-2 text-3xl font-bold tracking-tight">Design Systems Admin</h1>
       <p className="mb-6 text-sm text-muted-foreground">
-        Existing systems sorted alphabetically. Edit fields and save, or delete systems.
+        System "default" appears first; remaining systems are sorted alphabetically. Edit fields and save, or delete systems.
       </p>
 
       {error ? (
