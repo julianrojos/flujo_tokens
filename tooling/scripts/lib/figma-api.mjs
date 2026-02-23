@@ -15,15 +15,6 @@ function normalizePositiveInteger(rawValue, fallback) {
   return Math.floor(parsed);
 }
 
-function safeJsonParse(rawText) {
-  if (typeof rawText !== "string" || rawText.trim() === "") return null;
-  try {
-    return JSON.parse(rawText);
-  } catch {
-    return null;
-  }
-}
-
 function sanitizeToken(rawToken) {
   const token = String(rawToken || "").trim();
   if (!token) {
@@ -111,9 +102,13 @@ async function requestFigmaJson({
   }
 
   if (!response.ok) {
-    // Error responses are small — safe to read as text
     const rawText = await response.text();
-    const payload = safeJsonParse(rawText);
+    let payload;
+    try {
+      payload = JSON.parse(rawText);
+    } catch {
+      payload = null;
+    }
     const details = buildErrorDetails(payload);
     const retryAfter = readRetryAfterSeconds(response);
     const retryHint = retryAfter !== null ? ` Retry after ${retryAfter}s.` : "";
@@ -203,7 +198,12 @@ export async function fetchFigmaFile({
 
   if (!response.ok) {
     const rawText = await response.text();
-    const payload = safeJsonParse(rawText);
+    let payload;
+    try {
+      payload = JSON.parse(rawText);
+    } catch {
+      payload = null;
+    }
     const details = buildErrorDetails(payload);
     const retryAfter = readRetryAfterSeconds(response);
     const retryHint = retryAfter !== null ? ` Retry after ${retryAfter}s.` : "";
