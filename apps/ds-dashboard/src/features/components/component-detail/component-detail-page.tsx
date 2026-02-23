@@ -209,6 +209,7 @@ function buildSpecTemplate(item: ComponentRegistryItem) {
     "    state=Default: TBD",
     "qa:",
     '  - "Properties match Figma component-set controls."',
+    '  - "Artwork layer includes a hidden source instance that drives anatomy, properties, and layout/spacing exhibits."',
     '  - "Token references resolve in token registry."',
     "related_components: []",
     "",
