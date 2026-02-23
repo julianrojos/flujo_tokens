@@ -39,7 +39,10 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
         setSystems(config.systems || []);
         
         const stored = localStorage.getItem("ds-system-id");
-        const initialSystem = stored || config.defaultSystem;
+        const validStored = stored && (config.systems || []).some(
+          (s: { id: string }) => s.id === stored,
+        );
+        const initialSystem = validStored ? stored : config.defaultSystem;
         setActiveSystemState(initialSystem);
         setActiveSystemId(initialSystem);
       } catch (err: any) {
