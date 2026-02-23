@@ -14,25 +14,23 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
         Flujo Tokens
       </h1>
       
-      {systems.length > 1 ? (
-        <div className="mt-1">
-          <Select
-            value={activeSystem}
-            onChange={(e) => setActiveSystem(e.target.value)}
-            className="w-full text-sm font-medium h-9"
-          >
-            {systems.map((sys) => (
+      <div className="mt-1">
+        <Select
+          value={activeSystem}
+          onChange={(e) => setActiveSystem(e.target.value)}
+          className="w-full text-sm font-medium h-9"
+        >
+          {systems.length === 0 ? (
+            <option value="">Loading...</option>
+          ) : (
+            systems.map((sys) => (
               <option key={sys.id} value={sys.id}>
                 {sys.name}
               </option>
-            ))}
-          </Select>
-        </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          {currentSys?.name ? `${currentSys.name} Documentation` : "Local configuration loaded."}
-        </p>
-      )}
+            ))
+          )}
+        </Select>
+      </div>
     </div>
   );
 }
