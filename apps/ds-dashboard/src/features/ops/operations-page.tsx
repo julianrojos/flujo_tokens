@@ -69,7 +69,7 @@ async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<ArtifactMeta>>
         const d = await r.json();
         const lm = r.headers.get("Last-Modified");
         const generatedAt = d.generated_at ?? (lm ? new Date(lm).toISOString() : undefined);
-        const total = d.summary?.total_entries ?? d.summary?.total ?? "?";
+        const total = d.summary?.usage_links_total ?? d.summary?.tokens_total ?? "?";
         return { generatedAt, summary: `${total} tokens indexados` };
       }
       case "health": {
@@ -77,8 +77,8 @@ async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<ArtifactMeta>>
         if (!r.ok) return {};
         const d = await r.json();
         const generatedAt = d.generated_at;
-        const broken = d.summary?.broken_aliases ?? 0;
-        const unused = d.summary?.unused_tokens ?? 0;
+        const broken = d.summary?.broken_aliases_total ?? 0;
+        const unused = d.summary?.unused_tokens_total ?? 0;
         return { generatedAt, summary: `${broken} broken · ${unused} unused` };
       }
       case "graph": {
