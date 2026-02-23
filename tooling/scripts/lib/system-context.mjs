@@ -69,7 +69,9 @@ export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-
 export function resolveSystemContextSafe(opts = {}) {
   try {
     return resolveSystemContext(opts);
-  } catch {
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn(`[system-context] Falling back to legacy paths: ${msg}`);
     return { id: "_legacy", docsDir: "docs", paths: LEGACY_PATHS };
   }
 }
