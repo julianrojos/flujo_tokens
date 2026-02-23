@@ -180,6 +180,20 @@ ${renderedCollections}
           <h2 className="mb-4 text-xl font-semibold">1. System Configuration</h2>
 
           <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Figma file URL
+              </label>
+              <Input
+                placeholder="https://www.figma.com/design/..."
+                value={figmaFileUrl}
+                onChange={(e) => {
+                  const nextUrl = e.target.value;
+                  setFigmaFileUrl(nextUrl);
+                }}
+              />
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 System name
@@ -212,19 +226,6 @@ ${renderedCollections}
                 placeholder="defaults to system name"
                 value={appName}
                 onChange={(e) => setAppName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Figma file URL
-              </label>
-              <Input
-                placeholder="https://www.figma.com/design/..."
-                value={figmaFileUrl}
-                onChange={(e) => {
-                  const nextUrl = e.target.value;
-                  setFigmaFileUrl(nextUrl);
-                }}
               />
             </div>
             <div className="space-y-1.5">
