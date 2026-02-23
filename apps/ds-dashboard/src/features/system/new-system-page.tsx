@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -97,7 +97,6 @@ export function NewSystemPage() {
   const safeInputDir = `input/${safeId}`;
   const safeOutputDir = `output/${safeId}`;
   const safeDocsDir = `docs/${safeId}`;
-  const collections: string[] = [];
 
   const hasFigmaUrl = !!figmaFileUrl.trim();
   const hasToken = !!figmaAccessToken.trim();
@@ -126,7 +125,6 @@ export function NewSystemPage() {
         inputDir: safeInputDir,
         outputDir: safeOutputDir,
         docsDir: safeDocsDir,
-        collections,
         compileVariablesOnCapture,
         makeDefault,
       });
