@@ -49,6 +49,17 @@ function backupInputJson(filePath) {
   return backupPath;
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function isTokenNodeShape(value) {
+  return (
+    isPlainObject(value) &&
+    Object.prototype.hasOwnProperty.call(value, "$value")
+  );
+}
+
 // ─── Figma variable normalization ─────────────────────────────────────────────
 
 export function normalizeVariableCollections(rawCollections) {
@@ -171,7 +182,7 @@ export function buildTokenNodeFromFigmaVariable(variableRecord, rawValue) {
   }
 
   if (resolvedType === "color" && typeof normalizedValue !== "string") return null;
-  if (resolvedType === "number" && typeof normalizedValue !== "number") return null;
+  if (resolvedType === "dimension" && typeof normalizedValue !== "number") return null;
   if (resolvedType === "string" && typeof normalizedValue !== "string") return null;
   if (resolvedType === "boolean" && typeof normalizedValue !== "boolean") return null;
 
@@ -207,9 +218,13 @@ export function assignTokenAtPath(targetRoot, pathSegments, tokenNode) {
 
 // ─── Deep merge for --merge mode ──────────────────────────────────────────────
 
-function deepMerge(base, incoming) {
+export function mergeTokenTrees(base, incoming) {
   if (!base || typeof base !== "object") return incoming;
   if (!incoming || typeof incoming !== "object") return base;
+  // Token/group shape collisions must replace, not merge, to avoid invalid DTCG nodes.
+  if (isTokenNodeShape(base) || isTokenNodeShape(incoming)) {
+    return incoming;
+  }
   const result = { ...base };
   for (const [key, value] of Object.entries(incoming)) {
     if (
@@ -220,7 +235,7 @@ function deepMerge(base, incoming) {
       typeof result[key] === "object" &&
       !Array.isArray(result[key])
     ) {
-      result[key] = deepMerge(result[key], value);
+      result[key] = mergeTokenTrees(result[key], value);
     } else {
       result[key] = value;
     }
@@ -386,7 +401,7 @@ export async function syncFigmaTokensToInput({
         const existing = JSON.parse(fs.readFileSync(filePath, "utf8"));
         // Strip $description from merge base, re-add payload.description after
         const { $description: _desc, ...existingData } = existing;
-        finalData = deepMerge(existingData, payload.data);
+        finalData = mergeTokenTrees(existingData, payload.data);
       } catch {
         // If existing file is unparseable, fall through to full overwrite
       }

@@ -103,6 +103,28 @@ function extractFileKeyFromUrl(rawUrl) {
   return null;
 }
 
+function resolveSystemFigmaToken(rawTokenRef) {
+  const raw = String(rawTokenRef || "").trim();
+  if (!raw) return "";
+
+  const bracedRef = raw.match(/^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/);
+  if (bracedRef) {
+    return String(process.env[bracedRef[1]] || "").trim();
+  }
+
+  const dollarRef = raw.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (dollarRef) {
+    return String(process.env[dollarRef[1]] || "").trim();
+  }
+
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) {
+    const envValue = String(process.env[raw] || "").trim();
+    if (envValue) return envValue;
+  }
+
+  return raw;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
 
@@ -144,8 +166,10 @@ async function main() {
   }
 
   // ── Resolve token ────────────────────────────────────────────────────────
+  const figmaTokenFromSystem = resolveSystemFigmaToken(system.figmaApiToken);
   const figmaToken =
     String(args["figma-token"] || "").trim() ||
+    figmaTokenFromSystem ||
     String(process.env.FIGMA_TOKEN || "").trim();
 
   if (!figmaToken) {
@@ -188,11 +212,15 @@ async function main() {
 
   // ── Optionally compile ───────────────────────────────────────────────────
   let compileResult = null;
-  if (!dryRun && compile && syncResult.files_written > 0) {
+  const syncWroteFiles = Number(syncResult.files_written || 0) > 0;
+  const syncSkippedExistingInput = syncResult.reason === "input-json-exists";
+  if (!dryRun && compile && (syncWroteFiles || syncSkippedExistingInput)) {
     process.stderr.write(
       `[ds:tokens-from-figma] Compiling tokens → CSS (${system.outputDir})\n`,
     );
     compileResult = runTokensCompile({ repoRoot: PROJECT_ROOT, system });
+  } else if (!dryRun && compile) {
+    compileResult = { attempted: false, reason: "skipped-no-input-changes" };
   } else if (dryRun && compile) {
     compileResult = { attempted: false, reason: "skipped-in-dry-run" };
   } else if (!compile) {
@@ -200,26 +228,23 @@ async function main() {
   }
 
   // ── Output ───────────────────────────────────────────────────────────────
+  const syncOk =
+    syncSkippedExistingInput ||
+    (syncResult.attempted !== false &&
+      (syncWroteFiles || (dryRun && Number(syncResult.files_planned || 0) > 0)));
+  const compileOk = !compile || compileResult?.compiled !== false;
   const summary = {
-    ok:
-      syncResult.attempted !== false &&
-      (dryRun || (syncResult.files_written ?? 0) > 0) &&
-      (compileResult === null || compileResult.compiled !== false || !compile),
+    ok: syncOk && compileOk,
     system: systemId,
     dry_run: dryRun,
+    skipped_existing_input: syncSkippedExistingInput,
     sync: syncResult,
     compile: compileResult,
   };
 
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
 
-  const failed =
-    !syncResult.attempted ||
-    syncResult.reason === "fetch-failed" ||
-    syncResult.reason === "system-missing" ||
-    (compileResult && compileResult.compiled === false);
-
-  process.exit(failed ? 1 : 0);
+  process.exit(summary.ok ? 0 : 1);
 }
 
 main().catch((err) => {

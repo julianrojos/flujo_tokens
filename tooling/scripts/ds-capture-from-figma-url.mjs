@@ -13,7 +13,6 @@ import {
 import {
   fetchFigmaFile,
   fetchFigmaImages,
-  fetchFigmaLocalVariables,
   fetchFigmaNodes,
 } from "./lib/figma-api.mjs";
 import {
@@ -28,13 +27,6 @@ import {
 } from "./lib/figma-node-spec-extractor.mjs";
 import {
   hasInputJsonFiles,
-  sanitizeCollectionFileStem,
-  normalizeVariableCollections,
-  normalizeVariablesList,
-  pickAllModeValues,
-  buildTokenNodeFromFigmaVariable,
-  assignTokenAtPath,
-  buildFilesMapFromVariables,
   syncFigmaTokensToInput,
   runTokensCompile,
 } from "./lib/figma-token-sync.mjs";
