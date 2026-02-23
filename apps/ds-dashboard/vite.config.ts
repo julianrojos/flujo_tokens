@@ -225,9 +225,10 @@ function toBooleanString(value: unknown, fallback: boolean) {
   return fallback ? "true" : "false";
 }
 
-function toNumberString(value: unknown, fallback: number) {
+function toNumberString(value: unknown, fallback: number, max?: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return String(fallback);
+  if (max !== undefined && parsed > max) return String(max);
   return String(parsed);
 }
 
@@ -2382,8 +2383,8 @@ function createLocalDataApi() {
         const continueOnError = toBooleanString(body.continueOnError, true);
         const refreshIndices = toBooleanString(body.refreshIndices, true);
         const dryRun = toBooleanString(body.dryRun, false);
-        const variantLimit = toNumberString(body.variantLimit, 6);
-        const scale = toNumberString(body.scale, 2);
+        const variantLimit = toNumberString(body.variantLimit, 6, 20);
+        const scale = toNumberString(body.scale, 2, 4);
         const format = String(body.format ?? "png").trim().toLowerCase() || "png";
         const mainCaptureMode =
           String(body.mainCaptureMode ?? "rest").trim().toLowerCase() || "rest";
