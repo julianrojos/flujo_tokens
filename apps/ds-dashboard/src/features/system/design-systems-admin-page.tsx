@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   deleteDesignSystem,
@@ -159,7 +160,12 @@ export function DesignSystemsAdminPage() {
 
   return (
     <div className="mx-auto max-w-5xl py-8">
-      <h1 className="mb-2 text-3xl font-bold tracking-tight">Design Systems Admin</h1>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold tracking-tight">Design Systems Admin</h1>
+        <Link to="/system/new" className={buttonVariants({ size: "sm", variant: "outline" })}>
+          Add New Design System
+        </Link>
+      </div>
       <p className="mb-6 text-sm text-muted-foreground">
         System "default" appears first; remaining systems are sorted alphabetically. Edit fields and save, or delete systems.
       </p>
