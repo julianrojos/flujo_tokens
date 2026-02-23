@@ -422,6 +422,7 @@ async function main() {
     });
   }
 
+  const docsRootInput = docsRootOverride || ctx.paths.docs;
   const docsRootResolved = path.resolve(docsRootInput);
   const docsRootDir =
     path.basename(docsRootResolved) === "components"
