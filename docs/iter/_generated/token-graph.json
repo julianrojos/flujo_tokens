@@ -1,0 +1,1178 @@
+{
+  "ok": true,
+  "source": {
+    "registry_path": "/Users/julian/Documents/flujo_tokens/docs/_generated/token-registry.json"
+  },
+  "summary": {
+    "nodes": 318,
+    "edges": 162,
+    "cycles": 0,
+    "cycle_nodes": 0,
+    "indirection_threshold": 3,
+    "high_indirection_total": 0,
+    "terminals_total": 156,
+    "unused_primitive_terminals_total": 59,
+    "unresolved_css_var_refs_total": 2,
+    "unresolved_css_var_refs_by_reason": {
+      "ambiguous_css_var_reference": 2
+    },
+    "ambiguous_css_vars_total": 2,
+    "graph_collisions": 2,
+    "graph_collisions_by_reason": {
+      "duplicate_css_var_identity": 2
+    }
+  },
+  "cycles": [],
+  "high_indirection": [],
+  "terminals": [
+    {
+      "token": "Primitives.Color.Blue.100",
+      "node_id": "path:Primitives.Color.Blue.100",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.200",
+      "node_id": "path:Primitives.Color.Blue.200",
+      "in_degree": 2,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.300",
+      "node_id": "path:Primitives.Color.Blue.300",
+      "in_degree": 2,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.400",
+      "node_id": "path:Primitives.Color.Blue.400",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.500",
+      "node_id": "path:Primitives.Color.Blue.500",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.600",
+      "node_id": "path:Primitives.Color.Blue.600",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.700",
+      "node_id": "path:Primitives.Color.Blue.700",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.800",
+      "node_id": "path:Primitives.Color.Blue.800",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.900",
+      "node_id": "path:Primitives.Color.Blue.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.BW.Black",
+      "node_id": "path:Primitives.Color.BW.Black",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.BW.Black-05",
+      "node_id": "path:Primitives.Color.BW.Black-05",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.BW.Black-07",
+      "node_id": "path:Primitives.Color.BW.Black-07",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.BW.Black-10",
+      "node_id": "path:Primitives.Color.BW.Black-10",
+      "in_degree": 2,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.BW.Black-16",
+      "node_id": "path:Primitives.Color.BW.Black-16",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.BW.Black-20",
+      "node_id": "path:Primitives.Color.BW.Black-20",
+      "in_degree": 3,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.BW.White",
+      "node_id": "path:Primitives.Color.BW.White",
+      "in_degree": 8,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.100",
+      "node_id": "path:Primitives.Color.Cucumber.100",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.200",
+      "node_id": "path:Primitives.Color.Cucumber.200",
+      "in_degree": 2,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.300",
+      "node_id": "path:Primitives.Color.Cucumber.300",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.400",
+      "node_id": "path:Primitives.Color.Cucumber.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.500",
+      "node_id": "path:Primitives.Color.Cucumber.500",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.600",
+      "node_id": "path:Primitives.Color.Cucumber.600",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.700",
+      "node_id": "path:Primitives.Color.Cucumber.700",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.800",
+      "node_id": "path:Primitives.Color.Cucumber.800",
+      "in_degree": 2,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.900",
+      "node_id": "path:Primitives.Color.Cucumber.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Extra-Palette.Bermuda",
+      "node_id": "path:Primitives.Color.Extra-Palette.Bermuda",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Extra-Palette.English-Cream",
+      "node_id": "path:Primitives.Color.Extra-Palette.English-Cream",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Extra-Palette.Lavender",
+      "node_id": "path:Primitives.Color.Extra-Palette.Lavender",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Extra-Palette.Lime-Cream",
+      "node_id": "path:Primitives.Color.Extra-Palette.Lime-Cream",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Extra-Palette.Moon-Raker",
+      "node_id": "path:Primitives.Color.Extra-Palette.Moon-Raker",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.100",
+      "node_id": "path:Primitives.Color.Grey.100",
+      "in_degree": 2,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.200",
+      "node_id": "path:Primitives.Color.Grey.200",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.300",
+      "node_id": "path:Primitives.Color.Grey.300",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.400",
+      "node_id": "path:Primitives.Color.Grey.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.500",
+      "node_id": "path:Primitives.Color.Grey.500",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.600",
+      "node_id": "path:Primitives.Color.Grey.600",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.700",
+      "node_id": "path:Primitives.Color.Grey.700",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.800",
+      "node_id": "path:Primitives.Color.Grey.800",
+      "in_degree": 4,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.900",
+      "node_id": "path:Primitives.Color.Grey.900",
+      "in_degree": 4,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.100",
+      "node_id": "path:Primitives.Color.Ocean-Green.100",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.200",
+      "node_id": "path:Primitives.Color.Ocean-Green.200",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.300",
+      "node_id": "path:Primitives.Color.Ocean-Green.300",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.400",
+      "node_id": "path:Primitives.Color.Ocean-Green.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.500",
+      "node_id": "path:Primitives.Color.Ocean-Green.500",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.600",
+      "node_id": "path:Primitives.Color.Ocean-Green.600",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.700",
+      "node_id": "path:Primitives.Color.Ocean-Green.700",
+      "in_degree": 2,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.800",
+      "node_id": "path:Primitives.Color.Ocean-Green.800",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.900",
+      "node_id": "path:Primitives.Color.Ocean-Green.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.100",
+      "node_id": "path:Primitives.Color.Raw-Umber.100",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.200",
+      "node_id": "path:Primitives.Color.Raw-Umber.200",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.300",
+      "node_id": "path:Primitives.Color.Raw-Umber.300",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.400",
+      "node_id": "path:Primitives.Color.Raw-Umber.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.500",
+      "node_id": "path:Primitives.Color.Raw-Umber.500",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.600",
+      "node_id": "path:Primitives.Color.Raw-Umber.600",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.700",
+      "node_id": "path:Primitives.Color.Raw-Umber.700",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.800",
+      "node_id": "path:Primitives.Color.Raw-Umber.800",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.900",
+      "node_id": "path:Primitives.Color.Raw-Umber.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.100",
+      "node_id": "path:Primitives.Color.Red.100",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.200",
+      "node_id": "path:Primitives.Color.Red.200",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.300",
+      "node_id": "path:Primitives.Color.Red.300",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.400",
+      "node_id": "path:Primitives.Color.Red.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.500",
+      "node_id": "path:Primitives.Color.Red.500",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.600",
+      "node_id": "path:Primitives.Color.Red.600",
+      "in_degree": 4,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.700",
+      "node_id": "path:Primitives.Color.Red.700",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.800",
+      "node_id": "path:Primitives.Color.Red.800",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.900",
+      "node_id": "path:Primitives.Color.Red.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Dimension.A11y.Min-Hit-Area-Desktop-AA",
+      "node_id": "path:Primitives.Dimension.A11y.Min-Hit-Area-Desktop-AA",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA",
+      "node_id": "path:Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Radius.1000",
+      "node_id": "path:Primitives.Dimension.Border.Radius.1000",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Radius.11",
+      "node_id": "path:Primitives.Dimension.Border.Radius.11",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Radius.12",
+      "node_id": "path:Primitives.Dimension.Border.Radius.12",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Radius.16",
+      "node_id": "path:Primitives.Dimension.Border.Radius.16",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Radius.4",
+      "node_id": "path:Primitives.Dimension.Border.Radius.4",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Radius.8",
+      "node_id": "path:Primitives.Dimension.Border.Radius.8",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Radius.9",
+      "node_id": "path:Primitives.Dimension.Border.Radius.9",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Width.1",
+      "node_id": "path:Primitives.Dimension.Border.Width.1",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Border.Width.2",
+      "node_id": "path:Primitives.Dimension.Border.Width.2",
+      "in_degree": 3,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Blur.12",
+      "node_id": "path:Primitives.Dimension.Shadow.Blur.12",
+      "in_degree": 5,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Blur.16",
+      "node_id": "path:Primitives.Dimension.Shadow.Blur.16",
+      "in_degree": 5,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Blur.20",
+      "node_id": "path:Primitives.Dimension.Shadow.Blur.20",
+      "in_degree": 5,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Blur.8",
+      "node_id": "path:Primitives.Dimension.Shadow.Blur.8",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-12",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-12",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-16",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-16",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-2",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-2",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-4",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-4",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-6",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-6",
+      "in_degree": 4,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-8",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-8",
+      "in_degree": 8,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.0",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.0",
+      "in_degree": 3,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-10",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-10",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-12",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-12",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-16",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-16",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-18",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-18",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-2",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-2",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-4",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-4",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-8",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-8",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.0",
+      "node_id": "path:Primitives.Dimension.Shadow.X.0",
+      "in_degree": 9,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.10",
+      "node_id": "path:Primitives.Dimension.Shadow.X.10",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.12",
+      "node_id": "path:Primitives.Dimension.Shadow.X.12",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.16",
+      "node_id": "path:Primitives.Dimension.Shadow.X.16",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.18",
+      "node_id": "path:Primitives.Dimension.Shadow.X.18",
+      "in_degree": 1,
+      "collection": "Primitives",
+      "type": "dimension"
+    }
+  ],
+  "unused_primitive_terminals": [
+    {
+      "token": "Primitives.Color.Blue.100",
+      "node_id": "path:Primitives.Color.Blue.100",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.500",
+      "node_id": "path:Primitives.Color.Blue.500",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.600",
+      "node_id": "path:Primitives.Color.Blue.600",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.800",
+      "node_id": "path:Primitives.Color.Blue.800",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Blue.900",
+      "node_id": "path:Primitives.Color.Blue.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.BW.Black",
+      "node_id": "path:Primitives.Color.BW.Black",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.400",
+      "node_id": "path:Primitives.Color.Cucumber.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.500",
+      "node_id": "path:Primitives.Color.Cucumber.500",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.600",
+      "node_id": "path:Primitives.Color.Cucumber.600",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.700",
+      "node_id": "path:Primitives.Color.Cucumber.700",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Cucumber.900",
+      "node_id": "path:Primitives.Color.Cucumber.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.300",
+      "node_id": "path:Primitives.Color.Grey.300",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.400",
+      "node_id": "path:Primitives.Color.Grey.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Grey.600",
+      "node_id": "path:Primitives.Color.Grey.600",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.100",
+      "node_id": "path:Primitives.Color.Ocean-Green.100",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.200",
+      "node_id": "path:Primitives.Color.Ocean-Green.200",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.300",
+      "node_id": "path:Primitives.Color.Ocean-Green.300",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.400",
+      "node_id": "path:Primitives.Color.Ocean-Green.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.500",
+      "node_id": "path:Primitives.Color.Ocean-Green.500",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.600",
+      "node_id": "path:Primitives.Color.Ocean-Green.600",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Ocean-Green.900",
+      "node_id": "path:Primitives.Color.Ocean-Green.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.100",
+      "node_id": "path:Primitives.Color.Raw-Umber.100",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.200",
+      "node_id": "path:Primitives.Color.Raw-Umber.200",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.300",
+      "node_id": "path:Primitives.Color.Raw-Umber.300",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.400",
+      "node_id": "path:Primitives.Color.Raw-Umber.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.700",
+      "node_id": "path:Primitives.Color.Raw-Umber.700",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.800",
+      "node_id": "path:Primitives.Color.Raw-Umber.800",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Raw-Umber.900",
+      "node_id": "path:Primitives.Color.Raw-Umber.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.200",
+      "node_id": "path:Primitives.Color.Red.200",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.300",
+      "node_id": "path:Primitives.Color.Red.300",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.400",
+      "node_id": "path:Primitives.Color.Red.400",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.800",
+      "node_id": "path:Primitives.Color.Red.800",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Color.Red.900",
+      "node_id": "path:Primitives.Color.Red.900",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "color"
+    },
+    {
+      "token": "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA",
+      "node_id": "path:Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Blur.8",
+      "node_id": "path:Primitives.Dimension.Shadow.Blur.8",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-12",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-12",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-16",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-16",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-2",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-2",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Spread.-4",
+      "node_id": "path:Primitives.Dimension.Shadow.Spread.-4",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-12",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-12",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-16",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-16",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-2",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-2",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.-4",
+      "node_id": "path:Primitives.Dimension.Shadow.X.-4",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.12",
+      "node_id": "path:Primitives.Dimension.Shadow.X.12",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.16",
+      "node_id": "path:Primitives.Dimension.Shadow.X.16",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.2",
+      "node_id": "path:Primitives.Dimension.Shadow.X.2",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.X.4",
+      "node_id": "path:Primitives.Dimension.Shadow.X.4",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.-12",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.-12",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.-16",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.-16",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.-2",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.-2",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.-4",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.-4",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.-6",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.-6",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.12",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.12",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.16",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.16",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.2",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.2",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Shadow.Y.6",
+      "node_id": "path:Primitives.Dimension.Shadow.Y.6",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Spacing.32",
+      "node_id": "path:Primitives.Dimension.Spacing.32",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Spacing.40",
+      "node_id": "path:Primitives.Dimension.Spacing.40",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    },
+    {
+      "token": "Primitives.Dimension.Spacing.48",
+      "node_id": "path:Primitives.Dimension.Spacing.48",
+      "in_degree": 0,
+      "collection": "Primitives",
+      "type": "dimension"
+    }
+  ],
+  "unresolved_css_var_refs": [
+    {
+      "from": "path:Semantic.Font.Weight.Bold",
+      "fromKey": "Semantic.Font.Weight.Bold",
+      "cssVar": "--font-weight-bold",
+      "reason": "ambiguous_css_var_reference"
+    },
+    {
+      "from": "path:Semantic.Font.Weight.Regular",
+      "fromKey": "Semantic.Font.Weight.Regular",
+      "cssVar": "--font-weight-regular",
+      "reason": "ambiguous_css_var_reference"
+    }
+  ],
+  "ambiguous_css_vars": [
+    "--font-weight-bold",
+    "--font-weight-regular"
+  ],
+  "collisions": [
+    {
+      "id": "--font-weight-bold",
+      "reason": "duplicate_css_var_identity",
+      "first": "path:Semantic.Font.Weight.Bold",
+      "second": "path:Typography.Font.Weight.Bold"
+    },
+    {
+      "id": "--font-weight-regular",
+      "reason": "duplicate_css_var_identity",
+      "first": "path:Semantic.Font.Weight.Regular",
+      "second": "path:Typography.Font.Weight.Regular"
+    }
+  ],
+  "fingerprint": "f1e00837cbdc6088a9680f19962b2aef02564903dd48ce2a2fd3e1d536a66b42",
+  "hint": "No cycles detected."
+}

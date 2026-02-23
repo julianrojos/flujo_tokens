@@ -1,0 +1,54 @@
+{
+  "component": "radio_button",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/radio_button.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/radio_button.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2304-1971",
+  "node_id": "2304:1971",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/22f87d2f-8ef1-45e7-a23f-9dac6a16dfcf",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/22f87d2f-8ef1-45e7-a23f-9dac6a16dfcf",
+  "image_path": "_generated/visual-proofs/images/radio_button.png",
+  "image_sha256": "46d3aebb56f22b9da60cbd1be3a12ecdafa8a4783260ef35c77d845ed2ea4606",
+  "image_bytes": 2668,
+  "image_content_type": "image/png",
+  "image_width": 192,
+  "image_height": 128,
+  "captured_at": "2026-02-21T11:59:13.155Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/radio_button.png",
+    "sha256": "46d3aebb56f22b9da60cbd1be3a12ecdafa8a4783260ef35c77d845ed2ea4606",
+    "bytes": 2668,
+    "content_type": "image/png",
+    "width": 192,
+    "height": 128
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "State=Checked",
+      "node_id": "2304:1969",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/25e96965-2275-49f6-acef-d2e9bc528a4e",
+      "image_path": "_generated/visual-proofs/images/variants/radio_button__01__state_checked.png",
+      "image_sha256": "1f83b4f6bbb2a7a9b928fa95fb4a4e8cedb2601f445f4ac7526260fac587d1ee",
+      "image_bytes": 1411,
+      "image_content_type": "image/png",
+      "image_width": 48,
+      "image_height": 48,
+      "captured_at": "2026-02-21T11:59:13.155Z"
+    },
+    {
+      "name": "State=Default",
+      "node_id": "2304:1970",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/a23b85f2-ceea-4d6b-844b-38f146416b38",
+      "image_path": "_generated/visual-proofs/images/variants/radio_button__02__state_default.png",
+      "image_sha256": "8b7adf74f0028e8e9b5e28a8216611de45dc6008daec7c82688877b2fbe2ab16",
+      "image_bytes": 1208,
+      "image_content_type": "image/png",
+      "image_width": 48,
+      "image_height": 48,
+      "captured_at": "2026-02-21T11:59:13.155Z"
+    }
+  ]
+}

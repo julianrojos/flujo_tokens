@@ -1,0 +1,125 @@
+name: TagsList
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Tag
+  component_set: Tags-List
+  component_set_node_id: 2075:295
+
+summary:
+  purpose: Displays a horizontal sequence of Tag items with configurable visibility toggles.
+  when_to_use: Use to present multiple categorical labels in a compact grouped layout.
+  when_not_to_use: Do not use for long textual lists or when independent item interactions are required.
+
+anatomy:
+  - id: container
+    description: Horizontal auto-layout wrapper for the tag sequence.
+  - id: tag_item
+    description: Repeated Tag instances controlled by visibility properties (`Show Tag_1` to `Show Tag_10`).
+
+properties:
+  - name: Size
+    type: enum
+    values: [Small, Medium]
+    default: Small
+    required: true
+    description: Controls size variant propagated to child Tag instances and list spacing.
+  - name: Show Tag_1
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 1.
+  - name: Show Tag_2
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 2.
+  - name: Show Tag_3
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 3.
+  - name: Show Tag_4
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 4.
+  - name: Show Tag_5
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 5.
+  - name: Show Tag_6
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 6.
+  - name: Show Tag_7
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 7.
+  - name: Show Tag_8
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 8.
+  - name: Show Tag_9
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 9.
+  - name: Show Tag_10
+    type: boolean
+    default: true
+    required: false
+    description: Toggles visibility of item 10.
+
+content_guidelines:
+  rules:
+    - Keep total visible tags within layout width constraints of the target container.
+    - Prefer consistent label taxonomy and ordering for scanability.
+
+best_practices:
+  do:
+    - Use visibility toggles to match available metadata without creating empty gaps.
+    - Keep all tags in one logical group with consistent size.
+  dont:
+    - Mix unrelated taxonomies in a single list.
+    - Use this component when wrapping behavior beyond one line is required and undefined.
+
+accessibility:
+  role: TBD
+  focus:
+    tokens:
+      inner: "Semantic.Color.Focus-Outline.Inner"
+      outer: "Semantic.Color.Focus-Outline.Outer"
+  hit_area:
+    desktop_token: "A11y.A11y.Dimension.Min-Hit-Area"
+    mobile_token: "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA"
+  labeling:
+    rules:
+      - Announce grouped meaning in surrounding context when tags are informative.
+      - Interactive semantics are TBD and depend on wrapper behavior.
+
+token_mapping:
+  container.gap:
+    "size=Small": TBD
+    "size=Medium": TBD
+  tag_item.typography:
+    "size=Small": TBD
+    "size=Medium": TBD
+  tag_item.background:
+    "size=Small": TBD
+    "size=Medium": TBD
+  tag_item.border-color:
+    "size=Small": TBD
+    "size=Medium": TBD
+  tag_item.text-color:
+    "size=Small": TBD
+    "size=Medium": TBD
+
+qa:
+  - "Properties match the Figma component set, including ten visibility toggles and Size."
+  - "Small and Medium variants preserve documented gap and item dimensions from Figma metadata."
+  - "Token mappings are marked TBD until validated semantic/component bindings are confirmed."

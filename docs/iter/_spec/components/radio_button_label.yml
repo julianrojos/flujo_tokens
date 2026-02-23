@@ -1,0 +1,60 @@
+name: RadioButtonLabel
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Radio Button
+  component_set: Radio-Button-Label
+
+summary:
+  purpose: Combines a radio control with adjacent label text.
+  when_to_use: Use for single selectable options in radio groups.
+  when_not_to_use: Do not use for multi-select patterns.
+
+anatomy:
+  - id: radio_control
+    description: Nested Radio-Button instance.
+  - id: label_text
+    description: Text label describing the option.
+
+properties:
+  - name: Change_Radio_Label_Text
+    type: text
+    default: Label
+    required: false
+    description: Overrides the visible radio label text.
+
+content_guidelines:
+  rules:
+    - Keep radio label text concise and unique per group.
+
+best_practices:
+  do:
+    - Use one clear sentence fragment per option.
+    - Keep terminology consistent across option set.
+  dont:
+    - Do not use duplicate labels in the same group.
+    - Do not encode state meaning only through visual styling.
+
+accessibility:
+  role: radio
+  focus:
+    tokens:
+      inner: Semantic.Color.Focus-Outline.Inner
+      outer: Semantic.Color.Focus-Outline.Outer
+  hit_area:
+    desktop_token: A11y.A11y.Dimension.Min-Hit-Area
+    mobile_token: Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA
+  labeling:
+    rules:
+      - Label text should provide accessible name for the radio control.
+      - Additional description linkage is TBD.
+
+token_mapping:
+  label_text.color:
+    default: TBD
+  row.spacing:
+    default: TBD
+
+qa:
+  - Properties match the Figma component definition.
+  - Label override property maps to the visible option text.

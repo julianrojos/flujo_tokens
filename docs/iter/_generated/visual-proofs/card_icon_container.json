@@ -1,0 +1,102 @@
+{
+  "component": "card_icon_container",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/card_icon_container.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/card_icon_container.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2053-7862",
+  "node_id": "2053:7862",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/055475f8-c777-46e4-81f9-28c00443abe2",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/055475f8-c777-46e4-81f9-28c00443abe2",
+  "image_path": "_generated/visual-proofs/images/card_icon_container.png",
+  "image_sha256": "24eda7362b4193d85778248d1a4f97744d8ce0a998b7faac4e6b8b5564c2d43e",
+  "image_bytes": 33439,
+  "image_content_type": "image/png",
+  "image_width": 1138,
+  "image_height": 228,
+  "captured_at": "2026-02-21T11:57:53.135Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/card_icon_container.png",
+    "sha256": "24eda7362b4193d85778248d1a4f97744d8ce0a998b7faac4e6b8b5564c2d43e",
+    "bytes": 33439,
+    "content_type": "image/png",
+    "width": 1138,
+    "height": 228
+  },
+  "variants_count": 6,
+  "variants": [
+    {
+      "name": "Background_Color=Background_Color1",
+      "node_id": "2053:7861",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/b26c4c5c-0118-4abc-810f-bd92b09040d2",
+      "image_path": "_generated/visual-proofs/images/variants/card_icon_container__01__background_color_background_color1.png",
+      "image_sha256": "f93d64057a21123e562537510403201ecdb37cf48e5e0f6107492a09278154e1",
+      "image_bytes": 5784,
+      "image_content_type": "image/png",
+      "image_width": 148,
+      "image_height": 148,
+      "captured_at": "2026-02-21T11:57:53.135Z"
+    },
+    {
+      "name": "Background_Color=Background_Color2",
+      "node_id": "2053:7872",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/26b73c2c-61eb-4c48-ab36-d48980001898",
+      "image_path": "_generated/visual-proofs/images/variants/card_icon_container__02__background_color_background_color2.png",
+      "image_sha256": "60c2c7aa89da03f3166e2669b88d3a850cd2adc95b7b6a5c5e349e0803ccda25",
+      "image_bytes": 6064,
+      "image_content_type": "image/png",
+      "image_width": 148,
+      "image_height": 148,
+      "captured_at": "2026-02-21T11:57:53.135Z"
+    },
+    {
+      "name": "Background_Color=Background_Color3",
+      "node_id": "2053:7875",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/aefad0df-277e-4b8f-998b-633ca0c840ae",
+      "image_path": "_generated/visual-proofs/images/variants/card_icon_container__03__background_color_background_color3.png",
+      "image_sha256": "a751eb81148cfc476744df706c4cb8c90f616560623b9427635ad029fb708350",
+      "image_bytes": 5887,
+      "image_content_type": "image/png",
+      "image_width": 148,
+      "image_height": 148,
+      "captured_at": "2026-02-21T11:57:53.135Z"
+    },
+    {
+      "name": "Background_Color=Background_Color4",
+      "node_id": "2053:7878",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/babe4f6b-13e2-4e86-872d-30641a1b81d3",
+      "image_path": "_generated/visual-proofs/images/variants/card_icon_container__04__background_color_background_color4.png",
+      "image_sha256": "e0fc1a692d2803376dfa2cac583d1e63df6bda74b498acebdb0784f095118acd",
+      "image_bytes": 5832,
+      "image_content_type": "image/png",
+      "image_width": 148,
+      "image_height": 148,
+      "captured_at": "2026-02-21T11:57:53.135Z"
+    },
+    {
+      "name": "Background_Color=Background_Color5",
+      "node_id": "2053:7881",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/03d8465b-dec6-4a8a-95ba-c26e04e6c7d7",
+      "image_path": "_generated/visual-proofs/images/variants/card_icon_container__05__background_color_background_color5.png",
+      "image_sha256": "3cd410d4dfa8a86eb828ee9a8428d1dbb7b2293a58a387b3b66604b4667e9a20",
+      "image_bytes": 6303,
+      "image_content_type": "image/png",
+      "image_width": 148,
+      "image_height": 148,
+      "captured_at": "2026-02-21T11:57:53.135Z"
+    },
+    {
+      "name": "Background_Color=Background_Color6",
+      "node_id": "2053:7884",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/33333d1a-3044-4861-9699-09a980eba6e9",
+      "image_path": "_generated/visual-proofs/images/variants/card_icon_container__06__background_color_background_color6.png",
+      "image_sha256": "bb4a2c7415c7af5a3d80f5ca8faa8245f4734f931abf55ae32ce80116bab1073",
+      "image_bytes": 6193,
+      "image_content_type": "image/png",
+      "image_width": 148,
+      "image_height": 148,
+      "captured_at": "2026-02-21T11:57:53.135Z"
+    }
+  ]
+}

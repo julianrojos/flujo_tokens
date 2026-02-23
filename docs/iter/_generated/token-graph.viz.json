@@ -1,0 +1,4804 @@
+{
+  "source": {
+    "registry_path": "/Users/julian/Documents/flujo_tokens/docs/_generated/token-registry.json"
+  },
+  "summary": {
+    "nodes": 318,
+    "edges": 162,
+    "cycles": 0,
+    "cycle_nodes": 0,
+    "unresolved_css_var_refs_total": 2,
+    "ambiguous_css_vars_total": 2,
+    "graph_collisions": 2
+  },
+  "ok": true,
+  "nodes": [
+    {
+      "id": "path:A11y.A11y.Dimension.Min-Hit-Area",
+      "path": "A11y.A11y.Dimension.Min-Hit-Area",
+      "slashPath": "A11y/Dimension/Min-Hit-Area",
+      "cssVar": "--a11y-a11y-dimension-min-hit-area",
+      "type": "dimension",
+      "collection": "A11y",
+      "resolvedValue": "var(--dimension-a11y-min-hit-area-desktop-aa)",
+      "displayKey": "A11y.A11y.Dimension.Min-Hit-Area",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Components.Bottom-Bar.Background-Default",
+      "path": "Components.Bottom-Bar.Background-Default",
+      "slashPath": "Bottom-Bar/Background-Default",
+      "cssVar": "--bottom-bar-background-default",
+      "type": "color",
+      "collection": "Components",
+      "resolvedValue": "var(--color-grey-100)",
+      "displayKey": "Components.Bottom-Bar.Background-Default",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Components.Bottom-Bar.Background-Selected",
+      "path": "Components.Bottom-Bar.Background-Selected",
+      "slashPath": "Bottom-Bar/Background-Selected",
+      "cssVar": "--bottom-bar-background-selected",
+      "type": "color",
+      "collection": "Components",
+      "resolvedValue": "var(--color-bw-white)",
+      "displayKey": "Components.Bottom-Bar.Background-Selected",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.100",
+      "path": "Primitives.Color.Blue.100",
+      "slashPath": "Color/Blue/100",
+      "cssVar": "--color-blue-100",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#dff7ff",
+      "displayKey": "Primitives.Color.Blue.100",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.200",
+      "path": "Primitives.Color.Blue.200",
+      "slashPath": "Color/Blue/200",
+      "cssVar": "--color-blue-200",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#c5f0ff",
+      "displayKey": "Primitives.Color.Blue.200",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.300",
+      "path": "Primitives.Color.Blue.300",
+      "slashPath": "Color/Blue/300",
+      "cssVar": "--color-blue-300",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#add8e6",
+      "displayKey": "Primitives.Color.Blue.300",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.400",
+      "path": "Primitives.Color.Blue.400",
+      "slashPath": "Color/Blue/400",
+      "cssVar": "--color-blue-400",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#96bfcc",
+      "displayKey": "Primitives.Color.Blue.400",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.500",
+      "path": "Primitives.Color.Blue.500",
+      "slashPath": "Color/Blue/500",
+      "cssVar": "--color-blue-500",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#7fa6b3",
+      "displayKey": "Primitives.Color.Blue.500",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.600",
+      "path": "Primitives.Color.Blue.600",
+      "slashPath": "Color/Blue/600",
+      "cssVar": "--color-blue-600",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#6a8e99",
+      "displayKey": "Primitives.Color.Blue.600",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.700",
+      "path": "Primitives.Color.Blue.700",
+      "slashPath": "Color/Blue/700",
+      "cssVar": "--color-blue-700",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#567680",
+      "displayKey": "Primitives.Color.Blue.700",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.800",
+      "path": "Primitives.Color.Blue.800",
+      "slashPath": "Color/Blue/800",
+      "cssVar": "--color-blue-800",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#435e67",
+      "displayKey": "Primitives.Color.Blue.800",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Blue.900",
+      "path": "Primitives.Color.Blue.900",
+      "slashPath": "Color/Blue/900",
+      "cssVar": "--color-blue-900",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#31464d",
+      "displayKey": "Primitives.Color.Blue.900",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.BW.Black",
+      "path": "Primitives.Color.BW.Black",
+      "slashPath": "Color/BW/Black",
+      "cssVar": "--color-bw-black",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#000000",
+      "displayKey": "Primitives.Color.BW.Black",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.BW.Black-05",
+      "path": "Primitives.Color.BW.Black-05",
+      "slashPath": "Color/BW/Black-05",
+      "cssVar": "--color-bw-black-05",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#0000000d",
+      "displayKey": "Primitives.Color.BW.Black-05",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.BW.Black-07",
+      "path": "Primitives.Color.BW.Black-07",
+      "slashPath": "Color/BW/Black-07",
+      "cssVar": "--color-bw-black-07",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#00000014",
+      "displayKey": "Primitives.Color.BW.Black-07",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.BW.Black-10",
+      "path": "Primitives.Color.BW.Black-10",
+      "slashPath": "Color/BW/Black-10",
+      "cssVar": "--color-bw-black-10",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#0000001a",
+      "displayKey": "Primitives.Color.BW.Black-10",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.BW.Black-16",
+      "path": "Primitives.Color.BW.Black-16",
+      "slashPath": "Color/BW/Black-16",
+      "cssVar": "--color-bw-black-16",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#00000029",
+      "displayKey": "Primitives.Color.BW.Black-16",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.BW.Black-20",
+      "path": "Primitives.Color.BW.Black-20",
+      "slashPath": "Color/BW/Black-20",
+      "cssVar": "--color-bw-black-20",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#00000033",
+      "displayKey": "Primitives.Color.BW.Black-20",
+      "inDegree": 3,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.BW.White",
+      "path": "Primitives.Color.BW.White",
+      "slashPath": "Color/BW/White",
+      "cssVar": "--color-bw-white",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#ffffff",
+      "displayKey": "Primitives.Color.BW.White",
+      "inDegree": 8,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.100",
+      "path": "Primitives.Color.Cucumber.100",
+      "slashPath": "Color/Cucumber/100",
+      "cssVar": "--color-cucumber-100",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#e0f7d6",
+      "displayKey": "Primitives.Color.Cucumber.100",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.200",
+      "path": "Primitives.Color.Cucumber.200",
+      "slashPath": "Color/Cucumber/200",
+      "cssVar": "--color-cucumber-200",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#c9e0be",
+      "displayKey": "Primitives.Color.Cucumber.200",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.300",
+      "path": "Primitives.Color.Cucumber.300",
+      "slashPath": "Color/Cucumber/300",
+      "cssVar": "--color-cucumber-300",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#b2c9a7",
+      "displayKey": "Primitives.Color.Cucumber.300",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.400",
+      "path": "Primitives.Color.Cucumber.400",
+      "slashPath": "Color/Cucumber/400",
+      "cssVar": "--color-cucumber-400",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#9cb391",
+      "displayKey": "Primitives.Color.Cucumber.400",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.500",
+      "path": "Primitives.Color.Cucumber.500",
+      "slashPath": "Color/Cucumber/500",
+      "cssVar": "--color-cucumber-500",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#869c7c",
+      "displayKey": "Primitives.Color.Cucumber.500",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.600",
+      "path": "Primitives.Color.Cucumber.600",
+      "slashPath": "Color/Cucumber/600",
+      "cssVar": "--color-cucumber-600",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#718568",
+      "displayKey": "Primitives.Color.Cucumber.600",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.700",
+      "path": "Primitives.Color.Cucumber.700",
+      "slashPath": "Color/Cucumber/700",
+      "cssVar": "--color-cucumber-700",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#5d6f54",
+      "displayKey": "Primitives.Color.Cucumber.700",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.800",
+      "path": "Primitives.Color.Cucumber.800",
+      "slashPath": "Color/Cucumber/800",
+      "cssVar": "--color-cucumber-800",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#495841",
+      "displayKey": "Primitives.Color.Cucumber.800",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Cucumber.900",
+      "path": "Primitives.Color.Cucumber.900",
+      "slashPath": "Color/Cucumber/900",
+      "cssVar": "--color-cucumber-900",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#35412f",
+      "displayKey": "Primitives.Color.Cucumber.900",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Extra-Palette.Bermuda",
+      "path": "Primitives.Color.Extra-Palette.Bermuda",
+      "slashPath": "Color/Extra-Palette/Bermuda",
+      "cssVar": "--color-extra-palette-bermuda",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#88d8d0",
+      "displayKey": "Primitives.Color.Extra-Palette.Bermuda",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Extra-Palette.English-Cream",
+      "path": "Primitives.Color.Extra-Palette.English-Cream",
+      "slashPath": "Color/Extra-Palette/English-Cream",
+      "cssVar": "--color-extra-palette-english-cream",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#fffaf0",
+      "displayKey": "Primitives.Color.Extra-Palette.English-Cream",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Extra-Palette.Lavender",
+      "path": "Primitives.Color.Extra-Palette.Lavender",
+      "slashPath": "Color/Extra-Palette/Lavender",
+      "cssVar": "--color-extra-palette-lavender",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#b7a4c4",
+      "displayKey": "Primitives.Color.Extra-Palette.Lavender",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Extra-Palette.Lime-Cream",
+      "path": "Primitives.Color.Extra-Palette.Lime-Cream",
+      "slashPath": "Color/Extra-Palette/Lime-Cream",
+      "cssVar": "--color-extra-palette-lime-cream",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#f0f9c5",
+      "displayKey": "Primitives.Color.Extra-Palette.Lime-Cream",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Extra-Palette.Moon-Raker",
+      "path": "Primitives.Color.Extra-Palette.Moon-Raker",
+      "slashPath": "Color/Extra-Palette/Moon-Raker",
+      "cssVar": "--color-extra-palette-moon-raker",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#e6e6fa",
+      "displayKey": "Primitives.Color.Extra-Palette.Moon-Raker",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.100",
+      "path": "Primitives.Color.Grey.100",
+      "slashPath": "Color/Grey/100",
+      "cssVar": "--color-grey-100",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#ececec",
+      "displayKey": "Primitives.Color.Grey.100",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.200",
+      "path": "Primitives.Color.Grey.200",
+      "slashPath": "Color/Grey/200",
+      "cssVar": "--color-grey-200",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#d7d4d4",
+      "displayKey": "Primitives.Color.Grey.200",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.300",
+      "path": "Primitives.Color.Grey.300",
+      "slashPath": "Color/Grey/300",
+      "cssVar": "--color-grey-300",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#c3bdbd",
+      "displayKey": "Primitives.Color.Grey.300",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.400",
+      "path": "Primitives.Color.Grey.400",
+      "slashPath": "Color/Grey/400",
+      "cssVar": "--color-grey-400",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#aea6a6",
+      "displayKey": "Primitives.Color.Grey.400",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.500",
+      "path": "Primitives.Color.Grey.500",
+      "slashPath": "Color/Grey/500",
+      "cssVar": "--color-grey-500",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#9a9090",
+      "displayKey": "Primitives.Color.Grey.500",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.600",
+      "path": "Primitives.Color.Grey.600",
+      "slashPath": "Color/Grey/600",
+      "cssVar": "--color-grey-600",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#867b7b",
+      "displayKey": "Primitives.Color.Grey.600",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.700",
+      "path": "Primitives.Color.Grey.700",
+      "slashPath": "Color/Grey/700",
+      "cssVar": "--color-grey-700",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#716666",
+      "displayKey": "Primitives.Color.Grey.700",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.800",
+      "path": "Primitives.Color.Grey.800",
+      "slashPath": "Color/Grey/800",
+      "cssVar": "--color-grey-800",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#5d5252",
+      "displayKey": "Primitives.Color.Grey.800",
+      "inDegree": 4,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Grey.900",
+      "path": "Primitives.Color.Grey.900",
+      "slashPath": "Color/Grey/900",
+      "cssVar": "--color-grey-900",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#483f3f",
+      "displayKey": "Primitives.Color.Grey.900",
+      "inDegree": 4,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.100",
+      "path": "Primitives.Color.Ocean-Green.100",
+      "slashPath": "Color/Ocean-Green/100",
+      "cssVar": "--color-ocean-green-100",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#d0ffe5",
+      "displayKey": "Primitives.Color.Ocean-Green.100",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.200",
+      "path": "Primitives.Color.Ocean-Green.200",
+      "slashPath": "Color/Ocean-Green/200",
+      "cssVar": "--color-ocean-green-200",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#b0ffd3",
+      "displayKey": "Primitives.Color.Ocean-Green.200",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.300",
+      "path": "Primitives.Color.Ocean-Green.300",
+      "slashPath": "Color/Ocean-Green/300",
+      "cssVar": "--color-ocean-green-300",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#90ffc1",
+      "displayKey": "Primitives.Color.Ocean-Green.300",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.400",
+      "path": "Primitives.Color.Ocean-Green.400",
+      "slashPath": "Color/Ocean-Green/400",
+      "cssVar": "--color-ocean-green-400",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#6df7aa",
+      "displayKey": "Primitives.Color.Ocean-Green.400",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.500",
+      "path": "Primitives.Color.Ocean-Green.500",
+      "slashPath": "Color/Ocean-Green/500",
+      "cssVar": "--color-ocean-green-500",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#52d58d",
+      "displayKey": "Primitives.Color.Ocean-Green.500",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.600",
+      "path": "Primitives.Color.Ocean-Green.600",
+      "slashPath": "Color/Ocean-Green/600",
+      "cssVar": "--color-ocean-green-600",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#3cb371",
+      "displayKey": "Primitives.Color.Ocean-Green.600",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.700",
+      "path": "Primitives.Color.Ocean-Green.700",
+      "slashPath": "Color/Ocean-Green/700",
+      "cssVar": "--color-ocean-green-700",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#299157",
+      "displayKey": "Primitives.Color.Ocean-Green.700",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.800",
+      "path": "Primitives.Color.Ocean-Green.800",
+      "slashPath": "Color/Ocean-Green/800",
+      "cssVar": "--color-ocean-green-800",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#1a6f40",
+      "displayKey": "Primitives.Color.Ocean-Green.800",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Ocean-Green.900",
+      "path": "Primitives.Color.Ocean-Green.900",
+      "slashPath": "Color/Ocean-Green/900",
+      "cssVar": "--color-ocean-green-900",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#0e4d2a",
+      "displayKey": "Primitives.Color.Ocean-Green.900",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.100",
+      "path": "Primitives.Color.Raw-Umber.100",
+      "slashPath": "Color/Raw-Umber/100",
+      "cssVar": "--color-raw-umber-100",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#fff3db",
+      "displayKey": "Primitives.Color.Raw-Umber.100",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.200",
+      "path": "Primitives.Color.Raw-Umber.200",
+      "slashPath": "Color/Raw-Umber/200",
+      "cssVar": "--color-raw-umber-200",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#fde9c0",
+      "displayKey": "Primitives.Color.Raw-Umber.200",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.300",
+      "path": "Primitives.Color.Raw-Umber.300",
+      "slashPath": "Color/Raw-Umber/300",
+      "cssVar": "--color-raw-umber-300",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#f5d9a0",
+      "displayKey": "Primitives.Color.Raw-Umber.300",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.400",
+      "path": "Primitives.Color.Raw-Umber.400",
+      "slashPath": "Color/Raw-Umber/400",
+      "cssVar": "--color-raw-umber-400",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#d7bc84",
+      "displayKey": "Primitives.Color.Raw-Umber.400",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.500",
+      "path": "Primitives.Color.Raw-Umber.500",
+      "slashPath": "Color/Raw-Umber/500",
+      "cssVar": "--color-raw-umber-500",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#baa06b",
+      "displayKey": "Primitives.Color.Raw-Umber.500",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.600",
+      "path": "Primitives.Color.Raw-Umber.600",
+      "slashPath": "Color/Raw-Umber/600",
+      "cssVar": "--color-raw-umber-600",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#9d8555",
+      "displayKey": "Primitives.Color.Raw-Umber.600",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.700",
+      "path": "Primitives.Color.Raw-Umber.700",
+      "slashPath": "Color/Raw-Umber/700",
+      "cssVar": "--color-raw-umber-700",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#806b40",
+      "displayKey": "Primitives.Color.Raw-Umber.700",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.800",
+      "path": "Primitives.Color.Raw-Umber.800",
+      "slashPath": "Color/Raw-Umber/800",
+      "cssVar": "--color-raw-umber-800",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#63512e",
+      "displayKey": "Primitives.Color.Raw-Umber.800",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Raw-Umber.900",
+      "path": "Primitives.Color.Raw-Umber.900",
+      "slashPath": "Color/Raw-Umber/900",
+      "cssVar": "--color-raw-umber-900",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#46391e",
+      "displayKey": "Primitives.Color.Raw-Umber.900",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.100",
+      "path": "Primitives.Color.Red.100",
+      "slashPath": "Color/Red/100",
+      "cssVar": "--color-red-100",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#ffc6c6",
+      "displayKey": "Primitives.Color.Red.100",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.200",
+      "path": "Primitives.Color.Red.200",
+      "slashPath": "Color/Red/200",
+      "cssVar": "--color-red-200",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#ff9f9f",
+      "displayKey": "Primitives.Color.Red.200",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.300",
+      "path": "Primitives.Color.Red.300",
+      "slashPath": "Color/Red/300",
+      "cssVar": "--color-red-300",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#ff7878",
+      "displayKey": "Primitives.Color.Red.300",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.400",
+      "path": "Primitives.Color.Red.400",
+      "slashPath": "Color/Red/400",
+      "cssVar": "--color-red-400",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#f64e4e",
+      "displayKey": "Primitives.Color.Red.400",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.500",
+      "path": "Primitives.Color.Red.500",
+      "slashPath": "Color/Red/500",
+      "cssVar": "--color-red-500",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#d43636",
+      "displayKey": "Primitives.Color.Red.500",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.600",
+      "path": "Primitives.Color.Red.600",
+      "slashPath": "Color/Red/600",
+      "cssVar": "--color-red-600",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#b22222",
+      "displayKey": "Primitives.Color.Red.600",
+      "inDegree": 4,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.700",
+      "path": "Primitives.Color.Red.700",
+      "slashPath": "Color/Red/700",
+      "cssVar": "--color-red-700",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#901212",
+      "displayKey": "Primitives.Color.Red.700",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.800",
+      "path": "Primitives.Color.Red.800",
+      "slashPath": "Color/Red/800",
+      "cssVar": "--color-red-800",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#6e0707",
+      "displayKey": "Primitives.Color.Red.800",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Color.Red.900",
+      "path": "Primitives.Color.Red.900",
+      "slashPath": "Color/Red/900",
+      "cssVar": "--color-red-900",
+      "type": "color",
+      "collection": "Primitives",
+      "resolvedValue": "#4c0000",
+      "displayKey": "Primitives.Color.Red.900",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.A11y.Min-Hit-Area-Desktop-AA",
+      "path": "Primitives.Dimension.A11y.Min-Hit-Area-Desktop-AA",
+      "slashPath": "Dimension/A11y/Min-Hit-Area-Desktop-AA",
+      "cssVar": "--dimension-a11y-min-hit-area-desktop-aa",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "24px",
+      "displayKey": "Primitives.Dimension.A11y.Min-Hit-Area-Desktop-AA",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA",
+      "path": "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA",
+      "slashPath": "Dimension/A11y/Min-Hit-Area-Mobile-AAA",
+      "cssVar": "--dimension-a11y-min-hit-area-mobile-aaa",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "48px",
+      "displayKey": "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Radius.1000",
+      "path": "Primitives.Dimension.Border.Radius.1000",
+      "slashPath": "Dimension/Border/Radius/1000",
+      "cssVar": "--dimension-border-radius-1000",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "1000px",
+      "displayKey": "Primitives.Dimension.Border.Radius.1000",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Radius.11",
+      "path": "Primitives.Dimension.Border.Radius.11",
+      "slashPath": "Dimension/Border/Radius/11",
+      "cssVar": "--dimension-border-radius-11",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "11px",
+      "displayKey": "Primitives.Dimension.Border.Radius.11",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Radius.12",
+      "path": "Primitives.Dimension.Border.Radius.12",
+      "slashPath": "Dimension/Border/Radius/12",
+      "cssVar": "--dimension-border-radius-12",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "12px",
+      "displayKey": "Primitives.Dimension.Border.Radius.12",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Radius.16",
+      "path": "Primitives.Dimension.Border.Radius.16",
+      "slashPath": "Dimension/Border/Radius/16",
+      "cssVar": "--dimension-border-radius-16",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "16px",
+      "displayKey": "Primitives.Dimension.Border.Radius.16",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Radius.4",
+      "path": "Primitives.Dimension.Border.Radius.4",
+      "slashPath": "Dimension/Border/Radius/4",
+      "cssVar": "--dimension-border-radius-4",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "4px",
+      "displayKey": "Primitives.Dimension.Border.Radius.4",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Radius.8",
+      "path": "Primitives.Dimension.Border.Radius.8",
+      "slashPath": "Dimension/Border/Radius/8",
+      "cssVar": "--dimension-border-radius-8",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "8px",
+      "displayKey": "Primitives.Dimension.Border.Radius.8",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Radius.9",
+      "path": "Primitives.Dimension.Border.Radius.9",
+      "slashPath": "Dimension/Border/Radius/9",
+      "cssVar": "--dimension-border-radius-9",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "9px",
+      "displayKey": "Primitives.Dimension.Border.Radius.9",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Width.1",
+      "path": "Primitives.Dimension.Border.Width.1",
+      "slashPath": "Dimension/Border/Width/1",
+      "cssVar": "--dimension-border-width-1",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "1px",
+      "displayKey": "Primitives.Dimension.Border.Width.1",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Border.Width.2",
+      "path": "Primitives.Dimension.Border.Width.2",
+      "slashPath": "Dimension/Border/Width/2",
+      "cssVar": "--dimension-border-width-2",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "2px",
+      "displayKey": "Primitives.Dimension.Border.Width.2",
+      "inDegree": 3,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Blur.12",
+      "path": "Primitives.Dimension.Shadow.Blur.12",
+      "slashPath": "Dimension/Shadow/Blur/12",
+      "cssVar": "--dimension-shadow-blur-12",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "12px",
+      "displayKey": "Primitives.Dimension.Shadow.Blur.12",
+      "inDegree": 5,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Blur.16",
+      "path": "Primitives.Dimension.Shadow.Blur.16",
+      "slashPath": "Dimension/Shadow/Blur/16",
+      "cssVar": "--dimension-shadow-blur-16",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "16px",
+      "displayKey": "Primitives.Dimension.Shadow.Blur.16",
+      "inDegree": 5,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Blur.20",
+      "path": "Primitives.Dimension.Shadow.Blur.20",
+      "slashPath": "Dimension/Shadow/Blur/20",
+      "cssVar": "--dimension-shadow-blur-20",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "20px",
+      "displayKey": "Primitives.Dimension.Shadow.Blur.20",
+      "inDegree": 5,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Blur.8",
+      "path": "Primitives.Dimension.Shadow.Blur.8",
+      "slashPath": "Dimension/Shadow/Blur/8",
+      "cssVar": "--dimension-shadow-blur-8",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "8px",
+      "displayKey": "Primitives.Dimension.Shadow.Blur.8",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Spread.-12",
+      "path": "Primitives.Dimension.Shadow.Spread.-12",
+      "slashPath": "Dimension/Shadow/Spread/-12",
+      "cssVar": "--dimension-shadow-spread--12",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-12px",
+      "displayKey": "Primitives.Dimension.Shadow.Spread.-12",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Spread.-16",
+      "path": "Primitives.Dimension.Shadow.Spread.-16",
+      "slashPath": "Dimension/Shadow/Spread/-16",
+      "cssVar": "--dimension-shadow-spread--16",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-16px",
+      "displayKey": "Primitives.Dimension.Shadow.Spread.-16",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Spread.-2",
+      "path": "Primitives.Dimension.Shadow.Spread.-2",
+      "slashPath": "Dimension/Shadow/Spread/-2",
+      "cssVar": "--dimension-shadow-spread--2",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-2px",
+      "displayKey": "Primitives.Dimension.Shadow.Spread.-2",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Spread.-4",
+      "path": "Primitives.Dimension.Shadow.Spread.-4",
+      "slashPath": "Dimension/Shadow/Spread/-4",
+      "cssVar": "--dimension-shadow-spread--4",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-4px",
+      "displayKey": "Primitives.Dimension.Shadow.Spread.-4",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Spread.-6",
+      "path": "Primitives.Dimension.Shadow.Spread.-6",
+      "slashPath": "Dimension/Shadow/Spread/-6",
+      "cssVar": "--dimension-shadow-spread--6",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-6px",
+      "displayKey": "Primitives.Dimension.Shadow.Spread.-6",
+      "inDegree": 4,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Spread.-8",
+      "path": "Primitives.Dimension.Shadow.Spread.-8",
+      "slashPath": "Dimension/Shadow/Spread/-8",
+      "cssVar": "--dimension-shadow-spread--8",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-8px",
+      "displayKey": "Primitives.Dimension.Shadow.Spread.-8",
+      "inDegree": 8,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Spread.0",
+      "path": "Primitives.Dimension.Shadow.Spread.0",
+      "slashPath": "Dimension/Shadow/Spread/0",
+      "cssVar": "--dimension-shadow-spread-0",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "0px",
+      "displayKey": "Primitives.Dimension.Shadow.Spread.0",
+      "inDegree": 3,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.-10",
+      "path": "Primitives.Dimension.Shadow.X.-10",
+      "slashPath": "Dimension/Shadow/X/-10",
+      "cssVar": "--dimension-shadow-x--10",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-10px",
+      "displayKey": "Primitives.Dimension.Shadow.X.-10",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.-12",
+      "path": "Primitives.Dimension.Shadow.X.-12",
+      "slashPath": "Dimension/Shadow/X/-12",
+      "cssVar": "--dimension-shadow-x--12",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-12px",
+      "displayKey": "Primitives.Dimension.Shadow.X.-12",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.-16",
+      "path": "Primitives.Dimension.Shadow.X.-16",
+      "slashPath": "Dimension/Shadow/X/-16",
+      "cssVar": "--dimension-shadow-x--16",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-16px",
+      "displayKey": "Primitives.Dimension.Shadow.X.-16",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.-18",
+      "path": "Primitives.Dimension.Shadow.X.-18",
+      "slashPath": "Dimension/Shadow/X/-18",
+      "cssVar": "--dimension-shadow-x--18",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-18px",
+      "displayKey": "Primitives.Dimension.Shadow.X.-18",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.-2",
+      "path": "Primitives.Dimension.Shadow.X.-2",
+      "slashPath": "Dimension/Shadow/X/-2",
+      "cssVar": "--dimension-shadow-x--2",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-2px",
+      "displayKey": "Primitives.Dimension.Shadow.X.-2",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.-4",
+      "path": "Primitives.Dimension.Shadow.X.-4",
+      "slashPath": "Dimension/Shadow/X/-4",
+      "cssVar": "--dimension-shadow-x--4",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-4px",
+      "displayKey": "Primitives.Dimension.Shadow.X.-4",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.-8",
+      "path": "Primitives.Dimension.Shadow.X.-8",
+      "slashPath": "Dimension/Shadow/X/-8",
+      "cssVar": "--dimension-shadow-x--8",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-8px",
+      "displayKey": "Primitives.Dimension.Shadow.X.-8",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.0",
+      "path": "Primitives.Dimension.Shadow.X.0",
+      "slashPath": "Dimension/Shadow/X/0",
+      "cssVar": "--dimension-shadow-x-0",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "0px",
+      "displayKey": "Primitives.Dimension.Shadow.X.0",
+      "inDegree": 9,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.10",
+      "path": "Primitives.Dimension.Shadow.X.10",
+      "slashPath": "Dimension/Shadow/X/10",
+      "cssVar": "--dimension-shadow-x-10",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "10px",
+      "displayKey": "Primitives.Dimension.Shadow.X.10",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.12",
+      "path": "Primitives.Dimension.Shadow.X.12",
+      "slashPath": "Dimension/Shadow/X/12",
+      "cssVar": "--dimension-shadow-x-12",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "12px",
+      "displayKey": "Primitives.Dimension.Shadow.X.12",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.16",
+      "path": "Primitives.Dimension.Shadow.X.16",
+      "slashPath": "Dimension/Shadow/X/16",
+      "cssVar": "--dimension-shadow-x-16",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "16px",
+      "displayKey": "Primitives.Dimension.Shadow.X.16",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.18",
+      "path": "Primitives.Dimension.Shadow.X.18",
+      "slashPath": "Dimension/Shadow/X/18",
+      "cssVar": "--dimension-shadow-x-18",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "18px",
+      "displayKey": "Primitives.Dimension.Shadow.X.18",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.2",
+      "path": "Primitives.Dimension.Shadow.X.2",
+      "slashPath": "Dimension/Shadow/X/2",
+      "cssVar": "--dimension-shadow-x-2",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "2px",
+      "displayKey": "Primitives.Dimension.Shadow.X.2",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.4",
+      "path": "Primitives.Dimension.Shadow.X.4",
+      "slashPath": "Dimension/Shadow/X/4",
+      "cssVar": "--dimension-shadow-x-4",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "4px",
+      "displayKey": "Primitives.Dimension.Shadow.X.4",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.X.8",
+      "path": "Primitives.Dimension.Shadow.X.8",
+      "slashPath": "Dimension/Shadow/X/8",
+      "cssVar": "--dimension-shadow-x-8",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "8px",
+      "displayKey": "Primitives.Dimension.Shadow.X.8",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.-10",
+      "path": "Primitives.Dimension.Shadow.Y.-10",
+      "slashPath": "Dimension/Shadow/Y/-10",
+      "cssVar": "--dimension-shadow-y--10",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-10px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.-10",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.-12",
+      "path": "Primitives.Dimension.Shadow.Y.-12",
+      "slashPath": "Dimension/Shadow/Y/-12",
+      "cssVar": "--dimension-shadow-y--12",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-12px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.-12",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.-16",
+      "path": "Primitives.Dimension.Shadow.Y.-16",
+      "slashPath": "Dimension/Shadow/Y/-16",
+      "cssVar": "--dimension-shadow-y--16",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-16px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.-16",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.-18",
+      "path": "Primitives.Dimension.Shadow.Y.-18",
+      "slashPath": "Dimension/Shadow/Y/-18",
+      "cssVar": "--dimension-shadow-y--18",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-18px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.-18",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.-2",
+      "path": "Primitives.Dimension.Shadow.Y.-2",
+      "slashPath": "Dimension/Shadow/Y/-2",
+      "cssVar": "--dimension-shadow-y--2",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-2px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.-2",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.-4",
+      "path": "Primitives.Dimension.Shadow.Y.-4",
+      "slashPath": "Dimension/Shadow/Y/-4",
+      "cssVar": "--dimension-shadow-y--4",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-4px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.-4",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.-6",
+      "path": "Primitives.Dimension.Shadow.Y.-6",
+      "slashPath": "Dimension/Shadow/Y/-6",
+      "cssVar": "--dimension-shadow-y--6",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-6px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.-6",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.-8",
+      "path": "Primitives.Dimension.Shadow.Y.-8",
+      "slashPath": "Dimension/Shadow/Y/-8",
+      "cssVar": "--dimension-shadow-y--8",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "-8px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.-8",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.0",
+      "path": "Primitives.Dimension.Shadow.Y.0",
+      "slashPath": "Dimension/Shadow/Y/0",
+      "cssVar": "--dimension-shadow-y-0",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "0px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.0",
+      "inDegree": 6,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.10",
+      "path": "Primitives.Dimension.Shadow.Y.10",
+      "slashPath": "Dimension/Shadow/Y/10",
+      "cssVar": "--dimension-shadow-y-10",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "10px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.10",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.12",
+      "path": "Primitives.Dimension.Shadow.Y.12",
+      "slashPath": "Dimension/Shadow/Y/12",
+      "cssVar": "--dimension-shadow-y-12",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "12px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.12",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.16",
+      "path": "Primitives.Dimension.Shadow.Y.16",
+      "slashPath": "Dimension/Shadow/Y/16",
+      "cssVar": "--dimension-shadow-y-16",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "16px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.16",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.18",
+      "path": "Primitives.Dimension.Shadow.Y.18",
+      "slashPath": "Dimension/Shadow/Y/18",
+      "cssVar": "--dimension-shadow-y-18",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "18px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.18",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.2",
+      "path": "Primitives.Dimension.Shadow.Y.2",
+      "slashPath": "Dimension/Shadow/Y/2",
+      "cssVar": "--dimension-shadow-y-2",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "2px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.2",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.4",
+      "path": "Primitives.Dimension.Shadow.Y.4",
+      "slashPath": "Dimension/Shadow/Y/4",
+      "cssVar": "--dimension-shadow-y-4",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "4px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.4",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.6",
+      "path": "Primitives.Dimension.Shadow.Y.6",
+      "slashPath": "Dimension/Shadow/Y/6",
+      "cssVar": "--dimension-shadow-y-6",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "6px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.6",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Shadow.Y.8",
+      "path": "Primitives.Dimension.Shadow.Y.8",
+      "slashPath": "Dimension/Shadow/Y/8",
+      "cssVar": "--dimension-shadow-y-8",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "8px",
+      "displayKey": "Primitives.Dimension.Shadow.Y.8",
+      "inDegree": 2,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.10",
+      "path": "Primitives.Dimension.Spacing.10",
+      "slashPath": "Dimension/Spacing/10",
+      "cssVar": "--dimension-spacing-10",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "10px",
+      "displayKey": "Primitives.Dimension.Spacing.10",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.12",
+      "path": "Primitives.Dimension.Spacing.12",
+      "slashPath": "Dimension/Spacing/12",
+      "cssVar": "--dimension-spacing-12",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "12px",
+      "displayKey": "Primitives.Dimension.Spacing.12",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.14",
+      "path": "Primitives.Dimension.Spacing.14",
+      "slashPath": "Dimension/Spacing/14",
+      "cssVar": "--dimension-spacing-14",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "14px",
+      "displayKey": "Primitives.Dimension.Spacing.14",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.16",
+      "path": "Primitives.Dimension.Spacing.16",
+      "slashPath": "Dimension/Spacing/16",
+      "cssVar": "--dimension-spacing-16",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "16px",
+      "displayKey": "Primitives.Dimension.Spacing.16",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.2",
+      "path": "Primitives.Dimension.Spacing.2",
+      "slashPath": "Dimension/Spacing/2",
+      "cssVar": "--dimension-spacing-2",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "2px",
+      "displayKey": "Primitives.Dimension.Spacing.2",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.24",
+      "path": "Primitives.Dimension.Spacing.24",
+      "slashPath": "Dimension/Spacing/24",
+      "cssVar": "--dimension-spacing-24",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "24px",
+      "displayKey": "Primitives.Dimension.Spacing.24",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.32",
+      "path": "Primitives.Dimension.Spacing.32",
+      "slashPath": "Dimension/Spacing/32",
+      "cssVar": "--dimension-spacing-32",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "32px",
+      "displayKey": "Primitives.Dimension.Spacing.32",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.4",
+      "path": "Primitives.Dimension.Spacing.4",
+      "slashPath": "Dimension/Spacing/4",
+      "cssVar": "--dimension-spacing-4",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "4px",
+      "displayKey": "Primitives.Dimension.Spacing.4",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.40",
+      "path": "Primitives.Dimension.Spacing.40",
+      "slashPath": "Dimension/Spacing/40",
+      "cssVar": "--dimension-spacing-40",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "40px",
+      "displayKey": "Primitives.Dimension.Spacing.40",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.48",
+      "path": "Primitives.Dimension.Spacing.48",
+      "slashPath": "Dimension/Spacing/48",
+      "cssVar": "--dimension-spacing-48",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "48px",
+      "displayKey": "Primitives.Dimension.Spacing.48",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.6",
+      "path": "Primitives.Dimension.Spacing.6",
+      "slashPath": "Dimension/Spacing/6",
+      "cssVar": "--dimension-spacing-6",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "6px",
+      "displayKey": "Primitives.Dimension.Spacing.6",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Primitives.Dimension.Spacing.8",
+      "path": "Primitives.Dimension.Spacing.8",
+      "slashPath": "Dimension/Spacing/8",
+      "cssVar": "--dimension-spacing-8",
+      "type": "dimension",
+      "collection": "Primitives",
+      "resolvedValue": "8px",
+      "displayKey": "Primitives.Dimension.Spacing.8",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Danger.Active",
+      "path": "Semantic.Color.Background.Action.Danger.Active",
+      "slashPath": "Color/Background/Action/Danger/Active",
+      "cssVar": "--color-background-action-danger-active",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-red-700)",
+      "displayKey": "Semantic.Color.Background.Action.Danger.Active",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Danger.Default",
+      "path": "Semantic.Color.Background.Action.Danger.Default",
+      "slashPath": "Color/Background/Action/Danger/Default",
+      "cssVar": "--color-background-action-danger-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-red-600)",
+      "displayKey": "Semantic.Color.Background.Action.Danger.Default",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Danger.Hover",
+      "path": "Semantic.Color.Background.Action.Danger.Hover",
+      "slashPath": "Color/Background/Action/Danger/Hover",
+      "cssVar": "--color-background-action-danger-hover",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-red-500)",
+      "displayKey": "Semantic.Color.Background.Action.Danger.Hover",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Disabled.Default",
+      "path": "Semantic.Color.Background.Action.Disabled.Default",
+      "slashPath": "Color/Background/Action/Disabled/Default",
+      "cssVar": "--color-background-action-disabled-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-100)",
+      "displayKey": "Semantic.Color.Background.Action.Disabled.Default",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Primary.Active",
+      "path": "Semantic.Color.Background.Action.Primary.Active",
+      "slashPath": "Color/Background/Action/Primary/Active",
+      "cssVar": "--color-background-action-primary-active",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-blue-400)",
+      "displayKey": "Semantic.Color.Background.Action.Primary.Active",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Primary.Default",
+      "path": "Semantic.Color.Background.Action.Primary.Default",
+      "slashPath": "Color/Background/Action/Primary/Default",
+      "cssVar": "--color-background-action-primary-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-blue-300)",
+      "displayKey": "Semantic.Color.Background.Action.Primary.Default",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Primary.Hover",
+      "path": "Semantic.Color.Background.Action.Primary.Hover",
+      "slashPath": "Color/Background/Action/Primary/Hover",
+      "cssVar": "--color-background-action-primary-hover",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-blue-200)",
+      "displayKey": "Semantic.Color.Background.Action.Primary.Hover",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Secondary.Active",
+      "path": "Semantic.Color.Background.Action.Secondary.Active",
+      "slashPath": "Color/Background/Action/Secondary/Active",
+      "cssVar": "--color-background-action-secondary-active",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-cucumber-300)",
+      "displayKey": "Semantic.Color.Background.Action.Secondary.Active",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Secondary.Default",
+      "path": "Semantic.Color.Background.Action.Secondary.Default",
+      "slashPath": "Color/Background/Action/Secondary/Default",
+      "cssVar": "--color-background-action-secondary-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-cucumber-200)",
+      "displayKey": "Semantic.Color.Background.Action.Secondary.Default",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Action.Secondary.Hover",
+      "path": "Semantic.Color.Background.Action.Secondary.Hover",
+      "slashPath": "Color/Background/Action/Secondary/Hover",
+      "cssVar": "--color-background-action-secondary-hover",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-cucumber-100)",
+      "displayKey": "Semantic.Color.Background.Action.Secondary.Hover",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Brand.Primary",
+      "path": "Semantic.Color.Background.Brand.Primary",
+      "slashPath": "Color/Background/Brand/Primary",
+      "cssVar": "--color-background-brand-primary",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-blue-300)",
+      "displayKey": "Semantic.Color.Background.Brand.Primary",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Brand.Secondary",
+      "path": "Semantic.Color.Background.Brand.Secondary",
+      "slashPath": "Color/Background/Brand/Secondary",
+      "cssVar": "--color-background-brand-secondary",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-cucumber-200)",
+      "displayKey": "Semantic.Color.Background.Brand.Secondary",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Brand.Secondary-Dark",
+      "path": "Semantic.Color.Background.Brand.Secondary-Dark",
+      "slashPath": "Color/Background/Brand/Secondary-Dark",
+      "cssVar": "--color-background-brand-secondary-dark",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-cucumber-800)",
+      "displayKey": "Semantic.Color.Background.Brand.Secondary-Dark",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Brand.Tertiary",
+      "path": "Semantic.Color.Background.Brand.Tertiary",
+      "slashPath": "Color/Background/Brand/Tertiary",
+      "cssVar": "--color-background-brand-tertiary",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-extra-palette-lavender)",
+      "displayKey": "Semantic.Color.Background.Brand.Tertiary",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Decorative.100",
+      "path": "Semantic.Color.Background.Decorative.100",
+      "slashPath": "Color/Background/Decorative/100",
+      "cssVar": "--color-background-decorative-100",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-blue-200)",
+      "displayKey": "Semantic.Color.Background.Decorative.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Decorative.200",
+      "path": "Semantic.Color.Background.Decorative.200",
+      "slashPath": "Color/Background/Decorative/200",
+      "cssVar": "--color-background-decorative-200",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-background-surface-card)",
+      "displayKey": "Semantic.Color.Background.Decorative.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Decorative.300",
+      "path": "Semantic.Color.Background.Decorative.300",
+      "slashPath": "Color/Background/Decorative/300",
+      "cssVar": "--color-background-decorative-300",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-extra-palette-bermuda)",
+      "displayKey": "Semantic.Color.Background.Decorative.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Decorative.400",
+      "path": "Semantic.Color.Background.Decorative.400",
+      "slashPath": "Color/Background/Decorative/400",
+      "cssVar": "--color-background-decorative-400",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-red-100)",
+      "displayKey": "Semantic.Color.Background.Decorative.400",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Decorative.500",
+      "path": "Semantic.Color.Background.Decorative.500",
+      "slashPath": "Color/Background/Decorative/500",
+      "cssVar": "--color-background-decorative-500",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-extra-palette-moon-raker)",
+      "displayKey": "Semantic.Color.Background.Decorative.500",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Decorative.600",
+      "path": "Semantic.Color.Background.Decorative.600",
+      "slashPath": "Color/Background/Decorative/600",
+      "cssVar": "--color-background-decorative-600",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-extra-palette-lime-cream)",
+      "displayKey": "Semantic.Color.Background.Decorative.600",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Feedback.Default",
+      "path": "Semantic.Color.Background.Feedback.Default",
+      "slashPath": "Color/Background/Feedback/Default",
+      "cssVar": "--color-background-feedback-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-white)",
+      "displayKey": "Semantic.Color.Background.Feedback.Default",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Overlay.Media",
+      "path": "Semantic.Color.Background.Overlay.Media",
+      "slashPath": "Color/Background/Overlay/Media",
+      "cssVar": "--color-background-overlay-media",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-black-10)",
+      "displayKey": "Semantic.Color.Background.Overlay.Media",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Overlay.Modal",
+      "path": "Semantic.Color.Background.Overlay.Modal",
+      "slashPath": "Color/Background/Overlay/Modal",
+      "cssVar": "--color-background-overlay-modal",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-black-20)",
+      "displayKey": "Semantic.Color.Background.Overlay.Modal",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Surface.Card",
+      "path": "Semantic.Color.Background.Surface.Card",
+      "slashPath": "Color/Background/Surface/Card",
+      "cssVar": "--color-background-surface-card",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-extra-palette-english-cream)",
+      "displayKey": "Semantic.Color.Background.Surface.Card",
+      "inDegree": 1,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Background.Surface.Control",
+      "path": "Semantic.Color.Background.Surface.Control",
+      "slashPath": "Color/Background/Surface/Control",
+      "cssVar": "--color-background-surface-control",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-white)",
+      "displayKey": "Semantic.Color.Background.Surface.Control",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Feedback.Danger",
+      "path": "Semantic.Color.Border.Feedback.Danger",
+      "slashPath": "Color/Border/Feedback/Danger",
+      "cssVar": "--color-border-feedback-danger",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-red-600)",
+      "displayKey": "Semantic.Color.Border.Feedback.Danger",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Feedback.Information",
+      "path": "Semantic.Color.Border.Feedback.Information",
+      "slashPath": "Color/Border/Feedback/Information",
+      "cssVar": "--color-border-feedback-information",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-raw-umber-500)",
+      "displayKey": "Semantic.Color.Border.Feedback.Information",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Feedback.Success",
+      "path": "Semantic.Color.Border.Feedback.Success",
+      "slashPath": "Color/Border/Feedback/Success",
+      "cssVar": "--color-border-feedback-success",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-ocean-green-700)",
+      "displayKey": "Semantic.Color.Border.Feedback.Success",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Neutral.Alpha-05",
+      "path": "Semantic.Color.Border.Neutral.Alpha-05",
+      "slashPath": "Color/Border/Neutral/Alpha-05",
+      "cssVar": "--color-border-neutral-alpha-05",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-black-05)",
+      "displayKey": "Semantic.Color.Border.Neutral.Alpha-05",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Neutral.Alpha-10",
+      "path": "Semantic.Color.Border.Neutral.Alpha-10",
+      "slashPath": "Color/Border/Neutral/Alpha-10",
+      "cssVar": "--color-border-neutral-alpha-10",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-black-10)",
+      "displayKey": "Semantic.Color.Border.Neutral.Alpha-10",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Neutral.Alpha-20",
+      "path": "Semantic.Color.Border.Neutral.Alpha-20",
+      "slashPath": "Color/Border/Neutral/Alpha-20",
+      "cssVar": "--color-border-neutral-alpha-20",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-black-20)",
+      "displayKey": "Semantic.Color.Border.Neutral.Alpha-20",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Neutral.Default",
+      "path": "Semantic.Color.Border.Neutral.Default",
+      "slashPath": "Color/Border/Neutral/Default",
+      "cssVar": "--color-border-neutral-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-500)",
+      "displayKey": "Semantic.Color.Border.Neutral.Default",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Neutral.Emphasis",
+      "path": "Semantic.Color.Border.Neutral.Emphasis",
+      "slashPath": "Color/Border/Neutral/Emphasis",
+      "cssVar": "--color-border-neutral-emphasis",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-800)",
+      "displayKey": "Semantic.Color.Border.Neutral.Emphasis",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Border.Neutral.Subtle",
+      "path": "Semantic.Color.Border.Neutral.Subtle",
+      "slashPath": "Color/Border/Neutral/Subtle",
+      "cssVar": "--color-border-neutral-subtle",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-200)",
+      "displayKey": "Semantic.Color.Border.Neutral.Subtle",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Focus-Outline.Inner",
+      "path": "Semantic.Color.Focus-Outline.Inner",
+      "slashPath": "Color/Focus-Outline/Inner",
+      "cssVar": "--color-focus-outline-inner",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-white)",
+      "displayKey": "Semantic.Color.Focus-Outline.Inner",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Focus-Outline.Outer",
+      "path": "Semantic.Color.Focus-Outline.Outer",
+      "slashPath": "Color/Focus-Outline/Outer",
+      "cssVar": "--color-focus-outline-outer",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-blue-700)",
+      "displayKey": "Semantic.Color.Focus-Outline.Outer",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Action.On-Danger",
+      "path": "Semantic.Color.Icon.Action.On-Danger",
+      "slashPath": "Color/Icon/Action/On-Danger",
+      "cssVar": "--color-icon-action-on-danger",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-white)",
+      "displayKey": "Semantic.Color.Icon.Action.On-Danger",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Action.On-Disabled",
+      "path": "Semantic.Color.Icon.Action.On-Disabled",
+      "slashPath": "Color/Icon/Action/On-Disabled",
+      "cssVar": "--color-icon-action-on-disabled",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-800)",
+      "displayKey": "Semantic.Color.Icon.Action.On-Disabled",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Action.On-Primary",
+      "path": "Semantic.Color.Icon.Action.On-Primary",
+      "slashPath": "Color/Icon/Action/On-Primary",
+      "cssVar": "--color-icon-action-on-primary",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-900)",
+      "displayKey": "Semantic.Color.Icon.Action.On-Primary",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Action.On-Secondary",
+      "path": "Semantic.Color.Icon.Action.On-Secondary",
+      "slashPath": "Color/Icon/Action/On-Secondary",
+      "cssVar": "--color-icon-action-on-secondary",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-icon-neutral-default)",
+      "displayKey": "Semantic.Color.Icon.Action.On-Secondary",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Feedback.Danger",
+      "path": "Semantic.Color.Icon.Feedback.Danger",
+      "slashPath": "Color/Icon/Feedback/Danger",
+      "cssVar": "--color-icon-feedback-danger",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-red-600)",
+      "displayKey": "Semantic.Color.Icon.Feedback.Danger",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Feedback.Information",
+      "path": "Semantic.Color.Icon.Feedback.Information",
+      "slashPath": "Color/Icon/Feedback/Information",
+      "cssVar": "--color-icon-feedback-information",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-raw-umber-600)",
+      "displayKey": "Semantic.Color.Icon.Feedback.Information",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Feedback.Success",
+      "path": "Semantic.Color.Icon.Feedback.Success",
+      "slashPath": "Color/Icon/Feedback/Success",
+      "cssVar": "--color-icon-feedback-success",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-ocean-green-700)",
+      "displayKey": "Semantic.Color.Icon.Feedback.Success",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Neutral.Default",
+      "path": "Semantic.Color.Icon.Neutral.Default",
+      "slashPath": "Color/Icon/Neutral/Default",
+      "cssVar": "--color-icon-neutral-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-900)",
+      "displayKey": "Semantic.Color.Icon.Neutral.Default",
+      "inDegree": 1,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Icon.Overlay.On-Overlay",
+      "path": "Semantic.Color.Icon.Overlay.On-Overlay",
+      "slashPath": "Color/Icon/Overlay/On-Overlay",
+      "cssVar": "--color-icon-overlay-on-overlay",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-white)",
+      "displayKey": "Semantic.Color.Icon.Overlay.On-Overlay",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Shadow.100",
+      "path": "Semantic.Color.Shadow.100",
+      "slashPath": "Color/Shadow/100",
+      "cssVar": "--color-shadow-100",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-black-07)",
+      "displayKey": "Semantic.Color.Shadow.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Shadow.200",
+      "path": "Semantic.Color.Shadow.200",
+      "slashPath": "Color/Shadow/200",
+      "cssVar": "--color-shadow-200",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-black-16)",
+      "displayKey": "Semantic.Color.Shadow.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Shadow.300",
+      "path": "Semantic.Color.Shadow.300",
+      "slashPath": "Color/Shadow/300",
+      "cssVar": "--color-shadow-300",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-black-20)",
+      "displayKey": "Semantic.Color.Shadow.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Action.On-Danger",
+      "path": "Semantic.Color.Text.Action.On-Danger",
+      "slashPath": "Color/Text/Action/On-Danger",
+      "cssVar": "--color-text-action-on-danger",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-white)",
+      "displayKey": "Semantic.Color.Text.Action.On-Danger",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Action.On-Disabled",
+      "path": "Semantic.Color.Text.Action.On-Disabled",
+      "slashPath": "Color/Text/Action/On-Disabled",
+      "cssVar": "--color-text-action-on-disabled",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-800)",
+      "displayKey": "Semantic.Color.Text.Action.On-Disabled",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Action.On-Primary",
+      "path": "Semantic.Color.Text.Action.On-Primary",
+      "slashPath": "Color/Text/Action/On-Primary",
+      "cssVar": "--color-text-action-on-primary",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-900)",
+      "displayKey": "Semantic.Color.Text.Action.On-Primary",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Action.On-Secondary",
+      "path": "Semantic.Color.Text.Action.On-Secondary",
+      "slashPath": "Color/Text/Action/On-Secondary",
+      "cssVar": "--color-text-action-on-secondary",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-text-neutral-default)",
+      "displayKey": "Semantic.Color.Text.Action.On-Secondary",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Feedback.Danger",
+      "path": "Semantic.Color.Text.Feedback.Danger",
+      "slashPath": "Color/Text/Feedback/Danger",
+      "cssVar": "--color-text-feedback-danger",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-red-600)",
+      "displayKey": "Semantic.Color.Text.Feedback.Danger",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Feedback.Success",
+      "path": "Semantic.Color.Text.Feedback.Success",
+      "slashPath": "Color/Text/Feedback/Success",
+      "cssVar": "--color-text-feedback-success",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-ocean-green-800)",
+      "displayKey": "Semantic.Color.Text.Feedback.Success",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Link.Default",
+      "path": "Semantic.Color.Text.Link.Default",
+      "slashPath": "Color/Text/Link/Default",
+      "cssVar": "--color-text-link-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-cucumber-800)",
+      "displayKey": "Semantic.Color.Text.Link.Default",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Neutral.Default",
+      "path": "Semantic.Color.Text.Neutral.Default",
+      "slashPath": "Color/Text/Neutral/Default",
+      "cssVar": "--color-text-neutral-default",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-900)",
+      "displayKey": "Semantic.Color.Text.Neutral.Default",
+      "inDegree": 1,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Neutral.Muted",
+      "path": "Semantic.Color.Text.Neutral.Muted",
+      "slashPath": "Color/Text/Neutral/Muted",
+      "cssVar": "--color-text-neutral-muted",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-800)",
+      "displayKey": "Semantic.Color.Text.Neutral.Muted",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Neutral.Subtle",
+      "path": "Semantic.Color.Text.Neutral.Subtle",
+      "slashPath": "Color/Text/Neutral/Subtle",
+      "cssVar": "--color-text-neutral-subtle",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-grey-700)",
+      "displayKey": "Semantic.Color.Text.Neutral.Subtle",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Color.Text.Overlay.On-Overlay",
+      "path": "Semantic.Color.Text.Overlay.On-Overlay",
+      "slashPath": "Color/Text/Overlay/On-Overlay",
+      "cssVar": "--color-text-overlay-on-overlay",
+      "type": "color",
+      "collection": "Semantic",
+      "resolvedValue": "var(--color-bw-white)",
+      "displayKey": "Semantic.Color.Text.Overlay.On-Overlay",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Border.Radius.100",
+      "path": "Semantic.Dimension.Border.Radius.100",
+      "slashPath": "Dimension/Border/Radius/100",
+      "cssVar": "--dimension-border-radius-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-radius-4)",
+      "displayKey": "Semantic.Dimension.Border.Radius.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Border.Radius.200",
+      "path": "Semantic.Dimension.Border.Radius.200",
+      "slashPath": "Dimension/Border/Radius/200",
+      "cssVar": "--dimension-border-radius-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-radius-8)",
+      "displayKey": "Semantic.Dimension.Border.Radius.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Border.Radius.300",
+      "path": "Semantic.Dimension.Border.Radius.300",
+      "slashPath": "Dimension/Border/Radius/300",
+      "cssVar": "--dimension-border-radius-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-radius-12)",
+      "displayKey": "Semantic.Dimension.Border.Radius.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Border.Radius.400",
+      "path": "Semantic.Dimension.Border.Radius.400",
+      "slashPath": "Dimension/Border/Radius/400",
+      "cssVar": "--dimension-border-radius-400",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-radius-16)",
+      "displayKey": "Semantic.Dimension.Border.Radius.400",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Border.Radius.Full",
+      "path": "Semantic.Dimension.Border.Radius.Full",
+      "slashPath": "Dimension/Border/Radius/Full",
+      "cssVar": "--dimension-border-radius-full",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-radius-1000)",
+      "displayKey": "Semantic.Dimension.Border.Radius.Full",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Border.Width.100",
+      "path": "Semantic.Dimension.Border.Width.100",
+      "slashPath": "Dimension/Border/Width/100",
+      "cssVar": "--dimension-border-width-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-width-1)",
+      "displayKey": "Semantic.Dimension.Border.Width.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Border.Width.200",
+      "path": "Semantic.Dimension.Border.Width.200",
+      "slashPath": "Dimension/Border/Width/200",
+      "cssVar": "--dimension-border-width-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-width-2)",
+      "displayKey": "Semantic.Dimension.Border.Width.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Focus-Outline.Radius.Inner",
+      "path": "Semantic.Dimension.Focus-Outline.Radius.Inner",
+      "slashPath": "Dimension/Focus-Outline/Radius/Inner",
+      "cssVar": "--dimension-focus-outline-radius-inner",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-radius-9)",
+      "displayKey": "Semantic.Dimension.Focus-Outline.Radius.Inner",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Focus-Outline.Radius.Outer",
+      "path": "Semantic.Dimension.Focus-Outline.Radius.Outer",
+      "slashPath": "Dimension/Focus-Outline/Radius/Outer",
+      "cssVar": "--dimension-focus-outline-radius-outer",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-radius-11)",
+      "displayKey": "Semantic.Dimension.Focus-Outline.Radius.Outer",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Focus-Outline.Width.Inner",
+      "path": "Semantic.Dimension.Focus-Outline.Width.Inner",
+      "slashPath": "Dimension/Focus-Outline/Width/Inner",
+      "cssVar": "--dimension-focus-outline-width-inner",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-width-2)",
+      "displayKey": "Semantic.Dimension.Focus-Outline.Width.Inner",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Focus-Outline.Width.Outer",
+      "path": "Semantic.Dimension.Focus-Outline.Width.Outer",
+      "slashPath": "Dimension/Focus-Outline/Width/Outer",
+      "cssVar": "--dimension-focus-outline-width-outer",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-border-width-2)",
+      "displayKey": "Semantic.Dimension.Focus-Outline.Width.Outer",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Bottom.100",
+      "path": "Semantic.Dimension.Shadow.Blur.Bottom.100",
+      "slashPath": "Dimension/Shadow/Blur/Bottom/100",
+      "cssVar": "--dimension-shadow-blur-bottom-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-12)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Bottom.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Bottom.200",
+      "path": "Semantic.Dimension.Shadow.Blur.Bottom.200",
+      "slashPath": "Dimension/Shadow/Blur/Bottom/200",
+      "cssVar": "--dimension-shadow-blur-bottom-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-16)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Bottom.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Bottom.300",
+      "path": "Semantic.Dimension.Shadow.Blur.Bottom.300",
+      "slashPath": "Dimension/Shadow/Blur/Bottom/300",
+      "cssVar": "--dimension-shadow-blur-bottom-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-20)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Bottom.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Default.100",
+      "path": "Semantic.Dimension.Shadow.Blur.Default.100",
+      "slashPath": "Dimension/Shadow/Blur/Default/100",
+      "cssVar": "--dimension-shadow-blur-default-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-12)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Default.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Default.200",
+      "path": "Semantic.Dimension.Shadow.Blur.Default.200",
+      "slashPath": "Dimension/Shadow/Blur/Default/200",
+      "cssVar": "--dimension-shadow-blur-default-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-16)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Default.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Default.300",
+      "path": "Semantic.Dimension.Shadow.Blur.Default.300",
+      "slashPath": "Dimension/Shadow/Blur/Default/300",
+      "cssVar": "--dimension-shadow-blur-default-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-20)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Default.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Left.100",
+      "path": "Semantic.Dimension.Shadow.Blur.Left.100",
+      "slashPath": "Dimension/Shadow/Blur/Left/100",
+      "cssVar": "--dimension-shadow-blur-left-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-12)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Left.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Left.200",
+      "path": "Semantic.Dimension.Shadow.Blur.Left.200",
+      "slashPath": "Dimension/Shadow/Blur/Left/200",
+      "cssVar": "--dimension-shadow-blur-left-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-16)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Left.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Left.300",
+      "path": "Semantic.Dimension.Shadow.Blur.Left.300",
+      "slashPath": "Dimension/Shadow/Blur/Left/300",
+      "cssVar": "--dimension-shadow-blur-left-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-20)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Left.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Right.100",
+      "path": "Semantic.Dimension.Shadow.Blur.Right.100",
+      "slashPath": "Dimension/Shadow/Blur/Right/100",
+      "cssVar": "--dimension-shadow-blur-right-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-12)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Right.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Right.200",
+      "path": "Semantic.Dimension.Shadow.Blur.Right.200",
+      "slashPath": "Dimension/Shadow/Blur/Right/200",
+      "cssVar": "--dimension-shadow-blur-right-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-16)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Right.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Right.300",
+      "path": "Semantic.Dimension.Shadow.Blur.Right.300",
+      "slashPath": "Dimension/Shadow/Blur/Right/300",
+      "cssVar": "--dimension-shadow-blur-right-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-20)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Right.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Top.100",
+      "path": "Semantic.Dimension.Shadow.Blur.Top.100",
+      "slashPath": "Dimension/Shadow/Blur/Top/100",
+      "cssVar": "--dimension-shadow-blur-top-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-12)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Top.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Top.200",
+      "path": "Semantic.Dimension.Shadow.Blur.Top.200",
+      "slashPath": "Dimension/Shadow/Blur/Top/200",
+      "cssVar": "--dimension-shadow-blur-top-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-16)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Top.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Blur.Top.300",
+      "path": "Semantic.Dimension.Shadow.Blur.Top.300",
+      "slashPath": "Dimension/Shadow/Blur/Top/300",
+      "cssVar": "--dimension-shadow-blur-top-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-blur-20)",
+      "displayKey": "Semantic.Dimension.Shadow.Blur.Top.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Bottom.100",
+      "path": "Semantic.Dimension.Shadow.Spread.Bottom.100",
+      "slashPath": "Dimension/Shadow/Spread/Bottom/100",
+      "cssVar": "--dimension-shadow-spread-bottom-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--6)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Bottom.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Bottom.200",
+      "path": "Semantic.Dimension.Shadow.Spread.Bottom.200",
+      "slashPath": "Dimension/Shadow/Spread/Bottom/200",
+      "cssVar": "--dimension-shadow-spread-bottom-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Bottom.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Bottom.300",
+      "path": "Semantic.Dimension.Shadow.Spread.Bottom.300",
+      "slashPath": "Dimension/Shadow/Spread/Bottom/300",
+      "cssVar": "--dimension-shadow-spread-bottom-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Bottom.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Default.100",
+      "path": "Semantic.Dimension.Shadow.Spread.Default.100",
+      "slashPath": "Dimension/Shadow/Spread/Default/100",
+      "cssVar": "--dimension-shadow-spread-default-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Default.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Default.200",
+      "path": "Semantic.Dimension.Shadow.Spread.Default.200",
+      "slashPath": "Dimension/Shadow/Spread/Default/200",
+      "cssVar": "--dimension-shadow-spread-default-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Default.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Default.300",
+      "path": "Semantic.Dimension.Shadow.Spread.Default.300",
+      "slashPath": "Dimension/Shadow/Spread/Default/300",
+      "cssVar": "--dimension-shadow-spread-default-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Default.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Left.100",
+      "path": "Semantic.Dimension.Shadow.Spread.Left.100",
+      "slashPath": "Dimension/Shadow/Spread/Left/100",
+      "cssVar": "--dimension-shadow-spread-left-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--6)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Left.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Left.200",
+      "path": "Semantic.Dimension.Shadow.Spread.Left.200",
+      "slashPath": "Dimension/Shadow/Spread/Left/200",
+      "cssVar": "--dimension-shadow-spread-left-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Left.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Left.300",
+      "path": "Semantic.Dimension.Shadow.Spread.Left.300",
+      "slashPath": "Dimension/Shadow/Spread/Left/300",
+      "cssVar": "--dimension-shadow-spread-left-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Left.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Right.100",
+      "path": "Semantic.Dimension.Shadow.Spread.Right.100",
+      "slashPath": "Dimension/Shadow/Spread/Right/100",
+      "cssVar": "--dimension-shadow-spread-right-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--6)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Right.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Right.200",
+      "path": "Semantic.Dimension.Shadow.Spread.Right.200",
+      "slashPath": "Dimension/Shadow/Spread/Right/200",
+      "cssVar": "--dimension-shadow-spread-right-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Right.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Right.300",
+      "path": "Semantic.Dimension.Shadow.Spread.Right.300",
+      "slashPath": "Dimension/Shadow/Spread/Right/300",
+      "cssVar": "--dimension-shadow-spread-right-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Right.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Top.100",
+      "path": "Semantic.Dimension.Shadow.Spread.Top.100",
+      "slashPath": "Dimension/Shadow/Spread/Top/100",
+      "cssVar": "--dimension-shadow-spread-top-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--6)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Top.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Top.200",
+      "path": "Semantic.Dimension.Shadow.Spread.Top.200",
+      "slashPath": "Dimension/Shadow/Spread/Top/200",
+      "cssVar": "--dimension-shadow-spread-top-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Top.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Spread.Top.300",
+      "path": "Semantic.Dimension.Shadow.Spread.Top.300",
+      "slashPath": "Dimension/Shadow/Spread/Top/300",
+      "cssVar": "--dimension-shadow-spread-top-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-spread--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Spread.Top.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Bottom.100",
+      "path": "Semantic.Dimension.Shadow.X.Bottom.100",
+      "slashPath": "Dimension/Shadow/X/Bottom/100",
+      "cssVar": "--dimension-shadow-x-bottom-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Bottom.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Bottom.200",
+      "path": "Semantic.Dimension.Shadow.X.Bottom.200",
+      "slashPath": "Dimension/Shadow/X/Bottom/200",
+      "cssVar": "--dimension-shadow-x-bottom-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Bottom.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Bottom.300",
+      "path": "Semantic.Dimension.Shadow.X.Bottom.300",
+      "slashPath": "Dimension/Shadow/X/Bottom/300",
+      "cssVar": "--dimension-shadow-x-bottom-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Bottom.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Default.100",
+      "path": "Semantic.Dimension.Shadow.X.Default.100",
+      "slashPath": "Dimension/Shadow/X/Default/100",
+      "cssVar": "--dimension-shadow-x-default-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Default.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Default.200",
+      "path": "Semantic.Dimension.Shadow.X.Default.200",
+      "slashPath": "Dimension/Shadow/X/Default/200",
+      "cssVar": "--dimension-shadow-x-default-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Default.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Default.300",
+      "path": "Semantic.Dimension.Shadow.X.Default.300",
+      "slashPath": "Dimension/Shadow/X/Default/300",
+      "cssVar": "--dimension-shadow-x-default-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Default.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Left.100",
+      "path": "Semantic.Dimension.Shadow.X.Left.100",
+      "slashPath": "Dimension/Shadow/X/Left/100",
+      "cssVar": "--dimension-shadow-x-left-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x--8)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Left.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Left.200",
+      "path": "Semantic.Dimension.Shadow.X.Left.200",
+      "slashPath": "Dimension/Shadow/X/Left/200",
+      "cssVar": "--dimension-shadow-x-left-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x--10)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Left.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Left.300",
+      "path": "Semantic.Dimension.Shadow.X.Left.300",
+      "slashPath": "Dimension/Shadow/X/Left/300",
+      "cssVar": "--dimension-shadow-x-left-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x--18)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Left.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Right.100",
+      "path": "Semantic.Dimension.Shadow.X.Right.100",
+      "slashPath": "Dimension/Shadow/X/Right/100",
+      "cssVar": "--dimension-shadow-x-right-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-8)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Right.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Right.200",
+      "path": "Semantic.Dimension.Shadow.X.Right.200",
+      "slashPath": "Dimension/Shadow/X/Right/200",
+      "cssVar": "--dimension-shadow-x-right-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-10)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Right.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Right.300",
+      "path": "Semantic.Dimension.Shadow.X.Right.300",
+      "slashPath": "Dimension/Shadow/X/Right/300",
+      "cssVar": "--dimension-shadow-x-right-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-18)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Right.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Top.100",
+      "path": "Semantic.Dimension.Shadow.X.Top.100",
+      "slashPath": "Dimension/Shadow/X/Top/100",
+      "cssVar": "--dimension-shadow-x-top-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Top.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Top.200",
+      "path": "Semantic.Dimension.Shadow.X.Top.200",
+      "slashPath": "Dimension/Shadow/X/Top/200",
+      "cssVar": "--dimension-shadow-x-top-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Top.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.X.Top.300",
+      "path": "Semantic.Dimension.Shadow.X.Top.300",
+      "slashPath": "Dimension/Shadow/X/Top/300",
+      "cssVar": "--dimension-shadow-x-top-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-x-0)",
+      "displayKey": "Semantic.Dimension.Shadow.X.Top.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Bottom.100",
+      "path": "Semantic.Dimension.Shadow.Y.Bottom.100",
+      "slashPath": "Dimension/Shadow/Y/Bottom/100",
+      "cssVar": "--dimension-shadow-y-bottom-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-8)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Bottom.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Bottom.200",
+      "path": "Semantic.Dimension.Shadow.Y.Bottom.200",
+      "slashPath": "Dimension/Shadow/Y/Bottom/200",
+      "cssVar": "--dimension-shadow-y-bottom-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-10)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Bottom.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Bottom.300",
+      "path": "Semantic.Dimension.Shadow.Y.Bottom.300",
+      "slashPath": "Dimension/Shadow/Y/Bottom/300",
+      "cssVar": "--dimension-shadow-y-bottom-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-18)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Bottom.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Default.100",
+      "path": "Semantic.Dimension.Shadow.Y.Default.100",
+      "slashPath": "Dimension/Shadow/Y/Default/100",
+      "cssVar": "--dimension-shadow-y-default-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-4)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Default.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Default.200",
+      "path": "Semantic.Dimension.Shadow.Y.Default.200",
+      "slashPath": "Dimension/Shadow/Y/Default/200",
+      "cssVar": "--dimension-shadow-y-default-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-4)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Default.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Default.300",
+      "path": "Semantic.Dimension.Shadow.Y.Default.300",
+      "slashPath": "Dimension/Shadow/Y/Default/300",
+      "cssVar": "--dimension-shadow-y-default-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-8)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Default.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Left.100",
+      "path": "Semantic.Dimension.Shadow.Y.Left.100",
+      "slashPath": "Dimension/Shadow/Y/Left/100",
+      "cssVar": "--dimension-shadow-y-left-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Left.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Left.200",
+      "path": "Semantic.Dimension.Shadow.Y.Left.200",
+      "slashPath": "Dimension/Shadow/Y/Left/200",
+      "cssVar": "--dimension-shadow-y-left-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Left.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Left.300",
+      "path": "Semantic.Dimension.Shadow.Y.Left.300",
+      "slashPath": "Dimension/Shadow/Y/Left/300",
+      "cssVar": "--dimension-shadow-y-left-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Left.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Right.100",
+      "path": "Semantic.Dimension.Shadow.Y.Right.100",
+      "slashPath": "Dimension/Shadow/Y/Right/100",
+      "cssVar": "--dimension-shadow-y-right-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Right.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Right.200",
+      "path": "Semantic.Dimension.Shadow.Y.Right.200",
+      "slashPath": "Dimension/Shadow/Y/Right/200",
+      "cssVar": "--dimension-shadow-y-right-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Right.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Right.300",
+      "path": "Semantic.Dimension.Shadow.Y.Right.300",
+      "slashPath": "Dimension/Shadow/Y/Right/300",
+      "cssVar": "--dimension-shadow-y-right-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y-0)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Right.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Top.100",
+      "path": "Semantic.Dimension.Shadow.Y.Top.100",
+      "slashPath": "Dimension/Shadow/Y/Top/100",
+      "cssVar": "--dimension-shadow-y-top-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y--8)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Top.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Top.200",
+      "path": "Semantic.Dimension.Shadow.Y.Top.200",
+      "slashPath": "Dimension/Shadow/Y/Top/200",
+      "cssVar": "--dimension-shadow-y-top-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y--10)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Top.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Shadow.Y.Top.300",
+      "path": "Semantic.Dimension.Shadow.Y.Top.300",
+      "slashPath": "Dimension/Shadow/Y/Top/300",
+      "cssVar": "--dimension-shadow-y-top-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-shadow-y--18)",
+      "displayKey": "Semantic.Dimension.Shadow.Y.Top.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.100",
+      "path": "Semantic.Dimension.Spacing.100",
+      "slashPath": "Dimension/Spacing/100",
+      "cssVar": "--dimension-spacing-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-2)",
+      "displayKey": "Semantic.Dimension.Spacing.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.200",
+      "path": "Semantic.Dimension.Spacing.200",
+      "slashPath": "Dimension/Spacing/200",
+      "cssVar": "--dimension-spacing-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-4)",
+      "displayKey": "Semantic.Dimension.Spacing.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.300",
+      "path": "Semantic.Dimension.Spacing.300",
+      "slashPath": "Dimension/Spacing/300",
+      "cssVar": "--dimension-spacing-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-6)",
+      "displayKey": "Semantic.Dimension.Spacing.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.400",
+      "path": "Semantic.Dimension.Spacing.400",
+      "slashPath": "Dimension/Spacing/400",
+      "cssVar": "--dimension-spacing-400",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-8)",
+      "displayKey": "Semantic.Dimension.Spacing.400",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.500",
+      "path": "Semantic.Dimension.Spacing.500",
+      "slashPath": "Dimension/Spacing/500",
+      "cssVar": "--dimension-spacing-500",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-10)",
+      "displayKey": "Semantic.Dimension.Spacing.500",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.600",
+      "path": "Semantic.Dimension.Spacing.600",
+      "slashPath": "Dimension/Spacing/600",
+      "cssVar": "--dimension-spacing-600",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-12)",
+      "displayKey": "Semantic.Dimension.Spacing.600",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.700",
+      "path": "Semantic.Dimension.Spacing.700",
+      "slashPath": "Dimension/Spacing/700",
+      "cssVar": "--dimension-spacing-700",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-14)",
+      "displayKey": "Semantic.Dimension.Spacing.700",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.800",
+      "path": "Semantic.Dimension.Spacing.800",
+      "slashPath": "Dimension/Spacing/800",
+      "cssVar": "--dimension-spacing-800",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-16)",
+      "displayKey": "Semantic.Dimension.Spacing.800",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Dimension.Spacing.900",
+      "path": "Semantic.Dimension.Spacing.900",
+      "slashPath": "Dimension/Spacing/900",
+      "cssVar": "--dimension-spacing-900",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--dimension-spacing-24)",
+      "displayKey": "Semantic.Dimension.Spacing.900",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Family.Body",
+      "path": "Semantic.Font.Family.Body",
+      "slashPath": "Font/Family/Body",
+      "cssVar": "--font-family-body",
+      "type": "string",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-family-nunito-sans)",
+      "displayKey": "Semantic.Font.Family.Body",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Family.Heading",
+      "path": "Semantic.Font.Family.Heading",
+      "slashPath": "Font/Family/Heading",
+      "cssVar": "--font-family-heading",
+      "type": "string",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-family-lora)",
+      "displayKey": "Semantic.Font.Family.Heading",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.100",
+      "path": "Semantic.Font.Line-Height.100",
+      "slashPath": "Font/Line-Height/100",
+      "cssVar": "--font-line-height-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-12)",
+      "displayKey": "Semantic.Font.Line-Height.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.200",
+      "path": "Semantic.Font.Line-Height.200",
+      "slashPath": "Font/Line-Height/200",
+      "cssVar": "--font-line-height-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-14)",
+      "displayKey": "Semantic.Font.Line-Height.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.300",
+      "path": "Semantic.Font.Line-Height.300",
+      "slashPath": "Font/Line-Height/300",
+      "cssVar": "--font-line-height-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-16)",
+      "displayKey": "Semantic.Font.Line-Height.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.400",
+      "path": "Semantic.Font.Line-Height.400",
+      "slashPath": "Font/Line-Height/400",
+      "cssVar": "--font-line-height-400",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-18)",
+      "displayKey": "Semantic.Font.Line-Height.400",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.500",
+      "path": "Semantic.Font.Line-Height.500",
+      "slashPath": "Font/Line-Height/500",
+      "cssVar": "--font-line-height-500",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-20)",
+      "displayKey": "Semantic.Font.Line-Height.500",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.600",
+      "path": "Semantic.Font.Line-Height.600",
+      "slashPath": "Font/Line-Height/600",
+      "cssVar": "--font-line-height-600",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-24)",
+      "displayKey": "Semantic.Font.Line-Height.600",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.700",
+      "path": "Semantic.Font.Line-Height.700",
+      "slashPath": "Font/Line-Height/700",
+      "cssVar": "--font-line-height-700",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-28)",
+      "displayKey": "Semantic.Font.Line-Height.700",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.800",
+      "path": "Semantic.Font.Line-Height.800",
+      "slashPath": "Font/Line-Height/800",
+      "cssVar": "--font-line-height-800",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-32)",
+      "displayKey": "Semantic.Font.Line-Height.800",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Line-Height.900",
+      "path": "Semantic.Font.Line-Height.900",
+      "slashPath": "Font/Line-Height/900",
+      "cssVar": "--font-line-height-900",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-line-height-36)",
+      "displayKey": "Semantic.Font.Line-Height.900",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.100",
+      "path": "Semantic.Font.Size.100",
+      "slashPath": "Font/Size/100",
+      "cssVar": "--font-size-100",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-12)",
+      "displayKey": "Semantic.Font.Size.100",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.200",
+      "path": "Semantic.Font.Size.200",
+      "slashPath": "Font/Size/200",
+      "cssVar": "--font-size-200",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-14)",
+      "displayKey": "Semantic.Font.Size.200",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.300",
+      "path": "Semantic.Font.Size.300",
+      "slashPath": "Font/Size/300",
+      "cssVar": "--font-size-300",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-16)",
+      "displayKey": "Semantic.Font.Size.300",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.400",
+      "path": "Semantic.Font.Size.400",
+      "slashPath": "Font/Size/400",
+      "cssVar": "--font-size-400",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-18)",
+      "displayKey": "Semantic.Font.Size.400",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.500",
+      "path": "Semantic.Font.Size.500",
+      "slashPath": "Font/Size/500",
+      "cssVar": "--font-size-500",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-20)",
+      "displayKey": "Semantic.Font.Size.500",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.600",
+      "path": "Semantic.Font.Size.600",
+      "slashPath": "Font/Size/600",
+      "cssVar": "--font-size-600",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-24)",
+      "displayKey": "Semantic.Font.Size.600",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.700",
+      "path": "Semantic.Font.Size.700",
+      "slashPath": "Font/Size/700",
+      "cssVar": "--font-size-700",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-28)",
+      "displayKey": "Semantic.Font.Size.700",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.800",
+      "path": "Semantic.Font.Size.800",
+      "slashPath": "Font/Size/800",
+      "cssVar": "--font-size-800",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-32)",
+      "displayKey": "Semantic.Font.Size.800",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Size.900",
+      "path": "Semantic.Font.Size.900",
+      "slashPath": "Font/Size/900",
+      "cssVar": "--font-size-900",
+      "type": "dimension",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-size-36)",
+      "displayKey": "Semantic.Font.Size.900",
+      "inDegree": 0,
+      "outDegree": 1,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Weight.Bold",
+      "path": "Semantic.Font.Weight.Bold",
+      "slashPath": "Font/Weight/Bold",
+      "cssVar": "--font-weight-bold",
+      "type": "string",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-weight-bold)",
+      "displayKey": "Semantic.Font.Weight.Bold",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Semantic.Font.Weight.Regular",
+      "path": "Semantic.Font.Weight.Regular",
+      "slashPath": "Font/Weight/Regular",
+      "cssVar": "--font-weight-regular",
+      "type": "string",
+      "collection": "Semantic",
+      "resolvedValue": "var(--font-weight-regular)",
+      "displayKey": "Semantic.Font.Weight.Regular",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Family.Lora",
+      "path": "Typography.Font.Family.Lora",
+      "slashPath": "Font/Family/Lora",
+      "cssVar": "--font-family-lora",
+      "type": "string",
+      "collection": "Typography",
+      "resolvedValue": "Lora",
+      "displayKey": "Typography.Font.Family.Lora",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Family.Nunito-Sans",
+      "path": "Typography.Font.Family.Nunito-Sans",
+      "slashPath": "Font/Family/Nunito-Sans",
+      "cssVar": "--font-family-nunito-sans",
+      "type": "string",
+      "collection": "Typography",
+      "resolvedValue": "Nunito Sans",
+      "displayKey": "Typography.Font.Family.Nunito-Sans",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.12",
+      "path": "Typography.Font.Line-Height.12",
+      "slashPath": "Font/Line-Height/12",
+      "cssVar": "--font-line-height-12",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1",
+      "displayKey": "Typography.Font.Line-Height.12",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.14",
+      "path": "Typography.Font.Line-Height.14",
+      "slashPath": "Font/Line-Height/14",
+      "cssVar": "--font-line-height-14",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.25",
+      "displayKey": "Typography.Font.Line-Height.14",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.16",
+      "path": "Typography.Font.Line-Height.16",
+      "slashPath": "Font/Line-Height/16",
+      "cssVar": "--font-line-height-16",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.5",
+      "displayKey": "Typography.Font.Line-Height.16",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.18",
+      "path": "Typography.Font.Line-Height.18",
+      "slashPath": "Font/Line-Height/18",
+      "cssVar": "--font-line-height-18",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.5",
+      "displayKey": "Typography.Font.Line-Height.18",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.20",
+      "path": "Typography.Font.Line-Height.20",
+      "slashPath": "Font/Line-Height/20",
+      "cssVar": "--font-line-height-20",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.625",
+      "displayKey": "Typography.Font.Line-Height.20",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.24",
+      "path": "Typography.Font.Line-Height.24",
+      "slashPath": "Font/Line-Height/24",
+      "cssVar": "--font-line-height-24",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.875",
+      "displayKey": "Typography.Font.Line-Height.24",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.28",
+      "path": "Typography.Font.Line-Height.28",
+      "slashPath": "Font/Line-Height/28",
+      "cssVar": "--font-line-height-28",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "2.125",
+      "displayKey": "Typography.Font.Line-Height.28",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.32",
+      "path": "Typography.Font.Line-Height.32",
+      "slashPath": "Font/Line-Height/32",
+      "cssVar": "--font-line-height-32",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "2.375",
+      "displayKey": "Typography.Font.Line-Height.32",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Line-Height.36",
+      "path": "Typography.Font.Line-Height.36",
+      "slashPath": "Font/Line-Height/36",
+      "cssVar": "--font-line-height-36",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "2.625",
+      "displayKey": "Typography.Font.Line-Height.36",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.12",
+      "path": "Typography.Font.Size.12",
+      "slashPath": "Font/Size/12",
+      "cssVar": "--font-size-12",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "0.75rem",
+      "displayKey": "Typography.Font.Size.12",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.14",
+      "path": "Typography.Font.Size.14",
+      "slashPath": "Font/Size/14",
+      "cssVar": "--font-size-14",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "0.875rem",
+      "displayKey": "Typography.Font.Size.14",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.16",
+      "path": "Typography.Font.Size.16",
+      "slashPath": "Font/Size/16",
+      "cssVar": "--font-size-16",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1rem",
+      "displayKey": "Typography.Font.Size.16",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.18",
+      "path": "Typography.Font.Size.18",
+      "slashPath": "Font/Size/18",
+      "cssVar": "--font-size-18",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.125rem",
+      "displayKey": "Typography.Font.Size.18",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.20",
+      "path": "Typography.Font.Size.20",
+      "slashPath": "Font/Size/20",
+      "cssVar": "--font-size-20",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.25rem",
+      "displayKey": "Typography.Font.Size.20",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.24",
+      "path": "Typography.Font.Size.24",
+      "slashPath": "Font/Size/24",
+      "cssVar": "--font-size-24",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.5rem",
+      "displayKey": "Typography.Font.Size.24",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.28",
+      "path": "Typography.Font.Size.28",
+      "slashPath": "Font/Size/28",
+      "cssVar": "--font-size-28",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "1.75rem",
+      "displayKey": "Typography.Font.Size.28",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.32",
+      "path": "Typography.Font.Size.32",
+      "slashPath": "Font/Size/32",
+      "cssVar": "--font-size-32",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "2rem",
+      "displayKey": "Typography.Font.Size.32",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Size.36",
+      "path": "Typography.Font.Size.36",
+      "slashPath": "Font/Size/36",
+      "cssVar": "--font-size-36",
+      "type": "dimension",
+      "collection": "Typography",
+      "resolvedValue": "2.25rem",
+      "displayKey": "Typography.Font.Size.36",
+      "inDegree": 1,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Weight.Bold",
+      "path": "Typography.Font.Weight.Bold",
+      "slashPath": "Font/Weight/Bold",
+      "cssVar": "--font-weight-bold",
+      "type": "string",
+      "collection": "Typography",
+      "resolvedValue": "bold",
+      "displayKey": "Typography.Font.Weight.Bold",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    },
+    {
+      "id": "path:Typography.Font.Weight.Regular",
+      "path": "Typography.Font.Weight.Regular",
+      "slashPath": "Font/Weight/Regular",
+      "cssVar": "--font-weight-regular",
+      "type": "string",
+      "collection": "Typography",
+      "resolvedValue": "regular",
+      "displayKey": "Typography.Font.Weight.Regular",
+      "inDegree": 0,
+      "outDegree": 0,
+      "isCycleMember": false
+    }
+  ],
+  "edges": [
+    {
+      "source": "path:A11y.A11y.Dimension.Min-Hit-Area",
+      "target": "path:Primitives.Dimension.A11y.Min-Hit-Area-Desktop-AA"
+    },
+    {
+      "source": "path:Components.Bottom-Bar.Background-Default",
+      "target": "path:Primitives.Color.Grey.100"
+    },
+    {
+      "source": "path:Components.Bottom-Bar.Background-Selected",
+      "target": "path:Primitives.Color.BW.White"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Danger.Active",
+      "target": "path:Primitives.Color.Red.700"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Danger.Default",
+      "target": "path:Primitives.Color.Red.600"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Danger.Hover",
+      "target": "path:Primitives.Color.Red.500"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Disabled.Default",
+      "target": "path:Primitives.Color.Grey.100"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Primary.Active",
+      "target": "path:Primitives.Color.Blue.400"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Primary.Default",
+      "target": "path:Primitives.Color.Blue.300"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Primary.Hover",
+      "target": "path:Primitives.Color.Blue.200"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Secondary.Active",
+      "target": "path:Primitives.Color.Cucumber.300"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Secondary.Default",
+      "target": "path:Primitives.Color.Cucumber.200"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Action.Secondary.Hover",
+      "target": "path:Primitives.Color.Cucumber.100"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Brand.Primary",
+      "target": "path:Primitives.Color.Blue.300"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Brand.Secondary",
+      "target": "path:Primitives.Color.Cucumber.200"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Brand.Secondary-Dark",
+      "target": "path:Primitives.Color.Cucumber.800"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Brand.Tertiary",
+      "target": "path:Primitives.Color.Extra-Palette.Lavender"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Decorative.100",
+      "target": "path:Primitives.Color.Blue.200"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Decorative.200",
+      "target": "path:Semantic.Color.Background.Surface.Card"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Decorative.300",
+      "target": "path:Primitives.Color.Extra-Palette.Bermuda"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Decorative.400",
+      "target": "path:Primitives.Color.Red.100"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Decorative.500",
+      "target": "path:Primitives.Color.Extra-Palette.Moon-Raker"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Decorative.600",
+      "target": "path:Primitives.Color.Extra-Palette.Lime-Cream"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Feedback.Default",
+      "target": "path:Primitives.Color.BW.White"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Overlay.Media",
+      "target": "path:Primitives.Color.BW.Black-10"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Overlay.Modal",
+      "target": "path:Primitives.Color.BW.Black-20"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Surface.Card",
+      "target": "path:Primitives.Color.Extra-Palette.English-Cream"
+    },
+    {
+      "source": "path:Semantic.Color.Background.Surface.Control",
+      "target": "path:Primitives.Color.BW.White"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Feedback.Danger",
+      "target": "path:Primitives.Color.Red.600"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Feedback.Information",
+      "target": "path:Primitives.Color.Raw-Umber.500"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Feedback.Success",
+      "target": "path:Primitives.Color.Ocean-Green.700"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Neutral.Alpha-05",
+      "target": "path:Primitives.Color.BW.Black-05"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Neutral.Alpha-10",
+      "target": "path:Primitives.Color.BW.Black-10"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Neutral.Alpha-20",
+      "target": "path:Primitives.Color.BW.Black-20"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Neutral.Default",
+      "target": "path:Primitives.Color.Grey.500"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Neutral.Emphasis",
+      "target": "path:Primitives.Color.Grey.800"
+    },
+    {
+      "source": "path:Semantic.Color.Border.Neutral.Subtle",
+      "target": "path:Primitives.Color.Grey.200"
+    },
+    {
+      "source": "path:Semantic.Color.Focus-Outline.Inner",
+      "target": "path:Primitives.Color.BW.White"
+    },
+    {
+      "source": "path:Semantic.Color.Focus-Outline.Outer",
+      "target": "path:Primitives.Color.Blue.700"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Action.On-Danger",
+      "target": "path:Primitives.Color.BW.White"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Action.On-Disabled",
+      "target": "path:Primitives.Color.Grey.800"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Action.On-Primary",
+      "target": "path:Primitives.Color.Grey.900"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Action.On-Secondary",
+      "target": "path:Semantic.Color.Icon.Neutral.Default"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Feedback.Danger",
+      "target": "path:Primitives.Color.Red.600"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Feedback.Information",
+      "target": "path:Primitives.Color.Raw-Umber.600"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Feedback.Success",
+      "target": "path:Primitives.Color.Ocean-Green.700"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Neutral.Default",
+      "target": "path:Primitives.Color.Grey.900"
+    },
+    {
+      "source": "path:Semantic.Color.Icon.Overlay.On-Overlay",
+      "target": "path:Primitives.Color.BW.White"
+    },
+    {
+      "source": "path:Semantic.Color.Shadow.100",
+      "target": "path:Primitives.Color.BW.Black-07"
+    },
+    {
+      "source": "path:Semantic.Color.Shadow.200",
+      "target": "path:Primitives.Color.BW.Black-16"
+    },
+    {
+      "source": "path:Semantic.Color.Shadow.300",
+      "target": "path:Primitives.Color.BW.Black-20"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Action.On-Danger",
+      "target": "path:Primitives.Color.BW.White"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Action.On-Disabled",
+      "target": "path:Primitives.Color.Grey.800"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Action.On-Primary",
+      "target": "path:Primitives.Color.Grey.900"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Action.On-Secondary",
+      "target": "path:Semantic.Color.Text.Neutral.Default"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Feedback.Danger",
+      "target": "path:Primitives.Color.Red.600"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Feedback.Success",
+      "target": "path:Primitives.Color.Ocean-Green.800"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Link.Default",
+      "target": "path:Primitives.Color.Cucumber.800"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Neutral.Default",
+      "target": "path:Primitives.Color.Grey.900"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Neutral.Muted",
+      "target": "path:Primitives.Color.Grey.800"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Neutral.Subtle",
+      "target": "path:Primitives.Color.Grey.700"
+    },
+    {
+      "source": "path:Semantic.Color.Text.Overlay.On-Overlay",
+      "target": "path:Primitives.Color.BW.White"
+    },
+    {
+      "source": "path:Semantic.Dimension.Border.Radius.100",
+      "target": "path:Primitives.Dimension.Border.Radius.4"
+    },
+    {
+      "source": "path:Semantic.Dimension.Border.Radius.200",
+      "target": "path:Primitives.Dimension.Border.Radius.8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Border.Radius.300",
+      "target": "path:Primitives.Dimension.Border.Radius.12"
+    },
+    {
+      "source": "path:Semantic.Dimension.Border.Radius.400",
+      "target": "path:Primitives.Dimension.Border.Radius.16"
+    },
+    {
+      "source": "path:Semantic.Dimension.Border.Radius.Full",
+      "target": "path:Primitives.Dimension.Border.Radius.1000"
+    },
+    {
+      "source": "path:Semantic.Dimension.Border.Width.100",
+      "target": "path:Primitives.Dimension.Border.Width.1"
+    },
+    {
+      "source": "path:Semantic.Dimension.Border.Width.200",
+      "target": "path:Primitives.Dimension.Border.Width.2"
+    },
+    {
+      "source": "path:Semantic.Dimension.Focus-Outline.Radius.Inner",
+      "target": "path:Primitives.Dimension.Border.Radius.9"
+    },
+    {
+      "source": "path:Semantic.Dimension.Focus-Outline.Radius.Outer",
+      "target": "path:Primitives.Dimension.Border.Radius.11"
+    },
+    {
+      "source": "path:Semantic.Dimension.Focus-Outline.Width.Inner",
+      "target": "path:Primitives.Dimension.Border.Width.2"
+    },
+    {
+      "source": "path:Semantic.Dimension.Focus-Outline.Width.Outer",
+      "target": "path:Primitives.Dimension.Border.Width.2"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Bottom.100",
+      "target": "path:Primitives.Dimension.Shadow.Blur.12"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Bottom.200",
+      "target": "path:Primitives.Dimension.Shadow.Blur.16"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Bottom.300",
+      "target": "path:Primitives.Dimension.Shadow.Blur.20"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Default.100",
+      "target": "path:Primitives.Dimension.Shadow.Blur.12"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Default.200",
+      "target": "path:Primitives.Dimension.Shadow.Blur.16"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Default.300",
+      "target": "path:Primitives.Dimension.Shadow.Blur.20"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Left.100",
+      "target": "path:Primitives.Dimension.Shadow.Blur.12"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Left.200",
+      "target": "path:Primitives.Dimension.Shadow.Blur.16"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Left.300",
+      "target": "path:Primitives.Dimension.Shadow.Blur.20"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Right.100",
+      "target": "path:Primitives.Dimension.Shadow.Blur.12"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Right.200",
+      "target": "path:Primitives.Dimension.Shadow.Blur.16"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Right.300",
+      "target": "path:Primitives.Dimension.Shadow.Blur.20"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Top.100",
+      "target": "path:Primitives.Dimension.Shadow.Blur.12"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Top.200",
+      "target": "path:Primitives.Dimension.Shadow.Blur.16"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Blur.Top.300",
+      "target": "path:Primitives.Dimension.Shadow.Blur.20"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Bottom.100",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-6"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Bottom.200",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Bottom.300",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Default.100",
+      "target": "path:Primitives.Dimension.Shadow.Spread.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Default.200",
+      "target": "path:Primitives.Dimension.Shadow.Spread.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Default.300",
+      "target": "path:Primitives.Dimension.Shadow.Spread.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Left.100",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-6"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Left.200",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Left.300",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Right.100",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-6"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Right.200",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Right.300",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Top.100",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-6"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Top.200",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Spread.Top.300",
+      "target": "path:Primitives.Dimension.Shadow.Spread.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Bottom.100",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Bottom.200",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Bottom.300",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Default.100",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Default.200",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Default.300",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Left.100",
+      "target": "path:Primitives.Dimension.Shadow.X.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Left.200",
+      "target": "path:Primitives.Dimension.Shadow.X.-10"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Left.300",
+      "target": "path:Primitives.Dimension.Shadow.X.-18"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Right.100",
+      "target": "path:Primitives.Dimension.Shadow.X.8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Right.200",
+      "target": "path:Primitives.Dimension.Shadow.X.10"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Right.300",
+      "target": "path:Primitives.Dimension.Shadow.X.18"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Top.100",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Top.200",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.X.Top.300",
+      "target": "path:Primitives.Dimension.Shadow.X.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Bottom.100",
+      "target": "path:Primitives.Dimension.Shadow.Y.8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Bottom.200",
+      "target": "path:Primitives.Dimension.Shadow.Y.10"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Bottom.300",
+      "target": "path:Primitives.Dimension.Shadow.Y.18"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Default.100",
+      "target": "path:Primitives.Dimension.Shadow.Y.4"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Default.200",
+      "target": "path:Primitives.Dimension.Shadow.Y.4"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Default.300",
+      "target": "path:Primitives.Dimension.Shadow.Y.8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Left.100",
+      "target": "path:Primitives.Dimension.Shadow.Y.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Left.200",
+      "target": "path:Primitives.Dimension.Shadow.Y.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Left.300",
+      "target": "path:Primitives.Dimension.Shadow.Y.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Right.100",
+      "target": "path:Primitives.Dimension.Shadow.Y.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Right.200",
+      "target": "path:Primitives.Dimension.Shadow.Y.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Right.300",
+      "target": "path:Primitives.Dimension.Shadow.Y.0"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Top.100",
+      "target": "path:Primitives.Dimension.Shadow.Y.-8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Top.200",
+      "target": "path:Primitives.Dimension.Shadow.Y.-10"
+    },
+    {
+      "source": "path:Semantic.Dimension.Shadow.Y.Top.300",
+      "target": "path:Primitives.Dimension.Shadow.Y.-18"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.100",
+      "target": "path:Primitives.Dimension.Spacing.2"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.200",
+      "target": "path:Primitives.Dimension.Spacing.4"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.300",
+      "target": "path:Primitives.Dimension.Spacing.6"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.400",
+      "target": "path:Primitives.Dimension.Spacing.8"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.500",
+      "target": "path:Primitives.Dimension.Spacing.10"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.600",
+      "target": "path:Primitives.Dimension.Spacing.12"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.700",
+      "target": "path:Primitives.Dimension.Spacing.14"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.800",
+      "target": "path:Primitives.Dimension.Spacing.16"
+    },
+    {
+      "source": "path:Semantic.Dimension.Spacing.900",
+      "target": "path:Primitives.Dimension.Spacing.24"
+    },
+    {
+      "source": "path:Semantic.Font.Family.Body",
+      "target": "path:Typography.Font.Family.Nunito-Sans"
+    },
+    {
+      "source": "path:Semantic.Font.Family.Heading",
+      "target": "path:Typography.Font.Family.Lora"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.100",
+      "target": "path:Typography.Font.Line-Height.12"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.200",
+      "target": "path:Typography.Font.Line-Height.14"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.300",
+      "target": "path:Typography.Font.Line-Height.16"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.400",
+      "target": "path:Typography.Font.Line-Height.18"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.500",
+      "target": "path:Typography.Font.Line-Height.20"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.600",
+      "target": "path:Typography.Font.Line-Height.24"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.700",
+      "target": "path:Typography.Font.Line-Height.28"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.800",
+      "target": "path:Typography.Font.Line-Height.32"
+    },
+    {
+      "source": "path:Semantic.Font.Line-Height.900",
+      "target": "path:Typography.Font.Line-Height.36"
+    },
+    {
+      "source": "path:Semantic.Font.Size.100",
+      "target": "path:Typography.Font.Size.12"
+    },
+    {
+      "source": "path:Semantic.Font.Size.200",
+      "target": "path:Typography.Font.Size.14"
+    },
+    {
+      "source": "path:Semantic.Font.Size.300",
+      "target": "path:Typography.Font.Size.16"
+    },
+    {
+      "source": "path:Semantic.Font.Size.400",
+      "target": "path:Typography.Font.Size.18"
+    },
+    {
+      "source": "path:Semantic.Font.Size.500",
+      "target": "path:Typography.Font.Size.20"
+    },
+    {
+      "source": "path:Semantic.Font.Size.600",
+      "target": "path:Typography.Font.Size.24"
+    },
+    {
+      "source": "path:Semantic.Font.Size.700",
+      "target": "path:Typography.Font.Size.28"
+    },
+    {
+      "source": "path:Semantic.Font.Size.800",
+      "target": "path:Typography.Font.Size.32"
+    },
+    {
+      "source": "path:Semantic.Font.Size.900",
+      "target": "path:Typography.Font.Size.36"
+    }
+  ],
+  "cycles": [],
+  "cycle_node_ids": [],
+  "fingerprint": "a5ffe1d14a878ec618be4d878bd3866066b076f174be7736403d2004d9de3233"
+}

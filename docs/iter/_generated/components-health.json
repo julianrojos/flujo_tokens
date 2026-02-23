@@ -1,0 +1,786 @@
+{
+  "schema_version": 1,
+  "source": {
+    "registry_path": "docs/_generated/component-registry.json",
+    "registry_fingerprint_sha256": "1be1bf3c8cfcdea682de63cfa9dfb05e57530573310d16aab5f6d75ee2135b48"
+  },
+  "summary": {
+    "total_components": 32,
+    "ready": 0,
+    "needs_review": 3,
+    "draft": 29,
+    "missing": 0,
+    "with_visual_proof": 0,
+    "average_coverage_percent": 53.9,
+    "by_pipeline_stage": {
+      "render": 5,
+      "markdown": 27
+    }
+  },
+  "filters": {
+    "needs_review": {
+      "items": [
+        "Alert",
+        "Avatar",
+        "Button"
+      ],
+      "total": 3,
+      "truncated": false
+    },
+    "missing_visual_proof": {
+      "items": [
+        "Alert",
+        "Avatar",
+        "Bottom Bar",
+        "Bottom Bar Button",
+        "Button",
+        "Card Icon Container",
+        "Checkbox",
+        "Checkbox Label",
+        "Checkbox Label List",
+        "Focus Outline",
+        "Icon Card Horizontal",
+        "Icon Card Vertical",
+        "Illustration Block",
+        "Image",
+        "Image Card",
+        "Overlay",
+        "Percentage Pie Graph",
+        "Radio Button",
+        "Radio Button Label",
+        "Radio Button List"
+      ],
+      "total": 32,
+      "truncated": true
+    },
+    "blocked_in_pipeline": {
+      "items": [
+        {
+          "component": "Alert",
+          "stage": "render"
+        },
+        {
+          "component": "Avatar",
+          "stage": "render"
+        },
+        {
+          "component": "Bottom Bar",
+          "stage": "render"
+        },
+        {
+          "component": "Bottom Bar Button",
+          "stage": "markdown"
+        },
+        {
+          "component": "Button",
+          "stage": "render"
+        },
+        {
+          "component": "Card Icon Container",
+          "stage": "markdown"
+        },
+        {
+          "component": "Checkbox",
+          "stage": "markdown"
+        },
+        {
+          "component": "Checkbox Label",
+          "stage": "markdown"
+        },
+        {
+          "component": "Checkbox Label List",
+          "stage": "markdown"
+        },
+        {
+          "component": "Focus Outline",
+          "stage": "markdown"
+        },
+        {
+          "component": "Icon Card Horizontal",
+          "stage": "markdown"
+        },
+        {
+          "component": "Icon Card Vertical",
+          "stage": "markdown"
+        },
+        {
+          "component": "Illustration Block",
+          "stage": "markdown"
+        },
+        {
+          "component": "Image",
+          "stage": "markdown"
+        },
+        {
+          "component": "Image Card",
+          "stage": "markdown"
+        },
+        {
+          "component": "Overlay",
+          "stage": "markdown"
+        },
+        {
+          "component": "Percentage Pie Graph",
+          "stage": "markdown"
+        },
+        {
+          "component": "Radio Button",
+          "stage": "markdown"
+        },
+        {
+          "component": "Radio Button Label",
+          "stage": "markdown"
+        },
+        {
+          "component": "Radio Button List",
+          "stage": "markdown"
+        }
+      ],
+      "total": 32,
+      "truncated": true
+    }
+  },
+  "components": [
+    {
+      "slug": "alert",
+      "display_name": "Alert",
+      "pipeline_stage": "render",
+      "status": "needs-review",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "needs-review",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/alert.yml",
+        "doc": "docs/components/alert.md",
+        "render_payload": "docs/_generated/figma_doc_models/alert.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/alert.json"
+      }
+    },
+    {
+      "slug": "avatar",
+      "display_name": "Avatar",
+      "pipeline_stage": "render",
+      "status": "needs-review",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "needs-review",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/avatar.yml",
+        "doc": "docs/components/avatar.md",
+        "render_payload": "docs/_generated/figma_doc_models/avatar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/avatar.json"
+      }
+    },
+    {
+      "slug": "bottom_bar",
+      "display_name": "Bottom Bar",
+      "pipeline_stage": "render",
+      "status": "draft",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/bottom_bar.yml",
+        "doc": "docs/components/bottom_bar.md",
+        "render_payload": "docs/_generated/figma_doc_models/bottom_bar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/bottom_bar.json"
+      }
+    },
+    {
+      "slug": "bottom_bar_button",
+      "display_name": "Bottom Bar Button",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/bottom_bar_button.yml",
+        "doc": "docs/components/bottom_bar_button.md",
+        "render_payload": "docs/_generated/figma_doc_models/bottom_bar_button.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/bottom_bar_button.json"
+      }
+    },
+    {
+      "slug": "button",
+      "display_name": "Button",
+      "pipeline_stage": "render",
+      "status": "needs-review",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "needs-review",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/button.yml",
+        "doc": "docs/components/button.md",
+        "render_payload": "docs/_generated/figma_doc_models/button.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/button.json"
+      }
+    },
+    {
+      "slug": "card_icon_container",
+      "display_name": "Card Icon Container",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/card_icon_container.yml",
+        "doc": "docs/components/card_icon_container.md",
+        "render_payload": "docs/_generated/figma_doc_models/card_icon_container.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/card_icon_container.json"
+      }
+    },
+    {
+      "slug": "checkbox",
+      "display_name": "Checkbox",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/checkbox.yml",
+        "doc": "docs/components/checkbox.md",
+        "render_payload": "docs/_generated/figma_doc_models/checkbox.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/checkbox.json"
+      }
+    },
+    {
+      "slug": "checkbox_label",
+      "display_name": "Checkbox Label",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/checkbox_label.yml",
+        "doc": "docs/components/checkbox_label.md",
+        "render_payload": "docs/_generated/figma_doc_models/checkbox_label.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/checkbox_label.json"
+      }
+    },
+    {
+      "slug": "checkbox_label_list",
+      "display_name": "Checkbox Label List",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/checkbox_label_list.yml",
+        "doc": "docs/components/checkbox_label_list.md",
+        "render_payload": "docs/_generated/figma_doc_models/checkbox_label_list.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/checkbox_label_list.json"
+      }
+    },
+    {
+      "slug": "focus_outline",
+      "display_name": "Focus Outline",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/focus_outline.yml",
+        "doc": "docs/components/focus_outline.md",
+        "render_payload": "docs/_generated/figma_doc_models/focus_outline.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/focus_outline.json"
+      }
+    },
+    {
+      "slug": "icon_card_horizontal",
+      "display_name": "Icon Card Horizontal",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/icon_card_horizontal.yml",
+        "doc": "docs/components/icon_card_horizontal.md",
+        "render_payload": "docs/_generated/figma_doc_models/icon_card_horizontal.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/icon_card_horizontal.json"
+      }
+    },
+    {
+      "slug": "icon_card_vertical",
+      "display_name": "Icon Card Vertical",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/icon_card_vertical.yml",
+        "doc": "docs/components/icon_card_vertical.md",
+        "render_payload": "docs/_generated/figma_doc_models/icon_card_vertical.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/icon_card_vertical.json"
+      }
+    },
+    {
+      "slug": "illustration_block",
+      "display_name": "Illustration Block",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/illustration_block.yml",
+        "doc": "docs/components/illustration_block.md",
+        "render_payload": "docs/_generated/figma_doc_models/illustration_block.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/illustration_block.json"
+      }
+    },
+    {
+      "slug": "image",
+      "display_name": "Image",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/image.yml",
+        "doc": "docs/components/image.md",
+        "render_payload": "docs/_generated/figma_doc_models/image.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/image.json"
+      }
+    },
+    {
+      "slug": "image_card",
+      "display_name": "Image Card",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/image_card.yml",
+        "doc": "docs/components/image_card.md",
+        "render_payload": "docs/_generated/figma_doc_models/image_card.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/image_card.json"
+      }
+    },
+    {
+      "slug": "overlay",
+      "display_name": "Overlay",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/overlay.yml",
+        "doc": "docs/components/overlay.md",
+        "render_payload": "docs/_generated/figma_doc_models/overlay.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/overlay.json"
+      }
+    },
+    {
+      "slug": "percentage_pie_graph",
+      "display_name": "Percentage Pie Graph",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/percentage_pie_graph.yml",
+        "doc": "docs/components/percentage_pie_graph.md",
+        "render_payload": "docs/_generated/figma_doc_models/percentage_pie_graph.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/percentage_pie_graph.json"
+      }
+    },
+    {
+      "slug": "radio_button",
+      "display_name": "Radio Button",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/radio_button.yml",
+        "doc": "docs/components/radio_button.md",
+        "render_payload": "docs/_generated/figma_doc_models/radio_button.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/radio_button.json"
+      }
+    },
+    {
+      "slug": "radio_button_label",
+      "display_name": "Radio Button Label",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/radio_button_label.yml",
+        "doc": "docs/components/radio_button_label.md",
+        "render_payload": "docs/_generated/figma_doc_models/radio_button_label.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/radio_button_label.json"
+      }
+    },
+    {
+      "slug": "radio_button_list",
+      "display_name": "Radio Button List",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/radio_button_list.yml",
+        "doc": "docs/components/radio_button_list.md",
+        "render_payload": "docs/_generated/figma_doc_models/radio_button_list.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/radio_button_list.json"
+      }
+    },
+    {
+      "slug": "rating_stars",
+      "display_name": "Rating Stars",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/rating_stars.yml",
+        "doc": "docs/components/rating_stars.md",
+        "render_payload": "docs/_generated/figma_doc_models/rating_stars.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/rating_stars.json"
+      }
+    },
+    {
+      "slug": "star",
+      "display_name": "Star",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/star.yml",
+        "doc": "docs/components/star.md",
+        "render_payload": "docs/_generated/figma_doc_models/star.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/star.json"
+      }
+    },
+    {
+      "slug": "status_bar",
+      "display_name": "Status Bar",
+      "pipeline_stage": "render",
+      "status": "draft",
+      "coverage": 75,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": true,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/status_bar.yml",
+        "doc": "docs/components/status_bar.md",
+        "render_payload": "docs/_generated/figma_doc_models/status_bar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/status_bar.json"
+      }
+    },
+    {
+      "slug": "step",
+      "display_name": "Step",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/step.yml",
+        "doc": "docs/components/step.md",
+        "render_payload": "docs/_generated/figma_doc_models/step.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/step.json"
+      }
+    },
+    {
+      "slug": "stepper",
+      "display_name": "Stepper",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/stepper.yml",
+        "doc": "docs/components/stepper.md",
+        "render_payload": "docs/_generated/figma_doc_models/stepper.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/stepper.json"
+      }
+    },
+    {
+      "slug": "tab",
+      "display_name": "Tab",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/tab.yml",
+        "doc": "docs/components/tab.md",
+        "render_payload": "docs/_generated/figma_doc_models/tab.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/tab.json"
+      }
+    },
+    {
+      "slug": "tag",
+      "display_name": "Tag",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/tag.yml",
+        "doc": "docs/components/tag.md",
+        "render_payload": "docs/_generated/figma_doc_models/tag.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/tag.json"
+      }
+    },
+    {
+      "slug": "tags_list",
+      "display_name": "Tags List",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/tags_list.yml",
+        "doc": "docs/components/tags_list.md",
+        "render_payload": "docs/_generated/figma_doc_models/tags_list.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/tags_list.json"
+      }
+    },
+    {
+      "slug": "text_area",
+      "display_name": "Text Area",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/text_area.yml",
+        "doc": "docs/components/text_area.md",
+        "render_payload": "docs/_generated/figma_doc_models/text_area.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/text_area.json"
+      }
+    },
+    {
+      "slug": "text_input",
+      "display_name": "Text Input",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/text_input.yml",
+        "doc": "docs/components/text_input.md",
+        "render_payload": "docs/_generated/figma_doc_models/text_input.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/text_input.json"
+      }
+    },
+    {
+      "slug": "topbar",
+      "display_name": "Topbar",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/topbar.yml",
+        "doc": "docs/components/topbar.md",
+        "render_payload": "docs/_generated/figma_doc_models/topbar.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/topbar.json"
+      }
+    },
+    {
+      "slug": "user_card",
+      "display_name": "User Card",
+      "pipeline_stage": "markdown",
+      "status": "draft",
+      "coverage": 50,
+      "ready_for_publish": false,
+      "spec_exists": true,
+      "doc_exists": true,
+      "render_exists": false,
+      "visual_proof_exists": false,
+      "doc_status": "draft",
+      "spec_status": "draft",
+      "paths": {
+        "spec": "docs/_spec/components/user_card.yml",
+        "doc": "docs/components/user_card.md",
+        "render_payload": "docs/_generated/figma_doc_models/user_card.render-payload.json",
+        "visual_proof": "docs/_generated/visual-proofs/user_card.json"
+      }
+    }
+  ],
+  "fingerprint_sha256": "e4c3c757f9de5a6388cca4e123fe30d6f905644b06d41560743ff969448941db"
+}

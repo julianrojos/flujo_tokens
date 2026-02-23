@@ -1,0 +1,54 @@
+{
+  "component": "user_card",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/user_card.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/user_card.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2046-7286",
+  "node_id": "2046:7286",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/71856f73-f68e-4047-a3d7-fd4a1998e21a",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/71856f73-f68e-4047-a3d7-fd4a1998e21a",
+  "image_path": "_generated/visual-proofs/images/user_card.png",
+  "image_sha256": "ff3613ebef0b86f854f05ab3e2f64ff7f41af058e14764a7fc3e846c2fb3fdfb",
+  "image_bytes": 39870,
+  "image_content_type": "image/png",
+  "image_width": 896,
+  "image_height": 552,
+  "captured_at": "2026-02-21T11:58:28.452Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/user_card.png",
+    "sha256": "ff3613ebef0b86f854f05ab3e2f64ff7f41af058e14764a7fc3e846c2fb3fdfb",
+    "bytes": 39870,
+    "content_type": "image/png",
+    "width": 896,
+    "height": 552
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "Property 1=Person_Left",
+      "node_id": "2036:6895",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/becf74cb-dc05-4f55-a9cf-bca9d80d4b42",
+      "image_path": "_generated/visual-proofs/images/variants/user_card__01__property_1_person_left.png",
+      "image_sha256": "fdd29a159faad62d0593a82c716f05f017d2b04c84bc99fdf4d1259800281772",
+      "image_bytes": 18649,
+      "image_content_type": "image/png",
+      "image_width": 816,
+      "image_height": 216,
+      "captured_at": "2026-02-21T11:58:28.452Z"
+    },
+    {
+      "name": "Property 1=Person_Right",
+      "node_id": "2046:7287",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/a11a4684-6937-477d-93fe-481dbe06768f",
+      "image_path": "_generated/visual-proofs/images/variants/user_card__02__property_1_person_right.png",
+      "image_sha256": "73cf053a2b011e1e42f5ad7faaccf8f57535fc2cb0dc3959d658b8b7b9d7ef42",
+      "image_bytes": 18513,
+      "image_content_type": "image/png",
+      "image_width": 816,
+      "image_height": 216,
+      "captured_at": "2026-02-21T11:58:28.452Z"
+    }
+  ]
+}
