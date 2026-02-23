@@ -1664,12 +1664,12 @@
       },
       "visual_proof": {
         "exists": true,
-        "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/4b1aa5e8-54eb-404c-bb6b-e6ad75badf37",
+        "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/cc4a053b-a916-42a2-83c8-07aee6d31989",
         "image_path": null,
-        "captured_at": "2026-02-21T11:59:33.483Z",
+        "captured_at": "2026-02-23T20:54:40.346Z",
         "node_id": "2282:1793",
-        "image_sha256": "f52f4bef69c48dc916c46a2452bf1f3419083b47b15ca09116f083e92c3e2266",
-        "image_bytes": 13267,
+        "image_sha256": "29b735a2f278692488d454ebd5919f895eff1fe3f9b9eedd61a2d275744862b6",
+        "image_bytes": 13293,
         "image_content_type": "image/png",
         "image_width": 218,
         "image_height": 504,
@@ -1678,11 +1678,11 @@
           {
             "name": "State=Active",
             "node_id": "2282:1794",
-            "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/eb8f7a93-6a11-457f-9072-b11b5fce63cd",
+            "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/66675e23-feda-4887-a762-5bf89a7306e9",
             "image_path": null,
-            "captured_at": "2026-02-21T11:59:33.483Z",
-            "image_sha256": "36ecec50767e05e577aa21975b5d4061eaf1f6f2d8ef84d733f5469a1367719f",
-            "image_bytes": 8390,
+            "captured_at": "2026-02-23T20:54:40.346Z",
+            "image_sha256": "16fc5fcf15787f11d9eaa13498cd70fbb4249df5b000ce679ac008c1ae49f139",
+            "image_bytes": 8416,
             "image_content_type": "image/png",
             "image_width": 156,
             "image_height": 196
@@ -1690,11 +1690,11 @@
           {
             "name": "State=Default",
             "node_id": "2282:1792",
-            "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/6ec916f5-2519-4668-adde-b11d450f5b96",
+            "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/75a5241d-7dbe-4458-945f-1bda5fd710da",
             "image_path": null,
-            "captured_at": "2026-02-21T11:59:33.483Z",
-            "image_sha256": "b33544a6420af146e4d11027036eb47d8ef624a4a60e3c5beb9afe7375f18f73",
-            "image_bytes": 4364,
+            "captured_at": "2026-02-23T20:54:40.346Z",
+            "image_sha256": "98a7c318e12111d08b82f288aedb0f7e44dd25bf6cca51dff82fd115608f6680",
+            "image_bytes": 4390,
             "image_content_type": "image/png",
             "image_width": 144,
             "image_height": 196
@@ -1703,7 +1703,7 @@
       },
       "pipeline_stage": "visual-proof",
       "ready_for_publish": false,
-      "fingerprint_sha256": "0bdcf2dbb782f4d598c86fc9a19797e1358d2f437c5b0425109606bb6293303c"
+      "fingerprint_sha256": "f5eb83cf81e84969fe963b04493aab97078d9dd27ac2cdefb70ca750b4d252bc"
     },
     {
       "slug": "stepper",
@@ -2255,5 +2255,5 @@
       "visual-proof": 24
     }
   },
-  "fingerprint_sha256": "c0cbb12775598f87d012ae34dc32a766380fb430c75ce5e8d3e8e9367119d363"
+  "fingerprint_sha256": "7e3e385231138a90dc11deceab13235f6ebbd21ed487fa37ff94a7419d8e1404"
 }

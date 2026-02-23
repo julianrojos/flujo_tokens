@@ -29,9 +29,9 @@ The **Step** component represents one progress item in a multi-step flow.
 
 ![Visual proof snapshot](../_generated/visual-proofs/images/step.png)
 
-- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/4b1aa5e8-54eb-404c-bb6b-e6ad75badf37)
+- Screenshot: [Captured (2026-02-23)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/cc4a053b-a916-42a2-83c8-07aee6d31989)
 - Source node: `2282:1793`
-- Image hash: `f52f4bef69c48dc916c46a2452bf1f3419083b47b15ca09116f083e92c3e2266`
+- Image hash: `29b735a2f278692488d454ebd5919f895eff1fe3f9b9eedd61a2d275744862b6`
 - Variants captured: `2`
 - Artifact: `../_generated/visual-proofs/step.json`
 
