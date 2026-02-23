@@ -13,6 +13,7 @@
     "validate:docs": "node tooling/scripts/validate-docs.mjs",
     "validate:token-refs": "node tooling/scripts/ds-validate-token-refs.mjs",
     "ds:tokens-sync": "node tooling/scripts/ds-tokens-sync.mjs",
+    "ds:tokens-from-figma": "node tooling/scripts/ds-tokens-from-figma.mjs",
     "ds:token-diff": "node tooling/scripts/ds-token-diff.mjs",
     "ds:token-graph": "node tooling/scripts/ds-token-graph.mjs",
     "ds:token-usage-index": "node tooling/scripts/ds-token-usage-index.mjs",

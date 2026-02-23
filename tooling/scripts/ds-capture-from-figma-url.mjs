@@ -26,6 +26,18 @@ import {
   buildEnrichedMarkdownSections,
   renderEnrichedMarkdownSeed,
 } from "./lib/figma-node-spec-extractor.mjs";
+import {
+  hasInputJsonFiles,
+  sanitizeCollectionFileStem,
+  normalizeVariableCollections,
+  normalizeVariablesList,
+  pickAllModeValues,
+  buildTokenNodeFromFigmaVariable,
+  assignTokenAtPath,
+  buildFilesMapFromVariables,
+  syncFigmaTokensToInput,
+  runTokensCompile,
+} from "./lib/figma-token-sync.mjs";
 
 const USAGE = {
   command:
@@ -676,177 +688,7 @@ function getSystemConfig({ repoRoot, systemId }) {
   return system || null;
 }
 
-function hasInputJsonFiles(repoRoot, inputDir) {
-  const resolvedDir = path.resolve(repoRoot, inputDir || "");
-  if (!fs.existsSync(resolvedDir)) return false;
-  return fs
-    .readdirSync(resolvedDir, { withFileTypes: true })
-    .some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".json"));
-}
 
-function sanitizeCollectionFileStem(rawName, fallback = "Imported") {
-  const normalized = String(rawName || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return normalized || fallback.toLowerCase();
-}
-
-function normalizeFigmaResolvedType(rawType) {
-  const type = String(rawType || "").trim().toUpperCase();
-  if (type === "COLOR") return "color";
-  if (type === "FLOAT") return "dimension";
-  if (type === "STRING") return "string";
-  if (type === "BOOLEAN") return "boolean";
-  return "string";
-}
-
-function toHexByte(value) {
-  const clamped = Math.max(0, Math.min(1, Number(value || 0)));
-  const byte = Math.round(clamped * 255);
-  return byte.toString(16).padStart(2, "0");
-}
-
-function figmaColorToHex(colorValue) {
-  if (!colorValue || typeof colorValue !== "object") return null;
-  const r = toHexByte(colorValue.r);
-  const g = toHexByte(colorValue.g);
-  const b = toHexByte(colorValue.b);
-  const a = toHexByte(
-    colorValue.a === undefined || colorValue.a === null ? 1 : colorValue.a,
-  );
-  if (a === "ff") return `#${r}${g}${b}`;
-  return `#${r}${g}${b}${a}`;
-}
-
-function normalizeVariableCollections(rawCollections) {
-  const index = new Map();
-  if (Array.isArray(rawCollections)) {
-    for (const entry of rawCollections) {
-      const id = String(entry?.id || "").trim();
-      if (!id) continue;
-      index.set(id, entry);
-    }
-    return index;
-  }
-  if (rawCollections && typeof rawCollections === "object") {
-    for (const entry of Object.values(rawCollections)) {
-      const id = String(entry?.id || "").trim();
-      if (!id) continue;
-      index.set(id, entry);
-    }
-  }
-  return index;
-}
-
-function normalizeVariablesList(rawVariables) {
-  if (Array.isArray(rawVariables)) return rawVariables;
-  if (rawVariables && typeof rawVariables === "object") {
-    return Object.values(rawVariables);
-  }
-  return [];
-}
-
-function pickAllModeValues(variableRecord, collectionRecord) {
-  const valuesByMode =
-    variableRecord && typeof variableRecord.valuesByMode === "object"
-      ? variableRecord.valuesByMode
-      : {};
-  const results = new Map();
-
-  if (Array.isArray(collectionRecord?.modes)) {
-    for (const mode of collectionRecord.modes) {
-      const modeId = String(mode?.modeId || "").trim();
-      const modeName = String(mode?.name || modeId).trim();
-      if (!modeId) continue;
-      if (Object.prototype.hasOwnProperty.call(valuesByMode, modeId)) {
-        const val = valuesByMode[modeId];
-        if (val !== undefined && val !== null) {
-          results.set(modeName, val);
-        }
-      }
-    }
-  }
-
-  if (results.size === 0) {
-    for (const [modeId, val] of Object.entries(valuesByMode)) {
-      if (val !== undefined && val !== null) {
-        results.set(modeId, val);
-      }
-    }
-  }
-
-  return results;
-}
-
-function buildTokenNodeFromFigmaVariable(variableRecord, rawValue) {
-  const resolvedType = normalizeFigmaResolvedType(variableRecord?.resolvedType);
-  let normalizedValue = rawValue;
-  if (resolvedType === "color") {
-    if (
-      rawValue &&
-      typeof rawValue === "object" &&
-      String(rawValue.type || "").trim().toUpperCase() === "VARIABLE_ALIAS"
-    ) {
-      normalizedValue = {
-        type: "VARIABLE_ALIAS",
-        id: String(rawValue.id || "").trim(),
-      };
-    } else {
-      normalizedValue = figmaColorToHex(rawValue);
-    }
-  }
-
-  if (
-    normalizedValue &&
-    typeof normalizedValue === "object" &&
-    String(normalizedValue.type || "").trim().toUpperCase() === "VARIABLE_ALIAS"
-  ) {
-    const aliasId = String(normalizedValue.id || "").trim();
-    if (!aliasId) return null;
-    return {
-      $id: String(variableRecord?.id || "").trim() || undefined,
-      $value: { type: "VARIABLE_ALIAS", id: aliasId },
-      $type: resolvedType,
-    };
-  }
-
-  if (resolvedType === "color" && typeof normalizedValue !== "string") return null;
-  if (resolvedType === "number" && typeof normalizedValue !== "number") return null;
-  if (resolvedType === "string" && typeof normalizedValue !== "string") return null;
-  if (resolvedType === "boolean" && typeof normalizedValue !== "boolean") return null;
-
-  const tokenNode = {
-    $value: normalizedValue,
-    $type: resolvedType,
-  };
-  const tokenId = String(variableRecord?.id || "").trim();
-  if (tokenId) {
-    tokenNode.$id = tokenId;
-  }
-  return tokenNode;
-}
-
-function assignTokenAtPath(targetRoot, pathSegments, tokenNode) {
-  if (!targetRoot || typeof targetRoot !== "object") return false;
-  if (!Array.isArray(pathSegments) || pathSegments.length === 0) return false;
-  let cursor = targetRoot;
-  for (let index = 0; index < pathSegments.length - 1; index += 1) {
-    const part = String(pathSegments[index] || "").trim();
-    if (!part) return false;
-    const current = cursor[part];
-    if (!current || typeof current !== "object" || Array.isArray(current)) {
-      cursor[part] = {};
-    }
-    cursor = cursor[part];
-  }
-  const leaf = String(pathSegments[pathSegments.length - 1] || "").trim();
-  if (!leaf) return false;
-  cursor[leaf] = tokenNode;
-  return true;
-}
 
 async function bootstrapInputJsonFromFigmaVariables({
   repoRoot,
@@ -872,100 +714,25 @@ async function bootstrapInputJsonFromFigmaVariables({
     return { attempted: false, created: false, reason: "figma-file-key-missing" };
   }
 
-  let variablesPayload;
-  try {
-    variablesPayload = await fetchFigmaLocalVariables({
-      fileKey,
-      token: figmaToken,
-    });
-  } catch (error) {
-    return {
-      attempted: true,
-      created: false,
-      reason: "fetch-failed",
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-
-  const meta =
-    variablesPayload && typeof variablesPayload === "object"
-      ? variablesPayload.meta || variablesPayload
-      : null;
-  const collectionsIndex = normalizeVariableCollections(meta?.variableCollections);
-  const variableRecords = normalizeVariablesList(meta?.variables);
-  if (variableRecords.length === 0) {
-    return { attempted: true, created: false, reason: "variables-empty" };
-  }
-
-  const filesMap = new Map();
-  let tokenCount = 0;
-
-  for (const variableRecord of variableRecords) {
-    if (!variableRecord || typeof variableRecord !== "object") continue;
-    const variableName = String(variableRecord.name || "").trim();
-    if (!variableName) continue;
-    const collectionId = String(variableRecord.variableCollectionId || "").trim();
-    const collectionRecord = collectionsIndex.get(collectionId) || null;
-    const collectionName = String(collectionRecord?.name || "Imported").trim() || "Imported";
-    const collectionFileStem = sanitizeCollectionFileStem(collectionName, "Imported");
-
-    const modeValues = pickAllModeValues(variableRecord, collectionRecord);
-    if (modeValues.size === 0) continue;
-
-    for (const [modeName, modeValue] of modeValues) {
-      const tokenNode = buildTokenNodeFromFigmaVariable(variableRecord, modeValue);
-      if (!tokenNode) continue;
-
-      // When only one mode, use the collection stem; otherwise append mode name
-      const fileKey = modeValues.size === 1
-        ? collectionFileStem
-        : `${collectionFileStem}-${sanitizeCollectionFileStem(modeName, "Default")}`;
-
-      if (!filesMap.has(fileKey)) {
-        filesMap.set(fileKey, {
-          description: modeValues.size === 1
-            ? collectionName
-            : `${collectionName} (${modeName})`,
-          data: {},
-        });
-      }
-      const target = filesMap.get(fileKey);
-      const pathSegments = variableName
-        .split("/")
-        .map((segment) => String(segment || "").trim())
-        .filter(Boolean);
-      if (pathSegments.length === 0) continue;
-      const assigned = assignTokenAtPath(target.data, pathSegments, tokenNode);
-      if (!assigned) continue;
-      tokenCount += 1;
-    }
-  }
-
-  if (filesMap.size === 0 || tokenCount === 0) {
-    return { attempted: true, created: false, reason: "no-token-nodes" };
-  }
-
-  const inputDir = path.resolve(repoRoot, String(system.inputDir || ""));
-  fs.mkdirSync(inputDir, { recursive: true });
-
-  const writtenFiles = [];
-  for (const [fileStem, payload] of filesMap.entries()) {
-    const filePath = path.join(inputDir, `${fileStem}.json`);
-    const jsonPayload = {
-      $description: payload.description,
-      ...payload.data,
-    };
-    writeTextAtomic(filePath, `${JSON.stringify(jsonPayload, null, 2)}\n`);
-    writtenFiles.push(path.relative(repoRoot, filePath));
-  }
+  // Delegate to shared module (first-time bootstrap only, no force/merge)
+  const syncResult = await syncFigmaTokensToInput({
+    repoRoot,
+    system,
+    fileKey,
+    figmaToken,
+    force: false,
+    merge: false,
+    dryRun: false,
+  });
 
   return {
-    attempted: true,
-    created: true,
-    reason: "bootstrapped",
-    files_written: writtenFiles.length,
-    tokens_written: tokenCount,
-    files: writtenFiles,
+    attempted: syncResult.attempted ?? true,
+    created: (syncResult.files_written ?? 0) > 0,
+    reason: syncResult.reason ?? "bootstrapped",
+    files_written: syncResult.files_written ?? 0,
+    tokens_written: syncResult.tokens_written ?? 0,
+    files: syncResult.files ?? [],
+    error: syncResult.error,
   };
 }
 
@@ -974,57 +741,23 @@ function runTokensCompileIfNeeded({ repoRoot, system }) {
   const enabled = system.compileVariablesOnCapture !== false;
   if (!enabled) return { attempted: false, compiled: false, reason: "disabled-by-config" };
 
-  const inputDir = path.resolve(repoRoot, String(system.inputDir || ""));
-  const outputDir = path.resolve(repoRoot, String(system.outputDir || ""));
   const docsDir = path.resolve(repoRoot, String(system.docsDir || ""));
   const tokenRegistryPath = path.join(docsDir, "_generated", "token-registry.json");
-
   if (fs.existsSync(tokenRegistryPath)) {
     return { attempted: false, compiled: false, reason: "token-registry-exists" };
   }
-  if (!hasInputJsonFiles(repoRoot, system.inputDir)) {
-    return { attempted: false, compiled: false, reason: "input-json-missing" };
-  }
 
-  fs.mkdirSync(outputDir, { recursive: true });
-  fs.mkdirSync(path.join(docsDir, "_generated"), { recursive: true });
-
-  const args = [
-    path.join(repoRoot, "tooling", "scripts", "ds-tokens-sync.mjs"),
-    "--input",
-    inputDir,
-    "--output-primitives",
-    path.join(outputDir, "primitives.css"),
-    "--output-tokens",
-    path.join(outputDir, "tokens.css"),
-    "--registry-output",
-    tokenRegistryPath,
-    "--force",
-    "true",
-  ];
-  const result = spawnSync(process.execPath, args, {
-    cwd: repoRoot,
-    stdio: "pipe",
-    env: process.env,
-  });
-  const stdout = result.stdout ? String(result.stdout).trim() : "";
-  const stderr = result.stderr ? String(result.stderr).trim() : "";
-  if ((result.status ?? 1) !== 0) {
-    return {
-      attempted: true,
-      compiled: false,
-      reason: "compile-failed",
-      stderr: stderr || stdout,
-    };
-  }
-
+  // Delegate to shared module
+  const compileResult = runTokensCompile({ repoRoot, system });
   return {
-    attempted: true,
-    compiled: true,
-    reason: "compiled",
-    output: stdout,
+    attempted: compileResult.attempted,
+    compiled: compileResult.compiled ?? false,
+    reason: compileResult.reason,
+    stderr: compileResult.stderr,
+    output: compileResult.output,
   };
 }
+
 
 function buildOverviewSeed() {
   return `---
