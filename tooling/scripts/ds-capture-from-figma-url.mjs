@@ -10,7 +10,7 @@ import {
   buildFigmaNodeUrl,
   parseFigmaFileUrl,
 } from "./lib/figma-component-map.mjs";
-import { fetchFigmaFile } from "./lib/figma-api.mjs";
+import { fetchFigmaFile, fetchFigmaNodes } from "./lib/figma-api.mjs";
 import { componentNameToSnakeCase } from "./lib/component-name.mjs";
 import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
@@ -274,6 +274,34 @@ function runNodeScriptJson({ repoRoot, scriptPath, scriptArgs }) {
   }
 }
 
+function classifyNodeTypeToKind(nodeType) {
+  const normalized = String(nodeType || "").trim().toUpperCase();
+  if (normalized === "COMPONENT_SET") return "component_set";
+  if (normalized === "COMPONENT") return "component";
+  return "unknown";
+}
+
+function extractSingleNodeCandidate(nodePayload, nodeId) {
+  const nodes = nodePayload && typeof nodePayload === "object" ? nodePayload.nodes : null;
+  const entry = nodes && typeof nodes === "object" ? nodes[nodeId] : null;
+  const doc = entry && typeof entry === "object" ? entry.document : null;
+  const safeName =
+    doc && typeof doc === "object" && doc.name
+      ? String(doc.name).trim()
+      : nodeId;
+  const safeType =
+    doc && typeof doc === "object" && doc.type
+      ? String(doc.type).trim()
+      : "";
+
+  return {
+    node_id: nodeId,
+    name: safeName || nodeId,
+    kind: classifyNodeTypeToKind(safeType),
+    page_name: null,
+  };
+}
+
 function resolveDocsPaths({ ctx, docsRootOverride, slug }) {
   const docsRoot = docsRootOverride || ctx.paths.docs;
   const docsRootResolved = path.resolve(docsRoot);
@@ -359,15 +387,40 @@ async function main() {
   );
 
   const descriptor = parseFigmaFileUrl(figmaUrl);
-  const filePayload = await fetchFigmaFile({
-    fileKey: descriptor.fileKey,
-    token: figmaToken,
-  });
-  const componentMap = buildFigmaComponentMap({
-    filePayload,
-    fileDescriptor: descriptor,
-    includeInstances: true,
-  });
+  let componentMap = null;
+  let singleNodeCandidate = null;
+  if (descriptor.nodeIdFromUrl) {
+    try {
+      const nodePayload = await fetchFigmaNodes({
+        fileKey: descriptor.fileKey,
+        nodeIds: [descriptor.nodeIdFromUrl],
+        token: figmaToken,
+        depth: 1,
+      });
+      singleNodeCandidate = extractSingleNodeCandidate(
+        nodePayload,
+        descriptor.nodeIdFromUrl,
+      );
+    } catch {
+      // Fall back to raw node id even if metadata fetch fails.
+      singleNodeCandidate = {
+        node_id: descriptor.nodeIdFromUrl,
+        name: descriptor.nodeIdFromUrl,
+        kind: "unknown",
+        page_name: null,
+      };
+    }
+  } else {
+    const filePayload = await fetchFigmaFile({
+      fileKey: descriptor.fileKey,
+      token: figmaToken,
+    });
+    componentMap = buildFigmaComponentMap({
+      filePayload,
+      fileDescriptor: descriptor,
+      includeInstances: true,
+    });
+  }
 
   const docsRootResolved = path.resolve(docsRootInput);
   const docsRootDir =
@@ -385,14 +438,11 @@ async function main() {
   const slugByNodeFromRegistry = buildSlugLookupFromRegistry(componentRows);
   const slugByNodeFromSpecs = buildSlugLookupFromSpecs(specDir);
 
-  const allComponents = Array.isArray(componentMap.components)
+  const allComponents = Array.isArray(componentMap?.components)
     ? componentMap.components
     : [];
   const sourceCandidates = descriptor.nodeIdFromUrl
-    ? inferSingleNodeCandidates({
-        componentMap,
-        nodeId: descriptor.nodeIdFromUrl,
-      })
+    ? [singleNodeCandidate].filter(Boolean)
     : allComponents.filter((component) =>
         isKindAllowed(classifyTargetKind(component.kind), componentKind),
       );
