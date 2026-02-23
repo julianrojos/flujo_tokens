@@ -18,6 +18,7 @@ const CLI_CONFIG = {
     { name: "--render-figma", description: "Render docs back to Figma" },
     { name: "--dry-run", description: "Plan but do not execute" },
     { name: "--status-only", description: "Only show plan and orphan status" },
+    { name: "--strict", description: "Fail on first error" },
     { name: "--json", description: "Output silent JSON" },
     { name: "--help", description: "Show help" }
   ]
@@ -85,6 +86,7 @@ async function main() {
         'render-figma': opts['render-figma'] === "true" || !!opts['render-figma'],
         'dry-run': opts['dry-run'] === "true" || !!opts['dry-run'],
         'status-only': opts['status-only'] === "true" || !!opts['status-only'],
+        strict: opts.strict === "true" || !!opts.strict,
         json: opts.json === "true" || !!opts.json
     };
 
@@ -130,6 +132,11 @@ async function main() {
 
         const metrics = executeComponentTasks(compPlan, planOpts);
         executionState.components[slug] = metrics;
+        
+        if (!metrics.success && planOpts.strict && !planOpts['dry-run']) {
+            if (!opts.json) console.error(`\n\x1b[31m❌ Strict mode: Aborting and stopping pipeline due to failure in '${slug}'.\x1b[0m`);
+            break;
+        }
     }
 
     if (!opts.json) console.log(`\n\x1b[35m--- Global Validations ---\x1b[0m`);
