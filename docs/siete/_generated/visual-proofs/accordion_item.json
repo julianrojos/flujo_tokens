@@ -1,0 +1,54 @@
+{
+  "component": "accordion_item",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/siete/components/accordion_item.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/iter/_spec/components/accordion_item.yml",
+  "source_url": "https://www.figma.com/design/URer2Fszeex0vOaR6aMg28/Simple-Design-System-Community-?node-id=7753-4634",
+  "node_id": "7753:4634",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/f57e6e72-936b-4d4c-8be4-732c574d38b2",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/f57e6e72-936b-4d4c-8be4-732c574d38b2",
+  "image_path": "../siete/_generated/visual-proofs/images/accordion_item.png",
+  "image_sha256": "40b2bc85d3a3b69f5298ab6a1c47fd2f96e6a41c29ae5ac9087ddaf0c5f18f10",
+  "image_bytes": 23754,
+  "image_content_type": "image/png",
+  "image_width": 1360,
+  "image_height": 522,
+  "captured_at": "2026-02-23T20:03:20.406Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "../siete/_generated/visual-proofs/images/accordion_item.png",
+    "sha256": "40b2bc85d3a3b69f5298ab6a1c47fd2f96e6a41c29ae5ac9087ddaf0c5f18f10",
+    "bytes": 23754,
+    "content_type": "image/png",
+    "width": 1360,
+    "height": 522
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "State=Closed",
+      "node_id": "7723:4485",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/70749919-8bb4-4b5e-837e-ef4cb3b9e49a",
+      "image_path": "../siete/_generated/visual-proofs/images/variants/accordion_item__01__state_closed.png",
+      "image_sha256": "7210254ec41a84acc49b8a25d0fc24b0186a4bb3962c8ca4ff7444e921ea8508",
+      "image_bytes": 2926,
+      "image_content_type": "image/png",
+      "image_width": 1280,
+      "image_height": 108,
+      "captured_at": "2026-02-23T20:03:20.406Z"
+    },
+    {
+      "name": "State=Open",
+      "node_id": "7723:4487",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/51ed233d-3b31-4e23-8084-74301c6318bd",
+      "image_path": "../siete/_generated/visual-proofs/images/variants/accordion_item__02__state_open.png",
+      "image_sha256": "73a29a39ec6b41bf97a3f40189f9c5834a6ff1b61700b58150274c9301fc1336",
+      "image_bytes": 17124,
+      "image_content_type": "image/png",
+      "image_width": 1280,
+      "image_height": 212,
+      "captured_at": "2026-02-23T20:03:20.406Z"
+    }
+  ]
+}

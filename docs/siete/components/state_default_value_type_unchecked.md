@@ -1,0 +1,32 @@
+---
+doc_type: component
+doc_status: draft
+figma:
+  file_url: https://www.figma.com/design/URer2Fszeex0vOaR6aMg28/Simple-Design-System-Community-?node-id=565-15610
+  page: TBD
+  component: StateDefaultValueTypeUnchecked
+  component_set_node_id: 565:15610
+  last_verified: TBD
+---
+
+# StateDefaultValueTypeUnchecked
+
+Auto-generated placeholder created during Figma capture workflow.
+
+## Overview
+
+- Purpose: TBD
+- Figma component set: 565:15610
+- Variant properties: TBD
+- Artwork source instance: Required hidden instance used to drive Anatomy, Properties, and Layout and spacing sections.
+
+### Visual Proof
+
+- Screenshot: TBD
+- Source node: 565:15610
+- Artifact: TBD
+
+## Anatomy
+
+1. **Container**: TBD
+2. **Primary element**: TBD
