@@ -17,6 +17,18 @@
         "A11y"
       ],
       "compileVariablesOnCapture": true
+    },
+    {
+      "id": "simple-design-system",
+      "name": "Simple design system",
+      "appName": "Simple design system",
+      "figmaFileId": "ERurQSl12VmCGYlk1ciOH3",
+      "figmaApiToken": "${FIGMA_TOKEN_SIMPLE_DESIGN_SYSTEM}",
+      "inputDir": "input/simple-design-system",
+      "outputDir": "output/simple-design-system",
+      "docsDir": "docs/simple-design-system",
+      "collections": [],
+      "compileVariablesOnCapture": true
     }
   ],
   "defaultSystem": "iter"
