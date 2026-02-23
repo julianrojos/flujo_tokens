@@ -19,6 +19,7 @@ type RowDraft = {
   outputDir: string;
   docsDir: string;
   collections: string;
+  compileVariablesOnCapture: boolean;
 };
 
 function toDraft(system: DesignSystemConfigEntry): RowDraft {
@@ -31,6 +32,7 @@ function toDraft(system: DesignSystemConfigEntry): RowDraft {
     outputDir: String(system.outputDir || ""),
     docsDir: String(system.docsDir || ""),
     collections: Array.isArray(system.collections) ? system.collections.join(", ") : "",
+    compileVariablesOnCapture: system.compileVariablesOnCapture !== false,
   };
 }
 
@@ -118,6 +120,7 @@ export function DesignSystemsAdminPage() {
         outputDir: draft.outputDir,
         docsDir: draft.docsDir,
         collections: parseCollections(draft.collections),
+        compileVariablesOnCapture: draft.compileVariablesOnCapture,
       });
       replaceSystems(response.config.systems, {
         activeSystemId: response.config.defaultSystem || undefined,
@@ -249,6 +252,24 @@ export function DesignSystemsAdminPage() {
                     placeholder="Primitives, Typography, Semantic, Components, A11y"
                     disabled={isBusy}
                   />
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm md:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={draft.compileVariablesOnCapture}
+                      onChange={(e) =>
+                        setDrafts((prev) => ({
+                          ...prev,
+                          [id]: {
+                            ...(prev[id] || draft),
+                            compileVariablesOnCapture: e.target.checked,
+                          },
+                        }))
+                      }
+                      className="h-4 w-4"
+                      disabled={isBusy}
+                    />
+                    <span>Compile Figma variables to design tokens on first capture</span>
+                  </label>
                 </div>
               </section>
             );

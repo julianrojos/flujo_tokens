@@ -1108,6 +1108,7 @@ function createLocalDataApi() {
             outputDir,
             docsDir,
             collections: normalizeCollectionList(body.collections),
+            compileVariablesOnCapture: body.compileVariablesOnCapture !== false,
           };
 
           const nextSystems = [...(Array.isArray(config.systems) ? config.systems : []), nextSystem];
@@ -1167,6 +1168,10 @@ function createLocalDataApi() {
             collections: normalizeCollectionList(
               body.collections ?? current.collections ?? [],
             ),
+            compileVariablesOnCapture:
+              body.compileVariablesOnCapture !== undefined
+                ? body.compileVariablesOnCapture === true
+                : current.compileVariablesOnCapture !== false,
           };
 
           nextSystems[targetIndex] = updated;

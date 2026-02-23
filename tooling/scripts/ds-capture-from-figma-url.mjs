@@ -370,17 +370,30 @@ function inferCollectionsFromInputDir(repoRoot, inputDir) {
   );
 }
 
+function readDesignSystemsConfig(repoRoot) {
+  const configPath = path.join(repoRoot, "tooling", "config", "design-systems.json");
+  if (!fs.existsSync(configPath)) return null;
+  try {
+    return {
+      configPath,
+      config: JSON.parse(fs.readFileSync(configPath, "utf8")),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeDesignSystemsConfigAtomic(configPath, config) {
+  const tmpPath = `${configPath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  fs.renameSync(tmpPath, configPath);
+}
+
 function ensureCollectionsConfigured({ repoRoot, systemId }) {
   if (!systemId || systemId === "_legacy") return;
-  const configPath = path.join(repoRoot, "tooling", "config", "design-systems.json");
-  if (!fs.existsSync(configPath)) return;
-
-  let config;
-  try {
-    config = JSON.parse(fs.readFileSync(configPath, "utf8"));
-  } catch {
-    return;
-  }
+  const loaded = readDesignSystemsConfig(repoRoot);
+  if (!loaded) return;
+  const { configPath, config } = loaded;
   if (!config || typeof config !== "object" || !Array.isArray(config.systems)) return;
 
   const targetIndex = config.systems.findIndex((item) => String(item?.id || "").trim() === systemId);
@@ -392,10 +405,82 @@ function ensureCollectionsConfigured({ repoRoot, systemId }) {
   const collections = inferred.length > 0 ? inferred : DEFAULT_AUTO_COLLECTIONS;
   target.collections = collections;
   config.systems[targetIndex] = target;
+  writeDesignSystemsConfigAtomic(configPath, config);
+}
 
-  const tmpPath = `${configPath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-  fs.renameSync(tmpPath, configPath);
+function getSystemConfig({ repoRoot, systemId }) {
+  if (!systemId || systemId === "_legacy") return null;
+  const loaded = readDesignSystemsConfig(repoRoot);
+  if (!loaded) return null;
+  const system = Array.isArray(loaded.config?.systems)
+    ? loaded.config.systems.find((item) => String(item?.id || "").trim() === systemId)
+    : null;
+  return system || null;
+}
+
+function hasInputJsonFiles(repoRoot, inputDir) {
+  const resolvedDir = path.resolve(repoRoot, inputDir || "");
+  if (!fs.existsSync(resolvedDir)) return false;
+  return fs
+    .readdirSync(resolvedDir, { withFileTypes: true })
+    .some((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".json"));
+}
+
+function runTokensCompileIfNeeded({ repoRoot, system }) {
+  if (!system) return { attempted: false, compiled: false, reason: "system-missing" };
+  const enabled = system.compileVariablesOnCapture !== false;
+  if (!enabled) return { attempted: false, compiled: false, reason: "disabled-by-config" };
+
+  const inputDir = path.resolve(repoRoot, String(system.inputDir || ""));
+  const outputDir = path.resolve(repoRoot, String(system.outputDir || ""));
+  const docsDir = path.resolve(repoRoot, String(system.docsDir || ""));
+  const tokenRegistryPath = path.join(docsDir, "_generated", "token-registry.json");
+
+  if (fs.existsSync(tokenRegistryPath)) {
+    return { attempted: false, compiled: false, reason: "token-registry-exists" };
+  }
+  if (!hasInputJsonFiles(repoRoot, system.inputDir)) {
+    return { attempted: false, compiled: false, reason: "input-json-missing" };
+  }
+
+  fs.mkdirSync(outputDir, { recursive: true });
+  fs.mkdirSync(path.join(docsDir, "_generated"), { recursive: true });
+
+  const args = [
+    path.join(repoRoot, "tooling", "scripts", "ds-tokens-sync.mjs"),
+    "--input",
+    inputDir,
+    "--output-primitives",
+    path.join(outputDir, "primitives.css"),
+    "--output-tokens",
+    path.join(outputDir, "tokens.css"),
+    "--registry-output",
+    tokenRegistryPath,
+    "--force",
+    "true",
+  ];
+  const result = spawnSync(process.execPath, args, {
+    cwd: repoRoot,
+    stdio: "pipe",
+    env: process.env,
+  });
+  const stdout = result.stdout ? String(result.stdout).trim() : "";
+  const stderr = result.stderr ? String(result.stderr).trim() : "";
+  if ((result.status ?? 1) !== 0) {
+    return {
+      attempted: true,
+      compiled: false,
+      reason: "compile-failed",
+      stderr: stderr || stdout,
+    };
+  }
+
+  return {
+    attempted: true,
+    compiled: true,
+    reason: "compiled",
+    output: stdout,
+  };
 }
 
 function buildOverviewSeed() {
@@ -483,6 +568,11 @@ async function main() {
 
   const ctx = resolveSystemContextSafe({ system: args.system });
   ensureCollectionsConfigured({ repoRoot: PROJECT_ROOT, systemId: ctx.id });
+  const systemConfig = getSystemConfig({ repoRoot: PROJECT_ROOT, systemId: ctx.id });
+  const tokenCompile = runTokensCompileIfNeeded({
+    repoRoot: PROJECT_ROOT,
+    system: systemConfig,
+  });
   const docsRootOverride = args["docs-root"] ? String(args["docs-root"]).trim() : null;
   const componentSlugOverride = String(args["component-slug"] || "")
     .trim()
@@ -698,6 +788,7 @@ async function main() {
       require_existing_doc: requireExistingDoc,
       main_capture_mode: mainCaptureMode,
     },
+    tokens_compile: tokenCompile,
     total_candidates: sourceCandidates.length,
     targets_total: targets.length,
     targets: targets.map((target) => ({

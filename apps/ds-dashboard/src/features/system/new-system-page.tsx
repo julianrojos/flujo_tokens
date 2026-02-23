@@ -36,6 +36,7 @@ export function NewSystemPage() {
   const [outputDir, setOutputDir] = useState("");
   const [docsDir, setDocsDir] = useState("");
   const [collectionsInput, setCollectionsInput] = useState("");
+  const [compileVariablesOnCapture, setCompileVariablesOnCapture] = useState(true);
   const [makeDefault, setMakeDefault] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -62,6 +63,7 @@ export function NewSystemPage() {
   "appName": "${appName.trim() || safeName}",
   "figmaFileId": "${figmaFileId.trim() || "your-figma-file-id"}",
   "figmaApiToken": "${figmaApiTokenRef.trim() || "${FIGMA_TOKEN_MY_SYSTEM}"}",
+  "compileVariablesOnCapture": ${compileVariablesOnCapture ? "true" : "false"},
   "inputDir": "${safeInputDir}",
   "outputDir": "${safeOutputDir}",
   "docsDir": "${safeDocsDir}",
@@ -74,6 +76,7 @@ ${renderedCollections}
     collectionsInput,
     figmaApiTokenRef,
     figmaFileId,
+    compileVariablesOnCapture,
     safeDocsDir,
     safeId,
     safeInputDir,
@@ -98,6 +101,7 @@ ${renderedCollections}
         outputDir: safeOutputDir,
         docsDir: safeDocsDir,
         collections: parseCollectionInput(collectionsInput),
+        compileVariablesOnCapture,
         makeDefault,
       });
       replaceSystems(response.config.systems, { activeSystemId: response.config.defaultSystem });
@@ -214,6 +218,18 @@ ${renderedCollections}
           </div>
 
           <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={compileVariablesOnCapture}
+              onChange={(e) => setCompileVariablesOnCapture(e.target.checked)}
+              className="h-4 w-4"
+            />
+            <span>
+              Compile Figma variables to design tokens on first capture
+            </span>
+          </label>
+
+          <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={makeDefault}

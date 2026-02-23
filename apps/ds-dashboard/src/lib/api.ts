@@ -63,6 +63,7 @@ export interface CreateDesignSystemPayload {
   outputDir?: string;
   docsDir?: string;
   collections?: string[];
+  compileVariablesOnCapture?: boolean;
   makeDefault?: boolean;
 }
 
@@ -88,6 +89,7 @@ export interface DesignSystemConfigEntry {
   outputDir?: string;
   docsDir?: string;
   collections?: string[];
+  compileVariablesOnCapture?: boolean;
 }
 
 export interface DesignSystemsConfigResponse {
