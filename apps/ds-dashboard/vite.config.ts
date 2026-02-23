@@ -1298,8 +1298,8 @@ function createLocalDataApi() {
         } catch (error) {
           const code =
             typeof error === "object" &&
-            error &&
-            "code" in error
+              error &&
+              "code" in error
               ? String((error as { code?: string }).code || "")
               : "";
           if (code === "ENOENT") {
@@ -1515,8 +1515,8 @@ function createLocalDataApi() {
         } catch (error) {
           const code =
             typeof error === "object" &&
-            error &&
-            "code" in error
+              error &&
+              "code" in error
               ? String((error as { code?: string }).code || "")
               : "";
           if (code === "ENOENT") {
@@ -1748,173 +1748,247 @@ function createLocalDataApi() {
         return;
       }
 
-      if (method === "POST" && url === "/api/refresh-registry") {
-        runNpmScript({ repoRoot, res, script: "ds:registry:refresh" });
-        return;
-      }
+      if (method === "POST" && url?.startsWith("/api/run/")) {
+          const scriptName = url.replace("/api/run/", "").trim();
+          if (!scriptName) {
+            sendJson(res, 400, { ok: false, message: "Missing script name in URL." });
+            return;
+          }
 
-      if (method === "POST" && url === "/api/refresh-token-usage-index") {
-        runNpmScript({ repoRoot, res, script: "ds:token-usage-index" });
-        return;
-      }
+          let bodyParams: Record<string, any> = {};
+          try {
+            bodyParams = await readJsonBody(req);
+          } catch (e) { /* ignore empty body */ }
 
-      if (method === "POST" && url === "/api/refresh-token-graph") {
-        runNpmScript({ repoRoot, res, script: "ds:token-graph" });
-        return;
-      }
+          res.statusCode = 200;
+          res.setHeader("Content-Type", "text/event-stream");
+          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader("Connection", "keep-alive");
 
-      if (method === "POST" && url === "/api/refresh-token-health") {
-        runNpmScript({ repoRoot, res, script: "ds:token-health" });
-        return;
-      }
+          // Parse common args mapping for ds:pipeline
+          const args: string[] = ["run", scriptName];
+          if (scriptName === "ds:pipeline") {
+            args.push("--");
+            if (bodyParams.all) args.push("--all");
+            if (bodyParams.component) {
+              args.push("--component");
+              args.push(bodyParams.component);
+            }
+            if (bodyParams.fromStep) {
+              args.push("--from-step");
+              args.push(bodyParams.fromStep);
+            }
+            if (bodyParams.dryRun) args.push("--status-only"); // or dry-run equivalent
+          }
 
-      if (method === "POST" && url === "/api/refresh-components-health") {
-        runNpmScript({ repoRoot, res, script: "ds:registry:report" });
-        return;
-      }
+          const child = spawn("npm", args, {
+            cwd: repoRoot,
+            shell: false,
+          });
 
-      if (method === "POST" && url === "/api/refresh-naming-debt") {
-        const report = await computeNamingDebtReport({
-          tokenRegistryPath,
-          tokenUsageIndexPath,
-          tokenGraphVizPath,
-          namingDebtConfigPath,
-        });
-        await fs.mkdir(path.dirname(namingDebtCachePath), { recursive: true });
-        await fs.writeFile(namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-        sendJson(res, 200, {
-          ok: true,
-          generatedAt: report.generatedAt,
-          totalViolations: report.summary.totalViolations,
-          overallScore: report.summary.overallScore,
-        });
-        return;
-      }
+          const writeChunk = (type: string, text: string) => {
+            // SSE format
+            const payload = JSON.stringify({ type, text });
+            // in nodehttp: res is ServerResponse
+            (res as any).write(`data: ${payload}\n\n`);
+          };
 
-      if (method === "POST" && url === "/api/capture-health-snapshot") {
-        const body = await readJsonBody(req);
-        const beforeRefRaw = String(body.beforeRef ?? "HEAD~1").trim();
-        const beforeRef = validateGitRef(beforeRefRaw);
-        if (!beforeRef) {
-          sendJson(res, 400, {
-            ok: false,
-            message:
-              "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+          const writeEnd = (code: number) => {
+            const payload = JSON.stringify({ type: "end", code });
+            (res as any).write(`data: ${payload}\n\n`);
+            res.end("");
+          };
+
+          child.stdout.on("data", (chunk) => {
+            writeChunk("chunk", String(chunk));
+          });
+          child.stderr.on("data", (chunk) => {
+            writeChunk("chunk", String(chunk)); // we stream stderr as chunk too so UI sees it
+          });
+
+          child.on("error", (error) => {
+            const payload = JSON.stringify({ type: "error", message: error instanceof Error ? error.message : String(error) });
+            (res as any).write(`data: ${payload}\n\n`);
+            res.end("");
+          });
+
+          child.on("close", (code) => {
+            writeEnd(code ?? 1);
+          });
+
+          req.on("close", () => {
+            child.kill();
           });
           return;
         }
 
-        const retentionDaysRaw = Number(body.retentionDays);
-        const retentionDays =
-          Number.isFinite(retentionDaysRaw) && retentionDaysRaw > 0
-            ? String(Math.floor(retentionDaysRaw))
-            : "120";
+        if (method === "POST" && url === "/api/refresh-registry") {
+          runNpmScript({ repoRoot, res, script: "ds:registry:refresh" });
+          return;
+        }
 
-        const skipDiff = toBooleanString(body.skipDiff, false);
+        if (method === "POST" && url === "/api/refresh-token-usage-index") {
+          runNpmScript({ repoRoot, res, script: "ds:token-usage-index" });
+          return;
+        }
 
-        runNodeJsonCommand({
-          repoRoot,
-          res,
-          commandLabel:
-            `node tooling/scripts/ds-health-snapshot.mjs --before-ref ${beforeRef} ` +
-            `--retention-days ${retentionDays} --skip-diff ${skipDiff}`,
-          scriptPath: healthSnapshotScriptPath,
-          scriptArgs: [
-            "--before-ref",
-            beforeRef,
-            "--retention-days",
-            retentionDays,
-            "--skip-diff",
-            skipDiff,
+        if (method === "POST" && url === "/api/refresh-token-graph") {
+          runNpmScript({ repoRoot, res, script: "ds:token-graph" });
+          return;
+        }
+
+        if (method === "POST" && url === "/api/refresh-token-health") {
+          runNpmScript({ repoRoot, res, script: "ds:token-health" });
+          return;
+        }
+
+        if (method === "POST" && url === "/api/refresh-components-health") {
+          runNpmScript({ repoRoot, res, script: "ds:registry:report" });
+          return;
+        }
+
+        if (method === "POST" && url === "/api/refresh-naming-debt") {
+          const report = await computeNamingDebtReport({
+            tokenRegistryPath,
+            tokenUsageIndexPath,
+            tokenGraphVizPath,
+            namingDebtConfigPath,
+          });
+          await fs.mkdir(path.dirname(namingDebtCachePath), { recursive: true });
+          await fs.writeFile(namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+          sendJson(res, 200, {
+            ok: true,
+            generatedAt: report.generatedAt,
+            totalViolations: report.summary.totalViolations,
+            overallScore: report.summary.overallScore,
+          });
+          return;
+        }
+
+        if (method === "POST" && url === "/api/capture-health-snapshot") {
+          const body = await readJsonBody(req);
+          const beforeRefRaw = String(body.beforeRef ?? "HEAD~1").trim();
+          const beforeRef = validateGitRef(beforeRefRaw);
+          if (!beforeRef) {
+            sendJson(res, 400, {
+              ok: false,
+              message:
+                "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+            });
+            return;
+          }
+
+          const retentionDaysRaw = Number(body.retentionDays);
+          const retentionDays =
+            Number.isFinite(retentionDaysRaw) && retentionDaysRaw > 0
+              ? String(Math.floor(retentionDaysRaw))
+              : "120";
+
+          const skipDiff = toBooleanString(body.skipDiff, false);
+
+          runNodeJsonCommand({
+            repoRoot,
+            res,
+            commandLabel:
+              `node tooling/scripts/ds-health-snapshot.mjs --before-ref ${beforeRef} ` +
+              `--retention-days ${retentionDays} --skip-diff ${skipDiff}`,
+            scriptPath: healthSnapshotScriptPath,
+            scriptArgs: [
+              "--before-ref",
+              beforeRef,
+              "--retention-days",
+              retentionDays,
+              "--skip-diff",
+              skipDiff,
+              "--format",
+              "json",
+            ],
+          });
+          return;
+        }
+
+        if (method === "POST" && url === "/api/capture-figma-screenshot") {
+          const body = await readJsonBody(req);
+          const figmaUrl = String(body.figmaUrl ?? body.url ?? "").trim();
+          if (!figmaUrl) {
+            sendJson(res, 400, {
+              ok: false,
+              message: "figmaUrl is required in request body.",
+            });
+            return;
+          }
+
+          let parsedUrl: URL;
+          try {
+            parsedUrl = new URL(figmaUrl);
+          } catch {
+            sendJson(res, 400, { ok: false, message: "Invalid figmaUrl." });
+            return;
+          }
+          const host = String(parsedUrl.hostname || "").toLowerCase();
+          if (!host.endsWith("figma.com")) {
+            sendJson(res, 400, {
+              ok: false,
+              message: `URL host is not figma.com: ${host}`,
+            });
+            return;
+          }
+
+          const componentSlug = String(body.componentSlug ?? "").trim().toLowerCase();
+          const includeVariants = toBooleanString(body.includeVariants, true);
+          const requireExistingDoc = toBooleanString(body.requireExistingDoc, true);
+          const continueOnError = toBooleanString(body.continueOnError, true);
+          const refreshIndices = toBooleanString(body.refreshIndices, true);
+          const dryRun = toBooleanString(body.dryRun, false);
+          const variantLimit = toNumberString(body.variantLimit, 6);
+          const scale = toNumberString(body.scale, 2);
+          const format = String(body.format ?? "png").trim().toLowerCase() || "png";
+          const mainCaptureMode =
+            String(body.mainCaptureMode ?? "rest").trim().toLowerCase() || "rest";
+          const componentKind =
+            String(body.componentKind ?? "component_set")
+              .trim()
+              .toLowerCase() || "component_set";
+          const commandArgs = [
+            "--url",
+            figmaUrl,
+            "--include-variants",
+            includeVariants,
+            "--variant-limit",
+            variantLimit,
+            "--require-existing-doc",
+            requireExistingDoc,
+            "--continue-on-error",
+            continueOnError,
+            "--refresh-indices",
+            refreshIndices,
+            "--dry-run",
+            dryRun,
+            "--scale",
+            scale,
             "--format",
-            "json",
-          ],
-        });
-        return;
-      }
+            format,
+            "--main-capture-mode",
+            mainCaptureMode,
+            "--component-kind",
+            componentKind,
+          ];
+          if (componentSlug) {
+            commandArgs.push("--component-slug", componentSlug);
+          }
 
-      if (method === "POST" && url === "/api/capture-figma-screenshot") {
-        const body = await readJsonBody(req);
-        const figmaUrl = String(body.figmaUrl ?? body.url ?? "").trim();
-        if (!figmaUrl) {
-          sendJson(res, 400, {
-            ok: false,
-            message: "figmaUrl is required in request body.",
+          runNodeJsonCommand({
+            repoRoot,
+            res,
+            commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${commandArgs.join(
+              " ",
+            )}`,
+            scriptPath: captureFromFigmaUrlScriptPath,
+            scriptArgs: commandArgs,
+            allowNonZeroJson: true,
           });
           return;
         }
-
-        let parsedUrl: URL;
-        try {
-          parsedUrl = new URL(figmaUrl);
-        } catch {
-          sendJson(res, 400, { ok: false, message: "Invalid figmaUrl." });
-          return;
-        }
-        const host = String(parsedUrl.hostname || "").toLowerCase();
-        if (!host.endsWith("figma.com")) {
-          sendJson(res, 400, {
-            ok: false,
-            message: `URL host is not figma.com: ${host}`,
-          });
-          return;
-        }
-
-        const componentSlug = String(body.componentSlug ?? "").trim().toLowerCase();
-        const includeVariants = toBooleanString(body.includeVariants, true);
-        const requireExistingDoc = toBooleanString(body.requireExistingDoc, true);
-        const continueOnError = toBooleanString(body.continueOnError, true);
-        const refreshIndices = toBooleanString(body.refreshIndices, true);
-        const dryRun = toBooleanString(body.dryRun, false);
-        const variantLimit = toNumberString(body.variantLimit, 6);
-        const scale = toNumberString(body.scale, 2);
-        const format = String(body.format ?? "png").trim().toLowerCase() || "png";
-        const mainCaptureMode =
-          String(body.mainCaptureMode ?? "rest").trim().toLowerCase() || "rest";
-        const componentKind =
-          String(body.componentKind ?? "component_set")
-            .trim()
-            .toLowerCase() || "component_set";
-        const commandArgs = [
-          "--url",
-          figmaUrl,
-          "--include-variants",
-          includeVariants,
-          "--variant-limit",
-          variantLimit,
-          "--require-existing-doc",
-          requireExistingDoc,
-          "--continue-on-error",
-          continueOnError,
-          "--refresh-indices",
-          refreshIndices,
-          "--dry-run",
-          dryRun,
-          "--scale",
-          scale,
-          "--format",
-          format,
-          "--main-capture-mode",
-          mainCaptureMode,
-          "--component-kind",
-          componentKind,
-        ];
-        if (componentSlug) {
-          commandArgs.push("--component-slug", componentSlug);
-        }
-
-        runNodeJsonCommand({
-          repoRoot,
-          res,
-          commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${commandArgs.join(
-            " ",
-          )}`,
-          scriptPath: captureFromFigmaUrlScriptPath,
-          scriptArgs: commandArgs,
-          allowNonZeroJson: true,
-        });
-        return;
-      }
     } catch (error) {
       sendJson(res, 500, {
         ok: false,
@@ -1922,8 +1996,8 @@ function createLocalDataApi() {
       });
       return;
     }
-
     next();
+
   };
 
   return {

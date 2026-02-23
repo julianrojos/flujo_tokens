@@ -18,6 +18,7 @@ import { GlobalCommandPalette } from "@/features/command-palette/global-command-
 import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
 import { ImpactExplorerPage } from "@/features/impact/impact-explorer-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
+import { OperationsPage } from "@/features/ops/operations-page";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import {
   Sidebar,
@@ -63,6 +64,12 @@ const navSections: NavSection[] = [
         label: "Health",
         description: "Operational status",
         icon: Activity,
+      },
+      {
+        to: "/ops",
+        label: "Operations",
+        description: "Pipeline & synchronization",
+        icon: Zap,
       },
     ],
   },
@@ -286,6 +293,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/health" replace />} />
                 <Route path="/health" element={<HealthDashboardPage />} />
+                <Route path="/ops" element={<OperationsPage />} />
                 <Route path="/components" element={<ComponentsPage />} />
                 <Route path="/components/:slug" element={<ComponentDetailPage />} />
                 <Route path="/tokens" element={<TokensPage />} />
