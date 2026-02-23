@@ -266,6 +266,7 @@ export interface FileSnippetPayload {
 
 export interface CaptureFigmaScreenshotArgs {
   figmaUrl: string;
+  figmaToken?: string;
   componentSlug?: string;
   includeVariants?: boolean;
   variantLimit?: number;

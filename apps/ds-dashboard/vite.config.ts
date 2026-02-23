@@ -1959,6 +1959,7 @@ function createLocalDataApi() {
         }
 
         const componentSlug = String(body.componentSlug ?? "").trim().toLowerCase();
+        const figmaToken = String(body.figmaToken ?? "").trim();
         const includeVariants = toBooleanString(body.includeVariants, true);
         const requireExistingDoc = toBooleanString(body.requireExistingDoc, true);
         const continueOnError = toBooleanString(body.continueOnError, true);
@@ -2000,11 +2001,20 @@ function createLocalDataApi() {
         if (componentSlug) {
           commandArgs.push("--component-slug", componentSlug);
         }
+        if (figmaToken) {
+          commandArgs.push("--figma-token", figmaToken);
+        }
+
+        const commandDisplayArgs = [...commandArgs];
+        const tokenIdx = commandDisplayArgs.indexOf("--figma-token");
+        if (tokenIdx >= 0 && tokenIdx + 1 < commandDisplayArgs.length) {
+          commandDisplayArgs[tokenIdx + 1] = "***redacted***";
+        }
 
         runNodeJsonCommand({
           repoRoot,
           res,
-          commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${commandArgs.join(
+          commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${commandDisplayArgs.join(
             " ",
           )}`,
           scriptPath: captureFromFigmaUrlScriptPath,
