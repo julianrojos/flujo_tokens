@@ -93,49 +93,11 @@ export function NewSystemPage() {
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
   const safeId = generatedSystemId || "my-new-system";
-  const safeName = systemName.trim() || "My New System";
   const figmaFileId = extractFigmaFileIdFromUrl(figmaFileUrl);
-  const defaultFigmaTokenEnvName = `FIGMA_TOKEN_${safeId
-    .replace(/[^a-z0-9-]/gi, "_")
-    .replace(/-/g, "_")
-    .toUpperCase()}`;
   const safeInputDir = `input/${safeId}`;
   const safeOutputDir = `output/${safeId}`;
   const safeDocsDir = `docs/${safeId}`;
   const collections: string[] = [];
-
-  const configExample = useMemo(() => {
-    const renderedCollections =
-      collections.length > 0
-        ? collections.map((collection) => `    "${collection}"`).join(",\n")
-        : '    "Primitives",\n    "Typography",\n    "Semantic",\n    "Components",\n    "A11y"';
-
-    return `{
-  "id": "${safeId}",
-  "name": "${safeName}",
-  "appName": "${appName.trim() || safeName}",
-  "figmaFileId": "${figmaFileId.trim() || "your-figma-file-id"}",
-  "figmaApiToken": "\${${defaultFigmaTokenEnvName}}",
-  "compileVariablesOnCapture": ${compileVariablesOnCapture ? "true" : "false"},
-  "inputDir": "${safeInputDir}",
-  "outputDir": "${safeOutputDir}",
-  "docsDir": "${safeDocsDir}",
-  "collections": [
-${renderedCollections}
-  ]
-}`;
-  }, [
-    appName,
-    defaultFigmaTokenEnvName,
-    figmaFileId,
-    compileVariablesOnCapture,
-    collections,
-    safeDocsDir,
-    safeId,
-    safeInputDir,
-    safeName,
-    safeOutputDir,
-  ]);
 
   const hasFigmaUrl = !!figmaFileUrl.trim();
   const hasToken = !!figmaAccessToken.trim();
@@ -411,17 +373,6 @@ ${renderedCollections}
             operational in the sidebar.
           </p>
           <FigmaUrlScanner />
-        </section>
-
-        <section className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-2 text-xl font-semibold">3. Generated JSON Preview</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Preview of the system entry written to{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5">tooling/config/design-systems.json</code>.
-          </p>
-          <pre className="overflow-x-auto rounded-lg bg-black p-4 text-sm text-white">
-            {configExample}
-          </pre>
         </section>
       </div>
 
