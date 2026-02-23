@@ -53,6 +53,7 @@ One page per component. This documentation is design-first (Figma) and token-bac
 - [Step](step.md)
 - [Stepper](stepper.md)
 - [Tab](tab.md)
+- [Tabs](tabs.md)
 - [Tag](tag.md)
 - [Tags List](tags_list.md)
 - [Text Area](text_area.md)

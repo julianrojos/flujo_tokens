@@ -1,0 +1,42 @@
+{
+  "component": "stepper",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/iter/components/stepper.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/iter/_spec/components/stepper.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2282-1820",
+  "node_id": "2282:1820",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/deb0e6de-b94c-4fcd-a15a-f529cd50db80",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/deb0e6de-b94c-4fcd-a15a-f529cd50db80",
+  "image_path": "_generated/visual-proofs/images/stepper.png",
+  "image_sha256": "44275e7909b59c1a1be31a10419f1c356f400442b8a38ff5ae46ed1978b79f4d",
+  "image_bytes": 9651,
+  "image_content_type": "image/png",
+  "image_width": 672,
+  "image_height": 196,
+  "captured_at": "2026-02-23T21:32:39.623Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/stepper.png",
+    "sha256": "44275e7909b59c1a1be31a10419f1c356f400442b8a38ff5ae46ed1978b79f4d",
+    "bytes": 9651,
+    "content_type": "image/png",
+    "width": 672,
+    "height": 196
+  },
+  "variants_count": 1,
+  "variants": [
+    {
+      "name": "Stepper",
+      "node_id": "2282:1820",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/deb0e6de-b94c-4fcd-a15a-f529cd50db80",
+      "image_path": "_generated/visual-proofs/images/variants/stepper__01__stepper.png",
+      "image_sha256": "44275e7909b59c1a1be31a10419f1c356f400442b8a38ff5ae46ed1978b79f4d",
+      "image_bytes": 9651,
+      "image_content_type": "image/png",
+      "image_width": 672,
+      "image_height": 196,
+      "captured_at": "2026-02-23T21:32:39.623Z"
+    }
+  ]
+}

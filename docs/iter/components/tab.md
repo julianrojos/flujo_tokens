@@ -35,16 +35,16 @@ Source: [Tab in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 
 ![Visual proof snapshot](../_generated/visual-proofs/images/tab.png)
 
-- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3a493655-579c-4c39-a9b4-479de00a03a8)
+- Screenshot: [Captured (2026-02-23)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/2f060457-d43c-42d3-a56e-77ffc7ad8a6a)
 - Source node: `2429:2493`
-- Image hash: `297fb2a82ed68d4af647af425957361da23d82be1b0fc61dcc301bbacb7c8c3e`
+- Image hash: `5427d510bf0c42c050b683cefeb02adaefda37f8fdc1f3de74ec5149cc85c116`
 - Variants captured: `2`
 - Artifact: `../_generated/visual-proofs/tab.json`
 
 ## Anatomy
 
-1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
-2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
+1. **Tab text** — Width 69, Height 24, Border weight 1, Text color `#5D5252`, Text align LEFT, Text style Nunito Sans/Bold/18
+
 
 ## Component API
 
@@ -52,26 +52,33 @@ Source: [Tab in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| `State` | `VARIANT` | `Default` | `true` | Variant selector extracted from Figma property `State`. Allowed values: `Default`, `Selected`. |
-| `Change_Tab_Text` | `TEXT` | `TBD` | `false` | Property extracted from Figma property `Change_Tab_Text`. |
+| State | VARIANT | Default | true | Variant selector. |
+| Change_Tab_Text#2429:65 | TEXT |  | false | Text content value. |
+
 
 ## Visual Specifications
 
-### Container
+### Per-variant attributes
 
-- Layout and spacing values are pending verification from production token mappings.
-- Variant-specific visual values should be captured in token mappings below.
 
-### Typography
+#### State=Selected
 
-- Typography tokens: `TBD`.
+- **tab_text**: Text color `#5D5252`, Text style Nunito Sans/Bold/18
+- **container**: Background `#FFFAF0`
 
-### Token Mapping
+#### State=Default
 
-| Part | Condition | Token | Fallback |
-| --- | --- | --- | --- |
-| `container.background` | `state=Default` | `TBD` | `TBD` |
-| `container.background` | `state=Selected` | `TBD` | `TBD` |
+- **tab_text**: Text color `#483F3F`, Text style Nunito Sans/18
+
+### Layout and spacing
+
+Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
+
+| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
+| --- | --- | --- | --- | --- | --- | --- |
+| container | Horizontal | Center center | Fixed | Fixed | 0 | 16/16/16/16 |
+| tab_text | — | — | Fixed | Fixed | — | — |
+
 
 ## Variants
 

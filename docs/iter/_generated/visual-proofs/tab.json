@@ -1,25 +1,25 @@
 {
   "component": "tab",
-  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/tab.md",
-  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/tab.yml",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/iter/components/tab.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/iter/_spec/components/tab.yml",
   "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2429-2493",
   "node_id": "2429:2493",
   "format": "png",
   "scale": 2,
-  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3a493655-579c-4c39-a9b4-479de00a03a8",
-  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3a493655-579c-4c39-a9b4-479de00a03a8",
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/2f060457-d43c-42d3-a56e-77ffc7ad8a6a",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/2f060457-d43c-42d3-a56e-77ffc7ad8a6a",
   "image_path": "_generated/visual-proofs/images/tab.png",
-  "image_sha256": "297fb2a82ed68d4af647af425957361da23d82be1b0fc61dcc301bbacb7c8c3e",
-  "image_bytes": 6762,
+  "image_sha256": "5427d510bf0c42c050b683cefeb02adaefda37f8fdc1f3de74ec5149cc85c116",
+  "image_bytes": 6788,
   "image_content_type": "image/png",
   "image_width": 282,
   "image_height": 330,
-  "captured_at": "2026-02-21T11:59:40.218Z",
+  "captured_at": "2026-02-23T22:29:50.101Z",
   "captured_with": "figma_take_screenshot",
   "image": {
     "path": "_generated/visual-proofs/images/tab.png",
-    "sha256": "297fb2a82ed68d4af647af425957361da23d82be1b0fc61dcc301bbacb7c8c3e",
-    "bytes": 6762,
+    "sha256": "5427d510bf0c42c050b683cefeb02adaefda37f8fdc1f3de74ec5149cc85c116",
+    "bytes": 6788,
     "content_type": "image/png",
     "width": 282,
     "height": 330
@@ -29,26 +29,26 @@
     {
       "name": "State=Default",
       "node_id": "2429:2491",
-      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/3cdbe39b-cac1-43fc-a14f-9c5cb632ce02",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/31494e3e-d480-437c-a26d-071051cba771",
       "image_path": "_generated/visual-proofs/images/variants/tab__01__state_default.png",
-      "image_sha256": "53d6ef9482852620a26a84672dac174ca7c7d7d4821ad166beda18f274245e1a",
-      "image_bytes": 2234,
+      "image_sha256": "331099409954e680dbecf99de187e1becbfd0886696bf1cbdc91752304a6bd04",
+      "image_bytes": 2260,
       "image_content_type": "image/png",
       "image_width": 196,
       "image_height": 112,
-      "captured_at": "2026-02-21T11:59:40.218Z"
+      "captured_at": "2026-02-23T22:29:50.101Z"
     },
     {
       "name": "State=Selected",
       "node_id": "2429:2492",
-      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/c35749e2-5ea1-4e4c-bfa1-b11300a0e5a6",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/ce473b00-9063-4716-bfe1-bc3d8414c24b",
       "image_path": "_generated/visual-proofs/images/variants/tab__02__state_selected.png",
-      "image_sha256": "98d67af553a17b2f7cd6dd3d5c5d14ba66edcd4eca74481ff967be3f52119c17",
-      "image_bytes": 2831,
+      "image_sha256": "5c6a849771dc5298f4d7c5f2ce184739a015f7c4d38de57b4674d43ea80b0dfe",
+      "image_bytes": 2857,
       "image_content_type": "image/png",
       "image_width": 202,
       "image_height": 112,
-      "captured_at": "2026-02-21T11:59:40.218Z"
+      "captured_at": "2026-02-23T22:29:50.101Z"
     }
   ]
 }

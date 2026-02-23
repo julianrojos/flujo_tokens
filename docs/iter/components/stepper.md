@@ -26,9 +26,13 @@ The **Stepper** component arranges multiple Step items to communicate linear pro
 
 ### Visual Proof
 
-- Screenshot: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/stepper.png)
+
+- Screenshot: [Captured (2026-02-23)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/deb0e6de-b94c-4fcd-a15a-f529cd50db80)
 - Source node: `2282:1820`
-- Artifact: `TBD`
+- Image hash: `44275e7909b59c1a1be31a10419f1c356f400442b8a38ff5ae46ed1978b79f4d`
+- Variants captured: `1`
+- Artifact: `../_generated/visual-proofs/stepper.json`
 
 ## Anatomy
 

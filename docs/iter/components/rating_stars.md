@@ -34,16 +34,20 @@ Source: [Rating_Stars in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pK
 
 ![Visual proof snapshot](../_generated/visual-proofs/images/rating_stars.png)
 
-- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/2f5e2cb0-7365-4ada-be2d-b16e1a998d19)
+- Screenshot: [Captured (2026-02-23)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/d5486242-e529-4e7a-8607-3694623caa21)
 - Source node: `683:264`
-- Image hash: `e2e4bb2acd1f57abb331876fbf39222e81c5d9cc2014be456fcca93d3e409b6d`
+- Image hash: `05213c92901a17f60b393bcde38d9f8edc7975c179754fa9c4b64b4fb7f11a29`
 - Variants captured: `6`
 - Artifact: `../_generated/visual-proofs/rating_stars.json`
 
 ## Anatomy
 
-1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
-2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
+1. **Star** — Width 15, Height 15, Border weight 1, Aspect ratio 1:1, Instance of Star
+2. **Star** — Width 15, Height 15, Border weight 1, Aspect ratio 1:1, Instance of Star
+3. **Star** — Width 15, Height 15, Border weight 1, Aspect ratio 1:1, Instance of Star
+4. **Star** — Width 15, Height 15, Border weight 1, Aspect ratio 1:1, Instance of Star
+5. **Star** — Width 15, Height 15, Border weight 1, Aspect ratio 1:1, Instance of Star
+
 
 ## Component API
 
@@ -51,29 +55,75 @@ Source: [Rating_Stars in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pK
 
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| `Stars_Number` | `VARIANT` | `5` | `true` | Variant selector extracted from Figma property `Stars_Number`. Allowed values: `5`, `4`, `3`, `1`, `2`, `0`. |
+| Stars_Number | VARIANT | 5 | true | Variant selector. |
+
 
 ## Visual Specifications
 
-### Container
+### Per-variant attributes
 
-- Layout and spacing values are pending verification from production token mappings.
-- Variant-specific visual values should be captured in token mappings below.
 
-### Typography
+#### Stars_Number=0
 
-- Typography tokens: `TBD`.
+- **star_icon**: Stroke `#5D5252`
+- **star_icon_2**: Stroke `#5D5252`
+- **star_icon_3**: Stroke `#5D5252`
+- **star_icon_4**: Stroke `#5D5252`
+- **star_icon_5**: Stroke `#5D5252`
 
-### Token Mapping
+#### Stars_Number=1
 
-| Part | Condition | Token | Fallback |
-| --- | --- | --- | --- |
-| `container.background` | `stars_number=5` | `TBD` | `TBD` |
-| `container.background` | `stars_number=4` | `TBD` | `TBD` |
-| `container.background` | `stars_number=3` | `TBD` | `TBD` |
-| `container.background` | `stars_number=1` | `TBD` | `TBD` |
-| `container.background` | `stars_number=2` | `TBD` | `TBD` |
-| `container.background` | `stars_number=0` | `TBD` | `TBD` |
+- **star_icon**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_2**: Stroke `#5D5252`
+- **star_icon_3**: Stroke `#5D5252`
+- **star_icon_4**: Stroke `#5D5252`
+- **star_icon_5**: Stroke `#5D5252`
+
+#### Stars_Number=2
+
+- **star_icon**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_2**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_3**: Stroke `#5D5252`
+- **star_icon_4**: Stroke `#5D5252`
+- **star_icon_5**: Stroke `#5D5252`
+
+#### Stars_Number=3
+
+- **star_icon**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_2**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_3**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_4**: Stroke `#5D5252`
+- **star_icon_5**: Stroke `#5D5252`
+
+#### Stars_Number=4
+
+- **star_icon**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_2**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_3**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_4**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_5**: Stroke `#5D5252`
+
+#### Stars_Number=5
+
+- **star_icon**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_2**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_3**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_4**: Background `#C9E0BE`, Stroke `#5D5252`
+- **star_icon_5**: Background `#C9E0BE`, Stroke `#5D5252`
+
+### Layout and spacing
+
+Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
+
+| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
+| --- | --- | --- | --- | --- | --- | --- |
+| container | Horizontal | Top top | Fixed | Fixed | 4 | — |
+| star | Horizontal | Top top | Fixed | Fixed | 0 | — |
+| star | Horizontal | Top top | Fixed | Fixed | 0 | — |
+| star | Horizontal | Top top | Fixed | Fixed | 0 | — |
+| star | Horizontal | Top top | Fixed | Fixed | 0 | — |
+| star | Horizontal | Top top | Fixed | Fixed | 0 | — |
+
 
 ## Variants
 

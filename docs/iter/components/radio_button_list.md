@@ -26,15 +26,23 @@ The **Radio Button List** component groups multiple labeled radio options into o
 
 ### Visual Proof
 
-- Screenshot: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/radio_button_list.png)
+
+- Screenshot: [Captured (2026-02-23)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/a6587aa2-db60-4055-8a67-2e4255feffdc)
 - Source node: `2335:2158`
-- Artifact: `TBD`
+- Image hash: `823a81c34cc75f93e667530ce4b922f7b52152019c29e02f723256afd36a9aba`
+- Variants captured: `1`
+- Artifact: `../_generated/visual-proofs/radio_button_list.json`
 
 ## Anatomy
 
-1. **List container**: Wrapper for the option rows.
-2. **Option rows**: Repeated `Radio-Button-Label` instances.
-3. **Visibility toggles**: Boolean properties controlling each option slot.
+1. **Radio-Button-Label** — Width 160, Height 37, Border weight 1, Instance of Radio-Button-Label
+2. **Radio-Button-Label** — Width 160, Height 37, Border weight 1, Instance of Radio-Button-Label
+3. **Radio-Button-Label** — Width 160, Height 37, Border weight 1, Instance of Radio-Button-Label
+4. **Radio-Button-Label** — Width 160, Height 37, Border weight 1, Instance of Radio-Button-Label
+5. **Radio-Button-Label** — Width 160, Height 37, Border weight 1, Instance of Radio-Button-Label
+6. **Radio-Button-Label** — Width 160, Height 37, Border weight 1, Instance of Radio-Button-Label
+
 
 ## Component API
 
@@ -42,24 +50,46 @@ The **Radio Button List** component groups multiple labeled radio options into o
 
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
-| `Show_Radio_Button_Label_1` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 1. |
-| `Show_Radio_Button_Label_2` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 2. |
-| `Show_Radio_Button_Label_3` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 3. |
-| `Show_Radio_Button_Label_4` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 4. |
-| `Show_Radio_Button_Label_5` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 5. |
-| `Show_Radio_Button_Label_6` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 6. |
+| Show_Radio_Button_Label_1#2335:49 | BOOLEAN | true | false | Boolean toggle. |
+| Show_Radio_Button_Label_2#2335:50 | BOOLEAN | true | false | Boolean toggle. |
+| Show_Radio_Button_Label_3#2335:51 | BOOLEAN | true | false | Boolean toggle. |
+| Show_Radio_Button_Label_4#2335:52 | BOOLEAN | true | false | Boolean toggle. |
+| Show_Radio_Button_Label_5#2335:53 | BOOLEAN | true | false | Boolean toggle. |
+| Show_Radio_Button_Label_6#2335:54 | BOOLEAN | true | false | Boolean toggle. |
+
 
 ## Visual Specifications
 
-### Container
+### Per-variant attributes
 
-- Composed group of radio option rows.
-- Group gap and row text token mapping: `TBD`.
+- `TBD`
 
-### Typography
+### Layout and spacing
 
-- Inherited from nested `Radio-Button-Label` instances.
-- Group-specific typography mapping: `TBD`.
+Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
+
+| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
+| --- | --- | --- | --- | --- | --- | --- |
+| container | Vertical | Top top | Fixed | Fixed | 4 | — |
+| radiobuttonlabel | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobutton | Horizontal | Center center | Fixed | Fixed | 10 | 4/4/4/4 |
+| radio_button_label | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobuttonlabel | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobutton | Horizontal | Center center | Fixed | Fixed | 10 | 4/4/4/4 |
+| radio_button_label | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobuttonlabel | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobutton | Horizontal | Center center | Fixed | Fixed | 10 | 4/4/4/4 |
+| radio_button_label | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobuttonlabel | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobutton | Horizontal | Center center | Fixed | Fixed | 10 | 4/4/4/4 |
+| radio_button_label | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobuttonlabel | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobutton | Horizontal | Center center | Fixed | Fixed | 10 | 4/4/4/4 |
+| radio_button_label | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobuttonlabel | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobutton | Horizontal | Center center | Fixed | Fixed | 10 | 4/4/4/4 |
+| radio_button_label | Horizontal | Center top | Fixed | Fixed | 8 | — |
+
 
 ## Variants
 

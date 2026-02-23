@@ -1,0 +1,42 @@
+{
+  "component": "radio_button_label",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/iter/components/radio_button_label.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/iter/_spec/components/radio_button_label.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2304-1984",
+  "node_id": "2304:1984",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/7713216a-abe3-4a11-aa9c-64ef1df5ca75",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/7713216a-abe3-4a11-aa9c-64ef1df5ca75",
+  "image_path": "_generated/visual-proofs/images/radio_button_label.png",
+  "image_sha256": "f7f1c0d341b9f9c934bdd37af8862b077cd87fd60e6d986c3d6fca38b89022a3",
+  "image_bytes": 2332,
+  "image_content_type": "image/png",
+  "image_width": 144,
+  "image_height": 48,
+  "captured_at": "2026-02-23T22:02:06.294Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/radio_button_label.png",
+    "sha256": "f7f1c0d341b9f9c934bdd37af8862b077cd87fd60e6d986c3d6fca38b89022a3",
+    "bytes": 2332,
+    "content_type": "image/png",
+    "width": 144,
+    "height": 48
+  },
+  "variants_count": 1,
+  "variants": [
+    {
+      "name": "Radio-Button-Label",
+      "node_id": "2304:1984",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/7713216a-abe3-4a11-aa9c-64ef1df5ca75",
+      "image_path": "_generated/visual-proofs/images/variants/radio_button_label__01__radio_button_label.png",
+      "image_sha256": "f7f1c0d341b9f9c934bdd37af8862b077cd87fd60e6d986c3d6fca38b89022a3",
+      "image_bytes": 2332,
+      "image_content_type": "image/png",
+      "image_width": 144,
+      "image_height": 48,
+      "captured_at": "2026-02-23T22:02:06.294Z"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "component": "tabs",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/iter/components/tabs.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/iter/_spec/components/tabs.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2429-2504",
+  "node_id": "2429:2504",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/451aef4a-8185-4c3b-8cc7-0830a77299f1",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/451aef4a-8185-4c3b-8cc7-0830a77299f1",
+  "image_path": "_generated/visual-proofs/images/tabs.png",
+  "image_sha256": "eafa95512513f5853f2542f61abcb2fe29615dcaf31811b979da6d0350c9e68c",
+  "image_bytes": 7360,
+  "image_content_type": "image/png",
+  "image_width": 838,
+  "image_height": 112,
+  "captured_at": "2026-02-23T22:37:45.864Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/tabs.png",
+    "sha256": "eafa95512513f5853f2542f61abcb2fe29615dcaf31811b979da6d0350c9e68c",
+    "bytes": 7360,
+    "content_type": "image/png",
+    "width": 838,
+    "height": 112
+  },
+  "variants_count": 1,
+  "variants": [
+    {
+      "name": "Tabs",
+      "node_id": "2429:2504",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/451aef4a-8185-4c3b-8cc7-0830a77299f1",
+      "image_path": "_generated/visual-proofs/images/variants/tabs__01__tabs.png",
+      "image_sha256": "eafa95512513f5853f2542f61abcb2fe29615dcaf31811b979da6d0350c9e68c",
+      "image_bytes": 7360,
+      "image_content_type": "image/png",
+      "image_width": 838,
+      "image_height": 112,
+      "captured_at": "2026-02-23T22:37:45.864Z"
+    }
+  ]
+}

@@ -26,18 +26,34 @@ The **Radio Button Label** component combines one radio control with adjacent la
 
 ### Visual Proof
 
-- Screenshot: `TBD`
+![Visual proof snapshot](../_generated/visual-proofs/images/radio_button_label.png)
+
+- Screenshot: [Captured (2026-02-23)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/7713216a-abe3-4a11-aa9c-64ef1df5ca75)
 - Source node: `2304:1984`
-- Artifact: `TBD`
+- Image hash: `f7f1c0d341b9f9c934bdd37af8862b077cd87fd60e6d986c3d6fca38b89022a3`
+- Variants captured: `1`
+- Artifact: `../_generated/visual-proofs/radio_button_label.json`
 
 ## Anatomy
 
-1. **Radio control**: Nested `Radio-Button` instance.
+
+1. **Radio-Button** — Width 24, Height 24, Border weight 1, Aspect ratio 1:1, Instance of Radio-Button
+2. **Radio_Button_Label** — Width 40, Height 24, Border weight 1
+3. **Label** — Width 40, Height 24, Border weight 1, Text color `#483F3F`, Text align LEFT, Text style Nunito Sans/16
+
+
 2. **Label frame**: Text container for option label.
 
 ## Component API
 
+
 ### Properties
+
+| Name | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+| Change_Radio_Label_Text#2304:48 | TEXT | Label | false | Text content value. |
+
+
 
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
@@ -45,7 +61,22 @@ The **Radio Button Label** component combines one radio control with adjacent la
 
 ## Visual Specifications
 
-### Container
+
+### Per-variant attributes
+
+- `TBD`
+
+### Layout and spacing
+
+Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
+
+| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
+| --- | --- | --- | --- | --- | --- | --- |
+| container | Horizontal | Center top | Fixed | Fixed | 8 | — |
+| radiobutton | Horizontal | Center center | Fixed | Fixed | 10 | 4/4/4/4 |
+| radio_button_label | Horizontal | Center top | Fixed | Fixed | 8 | — |
+
+
 
 - Composed row with radio control and label.
 - Row spacing and label color token mapping: `TBD`.
