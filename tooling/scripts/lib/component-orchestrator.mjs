@@ -23,7 +23,7 @@ export function executeComponentTasks(componentPlan, globalOptions = {}) {
     const runCmd = (cmd, args) => {
         const fullCmd = `${cmd} ${args.join(' ')}`;
         log(`Running: ${fullCmd}`);
-        const res = spawnSync(cmd, args, { stdio: globalOptions.json ? 'pipe' : 'inherit', shell: true, cwd: PROJECT_ROOT });
+        const res = spawnSync(cmd, args, { stdio: globalOptions.json ? 'pipe' : 'inherit', shell: false, cwd: PROJECT_ROOT });
         if (res.status !== 0) {
             const err = `Command failed with status ${res.status}: ${fullCmd}`;
             log(`❌ Error: ${err}`);

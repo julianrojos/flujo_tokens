@@ -48,7 +48,7 @@ async function main() {
         const preflightSysArgs = opts.system ? ['--system', opts.system] : [];
         const docRes = spawnSync('npm', ['run', 'ds:doctor', '--', ...preflightSysArgs, '--json'], {
             cwd: PROJECT_ROOT,
-            shell: true,
+            shell: false,
             stdio: 'pipe',
             encoding: 'utf8'
         });
@@ -115,7 +115,7 @@ async function main() {
             if (!silent) console.log(`   (Dry Run: Skipping ${cmd} ${args.join(' ')})`);
             return true;
         }
-        const res = spawnSync(cmd, args, { stdio: silent ? 'pipe' : 'inherit', shell: true, cwd: PROJECT_ROOT });
+        const res = spawnSync(cmd, args, { stdio: silent ? 'pipe' : 'inherit', shell: false, cwd: PROJECT_ROOT });
         return res.status === 0;
     };
 
