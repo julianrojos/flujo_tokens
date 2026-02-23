@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createSearchParams, Link, useSearchParams } from "react-router-dom";
+import { createSearchParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, RefreshCcw } from "lucide-react";
 
 import { fetchTokenGraph, refreshTokenGraph } from "@/lib/api";
@@ -34,6 +34,7 @@ function normalizeDepth(raw: string | null) {
 
 export function TokenGraphPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const tokenQuery = searchParams.get("token") ?? "";
   const direction = normalizeDirection(searchParams.get("dir"));
   const depth = normalizeDepth(searchParams.get("depth"));
@@ -130,7 +131,13 @@ export function TokenGraphPage() {
   return (
     <div className="space-y-5 animate-fade-slide-in">
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="sm" onClick={() => window.history.back()}>
+        <Button variant="outline" size="sm" onClick={() => {
+          if (window.history.length > 1) {
+            navigate(-1);
+          } else {
+            navigate("/tokens");
+          }
+        }}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
