@@ -935,6 +935,50 @@ async function computeNamingDebtReport(args: {
 }
 
 let _cachedDesignSystemsConfig: any = null;
+const DEFAULT_AUTO_COLLECTIONS = ["Primitives", "Typography", "Semantic", "Components", "A11y"];
+
+function designSystemsConfigPath(repoRoot: string) {
+  return path.join(repoRoot, "tooling", "config", "design-systems.json");
+}
+
+function readDesignSystemsConfig(repoRoot: string) {
+  const raw = fsSync.readFileSync(designSystemsConfigPath(repoRoot), "utf8");
+  return JSON.parse(raw);
+}
+
+function writeDesignSystemsConfig(repoRoot: string, nextConfig: unknown) {
+  const targetPath = designSystemsConfigPath(repoRoot);
+  const tmpPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
+  fsSync.writeFileSync(tmpPath, `${JSON.stringify(nextConfig, null, 2)}\n`, "utf8");
+  fsSync.renameSync(tmpPath, targetPath);
+}
+
+function normalizeSystemId(raw: unknown) {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+function normalizeCollectionList(raw: unknown) {
+  if (!Array.isArray(raw)) return [];
+  return Array.from(
+    new Set(
+      raw
+        .map((item) => String(item || "").trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
+function ensureRelativeDir(raw: unknown, fallback: string) {
+  const value = String(raw || "").trim() || fallback;
+  const normalized = value.replace(/\\/g, "/");
+  const cleaned = normalized.replace(/^\/+/, "").replace(/\/+$/, "");
+  return cleaned || fallback;
+}
 
 function getSystemContextParams(req: { headers?: Record<string, string | string[] | undefined> }) {
   const repoRoot = path.resolve(__dirname, "../..");
@@ -985,6 +1029,89 @@ function createLocalDataApi() {
 
     if (!url.startsWith("/api/")) {
       return next();
+    }
+
+    const workspaceRoot = path.resolve(__dirname, "../..");
+    if (url === "/api/design-systems") {
+      try {
+        if (method === "GET") {
+          const config = readDesignSystemsConfig(workspaceRoot);
+          _cachedDesignSystemsConfig = config;
+          sendJson(res, 200, config);
+          return;
+        }
+
+        if (method === "POST") {
+          const body = await readJsonBody(req);
+          const config = readDesignSystemsConfig(workspaceRoot);
+          const systemId = normalizeSystemId(body.id);
+          const systemName = String(body.name || "").trim();
+          if (!systemId || !systemName) {
+            sendJson(res, 400, {
+              ok: false,
+              message: "Both `id` and `name` are required.",
+            });
+            return;
+          }
+
+          const exists = Array.isArray(config.systems)
+            ? config.systems.some((row: any) => String(row?.id || "").trim() === systemId)
+            : false;
+          if (exists) {
+            sendJson(res, 409, {
+              ok: false,
+              message: `System '${systemId}' already exists.`,
+            });
+            return;
+          }
+
+          const inputDir = ensureRelativeDir(body.inputDir, `input/${systemId}`);
+          const outputDir = ensureRelativeDir(body.outputDir, `output/${systemId}`);
+          const docsDir = ensureRelativeDir(body.docsDir, `docs/${systemId}`);
+          const nextSystem = {
+            id: systemId,
+            name: systemName,
+            appName: String(body.appName || "").trim() || systemName,
+            figmaFileId: String(body.figmaFileId || "").trim(),
+            figmaApiToken:
+              String(body.figmaApiToken || "").trim() || `\${FIGMA_TOKEN_${systemId.toUpperCase().replace(/-/g, "_")}}`,
+            inputDir,
+            outputDir,
+            docsDir,
+            collections: normalizeCollectionList(body.collections),
+          };
+
+          const nextSystems = [...(Array.isArray(config.systems) ? config.systems : []), nextSystem];
+          const makeDefault = body.makeDefault === true;
+          const nextConfig = {
+            ...config,
+            systems: nextSystems,
+            defaultSystem: makeDefault ? systemId : config.defaultSystem || systemId,
+          };
+
+          writeDesignSystemsConfig(workspaceRoot, nextConfig);
+          _cachedDesignSystemsConfig = nextConfig;
+
+          sendJson(res, 200, {
+            ok: true,
+            system: { id: nextSystem.id, name: nextSystem.name },
+            config: {
+              systems: nextSystems.map((system: any) => ({
+                id: String(system.id || ""),
+                name: String(system.name || ""),
+              })),
+              defaultSystem: nextConfig.defaultSystem,
+            },
+          });
+          return;
+        }
+      } catch (error) {
+        sendJson(res, 500, {
+          ok: false,
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return;
+      }
     }
 
     let sysCtx;

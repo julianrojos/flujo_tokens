@@ -53,6 +53,41 @@ export function fetchComponentRegistry() {
   return getJson<ComponentRegistry>("/api/component-registry");
 }
 
+export interface CreateDesignSystemPayload {
+  id: string;
+  name: string;
+  appName?: string;
+  figmaFileId?: string;
+  figmaApiToken?: string;
+  inputDir?: string;
+  outputDir?: string;
+  docsDir?: string;
+  collections?: string[];
+  makeDefault?: boolean;
+}
+
+export interface CreateDesignSystemResponse {
+  ok: boolean;
+  system: {
+    id: string;
+    name: string;
+  };
+  config: {
+    systems: Array<{ id: string; name: string }>;
+    defaultSystem: string;
+  };
+}
+
+export function createDesignSystem(args: CreateDesignSystemPayload) {
+  return getJson<CreateDesignSystemResponse>("/api/design-systems", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+}
+
 export function fetchComponentUsageIndex() {
   return getJson<ComponentUsageIndex>("/api/component-usage-index");
 }

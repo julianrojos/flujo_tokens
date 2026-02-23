@@ -15,6 +15,7 @@ interface DesignSystemContextValue {
   systems: DesignSystem[];
   activeSystem: string;
   setActiveSystem: (id: string) => void;
+  addSystem: (system: DesignSystem, options?: { makeDefault?: boolean }) => void;
   isLoading: boolean;
   error: Error | null;
 }
@@ -54,6 +55,17 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
     setActiveSystemId(id);
   };
 
+  const handleAddSystem = (system: DesignSystem, options?: { makeDefault?: boolean }) => {
+    setSystems((prev) => {
+      if (prev.some((item) => item.id === system.id)) return prev;
+      return [...prev, system];
+    });
+    if (options?.makeDefault) {
+      setActiveSystemState(system.id);
+      setActiveSystemId(system.id);
+    }
+  };
+
   if (isLoading) {
     return <div className="p-8 text-neutral-400">Loading design systems...</div>;
   }
@@ -68,6 +80,7 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
         systems,
         activeSystem,
         setActiveSystem: handleSetActiveSystem,
+        addSystem: handleAddSystem,
         isLoading,
         error,
       }}

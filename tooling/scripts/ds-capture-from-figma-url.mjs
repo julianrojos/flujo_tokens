@@ -118,6 +118,8 @@ const USAGE = {
   ],
 };
 
+const DEFAULT_AUTO_COLLECTIONS = ["Primitives", "Typography", "Semantic", "Components", "A11y"];
+
 function parseBooleanOption(rawValue, optionName, fallback = false) {
   const normalized = String(rawValue ?? fallback).trim().toLowerCase();
   if (normalized === "true") return true;
@@ -342,6 +344,60 @@ function writeTextAtomic(filePath, content) {
   fs.renameSync(tempPath, filePath);
 }
 
+function toCollectionLabel(rawValue) {
+  return String(rawValue || "")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[_-]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function inferCollectionsFromInputDir(repoRoot, inputDir) {
+  const resolvedDir = path.resolve(repoRoot, inputDir || "");
+  if (!fs.existsSync(resolvedDir)) return [];
+  const entries = fs.readdirSync(resolvedDir, { withFileTypes: true });
+  return Array.from(
+    new Set(
+      entries
+        .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".json"))
+        .map((entry) => toCollectionLabel(entry.name))
+        .filter(Boolean),
+    ),
+  );
+}
+
+function ensureCollectionsConfigured({ repoRoot, systemId }) {
+  if (!systemId || systemId === "_legacy") return;
+  const configPath = path.join(repoRoot, "tooling", "config", "design-systems.json");
+  if (!fs.existsSync(configPath)) return;
+
+  let config;
+  try {
+    config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+  } catch {
+    return;
+  }
+  if (!config || typeof config !== "object" || !Array.isArray(config.systems)) return;
+
+  const targetIndex = config.systems.findIndex((item) => String(item?.id || "").trim() === systemId);
+  if (targetIndex < 0) return;
+  const target = config.systems[targetIndex];
+  if (Array.isArray(target.collections) && target.collections.length > 0) return;
+
+  const inferred = inferCollectionsFromInputDir(repoRoot, target.inputDir);
+  const collections = inferred.length > 0 ? inferred : DEFAULT_AUTO_COLLECTIONS;
+  target.collections = collections;
+  config.systems[targetIndex] = target;
+
+  const tmpPath = `${configPath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  fs.renameSync(tmpPath, configPath);
+}
+
 function buildOverviewSeed() {
   return `---
 doc_type: overview
@@ -426,6 +482,7 @@ async function main() {
   }
 
   const ctx = resolveSystemContextSafe({ system: args.system });
+  ensureCollectionsConfigured({ repoRoot: PROJECT_ROOT, systemId: ctx.id });
   const docsRootOverride = args["docs-root"] ? String(args["docs-root"]).trim() : null;
   const componentSlugOverride = String(args["component-slug"] || "")
     .trim()
