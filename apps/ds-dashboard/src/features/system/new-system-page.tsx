@@ -137,7 +137,10 @@ ${renderedCollections}
     safeOutputDir,
   ]);
 
-  const canSave = !!systemName.trim() && !!generatedSystemId && !saving;
+  const hasFigmaUrl = !!figmaFileUrl.trim();
+  const hasToken = !!figmaAccessToken.trim();
+  const canSave = !!systemName.trim() && !!generatedSystemId && !saving
+    && (!hasFigmaUrl || hasToken);
 
   const doCreate = async () => {
     setSaving(true);
@@ -209,13 +212,13 @@ ${renderedCollections}
           }
         } catch (error) {
           const details = getCaptureErrorMessage(error);
-          throw new Error(
+          setSaveError(
             `System created, but initial Figma import failed: ${details}. You can retry from "Import Components from Figma".`,
           );
         }
       }
 
-      replaceSystems(response.config.systems, { activeSystemId: response.config.defaultSystem });
+      replaceSystems(response.config.systems, { activeSystemId: response.system.id });
       setSavedSystemId(response.system.id);
       navigate("/components");
     } catch (error) {
@@ -336,6 +339,11 @@ ${renderedCollections}
               <p className="text-[11px] text-muted-foreground">
                 Used only to run the first capture right after creation.
               </p>
+              {hasFigmaUrl && !hasToken ? (
+                <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                  A token is required when a Figma URL is provided.
+                </p>
+              ) : null}
             </div>
 
           </div>
