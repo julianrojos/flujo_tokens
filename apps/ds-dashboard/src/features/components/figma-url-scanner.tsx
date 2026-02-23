@@ -115,7 +115,7 @@ function getFigmaUrlValidationError(rawUrl: string): string | null {
   }
 
   const host = parsed.hostname.toLowerCase();
-  if (!host.endsWith("figma.com")) {
+  if (host !== "figma.com" && !host.endsWith(".figma.com")) {
     return "URL host must be figma.com.";
   }
 

@@ -139,8 +139,17 @@ ${renderedCollections}
 
   const hasFigmaUrl = !!figmaFileUrl.trim();
   const hasToken = !!figmaAccessToken.trim();
+  const figmaUrlValid = !hasFigmaUrl || (() => {
+    try {
+      const parsed = new URL(figmaFileUrl.trim());
+      const host = parsed.hostname.toLowerCase();
+      return host === "figma.com" || host.endsWith(".figma.com");
+    } catch {
+      return false;
+    }
+  })();
   const canSave = !!systemName.trim() && !!generatedSystemId && !saving
-    && (!hasFigmaUrl || hasToken);
+    && (!hasFigmaUrl || hasToken) && figmaUrlValid;
 
   const doCreate = async () => {
     setSaving(true);
@@ -251,8 +260,12 @@ ${renderedCollections}
           return;
         }
       } catch (error) {
-        // Pre-scan failed — log for debugging but don't block creation
+        // Pre-scan failed — warn the user but don't block creation
+        const msg = error instanceof Error ? error.message : String(error);
         console.warn("[NewSystemPage] dry-run pre-scan failed:", error);
+        setSaveError(
+          `Pre-scan warning: ${msg}. The system will still be created.`,
+        );
       }
       setSaving(false);
     }
