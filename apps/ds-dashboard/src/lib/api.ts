@@ -391,6 +391,7 @@ export interface CaptureFigmaScreenshotArgs {
   format?: string;
   mainCaptureMode?: "auto" | "agent" | "rest";
   componentKind?: "component_set" | "component" | "all";
+  injectDocSpecs?: boolean;
 }
 
 export interface CaptureFigmaScreenshotResult {

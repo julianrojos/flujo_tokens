@@ -488,18 +488,34 @@ function renderAnatomyMarkdown(anatomy) {
   return lines.join("\n") + "\n";
 }
 
+function mapPropertyTypeLabel(rawType) {
+  const normalized = String(rawType || "").trim().toLowerCase();
+  if (normalized === "variant") return "VARIANT";
+  if (normalized === "text") return "TEXT";
+  if (normalized === "boolean") return "BOOLEAN";
+  if (normalized === "instance_swap") return "INSTANCE_SWAP";
+  return normalized ? normalized.toUpperCase() : "UNKNOWN";
+}
+
+function mapPropertyDescription(rawType) {
+  const normalized = String(rawType || "").trim().toLowerCase();
+  if (normalized === "variant") return "Variant selector.";
+  if (normalized === "text") return "Text content value.";
+  if (normalized === "boolean") return "Boolean toggle.";
+  if (normalized === "instance_swap") return "Instance swap reference.";
+  return "Component property.";
+}
+
 function renderPropertiesTable(properties) {
   if (!properties || properties.length === 0) {
     return "| TBD | TBD | TBD | TBD | TBD |\n";
   }
   const rows = [];
   for (const prop of properties) {
-    const type = prop.type === "variant" ? "Enum" : prop.type === "instance_swap" ? "Instance swap" : prop.type.charAt(0).toUpperCase() + prop.type.slice(1);
-    const values = Array.isArray(prop.values)
-      ? prop.values.join(", ")
-      : String(prop.default ?? "—");
+    const type = mapPropertyTypeLabel(prop.type);
+    const isRequired = String(prop.type || "").trim().toLowerCase() === "variant";
     rows.push(
-      `| ${prop.name} | ${type} | ${String(prop.default ?? "—")} | ${prop.values ? prop.values.join(", ") : "—"} |`,
+      `| ${prop.name} | ${type} | ${String(prop.default ?? "—")} | ${isRequired ? "true" : "false"} | ${mapPropertyDescription(prop.type)} |`,
     );
   }
   return rows.join("\n") + "\n";
@@ -549,6 +565,78 @@ function renderLayoutTable(layout) {
   return rows.join("\n") + "\n";
 }
 
+function renderVariantRows(variants) {
+  if (!variants || variants.length === 0) {
+    return "| `N/A` | `TBD` | `TBD` | No variant axis detected. |\n";
+  }
+
+  return variants
+    .map((variant) => {
+      const propStr = Object.entries(variant.properties || {})
+        .map(([key, value]) => `${key}=${value}`)
+        .join(", ");
+      const label = propStr || variant.name || "Variant";
+      return `| \`${label}\` | \`TBD\` | \`TBD\` | Extracted from Figma variant metadata. |`;
+    })
+    .join("\n");
+}
+
+function renderStatesMarkdown(properties) {
+  const variantProperties = Array.isArray(properties)
+    ? properties.filter(
+        (property) => String(property?.type || "").trim().toLowerCase() === "variant",
+      )
+    : [];
+
+  if (variantProperties.length === 0) {
+    return "- Default: `TBD`.\n- Other states: `TBD`.\n";
+  }
+
+  const stateLines = [];
+  for (const property of variantProperties) {
+    const values = Array.isArray(property.values) ? property.values : [];
+    if (values.length === 0) continue;
+    for (const value of values) {
+      stateLines.push(`- ${String(property.name || "State")}=${value}.`);
+    }
+  }
+
+  return stateLines.length > 0
+    ? `${stateLines.join("\n")}\n`
+    : "- Default: `TBD`.\n- Other states: `TBD`.\n";
+}
+
+export function buildEnrichedMarkdownSections(spec) {
+  const anatomy = renderAnatomyMarkdown(spec?.anatomy);
+  const componentApi = `### Properties
+
+| Name | Type | Default | Required | Description |
+| --- | --- | --- | --- | --- |
+${renderPropertiesTable(spec?.properties)}`;
+  const variantAttributes = renderVariantSpecs(spec?.variants)
+    ? renderVariantSpecs(spec?.variants).trimEnd()
+    : "- `TBD`";
+  const visualSpecifications = `### Per-variant attributes
+
+${variantAttributes}
+
+### Layout and spacing
+
+Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
+
+| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
+| --- | --- | --- | --- | --- | --- | --- |
+${renderLayoutTable(spec?.layout)}`;
+
+  return {
+    anatomy,
+    componentApi,
+    visualSpecifications,
+    variantsTableRows: renderVariantRows(spec?.variants),
+    statesMarkdown: renderStatesMarkdown(spec?.properties),
+  };
+}
+
 /**
  * Render a full enriched markdown seed from extracted spec data.
  *
@@ -572,12 +660,14 @@ export function renderEnrichedMarkdownSeed({
     .filter((p) => p.type === "variant")
     .map((p) => `${p.name} (${(p.values || []).join(", ")})`)
     .join("; ");
+  const sections = buildEnrichedMarkdownSections(spec);
+  const safeUrl = nodeUrl || "TBD";
 
   return `---
 doc_type: component
 doc_status: draft
 figma:
-  file_url: ${nodeUrl || "TBD"}
+  file_url: ${safeUrl}
   page: TBD
   component: ${safeName}
   component_set_node_id: ${nodeId || "TBD"}
@@ -591,8 +681,9 @@ Auto-generated component documentation from Figma capture.
 ## Overview
 
 - Purpose: TBD
-- Figma component set: ${nodeId || "TBD"}
-- Variant properties: ${propsForOverview || "TBD"}
+- Figma component set: \`${safeName}\`.
+- Variant properties: ${propsForOverview || "TBD"}.
+- Source: [${safeName} in Figma](${safeUrl}).
 
 ### Visual Proof
 
@@ -602,28 +693,25 @@ Auto-generated component documentation from Figma capture.
 
 ## Anatomy
 
-${renderAnatomyMarkdown(spec?.anatomy)}
+${sections.anatomy}
 
 ## Component API
 
-### Properties
-
-| Name | Type | Default | Values |
-| --- | --- | --- | --- |
-${renderPropertiesTable(spec?.properties)}
+${sections.componentApi}
 
 ## Visual Specifications
 
-### Per-variant attributes
-${renderVariantSpecs(spec?.variants)}
+${sections.visualSpecifications}
 
-## Layout and Spacing
+## Variants
 
-Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
+| Variant | Token | Fallback | Notes |
+| --- | --- | --- | --- |
+${sections.variantsTableRows}
 
-| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
-| --- | --- | --- | --- | --- | --- | --- |
-${renderLayoutTable(spec?.layout)}
+## States
+
+${sections.statesMarkdown}
 
 ## Usage Guidelines
 
@@ -637,17 +725,23 @@ ${renderLayoutTable(spec?.layout)}
 
 ## Content Guidelines
 
-- Tone: TBD
-- Max length: TBD
+- Keep labels concise and task-oriented.
+- Preserve consistent naming across variant values.
 
 ## Accessibility
 
 - ARIA: TBD
 - Keyboard: TBD
-- Contrast: TBD
+- Focus: \`Semantic.Color.Focus-Outline.Inner\` (\`#FFFFFF\`) and \`Semantic.Color.Focus-Outline.Outer\` (\`#567680\`).
+- Hit area: \`A11y.A11y.Dimension.Min-Hit-Area\` (\`24px\`) and \`Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA\` (\`48px\`).
+- Contrast: TBD (pending audit)
 
 ## Related Components
 
 - [TBD](tbd.md): TBD
+
+## Gaps / TBD
+
+- [ ] [CONTENT_UNKNOWN] Complete usage, accessibility, and token mapping details with product evidence.
 `;
 }

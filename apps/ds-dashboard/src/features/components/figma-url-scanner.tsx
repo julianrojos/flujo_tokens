@@ -193,6 +193,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         componentSlug: componentSlug.trim() || undefined,
         requireExistingDoc,
         includeVariants,
+        injectDocSpecs: true,
         refreshIndices: true,
         continueOnError: true,
       });

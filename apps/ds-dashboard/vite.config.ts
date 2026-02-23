@@ -2353,6 +2353,7 @@ function createLocalDataApi() {
         const continueOnError = toBooleanString(body.continueOnError, true);
         const refreshIndices = toBooleanString(body.refreshIndices, true);
         const dryRun = toBooleanString(body.dryRun, false);
+        const injectDocSpecs = toBooleanString(body.injectDocSpecs, false);
         const variantLimit = toNumberString(body.variantLimit, 6, 20);
         const scale = toNumberString(body.scale, 2, 4);
         const format = String(body.format ?? "png").trim().toLowerCase() || "png";
@@ -2377,6 +2378,8 @@ function createLocalDataApi() {
           refreshIndices,
           "--dry-run",
           dryRun,
+          "--inject-doc-specs",
+          injectDocSpecs,
           "--scale",
           scale,
           "--format",

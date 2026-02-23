@@ -12,6 +12,7 @@ import {
 } from "./lib/figma-component-map.mjs";
 import {
   fetchFigmaFile,
+  fetchFigmaImages,
   fetchFigmaLocalVariables,
   fetchFigmaNodes,
 } from "./lib/figma-api.mjs";
@@ -22,6 +23,7 @@ import {
 import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 import {
   extractComponentSpec,
+  buildEnrichedMarkdownSections,
   renderEnrichedMarkdownSeed,
 } from "./lib/figma-node-spec-extractor.mjs";
 
@@ -118,6 +120,18 @@ const USAGE = {
       name: "--dry-run <true|false>",
       description: "Resolve targets and report without writing changes.",
       defaultValue: "false",
+    },
+    {
+      name: "--inject-doc-specs <true|false>",
+      description:
+        "When markdown exists, refresh Anatomy, Component API and Visual Specifications from the source Figma node.",
+      defaultValue: "false",
+    },
+    {
+      name: "--include-spec-exhibits <true|false>",
+      description:
+        "Append Specs screenshots (Anatomy, Properties, Layout and spacing) to injected documentation sections when available.",
+      defaultValue: "true",
     },
     {
       name: "--help",
@@ -229,33 +243,6 @@ function isKindAllowed(kind, requestedKind) {
   return kind === requestedKind;
 }
 
-function inferSingleNodeCandidates({ componentMap, nodeId }) {
-  const components = Array.isArray(componentMap?.components)
-    ? componentMap.components
-    : [];
-  const byId = new Map(
-    components.map((component) => [String(component.node_id || ""), component]),
-  );
-  const direct = byId.get(nodeId);
-  if (!direct) return [];
-
-  const directKind = classifyTargetKind(direct.kind);
-  if (directKind === "component_set") return [direct];
-
-  const ancestorIds = Array.isArray(direct.ancestor_component_node_ids)
-    ? direct.ancestor_component_node_ids
-    : [];
-  for (let index = ancestorIds.length - 1; index >= 0; index -= 1) {
-    const ancestor = byId.get(String(ancestorIds[index] || ""));
-    if (!ancestor) continue;
-    if (classifyTargetKind(ancestor.kind) === "component_set") {
-      return [ancestor];
-    }
-  }
-
-  return [direct];
-}
-
 function runNodeScriptJson({ repoRoot, scriptPath, scriptArgs }) {
   const safeArgs = Array.isArray(scriptArgs) ? [...scriptArgs] : [];
   const tokenArgIndex = safeArgs.indexOf("--figma-token");
@@ -357,6 +344,262 @@ function writeTextAtomic(filePath, content) {
   const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
   fs.writeFileSync(tempPath, content, "utf8");
   fs.renameSync(tempPath, filePath);
+}
+
+function escapeRegex(rawValue) {
+  return String(rawValue || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceH2Section(markdown, heading, replacementBody) {
+  const normalizedBody = String(replacementBody || "").trimEnd();
+  const headingRegex = new RegExp(`^##\\s+${escapeRegex(heading)}\\s*$`, "m");
+  const headingMatch = headingRegex.exec(markdown);
+  if (!headingMatch) {
+    return { changed: false, content: markdown };
+  }
+
+  const sectionStart = headingMatch.index;
+  const headingLineEnd = markdown.indexOf("\n", sectionStart);
+  const hasTrailingNewline = headingLineEnd >= 0;
+  const headingLine = hasTrailingNewline
+    ? markdown.slice(sectionStart, headingLineEnd + 1)
+    : `${markdown.slice(sectionStart)}\n`;
+
+  const bodyStart = hasTrailingNewline ? headingLineEnd + 1 : markdown.length;
+  const tail = markdown.slice(bodyStart);
+  const nextHeadingMatch = /^##\s+[^\n]+\s*$/m.exec(tail);
+  const sectionEnd =
+    nextHeadingMatch && Number.isFinite(nextHeadingMatch.index)
+      ? bodyStart + nextHeadingMatch.index
+      : markdown.length;
+
+  const before = markdown.slice(0, sectionStart);
+  const after = markdown.slice(sectionEnd).replace(/^\n*/, "\n");
+  const replacement = `${headingLine}\n${normalizedBody}\n\n`;
+  const next = `${before}${replacement}${after}`;
+  return { changed: next !== markdown, content: next };
+}
+
+function injectExtractedSpecSectionsIntoMarkdown(markdown, spec, exhibits = null) {
+  if (!spec || typeof spec !== "object") {
+    return { changed: false, content: markdown };
+  }
+
+  const sections = buildEnrichedMarkdownSections(spec);
+  const anatomyBody = appendSpecExhibit(
+    sections.anatomy,
+    "Anatomy",
+    exhibits?.anatomy || null,
+  );
+  const componentApiBody = appendSpecExhibit(
+    sections.componentApi,
+    "Properties",
+    exhibits?.properties || null,
+  );
+  const visualSpecsBody = appendSpecExhibit(
+    sections.visualSpecifications,
+    "Layout and spacing",
+    exhibits?.layout || null,
+  );
+  let current = markdown;
+  let changed = false;
+
+  const anatomyResult = replaceH2Section(current, "Anatomy", anatomyBody);
+  current = anatomyResult.content;
+  changed = changed || anatomyResult.changed;
+
+  const apiResult = replaceH2Section(current, "Component API", componentApiBody);
+  current = apiResult.content;
+  changed = changed || apiResult.changed;
+
+  const visualResult = replaceH2Section(
+    current,
+    "Visual Specifications",
+    visualSpecsBody,
+  );
+  current = visualResult.content;
+  changed = changed || visualResult.changed;
+
+  return { changed, content: current };
+}
+
+function normalizeNodeName(rawValue) {
+  return String(rawValue || "").trim().toLowerCase();
+}
+
+function buildFigmaTreeIndex(documentRoot) {
+  const byId = new Map();
+
+  function visit(node, parentId = null, canvasId = null) {
+    if (!node || typeof node !== "object") return;
+    const nodeId = String(node.id || "").trim();
+    if (!nodeId) return;
+    const type = String(node.type || "").trim().toUpperCase();
+    const currentCanvasId = type === "CANVAS" ? nodeId : canvasId;
+    byId.set(nodeId, { node, parentId, canvasId: currentCanvasId });
+    const children = Array.isArray(node.children) ? node.children : [];
+    for (const child of children) {
+      visit(child, nodeId, currentCanvasId);
+    }
+  }
+
+  visit(documentRoot, null, null);
+  return byId;
+}
+
+function findDescendantFrameByName(rootNode, targetName) {
+  if (!rootNode || typeof rootNode !== "object") return null;
+  const queue = [rootNode];
+  const expected = normalizeNodeName(targetName);
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || typeof current !== "object") continue;
+    const type = String(current.type || "").trim().toUpperCase();
+    if (type === "FRAME" && normalizeNodeName(current.name) === expected) {
+      return current;
+    }
+    const children = Array.isArray(current.children) ? current.children : [];
+    for (const child of children) queue.push(child);
+  }
+
+  return null;
+}
+
+function findDescendantFrameByPattern(rootNode, pattern) {
+  if (!rootNode || typeof rootNode !== "object") return null;
+  const queue = [rootNode];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current || typeof current !== "object") continue;
+    const type = String(current.type || "").trim().toUpperCase();
+    const name = String(current.name || "").trim();
+    if (type === "FRAME" && pattern.test(name)) {
+      return current;
+    }
+    const children = Array.isArray(current.children) ? current.children : [];
+    for (const child of children) queue.push(child);
+  }
+
+  return null;
+}
+
+function pickSectionExhibitNode(sectionNode, primaryPattern, fallbackPattern) {
+  if (!sectionNode || typeof sectionNode !== "object") return null;
+  const directChildren = Array.isArray(sectionNode.children)
+    ? sectionNode.children
+    : [];
+
+  for (const child of directChildren) {
+    const type = String(child?.type || "").trim().toUpperCase();
+    const name = String(child?.name || "").trim();
+    if (type === "FRAME" && primaryPattern.test(name)) return child;
+  }
+
+  const fallback = findDescendantFrameByPattern(sectionNode, primaryPattern);
+  if (fallback) return fallback;
+
+  if (fallbackPattern) {
+    const secondary = findDescendantFrameByPattern(sectionNode, fallbackPattern);
+    if (secondary) return secondary;
+  }
+
+  for (const child of directChildren) {
+    const type = String(child?.type || "").trim().toUpperCase();
+    const name = normalizeNodeName(child?.name);
+    if (type !== "FRAME") continue;
+    if (name === "title") continue;
+    return child;
+  }
+
+  return null;
+}
+
+function resolveSpecExhibitNodeIds({ figmaFilePayload, targetNodeId }) {
+  if (!figmaFilePayload?.document || !targetNodeId) {
+    return null;
+  }
+  const index = buildFigmaTreeIndex(figmaFilePayload.document);
+  const targetEntry = index.get(String(targetNodeId || "").trim());
+  if (!targetEntry?.canvasId) return null;
+  const canvasEntry = index.get(targetEntry.canvasId);
+  if (!canvasEntry?.node) return null;
+  const canvasNode = canvasEntry.node;
+  const canvasChildren = Array.isArray(canvasNode.children) ? canvasNode.children : [];
+
+  const specsFrame =
+    canvasChildren.find(
+      (child) =>
+        String(child?.type || "").trim().toUpperCase() === "FRAME" &&
+        normalizeNodeName(child?.name) === "specs",
+    ) ||
+    canvasChildren.find(
+      (child) =>
+        String(child?.type || "").trim().toUpperCase() === "FRAME" &&
+        /spec/i.test(String(child?.name || "")),
+    );
+
+  if (!specsFrame || typeof specsFrame !== "object") return null;
+
+  const specificationRoot =
+    findDescendantFrameByName(specsFrame, "Specification") || specsFrame;
+  const anatomySection = findDescendantFrameByName(specificationRoot, "Anatomy");
+  const propertiesSection = findDescendantFrameByName(specificationRoot, "Properties");
+  const layoutSection = findDescendantFrameByName(
+    specificationRoot,
+    "Layout and spacing",
+  );
+
+  const anatomyExhibit = pickSectionExhibitNode(anatomySection, /exhibit/i, null);
+  const propertiesExhibit = pickSectionExhibitNode(
+    propertiesSection,
+    /exhibits?/i,
+    /state/i,
+  );
+  const layoutExhibit = pickSectionExhibitNode(
+    layoutSection,
+    /selected node/i,
+    /exhibit/i,
+  );
+
+  const specsNodeId = String(specsFrame.id || "").trim();
+  const anatomyNodeId = String(anatomyExhibit?.id || "").trim();
+  const propertiesNodeId = String(propertiesExhibit?.id || "").trim();
+  const layoutNodeId = String(layoutExhibit?.id || "").trim();
+
+  if (!specsNodeId && !anatomyNodeId && !propertiesNodeId && !layoutNodeId) {
+    return null;
+  }
+
+  return {
+    specsNodeId: specsNodeId || null,
+    anatomyNodeId: anatomyNodeId || null,
+    propertiesNodeId: propertiesNodeId || null,
+    layoutNodeId: layoutNodeId || null,
+  };
+}
+
+function buildSpecExhibitMarkdown(label, exhibit) {
+  const imageUrl = String(exhibit?.imageUrl || "").trim();
+  const nodeId = String(exhibit?.nodeId || "").trim();
+  if (!imageUrl && !nodeId) return "";
+  const lines = [`### ${label} exhibit`];
+  if (imageUrl) {
+    lines.push("", `![${label} exhibit](${imageUrl})`);
+  }
+  if (nodeId) {
+    lines.push("", `- Source node: \`${nodeId}\``);
+  }
+  return lines.join("\n");
+}
+
+function appendSpecExhibit(sectionBody, label, exhibit) {
+  const normalized = String(sectionBody || "").trimEnd();
+  const exhibitBlock = buildSpecExhibitMarkdown(label, exhibit);
+  if (!exhibitBlock) return normalized;
+  if (!normalized) return exhibitBlock;
+  return `${normalized}\n\n${exhibitBlock}`;
 }
 
 function toCollectionLabel(rawValue) {
@@ -901,6 +1144,16 @@ async function main() {
     true,
   );
   const dryRun = parseBooleanOption(args["dry-run"], "--dry-run", false);
+  const injectDocSpecs = parseBooleanOption(
+    args["inject-doc-specs"],
+    "--inject-doc-specs",
+    false,
+  );
+  const includeSpecExhibits = parseBooleanOption(
+    args["include-spec-exhibits"],
+    "--include-spec-exhibits",
+    true,
+  );
   const variantLimit = Math.floor(
     parsePositiveNumber(args["variant-limit"], "--variant-limit", 6),
   );
@@ -945,6 +1198,16 @@ async function main() {
 
   let componentMap = null;
   let singleNodeCandidate = null;
+  let filePayload = null;
+  const ensureFilePayload = async () => {
+    if (filePayload) return filePayload;
+    filePayload = await fetchFigmaFile({
+      fileKey: descriptor.fileKey,
+      token: figmaToken,
+    });
+    return filePayload;
+  };
+
   if (descriptor.nodeIdFromUrl) {
     try {
       const nodePayload = await fetchFigmaNodes({
@@ -967,10 +1230,7 @@ async function main() {
       };
     }
   } else {
-    const filePayload = await fetchFigmaFile({
-      fileKey: descriptor.fileKey,
-      token: figmaToken,
-    });
+    filePayload = await ensureFilePayload();
     componentMap = buildFigmaComponentMap({
       filePayload,
       fileDescriptor: descriptor,
@@ -1052,6 +1312,89 @@ async function main() {
     });
     const nodeUrl = buildFigmaNodeUrl(descriptor, nodeId) || descriptor.sourceUrl;
     const markdownExists = fs.existsSync(resolvedPaths.markdownPath);
+    let extractedNodeSpec = null;
+    let specExhibits = null;
+    const shouldExtractNodeSpec =
+      !markdownExists || (markdownExists && injectDocSpecs);
+    if (shouldExtractNodeSpec) {
+      try {
+        const fullNodePayload = await fetchFigmaNodes({
+          fileKey: descriptor.fileKey,
+          nodeIds: [nodeId],
+          token: figmaToken,
+        });
+        const nodeEntry =
+          fullNodePayload?.nodes?.[nodeId]?.document ?? null;
+        if (nodeEntry) {
+          extractedNodeSpec = extractComponentSpec(nodeEntry);
+        }
+      } catch (enrichError) {
+        process.stderr.write(
+          `[capture] Node extraction failed for ${nodeId}: ${
+            enrichError instanceof Error ? enrichError.message : String(enrichError)
+          }\n`,
+        );
+      }
+    }
+
+    if (shouldExtractNodeSpec && includeSpecExhibits) {
+      try {
+        const fileTree = await ensureFilePayload();
+        const exhibitNodeIds = resolveSpecExhibitNodeIds({
+          figmaFilePayload: fileTree,
+          targetNodeId: nodeId,
+        });
+        if (exhibitNodeIds) {
+          const exportNodeIds = Array.from(
+            new Set(
+              [
+                exhibitNodeIds.anatomyNodeId,
+                exhibitNodeIds.propertiesNodeId,
+                exhibitNodeIds.layoutNodeId,
+              ].filter(Boolean),
+            ),
+          );
+          let imagesByNodeId = {};
+          if (exportNodeIds.length > 0) {
+            const imagesPayload = await fetchFigmaImages({
+              fileKey: descriptor.fileKey,
+              nodeIds: exportNodeIds,
+              token: figmaToken,
+              format: "png",
+              scale: 2,
+            });
+            imagesByNodeId =
+              imagesPayload?.images && typeof imagesPayload.images === "object"
+                ? imagesPayload.images
+                : {};
+          }
+
+          const mapExhibit = (sourceNodeId) => {
+            const normalizedNodeId = String(sourceNodeId || "").trim();
+            if (!normalizedNodeId) return null;
+            const imageUrl = String(imagesByNodeId[normalizedNodeId] || "").trim();
+            return {
+              nodeId: normalizedNodeId,
+              imageUrl: imageUrl || null,
+            };
+          };
+
+          specExhibits = {
+            specsNodeId: exhibitNodeIds.specsNodeId || null,
+            anatomy: mapExhibit(exhibitNodeIds.anatomyNodeId),
+            properties: mapExhibit(exhibitNodeIds.propertiesNodeId),
+            layout: mapExhibit(exhibitNodeIds.layoutNodeId),
+          };
+        }
+      } catch (exhibitError) {
+        process.stderr.write(
+          `[capture] Specs exhibit extraction failed for ${nodeId}: ${
+            exhibitError instanceof Error ? exhibitError.message : String(exhibitError)
+          }\n`,
+        );
+      }
+    }
+
     if (requireExistingDoc && !markdownExists) {
       skipped.push({
         slug: inferredSlug,
@@ -1065,35 +1408,23 @@ async function main() {
     if (!requireExistingDoc && !markdownExists) {
       try {
         let seed;
-        // Attempt to fetch full node data to generate an enriched markdown seed
-        try {
-          const fullNodePayload = await fetchFigmaNodes({
-            fileKey: descriptor.fileKey,
-            nodeIds: [nodeId],
-            token: figmaToken,
+        if (extractedNodeSpec) {
+          seed = renderEnrichedMarkdownSeed({
+            slug: inferredSlug,
+            displayName:
+              componentNameToDisplayName(
+                String(candidate.name || "").trim(),
+              ) || inferredSlug,
+            nodeUrl,
+            nodeId,
+            spec: extractedNodeSpec,
           });
-          const nodeEntry =
-            fullNodePayload?.nodes?.[nodeId]?.document ?? null;
-          if (nodeEntry) {
-            const spec = extractComponentSpec(nodeEntry);
-            seed = renderEnrichedMarkdownSeed({
-              slug: inferredSlug,
-              displayName:
-                componentNameToDisplayName(
-                  String(candidate.name || "").trim(),
-                ) || inferredSlug,
-              nodeUrl,
-              nodeId,
-              spec,
-            });
-          }
-        } catch (enrichError) {
-          // Non-blocking: fall back to basic seed if enrichment fails
-          process.stderr.write(
-            `[capture] Enriched seed failed for ${nodeId}, using basic seed: ${
-              enrichError instanceof Error ? enrichError.message : String(enrichError)
-            }\n`,
+          const enrichedSeed = injectExtractedSpecSectionsIntoMarkdown(
+            seed,
+            extractedNodeSpec,
+            specExhibits,
           );
+          seed = enrichedSeed.content;
         }
         if (!seed) {
           seed = buildMarkdownSeed({
@@ -1116,6 +1447,28 @@ async function main() {
         continue;
       }
     }
+    if (injectDocSpecs && markdownExists && extractedNodeSpec) {
+      try {
+        const currentMarkdown = fs.readFileSync(resolvedPaths.markdownPath, "utf8");
+        const injection = injectExtractedSpecSectionsIntoMarkdown(
+          currentMarkdown,
+          extractedNodeSpec,
+          specExhibits,
+        );
+        if (injection.changed) {
+          writeTextAtomic(resolvedPaths.markdownPath, injection.content);
+        }
+      } catch (error) {
+        skipped.push({
+          slug: inferredSlug,
+          node_id: nodeId,
+          name: String(candidate.name || "").trim() || inferredSlug,
+          reason: "markdown-enrich-failed",
+          markdown_path: path.relative(PROJECT_ROOT, resolvedPaths.markdownPath),
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     const specExists = fs.existsSync(resolvedPaths.specPath);
 
@@ -1129,6 +1482,7 @@ async function main() {
       specPath: resolvedPaths.specPath,
       specExists,
       nodeUrl,
+      specExhibits,
     });
   }
 
@@ -1148,6 +1502,8 @@ async function main() {
       format,
       require_existing_doc: requireExistingDoc,
       main_capture_mode: mainCaptureMode,
+      inject_doc_specs: injectDocSpecs,
+      include_spec_exhibits: includeSpecExhibits,
     },
     tokens_bootstrap: tokenBootstrap,
     tokens_compile: tokenCompile,
@@ -1162,6 +1518,14 @@ async function main() {
       spec_path: path.relative(PROJECT_ROOT, target.specPath),
       spec_exists: target.specExists,
       figma_url: target.nodeUrl,
+      spec_exhibits: target.specExhibits
+        ? {
+            specs_node_id: target.specExhibits.specsNodeId || null,
+            anatomy: target.specExhibits.anatomy || null,
+            properties: target.specExhibits.properties || null,
+            layout: target.specExhibits.layout || null,
+          }
+        : null,
     })),
     captured: [],
     failed: [],
