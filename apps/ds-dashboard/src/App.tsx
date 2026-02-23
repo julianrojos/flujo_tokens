@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes, Navigate } from "react-router-dom";
+import { NavLink, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import {
   Activity,
   ArrowLeftRight,
@@ -21,6 +21,7 @@ import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { OperationsPage } from "@/features/ops/operations-page";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { SystemSwitcher } from "@/components/system-switcher";
+import { NewSystemPage } from "@/features/system/new-system-page";
 import {
   Sidebar,
   SidebarContent,
@@ -129,6 +130,8 @@ const navItems = navSections.flatMap((section) => section.items);
 export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const location = useLocation();
+  const isNewSystemRoute = location.pathname === "/system/new";
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -164,7 +167,7 @@ export default function App() {
               <SystemSwitcher collapsed={sidebarCollapsed} />
             </SidebarHeader>
 
-            <SidebarContent>
+            <SidebarContent className={cn(isNewSystemRoute && "pointer-events-none opacity-40 grayscale")}>
               {navSections.map((section) => (
                 <SidebarGroup key={section.id}>
                   <SidebarGroupLabel className={cn(sidebarCollapsed && "sr-only")}>
@@ -278,6 +281,7 @@ export default function App() {
 
               <Routes>
                 <Route path="/" element={<Navigate to="/health" replace />} />
+                <Route path="/system/new" element={<NewSystemPage />} />
                 <Route path="/health" element={<HealthDashboardPage />} />
                 <Route path="/ops" element={<OperationsPage />} />
                 <Route path="/components" element={<ComponentsPage />} />

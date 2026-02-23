@@ -1,16 +1,18 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
   const { systems, activeSystem, setActiveSystem } = useDesignSystem();
+  const navigate = useNavigate();
   
   const handleSystemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     if (value === "new-system") {
-      alert("Para añadir un nuevo sistema, edita el archivo tooling/config/design-systems.json o utiliza la página de Operaciones.");
-      // Reset the select back to the active system
+      navigate("/system/new");
+      // Keep the actual system selected visually or revert it so the layout stays correct
       e.target.value = activeSystem;
       return;
     }
