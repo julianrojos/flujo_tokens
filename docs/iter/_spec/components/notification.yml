@@ -14,16 +14,32 @@ summary:
 anatomy:
   - id: container
     description: Root feedback container with border and internal spacing.
+    dimensions:
+      width: 300
+      height: auto
+      border_weight: 1
+      border_radius: 8
   - id: leading_icon
     description: Optional semantic icon shown when Has Icon is enabled.
+    dimensions:
+      width: 24
+      height: 24
+    instance_dependency: "Icon"
   - id: title_text
     description: Optional title line controlled by the Title text property.
+    text_style: "Body/Strong"
   - id: body_text
     description: Body message controlled by the Body text property.
+    text_style: "Body/Base"
   - id: dismiss_action
     description: Optional dismiss control shown when Dismissible is enabled.
+    dimensions:
+      width: 24
+      height: 24
+    instance_dependency: "Icon"
   - id: secondary_action
     description: Optional button/action area shown when Has Button is enabled.
+    instance_dependency: "Button"
 
 properties:
   - name: Variant
@@ -47,16 +63,19 @@ properties:
     default: true
     required: false
     description: Shows or hides dismiss control.
+    associated_layers: [dismiss_action]
   - name: Has Icon
     type: boolean
     default: true
     required: false
     description: Shows or hides the leading icon.
+    associated_layers: [leading_icon]
   - name: Has Button
     type: boolean
     default: true
     required: false
     description: Shows or hides the optional action button area.
+    associated_layers: [secondary_action]
   - name: Icon
     type: instance_swap
     default: Info
@@ -106,9 +125,45 @@ token_mapping:
     "variant=Message": TBD
     "variant=Alert": TBD
 
+layout:
+  - node: container
+    direction: HORIZONTAL
+    alignment: MIN
+    counter_alignment: MIN
+    h_sizing: FIXED
+    v_sizing: HUG
+    item_spacing: 8
+    padding: { top: 12, right: 12, bottom: 12, left: 12 }
+    children:
+      - node: leading_icon
+        h_sizing: FIXED
+        v_sizing: FIXED
+      - node: content_stack
+        direction: VERTICAL
+        alignment: MIN
+        counter_alignment: MIN
+        h_sizing: FILL
+        v_sizing: HUG
+        item_spacing: 4
+        padding: { top: 0, right: 0, bottom: 0, left: 0 }
+        children:
+          - node: title_text
+            h_sizing: FILL
+            v_sizing: HUG
+          - node: body_text
+            h_sizing: FILL
+            v_sizing: HUG
+          - node: secondary_action
+            h_sizing: HUG
+            v_sizing: HUG
+      - node: dismiss_action
+        h_sizing: FIXED
+        v_sizing: FIXED
+
 qa:
   - "Properties match Figma component-set controls."
   - "Artwork layer includes a hidden source instance that drives anatomy, properties, and layout/spacing exhibits."
   - "Token mapping uses real token keys."
+  - "Layout tree matches Figma auto-layout structure."
 
 related_components: []
