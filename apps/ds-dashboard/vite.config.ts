@@ -937,6 +937,7 @@ async function computeNamingDebtReport(args: {
 }
 
 let _cachedDesignSystemsConfig: any = null;
+let _cachedConfigMtime: number | null = null;
 const DEFAULT_AUTO_COLLECTIONS = ["Primitives", "Typography", "Semantic", "Components", "A11y"];
 
 function designSystemsConfigPath(repoRoot: string) {
@@ -1027,9 +1028,11 @@ function resolveSafeSystemPathsForDeletion(
 
 function getSystemContextParams(req: { headers?: Record<string, string | string[] | undefined> }) {
   const repoRoot = path.resolve(__dirname, "../..");
-  if (!_cachedDesignSystemsConfig) {
-    const configRaw = fsSync.readFileSync(path.join(repoRoot, "tooling", "config", "design-systems.json"), "utf8");
+  if (!_cachedDesignSystemsConfig || _cachedConfigMtime !== fsSync.statSync(path.join(repoRoot, "tooling", "config", "design-systems.json")).mtimeMs) {
+    const configFilePath = path.join(repoRoot, "tooling", "config", "design-systems.json");
+    const configRaw = fsSync.readFileSync(configFilePath, "utf8");
     _cachedDesignSystemsConfig = JSON.parse(configRaw);
+    _cachedConfigMtime = fsSync.statSync(configFilePath).mtimeMs;
   }
   const config = _cachedDesignSystemsConfig;
 
@@ -2364,7 +2367,7 @@ function createLocalDataApi() {
           return;
         }
         const host = String(parsedUrl.hostname || "").toLowerCase();
-        if (!host.endsWith("figma.com")) {
+        if (host !== "figma.com" && !host.endsWith(".figma.com")) {
           sendJson(res, 400, {
             ok: false,
             message: `URL host is not figma.com: ${host}`,
