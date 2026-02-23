@@ -174,11 +174,11 @@ export function FigmaCaptureModal({
                 id="figma-capture-modal-title"
                 className="text-lg font-semibold"
               >
-                Capture Visual Proof from Figma
+                Update Component from Figma URL
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Preview targets first, then capture and replace screenshots in
-                component detail pages.
+                Paste a Figma URL to refresh this component's visual proof and
+                synced detail data.
               </p>
             </div>
             <Button
@@ -387,4 +387,3 @@ export function FigmaCaptureModal({
     document.body,
   );
 }
-

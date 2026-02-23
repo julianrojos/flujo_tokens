@@ -501,6 +501,15 @@ export function ComponentDetailPage() {
                   <CardDescription className="mt-1 font-mono text-xs">{item.slug}</CardDescription>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCaptureModalOpen(true)}
+                    aria-label={`Update ${item.display_name} from Figma URL`}
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    Update from Figma URL
+                  </Button>
                   {item.doc.exists && item.paths.doc ? (
                     <Link
                       to={{
@@ -576,7 +585,7 @@ export function ComponentDetailPage() {
                     aria-label={`Capture visual proof for ${item.display_name}`}
                   >
                     <Camera className="mr-2 h-4 w-4" />
-                    {item.visual_proof.exists ? "Update screenshot" : "Capture from Figma"}
+                    Update from Figma URL
                   </Button>
                 ) : null}
               </div>
