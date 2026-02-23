@@ -1,5 +1,5 @@
 import React from "react";
-import { Copy } from "lucide-react";
+import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 
 export function NewSystemPage() {
   return (
@@ -39,6 +39,14 @@ export function NewSystemPage() {
           <p className="text-sm text-muted-foreground">
             After updating the JSON file, the new system will automatically appear in the system switcher dropdown on the next reload.
           </p>
+        </section>
+
+        <section>
+          <h2 className="text-xl font-semibold mb-3">3. Import Components from Figma</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Once your system is configured, paste a Figma URL below to generate documentation, capture visual proofs and register the component immediately.
+          </p>
+          <FigmaUrlScanner />
         </section>
       </div>
     </div>
