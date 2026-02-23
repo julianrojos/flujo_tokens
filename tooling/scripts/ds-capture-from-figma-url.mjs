@@ -222,7 +222,7 @@ function classifyTargetKind(kindValue) {
 }
 
 function isKindAllowed(kind, requestedKind) {
-  if (requestedKind === "all") return kind === "component_set" || kind === "component";
+  if (requestedKind === "all") return kind !== "unknown";
   return kind === requestedKind;
 }
 
@@ -293,6 +293,8 @@ function classifyNodeTypeToKind(nodeType) {
   const normalized = String(nodeType || "").trim().toUpperCase();
   if (normalized === "COMPONENT_SET") return "component_set";
   if (normalized === "COMPONENT") return "component";
+  if (normalized === "FRAME" || normalized === "GROUP") return "frame";
+  if (normalized === "INSTANCE") return "instance";
   return "unknown";
 }
 
@@ -494,31 +496,36 @@ function normalizeVariablesList(rawVariables) {
   return [];
 }
 
-function pickVariableValueByMode(variableRecord, collectionRecord) {
+function pickAllModeValues(variableRecord, collectionRecord) {
   const valuesByMode =
     variableRecord && typeof variableRecord.valuesByMode === "object"
       ? variableRecord.valuesByMode
       : {};
-  const preferredModeId = String(collectionRecord?.defaultModeId || "").trim();
-  if (
-    preferredModeId &&
-    Object.prototype.hasOwnProperty.call(valuesByMode, preferredModeId)
-  ) {
-    return valuesByMode[preferredModeId];
-  }
+  const results = new Map();
+
   if (Array.isArray(collectionRecord?.modes)) {
     for (const mode of collectionRecord.modes) {
       const modeId = String(mode?.modeId || "").trim();
+      const modeName = String(mode?.name || modeId).trim();
       if (!modeId) continue;
       if (Object.prototype.hasOwnProperty.call(valuesByMode, modeId)) {
-        return valuesByMode[modeId];
+        const val = valuesByMode[modeId];
+        if (val !== undefined && val !== null) {
+          results.set(modeName, val);
+        }
       }
     }
   }
-  const firstDefined = Object.values(valuesByMode).find(
-    (value) => value !== undefined && value !== null,
-  );
-  return firstDefined;
+
+  if (results.size === 0) {
+    for (const [modeId, val] of Object.entries(valuesByMode)) {
+      if (val !== undefined && val !== null) {
+        results.set(modeId, val);
+      }
+    }
+  }
+
+  return results;
 }
 
 function buildTokenNodeFromFigmaVariable(variableRecord, rawValue) {
@@ -649,26 +656,36 @@ async function bootstrapInputJsonFromFigmaVariables({
     const collectionName = String(collectionRecord?.name || "Imported").trim() || "Imported";
     const collectionFileStem = sanitizeCollectionFileStem(collectionName, "Imported");
 
-    const modeValue = pickVariableValueByMode(variableRecord, collectionRecord);
-    if (modeValue === undefined || modeValue === null) continue;
-    const tokenNode = buildTokenNodeFromFigmaVariable(variableRecord, modeValue);
-    if (!tokenNode) continue;
+    const modeValues = pickAllModeValues(variableRecord, collectionRecord);
+    if (modeValues.size === 0) continue;
 
-    if (!filesMap.has(collectionFileStem)) {
-      filesMap.set(collectionFileStem, {
-        description: collectionName,
-        data: {},
-      });
+    for (const [modeName, modeValue] of modeValues) {
+      const tokenNode = buildTokenNodeFromFigmaVariable(variableRecord, modeValue);
+      if (!tokenNode) continue;
+
+      // When only one mode, use the collection stem; otherwise append mode name
+      const fileKey = modeValues.size === 1
+        ? collectionFileStem
+        : `${collectionFileStem}-${sanitizeCollectionFileStem(modeName, "Default")}`;
+
+      if (!filesMap.has(fileKey)) {
+        filesMap.set(fileKey, {
+          description: modeValues.size === 1
+            ? collectionName
+            : `${collectionName} (${modeName})`,
+          data: {},
+        });
+      }
+      const target = filesMap.get(fileKey);
+      const pathSegments = variableName
+        .split("/")
+        .map((segment) => String(segment || "").trim())
+        .filter(Boolean);
+      if (pathSegments.length === 0) continue;
+      const assigned = assignTokenAtPath(target.data, pathSegments, tokenNode);
+      if (!assigned) continue;
+      tokenCount += 1;
     }
-    const target = filesMap.get(collectionFileStem);
-    const pathSegments = variableName
-      .split("/")
-      .map((segment) => String(segment || "").trim())
-      .filter(Boolean);
-    if (pathSegments.length === 0) continue;
-    const assigned = assignTokenAtPath(target.data, pathSegments, tokenNode);
-    if (!assigned) continue;
-    tokenCount += 1;
   }
 
   if (filesMap.size === 0 || tokenCount === 0) {
@@ -1170,16 +1187,17 @@ async function main() {
   }
 
   if (refreshIndices) {
+    const refreshArgs = ["--system", args.system || ctx.id];
     const refreshResult = runNodeScriptJson({
       repoRoot: PROJECT_ROOT,
       scriptPath: registryRefreshScriptPath,
-      scriptArgs: [],
+      scriptArgs: refreshArgs,
     });
     report.indices_refreshed = Boolean(refreshResult?.ok);
     report.registry_refresh = refreshResult;
   }
 
-  report.ok = report.failed.length === 0;
+  report.ok = report.captured.length > 0 && report.failed.length === 0;
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   process.exit(report.ok ? 0 : 1);
 }
