@@ -19,15 +19,39 @@
       "compileVariablesOnCapture": true
     },
     {
-      "id": "simple-design-system",
-      "name": "Simple design system",
-      "appName": "Simple design system",
+      "id": "cuatro",
+      "name": "cuatro",
+      "appName": "cuatro",
       "figmaFileId": "ERurQSl12VmCGYlk1ciOH3",
-      "figmaApiToken": "${FIGMA_TOKEN_SIMPLE_DESIGN_SYSTEM}",
-      "inputDir": "input/simple-design-system",
-      "outputDir": "output/simple-design-system",
-      "docsDir": "docs/simple-design-system",
-      "collections": [],
+      "figmaApiToken": "${FIGMA_TOKEN_CUATRO}",
+      "inputDir": "input/cuatro",
+      "outputDir": "output/cuatro",
+      "docsDir": "docs/cuatro",
+      "collections": [
+        "Primitives",
+        "Typography",
+        "Semantic",
+        "Components",
+        "A11y"
+      ],
+      "compileVariablesOnCapture": true
+    },
+    {
+      "id": "seis",
+      "name": "seis",
+      "appName": "seis",
+      "figmaFileId": "ERurQSl12VmCGYlk1ciOH3",
+      "figmaApiToken": "${FIGMA_TOKEN_SEIS}",
+      "inputDir": "input/seis",
+      "outputDir": "output/seis",
+      "docsDir": "docs/seis",
+      "collections": [
+        "Primitives",
+        "Typography",
+        "Semantic",
+        "Components",
+        "A11y"
+      ],
       "compileVariablesOnCapture": true
     }
   ],
