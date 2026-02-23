@@ -245,6 +245,12 @@ function inferSingleNodeCandidates({ componentMap, nodeId }) {
 }
 
 function runNodeScriptJson({ repoRoot, scriptPath, scriptArgs }) {
+  const safeArgs = Array.isArray(scriptArgs) ? [...scriptArgs] : [];
+  const tokenArgIndex = safeArgs.indexOf("--figma-token");
+  if (tokenArgIndex >= 0 && tokenArgIndex + 1 < safeArgs.length) {
+    safeArgs[tokenArgIndex + 1] = "***redacted***";
+  }
+
   const result = spawnSync(process.execPath, [scriptPath, ...scriptArgs], {
     cwd: repoRoot,
     stdio: "pipe",
@@ -259,7 +265,7 @@ function runNodeScriptJson({ repoRoot, scriptPath, scriptArgs }) {
       `Command failed (${result.status ?? 1}): node ${path.relative(
         repoRoot,
         scriptPath,
-      )} ${scriptArgs.join(" ")}\n${stderr || stdout}`.trim(),
+      )} ${safeArgs.join(" ")}\n${stderr || stdout}`.trim(),
     );
   }
 
@@ -497,6 +503,18 @@ async function main() {
         name: String(candidate.name || "").trim() || inferredSlug,
         reason: "markdown-missing",
         markdown_path: path.relative(PROJECT_ROOT, resolvedPaths.markdownPath),
+      });
+      continue;
+    }
+    if (!requireExistingDoc && !markdownExists) {
+      skipped.push({
+        slug: inferredSlug,
+        node_id: nodeId,
+        name: String(candidate.name || "").trim() || inferredSlug,
+        reason: "markdown-missing",
+        markdown_path: path.relative(PROJECT_ROOT, resolvedPaths.markdownPath),
+        hint:
+          "Generate the markdown first (e.g. npm run ds:doc-from-figma-url -- --url <figma-url>) or provide a component slug that already exists.",
       });
       continue;
     }
