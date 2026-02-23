@@ -11,7 +11,10 @@ import {
   parseFigmaFileUrl,
 } from "./lib/figma-component-map.mjs";
 import { fetchFigmaFile, fetchFigmaNodes } from "./lib/figma-api.mjs";
-import { componentNameToSnakeCase } from "./lib/component-name.mjs";
+import {
+  componentNameToSnakeCase,
+  componentNameToDisplayName,
+} from "./lib/component-name.mjs";
 import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
 
 const USAGE = {
@@ -332,6 +335,49 @@ function resolveDocsPaths({ ctx, docsRootOverride, slug }) {
   };
 }
 
+function writeTextAtomic(filePath, content) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tempPath, content, "utf8");
+  fs.renameSync(tempPath, filePath);
+}
+
+function buildMarkdownSeed({ slug, candidateName, nodeUrl, nodeId }) {
+  const displayName = componentNameToDisplayName(candidateName || slug) || "Component";
+  return `---
+doc_type: component
+doc_status: draft
+figma:
+  file_url: ${nodeUrl || "TBD"}
+  page: TBD
+  component: ${displayName}
+  component_set_node_id: ${nodeId || "TBD"}
+  last_verified: TBD
+---
+
+# ${displayName}
+
+Auto-generated placeholder created during Figma capture workflow.
+
+## Overview
+
+- Purpose: TBD
+- Figma component set: ${nodeId || "TBD"}
+- Variant properties: TBD
+
+### Visual Proof
+
+- Screenshot: TBD
+- Source node: ${nodeId || "TBD"}
+- Artifact: TBD
+
+## Anatomy
+
+1. **Container**: TBD
+2. **Primary element**: TBD
+`;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (String(args.help || "false") === "true") {
@@ -495,6 +541,7 @@ async function main() {
       docsRootOverride,
       slug: inferredSlug,
     });
+    const nodeUrl = buildFigmaNodeUrl(descriptor, nodeId) || descriptor.sourceUrl;
     const markdownExists = fs.existsSync(resolvedPaths.markdownPath);
     if (requireExistingDoc && !markdownExists) {
       skipped.push({
@@ -507,20 +554,28 @@ async function main() {
       continue;
     }
     if (!requireExistingDoc && !markdownExists) {
-      skipped.push({
-        slug: inferredSlug,
-        node_id: nodeId,
-        name: String(candidate.name || "").trim() || inferredSlug,
-        reason: "markdown-missing",
-        markdown_path: path.relative(PROJECT_ROOT, resolvedPaths.markdownPath),
-        hint:
-          "Generate the markdown first (e.g. npm run ds:doc-from-figma-url -- --url <figma-url>) or provide a component slug that already exists.",
-      });
-      continue;
+      try {
+        const seed = buildMarkdownSeed({
+          slug: inferredSlug,
+          candidateName: String(candidate.name || "").trim() || inferredSlug,
+          nodeUrl,
+          nodeId,
+        });
+        writeTextAtomic(resolvedPaths.markdownPath, seed);
+      } catch (error) {
+        skipped.push({
+          slug: inferredSlug,
+          node_id: nodeId,
+          name: String(candidate.name || "").trim() || inferredSlug,
+          reason: "markdown-create-failed",
+          markdown_path: path.relative(PROJECT_ROOT, resolvedPaths.markdownPath),
+          error: error instanceof Error ? error.message : String(error),
+        });
+        continue;
+      }
     }
 
     const specExists = fs.existsSync(resolvedPaths.specPath);
-    const nodeUrl = buildFigmaNodeUrl(descriptor, nodeId) || descriptor.sourceUrl;
 
     targets.push({
       slug: inferredSlug,
