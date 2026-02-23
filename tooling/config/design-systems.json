@@ -15,7 +15,20 @@
         "Semantic",
         "Components",
         "A11y"
-      ]
+      ],
+      "compileVariablesOnCapture": true
+    },
+    {
+      "id": "dos",
+      "name": "dos",
+      "appName": "dos",
+      "figmaFileId": "ERurQSl12VmCGYlk1ciOH3",
+      "figmaApiToken": "${FIGMA_TOKEN_DOS}",
+      "inputDir": "input/dos",
+      "outputDir": "output/dos",
+      "docsDir": "docs/dos",
+      "collections": [],
+      "compileVariablesOnCapture": true
     }
   ],
   "defaultSystem": "iter"
