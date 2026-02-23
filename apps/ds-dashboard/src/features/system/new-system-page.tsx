@@ -32,9 +32,6 @@ export function NewSystemPage() {
   const [appName, setAppName] = useState("");
   const [figmaFileId, setFigmaFileId] = useState("");
   const [figmaApiTokenRef, setFigmaApiTokenRef] = useState("");
-  const [inputDir, setInputDir] = useState("");
-  const [outputDir, setOutputDir] = useState("");
-  const [docsDir, setDocsDir] = useState("");
   const [collectionsInput, setCollectionsInput] = useState("");
   const [compileVariablesOnCapture, setCompileVariablesOnCapture] = useState(true);
   const [makeDefault, setMakeDefault] = useState(true);
@@ -46,9 +43,9 @@ export function NewSystemPage() {
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
   const safeId = generatedSystemId || "my-new-system";
   const safeName = systemName.trim() || "My New System";
-  const safeInputDir = inputDir.trim() || `input/${safeId}`;
-  const safeOutputDir = outputDir.trim() || `output/${safeId}`;
-  const safeDocsDir = docsDir.trim() || `docs/${safeId}`;
+  const safeInputDir = `input/${safeId}`;
+  const safeOutputDir = `output/${safeId}`;
+  const safeDocsDir = `docs/${safeId}`;
 
   const configExample = useMemo(() => {
     const collections = parseCollectionInput(collectionsInput);
@@ -181,25 +178,6 @@ ${renderedCollections}
                 value={figmaApiTokenRef}
                 onChange={(e) => setFigmaApiTokenRef(e.target.value)}
               />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Input directory
-              </label>
-              <Input value={inputDir} onChange={(e) => setInputDir(e.target.value)} placeholder={`input/${safeId}`} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Output directory
-              </label>
-              <Input value={outputDir} onChange={(e) => setOutputDir(e.target.value)} placeholder={`output/${safeId}`} />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Docs directory
-              </label>
-              <Input value={docsDir} onChange={(e) => setDocsDir(e.target.value)} placeholder={`docs/${safeId}`} />
             </div>
 
             <div className="space-y-1.5 md:col-span-2">
