@@ -909,7 +909,6 @@ async function computeNamingDebtReport(args: {
 
 let _cachedDesignSystemsConfig: any = null;
 let _cachedConfigMtime: number | null = null;
-const DEFAULT_AUTO_COLLECTIONS = ["Primitives", "Typography", "Semantic", "Components", "A11y"];
 
 function designSystemsConfigPath(repoRoot: string) {
   return path.join(repoRoot, "tooling", "config", "design-systems.json");

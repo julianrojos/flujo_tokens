@@ -13,7 +13,7 @@ import {
   parseMarkdownFrontmatter,
   parseYamlDocument,
 } from "./lib/parse-frontmatter.mjs";
-import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
+import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { loadTokenRegistry } from "./lib/token-registry.mjs";
 import { resolveStyleReferencePath } from "./lib/style-reference.mjs";
 import { extractGapsFromSpec, upsertGapsSection } from "./lib/gaps.mjs";
@@ -254,7 +254,6 @@ function upsertTraceabilityFrontmatter({
     sortKeys: false,
   });
   const normalizedContent = String(content || "").replace(/^\n+/, "");
-  const nextMarkdown = `---\n${frontmatterYaml.trimEnd()}\n---\n\n${normalizedContent}`;
 
   // Compute content_sha256 after final markdown is assembled.
   const contentSha256 = crypto

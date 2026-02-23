@@ -172,7 +172,7 @@ export function DesignSystemsAdminPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (id: string) => {
     setBusy(id, true);
     setError(null);
     try {
@@ -437,7 +437,7 @@ export function DesignSystemsAdminPage() {
                 className="border-red-500/50 text-red-700 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400 dark:hover:text-red-400"
                 disabled={!deleteConfirmed || !!busyIds[deleteModalTarget.id]}
                 onClick={() =>
-                  void handleDelete(deleteModalTarget.id, deleteModalTarget.name)
+                  void handleDelete(deleteModalTarget.id)
                 }
               >
                 Yes, delete

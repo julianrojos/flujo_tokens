@@ -22,20 +22,11 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
 
 import { parseArgs } from "./lib/parse-args.mjs";
-import {
-  parseMarkdownFrontmatter,
-  parseYamlDocument,
-} from "./lib/parse-frontmatter.mjs";
-// system-context.mjs is used by other pipeline scripts; this file derives PROJECT_ROOT locally
+import { parseMarkdownFrontmatter } from "./lib/parse-frontmatter.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PROJECT_ROOT = path.resolve(__dirname, "../..");
 
 /**
  * Compute SHA-256 hash of a string.
@@ -128,7 +119,7 @@ async function main() {
   }
 
   const { body, hash } = computeContentSha256(rawMarkdown);
-  const { oldHash, newHash, nextMarkdown } = updateContentSha256Frontmatter(
+  const { oldHash, nextMarkdown } = updateContentSha256Frontmatter(
     rawMarkdown,
     hash
   );

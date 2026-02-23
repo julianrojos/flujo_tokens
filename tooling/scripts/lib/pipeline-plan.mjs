@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import path from "node:path";
 import { componentNameToSnakeCase } from "./component-name.mjs";
 import { resolveSystemContext } from "./system-context.mjs";
 

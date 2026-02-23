@@ -135,8 +135,6 @@ const navSections: NavSection[] = [
   },
 ];
 
-const navItems = navSections.flatMap((section) => section.items);
-
 export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

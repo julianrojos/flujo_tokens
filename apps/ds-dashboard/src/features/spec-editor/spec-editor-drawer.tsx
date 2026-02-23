@@ -4,7 +4,6 @@ import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Save, Undo2, X } from 
 
 import type { TokenRegistry } from "@/types/token-registry";
 import type {
-  ComponentSpecSaveResponse,
   ComponentSpecValidateResponse,
   SpecDiffEntry,
   SpecValidationIssue,

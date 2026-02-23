@@ -468,7 +468,6 @@ export function computeImpactReport(args: {
   const componentBySlug = new Map(
     (args.componentRegistry?.components ?? []).map((component) => [component.slug, component] as const),
   );
-  const tokenByPath = new Map(affectedTokens.map((item) => [item.path, item] as const));
   const componentRows = new Map<
     string,
     {
@@ -581,4 +580,3 @@ export function computeImpactReport(args: {
     generatedAt: new Date().toISOString(),
   };
 }
-

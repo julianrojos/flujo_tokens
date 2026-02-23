@@ -543,9 +543,6 @@ function main() {
     console.error(`Markdown file not found: ${markdownPath}`);
     process.exit(1);
   }
-  const docsDir = path.dirname(markdownPath);
-  const docsRootDir = path.dirname(docsDir);
-
   const ctx = resolveSystemContextSafe({ system: args.system });
 
   const fileBase = path.basename(markdownPath, path.extname(markdownPath));

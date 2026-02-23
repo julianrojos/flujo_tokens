@@ -2,7 +2,7 @@
  * Emission phase: value resolution and CSS output generation.
  */
 
-import type { EmissionContext, ExecutionSummary, TokenValue, CssVarOwner, CssVarCollision, IndexingContext } from '../types/tokens.js';
+import type { EmissionContext, ExecutionSummary, TokenValue, CssVarOwner, IndexingContext } from '../types/tokens.js';
 import { isPlainObject, isVariableAlias, isModeKey } from '../types/tokens.js';
 import { MAX_DEPTH, EMPTY_VISITED_REFS, ALLOW_ALIAS_SCAN } from '../runtime/config.js';
 import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit, warnedInvalidTokenDetails } from '../runtime/state.js';
