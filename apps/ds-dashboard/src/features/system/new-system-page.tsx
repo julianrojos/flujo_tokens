@@ -35,14 +35,43 @@ function extractFigmaFileIdFromUrl(rawUrl: string): string {
   return "";
 }
 
-function normalizeFigmaApiTokenRef(raw: string): string {
-  const value = raw.trim();
+function toDocumentWideFigmaUrl(rawUrl: string): string {
+  const value = rawUrl.trim();
   if (!value) return "";
-  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(value)) return value;
-  const dollarVar = value.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
-  if (dollarVar) return `\${${dollarVar[1]}}`;
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) return `\${${value}}`;
-  return value;
+  try {
+    const parsed = new URL(value);
+    parsed.searchParams.delete("node-id");
+    parsed.searchParams.delete("node_id");
+    parsed.searchParams.delete("nodeId");
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return value;
+  }
+}
+
+function getCaptureErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) return String(error);
+  const message = error.message || "Unknown error";
+  const match = message.match(/:\s*(\{[\s\S]+\})\s*$/);
+  if (!match) return message;
+  try {
+    const parsed = JSON.parse(match[1]) as {
+      error?: string;
+      message?: string;
+      failed?: Array<{ error?: string }>;
+      registry_refresh?: { stderr?: string };
+    };
+    return (
+      parsed.error ||
+      parsed.message ||
+      parsed.failed?.[0]?.error ||
+      parsed.registry_refresh?.stderr ||
+      message
+    );
+  } catch {
+    return message;
+  }
 }
 
 export function NewSystemPage() {
@@ -53,7 +82,7 @@ export function NewSystemPage() {
   const [systemIdOverride, setSystemIdOverride] = useState("");
   const [appName, setAppName] = useState("");
   const [figmaFileUrl, setFigmaFileUrl] = useState("");
-  const [figmaApiTokenRef, setFigmaApiTokenRef] = useState("");
+  const [figmaAccessToken, setFigmaAccessToken] = useState("");
   const [compileVariablesOnCapture, setCompileVariablesOnCapture] = useState(true);
   const [makeDefault, setMakeDefault] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,6 +95,10 @@ export function NewSystemPage() {
   const safeId = generatedSystemId || "my-new-system";
   const safeName = systemName.trim() || "My New System";
   const figmaFileId = extractFigmaFileIdFromUrl(figmaFileUrl);
+  const defaultFigmaTokenEnvName = `FIGMA_TOKEN_${safeId
+    .replace(/[^a-z0-9-]/gi, "_")
+    .replace(/-/g, "_")
+    .toUpperCase()}`;
   const safeInputDir = `input/${safeId}`;
   const safeOutputDir = `output/${safeId}`;
   const safeDocsDir = `docs/${safeId}`;
@@ -82,7 +115,7 @@ export function NewSystemPage() {
   "name": "${safeName}",
   "appName": "${appName.trim() || safeName}",
   "figmaFileId": "${figmaFileId.trim() || "your-figma-file-id"}",
-  "figmaApiToken": "${normalizeFigmaApiTokenRef(figmaApiTokenRef) || "${FIGMA_TOKEN_MY_SYSTEM}"}",
+  "figmaApiToken": "\${${defaultFigmaTokenEnvName}}",
   "compileVariablesOnCapture": ${compileVariablesOnCapture ? "true" : "false"},
   "inputDir": "${safeInputDir}",
   "outputDir": "${safeOutputDir}",
@@ -93,7 +126,7 @@ ${renderedCollections}
 }`;
   }, [
     appName,
-    figmaApiTokenRef,
+    defaultFigmaTokenEnvName,
     figmaFileId,
     compileVariablesOnCapture,
     collections,
@@ -115,7 +148,7 @@ ${renderedCollections}
         name: systemName.trim(),
         appName: appName.trim() || undefined,
         figmaFileId: figmaFileId.trim() || undefined,
-        figmaApiToken: figmaApiTokenRef.trim() || undefined,
+        figmaApiToken: undefined,
         inputDir: safeInputDir,
         outputDir: safeOutputDir,
         docsDir: safeDocsDir,
@@ -123,6 +156,65 @@ ${renderedCollections}
         compileVariablesOnCapture,
         makeDefault,
       });
+
+      const trimmedUrl = toDocumentWideFigmaUrl(figmaFileUrl);
+      if (trimmedUrl) {
+        const runtimeToken = figmaAccessToken.trim();
+        try {
+          const captureResult = await captureFigmaScreenshot(
+            {
+              figmaUrl: trimmedUrl,
+              figmaToken: runtimeToken || undefined,
+              includeVariants: true,
+              requireExistingDoc: false,
+              continueOnError: true,
+              refreshIndices: true,
+              componentKind: "all",
+            },
+            { systemId: response.system.id },
+          );
+          const targetsCount =
+            captureResult.targets_total ??
+            captureResult.targets?.length ??
+            0;
+          const capturedCount = captureResult.captured?.length ?? 0;
+          const failedCount = captureResult.failed?.length ?? 0;
+          const captureFailureDetail =
+            captureResult.error ||
+            captureResult.message ||
+            captureResult.stderr ||
+            captureResult.failed?.[0]?.error ||
+            captureResult.registry_refresh?.stderr ||
+            "";
+
+          if (!captureResult.ok && captureFailureDetail) {
+            throw new Error(captureFailureDetail);
+          }
+
+          if (
+            targetsCount > 0 &&
+            capturedCount === 0 &&
+            failedCount > 0
+          ) {
+            throw new Error(
+              captureFailureDetail ||
+                "Targets were found but every capture failed.",
+            );
+          }
+
+          if (targetsCount === 0 && capturedCount === 0) {
+            throw new Error(
+              "No capturable components were found for the provided URL.",
+            );
+          }
+        } catch (error) {
+          const details = getCaptureErrorMessage(error);
+          throw new Error(
+            `System created, but initial Figma import failed: ${details}. You can retry from "Import Components from Figma".`,
+          );
+        }
+      }
+
       replaceSystems(response.config.systems, { activeSystemId: response.config.defaultSystem });
       setSavedSystemId(response.system.id);
       navigate("/components");
@@ -137,14 +229,14 @@ ${renderedCollections}
     if (!canSave) return;
     setSaveError(null);
 
-    const trimmedUrl = figmaFileUrl.trim();
+    const trimmedUrl = toDocumentWideFigmaUrl(figmaFileUrl);
     if (trimmedUrl) {
       setSaving(true);
       try {
         const scanResult = await captureFigmaScreenshot({
           figmaUrl: trimmedUrl,
           dryRun: true,
-          componentKind: "component_set",
+          componentKind: "all",
         });
         const count =
           scanResult.targets_total ?? scanResult.targets?.length ?? 0;
@@ -192,6 +284,9 @@ ${renderedCollections}
                   setFigmaFileUrl(nextUrl);
                 }}
               />
+              <p className="text-[11px] text-muted-foreground">
+                Full document import: if URL includes <code>node-id</code>, it will be ignored.
+              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -230,13 +325,17 @@ ${renderedCollections}
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Figma token env reference
+                Figma access token (for initial import)
               </label>
               <Input
-                placeholder="e.g. FIGMA_TOKEN_MY_SYSTEM"
-                value={figmaApiTokenRef}
-                onChange={(e) => setFigmaApiTokenRef(e.target.value)}
+                type="password"
+                placeholder="figd_..."
+                value={figmaAccessToken}
+                onChange={(e) => setFigmaAccessToken(e.target.value)}
               />
+              <p className="text-[11px] text-muted-foreground">
+                Used only to run the first capture right after creation.
+              </p>
             </div>
 
           </div>

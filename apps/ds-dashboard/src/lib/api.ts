@@ -442,6 +442,8 @@ export interface CaptureFigmaScreenshotResult {
     stderr?: string;
   };
   error?: string;
+  message?: string;
+  stderr?: string;
 }
 
 export function fetchFile(filePath: string) {
@@ -466,11 +468,13 @@ export function fetchFileSnippet(args: {
 
 export function captureFigmaScreenshot(
   args: CaptureFigmaScreenshotArgs,
+  options?: { systemId?: string },
 ) {
   return getJson<CaptureFigmaScreenshotResult>("/api/capture-figma-screenshot", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(options?.systemId ? { "x-ds-system": options.systemId } : {}),
     },
     body: JSON.stringify(args),
   });
