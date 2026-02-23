@@ -32,12 +32,15 @@ export function setActiveSystemId(id: string) {
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   const systemId = getActiveSystemId();
+  const extraHeaders = init?.headers
+    ? Object.fromEntries(new Headers(init.headers).entries())
+    : {};
   const response = await fetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
       ...(systemId ? { "x-ds-system": systemId } : {}),
-      ...(init?.headers || {}),
+      ...extraHeaders,
     },
   });
 
