@@ -116,6 +116,7 @@ export function useOperationRunner(
 
         let isError = false;
         let finalSummary = "";
+        let receivedEndEvent = false;
 
         if (isSSE) {
           // ── SSE streaming mode ─────────────────────────────────────────
@@ -156,7 +157,9 @@ export function useOperationRunner(
                       setLogLines((prev) => [...prev, { text: msg, kind: "stderr" }]);
                       isError = true;
                       finalSummary = msg;
+                      receivedEndEvent = true;
                     } else if (data.type === "end") {
+                      receivedEndEvent = true;
                       isError = data.code !== 0;
                       finalSummary = isError
                         ? `Falló con código ${data.code}`
@@ -171,6 +174,11 @@ export function useOperationRunner(
                 }
               }
             }
+          }
+
+          if (!receivedEndEvent && !isError) {
+            isError = true;
+            finalSummary = "Stream ended without completion event";
           }
         } else {
           // ── JSON batch mode (runNpmScript) ─────────────────────────────
