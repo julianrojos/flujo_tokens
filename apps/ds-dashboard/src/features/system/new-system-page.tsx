@@ -236,8 +236,10 @@ ${renderedCollections}
     if (trimmedUrl) {
       setSaving(true);
       try {
+        const runtimeToken = figmaAccessToken.trim();
         const scanResult = await captureFigmaScreenshot({
           figmaUrl: trimmedUrl,
+          figmaToken: runtimeToken || undefined,
           dryRun: true,
           componentKind: "all",
         });
@@ -248,8 +250,9 @@ ${renderedCollections}
           setComplexFileModal({ componentCount: count });
           return;
         }
-      } catch {
-        // Scan failed — proceed without blocking creation
+      } catch (error) {
+        // Pre-scan failed — log for debugging but don't block creation
+        console.warn("[NewSystemPage] dry-run pre-scan failed:", error);
       }
       setSaving(false);
     }
