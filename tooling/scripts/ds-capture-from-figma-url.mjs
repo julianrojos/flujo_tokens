@@ -866,9 +866,16 @@ async function main() {
 
   const ctx = resolveSystemContextSafe({ system: args.system });
   const docsRootOverride = args["docs-root"] ? String(args["docs-root"]).trim() : null;
-  const componentSlugOverride = String(args["component-slug"] || "")
+  const rawSlug = String(args["component-slug"] || "")
     .trim()
     .toLowerCase();
+  // Reject slugs with path traversal characters
+  const componentSlugOverride = rawSlug.replace(/[/\\]/g, "-").replace(/\.\./g, "");
+  if (rawSlug && componentSlugOverride !== rawSlug) {
+    console.warn(
+      `[capture] Sanitized component-slug: "${rawSlug}" → "${componentSlugOverride}"`,
+    );
+  }
   const componentKind = parseComponentKind(args["component-kind"]);
   const includeVariants = parseBooleanOption(
     args["include-variants"],
