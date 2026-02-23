@@ -23,6 +23,25 @@ function parseCollectionInput(raw: string) {
     .filter(Boolean);
 }
 
+function extractFigmaFileIdFromUrl(rawUrl: string): string {
+  const value = rawUrl.trim();
+  if (!value) return "";
+
+  try {
+    const parsed = new URL(value);
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    for (let i = 0; i < segments.length - 1; i += 1) {
+      if (segments[i] === "file" || segments[i] === "design") {
+        return segments[i + 1] || "";
+      }
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 export function NewSystemPage() {
   const navigate = useNavigate();
   const { replaceSystems } = useDesignSystem();
@@ -30,6 +49,7 @@ export function NewSystemPage() {
   const [systemName, setSystemName] = useState("");
   const [systemIdOverride, setSystemIdOverride] = useState("");
   const [appName, setAppName] = useState("");
+  const [figmaFileUrl, setFigmaFileUrl] = useState("");
   const [figmaFileId, setFigmaFileId] = useState("");
   const [figmaApiTokenRef, setFigmaApiTokenRef] = useState("");
   const [collectionsInput, setCollectionsInput] = useState("");
@@ -160,6 +180,22 @@ ${renderedCollections}
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Figma file URL
+              </label>
+              <Input
+                placeholder="https://www.figma.com/design/..."
+                value={figmaFileUrl}
+                onChange={(e) => {
+                  const nextUrl = e.target.value;
+                  setFigmaFileUrl(nextUrl);
+                  const extractedFileId = extractFigmaFileIdFromUrl(nextUrl);
+                  if (extractedFileId) setFigmaFileId(extractedFileId);
+                }}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Figma file id
               </label>
               <Input
@@ -235,8 +271,17 @@ ${renderedCollections}
           </div>
         </section>
 
+        <section>
+          <h2 className="mb-3 text-xl font-semibold">2. Import Components from Figma</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
+            After creating the system, capture a Figma node to bootstrap docs and make the system
+            operational in the sidebar.
+          </p>
+          <FigmaUrlScanner />
+        </section>
+
         <section className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-2 text-xl font-semibold">2. Generated JSON Preview</h2>
+          <h2 className="mb-2 text-xl font-semibold">3. Generated JSON Preview</h2>
           <p className="mb-4 text-sm text-muted-foreground">
             Preview of the system entry written to{" "}
             <code className="rounded bg-muted px-1.5 py-0.5">tooling/config/design-systems.json</code>.
@@ -244,15 +289,6 @@ ${renderedCollections}
           <pre className="overflow-x-auto rounded-lg bg-black p-4 text-sm text-white">
             {configExample}
           </pre>
-        </section>
-
-        <section>
-          <h2 className="mb-3 text-xl font-semibold">3. Import Components from Figma</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
-            After creating the system, capture a Figma node to bootstrap docs and make the system
-            operational in the sidebar.
-          </p>
-          <FigmaUrlScanner />
         </section>
       </div>
     </div>
