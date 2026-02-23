@@ -42,6 +42,16 @@ function extractFigmaFileIdFromUrl(rawUrl: string): string {
   return "";
 }
 
+function normalizeFigmaApiTokenRef(raw: string): string {
+  const value = raw.trim();
+  if (!value) return "";
+  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(value)) return value;
+  const dollarVar = value.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (dollarVar) return `\${${dollarVar[1]}}`;
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) return `\${${value}}`;
+  return value;
+}
+
 export function NewSystemPage() {
   const navigate = useNavigate();
   const { replaceSystems } = useDesignSystem();
@@ -79,7 +89,7 @@ export function NewSystemPage() {
   "name": "${safeName}",
   "appName": "${appName.trim() || safeName}",
   "figmaFileId": "${figmaFileId.trim() || "your-figma-file-id"}",
-  "figmaApiToken": "${figmaApiTokenRef.trim() || "${FIGMA_TOKEN_MY_SYSTEM}"}",
+  "figmaApiToken": "${normalizeFigmaApiTokenRef(figmaApiTokenRef) || "${FIGMA_TOKEN_MY_SYSTEM}"}",
   "compileVariablesOnCapture": ${compileVariablesOnCapture ? "true" : "false"},
   "inputDir": "${safeInputDir}",
   "outputDir": "${safeOutputDir}",
@@ -210,7 +220,7 @@ ${renderedCollections}
                 Figma token env reference
               </label>
               <Input
-                placeholder="e.g. ${FIGMA_TOKEN_MY_SYSTEM}"
+                placeholder="e.g. FIGMA_TOKEN_MY_SYSTEM"
                 value={figmaApiTokenRef}
                 onChange={(e) => setFigmaApiTokenRef(e.target.value)}
               />

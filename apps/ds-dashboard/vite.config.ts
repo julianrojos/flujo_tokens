@@ -980,6 +980,17 @@ function ensureRelativeDir(raw: unknown, fallback: string) {
   return cleaned || fallback;
 }
 
+function normalizeFigmaApiTokenRef(raw: unknown, fallback?: string) {
+  const value = String(raw ?? "").trim();
+  const source = value || String(fallback ?? "").trim();
+  if (!source) return "";
+  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(source)) return source;
+  const dollarVar = source.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (dollarVar) return `\${${dollarVar[1]}}`;
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(source)) return `\${${source}}`;
+  return source;
+}
+
 function resolveSafeSystemPathsForDeletion(system: any, repoRoot: string) {
   const candidates = [system?.inputDir, system?.outputDir, system?.docsDir]
     .map((value) => String(value || "").trim())
@@ -1102,8 +1113,10 @@ function createLocalDataApi() {
             name: systemName,
             appName: String(body.appName || "").trim() || systemName,
             figmaFileId: String(body.figmaFileId || "").trim(),
-            figmaApiToken:
-              String(body.figmaApiToken || "").trim() || `\${FIGMA_TOKEN_${systemId.toUpperCase().replace(/-/g, "_")}}`,
+            figmaApiToken: normalizeFigmaApiTokenRef(
+              body.figmaApiToken,
+              `FIGMA_TOKEN_${systemId.toUpperCase().replace(/-/g, "_")}`,
+            ),
             inputDir,
             outputDir,
             docsDir,
@@ -1161,7 +1174,7 @@ function createLocalDataApi() {
             name: normalizedName,
             appName: String(body.appName ?? current.appName ?? normalizedName).trim() || normalizedName,
             figmaFileId: String(body.figmaFileId ?? current.figmaFileId ?? "").trim(),
-            figmaApiToken: String(body.figmaApiToken ?? current.figmaApiToken ?? "").trim(),
+            figmaApiToken: normalizeFigmaApiTokenRef(body.figmaApiToken ?? current.figmaApiToken),
             inputDir: ensureRelativeDir(body.inputDir ?? current.inputDir, `input/${routeSystemId}`),
             outputDir: ensureRelativeDir(body.outputDir ?? current.outputDir, `output/${routeSystemId}`),
             docsDir: ensureRelativeDir(body.docsDir ?? current.docsDir, `docs/${routeSystemId}`),

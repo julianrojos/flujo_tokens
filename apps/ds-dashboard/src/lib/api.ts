@@ -109,13 +109,30 @@ export interface MutateDesignSystemResponse {
   };
 }
 
+function normalizeFigmaApiTokenRef(raw: unknown) {
+  const value = String(raw ?? "").trim();
+  if (!value) return "";
+  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(value)) return value;
+  const dollarVar = value.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (dollarVar) return `\${${dollarVar[1]}}`;
+  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) return `\${${value}}`;
+  return value;
+}
+
 export function createDesignSystem(args: CreateDesignSystemPayload) {
+  const payload = {
+    ...args,
+    figmaApiToken:
+      args.figmaApiToken !== undefined
+        ? normalizeFigmaApiTokenRef(args.figmaApiToken) || undefined
+        : undefined,
+  };
   return getJson<CreateDesignSystemResponse>("/api/design-systems", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(args),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -124,12 +141,19 @@ export function fetchDesignSystemsConfig() {
 }
 
 export function updateDesignSystem(id: string, args: Partial<CreateDesignSystemPayload>) {
+  const payload = {
+    ...args,
+    figmaApiToken:
+      args.figmaApiToken !== undefined
+        ? normalizeFigmaApiTokenRef(args.figmaApiToken) || undefined
+        : undefined,
+  };
   return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(args),
+    body: JSON.stringify(payload),
   });
 }
 

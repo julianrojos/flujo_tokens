@@ -237,7 +237,7 @@ export function DesignSystemsAdminPage() {
                   <Input
                     value={draft.figmaApiToken}
                     onChange={(e) => handleFieldChange(id, "figmaApiToken", e.target.value)}
-                    placeholder="Figma token env reference"
+                    placeholder="Figma token env reference (e.g. FIGMA_TOKEN_MY_SYSTEM)"
                     disabled={isBusy}
                   />
                   <Input
