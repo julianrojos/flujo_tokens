@@ -16,18 +16,6 @@ Crear un skill de auditoría que:
 - Compare propiedades del spec YAML vs propiedades reales del `COMPONENT_SET` en Figma.
 - Genere un reporte de cobertura y discrepancias.
 
-### ~~4. Batch para `ds-component-doc` y `ds-markdown-to-figma`~~ (Completado)
-
-**Problema**  
-Ambos skills procesan un solo componente por invocación. Con un DS de 20-50 componentes esto es tedioso.
-
-**Propuesta**  
-Añadir modo batch:
-
-- `ds-component-doc --all` para iterar sobre todos los `.yml` en `_spec/components/`.
-- `ds-markdown-to-figma --all` para iterar sobre todos los `.md` en `docs/components/`.
-- Reporte consolidado final (`N` procesados, `M` con errores, `K` omitidos).
-
 ### 5. Mejoras al parser Markdown -> Figma
 
 **Problema**  
@@ -79,34 +67,6 @@ Falta una regla de organización para ubicar claramente scripts, generated artif
 Context
 The documentation project has reached governance maturity (14 rules, 6 skills) but suffers from fundamental architectural gaps: the token compilation and documentation pipelines are completely disconnected, zero rules are machine-enforced, the MD→Figma pipeline loses inline formatting, there is no orchestration, and spec YAMLs are written entirely by hand. This plan introduces 7 improvements that connect the pipelines, automate validation, and add the missing infrastructure.
 Implementation Order (Dependency Graph)
-
-### Improvement 4: Pipeline Orchestration (`ds-pipeline`)
-
-**Problem**: Running the full pipeline is 5+ manual steps with no precondition checking.
-
-#### Files to create
-
-- `.agent/skills/document-design-system/ds-pipeline/SKILL.md`
-- `tooling/scripts/ds-pipeline.mjs`
-
-#### Pipeline stages
-
-Stage 0: Token compile npm run generate -- --registry
-Stage 1: Validate docs npm run validate:docs
-Stage 2: Component doc gen ds-component-doc (per component, agent-driven)
-Stage 3: MD→Figma render ds-markdown-to-figma-section (per component, agent-driven)
-Stage 4: QA audit npm run ds:qa
-CLI interface
-bashnode tooling/scripts/ds-pipeline.mjs --component alert # single component
-node tooling/scripts/ds-pipeline.mjs --all # all components
-node tooling/scripts/ds-pipeline.mjs --from-stage 2 # resume from stage
-node tooling/scripts/ds-pipeline.mjs --strict # fail on first error
-
-```
-
-### Files to modify
-- `package.json` — add script `"ds:pipeline"`
-```
 
 ---
 
