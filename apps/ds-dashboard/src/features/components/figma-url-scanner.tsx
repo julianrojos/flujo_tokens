@@ -4,7 +4,12 @@ import { Figma, Loader2, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDesignSystem } from "@/lib/design-system-context";
-import { captureFigmaScreenshot, type CaptureFigmaScreenshotResult } from "@/lib/api";
+import {
+  captureFigmaScreenshot,
+  fetchComponentRegistry,
+  type CaptureFigmaScreenshotResult,
+  type CaptureFigmaScreenshotArgs,
+} from "@/lib/api";
 import {
   Card,
   CardContent,
@@ -25,6 +30,12 @@ type ScannerResult = CaptureFigmaScreenshotResult & {
   command?: string;
   exit_code?: number;
 };
+
+interface ExistingComponentScanModalState {
+  existingSlugs: string[];
+  totalTargets: number;
+  request: CaptureFigmaScreenshotArgs;
+}
 
 const FIGMA_TOKEN_STORAGE_KEY = "ds-dashboard.figma-token.enc.v1";
 const FIGMA_TOKEN_SESSION_KEY = "ds-dashboard.figma-token.key.v1";
@@ -135,6 +146,10 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ScannerResult | null>(null);
+  const [existingSlugs, setExistingSlugs] = useState<Set<string>>(new Set());
+  const [registryLoaded, setRegistryLoaded] = useState(false);
+  const [confirmModal, setConfirmModal] =
+    useState<ExistingComponentScanModalState | null>(null);
 
   const advancedOptionsId = "figma-scanner-advanced-options";
 
@@ -180,35 +195,149 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
     };
   }, [figmaToken, rememberToken]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadRegistrySlugs = async () => {
+      if (!activeSystem || isSystemLoading) {
+        if (!cancelled) {
+          setExistingSlugs(new Set());
+          setRegistryLoaded(false);
+        }
+        return;
+      }
+      try {
+        const registry = await fetchComponentRegistry();
+        if (cancelled) return;
+        const next = new Set(
+          (registry.components || [])
+            .map((item) => String(item?.slug || "").trim())
+            .filter(Boolean),
+        );
+        setExistingSlugs(next);
+      } catch {
+        if (!cancelled) setExistingSlugs(new Set());
+      } finally {
+        if (!cancelled) setRegistryLoaded(true);
+      }
+    };
+    void loadRegistrySlugs();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeSystem, isSystemLoading]);
+
+  const buildScanRequest = (): CaptureFigmaScreenshotArgs => ({
+    figmaUrl: url.trim(),
+    figmaToken: figmaToken.trim() || undefined,
+    componentSlug: componentSlug.trim() || undefined,
+    requireExistingDoc,
+    includeVariants,
+    injectDocSpecs: true,
+    refreshIndices: true,
+    continueOnError: true,
+  });
+
+  const extractExistingTargets = (
+    preview: CaptureFigmaScreenshotResult,
+    currentExistingSlugs: Set<string>,
+  ) => {
+    const targets = Array.isArray(preview?.targets) ? preview.targets : [];
+    const matched = new Set<string>();
+    for (const target of targets) {
+      const slug = String(target?.slug || "").trim();
+      if (!slug) continue;
+      if (currentExistingSlugs.has(slug)) matched.add(slug);
+    }
+    return {
+      existing: Array.from(matched).sort((a, b) => a.localeCompare(b)),
+      totalTargets: targets.length,
+    };
+  };
+
+  const applyScanResult = async (data: CaptureFigmaScreenshotResult) => {
+    setResult(data as ScannerResult);
+    const capturedCount = Array.isArray(data.captured) ? data.captured.length : 0;
+    if (data.ok && activeSystem && capturedCount > 0) {
+      window.dispatchEvent(
+        new CustomEvent("ds:system-captured-first-component", {
+          detail: { systemId: activeSystem, capturedCount },
+        }),
+      );
+    }
+    if (data.ok && capturedCount > 0 && onSuccess) {
+      await Promise.resolve(onSuccess());
+    }
+  };
+
+  const runScanRequest = async (request: CaptureFigmaScreenshotArgs) => {
+    const data = await captureFigmaScreenshot(request);
+    await applyScanResult(data);
+  };
+
   const handleScan = async () => {
     if (!url.trim() || !activeSystem || isSystemLoading) return;
 
+    setConfirmModal(null);
     setLoading(true);
     setResult(null);
 
     try {
-      const data = await captureFigmaScreenshot({
-        figmaUrl: url.trim(),
-        figmaToken: figmaToken.trim() || undefined,
-        componentSlug: componentSlug.trim() || undefined,
-        requireExistingDoc,
-        includeVariants,
-        injectDocSpecs: true,
-        refreshIndices: true,
-        continueOnError: true,
+      const request = buildScanRequest();
+      let currentExistingSlugs = existingSlugs;
+      if (!registryLoaded) {
+        try {
+          const registry = await fetchComponentRegistry();
+          currentExistingSlugs = new Set(
+            (registry.components || [])
+              .map((item) => String(item?.slug || "").trim())
+              .filter(Boolean),
+          );
+          setExistingSlugs(currentExistingSlugs);
+        } catch {
+          currentExistingSlugs = new Set(existingSlugs);
+        } finally {
+          setRegistryLoaded(true);
+        }
+      }
+
+      const preview = await captureFigmaScreenshot({
+        ...request,
+        dryRun: true,
+        refreshIndices: false,
       });
-      setResult(data as ScannerResult);
-      const capturedCount = Array.isArray(data.captured) ? data.captured.length : 0;
-      if (data.ok && activeSystem && capturedCount > 0) {
-        window.dispatchEvent(
-          new CustomEvent("ds:system-captured-first-component", {
-            detail: { systemId: activeSystem, capturedCount },
-          }),
-        );
+
+      const { existing, totalTargets } = extractExistingTargets(
+        preview,
+        currentExistingSlugs,
+      );
+
+      if (existing.length > 0) {
+        setConfirmModal({
+          existingSlugs: existing,
+          totalTargets,
+          request,
+        });
+        return;
       }
-      if (data.ok && capturedCount > 0 && onSuccess) {
-        await Promise.resolve(onSuccess());
-      }
+
+      await runScanRequest(request);
+    } catch (error) {
+      setResult({
+        ok: false,
+        error: error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmContinue = async () => {
+    if (!confirmModal) return;
+    setLoading(true);
+    setResult(null);
+    try {
+      await runScanRequest(confirmModal.request);
+      setConfirmModal(null);
     } catch (error) {
       setResult({
         ok: false,
@@ -403,6 +532,48 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
           </p>
         ) : null}
       </CardContent>
+
+      {confirmModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
+            <h2 className="mb-2 text-lg font-semibold">Overwrite existing component data?</h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              This scan targets {confirmModal.totalTargets} component
+              {confirmModal.totalTargets === 1 ? "" : "s"} and will overwrite existing
+              documentation for {confirmModal.existingSlugs.length} component
+              {confirmModal.existingSlugs.length === 1 ? "" : "s"}.
+            </p>
+            <div className="mb-4 max-h-40 overflow-auto rounded-md border border-border/70 bg-muted/30 p-2">
+              <ul className="space-y-1 text-sm">
+                {confirmModal.existingSlugs.map((slug) => (
+                  <li key={slug}>
+                    <code>{slug}</code>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setConfirmModal(null)}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button onClick={() => void handleConfirmContinue()} disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Scanning…
+                  </>
+                ) : (
+                  "Continue"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </Card>
   );
 }
