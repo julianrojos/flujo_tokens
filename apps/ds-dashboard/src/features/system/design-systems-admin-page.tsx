@@ -21,9 +21,11 @@ type RowDraft = {
   docsDir: string;
   collections: string;
   compileVariablesOnCapture: boolean;
+  makeDefault: boolean;
 };
 
-function toDraft(system: DesignSystemConfigEntry): RowDraft {
+function toDraft(system: DesignSystemConfigEntry, defaultSystemId = ""): RowDraft {
+  const id = String(system.id || "");
   return {
     name: String(system.name || ""),
     appName: String(system.appName || ""),
@@ -34,6 +36,7 @@ function toDraft(system: DesignSystemConfigEntry): RowDraft {
     docsDir: String(system.docsDir || ""),
     collections: Array.isArray(system.collections) ? system.collections.join(", ") : "",
     compileVariablesOnCapture: system.compileVariablesOnCapture !== false,
+    makeDefault: id === defaultSystemId,
   };
 }
 
@@ -81,7 +84,9 @@ export function DesignSystemsAdminPage() {
       setSystems(config.systems || []);
       setDefaultSystem(config.defaultSystem || "");
       setDrafts(
-        Object.fromEntries((config.systems || []).map((system) => [system.id, toDraft(system)])),
+        Object.fromEntries(
+          (config.systems || []).map((system) => [system.id, toDraft(system, config.defaultSystem)]),
+        ),
       );
       replaceSystems(
         (config.systems || []).map((system) => ({
@@ -108,8 +113,27 @@ export function DesignSystemsAdminPage() {
   const handleFieldChange = (id: string, key: keyof RowDraft, value: string) => {
     setDrafts((prev) => ({
       ...prev,
-      [id]: { ...(prev[id] || toDraft(systems.find((system) => system.id === id) || { id, name: id })), [key]: value },
+      [id]: {
+        ...(prev[id] ||
+          toDraft(systems.find((system) => system.id === id) || { id, name: id }, defaultSystem)),
+        [key]: value,
+      },
     }));
+  };
+
+  const handleMakeDefaultDraftChange = (id: string, checked: boolean) => {
+    setDrafts((prev) => {
+      const next: Record<string, RowDraft> = {};
+      for (const system of systems) {
+        const systemId = String(system.id || "");
+        const base = prev[systemId] || toDraft(system, defaultSystem);
+        next[systemId] = {
+          ...base,
+          makeDefault: checked ? systemId === id : systemId === defaultSystem,
+        };
+      }
+      return next;
+    });
   };
 
   const handleSave = async (id: string) => {
@@ -128,6 +152,7 @@ export function DesignSystemsAdminPage() {
         docsDir: draft.docsDir,
         collections: parseCollections(draft.collections),
         compileVariablesOnCapture: draft.compileVariablesOnCapture,
+        makeDefault: draft.makeDefault,
       });
       replaceSystems(response.config.systems, {
         activeSystemId: response.config.defaultSystem || undefined,
@@ -182,7 +207,7 @@ export function DesignSystemsAdminPage() {
         <div className="space-y-4">
           {sortedSystems.map((system) => {
             const id = String(system.id || "");
-            const draft = drafts[id] || toDraft(system);
+            const draft = drafts[id] || toDraft(system, defaultSystem);
             const isBusy = !!busyIds[id];
             const isDefault = id === defaultSystem;
             return (
@@ -281,6 +306,16 @@ export function DesignSystemsAdminPage() {
                       disabled={isBusy}
                     />
                     <span>Compile Figma variables to design tokens on first capture</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm md:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={draft.makeDefault}
+                      onChange={(e) => handleMakeDefaultDraftChange(id, e.target.checked)}
+                      className="h-4 w-4"
+                      disabled={isBusy}
+                    />
+                    <span>Make this the default system</span>
                   </label>
                 </div>
               </section>
