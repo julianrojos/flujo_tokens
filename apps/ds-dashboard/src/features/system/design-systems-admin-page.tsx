@@ -47,6 +47,13 @@ function parseCollections(raw: string) {
     .filter(Boolean);
 }
 
+function buildFieldId(systemId: string, fieldName: string) {
+  const safeSystemId = String(systemId || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]+/g, "-");
+  return `ds-admin-${safeSystemId}-${fieldName}`;
+}
+
 export function DesignSystemsAdminPage() {
   const { replaceSystems } = useDesignSystem();
   const [systems, setSystems] = useState<DesignSystemConfigEntry[]>([]);
@@ -241,54 +248,126 @@ export function DesignSystemsAdminPage() {
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
-                  <Input
-                    value={draft.name}
-                    onChange={(e) => handleFieldChange(id, "name", e.target.value)}
-                    placeholder="Name"
-                    disabled={isBusy}
-                  />
-                  <Input
-                    value={draft.appName}
-                    onChange={(e) => handleFieldChange(id, "appName", e.target.value)}
-                    placeholder="App name"
-                    disabled={isBusy}
-                  />
-                  <Input
-                    value={draft.figmaFileId}
-                    onChange={(e) => handleFieldChange(id, "figmaFileId", e.target.value)}
-                    placeholder="Figma file id"
-                    disabled={isBusy}
-                  />
-                  <Input
-                    value={draft.figmaApiToken}
-                    onChange={(e) => handleFieldChange(id, "figmaApiToken", e.target.value)}
-                    placeholder="Figma token env reference (e.g. FIGMA_TOKEN_MY_SYSTEM)"
-                    disabled={isBusy}
-                  />
-                  <Input
-                    value={draft.inputDir}
-                    onChange={(e) => handleFieldChange(id, "inputDir", e.target.value)}
-                    placeholder="input/<system>"
-                    disabled={isBusy}
-                  />
-                  <Input
-                    value={draft.outputDir}
-                    onChange={(e) => handleFieldChange(id, "outputDir", e.target.value)}
-                    placeholder="output/<system>"
-                    disabled={isBusy}
-                  />
-                  <Input
-                    value={draft.docsDir}
-                    onChange={(e) => handleFieldChange(id, "docsDir", e.target.value)}
-                    placeholder="docs/<system>"
-                    disabled={isBusy}
-                  />
-                  <Input
-                    value={draft.collections}
-                    onChange={(e) => handleFieldChange(id, "collections", e.target.value)}
-                    placeholder="Primitives, Typography, Semantic, Components, A11y"
-                    disabled={isBusy}
-                  />
+                  <div className="space-y-1">
+                    <label
+                      htmlFor={buildFieldId(id, "name")}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Name
+                    </label>
+                    <Input
+                      id={buildFieldId(id, "name")}
+                      value={draft.name}
+                      onChange={(e) => handleFieldChange(id, "name", e.target.value)}
+                      placeholder="Name"
+                      disabled={isBusy}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor={buildFieldId(id, "appName")}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      App name
+                    </label>
+                    <Input
+                      id={buildFieldId(id, "appName")}
+                      value={draft.appName}
+                      onChange={(e) => handleFieldChange(id, "appName", e.target.value)}
+                      placeholder="App name"
+                      disabled={isBusy}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor={buildFieldId(id, "figmaFileId")}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Figma file id
+                    </label>
+                    <Input
+                      id={buildFieldId(id, "figmaFileId")}
+                      value={draft.figmaFileId}
+                      onChange={(e) => handleFieldChange(id, "figmaFileId", e.target.value)}
+                      placeholder="Figma file id"
+                      disabled={isBusy}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor={buildFieldId(id, "figmaApiToken")}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Figma token env reference
+                    </label>
+                    <Input
+                      id={buildFieldId(id, "figmaApiToken")}
+                      value={draft.figmaApiToken}
+                      onChange={(e) => handleFieldChange(id, "figmaApiToken", e.target.value)}
+                      placeholder="e.g. FIGMA_TOKEN_MY_SYSTEM"
+                      disabled={isBusy}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor={buildFieldId(id, "inputDir")}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Input directory
+                    </label>
+                    <Input
+                      id={buildFieldId(id, "inputDir")}
+                      value={draft.inputDir}
+                      onChange={(e) => handleFieldChange(id, "inputDir", e.target.value)}
+                      placeholder="input/<system>"
+                      disabled={isBusy}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor={buildFieldId(id, "outputDir")}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Output directory
+                    </label>
+                    <Input
+                      id={buildFieldId(id, "outputDir")}
+                      value={draft.outputDir}
+                      onChange={(e) => handleFieldChange(id, "outputDir", e.target.value)}
+                      placeholder="output/<system>"
+                      disabled={isBusy}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor={buildFieldId(id, "docsDir")}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Docs directory
+                    </label>
+                    <Input
+                      id={buildFieldId(id, "docsDir")}
+                      value={draft.docsDir}
+                      onChange={(e) => handleFieldChange(id, "docsDir", e.target.value)}
+                      placeholder="docs/<system>"
+                      disabled={isBusy}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor={buildFieldId(id, "collections")}
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Collections
+                    </label>
+                    <Input
+                      id={buildFieldId(id, "collections")}
+                      value={draft.collections}
+                      onChange={(e) => handleFieldChange(id, "collections", e.target.value)}
+                      placeholder="Primitives, Typography, Semantic, Components, A11y"
+                      disabled={isBusy}
+                    />
+                  </div>
                   <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm md:col-span-2">
                     <input
                       type="checkbox"
