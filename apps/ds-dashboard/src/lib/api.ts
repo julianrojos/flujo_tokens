@@ -78,6 +78,35 @@ export interface CreateDesignSystemResponse {
   };
 }
 
+export interface DesignSystemConfigEntry {
+  id: string;
+  name: string;
+  appName?: string;
+  figmaFileId?: string;
+  figmaApiToken?: string;
+  inputDir?: string;
+  outputDir?: string;
+  docsDir?: string;
+  collections?: string[];
+}
+
+export interface DesignSystemsConfigResponse {
+  systems: DesignSystemConfigEntry[];
+  defaultSystem: string;
+}
+
+export interface MutateDesignSystemResponse {
+  ok: boolean;
+  system?: {
+    id: string;
+    name: string;
+  };
+  config: {
+    systems: Array<{ id: string; name: string }>;
+    defaultSystem: string;
+  };
+}
+
 export function createDesignSystem(args: CreateDesignSystemPayload) {
   return getJson<CreateDesignSystemResponse>("/api/design-systems", {
     method: "POST",
@@ -85,6 +114,26 @@ export function createDesignSystem(args: CreateDesignSystemPayload) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(args),
+  });
+}
+
+export function fetchDesignSystemsConfig() {
+  return getJson<DesignSystemsConfigResponse>("/api/design-systems");
+}
+
+export function updateDesignSystem(id: string, args: Partial<CreateDesignSystemPayload>) {
+  return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args),
+  });
+}
+
+export function deleteDesignSystem(id: string) {
+  return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
+    method: "DELETE",
   });
 }
 

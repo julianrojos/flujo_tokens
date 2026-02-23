@@ -7,6 +7,7 @@ import {
   GitBranch,
   Layers3,
   NotebookPen,
+  Settings2,
   type LucideIcon,
   Search,
   Zap,
@@ -22,6 +23,7 @@ import { OperationsPage } from "@/features/ops/operations-page";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { SystemSwitcher } from "@/components/system-switcher";
 import { NewSystemPage } from "@/features/system/new-system-page";
+import { DesignSystemsAdminPage } from "@/features/system/design-systems-admin-page";
 import {
   Sidebar,
   SidebarContent,
@@ -74,6 +76,12 @@ const navSections: NavSection[] = [
         label: "Operations",
         description: "Pipeline & synchronization",
         icon: Zap,
+      },
+      {
+        to: "/system/admin",
+        label: "Design Systems Admin",
+        description: "Manage system configuration",
+        icon: Settings2,
       },
     ],
   },
@@ -324,6 +332,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/health" replace />} />
                 <Route path="/system/new" element={<NewSystemPage />} />
+                <Route path="/system/admin" element={<DesignSystemsAdminPage />} />
                 <Route path="/health" element={<HealthDashboardPage />} />
                 <Route path="/ops" element={<OperationsPage />} />
                 <Route path="/components" element={<ComponentsPage />} />

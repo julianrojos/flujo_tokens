@@ -25,7 +25,7 @@ function parseCollectionInput(raw: string) {
 
 export function NewSystemPage() {
   const navigate = useNavigate();
-  const { addSystem, setActiveSystem } = useDesignSystem();
+  const { replaceSystems } = useDesignSystem();
 
   const [systemName, setSystemName] = useState("");
   const [systemIdOverride, setSystemIdOverride] = useState("");
@@ -100,10 +100,7 @@ ${renderedCollections}
         collections: parseCollectionInput(collectionsInput),
         makeDefault,
       });
-      addSystem(response.system, { makeDefault });
-      if (makeDefault) {
-        setActiveSystem(response.system.id);
-      }
+      replaceSystems(response.config.systems, { activeSystemId: response.config.defaultSystem });
       setSavedSystemId(response.system.id);
       navigate("/components");
     } catch (error) {

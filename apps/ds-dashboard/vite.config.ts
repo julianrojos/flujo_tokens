@@ -1032,8 +1032,20 @@ function createLocalDataApi() {
     }
 
     const workspaceRoot = path.resolve(__dirname, "../..");
-    if (url === "/api/design-systems") {
+    const designSystemsRouteMatch = url.match(/^\/api\/design-systems(?:\/([^/]+))?$/);
+    if (designSystemsRouteMatch) {
       try {
+        const routeSystemId = designSystemsRouteMatch[1]
+          ? decodeURIComponent(designSystemsRouteMatch[1])
+          : "";
+        const summarizeConfig = (config: any) => ({
+          systems: (Array.isArray(config.systems) ? config.systems : []).map((system: any) => ({
+            id: String(system.id || ""),
+            name: String(system.name || ""),
+          })),
+          defaultSystem: String(config.defaultSystem || ""),
+        });
+
         if (method === "GET") {
           const config = readDesignSystemsConfig(workspaceRoot);
           _cachedDesignSystemsConfig = config;
@@ -1095,16 +1107,111 @@ function createLocalDataApi() {
           sendJson(res, 200, {
             ok: true,
             system: { id: nextSystem.id, name: nextSystem.name },
-            config: {
-              systems: nextSystems.map((system: any) => ({
-                id: String(system.id || ""),
-                name: String(system.name || ""),
-              })),
-              defaultSystem: nextConfig.defaultSystem,
-            },
+            config: summarizeConfig(nextConfig),
           });
           return;
         }
+
+        if (method === "PUT" && routeSystemId) {
+          const body = await readJsonBody(req);
+          const config = readDesignSystemsConfig(workspaceRoot);
+          const nextSystems = Array.isArray(config.systems) ? [...config.systems] : [];
+          const targetIndex = nextSystems.findIndex(
+            (row: any) => String(row?.id || "").trim() === routeSystemId,
+          );
+          if (targetIndex < 0) {
+            sendJson(res, 404, {
+              ok: false,
+              message: `System '${routeSystemId}' not found.`,
+            });
+            return;
+          }
+
+          const current = nextSystems[targetIndex] || {};
+          const normalizedName = String(body.name ?? current.name ?? "").trim();
+          if (!normalizedName) {
+            sendJson(res, 400, {
+              ok: false,
+              message: "System name cannot be empty.",
+            });
+            return;
+          }
+
+          const updated = {
+            ...current,
+            id: routeSystemId,
+            name: normalizedName,
+            appName: String(body.appName ?? current.appName ?? normalizedName).trim() || normalizedName,
+            figmaFileId: String(body.figmaFileId ?? current.figmaFileId ?? "").trim(),
+            figmaApiToken: String(body.figmaApiToken ?? current.figmaApiToken ?? "").trim(),
+            inputDir: ensureRelativeDir(body.inputDir ?? current.inputDir, `input/${routeSystemId}`),
+            outputDir: ensureRelativeDir(body.outputDir ?? current.outputDir, `output/${routeSystemId}`),
+            docsDir: ensureRelativeDir(body.docsDir ?? current.docsDir, `docs/${routeSystemId}`),
+            collections: normalizeCollectionList(
+              body.collections ?? current.collections ?? [],
+            ),
+          };
+
+          nextSystems[targetIndex] = updated;
+          const makeDefault = body.makeDefault === true;
+          const nextConfig = {
+            ...config,
+            systems: nextSystems,
+            defaultSystem: makeDefault ? routeSystemId : config.defaultSystem || routeSystemId,
+          };
+          writeDesignSystemsConfig(workspaceRoot, nextConfig);
+          _cachedDesignSystemsConfig = nextConfig;
+          sendJson(res, 200, {
+            ok: true,
+            system: { id: routeSystemId, name: updated.name },
+            config: summarizeConfig(nextConfig),
+          });
+          return;
+        }
+
+        if (method === "DELETE" && routeSystemId) {
+          const config = readDesignSystemsConfig(workspaceRoot);
+          const nextSystems = (Array.isArray(config.systems) ? config.systems : []).filter(
+            (row: any) => String(row?.id || "").trim() !== routeSystemId,
+          );
+          if (nextSystems.length === (Array.isArray(config.systems) ? config.systems.length : 0)) {
+            sendJson(res, 404, {
+              ok: false,
+              message: `System '${routeSystemId}' not found.`,
+            });
+            return;
+          }
+          if (nextSystems.length === 0) {
+            sendJson(res, 400, {
+              ok: false,
+              message: "Cannot delete the last design system.",
+            });
+            return;
+          }
+
+          const nextDefault =
+            config.defaultSystem === routeSystemId
+              ? String(nextSystems[0]?.id || "")
+              : String(config.defaultSystem || nextSystems[0]?.id || "");
+          const nextConfig = {
+            ...config,
+            systems: nextSystems,
+            defaultSystem: nextDefault,
+          };
+          writeDesignSystemsConfig(workspaceRoot, nextConfig);
+          _cachedDesignSystemsConfig = nextConfig;
+          sendJson(res, 200, {
+            ok: true,
+            config: summarizeConfig(nextConfig),
+          });
+          return;
+        }
+
+        sendJson(res, 405, {
+          ok: false,
+          message: "Method not allowed for /api/design-systems.",
+        });
+        return;
       } catch (error) {
         sendJson(res, 500, {
           ok: false,
@@ -1138,16 +1245,10 @@ function createLocalDataApi() {
       tokenDiffScriptPath,
       healthSnapshotScriptPath,
       captureFromFigmaUrlScriptPath,
-      specBackupsDirPath,
-      rawConfig
+      specBackupsDirPath
     } = sysCtx;
 
     try {
-      if (method === "GET" && url === "/api/design-systems") {
-        sendJson(res, 200, rawConfig);
-        return;
-      }
-
       if (method === "GET" && url === "/api/component-registry") {
         const raw = await fs.readFile(componentRegistryPath, "utf8");
         sendJson(res, 200, JSON.parse(raw));
