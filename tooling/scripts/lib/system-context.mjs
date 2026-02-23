@@ -56,7 +56,6 @@ const LEGACY_PATHS = Object.freeze({
   registry:  path.resolve(PROJECT_ROOT, "docs/_generated/component-registry.json"),
   tokenRegistry: path.resolve(PROJECT_ROOT, "docs/_generated/token-registry.json"),
 });
-
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");
 
 /**
@@ -72,11 +71,10 @@ export function resolveSystemContextSafe(opts = {}) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.warn(`[system-context] Falling back to legacy paths: ${msg}`);
-    return { id: "_legacy", docsDir: "docs", paths: LEGACY_PATHS };
+    return { id: "_legacy", docsDir: "docs", paths: {} };
   }
 }
 
 export function resolveProjectPath(...parts) {
   return path.resolve(PROJECT_ROOT, ...parts);
 }
-
