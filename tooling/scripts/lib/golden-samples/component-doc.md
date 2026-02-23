@@ -64,6 +64,15 @@ The **Example Button** triggers a primary action in flows where a single clear n
 - Default: Base visual style with full contrast.
 - Disabled: Reduced contrast and pointer interaction blocked.
 
+## Layout and Spacing
+
+Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
+
+| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
+| ---- | --------- | --------- | -------- | -------- | ------------ | ------------------ |
+| Container | Horizontal | Min / Center | Fixed | Hug | 8 | 12 / 16 / 12 / 16 |
+| Label | — | — | Fill | Hug | — | — |
+
 ## Usage Guidelines
 
 ### When to use

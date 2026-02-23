@@ -30,6 +30,13 @@ summary:
 anatomy:                   # Visual reading order: top-to-bottom, left-to-right; id must be snake_case
   - id: container
     description: TBD
+    # dimensions:            # Optional — populated from Figma Artwork annotations
+    #   width: TBD           # Number or "auto"
+    #   height: TBD          # Number or "auto"
+    #   border_weight: TBD   # Number (0 if none)
+    #   border_radius: TBD   # Number (0 if none)
+    # text_style: null       # Text-style name from Figma if the part is text; null otherwise
+    # instance_dependency: null  # Component name if the part is an instance; null otherwise
 
 properties: []             # Must map 1:1 with Figma component set properties
                            # Order: enum -> text -> boolean -> instance_swap (component-spec-properties-order.mdc)
@@ -58,6 +65,7 @@ properties: []             # Must map 1:1 with Figma component set properties
   #   default: false       # true or false, unquoted
   #   required: false
   #   description: TBD
+  #   associated_layers: [] # List of anatomy IDs toggled by this boolean
 
   # -- Group 4: instance_swap (renders as INSTANCE_SWAP in Figma) ------------
   # - name: TBD
@@ -98,6 +106,20 @@ token_mapping:             # Keys: "{anatomy_id}.{css_property}"; values keyed b
   #   "state=default": TBD
   # label.typography.family:
   #   default: TBD
+
+layout: []                 # Auto-layout tree from Figma Artwork; each entry describes one node
+  # - node: container
+  #   direction: HORIZONTAL | VERTICAL | NONE
+  #   alignment: MIN | CENTER | MAX | SPACE_BETWEEN
+  #   counter_alignment: MIN | CENTER | MAX
+  #   h_sizing: FIXED | HUG | FILL
+  #   v_sizing: FIXED | HUG | FILL
+  #   item_spacing: 0
+  #   padding: { top: 0, right: 0, bottom: 0, left: 0 }
+  #   children:
+  #     - node: child_part
+  #       h_sizing: FILL
+  #       v_sizing: HUG
 
 qa:                        # Minimum 2 items; add component-specific invariants below
   - "Properties match the Figma component set."

@@ -16,9 +16,16 @@ anatomy:
   - part: container
     description: "Outer frame with background and border radius."
     required: true
+    dimensions:
+      width: 320
+      height: auto
+      border_weight: 0
+      border_radius: 8
   - part: label
     description: "Action text."
     required: true
+    text_style: "Body/Strong"
+    instance_dependency: null
 
 properties:
   - name: Type
@@ -32,6 +39,15 @@ properties:
     default: Button
     required: true
     description: "Visible action text."
+  # Boolean properties include associated_layers to indicate which anatomy parts
+  # they toggle. Instance-swap properties include associated_layers similarly.
+  # Example:
+  # - name: Has Icon
+  #   type: BOOLEAN
+  #   default: true
+  #   required: false
+  #   description: "Shows or hides the leading icon."
+  #   associated_layers: [icon]
 
 content_guidelines:
   tone: "Action-oriented and concise."
@@ -60,6 +76,20 @@ token_mapping:
     color:
       Primary: Semantic/Color/Text/On-Primary
       Secondary: Semantic/Color/Text/Neutral/Default
+
+layout:
+  - node: container
+    direction: HORIZONTAL
+    alignment: MIN
+    counter_alignment: CENTER
+    h_sizing: FIXED
+    v_sizing: HUG
+    item_spacing: 8
+    padding: { top: 12, right: 16, bottom: 12, left: 16 }
+    children:
+      - node: label
+        h_sizing: FILL
+        v_sizing: HUG
 
 qa:
   visual_regression: true

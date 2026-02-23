@@ -102,6 +102,14 @@ A concise summary of what the component does.
 - Default: TBD
 - Disabled: TBD
 
+## Layout and Spacing
+
+Auto-layout tree describing direction, alignment, resizing, spacing, and padding for each node.
+
+| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |
+| --- | --- | --- | --- | --- | --- | --- |
+| TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
 ## Usage Guidelines
 
 ### When to use
