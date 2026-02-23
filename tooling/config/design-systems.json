@@ -17,60 +17,6 @@
         "A11y"
       ],
       "compileVariablesOnCapture": true
-    },
-    {
-      "id": "cuatro",
-      "name": "cuatro",
-      "appName": "cuatro",
-      "figmaFileId": "ERurQSl12VmCGYlk1ciOH3",
-      "figmaApiToken": "${FIGMA_TOKEN_CUATRO}",
-      "inputDir": "input/cuatro",
-      "outputDir": "output/cuatro",
-      "docsDir": "docs/cuatro",
-      "collections": [
-        "Primitives",
-        "Typography",
-        "Semantic",
-        "Components",
-        "A11y"
-      ],
-      "compileVariablesOnCapture": true
-    },
-    {
-      "id": "seis",
-      "name": "seis",
-      "appName": "seis",
-      "figmaFileId": "ERurQSl12VmCGYlk1ciOH3",
-      "figmaApiToken": "${FIGMA_TOKEN_SEIS}",
-      "inputDir": "input/seis",
-      "outputDir": "output/seis",
-      "docsDir": "docs/seis",
-      "collections": [
-        "Primitives",
-        "Typography",
-        "Semantic",
-        "Components",
-        "A11y"
-      ],
-      "compileVariablesOnCapture": true
-    },
-    {
-      "id": "siete",
-      "name": "siete",
-      "appName": "siete",
-      "figmaFileId": "URer2Fszeex0vOaR6aMg28",
-      "figmaApiToken": "${FIGMA_TOKEN_SIETE}",
-      "inputDir": "input/siete",
-      "outputDir": "output/siete",
-      "docsDir": "docs/siete",
-      "collections": [
-        "Primitives",
-        "Typography",
-        "Semantic",
-        "Components",
-        "A11y"
-      ],
-      "compileVariablesOnCapture": true
     }
   ],
   "defaultSystem": "iter"
