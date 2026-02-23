@@ -6,6 +6,7 @@ import {
   fetchNamingDebt,
   fetchTokenHealth,
   fetchTokenRegistry,
+  getActiveSystemId,
 } from "@/lib/api";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type { NamingDebtReport } from "@/types/naming-debt";
@@ -126,6 +127,8 @@ export function useGlobalSearch() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const activeSystemRef = getActiveSystemId();
+
   const reloadIndex = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -176,7 +179,7 @@ export function useGlobalSearch() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeSystemRef]);
 
   useEffect(() => {
     void reloadIndex();

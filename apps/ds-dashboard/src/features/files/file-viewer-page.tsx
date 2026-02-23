@@ -42,7 +42,10 @@ export function FileViewerPage() {
     let active = true;
 
     const load = async () => {
-      if (!filePath) return;
+      if (!filePath) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       setContent(null);
