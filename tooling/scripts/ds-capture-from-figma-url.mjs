@@ -20,6 +20,10 @@ import {
   componentNameToDisplayName,
 } from "./lib/component-name.mjs";
 import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
+import {
+  extractComponentSpec,
+  renderEnrichedMarkdownSeed,
+} from "./lib/figma-node-spec-extractor.mjs";
 
 const USAGE = {
   command:
@@ -1060,12 +1064,45 @@ async function main() {
     }
     if (!requireExistingDoc && !markdownExists) {
       try {
-        const seed = buildMarkdownSeed({
-          slug: inferredSlug,
-          candidateName: String(candidate.name || "").trim() || inferredSlug,
-          nodeUrl,
-          nodeId,
-        });
+        let seed;
+        // Attempt to fetch full node data to generate an enriched markdown seed
+        try {
+          const fullNodePayload = await fetchFigmaNodes({
+            fileKey: descriptor.fileKey,
+            nodeIds: [nodeId],
+            token: figmaToken,
+          });
+          const nodeEntry =
+            fullNodePayload?.nodes?.[nodeId]?.document ?? null;
+          if (nodeEntry) {
+            const spec = extractComponentSpec(nodeEntry);
+            seed = renderEnrichedMarkdownSeed({
+              slug: inferredSlug,
+              displayName:
+                componentNameToDisplayName(
+                  String(candidate.name || "").trim(),
+                ) || inferredSlug,
+              nodeUrl,
+              nodeId,
+              spec,
+            });
+          }
+        } catch (enrichError) {
+          // Non-blocking: fall back to basic seed if enrichment fails
+          process.stderr.write(
+            `[capture] Enriched seed failed for ${nodeId}, using basic seed: ${
+              enrichError instanceof Error ? enrichError.message : String(enrichError)
+            }\n`,
+          );
+        }
+        if (!seed) {
+          seed = buildMarkdownSeed({
+            slug: inferredSlug,
+            candidateName: String(candidate.name || "").trim() || inferredSlug,
+            nodeUrl,
+            nodeId,
+          });
+        }
         writeTextAtomic(resolvedPaths.markdownPath, seed);
       } catch (error) {
         skipped.push({
