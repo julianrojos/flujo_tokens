@@ -259,13 +259,14 @@ function runNpmScript(args: {
     shell: false,
   });
 
+  const MAX_OUTPUT_BYTES = 2 * 1024 * 1024; // 2 MB
   let stdout = "";
   let stderr = "";
   child.stdout.on("data", (chunk) => {
-    stdout += String(chunk);
+    if (stdout.length < MAX_OUTPUT_BYTES) stdout += String(chunk);
   });
   child.stderr.on("data", (chunk) => {
-    stderr += String(chunk);
+    if (stderr.length < MAX_OUTPUT_BYTES) stderr += String(chunk);
   });
 
   child.on("error", (error) => {
@@ -396,13 +397,14 @@ function runNodeJsonCommand(args: {
     shell: false,
   });
 
+  const MAX_OUTPUT_BYTES = 2 * 1024 * 1024; // 2 MB
   let stdout = "";
   let stderr = "";
   child.stdout.on("data", (chunk) => {
-    stdout += String(chunk);
+    if (stdout.length < MAX_OUTPUT_BYTES) stdout += String(chunk);
   });
   child.stderr.on("data", (chunk) => {
-    stderr += String(chunk);
+    if (stderr.length < MAX_OUTPUT_BYTES) stderr += String(chunk);
   });
 
   child.on("error", (error) => {
