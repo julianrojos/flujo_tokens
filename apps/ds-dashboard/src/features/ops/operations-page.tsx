@@ -44,11 +44,18 @@ const INITIAL_ARTIFACTS: ArtifactMeta[] = [
   { id: "graph",    label: "Token Graph",  icon: GitGraph   },
 ];
 
+import { getActiveSystemId } from "@/lib/api";
+
+const getSystemHeaders = (): HeadersInit | undefined => {
+  const id = getActiveSystemId();
+  return id ? { "x-ds-system": id } : undefined;
+};
+
 async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<ArtifactMeta>> {
   try {
     switch (id) {
       case "registry": {
-        const r = await fetch("/api/component-registry");
+        const r = await fetch("/api/component-registry", { headers: getSystemHeaders() });
         if (!r.ok) return {};
         const d = await r.json();
         const lm = r.headers.get("Last-Modified");
@@ -57,7 +64,7 @@ async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<ArtifactMeta>>
         return { generatedAt, summary: `${count} components · v${d.schema_version ?? 1}` };
       }
       case "usage": {
-        const r = await fetch("/api/token-usage-index");
+        const r = await fetch("/api/token-usage-index", { headers: getSystemHeaders() });
         if (!r.ok) return {};
         const d = await r.json();
         const lm = r.headers.get("Last-Modified");
@@ -66,7 +73,7 @@ async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<ArtifactMeta>>
         return { generatedAt, summary: `${total} tokens indexados` };
       }
       case "health": {
-        const r = await fetch("/api/token-health");
+        const r = await fetch("/api/token-health", { headers: getSystemHeaders() });
         if (!r.ok) return {};
         const d = await r.json();
         const generatedAt = d.generated_at;
@@ -75,7 +82,7 @@ async function fetchArtifactMeta(id: ArtifactId): Promise<Partial<ArtifactMeta>>
         return { generatedAt, summary: `${broken} broken · ${unused} unused` };
       }
       case "graph": {
-        const r = await fetch("/api/token-graph");
+        const r = await fetch("/api/token-graph", { headers: getSystemHeaders() });
         if (!r.ok) return {};
         const d = await r.json();
         const lm = r.headers.get("Last-Modified");
@@ -117,7 +124,10 @@ function useRunAll(onDone: () => void): [RunAllState, () => void] {
       if (cancelRef.current) break;
       setState((s) => ({ ...s, stepIndex: i + 1 }));
       try {
-        const res = await fetch(REFRESH_ALL_SEQUENCE[i].endpoint, { method: "POST" });
+        const res = await fetch(REFRESH_ALL_SEQUENCE[i].endpoint, { 
+          method: "POST",
+          headers: getSystemHeaders()
+        });
         if (!res.ok) {
           setState({ isRunning: false, stepIndex: i + 1, failed: true });
           return;

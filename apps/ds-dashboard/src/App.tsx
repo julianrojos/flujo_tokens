@@ -20,6 +20,7 @@ import { ImpactExplorerPage } from "@/features/impact/impact-explorer-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { OperationsPage } from "@/features/ops/operations-page";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
+import { SystemSwitcher } from "@/components/system-switcher";
 import {
   Sidebar,
   SidebarContent,
@@ -160,22 +161,7 @@ export default function App() {
                   onClick={() => setSidebarCollapsed((value) => !value)}
                 />
               </div>
-              <h1
-                className={cn(
-                  "mt-2 text-2xl font-semibold tracking-tight",
-                  sidebarCollapsed && "sr-only",
-                )}
-              >
-                Design System
-              </h1>
-              <p
-                className={cn(
-                  "mt-2 text-sm text-muted-foreground",
-                  sidebarCollapsed && "sr-only",
-                )}
-              >
-                Datos locales del repositorio, sin servidor externo.
-              </p>
+              <SystemSwitcher collapsed={sidebarCollapsed} />
             </SidebarHeader>
 
             <SidebarContent>

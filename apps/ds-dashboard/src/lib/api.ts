@@ -21,11 +21,22 @@ import type {
   ComponentSpecValidateResponse,
 } from "@/types/spec-editor";
 
+let activeSystemId: string | null = null;
+export function getActiveSystemId() {
+  return activeSystemId || localStorage.getItem("ds-system-id") || "";
+}
+export function setActiveSystemId(id: string) {
+  activeSystemId = id;
+  localStorage.setItem("ds-system-id", id);
+}
+
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const systemId = getActiveSystemId();
   const response = await fetch(url, {
     ...init,
     headers: {
       Accept: "application/json",
+      ...(systemId ? { "x-ds-system": systemId } : {}),
       ...(init?.headers || {}),
     },
   });

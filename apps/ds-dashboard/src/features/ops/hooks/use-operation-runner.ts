@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { getActiveSystemId } from "@/lib/api";
 
 export type RunStatus = "idle" | "running" | "success" | "error";
 
@@ -100,9 +101,13 @@ export function useOperationRunner(
       startTimeRef.current = Date.now();
 
       try {
+        const systemId = getActiveSystemId();
         const response = await fetch(endpoint, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(systemId ? { "x-ds-system": systemId } : {})
+          },
           body: params ? JSON.stringify(params) : undefined,
         });
 

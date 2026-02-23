@@ -4,11 +4,14 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 import "./index.css";
+import { DesignSystemProvider } from "./lib/design-system-context";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <DesignSystemProvider>
+        <App />
+      </DesignSystemProvider>
     </BrowserRouter>
   </React.StrictMode>,
 );
