@@ -243,6 +243,21 @@ export async function fetchFigmaNodes({
   });
 }
 
+export async function fetchFigmaLocalVariables({
+  fileKey,
+  token,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+} = {}) {
+  const normalizedFileKey = normalizeFileKey(fileKey);
+  return requestFigmaJson({
+    endpointPath: `/v1/files/${encodeURIComponent(
+      normalizedFileKey,
+    )}/variables/local`,
+    token,
+    timeoutMs,
+  });
+}
+
 export async function fetchFigmaImages({
   fileKey,
   nodeIds = [],
