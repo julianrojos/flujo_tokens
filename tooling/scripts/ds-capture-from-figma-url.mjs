@@ -279,7 +279,13 @@ function runNodeScriptJson({ repoRoot, scriptPath, scriptArgs }) {
   }
 
   try {
-    return JSON.parse(stdout);
+    // Strip non-JSON lines (e.g. stray console.log) before parsing
+    const jsonStart = stdout.indexOf("{");
+    const jsonEnd = stdout.lastIndexOf("}");
+    if (jsonStart < 0 || jsonEnd < 0 || jsonEnd <= jsonStart) {
+      throw new Error("No JSON object found in output");
+    }
+    return JSON.parse(stdout.slice(jsonStart, jsonEnd + 1));
   } catch (error) {
     throw new Error(
       `Command returned invalid JSON.\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}\nParse error: ${
@@ -435,16 +441,17 @@ function hasInputJsonFiles(repoRoot, inputDir) {
 function sanitizeCollectionFileStem(rawName, fallback = "Imported") {
   const normalized = String(rawName || "")
     .trim()
-    .replace(/[^A-Za-z0-9_-]+/g, "-")
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return normalized || fallback;
+  return normalized || fallback.toLowerCase();
 }
 
 function normalizeFigmaResolvedType(rawType) {
   const type = String(rawType || "").trim().toUpperCase();
   if (type === "COLOR") return "color";
-  if (type === "FLOAT") return "number";
+  if (type === "FLOAT") return "dimension";
   if (type === "STRING") return "string";
   if (type === "BOOLEAN") return "boolean";
   return "string";
