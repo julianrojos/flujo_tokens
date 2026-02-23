@@ -1048,6 +1048,86 @@ function getSystemContextParams(req: { headers?: Record<string, string | string[
   };
 }
 
+function buildEmptyTokenHealthReport(args: {
+  tokenRegistryPath: string;
+  tokenUsageIndexPath: string;
+  tokenGraphVizPath: string;
+  wcagPairsPath: string;
+  reason?: string;
+}) {
+  const warnings = args.reason
+    ? [{ id: "bootstrap-missing", message: String(args.reason) }]
+    : [];
+  return {
+    ok: true,
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    source: {
+      registry_path: args.tokenRegistryPath,
+      usage_index_path: args.tokenUsageIndexPath,
+      graph_viz_path: args.tokenGraphVizPath,
+      wcag_pairs_path: args.wcagPairsPath,
+    },
+    thresholds: {
+      high_usage_threshold: 25,
+      high_indegree_threshold: 15,
+    },
+    summary: {
+      tokens_total: 0,
+      tokens_with_usage: 0,
+      unused_tokens_total: 0,
+      high_coupling_tokens_total: 0,
+      broken_aliases_total: 0,
+      broken_css_var_refs_total: 0,
+      cycle_nodes_total: 0,
+      wcag_pairs_configured_total: 0,
+      wcag_pairs_resolved_total: 0,
+      wcag_failures_total: 0,
+    },
+    warnings,
+    unused_tokens: { items: [], total: 0, truncated: false },
+    high_coupling_tokens: { items: [], total: 0, truncated: false },
+    broken_aliases: { items: [], total: 0, truncated: false },
+    broken_css_var_refs: { items: [], total: 0, truncated: false },
+    wcag_failures: { items: [], total: 0, truncated: false },
+    upstream_fingerprints: {
+      token_usage_index: "",
+      token_graph_viz: "",
+    },
+    fingerprint_sha256: "",
+    hint:
+      "Token health is not available yet. Capture components and token inputs first, then run token health.",
+  };
+}
+
+function buildEmptyComponentsHealthReport(args: {
+  componentRegistryPath: string;
+}) {
+  return {
+    schema_version: 1,
+    source: {
+      registry_path: args.componentRegistryPath,
+    },
+    summary: {
+      total_components: 0,
+      ready: 0,
+      needs_review: 0,
+      draft: 0,
+      missing: 0,
+      with_visual_proof: 0,
+      average_coverage_percent: 0,
+      by_pipeline_stage: {},
+    },
+    filters: {
+      needs_review: { items: [], total: 0, truncated: false },
+      missing_visual_proof: { items: [], total: 0, truncated: false },
+      blocked_in_pipeline: { items: [], total: 0, truncated: false },
+    },
+    components: [],
+    fingerprint_sha256: "",
+  };
+}
+
 function createLocalDataApi() {
   const middleware: Middleware = async (req, res, next) => {
     const method = String(req.method || "GET").toUpperCase();
@@ -1339,14 +1419,81 @@ function createLocalDataApi() {
       }
 
       if (method === "GET" && url === "/api/token-health") {
-        const raw = await fs.readFile(tokenHealthPath, "utf8");
-        sendJson(res, 200, JSON.parse(raw));
+        try {
+          const raw = await fs.readFile(tokenHealthPath, "utf8");
+          sendJson(res, 200, JSON.parse(raw));
+          return;
+        } catch (error) {
+          const code =
+            typeof error === "object" && error && "code" in error
+              ? String((error as { code?: string }).code || "")
+              : "";
+          if (code !== "ENOENT") throw error;
+
+          const refresh = await runCommandCapture({
+            cwd: repoRoot,
+            command: "npm",
+            commandArgs: ["run", "ds:token-health", "--", "--system", systemId],
+          });
+          if (refresh.ok) {
+            const refreshedRaw = await fs.readFile(tokenHealthPath, "utf8").catch(() => "");
+            if (refreshedRaw.trim()) {
+              sendJson(res, 200, JSON.parse(refreshedRaw));
+              return;
+            }
+          }
+
+          const diagnostics = [refresh.stdout, refresh.stderr].filter(Boolean).join("\n").trim();
+          sendJson(
+            res,
+            200,
+            buildEmptyTokenHealthReport({
+              tokenRegistryPath,
+              tokenUsageIndexPath,
+              tokenGraphVizPath,
+              wcagPairsPath,
+              reason:
+                diagnostics ||
+                "Missing token-health artifact for this system and bootstrap generation failed.",
+            }),
+          );
+        }
         return;
       }
 
       if (method === "GET" && url === "/api/components-health") {
-        const raw = await fs.readFile(componentsHealthPath, "utf8");
-        sendJson(res, 200, JSON.parse(raw));
+        try {
+          const raw = await fs.readFile(componentsHealthPath, "utf8");
+          sendJson(res, 200, JSON.parse(raw));
+          return;
+        } catch (error) {
+          const code =
+            typeof error === "object" && error && "code" in error
+              ? String((error as { code?: string }).code || "")
+              : "";
+          if (code !== "ENOENT") throw error;
+
+          const refresh = await runCommandCapture({
+            cwd: repoRoot,
+            command: "npm",
+            commandArgs: ["run", "ds:registry:report", "--", "--system", systemId],
+          });
+          if (refresh.ok) {
+            const refreshedRaw = await fs.readFile(componentsHealthPath, "utf8").catch(() => "");
+            if (refreshedRaw.trim()) {
+              sendJson(res, 200, JSON.parse(refreshedRaw));
+              return;
+            }
+          }
+
+          sendJson(
+            res,
+            200,
+            buildEmptyComponentsHealthReport({
+              componentRegistryPath,
+            }),
+          );
+        }
         return;
       }
 
