@@ -980,6 +980,23 @@ function ensureRelativeDir(raw: unknown, fallback: string) {
   return cleaned || fallback;
 }
 
+function resolveSafeSystemPathsForDeletion(system: any, repoRoot: string) {
+  const candidates = [system?.inputDir, system?.outputDir, system?.docsDir]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : `${repoRoot}${path.sep}`;
+  const safePaths: string[] = [];
+
+  for (const candidate of candidates) {
+    const absolute = path.resolve(repoRoot, candidate);
+    if (absolute === repoRoot) continue;
+    if (!absolute.startsWith(rootWithSep)) continue;
+    safePaths.push(absolute);
+  }
+
+  return Array.from(new Set(safePaths));
+}
+
 function getSystemContextParams(req: { headers?: Record<string, string | string[] | undefined> }) {
   const repoRoot = path.resolve(__dirname, "../..");
   if (!_cachedDesignSystemsConfig) {
@@ -1171,7 +1188,11 @@ function createLocalDataApi() {
 
         if (method === "DELETE" && routeSystemId) {
           const config = readDesignSystemsConfig(workspaceRoot);
-          const nextSystems = (Array.isArray(config.systems) ? config.systems : []).filter(
+          const currentSystems = Array.isArray(config.systems) ? config.systems : [];
+          const targetSystem = currentSystems.find(
+            (row: any) => String(row?.id || "").trim() === routeSystemId,
+          );
+          const nextSystems = currentSystems.filter(
             (row: any) => String(row?.id || "").trim() !== routeSystemId,
           );
           if (nextSystems.length === (Array.isArray(config.systems) ? config.systems.length : 0)) {
@@ -1198,10 +1219,20 @@ function createLocalDataApi() {
             systems: nextSystems,
             defaultSystem: nextDefault,
           };
+
+          const removedPaths = targetSystem
+            ? resolveSafeSystemPathsForDeletion(targetSystem, workspaceRoot)
+            : [];
+          for (const targetPath of removedPaths) {
+            if (!fsSync.existsSync(targetPath)) continue;
+            fsSync.rmSync(targetPath, { recursive: true, force: true });
+          }
+
           writeDesignSystemsConfig(workspaceRoot, nextConfig);
           _cachedDesignSystemsConfig = nextConfig;
           sendJson(res, 200, {
             ok: true,
+            removedPaths,
             config: summarizeConfig(nextConfig),
           });
           return;

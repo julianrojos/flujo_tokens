@@ -49,6 +49,10 @@ export function DesignSystemsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
+  const [deleteModalTarget, setDeleteModalTarget] = useState<{ id: string; name: string } | null>(
+    null,
+  );
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
 
   const sortedSystems = useMemo(
     () =>
@@ -126,8 +130,7 @@ export function DesignSystemsAdminPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(`Delete design system "${id}"? This cannot be undone.`)) return;
+  const handleDelete = async (id: string, name: string) => {
     setBusy(id, true);
     setError(null);
     try {
@@ -136,6 +139,8 @@ export function DesignSystemsAdminPage() {
         activeSystemId: response.config.defaultSystem || undefined,
       });
       await load();
+      setDeleteModalTarget(null);
+      setDeleteConfirmed(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -184,7 +189,10 @@ export function DesignSystemsAdminPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => void handleDelete(id)}
+                      onClick={() => {
+                        setDeleteModalTarget({ id, name: String(system.name || id) });
+                        setDeleteConfirmed(false);
+                      }}
                       disabled={isBusy || isDefault}
                     >
                       Delete
@@ -247,6 +255,50 @@ export function DesignSystemsAdminPage() {
           })}
         </div>
       )}
+
+      {deleteModalTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
+            <h2 className="mb-2 text-lg font-semibold">Confirm deletion</h2>
+            <p className="mb-4 text-sm text-muted-foreground">
+              Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>. All its
+              data will be removed. This action cannot be undone.
+            </p>
+
+            <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={deleteConfirmed}
+                onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                className="h-4 w-4"
+              />
+              <span>I understand and want to continue</span>
+            </label>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteModalTarget(null);
+                  setDeleteConfirmed(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                className="border-red-500/50 text-red-700 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400 dark:hover:text-red-400"
+                disabled={!deleteConfirmed || !!busyIds[deleteModalTarget.id]}
+                onClick={() =>
+                  void handleDelete(deleteModalTarget.id, deleteModalTarget.name)
+                }
+              >
+                Yes, delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
