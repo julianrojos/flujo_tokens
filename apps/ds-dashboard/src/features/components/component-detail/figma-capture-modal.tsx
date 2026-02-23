@@ -135,14 +135,23 @@ export function FigmaCaptureModal({
         mainCaptureMode: "rest",
       });
       setCaptureResult(result);
-      onCaptured({
-        capturedCount: Array.isArray(result.captured)
-          ? result.captured.length
-          : 0,
-        failedCount: Array.isArray(result.failed) ? result.failed.length : 0,
-        skippedCount: Array.isArray(result.skipped) ? result.skipped.length : 0,
-      });
-      onClose();
+      if (result.ok) {
+        onCaptured({
+          capturedCount: Array.isArray(result.captured)
+            ? result.captured.length
+            : 0,
+          failedCount: Array.isArray(result.failed) ? result.failed.length : 0,
+          skippedCount: Array.isArray(result.skipped) ? result.skipped.length : 0,
+        });
+        onClose();
+      } else {
+        const msg =
+          result.message ||
+          result.stderr ||
+          result.failed?.[0]?.error ||
+          "Capture completed but reported errors. Check the results above.";
+        setError(typeof msg === "string" ? msg : String(msg));
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
