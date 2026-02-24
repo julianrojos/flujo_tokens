@@ -227,3 +227,73 @@ export async function restoreSpecFromRaw(args, deps = {}) {
   await writeFileFn(tempPath, raw, "utf8");
   await renameFn(tempPath, specAbsPath);
 }
+
+export async function restoreComponentSpecFromLatestBackup(args, deps = {}) {
+  const {
+    slug,
+    specRelPath,
+    specAbsPath,
+    repoRoot,
+    specBackupsDirPath,
+    refreshRegistryAfterRestore,
+    sha256TextFn,
+  } = args;
+  const readLatestSpecBackupFn = deps.readLatestSpecBackupFn || readLatestSpecBackup;
+  const restoreSpecFromRawFn = deps.restoreSpecFromRawFn || restoreSpecFromRaw;
+  const runCommandCaptureFn = deps.runCommandCaptureFn || runCommandCapture;
+
+  const latestBackup = await readLatestSpecBackupFn({
+    specBackupsDirPath,
+    slug,
+  });
+  if (!latestBackup.exists) {
+    return {
+      ok: false,
+      slug,
+      path: specRelPath,
+      restoredFrom: null,
+      rawHash: null,
+      message: "No backup file found for this component.",
+    };
+  }
+
+  const backupRaw = latestBackup.raw;
+  if (!backupRaw.trim()) {
+    return {
+      ok: false,
+      slug,
+      path: specRelPath,
+      restoredFrom: path.relative(repoRoot, latestBackup.backupLatestPath),
+      rawHash: null,
+      message: "Backup exists but is empty; restore skipped.",
+    };
+  }
+
+  await restoreSpecFromRawFn({
+    specAbsPath,
+    raw: backupRaw,
+  });
+
+  let refreshed = false;
+  let refreshOutput = "";
+  if (refreshRegistryAfterRestore) {
+    const refresh = await runCommandCaptureFn({
+      cwd: repoRoot,
+      command: "npm",
+      commandArgs: ["run", "ds:registry:refresh"],
+    });
+    refreshed = refresh.ok;
+    refreshOutput = [refresh.stdout, refresh.stderr].filter(Boolean).join("\n").trim();
+  }
+
+  return {
+    ok: true,
+    slug,
+    path: specRelPath,
+    restoredFrom: path.relative(repoRoot, latestBackup.backupLatestPath),
+    rawHash: sha256TextFn(backupRaw),
+    refreshed,
+    refreshOutput,
+    message: "Spec restored from latest backup.",
+  };
+}

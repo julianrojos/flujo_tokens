@@ -10,6 +10,7 @@ import {
   persistSpecWithBackup,
   readLatestSpecBackup,
   readTextFileIfExists,
+  restoreComponentSpecFromLatestBackup,
   restoreSpecFromRaw,
   resolveComponentSpecTarget,
   runCommandCapture,
@@ -449,59 +450,23 @@ export function registerComponentSpecRoutes(app, deps) {
 
     const body = await readJsonBody(c);
     const refreshRegistryAfterRestore = body.refreshRegistry !== false;
-    const latestBackup = await readLatestSpecBackup({
-      specBackupsDirPath: sysCtx.specBackupsDirPath,
-      slug,
-    });
-    if (!latestBackup.exists) {
-      return c.json({
-        ok: false,
+    const restoredPayload = await restoreComponentSpecFromLatestBackup(
+      {
         slug,
-        path: target.specRelPath,
-        restoredFrom: null,
-        rawHash: null,
-        message: "No backup file found for this component.",
-      });
-    }
+        specRelPath: target.specRelPath,
+        specAbsPath: target.specAbsPath,
+        repoRoot: sysCtx.repoRoot,
+        specBackupsDirPath: sysCtx.specBackupsDirPath,
+        refreshRegistryAfterRestore,
+        sha256TextFn: sha256Text,
+      },
+      {
+        readLatestSpecBackupFn: readLatestSpecBackup,
+        restoreSpecFromRawFn: restoreSpecFromRaw,
+        runCommandCaptureFn: runCommandCapture,
+      },
+    );
 
-    const backupRaw = latestBackup.raw;
-    if (!backupRaw.trim()) {
-      return c.json({
-        ok: false,
-        slug,
-        path: target.specRelPath,
-        restoredFrom: path.relative(sysCtx.repoRoot, latestBackup.backupLatestPath),
-        rawHash: null,
-        message: "Backup exists but is empty; restore skipped.",
-      });
-    }
-
-    await restoreSpecFromRaw({
-      specAbsPath: target.specAbsPath,
-      raw: backupRaw,
-    });
-
-    let refreshed = false;
-    let refreshOutput = "";
-    if (refreshRegistryAfterRestore) {
-      const refresh = await runCommandCapture({
-        cwd: sysCtx.repoRoot,
-        command: "npm",
-        commandArgs: ["run", "ds:registry:refresh"],
-      });
-      refreshed = refresh.ok;
-      refreshOutput = [refresh.stdout, refresh.stderr].filter(Boolean).join("\n").trim();
-    }
-
-    return c.json({
-      ok: true,
-      slug,
-      path: target.specRelPath,
-      restoredFrom: path.relative(sysCtx.repoRoot, latestBackup.backupLatestPath),
-      rawHash: sha256Text(backupRaw),
-      refreshed,
-      refreshOutput,
-      message: "Spec restored from latest backup.",
-    });
+    return c.json(restoredPayload);
   });
 }

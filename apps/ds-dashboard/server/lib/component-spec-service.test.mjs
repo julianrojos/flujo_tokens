@@ -8,6 +8,7 @@ import {
   persistSpecWithBackup,
   readLatestSpecBackup,
   readTextFileIfExists,
+  restoreComponentSpecFromLatestBackup,
   restoreSpecFromRaw,
   resolveComponentSpecTarget,
   runCommandCapture,
@@ -315,5 +316,81 @@ test("component-spec-service: readLatestSpecBackup and restoreSpecFromRaw pipeli
       "/repo/docs/_spec/components/button.yml.tmp-restore-777",
       "/repo/docs/_spec/components/button.yml",
     ],
+  ]);
+});
+
+test("component-spec-service: restoreComponentSpecFromLatestBackup handles missing backup", async () => {
+  const payload = await restoreComponentSpecFromLatestBackup(
+    {
+      slug: "button",
+      specRelPath: "docs/_spec/components/button.yml",
+      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      repoRoot: "/repo",
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      refreshRegistryAfterRestore: true,
+      sha256TextFn: () => "unused",
+    },
+    {
+      readLatestSpecBackupFn: async () => ({ exists: false, backupLatestPath: "", raw: "" }),
+      restoreSpecFromRawFn: async () => {
+        throw new Error("should not be called");
+      },
+      runCommandCaptureFn: async () => {
+        throw new Error("should not be called");
+      },
+    },
+  );
+
+  assert.equal(payload.ok, false);
+  assert.equal(payload.restoredFrom, null);
+  assert.equal(payload.message, "No backup file found for this component.");
+});
+
+test("component-spec-service: restoreComponentSpecFromLatestBackup restores and refreshes", async () => {
+  const restoredCalls = [];
+  const refreshCalls = [];
+  const payload = await restoreComponentSpecFromLatestBackup(
+    {
+      slug: "button",
+      specRelPath: "docs/_spec/components/button.yml",
+      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      repoRoot: "/repo",
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      refreshRegistryAfterRestore: true,
+      sha256TextFn: (value) => `hash:${value.length}`,
+    },
+    {
+      readLatestSpecBackupFn: async () => ({
+        exists: true,
+        backupLatestPath: "/repo/docs/_spec/.backups/button.last.yml",
+        raw: "name: Button\nstatus: draft\n",
+      }),
+      restoreSpecFromRawFn: async (args) => {
+        restoredCalls.push(args);
+      },
+      runCommandCaptureFn: async (args) => {
+        refreshCalls.push(args);
+        return { ok: true, stdout: "ok", stderr: "" };
+      },
+    },
+  );
+
+  assert.equal(payload.ok, true);
+  assert.equal(payload.restoredFrom, "docs/_spec/.backups/button.last.yml");
+  assert.equal(payload.rawHash, "hash:27");
+  assert.equal(payload.refreshed, true);
+  assert.equal(payload.refreshOutput, "ok");
+  assert.deepEqual(restoredCalls, [
+    {
+      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      raw: "name: Button\nstatus: draft\n",
+    },
+  ]);
+  assert.deepEqual(refreshCalls, [
+    {
+      cwd: "/repo",
+      command: "npm",
+      commandArgs: ["run", "ds:registry:refresh"],
+    },
   ]);
 });
