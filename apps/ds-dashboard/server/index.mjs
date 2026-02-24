@@ -972,6 +972,21 @@ function toQueueSummaryFromPayload(payload, fallbackCode) {
   return topLevelMessage || topLevelError || syncError || syncReason || codeText;
 }
 
+function toQueueTerminalEvent(job) {
+  const status = isQueueJobFinalStatus(job?.status) ? job.status : "error";
+  const result = job?.result && typeof job.result === "object" ? job.result : {};
+  const explicitCode = Number(result.code);
+  const code = Number.isFinite(explicitCode) ? explicitCode : status === "success" ? 0 : 1;
+  const summary = String(result.summary || "").trim() || (status === "success" ? "Completed successfully." : "Unknown error.");
+  return {
+    type: "end",
+    status,
+    code,
+    summary,
+    payload: result.payload,
+  };
+}
+
 async function runQueuedSpawnCommand(args) {
   const result = await runSpawnWithCapture({
     cwd: args.cwd,
@@ -3188,22 +3203,29 @@ app.get("/api/jobs/:jobId/stream", (c) => {
   }
 
   return streamSSE(c, async (stream) => {
+    const writeJsonEvent = async (payload) => {
+      await stream.writeSSE({ data: JSON.stringify(payload) });
+    };
     let cursor = since;
     const deadline = Date.now() + 25 * 60 * 1000;
 
     while (Date.now() < deadline) {
       const job = queueJobs.get(jobId);
       if (!job) {
-        await stream.writeSSE({
-          data: JSON.stringify({
-            type: "error",
-            ...buildApiErrorPayload({
-              code: "queue.job_not_found",
-              userMessage: `Job '${jobId}' not found.`,
-              recoverable: true,
-              context: { jobId },
-            }),
+        await writeJsonEvent({
+          type: "error",
+          ...buildApiErrorPayload({
+            code: "queue.job_not_found",
+            userMessage: `Job '${jobId}' not found.`,
+            recoverable: true,
+            context: { jobId },
           }),
+        });
+        await writeJsonEvent({
+          type: "end",
+          status: "error",
+          code: 404,
+          summary: `Job '${jobId}' not found.`,
         });
         return;
       }
@@ -3214,23 +3236,32 @@ app.get("/api/jobs/:jobId/stream", (c) => {
       });
       for (const event of events) {
         cursor = Math.max(cursor, Number(event.seq) || cursor);
-        await stream.writeSSE({ data: JSON.stringify(event) });
+        await writeJsonEvent(event);
       }
 
-      if (isQueueJobFinalStatus(job.status)) return;
+      if (isQueueJobFinalStatus(job.status)) {
+        if (events.length === 0) {
+          await writeJsonEvent(toQueueTerminalEvent(job));
+        }
+        return;
+      }
       await new Promise((resolve) => setTimeout(resolve, 900));
     }
 
-    await stream.writeSSE({
-      data: JSON.stringify({
-        type: "error",
-        ...buildApiErrorPayload({
-          code: "queue.stream_timeout",
-          userMessage: "Stream timeout waiting for job completion.",
-          recoverable: true,
-          context: { jobId },
-        }),
+    await writeJsonEvent({
+      type: "error",
+      ...buildApiErrorPayload({
+        code: "queue.stream_timeout",
+        userMessage: "Stream timeout waiting for job completion.",
+        recoverable: true,
+        context: { jobId },
       }),
+    });
+    await writeJsonEvent({
+      type: "end",
+      status: "error",
+      code: 408,
+      summary: "Stream timeout waiting for job completion.",
     });
   });
 });
