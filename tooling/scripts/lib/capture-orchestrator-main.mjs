@@ -28,6 +28,7 @@ import {
   parseMainCaptureMode,
   parsePositiveNumber,
 } from "./capture-options.mjs";
+import { createPipelineContext } from "./pipeline-context.mjs";
 import {
   buildMarkdownSeed,
   ensureSystemDocsScaffold,
@@ -36,9 +37,9 @@ import {
 import { resolveDocsPaths } from "./capture-path-resolver.mjs";
 import {
   buildSlugLookupFromRegistry,
-  buildSlugLookupFromSpecs,
-  readComponentRegistry,
+  buildSlugLookupFromSpecContents,
 } from "./capture-targets.mjs";
+import { createCaptureServices } from "./capture-services.mjs";
 import {
   classifyTargetKind,
   extractSingleNodeCandidate,
@@ -85,9 +86,8 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     parseMainCaptureModeFn = parseMainCaptureMode,
     parsePositiveNumberFn = parsePositiveNumber,
     ensureSystemDocsScaffoldFn = ensureSystemDocsScaffold,
-    readComponentRegistryFn = readComponentRegistry,
     buildSlugLookupFromRegistryFn = buildSlugLookupFromRegistry,
-    buildSlugLookupFromSpecsFn = buildSlugLookupFromSpecs,
+    buildSlugLookupFromSpecContentsFn = buildSlugLookupFromSpecContents,
     isKindAllowedFn = isKindAllowed,
     classifyTargetKindFn = classifyTargetKind,
     buildCaptureTargetsFn = buildCaptureTargets,
@@ -98,10 +98,11 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     resolveSpecExhibitNodeIdsFn = resolveSpecExhibitNodeIds,
     resolveDocsPathsFn = resolveDocsPaths,
     renderEnrichedMarkdownSeedFn = renderEnrichedMarkdownSeed,
-    injectExtractedSpecSectionsIntoMarkdownFn = injectExtractedSpecSectionsIntoMarkdown,
-    buildMarkdownSeedFn = buildMarkdownSeed,
-    writeTextAtomicFn = writeTextAtomic,
-    stderrWriteFn = (message) => process.stderr.write(message),
+    injectExtractedSpecSectionsIntoMarkdown: injectExtractedSpecSectionsIntoMarkdownFn,
+    buildMarkdownSeed: buildMarkdownSeedFn,
+    writeTextAtomic: writeTextAtomicFn,
+    stderrWrite: stderrWriteFn,
+    createPipelineContext: createPipelineContextFn = createPipelineContext,
   } = deps;
 
   const figmaUrl = String(args.url || "").trim();
@@ -109,40 +110,45 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     throw new Error("Missing Figma URL. Provide --url <figma-url>.");
   }
 
-  const figmaToken = String(args["figma-token"] || process.env.FIGMA_TOKEN || "").trim();
-  if (!figmaToken) {
+  const figmaTokenRaw = String(args["figma-token"] || process.env.FIGMA_TOKEN || "").trim();
+  if (!figmaTokenRaw) {
     throw new Error("Missing Figma token. Provide --figma-token <token> or set FIGMA_TOKEN.");
   }
 
-  const ctx = resolveSystemContextSafeFn({ system: args.system });
-  const docsRootOverride = args["docs-root"] ? String(args["docs-root"]).trim() : null;
-  const rawSlug = String(args["component-slug"] || "").trim().toLowerCase();
-  const componentSlugOverride = rawSlug.replace(/[\\/]/g, "-").replace(/\.\./g, "");
-  if (rawSlug && componentSlugOverride !== rawSlug) {
-    console.warn(`[capture] Sanitized component-slug: "${rawSlug}" → "${componentSlugOverride}"`);
-  }
+  const context = createPipelineContextFn(args);
+  const {
+    repoRoot,
+    figmaToken,
+    system: ctx,
+    paths,
+    flags,
+  } = context;
 
-  const componentKind = parseComponentKindFn(args["component-kind"]);
-  const includeVariants = parseBooleanOptionFn(args["include-variants"], "--include-variants", true);
-  const requireExistingDoc = parseBooleanOptionFn(args["require-existing-doc"], "--require-existing-doc", true);
-  const continueOnError = parseBooleanOptionFn(args["continue-on-error"], "--continue-on-error", true);
-  const refreshIndices = parseBooleanOptionFn(args["refresh-indices"], "--refresh-indices", true);
-  const dryRun = parseBooleanOptionFn(args["dry-run"], "--dry-run", false);
-  const injectDocSpecs = parseBooleanOptionFn(args["inject-doc-specs"], "--inject-doc-specs", false);
-  const includeSpecExhibits = parseBooleanOptionFn(
-    args["include-spec-exhibits"],
-    "--include-spec-exhibits",
-    true,
-  );
-  const variantLimit = Math.floor(parsePositiveNumberFn(args["variant-limit"], "--variant-limit", 6));
-  const scale = parsePositiveNumberFn(args.scale, "--scale", 2);
-  const format = String(args.format || "png").trim().toLowerCase();
-  const agent = String(args.agent || "auto").trim();
-  const mainCaptureMode = parseMainCaptureModeFn(args["main-capture-mode"]);
-  const proofDir = path.resolve(args["proof-dir"] || path.join(ctx.paths.generated, "visual-proofs"));
-  const proofImageDir = path.resolve(
-    args["proof-image-dir"] || path.join(ctx.paths.generated, "visual-proofs", "images"),
-  );
+  const {
+    docsRootDir,
+    componentDocsDir,
+    proofDir,
+    proofImageDir,
+    registryIndexPath,
+    resolvedSpecRoot,
+  } = paths;
+
+  const {
+    componentSlugOverride,
+    componentKind,
+    includeVariants,
+    requireExistingDoc,
+    continueOnError,
+    refreshIndices,
+    dryRun,
+    injectDocSpecs,
+    includeSpecExhibits,
+    variantLimit,
+    scale,
+    format,
+    agent,
+    mainCaptureMode,
+  } = flags;
 
   const descriptor = parseFigmaFileUrlFn(figmaUrl);
   let tokenBootstrap = {
@@ -210,24 +216,13 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     });
   }
 
-  const docsRootInput = docsRootOverride || ctx.paths.docs;
-  const docsRootResolved = path.resolve(docsRootInput);
-  const docsRootDir =
-    path.basename(docsRootResolved) === "components"
-      ? path.dirname(docsRootResolved)
-      : docsRootResolved;
-  const componentDocsDir =
-    path.basename(docsRootResolved) === "components"
-      ? docsRootResolved
-      : path.join(docsRootResolved, "components");
   ensureSystemDocsScaffoldFn({ docsRootDir, componentDocsDir });
 
-  const componentRegistryPath = path.join(docsRootDir, "_generated", "component-registry.json");
-  const specDir = path.resolve(path.join(docsRootDir, "_spec", "components"));
-
-  const componentRows = readComponentRegistryFn(componentRegistryPath);
+  const services = createCaptureServices({ context });
+  const componentRows = services.readComponentRegistry();
   const slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
-  const slugByNodeFromSpecs = buildSlugLookupFromSpecsFn(specDir);
+  const specContents = services.readSpecContents();
+  const slugByNodeFromSpecs = buildSlugLookupFromSpecContentsFn(specContents);
 
   const allComponents = Array.isArray(componentMap?.components) ? componentMap.components : [];
   const sourceCandidates = descriptor.nodeIdFromUrl
@@ -244,7 +239,7 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     sourceCandidates,
     descriptor,
     ctx,
-    docsRootOverride,
+    docsRootOverride: paths.docsRootOverride,
     applySlugOverride,
     componentSlugOverride,
     slugByNodeFromRegistry,
@@ -267,6 +262,9 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     buildMarkdownSeed: buildMarkdownSeedFn,
     writeTextAtomic: writeTextAtomicFn,
     stderrWrite: stderrWriteFn,
+    markdownExistsFn: services.markdownExists,
+    specExistsFn: services.specExists,
+    readMarkdownContentFn: services.readMarkdownContent,
   });
 
   const report = createCaptureReportFn({

@@ -8,18 +8,9 @@ export function normalizeNameToSlug(rawName) {
   return normalized || "";
 }
 
-export function readComponentRegistry(componentRegistryPath) {
-  if (!fs.existsSync(componentRegistryPath)) return [];
-  try {
-    const parsed = JSON.parse(fs.readFileSync(componentRegistryPath, "utf8"));
-    return Array.isArray(parsed?.components) ? parsed.components : [];
-  } catch {
-    return [];
-  }
-}
-
 export function buildSlugLookupFromRegistry(componentRows) {
   const byNodeId = new Map();
+  if (!Array.isArray(componentRows)) return byNodeId;
   for (const row of componentRows) {
     const slug = String(row?.slug || "").trim();
     const nodeId = String(row?.figma?.component_set_node_id || "").trim();
@@ -29,17 +20,12 @@ export function buildSlugLookupFromRegistry(componentRows) {
   return byNodeId;
 }
 
-export function buildSlugLookupFromSpecs(specDir) {
+export function buildSlugLookupFromSpecContents(specFiles) {
   const byNodeId = new Map();
-  if (!fs.existsSync(specDir)) return byNodeId;
-  const entries = fs.readdirSync(specDir, { withFileTypes: true });
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith(".yml") || entry.name === "_template.yml") {
-      continue;
-    }
-    const filePath = path.join(specDir, entry.name);
-    const slug = path.basename(entry.name, ".yml");
-    const raw = fs.readFileSync(filePath, "utf8");
+  if (!Array.isArray(specFiles)) return byNodeId;
+  for (const file of specFiles) {
+    const raw = String(file.content || "");
+    const slug = String(file.slug || "").trim();
     const match = raw.match(/^\s*component_set_node_id:\s*["']?([0-9]+:[0-9]+)["']?\s*$/m);
     if (!match || !match[1]) continue;
     const nodeId = String(match[1]).trim();

@@ -18,6 +18,8 @@ import { assertEvidenceGatedScalarChanges } from "./evidence-gated-mutations.mjs
 import { assertScopedWritePolicy, captureScopedWriteSnapshot } from "./scoped-write-guard.mjs";
 import { syncDocumentationIndices } from "./component-registry/index.mjs";
 
+import { createPipelineContext } from "./pipeline-context.mjs";
+
 const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
   "name",
   "figma.file",
@@ -34,7 +36,6 @@ function formatYamlFile(outputPath) {
 
 export function runSpecFromFigma(args, deps = {}) {
   const {
-    resolveSystemContextSafeFn = resolveSystemContextSafe,
     loadTokenRegistryFn = loadTokenRegistry,
     captureFileSnapshotFn = captureFileSnapshot,
     restoreFileSnapshotFn = restoreFileSnapshot,
@@ -50,11 +51,12 @@ export function runSpecFromFigma(args, deps = {}) {
     syncDocumentationIndicesFn = syncDocumentationIndices,
     formatYamlFileFn = formatYamlFile,
     runSpecWithGuardsFn = runSpecWithGuards,
+    createPipelineContextFn = createPipelineContext,
   } = deps;
 
-  const ctx = resolveSystemContextSafeFn({ system: args.system });
+  const context = createPipelineContextFn(args);
 
-  const runCtx = createSpecRunContext({ args, ctx });
+  const runCtx = createSpecRunContext({ context, args });
   const {
     figmaUrl,
     componentName,
@@ -77,7 +79,7 @@ export function runSpecFromFigma(args, deps = {}) {
   return runSpecWithGuardsFn({
     outputPath,
     resolvedSpecRoot,
-    docsPath: ctx.paths.docs,
+    docsPath: context.system.paths.docs,
     registryIndexPath,
     allowedWritePaths,
     captureFileSnapshotFn,

@@ -42,6 +42,9 @@ test("capture-target-builder: skips candidate when requireExistingDoc=true and m
     buildMarkdownSeed: () => "",
     writeTextAtomic: () => {},
     stderrWrite: () => {},
+    markdownExistsFn: () => false,
+    specExistsFn: () => false,
+    readMarkdownContentFn: () => "",
   });
 
   assert.equal(result.targets.length, 0);

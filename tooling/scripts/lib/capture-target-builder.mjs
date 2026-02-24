@@ -1,8 +1,7 @@
-import fs from "node:fs";
-import path from "node:path";
-
 import { componentNameToDisplayName } from "./component-name.mjs";
+import path from "node:path";
 import { resolveInferredSlug } from "./capture-targets.mjs";
+import { resolveDocsPaths } from "./capture-path-resolver.mjs";
 
 function buildNodeErrorMessage(prefix, nodeId, error) {
   const detail = error instanceof Error ? error.message : String(error);
@@ -38,7 +37,6 @@ export async function buildCaptureTargets({
   fetchFigmaImages,
   extractComponentSpec,
   resolveSpecExhibitNodeIds,
-  resolveDocsPaths,
   buildFigmaNodeUrl,
   classifyTargetKind,
   renderEnrichedMarkdownSeed,
@@ -46,6 +44,9 @@ export async function buildCaptureTargets({
   buildMarkdownSeed,
   writeTextAtomic,
   stderrWrite = process.stderr.write.bind(process.stderr),
+  markdownExistsFn,
+  specExistsFn,
+  readMarkdownContentFn,
 }) {
   const targets = [];
   const skipped = [];
@@ -77,7 +78,7 @@ export async function buildCaptureTargets({
       slug: inferredSlug,
     });
     const nodeUrl = buildFigmaNodeUrl(descriptor, nodeId) || descriptor.sourceUrl;
-    const markdownExists = fs.existsSync(resolvedPaths.markdownPath);
+    const markdownExists = markdownExistsFn(resolvedPaths.markdownPath);
     let extractedNodeSpec = null;
     let specExhibits = null;
     const shouldExtractNodeSpec = !markdownExists || (markdownExists && injectDocSpecs);
@@ -188,7 +189,7 @@ export async function buildCaptureTargets({
           node_id: nodeId,
           name: String(candidate.name || "").trim() || inferredSlug,
           reason: "markdown-create-failed",
-          markdown_path: path.relative(repoRoot, resolvedPaths.markdownPath),
+          markdown_path: resolvedPaths.markdownPath,
           error: error instanceof Error ? error.message : String(error),
         });
         continue;
@@ -197,7 +198,7 @@ export async function buildCaptureTargets({
 
     if (injectDocSpecs && markdownExists && extractedNodeSpec) {
       try {
-        const currentMarkdown = fs.readFileSync(resolvedPaths.markdownPath, "utf8");
+        const currentMarkdown = readMarkdownContentFn(resolvedPaths.markdownPath);
         const injection = injectExtractedSpecSectionsIntoMarkdown(
           currentMarkdown,
           extractedNodeSpec,
@@ -212,13 +213,13 @@ export async function buildCaptureTargets({
           node_id: nodeId,
           name: String(candidate.name || "").trim() || inferredSlug,
           reason: "markdown-enrich-failed",
-          markdown_path: path.relative(repoRoot, resolvedPaths.markdownPath),
+          markdown_path: resolvedPaths.markdownPath,
           error: error instanceof Error ? error.message : String(error),
         });
       }
     }
 
-    const specExists = fs.existsSync(resolvedPaths.specPath);
+    const specExists = specExistsFn(resolvedPaths.specPath);
 
     targets.push({
       slug: inferredSlug,
