@@ -11,6 +11,7 @@ import {
   Loader2,
   ChevronRight,
   X,
+  RotateCcw,
 } from "lucide-react";
 import { OperationRow } from "./components/operation-row";
 import { PipelineForm } from "./components/pipeline-form";
@@ -53,6 +54,9 @@ const INITIAL_ARTIFACTS: ArtifactMeta[] = [
 import {
   ApiError,
   fetchOperationsHistory,
+  fetchOperationsRegressions,
+  replayOperationEvent,
+  type OperationRegression,
   type OperationHistoryEvent,
   getActiveSystemId,
   requestJson,
@@ -245,8 +249,15 @@ export function OperationsPage() {
   const [historyEvents, setHistoryEvents] = useState<OperationHistoryEvent[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<ApiErrorDisplay | null>(null);
+  const [regressions, setRegressions] = useState<OperationRegression[]>([]);
+  const [regressionsLoading, setRegressionsLoading] = useState(false);
+  const [regressionsError, setRegressionsError] = useState<ApiErrorDisplay | null>(null);
   const [selectedHistoryEventId, setSelectedHistoryEventId] = useState<string | null>(null);
+  const [replayInFlightEventId, setReplayInFlightEventId] = useState<string | null>(null);
+  const [replayNotice, setReplayNotice] = useState<string | null>(null);
+  const [replayError, setReplayError] = useState<ApiErrorDisplay | null>(null);
   const historyRequestInFlightRef = useRef(false);
+  const regressionsRequestInFlightRef = useRef(false);
   const selectedHistoryEvent = historyEvents.find((event) => event.id === selectedHistoryEventId) || null;
 
   const refreshOperationHistory = useCallback(async () => {
@@ -258,9 +269,9 @@ export function OperationsPage() {
       const payload = await fetchOperationsHistory({ limit: 12 });
       const nextEvents = payload.events || [];
       setHistoryEvents(nextEvents);
-      if (!nextEvents.some((event) => event.id === selectedHistoryEventId)) {
-        setSelectedHistoryEventId(nextEvents[0]?.id ?? null);
-      }
+      setSelectedHistoryEventId((current) =>
+        nextEvents.some((event) => event.id === current) ? current : (nextEvents[0]?.id ?? null)
+      );
     } catch (cause) {
       setHistoryError(
         toApiErrorDisplay(cause, {
@@ -274,7 +285,32 @@ export function OperationsPage() {
       historyRequestInFlightRef.current = false;
       setHistoryLoading(false);
     }
-  }, [selectedHistoryEventId]);
+  }, []);
+
+  const refreshOperationRegressions = useCallback(async () => {
+    if (regressionsRequestInFlightRef.current) return;
+    regressionsRequestInFlightRef.current = true;
+    setRegressionsLoading(true);
+    setRegressionsError(null);
+    try {
+      const payload = await fetchOperationsRegressions({
+        limit: 300,
+        minSamples: 4,
+      });
+      setRegressions(payload.regressions || []);
+    } catch (cause) {
+      setRegressionsError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Regression signals unavailable",
+          fallbackMessage: "Unable to compute operation regressions.",
+        }),
+      );
+      setRegressions([]);
+    } finally {
+      regressionsRequestInFlightRef.current = false;
+      setRegressionsLoading(false);
+    }
+  }, []);
 
   const refreshStatuses = useCallback(async () => {
     setIsRefreshing(true);
@@ -301,12 +337,48 @@ export function OperationsPage() {
   useEffect(() => {
     refreshStatuses();
     void refreshOperationHistory();
-  }, [refreshStatuses, refreshOperationHistory]);
+    void refreshOperationRegressions();
+  }, [refreshStatuses, refreshOperationHistory, refreshOperationRegressions]);
+
+  useEffect(() => {
+    setReplayNotice(null);
+    setReplayError(null);
+  }, [selectedHistoryEventId]);
 
   const [runAllState, runAll] = useRunAll(() => {
     void refreshStatuses();
     void refreshOperationHistory();
+    void refreshOperationRegressions();
   });
+
+  const replaySelectedOperation = useCallback(async () => {
+    if (!selectedHistoryEvent || replayInFlightEventId) return;
+    setReplayInFlightEventId(selectedHistoryEvent.id);
+    setReplayNotice(null);
+    setReplayError(null);
+    try {
+      const payload = await replayOperationEvent(selectedHistoryEvent.id, {
+        systemId: selectedHistoryEvent.system || undefined,
+      });
+      setReplayNotice(`Replay queued as ${payload.jobId}.`);
+      void refreshOperationHistory();
+      void refreshOperationRegressions();
+    } catch (cause) {
+      setReplayError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Replay failed",
+          fallbackMessage: "Unable to enqueue replay for this operation.",
+        }),
+      );
+    } finally {
+      setReplayInFlightEventId(null);
+    }
+  }, [
+    replayInFlightEventId,
+    refreshOperationHistory,
+    refreshOperationRegressions,
+    selectedHistoryEvent,
+  ]);
 
   const currentStepLabel =
     runAllState.isRunning && runAllState.stepIndex > 0
@@ -435,17 +507,72 @@ export function OperationsPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Recent Operations
           </h2>
-          <button
-            onClick={() => void refreshOperationHistory()}
-            disabled={historyLoading}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", historyLoading && "animate-spin")} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => void refreshOperationRegressions()}
+              disabled={regressionsLoading}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", regressionsLoading && "animate-spin")} />
+              Refresh signals
+            </button>
+            <button
+              onClick={() => void refreshOperationHistory()}
+              disabled={historyLoading}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", historyLoading && "animate-spin")} />
+              Refresh history
+            </button>
+          </div>
         </div>
 
         {historyError ? <ApiErrorMessage error={historyError} /> : null}
+        {regressionsError ? <ApiErrorMessage error={regressionsError} /> : null}
+
+        <div className="rounded-xl border border-border/70 bg-card/50 shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-border/60">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Regression Watch
+            </h3>
+            <span className="text-[11px] text-muted-foreground">
+              {regressions.length} signal{regressions.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="divide-y divide-border/50">
+            {regressionsLoading && regressions.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-muted-foreground">Computing regressions...</div>
+            ) : regressions.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-muted-foreground">No regression signals detected.</div>
+            ) : (
+              regressions.slice(0, 4).map((row) => (
+                <div key={`${row.system || "_"}:${row.operation}`} className="px-4 py-3 text-xs space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium truncate">{row.operation}</span>
+                    {row.system ? (
+                      <span className="text-[11px] text-muted-foreground">[{row.system}]</span>
+                    ) : null}
+                    <span
+                      className={cn(
+                        "inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium",
+                        row.severity === "high"
+                          ? "bg-red-500/15 text-red-700"
+                          : "bg-amber-500/15 text-amber-700",
+                      )}
+                    >
+                      {row.severity}
+                    </span>
+                  </div>
+                  {row.signals.map((signal) => (
+                    <p key={`${row.operation}-${signal.kind}`} className="text-[11px] text-muted-foreground">
+                      {signal.message}
+                    </p>
+                  ))}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
 
         <div className="rounded-xl border border-border/70 bg-card/50 shadow-sm overflow-hidden">
           <div className="grid grid-cols-[140px_1fr_100px_100px] gap-3 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border/60">
@@ -520,15 +647,37 @@ export function OperationsPage() {
                   {selectedHistoryEvent.timestamp} · {selectedHistoryEvent.eventType}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedHistoryEventId(null)}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                <X className="h-3 w-3" />
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void replaySelectedOperation()}
+                  disabled={
+                    replayInFlightEventId === selectedHistoryEvent.id ||
+                    selectedHistoryEvent.status === "running" ||
+                    selectedHistoryEvent.status === "queued"
+                  }
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                >
+                  <RotateCcw className={cn("h-3 w-3", replayInFlightEventId === selectedHistoryEvent.id && "animate-spin")} />
+                  Replay
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedHistoryEventId(null)}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                  Close
+                </button>
+              </div>
             </div>
+
+            {replayNotice ? (
+              <div className="rounded-md border border-emerald-400/40 bg-emerald-500/10 p-2 text-[11px] text-emerald-700">
+                {replayNotice}
+              </div>
+            ) : null}
+            {replayError ? <ApiErrorMessage error={replayError} /> : null}
 
             <div className="grid gap-2 text-xs md:grid-cols-2">
               <DetailItem label="Status" value={selectedHistoryEvent.status} />
@@ -536,6 +685,7 @@ export function OperationsPage() {
               <DetailItem label="Duration" value={typeof selectedHistoryEvent.durationMs === "number" ? `${selectedHistoryEvent.durationMs} ms` : "—"} />
               <DetailItem label="Job ID" value={selectedHistoryEvent.jobId || "—"} mono />
               <DetailItem label="Request ID" value={selectedHistoryEvent.requestId || "—"} mono />
+              <DetailItem label="Replay Of" value={selectedHistoryEvent.sourceEventId || "—"} mono />
               <DetailItem label="Input Hash" value={selectedHistoryEvent.inputHash || "—"} mono />
               <DetailItem label="Output Hash" value={selectedHistoryEvent.outputHash || "—"} mono />
               <DetailItem

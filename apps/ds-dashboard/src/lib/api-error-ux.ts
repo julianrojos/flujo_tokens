@@ -38,6 +38,10 @@ function resolveTitle(code: string, status: number, fallbackTitle: string) {
       return "System not found";
     case API_ERROR_CODES.DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED:
       return "Delete blocked";
+    case API_ERROR_CODES.OPERATIONS_EVENT_NOT_FOUND:
+      return "Event not found";
+    case API_ERROR_CODES.OPERATIONS_REPLAY_NOT_SUPPORTED:
+      return "Replay unavailable";
     case API_ERROR_CODES.QUEUE_JOB_NOT_FOUND:
       return "Job not found";
     case API_ERROR_CODES.QUEUE_JOB_FAILED_OR_CANCELLED:
@@ -73,6 +77,10 @@ function resolveAction(code: string, retryable: boolean, fallbackAction: string 
       return "Use a different ID or update the existing system.";
     case API_ERROR_CODES.DESIGN_SYSTEM_LAST_SYSTEM_PROTECTED:
       return "Create another system before deleting this one.";
+    case API_ERROR_CODES.OPERATIONS_EVENT_NOT_FOUND:
+      return "Refresh operation history and choose a valid event.";
+    case API_ERROR_CODES.OPERATIONS_REPLAY_NOT_SUPPORTED:
+      return "Run this operation manually with the required parameters.";
     case API_ERROR_CODES.QUEUE_JOB_NOT_FOUND:
       return "Run the operation again to create a new job.";
     case API_ERROR_CODES.QUEUE_JOB_FAILED_OR_CANCELLED:

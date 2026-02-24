@@ -353,6 +353,7 @@ export interface OperationHistoryEvent {
   durationMs: number | null;
   requestId: string | null;
   jobId: string | null;
+  sourceEventId: string | null;
   inputHash: string | null;
   outputHash: string | null;
   result: {
@@ -401,6 +402,93 @@ export function fetchOperationsHistory(args?: {
   if (args?.all === true) params.set("all", "true");
   const suffix = params.size ? `?${params.toString()}` : "";
   return getJson<OperationsHistoryResponse>(`/api/operations/history${suffix}`);
+}
+
+export interface OperationRegressionSignal {
+  kind: "duration" | "failure_rate";
+  severity: "medium" | "high";
+  message: string;
+  metrics: Record<string, number | null>;
+}
+
+export interface OperationRegression {
+  operation: string;
+  system: string | null;
+  latestTimestamp: string | null;
+  latestStatus: string | null;
+  severity: "medium" | "high";
+  signals: OperationRegressionSignal[];
+  samples: {
+    total: number;
+    terminal: number;
+    recentDuration: number;
+    baselineDuration: number;
+    recentFailure: number;
+    baselineFailure: number;
+  };
+}
+
+export interface OperationsRegressionsResponse {
+  ok: boolean;
+  generatedAt: string;
+  regressions: OperationRegression[];
+  filters: {
+    systemId: string | null;
+    limit: number;
+    minSamples: number;
+  };
+  summary: {
+    operationsAnalyzed: number;
+    regressionsDetected: number;
+    scannedRows: number;
+    scannedFiles: number;
+  };
+}
+
+export function fetchOperationsRegressions(args?: {
+  systemId?: string;
+  limit?: number;
+  minSamples?: number;
+  all?: boolean;
+}) {
+  const params = new URLSearchParams();
+  if (args?.systemId) params.set("system", args.systemId);
+  if (typeof args?.limit === "number" && Number.isFinite(args.limit)) {
+    params.set("limit", String(Math.max(1, Math.floor(args.limit))));
+  }
+  if (typeof args?.minSamples === "number" && Number.isFinite(args.minSamples)) {
+    params.set("minSamples", String(Math.max(1, Math.floor(args.minSamples))));
+  }
+  if (args?.all === true) params.set("all", "true");
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return getJson<OperationsRegressionsResponse>(`/api/operations/regressions${suffix}`);
+}
+
+export interface ReplayOperationResponse {
+  ok: boolean;
+  accepted: boolean;
+  jobId: string;
+  requestId: string | null;
+  status: string;
+  statusUrl: string;
+  streamUrl: string;
+  replay?: {
+    sourceEventId: string;
+    sourceOperation: string;
+    sourceSystem: string | null;
+    targetSystem: string;
+  };
+}
+
+export function replayOperationEvent(eventId: string, args?: { systemId?: string }) {
+  const payload = args?.systemId ? { systemId: args.systemId } : {};
+  return getJson<ReplayOperationResponse>(`/api/operations/replay/${encodeURIComponent(eventId)}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 export function fetchTokenDiff(beforeRef: string) {

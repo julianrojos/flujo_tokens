@@ -64,7 +64,22 @@ const OPS_LOG_RETENTION_DAYS =
   Number.parseInt(String(process.env.DS_DASHBOARD_OPS_LOG_RETENTION_DAYS || "30"), 10) || 30;
 const OPS_HISTORY_DEFAULT_LIMIT = 100;
 const OPS_HISTORY_MAX_LIMIT = 500;
+const OPS_REGRESSION_DEFAULT_LIMIT = 300;
+const OPS_REGRESSION_MAX_LIMIT = OPS_HISTORY_MAX_LIMIT;
+const OPS_REGRESSION_DEFAULT_MIN_SAMPLES = 4;
 const OPS_LOG_FILE_RE = /^operations-(\d{4}-\d{2}-\d{2})(?:\.(\d+))?\.ndjson$/;
+const REPLAYABLE_NPM_SCRIPTS = new Set([
+  "ds:registry:refresh",
+  "ds:token-usage-index",
+  "ds:token-graph",
+  "ds:token-health",
+  "ds:registry:report",
+]);
+const SUPPORTED_REPLAY_OPERATIONS = new Set([
+  "refresh:naming-debt",
+  "script:ds-health-snapshot.mjs",
+  ...Array.from(REPLAYABLE_NPM_SCRIPTS).map((script) => `script:${script}`),
+]);
 
 /** @type {Map<string, any>} */
 const queueJobs = new Map();
@@ -199,6 +214,7 @@ async function appendOperationEvent(entry) {
     durationMs: Number.isFinite(entry?.durationMs) ? Number(entry.durationMs) : null,
     requestId: entry?.requestId ? String(entry.requestId) : null,
     jobId: entry?.jobId ? String(entry.jobId) : null,
+    sourceEventId: entry?.sourceEventId ? String(entry.sourceEventId) : null,
     inputHash: entry?.inputHash ? String(entry.inputHash) : null,
     outputHash: entry?.outputHash ? String(entry.outputHash) : null,
     result: {
@@ -280,6 +296,7 @@ function parseOperationEventLine(line, fallbackSystemId) {
         : null,
     requestId: parsed.requestId ? String(parsed.requestId) : null,
     jobId: parsed.jobId ? String(parsed.jobId) : null,
+    sourceEventId: parsed.sourceEventId ? String(parsed.sourceEventId) : null,
     inputHash: parsed.inputHash ? String(parsed.inputHash) : null,
     outputHash: parsed.outputHash ? String(parsed.outputHash) : null,
     result: {
@@ -288,6 +305,27 @@ function parseOperationEventLine(line, fallbackSystemId) {
       summary: result?.summary ? String(result.summary) : null,
     },
   };
+}
+
+function resolveOperationHistoryTargets(systemId) {
+  /** @type {Array<{ systemId: string; logDir: string }>} */
+  const targets = [];
+  const normalizedSystemId = systemId ? String(systemId).trim() : "";
+  if (normalizedSystemId) {
+    targets.push({
+      systemId: normalizedSystemId,
+      logDir: resolveOpsLogDir(normalizedSystemId),
+    });
+    return targets;
+  }
+
+  const config = designSystemRepository.getConfig();
+  for (const row of config.systems || []) {
+    const id = String(row?.id || "").trim();
+    if (!id) continue;
+    targets.push({ systemId: id, logDir: resolveOpsLogDir(id) });
+  }
+  return targets;
 }
 
 function readOperationHistory({
@@ -306,19 +344,7 @@ function readOperationHistory({
     fromTs: toFiniteTimestamp(from),
     toTs: toFiniteTimestamp(to),
   };
-
-  /** @type {Array<{ systemId: string; logDir: string }>} */
-  const targets = [];
-  if (filters.systemId) {
-    targets.push({ systemId: filters.systemId, logDir: resolveOpsLogDir(filters.systemId) });
-  } else {
-    const config = designSystemRepository.getConfig();
-    for (const row of config.systems || []) {
-      const id = String(row?.id || "").trim();
-      if (!id) continue;
-      targets.push({ systemId: id, logDir: resolveOpsLogDir(id) });
-    }
-  }
+  const targets = resolveOperationHistoryTargets(filters.systemId);
 
   const events = [];
   let scannedRows = 0;
@@ -361,6 +387,181 @@ function readOperationHistory({
   };
 }
 
+function findOperationEventById({ eventId, systemId }) {
+  const needle = String(eventId || "").trim();
+  if (!needle) {
+    return { event: null, scannedRows: 0, scannedFiles: 0 };
+  }
+  const targets = resolveOperationHistoryTargets(systemId);
+  let scannedRows = 0;
+  let scannedFiles = 0;
+
+  for (const target of targets) {
+    const files = listOpsLogFiles(target.logDir);
+    for (const file of files) {
+      scannedFiles += 1;
+      const lines = readOpsLogLines(file.absPath);
+      for (let idx = lines.length - 1; idx >= 0; idx -= 1) {
+        scannedRows += 1;
+        const parsed = parseOperationEventLine(lines[idx], target.systemId);
+        if (!parsed) continue;
+        if (String(parsed.id || "").trim() !== needle) continue;
+        return { event: parsed, scannedRows, scannedFiles };
+      }
+    }
+  }
+  return { event: null, scannedRows, scannedFiles };
+}
+
+function mean(values) {
+  if (!Array.isArray(values) || values.length === 0) return null;
+  let total = 0;
+  for (const value of values) total += Number(value) || 0;
+  return total / values.length;
+}
+
+function roundMetric(value) {
+  return Number.isFinite(value) ? Math.round(value * 100) / 100 : null;
+}
+
+function isTerminalOperationStatus(status) {
+  return status === "success" || status === "error" || status === "cancelled";
+}
+
+function normalizeFailureRate(events) {
+  if (!Array.isArray(events) || events.length === 0) return null;
+  const failures = events.filter((event) => event.status === "error" || event.status === "cancelled").length;
+  return failures / events.length;
+}
+
+function buildOperationRegressionsReport({ systemId, limit, minSamples }) {
+  const history = readOperationHistory({
+    systemId,
+    limit,
+  });
+
+  /** @type {Map<string, any[]>} */
+  const byOperation = new Map();
+  for (const event of history.events) {
+    const operation = String(event?.operation || "").trim();
+    if (!operation) continue;
+    const bucket = byOperation.get(operation) || [];
+    bucket.push(event);
+    byOperation.set(operation, bucket);
+  }
+
+  const regressions = [];
+  let operationsAnalyzed = 0;
+
+  for (const [operation, rows] of Array.from(byOperation.entries())) {
+    operationsAnalyzed += 1;
+    const terminalRows = rows.filter((row) => isTerminalOperationStatus(String(row?.status || "")));
+    const successDurations = terminalRows
+      .filter((row) => row.status === "success" && typeof row.durationMs === "number" && row.durationMs >= 0)
+      .map((row) => Number(row.durationMs));
+    const recentDuration = successDurations.slice(0, 5);
+    const baselineDuration = successDurations.slice(5, 25);
+    const recentDurationAvg = mean(recentDuration);
+    const baselineDurationAvg = mean(baselineDuration);
+
+    const recentTerminal = terminalRows.slice(0, 10);
+    const baselineTerminal = terminalRows.slice(10, 40);
+    const recentFailureRate = normalizeFailureRate(recentTerminal);
+    const baselineFailureRate = normalizeFailureRate(baselineTerminal);
+
+    const signals = [];
+    let severityScore = 0;
+
+    if (
+      Number.isFinite(recentDurationAvg) &&
+      Number.isFinite(baselineDurationAvg) &&
+      baselineDuration.length >= minSamples &&
+      recentDuration.length >= 2
+    ) {
+      const ratio = baselineDurationAvg > 0 ? recentDurationAvg / baselineDurationAvg : null;
+      const deltaMs = recentDurationAvg - baselineDurationAvg;
+      if (Number.isFinite(ratio) && ratio >= 1.5 && deltaMs >= 250) {
+        severityScore += ratio >= 2 ? 2 : 1;
+        signals.push({
+          kind: "duration",
+          severity: ratio >= 2 ? "high" : "medium",
+          message: `Average duration increased from ${Math.round(baselineDurationAvg)}ms to ${Math.round(recentDurationAvg)}ms.`,
+          metrics: {
+            recentAvgDurationMs: Math.round(recentDurationAvg),
+            baselineAvgDurationMs: Math.round(baselineDurationAvg),
+            ratio: roundMetric(ratio),
+          },
+        });
+      }
+    }
+
+    if (
+      Number.isFinite(recentFailureRate) &&
+      Number.isFinite(baselineFailureRate) &&
+      baselineTerminal.length >= minSamples &&
+      recentTerminal.length >= 3
+    ) {
+      const deltaFailure = recentFailureRate - baselineFailureRate;
+      if (recentFailureRate >= 0.3 && deltaFailure >= 0.2) {
+        severityScore += deltaFailure >= 0.4 ? 2 : 1;
+        signals.push({
+          kind: "failure_rate",
+          severity: deltaFailure >= 0.4 ? "high" : "medium",
+          message: `Failure rate increased from ${Math.round(baselineFailureRate * 100)}% to ${Math.round(recentFailureRate * 100)}%.`,
+          metrics: {
+            recentFailureRate: roundMetric(recentFailureRate),
+            baselineFailureRate: roundMetric(baselineFailureRate),
+            delta: roundMetric(deltaFailure),
+          },
+        });
+      }
+    }
+
+    if (signals.length === 0) continue;
+
+    const latest = rows[0] || null;
+    regressions.push({
+      operation,
+      system: latest?.system || systemId || null,
+      latestTimestamp: latest?.timestamp || null,
+      latestStatus: latest?.status || null,
+      severity: severityScore >= 3 ? "high" : "medium",
+      signals,
+      samples: {
+        total: rows.length,
+        terminal: terminalRows.length,
+        recentDuration: recentDuration.length,
+        baselineDuration: baselineDuration.length,
+        recentFailure: recentTerminal.length,
+        baselineFailure: baselineTerminal.length,
+      },
+    });
+  }
+
+  regressions.sort((left, right) => {
+    const score = (regression) => (regression.severity === "high" ? 2 : 1);
+    const bySeverity = score(right) - score(left);
+    if (bySeverity !== 0) return bySeverity;
+    const leftTs = toFiniteTimestamp(left.latestTimestamp);
+    const rightTs = toFiniteTimestamp(right.latestTimestamp);
+    if (!Number.isFinite(leftTs) && !Number.isFinite(rightTs)) return 0;
+    if (!Number.isFinite(leftTs)) return 1;
+    if (!Number.isFinite(rightTs)) return -1;
+    return rightTs - leftTs;
+  });
+
+  return {
+    generatedAt: nowIso(),
+    regressions,
+    summary: {
+      operationsAnalyzed,
+      regressionsDetected: regressions.length,
+      scannedRows: history.scannedRows,
+      scannedFiles: history.scannedFiles,
+    },
+  };
+}
+
 function createQueueJobId() {
   return `job_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -395,6 +596,7 @@ function queueJobSnapshot(job) {
     finishedAt: job.finishedAt,
     systemId: job.systemId,
     requestId: job.requestId || null,
+    sourceEventId: job.sourceEventId || null,
     result: job.result,
   };
 }
@@ -412,13 +614,14 @@ function queueJobAcceptedPayload(job) {
   };
 }
 
-function enqueueQueueJob({ label, systemId, operationName, requestId, inputHash, execute }) {
+function enqueueQueueJob({ label, systemId, operationName, requestId, sourceEventId, inputHash, execute }) {
   const job = {
     id: createQueueJobId(),
     label,
     systemId,
     operationName: String(operationName || label || "unknown.operation"),
     requestId: requestId ? String(requestId) : null,
+    sourceEventId: sourceEventId ? String(sourceEventId) : null,
     inputHash: inputHash ? String(inputHash) : hashUnknown({ label, systemId }),
     status: "queued",
     createdAt: nowIso(),
@@ -444,6 +647,7 @@ function enqueueQueueJob({ label, systemId, operationName, requestId, inputHash,
     durationMs: null,
     requestId: job.requestId,
     jobId: job.id,
+    sourceEventId: job.sourceEventId,
     inputHash: job.inputHash,
     outputHash: null,
     result: {
@@ -481,6 +685,7 @@ async function runQueueJob(job) {
     durationMs: null,
     requestId: job.requestId,
     jobId: job.id,
+    sourceEventId: job.sourceEventId,
     inputHash: job.inputHash,
     outputHash: null,
     result: {
@@ -544,6 +749,7 @@ async function runQueueJob(job) {
         durationMs: operationDurationMs(job.startedAt, job.finishedAt),
         requestId: job.requestId,
         jobId: job.id,
+        sourceEventId: job.sourceEventId,
         inputHash: job.inputHash,
         outputHash: hashUnknown(job.result?.payload),
         result: {
@@ -575,6 +781,7 @@ async function runQueueJob(job) {
         durationMs: operationDurationMs(job.startedAt, job.finishedAt),
         requestId: job.requestId,
         jobId: job.id,
+        sourceEventId: job.sourceEventId,
         inputHash: job.inputHash,
         outputHash: hashUnknown(result?.payload),
         result: {
@@ -605,6 +812,7 @@ async function runQueueJob(job) {
       durationMs: operationDurationMs(job.startedAt, job.finishedAt),
       requestId: job.requestId,
       jobId: job.id,
+      sourceEventId: job.sourceEventId,
       inputHash: job.inputHash,
       outputHash: hashUnknown(result?.payload),
       result: {
@@ -647,6 +855,7 @@ async function runQueueJob(job) {
       durationMs: operationDurationMs(job.startedAt, job.finishedAt),
       requestId: job.requestId,
       jobId: job.id,
+      sourceEventId: job.sourceEventId,
       inputHash: job.inputHash,
       outputHash: null,
       result: {
@@ -695,6 +904,7 @@ function cancelQueueJob(jobId) {
       durationMs: operationDurationMs(job.startedAt, job.finishedAt),
       requestId: job.requestId,
       jobId: job.id,
+      sourceEventId: job.sourceEventId,
       inputHash: job.inputHash,
       outputHash: null,
       result: {
@@ -1781,7 +1991,7 @@ function getSystemContext(systemHeader) {
   return designSystemRepository.resolveDashboardSystemContext(systemHeader);
 }
 
-function queueNpmScript({ repoRoot: root, script, systemId, commandLabel, requestId }) {
+function queueNpmScript({ repoRoot: root, script, systemId, commandLabel, requestId, sourceEventId }) {
   const safeScript = String(script || "").trim();
   if (!safeScript) throw new Error("Missing script name.");
 
@@ -1793,6 +2003,7 @@ function queueNpmScript({ repoRoot: root, script, systemId, commandLabel, reques
     label,
     systemId,
     requestId,
+    sourceEventId,
     operationName: `script:${safeScript}`,
     inputHash: sha256Text(
       JSON.stringify({
@@ -1823,6 +2034,7 @@ function queueNodeJsonCommand({
   systemId,
   allowNonZeroJson,
   requestId,
+  sourceEventId,
 }) {
   const finalArgs = [...scriptArgs];
   if (systemId) finalArgs.push("--system", systemId);
@@ -1832,6 +2044,7 @@ function queueNodeJsonCommand({
     label: commandLabel,
     systemId,
     requestId,
+    sourceEventId,
     operationName: `script:${path.basename(scriptPath)}`,
     inputHash: sha256Text(
       JSON.stringify({
@@ -1854,6 +2067,132 @@ function queueNodeJsonCommand({
         allowNonZeroJson: allowNonZeroJson === true,
       }),
   });
+}
+
+function enqueueRefreshNamingDebtJob({ sysCtx, requestId, sourceEventId }) {
+  return enqueueQueueJob({
+    label: "refresh naming debt",
+    systemId: sysCtx.systemId,
+    operationName: "refresh:naming-debt",
+    requestId,
+    sourceEventId,
+    inputHash: sha256Text(
+      JSON.stringify({
+        script: "refresh-naming-debt",
+        systemId: sysCtx.systemId,
+      }),
+    ),
+    execute: async ({ emitChunk }) => {
+      emitChunk("system", "Computing naming debt report...");
+      const report = await computeNamingDebtReport({
+        tokenRegistryPath: sysCtx.tokenRegistryPath,
+        tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
+        tokenGraphVizPath: sysCtx.tokenGraphVizPath,
+        namingDebtConfigPath: sysCtx.namingDebtConfigPath,
+      });
+      await fs.mkdir(path.dirname(sysCtx.namingDebtCachePath), { recursive: true });
+      await fs.writeFile(sysCtx.namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+      return {
+        ok: true,
+        code: 0,
+        summary: "Naming debt refreshed.",
+        payload: {
+          ok: true,
+          generatedAt: report.generatedAt,
+          totalViolations: report.summary.totalViolations,
+          overallScore: report.summary.overallScore,
+        },
+      };
+    },
+  });
+}
+
+function enqueueReplayJobFromOperation({ operation, systemId, requestId, sourceEventId }) {
+  const sysCtx = getSystemContext(systemId);
+  const normalized = String(operation || "").trim();
+  if (!normalized) throw new Error("Missing operation name.");
+  const supportedByExactMatch = SUPPORTED_REPLAY_OPERATIONS.has(normalized);
+  const supportedByRunPrefix = normalized.startsWith("run:");
+  if (!supportedByExactMatch && !supportedByRunPrefix) {
+    if (normalized.startsWith("script:")) {
+      throw new Error(`Operation '${normalized}' requires parameters and cannot be replayed automatically.`);
+    }
+    throw new Error(`Replay is not supported for operation '${normalized}'.`);
+  }
+
+  if (normalized === "refresh:naming-debt") {
+    return enqueueRefreshNamingDebtJob({ sysCtx, requestId, sourceEventId });
+  }
+
+  if (normalized.startsWith("script:")) {
+    const scriptName = normalized.slice("script:".length).trim();
+    if (REPLAYABLE_NPM_SCRIPTS.has(scriptName)) {
+      return queueNpmScript({
+        repoRoot: sysCtx.repoRoot,
+        script: scriptName,
+        systemId: sysCtx.systemId,
+        requestId,
+        sourceEventId,
+      });
+    }
+    if (scriptName === "ds-health-snapshot.mjs") {
+      return queueNodeJsonCommand({
+        repoRoot: sysCtx.repoRoot,
+        commandLabel:
+          "node tooling/scripts/ds-health-snapshot.mjs --before-ref HEAD~1 --retention-days 120 --skip-diff false",
+        scriptPath: sysCtx.healthSnapshotScriptPath,
+        systemId: sysCtx.systemId,
+        requestId,
+        sourceEventId,
+        scriptArgs: [
+          "--before-ref",
+          "HEAD~1",
+          "--retention-days",
+          "120",
+          "--skip-diff",
+          "false",
+          "--format",
+          "json",
+        ],
+      });
+    }
+    throw new Error(`Operation '${normalized}' requires parameters and cannot be replayed automatically.`);
+  }
+
+  if (normalized.startsWith("run:")) {
+    const scriptName = normalized.slice("run:".length).trim();
+    if (!scriptName) throw new Error("Invalid replay operation script name.");
+    const args = ["run", scriptName, "--", "--system", sysCtx.systemId];
+    const commandLabel = `npm ${args.join(" ")}`;
+    return enqueueQueueJob({
+      label: commandLabel,
+      systemId: sysCtx.systemId,
+      operationName: `run:${scriptName}`,
+      requestId,
+      sourceEventId,
+      inputHash: sha256Text(
+        JSON.stringify({
+          command: "npm",
+          args,
+          cwd: sysCtx.repoRoot,
+          systemId: sysCtx.systemId,
+          scriptName,
+          replay: sourceEventId,
+        }),
+      ),
+      execute: async ({ emitChunk, setProcess }) =>
+        await runQueuedSpawnCommand({
+          cwd: sysCtx.repoRoot,
+          command: "npm",
+          commandArgs: args,
+          emitChunk,
+          registerProcess: setProcess,
+          commandLabel,
+        }),
+    });
+  }
+
+  throw new Error(`Replay is not supported for operation '${normalized}'.`);
 }
 
 const app = new Hono();
@@ -2031,6 +2370,144 @@ app.get("/api/operations/history", async (c) => {
       scannedFiles: history.scannedFiles,
     },
   });
+});
+
+app.get("/api/operations/regressions", async (c) => {
+  const systemFromQuery = String(c.req.query("system") || "").trim();
+  const systemFromHeader = String(c.req.header("x-ds-system") || "").trim();
+  const includeAll = String(c.req.query("all") || "").trim().toLowerCase() === "true";
+  const systemId = includeAll ? "" : systemFromQuery || systemFromHeader;
+  const limitRaw = Number.parseInt(String(c.req.query("limit") || ""), 10);
+  const minSamplesRaw = Number.parseInt(String(c.req.query("minSamples") || ""), 10);
+  const limit = Number.isFinite(limitRaw)
+    ? Math.max(20, Math.min(limitRaw, OPS_REGRESSION_MAX_LIMIT))
+    : OPS_REGRESSION_DEFAULT_LIMIT;
+  const minSamples = Number.isFinite(minSamplesRaw)
+    ? Math.max(2, Math.min(minSamplesRaw, 20))
+    : OPS_REGRESSION_DEFAULT_MIN_SAMPLES;
+
+  if (systemId) {
+    const config = designSystemRepository.getConfig();
+    const exists = (config.systems || []).some((row) => String(row?.id || "").trim() === systemId);
+    if (!exists) {
+      return failJson(c, 400, {
+        code: "system.invalid_or_missing",
+        userMessage: `Unknown system '${systemId}'.`,
+        recoverable: true,
+        context: { systemId },
+      });
+    }
+  }
+
+  const report = buildOperationRegressionsReport({
+    systemId: systemId || undefined,
+    limit,
+    minSamples,
+  });
+
+  return c.json({
+    ok: true,
+    generatedAt: report.generatedAt,
+    regressions: report.regressions,
+    filters: {
+      systemId: systemId || null,
+      limit,
+      minSamples,
+    },
+    summary: report.summary,
+  });
+});
+
+app.post("/api/operations/replay/:eventId", async (c) => {
+  const requestId = createApiRequestId();
+  const eventId = decodeURIComponent(String(c.req.param("eventId") || "")).trim();
+  if (!eventId) {
+    return failJson(c, 400, {
+      code: "validation.missing_required_fields",
+      userMessage: "eventId is required.",
+      recoverable: true,
+      context: { field: "eventId" },
+      requestId,
+    });
+  }
+
+  const body = await readJsonBody(c);
+  const overrideSystemId = normalizeSystemId(body.systemId);
+  const sourceEventLookup = findOperationEventById({
+    eventId,
+    systemId: overrideSystemId || undefined,
+  });
+  if (!sourceEventLookup.event) {
+    return failJson(c, 404, {
+      code: "operations.event_not_found",
+      userMessage: `Operation event '${eventId}' not found.`,
+      recoverable: true,
+      context: { eventId, scannedRows: sourceEventLookup.scannedRows },
+      requestId,
+    });
+  }
+
+  const sourceEvent = sourceEventLookup.event;
+  const targetSystemId =
+    overrideSystemId || String(sourceEvent.system || c.req.header("x-ds-system") || "").trim();
+  if (!targetSystemId) {
+    return failJson(c, 400, {
+      code: "system.invalid_or_missing",
+      userMessage: "Replay requires a valid target system.",
+      recoverable: true,
+      context: { eventId, operation: sourceEvent.operation },
+      requestId,
+    });
+  }
+  const config = designSystemRepository.getConfig();
+  const hasTargetSystem = (config.systems || []).some(
+    (row) => String(row?.id || "").trim() === targetSystemId,
+  );
+  if (!hasTargetSystem) {
+    return failJson(c, 400, {
+      code: "system.invalid_or_missing",
+      userMessage: `Unknown system '${targetSystemId}'.`,
+      recoverable: true,
+      context: { targetSystemId, eventId },
+      requestId,
+    });
+  }
+
+  let job;
+  try {
+    job = enqueueReplayJobFromOperation({
+      operation: sourceEvent.operation,
+      systemId: targetSystemId,
+      requestId,
+      sourceEventId: eventId,
+    });
+  } catch (error) {
+    return failJson(c, 409, {
+      code: "operations.replay_not_supported",
+      userMessage: error instanceof Error ? error.message : String(error),
+      recoverable: true,
+      context: {
+        eventId,
+        operation: sourceEvent.operation,
+        sourceSystem: sourceEvent.system || null,
+        targetSystem: targetSystemId,
+      },
+      requestId,
+    });
+  }
+
+  return c.json(
+    {
+      ...queueJobAcceptedPayload(job),
+      replay: {
+        sourceEventId: eventId,
+        sourceOperation: sourceEvent.operation,
+        sourceSystem: sourceEvent.system || null,
+        targetSystem: targetSystemId,
+      },
+    },
+    202,
+  );
 });
 
 app.get("/api/design-systems", () => {
@@ -3320,39 +3797,9 @@ app.post("/api/refresh-components-health", (c) => {
 app.post("/api/refresh-naming-debt", (c) => {
   const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const job = enqueueQueueJob({
-    label: "refresh naming debt",
-    systemId: sysCtx.systemId,
-    operationName: "refresh:naming-debt",
+  const job = enqueueRefreshNamingDebtJob({
+    sysCtx,
     requestId,
-    inputHash: sha256Text(
-      JSON.stringify({
-        script: "refresh-naming-debt",
-        systemId: sysCtx.systemId,
-      }),
-    ),
-    execute: async ({ emitChunk }) => {
-      emitChunk("system", "Computing naming debt report...");
-      const report = await computeNamingDebtReport({
-        tokenRegistryPath: sysCtx.tokenRegistryPath,
-        tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
-        tokenGraphVizPath: sysCtx.tokenGraphVizPath,
-        namingDebtConfigPath: sysCtx.namingDebtConfigPath,
-      });
-      await fs.mkdir(path.dirname(sysCtx.namingDebtCachePath), { recursive: true });
-      await fs.writeFile(sysCtx.namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-      return {
-        ok: true,
-        code: 0,
-        summary: "Naming debt refreshed.",
-        payload: {
-          ok: true,
-          generatedAt: report.generatedAt,
-          totalViolations: report.summary.totalViolations,
-          overallScore: report.summary.overallScore,
-        },
-      };
-    },
   });
   return c.json(queueJobAcceptedPayload(job), 202);
 });
