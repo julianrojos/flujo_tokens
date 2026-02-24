@@ -4,6 +4,14 @@ import {
   buildRunScriptCommandArgs,
   buildSyncFigmaTokensCommandConfig,
 } from "../lib/command-route-service.mjs";
+import {
+  buildCaptureFigmaScreenshotQueueArgs,
+  buildHealthSnapshotQueueArgs,
+  buildRefreshScriptQueueArgs,
+  buildRunScriptQueueConfig,
+  buildSyncFigmaTokensQueueArgs,
+  parseScriptNameFromRoute,
+} from "../lib/command-route-enqueue-service.mjs";
 
 export function registerCommandRoutes(app, deps) {
   const {
@@ -26,58 +34,35 @@ export function registerCommandRoutes(app, deps) {
   function enqueueRefreshScriptJob(c, script) {
     const requestId = createApiRequestId();
     const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    const job = queueNpmScript({
-      repoRoot: sysCtx.repoRoot,
-      script,
-      systemId: sysCtx.systemId,
-      requestId,
-    });
+    const job = queueNpmScript(buildRefreshScriptQueueArgs({ sysCtx, requestId, script }));
     return c.json(queueJobAcceptedPayload(job), 202);
   }
 
   app.post("/api/run/:script", async (c) => {
     const requestId = createApiRequestId();
-    const scriptName = String(c.req.param("script") || "").trim();
-    if (!scriptName) {
-      return failJson(c, 400, {
-        code: "validation.missing_script_name",
-        userMessage: "Missing script name in URL.",
-        recoverable: true,
-        requestId,
-      });
+    const parsedScript = parseScriptNameFromRoute(c.req.param("script"), requestId);
+    if (!parsedScript.ok) {
+      return failJson(c, parsedScript.statusCode, parsedScript.errorArgs);
     }
 
     const body = await readJsonBody(c);
     const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    const { args } = buildRunScriptCommandArgs({
-      scriptName,
+    const runConfig = buildRunScriptQueueConfig({
+      scriptName: parsedScript.scriptName,
       body,
-      systemId: sysCtx.systemId,
+      sysCtx,
+      requestId,
+      buildRunScriptCommandArgsFn: buildRunScriptCommandArgs,
+      sha256TextFn: sha256Text,
     });
 
-    const commandLabel = `npm ${args.join(" ")}`;
     const job = enqueueQueueJob({
-      label: commandLabel,
-      systemId: sysCtx.systemId,
-      operationName: `run:${scriptName}`,
-      requestId,
-      inputHash: sha256Text(
-        JSON.stringify({
-          command: "npm",
-          args,
-          cwd: sysCtx.repoRoot,
-          systemId: sysCtx.systemId,
-          scriptName,
-        }),
-      ),
+      ...runConfig.queueArgs,
       execute: async ({ emitChunk, setProcess }) =>
         await runQueuedSpawnCommand({
-          cwd: sysCtx.repoRoot,
-          command: "npm",
-          commandArgs: args,
+          ...runConfig.runCommand,
           emitChunk,
           registerProcess: setProcess,
-          commandLabel,
         }),
     });
 
@@ -117,14 +102,7 @@ export function registerCommandRoutes(app, deps) {
       });
     }
 
-    const job = queueNodeJsonCommand({
-      repoRoot: sysCtx.repoRoot,
-      commandLabel: parsed.commandLabel,
-      scriptPath: sysCtx.healthSnapshotScriptPath,
-      systemId: sysCtx.systemId,
-      requestId,
-      scriptArgs: parsed.scriptArgs,
-    });
+    const job = queueNodeJsonCommand(buildHealthSnapshotQueueArgs({ sysCtx, requestId, parsed }));
     return c.json(queueJobAcceptedPayload(job), 202);
   });
 
@@ -136,16 +114,9 @@ export function registerCommandRoutes(app, deps) {
       body,
       toBooleanString,
     });
+    const parsed = { commandArgs, commandDisplayArgs };
 
-    const job = queueNodeJsonCommand({
-      repoRoot: sysCtx.repoRoot,
-      commandLabel: `node tooling/scripts/ds-tokens-from-figma.mjs ${commandDisplayArgs.join(" ")}`,
-      scriptPath: sysCtx.tokensFromFigmaScriptPath,
-      systemId: sysCtx.systemId,
-      requestId,
-      scriptArgs: commandArgs,
-      allowNonZeroJson: true,
-    });
+    const job = queueNodeJsonCommand(buildSyncFigmaTokensQueueArgs({ sysCtx, requestId, parsed }));
     return c.json(queueJobAcceptedPayload(job), 202);
   });
 
@@ -165,15 +136,7 @@ export function registerCommandRoutes(app, deps) {
       });
     }
 
-    const job = queueNodeJsonCommand({
-      repoRoot: sysCtx.repoRoot,
-      commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${parsed.commandDisplayArgs.join(" ")}`,
-      scriptPath: sysCtx.captureFromFigmaUrlScriptPath,
-      systemId: sysCtx.systemId,
-      requestId,
-      scriptArgs: parsed.commandArgs,
-      allowNonZeroJson: true,
-    });
+    const job = queueNodeJsonCommand(buildCaptureFigmaScreenshotQueueArgs({ sysCtx, requestId, parsed }));
     return c.json(queueJobAcceptedPayload(job), 202);
   });
 }
