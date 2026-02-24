@@ -1,20 +1,17 @@
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createDesignSystemRepository } from "./system-repository.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = path.resolve(__dirname, "../../..");
 
-let cachedConfig = null;
+const systemRepository = createDesignSystemRepository({ repoRoot: PROJECT_ROOT });
 
 function loadDesignSystems() {
-  if (cachedConfig) return cachedConfig;
-  const configPath = path.join(PROJECT_ROOT, "tooling/config/design-systems.json");
   try {
-    const raw = fs.readFileSync(configPath, "utf-8");
-    cachedConfig = JSON.parse(raw);
-    return cachedConfig;
+    return systemRepository.getConfig();
   } catch (err) {
+    const configPath = path.join(PROJECT_ROOT, "tooling/config/design-systems.json");
     throw new Error(
       `Cannot load design-systems.json at ${configPath}: ${err.message}`
     );
@@ -22,27 +19,8 @@ function loadDesignSystems() {
 }
 
 export function resolveSystemContext(opts) {
-  const config = loadDesignSystems();
-  const id = opts?.system ?? config.defaultSystem;
-  const system = config.systems.find((s) => s.id === id);
-  
-  if (!system) {
-    const available = config.systems.map((s) => s.id).join(", ");
-    throw new Error(`Unknown system: "${id}". Available: ${available}`);
-  }
-
-  return {
-    ...system,
-    paths: {
-      input: path.resolve(PROJECT_ROOT, system.inputDir),
-      output: path.resolve(PROJECT_ROOT, system.outputDir),
-      generated: path.resolve(PROJECT_ROOT, system.docsDir, "_generated"),
-      specs: path.resolve(PROJECT_ROOT, system.docsDir, "_spec/components"),
-      docs: path.resolve(PROJECT_ROOT, system.docsDir, "components"),
-      registry: path.resolve(PROJECT_ROOT, system.docsDir, "_generated", "component-registry.json"),
-      tokenRegistry: path.resolve(PROJECT_ROOT, system.docsDir, "_generated", "token-registry.json"),
-    },
-  };
+  loadDesignSystems();
+  return systemRepository.resolveSystemContext(opts?.system);
 }
 
 // ─── Legacy fallback ─────────────────────────────────────────────────────────

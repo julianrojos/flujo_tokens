@@ -20,6 +20,7 @@ import {
   componentNameToDisplayName,
 } from "./lib/component-name.mjs";
 import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
+import { createDesignSystemRepository } from "./lib/system-repository.mjs";
 import {
   extractComponentSpec,
   buildEnrichedMarkdownSections,
@@ -632,30 +633,20 @@ function inferCollectionsFromInputDir(repoRoot, inputDir) {
   );
 }
 
-function readDesignSystemsConfig(repoRoot) {
-  const configPath = path.join(repoRoot, "tooling", "config", "design-systems.json");
-  if (!fs.existsSync(configPath)) return null;
-  try {
-    return {
-      configPath,
-      config: JSON.parse(fs.readFileSync(configPath, "utf8")),
-    };
-  } catch {
-    return null;
-  }
-}
+const _systemRepositories = new Map();
 
-function writeDesignSystemsConfigAtomic(configPath, config) {
-  const tmpPath = `${configPath}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmpPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
-  fs.renameSync(tmpPath, configPath);
+function getSystemRepository(repoRoot) {
+  const key = path.resolve(repoRoot || PROJECT_ROOT);
+  if (!_systemRepositories.has(key)) {
+    _systemRepositories.set(key, createDesignSystemRepository({ repoRoot: key }));
+  }
+  return _systemRepositories.get(key);
 }
 
 function ensureCollectionsConfigured({ repoRoot, systemId }) {
   if (!systemId || systemId === "_legacy") return;
-  const loaded = readDesignSystemsConfig(repoRoot);
-  if (!loaded) return;
-  const { configPath, config } = loaded;
+  const repository = getSystemRepository(repoRoot);
+  const config = repository.getConfig();
   if (!config || typeof config !== "object" || !Array.isArray(config.systems)) return;
 
   const targetIndex = config.systems.findIndex((item) => String(item?.id || "").trim() === systemId);
@@ -667,17 +658,16 @@ function ensureCollectionsConfigured({ repoRoot, systemId }) {
   const collections = inferred.length > 0 ? inferred : ["Primitives", "Typography", "Semantic", "Components", "A11y"];
   target.collections = collections;
   config.systems[targetIndex] = target;
-  writeDesignSystemsConfigAtomic(configPath, config);
+  repository.saveConfig(config);
 }
 
 function getSystemConfig({ repoRoot, systemId }) {
   if (!systemId || systemId === "_legacy") return null;
-  const loaded = readDesignSystemsConfig(repoRoot);
-  if (!loaded) return null;
-  const system = Array.isArray(loaded.config?.systems)
-    ? loaded.config.systems.find((item) => String(item?.id || "").trim() === systemId)
-    : null;
-  return system || null;
+  try {
+    return getSystemRepository(repoRoot).getSystem(systemId).system || null;
+  } catch {
+    return null;
+  }
 }
 
 

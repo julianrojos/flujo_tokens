@@ -14,11 +14,38 @@ import { computeImpactReport } from "../src/lib/impact.ts";
 import { analyzeNamingDebt } from "../src/lib/naming-debt.ts";
 import { buildSpecDiff } from "../src/lib/spec-diff.ts";
 import { validateComponentSpec } from "../src/lib/spec-validator.ts";
+import {
+  createDesignSystemRepository,
+  ensureRelativeDir,
+  normalizeCollectionList,
+  normalizeFigmaApiTokenRef,
+  normalizeSystemId,
+  resolveSafeSystemPathsForDeletion,
+  summarizeDesignSystemsConfig,
+} from "./system-repository.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../../..");
 const PORT = Number.parseInt(String(process.env.DS_DASHBOARD_API_PORT || "8787"), 10) || 8787;
+const designSystemRepository = createDesignSystemRepository({ repoRoot, watch: true });
+let designSystemRepositoryDisposed = false;
+
+function disposeDesignSystemRepository() {
+  if (designSystemRepositoryDisposed) return;
+  designSystemRepositoryDisposed = true;
+  designSystemRepository.dispose();
+}
+
+function handleProcessShutdown(signal) {
+  disposeDesignSystemRepository();
+  // eslint-disable-next-line no-console
+  console.log(`[ds-dashboard-api] received ${signal}, shutting down`);
+  process.exit(0);
+}
+
+process.once("SIGINT", () => handleProcessShutdown("SIGINT"));
+process.once("SIGTERM", () => handleProcessShutdown("SIGTERM"));
 
 const MAX_OUTPUT_BYTES = 2 * 1024 * 1024; // 2MB
 const MAX_FILE_BYTES = 450_000;
@@ -1013,98 +1040,6 @@ async function readJsonBody(c) {
   }
 }
 
-function designSystemsConfigPath(root) {
-  return path.join(root, "tooling", "config", "design-systems.json");
-}
-
-function readDesignSystemsConfig(root) {
-  const raw = fsSync.readFileSync(designSystemsConfigPath(root), "utf8");
-  return JSON.parse(raw);
-}
-
-function writeDesignSystemsConfig(root, nextConfig) {
-  const targetPath = designSystemsConfigPath(root);
-  const tmpPath = `${targetPath}.${process.pid}.${Date.now()}.tmp`;
-  fsSync.writeFileSync(tmpPath, `${JSON.stringify(nextConfig, null, 2)}\n`, "utf8");
-  fsSync.renameSync(tmpPath, targetPath);
-}
-
-function normalizeSystemId(raw) {
-  return String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64);
-}
-
-function normalizeCollectionList(raw) {
-  if (!Array.isArray(raw)) return [];
-  return Array.from(
-    new Set(
-      raw
-        .map((item) => String(item || "").trim())
-        .filter(Boolean),
-    ),
-  );
-}
-
-function ensureRelativeDir(raw, fallback) {
-  const value = String(raw || "").trim() || fallback;
-  const normalized = value.replace(/\\/g, "/");
-  const segments = normalized.split("/").filter(Boolean);
-  if (segments.some((segment) => segment === "..")) return fallback;
-  const cleaned = segments.join("/");
-  return cleaned || fallback;
-}
-
-function normalizeFigmaApiTokenRef(raw, fallback = "") {
-  const value = String(raw ?? "").trim();
-  const source = value || String(fallback || "").trim();
-  if (!source) return "";
-  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(source)) return source;
-  const dollarVar = source.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
-  if (dollarVar) return `\${${dollarVar[1]}}`;
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(source)) return `\${${source}}`;
-  return source;
-}
-
-function resolveSafeSystemPathsForDeletion(system, root, survivingSystems) {
-  const candidates = [system?.inputDir, system?.outputDir, system?.docsDir]
-    .map((value) => String(value || "").trim())
-    .filter(Boolean);
-  const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
-
-  const survivingDirs = new Set(
-    survivingSystems.flatMap((nextSystem) =>
-      [nextSystem?.inputDir, nextSystem?.outputDir, nextSystem?.docsDir]
-        .map((value) => path.resolve(root, String(value || "").trim()))
-        .filter(Boolean),
-    ),
-  );
-
-  const safePaths = [];
-  for (const candidate of candidates) {
-    const absolute = path.resolve(root, candidate);
-    if (absolute === root) continue;
-    if (!absolute.startsWith(rootWithSep)) continue;
-    if (survivingDirs.has(absolute)) continue;
-    safePaths.push(absolute);
-  }
-
-  return Array.from(new Set(safePaths));
-}
-
-function summarizeConfig(config) {
-  return {
-    systems: (Array.isArray(config.systems) ? config.systems : []).map((system) => ({
-      id: String(system?.id || ""),
-      name: String(system?.name || ""),
-    })),
-    defaultSystem: String(config.defaultSystem || ""),
-  };
-}
-
 function normalizeHealthHistoryRange(raw) {
   const value = String(raw || "").trim().toLowerCase();
   if (value === "7d" || value === "90d") return value;
@@ -1434,45 +1369,7 @@ async function runNodeJsonCommandOnce(args) {
 }
 
 function getSystemContext(systemHeader) {
-  const configPath = path.join(repoRoot, "tooling", "config", "design-systems.json");
-  const raw = fsSync.readFileSync(configPath, "utf8");
-  const config = JSON.parse(raw);
-  const requested = String(systemHeader || "").trim();
-  const systemId = requested || String(config.defaultSystem || "");
-  const system = Array.isArray(config.systems)
-    ? config.systems.find((row) => String(row?.id || "").trim() === systemId)
-    : null;
-  if (!system) throw new Error(`Unknown design system: ${systemId}`);
-
-  const docsDir = path.resolve(repoRoot, String(system.docsDir || ""));
-  const genDir = path.join(docsDir, "_generated");
-
-  return {
-    systemId,
-    repoRoot,
-    docsDir,
-    genDir,
-    componentRegistryPath: path.join(genDir, "component-registry.json"),
-    tokenRegistryPath: path.join(genDir, "token-registry.json"),
-    tokenGraphVizPath: path.join(genDir, "token-graph.viz.json"),
-    tokenUsageIndexPath: path.join(genDir, "token-usage-index.json"),
-    tokenHealthPath: path.join(genDir, "token-health.json"),
-    componentsHealthPath: path.join(genDir, "components-health.json"),
-    healthHistoryPath: path.join(genDir, "health-history.json"),
-    namingDebtCachePath: path.join(genDir, "naming-debt.json"),
-    namingDebtConfigPath: path.join(repoRoot, "tooling", "config", "naming-debt.config.json"),
-    specBackupsDirPath: path.join(genDir, "spec-backups"),
-    wcagPairsPath: path.join(repoRoot, "tooling", "config", "wcag-pairs.json"),
-    tokenDiffScriptPath: path.join(repoRoot, "tooling", "scripts", "ds-token-diff.mjs"),
-    healthSnapshotScriptPath: path.join(repoRoot, "tooling", "scripts", "ds-health-snapshot.mjs"),
-    captureFromFigmaUrlScriptPath: path.join(
-      repoRoot,
-      "tooling",
-      "scripts",
-      "ds-capture-from-figma-url.mjs",
-    ),
-    tokensFromFigmaScriptPath: path.join(repoRoot, "tooling", "scripts", "ds-tokens-from-figma.mjs"),
-  };
+  return designSystemRepository.resolveDashboardSystemContext(systemHeader);
 }
 
 function queueNpmScript({ repoRoot: root, script, systemId, commandLabel }) {
@@ -1549,7 +1446,7 @@ app.get("/health", (c) =>
 app.get("/api/health", (c) => c.json(buildHealthPayload()));
 
 app.get("/api/design-systems", () => {
-  const config = readDesignSystemsConfig(repoRoot);
+  const config = designSystemRepository.getConfig();
   return new Response(JSON.stringify(config), {
     status: 200,
     headers: {
@@ -1561,7 +1458,7 @@ app.get("/api/design-systems", () => {
 
 app.post("/api/design-systems", async (c) => {
   const body = await readJsonBody(c);
-  const config = readDesignSystemsConfig(repoRoot);
+  const config = designSystemRepository.getConfig();
   const systemId = normalizeSystemId(body.id);
   const systemName = String(body.name || "").trim();
   if (!systemId || !systemName) {
@@ -1602,12 +1499,12 @@ app.post("/api/design-systems", async (c) => {
     defaultSystem: makeDefault ? systemId : config.defaultSystem || systemId,
   };
 
-  writeDesignSystemsConfig(repoRoot, nextConfig);
+  designSystemRepository.saveConfig(nextConfig);
   return c.json(
     {
       ok: true,
       system: { id: nextSystem.id, name: nextSystem.name },
-      config: summarizeConfig(nextConfig),
+      config: summarizeDesignSystemsConfig(nextConfig),
     },
     200,
   );
@@ -1616,7 +1513,7 @@ app.post("/api/design-systems", async (c) => {
 app.put("/api/design-systems/:id", async (c) => {
   const routeSystemId = decodeURIComponent(String(c.req.param("id") || ""));
   const body = await readJsonBody(c);
-  const config = readDesignSystemsConfig(repoRoot);
+  const config = designSystemRepository.getConfig();
   const nextSystems = Array.isArray(config.systems) ? [...config.systems] : [];
   const targetIndex = nextSystems.findIndex(
     (row) => String(row?.id || "").trim() === routeSystemId,
@@ -1655,12 +1552,12 @@ app.put("/api/design-systems/:id", async (c) => {
     systems: nextSystems,
     defaultSystem: makeDefault ? routeSystemId : config.defaultSystem || routeSystemId,
   };
-  writeDesignSystemsConfig(repoRoot, nextConfig);
+  designSystemRepository.saveConfig(nextConfig);
   return c.json(
     {
       ok: true,
       system: { id: routeSystemId, name: updated.name },
-      config: summarizeConfig(nextConfig),
+      config: summarizeDesignSystemsConfig(nextConfig),
     },
     200,
   );
@@ -1668,7 +1565,7 @@ app.put("/api/design-systems/:id", async (c) => {
 
 app.delete("/api/design-systems/:id", (c) => {
   const routeSystemId = decodeURIComponent(String(c.req.param("id") || ""));
-  const config = readDesignSystemsConfig(repoRoot);
+  const config = designSystemRepository.getConfig();
   const currentSystems = Array.isArray(config.systems) ? config.systems : [];
   const targetSystem = currentSystems.find(
     (row) => String(row?.id || "").trim() === routeSystemId,
@@ -1701,12 +1598,12 @@ app.delete("/api/design-systems/:id", (c) => {
     fsSync.rmSync(targetPath, { recursive: true, force: true });
   }
 
-  writeDesignSystemsConfig(repoRoot, nextConfig);
+  designSystemRepository.saveConfig(nextConfig);
   return c.json(
     {
       ok: true,
       removedPaths,
-      config: summarizeConfig(nextConfig),
+      config: summarizeDesignSystemsConfig(nextConfig),
     },
     200,
   );
