@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createHash } from "node:crypto";
+import { EventEmitter } from "node:events";
 
 import yaml from "js-yaml";
 import react from "@vitejs/plugin-react";
@@ -311,6 +312,566 @@ async function runCommandCapture(args: {
       });
     });
   });
+}
+
+type QueueJobStatus = "queued" | "running" | "success" | "error" | "cancelled";
+type QueueLogKind = "stdout" | "stderr" | "system";
+
+type QueueJobEvent =
+  | {
+      seq: number;
+      at: string;
+      type: "status";
+      status: QueueJobStatus;
+    }
+  | {
+      seq: number;
+      at: string;
+      type: "chunk";
+      kind: QueueLogKind;
+      text: string;
+    }
+  | {
+      seq: number;
+      at: string;
+      type: "error";
+      message: string;
+    }
+  | {
+      seq: number;
+      at: string;
+      type: "end";
+      status: Exclude<QueueJobStatus, "queued" | "running">;
+      code: number;
+      summary: string;
+      payload?: unknown;
+    };
+
+type QueueJobEventInput =
+  | {
+      type: "status";
+      status: QueueJobStatus;
+    }
+  | {
+      type: "chunk";
+      kind: QueueLogKind;
+      text: string;
+    }
+  | {
+      type: "error";
+      message: string;
+    }
+  | {
+      type: "end";
+      status: Exclude<QueueJobStatus, "queued" | "running">;
+      code: number;
+      summary: string;
+      payload?: unknown;
+    };
+
+type QueueJobResult = {
+  ok: boolean;
+  code: number;
+  summary: string;
+  payload?: unknown;
+};
+
+type QueueJobRecord = {
+  id: string;
+  label: string;
+  systemId?: string;
+  status: QueueJobStatus;
+  createdAt: string;
+  startedAt?: string;
+  finishedAt?: string;
+  result?: QueueJobResult;
+  process?: ChildProcessWithoutNullStreams;
+  events: QueueJobEvent[];
+  nextSeq: number;
+  emitter: EventEmitter;
+  execute: (ctx: {
+    emitChunk: (kind: QueueLogKind, text: string) => void;
+    setProcess: (process: ChildProcessWithoutNullStreams) => void;
+    isCancelled: () => boolean;
+  }) => Promise<QueueJobResult>;
+};
+
+const JOB_QUEUE_CONCURRENCY = 1;
+const JOB_RETENTION_MS = 30 * 60 * 1000;
+const MAX_RETAINED_EVENTS = 2_000;
+const MAX_RETAINED_JOBS = 200;
+
+const queueJobs = new Map<string, QueueJobRecord>();
+const queuePendingIds: string[] = [];
+let queueActiveCount = 0;
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function createQueueJobId() {
+  return `job_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isQueueJobFinalStatus(status: QueueJobStatus) {
+  return status === "success" || status === "error" || status === "cancelled";
+}
+
+function appendQueueJobEvent(
+  job: QueueJobRecord,
+  event: QueueJobEventInput,
+): QueueJobEvent {
+  const fullEvent = {
+    ...event,
+    seq: job.nextSeq,
+    at: nowIso(),
+  } as QueueJobEvent;
+  job.nextSeq += 1;
+  job.events.push(fullEvent);
+  if (job.events.length > MAX_RETAINED_EVENTS) {
+    job.events.splice(0, job.events.length - MAX_RETAINED_EVENTS);
+  }
+  job.emitter.emit("event", fullEvent);
+  return fullEvent;
+}
+
+function queueJobSnapshot(job: QueueJobRecord) {
+  return {
+    id: job.id,
+    label: job.label,
+    status: job.status,
+    createdAt: job.createdAt,
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt,
+    systemId: job.systemId,
+    result: job.result,
+  };
+}
+
+function queueJobAcceptedPayload(job: QueueJobRecord) {
+  return {
+    ok: true,
+    accepted: true,
+    jobId: job.id,
+    status: job.status,
+    statusUrl: `/api/jobs/${job.id}`,
+    streamUrl: `/api/jobs/${job.id}/stream`,
+    job: queueJobSnapshot(job),
+  };
+}
+
+function enqueueQueueJob(args: {
+  label: string;
+  systemId?: string;
+  execute: QueueJobRecord["execute"];
+}) {
+  const job: QueueJobRecord = {
+    id: createQueueJobId(),
+    label: args.label,
+    systemId: args.systemId,
+    status: "queued",
+    createdAt: nowIso(),
+    events: [],
+    nextSeq: 1,
+    emitter: new EventEmitter(),
+    execute: args.execute,
+  };
+  queueJobs.set(job.id, job);
+  queuePendingIds.push(job.id);
+  appendQueueJobEvent(job, { type: "status", status: "queued" });
+  scheduleQueueJobs();
+  cleanupQueueJobs();
+  return job;
+}
+
+function scheduleQueueJobs() {
+  while (queueActiveCount < JOB_QUEUE_CONCURRENCY && queuePendingIds.length > 0) {
+    const nextId = queuePendingIds.shift();
+    if (!nextId) continue;
+    const job = queueJobs.get(nextId);
+    if (!job || job.status !== "queued") continue;
+    void runQueueJob(job);
+  }
+}
+
+async function runQueueJob(job: QueueJobRecord) {
+  queueActiveCount += 1;
+  job.status = "running";
+  job.startedAt = nowIso();
+  appendQueueJobEvent(job, { type: "status", status: "running" });
+
+  try {
+    const result = await job.execute({
+      emitChunk: (kind, text) => {
+        if (!text) return;
+        appendQueueJobEvent(job, { type: "chunk", kind, text });
+      },
+      setProcess: (process) => {
+        job.process = process;
+      },
+      isCancelled: () => job.status === "cancelled",
+    });
+
+    if ((job.status as QueueJobStatus) === "cancelled") {
+      const summary = result.summary || "Cancelled.";
+      job.result = { ...result, ok: false, summary };
+      job.finishedAt = nowIso();
+      appendQueueJobEvent(job, {
+        type: "end",
+        status: "cancelled",
+        code: typeof result.code === "number" ? result.code : 1,
+        summary,
+        payload: result.payload,
+      });
+      return;
+    }
+
+    job.status = result.ok ? "success" : "error";
+    job.result = result;
+    job.finishedAt = nowIso();
+    appendQueueJobEvent(job, {
+      type: "end",
+      status: job.status,
+      code: typeof result.code === "number" ? result.code : result.ok ? 0 : 1,
+      summary: result.summary,
+      payload: result.payload,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    job.status = "error";
+    job.result = {
+      ok: false,
+      code: 1,
+      summary: message || "Unknown queue error.",
+    };
+    job.finishedAt = nowIso();
+    appendQueueJobEvent(job, {
+      type: "error",
+      message,
+    });
+    appendQueueJobEvent(job, {
+      type: "end",
+      status: "error",
+      code: 1,
+      summary: message || "Unknown queue error.",
+    });
+  } finally {
+    job.process = undefined;
+    queueActiveCount = Math.max(0, queueActiveCount - 1);
+    scheduleQueueJobs();
+    cleanupQueueJobs();
+  }
+}
+
+function cancelQueueJob(jobId: string) {
+  const job = queueJobs.get(jobId);
+  if (!job) return { ok: false as const, message: "Job not found." };
+  if (isQueueJobFinalStatus(job.status)) {
+    return { ok: false as const, message: "Job is already finished." };
+  }
+
+  if (job.status === "queued") {
+    job.status = "cancelled";
+    job.finishedAt = nowIso();
+    const pendingIndex = queuePendingIds.findIndex((id) => id === jobId);
+    if (pendingIndex >= 0) queuePendingIds.splice(pendingIndex, 1);
+    job.result = {
+      ok: false,
+      code: 1,
+      summary: "Cancelled before execution.",
+    };
+    appendQueueJobEvent(job, { type: "status", status: "cancelled" });
+    appendQueueJobEvent(job, {
+      type: "end",
+      status: "cancelled",
+      code: 1,
+      summary: "Cancelled before execution.",
+    });
+    return { ok: true as const };
+  }
+
+  job.status = "cancelled";
+  appendQueueJobEvent(job, { type: "status", status: "cancelled" });
+  if (job.process && !job.process.killed) {
+    job.process.kill("SIGTERM");
+  }
+  return { ok: true as const };
+}
+
+function listQueueJobEvents(job: QueueJobRecord, args?: { since?: number; limit?: number }) {
+  const since = Number.isFinite(args?.since) ? Number(args?.since) : 0;
+  const limit = Number.isFinite(args?.limit) ? Math.max(1, Number(args?.limit)) : 300;
+  const filtered = job.events.filter((event) => event.seq > since);
+  if (filtered.length <= limit) return filtered;
+  return filtered.slice(filtered.length - limit);
+}
+
+function cleanupQueueJobs() {
+  const now = Date.now();
+
+  for (const [jobId, job] of Array.from(queueJobs.entries())) {
+    if (!isQueueJobFinalStatus(job.status)) continue;
+    const finishedAt = job.finishedAt ? new Date(job.finishedAt).getTime() : NaN;
+    if (Number.isFinite(finishedAt) && now - finishedAt > JOB_RETENTION_MS) {
+      queueJobs.delete(jobId);
+    }
+  }
+
+  if (queueJobs.size <= MAX_RETAINED_JOBS) return;
+  const removable = Array.from(queueJobs.values())
+    .filter((job) => isQueueJobFinalStatus(job.status))
+    .sort((a, b) => {
+      const aTs = a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
+      const bTs = b.finishedAt ? new Date(b.finishedAt).getTime() : 0;
+      return aTs - bTs;
+    });
+  while (queueJobs.size > MAX_RETAINED_JOBS && removable.length > 0) {
+    const job = removable.shift();
+    if (!job) break;
+    queueJobs.delete(job.id);
+  }
+}
+
+function toQueueSummaryFromPayload(payload: unknown, fallbackCode: number) {
+  const row = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : {};
+  const topLevelMessage = String(row.message ?? "").trim();
+  const topLevelError = String(row.error ?? "").trim();
+  const sync = row.sync && typeof row.sync === "object" ? (row.sync as Record<string, unknown>) : null;
+  const syncError = String(sync?.error ?? "").trim();
+  const syncReason = String(sync?.reason ?? "").trim();
+  const explicitCode = Number(row.code ?? row.exit_code ?? fallbackCode);
+  const codeText = Number.isFinite(explicitCode) ? `Failed with code ${explicitCode}` : "Unknown error";
+  return topLevelMessage || topLevelError || syncError || syncReason || codeText;
+}
+
+async function runQueuedSpawnCommand(args: {
+  cwd: string;
+  command: string;
+  commandArgs: string[];
+  emitChunk: (kind: QueueLogKind, text: string) => void;
+  registerProcess: (process: ChildProcessWithoutNullStreams) => void;
+  parseJsonStdout?: boolean;
+  allowNonZeroJson?: boolean;
+  successSummary?: string;
+  commandLabel: string;
+}) {
+  return await new Promise<QueueJobResult>((resolve) => {
+    const child = spawn(args.command, args.commandArgs, {
+      cwd: args.cwd,
+      shell: false,
+    });
+    args.registerProcess(child);
+
+    const MAX_OUTPUT_BYTES = 2 * 1024 * 1024; // 2 MB
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      const text = String(chunk);
+      if (stdout.length < MAX_OUTPUT_BYTES) stdout += text;
+      args.emitChunk("stdout", text);
+    });
+    child.stderr.on("data", (chunk) => {
+      const text = String(chunk);
+      if (stderr.length < MAX_OUTPUT_BYTES) stderr += text;
+      args.emitChunk("stderr", text);
+    });
+
+    child.on("error", (error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      resolve({
+        ok: false,
+        code: 1,
+        summary: message || `Unable to start command: ${args.commandLabel}`,
+        payload: {
+          ok: false,
+          command: args.commandLabel,
+          message,
+          stdout: stdout.trim(),
+          stderr: stderr.trim(),
+        },
+      });
+    });
+
+    child.on("close", (code) => {
+      const exitCode = typeof code === "number" ? code : 1;
+
+      if (args.parseJsonStdout) {
+        const rawStdout = stdout.trim();
+        let parsed: unknown = null;
+        try {
+          parsed = rawStdout ? JSON.parse(rawStdout) : {};
+        } catch (error) {
+          resolve({
+            ok: false,
+            code: exitCode,
+            summary: "Command returned invalid JSON.",
+            payload: {
+              ok: false,
+              command: args.commandLabel,
+              message: "Command returned invalid JSON.",
+              stdout: rawStdout,
+              stderr: stderr.trim(),
+              parse_error: error instanceof Error ? error.message : String(error),
+              code: exitCode,
+            },
+          });
+          return;
+        }
+
+        if (exitCode !== 0 && args.allowNonZeroJson) {
+          const payload =
+            parsed && typeof parsed === "object"
+              ? ({
+                  ...(parsed as Record<string, unknown>),
+                  ok: false,
+                  exit_code: exitCode,
+                  stderr: stderr.trim() || undefined,
+                } as Record<string, unknown>)
+              : {
+                  ok: false,
+                  exit_code: exitCode,
+                  stderr: stderr.trim() || undefined,
+                };
+          resolve({
+            ok: false,
+            code: exitCode,
+            summary: toQueueSummaryFromPayload(payload, exitCode),
+            payload,
+          });
+          return;
+        }
+
+        if (exitCode !== 0) {
+          resolve({
+            ok: false,
+            code: exitCode,
+            summary: `Failed with code ${exitCode}`,
+            payload: {
+              ok: false,
+              command: args.commandLabel,
+              code: exitCode,
+              stdout: rawStdout,
+              stderr: stderr.trim(),
+            },
+          });
+          return;
+        }
+
+        const payload = parsed as Record<string, unknown>;
+        const ok = payload?.ok !== false;
+        resolve({
+          ok,
+          code: ok ? 0 : 1,
+          summary: ok
+            ? String(payload?.message ?? args.successSummary ?? "Completed successfully.")
+            : toQueueSummaryFromPayload(payload, 1),
+          payload,
+        });
+        return;
+      }
+
+      if (exitCode !== 0) {
+        resolve({
+          ok: false,
+          code: exitCode,
+          summary: `Failed with code ${exitCode}`,
+          payload: {
+            ok: false,
+            command: args.commandLabel,
+            code: exitCode,
+            stdout: stdout.trim(),
+            stderr: stderr.trim(),
+          },
+        });
+        return;
+      }
+
+      resolve({
+        ok: true,
+        code: 0,
+        summary: args.successSummary || "Completed successfully.",
+        payload: {
+          ok: true,
+          command: args.commandLabel,
+          output: stdout.trim(),
+        },
+      });
+    });
+  });
+}
+
+function queueNpmScript(args: {
+  repoRoot: string;
+  res: {
+    statusCode: number;
+    setHeader: (name: string, value: string) => void;
+    end: (body: string | Buffer) => void;
+  };
+  script: string;
+  systemId?: string;
+  commandLabel?: string;
+}) {
+  const script = String(args.script || "").trim();
+  if (!script) {
+    sendJson(args.res, 400, { ok: false, message: "Missing script name." });
+    return;
+  }
+
+  const scriptArgs = ["run", script, "--"];
+  if (args.systemId) scriptArgs.push("--system", args.systemId);
+  const commandLabel = args.commandLabel || `npm run ${script}`;
+
+  const job = enqueueQueueJob({
+    label: commandLabel,
+    systemId: args.systemId,
+    execute: async ({ emitChunk, setProcess }) =>
+      await runQueuedSpawnCommand({
+        cwd: args.repoRoot,
+        command: "npm",
+        commandArgs: scriptArgs,
+        emitChunk,
+        registerProcess: setProcess,
+        commandLabel,
+      }),
+  });
+
+  sendJson(args.res, 202, queueJobAcceptedPayload(job));
+}
+
+function queueNodeJsonCommand(args: {
+  repoRoot: string;
+  res: {
+    statusCode: number;
+    setHeader: (name: string, value: string) => void;
+    end: (body: string | Buffer) => void;
+  };
+  commandLabel: string;
+  scriptPath: string;
+  scriptArgs: string[];
+  systemId?: string;
+  allowNonZeroJson?: boolean;
+}) {
+  const finalArgs = [...args.scriptArgs];
+  if (args.systemId) finalArgs.push("--system", args.systemId);
+  const commandArgs = [args.scriptPath, ...finalArgs];
+  const job = enqueueQueueJob({
+    label: args.commandLabel,
+    systemId: args.systemId,
+    execute: async ({ emitChunk, setProcess }) =>
+      await runQueuedSpawnCommand({
+        cwd: args.repoRoot,
+        command: "node",
+        commandArgs,
+        emitChunk,
+        registerProcess: setProcess,
+        commandLabel: args.commandLabel,
+        parseJsonStdout: true,
+        allowNonZeroJson: args.allowNonZeroJson === true,
+      }),
+  });
+
+  sendJson(args.res, 202, queueJobAcceptedPayload(job));
 }
 
 function validateGitRef(raw: string) {
@@ -1513,6 +2074,114 @@ function createLocalDataApi() {
       }
     }
 
+    const jobStreamMatch = url.match(/^\/api\/jobs\/([^/]+)\/stream$/);
+    if (jobStreamMatch) {
+      if (method !== "GET") {
+        sendJson(res, 405, { ok: false, message: "Method not allowed for job stream." });
+        return;
+      }
+
+      const jobId = decodeURIComponent(String(jobStreamMatch[1] || ""));
+      const job = queueJobs.get(jobId);
+      if (!job) {
+        sendJson(res, 404, { ok: false, message: `Job '${jobId}' not found.` });
+        return;
+      }
+
+      const sinceRaw = Number.parseInt(String(searchParams.get("since") || ""), 10);
+      const since = Number.isFinite(sinceRaw) ? Math.max(0, sinceRaw) : 0;
+      const replay = listQueueJobEvents(job, { since, limit: MAX_RETAINED_EVENTS });
+
+      res.statusCode = 200;
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+
+      const writeSse = (event: QueueJobEvent) => {
+        (res as any).write(`data: ${JSON.stringify(event)}\n\n`);
+      };
+
+      for (const event of replay) writeSse(event);
+
+      if (isQueueJobFinalStatus(job.status)) {
+        res.end("");
+        return;
+      }
+
+      let closed = false;
+      const close = () => {
+        if (closed) return;
+        closed = true;
+        clearInterval(heartbeat);
+        job.emitter.off("event", onEvent);
+      };
+
+      const onEvent = (event: QueueJobEvent) => {
+        if (closed) return;
+        writeSse(event);
+        if (event.type === "end") {
+          close();
+          res.end("");
+        }
+      };
+      job.emitter.on("event", onEvent);
+
+      const heartbeat = setInterval(() => {
+        if (closed) return;
+        (res as any).write(":keep-alive\n\n");
+      }, 15_000);
+
+      req.on("close", () => {
+        close();
+      });
+      req.on("error", () => {
+        close();
+      });
+      return;
+    }
+
+    const jobStatusMatch = url.match(/^\/api\/jobs\/([^/]+)$/);
+    if (jobStatusMatch) {
+      const jobId = decodeURIComponent(String(jobStatusMatch[1] || ""));
+      const job = queueJobs.get(jobId);
+      if (!job) {
+        sendJson(res, 404, { ok: false, message: `Job '${jobId}' not found.` });
+        return;
+      }
+
+      if (method === "DELETE") {
+        const cancelled = cancelQueueJob(jobId);
+        if (!cancelled.ok) {
+          sendJson(res, 409, { ok: false, message: cancelled.message });
+          return;
+        }
+        sendJson(res, 200, { ok: true, job: queueJobSnapshot(job) });
+        return;
+      }
+
+      if (method !== "GET") {
+        sendJson(res, 405, { ok: false, message: "Method not allowed for job status." });
+        return;
+      }
+
+      const sinceRaw = Number.parseInt(String(searchParams.get("since") || ""), 10);
+      const limitRaw = Number.parseInt(String(searchParams.get("limit") || ""), 10);
+      const since = Number.isFinite(sinceRaw) ? Math.max(0, sinceRaw) : 0;
+      const limit = Number.isFinite(limitRaw) ? clampInt(limitRaw, 1, 1000) : 300;
+      const events = listQueueJobEvents(job, { since, limit });
+      const nextCursor =
+        job.events.length > 0 ? job.events[job.events.length - 1].seq : Math.max(0, job.nextSeq - 1);
+
+      sendJson(res, 200, {
+        ok: true,
+        job: queueJobSnapshot(job),
+        done: isQueueJobFinalStatus(job.status),
+        events,
+        nextCursor,
+      });
+      return;
+    }
+
     let sysCtx;
     try {
       sysCtx = getSystemContextParams(req);
@@ -2364,12 +3033,6 @@ function createLocalDataApi() {
           bodyParams = await readJsonBody(req);
         } catch (e) { /* ignore empty body */ }
 
-        res.statusCode = 200;
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-
-        // Parse common args mapping for ds:pipeline
         const args: string[] = ["run", scriptName, "--", "--system", systemId];
         if (scriptName === "ds:pipeline") {
           if (bodyParams.all) args.push("--all");
@@ -2381,90 +3044,80 @@ function createLocalDataApi() {
             args.push("--from-step");
             args.push(bodyParams.fromStep);
           }
-          if (bodyParams.dryRun) args.push("--status-only"); // or dry-run equivalent
+          if (bodyParams.dryRun) args.push("--status-only");
         }
 
-        const child = spawn("npm", args, {
-          cwd: repoRoot,
-          shell: false,
+        const commandLabel = `npm ${args.join(" ")}`;
+        const job = enqueueQueueJob({
+          label: commandLabel,
+          systemId,
+          execute: async ({ emitChunk, setProcess }) =>
+            await runQueuedSpawnCommand({
+              cwd: repoRoot,
+              command: "npm",
+              commandArgs: args,
+              emitChunk,
+              registerProcess: setProcess,
+              commandLabel,
+            }),
         });
-
-        const writeChunk = (type: string, text: string) => {
-          // SSE format
-          const payload = JSON.stringify({ type, text });
-          // in nodehttp: res is ServerResponse
-          (res as any).write(`data: ${payload}\n\n`);
-        };
-
-        const writeEnd = (code: number) => {
-          const payload = JSON.stringify({ type: "end", code });
-          (res as any).write(`data: ${payload}\n\n`);
-          res.end("");
-        };
-
-        child.stdout.on("data", (chunk) => {
-          writeChunk("chunk", String(chunk));
-        });
-        child.stderr.on("data", (chunk) => {
-          writeChunk("chunk", String(chunk)); // we stream stderr as chunk too so UI sees it
-        });
-
-        child.on("error", (error) => {
-          const payload = JSON.stringify({ type: "error", message: error instanceof Error ? error.message : String(error) });
-          (res as any).write(`data: ${payload}\n\n`);
-          res.end("");
-        });
-
-        child.on("close", (code) => {
-          writeEnd(code ?? 1);
-        });
-
-        req.on("close", () => {
-          child.kill();
-        });
+        sendJson(res, 202, queueJobAcceptedPayload(job));
         return;
       }
 
       if (method === "POST" && url === "/api/refresh-registry") {
-        runNpmScript({ repoRoot, res, script: "ds:registry:refresh", systemId });
+        queueNpmScript({ repoRoot, res, script: "ds:registry:refresh", systemId });
         return;
       }
 
       if (method === "POST" && url === "/api/refresh-token-usage-index") {
-        runNpmScript({ repoRoot, res, script: "ds:token-usage-index", systemId });
+        queueNpmScript({ repoRoot, res, script: "ds:token-usage-index", systemId });
         return;
       }
 
       if (method === "POST" && url === "/api/refresh-token-graph") {
-        runNpmScript({ repoRoot, res, script: "ds:token-graph", systemId });
+        queueNpmScript({ repoRoot, res, script: "ds:token-graph", systemId });
         return;
       }
 
       if (method === "POST" && url === "/api/refresh-token-health") {
-        runNpmScript({ repoRoot, res, script: "ds:token-health", systemId });
+        queueNpmScript({ repoRoot, res, script: "ds:token-health", systemId });
         return;
       }
 
       if (method === "POST" && url === "/api/refresh-components-health") {
-        runNpmScript({ repoRoot, res, script: "ds:registry:report", systemId });
+        queueNpmScript({ repoRoot, res, script: "ds:registry:report", systemId });
         return;
       }
 
       if (method === "POST" && url === "/api/refresh-naming-debt") {
-        const report = await computeNamingDebtReport({
-          tokenRegistryPath,
-          tokenUsageIndexPath,
-          tokenGraphVizPath,
-          namingDebtConfigPath,
+        const job = enqueueQueueJob({
+          label: "refresh naming debt",
+          systemId,
+          execute: async ({ emitChunk }) => {
+            emitChunk("system", "Computing naming debt report...");
+            const report = await computeNamingDebtReport({
+              tokenRegistryPath,
+              tokenUsageIndexPath,
+              tokenGraphVizPath,
+              namingDebtConfigPath,
+            });
+            await fs.mkdir(path.dirname(namingDebtCachePath), { recursive: true });
+            await fs.writeFile(namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+            return {
+              ok: true,
+              code: 0,
+              summary: "Naming debt refreshed.",
+              payload: {
+                ok: true,
+                generatedAt: report.generatedAt,
+                totalViolations: report.summary.totalViolations,
+                overallScore: report.summary.overallScore,
+              },
+            };
+          },
         });
-        await fs.mkdir(path.dirname(namingDebtCachePath), { recursive: true });
-        await fs.writeFile(namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-        sendJson(res, 200, {
-          ok: true,
-          generatedAt: report.generatedAt,
-          totalViolations: report.summary.totalViolations,
-          overallScore: report.summary.overallScore,
-        });
+        sendJson(res, 202, queueJobAcceptedPayload(job));
         return;
       }
 
@@ -2489,7 +3142,7 @@ function createLocalDataApi() {
 
         const skipDiff = toBooleanString(body.skipDiff, false);
 
-        runNodeJsonCommand({
+        queueNodeJsonCommand({
           repoRoot,
           res,
           commandLabel:
@@ -2535,7 +3188,7 @@ function createLocalDataApi() {
           commandDisplayArgs[tokenIdx + 1] = "***redacted***";
         }
 
-        runNodeJsonCommand({
+        queueNodeJsonCommand({
           repoRoot,
           res,
           commandLabel: `node tooling/scripts/ds-tokens-from-figma.mjs ${commandDisplayArgs.join(" ")}`,
@@ -2630,7 +3283,7 @@ function createLocalDataApi() {
           commandDisplayArgs[tokenIdx + 1] = "***redacted***";
         }
 
-        runNodeJsonCommand({
+        queueNodeJsonCommand({
           repoRoot,
           res,
           commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${commandDisplayArgs.join(

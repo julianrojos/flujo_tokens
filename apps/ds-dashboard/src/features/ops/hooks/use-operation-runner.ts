@@ -23,6 +23,8 @@ export interface OperationRunnerActions {
 }
 
 const STORAGE_KEY_PREFIX = "ops:lastRunAt:";
+const JOB_POLL_INTERVAL_MS = 900;
+const JOB_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
 
 // Strip ANSI escape codes for clean text output
 export function stripAnsi(text: string): string {
@@ -102,11 +104,34 @@ export function useOperationRunner(
 
       try {
         const systemId = getActiveSystemId();
+        const systemHeaders: HeadersInit = systemId ? { "x-ds-system": systemId } : {};
+
+        const pushLogLines = (rawText: unknown, forcedKind?: LogLine["kind"]) => {
+          const clean = stripAnsi(String(rawText ?? ""));
+          if (!clean.trim()) return;
+          for (const line of clean.split("\n")) {
+            if (!line.trim()) continue;
+            setLogLines((prev) => [
+              ...prev,
+              {
+                text: line,
+                kind: forcedKind || detectKind(line),
+              },
+            ]);
+          }
+        };
+
+        const resolveLogKind = (rawKind: unknown): LogLine["kind"] | undefined => {
+          const kind = String(rawKind ?? "").trim().toLowerCase();
+          if (kind === "stdout" || kind === "stderr" || kind === "system") return kind;
+          return undefined;
+        };
+
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            ...(systemId ? { "x-ds-system": systemId } : {})
+            ...systemHeaders
           },
           body: params ? JSON.stringify(params) : undefined,
         });
@@ -118,118 +143,247 @@ export function useOperationRunner(
         let finalSummary = "";
         let receivedEndEvent = false;
 
-        if (isSSE) {
-          // ── SSE streaming mode ─────────────────────────────────────────
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const applyStreamEvent = (data: Record<string, unknown>) => {
+          const type = String(data.type ?? "").trim().toLowerCase();
+          if (!type) return;
+
+          if (type === "status") {
+            const nextStatus = String(data.status ?? "").trim().toLowerCase();
+            if (nextStatus === "queued") {
+              pushLogLines("En cola...", "system");
+            } else if (nextStatus === "running") {
+              pushLogLines("Iniciando ejecución...", "system");
+            } else if (nextStatus === "cancelled") {
+              pushLogLines("Operación cancelada.", "system");
+            }
+            return;
           }
 
-          const reader = response.body?.getReader();
+          if (type === "chunk") {
+            pushLogLines(data.text ?? "", resolveLogKind(data.kind));
+            return;
+          }
+
+          if (type === "error") {
+            const message = String(data.message ?? "Unknown error").trim();
+            pushLogLines(message, "stderr");
+            isError = true;
+            finalSummary = message || "Error desconocido";
+            return;
+          }
+
+          if (type === "end") {
+            const code = Number(data.code);
+            const endStatus = String(data.status ?? "").trim().toLowerCase();
+            const hasNumericCode = Number.isFinite(code);
+            const failedByStatus = endStatus === "error" || endStatus === "cancelled";
+            const failedByCode = hasNumericCode ? code !== 0 : false;
+            const failed = failedByStatus || failedByCode;
+            const endSummary = String(data.summary ?? data.message ?? "").trim();
+
+            isError = failed;
+            finalSummary =
+              endSummary ||
+              (failed
+                ? hasNumericCode
+                  ? `Falló con código ${code}`
+                  : "Error desconocido"
+                : "Completado correctamente");
+            receivedEndEvent = true;
+          }
+        };
+
+        const processSseBlock = (block: string) => {
+          const lines = block.split(/\r?\n/);
+          const dataLines: string[] = [];
+          for (const line of lines) {
+            if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+          }
+          if (dataLines.length === 0) return;
+
+          const payload = dataLines.join("\n");
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed && typeof parsed === "object") {
+              applyStreamEvent(parsed as Record<string, unknown>);
+              return;
+            }
+          } catch {
+            // ignore and fall back to raw text
+          }
+
+          pushLogLines(payload, "stdout");
+        };
+
+        const consumeSse = async (streamResponse: Response) => {
+          if (!streamResponse.ok) {
+            throw new Error(`HTTP ${streamResponse.status}: ${streamResponse.statusText}`);
+          }
+
+          const reader = streamResponse.body?.getReader();
           const decoder = new TextDecoder();
-          if (!reader) throw new Error("No readable stream from response");
+          if (!reader) throw new Error("No readable stream from response.");
 
-          let done = false;
           let buffer = "";
-
-          while (!done) {
-            const { value, done: readerDone } = await reader.read();
-            done = readerDone;
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
             if (value) {
               buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() ?? "";
-
-              for (const line of lines) {
-                if (!line.trim()) continue;
-                if (line.startsWith("data: ")) {
-                  try {
-                    const data = JSON.parse(line.slice(6));
-                    if (data.type === "chunk") {
-                      const clean = stripAnsi(data.text ?? "");
-                      if (clean.trim()) {
-                        setLogLines((prev) => [
-                          ...prev,
-                          { text: clean, kind: detectKind(clean) },
-                        ]);
-                      }
-                    } else if (data.type === "error") {
-                      const msg = stripAnsi(data.message ?? "Unknown error");
-                      setLogLines((prev) => [...prev, { text: msg, kind: "stderr" }]);
-                      isError = true;
-                      finalSummary = msg;
-                      receivedEndEvent = true;
-                    } else if (data.type === "end") {
-                      receivedEndEvent = true;
-                      isError = data.code !== 0;
-                      finalSummary = isError
-                        ? `Falló con código ${data.code}`
-                        : "Completado correctamente";
-                    }
-                  } catch {
-                    const clean = stripAnsi(line.replace(/^data:\s*/, ""));
-                    if (clean.trim()) {
-                      setLogLines((prev) => [...prev, { text: clean, kind: "stdout" }]);
-                    }
-                  }
-                }
+              let splitAt = buffer.indexOf("\n\n");
+              while (splitAt >= 0) {
+                const eventBlock = buffer.slice(0, splitAt);
+                buffer = buffer.slice(splitAt + 2);
+                processSseBlock(eventBlock);
+                splitAt = buffer.indexOf("\n\n");
               }
             }
           }
 
+          const remaining = buffer.trim();
+          if (remaining) processSseBlock(remaining);
+        };
+
+        const pollQueuedJob = async (statusUrl: string) => {
+          let cursor = 0;
+          const deadline = Date.now() + JOB_WAIT_TIMEOUT_MS;
+
+          while (Date.now() < deadline) {
+            const separator = statusUrl.includes("?") ? "&" : "?";
+            const url = `${statusUrl}${separator}since=${cursor}`;
+            const pollResponse = await fetch(url, {
+              headers: {
+                Accept: "application/json",
+                ...systemHeaders,
+              },
+            });
+            if (!pollResponse.ok) {
+              throw new Error(`Polling failed: HTTP ${pollResponse.status}`);
+            }
+
+            const payload = (await pollResponse.json().catch(() => ({}))) as Record<string, unknown>;
+            const events = Array.isArray(payload.events) ? payload.events : [];
+            for (const event of events) {
+              if (!event || typeof event !== "object") continue;
+              const row = event as Record<string, unknown>;
+              applyStreamEvent(row);
+              const seq = Number(row.seq);
+              if (Number.isFinite(seq) && seq > cursor) cursor = seq;
+            }
+
+            const nextCursor = Number(payload.nextCursor);
+            if (Number.isFinite(nextCursor) && nextCursor > cursor) cursor = nextCursor;
+
+            const job = payload.job && typeof payload.job === "object"
+              ? (payload.job as Record<string, unknown>)
+              : null;
+            const jobStatus = String(job?.status ?? "").trim().toLowerCase();
+            if (jobStatus === "success" || jobStatus === "error" || jobStatus === "cancelled") {
+              if (!receivedEndEvent) {
+                const result =
+                  job?.result && typeof job.result === "object"
+                    ? (job.result as Record<string, unknown>)
+                    : null;
+                const derivedSummary = String(result?.summary ?? "").trim();
+                isError = jobStatus !== "success";
+                finalSummary = derivedSummary || (isError ? "Error desconocido" : "Completado correctamente");
+                receivedEndEvent = true;
+              }
+              return;
+            }
+
+            await new Promise<void>((resolve) => {
+              window.setTimeout(resolve, JOB_POLL_INTERVAL_MS);
+            });
+          }
+
+          throw new Error("Timeout waiting for queued operation.");
+        };
+
+        if (isSSE) {
+          await consumeSse(response);
           if (!receivedEndEvent && !isError) {
             isError = true;
             finalSummary = "Stream ended without completion event";
           }
         } else {
-          // ── JSON batch mode (runNpmScript) ─────────────────────────────
           const data = await response.json().catch(() => ({} as Record<string, unknown>));
-          isError = !response.ok || data.ok === false;
+          const jobId = String(data.jobId ?? "").trim();
 
-          // Show stdout/stderr as log lines
-          const out = stripAnsi(String(data.output ?? data.stdout ?? "")).trim();
-          const err = stripAnsi(String(data.stderr ?? "")).trim();
+          if (response.ok && jobId) {
+            const streamUrl = String(data.streamUrl ?? "").trim();
+            const statusUrl = String(data.statusUrl ?? "").trim() || `/api/jobs/${encodeURIComponent(jobId)}`;
 
-          if (out) {
-            for (const line of out.split("\n")) {
-              if (line.trim()) {
-                setLogLines((prev) => [...prev, { text: line, kind: detectKind(line) }]);
+            if (streamUrl) {
+              try {
+                const streamResponse = await fetch(streamUrl, {
+                  headers: {
+                    Accept: "text/event-stream",
+                    ...systemHeaders,
+                  },
+                });
+                await consumeSse(streamResponse);
+              } catch {
+                pushLogLines("SSE desconectado; continuando por polling.", "system");
               }
             }
-          }
-          if (err) {
-            for (const line of err.split("\n")) {
-              if (line.trim()) {
-                setLogLines((prev) => [...prev, { text: line, kind: "stderr" }]);
-              }
+
+            if (!receivedEndEvent) {
+              await pollQueuedJob(statusUrl);
             }
-          }
 
-          const exitCode = Number(data.code ?? data.exit_code);
-          const syncError = typeof data.sync === "object" && data.sync !== null
-            ? String((data.sync as Record<string, unknown>).error ?? "").trim()
-            : "";
-          const syncReason = typeof data.sync === "object" && data.sync !== null
-            ? String((data.sync as Record<string, unknown>).reason ?? "").trim()
-            : "";
-          const topLevelError = String(data.error ?? "").trim();
-          const topLevelMessage = String(data.message ?? "").trim();
-
-          if (isError && !err) {
-            const derived = topLevelMessage || topLevelError || syncError || syncReason;
-            if (derived) {
-              setLogLines((prev) => [...prev, { text: derived, kind: "stderr" }]);
+            if (!receivedEndEvent && !isError) {
+              isError = true;
+              finalSummary = "La operación no reportó estado final.";
             }
-          }
-
-          if (isError) {
-            finalSummary =
-              topLevelMessage ||
-              topLevelError ||
-              syncError ||
-              (syncReason ? `Fallo de sync: ${syncReason}` : "") ||
-              (Number.isFinite(exitCode) ? `Falló con código ${exitCode}` : "Error desconocido");
           } else {
-            finalSummary = "Completado correctamente";
+            isError = !response.ok || data.ok === false;
+
+            const out = stripAnsi(String(data.output ?? data.stdout ?? "")).trim();
+            const err = stripAnsi(String(data.stderr ?? "")).trim();
+
+            if (out) {
+              for (const line of out.split("\n")) {
+                if (line.trim()) {
+                  setLogLines((prev) => [...prev, { text: line, kind: detectKind(line) }]);
+                }
+              }
+            }
+            if (err) {
+              for (const line of err.split("\n")) {
+                if (line.trim()) {
+                  setLogLines((prev) => [...prev, { text: line, kind: "stderr" }]);
+                }
+              }
+            }
+
+            const exitCode = Number(data.code ?? data.exit_code);
+            const syncError = typeof data.sync === "object" && data.sync !== null
+              ? String((data.sync as Record<string, unknown>).error ?? "").trim()
+              : "";
+            const syncReason = typeof data.sync === "object" && data.sync !== null
+              ? String((data.sync as Record<string, unknown>).reason ?? "").trim()
+              : "";
+            const topLevelError = String(data.error ?? "").trim();
+            const topLevelMessage = String(data.message ?? "").trim();
+
+            if (isError && !err) {
+              const derived = topLevelMessage || topLevelError || syncError || syncReason;
+              if (derived) {
+                setLogLines((prev) => [...prev, { text: derived, kind: "stderr" }]);
+              }
+            }
+
+            if (isError) {
+              finalSummary =
+                topLevelMessage ||
+                topLevelError ||
+                syncError ||
+                (syncReason ? `Fallo de sync: ${syncReason}` : "") ||
+                (Number.isFinite(exitCode) ? `Falló con código ${exitCode}` : "Error desconocido");
+            } else {
+              finalSummary = "Completado correctamente";
+            }
           }
         }
 

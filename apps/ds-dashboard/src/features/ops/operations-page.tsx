@@ -106,6 +106,41 @@ const REFRESH_ALL_SEQUENCE = [
   { label: "Token Health", endpoint: "/api/refresh-token-health" },
   { label: "Token Graph",  endpoint: "/api/refresh-token-graph" },
 ];
+const RUN_ALL_POLL_INTERVAL_MS = 900;
+const RUN_ALL_TIMEOUT_MS = 20 * 60 * 1000;
+
+async function waitForQueuedJob(statusUrl: string): Promise<boolean> {
+  let cursor = 0;
+  const deadline = Date.now() + RUN_ALL_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const separator = statusUrl.includes("?") ? "&" : "?";
+    const response = await fetch(`${statusUrl}${separator}since=${cursor}`, {
+      headers: {
+        Accept: "application/json",
+        ...(getSystemHeaders() ?? {}),
+      },
+    });
+    if (!response.ok) return false;
+
+    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    const nextCursor = Number(payload.nextCursor);
+    if (Number.isFinite(nextCursor) && nextCursor > cursor) cursor = nextCursor;
+
+    const job = payload.job && typeof payload.job === "object"
+      ? (payload.job as Record<string, unknown>)
+      : null;
+    const status = String(job?.status ?? "").trim().toLowerCase();
+    if (status === "success") return true;
+    if (status === "error" || status === "cancelled") return false;
+
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, RUN_ALL_POLL_INTERVAL_MS);
+    });
+  }
+
+  return false;
+}
 
 interface RunAllState {
   isRunning: boolean;
@@ -132,6 +167,17 @@ function useRunAll(onDone: () => void): [RunAllState, () => void] {
         if (!res.ok) {
           setState({ isRunning: false, stepIndex: i + 1, failed: true });
           return;
+        }
+
+        const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+        const jobId = String(payload.jobId ?? "").trim();
+        if (jobId) {
+          const statusUrl = String(payload.statusUrl ?? "").trim() || `/api/jobs/${encodeURIComponent(jobId)}`;
+          const completed = await waitForQueuedJob(statusUrl);
+          if (!completed) {
+            setState({ isRunning: false, stepIndex: i + 1, failed: true });
+            return;
+          }
         }
       } catch {
         setState({ isRunning: false, stepIndex: i + 1, failed: true });
