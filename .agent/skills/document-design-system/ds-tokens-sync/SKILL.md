@@ -63,12 +63,7 @@ Use this skill when:
 - `single` (default: `false`; when `true`, emits one CSS file)
 - `force` (default: `false`; bypasses cache skip)
 
-## Applicable rules
-
-This skill must produce output that complies with:
-
-- `ds-docs-guardrails.mdc` — generated artifacts are deterministic and not hand-edited
-- `token-registry-validation.mdc` — downstream docs/spec token references rely on this registry
+> Applicable rules are resolved from `context:` via `_manifest.yml`.
 
 ## Required behavior
 

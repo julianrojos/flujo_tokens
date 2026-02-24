@@ -66,14 +66,7 @@ Use this skill when:
 
 Do not use this skill for non-component pages.
 
-## Applicable rules
-
-This skill must comply with:
-
-- `figma-rendering.mdc` — authoring subset, block types, determinism, theme contract, section placement, and table rendering rules
-- `component-doc.mdc` — the Markdown input is expected to follow the required frontmatter + ordered sections
-- `ds-docs-guardrails.mdc` — no invented content; `VariableID:*` is prohibited in visible docs
-- `docs-pipeline-contract.mdc` — canonical stage order, preconditions, and validation gates
+> Applicable rules are resolved from `context:` via `_manifest.yml`.
 
 ## Inputs (ask only if missing)
 

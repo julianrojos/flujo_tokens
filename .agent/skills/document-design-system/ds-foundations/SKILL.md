@@ -113,17 +113,7 @@ Useful flags:
 - `${docs_root}/foundations/a11y.md`
 - Update `${docs_root}/foundations/overview.md` to link to all of the above
 
-## Applicable rules
-
-This skill must produce output that complies with:
-
-- `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
-- `token-references.mdc` — token path formatting, fallback values, and naming patterns in all foundation pages
-- `token-registry-validation.mdc` — validation of token references against the generated registry
-- `inclusive-docs.mdc` — conventions for accessibility and localization documentation
-- `docs-taxonomy.mdc` — page type classification (`foundation`)
-- `docs-language-tone.mdc` — language and tone consistency
-- `overview-index-maintenance.mdc` — keep `foundations/overview.md` synchronized
+> Applicable rules are resolved from `context:` via `_manifest.yml`.
 
 ## Global rules
 

@@ -52,27 +52,7 @@ Use this skill when:
 - You want a single Markdown page per component
 - You have (or will create) a minimal spec YAML to avoid guessing
 
-## Applicable rules
-
-This skill must produce output that complies with:
-
-- `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
-- `frontmatter-contract.mdc` — unified frontmatter contract for markdown pages
-- `component-doc.mdc` — section order, allowed H2 set, and section-level writing guidance
-- `component-spec-yaml.mdc` — required fields and conventions for the input YAML
-- `component-spec-properties-order.mdc` — deterministic ordering of `properties` entries in spec YAML
-- `token-references.mdc` — token path formatting, fallback values, and naming patterns
-- `inclusive-docs.mdc` — required accessibility + i18n expectations for component docs
-- `component-figma-traceability.mdc` — Figma source metadata in component docs
-- `markdown-lifecycle-status.mdc` — `doc_status` lifecycle for markdown pages
-- `design-token-discrepancies.mdc` — optional discrepancy section with fixed table format
-- `docs-language-tone.mdc` — language and tone consistency
-- `component-name-normalization.mdc` — canonical `component_name` normalization and deterministic paths
-- `overview-index-maintenance.mdc` — required synchronization of `docs/components/overview.md`
-- `overview-components-canonical-list.mdc` — canonical component list format and strict ordering in overview
-- `docs-pipeline-contract.mdc` — canonical stage order, preconditions, and validation gates
-
-When in doubt, the rules are the source of truth.
+> Applicable rules are resolved from `context:` via `_manifest.yml`.
 
 ## Inputs (ask only if missing)
 

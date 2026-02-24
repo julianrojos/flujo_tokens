@@ -51,17 +51,7 @@ Use this skill when:
 - Teams need a decision guide that maps problem -> pattern -> components.
 - You need pattern docs with governance, metrics, and i18n coverage.
 
-## Applicable rules
-
-This skill must comply with:
-
-- `pattern-doc-workflow.mdc`
-- `docs-governance-ops.mdc`
-- `inclusive-docs.mdc`
-- `docs-taxonomy.mdc`
-- `frontmatter-contract.mdc`
-- `ds-docs-guardrails.mdc`
-- `docs-language-tone.mdc`
+> Applicable rules are resolved from `context:` via `_manifest.yml`.
 
 ## Required behavior
 

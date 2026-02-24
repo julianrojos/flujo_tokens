@@ -64,17 +64,7 @@ outputs:
 
 # ds-spec-from-figma
 
-## Applicable rules
-
-This skill must comply with:
-
-- `component-spec-yaml.mdc`
-- `component-spec-properties-order.mdc`
-- `component-name-normalization.mdc`
-- `token-references.mdc`
-- `token-registry-validation.mdc`
-- `ds-docs-guardrails.mdc`
-- `docs-pipeline-contract.mdc`
+> Applicable rules are resolved from `context:` via `_manifest.yml`.
 
 ## When to use
 

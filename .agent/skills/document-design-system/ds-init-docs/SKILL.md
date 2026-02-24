@@ -87,14 +87,7 @@ Optional outputs (`include_optional_sections=true` or explicit user request):
 - `${docs_root}/workflows/overview.md`
 - `${docs_root}/a11y/overview.md`
 
-## Applicable rules
-
-All generated documentation must comply with:
-
-- `ds-docs-guardrails.mdc`
-- `docs-taxonomy.mdc`
-- `frontmatter-contract.mdc`
-- `docs-language-tone.mdc`
+> Applicable rules are resolved from `context:` via `_manifest.yml`.
 
 ## Style & rules
 
