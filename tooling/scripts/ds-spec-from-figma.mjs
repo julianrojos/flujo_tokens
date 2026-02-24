@@ -1,25 +1,13 @@
 #!/usr/bin/env node
 
-import fs from "node:fs";
 import path from "node:path";
-import yaml from "js-yaml";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { loadTokenRegistry } from "./lib/token-registry.mjs";
-import {
-  componentNameToDisplayName,
-  normalizeComponentName,
-} from "./lib/component-name.mjs";
-import { isPlainObject } from "./lib/is-plain-object.mjs";
+import { normalizeComponentName } from "./lib/component-name.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
-import { isTbdMarker } from "./lib/tbd.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
-import {
-  mergeWithTemplate,
-  normalizeSpecOrder,
-} from "./lib/spec-normalizer.mjs";
 import {
   buildSpecPrompt,
   buildSpecValidationFeedbackPrompt,
@@ -31,10 +19,15 @@ import {
   buildTokenMenuLines,
   countTbdValues,
   extractUniqueRegistryEntries,
-  pickComponentTokenCandidates,
-  prefillTokenMapping,
 } from "./lib/spec-token-mapping.mjs";
 import { validateGeneratedSpec } from "./lib/spec-validation.mjs";
+import { buildSpecGenerationResult } from "./lib/spec-result.mjs";
+import {
+  ensureSpecOutputDirectory,
+  ensureSpecTemplateExists,
+  materializeAndWriteSpec as materializeSpecAndWrite,
+  parseExistingSpecFromSnapshot,
+} from "./lib/spec-write-adapter.mjs";
 import {
   captureFileSnapshot,
   restoreFileSnapshot,
@@ -180,26 +173,6 @@ function formatYamlFile(outputPath) {
   runOrThrow("npx", ["prettier", "--write", outputPath]);
 }
 
-function ensureSpecMetadata(spec, { componentName, nodeId, fileKeyFromUrl }) {
-  if (!isPlainObject(spec.figma)) spec.figma = {};
-  if (componentName && isTbdMarker(spec.name))
-    spec.name = componentNameToDisplayName(componentName);
-  if (componentName && !String(spec.name || "").trim())
-    spec.name = componentNameToDisplayName(componentName);
-
-  if (fileKeyFromUrl && (!spec.figma.file || isTbdMarker(spec.figma.file))) {
-    spec.figma.file = fileKeyFromUrl;
-  }
-  if (
-    nodeId &&
-    (!spec.figma.component_set_node_id ||
-      isTbdMarker(spec.figma.component_set_node_id))
-  ) {
-    spec.figma.component_set_node_id = nodeId;
-  }
-  return spec;
-}
-
 function main() {
   const args = parseArgs(process.argv.slice(2));
   if (String(args.help || "false") === "true") {
@@ -268,16 +241,11 @@ function main() {
   }
   const outputSnapshot = captureFileSnapshot(outputPath);
   let existingSpec = null;
-  if (outputSnapshot.exists) {
-    try {
-      existingSpec = parseYamlDocument(
-        outputSnapshot.content,
-        `existing spec (${outputPath})`,
-      );
-    } catch (error) {
-      console.error(error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
+  try {
+    existingSpec = parseExistingSpecFromSnapshot(outputSnapshot, outputPath);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
   }
   const overviewPath = path.resolve(path.join(ctx.paths.docs, "overview.md"));
   const registryIndexPath = path.resolve(ctx.paths.registry);
@@ -288,8 +256,10 @@ function main() {
   });
   const allowedWritePaths = [outputPath, overviewPath, registryIndexPath];
 
-  if (!fs.existsSync(templatePath)) {
-    console.error(`Spec template not found: ${templatePath}`);
+  try {
+    ensureSpecTemplateExists(templatePath);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 
@@ -317,63 +287,23 @@ function main() {
     ),
   });
 
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  ensureSpecOutputDirectory(outputPath);
 
   try {
-    const materializeAndWriteSpec = () => {
-      if (!fs.existsSync(outputPath)) {
-        throw new Error(
-          `Expected generated spec file not found at ${outputPath}`,
-        );
-      }
-
-      const templateSpec = parseYamlDocument(
-        fs.readFileSync(templatePath, "utf8"),
-        `spec template (${templatePath})`,
-      );
-      const generatedSpecRaw = parseYamlDocument(
-        fs.readFileSync(outputPath, "utf8"),
-        `generated spec (${outputPath})`,
-      );
-
-      const mergedSpec = mergeWithTemplate(templateSpec, generatedSpecRaw);
-      ensureSpecMetadata(mergedSpec, { componentName, nodeId, fileKeyFromUrl });
-
-      const registryEntries = extractUniqueRegistryEntries(registryIndex);
-      const tokenCandidates = pickComponentTokenCandidates(
-        registryEntries,
-        mergedSpec.name || componentName,
-      );
-      const prefilledCount = prefillTokenMapping(
-        mergedSpec.token_mapping,
-        tokenCandidates,
-        "token_mapping",
-      );
-
-      const normalizedSpec = normalizeSpecOrder(mergedSpec);
-      if (existingSpec && !allowNonEvidenceUpdates) {
-        assertEvidenceGatedScalarChanges({
-          before: existingSpec,
-          after: normalizedSpec,
-          allowedKnownToKnownPrefixes: SPEC_EVIDENCE_BACKED_PREFIXES,
-          label: `${outputPath} spec`,
-        });
-      }
-      fs.writeFileSync(
+    const materializeGeneratedSpec = () => {
+      return materializeSpecAndWrite({
         outputPath,
-        yaml.dump(normalizedSpec, {
-          lineWidth: 120,
-          noRefs: true,
-          sortKeys: false,
-        }),
-        "utf8",
-      );
-      formatYamlFile(outputPath);
-
-      return {
-        normalizedSpec,
-        prefilledCount,
-      };
+        templatePath,
+        registryIndex,
+        componentName,
+        nodeId,
+        fileKeyFromUrl,
+        existingSpec,
+        allowNonEvidenceUpdates,
+        evidenceGate: assertEvidenceGatedScalarChanges,
+        evidenceBackedPrefixes: SPEC_EVIDENCE_BACKED_PREFIXES,
+        formatYamlFile,
+      });
     };
 
     runSpecGenerationPrompt({
@@ -382,7 +312,7 @@ function main() {
       componentName,
       nodeId,
     });
-    let { normalizedSpec, prefilledCount } = materializeAndWriteSpec();
+    let { normalizedSpec, prefilledCount } = materializeGeneratedSpec();
 
     let validationReport = null;
     if (!skipValidation) {
@@ -399,7 +329,7 @@ function main() {
           componentName,
           nodeId,
         });
-        ({ normalizedSpec, prefilledCount } = materializeAndWriteSpec());
+        ({ normalizedSpec, prefilledCount } = materializeGeneratedSpec());
         validation = validateGeneratedSpec(outputPath, registryPath);
         if (!validation.ok) {
           throw new Error(
@@ -431,34 +361,17 @@ function main() {
       label: "ds-spec-from-figma",
     });
 
-    process.stdout.write(
-      `${JSON.stringify(
-        {
-          ok: true,
-          outputPath,
-          componentName: normalizedSpec.name || componentName || null,
-          componentSetNodeId: nodeId || null,
-          tokenPrefilled: prefilledCount,
-          unresolvedTbdCount: countTbdValues(normalizedSpec),
-          validation: validationReport
-            ? {
-                ok: validationReport.ok,
-                errors: validationReport.summary.errors,
-                warnings: validationReport.summary.warnings,
-              }
-            : { skipped: true },
-          documentationIndices: {
-            changed: indicesSync.changed,
-            written: indicesSync.written,
-            registryPath: indicesSync.registry.registryPath,
-            registryFingerprint: indicesSync.registry.fingerprint,
-            overviewPath: indicesSync.overview.overviewPath,
-          },
-        },
-        null,
-        2,
-      )}\n`,
-    );
+    const result = buildSpecGenerationResult({
+      outputPath,
+      normalizedSpec,
+      componentName,
+      nodeId,
+      prefilledCount,
+      unresolvedTbdCount: countTbdValues(normalizedSpec),
+      validationReport,
+      indicesSync,
+    });
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } catch (error) {
     restoreFileSnapshot(outputPath, outputSnapshot);
     let scopeMessage = "";
