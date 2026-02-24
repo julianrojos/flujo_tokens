@@ -9,20 +9,38 @@ const PIPELINE_STEPS = [
   { id: 'proof', role: 'visual', desc: 'Capture Visual Proof' }
 ];
 
-const VALID_FROM_STEPS = new Set(PIPELINE_STEPS.map(s => s.id));
+const STEP_ALIASES = Object.freeze({
+  spec: "spec",
+  markdown: "markdown",
+  figma: "render",
+  "visual-proof": "proof",
+  render: "render",
+  proof: "proof",
+});
+
+function normalizeStepArg(rawStep) {
+  const normalized = String(rawStep || "").trim().toLowerCase();
+  if (!normalized) return "";
+  return STEP_ALIASES[normalized] || "";
+}
 
 export async function createPlan(options = {}) {
+  const rawFromStep = String(options['from-step'] || "").trim().toLowerCase();
+  const rawOnlyStep = String(options['only-step'] || "").trim().toLowerCase();
+  const fromStep = normalizeStepArg(rawFromStep);
+  const onlyStep = normalizeStepArg(rawOnlyStep);
+
   // Validate --from-step early so callers get a clear error instead of silent -1 index
-  if (options['from-step'] && !VALID_FROM_STEPS.has(options['from-step'])) {
+  if (rawFromStep && !fromStep) {
     throw new Error(
       `Invalid --from-step value: "${options['from-step']}". ` +
-      `Must be one of: ${[...VALID_FROM_STEPS].join(', ')}.`
+      `Must be one of: spec, markdown, figma, visual-proof (legacy aliases: render, proof).`
     );
   }
-  if (options['only-step'] && !VALID_FROM_STEPS.has(options['only-step'])) {
+  if (rawOnlyStep && !onlyStep) {
     throw new Error(
       `Invalid --only-step value: "${options['only-step']}". ` +
-      `Must be one of: ${[...VALID_FROM_STEPS].join(', ')}.`
+      `Must be one of: spec, markdown, figma, visual-proof (legacy aliases: render, proof).`
     );
   }
   const plan = {
@@ -125,23 +143,23 @@ export async function createPlan(options = {}) {
                 break;
         }
 
-        if (options['from-step']) {
+        if (fromStep) {
             const currentIdx = PIPELINE_STEPS.findIndex(s => s.id === stepObj.id);
-            const fromIdx = PIPELINE_STEPS.findIndex(s => s.id === options['from-step']);
+            const fromIdx = PIPELINE_STEPS.findIndex(s => s.id === fromStep);
             if (currentIdx < fromIdx) {
                 stepPlan.needed = false;
-                stepPlan.reason = `Skipped due to --from-step=${options['from-step']}`;
+                stepPlan.reason = `Skipped due to --from-step=${rawFromStep}`;
             }
         }
 
-        if (options['only-step']) {
-            if (stepObj.id !== options['only-step']) {
+        if (onlyStep) {
+            if (stepObj.id !== onlyStep) {
                 stepPlan.needed = false;
-                stepPlan.reason = `Filtered by --only-step=${options['only-step']}`;
+                stepPlan.reason = `Filtered by --only-step=${rawOnlyStep}`;
             } else if (!stepPlan.blocked) {
                 stepPlan.needed = true;
                 if (stepPlan.reason === 'Up to date or skipped' || stepPlan.reason.startsWith('render-figma not requested')) {
-                    stepPlan.reason = `Forced by --only-step=${options['only-step']}`;
+                    stepPlan.reason = `Forced by --only-step=${rawOnlyStep}`;
                 }
             }
         }
@@ -154,9 +172,9 @@ export async function createPlan(options = {}) {
     const specStep = steps.find(s => s.id === 'spec');
     const mdStep = steps.find(s => s.id === 'markdown');
     if (specStep && mdStep && !hasSpec && !specStep.needed && !specStep.blocked && mdStep.needed) {
-      const fromStepSkip = options['from-step'] &&
-        PIPELINE_STEPS.findIndex(s => s.id === 'spec') < PIPELINE_STEPS.findIndex(s => s.id === options['from-step']);
-      const onlyStepSkip = options['only-step'] && options['only-step'] !== 'spec' && hasSpec;
+      const fromStepSkip = fromStep &&
+        PIPELINE_STEPS.findIndex(s => s.id === 'spec') < PIPELINE_STEPS.findIndex(s => s.id === fromStep);
+      const onlyStepSkip = onlyStep && onlyStep !== 'spec' && hasSpec;
       if (!fromStepSkip && !onlyStepSkip) {
         mdStep.blocked = true;
         mdStep.reason = 'Blocked: spec missing and spec step skipped';

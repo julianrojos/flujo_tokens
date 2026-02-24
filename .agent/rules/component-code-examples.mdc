@@ -1,12 +1,16 @@
 ---
-description: Standards for authoring contextual and boilerplate-free interactive code examples in component documentation.
+description: Deprecated. Code examples are currently out of scope for design-only component docs.
+deprecated: true
 globs:
   - "docs/components/**/*.md"
   - "docs/components/**/*.mdx"
 ---
 # Component Code Examples
 
-This rule dictates the quality, structure, and constraints for code snippets and usage examples within component documentation. 
+> **Deprecated.** This rule is disabled while the documentation pipeline enforces design-only outputs (no implementation snippets).
+> Keep component behavior examples in prose/tables until code examples are reintroduced as a first-class docs stage.
+
+This rule dictates the quality, structure, and constraints for code snippets and usage examples within component documentation.
 
 Code examples are the primary tool for developers to integrate components. They must be contextual, concise, and copy-paste ready.
 

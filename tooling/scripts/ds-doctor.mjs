@@ -34,9 +34,8 @@ function collectManifestRuleFiles(manifest) {
   const rules = Array.isArray(manifest?.rules) ? manifest.rules : [];
   return uniqueSorted(
     rules
-      .map((entry) =>
-        entry && typeof entry === "object" ? String(entry.file || "").trim() : "",
-      )
+      .filter((entry) => !(entry && typeof entry === "object" && entry.deprecated === true))
+      .map((entry) => (entry && typeof entry === "object" ? String(entry.file || "").trim() : ""))
       .filter(Boolean),
   );
 }

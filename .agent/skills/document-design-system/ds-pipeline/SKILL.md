@@ -1,39 +1,51 @@
 ---
 name: ds-pipeline
-version: "1.0.0"
+version: "1.1.0"
 description: >
   Orchestrate the full design system documentation pipeline across all
   components or a single one. Detects orphans, validates preconditions,
   executes stages in order, and reports progress.
+requires_rules:
+  - docs-pipeline-contract: ">=1.0.0"
+  - ds-docs-guardrails: ">=1.0.0"
+  - component-name-normalization: ">=1.0.0"
+  - skill-input-output-contract: ">=1.0.0"
+compatible_agents:
+  - codex
+  - claude
+  - gemini
 inputs:
   - name: component
     type: string
+    required: false
     description: "Optional component slug to process individually (e.g. alert). If omitted, processes all components."
   - name: from-step
-    type: string
-    description: "Optional phase to start from: spec | markdown | render | proof | gate"
+    type: "enum(spec,markdown,figma,visual-proof,render,proof)"
+    required: false
+    description: "Optional phase to start from. Canonical: spec | markdown | figma | visual-proof. Legacy aliases: render=figma, proof=visual-proof."
   - name: render-figma
     type: boolean
+    required: false
     description: "True to actively push markdown docs back to Figma"
   - name: dry-run
     type: boolean
+    required: false
     description: "Plan and validate preconditions without making real changes"
   - name: status-only
     type: boolean
+    required: false
     description: "Produce the orphan gaps and status report without executing any heavy actions"
   - name: json
     type: boolean
+    required: false
     description: "Output JSON formatted payload for Dashboard integrations"
 outputs:
   - name: pipeline_report
+    type: report
     description: "JSON/Console summary of the execution plan and run results"
   - name: orphans_report
+    type: report
     description: "Report on components missing Figma mappings (doc_only), specs (figma_only), or docs (spec_only)"
-requires_rules:
-  - "ds-docs-guardrails.mdc"
-compatible_agents:
-  - "Antigravity"
-  - "Codebase Editor"
 ---
 
 # ds-pipeline Skill
@@ -43,12 +55,12 @@ This skill orchestrates the entire Design System documentation pipeline. Instead
 ## Architecture: Plan -> Execute -> Report
 
 1. **PLAN**: Creates an execution graph based on current state across Tokens, Specs, and Figma registries. Detects missing files or drifts (e.g., `doc.status === 'needs-review'`) and flags if steps are required.
-2. **EXECUTE**: Iterates through the plan (or a specific component) running the necessary stages:
+2. **EXECUTE**: Iterates through the plan (or a specific component) running the canonical stages:
    - **Stage A (Tokens)**: Sync tokens and update registry.
    - **Stage B (Spec)**: Generate spec from Figma if missing.
    - **Stage C (Markdown)**: Generate docs from spec.
-   - **Stage D (Render)**: Push markdown changes to Figma (if `--render-figma`).
-   - **Stage E (Proof)**: Capture visual proof.
+   - **Stage D (Figma)**: Push markdown changes to Figma (if `--render-figma`).
+   - **Stage E (Visual Proof)**: Capture visual proof.
    - **Stage F (Gate)**: Global validation & consistency audit.
 3. **REPORT**: Summarizes actions taken, skipped components, errors, and orphans.
 

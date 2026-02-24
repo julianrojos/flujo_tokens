@@ -44,11 +44,23 @@ rules:
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+  - id: component-code-examples
+    file: component-code-examples.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: false
+    deprecated: true
+    deprecation_note: "Disabled while docs pipeline is design-only. Re-enable only when code examples become an explicit stage."
   - id: component-figma-traceability
     file: component-figma-traceability.mdc
     owner: docs-governance
     applies_to: [markdown, spec]
     blocking: true
+  - id: component-visual-usage
+    file: component-visual-usage.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: false
   - id: component-indices-sync
     file: component-indices-sync.mdc
     owner: docs-governance
@@ -293,6 +305,7 @@ matrix:
       [
         frontmatter-contract,
         component-doc,
+        component-visual-usage,
         component-figma-traceability,
         accessibility-docs,
         internationalization-docs,
@@ -435,6 +448,13 @@ matrix:
       ]
     ds-init-docs:
       [ds-docs-guardrails, docs-taxonomy, frontmatter-contract, docs-language-tone]
+    ds-pipeline:
+      [
+        docs-pipeline-contract,
+        ds-docs-guardrails,
+        component-name-normalization,
+        skill-input-output-contract,
+      ]
     ds-migrate-legacy-component:
       [
         component-spec-yaml,

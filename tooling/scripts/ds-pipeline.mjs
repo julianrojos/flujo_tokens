@@ -13,8 +13,16 @@ const CLI_CONFIG = {
   options: [
     { name: "--component", description: "Target specific component slug (e.g. alert)" },
     { name: "--all", description: "Process all components" },
-    { name: "--from-step", description: "Start from specific step (spec|markdown|render|proof)" },
-    { name: "--only-step", description: "Execute only a specific step (spec|markdown|render|proof)" },
+    {
+      name: "--from-step",
+      description:
+        "Start from specific step (canonical: spec|markdown|figma|visual-proof; legacy aliases: render|proof)",
+    },
+    {
+      name: "--only-step",
+      description:
+        "Execute only a specific step (canonical: spec|markdown|figma|visual-proof; legacy aliases: render|proof)",
+    },
     { name: "--render-figma", description: "Render docs back to Figma" },
     { name: "--dry-run", description: "Plan but do not execute" },
     { name: "--status-only", description: "Only show plan and orphan status" },
