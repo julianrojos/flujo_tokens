@@ -22,6 +22,7 @@ import {
   queueJobSnapshot,
   toQueueTerminalEvent,
 } from "./lib/queue-utils.mjs";
+import { buildCreateServerAppRouteDeps } from "./lib/create-server-app-route-deps.mjs";
 import { createServerHttpApp } from "./lib/create-server-http-app.mjs";
 import { createServerRuntimeServices } from "./lib/create-server-runtime-services.mjs";
 import {
@@ -132,7 +133,7 @@ export function createServerApp({
     createApiRequestId,
     buildApiErrorPayload,
     writeStructuredLog,
-    routeDeps: {
+    routeDeps: buildCreateServerAppRouteDeps({
       readJsonBody,
       designSystemRepository,
       normalizeSystemId,
@@ -180,7 +181,7 @@ export function createServerApp({
       toBooleanString,
       toNumberString,
       validateGitRef,
-    },
+    }),
   });
 
   return {
