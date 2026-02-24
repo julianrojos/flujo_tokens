@@ -8,18 +8,17 @@ import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { loadTokenRegistry } from "./lib/token-registry.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
 import {
-  buildSpecValidationFeedbackPrompt,
   runSpecGenerationPrompt,
   runSpecRepairPrompt,
 } from "./lib/spec-agent-runner.mjs";
 import { createSpecRunContext } from "./lib/spec-run-context.mjs";
-import { countTbdValues } from "./lib/spec-token-mapping.mjs";
 import {
   buildSpecPromptWithRegistry,
   loadRegistryOrThrow,
 } from "./lib/spec-registry-prompt.mjs";
+import { runSpecGenerationFlow } from "./lib/spec-generation-flow.mjs";
+import { finalizeSpecResult } from "./lib/spec-finalization.mjs";
 import { validateGeneratedSpec } from "./lib/spec-validation.mjs";
-import { buildSpecGenerationResult } from "./lib/spec-result.mjs";
 import {
   ensureSpecOutputDirectory,
   ensureSpecTemplateExists,
@@ -207,70 +206,42 @@ export function runSpecFromFigma(args, deps = {}) {
       });
     };
 
-    runSpecGenerationPromptFn({
+    const {
+      normalizedSpec,
+      prefilledCount,
+      validationReport,
+    } = runSpecGenerationFlow({
       prompt,
       agent,
       componentName,
       nodeId,
+      skipValidation,
+      outputPath,
+      registryPath,
+      runSpecGenerationPromptFn,
+      runSpecRepairPromptFn,
+      validateGeneratedSpecFn,
+      materializeGeneratedSpec,
     });
-    let { normalizedSpec, prefilledCount } = materializeGeneratedSpec();
 
-    let validationReport = null;
-    if (!skipValidation) {
-      let validation = validateGeneratedSpecFn(outputPath, registryPath);
-      if (!validation.ok) {
-        const feedbackPrompt = buildSpecValidationFeedbackPrompt({
-          basePrompt: prompt,
-          outputPath,
-          validationErrors: validation.errors,
-        });
-        runSpecRepairPromptFn({
-          prompt: feedbackPrompt,
-          agent,
-          componentName,
-          nodeId,
-        });
-        ({ normalizedSpec, prefilledCount } = materializeGeneratedSpec());
-        validation = validateGeneratedSpecFn(outputPath, registryPath);
-        if (!validation.ok) {
-          throw new Error(
-            `Generated spec failed validation after automatic repair.\n${JSON.stringify(
-              {
-                file: outputPath,
-                errors: validation.errors,
-              },
-              null,
-              2,
-            )}`,
-          );
-        }
-      }
-      validationReport = validation.report;
-    }
-
-    const indicesSync = syncDocumentationIndicesFn({
-      specsDir: resolvedSpecRoot,
-      docsDir: path.join(docsRootDir, "components"),
-      overviewPath,
-      proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
-      renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
-      registryPath: registryIndexPath,
-    });
     assertScopedWritePolicyFn({
       snapshot: scopeSnapshot,
       allowedPaths: allowedWritePaths,
       label: "ds-spec-from-figma",
     });
 
-    const result = buildSpecGenerationResult({
+    const result = finalizeSpecResult({
       outputPath,
       normalizedSpec,
       componentName,
       nodeId,
       prefilledCount,
-      unresolvedTbdCount: countTbdValues(normalizedSpec),
       validationReport,
-      indicesSync,
+      resolvedSpecRoot,
+      docsRootDir,
+      overviewPath,
+      registryIndexPath,
+      syncDocumentationIndicesFn,
     });
     return result;
   } catch (error) {
