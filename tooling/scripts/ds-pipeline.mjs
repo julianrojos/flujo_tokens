@@ -6,6 +6,7 @@ import { createPlan } from "./lib/pipeline-plan.mjs";
 import { generateReport } from "./lib/pipeline-report.mjs";
 import { executeComponentTasks } from "./lib/component-orchestrator.mjs";
 import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
+import { runJsonCommand } from "./lib/exec.mjs";
 
 const CLI_CONFIG = {
   command: "ds:pipeline [options]",
@@ -54,22 +55,25 @@ async function main() {
         if (!opts.json) console.log('\n\x1b[35m=== RUNNING PREFLIGHT (ds:doctor) ===\x1b[0m');
 
         const preflightSysArgs = opts.system ? ['--system', opts.system] : [];
-        const docRes = spawnSync('npm', ['run', 'ds:doctor', '--', ...preflightSysArgs, '--json'], {
-            cwd: PROJECT_ROOT,
-            shell: false,
-            stdio: 'pipe',
-            encoding: 'utf8'
-        });
-
-        // Parse JSON from stdout (npm run prefixes with "> ...\n> ...\n" lines — strip them)
         let doctorChecks = [];
         try {
-            const jsonMatch = (docRes.stdout || '').match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                const doctorReport = JSON.parse(jsonMatch[0]);
-                doctorChecks = doctorReport.checks || [];
+            const doctorResult = runJsonCommand('npm', ['run', 'ds:doctor', '--', ...preflightSysArgs, '--json'], {
+                cwd: PROJECT_ROOT,
+                shell: false,
+                allowNonZeroExit: true,
+            });
+            const doctorReport =
+                doctorResult.data && typeof doctorResult.data === "object"
+                    ? doctorResult.data
+                    : {};
+            doctorChecks = Array.isArray(doctorReport.checks) ? doctorReport.checks : [];
+        } catch (error) {
+            if (!opts.json) {
+                console.error('\x1b[31m❌ Preflight failed: unable to parse ds:doctor JSON output.\x1b[0m');
+                console.error(error instanceof Error ? error.message : String(error));
             }
-        } catch (_) { /* unparseable — fall through to raw exit code check */ }
+            process.exit(1);
+        }
 
         const fatalFailures = doctorChecks.filter(
             c => FATAL_PREFLIGHT_CHECKS.has(c.id) && c.status === 'fail'

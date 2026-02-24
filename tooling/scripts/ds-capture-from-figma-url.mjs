@@ -2,7 +2,6 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import {
@@ -31,6 +30,7 @@ import {
   syncFigmaTokensToInput,
   runTokensCompile,
 } from "./lib/figma-token-sync.mjs";
+import { runJsonCommand } from "./lib/exec.mjs";
 
 const USAGE = {
   command:
@@ -249,45 +249,18 @@ function isKindAllowed(kind, requestedKind) {
 }
 
 function runNodeScriptJson({ repoRoot, scriptPath, scriptArgs }) {
-  const safeArgs = Array.isArray(scriptArgs) ? [...scriptArgs] : [];
-  const tokenArgIndex = safeArgs.indexOf("--figma-token");
-  if (tokenArgIndex >= 0 && tokenArgIndex + 1 < safeArgs.length) {
-    safeArgs[tokenArgIndex + 1] = "***redacted***";
+  const scriptArgsList = Array.isArray(scriptArgs) ? [...scriptArgs] : [];
+  const displayArgs = [...scriptArgsList];
+  const tokenArgIndex = displayArgs.indexOf("--figma-token");
+  if (tokenArgIndex >= 0 && tokenArgIndex + 1 < displayArgs.length) {
+    displayArgs[tokenArgIndex + 1] = "***redacted***";
   }
 
-  const result = spawnSync(process.execPath, [scriptPath, ...scriptArgs], {
+  const result = runJsonCommand(process.execPath, [scriptPath, ...scriptArgsList], {
     cwd: repoRoot,
-    stdio: "pipe",
-    env: process.env,
+    displayArgs: [path.relative(repoRoot, scriptPath), ...displayArgs],
   });
-
-  const stdout = result.stdout ? String(result.stdout) : "";
-  const stderr = result.stderr ? String(result.stderr) : "";
-
-  if ((result.status ?? 1) !== 0) {
-    throw new Error(
-      `Command failed (${result.status ?? 1}): node ${path.relative(
-        repoRoot,
-        scriptPath,
-      )} ${safeArgs.join(" ")}\n${stderr || stdout}`.trim(),
-    );
-  }
-
-  try {
-    // Strip non-JSON lines (e.g. stray console.log) before parsing
-    const jsonStart = stdout.indexOf("{");
-    const jsonEnd = stdout.lastIndexOf("}");
-    if (jsonStart < 0 || jsonEnd < 0 || jsonEnd <= jsonStart) {
-      throw new Error("No JSON object found in output");
-    }
-    return JSON.parse(stdout.slice(jsonStart, jsonEnd + 1));
-  } catch (error) {
-    throw new Error(
-      `Command returned invalid JSON.\nSTDOUT:\n${stdout}\nSTDERR:\n${stderr}\nParse error: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
+  return result.data;
 }
 
 function classifyNodeTypeToKind(nodeType) {
