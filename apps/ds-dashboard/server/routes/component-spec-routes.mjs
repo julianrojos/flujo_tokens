@@ -3,6 +3,7 @@ import { validateComponentSpec } from "../../src/lib/spec-validator.ts";
 import {
   MAX_COMPONENT_SPEC_BYTES,
   loadTokenRegistry,
+  parseYamlSafely,
   persistSpecWithBackup,
   readLatestSpecBackup,
   readTextFileIfExists,
@@ -14,6 +15,7 @@ import {
   sanitizeComponentSlug,
   validateComponentSpecRaw,
 } from "../lib/component-spec-service.mjs";
+import { resolveComponentSpecRequestContext } from "../lib/component-spec-route-service.mjs";
 
 export function registerComponentSpecRoutes(app, deps) {
   const {
@@ -25,64 +27,24 @@ export function registerComponentSpecRoutes(app, deps) {
     sha256Text,
   } = deps;
 
-  async function resolveComponentSpecRequestContext(c, { requireDevEdit = false } = {}) {
-    const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    if (requireDevEdit && !isDevRuntime()) {
-      return {
-        ok: false,
-        response: failJson(c, 403, {
-          code: "component_spec.editing_disabled",
-          userMessage: "Spec editing is only enabled in development mode.",
-          recoverable: true,
-        }),
-      };
-    }
-
-    const rawSlug = decodeURIComponent(String(c.req.param("slug") || ""));
-    const slug = sanitizeComponentSlug(rawSlug);
-    if (!slug) {
-      return {
-        ok: false,
-        response: failJson(c, 400, {
-          code: "validation.invalid_component_slug",
-          userMessage: "Invalid component slug.",
-          recoverable: true,
-          context: { slug: c.req.param("slug") },
-        }),
-      };
-    }
-
-    const target = await resolveComponentSpecTarget(
-      {
-        repoRoot: sysCtx.repoRoot,
-        componentRegistryPath: sysCtx.componentRegistryPath,
-        slug,
-      },
-      { resolveRepoFilePathFn: resolveRepoFilePath },
-    );
-    if (!target.ok) {
-      return {
-        ok: false,
-        response: failJson(c, 404, {
-          code: "component_spec.not_found",
-          userMessage: target.message,
-          recoverable: true,
-          context: { slug },
-        }),
-      };
-    }
-
-    return {
-      ok: true,
-      sysCtx,
-      slug,
-      target,
-    };
+  async function resolveRequestContext(c, requireDevEdit = false) {
+    return resolveComponentSpecRequestContext({
+      requireDevEdit,
+      systemHeader: c.req.header("x-ds-system"),
+      routeSlug: decodeURIComponent(String(c.req.param("slug") || "")),
+      getSystemContextFn: getSystemContext,
+      isDevRuntimeFn: isDevRuntime,
+      sanitizeComponentSlugFn: sanitizeComponentSlug,
+      resolveComponentSpecTargetFn: resolveComponentSpecTarget,
+      resolveRepoFilePathFn: resolveRepoFilePath,
+    });
   }
 
   app.get("/api/component-spec/:slug", async (c) => {
-    const resolved = await resolveComponentSpecRequestContext(c);
-    if (!resolved.ok) return resolved.response;
+    const resolved = await resolveRequestContext(c, false);
+    if (!resolved.ok) {
+      return failJson(c, resolved.error.statusCode, resolved.error.args);
+    }
     const { sysCtx, slug, target } = resolved;
 
     const loaded = await readTextFileIfExists(target.specAbsPath);
@@ -103,8 +65,10 @@ export function registerComponentSpecRoutes(app, deps) {
   });
 
   app.post("/api/component-spec/:slug/validate", async (c) => {
-    const resolved = await resolveComponentSpecRequestContext(c, { requireDevEdit: true });
-    if (!resolved.ok) return resolved.response;
+    const resolved = await resolveRequestContext(c, true);
+    if (!resolved.ok) {
+      return failJson(c, resolved.error.statusCode, resolved.error.args);
+    }
     const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
@@ -130,8 +94,10 @@ export function registerComponentSpecRoutes(app, deps) {
   });
 
   app.post("/api/component-spec/:slug/save", async (c) => {
-    const resolved = await resolveComponentSpecRequestContext(c, { requireDevEdit: true });
-    if (!resolved.ok) return resolved.response;
+    const resolved = await resolveRequestContext(c, true);
+    if (!resolved.ok) {
+      return failJson(c, resolved.error.statusCode, resolved.error.args);
+    }
     const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
@@ -171,8 +137,10 @@ export function registerComponentSpecRoutes(app, deps) {
   });
 
   app.post("/api/component-spec/:slug/restore-backup", async (c) => {
-    const resolved = await resolveComponentSpecRequestContext(c, { requireDevEdit: true });
-    if (!resolved.ok) return resolved.response;
+    const resolved = await resolveRequestContext(c, true);
+    if (!resolved.ok) {
+      return failJson(c, resolved.error.statusCode, resolved.error.args);
+    }
     const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
