@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { resolveSystemContextSafe } from "./lib/system-context.mjs";
@@ -173,13 +174,27 @@ function formatYamlFile(outputPath) {
   runOrThrow("npx", ["prettier", "--write", outputPath]);
 }
 
-function main() {
-  const args = parseArgs(process.argv.slice(2));
-  if (String(args.help || "false") === "true") {
-    printUsage(USAGE, { exitCode: 0 });
-  }
+export function runSpecFromFigma(args, deps = {}) {
+  const {
+    resolveSystemContextSafeFn = resolveSystemContextSafe,
+    loadTokenRegistryFn = loadTokenRegistry,
+    captureFileSnapshotFn = captureFileSnapshot,
+    restoreFileSnapshotFn = restoreFileSnapshot,
+    captureScopedWriteSnapshotFn = captureScopedWriteSnapshot,
+    assertScopedWritePolicyFn = assertScopedWritePolicy,
+    ensureSpecTemplateExistsFn = ensureSpecTemplateExists,
+    ensureSpecOutputDirectoryFn = ensureSpecOutputDirectory,
+    parseExistingSpecFromSnapshotFn = parseExistingSpecFromSnapshot,
+    materializeSpecAndWriteFn = materializeSpecAndWrite,
+    assertEvidenceGatedScalarChangesFn = assertEvidenceGatedScalarChanges,
+    runSpecGenerationPromptFn = runSpecGenerationPrompt,
+    runSpecRepairPromptFn = runSpecRepairPrompt,
+    validateGeneratedSpecFn = validateGeneratedSpec,
+    syncDocumentationIndicesFn = syncDocumentationIndices,
+    formatYamlFileFn = formatYamlFile,
+  } = deps;
 
-  const ctx = resolveSystemContextSafe({ system: args.system });
+  const ctx = resolveSystemContextSafeFn({ system: args.system });
 
   const figmaUrl = String(args.url || "").trim();
   const explicitNodeId = normalizeNodeId(args["component-set-node-id"] || "");
@@ -201,19 +216,17 @@ function main() {
   const agent = args.agent || "auto";
 
   if (skipValidation && !force) {
-    console.error(
+    throw new Error(
       "Validation gate bypass requires explicit force.\n" +
-        "Use `--skip-validation true --force true` only for exceptional cases.",
+        "Use `--skip-validation true --force true` only for exceptional cases."
     );
-    process.exit(1);
   }
 
   if (allowNonEvidenceUpdates && !force) {
-    console.error(
+    throw new Error(
       "Evidence gate bypass requires explicit force.\n" +
-        "Use `--allow-non-evidence-updates true --force true` only for exceptional cases.",
+        "Use `--allow-non-evidence-updates true --force true` only for exceptional cases."
     );
-    process.exit(1);
   }
 
   const parsedUrl = parseFigmaUrl(figmaUrl);
@@ -221,10 +234,9 @@ function main() {
   const nodeId = explicitNodeId || parsedUrl.nodeId;
 
   if (!figmaUrl && !nodeId && !rawComponentName) {
-    console.error(
+    throw new Error(
       "Missing Figma source.\nUse one of:\n- --url <figma-url>\n- --component-set-node-id <node-id>\n- --component-name <name> (less deterministic)",
     );
-    printUsage(USAGE, { stream: "stderr", exitCode: 1 });
   }
 
   const outputPath = buildSpecOutputPath(
@@ -234,43 +246,31 @@ function main() {
     nodeId,
   );
   if (!outputPath) {
-    console.error(
+    throw new Error(
       "Missing output target.\nProvide --output or --component-name.",
     );
-    process.exit(1);
   }
-  const outputSnapshot = captureFileSnapshot(outputPath);
+  const outputSnapshot = captureFileSnapshotFn(outputPath);
   let existingSpec = null;
-  try {
-    existingSpec = parseExistingSpecFromSnapshot(outputSnapshot, outputPath);
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
+  existingSpec = parseExistingSpecFromSnapshotFn(outputSnapshot, outputPath);
   const overviewPath = path.resolve(path.join(ctx.paths.docs, "overview.md"));
   const registryIndexPath = path.resolve(ctx.paths.registry);
-  const scopeSnapshot = captureScopedWriteSnapshot({
+  const scopeSnapshot = captureScopedWriteSnapshotFn({
     directories: [resolvedSpecRoot, ctx.paths.docs],
     files: [registryIndexPath],
     extensions: [".yml", ".md", ".json"],
   });
   const allowedWritePaths = [outputPath, overviewPath, registryIndexPath];
 
-  try {
-    ensureSpecTemplateExists(templatePath);
-  } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  }
+  ensureSpecTemplateExistsFn(templatePath);
 
   let registryIndex;
   try {
-    registryIndex = loadTokenRegistry(registryPath);
+    registryIndex = loadTokenRegistryFn(registryPath);
   } catch (error) {
-    console.error(
+    throw new Error(
       `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`,
     );
-    process.exit(1);
   }
 
   const prompt = buildSpecPrompt({
@@ -287,11 +287,11 @@ function main() {
     ),
   });
 
-  ensureSpecOutputDirectory(outputPath);
+  ensureSpecOutputDirectoryFn(outputPath);
 
   try {
     const materializeGeneratedSpec = () => {
-      return materializeSpecAndWrite({
+      return materializeSpecAndWriteFn({
         outputPath,
         templatePath,
         registryIndex,
@@ -300,13 +300,13 @@ function main() {
         fileKeyFromUrl,
         existingSpec,
         allowNonEvidenceUpdates,
-        evidenceGate: assertEvidenceGatedScalarChanges,
+        evidenceGate: assertEvidenceGatedScalarChangesFn,
         evidenceBackedPrefixes: SPEC_EVIDENCE_BACKED_PREFIXES,
-        formatYamlFile,
+        formatYamlFile: formatYamlFileFn,
       });
     };
 
-    runSpecGenerationPrompt({
+    runSpecGenerationPromptFn({
       prompt,
       agent,
       componentName,
@@ -316,21 +316,21 @@ function main() {
 
     let validationReport = null;
     if (!skipValidation) {
-      let validation = validateGeneratedSpec(outputPath, registryPath);
+      let validation = validateGeneratedSpecFn(outputPath, registryPath);
       if (!validation.ok) {
         const feedbackPrompt = buildSpecValidationFeedbackPrompt({
           basePrompt: prompt,
           outputPath,
           validationErrors: validation.errors,
         });
-        runSpecRepairPrompt({
+        runSpecRepairPromptFn({
           prompt: feedbackPrompt,
           agent,
           componentName,
           nodeId,
         });
         ({ normalizedSpec, prefilledCount } = materializeGeneratedSpec());
-        validation = validateGeneratedSpec(outputPath, registryPath);
+        validation = validateGeneratedSpecFn(outputPath, registryPath);
         if (!validation.ok) {
           throw new Error(
             `Generated spec failed validation after automatic repair.\n${JSON.stringify(
@@ -347,7 +347,7 @@ function main() {
       validationReport = validation.report;
     }
 
-    const indicesSync = syncDocumentationIndices({
+    const indicesSync = syncDocumentationIndicesFn({
       specsDir: resolvedSpecRoot,
       docsDir: path.join(docsRootDir, "components"),
       overviewPath,
@@ -355,7 +355,7 @@ function main() {
       renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
       registryPath: registryIndexPath,
     });
-    assertScopedWritePolicy({
+    assertScopedWritePolicyFn({
       snapshot: scopeSnapshot,
       allowedPaths: allowedWritePaths,
       label: "ds-spec-from-figma",
@@ -371,12 +371,12 @@ function main() {
       validationReport,
       indicesSync,
     });
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return result;
   } catch (error) {
-    restoreFileSnapshot(outputPath, outputSnapshot);
+    restoreFileSnapshotFn(outputPath, outputSnapshot);
     let scopeMessage = "";
     try {
-      assertScopedWritePolicy({
+      assertScopedWritePolicyFn({
         snapshot: scopeSnapshot,
         allowedPaths: allowedWritePaths,
         label: "ds-spec-from-figma",
@@ -384,11 +384,35 @@ function main() {
     } catch (scopeError) {
       scopeMessage = `\n${scopeError instanceof Error ? scopeError.message : String(scopeError)}`;
     }
-    console.error(
-      `${error instanceof Error ? error.message : String(error)}${scopeMessage}`,
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}${scopeMessage}`
     );
+  }
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (String(args.help || "false") === "true") {
+    printUsage(USAGE, { exitCode: 0 });
+  }
+
+  try {
+    const result = runSpecFromFigma(args);
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(message);
+    if (message.startsWith("Missing Figma source.")) {
+      printUsage(USAGE, { stream: "stderr" });
+    }
     process.exit(1);
   }
 }
 
-main();
+const isMainModule =
+  !!process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isMainModule) {
+  main();
+}
