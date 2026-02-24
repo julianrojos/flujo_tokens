@@ -3,7 +3,7 @@ import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenCollectionTreeIndex } from "@/types/token-tree";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
-import type { TokenGraphViz } from "@/types/token-graph";
+import type { TokenGraphQueryDirection, TokenGraphQueryResult, TokenGraphViz } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type { TokenDiffReport } from "@/types/token-diff";
@@ -184,6 +184,19 @@ export function fetchTokenUsageIndex() {
 
 export function fetchTokenGraph() {
   return getJson<TokenGraphViz>("/api/token-graph");
+}
+
+export function fetchTokenGraphQuery(args: {
+  tokenPath: string;
+  direction?: TokenGraphQueryDirection;
+  depth?: number;
+}) {
+  const params = new URLSearchParams({ token: args.tokenPath });
+  if (args.direction) params.set("direction", args.direction);
+  if (typeof args.depth === "number" && Number.isFinite(args.depth)) {
+    params.set("depth", String(args.depth));
+  }
+  return getJson<TokenGraphQueryResult>(`/api/token-graph-query?${params.toString()}`);
 }
 
 export function fetchTokenHealth() {

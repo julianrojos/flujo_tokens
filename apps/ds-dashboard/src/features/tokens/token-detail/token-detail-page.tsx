@@ -6,6 +6,7 @@ import {
   fetchFileSnippet,
   fetchComponentRegistry,
   fetchTokenHealth,
+  fetchTokenGraphQuery,
   fetchTokenRegistry,
   fetchTokenUsageIndex,
 } from "@/lib/api";
@@ -17,6 +18,7 @@ import type {
   TokenUsageOccurrence,
 } from "@/types/token-usage-index";
 import type { TokenHealthReport } from "@/types/token-health";
+import type { TokenGraphQueryResult } from "@/types/token-graph";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -446,6 +448,7 @@ export function TokenDetailPage() {
   const [usage, setUsage] = useState<TokenUsageEntry | null>(null);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
   const [tokenHealth, setTokenHealth] = useState<TokenHealthReport | null>(null);
+  const [graphQuery, setGraphQuery] = useState<TokenGraphQueryResult | null>(null);
   const [components, setComponents] = useState<ComponentRegistryItem[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -457,10 +460,11 @@ export function TokenDetailPage() {
       setLoading(true);
       setError(null);
       try {
-        const [registry, usageIndex, health, componentRegistry] = await Promise.all([
+        const [registry, usageIndex, health, graphData, componentRegistry] = await Promise.all([
           fetchTokenRegistry(),
           fetchTokenUsageIndex().catch(() => null),
           fetchTokenHealth().catch(() => null),
+          fetchTokenGraphQuery({ tokenPath: decoded, direction: "both", depth: 4 }).catch(() => null),
           fetchComponentRegistry().catch(() => null),
         ]);
         setRegistry(registry);
@@ -468,6 +472,7 @@ export function TokenDetailPage() {
         setUsage(usageIndex?.byPath[decoded] ?? null);
         setUsageByPath(usageIndex?.byPath ?? {});
         setTokenHealth(health);
+        setGraphQuery(graphData);
         setComponents(componentRegistry?.components ?? []);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -1055,6 +1060,102 @@ export function TokenDetailPage() {
                 </Link>
               </div>
             </div>
+          ) : null}
+
+          {graphQuery ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Graph Relationships</CardTitle>
+                <CardDescription>
+                  {graphQuery.summary.direct_dependencies} direct dependencies ·{" "}
+                  {graphQuery.summary.direct_dependents} direct dependents
+                  {" · "}
+                  {graphQuery.summary.transitive_dependencies} transitive dependencies ·{" "}
+                  {graphQuery.summary.transitive_dependents} transitive dependents
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge variant="neutral">
+                    {graphQuery.summary.subgraph_nodes} nodes
+                  </Badge>
+                  <Badge variant="neutral">
+                    {graphQuery.summary.subgraph_edges} edges
+                  </Badge>
+                  <Link
+                    to={{
+                      pathname: "/token-graph",
+                      search: new URLSearchParams({
+                        token: token.path,
+                        dir: "both",
+                        depth: "4",
+                      }).toString(),
+                    }}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    Open graph explorer →
+                  </Link>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Dependencies
+                    </h4>
+                    {graphQuery.direct.dependencies.length > 0 ? (
+                      <ul className="space-y-1 text-sm">
+                        {graphQuery.direct.dependencies.slice(0, 8).map((entry) => (
+                          <li key={entry.id}>
+                            <button
+                              type="button"
+                              className="font-mono text-primary hover:underline"
+                              onClick={() =>
+                                navigate({
+                                  pathname: `/tokens/${encodeURIComponent(entry.path)}`,
+                                  search: searchParams.toString(),
+                                })
+                              }
+                            >
+                              {entry.slashPath || entry.path}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No direct dependencies.</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Dependents
+                    </h4>
+                    {graphQuery.direct.dependents.length > 0 ? (
+                      <ul className="space-y-1 text-sm">
+                        {graphQuery.direct.dependents.slice(0, 8).map((entry) => (
+                          <li key={entry.id}>
+                            <button
+                              type="button"
+                              className="font-mono text-primary hover:underline"
+                              onClick={() =>
+                                navigate({
+                                  pathname: `/tokens/${encodeURIComponent(entry.path)}`,
+                                  search: searchParams.toString(),
+                                })
+                              }
+                            >
+                              {entry.slashPath || entry.path}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No direct dependents.</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           ) : null}
 
           <Card>

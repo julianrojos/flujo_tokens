@@ -19,6 +19,57 @@ export interface VariableAliasObject {
     id?: string;
 }
 
+// --- Token graph types ---
+
+export type TokenEdgeKind = 'w3c-ref' | 'alias-id';
+
+export interface TokenEdge {
+    from: string;
+    to: string;
+    kind: TokenEdgeKind;
+    ref: string;
+}
+
+export interface TokenMeta {
+    collection: string;
+    cssVar?: string;
+    mode?: string;
+}
+
+export interface TokenNode {
+    /** Canonical node key used by graph internals. */
+    id: string;
+    /** Canonical path split by `.` */
+    path: string[];
+    value: TokenValue['$value'];
+    type?: string;
+    /** Raw alias references declared by this node (W3C refs and alias IDs). */
+    aliases: string[];
+    /** Reverse adjacency list (nodes that depend on this node). */
+    dependents: string[];
+    metadata: TokenMeta;
+}
+
+export interface ModeConfig {
+    key: string;
+    selector?: string;
+    isDefault?: boolean;
+}
+
+export interface TokenGraph {
+    nodes: Map<string, TokenNode>;
+    edges: Map<string, TokenEdge[]>;
+    reverseEdges: Map<string, TokenEdge[]>;
+    collections: Map<string, string[]>;
+    modes: Map<string, ModeConfig>;
+    /** Canonical + normalized path aliases to node IDs. */
+    pathToNodeId: Map<string, string>;
+    /** Raw/trimmed `$id` aliases to node IDs. */
+    idToNodeId: Map<string, string>;
+    /** Node IDs that belong to at least one cycle SCC. */
+    cycleNodeIds: Set<string>;
+}
+
 // --- Summary types ---
 
 export interface ExecutionSummary {
@@ -76,6 +127,7 @@ export type EmissionContext = IndexingContext &
         tokensData: Record<string, any>;
         cycleStatus: Map<string, boolean>;
         emittableKeys: Set<string>;
+        tokenGraph?: TokenGraph;
     }>;
 
 export type ProcessingContext = IndexingContext | EmissionContext;

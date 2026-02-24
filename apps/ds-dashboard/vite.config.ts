@@ -649,6 +649,175 @@ function buildTokenCollectionTrees(entries: TokenEntry[]) {
   };
 }
 
+type TokenGraphQueryDirection = "dependencies" | "dependents" | "both";
+
+function normalizeTokenGraphDirection(raw: string | null): TokenGraphQueryDirection {
+  const value = String(raw || "").trim().toLowerCase();
+  if (value === "dependencies" || value === "dependents" || value === "both") return value;
+  return "both";
+}
+
+function normalizeTokenGraphDepth(raw: string | null): number {
+  const parsed = Number.parseInt(String(raw || ""), 10);
+  if (!Number.isFinite(parsed)) return 3;
+  return clampInt(parsed, 0, 8);
+}
+
+function buildTokenGraphIndexes(graph: TokenGraphViz) {
+  const nodeById = new Map<string, TokenGraphViz["nodes"][number]>();
+  for (const node of graph.nodes) nodeById.set(node.id, node);
+
+  const outById = new Map<string, string[]>();
+  const inById = new Map<string, string[]>();
+  for (const node of graph.nodes) {
+    outById.set(node.id, []);
+    inById.set(node.id, []);
+  }
+
+  for (const edge of graph.edges) {
+    if (outById.has(edge.source)) outById.get(edge.source)?.push(edge.target);
+    if (inById.has(edge.target)) inById.get(edge.target)?.push(edge.source);
+  }
+
+  for (const [id, list] of outById) {
+    outById.set(id, Array.from(new Set(list)));
+  }
+  for (const [id, list] of inById) {
+    inById.set(id, Array.from(new Set(list)));
+  }
+
+  return { nodeById, outById, inById };
+}
+
+function resolveTokenGraphNodeId(graph: TokenGraphViz, query: string): string | null {
+  const q = String(query || "").trim();
+  if (!q) return null;
+
+  const indexes = buildTokenGraphIndexes(graph);
+  if (indexes.nodeById.has(q)) return q;
+
+  const lowered = q.toLowerCase();
+  for (const node of graph.nodes) {
+    if (String(node.path || "").toLowerCase() === lowered) return node.id;
+    if (String(node.slashPath || "").toLowerCase() === lowered) return node.id;
+    if (String(node.cssVar || "").toLowerCase() === lowered) return node.id;
+    if (String(node.displayKey || "").toLowerCase() === lowered) return node.id;
+  }
+
+  return null;
+}
+
+function buildTokenGraphQueryPayload(args: {
+  graph: TokenGraphViz;
+  token: string;
+  direction: TokenGraphQueryDirection;
+  depth: number;
+}) {
+  const { graph, token, direction, depth } = args;
+  const indexes = buildTokenGraphIndexes(graph);
+  const rootId = resolveTokenGraphNodeId(graph, token);
+  if (!rootId) return null;
+
+  const root = indexes.nodeById.get(rootId);
+  if (!root) return null;
+
+  const collectReachable = (neighborsFor: (id: string) => string[]) => {
+    const visited = new Set<string>();
+    const queue: Array<{ id: string; level: number }> = [{ id: rootId, level: 0 }];
+    const seen = new Set<string>([rootId]);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (current.level >= depth) continue;
+
+      for (const nextId of neighborsFor(current.id)) {
+        if (!indexes.nodeById.has(nextId) || seen.has(nextId)) continue;
+        seen.add(nextId);
+        visited.add(nextId);
+        queue.push({ id: nextId, level: current.level + 1 });
+      }
+    }
+
+    return visited;
+  };
+
+  const toRef = (node: TokenGraphViz["nodes"][number]) => ({
+    id: node.id,
+    path: node.path,
+    slashPath: node.slashPath,
+    cssVar: node.cssVar,
+    displayKey: node.displayKey,
+    type: node.type,
+    collection: node.collection,
+    isCycleMember: node.isCycleMember,
+  });
+
+  const sortNodes = (
+    ids: string[],
+  ): Array<ReturnType<typeof toRef>> =>
+    ids
+      .map((id) => indexes.nodeById.get(id))
+      .filter(Boolean)
+      .sort((a, b) =>
+        String(a?.displayKey || "").localeCompare(String(b?.displayKey || ""), "en", {
+          sensitivity: "base",
+        }),
+      )
+      .map((node) => toRef(node!));
+
+  const directDependencies = indexes.outById.get(rootId) ?? [];
+  const directDependents = indexes.inById.get(rootId) ?? [];
+
+  const dependencySet =
+    direction === "dependents"
+      ? new Set<string>()
+      : collectReachable((id) => indexes.outById.get(id) ?? []);
+  const dependentSet =
+    direction === "dependencies"
+      ? new Set<string>()
+      : collectReachable((id) => indexes.inById.get(id) ?? []);
+
+  const subgraphVisited = new Set<string>([rootId]);
+  for (const id of dependencySet) subgraphVisited.add(id);
+  for (const id of dependentSet) subgraphVisited.add(id);
+
+  const subgraphNodes = sortNodes(Array.from(subgraphVisited));
+  const subgraphEdges = graph.edges.filter(
+    (edge) => subgraphVisited.has(edge.source) && subgraphVisited.has(edge.target),
+  );
+
+  return {
+    ok: true as const,
+    query: {
+      token,
+      direction,
+      depth,
+      resolved_id: rootId,
+    },
+    root: toRef(root),
+    summary: {
+      direct_dependencies: directDependencies.length,
+      direct_dependents: directDependents.length,
+      transitive_dependencies: dependencySet.size,
+      transitive_dependents: dependentSet.size,
+      subgraph_nodes: subgraphNodes.length,
+      subgraph_edges: subgraphEdges.length,
+    },
+    direct: {
+      dependencies: sortNodes(directDependencies),
+      dependents: sortNodes(directDependents),
+    },
+    transitive: {
+      dependencies: sortNodes(Array.from(dependencySet)),
+      dependents: sortNodes(Array.from(dependentSet)),
+    },
+    subgraph: {
+      nodes: subgraphNodes,
+      edges: subgraphEdges,
+    },
+  };
+}
+
 type ComponentRegistryRow = {
   slug?: string;
   display_name?: string;
@@ -1410,6 +1579,28 @@ function createLocalDataApi() {
       if (method === "GET" && url === "/api/token-graph") {
         const raw = await fs.readFile(tokenGraphVizPath, "utf8");
         sendJson(res, 200, JSON.parse(raw));
+        return;
+      }
+
+      if (method === "GET" && url === "/api/token-graph-query") {
+        const token = String(searchParams.get("token") ?? searchParams.get("tokenPath") ?? "").trim();
+        if (!token) {
+          sendJson(res, 400, { ok: false, message: "token query param is required." });
+          return;
+        }
+
+        const direction = normalizeTokenGraphDirection(searchParams.get("direction"));
+        const depth = normalizeTokenGraphDepth(searchParams.get("depth"));
+        const raw = await fs.readFile(tokenGraphVizPath, "utf8");
+        const graph = JSON.parse(raw) as TokenGraphViz;
+        const payload = buildTokenGraphQueryPayload({ graph, token, direction, depth });
+
+        if (!payload) {
+          sendJson(res, 404, { ok: false, message: `Token '${token}' not found in token graph.` });
+          return;
+        }
+
+        sendJson(res, 200, payload);
         return;
       }
 

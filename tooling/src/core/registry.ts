@@ -12,6 +12,7 @@ import { walkTokenTree } from './walk.js';
 import { processValue } from './emit.js';
 import { buildPathKey, buildVisitedRefSet, normalizePathKey } from '../utils/paths.js';
 import { buildCssVarNameFromPrefix, toKebabCase } from '../utils/strings.js';
+import { getNodeIdByTokenPath } from './token-graph.js';
 
 export interface TokenRegistryEntry {
     path: string;
@@ -67,7 +68,13 @@ function resolveAliasTarget(ctx: Readonly<EmissionContext>, rawValue: TokenValue
     if (!isVariableAlias(rawValue)) return undefined;
     const aliasId = rawValue.id?.trim();
     if (!aliasId) return undefined;
-    return ctx.idToTokenKey.get(aliasId) ?? aliasId;
+    const byNodeId = ctx.tokenGraph?.idToNodeId.get(aliasId);
+    if (byNodeId) return byNodeId;
+
+    const byPath = ctx.idToTokenKey.get(aliasId);
+    if (!byPath) return aliasId;
+
+    return ctx.tokenGraph ? (getNodeIdByTokenPath(ctx.tokenGraph, byPath) ?? byPath) : byPath;
 }
 
 function buildResolvedValue(

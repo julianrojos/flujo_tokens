@@ -46,3 +46,46 @@ export interface TokenGraphViz {
   fingerprint: string;
 }
 
+export type TokenGraphQueryDirection = "dependencies" | "dependents" | "both";
+
+export interface TokenGraphQueryNodeRef {
+  id: string;
+  path: string;
+  slashPath: string;
+  cssVar: string;
+  displayKey: string;
+  type: string;
+  collection: string;
+  isCycleMember: boolean;
+}
+
+export interface TokenGraphQueryResult {
+  ok: true;
+  query: {
+    token: string;
+    direction: TokenGraphQueryDirection;
+    depth: number;
+    resolved_id: string;
+  };
+  root: TokenGraphQueryNodeRef;
+  summary: {
+    direct_dependencies: number;
+    direct_dependents: number;
+    transitive_dependencies: number;
+    transitive_dependents: number;
+    subgraph_nodes: number;
+    subgraph_edges: number;
+  };
+  direct: {
+    dependencies: TokenGraphQueryNodeRef[];
+    dependents: TokenGraphQueryNodeRef[];
+  };
+  transitive: {
+    dependencies: TokenGraphQueryNodeRef[];
+    dependents: TokenGraphQueryNodeRef[];
+  };
+  subgraph: {
+    nodes: TokenGraphQueryNodeRef[];
+    edges: TokenGraphVizEdge[];
+  };
+}

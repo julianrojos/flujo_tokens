@@ -7,7 +7,7 @@ import { isPlainObject, isVariableAlias, isModeKey } from '../types/tokens.js';
 import { MAX_DEPTH, EMPTY_VISITED_REFS, ALLOW_ALIAS_SCAN } from '../runtime/config.js';
 import { findTokenByIdCache, warnedAliasVarCollisions, warnedFindTokenByIdDepthLimit, warnedInvalidTokenDetails } from '../runtime/state.js';
 import { walkTokenTree } from './walk.js';
-import { getResolvedTokenKeyFromParts } from './analyze.js';
+import { getNodeIdByTokenPath, getResolvedTokenKeyFromParts } from './token-graph.js';
 import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
 import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, buildPathKey } from '../utils/paths.js';
 import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName } from '../utils/strings.js';
@@ -366,10 +366,24 @@ export function processVariableAlias(
 ): string {
     if (!isVariableAlias(aliasObj)) return JSON.stringify(aliasObj);
 
-    const { summary, tokensData, refMap, idToVarName, idToTokenKey, cycleStatus, emittableKeys, cssVarNameCollisionMap } = ctx;
+    const {
+        summary,
+        tokensData,
+        refMap,
+        idToVarName,
+        idToTokenKey,
+        cycleStatus,
+        emittableKeys,
+        cssVarNameCollisionMap,
+        tokenGraph
+    } = ctx;
 
     const aliasId = aliasObj.id?.trim();
     const targetKey = aliasId ? idToTokenKey.get(aliasId) : undefined;
+    const targetNodeId = aliasId
+        ? tokenGraph?.idToNodeId.get(aliasId) ??
+        (targetKey && tokenGraph ? getNodeIdByTokenPath(tokenGraph, targetKey) : undefined)
+        : undefined;
 
     if (!aliasId) {
         console.warn(`⚠️  VARIABLE_ALIAS without a valid id at ${pathStr(currentPath)}; emitting unresolved placeholder`);
@@ -378,14 +392,15 @@ export function processVariableAlias(
         return `var(--unresolved-alias-${placeholderName})`;
     }
 
-    if (aliasId && targetKey && visitedRefs?.has(targetKey)) {
+    if (aliasId && (targetNodeId || targetKey) && (visitedRefs?.has(targetNodeId || '') || visitedRefs?.has(targetKey || ''))) {
         console.warn(`⚠️  Circular VARIABLE_ALIAS reference (id=${aliasId}) at ${pathStr(currentPath)}`);
         summary.circularDeps++;
         return `/* circular-alias: ${aliasId} */`;
     }
 
-    if (aliasId && targetKey) {
-        const cachedHasCycle = cycleStatus.get(targetKey);
+    const cycleLookupKey = targetNodeId ?? targetKey;
+    if (aliasId && cycleLookupKey) {
+        const cachedHasCycle = cycleStatus.get(cycleLookupKey);
         if (cachedHasCycle === true) {
             console.warn(`⚠️  Deep circular dependency reachable via VARIABLE_ALIAS (id=${aliasId}) at ${pathStr(currentPath)}`);
             summary.circularDeps++;
@@ -393,7 +408,7 @@ export function processVariableAlias(
         }
     }
 
-    if (aliasId && targetKey && !emittableKeys.has(targetKey)) {
+    if (aliasId && cycleLookupKey && !emittableKeys.has(cycleLookupKey)) {
         console.warn(
             `⚠️  VARIABLE_ALIAS at ${pathStr(currentPath)} points to a token not emitted in this scope (id=${aliasId}).`
         );
@@ -441,7 +456,22 @@ export function processVariableAlias(
             return `var(${direct})`;
         }
 
-        if (ALLOW_ALIAS_SCAN) {
+        if (tokenGraph && targetNodeId) {
+            const targetNode = tokenGraph.nodes.get(targetNodeId);
+            const mappedFromGraph =
+                targetNode?.metadata.cssVar ??
+                refMap.get(targetNodeId) ??
+                refMap.get(normalizePathKey(targetNodeId)) ??
+                (targetKey ? refMap.get(targetKey) : undefined) ??
+                (targetKey ? refMap.get(normalizePathKey(targetKey)) : undefined);
+
+            if (mappedFromGraph) {
+                warnIfCollidingVarName(mappedFromGraph);
+                return `var(${mappedFromGraph})`;
+            }
+        }
+
+        if (!tokenGraph && ALLOW_ALIAS_SCAN) {
             // Optional fallback: cached O(N) scan.
             const tokenPath = findTokenByIdCached(tokensData, aliasId);
             if (tokenPath) {
@@ -486,7 +516,7 @@ export function processVariableAlias(
                 warnIfCollidingVarName(derived);
                 return `var(${derived})`;
             }
-        } else {
+        } else if (!tokenGraph) {
             console.warn(
                 `ℹ️  VARIABLE_ALIAS scan fallback is disabled (ALLOW_ALIAS_SCAN=false); ` +
                 `skipping tree scan for id="${aliasId}" at ${pathStr(currentPath)}.`

@@ -15,7 +15,8 @@ import type {
     CssVarCollision,
     EmissionContext,
     IndexingContext,
-    ExecutionSummary
+    ExecutionSummary,
+    TokenGraph
 } from '../types/tokens.js';
 import { isModeDefaultKey } from '../types/tokens.js';
 
@@ -39,16 +40,16 @@ import { printExecutionSummary, logChangeDetection, printModeSummary, printModeF
 // Core
 import { readAndCombineJsons } from '../core/ingest.js';
 import { collectTokenMaps } from '../core/indexing.js';
-import { buildCycleStatus } from '../core/analyze.js';
-import { flattenTokens, buildEmittableKeySet } from '../core/emit.js';
+import { flattenTokens } from '../core/emit.js';
 import { readCssVariablesFromFile, extractCssVariables, formatCssSectionHeader } from '../core/css.js';
 import { exportTokenRegistry, writeTokenRegistry } from '../core/registry.js';
+import { buildCycleStatusFromGraph, buildEmittableKeySetFromGraph, createTokenGraph } from '../core/token-graph.js';
 
 // --- Path configuration & arg parsing ---
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '../../..');
-const PIPELINE_SCHEMA_VERSION = 1;
+const PIPELINE_SCHEMA_VERSION = 2;
 const PHASE_ORDER: PipelinePhase[] = ['ingest', 'index', 'analyze', 'emit'];
 
 type CliOptions = {
@@ -95,9 +96,34 @@ type SerializedScopeIndex = {
     index: SerializedIndexContext;
 };
 
+type SerializedTokenGraph = {
+    nodes: Array<
+        [
+            string,
+            {
+                id: string;
+                path: string[];
+                value: TokenValue['$value'];
+                type?: string;
+                aliases: string[];
+                dependents: string[];
+                metadata: { collection: string; cssVar?: string; mode?: string };
+            }
+        ]
+    >;
+    edges: Array<[string, Array<{ from: string; to: string; kind: 'w3c-ref' | 'alias-id'; ref: string }>]>;
+    reverseEdges: Array<[string, Array<{ from: string; to: string; kind: 'w3c-ref' | 'alias-id'; ref: string }>]>;
+    collections: Array<[string, string[]]>;
+    modes: Array<[string, { key: string; selector?: string; isDefault?: boolean }]>;
+    pathToNodeId: Array<[string, string]>;
+    idToNodeId: Array<[string, string]>;
+    cycleNodeIds: string[];
+};
+
 type SerializedAnalyzedScope = {
     scope: ModeScope;
     index: SerializedIndexContext;
+    graph: SerializedTokenGraph;
     cycleStatus: Array<[string, boolean]>;
     emittableKeys: string[];
 };
@@ -472,6 +498,32 @@ function createIndexingContextFromSerialized(serialized: SerializedIndexContext)
     });
 }
 
+function serializeTokenGraph(graph: TokenGraph): SerializedTokenGraph {
+    return {
+        nodes: Array.from(graph.nodes.entries()),
+        edges: Array.from(graph.edges.entries()),
+        reverseEdges: Array.from(graph.reverseEdges.entries()),
+        collections: Array.from(graph.collections.entries()),
+        modes: Array.from(graph.modes.entries()),
+        pathToNodeId: Array.from(graph.pathToNodeId.entries()),
+        idToNodeId: Array.from(graph.idToNodeId.entries()),
+        cycleNodeIds: Array.from(graph.cycleNodeIds.values())
+    };
+}
+
+function deserializeTokenGraph(serialized: SerializedTokenGraph): TokenGraph {
+    return {
+        nodes: new Map(serialized.nodes),
+        edges: new Map(serialized.edges),
+        reverseEdges: new Map(serialized.reverseEdges),
+        collections: new Map(serialized.collections),
+        modes: new Map(serialized.modes),
+        pathToNodeId: new Map(serialized.pathToNodeId),
+        idToNodeId: new Map(serialized.idToNodeId),
+        cycleNodeIds: new Set(serialized.cycleNodeIds)
+    };
+}
+
 function serializeCssCollisionMap(
     map: Map<string, CssVarCollision>
 ): Array<[string, SerializedCssVarCollision]> {
@@ -716,11 +768,17 @@ function buildIndexArtifacts(
 function analyzeScopedIndices(scopedIndices: SerializedScopeIndex[]): SerializedAnalyzedScope[] {
     return scopedIndices.map(({ scope, index }) => {
         const scopeIndexingCtx = createIndexingContextFromSerialized(index);
-        const cycleStatus = buildCycleStatus(scopeIndexingCtx);
-        const emittableKeys = buildEmittableKeySet(scopeIndexingCtx);
+        const graph = createTokenGraph(scopeIndexingCtx, {
+            key: scope.mode ?? 'modeDefault',
+            selector: scope.selector,
+            isDefault: !scope.mode
+        });
+        const cycleStatus = buildCycleStatusFromGraph(graph);
+        const emittableKeys = buildEmittableKeySetFromGraph(graph);
         return {
             scope,
             index,
+            graph: serializeTokenGraph(graph),
             cycleStatus: Array.from(cycleStatus.entries()),
             emittableKeys: Array.from(emittableKeys.values()).sort((a, b) => a.localeCompare(b))
         };
@@ -734,7 +792,7 @@ function buildScopeProcessingContexts(
     cssVarNameOwners: Map<string, CssVarOwner>,
     cssVarNameCollisionMap: Map<string, CssVarCollision>
 ): Array<{ scope: ModeScope; processingCtx: Readonly<EmissionContext> }> {
-    return analyzedScopes.map(({ scope, index, cycleStatus, emittableKeys }) => {
+    return analyzedScopes.map(({ scope, index, graph, cycleStatus, emittableKeys }) => {
         const processingCtx = createProcessingContext({
             summary,
             tokensData: combinedTokens,
@@ -745,6 +803,7 @@ function buildScopeProcessingContexts(
             idToTokenKey: new Map<string, string>(index.idToTokenKey),
             cycleStatus: new Map<string, boolean>(cycleStatus),
             emittableKeys: new Set<string>(emittableKeys),
+            tokenGraph: deserializeTokenGraph(graph),
             cssVarNameOwners,
             cssVarNameCollisionMap
         });
