@@ -1,3 +1,10 @@
+import {
+  ensureKnownSystemId,
+  parseOperationsHistoryFilters,
+  parseOperationsRegressionFilters,
+  parseOperationsReplayRequest,
+} from "../lib/operations-route-service.mjs";
+
 export function registerOperationsRoutes(app, deps) {
   const {
     failJson,
@@ -19,60 +26,32 @@ export function registerOperationsRoutes(app, deps) {
   } = deps;
 
   app.get("/api/operations/history", async (c) => {
-    const systemFromQuery = String(c.req.query("system") || "").trim();
-    const systemFromHeader = String(c.req.header("x-ds-system") || "").trim();
-    const includeAll = String(c.req.query("all") || "").trim().toLowerCase() === "true";
-    const systemId = includeAll ? "" : systemFromQuery || systemFromHeader;
-    const operation = String(c.req.query("operation") || "").trim();
-    const status = String(c.req.query("status") || "").trim().toLowerCase();
-    const from = String(c.req.query("from") || "").trim();
-    const to = String(c.req.query("to") || "").trim();
-    const fromTs = from ? toFiniteTimestamp(from) : NaN;
-    const toTs = to ? toFiniteTimestamp(to) : NaN;
-    const limitRaw = Number.parseInt(String(c.req.query("limit") || ""), 10);
-    const limit = Number.isFinite(limitRaw)
-      ? Math.max(1, Math.min(limitRaw, OPS_HISTORY_MAX_LIMIT))
-      : OPS_HISTORY_DEFAULT_LIMIT;
-
-    if (from && !Number.isFinite(fromTs)) {
-      return failJson(c, 400, {
-        code: "validation.invalid_date_format",
-        userMessage: "Invalid 'from' date. Use an ISO-8601 value (for example 2026-02-24).",
-        recoverable: true,
-        context: { field: "from", value: from },
-      });
+    const parsedFilters = parseOperationsHistoryFilters({
+      systemFromQuery: c.req.query("system"),
+      systemFromHeader: c.req.header("x-ds-system"),
+      includeAll: String(c.req.query("all") || "").trim().toLowerCase() === "true",
+      operation: c.req.query("operation"),
+      status: c.req.query("status"),
+      from: c.req.query("from"),
+      to: c.req.query("to"),
+      limitRaw: c.req.query("limit"),
+      toFiniteTimestampFn: toFiniteTimestamp,
+      historyMaxLimit: OPS_HISTORY_MAX_LIMIT,
+      historyDefaultLimit: OPS_HISTORY_DEFAULT_LIMIT,
+    });
+    if (!parsedFilters.ok) {
+      return failJson(c, parsedFilters.error.statusCode, parsedFilters.error.args);
     }
 
-    if (to && !Number.isFinite(toTs)) {
-      return failJson(c, 400, {
-        code: "validation.invalid_date_format",
-        userMessage: "Invalid 'to' date. Use an ISO-8601 value (for example 2026-02-24).",
-        recoverable: true,
-        context: { field: "to", value: to },
-      });
+    const systemValidation = ensureKnownSystemId({
+      config: designSystemRepository.getConfig(),
+      systemId: parsedFilters.filters.systemId,
+    });
+    if (!systemValidation.ok) {
+      return failJson(c, systemValidation.error.statusCode, systemValidation.error.args);
     }
 
-    if (Number.isFinite(fromTs) && Number.isFinite(toTs) && fromTs > toTs) {
-      return failJson(c, 400, {
-        code: "validation.invalid_date_range",
-        userMessage: "'from' date must be earlier than or equal to 'to' date.",
-        recoverable: true,
-        context: { from, to },
-      });
-    }
-
-    if (systemId) {
-      const config = designSystemRepository.getConfig();
-      const exists = (config.systems || []).some((row) => String(row?.id || "").trim() === systemId);
-      if (!exists) {
-        return failJson(c, 400, {
-          code: "system.invalid_or_missing",
-          userMessage: `Unknown system '${systemId}'.`,
-          recoverable: true,
-          context: { systemId },
-        });
-      }
-    }
+    const { systemId, operation, status, from, to, limit } = parsedFilters.filters;
 
     const history = readOperationHistory({
       systemId: systemId || undefined,
@@ -103,31 +82,29 @@ export function registerOperationsRoutes(app, deps) {
   });
 
   app.get("/api/operations/regressions", async (c) => {
-    const systemFromQuery = String(c.req.query("system") || "").trim();
-    const systemFromHeader = String(c.req.header("x-ds-system") || "").trim();
-    const includeAll = String(c.req.query("all") || "").trim().toLowerCase() === "true";
-    const systemId = includeAll ? "" : systemFromQuery || systemFromHeader;
-    const limitRaw = Number.parseInt(String(c.req.query("limit") || ""), 10);
-    const minSamplesRaw = Number.parseInt(String(c.req.query("minSamples") || ""), 10);
-    const limit = Number.isFinite(limitRaw)
-      ? Math.max(20, Math.min(limitRaw, OPS_REGRESSION_MAX_LIMIT))
-      : OPS_REGRESSION_DEFAULT_LIMIT;
-    const minSamples = Number.isFinite(minSamplesRaw)
-      ? Math.max(2, Math.min(minSamplesRaw, 20))
-      : OPS_REGRESSION_DEFAULT_MIN_SAMPLES;
-
-    if (systemId) {
-      const config = designSystemRepository.getConfig();
-      const exists = (config.systems || []).some((row) => String(row?.id || "").trim() === systemId);
-      if (!exists) {
-        return failJson(c, 400, {
-          code: "system.invalid_or_missing",
-          userMessage: `Unknown system '${systemId}'.`,
-          recoverable: true,
-          context: { systemId },
-        });
-      }
+    const parsedFilters = parseOperationsRegressionFilters({
+      systemFromQuery: c.req.query("system"),
+      systemFromHeader: c.req.header("x-ds-system"),
+      includeAll: String(c.req.query("all") || "").trim().toLowerCase() === "true",
+      limitRaw: c.req.query("limit"),
+      minSamplesRaw: c.req.query("minSamples"),
+      regressionMaxLimit: OPS_REGRESSION_MAX_LIMIT,
+      regressionDefaultLimit: OPS_REGRESSION_DEFAULT_LIMIT,
+      regressionDefaultMinSamples: OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
+    });
+    if (!parsedFilters.ok) {
+      return failJson(c, parsedFilters.error.statusCode, parsedFilters.error.args);
     }
+
+    const systemValidation = ensureKnownSystemId({
+      config: designSystemRepository.getConfig(),
+      systemId: parsedFilters.filters.systemId,
+    });
+    if (!systemValidation.ok) {
+      return failJson(c, systemValidation.error.statusCode, systemValidation.error.args);
+    }
+
+    const { systemId, limit, minSamples } = parsedFilters.filters;
 
     const report = buildOperationRegressionsReport({
       systemId: systemId || undefined,
@@ -150,58 +127,23 @@ export function registerOperationsRoutes(app, deps) {
 
   app.post("/api/operations/replay/:eventId", async (c) => {
     const requestId = createApiRequestId();
-    const eventId = decodeURIComponent(String(c.req.param("eventId") || "")).trim();
-    if (!eventId) {
-      return failJson(c, 400, {
-        code: "validation.missing_required_fields",
-        userMessage: "eventId is required.",
-        recoverable: true,
-        context: { field: "eventId" },
-        requestId,
-      });
-    }
-
     const body = await readJsonBody(c);
-    const overrideSystemId = normalizeSystemId(body.systemId);
-    const sourceEventLookup = findOperationEventById({
-      eventId,
-      systemId: overrideSystemId || undefined,
+    const parsedReplay = parseOperationsReplayRequest({
+      eventIdRaw: decodeURIComponent(String(c.req.param("eventId") || "")),
+      bodySystemIdRaw: body.systemId,
+      headerSystemId: c.req.header("x-ds-system"),
+      normalizeSystemIdFn: normalizeSystemId,
+      findOperationEventByIdFn: findOperationEventById,
+      config: designSystemRepository.getConfig(),
     });
-    if (!sourceEventLookup.event) {
-      return failJson(c, 404, {
-        code: "operations.event_not_found",
-        userMessage: `Operation event '${eventId}' not found.`,
-        recoverable: true,
-        context: { eventId, scannedRows: sourceEventLookup.scannedRows },
+    if (!parsedReplay.ok) {
+      return failJson(c, parsedReplay.error.statusCode, {
+        ...parsedReplay.error.args,
         requestId,
       });
     }
 
-    const sourceEvent = sourceEventLookup.event;
-    const targetSystemId =
-      overrideSystemId || String(sourceEvent.system || c.req.header("x-ds-system") || "").trim();
-    if (!targetSystemId) {
-      return failJson(c, 400, {
-        code: "system.invalid_or_missing",
-        userMessage: "Replay requires a valid target system.",
-        recoverable: true,
-        context: { eventId, operation: sourceEvent.operation },
-        requestId,
-      });
-    }
-    const config = designSystemRepository.getConfig();
-    const hasTargetSystem = (config.systems || []).some(
-      (row) => String(row?.id || "").trim() === targetSystemId,
-    );
-    if (!hasTargetSystem) {
-      return failJson(c, 400, {
-        code: "system.invalid_or_missing",
-        userMessage: `Unknown system '${targetSystemId}'.`,
-        recoverable: true,
-        context: { targetSystemId, eventId },
-        requestId,
-      });
-    }
+    const { eventId, sourceEvent, targetSystemId } = parsedReplay.payload;
 
     let job;
     try {
