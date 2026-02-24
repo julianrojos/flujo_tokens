@@ -23,9 +23,23 @@ export function executeComponentTasks(componentPlan, globalOptions = {}) {
     const runCmd = (cmd, args) => {
         const fullCmd = `${cmd} ${args.join(' ')}`;
         log(`Running: ${fullCmd}`);
-        const res = spawnSync(cmd, args, { stdio: globalOptions.json ? 'pipe' : 'inherit', shell: false, cwd: PROJECT_ROOT });
+        const captureOutput = globalOptions.json || globalOptions.silent;
+        const res = spawnSync(cmd, args, {
+            stdio: captureOutput ? 'pipe' : 'inherit',
+            shell: false,
+            cwd: PROJECT_ROOT,
+            encoding: captureOutput ? 'utf8' : undefined,
+        });
         if (res.status !== 0) {
-            const err = `Command failed with status ${res.status}: ${fullCmd}`;
+            const stderr = String(res.stderr || '').trim();
+            const stdout = String(res.stdout || '').trim();
+            const diagnostic = stderr || stdout;
+            const compactDiagnostic = diagnostic
+                ? diagnostic.split('\n').map((line) => line.trim()).filter(Boolean).slice(-5).join(' | ')
+                : '';
+            const err = compactDiagnostic
+                ? `Command failed with status ${res.status}: ${fullCmd} :: ${compactDiagnostic}`
+                : `Command failed with status ${res.status}: ${fullCmd}`;
             log(`❌ Error: ${err}`);
             return { success: false, error: err };
         }
