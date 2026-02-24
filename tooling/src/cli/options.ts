@@ -23,6 +23,30 @@ export type CliOptions = {
     pluginModules: string[];
 };
 
+type ParseState = {
+    inputDir: string;
+    outputFile: string;
+    outputPrimitives: string;
+    outputTokens: string;
+    registryOutput: string;
+    split: boolean;
+    registry: boolean;
+    help: boolean;
+    mode?: string;
+    modeStrict: boolean;
+    fromPhase?: PipelinePhase;
+    forcePhases: PipelinePhase[];
+    checkpoints: boolean;
+    cacheDir?: string;
+    pluginModules: string[];
+};
+
+type OptionSpec = {
+    names: string[];
+    takesValue?: boolean;
+    apply: (state: ParseState, args: { value?: string; cwd: string; optionName: string }) => boolean;
+};
+
 function parsePhaseName(value: string): PipelinePhase | null {
     const normalized = value.trim().toLowerCase();
     if (normalized === 'ingest' || normalized === 'index' || normalized === 'analyze' || normalized === 'emit') {
@@ -42,6 +66,17 @@ function consumeArgValue(
         return null;
     }
     return { value, nextIndex: index + 1 };
+}
+
+function resolveSystemOverride(argv: string[]): string | null | undefined {
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+        if (arg !== '--system') continue;
+        const consumed = consumeArgValue(argv, i, '--system');
+        if (!consumed) return null;
+        return consumed.value;
+    }
+    return undefined;
 }
 
 function getSystemPaths(rootDir: string, systemId?: string) {
@@ -84,145 +119,122 @@ Options:
 `);
 }
 
-export function parseArgs(
-    argv: string[],
-    args: { rootDir: string; cwd?: string }
-): CliOptions | null {
-    let split = true;
-    let registry = false;
-    let help = false;
-    let mode: string | undefined;
-    let modeStrict = false;
-    let systemId: string | undefined;
-    let fromPhase: PipelinePhase | undefined;
-    const forcePhases: PipelinePhase[] = [];
-    let checkpoints = true;
-    let cacheDir: string | undefined;
-    const pluginModules: string[] = [];
-    const cwd = args.cwd || process.cwd();
-
-    // First pass loop just to find systemId.
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-        if (arg === '--system') {
-            const consumed = consumeArgValue(argv, i, '--system');
-            if (!consumed) return null;
-            systemId = consumed.value;
-            break;
+// Keep a dependency-free parser until we need true subcommands.
+const OPTION_SPECS: OptionSpec[] = [
+    {
+        names: ['-h', '--help'],
+        apply: (state) => {
+            state.help = true;
+            return true;
         }
-    }
-
-    const sysPaths = getSystemPaths(args.rootDir, systemId);
-    let inputDir = sysPaths.inputDir;
-    let outputFile = sysPaths.outputFile;
-    let outputPrimitives = sysPaths.outputPrimitives;
-    let outputTokens = sysPaths.outputTokens;
-    let registryOutput = sysPaths.registryOutput;
-
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-
-        if (arg === '-h' || arg === '--help') {
-            help = true;
-            continue;
+    },
+    {
+        names: ['-i', '--input'],
+        takesValue: true,
+        apply: (state, { value, cwd }) => {
+            state.inputDir = path.resolve(cwd, String(value || ''));
+            return true;
         }
-
-        if (arg === '-i' || arg === '--input') {
-            const consumed = consumeArgValue(argv, i, '--input');
-            if (!consumed) return null;
-            inputDir = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
+    },
+    {
+        names: ['-o', '--output'],
+        takesValue: true,
+        apply: (state, { value, cwd }) => {
+            state.outputFile = path.resolve(cwd, String(value || ''));
+            return true;
         }
-
-        if (arg === '-o' || arg === '--output') {
-            const consumed = consumeArgValue(argv, i, '--output');
-            if (!consumed) return null;
-            outputFile = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
+    },
+    {
+        names: ['--split'],
+        apply: (state) => {
+            state.split = true;
+            return true;
         }
-
-        if (arg === '--split') {
-            split = true;
-            continue;
+    },
+    {
+        names: ['--single'],
+        apply: (state) => {
+            state.split = false;
+            return true;
         }
-
-        if (arg === '--single') {
-            split = false;
-            continue;
+    },
+    {
+        names: ['--output-primitives'],
+        takesValue: true,
+        apply: (state, { value, cwd }) => {
+            state.outputPrimitives = path.resolve(cwd, String(value || ''));
+            return true;
         }
-
-        if (arg === '--output-primitives') {
-            const consumed = consumeArgValue(argv, i, '--output-primitives');
-            if (!consumed) return null;
-            outputPrimitives = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
+    },
+    {
+        names: ['--output-tokens'],
+        takesValue: true,
+        apply: (state, { value, cwd }) => {
+            state.outputTokens = path.resolve(cwd, String(value || ''));
+            return true;
         }
-
-        if (arg === '--output-tokens') {
-            const consumed = consumeArgValue(argv, i, '--output-tokens');
-            if (!consumed) return null;
-            outputTokens = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
+    },
+    {
+        names: ['--registry'],
+        apply: (state) => {
+            state.registry = true;
+            return true;
         }
-
-        if (arg === '--registry') {
-            registry = true;
-            continue;
+    },
+    {
+        names: ['--registry-output'],
+        takesValue: true,
+        apply: (state, { value, cwd }) => {
+            state.registryOutput = path.resolve(cwd, String(value || ''));
+            state.registry = true;
+            return true;
         }
-
-        if (arg === '--registry-output') {
-            const consumed = consumeArgValue(argv, i, '--registry-output');
-            if (!consumed) return null;
-            registryOutput = path.resolve(cwd, consumed.value);
-            registry = true;
-            i = consumed.nextIndex;
-            continue;
+    },
+    {
+        names: ['-m', '--mode'],
+        takesValue: true,
+        apply: (state, { value }) => {
+            state.mode = value;
+            return true;
         }
-
-        if (arg === '-m' || arg === '--mode') {
-            const consumed = consumeArgValue(argv, i, '--mode');
-            if (!consumed) return null;
-            mode = consumed.value;
-            i = consumed.nextIndex;
-            continue;
+    },
+    {
+        names: ['--mode-strict'],
+        apply: (state) => {
+            state.modeStrict = true;
+            return true;
         }
-
-        if (arg === '--mode-strict') {
-            modeStrict = true;
-            continue;
+    },
+    {
+        names: ['--mode-loose'],
+        apply: (state) => {
+            state.modeStrict = false;
+            return true;
         }
-
-        if (arg === '--mode-loose') {
-            modeStrict = false;
-            continue;
-        }
-
-        if (arg === '--from-phase') {
-            const consumed = consumeArgValue(argv, i, '--from-phase');
-            if (!consumed) return null;
-            const parsedPhase = parsePhaseName(consumed.value);
+    },
+    {
+        names: ['--from-phase'],
+        takesValue: true,
+        apply: (state, { value }) => {
+            const parsedPhase = parsePhaseName(String(value || ''));
             if (!parsedPhase) {
                 console.error(
                     formatDiagnostic(
                         'error',
-                        `Invalid --from-phase: ${consumed.value} (use: ingest|index|analyze|emit)`
+                        `Invalid --from-phase: ${value} (use: ingest|index|analyze|emit)`
                     )
                 );
-                return null;
+                return false;
             }
-            fromPhase = parsedPhase;
-            i = consumed.nextIndex;
-            continue;
+            state.fromPhase = parsedPhase;
+            return true;
         }
-
-        if (arg === '--force-phase') {
-            const consumed = consumeArgValue(argv, i, '--force-phase');
-            if (!consumed) return null;
-            const rawPhases = consumed.value.split(',').map(s => s.trim()).filter(Boolean);
+    },
+    {
+        names: ['--force-phase'],
+        takesValue: true,
+        apply: (state, { value }) => {
+            const rawPhases = String(value || '').split(',').map(s => s.trim()).filter(Boolean);
             for (const raw of rawPhases) {
                 const parsedPhase = parsePhaseName(raw);
                 if (!parsedPhase) {
@@ -232,60 +244,116 @@ export function parseArgs(
                             `Invalid --force-phase value: ${raw} (use: ingest|index|analyze|emit)`
                         )
                     );
-                    return null;
+                    return false;
                 }
-                forcePhases.push(parsedPhase);
+                state.forcePhases.push(parsedPhase);
             }
-            i = consumed.nextIndex;
-            continue;
+            return true;
         }
-
-        if (arg === '--no-checkpoints') {
-            checkpoints = false;
-            continue;
+    },
+    {
+        names: ['--no-checkpoints'],
+        apply: (state) => {
+            state.checkpoints = false;
+            return true;
         }
-
-        if (arg === '--plugin') {
-            const consumed = consumeArgValue(argv, i, '--plugin');
-            if (!consumed) return null;
-            pluginModules.push(path.resolve(cwd, consumed.value));
-            i = consumed.nextIndex;
-            continue;
+    },
+    {
+        names: ['--plugin'],
+        takesValue: true,
+        apply: (state, { value, cwd }) => {
+            state.pluginModules.push(path.resolve(cwd, String(value || '')));
+            return true;
         }
-
-        if (arg === '--cache-dir') {
-            const consumed = consumeArgValue(argv, i, '--cache-dir');
-            if (!consumed) return null;
-            cacheDir = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
+    },
+    {
+        names: ['--cache-dir'],
+        takesValue: true,
+        apply: (state, { value, cwd }) => {
+            state.cacheDir = path.resolve(cwd, String(value || ''));
+            return true;
         }
+    }
+];
 
+const OPTION_SPEC_BY_NAME = new Map<string, OptionSpec>(
+    OPTION_SPECS.flatMap((spec) => spec.names.map((name) => [name, spec]))
+);
+
+export function parseArgs(
+    argv: string[],
+    args: { rootDir: string; cwd?: string }
+): CliOptions | null {
+    const cwd = args.cwd || process.cwd();
+    const systemOverride = resolveSystemOverride(argv);
+    if (systemOverride === null) return null;
+    const systemId = systemOverride;
+
+    const sysPaths = getSystemPaths(args.rootDir, systemId);
+    const state: ParseState = {
+        inputDir: sysPaths.inputDir,
+        outputFile: sysPaths.outputFile,
+        outputPrimitives: sysPaths.outputPrimitives,
+        outputTokens: sysPaths.outputTokens,
+        registryOutput: sysPaths.registryOutput,
+        split: true,
+        registry: false,
+        help: false,
+        mode: undefined,
+        modeStrict: false,
+        fromPhase: undefined,
+        forcePhases: [],
+        checkpoints: true,
+        cacheDir: undefined,
+        pluginModules: []
+    };
+
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+        // `--system` is resolved in first pass to preserve existing default-path behavior.
         if (arg === '--system') {
             i++;
             continue;
         }
 
-        console.error(formatDiagnostic('error', `Unknown argument: ${arg}`));
-        return null;
+        const spec = OPTION_SPEC_BY_NAME.get(arg);
+        if (!spec) {
+            console.error(formatDiagnostic('error', `Unknown argument: ${arg}`));
+            return null;
+        }
+
+        let consumedValue: string | undefined;
+        if (spec.takesValue) {
+            const consumed = consumeArgValue(argv, i, spec.names[spec.names.length - 1] || arg);
+            if (!consumed) return null;
+            consumedValue = consumed.value;
+            i = consumed.nextIndex;
+        }
+
+        const ok = spec.apply(state, {
+            value: consumedValue,
+            cwd,
+            optionName: arg
+        });
+        if (!ok) return null;
     }
 
     return {
-        inputDir,
-        outputFile,
-        outputPrimitives,
-        outputTokens,
-        registryOutput,
-        split,
-        registry,
-        help,
-        mode,
-        modeStrict,
+        inputDir: state.inputDir,
+        outputFile: state.outputFile,
+        outputPrimitives: state.outputPrimitives,
+        outputTokens: state.outputTokens,
+        registryOutput: state.registryOutput,
+        split: state.split,
+        registry: state.registry,
+        help: state.help,
+        mode: state.mode,
+        modeStrict: state.modeStrict,
         system: systemId,
-        fromPhase,
-        forcePhases,
-        checkpoints,
-        cacheDir,
-        pluginModules
+        fromPhase: state.fromPhase,
+        forcePhases: state.forcePhases,
+        checkpoints: state.checkpoints,
+        cacheDir: state.cacheDir,
+        pluginModules: state.pluginModules
     };
 }
