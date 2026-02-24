@@ -231,3 +231,50 @@ Objetivo: convertir el dashboard en referencia para gestión de tokens y documen
     - Checklist por item + notas persistidas en `localStorage`.
     - Filtros por estado (`pending`, `reviewed`, `blocked`).
     - Vista de seguimiento por sesión.
+
+---
+
+MEJORAS DE ARQUITECTURA:
+
+Reorganizar el menú por flujo de trabajo: Monitorizar, Diagnosticar, Actuar, Administrar (en vez de System/Tokens/Components).
+Crear una bandeja única de issues (/issues) que agregue token health, components health y naming debt con prioridad/severidad.
+Unificar análisis de tokens en un hub (/tokens/intelligence) con tabs Explorer, Graph, Diff, Impact, Naming.
+Convertir Operations en “Automation Center” con secciones de Refresh, Pipelines, Figma Imports, Historial de ejecuciones.
+Añadir un flujo guiado “de problema a resolución”: Issue -> raíz -> acción recomendada -> validación post-acción.
+Pasar de navegación por tipo de entidad a navegación por estado operativo en componentes (At Risk, Blocked, Needs Review, Ready).
+Hacer que la búsqueda global tenga modos explícitos: Go to, Find entity, Run action con filtros por sistema y dominio.
+Introducir contexto persistente de sistema + filtros globales (scope) visible en todas las vistas y URLs compartibles.
+Integrar File Viewer como panel lateral contextual en detalle de token/componente (evita ruptura de flujo al saltar a /file).
+Añadir home contextual por rol/caso de uso (Token Maintainer, Component Maintainer, Ops) con KPIs y “next best actions”.
+
+1. Homepage con estado real del sistema
+   Hoy no hay una pantalla de inicio: el usuario aterriza en Operations o en Tokens sin contexto. Una home breve mostraría: salud del sistema, artefactos desactualizados, acciones rápidas y actividad reciente. Reduce la orientación inicial a 0 clics.
+
+2. Componente como unidad narrativa única
+   Cada componente tiene información esparcida en 4+ páginas (spec, screenshot, tokens usados, health, Figma link). Un hub de componente (/components/button) que agregue todo en una sola pantalla columnada eliminaría el contexto switching constante.
+
+3. Token Explorer unificado
+   Tokens, Grafo, Health y Usage Index son páginas separadas pero hablan del mismo dato. Una sola pantalla de explorador con vistas intercambiables (lista / grafo / health) y filtros persistentes sería más potente que 4 navegaciones distintas.
+
+4. Búsqueda global como eje principal
+   La paleta de comandos es secundaria (atajo de teclado). En un Design System con cientos de tokens y componentes, la búsqueda debería ser el elemento de navegación primario en la sidebar, siempre visible, con resultados agrupados por tipo (token / componente / archivo).
+
+5. Sistema como workspace explícito
+   El sistema activo es semioculto (selector en header). Si el usuario trabaja con múltiples sistemas, el concepto de "workspace" debería ser más prominent: sidebar o topbar que muestre claramente en qué contexto estás y permita cambiar sin perder la pantalla actual.
+
+6. Audit log / historial de operaciones
+   Las operaciones se ejecutan y desaparecen. Un log persistente (cuándo corrió cada pipeline, resultado, tiempo) sería valioso para debugging y auditoría. No requiere backend nuevo: los JSON de resultado ya existen.
+
+7. Agrupación por estado en el registry de componentes
+   La lista de componentes es plana. Agruparlos por estado del pipeline (complete, needs-review, draft, no-spec) convertiría el registry en una herramienta de trabajo priorizado, no solo un inventario.
+
+8. Panel lateral contextual (en vez de navegación completa)
+   Hacer clic en un token en el grafo o en el explorador podría abrir un slide-in panel con detalle, en lugar de navegar a una página nueva y perder el contexto de lo que estabas explorando. Patrón que GitHub, Linear y Figma usan con éxito.
+
+9. Sección Settings/Config consolidada
+   Hoy: Design Systems Admin, configuración Figma, Naming Debt config y WCAG Pairs están en lugares distintos. Una sección /settings unificada con subnav (Sistema → Figma → Calidad → Integraciones) reduciría la disorientación durante la configuración inicial.
+
+10. Onboarding guiado para sistemas nuevos
+    Crear un nuevo sistema tiene múltiples pasos no evidentes (URL Figma → scan → variables → compile → docs). Un flujo de onboarding en stepper (3-5 pasos visibles, con estado y validación inline) reduciría el abandono y el soporte necesario.
+
+Las 3 de mayor impacto inmediato por coste/beneficio: la Homepage (#1), el Hub de componente (#2) y el Agrupamiento por estado (#7) — pueden implementarse sin cambiar la estructura de datos, solo reorganizando lo que ya existe.
