@@ -2,23 +2,22 @@ import { useCallback, useMemo, useState } from "react";
 
 import {
   captureHealthSnapshot,
-  fetchComponentsHealth,
-  fetchHealthHistory,
-  fetchNamingDebt,
-  fetchTokenHealth,
   refreshComponentsHealth,
   refreshTokenHealth,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
-import { invalidateServerQuery, useServerQuery } from "@/lib/server-query";
-import type { ComponentsHealthReport } from "@/types/components-health";
+import { invalidateServerQuery } from "@/lib/server-query";
 import type {
   HealthHistoryBucket,
   HealthHistoryRange,
-  HealthHistoryReport,
 } from "@/types/health-history";
-import type { NamingDebtReport } from "@/types/naming-debt";
-import type { TokenHealthReport } from "@/types/token-health";
+import {
+  healthQueryKeys,
+  useComponentsHealthQuery,
+  useHealthHistoryQuery,
+  useNamingDebtQuery,
+  useTokenHealthQuery,
+} from "./use-health-queries";
 
 export function useHealthDashboardData(args: {
   historyRange: HealthHistoryRange;
@@ -33,26 +32,10 @@ export function useHealthDashboardData(args: {
     useState<ApiErrorDisplay | null>(null);
   const [snapshotError, setSnapshotError] = useState<ApiErrorDisplay | null>(null);
 
-  const tokenHealthQuery = useServerQuery<TokenHealthReport>({
-    queryKey: ["health", "token"] as const,
-    queryFn: fetchTokenHealth,
-    staleTimeMs: 30_000,
-  });
-  const componentsHealthQuery = useServerQuery<ComponentsHealthReport>({
-    queryKey: ["health", "components"] as const,
-    queryFn: fetchComponentsHealth,
-    staleTimeMs: 30_000,
-  });
-  const namingDebtQuery = useServerQuery<NamingDebtReport>({
-    queryKey: ["health", "naming-debt"] as const,
-    queryFn: fetchNamingDebt,
-    staleTimeMs: 30_000,
-  });
-  const historyQuery = useServerQuery<HealthHistoryReport>({
-    queryKey: ["health", "history", historyRange, historyBucket] as const,
-    queryFn: () => fetchHealthHistory({ range: historyRange, bucket: historyBucket }),
-    staleTimeMs: 30_000,
-  });
+  const tokenHealthQuery = useTokenHealthQuery();
+  const componentsHealthQuery = useComponentsHealthQuery();
+  const namingDebtQuery = useNamingDebtQuery();
+  const historyQuery = useHealthHistoryQuery(historyRange, historyBucket);
 
   const tokenHealth = tokenHealthQuery.data ?? null;
   const componentsHealth = componentsHealthQuery.data ?? null;
@@ -115,7 +98,7 @@ export function useHealthDashboardData(args: {
     setTokenRefreshError(null);
     try {
       await refreshTokenHealth();
-      invalidateServerQuery(["health", "token"]);
+      invalidateServerQuery(healthQueryKeys.token);
       await tokenHealthQuery.refetch();
     } catch (cause) {
       setTokenRefreshError(
@@ -134,7 +117,7 @@ export function useHealthDashboardData(args: {
     setComponentsRefreshError(null);
     try {
       await refreshComponentsHealth();
-      invalidateServerQuery(["health", "components"]);
+      invalidateServerQuery(healthQueryKeys.components);
       await componentsHealthQuery.refetch();
     } catch (cause) {
       setComponentsRefreshError(
@@ -153,10 +136,10 @@ export function useHealthDashboardData(args: {
     setSnapshotError(null);
     try {
       await captureHealthSnapshot();
-      invalidateServerQuery(["health", "token"]);
-      invalidateServerQuery(["health", "components"]);
-      invalidateServerQuery(["health", "naming-debt"]);
-      invalidateServerQuery(["health", "history", historyRange, historyBucket]);
+      invalidateServerQuery(healthQueryKeys.token);
+      invalidateServerQuery(healthQueryKeys.components);
+      invalidateServerQuery(healthQueryKeys.namingDebt);
+      invalidateServerQuery(healthQueryKeys.history(historyRange, historyBucket));
       await Promise.all([reloadAll(), historyQuery.refetch()]);
     } catch (cause) {
       setSnapshotError(

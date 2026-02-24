@@ -5,6 +5,7 @@ import {
   fetchTokenRegistry,
   fetchTokenUsageIndex,
 } from "@/lib/api";
+import { SERVER_QUERY_POLICY } from "@/lib/server-query-policy";
 import { useServerQuery } from "@/lib/server-query";
 import type { ComponentRegistry } from "@/types/component-registry";
 import type { TokenRegistry } from "@/types/token-registry";
@@ -20,11 +21,14 @@ type TokenDetailQueryData = {
   componentRegistry: ComponentRegistry | null;
 };
 
-export function useTokenDetailData(tokenPath: string) {
-  const query = useServerQuery<TokenDetailQueryData>({
-    queryKey: ["token-detail", tokenPath] as const,
+export const tokenDetailQueryKey = (tokenPath: string) =>
+  ["token-detail", tokenPath] as const;
+
+export function useTokenDetailQuery(tokenPath: string) {
+  return useServerQuery<TokenDetailQueryData>({
+    queryKey: tokenDetailQueryKey(tokenPath),
     enabled: Boolean(tokenPath),
-    staleTimeMs: 30_000,
+    ...SERVER_QUERY_POLICY,
     queryFn: async () => {
       const [registry, usageIndex, tokenHealth, graphQuery, componentRegistry] =
         await Promise.all([
@@ -47,6 +51,10 @@ export function useTokenDetailData(tokenPath: string) {
       };
     },
   });
+}
+
+export function useTokenDetailData(tokenPath: string) {
+  const query = useTokenDetailQuery(tokenPath);
 
   const error = query.error
     ? query.error instanceof Error
