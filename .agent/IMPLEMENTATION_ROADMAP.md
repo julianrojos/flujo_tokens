@@ -157,7 +157,7 @@
 4. Si semántica (prose only):
    - Agrega ## Examples of Violations
    - No schema needed
-5. Agrega a manifest.yml en la sección correcta (by_doc_type, by_skill)
+5. Agrega a manifest.yml en la sección correcta (by_doc_type, by_stage)
 6. Commit y CI validará formato
 ```
 

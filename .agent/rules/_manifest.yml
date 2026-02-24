@@ -7,7 +7,6 @@ enforcement:
     - rules[].layer
     - matrix.by_doc_type
     - matrix.by_stage
-    - matrix.by_skill
 
 rules:
   - id: inclusive-docs
@@ -314,6 +313,7 @@ matrix:
         token-registry-validation,
         markdown-lifecycle-status,
         docs-language-tone,
+        ds-docs-guardrails,
         evidence-gated-mutations,
         prohibited-patterns,
       ]
@@ -325,6 +325,7 @@ matrix:
         overview-components-canonical-list,
         markdown-lifecycle-status,
         docs-language-tone,
+        ds-docs-guardrails,
       ]
     foundation:
       [
@@ -336,6 +337,7 @@ matrix:
         design-token-discrepancies,
         markdown-lifecycle-status,
         docs-language-tone,
+        ds-docs-guardrails,
       ]
     workflow:
       [
@@ -346,6 +348,7 @@ matrix:
         inclusive-docs,
         markdown-lifecycle-status,
         docs-language-tone,
+        ds-docs-guardrails,
       ]
     spec:
       [
@@ -355,6 +358,7 @@ matrix:
         token-references,
         token-registry-validation,
         inclusive-docs,
+        ds-docs-guardrails,
         evidence-gated-mutations,
         prohibited-patterns,
       ]
@@ -373,116 +377,3 @@ matrix:
     visual-proof: [component-figma-traceability]
     pipeline: [docs-pipeline-contract, component-indices-sync]
     skills: [skill-versioning, skill-input-output-contract]
-  by_skill:
-    design-tokens-advisor: [skill-versioning]
-    ds-component-doc:
-      [
-        ds-docs-guardrails,
-        frontmatter-contract,
-        component-doc,
-        component-spec-yaml,
-        component-spec-properties-order,
-        component-figma-traceability,
-        component-name-normalization,
-        markdown-lifecycle-status,
-        inclusive-docs,
-        design-token-discrepancies,
-        token-references,
-        token-registry-validation,
-        docs-language-tone,
-        overview-index-maintenance,
-        overview-components-canonical-list,
-        docs-pipeline-contract,
-        evidence-gated-mutations,
-        skill-input-output-contract,
-      ]
-    ds-component-orchestrator:
-      [
-        docs-pipeline-contract,
-        component-spec-yaml,
-        component-doc,
-        frontmatter-contract,
-        component-figma-traceability,
-        component-name-normalization,
-        markdown-lifecycle-status,
-        ds-docs-guardrails,
-        evidence-gated-mutations,
-        skill-input-output-contract,
-      ]
-    ds-spec-from-figma:
-      [
-        component-spec-yaml,
-        component-spec-properties-order,
-        component-name-normalization,
-        token-references,
-        token-registry-validation,
-        ds-docs-guardrails,
-        docs-pipeline-contract,
-        evidence-gated-mutations,
-        skill-input-output-contract,
-      ]
-    ds-markdown-to-figma-section:
-      [
-        component-doc,
-        ds-docs-guardrails,
-        docs-pipeline-contract,
-        figma-rendering,
-      ]
-    ds-foundations:
-      [
-        ds-docs-guardrails,
-        docs-taxonomy,
-        inclusive-docs,
-        token-references,
-        token-registry-validation,
-        docs-language-tone,
-        overview-index-maintenance,
-      ]
-    ds-pattern-doc:
-      [
-        ds-docs-guardrails,
-        docs-taxonomy,
-        frontmatter-contract,
-        docs-language-tone,
-        pattern-doc-workflow,
-        docs-governance-ops,
-        inclusive-docs,
-        skill-input-output-contract,
-      ]
-    ds-governance-audit:
-      [
-        docs-governance-ops,
-        inclusive-docs,
-        markdown-lifecycle-status,
-        docs-pipeline-contract,
-        ds-docs-guardrails,
-        skill-input-output-contract,
-      ]
-    ds-init-docs:
-      [ds-docs-guardrails, docs-taxonomy, frontmatter-contract, docs-language-tone]
-    ds-pipeline:
-      [
-        docs-pipeline-contract,
-        ds-docs-guardrails,
-        component-name-normalization,
-        skill-input-output-contract,
-      ]
-    ds-migrate-legacy-component:
-      [
-        component-spec-yaml,
-        component-doc,
-        component-figma-traceability,
-        component-name-normalization,
-        token-references,
-        token-registry-validation,
-        markdown-lifecycle-status,
-        docs-pipeline-contract,
-      ]
-    ds-audit-consistency:
-      [
-        component-figma-traceability,
-        token-registry-validation,
-        markdown-lifecycle-status,
-        docs-pipeline-contract,
-      ]
-    ds-tokens-sync: [token-registry-validation, ds-docs-guardrails]
