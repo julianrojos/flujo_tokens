@@ -14,6 +14,11 @@ function normalizeDots(pathKey: string): string {
     return pathKey.replace(/\.+/g, '.').replace(/^\.|\.$/g, '');
 }
 
+export function toDottedPath(pathKey: string): string {
+    const dotted = pathKey.trim().replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
+    return normalizeDots(dotted);
+}
+
 /**
  * Builds the canonical dotted token key used for indexing and resolution.
  * Mode segments are excluded so token identities remain stable across modes.
@@ -28,7 +33,7 @@ export function buildPathKey(segments: string[], startIndex = 0): string {
         const seg = segments[i];
         if (!seg || isModeKey(seg)) continue;
 
-        const cleaned = seg.replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
+        const cleaned = toDottedPath(seg);
         if (!cleaned) continue;
 
         if (!first) out += '.';
@@ -54,8 +59,7 @@ export function normalizePathKey(pathKey: string): string {
 export function canonicalizeRefPath(pathKey: string): string {
     if (refCanonicalCache.has(pathKey)) return refCanonicalCache.get(pathKey)!;
 
-    const dotted = pathKey.trim().replace(/[\\/]+/g, '.').replace(/\s+/g, '.');
-    const result = normalizeDots(dotted);
+    const result = toDottedPath(pathKey);
 
     refCanonicalCache.set(pathKey, result);
     return result;
