@@ -6,21 +6,18 @@ import { pathToFileURL } from "node:url";
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { resolveSystemContextSafe } from "./lib/system-context.mjs";
 import { loadTokenRegistry } from "./lib/token-registry.mjs";
-import { normalizeComponentName } from "./lib/component-name.mjs";
-import { normalizeNodeId } from "./lib/node-id.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
 import {
-  buildSpecPrompt,
   buildSpecValidationFeedbackPrompt,
   runSpecGenerationPrompt,
   runSpecRepairPrompt,
 } from "./lib/spec-agent-runner.mjs";
-import { buildSpecOutputPath } from "./lib/spec-paths.mjs";
+import { createSpecRunContext } from "./lib/spec-run-context.mjs";
+import { countTbdValues } from "./lib/spec-token-mapping.mjs";
 import {
-  buildTokenMenuLines,
-  countTbdValues,
-  extractUniqueRegistryEntries,
-} from "./lib/spec-token-mapping.mjs";
+  buildSpecPromptWithRegistry,
+  loadRegistryOrThrow,
+} from "./lib/spec-registry-prompt.mjs";
 import { validateGeneratedSpec } from "./lib/spec-validation.mjs";
 import { buildSpecGenerationResult } from "./lib/spec-result.mjs";
 import {
@@ -117,59 +114,6 @@ const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
   "anatomy",
 ]);
 
-function parseFigmaUrl(figmaUrl) {
-  if (!figmaUrl) return { fileKey: "", nodeId: "" };
-  let url;
-  try {
-    url = new URL(figmaUrl);
-  } catch {
-    return { fileKey: "", nodeId: "" };
-  }
-
-  const pathnameParts = url.pathname.split("/").filter(Boolean);
-  const keyRootIndex = pathnameParts.findIndex(
-    (part) => part === "design" || part === "file",
-  );
-  const fileKey =
-    keyRootIndex >= 0 && pathnameParts[keyRootIndex + 1]
-      ? pathnameParts[keyRootIndex + 1]
-      : "";
-
-  const nodeParamKeys = ["node-id", "node_id", "nodeId"];
-  let rawNodeId = "";
-  for (const key of nodeParamKeys) {
-    const value = url.searchParams.get(key);
-    if (value) {
-      rawNodeId = value;
-      break;
-    }
-  }
-
-  if (!rawNodeId) {
-    const hashRaw = String(url.hash || "").replace(/^#/, "");
-    if (hashRaw) {
-      const hashParams = new URLSearchParams(hashRaw.replace(/^[/?]+/, ""));
-      for (const key of nodeParamKeys) {
-        const value = hashParams.get(key);
-        if (value) {
-          rawNodeId = value;
-          break;
-        }
-      }
-
-      if (!rawNodeId) {
-        const match = hashRaw.match(/(?:^|[?&])node-?id=([^&]+)/i);
-        if (match && match[1]) {
-          rawNodeId = decodeURIComponent(match[1]);
-        }
-      }
-    }
-  }
-
-  const nodeId = normalizeNodeId(rawNodeId);
-  return { fileKey, nodeId };
-}
-
 function formatYamlFile(outputPath) {
   runOrThrow("npx", ["prettier", "--write", outputPath]);
 }
@@ -196,95 +140,52 @@ export function runSpecFromFigma(args, deps = {}) {
 
   const ctx = resolveSystemContextSafeFn({ system: args.system });
 
-  const figmaUrl = String(args.url || "").trim();
-  const explicitNodeId = normalizeNodeId(args["component-set-node-id"] || "");
-  const rawComponentName = String(args["component-name"] || "").trim();
-  const normalizedName = normalizeComponentName(rawComponentName);
-  const componentName = normalizedName.displayName;
-  const componentSlug = normalizedName.fileSlug;
-  const specRoot = args["spec-root"] || ctx.paths.specs;
-  const resolvedSpecRoot = path.resolve(specRoot);
-  const docsRootDir = ctx.paths.docs;
-  const templatePath = path.resolve(args.template || path.join(resolvedSpecRoot, "_template.yml"));
-  const registryPath = path.resolve(
-    args.registry || ctx.paths.tokenRegistry,
-  );
-  const force = String(args.force || "false") === "true";
-  const skipValidation = String(args["skip-validation"] || "false") === "true";
-  const allowNonEvidenceUpdates =
-    String(args["allow-non-evidence-updates"] || "false") === "true";
-  const agent = args.agent || "auto";
-
-  if (skipValidation && !force) {
-    throw new Error(
-      "Validation gate bypass requires explicit force.\n" +
-        "Use `--skip-validation true --force true` only for exceptional cases."
-    );
-  }
-
-  if (allowNonEvidenceUpdates && !force) {
-    throw new Error(
-      "Evidence gate bypass requires explicit force.\n" +
-        "Use `--allow-non-evidence-updates true --force true` only for exceptional cases."
-    );
-  }
-
-  const parsedUrl = parseFigmaUrl(figmaUrl);
-  const fileKeyFromUrl = parsedUrl.fileKey;
-  const nodeId = explicitNodeId || parsedUrl.nodeId;
-
-  if (!figmaUrl && !nodeId && !rawComponentName) {
-    throw new Error(
-      "Missing Figma source.\nUse one of:\n- --url <figma-url>\n- --component-set-node-id <node-id>\n- --component-name <name> (less deterministic)",
-    );
-  }
-
-  const outputPath = buildSpecOutputPath(
-    args,
-    specRoot,
+  const runCtx = createSpecRunContext({ args, ctx });
+  const {
+    figmaUrl,
+    componentName,
     componentSlug,
+    resolvedSpecRoot,
+    docsRootDir,
+    templatePath,
+    registryPath,
+    skipValidation,
+    allowNonEvidenceUpdates,
+    agent,
+    fileKeyFromUrl,
     nodeId,
-  );
-  if (!outputPath) {
-    throw new Error(
-      "Missing output target.\nProvide --output or --component-name.",
-    );
-  }
+    outputPath,
+    overviewPath,
+    registryIndexPath,
+    allowedWritePaths,
+  } = runCtx;
+
   const outputSnapshot = captureFileSnapshotFn(outputPath);
   let existingSpec = null;
   existingSpec = parseExistingSpecFromSnapshotFn(outputSnapshot, outputPath);
-  const overviewPath = path.resolve(path.join(ctx.paths.docs, "overview.md"));
-  const registryIndexPath = path.resolve(ctx.paths.registry);
   const scopeSnapshot = captureScopedWriteSnapshotFn({
     directories: [resolvedSpecRoot, ctx.paths.docs],
     files: [registryIndexPath],
     extensions: [".yml", ".md", ".json"],
   });
-  const allowedWritePaths = [outputPath, overviewPath, registryIndexPath];
 
   ensureSpecTemplateExistsFn(templatePath);
 
-  let registryIndex;
-  try {
-    registryIndex = loadTokenRegistryFn(registryPath);
-  } catch (error) {
-    throw new Error(
-      `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`,
-    );
-  }
+  const registryIndex = loadRegistryOrThrow({
+    loadTokenRegistryFn,
+    registryPath,
+  });
 
-  const prompt = buildSpecPrompt({
+  const prompt = buildSpecPromptWithRegistry({
     figmaUrl,
     nodeId,
     componentName,
+    componentSlug,
     outputPath,
     templatePath,
     registryPath,
     fileKeyFromUrl,
-    tokenMenuLines: buildTokenMenuLines(
-      extractUniqueRegistryEntries(registryIndex),
-      componentName || componentSlug,
-    ),
+    registryIndex,
   });
 
   ensureSpecOutputDirectoryFn(outputPath);
