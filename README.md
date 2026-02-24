@@ -49,12 +49,14 @@ If you want a single file output, use `--single` with `--output`.
 
 ### Architecture and Pipeline
 
-The system operates in 4 sequential phases:
+The system operates in 4 sequential phases orchestrated by a phase scheduler:
 
 1.  **Ingest (`tooling/src/core/ingest.ts`)**: Reads and sanitizes JSON files from `input/`.
 2.  **Indexing (`tooling/src/core/indexing.ts`)**: Creates lookup maps and resolves cross-references.
 3.  **Analysis (`tooling/src/core/analyze.ts`)**: Detects cycles and validates data integrity.
 4.  **Emission (`tooling/src/core/emit.ts`)**: Generates final CSS declarations for base scope (`:root`) and mode scopes (`[data-theme="..."]`) when mode branches exist.
+
+Core phases are implemented as plugins (`core:*`). Optional external plugins can be attached per phase without modifying the core CLI.
 
 ### Project Structure
 
@@ -70,6 +72,7 @@ Behavior can be adjusted using environment variables:
 
 - `ALLOW_JSON_REPAIR=true` (default: false): Attempts to repair common syntax errors in input JSONs (e.g., trailing commas) to prevent the process from failing.
 - `ALLOW_ALIAS_SCAN=true` (default: false): Enables O(N) tree-scan fallback for unresolved `VARIABLE_ALIAS` IDs. Keep disabled for large token sets/perf safety; enable only for debugging/migrations.
+- `PIPELINE_PLUGIN_TIMEOUT_MS=<ms>` (default: `60000`): Max execution time per plugin before the run fails with a timeout error.
 - Mode selection flags (CLI):
   - `--mode <name>` (default: none): preferred mode branch (normalized exact match against `mode...` keys, e.g. `dark` -> `modeDark`/`mode-dark`). When present, only that mode scope is emitted (plus `:root`).
   - `--mode-loose` (default): if the preferred mode is missing on a node, fallback to the available mode and log a warning.
@@ -82,6 +85,8 @@ Behavior can be adjusted using environment variables:
 - Registry export flags (CLI):
   - `--registry`: also generate docs token registry JSON.
   - `--registry-output <file>`: registry output path (default: `docs/_generated/token-registry.json`).
+- Pipeline extension flags (CLI):
+  - `--plugin <path>`: load an external phase plugin module (`plugin`, `plugins`, or `default` export). Repeatable.
 
 Example:
 
@@ -112,6 +117,34 @@ Registry example:
 ```bash
 npm run generate:registry
 ```
+
+Plugin example:
+
+```bash
+npm run generate -- --plugin ./tooling/plugins/custom-normalize.mjs
+```
+
+Writing a plugin:
+
+```javascript
+// tooling/plugins/custom-normalize.mjs
+export default {
+  name: 'custom-normalize',
+  phase: 'analyze', // ingest | index | analyze | emit
+  placement: 'after-core', // before-core | after-core
+  async transform(ctx) {
+    const { state } = ctx;
+    console.log(`Analyzed scopes: ${state.analyzedScopes.length}`);
+  }
+};
+```
+
+Placement notes:
+- `before-core`: runs before the built-in phase plugin.
+- `after-core`: runs after the built-in phase plugin (default).
+- Core plugins are owned by the generator runtime; external plugins are for phase extensions.
+
+Plugin execution emits structured JSON logs (`pipeline_start`, `plugin_start`, `plugin_finish`, `plugin_error`, `pipeline_complete`).
 
 Incremental sync example:
 

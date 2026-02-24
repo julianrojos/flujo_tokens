@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 // Types
 import type {
@@ -30,8 +30,10 @@ import {
     sha256FromObject,
     sha256FromFile,
     sha256FromString,
-    type PipelinePhase
+    type PipelinePhase,
+    type InputHashSnapshot
 } from '../runtime/pipeline-cache.js';
+import { runPipelinePlugins, type PipelinePlugin } from '../runtime/pipeline-plugins.js';
 
 // Utils
 import { normalizeModeName, normalizePreferredMode, matchesPreferredMode, formatModeLabel } from '../utils/modes.js';
@@ -68,6 +70,7 @@ type CliOptions = {
     forcePhases: PipelinePhase[];
     checkpoints: boolean;
     cacheDir?: string;
+    pluginModules: string[];
 };
 
 type ModeScope = {
@@ -195,6 +198,28 @@ type OutputTarget = {
     emitEntries: FileEntry[];
 };
 
+type PipelineExecutionState = {
+    summary: ExecutionSummary;
+    checkpointsEnabled: boolean;
+    inputSnapshot: InputHashSnapshot;
+    ingestDependencyHash: string;
+    combinedTokens: Record<string, any>;
+    fileEntries: FileEntry[];
+    indexDependencyHash: string;
+    detectedModeSet: Set<string>;
+    emittedModeSet: Set<string>;
+    scopedIndices: SerializedScopeIndex[];
+    cssVarNameOwners: Map<string, CssVarOwner>;
+    cssVarNameCollisionMap: Map<string, CssVarCollision>;
+    analyzeDependencyHash: string;
+    analyzedScopes: SerializedAnalyzedScope[];
+    outputs: OutputTarget[];
+    emitManifestPath: string;
+    emitDependencyHash: string;
+};
+
+type TokenPipelinePlugin = PipelinePlugin<PipelineExecutionState>;
+
 function readToolVersion(): string {
     try {
         const raw = fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf8');
@@ -226,6 +251,7 @@ Options:
       --mode-loose     Allow fallback to available mode if preferred is missing (default: on)
       --from-phase <phase>   Re-run from phase: ingest|index|analyze|emit
       --force-phase <phase>  Force a phase (and downstream). Repeatable or comma-separated
+      --plugin <path>        Load external phase plugin module (.mjs/.js/.ts). Repeatable
       --no-checkpoints       Disable phase checkpoints
       --cache-dir <dir>      Checkpoint directory (default: ./.cache/tokens-<system>)
 `);
@@ -265,6 +291,7 @@ function parseArgs(argv: string[]): CliOptions | null {
     const forcePhases: PipelinePhase[] = [];
     let checkpoints = true;
     let cacheDir: string | undefined;
+    const pluginModules: string[] = [];
 
     // First pass loop just to find systemId.
     for (let i = 0; i < argv.length; i++) {
@@ -418,6 +445,16 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
+        if (arg === '--plugin') {
+            if (!argv[i + 1]) {
+                console.error('❌ Missing value for --plugin');
+                return null;
+            }
+            pluginModules.push(path.resolve(process.cwd(), argv[i + 1]));
+            i++;
+            continue;
+        }
+
         if (arg === '--cache-dir') {
             if (!argv[i + 1]) {
                 console.error('❌ Missing value for --cache-dir');
@@ -452,7 +489,8 @@ function parseArgs(argv: string[]): CliOptions | null {
         fromPhase,
         forcePhases,
         checkpoints,
-        cacheDir
+        cacheDir,
+        pluginModules
     };
 }
 
@@ -856,85 +894,147 @@ function isEmitCheckpointUsable(
 
 // --- Main execution ---
 
-async function main() {
-    // Reset runtime state for clean execution (important for watch mode/tests).
-    resetRuntimeState();
+function isPipelinePhase(value: unknown): value is PipelinePhase {
+    return value === 'ingest' || value === 'index' || value === 'analyze' || value === 'emit';
+}
 
-    let summary = createSummary();
+function isPluginPlacement(value: unknown): value is 'before-core' | 'after-core' {
+    return value === 'before-core' || value === 'after-core';
+}
 
-    const checkpointsEnabled = options.checkpoints;
-    if (checkpointsEnabled) {
-        fs.mkdirSync(CACHE_DIR, { recursive: true });
+function normalizePluginCandidates(raw: unknown): unknown[] {
+    if (Array.isArray(raw)) return raw;
+    if (raw == null) return [];
+    return [raw];
+}
+
+function parseExternalPlugin(modulePath: string, candidate: unknown, index: number): TokenPipelinePlugin {
+    const suffix = `External plugin ${index + 1} in ${modulePath}`;
+    if (!candidate || typeof candidate !== 'object') {
+        throw new Error(`${suffix} must be an object.`);
     }
 
-    const inputSnapshot = hashJsonInputDirectory(JSON_DIR);
-    const ingestDependencyHash = sha256FromObject({
-        phase: 'ingest',
-        inputDir: JSON_DIR,
-        inputHash: inputSnapshot.inputHash
-    });
+    const plugin = candidate as {
+        name?: unknown;
+        phase?: unknown;
+        placement?: unknown;
+        transform?: unknown;
+    };
 
+    if (typeof plugin.name !== 'string' || !plugin.name.trim()) {
+        throw new Error(`${suffix} is missing a valid "name".`);
+    }
+    if (!isPipelinePhase(plugin.phase)) {
+        throw new Error(`${suffix} must define phase as ingest|index|analyze|emit.`);
+    }
+    if (typeof plugin.transform !== 'function') {
+        throw new Error(`${suffix} is missing a function "transform".`);
+    }
+
+    const placement = plugin.placement;
+    if (placement != null && !isPluginPlacement(placement)) {
+        throw new Error(`${suffix} has invalid placement "${String(placement)}". Use before-core|after-core.`);
+    }
+
+    return {
+        name: plugin.name.trim(),
+        phase: plugin.phase,
+        placement: placement || 'after-core',
+        transform: plugin.transform as TokenPipelinePlugin['transform']
+    };
+}
+
+async function loadExternalPhasePlugins(pluginModules: string[]): Promise<TokenPipelinePlugin[]> {
+    const plugins: TokenPipelinePlugin[] = [];
+    for (const modulePath of pluginModules) {
+        const resolvedPath = path.resolve(process.cwd(), modulePath);
+        if (!fs.existsSync(resolvedPath)) {
+            throw new Error(`Plugin file not found: ${resolvedPath}`);
+        }
+        const pluginStats = fs.statSync(resolvedPath);
+        if (!pluginStats.isFile()) {
+            throw new Error(`Plugin path must point to a file: ${resolvedPath}`);
+        }
+        const moduleUrl = pathToFileURL(resolvedPath).href;
+        const imported = (await import(moduleUrl)) as Record<string, unknown>;
+        const candidates = [
+            ...normalizePluginCandidates(imported.plugins),
+            ...normalizePluginCandidates(imported.plugin),
+            ...normalizePluginCandidates(imported.default)
+        ];
+        if (candidates.length === 0) {
+            throw new Error(
+                `Plugin module "${resolvedPath}" must export "plugin", "plugins", or "default" with plugin definitions.`
+            );
+        }
+        candidates.forEach((candidate, idx) => {
+            plugins.push(parseExternalPlugin(resolvedPath, candidate, idx));
+        });
+    }
+    return plugins;
+}
+
+function runIngestPhase(state: PipelineExecutionState): void {
     const bypassIngest = shouldBypassCheckpoint('ingest', options.fromPhase, options.forcePhases);
-    let combinedTokens: Record<string, any>;
-    if (checkpointsEnabled && !bypassIngest) {
+    if (state.checkpointsEnabled && !bypassIngest) {
         const ingestCheckpoint = loadCheckpoint<IngestCheckpointPayload>(
             INGEST_CHECKPOINT_PATH,
             'ingest',
-            ingestDependencyHash,
+            state.ingestDependencyHash,
             PIPELINE_SCHEMA_VERSION,
             TOOL_VERSION
         );
 
         if (ingestCheckpoint) {
-            combinedTokens = ingestCheckpoint.payload.combinedTokens;
+            state.combinedTokens = ingestCheckpoint.payload.combinedTokens;
             console.log('⚡ Phase INGEST: checkpoint hit');
         } else {
             console.log('🧩 Phase INGEST: checkpoint miss');
             try {
-                combinedTokens = readAndCombineJsons(JSON_DIR);
+                state.combinedTokens = readAndCombineJsons(JSON_DIR);
             } catch {
                 console.error('❌ Ingestion failed. Aborting.');
                 process.exit(1);
             }
 
             const ingestPayload: IngestCheckpointPayload = {
-                inputHash: inputSnapshot.inputHash,
-                files: inputSnapshot.files,
-                combinedTokens
+                inputHash: state.inputSnapshot.inputHash,
+                files: state.inputSnapshot.files,
+                combinedTokens: state.combinedTokens
             };
             saveCheckpoint(
                 INGEST_CHECKPOINT_PATH,
                 'ingest',
-                ingestDependencyHash,
+                state.ingestDependencyHash,
                 ingestPayload,
                 PIPELINE_SCHEMA_VERSION,
                 TOOL_VERSION
             );
         }
     } else {
-        if (!checkpointsEnabled) {
+        if (!state.checkpointsEnabled) {
             console.log('⏭️  Phase INGEST: checkpoints disabled');
         } else {
             console.log('⏭️  Phase INGEST: forced re-run');
         }
 
         try {
-            combinedTokens = readAndCombineJsons(JSON_DIR);
+            state.combinedTokens = readAndCombineJsons(JSON_DIR);
         } catch {
             console.error('❌ Ingestion failed. Aborting.');
             process.exit(1);
         }
 
-        if (checkpointsEnabled) {
+        if (state.checkpointsEnabled) {
             const ingestPayload: IngestCheckpointPayload = {
-                inputHash: inputSnapshot.inputHash,
-                files: inputSnapshot.files,
-                combinedTokens
+                inputHash: state.inputSnapshot.inputHash,
+                files: state.inputSnapshot.files,
+                combinedTokens: state.combinedTokens
             };
             saveCheckpoint(
                 INGEST_CHECKPOINT_PATH,
                 'ingest',
-                ingestDependencyHash,
+                state.ingestDependencyHash,
                 ingestPayload,
                 PIPELINE_SCHEMA_VERSION,
                 TOOL_VERSION
@@ -942,201 +1042,198 @@ async function main() {
         }
     }
 
-    const fileCount = Object.keys(combinedTokens).length;
+    const fileCount = Object.keys(state.combinedTokens).length;
     console.log(`📂 ${fileCount} JSON ${fileCount === 1 ? 'file' : 'files'} loaded from ${JSON_DIR}`);
 
-    const fileEntries = Object.entries(combinedTokens).map(([name, content]) => ({
+    state.fileEntries = Object.entries(state.combinedTokens).map(([name, content]) => ({
         originalName: name,
         content
     }));
 
-    if (fileEntries.length === 0) {
+    if (state.fileEntries.length === 0) {
         console.error(`❌ No JSON files found in ${JSON_DIR}. Nothing to generate.`);
         process.exit(1);
     }
 
     console.log('🔄 Transforming to CSS variables...');
+}
 
-    const indexDependencyHash = sha256FromObject({
+function runIndexPhase(state: PipelineExecutionState): void {
+    state.indexDependencyHash = sha256FromObject({
         phase: 'index',
-        ingestHash: inputSnapshot.inputHash,
+        ingestHash: state.inputSnapshot.inputHash,
         preferredMode: PREFERRED_MODE,
         modeStrictPreferred: MODE_STRICT_PREFERRED
     });
 
     const bypassIndex = shouldBypassCheckpoint('index', options.fromPhase, options.forcePhases);
 
-    let detectedModeSet = new Set<string>();
-    let emittedModeSet = new Set<string>();
-    let scopedIndices: SerializedScopeIndex[] = [];
-    let cssVarNameOwners = new Map<string, CssVarOwner>();
-    let cssVarNameCollisionMap = new Map<string, CssVarCollision>();
-
-    if (checkpointsEnabled && !bypassIndex) {
+    if (state.checkpointsEnabled && !bypassIndex) {
         const indexCheckpoint = loadCheckpoint<IndexCheckpointPayload>(
             INDEX_CHECKPOINT_PATH,
             'index',
-            indexDependencyHash,
+            state.indexDependencyHash,
             PIPELINE_SCHEMA_VERSION,
             TOOL_VERSION
         );
 
         if (indexCheckpoint) {
             const payload = indexCheckpoint.payload;
-            scopedIndices = payload.scopedIndices;
-            detectedModeSet = new Set<string>(payload.detectedModes);
-            emittedModeSet = new Set<string>(payload.emittedModes);
-            cssVarNameOwners = new Map<string, CssVarOwner>(payload.cssVarNameOwners);
-            cssVarNameCollisionMap = deserializeCssCollisionMap(payload.cssVarNameCollisionMap);
-            summary.cssVarNameCollisions = payload.cssVarNameCollisions;
-            summary.cssVarNameCollisionDetails = [...payload.cssVarNameCollisionDetails];
+            state.scopedIndices = payload.scopedIndices;
+            state.detectedModeSet = new Set<string>(payload.detectedModes);
+            state.emittedModeSet = new Set<string>(payload.emittedModes);
+            state.cssVarNameOwners = new Map<string, CssVarOwner>(payload.cssVarNameOwners);
+            state.cssVarNameCollisionMap = deserializeCssCollisionMap(payload.cssVarNameCollisionMap);
+            state.summary.cssVarNameCollisions = payload.cssVarNameCollisions;
+            state.summary.cssVarNameCollisionDetails = [...payload.cssVarNameCollisionDetails];
             console.log('⚡ Phase INDEX: checkpoint hit');
-        } else {
-            console.log('🧩 Phase INDEX: checkpoint miss');
-            const indexed = buildIndexArtifacts(fileEntries, summary, PREFERRED_MODE, MODE_STRICT_PREFERRED);
-            indexed.payload.ingestHash = inputSnapshot.inputHash;
-            scopedIndices = indexed.payload.scopedIndices;
-            detectedModeSet = indexed.detectedModeSet;
-            emittedModeSet = indexed.emittedModeSet;
-            cssVarNameOwners = indexed.cssVarNameOwners;
-            cssVarNameCollisionMap = indexed.cssVarNameCollisionMap;
-
-            saveCheckpoint(
-                INDEX_CHECKPOINT_PATH,
-                'index',
-                indexDependencyHash,
-                indexed.payload,
-                PIPELINE_SCHEMA_VERSION,
-                TOOL_VERSION
-            );
-        }
-    } else {
-        if (!checkpointsEnabled) {
-            console.log('⏭️  Phase INDEX: checkpoints disabled');
-        } else {
-            console.log('⏭️  Phase INDEX: forced re-run');
+            return;
         }
 
-        const indexed = buildIndexArtifacts(fileEntries, summary, PREFERRED_MODE, MODE_STRICT_PREFERRED);
-        indexed.payload.ingestHash = inputSnapshot.inputHash;
-        scopedIndices = indexed.payload.scopedIndices;
-        detectedModeSet = indexed.detectedModeSet;
-        emittedModeSet = indexed.emittedModeSet;
-        cssVarNameOwners = indexed.cssVarNameOwners;
-        cssVarNameCollisionMap = indexed.cssVarNameCollisionMap;
+        console.log('🧩 Phase INDEX: checkpoint miss');
+        const indexed = buildIndexArtifacts(state.fileEntries, state.summary, PREFERRED_MODE, MODE_STRICT_PREFERRED);
+        indexed.payload.ingestHash = state.inputSnapshot.inputHash;
+        state.scopedIndices = indexed.payload.scopedIndices;
+        state.detectedModeSet = indexed.detectedModeSet;
+        state.emittedModeSet = indexed.emittedModeSet;
+        state.cssVarNameOwners = indexed.cssVarNameOwners;
+        state.cssVarNameCollisionMap = indexed.cssVarNameCollisionMap;
 
-        if (checkpointsEnabled) {
-            saveCheckpoint(
-                INDEX_CHECKPOINT_PATH,
-                'index',
-                indexDependencyHash,
-                indexed.payload,
-                PIPELINE_SCHEMA_VERSION,
-                TOOL_VERSION
-            );
-        }
+        saveCheckpoint(
+            INDEX_CHECKPOINT_PATH,
+            'index',
+            state.indexDependencyHash,
+            indexed.payload,
+            PIPELINE_SCHEMA_VERSION,
+            TOOL_VERSION
+        );
+        return;
     }
 
-    const analyzeDependencyHash = sha256FromObject({
+    if (!state.checkpointsEnabled) {
+        console.log('⏭️  Phase INDEX: checkpoints disabled');
+    } else {
+        console.log('⏭️  Phase INDEX: forced re-run');
+    }
+
+    const indexed = buildIndexArtifacts(state.fileEntries, state.summary, PREFERRED_MODE, MODE_STRICT_PREFERRED);
+    indexed.payload.ingestHash = state.inputSnapshot.inputHash;
+    state.scopedIndices = indexed.payload.scopedIndices;
+    state.detectedModeSet = indexed.detectedModeSet;
+    state.emittedModeSet = indexed.emittedModeSet;
+    state.cssVarNameOwners = indexed.cssVarNameOwners;
+    state.cssVarNameCollisionMap = indexed.cssVarNameCollisionMap;
+
+    if (state.checkpointsEnabled) {
+        saveCheckpoint(
+            INDEX_CHECKPOINT_PATH,
+            'index',
+            state.indexDependencyHash,
+            indexed.payload,
+            PIPELINE_SCHEMA_VERSION,
+            TOOL_VERSION
+        );
+    }
+}
+
+function runAnalyzePhase(state: PipelineExecutionState): void {
+    state.analyzeDependencyHash = sha256FromObject({
         phase: 'analyze',
-        indexHash: indexDependencyHash
+        indexHash: state.indexDependencyHash
     });
 
     const bypassAnalyze = shouldBypassCheckpoint('analyze', options.fromPhase, options.forcePhases);
-    let analyzedScopes: SerializedAnalyzedScope[] = [];
 
-    if (checkpointsEnabled && !bypassAnalyze) {
+    if (state.checkpointsEnabled && !bypassAnalyze) {
         const analyzeCheckpoint = loadCheckpoint<AnalyzeCheckpointPayload>(
             ANALYZE_CHECKPOINT_PATH,
             'analyze',
-            analyzeDependencyHash,
+            state.analyzeDependencyHash,
             PIPELINE_SCHEMA_VERSION,
             TOOL_VERSION
         );
 
         if (analyzeCheckpoint) {
-            analyzedScopes = analyzeCheckpoint.payload.analyzedScopes;
-            detectedModeSet = new Set<string>(analyzeCheckpoint.payload.detectedModes);
-            emittedModeSet = new Set<string>(analyzeCheckpoint.payload.emittedModes);
+            state.analyzedScopes = analyzeCheckpoint.payload.analyzedScopes;
+            state.detectedModeSet = new Set<string>(analyzeCheckpoint.payload.detectedModes);
+            state.emittedModeSet = new Set<string>(analyzeCheckpoint.payload.emittedModes);
             console.log('⚡ Phase ANALYZE: checkpoint hit');
-        } else {
-            console.log('🧩 Phase ANALYZE: checkpoint miss');
-            analyzedScopes = analyzeScopedIndices(scopedIndices);
-            const analyzePayload: AnalyzeCheckpointPayload = {
-                indexHash: indexDependencyHash,
-                detectedModes: Array.from(detectedModeSet),
-                emittedModes: Array.from(emittedModeSet),
-                analyzedScopes
-            };
-            saveCheckpoint(
-                ANALYZE_CHECKPOINT_PATH,
-                'analyze',
-                analyzeDependencyHash,
-                analyzePayload,
-                PIPELINE_SCHEMA_VERSION,
-                TOOL_VERSION
-            );
-        }
-    } else {
-        if (!checkpointsEnabled) {
-            console.log('⏭️  Phase ANALYZE: checkpoints disabled');
-        } else {
-            console.log('⏭️  Phase ANALYZE: forced re-run');
+            return;
         }
 
-        analyzedScopes = analyzeScopedIndices(scopedIndices);
-
-        if (checkpointsEnabled) {
-            const analyzePayload: AnalyzeCheckpointPayload = {
-                indexHash: indexDependencyHash,
-                detectedModes: Array.from(detectedModeSet),
-                emittedModes: Array.from(emittedModeSet),
-                analyzedScopes
-            };
-            saveCheckpoint(
-                ANALYZE_CHECKPOINT_PATH,
-                'analyze',
-                analyzeDependencyHash,
-                analyzePayload,
-                PIPELINE_SCHEMA_VERSION,
-                TOOL_VERSION
-            );
-        }
+        console.log('🧩 Phase ANALYZE: checkpoint miss');
+        state.analyzedScopes = analyzeScopedIndices(state.scopedIndices);
+        const analyzePayload: AnalyzeCheckpointPayload = {
+            indexHash: state.indexDependencyHash,
+            detectedModes: Array.from(state.detectedModeSet),
+            emittedModes: Array.from(state.emittedModeSet),
+            analyzedScopes: state.analyzedScopes
+        };
+        saveCheckpoint(
+            ANALYZE_CHECKPOINT_PATH,
+            'analyze',
+            state.analyzeDependencyHash,
+            analyzePayload,
+            PIPELINE_SCHEMA_VERSION,
+            TOOL_VERSION
+        );
+        return;
     }
 
-    const outputs = getOutputTargets(fileEntries);
-    const emitManifestPath = getEmitManifestPath(outputs);
-    const emitDependencyHash = sha256FromObject({
+    if (!state.checkpointsEnabled) {
+        console.log('⏭️  Phase ANALYZE: checkpoints disabled');
+    } else {
+        console.log('⏭️  Phase ANALYZE: forced re-run');
+    }
+
+    state.analyzedScopes = analyzeScopedIndices(state.scopedIndices);
+
+    if (state.checkpointsEnabled) {
+        const analyzePayload: AnalyzeCheckpointPayload = {
+            indexHash: state.indexDependencyHash,
+            detectedModes: Array.from(state.detectedModeSet),
+            emittedModes: Array.from(state.emittedModeSet),
+            analyzedScopes: state.analyzedScopes
+        };
+        saveCheckpoint(
+            ANALYZE_CHECKPOINT_PATH,
+            'analyze',
+            state.analyzeDependencyHash,
+            analyzePayload,
+            PIPELINE_SCHEMA_VERSION,
+            TOOL_VERSION
+        );
+    }
+}
+
+function runEmitPhase(state: PipelineExecutionState): void {
+    state.outputs = getOutputTargets(state.fileEntries);
+    state.emitManifestPath = getEmitManifestPath(state.outputs);
+    state.emitDependencyHash = sha256FromObject({
         phase: 'emit',
-        analyzeHash: analyzeDependencyHash,
+        analyzeHash: state.analyzeDependencyHash,
         split: SPLIT_OUTPUT,
         registry: REGISTRY_ENABLED,
         registryOutput: REGISTRY_OUTPUT,
-        outputs: outputs.map(output => ({ label: output.label, filePath: output.filePath }))
+        outputs: state.outputs.map(output => ({ label: output.label, filePath: output.filePath }))
     });
 
     const bypassEmit = shouldBypassCheckpoint('emit', options.fromPhase, options.forcePhases);
 
-    if (checkpointsEnabled && !bypassEmit) {
+    if (state.checkpointsEnabled && !bypassEmit) {
         const emitCheckpoint = loadCheckpoint<EmitCheckpointPayload>(
-            emitManifestPath,
+            state.emitManifestPath,
             'emit',
-            emitDependencyHash,
+            state.emitDependencyHash,
             PIPELINE_SCHEMA_VERSION,
             TOOL_VERSION
         );
 
-        if (emitCheckpoint && isEmitCheckpointUsable(emitCheckpoint.payload, outputs, REGISTRY_ENABLED, REGISTRY_OUTPUT)) {
-            summary = fromSummarySnapshot(emitCheckpoint.payload.summary);
-            detectedModeSet = new Set<string>(emitCheckpoint.payload.detectedModes);
-            emittedModeSet = new Set<string>(emitCheckpoint.payload.emittedModes);
+        if (emitCheckpoint && isEmitCheckpointUsable(emitCheckpoint.payload, state.outputs, REGISTRY_ENABLED, REGISTRY_OUTPUT)) {
+            state.summary = fromSummarySnapshot(emitCheckpoint.payload.summary);
+            state.detectedModeSet = new Set<string>(emitCheckpoint.payload.detectedModes);
+            state.emittedModeSet = new Set<string>(emitCheckpoint.payload.emittedModes);
             console.log('⚡ Phase EMIT: checkpoint hit (outputs unchanged)');
-            printExecutionSummary(summary);
-            printModeSummary(emittedModeSet, 'emitted');
-            if (!setsEqual(emittedModeSet, detectedModeSet)) {
-                printModeSummary(detectedModeSet, 'detected');
-            }
-            printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
             return;
         }
 
@@ -1145,31 +1242,29 @@ async function main() {
         } else {
             console.log('🧩 Phase EMIT: checkpoint invalidated (output drift detected)');
         }
+    } else if (!state.checkpointsEnabled) {
+        console.log('⏭️  Phase EMIT: checkpoints disabled');
     } else {
-        if (!checkpointsEnabled) {
-            console.log('⏭️  Phase EMIT: checkpoints disabled');
-        } else {
-            console.log('⏭️  Phase EMIT: forced re-run');
-        }
+        console.log('⏭️  Phase EMIT: forced re-run');
     }
 
     const scopeProcessingContexts = buildScopeProcessingContexts(
-        analyzedScopes,
-        summary,
-        combinedTokens,
-        cssVarNameOwners,
-        cssVarNameCollisionMap
+        state.analyzedScopes,
+        state.summary,
+        state.combinedTokens,
+        state.cssVarNameOwners,
+        state.cssVarNameCollisionMap
     );
 
     if (SPLIT_OUTPUT) {
-        const primitiveEntries = fileEntries.filter(entry => entry.originalName.startsWith('_')).length;
-        const tokenEntries = fileEntries.filter(entry => !entry.originalName.startsWith('_')).length;
+        const primitiveEntries = state.fileEntries.filter(entry => entry.originalName.startsWith('_')).length;
+        const tokenEntries = state.fileEntries.filter(entry => !entry.originalName.startsWith('_')).length;
         console.log(`🧩 Split mode enabled: ${primitiveEntries} primitive file(s), ${tokenEntries} token file(s)`);
     }
 
     const emitOutputSnapshots: EmitOutputSnapshot[] = [];
 
-    for (const output of outputs) {
+    for (const output of state.outputs) {
         if (output.emitEntries.length === 0) {
             console.warn(`⚠️  No files matched for ${output.label}; writing empty output.`);
         }
@@ -1222,7 +1317,6 @@ async function main() {
             scopedLines.push(...scopedPrimitives);
             if (scopedPrimitives.length > 0 && scopedAliases.length > 0) scopedLines.push('');
             scopedLines.push(...scopedAliases);
-
             if (scopedLines.length === 0) continue;
 
             const modeLabel = scope.mode ? `/* ========== MODE ${formatModeLabel(scope.mode)} ========== */\n` : '';
@@ -1230,7 +1324,6 @@ async function main() {
         }
 
         const finalCss = `${cssBlocks.join('\n\n')}\n`;
-
         const destDir = path.dirname(output.filePath);
         if (!fs.existsSync(destDir)) {
             fs.mkdirSync(destDir, { recursive: true });
@@ -1255,14 +1348,13 @@ async function main() {
             const newVariables = extractCssVariables(finalCss);
             logChangeDetection(previousVariables, newVariables, {
                 preferredMode: PREFERRED_MODE,
-                detectedModes: detectedModeSet,
-                emittedModes: emittedModeSet,
+                detectedModes: state.detectedModeSet,
+                emittedModes: state.emittedModeSet,
                 modeStrict: MODE_STRICT_PREFERRED
             });
         }
 
         console.log(`\n📝 File ready at: ${output.filePath}`);
-
         emitOutputSnapshots.push({
             label: output.label,
             filePath: output.filePath,
@@ -1278,8 +1370,7 @@ async function main() {
                 .map(({ scope }) => (scope.mode ? `mode:${scope.mode}` : 'base'))
                 .join(', ');
             throw new Error(
-                `Registry export requires a base scope (no mode), but none was found. ` +
-                `Available scopes: ${availableScopes || '<none>'}.`,
+                `Registry export requires a base scope (no mode), but none was found. Available scopes: ${availableScopes || '<none>'}.`
             );
         }
 
@@ -1295,31 +1386,118 @@ async function main() {
         };
     }
 
-    if (checkpointsEnabled) {
+    if (state.checkpointsEnabled) {
         const emitPayload: EmitCheckpointPayload = {
-            analyzeHash: analyzeDependencyHash,
-            emitHash: emitDependencyHash,
+            analyzeHash: state.analyzeDependencyHash,
+            emitHash: state.emitDependencyHash,
             outputs: emitOutputSnapshots,
             registry: registrySnapshot,
-            summary: toSummarySnapshot(summary),
-            detectedModes: Array.from(detectedModeSet),
-            emittedModes: Array.from(emittedModeSet)
+            summary: toSummarySnapshot(state.summary),
+            detectedModes: Array.from(state.detectedModeSet),
+            emittedModes: Array.from(state.emittedModeSet)
         };
 
         saveCheckpoint(
-            emitManifestPath,
+            state.emitManifestPath,
             'emit',
-            emitDependencyHash,
+            state.emitDependencyHash,
             emitPayload,
             PIPELINE_SCHEMA_VERSION,
             TOOL_VERSION
         );
     }
+}
 
-    printExecutionSummary(summary);
-    printModeSummary(emittedModeSet, 'emitted');
-    if (!setsEqual(emittedModeSet, detectedModeSet)) {
-        printModeSummary(detectedModeSet, 'detected');
+function createCorePipelinePlugins(): TokenPipelinePlugin[] {
+    return [
+        {
+            name: 'core:ingest',
+            phase: 'ingest',
+            placement: 'core',
+            transform: ({ state }) => runIngestPhase(state)
+        },
+        {
+            name: 'core:index',
+            phase: 'index',
+            placement: 'core',
+            transform: ({ state }) => runIndexPhase(state)
+        },
+        {
+            name: 'core:analyze',
+            phase: 'analyze',
+            placement: 'core',
+            transform: ({ state }) => runAnalyzePhase(state)
+        },
+        {
+            name: 'core:emit',
+            phase: 'emit',
+            placement: 'core',
+            transform: ({ state }) => runEmitPhase(state)
+        }
+    ];
+}
+
+async function main() {
+    resetRuntimeState();
+
+    const checkpointsEnabled = options.checkpoints;
+    if (checkpointsEnabled) {
+        fs.mkdirSync(CACHE_DIR, { recursive: true });
+    }
+
+    const inputSnapshot = hashJsonInputDirectory(JSON_DIR);
+    const ingestDependencyHash = sha256FromObject({
+        phase: 'ingest',
+        inputDir: JSON_DIR,
+        inputHash: inputSnapshot.inputHash
+    });
+
+    const state: PipelineExecutionState = {
+        summary: createSummary(),
+        checkpointsEnabled,
+        inputSnapshot,
+        ingestDependencyHash,
+        combinedTokens: {},
+        fileEntries: [],
+        indexDependencyHash: '',
+        detectedModeSet: new Set<string>(),
+        emittedModeSet: new Set<string>(),
+        scopedIndices: [],
+        cssVarNameOwners: new Map<string, CssVarOwner>(),
+        cssVarNameCollisionMap: new Map<string, CssVarCollision>(),
+        analyzeDependencyHash: '',
+        analyzedScopes: [],
+        outputs: [],
+        emitManifestPath: '',
+        emitDependencyHash: ''
+    };
+
+    const extensionPlugins = await loadExternalPhasePlugins(options.pluginModules);
+    if (extensionPlugins.length > 0) {
+        console.log(
+            `🔌 Loaded ${extensionPlugins.length} external plugin(s): ${extensionPlugins.map(plugin => plugin.name).join(', ')}`
+        );
+    }
+
+    const pluginTimeoutRaw = process.env.PIPELINE_PLUGIN_TIMEOUT_MS;
+    const pluginTimeoutMs = pluginTimeoutRaw != null ? Number(pluginTimeoutRaw) : undefined;
+    if (pluginTimeoutRaw != null && (!Number.isFinite(pluginTimeoutMs) || Number(pluginTimeoutMs) <= 0)) {
+        throw new Error(
+            `Invalid PIPELINE_PLUGIN_TIMEOUT_MS="${pluginTimeoutRaw}". Expected a positive number of milliseconds.`
+        );
+    }
+
+    await runPipelinePlugins({
+        phases: PHASE_ORDER,
+        plugins: [...createCorePipelinePlugins(), ...extensionPlugins],
+        state,
+        pluginTimeoutMs
+    });
+
+    printExecutionSummary(state.summary);
+    printModeSummary(state.emittedModeSet, 'emitted');
+    if (!setsEqual(state.emittedModeSet, state.detectedModeSet)) {
+        printModeSummary(state.detectedModeSet, 'detected');
     }
     printModeFallbackSummary(modeFallbackCounts, modeFallbackExamples);
 }
