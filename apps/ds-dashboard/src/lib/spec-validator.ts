@@ -15,6 +15,10 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function hasMinItems(value: unknown, min = 1): value is unknown[] {
+  return Array.isArray(value) && value.length >= min;
+}
+
 function addIssue(
   target: SpecValidationIssue[],
   issue: SpecValidationIssue,
@@ -258,7 +262,7 @@ function validateAnatomy(
   issues: SpecValidationIssue[],
   spec: ComponentSpec,
 ) {
-  if (!Array.isArray(spec.anatomy) || spec.anatomy.length === 0) {
+  if (!hasMinItems(spec.anatomy)) {
     addIssue(issues, {
       severity: "error",
       code: "SPEC_ANATOMY_REQUIRED",
@@ -345,7 +349,7 @@ function validateProperties(
     }
 
     if (type === "enum") {
-      if (!Array.isArray(property?.values) || property.values.length === 0) {
+      if (!hasMinItems(property?.values)) {
         addIssue(issues, {
           severity: "error",
           code: "SPEC_PROPERTY_VALUES_REQUIRED",
@@ -353,7 +357,7 @@ function validateProperties(
           message: "enum properties must define a non-empty values array.",
         });
       }
-    } else if (Array.isArray(property?.values) && property.values.length > 0) {
+    } else if (hasMinItems(property?.values)) {
       addIssue(issues, {
         severity: "warning",
         code: "SPEC_PROPERTY_VALUES_UNEXPECTED",
@@ -377,7 +381,7 @@ function validateContentGuidelinesAndBestPractices(
   issues: SpecValidationIssue[],
   spec: ComponentSpec,
 ) {
-  if (!Array.isArray(spec.content_guidelines?.rules) || spec.content_guidelines.rules.length === 0) {
+  if (!hasMinItems(spec.content_guidelines?.rules)) {
     addIssue(issues, {
       severity: "error",
       code: "SPEC_CONTENT_GUIDELINES_REQUIRED",
@@ -386,7 +390,7 @@ function validateContentGuidelinesAndBestPractices(
     });
   }
 
-  if (!Array.isArray(spec.best_practices?.do) || spec.best_practices.do.length === 0) {
+  if (!hasMinItems(spec.best_practices?.do)) {
     addIssue(issues, {
       severity: "error",
       code: "SPEC_BEST_PRACTICES_DO_REQUIRED",
@@ -394,7 +398,7 @@ function validateContentGuidelinesAndBestPractices(
       message: "best_practices.do must contain at least one item.",
     });
   }
-  if (!Array.isArray(spec.best_practices?.dont) || spec.best_practices.dont.length === 0) {
+  if (!hasMinItems(spec.best_practices?.dont)) {
     addIssue(issues, {
       severity: "error",
       code: "SPEC_BEST_PRACTICES_DONT_REQUIRED",
@@ -426,7 +430,7 @@ function validateAccessibility(
       message: "accessibility.role is required.",
     });
   }
-  if (!Array.isArray(spec.accessibility.labeling?.rules) || spec.accessibility.labeling.rules.length === 0) {
+  if (!hasMinItems(spec.accessibility.labeling?.rules)) {
     addIssue(issues, {
       severity: "error",
       code: "SPEC_ACCESSIBILITY_LABELING_REQUIRED",
@@ -440,7 +444,7 @@ function validateQa(
   issues: SpecValidationIssue[],
   spec: ComponentSpec,
 ) {
-  if (!Array.isArray(spec.qa) || spec.qa.length < 2) {
+  if (!hasMinItems(spec.qa, 2)) {
     addIssue(issues, {
       severity: "error",
       code: "SPEC_QA_MIN_ITEMS",
