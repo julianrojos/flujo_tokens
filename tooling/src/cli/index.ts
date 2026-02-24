@@ -280,6 +280,19 @@ function parsePhaseName(value: string): PipelinePhase | null {
     return null;
 }
 
+function consumeArgValue(
+    argv: string[],
+    index: number,
+    optionName: string
+): { value: string; nextIndex: number } | null {
+    const value = argv[index + 1];
+    if (!value) {
+        console.error(`❌ Missing value for ${optionName}`);
+        return null;
+    }
+    return { value, nextIndex: index + 1 };
+}
+
 function parseArgs(argv: string[]): CliOptions | null {
     let split = true;
     let registry = false;
@@ -292,16 +305,15 @@ function parseArgs(argv: string[]): CliOptions | null {
     let checkpoints = true;
     let cacheDir: string | undefined;
     const pluginModules: string[] = [];
+    const cwd = process.cwd();
 
     // First pass loop just to find systemId.
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
         if (arg === '--system') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --system');
-                return null;
-            }
-            systemId = argv[i + 1];
+            const consumed = consumeArgValue(argv, i, '--system');
+            if (!consumed) return null;
+            systemId = consumed.value;
             break;
         }
     }
@@ -322,22 +334,18 @@ function parseArgs(argv: string[]): CliOptions | null {
         }
 
         if (arg === '-i' || arg === '--input') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --input');
-                return null;
-            }
-            inputDir = path.resolve(process.cwd(), argv[i + 1]);
-            i++;
+            const consumed = consumeArgValue(argv, i, '--input');
+            if (!consumed) return null;
+            inputDir = path.resolve(cwd, consumed.value);
+            i = consumed.nextIndex;
             continue;
         }
 
         if (arg === '-o' || arg === '--output') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --output');
-                return null;
-            }
-            outputFile = path.resolve(process.cwd(), argv[i + 1]);
-            i++;
+            const consumed = consumeArgValue(argv, i, '--output');
+            if (!consumed) return null;
+            outputFile = path.resolve(cwd, consumed.value);
+            i = consumed.nextIndex;
             continue;
         }
 
@@ -352,22 +360,18 @@ function parseArgs(argv: string[]): CliOptions | null {
         }
 
         if (arg === '--output-primitives') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --output-primitives');
-                return null;
-            }
-            outputPrimitives = path.resolve(process.cwd(), argv[i + 1]);
-            i++;
+            const consumed = consumeArgValue(argv, i, '--output-primitives');
+            if (!consumed) return null;
+            outputPrimitives = path.resolve(cwd, consumed.value);
+            i = consumed.nextIndex;
             continue;
         }
 
         if (arg === '--output-tokens') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --output-tokens');
-                return null;
-            }
-            outputTokens = path.resolve(process.cwd(), argv[i + 1]);
-            i++;
+            const consumed = consumeArgValue(argv, i, '--output-tokens');
+            if (!consumed) return null;
+            outputTokens = path.resolve(cwd, consumed.value);
+            i = consumed.nextIndex;
             continue;
         }
 
@@ -377,23 +381,19 @@ function parseArgs(argv: string[]): CliOptions | null {
         }
 
         if (arg === '--registry-output') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --registry-output');
-                return null;
-            }
-            registryOutput = path.resolve(process.cwd(), argv[i + 1]);
+            const consumed = consumeArgValue(argv, i, '--registry-output');
+            if (!consumed) return null;
+            registryOutput = path.resolve(cwd, consumed.value);
             registry = true;
-            i++;
+            i = consumed.nextIndex;
             continue;
         }
 
         if (arg === '-m' || arg === '--mode') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --mode');
-                return null;
-            }
-            mode = argv[i + 1];
-            i++;
+            const consumed = consumeArgValue(argv, i, '--mode');
+            if (!consumed) return null;
+            mode = consumed.value;
+            i = consumed.nextIndex;
             continue;
         }
 
@@ -408,26 +408,22 @@ function parseArgs(argv: string[]): CliOptions | null {
         }
 
         if (arg === '--from-phase') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --from-phase');
-                return null;
-            }
-            const parsedPhase = parsePhaseName(argv[i + 1]);
+            const consumed = consumeArgValue(argv, i, '--from-phase');
+            if (!consumed) return null;
+            const parsedPhase = parsePhaseName(consumed.value);
             if (!parsedPhase) {
-                console.error(`❌ Invalid --from-phase: ${argv[i + 1]} (use: ingest|index|analyze|emit)`);
+                console.error(`❌ Invalid --from-phase: ${consumed.value} (use: ingest|index|analyze|emit)`);
                 return null;
             }
             fromPhase = parsedPhase;
-            i++;
+            i = consumed.nextIndex;
             continue;
         }
 
         if (arg === '--force-phase') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --force-phase');
-                return null;
-            }
-            const rawPhases = argv[i + 1].split(',').map(s => s.trim()).filter(Boolean);
+            const consumed = consumeArgValue(argv, i, '--force-phase');
+            if (!consumed) return null;
+            const rawPhases = consumed.value.split(',').map(s => s.trim()).filter(Boolean);
             for (const raw of rawPhases) {
                 const parsedPhase = parsePhaseName(raw);
                 if (!parsedPhase) {
@@ -436,7 +432,7 @@ function parseArgs(argv: string[]): CliOptions | null {
                 }
                 forcePhases.push(parsedPhase);
             }
-            i++;
+            i = consumed.nextIndex;
             continue;
         }
 
@@ -446,22 +442,18 @@ function parseArgs(argv: string[]): CliOptions | null {
         }
 
         if (arg === '--plugin') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --plugin');
-                return null;
-            }
-            pluginModules.push(path.resolve(process.cwd(), argv[i + 1]));
-            i++;
+            const consumed = consumeArgValue(argv, i, '--plugin');
+            if (!consumed) return null;
+            pluginModules.push(path.resolve(cwd, consumed.value));
+            i = consumed.nextIndex;
             continue;
         }
 
         if (arg === '--cache-dir') {
-            if (!argv[i + 1]) {
-                console.error('❌ Missing value for --cache-dir');
-                return null;
-            }
-            cacheDir = path.resolve(process.cwd(), argv[i + 1]);
-            i++;
+            const consumed = consumeArgValue(argv, i, '--cache-dir');
+            if (!consumed) return null;
+            cacheDir = path.resolve(cwd, consumed.value);
+            i = consumed.nextIndex;
             continue;
         }
 
