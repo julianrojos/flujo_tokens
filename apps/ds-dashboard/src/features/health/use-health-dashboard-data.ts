@@ -1,12 +1,12 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
 import {
   captureHealthSnapshot,
   refreshComponentsHealth,
   refreshTokenHealth,
 } from "@/lib/api";
-import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
-import { invalidateServerQuery } from "@/lib/server-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import type {
   HealthHistoryBucket,
   HealthHistoryRange,
@@ -24,13 +24,7 @@ export function useHealthDashboardData(args: {
   historyBucket: HealthHistoryBucket;
 }) {
   const { historyRange, historyBucket } = args;
-  const [refreshingTokens, setRefreshingTokens] = useState(false);
-  const [refreshingComponents, setRefreshingComponents] = useState(false);
-  const [snapshotting, setSnapshotting] = useState(false);
-  const [tokenRefreshError, setTokenRefreshError] = useState<ApiErrorDisplay | null>(null);
-  const [componentsRefreshError, setComponentsRefreshError] =
-    useState<ApiErrorDisplay | null>(null);
-  const [snapshotError, setSnapshotError] = useState<ApiErrorDisplay | null>(null);
+  const queryClient = useQueryClient();
 
   const tokenHealthQuery = useTokenHealthQuery();
   const componentsHealthQuery = useComponentsHealthQuery();
@@ -75,13 +69,7 @@ export function useHealthDashboardData(args: {
     });
   }, [historyQuery.error]);
 
-  const tokenError = tokenRefreshError ?? queryTokenError;
-  const componentsError = componentsRefreshError ?? queryComponentsError;
-  const historyError = snapshotError ?? queryHistoryError;
-
   const reloadAll = useCallback(async () => {
-    setTokenRefreshError(null);
-    setComponentsRefreshError(null);
     await Promise.all([
       tokenHealthQuery.refetch(),
       componentsHealthQuery.refetch(),
@@ -93,65 +81,84 @@ export function useHealthDashboardData(args: {
     await historyQuery.refetch();
   }, [historyQuery]);
 
-  const refreshTokenReport = useCallback(async () => {
-    setRefreshingTokens(true);
-    setTokenRefreshError(null);
-    try {
+  const refreshTokenMutation = useMutation({
+    mutationFn: async () => {
       await refreshTokenHealth();
-      invalidateServerQuery(healthQueryKeys.token);
+      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.token });
       await tokenHealthQuery.refetch();
-    } catch (cause) {
-      setTokenRefreshError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Token health refresh failed",
-          fallbackMessage: "Unable to refresh token health report.",
-        }),
-      );
-    } finally {
-      setRefreshingTokens(false);
-    }
-  }, [tokenHealthQuery]);
-
-  const refreshComponentsReport = useCallback(async () => {
-    setRefreshingComponents(true);
-    setComponentsRefreshError(null);
-    try {
+    },
+  });
+  const refreshComponentsMutation = useMutation({
+    mutationFn: async () => {
       await refreshComponentsHealth();
-      invalidateServerQuery(healthQueryKeys.components);
+      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.components });
       await componentsHealthQuery.refetch();
-    } catch (cause) {
-      setComponentsRefreshError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Components health refresh failed",
-          fallbackMessage: "Unable to refresh components health report.",
-        }),
-      );
-    } finally {
-      setRefreshingComponents(false);
-    }
-  }, [componentsHealthQuery]);
-
-  const captureSnapshotAndReload = useCallback(async () => {
-    setSnapshotting(true);
-    setSnapshotError(null);
-    try {
+    },
+  });
+  const snapshotMutation = useMutation({
+    mutationFn: async () => {
       await captureHealthSnapshot();
-      invalidateServerQuery(healthQueryKeys.token);
-      invalidateServerQuery(healthQueryKeys.components);
-      invalidateServerQuery(healthQueryKeys.namingDebt);
-      invalidateServerQuery(healthQueryKeys.history(historyRange, historyBucket));
+      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.token });
+      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.components });
+      await queryClient.invalidateQueries({ queryKey: healthQueryKeys.namingDebt });
+      await queryClient.invalidateQueries({
+        queryKey: healthQueryKeys.history(historyRange, historyBucket),
+      });
       await Promise.all([reloadAll(), historyQuery.refetch()]);
-    } catch (cause) {
-      setSnapshotError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Snapshot capture failed",
-          fallbackMessage: "Unable to capture a health snapshot.",
-        }),
-      );
-    } finally {
-      setSnapshotting(false);
+    },
+  });
+
+  const refreshingTokens = refreshTokenMutation.isPending;
+  const refreshingComponents = refreshComponentsMutation.isPending;
+  const snapshotting = snapshotMutation.isPending;
+
+  const tokenRefreshError = useMemo(() => {
+    if (!refreshTokenMutation.error) return null;
+    return toApiErrorDisplay(refreshTokenMutation.error, {
+      fallbackTitle: "Token health refresh failed",
+      fallbackMessage: "Unable to refresh token health report.",
+    });
+  }, [refreshTokenMutation.error]);
+  const componentsRefreshError = useMemo(() => {
+    if (!refreshComponentsMutation.error) return null;
+    return toApiErrorDisplay(refreshComponentsMutation.error, {
+      fallbackTitle: "Components health refresh failed",
+      fallbackMessage: "Unable to refresh components health report.",
+    });
+  }, [refreshComponentsMutation.error]);
+  const snapshotError = useMemo(() => {
+    if (!snapshotMutation.error) return null;
+    return toApiErrorDisplay(snapshotMutation.error, {
+      fallbackTitle: "Snapshot capture failed",
+      fallbackMessage: "Unable to capture a health snapshot.",
+    });
+  }, [snapshotMutation.error]);
+
+  const tokenError = tokenRefreshError ?? queryTokenError;
+  const componentsError = componentsRefreshError ?? queryComponentsError;
+  const historyError = snapshotError ?? queryHistoryError;
+
+  const refreshTokenReport = useCallback(async () => {
+    try {
+      await refreshTokenMutation.mutateAsync();
+    } catch {
+      // Error is already exposed via tokenRefreshError.
     }
-  }, [historyBucket, historyQuery, historyRange, reloadAll]);
+  }, [refreshTokenMutation]);
+  const refreshComponentsReport = useCallback(async () => {
+    try {
+      await refreshComponentsMutation.mutateAsync();
+    } catch {
+      // Error is already exposed via componentsRefreshError.
+    }
+  }, [refreshComponentsMutation]);
+  const captureSnapshotAndReload = useCallback(async () => {
+    try {
+      await snapshotMutation.mutateAsync();
+    } catch {
+      // Error is already exposed via snapshotError.
+    }
+  }, [snapshotMutation]);
 
   return {
     tokenHealth,

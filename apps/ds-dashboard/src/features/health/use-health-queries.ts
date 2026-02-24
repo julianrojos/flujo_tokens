@@ -4,8 +4,8 @@ import {
   fetchNamingDebt,
   fetchTokenHealth,
 } from "@/lib/api";
-import { SERVER_QUERY_POLICY } from "@/lib/server-query-policy";
-import { useServerQuery } from "@/lib/server-query";
+import { useQuery } from "@tanstack/react-query";
+import { QUERY_DEFAULTS } from "@/lib/query-client";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type {
   HealthHistoryBucket,
@@ -24,26 +24,26 @@ export const healthQueryKeys = {
 };
 
 export function useTokenHealthQuery() {
-  return useServerQuery<TokenHealthReport>({
+  return useQuery<TokenHealthReport>({
     queryKey: healthQueryKeys.token,
-    queryFn: fetchTokenHealth,
-    ...SERVER_QUERY_POLICY,
+    queryFn: () => fetchTokenHealth(),
+    ...QUERY_DEFAULTS,
   });
 }
 
 export function useComponentsHealthQuery() {
-  return useServerQuery<ComponentsHealthReport>({
+  return useQuery<ComponentsHealthReport>({
     queryKey: healthQueryKeys.components,
-    queryFn: fetchComponentsHealth,
-    ...SERVER_QUERY_POLICY,
+    queryFn: () => fetchComponentsHealth(),
+    ...QUERY_DEFAULTS,
   });
 }
 
 export function useNamingDebtQuery() {
-  return useServerQuery<NamingDebtReport>({
+  return useQuery<NamingDebtReport>({
     queryKey: healthQueryKeys.namingDebt,
-    queryFn: fetchNamingDebt,
-    ...SERVER_QUERY_POLICY,
+    queryFn: () => fetchNamingDebt(),
+    ...QUERY_DEFAULTS,
   });
 }
 
@@ -51,9 +51,9 @@ export function useHealthHistoryQuery(
   range: HealthHistoryRange,
   bucket: HealthHistoryBucket,
 ) {
-  return useServerQuery<HealthHistoryReport>({
+  return useQuery<HealthHistoryReport>({
     queryKey: healthQueryKeys.history(range, bucket),
     queryFn: () => fetchHealthHistory({ range, bucket }),
-    ...SERVER_QUERY_POLICY,
+    ...QUERY_DEFAULTS,
   });
 }

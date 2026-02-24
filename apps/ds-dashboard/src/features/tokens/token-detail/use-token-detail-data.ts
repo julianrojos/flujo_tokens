@@ -5,8 +5,8 @@ import {
   fetchTokenRegistry,
   fetchTokenUsageIndex,
 } from "@/lib/api";
-import { SERVER_QUERY_POLICY } from "@/lib/server-query-policy";
-import { useServerQuery } from "@/lib/server-query";
+import { useQuery } from "@tanstack/react-query";
+import { QUERY_DEFAULTS } from "@/lib/query-client";
 import type { ComponentRegistry } from "@/types/component-registry";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenGraphQueryResult } from "@/types/token-graph";
@@ -25,10 +25,10 @@ export const tokenDetailQueryKey = (tokenPath: string) =>
   ["token-detail", tokenPath] as const;
 
 export function useTokenDetailQuery(tokenPath: string) {
-  return useServerQuery<TokenDetailQueryData>({
+  return useQuery<TokenDetailQueryData>({
     queryKey: tokenDetailQueryKey(tokenPath),
     enabled: Boolean(tokenPath),
-    ...SERVER_QUERY_POLICY,
+    ...QUERY_DEFAULTS,
     queryFn: async () => {
       const [registry, usageIndex, tokenHealth, graphQuery, componentRegistry] =
         await Promise.all([
