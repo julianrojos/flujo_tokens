@@ -1,6 +1,12 @@
 import { buildSpecDiff } from "../../src/lib/spec-diff.ts";
 import { validateComponentSpec } from "../../src/lib/spec-validator.ts";
 import {
+  buildComponentSpecGetPayload,
+  buildRestoreComponentSpecRouteArgs,
+  buildSaveComponentSpecRouteArgs,
+  buildValidateComponentSpecRouteArgs,
+} from "../lib/component-spec-route-handler-service.mjs";
+import {
   MAX_COMPONENT_SPEC_BYTES,
   loadTokenRegistry,
   parseYamlSafely,
@@ -45,23 +51,19 @@ export function registerComponentSpecRoutes(app, deps) {
     if (!resolved.ok) {
       return failJson(c, resolved.error.statusCode, resolved.error.args);
     }
-    const { sysCtx, slug, target } = resolved;
+    const { slug, target } = resolved;
 
     const loaded = await readTextFileIfExists(target.specAbsPath);
-    const raw = loaded.raw;
-    const exists = loaded.exists;
-
-    const parsedPayload = parseYamlSafely(raw);
-    return c.json({
-      ok: true,
-      slug,
-      path: target.specRelPath,
-      exists,
-      raw,
-      rawHash: exists ? sha256Text(raw) : null,
-      parsed: parsedPayload.parsed,
-      parseError: parsedPayload.parseError,
-    });
+    return c.json(
+      buildComponentSpecGetPayload({
+        slug,
+        specRelPath: target.specRelPath,
+        exists: loaded.exists,
+        raw: loaded.raw,
+        parseYamlSafelyFn: parseYamlSafely,
+        sha256TextFn: sha256Text,
+      }),
+    );
   });
 
   app.post("/api/component-spec/:slug/validate", async (c) => {
@@ -72,16 +74,16 @@ export function registerComponentSpecRoutes(app, deps) {
     const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
-    const raw = String(body.raw ?? "");
+    const validationArgs = buildValidateComponentSpecRouteArgs({
+      slug,
+      specRelPath: target.specRelPath,
+      specAbsPath: target.specAbsPath,
+      tokenRegistryPath: sysCtx.tokenRegistryPath,
+      maxBytes: MAX_COMPONENT_SPEC_BYTES,
+      body,
+    });
     const payload = await validateComponentSpecRaw(
-      {
-        slug,
-        path: target.specRelPath,
-        raw,
-        specAbsPath: target.specAbsPath,
-        tokenRegistryPath: sysCtx.tokenRegistryPath,
-        maxBytes: MAX_COMPONENT_SPEC_BYTES,
-      },
+      validationArgs,
       {
         readTextFileIfExistsFn: readTextFileIfExists,
         loadTokenRegistryFn: loadTokenRegistry,
@@ -101,27 +103,18 @@ export function registerComponentSpecRoutes(app, deps) {
     const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
-    const raw = String(body.raw ?? "");
-    const expectedHash =
-      body.expectedHash === null || body.expectedHash === undefined
-        ? null
-        : String(body.expectedHash).trim() || null;
-    const refreshRegistryAfterSave = body.refreshRegistry !== false;
-    const confirmRiskyChanges = body.confirmRiskyChanges === true;
+    const saveArgs = buildSaveComponentSpecRouteArgs({
+      slug,
+      specRelPath: target.specRelPath,
+      specAbsPath: target.specAbsPath,
+      specBackupsDirPath: sysCtx.specBackupsDirPath,
+      repoRoot: sysCtx.repoRoot,
+      tokenRegistryPath: sysCtx.tokenRegistryPath,
+      maxBytes: MAX_COMPONENT_SPEC_BYTES,
+      body,
+    });
     const payload = await saveComponentSpecRaw(
-      {
-        slug,
-        path: target.specRelPath,
-        raw,
-        specAbsPath: target.specAbsPath,
-        specBackupsDirPath: sysCtx.specBackupsDirPath,
-        repoRoot: sysCtx.repoRoot,
-        tokenRegistryPath: sysCtx.tokenRegistryPath,
-        expectedHash,
-        confirmRiskyChanges,
-        refreshRegistryAfterSave,
-        maxBytes: MAX_COMPONENT_SPEC_BYTES,
-      },
+      saveArgs,
       {
         readTextFileIfExistsFn: readTextFileIfExists,
         loadTokenRegistryFn: loadTokenRegistry,
@@ -144,17 +137,17 @@ export function registerComponentSpecRoutes(app, deps) {
     const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
-    const refreshRegistryAfterRestore = body.refreshRegistry !== false;
+    const restoreArgs = buildRestoreComponentSpecRouteArgs({
+      slug,
+      specRelPath: target.specRelPath,
+      specAbsPath: target.specAbsPath,
+      repoRoot: sysCtx.repoRoot,
+      specBackupsDirPath: sysCtx.specBackupsDirPath,
+      body,
+      sha256TextFn: sha256Text,
+    });
     const restoredPayload = await restoreComponentSpecFromLatestBackup(
-      {
-        slug,
-        specRelPath: target.specRelPath,
-        specAbsPath: target.specAbsPath,
-        repoRoot: sysCtx.repoRoot,
-        specBackupsDirPath: sysCtx.specBackupsDirPath,
-        refreshRegistryAfterRestore,
-        sha256TextFn: sha256Text,
-      },
+      restoreArgs,
       {
         readLatestSpecBackupFn: readLatestSpecBackup,
         restoreSpecFromRawFn: restoreSpecFromRaw,
