@@ -5,6 +5,8 @@ interface RgbaColor {
   a: number;
 }
 
+type ColorParser = (raw: string) => RgbaColor | null;
+
 const HEX_RE = /^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const RGB_RE =
   /^rgba?\(\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)\s*(?:,\s*([+-]?\d*(?:\.\d+)?)\s*)?\)$/i;
@@ -66,10 +68,16 @@ function parseRgb(raw: string): RgbaColor | null {
   return { r, g, b, a };
 }
 
+const COLOR_PARSERS: readonly ColorParser[] = [parseHex, parseRgb];
+
 export function parseCssColor(raw: string): RgbaColor | null {
   const source = String(raw || "").trim();
   if (!source) return null;
-  return parseHex(source) || parseRgb(source);
+  for (const parser of COLOR_PARSERS) {
+    const parsed = parser(source);
+    if (parsed) return parsed;
+  }
+  return null;
 }
 
 function compositeOver(background: RgbaColor, foreground: RgbaColor): RgbaColor {
