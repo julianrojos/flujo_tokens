@@ -3,7 +3,6 @@ import fsSync from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { EventEmitter } from "node:events";
 
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
@@ -40,6 +39,7 @@ import {
   toQueueTerminalEvent,
 } from "./lib/queue-utils.mjs";
 import { createOperationHistoryService } from "./lib/operation-history-service.mjs";
+import { createQueueEngineService } from "./lib/queue-engine-service.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,51 +96,12 @@ const SUPPORTED_REPLAY_OPERATIONS = new Set([
   ...Array.from(REPLAYABLE_NPM_SCRIPTS).map((script) => `script:${script}`),
 ]);
 
-/** @type {Map<string, any>} */
-const queueJobs = new Map();
-/** @type {string[]} */
-const queuePendingIds = [];
-let queueActiveCount = 0;
-
-function queueMetrics() {
-  return {
-    active: queueActiveCount,
-    pending: queuePendingIds.length,
-    total: queueJobs.size,
-  };
-}
-
 function nowIso() {
   return new Date().toISOString();
 }
 
 function createOperationEventId() {
   return `op_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function operationResultSummary(result) {
-  if (!result || typeof result !== "object") return "";
-  const summary = String(result.summary ?? "").trim();
-  if (summary) return summary;
-  const payload = result.payload && typeof result.payload === "object" ? result.payload : null;
-  const payloadMessage = String(payload?.message ?? payload?.error ?? "").trim();
-  if (payloadMessage) return payloadMessage;
-  return "";
-}
-
-function hashUnknown(value) {
-  try {
-    return sha256Text(JSON.stringify(value ?? null));
-  } catch {
-    return null;
-  }
-}
-
-function operationDurationMs(startedAt, finishedAt) {
-  const startTs = startedAt ? new Date(startedAt).getTime() : NaN;
-  const endTs = finishedAt ? new Date(finishedAt).getTime() : NaN;
-  if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs < startTs) return null;
-  return endTs - startTs;
 }
 
 const operationHistoryService = createOperationHistoryService({
@@ -164,360 +125,17 @@ const {
   buildOperationRegressionsReport,
 } = operationHistoryService;
 
-function createQueueJobId() {
-  return `job_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-}
+const queueEngine = createQueueEngineService({
+  jobQueueConcurrency: JOB_QUEUE_CONCURRENCY,
+  jobTimeoutMs: JOB_TIMEOUT_MS,
+  jobRetentionMs: JOB_RETENTION_MS,
+  maxRetainedEvents: MAX_RETAINED_EVENTS,
+  maxRetainedJobs: MAX_RETAINED_JOBS,
+  nowIso,
+  onOperationEvent: appendOperationEventSafe,
+});
 
-function appendQueueJobEvent(job, event) {
-  const fullEvent = {
-    ...event,
-    seq: job.nextSeq,
-    at: nowIso(),
-  };
-  job.nextSeq += 1;
-  job.events.push(fullEvent);
-  if (job.events.length > MAX_RETAINED_EVENTS) {
-    job.events.splice(0, job.events.length - MAX_RETAINED_EVENTS);
-  }
-  job.emitter.emit("event", fullEvent);
-  return fullEvent;
-}
-
-function enqueueQueueJob({ label, systemId, operationName, requestId, sourceEventId, inputHash, execute }) {
-  const job = {
-    id: createQueueJobId(),
-    label,
-    systemId,
-    operationName: String(operationName || label || "unknown.operation"),
-    requestId: requestId ? String(requestId) : null,
-    sourceEventId: sourceEventId ? String(sourceEventId) : null,
-    inputHash: inputHash ? String(inputHash) : hashUnknown({ label, systemId }),
-    status: "queued",
-    createdAt: nowIso(),
-    startedAt: undefined,
-    finishedAt: undefined,
-    result: undefined,
-    process: undefined,
-    events: [],
-    nextSeq: 1,
-    emitter: new EventEmitter(),
-    execute,
-  };
-
-  queueJobs.set(job.id, job);
-  queuePendingIds.push(job.id);
-  appendQueueJobEvent(job, { type: "status", status: "queued" });
-  appendOperationEventSafe({
-    timestamp: job.createdAt,
-    eventType: "job.queued",
-    operation: job.operationName,
-    systemId: job.systemId,
-    status: job.status,
-    durationMs: null,
-    requestId: job.requestId,
-    jobId: job.id,
-    sourceEventId: job.sourceEventId,
-    inputHash: job.inputHash,
-    outputHash: null,
-    result: {
-      ok: false,
-      code: null,
-      summary: "Queued.",
-    },
-  });
-  scheduleQueueJobs();
-  cleanupQueueJobs();
-  return job;
-}
-
-function scheduleQueueJobs() {
-  while (queueActiveCount < JOB_QUEUE_CONCURRENCY && queuePendingIds.length > 0) {
-    const nextId = queuePendingIds.shift();
-    if (!nextId) continue;
-    const job = queueJobs.get(nextId);
-    if (!job || job.status !== "queued") continue;
-    void runQueueJob(job);
-  }
-}
-
-async function runQueueJob(job) {
-  queueActiveCount += 1;
-  job.status = "running";
-  job.startedAt = nowIso();
-  appendQueueJobEvent(job, { type: "status", status: "running" });
-  appendOperationEventSafe({
-    timestamp: job.startedAt,
-    eventType: "job.running",
-    operation: job.operationName,
-    systemId: job.systemId,
-    status: job.status,
-    durationMs: null,
-    requestId: job.requestId,
-    jobId: job.id,
-    sourceEventId: job.sourceEventId,
-    inputHash: job.inputHash,
-    outputHash: null,
-    result: {
-      ok: false,
-      code: null,
-      summary: "Running.",
-    },
-  });
-  const timeoutMessage = `Job timed out after ${Math.round(JOB_TIMEOUT_MS / 1000)} seconds.`;
-  let didTimeout = false;
-  const timeoutId = setTimeout(() => {
-    if (job.status !== "running" || didTimeout) return;
-    didTimeout = true;
-    appendQueueJobEvent(job, {
-      type: "error",
-      message: timeoutMessage,
-    });
-    if (job.process && !job.process.killed) {
-      try {
-        job.process.kill("SIGKILL");
-      } catch {
-        // ignore
-      }
-    }
-  }, JOB_TIMEOUT_MS);
-
-  try {
-    const result = await job.execute({
-      emitChunk: (kind, text) => {
-        if (!text) return;
-        appendQueueJobEvent(job, { type: "chunk", kind, text });
-      },
-      setProcess: (process) => {
-        job.process = process;
-      },
-      isCancelled: () => job.status === "cancelled",
-    });
-
-    if (didTimeout) {
-      job.status = "error";
-      job.result = {
-        ...result,
-        ok: false,
-        code: typeof result.code === "number" && result.code !== 0 ? result.code : 124,
-        summary: timeoutMessage,
-      };
-      job.finishedAt = nowIso();
-      appendQueueJobEvent(job, {
-        type: "end",
-        status: "error",
-        code: job.result.code,
-        summary: timeoutMessage,
-        payload: job.result.payload,
-      });
-      appendOperationEventSafe({
-        timestamp: job.finishedAt,
-        eventType: "job.finished",
-        operation: job.operationName,
-        systemId: job.systemId,
-        status: "error",
-        durationMs: operationDurationMs(job.startedAt, job.finishedAt),
-        requestId: job.requestId,
-        jobId: job.id,
-        sourceEventId: job.sourceEventId,
-        inputHash: job.inputHash,
-        outputHash: hashUnknown(job.result?.payload),
-        result: {
-          ok: false,
-          code: job.result.code,
-          summary: timeoutMessage,
-        },
-      });
-      return;
-    }
-
-    if (job.status === "cancelled") {
-      const summary = result.summary || "Cancelled.";
-      job.result = { ...result, ok: false, summary };
-      job.finishedAt = nowIso();
-      appendQueueJobEvent(job, {
-        type: "end",
-        status: "cancelled",
-        code: typeof result.code === "number" ? result.code : 1,
-        summary,
-        payload: result.payload,
-      });
-      appendOperationEventSafe({
-        timestamp: job.finishedAt,
-        eventType: "job.finished",
-        operation: job.operationName,
-        systemId: job.systemId,
-        status: "cancelled",
-        durationMs: operationDurationMs(job.startedAt, job.finishedAt),
-        requestId: job.requestId,
-        jobId: job.id,
-        sourceEventId: job.sourceEventId,
-        inputHash: job.inputHash,
-        outputHash: hashUnknown(result?.payload),
-        result: {
-          ok: false,
-          code: typeof result.code === "number" ? result.code : 1,
-          summary,
-        },
-      });
-      return;
-    }
-
-    job.status = result.ok ? "success" : "error";
-    job.result = result;
-    job.finishedAt = nowIso();
-    appendQueueJobEvent(job, {
-      type: "end",
-      status: job.status,
-      code: typeof result.code === "number" ? result.code : result.ok ? 0 : 1,
-      summary: result.summary,
-      payload: result.payload,
-    });
-    appendOperationEventSafe({
-      timestamp: job.finishedAt,
-      eventType: "job.finished",
-      operation: job.operationName,
-      systemId: job.systemId,
-      status: job.status,
-      durationMs: operationDurationMs(job.startedAt, job.finishedAt),
-      requestId: job.requestId,
-      jobId: job.id,
-      sourceEventId: job.sourceEventId,
-      inputHash: job.inputHash,
-      outputHash: hashUnknown(result?.payload),
-      result: {
-        ok: result?.ok === true,
-        code: typeof result.code === "number" ? result.code : result.ok ? 0 : 1,
-        summary: operationResultSummary(result),
-      },
-    });
-  } catch (error) {
-    const message = didTimeout
-      ? timeoutMessage
-      : error instanceof Error
-        ? error.message
-        : String(error);
-    job.status = "error";
-    job.result = {
-      ok: false,
-      code: didTimeout ? 124 : 1,
-      summary: message || "Unknown queue error.",
-    };
-    job.finishedAt = nowIso();
-    if (!didTimeout) {
-      appendQueueJobEvent(job, {
-        type: "error",
-        message,
-      });
-    }
-    appendQueueJobEvent(job, {
-      type: "end",
-      status: "error",
-      code: didTimeout ? 124 : 1,
-      summary: message || "Unknown queue error.",
-    });
-    appendOperationEventSafe({
-      timestamp: job.finishedAt,
-      eventType: "job.finished",
-      operation: job.operationName,
-      systemId: job.systemId,
-      status: "error",
-      durationMs: operationDurationMs(job.startedAt, job.finishedAt),
-      requestId: job.requestId,
-      jobId: job.id,
-      sourceEventId: job.sourceEventId,
-      inputHash: job.inputHash,
-      outputHash: null,
-      result: {
-        ok: false,
-        code: didTimeout ? 124 : 1,
-        summary: message || "Unknown queue error.",
-      },
-    });
-  } finally {
-    clearTimeout(timeoutId);
-    job.process = undefined;
-    queueActiveCount = Math.max(0, queueActiveCount - 1);
-    scheduleQueueJobs();
-    cleanupQueueJobs();
-  }
-}
-
-function cancelQueueJob(jobId) {
-  const job = queueJobs.get(jobId);
-  if (!job) return { ok: false, message: "Job not found." };
-  if (isQueueJobFinalStatus(job.status)) return { ok: false, message: "Job is already finished." };
-
-  if (job.status === "queued") {
-    job.status = "cancelled";
-    job.finishedAt = nowIso();
-    const pendingIndex = queuePendingIds.findIndex((id) => id === jobId);
-    if (pendingIndex >= 0) queuePendingIds.splice(pendingIndex, 1);
-    job.result = {
-      ok: false,
-      code: 1,
-      summary: "Cancelled before execution.",
-    };
-    appendQueueJobEvent(job, { type: "status", status: "cancelled" });
-    appendQueueJobEvent(job, {
-      type: "end",
-      status: "cancelled",
-      code: 1,
-      summary: "Cancelled before execution.",
-    });
-    appendOperationEventSafe({
-      timestamp: job.finishedAt,
-      eventType: "job.finished",
-      operation: job.operationName,
-      systemId: job.systemId,
-      status: "cancelled",
-      durationMs: operationDurationMs(job.startedAt, job.finishedAt),
-      requestId: job.requestId,
-      jobId: job.id,
-      sourceEventId: job.sourceEventId,
-      inputHash: job.inputHash,
-      outputHash: null,
-      result: {
-        ok: false,
-        code: 1,
-        summary: "Cancelled before execution.",
-      },
-    });
-    return { ok: true };
-  }
-
-  job.status = "cancelled";
-  appendQueueJobEvent(job, { type: "status", status: "cancelled" });
-  if (job.process && !job.process.killed) {
-    job.process.kill("SIGTERM");
-  }
-  return { ok: true };
-}
-
-function cleanupQueueJobs() {
-  const now = Date.now();
-
-  for (const [jobId, job] of Array.from(queueJobs.entries())) {
-    if (!isQueueJobFinalStatus(job.status)) continue;
-    const finishedAt = job.finishedAt ? new Date(job.finishedAt).getTime() : NaN;
-    if (Number.isFinite(finishedAt) && now - finishedAt > JOB_RETENTION_MS) {
-      queueJobs.delete(jobId);
-    }
-  }
-
-  if (queueJobs.size <= MAX_RETAINED_JOBS) return;
-  const removable = Array.from(queueJobs.values())
-    .filter((job) => isQueueJobFinalStatus(job.status))
-    .sort((a, b) => {
-      const aTs = a.finishedAt ? new Date(a.finishedAt).getTime() : 0;
-      const bTs = b.finishedAt ? new Date(b.finishedAt).getTime() : 0;
-      return aTs - bTs;
-    });
-  while (queueJobs.size > MAX_RETAINED_JOBS && removable.length > 0) {
-    const job = removable.shift();
-    if (!job) break;
-    queueJobs.delete(job.id);
-  }
-}
+const { queueJobs, queueMetrics, enqueueQueueJob, cancelQueueJob } = queueEngine;
 
 async function runQueuedSpawnCommand(args) {
   const result = await runSpawnWithCapture({
