@@ -31,14 +31,18 @@ function replaceW3cReferences(
     input: string,
     replacer: (match: string, tokenPath: string) => string
 ): { replaced: string; hadRef: boolean } {
-    // Use a local regex instance to avoid shared `lastIndex` state across calls.
-    const refRegex = new RegExp(W3C_REF_REGEX_REPLACE.source, W3C_REF_REGEX_REPLACE.flags);
     let hadRef = false;
-    const replaced = input.replace(refRegex, (match, tokenPath) => {
-        hadRef = true;
-        return replacer(match, tokenPath);
-    });
-    return { replaced, hadRef };
+    // Reuse the shared regex and guard against leaked state from `/g` via lastIndex reset.
+    W3C_REF_REGEX_REPLACE.lastIndex = 0;
+    try {
+        const replaced = input.replace(W3C_REF_REGEX_REPLACE, (match, tokenPath) => {
+            hadRef = true;
+            return replacer(match, tokenPath);
+        });
+        return { replaced, hadRef };
+    } finally {
+        W3C_REF_REGEX_REPLACE.lastIndex = 0;
+    }
 }
 
 function containsReference(value: unknown): boolean {
