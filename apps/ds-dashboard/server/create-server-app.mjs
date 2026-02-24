@@ -17,25 +17,15 @@ import {
   computeNamingDebtReport,
   validateGitRef,
 } from "./lib/analysis-artifacts-service.mjs";
-import { runSpawnWithCapture } from "./lib/spawn-runner.mjs";
 import {
   isQueueJobFinalStatus,
   listQueueJobEvents,
   queueJobAcceptedPayload,
   queueJobSnapshot,
-  toQueueSummaryFromPayload,
   toQueueTerminalEvent,
 } from "./lib/queue-utils.mjs";
-import { createOperationHistoryService } from "./lib/operation-history-service.mjs";
-import { createQueueEngineService } from "./lib/queue-engine-service.mjs";
-import { createCommandExecutionService } from "./lib/command-execution-service.mjs";
-import { createQueueJobFactoryService } from "./lib/queue-job-factory-service.mjs";
 import { buildCreateServerRouteDeps } from "./lib/create-server-route-deps.mjs";
-import {
-  createDevRuntimeChecker,
-  createSha256TextHasher,
-  createSystemContextResolver,
-} from "./lib/create-server-runtime-utils.mjs";
+import { createServerRuntimeServices } from "./lib/create-server-runtime-services.mjs";
 import {
   buildApiErrorPayload,
   createApiRequestId,
@@ -48,7 +38,6 @@ import {
 import { registerUnhandledErrorMiddleware } from "./lib/error-middleware.mjs";
 import { createServerConfig } from "./lib/server-config.mjs";
 import {
-  createSnippetBuilder,
   findLineForQuery,
   guessContentType,
   readJsonBody,
@@ -100,68 +89,47 @@ export function createServerApp({
     SUPPORTED_REPLAY_OPERATIONS,
   } = createServerConfig(env);
 
-  const operationHistoryService = createOperationHistoryService({
-    repoRoot,
-    designSystemRepository,
-    normalizeSystemId,
-    writeStructuredLog,
-    nowIso,
-    createOperationEventId,
-    opsLogMaxFileBytes: OPS_LOG_MAX_FILE_BYTES,
-    opsLogRetentionDays: OPS_LOG_RETENTION_DAYS,
-    opsHistoryMaxLimit: OPS_HISTORY_MAX_LIMIT,
-    opsLogFileRegex: OPS_LOG_FILE_RE,
-  });
-
   const {
-    appendOperationEventSafe,
     toFiniteTimestamp,
     readOperationHistory,
     findOperationEventById,
     buildOperationRegressionsReport,
-  } = operationHistoryService;
-
-  const queueEngine = createQueueEngineService({
+    queueJobs,
+    queueMetrics,
+    enqueueQueueJob,
+    cancelQueueJob,
+    runQueuedSpawnCommand,
+    buildSnippet,
+    isDevRuntime,
+    sha256Text,
+    getSystemContext,
+    queueNpmScript,
+    queueNodeJsonCommand,
+    enqueueRefreshNamingDebtJob,
+    enqueueReplayJobFromOperation,
+  } = createServerRuntimeServices({
+    repoRoot,
+    env,
+    designSystemRepository,
+    maxOutputBytes: MAX_OUTPUT_BYTES,
+    maxSnippetLines: MAX_SNIPPET_LINES,
     jobQueueConcurrency: JOB_QUEUE_CONCURRENCY,
     jobTimeoutMs: JOB_TIMEOUT_MS,
     jobRetentionMs: JOB_RETENTION_MS,
     maxRetainedEvents: MAX_RETAINED_EVENTS,
     maxRetainedJobs: MAX_RETAINED_JOBS,
-    nowIso,
-    onOperationEvent: appendOperationEventSafe,
-  });
-
-  const { queueJobs, queueMetrics, enqueueQueueJob, cancelQueueJob } = queueEngine;
-
-  const commandExecutionService = createCommandExecutionService({
-    runSpawnWithCapture,
-    maxOutputBytes: MAX_OUTPUT_BYTES,
-    summarizePayloadFailure: toQueueSummaryFromPayload,
-  });
-
-  const { runQueuedSpawnCommand } = commandExecutionService;
-  const buildSnippet = createSnippetBuilder(MAX_SNIPPET_LINES);
-
-  const isDevRuntime = createDevRuntimeChecker(env);
-  const sha256Text = createSha256TextHasher();
-  const getSystemContext = createSystemContextResolver(designSystemRepository);
-
-  const queueJobFactory = createQueueJobFactoryService({
-    getSystemContext,
-    enqueueQueueJob,
-    runQueuedSpawnCommand,
-    sha256Text,
-    computeNamingDebtReport,
+    opsLogMaxFileBytes: OPS_LOG_MAX_FILE_BYTES,
+    opsLogRetentionDays: OPS_LOG_RETENTION_DAYS,
+    opsHistoryMaxLimit: OPS_HISTORY_MAX_LIMIT,
+    opsLogFileRegex: OPS_LOG_FILE_RE,
     replayableNpmScripts: REPLAYABLE_NPM_SCRIPTS,
     supportedReplayOperations: SUPPORTED_REPLAY_OPERATIONS,
+    normalizeSystemId,
+    writeStructuredLog,
+    nowIso,
+    createOperationEventId,
+    computeNamingDebtReportFn: computeNamingDebtReport,
   });
-
-  const {
-    queueNpmScript,
-    queueNodeJsonCommand,
-    enqueueRefreshNamingDebtJob,
-    enqueueReplayJobFromOperation,
-  } = queueJobFactory;
 
   const app = new Hono();
   const failJson = createFailJson({
