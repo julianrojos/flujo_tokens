@@ -2,7 +2,6 @@ import fsSync from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Hono } from "hono";
 import {
   createDesignSystemRepository,
   ensureRelativeDir,
@@ -12,7 +11,6 @@ import {
   resolveSafeSystemPathsForDeletion,
   summarizeDesignSystemsConfig,
 } from "./system-repository.ts";
-import { registerAllRoutes } from "./routes/register-all-routes.mjs";
 import {
   computeNamingDebtReport,
   validateGitRef,
@@ -24,18 +22,15 @@ import {
   queueJobSnapshot,
   toQueueTerminalEvent,
 } from "./lib/queue-utils.mjs";
-import { buildCreateServerRouteDeps } from "./lib/create-server-route-deps.mjs";
+import { createServerHttpApp } from "./lib/create-server-http-app.mjs";
 import { createServerRuntimeServices } from "./lib/create-server-runtime-services.mjs";
 import {
   buildApiErrorPayload,
   createApiRequestId,
-  createFailJson,
-  createHealthPayloadBuilder,
   createOperationEventId,
   nowIso,
   writeStructuredLog,
 } from "./lib/api-response-service.mjs";
-import { registerUnhandledErrorMiddleware } from "./lib/error-middleware.mjs";
 import { createServerConfig } from "./lib/server-config.mjs";
 import {
   findLineForQuery,
@@ -131,23 +126,13 @@ export function createServerApp({
     computeNamingDebtReportFn: computeNamingDebtReport,
   });
 
-  const app = new Hono();
-  const failJson = createFailJson({
-    createRequestId: createApiRequestId,
-    buildApiErrorPayloadFn: buildApiErrorPayload,
-    writeStructuredLogFn: writeStructuredLog,
-  });
-
-  const buildHealthPayload = createHealthPayloadBuilder({
+  const { app } = createServerHttpApp({
     queueMetrics,
-    nowIsoFn: nowIso,
-  });
-
-  registerAllRoutes(
-    app,
-    buildCreateServerRouteDeps({
-      buildHealthPayload,
-      failJson,
+    nowIso,
+    createApiRequestId,
+    buildApiErrorPayload,
+    writeStructuredLog,
+    routeDeps: {
       readJsonBody,
       designSystemRepository,
       normalizeSystemId,
@@ -195,13 +180,7 @@ export function createServerApp({
       toBooleanString,
       toNumberString,
       validateGitRef,
-    }),
-  );
-
-  registerUnhandledErrorMiddleware(app, {
-    createApiRequestId,
-    writeStructuredLog,
-    failJson,
+    },
   });
 
   return {
