@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
 import { fetchFile, fetchFileSnippet } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +32,7 @@ export function FileViewerPage() {
     matchedBy: "line" | "query";
   } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [showFull, setShowFull] = useState(!line);
 
   useEffect(() => {
@@ -70,7 +72,12 @@ export function FileViewerPage() {
         setContent(payload.content);
       } catch (cause) {
         if (!active) return;
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(
+          toApiErrorDisplay(cause, {
+            fallbackTitle: "File load failed",
+            fallbackMessage: "Unable to load file content.",
+          }),
+        );
       } finally {
         if (active) setLoading(false);
       }
@@ -100,9 +107,7 @@ export function FileViewerPage() {
       ) : null}
 
       {error ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-          {error}
-        </div>
+        <ApiErrorMessage error={error} />
       ) : null}
 
       <Card>
@@ -144,4 +149,3 @@ export function FileViewerPage() {
     </div>
   );
 }
-

@@ -8,6 +8,7 @@ import {
   fetchTokenRegistry,
   getActiveSystemId,
 } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type { NamingDebtReport } from "@/types/naming-debt";
 import type { TokenHealthReport } from "@/types/token-health";
@@ -125,7 +126,7 @@ export function useGlobalSearch() {
   const [components, setComponents] = useState<GlobalSearchItem[]>([]);
   const [healthIssues, setHealthIssues] = useState<GlobalSearchItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
 
   const activeSystemRef = getActiveSystemId();
 
@@ -172,7 +173,13 @@ export function useGlobalSearch() {
       setComponents(componentItems);
       setHealthIssues(healthItems);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Search index unavailable",
+          fallbackMessage:
+            "Run `npm run ds:token-usage-index` and `npm run ds:registry:sync`, then retry.",
+        }),
+      );
       setTokens([]);
       setComponents([]);
       setHealthIssues([]);

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowUpDown, RefreshCcw, X } from "lucide-react";
 
 import { fetchTokenDiff, fetchTokenGraph, fetchTokenUsageIndex } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import type { TokenDiffReport } from "@/types/token-diff";
 import type { TokenGraphViz } from "@/types/token-graph";
 import type { TokenUsageEntry, TokenUsageIndex, TokenUsageOccurrence } from "@/types/token-usage-index";
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import {
   Table,
   TableBody,
@@ -263,7 +265,7 @@ export function TokenDiffPage() {
   const [usageIndex, setUsageIndex] = useState<TokenUsageIndex | null>(null);
   const [graph, setGraph] = useState<TokenGraphViz | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [showOnlyBreaking, setShowOnlyBreaking] = useState(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<SelectedChange | null>(null);
@@ -296,7 +298,12 @@ export function TokenDiffPage() {
       setReport(null);
       setUsageIndex(null);
       setGraph(null);
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Token diff failed",
+          fallbackMessage: "Unable to compute token diff for the selected reference.",
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -680,9 +687,7 @@ export function TokenDiffPage() {
           </div>
 
           {error ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-              {error}
-            </div>
+            <ApiErrorMessage error={error} />
           ) : null}
 
           {report?.hint ? (

@@ -3,12 +3,14 @@ import { createSearchParams, Link, useNavigate, useSearchParams } from "react-ro
 import { ArrowLeft, RefreshCcw } from "lucide-react";
 
 import { fetchTokenGraph, refreshTokenGraph } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import type { TokenGraphViz } from "@/types/token-graph";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import { cn } from "@/lib/utils";
 import {
   buildGraphIndexes,
@@ -41,7 +43,7 @@ export function TokenGraphPage() {
 
   const [graph, setGraph] = useState<TokenGraphViz | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const [tokenInput, setTokenInput] = useState(tokenQuery);
@@ -58,7 +60,12 @@ export function TokenGraphPage() {
       const payload = await fetchTokenGraph();
       setGraph(payload);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Token graph unavailable",
+          fallbackMessage: "Unable to load token graph.",
+        }),
+      );
       setGraph(null);
     } finally {
       setLoading(false);
@@ -119,7 +126,12 @@ export function TokenGraphPage() {
       await refreshTokenGraph();
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Graph refresh failed",
+          fallbackMessage: "Unable to refresh token graph.",
+        }),
+      );
     } finally {
       setSyncing(false);
     }
@@ -168,9 +180,7 @@ export function TokenGraphPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-              {error}
-            </div>
+            <ApiErrorMessage error={error} />
           ) : null}
 
           {loading ? (

@@ -4,6 +4,8 @@ import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ApiErrorMessage } from "@/components/api-error-message";
+import type { ApiErrorDisplay } from "@/lib/api-error-ux";
 import type { TokenCollectionTree, TokenTreeNode } from "@/types/token-tree";
 import { collectExpandableNodeIds, countTokens, findExpandedPathByQuery } from "./tree-utils";
 import { TokenTreeNodeItem } from "./token-tree-node";
@@ -17,7 +19,7 @@ interface TokenTreeModalProps {
     tokens: number;
   } | null;
   loading: boolean;
-  error: string | null;
+  error: ApiErrorDisplay | null;
   onReload: () => void;
 }
 
@@ -196,9 +198,7 @@ export function TokenTreeModal({
             ) : null}
 
             {!loading && error ? (
-              <div className="rounded-md border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-700">
-                {error}
-              </div>
+              <ApiErrorMessage error={error} className="p-4" />
             ) : null}
 
             {!loading && !error && roots.length === 0 ? (

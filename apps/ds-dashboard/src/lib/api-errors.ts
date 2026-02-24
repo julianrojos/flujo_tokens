@@ -11,6 +11,7 @@ export const API_ERROR_CODES = {
   FILE_QUERY_NOT_FOUND: "file.query_not_found",
   HTTP_METHOD_NOT_ALLOWED: "http.method_not_allowed",
   INTERNAL_UNEXPECTED_ERROR: "internal.unexpected_error",
+  QUEUE_JOB_FAILED_OR_CANCELLED: "queue.job_failed_or_cancelled",
   QUEUE_JOB_NOT_CANCELABLE: "queue.job_not_cancelable",
   QUEUE_JOB_NOT_FOUND: "queue.job_not_found",
   QUEUE_STREAM_TIMEOUT: "queue.stream_timeout",
@@ -33,7 +34,7 @@ export type ApiErrorCatalogCode = (typeof API_ERROR_CODES)[keyof typeof API_ERRO
 export type ApiErrorCode = ApiErrorCatalogCode | `http.${number}`;
 
 export interface ApiErrorCodeMeta {
-  code: ApiErrorCatalogCode;
+  code: ApiErrorCode;
   httpStatus: number;
   recoverable: boolean;
   description: string;
@@ -124,6 +125,13 @@ export const API_ERROR_CATALOG: Record<ApiErrorCatalogCode, ApiErrorCodeMeta> = 
     recoverable: true,
     description: "Unhandled server-side exception.",
     fix: "Retry; if persistent, inspect server logs with requestId.",
+  },
+  [API_ERROR_CODES.QUEUE_JOB_FAILED_OR_CANCELLED]: {
+    code: API_ERROR_CODES.QUEUE_JOB_FAILED_OR_CANCELLED,
+    httpStatus: 409,
+    recoverable: true,
+    description: "Queued operation finished with error or cancellation.",
+    fix: "Inspect job logs and re-run the operation.",
   },
   [API_ERROR_CODES.QUEUE_JOB_NOT_CANCELABLE]: {
     code: API_ERROR_CODES.QUEUE_JOB_NOT_CANCELABLE,
@@ -243,5 +251,23 @@ export function getApiErrorMeta(code: string): ApiErrorCodeMeta | null {
   if (code in API_ERROR_CATALOG) {
     return API_ERROR_CATALOG[code as ApiErrorCatalogCode];
   }
+
+  const httpMatch = /^http\.(\d{3})$/.exec(code);
+  if (httpMatch) {
+    const status = Number.parseInt(httpMatch[1], 10);
+    if (Number.isFinite(status)) {
+      return {
+        code: `http.${status}` as ApiErrorCode,
+        httpStatus: status,
+        recoverable: status >= 500 || status === 429,
+        description: `HTTP ${status} error.`,
+        fix:
+          status >= 500 || status === 429
+            ? "Retry after a short delay."
+            : "Review the request and retry.",
+      };
+    }
+  }
+
   return null;
 }

@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 import { captureFigmaScreenshot, createDesignSystem } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 
 function toSystemId(rawName: string) {
@@ -74,6 +76,22 @@ function getCaptureErrorMessage(error: unknown): string {
   }
 }
 
+function makeInlineErrorDisplay(args: {
+  title: string;
+  message: string;
+  action?: string;
+  retryable?: boolean;
+}): ApiErrorDisplay {
+  return {
+    title: args.title,
+    message: args.message,
+    action: args.action ?? null,
+    code: null,
+    requestId: null,
+    retryable: args.retryable ?? true,
+  };
+}
+
 export function NewSystemPage() {
   const navigate = useNavigate();
   const { replaceSystems } = useDesignSystem();
@@ -86,7 +104,7 @@ export function NewSystemPage() {
   const [compileVariablesOnCapture, setCompileVariablesOnCapture] = useState(true);
   const [makeDefault, setMakeDefault] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
   const [savedSystemId, setSavedSystemId] = useState("");
   const [complexFileModal, setComplexFileModal] = useState<{ componentCount: number } | null>(null);
 
@@ -182,7 +200,11 @@ export function NewSystemPage() {
         } catch (error) {
           const details = getCaptureErrorMessage(error);
           setSaveError(
-            `System created, but initial Figma import failed: ${details}. You can retry from "Import Components from Figma".`,
+            makeInlineErrorDisplay({
+              title: "System created with warnings",
+              message: `Initial Figma import failed: ${details}`,
+              action: 'Retry from "Import Components from Figma".',
+            }),
           );
         }
       }
@@ -191,7 +213,12 @@ export function NewSystemPage() {
       setSavedSystemId(response.system.id);
       navigate("/components");
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : String(error));
+      setSaveError(
+        toApiErrorDisplay(error, {
+          fallbackTitle: "System creation failed",
+          fallbackMessage: "Unable to create design system.",
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -224,7 +251,11 @@ export function NewSystemPage() {
         const msg = error instanceof Error ? error.message : String(error);
         console.warn("[NewSystemPage] dry-run pre-scan failed:", error);
         setSaveError(
-          `Pre-scan warning: ${msg}. The system will still be created.`,
+          makeInlineErrorDisplay({
+            title: "Pre-scan warning",
+            message: `${msg}. The system will still be created.`,
+            action: "Review URL/token and retry if needed.",
+          }),
         );
       }
       setSaving(false);
@@ -347,9 +378,7 @@ export function NewSystemPage() {
           </label>
 
           {saveError ? (
-            <p className="mt-3 rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700">
-              {saveError}
-            </p>
+            <ApiErrorMessage error={saveError} className="mt-3" />
           ) : null}
 
           <div className="mt-4 flex items-center gap-3">

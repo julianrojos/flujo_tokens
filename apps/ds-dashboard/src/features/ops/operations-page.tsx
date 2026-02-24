@@ -16,6 +16,7 @@ import { CaptureForm } from "./components/capture-form";
 import { FigmaTokenSyncForm } from "./components/figma-token-sync-form";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "./hooks/use-operation-runner";
+import { API_ERROR_CODES } from "@/lib/api-errors";
 
 // ─── Artifact Status ───────────────────────────────────────────────────────────
 
@@ -189,7 +190,7 @@ function useRunAll(onDone: () => void): [RunAllState, () => void] {
               isRunning: false,
               stepIndex: i + 1,
               failed: true,
-              errorCode: "queue.job_failed_or_cancelled",
+              errorCode: API_ERROR_CODES.QUEUE_JOB_FAILED_OR_CANCELLED,
               errorMessage: "Queued operation finished with error or cancellation.",
             });
             return;

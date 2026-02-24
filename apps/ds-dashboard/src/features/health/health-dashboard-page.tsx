@@ -11,6 +11,7 @@ import {
   refreshComponentsHealth,
   refreshTokenHealth,
 } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type {
   HealthHistoryBucket,
@@ -37,6 +38,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import { HealthTrendsChart } from "./health-trends-chart";
 
 type DashboardIssue = {
@@ -84,15 +86,15 @@ export function HealthDashboardPage() {
   const [componentsHealth, setComponentsHealth] =
     useState<ComponentsHealthReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tokenError, setTokenError] = useState<string | null>(null);
-  const [componentsError, setComponentsError] = useState<string | null>(null);
+  const [tokenError, setTokenError] = useState<ApiErrorDisplay | null>(null);
+  const [componentsError, setComponentsError] = useState<ApiErrorDisplay | null>(null);
   const [refreshingTokens, setRefreshingTokens] = useState(false);
   const [refreshingComponents, setRefreshingComponents] = useState(false);
   const [history, setHistory] = useState<HealthHistoryReport | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<ApiErrorDisplay | null>(null);
   const [namingDebt, setNamingDebt] = useState<NamingDebtReport | null>(null);
-  const [namingError, setNamingError] = useState<string | null>(null);
+  const [namingError, setNamingError] = useState<ApiErrorDisplay | null>(null);
   const [historyRange, setHistoryRange] = useState<HealthHistoryRange>("30d");
   const [historyBucket, setHistoryBucket] = useState<HealthHistoryBucket>("day");
   const [snapshotting, setSnapshotting] = useState(false);
@@ -135,9 +137,10 @@ export function HealthDashboardPage() {
     } else {
       setTokenHealth(null);
       setTokenError(
-        tokensResult.reason instanceof Error
-          ? tokensResult.reason.message
-          : String(tokensResult.reason),
+        toApiErrorDisplay(tokensResult.reason, {
+          fallbackTitle: "Token health unavailable",
+          fallbackMessage: "Unable to load token health report.",
+        }),
       );
     }
 
@@ -146,9 +149,10 @@ export function HealthDashboardPage() {
     } else {
       setComponentsHealth(null);
       setComponentsError(
-        componentsResult.reason instanceof Error
-          ? componentsResult.reason.message
-          : String(componentsResult.reason),
+        toApiErrorDisplay(componentsResult.reason, {
+          fallbackTitle: "Components health unavailable",
+          fallbackMessage: "Unable to load components health report.",
+        }),
       );
     }
 
@@ -157,9 +161,10 @@ export function HealthDashboardPage() {
     } else {
       setNamingDebt(null);
       setNamingError(
-        namingResult.reason instanceof Error
-          ? namingResult.reason.message
-          : String(namingResult.reason),
+        toApiErrorDisplay(namingResult.reason, {
+          fallbackTitle: "Naming report unavailable",
+          fallbackMessage: "Unable to load naming debt report.",
+        }),
       );
     }
 
@@ -182,7 +187,12 @@ export function HealthDashboardPage() {
       const payload = await fetchHealthHistory({ range, bucket });
       setHistory(payload);
     } catch (cause) {
-      setHistoryError(cause instanceof Error ? cause.message : String(cause));
+      setHistoryError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Health history unavailable",
+          fallbackMessage: "Unable to load health history.",
+        }),
+      );
     } finally {
       setHistoryLoading(false);
     }
@@ -238,7 +248,12 @@ export function HealthDashboardPage() {
       setTokenHealth(payload);
     } catch (cause) {
       setTokenHealth(null);
-      setTokenError(cause instanceof Error ? cause.message : String(cause));
+      setTokenError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Token health refresh failed",
+          fallbackMessage: "Unable to refresh token health report.",
+        }),
+      );
     } finally {
       setRefreshingTokens(false);
     }
@@ -253,7 +268,12 @@ export function HealthDashboardPage() {
       setComponentsHealth(payload);
     } catch (cause) {
       setComponentsHealth(null);
-      setComponentsError(cause instanceof Error ? cause.message : String(cause));
+      setComponentsError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Components health refresh failed",
+          fallbackMessage: "Unable to refresh components health report.",
+        }),
+      );
     } finally {
       setRefreshingComponents(false);
     }
@@ -269,11 +289,24 @@ export function HealthDashboardPage() {
         loadHistory({ range: historyRange, bucket: historyBucket }),
       ]);
     } catch (cause) {
-      setHistoryError(cause instanceof Error ? cause.message : String(cause));
+      setHistoryError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Snapshot capture failed",
+          fallbackMessage: "Unable to capture a health snapshot.",
+        }),
+      );
     } finally {
       setSnapshotting(false);
     }
   };
+
+  const renderErrorPanel = (error: ApiErrorDisplay, tipCommand: string) => (
+    <ApiErrorMessage error={error}>
+      <div className="mt-1 text-xs text-red-700/80">
+        Tip: run <code>{tipCommand}</code>
+      </div>
+    </ApiErrorMessage>
+  );
 
   const dashboard = useMemo(() => {
     if (!tokenHealth || !componentsHealth) return null;
@@ -568,21 +601,11 @@ export function HealthDashboardPage() {
       </div>
 
       {tokenError ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-          {tokenError}
-          <div className="mt-2 text-xs text-red-700/80">
-            Tip: run <code>npm run ds:token-health</code>
-          </div>
-        </div>
+        renderErrorPanel(tokenError, "npm run ds:token-health")
       ) : null}
 
       {componentsError ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-          {componentsError}
-          <div className="mt-2 text-xs text-red-700/80">
-            Tip: run <code>npm run ds:registry:report</code>
-          </div>
-        </div>
+        renderErrorPanel(componentsError, "npm run ds:registry:report")
       ) : null}
 
       <section className="space-y-3">
@@ -620,12 +643,7 @@ export function HealthDashboardPage() {
         </div>
 
         {historyError ? (
-          <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-            {historyError}
-            <div className="mt-2 text-xs text-red-700/80">
-              Tip: run <code>npm run ds:health-snapshot</code>
-            </div>
-          </div>
+          renderErrorPanel(historyError, "npm run ds:health-snapshot")
         ) : null}
 
         {history ? (

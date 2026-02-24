@@ -3,12 +3,14 @@ import { Link } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import {
   deleteDesignSystem,
   fetchDesignSystemsConfig,
   updateDesignSystem,
   type DesignSystemConfigEntry,
 } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 
 type RowDraft = {
@@ -60,7 +62,7 @@ export function DesignSystemsAdminPage() {
   const [defaultSystem, setDefaultSystem] = useState("");
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
   const [deleteModalTarget, setDeleteModalTarget] = useState<{ id: string; name: string } | null>(
     null,
@@ -103,7 +105,12 @@ export function DesignSystemsAdminPage() {
         { activeSystemId: config.defaultSystem || undefined },
       );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "System list unavailable",
+          fallbackMessage: "Unable to load design systems.",
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -166,7 +173,12 @@ export function DesignSystemsAdminPage() {
       });
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "System update failed",
+          fallbackMessage: "Unable to save design system changes.",
+        }),
+      );
     } finally {
       setBusy(id, false);
     }
@@ -184,7 +196,12 @@ export function DesignSystemsAdminPage() {
       setDeleteModalTarget(null);
       setDeleteConfirmed(false);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "System delete failed",
+          fallbackMessage: "Unable to delete design system.",
+        }),
+      );
     } finally {
       setBusy(id, false);
     }
@@ -203,9 +220,7 @@ export function DesignSystemsAdminPage() {
       </p>
 
       {error ? (
-        <div className="mb-4 rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
+        <ApiErrorMessage error={error} className="mb-4" />
       ) : null}
 
       {loading ? (

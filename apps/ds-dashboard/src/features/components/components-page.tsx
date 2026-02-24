@@ -9,6 +9,7 @@ import {
   fetchComponentUsageIndex,
   refreshRegistry,
 } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import type { ComponentRegistryItem } from "@/types/component-registry";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import {
   Table,
   TableBody,
@@ -57,7 +59,7 @@ export function ComponentsPage() {
     ComponentUsageIndex["by_slug"]
   >({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("all");
   const [docStatus, setDocStatus] = useState("all");
@@ -76,7 +78,12 @@ export function ComponentsPage() {
       setRows(registryPayload.components ?? []);
       setUsageBySlug(usagePayload.by_slug ?? {});
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Component data unavailable",
+          fallbackMessage: "Unable to load component registry.",
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -150,7 +157,12 @@ export function ComponentsPage() {
       await refreshRegistry();
       await loadData();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Registry refresh failed",
+          fallbackMessage: "Unable to refresh component registry.",
+        }),
+      );
     } finally {
       setSyncing(false);
     }
@@ -234,9 +246,7 @@ export function ComponentsPage() {
         </CardHeader>
         <CardContent>
           {error ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-              {error}
-            </div>
+            <ApiErrorMessage error={error} />
           ) : null}
 
           <Table>

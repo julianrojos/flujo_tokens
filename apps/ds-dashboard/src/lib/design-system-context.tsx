@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { setActiveSystemId } from "./api";
+import { fetchDesignSystemsConfig, setActiveSystemId } from "./api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "./api-error-ux";
+import { ApiErrorMessage } from "@/components/api-error-message";
 
 export interface DesignSystem {
   id: string;
@@ -18,7 +20,7 @@ interface DesignSystemContextValue {
   addSystem: (system: DesignSystem, options?: { makeDefault?: boolean }) => void;
   replaceSystems: (systems: DesignSystem[], options?: { activeSystemId?: string }) => void;
   isLoading: boolean;
-  error: Error | null;
+  error: ApiErrorDisplay | null;
 }
 
 const DesignSystemContext = createContext<DesignSystemContextValue | null>(null);
@@ -27,14 +29,12 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
   const [systems, setSystems] = useState<DesignSystem[]>([]);
   const [activeSystem, setActiveSystemState] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
 
   useEffect(() => {
     async function loadSystems() {
       try {
-        const res = await fetch("/api/design-systems");
-        if (!res.ok) throw new Error("Failed to load design systems");
-        const config = (await res.json()) as DesignSystemsConfig;
+        const config = await fetchDesignSystemsConfig();
         
         setSystems(config.systems || []);
         
@@ -45,8 +45,13 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
         const initialSystem = validStored ? stored : config.defaultSystem;
         setActiveSystemState(initialSystem);
         setActiveSystemId(initialSystem);
-      } catch (err: any) {
-        setError(err);
+      } catch (err) {
+        setError(
+          toApiErrorDisplay(err, {
+            fallbackTitle: "Design systems unavailable",
+            fallbackMessage: "Unable to load design systems configuration.",
+          }),
+        );
       } finally {
         setIsLoading(false);
       }
@@ -93,7 +98,11 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
   }
 
   if (error) {
-    return <div className="p-8 text-red-500">Error loading design systems: {error.message}</div>;
+    return (
+      <div className="p-8">
+        <ApiErrorMessage error={error} />
+      </div>
+    );
   }
 
   return (

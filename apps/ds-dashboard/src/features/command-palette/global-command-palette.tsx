@@ -13,6 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import { useGlobalSearch, type GlobalSearchItem } from "./use-global-search";
 
 interface GlobalCommandPaletteProps {
@@ -386,9 +387,7 @@ export function GlobalCommandPalette({
             ) : null}
 
             {!loading && error ? (
-              <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-                {error}
-              </div>
+              <ApiErrorMessage error={error} />
             ) : null}
 
             {!loading ? (

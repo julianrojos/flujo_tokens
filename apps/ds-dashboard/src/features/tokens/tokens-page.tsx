@@ -14,6 +14,7 @@ import {
   fetchTokenUsageIndex,
   refreshTokenUsageIndex,
 } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import type { TokenCollectionTreeIndex } from "@/types/token-tree";
 import type { TokenEntry } from "@/types/token-registry";
 import type { TokenUsageEntry, TokenUsageIndexSummary } from "@/types/token-usage-index";
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import {
   Table,
   TableBody,
@@ -75,13 +77,13 @@ export function TokensPage() {
   const [sortField, setSortField] = useState<SortField>("path");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [usageError, setUsageError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
+  const [usageError, setUsageError] = useState<ApiErrorDisplay | null>(null);
   const [usageSyncing, setUsageSyncing] = useState(false);
   const [treeModalOpen, setTreeModalOpen] = useState(false);
   const [treeData, setTreeData] = useState<TokenCollectionTreeIndex | null>(null);
   const [treeLoading, setTreeLoading] = useState(false);
-  const [treeError, setTreeError] = useState<string | null>(null);
+  const [treeError, setTreeError] = useState<ApiErrorDisplay | null>(null);
   const contrastChecker = useContrastChecker();
 
   useEffect(() => {
@@ -94,9 +96,10 @@ export function TokensPage() {
           fetchTokenRegistry(),
           fetchTokenUsageIndex().catch((cause) => {
             setUsageError(
-              cause instanceof Error
-                ? cause.message
-                : "Token usage index is unavailable. Run `npm run ds:token-usage-index`.",
+              toApiErrorDisplay(cause, {
+                fallbackTitle: "Usage index unavailable",
+                fallbackMessage: "Run `npm run ds:token-usage-index` and retry.",
+              }),
             );
             return null;
           }),
@@ -110,7 +113,12 @@ export function TokensPage() {
           setUsageSummary(null);
         }
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
+        setError(
+          toApiErrorDisplay(cause, {
+            fallbackTitle: "Token registry unavailable",
+            fallbackMessage: "Run `npm run generate:registry` and refresh the page.",
+          }),
+        );
       } finally {
         setLoading(false);
       }
@@ -252,7 +260,12 @@ export function TokensPage() {
       setUsageByPath(payload.byPath ?? {});
       setUsageSummary(payload.summary ?? null);
     } catch (cause) {
-      setUsageError(cause instanceof Error ? cause.message : String(cause));
+      setUsageError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Usage sync failed",
+          fallbackMessage: "Unable to refresh token usage index.",
+        }),
+      );
     } finally {
       setUsageSyncing(false);
     }
@@ -268,7 +281,12 @@ export function TokensPage() {
         const payload = await fetchTokenCollectionTrees();
         setTreeData(payload);
       } catch (cause) {
-        setTreeError(cause instanceof Error ? cause.message : String(cause));
+        setTreeError(
+          toApiErrorDisplay(cause, {
+            fallbackTitle: "Token tree unavailable",
+            fallbackMessage: "Unable to load token collection trees.",
+          }),
+        );
       } finally {
         setTreeLoading(false);
       }
@@ -384,14 +402,10 @@ export function TokensPage() {
         </CardHeader>
         <CardContent>
           {error ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-              {error}
-            </div>
+            <ApiErrorMessage error={error} />
           ) : null}
           {usageError ? (
-            <div className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-              Usage index unavailable: {usageError}
-            </div>
+            <ApiErrorMessage error={usageError} tone="warning" className="mt-3" />
           ) : null}
 
           <Table>

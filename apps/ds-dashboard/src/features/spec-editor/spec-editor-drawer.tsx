@@ -13,6 +13,8 @@ import {
   saveComponentSpec,
   validateComponentSpecInput,
 } from "@/lib/api";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
+import { ApiErrorMessage } from "@/components/api-error-message";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -102,7 +104,7 @@ export function SpecEditorDrawer({
   const [saving, setSaving] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [confirmRiskyChanges, setConfirmRiskyChanges] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const validationRunRef = useRef(0);
 
@@ -144,7 +146,12 @@ export function SpecEditorDrawer({
       setError(null);
     } catch (cause) {
       if (validationRunRef.current !== runId) return;
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Spec validation failed",
+          fallbackMessage: "Unable to validate component spec.",
+        }),
+      );
       setValidation(null);
     } finally {
       if (validationRunRef.current === runId) {
@@ -223,7 +230,12 @@ export function SpecEditorDrawer({
         if (result.requiresConfirmation) {
           setConfirmRiskyChanges(true);
         }
-        setError(result.message || "Unable to save spec.");
+        setError(
+          toApiErrorDisplay(result.message, {
+            fallbackTitle: "Spec save failed",
+            fallbackMessage: "Unable to save spec.",
+          }),
+        );
         return;
       }
 
@@ -235,7 +247,12 @@ export function SpecEditorDrawer({
       onSaved({ message });
       await runValidation(raw);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Spec save failed",
+          fallbackMessage: "Unable to save spec.",
+        }),
+      );
     } finally {
       setSaving(false);
     }
@@ -251,7 +268,12 @@ export function SpecEditorDrawer({
         refreshRegistry: true,
       });
       if (!result.ok) {
-        setError(result.message || "Unable to restore backup.");
+        setError(
+          toApiErrorDisplay(result.message, {
+            fallbackTitle: "Backup restore failed",
+            fallbackMessage: "Unable to restore backup.",
+          }),
+        );
         return;
       }
       const message = result.message || "Backup restored successfully.";
@@ -259,7 +281,12 @@ export function SpecEditorDrawer({
       onSaved({ message });
       onClose();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Backup restore failed",
+          fallbackMessage: "Unable to restore backup.",
+        }),
+      );
     } finally {
       setRestoring(false);
     }
@@ -372,9 +399,7 @@ export function SpecEditorDrawer({
                 </div>
 
                 {error ? (
-                  <div className="rounded-md border border-red-500/40 bg-red-500/10 p-2.5 text-xs text-red-700">
-                    {error}
-                  </div>
+                  <ApiErrorMessage error={error} className="p-2.5 text-xs" />
                 ) : null}
                 {success ? (
                   <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-xs text-emerald-700">
