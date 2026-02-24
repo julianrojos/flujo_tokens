@@ -12,6 +12,7 @@ import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
 import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, buildPathKey } from '../utils/paths.js';
 import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName } from '../utils/strings.js';
 import { coerceTypographyDimension, coerceBorderDimension } from '../utils/coerce.js';
+import { canEmitTokenValue, canEmitUntypedTokenValue } from '../utils/emittable.js';
 import { withPathSegment } from '../utils/path-stack.js';
 
 const tokenDataIdentity = new WeakMap<object, number>();
@@ -49,18 +50,6 @@ function containsReference(value: unknown): boolean {
             if (k.startsWith('$')) continue;
             if (containsReference(v)) return true;
         }
-    }
-    return false;
-}
-
-function canEmitUntypedTokenValue(rawValue: TokenValue['$value']): boolean {
-    if (rawValue == null) return false;
-    if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
-        return true;
-    }
-    if (isVariableAlias(rawValue)) {
-        const aliasId = rawValue.id?.trim();
-        return !!aliasId;
     }
     return false;
 }
@@ -113,49 +102,9 @@ export function recordUnresolvedTyped(summary: ExecutionSummary, currentPath: st
 export function buildEmittableKeySet(ctx: IndexingContext): Set<string> {
     const emittable = new Set<string>();
 
-    const canEmitValue = (token: TokenValue): boolean => {
-        const varType = token.$type;
-        const rawValue = token.$value;
-
-        if (rawValue == null) return false;
-
-        // Compatibility mode: untyped primitive/alias tokens are emittable.
-        if (!varType) {
-            return canEmitUntypedTokenValue(rawValue);
-        }
-
-        if (Array.isArray(rawValue)) {
-            return varType === 'shadow';
-        }
-
-        if (typeof rawValue === 'object') {
-            if (isVariableAlias(rawValue)) {
-                const aliasId = rawValue.id?.trim();
-                return !!aliasId;
-            }
-
-            if (varType === 'shadow') return true;
-
-            if (varType === 'typography') {
-                const family = (rawValue as any).fontFamily;
-                const size = (rawValue as any).fontSize;
-                return family != null && size != null;
-            }
-
-            if (varType === 'border') {
-                const { width, style, color } = rawValue as any;
-                return width != null && style != null && color != null;
-            }
-
-            return false;
-        }
-
-        return true;
-    };
-
     for (const [key, token] of ctx.valueMap.entries()) {
         if (!token) continue;
-        if (canEmitValue(token as TokenValue)) {
+        if (canEmitTokenValue(token.$type, token.$value)) {
             emittable.add(key);
         }
     }

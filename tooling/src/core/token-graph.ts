@@ -6,6 +6,7 @@ import type { IndexingContext, ModeConfig, TokenEdge, TokenGraph, TokenNode, Tok
 import { isPlainObject, isVariableAlias } from '../types/tokens.js';
 import { W3C_REF_REGEX_COLLECT } from '../utils/regex.js';
 import { canonicalizeRefPath, normalizePathKey } from '../utils/paths.js';
+import { canEmitTokenValue } from '../utils/emittable.js';
 
 type CollectedRef =
     | { kind: 'w3c-ref'; ref: string; canonical: string; normalized: string }
@@ -126,57 +127,6 @@ function computeCycleNodeIds(graph: TokenGraph): Set<string> {
     }
 
     return cycleNodes;
-}
-
-function canEmitUntypedTokenValue(rawValue: TokenValue['$value']): boolean {
-    if (rawValue == null) return false;
-    if (typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
-        return true;
-    }
-    if (isVariableAlias(rawValue)) {
-        const aliasId = rawValue.id?.trim();
-        return !!aliasId;
-    }
-    return false;
-}
-
-function canEmitTokenNode(node: TokenNode): boolean {
-    const varType = node.type;
-    const rawValue = node.value;
-
-    if (rawValue == null) return false;
-
-    if (!varType) {
-        return canEmitUntypedTokenValue(rawValue);
-    }
-
-    if (Array.isArray(rawValue)) {
-        return varType === 'shadow';
-    }
-
-    if (typeof rawValue === 'object') {
-        if (isVariableAlias(rawValue)) {
-            const aliasId = rawValue.id?.trim();
-            return !!aliasId;
-        }
-
-        if (varType === 'shadow') return true;
-
-        if (varType === 'typography') {
-            const family = (rawValue as any).fontFamily;
-            const size = (rawValue as any).fontSize;
-            return family != null && size != null;
-        }
-
-        if (varType === 'border') {
-            const { width, style, color } = rawValue as any;
-            return width != null && style != null && color != null;
-        }
-
-        return false;
-    }
-
-    return true;
 }
 
 export function createTokenGraph(
@@ -347,7 +297,7 @@ export function buildCycleStatusFromGraph(graph: TokenGraph): Map<string, boolea
 export function buildEmittableKeySetFromGraph(graph: TokenGraph): Set<string> {
     const emittableNodeIds = new Set<string>();
     for (const [nodeId, node] of graph.nodes.entries()) {
-        if (canEmitTokenNode(node)) emittableNodeIds.add(nodeId);
+        if (canEmitTokenValue(node.type, node.value)) emittableNodeIds.add(nodeId);
     }
 
     const out = new Set<string>(emittableNodeIds);
