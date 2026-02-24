@@ -26,6 +26,7 @@ import { registerSystemRoutes } from "./routes/system-routes.mjs";
 import { registerOperationsRoutes } from "./routes/operations-routes.mjs";
 import { registerRegistryRoutes } from "./routes/registry-routes.mjs";
 import { registerTokenGraphRoutes } from "./routes/token-graph-routes.mjs";
+import { registerHealthRoutes } from "./routes/health-routes.mjs";
 import { runSpawnWithCapture } from "./lib/spawn-runner.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1192,78 +1193,6 @@ function buildSnippet(content, line, before, after) {
   return { targetLine: target, startLine, endLine, snippet: snippetLines.join("\n") };
 }
 
-function buildEmptyTokenHealthReport(args) {
-  const warnings = args.reason ? [{ id: "bootstrap-missing", message: String(args.reason) }] : [];
-  return {
-    ok: false,
-    bootstrapped: true,
-    schema_version: 1,
-    generated_at: new Date().toISOString(),
-    source: {
-      registry_path: args.tokenRegistryPath,
-      usage_index_path: args.tokenUsageIndexPath,
-      graph_viz_path: args.tokenGraphVizPath,
-      wcag_pairs_path: args.wcagPairsPath,
-    },
-    thresholds: {
-      high_usage_threshold: 25,
-      high_indegree_threshold: 15,
-    },
-    summary: {
-      tokens_total: 0,
-      tokens_with_usage: 0,
-      unused_tokens_total: 0,
-      high_coupling_tokens_total: 0,
-      broken_aliases_total: 0,
-      broken_css_var_refs_total: 0,
-      cycle_nodes_total: 0,
-      wcag_pairs_configured_total: 0,
-      wcag_pairs_resolved_total: 0,
-      wcag_failures_total: 0,
-    },
-    warnings,
-    unused_tokens: { items: [], total: 0, truncated: false },
-    high_coupling_tokens: { items: [], total: 0, truncated: false },
-    broken_aliases: { items: [], total: 0, truncated: false },
-    broken_css_var_refs: { items: [], total: 0, truncated: false },
-    wcag_failures: { items: [], total: 0, truncated: false },
-    upstream_fingerprints: {
-      token_usage_index: "",
-      token_graph_viz: "",
-    },
-    fingerprint_sha256: "",
-    hint: "Token health is not available yet. Capture components and token inputs first, then run token health.",
-  };
-}
-
-function buildEmptyComponentsHealthReport(args) {
-  return {
-    ok: false,
-    bootstrapped: true,
-    schema_version: 1,
-    source: {
-      registry_path: args.componentRegistryPath,
-    },
-    summary: {
-      total_components: 0,
-      ready: 0,
-      needs_review: 0,
-      draft: 0,
-      missing: 0,
-      with_visual_proof: 0,
-      average_coverage_percent: 0,
-      by_pipeline_stage: {},
-    },
-    filters: {
-      needs_review: { items: [], total: 0, truncated: false },
-      missing_visual_proof: { items: [], total: 0, truncated: false },
-      blocked_in_pipeline: { items: [], total: 0, truncated: false },
-    },
-    components: [],
-    fingerprint_sha256: "",
-  };
-}
-
 async function readJsonBody(c) {
   try {
     const parsed = await c.req.json();
@@ -1341,84 +1270,6 @@ async function loadJsonArtifactOrError(c, args) {
       }),
     };
   }
-}
-
-function normalizeHealthHistoryRange(raw) {
-  const value = String(raw || "").trim().toLowerCase();
-  if (value === "7d" || value === "90d") return value;
-  return "30d";
-}
-
-function rangeDays(range) {
-  if (range === "7d") return 7;
-  if (range === "90d") return 90;
-  return 30;
-}
-
-function normalizeHealthHistoryPayload(raw) {
-  const base = raw && typeof raw === "object" ? raw : {};
-  const rawSnapshots = Array.isArray(base.snapshots) ? base.snapshots : [];
-  const snapshots = [];
-
-  for (const item of rawSnapshots) {
-    if (!item || typeof item !== "object") continue;
-    const capturedAt = String(item.captured_at || "").trim();
-    if (!capturedAt) continue;
-
-    const metrics = item.metrics && typeof item.metrics === "object" ? item.metrics : {};
-    const fingerprints =
-      item.fingerprints && typeof item.fingerprints === "object" ? item.fingerprints : {};
-    const meta = item.meta && typeof item.meta === "object" ? item.meta : {};
-
-    snapshots.push({
-      captured_at: capturedAt,
-      metrics: {
-        breaking_changes:
-          metrics.breaking_changes === null
-            ? null
-            : Number.isFinite(Number(metrics.breaking_changes))
-              ? Number(metrics.breaking_changes)
-              : null,
-        wcag_failures_total: Number(metrics.wcag_failures_total || 0),
-        coverage_avg: Number(metrics.coverage_avg || 0),
-        unresolved_total: Number(metrics.unresolved_total || 0),
-        unused_tokens_total: Number(metrics.unused_tokens_total || 0),
-        needs_review_total: Number(metrics.needs_review_total || 0),
-      },
-      fingerprints: {
-        token_health: String(fingerprints.token_health || ""),
-        components_health: String(fingerprints.components_health || ""),
-        token_usage: String(fingerprints.token_usage || ""),
-        token_diff: String(fingerprints.token_diff || ""),
-        signature_sha256: String(fingerprints.signature_sha256 || ""),
-      },
-      meta: {
-        before_ref: String(meta.before_ref || "HEAD~1"),
-      },
-    });
-  }
-
-  snapshots.sort((left, right) => left.captured_at.localeCompare(right.captured_at));
-  return {
-    ok: true,
-    schema_version: Number(base.schema_version || 1),
-    generated_at: String(base.generated_at || new Date().toISOString()),
-    retention_days: Number(base.retention_days || 120),
-    snapshots,
-    summary: {
-      snapshots_total: snapshots.length,
-      latest_at: snapshots.length ? snapshots[snapshots.length - 1].captured_at : null,
-    },
-  };
-}
-
-function filterSnapshotsByRange(snapshots, range) {
-  const days = rangeDays(range);
-  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-  return snapshots.filter((snapshot) => {
-    const epoch = new Date(snapshot.captured_at).getTime();
-    return Number.isFinite(epoch) && epoch >= cutoff;
-  });
 }
 
 function isDevRuntime() {
@@ -1974,65 +1825,9 @@ registerTokenGraphRoutes(app, {
   getSystemContext,
 });
 
-app.get("/api/token-health", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const loaded = await loadJsonArtifactOrError(c, {
-    filePath: sysCtx.tokenHealthPath,
-    artifactName: "token health",
-    allowMissing: true,
-    missingValue: null,
-  });
-  if (!loaded.ok) return loaded.response;
-  if (loaded.value !== null) return c.json(loaded.value);
-  return c.json(
-    buildEmptyTokenHealthReport({
-      tokenRegistryPath: sysCtx.tokenRegistryPath,
-      tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
-      tokenGraphVizPath: sysCtx.tokenGraphVizPath,
-      wcagPairsPath: sysCtx.wcagPairsPath,
-      reason: "Token health artifact not found. Run the pipeline or capture components first.",
-    }),
-  );
-});
-
-app.get("/api/components-health", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const loaded = await loadJsonArtifactOrError(c, {
-    filePath: sysCtx.componentsHealthPath,
-    artifactName: "components health",
-    allowMissing: true,
-    missingValue: null,
-  });
-  if (!loaded.ok) return loaded.response;
-  if (loaded.value !== null) return c.json(loaded.value);
-  return c.json(
-    buildEmptyComponentsHealthReport({
-      componentRegistryPath: sysCtx.componentRegistryPath,
-    }),
-  );
-});
-
-app.get("/api/health-history", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const range = normalizeHealthHistoryRange(c.req.query("range"));
-  const loaded = await loadJsonArtifactOrError(c, {
-    filePath: sysCtx.healthHistoryPath,
-    artifactName: "health history",
-    allowMissing: true,
-    missingValue: null,
-  });
-  if (!loaded.ok) return loaded.response;
-  const parsed = normalizeHealthHistoryPayload(loaded.value);
-  const snapshots = filterSnapshotsByRange(parsed.snapshots, range);
-  return c.json({
-    ...parsed,
-    snapshots,
-    summary: {
-      snapshots_total: snapshots.length,
-      latest_at: snapshots.length ? snapshots[snapshots.length - 1].captured_at : null,
-    },
-    range,
-  });
+registerHealthRoutes(app, {
+  failJson,
+  getSystemContext,
 });
 
 app.get("/api/token-diff", async (c) => {
