@@ -4,8 +4,10 @@ function readPositiveInt(env, key, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+export const SERVER_PORT = Number(process.env.DS_DASHBOARD_API_PORT || 8787);
+
 export function createServerConfig(env = process.env) {
-  const port = readPositiveInt(env, "DS_DASHBOARD_API_PORT", 8787);
+  const port = readPositiveInt(env, "DS_DASHBOARD_API_PORT", SERVER_PORT);
   const jobTimeoutMs = readPositiveInt(env, "DS_DASHBOARD_JOB_TIMEOUT_MS", 600000);
   const opsLogMaxFileBytes = readPositiveInt(env, "DS_DASHBOARD_OPS_LOG_MAX_FILE_BYTES", 1_048_576);
   const opsLogRetentionDays = readPositiveInt(env, "DS_DASHBOARD_OPS_LOG_RETENTION_DAYS", 30);
