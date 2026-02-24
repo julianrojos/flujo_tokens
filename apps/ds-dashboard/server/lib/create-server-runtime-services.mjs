@@ -1,9 +1,9 @@
-import { computeNamingDebtReport } from "./analysis-artifacts-service.mjs";
-import { createCommandExecutionService } from "./command-execution-service.mjs";
+import { computeNamingDebtReport } from "../services/analysis-artifacts-service.mjs";
+import { createCommandExecutionService } from "../services/command-execution-service.mjs";
 import { createDevRuntimeChecker, createSha256TextHasher, createSystemContextResolver } from "./create-server-runtime-utils.mjs";
-import { createOperationHistoryService } from "./operation-history-service.mjs";
-import { createQueueEngineService } from "./queue-engine-service.mjs";
-import { createQueueJobFactoryService } from "./queue-job-factory-service.mjs";
+import { createOperationHistoryService } from "../services/operation-history-service.mjs";
+import { createQueueEngineService } from "../services/queue-engine-service.mjs";
+import { createQueueJobFactoryService } from "../services/queue-job-factory-service.mjs";
 import { createSnippetBuilder } from "./request-file-helpers.mjs";
 import { runSpawnWithCapture } from "./spawn-runner.mjs";
 import { toQueueSummaryFromPayload } from "./queue-utils.mjs";
