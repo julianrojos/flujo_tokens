@@ -1426,6 +1426,78 @@ function queueNodeJsonCommand({
 
 const app = new Hono();
 
+function createApiRequestId() {
+  return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function writeStructuredLog(level, payload) {
+  const base = {
+    level,
+    ts: Date.now(),
+    service: "ds-dashboard-api",
+  };
+  const line = JSON.stringify({ ...base, ...(payload && typeof payload === "object" ? payload : {}) });
+  if (level === "error") {
+    // eslint-disable-next-line no-console
+    console.error(line);
+    return;
+  }
+  if (level === "warn") {
+    // eslint-disable-next-line no-console
+    console.warn(line);
+    return;
+  }
+  // eslint-disable-next-line no-console
+  console.log(line);
+}
+
+function buildApiErrorPayload({
+  code,
+  userMessage,
+  recoverable = false,
+  context,
+  requestId,
+}) {
+  const safeMessage = String(userMessage || "Request failed.");
+  const safeCode = String(code || "internal.unknown_error");
+  const safeRequestId = String(requestId || createApiRequestId());
+  const payload = {
+    ok: false,
+    message: safeMessage,
+    requestId: safeRequestId,
+    error: {
+      code: safeCode,
+      userMessage: safeMessage,
+      recoverable: recoverable === true,
+    },
+  };
+  if (context && typeof context === "object" && !Array.isArray(context)) {
+    payload.error.context = context;
+  }
+  return payload;
+}
+
+function failJson(c, statusCode, args) {
+  const requestId = String(args?.requestId || createApiRequestId());
+  const payload = buildApiErrorPayload({
+    ...args,
+    requestId,
+  });
+  if (args?.suppressLog !== true) {
+    writeStructuredLog(statusCode >= 500 ? "error" : "warn", {
+      event: "api.error",
+      requestId,
+      code: payload?.error?.code || "internal.unknown_error",
+      statusCode,
+      recoverable: payload?.error?.recoverable === true,
+      path: c.req.path,
+      method: c.req.method,
+      context: payload?.error?.context || null,
+    });
+  }
+  return c.json(payload, statusCode);
+}
+
 function buildHealthPayload() {
   return {
     status: "ok",
@@ -1462,14 +1534,24 @@ app.post("/api/design-systems", async (c) => {
   const systemId = normalizeSystemId(body.id);
   const systemName = String(body.name || "").trim();
   if (!systemId || !systemName) {
-    return c.json({ ok: false, message: "Both `id` and `name` are required." }, 400);
+    return failJson(c, 400, {
+      code: "validation.missing_required_fields",
+      userMessage: "Both `id` and `name` are required.",
+      recoverable: true,
+      context: { required: ["id", "name"] },
+    });
   }
 
   const exists = Array.isArray(config.systems)
     ? config.systems.some((row) => String(row?.id || "").trim() === systemId)
     : false;
   if (exists) {
-    return c.json({ ok: false, message: `System '${systemId}' already exists.` }, 409);
+    return failJson(c, 409, {
+      code: "design_system.already_exists",
+      userMessage: `System '${systemId}' already exists.`,
+      recoverable: true,
+      context: { systemId },
+    });
   }
 
   const inputDir = ensureRelativeDir(body.inputDir, `input/${systemId}`);
@@ -1519,13 +1601,23 @@ app.put("/api/design-systems/:id", async (c) => {
     (row) => String(row?.id || "").trim() === routeSystemId,
   );
   if (targetIndex < 0) {
-    return c.json({ ok: false, message: `System '${routeSystemId}' not found.` }, 404);
+    return failJson(c, 404, {
+      code: "design_system.not_found",
+      userMessage: `System '${routeSystemId}' not found.`,
+      recoverable: true,
+      context: { systemId: routeSystemId },
+    });
   }
 
   const current = nextSystems[targetIndex] || {};
   const normalizedName = String(body.name ?? current.name ?? "").trim();
   if (!normalizedName) {
-    return c.json({ ok: false, message: "System name cannot be empty." }, 400);
+    return failJson(c, 400, {
+      code: "validation.invalid_name",
+      userMessage: "System name cannot be empty.",
+      recoverable: true,
+      context: { field: "name" },
+    });
   }
 
   const updated = {
@@ -1574,10 +1666,20 @@ app.delete("/api/design-systems/:id", (c) => {
     (row) => String(row?.id || "").trim() !== routeSystemId,
   );
   if (nextSystems.length === currentSystems.length) {
-    return c.json({ ok: false, message: `System '${routeSystemId}' not found.` }, 404);
+    return failJson(c, 404, {
+      code: "design_system.not_found",
+      userMessage: `System '${routeSystemId}' not found.`,
+      recoverable: true,
+      context: { systemId: routeSystemId },
+    });
   }
   if (nextSystems.length === 0) {
-    return c.json({ ok: false, message: "Cannot delete the last design system." }, 400);
+    return failJson(c, 400, {
+      code: "design_system.last_system_protected",
+      userMessage: "Cannot delete the last design system.",
+      recoverable: true,
+      context: { systemId: routeSystemId },
+    });
   }
 
   const nextDefault =
@@ -1652,7 +1754,14 @@ app.get("/api/token-graph", async (c) => {
 app.get("/api/token-graph-query", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const token = String(c.req.query("token") ?? c.req.query("tokenPath") ?? "").trim();
-  if (!token) return c.json({ ok: false, message: "token query param is required." }, 400);
+  if (!token) {
+    return failJson(c, 400, {
+      code: "validation.token_required",
+      userMessage: "token query param is required.",
+      recoverable: true,
+      context: { field: "token" },
+    });
+  }
 
   const direction = normalizeTokenGraphDirection(c.req.query("direction"));
   const depth = normalizeTokenGraphDepth(c.req.query("depth"));
@@ -1660,7 +1769,12 @@ app.get("/api/token-graph-query", async (c) => {
   const graph = JSON.parse(raw);
   const payload = buildTokenGraphQueryPayload({ graph, token, direction, depth });
   if (!payload) {
-    return c.json({ ok: false, message: `Token '${token}' not found in token graph.` }, 404);
+    return failJson(c, 404, {
+      code: "token_graph.token_not_found",
+      userMessage: `Token '${token}' not found in token graph.`,
+      recoverable: true,
+      context: { token },
+    });
   }
   return c.json(payload);
 });
@@ -1730,13 +1844,12 @@ app.get("/api/token-diff", async (c) => {
   const beforeRefRaw = c.req.query("beforeRef") ?? "HEAD~1";
   const beforeRef = validateGitRef(beforeRefRaw);
   if (!beforeRef) {
-    return c.json(
-      {
-        ok: false,
-        message: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
-      },
-      400,
-    );
+    return failJson(c, 400, {
+      code: "validation.invalid_git_ref",
+      userMessage: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+      recoverable: true,
+      context: { beforeRef: beforeRefRaw },
+    });
   }
 
   const result = await runNodeJsonCommandOnce({
@@ -1772,7 +1885,14 @@ app.get("/api/naming-debt", async (c) => {
 app.get("/api/impact", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const tokenPath = String(c.req.query("tokenPath") ?? "").trim();
-  if (!tokenPath) return c.json({ ok: false, message: "tokenPath query param is required." }, 400);
+  if (!tokenPath) {
+    return failJson(c, 400, {
+      code: "validation.token_path_required",
+      userMessage: "tokenPath query param is required.",
+      recoverable: true,
+      context: { field: "tokenPath" },
+    });
+  }
 
   const newValueRaw = c.req.query("newValue");
   const newValue = newValueRaw ? String(newValueRaw).trim() : null;
@@ -1812,21 +1932,40 @@ app.get("/api/impact", async (c) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const notFound = message.includes("not found");
-    return c.json({ ok: false, message }, notFound ? 404 : 400);
+    return failJson(c, notFound ? 404 : 400, {
+      code: notFound ? "impact.token_not_found" : "impact.invalid_request",
+      userMessage: message,
+      recoverable: true,
+      context: { tokenPath },
+    });
   }
 });
 
 app.get("/api/component-spec/:slug", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const slug = sanitizeSlug(decodeURIComponent(String(c.req.param("slug") || "")));
-  if (!slug) return c.json({ ok: false, message: "Invalid component slug." }, 400);
+  if (!slug) {
+    return failJson(c, 400, {
+      code: "validation.invalid_component_slug",
+      userMessage: "Invalid component slug.",
+      recoverable: true,
+      context: { slug: c.req.param("slug") },
+    });
+  }
 
   const target = await resolveComponentSpecTarget({
     repoRoot: sysCtx.repoRoot,
     componentRegistryPath: sysCtx.componentRegistryPath,
     slug,
   });
-  if (!target.ok) return c.json({ ok: false, message: target.message }, 404);
+  if (!target.ok) {
+    return failJson(c, 404, {
+      code: "component_spec.not_found",
+      userMessage: target.message,
+      recoverable: true,
+      context: { slug },
+    });
+  }
 
   let raw = "";
   let exists = true;
@@ -1859,18 +1998,36 @@ app.get("/api/component-spec/:slug", async (c) => {
 app.post("/api/component-spec/:slug/validate", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   if (!isDevRuntime()) {
-    return c.json({ ok: false, message: "Spec editing is only enabled in development mode." }, 403);
+    return failJson(c, 403, {
+      code: "component_spec.editing_disabled",
+      userMessage: "Spec editing is only enabled in development mode.",
+      recoverable: true,
+    });
   }
 
   const slug = sanitizeSlug(decodeURIComponent(String(c.req.param("slug") || "")));
-  if (!slug) return c.json({ ok: false, message: "Invalid component slug." }, 400);
+  if (!slug) {
+    return failJson(c, 400, {
+      code: "validation.invalid_component_slug",
+      userMessage: "Invalid component slug.",
+      recoverable: true,
+      context: { slug: c.req.param("slug") },
+    });
+  }
 
   const target = await resolveComponentSpecTarget({
     repoRoot: sysCtx.repoRoot,
     componentRegistryPath: sysCtx.componentRegistryPath,
     slug,
   });
-  if (!target.ok) return c.json({ ok: false, message: target.message }, 404);
+  if (!target.ok) {
+    return failJson(c, 404, {
+      code: "component_spec.not_found",
+      userMessage: target.message,
+      recoverable: true,
+      context: { slug },
+    });
+  }
 
   const body = await readJsonBody(c);
   const raw = String(body.raw ?? "");
@@ -1945,18 +2102,36 @@ app.post("/api/component-spec/:slug/validate", async (c) => {
 app.post("/api/component-spec/:slug/save", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   if (!isDevRuntime()) {
-    return c.json({ ok: false, message: "Spec editing is only enabled in development mode." }, 403);
+    return failJson(c, 403, {
+      code: "component_spec.editing_disabled",
+      userMessage: "Spec editing is only enabled in development mode.",
+      recoverable: true,
+    });
   }
 
   const slug = sanitizeSlug(decodeURIComponent(String(c.req.param("slug") || "")));
-  if (!slug) return c.json({ ok: false, message: "Invalid component slug." }, 400);
+  if (!slug) {
+    return failJson(c, 400, {
+      code: "validation.invalid_component_slug",
+      userMessage: "Invalid component slug.",
+      recoverable: true,
+      context: { slug: c.req.param("slug") },
+    });
+  }
 
   const target = await resolveComponentSpecTarget({
     repoRoot: sysCtx.repoRoot,
     componentRegistryPath: sysCtx.componentRegistryPath,
     slug,
   });
-  if (!target.ok) return c.json({ ok: false, message: target.message }, 404);
+  if (!target.ok) {
+    return failJson(c, 404, {
+      code: "component_spec.not_found",
+      userMessage: target.message,
+      recoverable: true,
+      context: { slug },
+    });
+  }
 
   const body = await readJsonBody(c);
   const raw = String(body.raw ?? "");
@@ -2162,18 +2337,36 @@ app.post("/api/component-spec/:slug/save", async (c) => {
 app.post("/api/component-spec/:slug/restore-backup", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   if (!isDevRuntime()) {
-    return c.json({ ok: false, message: "Spec editing is only enabled in development mode." }, 403);
+    return failJson(c, 403, {
+      code: "component_spec.editing_disabled",
+      userMessage: "Spec editing is only enabled in development mode.",
+      recoverable: true,
+    });
   }
 
   const slug = sanitizeSlug(decodeURIComponent(String(c.req.param("slug") || "")));
-  if (!slug) return c.json({ ok: false, message: "Invalid component slug." }, 400);
+  if (!slug) {
+    return failJson(c, 400, {
+      code: "validation.invalid_component_slug",
+      userMessage: "Invalid component slug.",
+      recoverable: true,
+      context: { slug: c.req.param("slug") },
+    });
+  }
 
   const target = await resolveComponentSpecTarget({
     repoRoot: sysCtx.repoRoot,
     componentRegistryPath: sysCtx.componentRegistryPath,
     slug,
   });
-  if (!target.ok) return c.json({ ok: false, message: target.message }, 404);
+  if (!target.ok) {
+    return failJson(c, 404, {
+      code: "component_spec.not_found",
+      userMessage: target.message,
+      recoverable: true,
+      context: { slug },
+    });
+  }
 
   const body = await readJsonBody(c);
   const refreshRegistryAfterRestore = body.refreshRegistry !== false;
@@ -2239,7 +2432,14 @@ app.get("/api/file", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const requested = c.req.query("path") ?? c.req.query("file") ?? "";
   const absPath = resolveRepoFilePath(sysCtx.repoRoot, requested);
-  if (!absPath) return c.json({ ok: false, message: "Invalid file path." }, 400);
+  if (!absPath) {
+    return failJson(c, 400, {
+      code: "file.invalid_path",
+      userMessage: "Invalid file path.",
+      recoverable: true,
+      context: { requested },
+    });
+  }
 
   try {
     const payload = await readTextFileLimited(absPath, MAX_FILE_BYTES);
@@ -2251,7 +2451,12 @@ app.get("/api/file", async (c) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return c.json({ ok: false, message }, 404);
+    return failJson(c, 404, {
+      code: "file.not_found",
+      userMessage: message,
+      recoverable: true,
+      context: { requested },
+    });
   }
 });
 
@@ -2259,7 +2464,14 @@ app.get("/api/file-snippet", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const requested = c.req.query("file") ?? "";
   const absPath = resolveRepoFilePath(sysCtx.repoRoot, requested);
-  if (!absPath) return c.json({ ok: false, message: "Invalid file path." }, 400);
+  if (!absPath) {
+    return failJson(c, 400, {
+      code: "file.invalid_path",
+      userMessage: "Invalid file path.",
+      recoverable: true,
+      context: { requested },
+    });
+  }
 
   const rawLine = c.req.query("line");
   const rawBefore = c.req.query("before");
@@ -2270,7 +2482,12 @@ app.get("/api/file-snippet", async (c) => {
 
   let line = rawLine ? Number.parseInt(rawLine, 10) : Number.NaN;
   if (rawLine && !Number.isFinite(line)) {
-    return c.json({ ok: false, message: "Invalid line parameter." }, 400);
+    return failJson(c, 400, {
+      code: "validation.invalid_line_parameter",
+      userMessage: "Invalid line parameter.",
+      recoverable: true,
+      context: { line: rawLine },
+    });
   }
 
   let content = "";
@@ -2279,14 +2496,24 @@ app.get("/api/file-snippet", async (c) => {
     content = payload.content;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return c.json({ ok: false, message }, 404);
+    return failJson(c, 404, {
+      code: "file.not_found",
+      userMessage: message,
+      recoverable: true,
+      context: { requested },
+    });
   }
 
   let matchedBy = "line";
   if (!rawLine) {
     const detected = findLineForQuery(content, query);
     if (!detected) {
-      return c.json({ ok: false, message: "Query not found in file." }, 404);
+      return failJson(c, 404, {
+        code: "file.query_not_found",
+        userMessage: "Query not found in file.",
+        recoverable: true,
+        context: { requested, query },
+      });
     }
     line = detected;
     matchedBy = "query";
@@ -2308,11 +2535,25 @@ app.get("/api/asset", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const requested = c.req.query("path") ?? "";
   const absPath = resolveRepoFilePath(sysCtx.repoRoot, requested);
-  if (!absPath) return c.json({ ok: false, message: "Invalid asset path." }, 400);
+  if (!absPath) {
+    return failJson(c, 400, {
+      code: "asset.invalid_path",
+      userMessage: "Invalid asset path.",
+      recoverable: true,
+      context: { requested },
+    });
+  }
 
   try {
     const stat = await fs.stat(absPath);
-    if (!stat.isFile()) return c.json({ ok: false, message: "Asset not found." }, 404);
+    if (!stat.isFile()) {
+      return failJson(c, 404, {
+        code: "asset.not_found",
+        userMessage: "Asset not found.",
+        recoverable: true,
+        context: { requested },
+      });
+    }
     const buffer = await fs.readFile(absPath);
     return c.body(buffer, 200, {
       "Content-Type": guessContentType(absPath),
@@ -2320,14 +2561,26 @@ app.get("/api/asset", async (c) => {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return c.json({ ok: false, message }, 404);
+    return failJson(c, 404, {
+      code: "asset.not_found",
+      userMessage: message,
+      recoverable: true,
+      context: { requested },
+    });
   }
 });
 
 app.get("/api/jobs/:jobId", (c) => {
   const jobId = decodeURIComponent(String(c.req.param("jobId") || ""));
   const job = queueJobs.get(jobId);
-  if (!job) return c.json({ ok: false, message: `Job '${jobId}' not found.` }, 404);
+  if (!job) {
+    return failJson(c, 404, {
+      code: "queue.job_not_found",
+      userMessage: `Job '${jobId}' not found.`,
+      recoverable: true,
+      context: { jobId },
+    });
+  }
 
   const sinceRaw = Number.parseInt(String(c.req.query("since") || ""), 10);
   const limitRaw = Number.parseInt(String(c.req.query("limit") || ""), 10);
@@ -2349,10 +2602,24 @@ app.get("/api/jobs/:jobId", (c) => {
 app.delete("/api/jobs/:jobId", (c) => {
   const jobId = decodeURIComponent(String(c.req.param("jobId") || ""));
   const job = queueJobs.get(jobId);
-  if (!job) return c.json({ ok: false, message: `Job '${jobId}' not found.` }, 404);
+  if (!job) {
+    return failJson(c, 404, {
+      code: "queue.job_not_found",
+      userMessage: `Job '${jobId}' not found.`,
+      recoverable: true,
+      context: { jobId },
+    });
+  }
 
   const cancelled = cancelQueueJob(jobId);
-  if (!cancelled.ok) return c.json({ ok: false, message: cancelled.message }, 409);
+  if (!cancelled.ok) {
+    return failJson(c, 409, {
+      code: "queue.job_not_cancelable",
+      userMessage: String(cancelled.message || "Job cannot be cancelled."),
+      recoverable: true,
+      context: { jobId, status: job.status },
+    });
+  }
   return c.json({ ok: true, job: queueJobSnapshot(job) });
 });
 
@@ -2361,7 +2628,14 @@ app.get("/api/jobs/:jobId/stream", (c) => {
   const sinceRaw = Number.parseInt(String(c.req.query("since") || ""), 10);
   const since = Number.isFinite(sinceRaw) ? Math.max(0, sinceRaw) : 0;
   const existing = queueJobs.get(jobId);
-  if (!existing) return c.json({ ok: false, message: `Job '${jobId}' not found.` }, 404);
+  if (!existing) {
+    return failJson(c, 404, {
+      code: "queue.job_not_found",
+      userMessage: `Job '${jobId}' not found.`,
+      recoverable: true,
+      context: { jobId },
+    });
+  }
 
   return streamSSE(c, async (stream) => {
     let cursor = since;
@@ -2371,7 +2645,15 @@ app.get("/api/jobs/:jobId/stream", (c) => {
       const job = queueJobs.get(jobId);
       if (!job) {
         await stream.writeSSE({
-          data: JSON.stringify({ type: "error", message: `Job '${jobId}' not found.` }),
+          data: JSON.stringify({
+            type: "error",
+            ...buildApiErrorPayload({
+              code: "queue.job_not_found",
+              userMessage: `Job '${jobId}' not found.`,
+              recoverable: true,
+              context: { jobId },
+            }),
+          }),
         });
         return;
       }
@@ -2390,14 +2672,28 @@ app.get("/api/jobs/:jobId/stream", (c) => {
     }
 
     await stream.writeSSE({
-      data: JSON.stringify({ type: "error", message: "Stream timeout waiting for job completion." }),
+      data: JSON.stringify({
+        type: "error",
+        ...buildApiErrorPayload({
+          code: "queue.stream_timeout",
+          userMessage: "Stream timeout waiting for job completion.",
+          recoverable: true,
+          context: { jobId },
+        }),
+      }),
     });
   });
 });
 
 app.post("/api/run/:script", async (c) => {
   const scriptName = String(c.req.param("script") || "").trim();
-  if (!scriptName) return c.json({ ok: false, message: "Missing script name in URL." }, 400);
+  if (!scriptName) {
+    return failJson(c, 400, {
+      code: "validation.missing_script_name",
+      userMessage: "Missing script name in URL.",
+      recoverable: true,
+    });
+  }
 
   const body = await readJsonBody(c);
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
@@ -2520,13 +2816,12 @@ app.post("/api/capture-health-snapshot", async (c) => {
   const beforeRefRaw = String(body.beforeRef ?? "HEAD~1").trim();
   const beforeRef = validateGitRef(beforeRefRaw);
   if (!beforeRef) {
-    return c.json(
-      {
-        ok: false,
-        message: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
-      },
-      400,
-    );
+    return failJson(c, 400, {
+      code: "validation.invalid_git_ref",
+      userMessage: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+      recoverable: true,
+      context: { beforeRef: beforeRefRaw },
+    });
   }
 
   const retentionDaysRaw = Number(body.retentionDays);
@@ -2602,18 +2897,33 @@ app.post("/api/capture-figma-screenshot", async (c) => {
   const body = await readJsonBody(c);
   const figmaUrl = String(body.figmaUrl ?? body.url ?? "").trim();
   if (!figmaUrl) {
-    return c.json({ ok: false, message: "figmaUrl is required in request body." }, 400);
+    return failJson(c, 400, {
+      code: "validation.figma_url_required",
+      userMessage: "figmaUrl is required in request body.",
+      recoverable: true,
+      context: { field: "figmaUrl" },
+    });
   }
 
   let parsedUrl;
   try {
     parsedUrl = new URL(figmaUrl);
   } catch {
-    return c.json({ ok: false, message: "Invalid figmaUrl." }, 400);
+    return failJson(c, 400, {
+      code: "validation.invalid_figma_url",
+      userMessage: "Invalid figmaUrl.",
+      recoverable: true,
+      context: { figmaUrl },
+    });
   }
   const host = String(parsedUrl.hostname || "").toLowerCase();
   if (host !== "figma.com" && !host.endsWith(".figma.com")) {
-    return c.json({ ok: false, message: `URL host is not figma.com: ${host}` }, 400);
+    return failJson(c, 400, {
+      code: "validation.invalid_figma_host",
+      userMessage: `URL host is not figma.com: ${host}`,
+      recoverable: true,
+      context: { host, figmaUrl },
+    });
   }
 
   const componentSlug = String(body.componentSlug ?? "").trim().toLowerCase();
@@ -2678,8 +2988,31 @@ app.post("/api/capture-figma-screenshot", async (c) => {
 });
 
 app.onError((error, c) => {
+  const requestId = createApiRequestId();
   const message = error instanceof Error ? error.message : String(error);
-  return c.json({ ok: false, message }, 500);
+  writeStructuredLog("error", {
+    event: "api.unhandled_error",
+    requestId,
+    code: "internal.unexpected_error",
+    path: c.req.path,
+    method: c.req.method,
+    error: {
+      name: error instanceof Error ? error.name : "UnknownError",
+      message,
+      stack: error instanceof Error ? error.stack : undefined,
+    },
+  });
+  return failJson(c, 500, {
+    code: "internal.unexpected_error",
+    userMessage: message || "Unexpected server error.",
+    recoverable: true,
+    requestId,
+    context: {
+      path: c.req.path,
+      method: c.req.method,
+    },
+    suppressLog: true,
+  });
 });
 
 serve(

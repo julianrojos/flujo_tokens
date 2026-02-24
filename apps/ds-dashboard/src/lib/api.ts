@@ -20,6 +20,7 @@ import type {
   ComponentSpecSaveResponse,
   ComponentSpecValidateResponse,
 } from "@/types/spec-editor";
+import type { ApiErrorCode } from "@/lib/api-errors";
 
 let activeSystemId: string | null = null;
 export function getActiveSystemId() {
@@ -28,6 +29,120 @@ export function getActiveSystemId() {
 export function setActiveSystemId(id: string) {
   activeSystemId = id;
   localStorage.setItem("ds-system-id", id);
+}
+
+export interface ApiErrorEnvelope {
+  ok?: boolean;
+  message?: string;
+  requestId?: string;
+  context?: Record<string, unknown>;
+  error?: {
+    code?: ApiErrorCode;
+    userMessage?: string;
+    recoverable?: boolean;
+    context?: Record<string, unknown>;
+    requestId?: string;
+  };
+}
+
+export class ApiError extends Error {
+  status: number;
+  statusText: string;
+  code: ApiErrorCode;
+  recoverable: boolean;
+  requestId: string | null;
+  context: Record<string, unknown> | null;
+  payload: unknown;
+
+  constructor(args: {
+    status: number;
+    statusText: string;
+    code: ApiErrorCode;
+    userMessage: string;
+    recoverable: boolean;
+    requestId?: string | null;
+    context?: Record<string, unknown> | null;
+    payload?: unknown;
+  }) {
+    super(args.userMessage);
+    this.name = "ApiError";
+    this.status = args.status;
+    this.statusText = args.statusText;
+    this.code = args.code;
+    this.recoverable = args.recoverable;
+    this.requestId = args.requestId ?? null;
+    this.context = args.context ?? null;
+    this.payload = args.payload;
+  }
+}
+
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function toNonEmptyString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+async function buildApiError(response: Response): Promise<ApiError> {
+  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  let payload: unknown = null;
+  let bodyText = "";
+
+  if (contentType.includes("application/json")) {
+    try {
+      payload = await response.json();
+    } catch {
+      bodyText = await response.text().catch(() => "");
+    }
+  } else {
+    bodyText = await response.text().catch(() => "");
+    if (bodyText.trim()) {
+      try {
+        payload = JSON.parse(bodyText);
+      } catch {
+        // non-JSON response body
+      }
+    }
+  }
+
+  const envelope = toRecord(payload) as ApiErrorEnvelope | null;
+  const structured = toRecord(envelope?.error);
+  const structuredMessage = toNonEmptyString(structured?.userMessage);
+  const topLevelMessage = toNonEmptyString(envelope?.message);
+  const textMessage = bodyText.trim();
+  const fallbackMessage = `${response.status} ${response.statusText}`.trim() || "Request failed.";
+  const userMessage = structuredMessage || topLevelMessage || textMessage || fallbackMessage;
+
+  const structuredCode = toNonEmptyString(structured?.code);
+  const code = (structuredCode || `http.${response.status}`) as ApiErrorCode;
+
+  const recoverable =
+    typeof structured?.recoverable === "boolean"
+      ? structured.recoverable
+      : response.status >= 500 || response.status === 429;
+
+  const requestId =
+    toNonEmptyString(structured?.requestId) ||
+    toNonEmptyString(envelope?.requestId) ||
+    null;
+
+  const context =
+    toRecord(structured?.context) ||
+    toRecord(envelope?.context) ||
+    null;
+
+  return new ApiError({
+    status: response.status,
+    statusText: response.statusText,
+    code,
+    userMessage,
+    recoverable,
+    requestId,
+    context,
+    payload,
+  });
 }
 
 async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -45,11 +160,14 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`${response.status} ${response.statusText}: ${text}`);
+    throw await buildApiError(response);
   }
 
   return (await response.json()) as T;
+}
+
+export async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  return getJson<T>(url, init);
 }
 
 export function fetchComponentRegistry() {

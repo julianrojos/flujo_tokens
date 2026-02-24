@@ -45,7 +45,7 @@ const INITIAL_ARTIFACTS: ArtifactMeta[] = [
   { id: "graph",    label: "Token Graph",  icon: GitGraph   },
 ];
 
-import { getActiveSystemId } from "@/lib/api";
+import { ApiError, getActiveSystemId, requestJson } from "@/lib/api";
 
 const getSystemHeaders = (): HeadersInit | undefined => {
   const id = getActiveSystemId();
@@ -115,15 +115,25 @@ async function waitForQueuedJob(statusUrl: string): Promise<boolean> {
 
   while (Date.now() < deadline) {
     const separator = statusUrl.includes("?") ? "&" : "?";
-    const response = await fetch(`${statusUrl}${separator}since=${cursor}`, {
-      headers: {
-        Accept: "application/json",
-        ...(getSystemHeaders() ?? {}),
-      },
-    });
-    if (!response.ok) return false;
+    let payload: Record<string, unknown>;
+    try {
+      payload = await requestJson<Record<string, unknown>>(
+        `${statusUrl}${separator}since=${cursor}`,
+      );
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.recoverable &&
+        (error.status >= 500 || error.status === 429)
+      ) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, RUN_ALL_POLL_INTERVAL_MS);
+        });
+        continue;
+      }
+      return false;
+    }
 
-    const payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     const nextCursor = Number(payload.nextCursor);
     if (Number.isFinite(nextCursor) && nextCursor > cursor) cursor = nextCursor;
 
@@ -146,46 +156,70 @@ interface RunAllState {
   isRunning: boolean;
   stepIndex: number; // 0 = idle, 1-based while running
   failed: boolean;
+  errorCode?: string;
+  errorMessage?: string;
 }
 
 function useRunAll(onDone: () => void): [RunAllState, () => void] {
-  const [state, setState] = useState<RunAllState>({ isRunning: false, stepIndex: 0, failed: false });
+  const [state, setState] = useState<RunAllState>({
+    isRunning: false,
+    stepIndex: 0,
+    failed: false,
+  });
   const cancelRef = useRef(false);
 
   const runAll = useCallback(async () => {
     cancelRef.current = false;
-    setState({ isRunning: true, stepIndex: 1, failed: false });
+    setState({ isRunning: true, stepIndex: 1, failed: false, errorCode: undefined, errorMessage: undefined });
 
     for (let i = 0; i < REFRESH_ALL_SEQUENCE.length; i++) {
       if (cancelRef.current) break;
       setState((s) => ({ ...s, stepIndex: i + 1 }));
       try {
-        const res = await fetch(REFRESH_ALL_SEQUENCE[i].endpoint, { 
+        const payload = await requestJson<Record<string, unknown>>(REFRESH_ALL_SEQUENCE[i].endpoint, {
           method: "POST",
-          headers: getSystemHeaders()
+          headers: getSystemHeaders(),
         });
-        if (!res.ok) {
-          setState({ isRunning: false, stepIndex: i + 1, failed: true });
-          return;
-        }
-
-        const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
         const jobId = String(payload.jobId ?? "").trim();
         if (jobId) {
           const statusUrl = String(payload.statusUrl ?? "").trim() || `/api/jobs/${encodeURIComponent(jobId)}`;
           const completed = await waitForQueuedJob(statusUrl);
           if (!completed) {
-            setState({ isRunning: false, stepIndex: i + 1, failed: true });
+            setState({
+              isRunning: false,
+              stepIndex: i + 1,
+              failed: true,
+              errorCode: "queue.job_failed_or_cancelled",
+              errorMessage: "Queued operation finished with error or cancellation.",
+            });
             return;
           }
         }
-      } catch {
-        setState({ isRunning: false, stepIndex: i + 1, failed: true });
+      } catch (error) {
+        const errorCode =
+          error instanceof ApiError ? error.code : "request.failed";
+        const errorMessage =
+          error instanceof ApiError
+            ? error.message
+            : "Operation failed.";
+        setState({
+          isRunning: false,
+          stepIndex: i + 1,
+          failed: true,
+          errorCode,
+          errorMessage,
+        });
         return;
       }
     }
 
-    setState({ isRunning: false, stepIndex: 0, failed: false });
+    setState({
+      isRunning: false,
+      stepIndex: 0,
+      failed: false,
+      errorCode: undefined,
+      errorMessage: undefined,
+    });
     onDone();
   }, [onDone]);
 
@@ -276,6 +310,8 @@ export function OperationsPage() {
           {runAllState.failed && !runAllState.isRunning && (
             <span className="text-[10px] text-destructive">
               Error en "{REFRESH_ALL_SEQUENCE[runAllState.stepIndex - 1]?.label}"
+              {runAllState.errorCode ? ` · ${runAllState.errorCode}` : ""}
+              {runAllState.errorMessage ? ` · ${runAllState.errorMessage}` : ""}
             </span>
           )}
         </div>

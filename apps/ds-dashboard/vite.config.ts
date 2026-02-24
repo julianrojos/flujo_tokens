@@ -152,6 +152,64 @@ function sendJson(
   res.end(JSON.stringify(payload));
 }
 
+function createApiRequestId() {
+  return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildApiErrorPayload(args: {
+  code: string;
+  userMessage: string;
+  recoverable?: boolean;
+  context?: Record<string, unknown>;
+  requestId?: string;
+}) {
+  const safeMessage = String(args.userMessage || "Request failed.");
+  const payload: {
+    ok: false;
+    message: string;
+    requestId: string;
+    error: {
+      code: string;
+      userMessage: string;
+      recoverable: boolean;
+      context?: Record<string, unknown>;
+    };
+  } = {
+    ok: false,
+    message: safeMessage,
+    requestId: String(args.requestId || createApiRequestId()),
+    error: {
+      code: String(args.code || "internal.unknown_error"),
+      userMessage: safeMessage,
+      recoverable: args.recoverable === true,
+    },
+  };
+
+  if (args.context && typeof args.context === "object" && !Array.isArray(args.context)) {
+    payload.error.context = args.context;
+  }
+
+  return payload;
+}
+
+function sendStructuredError(
+  res: {
+    statusCode: number;
+    setHeader: (name: string, value: string) => void;
+    end: (body: string | Buffer) => void;
+  },
+  statusCode: number,
+  args: {
+    code: string;
+    userMessage: string;
+    recoverable?: boolean;
+    context?: Record<string, unknown>;
+    requestId?: string;
+  },
+) {
+  sendJson(res, statusCode, buildApiErrorPayload(args));
+}
+
 async function readJsonBody(req: {
   on: (event: string, listener: (chunk?: Buffer | string) => void) => void;
 }) {
@@ -226,7 +284,11 @@ function runNpmScript(args: {
 }) {
   const script = String(args.script || "").trim();
   if (!script) {
-    sendJson(args.res, 400, { ok: false, message: "Missing script name." });
+    sendStructuredError(args.res, 400, {
+      code: "validation.missing_script_name",
+      userMessage: "Missing script name.",
+      recoverable: true,
+    });
     return;
   }
 
@@ -824,7 +886,11 @@ function queueNpmScript(args: {
 }) {
   const script = String(args.script || "").trim();
   if (!script) {
-    sendJson(args.res, 400, { ok: false, message: "Missing script name." });
+    sendStructuredError(args.res, 400, {
+      code: "validation.missing_script_name",
+      userMessage: "Missing script name.",
+      recoverable: true,
+    });
     return;
   }
 
@@ -1787,9 +1853,11 @@ function createLocalDataApi() {
           const systemId = normalizeSystemId(body.id);
           const systemName = String(body.name || "").trim();
           if (!systemId || !systemName) {
-            sendJson(res, 400, {
-              ok: false,
-              message: "Both `id` and `name` are required.",
+            sendStructuredError(res, 400, {
+              code: "validation.missing_required_fields",
+              userMessage: "Both `id` and `name` are required.",
+              recoverable: true,
+              context: { required: ["id", "name"] },
             });
             return;
           }
@@ -1798,9 +1866,11 @@ function createLocalDataApi() {
             ? config.systems.some((row: any) => String(row?.id || "").trim() === systemId)
             : false;
           if (exists) {
-            sendJson(res, 409, {
-              ok: false,
-              message: `System '${systemId}' already exists.`,
+            sendStructuredError(res, 409, {
+              code: "design_system.already_exists",
+              userMessage: `System '${systemId}' already exists.`,
+              recoverable: true,
+              context: { systemId },
             });
             return;
           }
@@ -1850,9 +1920,11 @@ function createLocalDataApi() {
             (row: any) => String(row?.id || "").trim() === routeSystemId,
           );
           if (targetIndex < 0) {
-            sendJson(res, 404, {
-              ok: false,
-              message: `System '${routeSystemId}' not found.`,
+            sendStructuredError(res, 404, {
+              code: "design_system.not_found",
+              userMessage: `System '${routeSystemId}' not found.`,
+              recoverable: true,
+              context: { systemId: routeSystemId },
             });
             return;
           }
@@ -1860,9 +1932,11 @@ function createLocalDataApi() {
           const current = nextSystems[targetIndex] || {};
           const normalizedName = String(body.name ?? current.name ?? "").trim();
           if (!normalizedName) {
-            sendJson(res, 400, {
-              ok: false,
-              message: "System name cannot be empty.",
+            sendStructuredError(res, 400, {
+              code: "validation.invalid_name",
+              userMessage: "System name cannot be empty.",
+              recoverable: true,
+              context: { field: "name" },
             });
             return;
           }
@@ -1912,16 +1986,20 @@ function createLocalDataApi() {
             (row: any) => String(row?.id || "").trim() !== routeSystemId,
           );
           if (nextSystems.length === (Array.isArray(config.systems) ? config.systems.length : 0)) {
-            sendJson(res, 404, {
-              ok: false,
-              message: `System '${routeSystemId}' not found.`,
+            sendStructuredError(res, 404, {
+              code: "design_system.not_found",
+              userMessage: `System '${routeSystemId}' not found.`,
+              recoverable: true,
+              context: { systemId: routeSystemId },
             });
             return;
           }
           if (nextSystems.length === 0) {
-            sendJson(res, 400, {
-              ok: false,
-              message: "Cannot delete the last design system.",
+            sendStructuredError(res, 400, {
+              code: "design_system.last_system_protected",
+              userMessage: "Cannot delete the last design system.",
+              recoverable: true,
+              context: { systemId: routeSystemId },
             });
             return;
           }
@@ -1953,15 +2031,18 @@ function createLocalDataApi() {
           return;
         }
 
-        sendJson(res, 405, {
-          ok: false,
-          message: "Method not allowed for /api/design-systems.",
+        sendStructuredError(res, 405, {
+          code: "http.method_not_allowed",
+          userMessage: "Method not allowed for /api/design-systems.",
+          recoverable: true,
+          context: { route: "/api/design-systems", method },
         });
         return;
       } catch (error) {
-        sendJson(res, 500, {
-          ok: false,
-          message: error instanceof Error ? error.message : String(error),
+        sendStructuredError(res, 500, {
+          code: "internal.unexpected_error",
+          userMessage: error instanceof Error ? error.message : String(error),
+          recoverable: true,
         });
         return;
       }
@@ -1970,14 +2051,24 @@ function createLocalDataApi() {
     const jobStreamMatch = url.match(/^\/api\/jobs\/([^/]+)\/stream$/);
     if (jobStreamMatch) {
       if (method !== "GET") {
-        sendJson(res, 405, { ok: false, message: "Method not allowed for job stream." });
+        sendStructuredError(res, 405, {
+          code: "http.method_not_allowed",
+          userMessage: "Method not allowed for job stream.",
+          recoverable: true,
+          context: { route: "/api/jobs/:jobId/stream", method },
+        });
         return;
       }
 
       const jobId = decodeURIComponent(String(jobStreamMatch[1] || ""));
       const job = queueJobs.get(jobId);
       if (!job) {
-        sendJson(res, 404, { ok: false, message: `Job '${jobId}' not found.` });
+        sendStructuredError(res, 404, {
+          code: "queue.job_not_found",
+          userMessage: `Job '${jobId}' not found.`,
+          recoverable: true,
+          context: { jobId },
+        });
         return;
       }
 
@@ -2038,14 +2129,24 @@ function createLocalDataApi() {
       const jobId = decodeURIComponent(String(jobStatusMatch[1] || ""));
       const job = queueJobs.get(jobId);
       if (!job) {
-        sendJson(res, 404, { ok: false, message: `Job '${jobId}' not found.` });
+        sendStructuredError(res, 404, {
+          code: "queue.job_not_found",
+          userMessage: `Job '${jobId}' not found.`,
+          recoverable: true,
+          context: { jobId },
+        });
         return;
       }
 
       if (method === "DELETE") {
         const cancelled = cancelQueueJob(jobId);
         if (!cancelled.ok) {
-          sendJson(res, 409, { ok: false, message: cancelled.message });
+          sendStructuredError(res, 409, {
+            code: "queue.job_not_cancelable",
+            userMessage: String(cancelled.message || "Job cannot be cancelled."),
+            recoverable: true,
+            context: { jobId, status: job.status },
+          });
           return;
         }
         sendJson(res, 200, { ok: true, job: queueJobSnapshot(job) });
@@ -2053,7 +2154,12 @@ function createLocalDataApi() {
       }
 
       if (method !== "GET") {
-        sendJson(res, 405, { ok: false, message: "Method not allowed for job status." });
+        sendStructuredError(res, 405, {
+          code: "http.method_not_allowed",
+          userMessage: "Method not allowed for job status.",
+          recoverable: true,
+          context: { route: "/api/jobs/:jobId", method },
+        });
         return;
       }
 
@@ -2079,7 +2185,11 @@ function createLocalDataApi() {
     try {
       sysCtx = getSystemContextParams(req);
     } catch (err: any) {
-      sendJson(res, 400, { ok: false, message: err.message });
+      sendStructuredError(res, 400, {
+        code: "system.invalid_or_missing",
+        userMessage: err.message,
+        recoverable: true,
+      });
       return;
     }
 
@@ -2147,7 +2257,12 @@ function createLocalDataApi() {
       if (method === "GET" && url === "/api/token-graph-query") {
         const token = String(searchParams.get("token") ?? searchParams.get("tokenPath") ?? "").trim();
         if (!token) {
-          sendJson(res, 400, { ok: false, message: "token query param is required." });
+          sendStructuredError(res, 400, {
+            code: "validation.token_required",
+            userMessage: "token query param is required.",
+            recoverable: true,
+            context: { field: "token" },
+          });
           return;
         }
 
@@ -2158,7 +2273,12 @@ function createLocalDataApi() {
         const payload = buildTokenGraphQueryPayload({ graph, token, direction, depth });
 
         if (!payload) {
-          sendJson(res, 404, { ok: false, message: `Token '${token}' not found in token graph.` });
+          sendStructuredError(res, 404, {
+            code: "token_graph.token_not_found",
+            userMessage: `Token '${token}' not found in token graph.`,
+            recoverable: true,
+            context: { token },
+          });
           return;
         }
 
@@ -2258,10 +2378,11 @@ function createLocalDataApi() {
         const beforeRefRaw = searchParams.get("beforeRef") ?? "HEAD~1";
         const beforeRef = validateGitRef(beforeRefRaw);
         if (!beforeRef) {
-          sendJson(res, 400, {
-            ok: false,
-            message:
-              "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_git_ref",
+            userMessage: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+            recoverable: true,
+            context: { beforeRef: beforeRefRaw },
           });
           return;
         }
@@ -2279,7 +2400,12 @@ function createLocalDataApi() {
       if (method === "GET" && url === "/api/impact") {
         const tokenPath = String(searchParams.get("tokenPath") ?? "").trim();
         if (!tokenPath) {
-          sendJson(res, 400, { ok: false, message: "tokenPath query param is required." });
+          sendStructuredError(res, 400, {
+            code: "validation.token_path_required",
+            userMessage: "tokenPath query param is required.",
+            recoverable: true,
+            context: { field: "tokenPath" },
+          });
           return;
         }
 
@@ -2322,7 +2448,12 @@ function createLocalDataApi() {
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           const notFound = message.includes("not found");
-          sendJson(res, notFound ? 404 : 400, { ok: false, message });
+          sendStructuredError(res, notFound ? 404 : 400, {
+            code: notFound ? "impact.token_not_found" : "impact.invalid_request",
+            userMessage: message,
+            recoverable: true,
+            context: { tokenPath },
+          });
           return;
         }
       }
@@ -2331,7 +2462,12 @@ function createLocalDataApi() {
         const requested = searchParams.get("path") ?? searchParams.get("file") ?? "";
         const absPath = resolveRepoFilePath(repoRoot, requested);
         if (!absPath) {
-          sendJson(res, 400, { ok: false, message: "Invalid file path." });
+          sendStructuredError(res, 400, {
+            code: "file.invalid_path",
+            userMessage: "Invalid file path.",
+            recoverable: true,
+            context: { requested },
+          });
           return;
         }
         try {
@@ -2343,9 +2479,11 @@ function createLocalDataApi() {
             content: payload.content,
           });
         } catch (error) {
-          sendJson(res, 404, {
-            ok: false,
-            message: error instanceof Error ? error.message : String(error),
+          sendStructuredError(res, 404, {
+            code: "file.not_found",
+            userMessage: error instanceof Error ? error.message : String(error),
+            recoverable: true,
+            context: { requested },
           });
         }
         return;
@@ -2355,7 +2493,12 @@ function createLocalDataApi() {
         const requested = searchParams.get("file") ?? "";
         const absPath = resolveRepoFilePath(repoRoot, requested);
         if (!absPath) {
-          sendJson(res, 400, { ok: false, message: "Invalid file path." });
+          sendStructuredError(res, 400, {
+            code: "file.invalid_path",
+            userMessage: "Invalid file path.",
+            recoverable: true,
+            context: { requested },
+          });
           return;
         }
 
@@ -2368,7 +2511,12 @@ function createLocalDataApi() {
 
         let line = rawLine ? Number.parseInt(rawLine, 10) : NaN;
         if (rawLine && !Number.isFinite(line)) {
-          sendJson(res, 400, { ok: false, message: "Invalid line parameter." });
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_line_parameter",
+            userMessage: "Invalid line parameter.",
+            recoverable: true,
+            context: { line: rawLine },
+          });
           return;
         }
 
@@ -2377,9 +2525,11 @@ function createLocalDataApi() {
           const payload = await readTextFileLimited(absPath, MAX_FILE_BYTES);
           content = payload.content;
         } catch (error) {
-          sendJson(res, 404, {
-            ok: false,
-            message: error instanceof Error ? error.message : String(error),
+          sendStructuredError(res, 404, {
+            code: "file.not_found",
+            userMessage: error instanceof Error ? error.message : String(error),
+            recoverable: true,
+            context: { requested },
           });
           return;
         }
@@ -2388,9 +2538,11 @@ function createLocalDataApi() {
         if (!rawLine) {
           const detected = findLineForQuery(content, query);
           if (!detected) {
-            sendJson(res, 404, {
-              ok: false,
-              message: "Query not found in file.",
+            sendStructuredError(res, 404, {
+              code: "file.query_not_found",
+              userMessage: "Query not found in file.",
+              recoverable: true,
+              context: { requested, query },
             });
             return;
           }
@@ -2415,14 +2567,24 @@ function createLocalDataApi() {
         const requested = searchParams.get("path") ?? "";
         const absPath = resolveRepoFilePath(repoRoot, requested);
         if (!absPath) {
-          sendJson(res, 400, { ok: false, message: "Invalid asset path." });
+          sendStructuredError(res, 400, {
+            code: "asset.invalid_path",
+            userMessage: "Invalid asset path.",
+            recoverable: true,
+            context: { requested },
+          });
           return;
         }
 
         try {
           const stat = await fs.stat(absPath);
           if (!stat.isFile()) {
-            sendJson(res, 404, { ok: false, message: "Asset not found." });
+            sendStructuredError(res, 404, {
+              code: "asset.not_found",
+              userMessage: "Asset not found.",
+              recoverable: true,
+              context: { requested },
+            });
             return;
           }
           const buffer = await fs.readFile(absPath);
@@ -2431,9 +2593,11 @@ function createLocalDataApi() {
           res.setHeader("Cache-Control", "no-store");
           res.end(buffer);
         } catch (error) {
-          sendJson(res, 404, {
-            ok: false,
-            message: error instanceof Error ? error.message : String(error),
+          sendStructuredError(res, 404, {
+            code: "asset.not_found",
+            userMessage: error instanceof Error ? error.message : String(error),
+            recoverable: true,
+            context: { requested },
           });
         }
         return;
@@ -2443,7 +2607,12 @@ function createLocalDataApi() {
       if (specMatch) {
         const slug = sanitizeSlug(decodeURIComponent(String(specMatch[1])));
         if (!slug) {
-          sendJson(res, 400, { ok: false, message: "Invalid component slug." });
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_component_slug",
+            userMessage: "Invalid component slug.",
+            recoverable: true,
+            context: { slug: String(specMatch[1]) },
+          });
           return;
         }
 
@@ -2453,7 +2622,12 @@ function createLocalDataApi() {
           slug,
         });
         if (!target.ok) {
-          sendJson(res, 404, { ok: false, message: target.message });
+          sendStructuredError(res, 404, {
+            code: "component_spec.not_found",
+            userMessage: target.message,
+            recoverable: true,
+            context: { slug },
+          });
           return;
         }
 
@@ -2494,13 +2668,22 @@ function createLocalDataApi() {
         method === "POST" && url.match(/^\/api\/component-spec\/([^/]+)\/validate$/);
       if (validateSpecMatch) {
         if (!isDevRuntime()) {
-          sendJson(res, 403, { ok: false, message: "Spec editing is only enabled in development mode." });
+          sendStructuredError(res, 403, {
+            code: "component_spec.editing_disabled",
+            userMessage: "Spec editing is only enabled in development mode.",
+            recoverable: true,
+          });
           return;
         }
 
         const slug = sanitizeSlug(decodeURIComponent(String(validateSpecMatch[1])));
         if (!slug) {
-          sendJson(res, 400, { ok: false, message: "Invalid component slug." });
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_component_slug",
+            userMessage: "Invalid component slug.",
+            recoverable: true,
+            context: { slug: String(validateSpecMatch[1]) },
+          });
           return;
         }
 
@@ -2510,7 +2693,12 @@ function createLocalDataApi() {
           slug,
         });
         if (!target.ok) {
-          sendJson(res, 404, { ok: false, message: target.message });
+          sendStructuredError(res, 404, {
+            code: "component_spec.not_found",
+            userMessage: target.message,
+            recoverable: true,
+            context: { slug },
+          });
           return;
         }
 
@@ -2591,13 +2779,22 @@ function createLocalDataApi() {
       const saveSpecMatch = method === "POST" && url.match(/^\/api\/component-spec\/([^/]+)\/save$/);
       if (saveSpecMatch) {
         if (!isDevRuntime()) {
-          sendJson(res, 403, { ok: false, message: "Spec editing is only enabled in development mode." });
+          sendStructuredError(res, 403, {
+            code: "component_spec.editing_disabled",
+            userMessage: "Spec editing is only enabled in development mode.",
+            recoverable: true,
+          });
           return;
         }
 
         const slug = sanitizeSlug(decodeURIComponent(String(saveSpecMatch[1])));
         if (!slug) {
-          sendJson(res, 400, { ok: false, message: "Invalid component slug." });
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_component_slug",
+            userMessage: "Invalid component slug.",
+            recoverable: true,
+            context: { slug: String(saveSpecMatch[1]) },
+          });
           return;
         }
 
@@ -2607,7 +2804,12 @@ function createLocalDataApi() {
           slug,
         });
         if (!target.ok) {
-          sendJson(res, 404, { ok: false, message: target.message });
+          sendStructuredError(res, 404, {
+            code: "component_spec.not_found",
+            userMessage: target.message,
+            recoverable: true,
+            context: { slug },
+          });
           return;
         }
 
@@ -2832,13 +3034,22 @@ function createLocalDataApi() {
         method === "POST" && url.match(/^\/api\/component-spec\/([^/]+)\/restore-backup$/);
       if (restoreSpecMatch) {
         if (!isDevRuntime()) {
-          sendJson(res, 403, { ok: false, message: "Spec editing is only enabled in development mode." });
+          sendStructuredError(res, 403, {
+            code: "component_spec.editing_disabled",
+            userMessage: "Spec editing is only enabled in development mode.",
+            recoverable: true,
+          });
           return;
         }
 
         const slug = sanitizeSlug(decodeURIComponent(String(restoreSpecMatch[1])));
         if (!slug) {
-          sendJson(res, 400, { ok: false, message: "Invalid component slug." });
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_component_slug",
+            userMessage: "Invalid component slug.",
+            recoverable: true,
+            context: { slug: String(restoreSpecMatch[1]) },
+          });
           return;
         }
 
@@ -2848,7 +3059,12 @@ function createLocalDataApi() {
           slug,
         });
         if (!target.ok) {
-          sendJson(res, 404, { ok: false, message: target.message });
+          sendStructuredError(res, 404, {
+            code: "component_spec.not_found",
+            userMessage: target.message,
+            recoverable: true,
+            context: { slug },
+          });
           return;
         }
 
@@ -2917,7 +3133,11 @@ function createLocalDataApi() {
       if (method === "POST" && url?.startsWith("/api/run/")) {
         const scriptName = url.replace("/api/run/", "").trim();
         if (!scriptName) {
-          sendJson(res, 400, { ok: false, message: "Missing script name in URL." });
+          sendStructuredError(res, 400, {
+            code: "validation.missing_script_name",
+            userMessage: "Missing script name in URL.",
+            recoverable: true,
+          });
           return;
         }
 
@@ -3019,10 +3239,11 @@ function createLocalDataApi() {
         const beforeRefRaw = String(body.beforeRef ?? "HEAD~1").trim();
         const beforeRef = validateGitRef(beforeRefRaw);
         if (!beforeRef) {
-          sendJson(res, 400, {
-            ok: false,
-            message:
-              "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_git_ref",
+            userMessage: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
+            recoverable: true,
+            context: { beforeRef: beforeRefRaw },
           });
           return;
         }
@@ -3097,9 +3318,11 @@ function createLocalDataApi() {
         const body = await readJsonBody(req);
         const figmaUrl = String(body.figmaUrl ?? body.url ?? "").trim();
         if (!figmaUrl) {
-          sendJson(res, 400, {
-            ok: false,
-            message: "figmaUrl is required in request body.",
+          sendStructuredError(res, 400, {
+            code: "validation.figma_url_required",
+            userMessage: "figmaUrl is required in request body.",
+            recoverable: true,
+            context: { field: "figmaUrl" },
           });
           return;
         }
@@ -3108,14 +3331,21 @@ function createLocalDataApi() {
         try {
           parsedUrl = new URL(figmaUrl);
         } catch {
-          sendJson(res, 400, { ok: false, message: "Invalid figmaUrl." });
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_figma_url",
+            userMessage: "Invalid figmaUrl.",
+            recoverable: true,
+            context: { figmaUrl },
+          });
           return;
         }
         const host = String(parsedUrl.hostname || "").toLowerCase();
         if (host !== "figma.com" && !host.endsWith(".figma.com")) {
-          sendJson(res, 400, {
-            ok: false,
-            message: `URL host is not figma.com: ${host}`,
+          sendStructuredError(res, 400, {
+            code: "validation.invalid_figma_host",
+            userMessage: `URL host is not figma.com: ${host}`,
+            recoverable: true,
+            context: { host, figmaUrl },
           });
           return;
         }
@@ -3190,9 +3420,10 @@ function createLocalDataApi() {
         return;
       }
     } catch (error) {
-      sendJson(res, 500, {
-        ok: false,
-        message: error instanceof Error ? error.message : String(error),
+      sendStructuredError(res, 500, {
+        code: "internal.unexpected_error",
+        userMessage: error instanceof Error ? error.message : String(error),
+        recoverable: true,
       });
       return;
     }
