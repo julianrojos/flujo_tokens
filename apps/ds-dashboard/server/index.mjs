@@ -1,7 +1,6 @@
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { EventEmitter } from "node:events";
@@ -25,6 +24,7 @@ import {
 } from "./system-repository.ts";
 import { registerSystemRoutes } from "./routes/system-routes.mjs";
 import { registerOperationsRoutes } from "./routes/operations-routes.mjs";
+import { runSpawnWithCapture } from "./lib/spawn-runner.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -973,148 +973,127 @@ function toQueueSummaryFromPayload(payload, fallbackCode) {
 }
 
 async function runQueuedSpawnCommand(args) {
-  return await new Promise((resolve) => {
-    const child = spawn(args.command, args.commandArgs, {
-      cwd: args.cwd,
-      shell: false,
-    });
-    args.registerProcess(child);
-
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      const text = String(chunk);
-      if (stdout.length < MAX_OUTPUT_BYTES) stdout += text;
-      args.emitChunk("stdout", text);
-    });
-    child.stderr.on("data", (chunk) => {
-      const text = String(chunk);
-      if (stderr.length < MAX_OUTPUT_BYTES) stderr += text;
-      args.emitChunk("stderr", text);
-    });
-
-    child.on("error", (error) => {
-      const message = error instanceof Error ? error.message : String(error);
-      resolve({
-        ok: false,
-        code: 1,
-        summary: message || `Unable to start command: ${args.commandLabel}`,
-        payload: {
-          ok: false,
-          command: args.commandLabel,
-          message,
-          stdout: stdout.trim(),
-          stderr: stderr.trim(),
-        },
-      });
-    });
-
-    child.on("close", (code) => {
-      const exitCode = typeof code === "number" ? code : 1;
-
-      if (args.parseJsonStdout) {
-        const rawStdout = stdout.trim();
-        let parsed = null;
-        try {
-          parsed = rawStdout ? JSON.parse(rawStdout) : {};
-        } catch (error) {
-          resolve({
-            ok: false,
-            code: exitCode,
-            summary: "Command returned invalid JSON.",
-            payload: {
-              ok: false,
-              command: args.commandLabel,
-              message: "Command returned invalid JSON.",
-              stdout: rawStdout,
-              stderr: stderr.trim(),
-              parse_error: error instanceof Error ? error.message : String(error),
-              code: exitCode,
-            },
-          });
-          return;
-        }
-
-        if (exitCode !== 0 && args.allowNonZeroJson) {
-          const payload =
-            parsed && typeof parsed === "object"
-              ? {
-                  ...parsed,
-                  ok: false,
-                  exit_code: exitCode,
-                  stderr: stderr.trim() || undefined,
-                }
-              : {
-                  ok: false,
-                  exit_code: exitCode,
-                  stderr: stderr.trim() || undefined,
-                };
-          resolve({
-            ok: false,
-            code: exitCode,
-            summary: toQueueSummaryFromPayload(payload, exitCode),
-            payload,
-          });
-          return;
-        }
-
-        if (exitCode !== 0) {
-          resolve({
-            ok: false,
-            code: exitCode,
-            summary: `Failed with code ${exitCode}`,
-            payload: {
-              ok: false,
-              command: args.commandLabel,
-              code: exitCode,
-              stdout: rawStdout,
-              stderr: stderr.trim(),
-            },
-          });
-          return;
-        }
-
-        const payload = parsed && typeof parsed === "object" ? parsed : {};
-        const ok = payload.ok !== false;
-        resolve({
-          ok,
-          code: ok ? 0 : 1,
-          summary: ok
-            ? String(payload.message ?? args.successSummary ?? "Completed successfully.")
-            : toQueueSummaryFromPayload(payload, 1),
-          payload,
-        });
-        return;
-      }
-
-      if (exitCode !== 0) {
-        resolve({
-          ok: false,
-          code: exitCode,
-          summary: `Failed with code ${exitCode}`,
-          payload: {
-            ok: false,
-            command: args.commandLabel,
-            code: exitCode,
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-          },
-        });
-        return;
-      }
-
-      resolve({
-        ok: true,
-        code: 0,
-        summary: args.successSummary || "Completed successfully.",
-        payload: {
-          ok: true,
-          command: args.commandLabel,
-          output: stdout.trim(),
-        },
-      });
-    });
+  const result = await runSpawnWithCapture({
+    cwd: args.cwd,
+    command: args.command,
+    commandArgs: args.commandArgs,
+    parseJsonStdout: args.parseJsonStdout === true,
+    maxOutputBytes: MAX_OUTPUT_BYTES,
+    onSpawn: args.registerProcess,
+    onStdoutChunk: (text) => args.emitChunk("stdout", text),
+    onStderrChunk: (text) => args.emitChunk("stderr", text),
   });
+
+  if (result.spawnError) {
+    return {
+      ok: false,
+      code: 1,
+      summary: result.spawnError || `Unable to start command: ${args.commandLabel}`,
+      payload: {
+        ok: false,
+        command: args.commandLabel,
+        message: result.spawnError,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      },
+    };
+  }
+
+  const exitCode = result.exitCode;
+  if (args.parseJsonStdout) {
+    const rawStdout = result.stdout;
+    if (result.jsonParseError) {
+      return {
+        ok: false,
+        code: exitCode,
+        summary: "Command returned invalid JSON.",
+        payload: {
+          ok: false,
+          command: args.commandLabel,
+          message: "Command returned invalid JSON.",
+          stdout: rawStdout,
+          stderr: result.stderr,
+          parse_error: result.jsonParseError,
+          code: exitCode,
+        },
+      };
+    }
+
+    const parsed = result.parsedJson;
+    if (exitCode !== 0 && args.allowNonZeroJson) {
+      const payload =
+        parsed && typeof parsed === "object"
+          ? {
+              ...parsed,
+              ok: false,
+              exit_code: exitCode,
+              stderr: result.stderr || undefined,
+            }
+          : {
+              ok: false,
+              exit_code: exitCode,
+              stderr: result.stderr || undefined,
+            };
+      return {
+        ok: false,
+        code: exitCode,
+        summary: toQueueSummaryFromPayload(payload, exitCode),
+        payload,
+      };
+    }
+
+    if (exitCode !== 0) {
+      return {
+        ok: false,
+        code: exitCode,
+        summary: `Failed with code ${exitCode}`,
+        payload: {
+          ok: false,
+          command: args.commandLabel,
+          code: exitCode,
+          stdout: rawStdout,
+          stderr: result.stderr,
+        },
+      };
+    }
+
+    const payload = parsed && typeof parsed === "object" ? parsed : {};
+    const ok = payload.ok !== false;
+    return {
+      ok,
+      code: ok ? 0 : 1,
+      summary: ok
+        ? String(payload.message ?? args.successSummary ?? "Completed successfully.")
+        : toQueueSummaryFromPayload(payload, 1),
+      payload,
+    };
+  }
+
+  if (exitCode !== 0) {
+    return {
+      ok: false,
+      code: exitCode,
+      summary: `Failed with code ${exitCode}`,
+      payload: {
+        ok: false,
+        command: args.commandLabel,
+        code: exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    code: 0,
+    summary: args.successSummary || "Completed successfully.",
+    payload: {
+      ok: true,
+      command: args.commandLabel,
+      output: result.stdout,
+    },
+  };
 }
 
 function toBooleanString(value, fallback) {
@@ -1841,37 +1820,17 @@ function buildSpecValidationPayload(args) {
 }
 
 async function runCommandCapture(args) {
-  return await new Promise((resolve) => {
-    const child = spawn(args.command, args.commandArgs, {
-      cwd: args.cwd,
-      shell: false,
-    });
-
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on("error", (error) => {
-      resolve({
-        ok: false,
-        code: 1,
-        stdout: stdout.trim(),
-        stderr: `${stderr}\n${error instanceof Error ? error.message : String(error)}`.trim(),
-      });
-    });
-    child.on("close", (code) => {
-      resolve({
-        ok: code === 0,
-        code: typeof code === "number" ? code : 1,
-        stdout: stdout.trim(),
-        stderr: stderr.trim(),
-      });
-    });
+  const result = await runSpawnWithCapture({
+    cwd: args.cwd,
+    command: args.command,
+    commandArgs: args.commandArgs,
   });
+  return {
+    ok: !result.spawnError && result.exitCode === 0,
+    code: result.exitCode,
+    stdout: result.stdout,
+    stderr: [result.stderr, result.spawnError].filter(Boolean).join("\n").trim(),
+  };
 }
 
 function normalizeImpactWcagPairs(raw) {
@@ -1918,75 +1877,62 @@ async function computeNamingDebtReport(args) {
 }
 
 async function runNodeJsonCommandOnce(args) {
-  return await new Promise((resolve) => {
-    const child = spawn(args.command, args.commandArgs, {
-      cwd: args.cwd,
-      shell: false,
-    });
-
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      if (stdout.length < MAX_OUTPUT_BYTES) stdout += String(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      if (stderr.length < MAX_OUTPUT_BYTES) stderr += String(chunk);
-    });
-
-    child.on("error", (error) => {
-      resolve({
-        ok: false,
-        statusCode: 500,
-        payload: {
-          ok: false,
-          command: args.commandLabel,
-          message: error instanceof Error ? error.message : String(error),
-          stdout: stdout.trim(),
-          stderr: stderr.trim(),
-        },
-      });
-    });
-
-    child.on("close", (code) => {
-      const exitCode = typeof code === "number" ? code : 1;
-      if (exitCode !== 0) {
-        resolve({
-          ok: false,
-          statusCode: 500,
-          payload: {
-            ok: false,
-            command: args.commandLabel,
-            code: exitCode,
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-          },
-        });
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(stdout || "{}");
-        resolve({
-          ok: true,
-          statusCode: 200,
-          payload: parsed,
-        });
-      } catch (error) {
-        resolve({
-          ok: false,
-          statusCode: 500,
-          payload: {
-            ok: false,
-            command: args.commandLabel,
-            message: "Command returned invalid JSON.",
-            stdout: stdout.trim(),
-            stderr: stderr.trim(),
-            parse_error: error instanceof Error ? error.message : String(error),
-          },
-        });
-      }
-    });
+  const result = await runSpawnWithCapture({
+    cwd: args.cwd,
+    command: args.command,
+    commandArgs: args.commandArgs,
+    parseJsonStdout: true,
+    maxOutputBytes: MAX_OUTPUT_BYTES,
   });
+
+  if (result.spawnError) {
+    return {
+      ok: false,
+      statusCode: 500,
+      payload: {
+        ok: false,
+        command: args.commandLabel,
+        message: result.spawnError,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      },
+    };
+  }
+
+  if (result.exitCode !== 0) {
+    return {
+      ok: false,
+      statusCode: 500,
+      payload: {
+        ok: false,
+        command: args.commandLabel,
+        code: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      },
+    };
+  }
+
+  if (result.jsonParseError) {
+    return {
+      ok: false,
+      statusCode: 500,
+      payload: {
+        ok: false,
+        command: args.commandLabel,
+        message: "Command returned invalid JSON.",
+        stdout: result.stdout,
+        stderr: result.stderr,
+        parse_error: result.jsonParseError,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    statusCode: 200,
+    payload: result.parsedJson,
+  };
 }
 
 function getSystemContext(systemHeader) {
