@@ -38,6 +38,7 @@ import { runPipelinePlugins, type PipelinePlugin } from '../runtime/pipeline-plu
 // Utils
 import { normalizeModeName, normalizePreferredMode, matchesPreferredMode, formatModeLabel } from '../utils/modes.js';
 import { printExecutionSummary, logChangeDetection, printModeSummary, printModeFallbackSummary } from '../utils/reporting.js';
+import { formatDiagnostic } from '../utils/logging.js';
 
 // Core
 import { readAndCombineJsons } from '../core/ingest.js';
@@ -287,7 +288,7 @@ function consumeArgValue(
 ): { value: string; nextIndex: number } | null {
     const value = argv[index + 1];
     if (!value) {
-        console.error(`❌ Missing value for ${optionName}`);
+        console.error(formatDiagnostic('error', `Missing value for ${optionName}`));
         return null;
     }
     return { value, nextIndex: index + 1 };
@@ -412,7 +413,12 @@ function parseArgs(argv: string[]): CliOptions | null {
             if (!consumed) return null;
             const parsedPhase = parsePhaseName(consumed.value);
             if (!parsedPhase) {
-                console.error(`❌ Invalid --from-phase: ${consumed.value} (use: ingest|index|analyze|emit)`);
+                console.error(
+                    formatDiagnostic(
+                        'error',
+                        `Invalid --from-phase: ${consumed.value} (use: ingest|index|analyze|emit)`
+                    )
+                );
                 return null;
             }
             fromPhase = parsedPhase;
@@ -427,7 +433,12 @@ function parseArgs(argv: string[]): CliOptions | null {
             for (const raw of rawPhases) {
                 const parsedPhase = parsePhaseName(raw);
                 if (!parsedPhase) {
-                    console.error(`❌ Invalid --force-phase value: ${raw} (use: ingest|index|analyze|emit)`);
+                    console.error(
+                        formatDiagnostic(
+                            'error',
+                            `Invalid --force-phase value: ${raw} (use: ingest|index|analyze|emit)`
+                        )
+                    );
                     return null;
                 }
                 forcePhases.push(parsedPhase);
@@ -462,7 +473,7 @@ function parseArgs(argv: string[]): CliOptions | null {
             continue;
         }
 
-        console.error(`❌ Unknown argument: ${arg}`);
+        console.error(formatDiagnostic('error', `Unknown argument: ${arg}`));
         return null;
     }
 

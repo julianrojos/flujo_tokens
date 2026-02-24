@@ -11,6 +11,7 @@ import { getNodeIdByTokenPath, getResolvedTokenKeyFromParts } from './token-grap
 import { W3C_REF_REGEX_REPLACE, W3C_REF_REGEX_TEST } from '../utils/regex.js';
 import { pathStr, canonicalizeRefPath, normalizePathKey, buildVisitedRefSet, buildPathKey } from '../utils/paths.js';
 import { toKebabCase, isValidCssVariableName, buildCssVarNameFromPrefix, toSafePlaceholderName } from '../utils/strings.js';
+import { formatDiagnostic } from '../utils/logging.js';
 import { coerceTypographyDimension, coerceBorderDimension } from '../utils/coerce.js';
 import { canEmitTokenValue, canEmitUntypedTokenValue } from '../utils/emittable.js';
 import { withPathSegment } from '../utils/path-stack.js';
@@ -128,7 +129,7 @@ export function emitCssVar(
     recordInvalidName: boolean
 ): void {
     if (!isValidCssVariableName(varName)) {
-        console.warn(`⚠️  Warning: ${varName} is not a valid CSS variable name, skipping`);
+        console.warn(formatDiagnostic('warn', `${varName} is not a valid CSS variable name, skipping`));
         if (recordInvalidName) {
             const detail = `${pathStr(currentPath)} (Invalid CSS Var: ${varName})`;
             if (!summary.invalidNames.includes(detail)) {
