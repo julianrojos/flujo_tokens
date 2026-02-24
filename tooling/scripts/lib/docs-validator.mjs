@@ -644,6 +644,21 @@ function validateOverviewFrontmatter(filePath, frontmatter, report) {
   validateFrontmatter(filePath, frontmatter, report);
 }
 
+function validateWorkflowOrFoundationFrontmatter(filePath, frontmatter, report) {
+  const docType = String(frontmatter.doc_type || "").trim().toLowerCase();
+  const allowed = new Set(["workflow", "foundation"]);
+  if (!allowed.has(docType)) {
+    report.errors.push({
+      code: "FM01",
+      file: filePath,
+      message:
+        "Frontmatter `doc_type` must be `component`, `overview`, `foundation`, or `workflow`.",
+    });
+  }
+
+  validateFrontmatter(filePath, frontmatter, report);
+}
+
 function readComponentSpecByDocPath(componentDocPath, specRoot, options = {}) {
   const explicitSpecFilePath = options.specFilePath
     ? path.resolve(String(options.specFilePath))
@@ -2846,21 +2861,7 @@ export function validateDocs(options = {}) {
   const overviewFiles = markdownFiles.filter(
     (filePath) => path.basename(filePath) === "overview.md",
   );
-  const componentFiles = markdownFiles.filter(
-    (filePath) => path.basename(filePath) !== "overview.md",
-  );
-
-  if (checkPairing) {
-    validateSpecMarkdownPairing({
-      componentFiles,
-      docsRoot,
-      specRoot,
-      checkSpecs,
-      explicitSpecFilePath,
-      explicitFilePath,
-      report,
-    });
-  }
+  const componentFiles = [];
 
   const specResolution =
     explicitFilePath && explicitSpecFilePath
@@ -2907,51 +2908,69 @@ export function validateDocs(options = {}) {
       continue;
     }
 
-    validateComponentDocFileName(filePath, report);
-    validateComponentFrontmatter(filePath, frontmatter, report);
-    validateMarkdownTraceabilityNodeId(
-      filePath,
-      frontmatter,
-      specRoot,
-      report,
-      specResolution,
-    );
-    validateGeneratedTraceability(
-      filePath,
-      frontmatter,
-      specRoot,
-      registryPath,
-      report,
-      specResolution,
-    );
-    validateGapsSectionContract(
-      filePath,
-      raw,
-      specRoot,
-      registry,
-      report,
-      lineStarts,
-      specResolution,
-    );
-    validateReadyLifecycleConsistency(
-      filePath,
-      raw,
-      frontmatter,
-      specRoot,
-      report,
-      lineStarts,
-      specResolution,
-    );
-    validateVisualProofSection(
-      filePath,
-      raw,
-      frontmatter,
-      report,
-      lineStarts,
-    );
-    validateSectionOrder(filePath, content, report, lineStarts, contentOffset, {
-      allowExtraH2,
-    });
+    const docType = String(frontmatter.doc_type || "")
+      .trim()
+      .toLowerCase();
+    const treatAsComponent = docType === "component" || !docType;
+
+    if (treatAsComponent) {
+      componentFiles.push(filePath);
+      validateComponentDocFileName(filePath, report);
+      validateComponentFrontmatter(filePath, frontmatter, report);
+      validateMarkdownTraceabilityNodeId(
+        filePath,
+        frontmatter,
+        specRoot,
+        report,
+        specResolution,
+      );
+      validateGeneratedTraceability(
+        filePath,
+        frontmatter,
+        specRoot,
+        registryPath,
+        report,
+        specResolution,
+      );
+      validateGapsSectionContract(
+        filePath,
+        raw,
+        specRoot,
+        registry,
+        report,
+        lineStarts,
+        specResolution,
+      );
+      validateReadyLifecycleConsistency(
+        filePath,
+        raw,
+        frontmatter,
+        specRoot,
+        report,
+        lineStarts,
+        specResolution,
+      );
+      validateVisualProofSection(
+        filePath,
+        raw,
+        frontmatter,
+        report,
+        lineStarts,
+      );
+      validateSectionOrder(
+        filePath,
+        content,
+        report,
+        lineStarts,
+        contentOffset,
+        {
+          allowExtraH2,
+        },
+      );
+    } else {
+      validateWorkflowOrFoundationFrontmatter(filePath, frontmatter, report);
+    }
+
     validateEditorialPlaceholders(
       filePath,
       content,
@@ -2977,6 +2996,18 @@ export function validateDocs(options = {}) {
       lineStarts,
       contentOffset,
     );
+  }
+
+  if (checkPairing) {
+    validateSpecMarkdownPairing({
+      componentFiles,
+      docsRoot,
+      specRoot,
+      checkSpecs,
+      explicitSpecFilePath,
+      explicitFilePath,
+      report,
+    });
   }
 
   if (checkSpecs) {
