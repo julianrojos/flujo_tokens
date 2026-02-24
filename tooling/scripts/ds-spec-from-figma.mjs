@@ -5,30 +5,28 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
-import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
 import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
+import { loadTokenRegistry } from "./lib/token-registry.mjs";
 import {
-  DEFAULT_TOKEN_REGISTRY_PATH,
-  loadTokenRegistry,
-} from "./lib/token-registry.mjs";
-import {
-  componentNameToSnakeCase,
   componentNameToDisplayName,
   normalizeComponentName,
 } from "./lib/component-name.mjs";
 import { isPlainObject } from "./lib/is-plain-object.mjs";
 import { normalizeNodeId } from "./lib/node-id.mjs";
 import { isTbdMarker } from "./lib/tbd.mjs";
-import { SPEC_REQUIRED_TOP_LEVEL_FIELDS } from "./lib/docs-config.mjs";
-import { buildAgentPrompt, RULE_BLOCKS } from "./lib/prompts.mjs";
-import { GOLDEN_COMPONENT_SPEC_SAMPLE_PATH } from "./lib/doc-templates.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
 import {
-  coerceSpecPropertyType,
-  getSpecPropertyTypeInfo,
-} from "./lib/spec-property-types.mjs";
+  mergeWithTemplate,
+  normalizeSpecOrder,
+} from "./lib/spec-normalizer.mjs";
+import {
+  buildSpecPrompt,
+  buildSpecValidationFeedbackPrompt,
+  runSpecGenerationPrompt,
+  runSpecRepairPrompt,
+} from "./lib/spec-agent-runner.mjs";
 import {
   captureFileSnapshot,
   restoreFileSnapshot,
@@ -107,34 +105,6 @@ const USAGE = {
     },
   ],
 };
-const SPEC_TOP_LEVEL_ORDER = [
-  "name",
-  "status",
-  "figma",
-  "summary",
-  "anatomy",
-  "properties",
-  "content_guidelines",
-  "best_practices",
-  "accessibility",
-  "token_mapping",
-  "qa",
-  "related_components",
-];
-const FIGMA_FIELD_ORDER = [
-  "file",
-  "page",
-  "component_set",
-  "component_set_node_id",
-];
-const PROPERTY_FIELD_ORDER = [
-  "name",
-  "type",
-  "values",
-  "default",
-  "required",
-  "description",
-];
 const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
   "name",
   "figma.file",
@@ -196,97 +166,6 @@ function parseFigmaUrl(figmaUrl) {
 
   const nodeId = normalizeNodeId(rawNodeId);
   return { fileKey, nodeId };
-}
-
-function deepClone(value) {
-  if (Array.isArray(value)) return value.map((item) => deepClone(item));
-  if (isPlainObject(value)) {
-    const result = {};
-    for (const [key, child] of Object.entries(value)) {
-      result[key] = deepClone(child);
-    }
-    return result;
-  }
-  return value;
-}
-
-function mergeWithTemplate(templateValue, generatedValue) {
-  if (generatedValue === undefined) return deepClone(templateValue);
-
-  if (Array.isArray(templateValue)) {
-    return Array.isArray(generatedValue)
-      ? deepClone(generatedValue)
-      : deepClone(templateValue);
-  }
-
-  if (isPlainObject(templateValue)) {
-    const generatedObject = isPlainObject(generatedValue) ? generatedValue : {};
-    const result = {};
-
-    for (const [key, childTemplate] of Object.entries(templateValue)) {
-      result[key] = mergeWithTemplate(childTemplate, generatedObject[key]);
-    }
-
-    for (const [key, childValue] of Object.entries(generatedObject)) {
-      if (!(key in result)) result[key] = deepClone(childValue);
-    }
-
-    return result;
-  }
-
-  return deepClone(generatedValue);
-}
-
-function normalizeSpecOrder(spec) {
-  const ordered = {};
-  for (const key of SPEC_TOP_LEVEL_ORDER) {
-    if (key in spec) ordered[key] = spec[key];
-  }
-  for (const [key, value] of Object.entries(spec)) {
-    if (!(key in ordered)) ordered[key] = value;
-  }
-  if (isPlainObject(ordered.figma)) {
-    const figmaOrdered = {};
-    for (const key of FIGMA_FIELD_ORDER) {
-      if (key in ordered.figma) figmaOrdered[key] = ordered.figma[key];
-    }
-    for (const [key, value] of Object.entries(ordered.figma)) {
-      if (!(key in figmaOrdered)) figmaOrdered[key] = value;
-    }
-    ordered.figma = figmaOrdered;
-  }
-
-  if (Array.isArray(ordered.properties)) {
-    const stableDecorated = ordered.properties.map((item, index) => ({
-      item: isPlainObject(item) ? item : {},
-      index,
-    }));
-    stableDecorated.sort((a, b) => {
-      const typeA = coerceSpecPropertyType(a.item.type);
-      const typeB = coerceSpecPropertyType(b.item.type);
-      const infoA = typeA ? getSpecPropertyTypeInfo(typeA) : null;
-      const infoB = typeB ? getSpecPropertyTypeInfo(typeB) : null;
-      const groupA = infoA ? infoA.orderingGroup : Number.MAX_SAFE_INTEGER;
-      const groupB = infoB ? infoB.orderingGroup : Number.MAX_SAFE_INTEGER;
-      if (groupA !== groupB) return groupA - groupB;
-      return a.index - b.index;
-    });
-
-    ordered.properties = stableDecorated.map(({ item }) => {
-      const canonicalType = coerceSpecPropertyType(item.type);
-      if (canonicalType) item.type = canonicalType;
-      const propertyOrdered = {};
-      for (const key of PROPERTY_FIELD_ORDER) {
-        if (key in item) propertyOrdered[key] = item[key];
-      }
-      for (const [key, value] of Object.entries(item)) {
-        if (!(key in propertyOrdered)) propertyOrdered[key] = value;
-      }
-      return propertyOrdered;
-    });
-  }
-
-  return ordered;
 }
 
 function normalizeCompareKey(raw) {
@@ -492,60 +371,6 @@ function buildOutputPath(args, specRoot, componentSlug, nodeId) {
   return "";
 }
 
-function buildPrompt({
-  figmaUrl,
-  nodeId,
-  componentName,
-  outputPath,
-  templatePath,
-  registryPath,
-  fileKeyFromUrl,
-  tokenMenuLines,
-}) {
-  return buildAgentPrompt({
-    context: [
-      "Generate one component spec YAML from Figma for this repository's documentation pipeline.",
-      componentName ? `Expected component name: ${componentName}` : "",
-      nodeId ? `Target component set node id: ${nodeId}` : "",
-      fileKeyFromUrl ? `Figma file key from URL: ${fileKeyFromUrl}` : "",
-    ],
-    sources: [
-      figmaUrl
-        ? `Figma URL: ${figmaUrl}`
-        : "Figma URL: not provided (use node id or name lookup).",
-      `Spec template: ${templatePath}`,
-      `Token registry: ${registryPath}`,
-      `Golden spec example for structure/detail: ${GOLDEN_COMPONENT_SPEC_SAMPLE_PATH}`,
-      ...(tokenMenuLines.length > 0
-        ? [
-            "Token menu (prefer these exact paths when applicable):",
-            ...tokenMenuLines,
-          ]
-        : []),
-      "Existing spec reference: docs/_spec/components/alert.yml",
-      `Output path (required): ${outputPath}`,
-    ],
-    constraints: [
-      RULE_BLOCKS.FIGMA_MCP_WORKFLOW,
-      "Write YAML only (no markdown, no code fences).",
-      `Include required top-level fields: ${SPEC_REQUIRED_TOP_LEVEL_FIELDS.join(", ")}.`,
-      `Top-level YAML key order must be: ${SPEC_TOP_LEVEL_ORDER.join(" -> ")}.`,
-      "Set figma.file, figma.page, figma.component_set from evidence.",
-      "Set figma.component_set_node_id when node-id is available from URL/context.",
-      "In token_mapping, use token paths that exist in the token registry.",
-      "Prefer token paths from the provided token menu before proposing any other registry path.",
-      "If the output spec already exists, keep existing non-TBD values unless Figma evidence explicitly proves they are wrong, incomplete, outdated, or missing.",
-      "If a field is not inferable, set it to `TBD` instead of guessing.",
-      RULE_BLOCKS.NO_VARIABLE_IDS,
-      "Keep language in English and concise.",
-    ],
-    expectedOutput: [
-      "Write/update exactly one file at the output path.",
-      "Return a short report: output path, component name, unresolved TBD count.",
-    ],
-  });
-}
-
 function ensureSpecMetadata(spec, { componentName, nodeId, fileKeyFromUrl }) {
   if (!isPlainObject(spec.figma)) spec.figma = {};
   if (componentName && isTbdMarker(spec.name))
@@ -584,22 +409,6 @@ function validateGeneratedSpec(outputPath, registryPath) {
     report,
     errors: relevantErrors.length > 0 ? relevantErrors : report.errors,
   };
-}
-
-function buildSpecValidationFeedbackPrompt({
-  basePrompt,
-  outputPath,
-  validationErrors,
-}) {
-  return (
-    `${basePrompt}\n\n` +
-    "Validation Feedback\n" +
-    `- The generated spec at \`${outputPath}\` failed validation.\n` +
-    "- Fix the same output file in place.\n" +
-    "- Keep required top-level fields and canonical key order.\n" +
-    "- Validation errors (JSON):\n" +
-    `${JSON.stringify(validationErrors, null, 2)}\n`
-  );
 }
 
 function main() {
@@ -700,7 +509,7 @@ function main() {
     process.exit(1);
   }
 
-  const prompt = buildPrompt({
+  const prompt = buildSpecPrompt({
     figmaUrl,
     nodeId,
     componentName,
@@ -773,10 +582,11 @@ function main() {
       };
     };
 
-    runAgentPrompt({
+    runSpecGenerationPrompt({
       prompt,
       agent,
-      label: `spec-from-figma-${componentNameToSnakeCase(componentName || nodeId || "component")}`,
+      componentName,
+      nodeId,
     });
     let { normalizedSpec, prefilledCount } = materializeAndWriteSpec();
 
@@ -789,10 +599,11 @@ function main() {
           outputPath,
           validationErrors: validation.errors,
         });
-        runAgentPrompt({
+        runSpecRepairPrompt({
           prompt: feedbackPrompt,
           agent,
-          label: `spec-from-figma-repair-${componentNameToSnakeCase(componentName || nodeId || "component")}`,
+          componentName,
+          nodeId,
         });
         ({ normalizedSpec, prefilledCount } = materializeAndWriteSpec());
         validation = validateGeneratedSpec(outputPath, registryPath);
