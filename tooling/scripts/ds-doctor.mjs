@@ -124,6 +124,15 @@ function collectRequiresRuleIds(frontmatter) {
   return uniqueSorted(ids);
 }
 
+function hasValidSkillContext(frontmatter) {
+  if (!frontmatter || typeof frontmatter !== "object") return false;
+  const context = frontmatter.context;
+  if (!context || typeof context !== "object" || Array.isArray(context)) return false;
+  const docType = String(context.doc_type || "").trim();
+  const stage = String(context.stage || "").trim();
+  return Boolean(docType) && Boolean(stage);
+}
+
 function collectDeprecatedRulesFromManifest(manifest) {
   const rules = Array.isArray(manifest?.rules) ? manifest.rules : [];
   const deprecatedMap = new Map();
@@ -138,9 +147,38 @@ function collectDeprecatedRulesFromManifest(manifest) {
   return deprecatedMap;
 }
 
-function validateSkillVersioning(skillsRoot) {
+function collectAllowedContextValues(manifest) {
+  const docTypes = new Set();
+  const stages = new Set();
+
+  if (!manifest || typeof manifest !== "object") {
+    return { docTypes, stages };
+  }
+
+  const matrix = manifest.matrix && typeof manifest.matrix === "object" ? manifest.matrix : {};
+  const byDocType =
+    matrix.by_doc_type && typeof matrix.by_doc_type === "object" ? matrix.by_doc_type : {};
+  for (const key of Object.keys(byDocType)) {
+    const normalized = String(key || "").trim();
+    if (normalized) docTypes.add(normalized);
+  }
+
+  const byStage =
+    matrix.by_stage && typeof matrix.by_stage === "object" ? matrix.by_stage : {};
+  for (const key of Object.keys(byStage)) {
+    const normalized = String(key || "").trim();
+    if (normalized) stages.add(normalized);
+  }
+
+  return { docTypes, stages };
+}
+
+function validateSkillVersioning(skillsRoot, options = {}) {
   const skillFiles = collectSkillFiles(skillsRoot);
   const issues = [];
+  const allowedDocTypes =
+    options.allowedDocTypes instanceof Set ? options.allowedDocTypes : new Set();
+  const allowedStages = options.allowedStages instanceof Set ? options.allowedStages : new Set();
 
   for (const filePath of skillFiles) {
     try {
@@ -150,8 +188,11 @@ function validateSkillVersioning(skillsRoot) {
       const version = String(frontmatter.version || "").trim();
       if (!version) missing.push("version");
 
-      if (!Array.isArray(frontmatter.requires_rules) || frontmatter.requires_rules.length === 0) {
-        missing.push("requires_rules");
+      const hasContext = hasValidSkillContext(frontmatter);
+      const hasLegacyRequiresRules =
+        Array.isArray(frontmatter.requires_rules) && frontmatter.requires_rules.length > 0;
+      if (!hasContext && !hasLegacyRequiresRules) {
+        missing.push("context");
       }
 
       if (
@@ -161,10 +202,24 @@ function validateSkillVersioning(skillsRoot) {
         missing.push("compatible_agents");
       }
 
-      if (missing.length > 0) {
+      const contextIssues = [];
+      if (hasContext) {
+        const context = frontmatter.context || {};
+        const docType = String(context.doc_type || "").trim();
+        const stage = String(context.stage || "").trim();
+        if (allowedDocTypes.size > 0 && docType && !allowedDocTypes.has(docType)) {
+          contextIssues.push(`doc_type:${docType}`);
+        }
+        if (allowedStages.size > 0 && stage && !allowedStages.has(stage)) {
+          contextIssues.push(`stage:${stage}`);
+        }
+      }
+
+      if (missing.length > 0 || contextIssues.length > 0) {
         issues.push({
           file: filePath,
           missing,
+          invalid_context: contextIssues,
         });
       }
     } catch (error) {
@@ -412,7 +467,11 @@ function main() {
   }
 
   const skillsRoot = path.join(PROJECT_ROOT, ".agent", "skills");
-  const skillVersioning = validateSkillVersioning(skillsRoot);
+  const allowedContext = collectAllowedContextValues(parsedManifest);
+  const skillVersioning = validateSkillVersioning(skillsRoot, {
+    allowedDocTypes: allowedContext.docTypes,
+    allowedStages: allowedContext.stages,
+  });
   if (skillVersioning.issues.length === 0) {
     checks.push(
       createCheck(
@@ -460,7 +519,7 @@ function main() {
         createCheck(
           "DEP01",
           "pass",
-          "No skills reference deprecated rules in requires_rules.",
+          "No skills reference deprecated rules in skill metadata.",
           {
             checked: deprecatedRuleRefs.checked,
             deprecatedRules: deprecatedRules.size,
@@ -472,7 +531,7 @@ function main() {
         createCheck(
           "DEP01",
           "fail",
-          "One or more skills reference deprecated rules in requires_rules.",
+          "One or more skills reference deprecated rules in skill metadata.",
           {
             checked: deprecatedRuleRefs.checked,
             issues: deprecatedRuleRefs.issues,

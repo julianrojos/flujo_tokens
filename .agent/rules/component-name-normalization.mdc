@@ -8,74 +8,23 @@ globs:
 
 # Component name normalization
 
-## Canonical meaning
+Canonical implementation: `tooling/scripts/lib/name.mjs`.
 
-- `component_name` is treated as a display name input.
-- Display names are normalized to PascalCase for metadata and prompts (examples: `Alert`, `StatusBar`).
-- File paths derived from a component name MUST use `snake_case`.
+Canonical slug regex:
 
-Examples:
+- `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*$`
 
-- `Alert` -> `alert`
-- `StatusBar` -> `status_bar`
-- `Status Bar` -> `status_bar`
-- `status_bar` -> `status_bar`
+File regexes:
 
-## Deterministic path contract
+- Markdown: `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*\\.md$`
+- Spec YAML: `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*\\.yml$`
 
-When file paths are inferred from `component_name`, the same input MUST always produce the same paths:
+Deterministic path contract:
 
 - Spec YAML: `docs/_spec/components/<snake_case>.yml`
-- Component Markdown: `docs/components/<snake_case>.md`
+- Markdown: `docs/components/<snake_case>.md`
+- Explicit CLI paths override inferred paths.
 
-Path precedence:
+The normalization algorithm (token boundaries, acronym handling, digit handling, and invalid-token removal) is defined in `tooling/scripts/lib/name.mjs` and must not be reimplemented ad hoc.
 
-1. Explicit path flags (`--output`, `--spec-file`) take priority.
-2. If explicit path is missing, infer from normalized `<snake_case>`.
-3. If `component_name` is missing and inference is still required, use deterministic fallback (for example node-id based naming).
-
-## File name regex contract
-
-Every generated documentation file name MUST match its corresponding pattern. These patterns are machine-checkable and take precedence over any prose description.
-
-| File type | Pattern | Valid examples | Invalid examples |
-| --------- | ------- | -------------- | ---------------- |
-| Component markdown | `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*\.md$` | `alert.md`, `status_bar.md`, `text_field2.md` | `Alert.md`, `StatusBar.md`, `status-bar.md`, `status bar.md` |
-| Component spec YAML | `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*\.yml$` | `alert.yml`, `radio_button.yml` | `Alert.yml`, `radioButton.yml`, `radio-button.yml` |
-
-The slug (file name without extension) MUST match `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*$`.
-
-## Normalization algorithm
-
-Apply these steps in order to convert any `component_name` input to a canonical slug. Each step is mandatory; no step may be skipped.
-
-1. **Trim** leading and trailing whitespace.
-2. **Split on boundaries**: insert a separator at each of the following boundary types, in this priority order:
-   - Any existing space, hyphen (`-`), or underscore (`_`).
-   - A transition from a lowercase letter or digit to an uppercase letter (`aB` → `a|B`).
-   - A transition from a run of two or more uppercase letters to an uppercase letter followed by a lowercase letter (`URLInput` → `URL|Input`, `CTAButton` → `CTA|Button`). This prevents splitting acronyms letter by letter.
-   - Digits do **not** create boundaries. A digit that immediately follows a letter stays in the same token (`Input2` remains one token; `TextInput2` → `[Text, Input2]`).
-3. **Lowercase** every resulting token.
-4. **Remove** tokens that are empty or that start with a digit. A token is valid only if its first character is a letter (`a–z`); subsequent digits are allowed. Examples: `input2` is valid; `2fa` and `2` are not (remove with a warning).
-5. **Join** remaining tokens with a single underscore `_`.
-6. **Verify** the result matches `^[a-z][a-z0-9]*(_[a-z][a-z0-9]*)*$`. If it does not, the input is invalid: skills must stop, report an actionable error that names the invalid input, and include the closest inferred canonical slug if one can be constructed.
-
-Examples (tokens shown after step 2, before lowercasing):
-
-| Input | Tokens after split | Canonical slug |
-| ----- | ------------------ | -------------- |
-| `Alert` | `[Alert]` | `alert` |
-| `StatusBar` | `[Status, Bar]` | `status_bar` |
-| `Status Bar` | `[Status, Bar]` | `status_bar` |
-| `status_bar` | `[status, bar]` | `status_bar` |
-| `TextInput2` | `[Text, Input2]` | `text_input2` |
-| `radio-button` | `[radio, button]` | `radio_button` |
-| `URLInput` | `[URL, Input]` | `url_input` |
-| `CTAButton` | `[CTA, Button]` | `cta_button` |
-| `H1Title` | `[H1, Title]` (H1 starts with letter, digit suffix kept) | `h1_title` |
-
-## Consistency requirements
-
-- Skills and scripts that write specs or component markdown MUST apply the normalization algorithm above before writing any file.
-- Mixed conventions (`PascalCase` files, spaces, hyphens, or random casing) are not allowed for generated file names.
-- Validation MUST report any file whose name does not match the regex contract, and any mismatch between the spec `name` field and the file slug.
+Validation and code semantics (`NAME01`, `NAME02`) are centralized in `error-codes.mdc` and `.agent/rules/_manifest.yml` (`checks`).

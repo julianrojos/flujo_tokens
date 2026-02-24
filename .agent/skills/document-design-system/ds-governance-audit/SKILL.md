@@ -2,13 +2,9 @@
 name: ds-governance-audit
 description: Audit documentation governance maturity across ownership, lifecycle, deprecation, migration, feedback loops, and KPI definitions.
 version: "1.0.0"
-requires_rules:
-  - docs-governance-ops: ">=1.0.0"
-  - internationalization-docs: ">=1.0.0"
-  - markdown-lifecycle-status: ">=1.0.0"
-  - docs-pipeline-contract: ">=1.0.0"
-  - ds-docs-guardrails: ">=1.0.0"
-  - skill-input-output-contract: ">=1.0.0"
+context:
+  doc_type: workflow
+  stage: markdown
 compatible_agents:
   - codex
   - claude
@@ -84,4 +80,3 @@ Then apply this skill-level governance audit on top of those outputs.
 - Coverage table by doc area (components, workflows, governance)
 - Blocking gaps (when `strict=true`)
 - Prioritized next actions (P1/P2/P3)
-

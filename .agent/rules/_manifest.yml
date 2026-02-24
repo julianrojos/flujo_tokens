@@ -4,170 +4,198 @@ enforcement:
   blocking_source: checks
   informational_only:
     - rules[].blocking
+    - rules[].layer
     - matrix.by_doc_type
+    - matrix.by_stage
     - matrix.by_skill
 
 rules:
-  - id: accessibility-docs
-    file: accessibility-docs.mdc
+  - id: inclusive-docs
+    file: inclusive-docs.mdc
     owner: docs-governance
     applies_to: [markdown, spec]
     blocking: true
+    layer: domain
   - id: agent-output-contract
     file: agent-output-contract.mdc
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
+    layer: domain
   - id: agent-prompt-contract
     file: agent-prompt-contract.mdc
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
+    layer: domain
   - id: component-doc
     file: component-doc.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: stage
   - id: component-figma-traceability
     file: component-figma-traceability.mdc
     owner: docs-governance
     applies_to: [markdown, spec]
     blocking: true
+    layer: stage
   - id: component-visual-usage
     file: component-visual-usage.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: false
+    layer: domain
   - id: component-indices-sync
     file: component-indices-sync.mdc
     owner: docs-governance
     applies_to: [pipeline, markdown]
     blocking: true
+    layer: domain
   - id: component-name-normalization
     file: component-name-normalization.mdc
     owner: docs-governance
     applies_to: [spec, markdown, pipeline]
     blocking: true
+    layer: stage
   - id: component-spec-properties-order
     file: component-spec-properties-order.mdc
     owner: docs-governance
     applies_to: [spec]
     blocking: true
+    layer: stage
   - id: component-spec-yaml
     file: component-spec-yaml.mdc
     owner: docs-governance
     applies_to: [spec]
     blocking: true
+    layer: stage
   - id: component-versioning
     file: component-versioning.mdc
     owner: docs-governance
     applies_to: [spec, markdown]
     blocking: true
+    layer: domain
   - id: design-token-discrepancies
     file: design-token-discrepancies.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: domain
   - id: docs-language-tone
     file: docs-language-tone.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: stage
   - id: error-codes
     file: error-codes.mdc
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
+    layer: domain
   - id: docs-governance-ops
     file: docs-governance-ops.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: domain
   - id: docs-pipeline-contract
     file: docs-pipeline-contract.mdc
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
+    layer: domain
   - id: evidence-gated-mutations
     file: evidence-gated-mutations.mdc
     owner: docs-governance
     applies_to: [spec, markdown, pipeline]
     blocking: true
+    layer: core
   - id: docs-taxonomy
     file: docs-taxonomy.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: domain
   - id: ds-docs-guardrails
     file: ds-docs-guardrails.mdc
     owner: docs-governance
     applies_to: [spec, markdown, pipeline]
     blocking: true
+    layer: core
   - id: figma-rendering
     file: figma-rendering.mdc
     owner: docs-governance
     applies_to: [markdown, pipeline]
     blocking: true
+    layer: stage
   - id: frontmatter-contract
     file: frontmatter-contract.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: stage
   - id: markdown-lifecycle-status
     file: markdown-lifecycle-status.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: stage
   - id: overview-components-canonical-list
     file: overview-components-canonical-list.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: domain
   - id: overview-index-maintenance
     file: overview-index-maintenance.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: domain
   - id: pattern-doc-workflow
     file: pattern-doc-workflow.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+    layer: domain
   - id: prohibited-patterns
     file: prohibited-patterns.mdc
     owner: docs-governance
     applies_to: [spec, markdown, pipeline]
     blocking: true
+    layer: core
   - id: readme-maintenance
     file: readme-maintenance.mdc
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
+    layer: domain
   - id: skill-input-output-contract
     file: skill-input-output-contract.mdc
     owner: docs-governance
     applies_to: [skills]
     blocking: true
+    layer: domain
   - id: skill-versioning
     file: skill-versioning.mdc
     owner: docs-governance
     applies_to: [skills]
     blocking: true
+    layer: domain
   - id: token-references
     file: token-references.mdc
     owner: docs-governance
     applies_to: [spec, markdown]
     blocking: true
-  - id: internationalization-docs
-    file: internationalization-docs.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: true
+    layer: domain
   - id: token-registry-validation
     file: token-registry-validation.mdc
     owner: docs-governance
     applies_to: [spec, markdown]
     blocking: true
+    layer: stage
 
 checks:
   source_catalog: error-codes
@@ -280,8 +308,7 @@ matrix:
         component-doc,
         component-visual-usage,
         component-figma-traceability,
-        accessibility-docs,
-        internationalization-docs,
+        inclusive-docs,
         design-token-discrepancies,
         token-references,
         token-registry-validation,
@@ -303,7 +330,7 @@ matrix:
       [
         frontmatter-contract,
         docs-taxonomy,
-        internationalization-docs,
+        inclusive-docs,
         token-references,
         token-registry-validation,
         design-token-discrepancies,
@@ -316,7 +343,7 @@ matrix:
         docs-taxonomy,
         docs-governance-ops,
         pattern-doc-workflow,
-        internationalization-docs,
+        inclusive-docs,
         markdown-lifecycle-status,
         docs-language-tone,
       ]
@@ -327,10 +354,24 @@ matrix:
         component-name-normalization,
         token-references,
         token-registry-validation,
-        accessibility-docs,
+        inclusive-docs,
         evidence-gated-mutations,
         prohibited-patterns,
       ]
+    skills: [skill-versioning, skill-input-output-contract]
+  by_stage:
+    spec:
+      [
+        component-spec-yaml,
+        component-spec-properties-order,
+        component-name-normalization,
+        token-registry-validation,
+      ]
+    markdown:
+      [component-doc, frontmatter-contract, markdown-lifecycle-status, docs-language-tone]
+    figma: [figma-rendering]
+    visual-proof: [component-figma-traceability]
+    pipeline: [docs-pipeline-contract, component-indices-sync]
     skills: [skill-versioning, skill-input-output-contract]
   by_skill:
     design-tokens-advisor: [skill-versioning]
@@ -344,7 +385,7 @@ matrix:
         component-figma-traceability,
         component-name-normalization,
         markdown-lifecycle-status,
-        accessibility-docs,
+        inclusive-docs,
         design-token-discrepancies,
         token-references,
         token-registry-validation,
@@ -391,10 +432,9 @@ matrix:
       [
         ds-docs-guardrails,
         docs-taxonomy,
-        internationalization-docs,
+        inclusive-docs,
         token-references,
         token-registry-validation,
-        accessibility-docs,
         docs-language-tone,
         overview-index-maintenance,
       ]
@@ -406,13 +446,13 @@ matrix:
         docs-language-tone,
         pattern-doc-workflow,
         docs-governance-ops,
-        internationalization-docs,
+        inclusive-docs,
         skill-input-output-contract,
       ]
     ds-governance-audit:
       [
         docs-governance-ops,
-        internationalization-docs,
+        inclusive-docs,
         markdown-lifecycle-status,
         docs-pipeline-contract,
         ds-docs-guardrails,

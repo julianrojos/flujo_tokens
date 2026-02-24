@@ -3,6 +3,7 @@
   "$id": "frontmatter",
   "title": "Documentation Frontmatter Schema",
   "description": "JSON Schema for YAML frontmatter in docs/**/*.md pages. This is the canonical structural specification that formalizes frontmatter-contract.mdc and component-figma-traceability.mdc. Use oneOf discriminated on doc_type to select the applicable sub-schema.",
+  "$comment": "Thin-rule companion: .agent/rules/frontmatter-contract.mdc. Key discriminators: doc_type (component|overview|foundation|workflow), doc_status (draft|ready|needs-review), component figma block requirements, and pipeline.ds_component_doc.* generated traceability fields. For ready component pages, figma.last_verified must be a concrete YYYY-MM-DD date.",
   "version": "1.0.0",
   "source_of_truth_for": [
     "frontmatter-contract.mdc (field definitions and rules)",

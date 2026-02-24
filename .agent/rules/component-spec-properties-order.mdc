@@ -6,47 +6,22 @@ globs:
 
 # Component spec deterministic property order
 
-> **Machine-readable enforcement:** `tooling/scripts/ds-sort-spec.mjs` is the canonical implementation of these ordering rules. Use `npm run ds:sort-spec -- --all` to auto-fix, or `npm run ds:sort-spec -- --check` to validate without writing. `npm run validate:docs` emits `DET01` when either group order or field order is violated; canonical code semantics live in `error-codes.mdc`.
+Canonical implementation: `tooling/scripts/ds-sort-spec.mjs`.
 
-This rule enforces a stable, deterministic order for `properties` entries in component specs.
+Run:
 
-## Mandatory order for `properties`
+```bash
+npm run ds:sort-spec -- --all
+npm run ds:sort-spec -- --check
+```
 
-The `properties` array MUST be sorted by groups in this exact order:
+Canonical group mapping and field order are machine-readable in:
 
-1. Variant/state selectors
-2. Content properties (`TEXT`)
-3. Boolean toggles (`BOOLEAN`)
-4. Instance swaps (`INSTANCE_SWAP`)
-5. Other or unknown types
+- `tooling/lib/property-type-map.json` (type -> ordering group)
+- `tooling/scripts/lib/spec-property-types.mjs` (`PROPERTY_FIELD_ORDER`)
 
-Group numbers and type-to-group mapping are defined in the **"Ordering group" column** of the type mapping decision table in `component-spec-yaml.mdc`. Consult that column for the canonical group assignment of each `type` value.
+Determinism contract:
 
-## Intra-group deterministic order
-
-Inside each group:
-
-- Keep Figma component-set order when it is explicitly available.
-- If Figma order is unavailable, preserve source order from the current spec.
-- If both are unavailable/ambiguous, sort by `name` (case-insensitive, ascending).
-
-This fallback chain MUST produce the same output on repeated runs with unchanged inputs.
-
-## Canonical field order inside each property object
-
-Each object in `properties` MUST use this key order (sourced from `PROPERTY_FIELD_ORDER` in `tooling/scripts/lib/spec-property-types.mjs`):
-
-1. `name`
-2. `type`
-3. `values`
-4. `default`
-5. `required`
-6. `description`
-
-Unknown extra keys MAY exist but MUST be appended after these canonical keys. `npm run ds:sort-spec` normalizes this automatically.
-
-## Validity constraints
-
-- `properties` MUST map 1:1 to Figma component-set properties.
-- Duplicated property `name` values are not allowed.
-- Reordering without source changes (Figma/spec inputs) is considered non-deterministic and invalid.
+- Group order, intra-group fallback order, and key order must be stable across repeated runs with unchanged inputs.
+- Duplicate property names are invalid.
+- Validation emits `DET01` on violations (see `error-codes.mdc`).

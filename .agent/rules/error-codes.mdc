@@ -43,7 +43,7 @@ This file is the canonical human-readable reference for validation/governance co
 | `READY01` | yes | `ready` hard-gate requirements not met. | `markdown-lifecycle-status`, `component-spec-yaml`, `ds-docs-guardrails` |
 | `QLT01` | yes | Documentation quality guardrail violation. | `ds-docs-guardrails` |
 | `VIS01` | yes | Visual proof requirements not satisfied for expected lifecycle state. | `component-doc`, `markdown-lifecycle-status`, `ds-docs-guardrails` |
-| `DEP01` | yes | Deprecated rule reference detected in skill metadata (`requires_rules`). | `docs-governance-ops` |
+| `DEP01` | yes | Deprecated rule reference detected in skill metadata. | `docs-governance-ops` |
 | `SLOT01` | yes | Invalid skill slot contract (typed inputs/outputs). | `skill-input-output-contract`, `skill-versioning` |
 | `VER01` | yes | Versioning contract violation for spec/markdown metadata. | `component-versioning` |
 | `GOV01` | yes | Governance/manifest integrity error (for example manifest unreadable). | `docs-pipeline-contract` |

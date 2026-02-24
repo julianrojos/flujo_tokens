@@ -2,16 +2,9 @@
 name: ds-component-orchestrator
 description: Orchestrate end-to-end component documentation using the existing spec -> markdown -> figma -> visual-proof pipeline.
 version: "1.1.0"
-requires_rules:
-  - docs-pipeline-contract: ">=1.0.0"
-  - component-spec-yaml: ">=1.0.0"
-  - component-doc: ">=1.0.0"
-  - component-figma-traceability: ">=1.0.0"
-  - component-name-normalization: ">=1.0.0"
-  - frontmatter-contract: ">=1.0.0"
-  - markdown-lifecycle-status: ">=1.0.0"
-  - ds-docs-guardrails: ">=1.0.0"
-  - skill-input-output-contract: ">=1.0.0"
+context:
+  doc_type: component
+  stage: pipeline
 compatible_agents:
   - codex
   - claude

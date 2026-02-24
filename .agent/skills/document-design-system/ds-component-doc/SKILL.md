@@ -2,24 +2,9 @@
 name: ds-component-doc
 description: Generate a single component documentation page (one-by-one) from a minimal Figma-first spec YAML plus token references, without code examples.
 version: "1.3.1"
-requires_rules:
-  - ds-docs-guardrails: ">=1.0.0"
-  - frontmatter-contract: ">=1.0.0"
-  - component-doc: ">=1.0.0"
-  - component-spec-yaml: ">=1.0.0"
-  - component-spec-properties-order: ">=1.0.0"
-  - token-references: ">=1.0.0"
-  - token-registry-validation: ">=1.0.0"
-  - accessibility-docs: ">=1.0.0"
-  - component-figma-traceability: ">=1.0.0"
-  - markdown-lifecycle-status: ">=1.0.0"
-  - design-token-discrepancies: ">=1.0.0"
-  - docs-language-tone: ">=1.0.0"
-  - component-name-normalization: ">=1.0.0"
-  - overview-index-maintenance: ">=1.0.0"
-  - overview-components-canonical-list: ">=1.0.0"
-  - docs-pipeline-contract: ">=1.0.0"
-  - skill-input-output-contract: ">=1.0.0"
+context:
+  doc_type: component
+  stage: markdown
 compatible_agents:
   - codex
   - claude
@@ -77,7 +62,7 @@ This skill must produce output that complies with:
 - `component-spec-yaml.mdc` — required fields and conventions for the input YAML
 - `component-spec-properties-order.mdc` — deterministic ordering of `properties` entries in spec YAML
 - `token-references.mdc` — token path formatting, fallback values, and naming patterns
-- `accessibility-docs.mdc` — five required areas in the Accessibility section
+- `inclusive-docs.mdc` — required accessibility + i18n expectations for component docs
 - `component-figma-traceability.mdc` — Figma source metadata in component docs
 - `markdown-lifecycle-status.mdc` — `doc_status` lifecycle for markdown pages
 - `design-token-discrepancies.mdc` — optional discrepancy section with fixed table format
@@ -173,7 +158,7 @@ Then use this section order:
    - `### Behavior` (interaction/responsive/overflow/i18n-RTL notes)
    - `### Examples` (basic + contextual usage)
 9. `## Content Guidelines` — from `content_guidelines`
-10. `## Accessibility` — from `accessibility`, following `accessibility-docs.mdc` (five required areas)
+10. `## Accessibility` — from `accessibility`, following `inclusive-docs.mdc`
 11. `## Related Components` — from spec if available, otherwise `TBD`
 12. `## Design–Token Discrepancies` — only when mismatches are verifiable; follow `design-token-discrepancies.mdc`
 13. `## Gaps / TBD` — auto-generated from all missing fields
@@ -195,7 +180,7 @@ Per `component-doc.mdc`, use this table format:
 | Name | Type | Default | Required | Description |
 | ---- | ---- | ------- | -------- | ----------- |
 
-- Apply the **type mapping decision table** from `component-spec-yaml.mdc` to convert spec `type` to the Figma display type for the `Type` column.
+- Apply `tooling/lib/property-type-map.json` (canonical type mapping) to convert spec `type` to the Figma display type for the `Type` column.
 - For `VARIANT` types, list the allowed values (from `values` in the spec) in the `Description` column.
 
 ## Token references in output

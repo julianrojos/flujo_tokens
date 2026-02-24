@@ -6,150 +6,27 @@ globs:
 
 # Component spec YAML conventions
 
-Spec files in `docs/_spec/components/` are the structured source of truth for each component. The `ds-component-doc` skill consumes these to generate Markdown pages.
+Canonical source: `tooling/schemas/component-spec.schema.json` (JSON Schema draft-07).
 
-> **Machine-readable version:** `tooling/schemas/component-spec.schema.json` contains the complete structural schema as JSON-Schema (draft-07). Use this for validation via ajv (or any JSON-Schema validator) instead of writing custom parsing logic. Agents and scripts must import this schema, not duplicate the constraints.
->
-> Error-code semantics are centralized in `error-codes.mdc` and `.agent/rules/_manifest.yml` (`checks`). This rule only references the relevant code IDs when defining behavior.
+Validate with:
 
-## Required top-level fields
-
-Every spec YAML must include these fields (use `TBD` for unknown values, never omit):
-
-```
-name            # PascalCase component name (e.g., Alert, StatusBar)
-status          # Only "draft" or "ready"
-figma           # Object: file, page, component_set, optional component_set_node_id
-summary         # Object: purpose, when_to_use, when_not_to_use
-anatomy         # Array of { id, description }
-properties      # Array of { name, type, values, default, required, description }
-content_guidelines  # Object: rules (array)
-best_practices  # Object: do (array), dont (array)
-accessibility   # Object: role, focus, hit_area, labeling
-token_mapping   # Object: keyed by "{part}.{attribute}"
-qa              # Array of verification statements
+```bash
+npm run validate:docs
 ```
 
-## Optional top-level fields
+Additional machine-readable contracts:
 
-```
-version               # Optional object: { spec, component } with SemVer values
-related_components    # Optional array of snake_case component names (e.g., [button, tag])
-```
+- Type mapping and ordering groups: `tooling/lib/property-type-map.json`
+- Deterministic property ordering: `tooling/scripts/ds-sort-spec.mjs`
+- Name/slug normalization: `tooling/scripts/lib/name.mjs`
 
-## Field conventions
+Key constraints (see schema for full detail):
 
-### `name`
+- Required top-level fields are enforced by schema; unknown values use explicit `TBD`.
+- `status` in spec YAML is only `draft | ready`.
+- `figma.component_set_node_id` is required for `ready` and is the deterministic traceability key.
+- `properties` must use canonical types (`enum`, `text`, `boolean`, `instance_swap`) and deterministic ordering.
+- For `ready`, defaults must be concrete (no `TBD`) and enum values must be concrete.
+- File naming and slug consistency follow `component-name-normalization.mdc`.
 
-- PascalCase, matching the Figma component set name exactly.
-
-### `status`
-
-- `draft`: Incomplete or unverified. `ready`: Reviewed and matches Figma.
-- No other values allowed. `needs-review` is **not valid** here.
-
-> **Note:** The `status` field in spec YAML is intentionally more restrictive than the `doc_status`
-> field in markdown frontmatter. Markdown pages support a third state (`needs-review`) to signal
-> that an already-published page needs re-validation after upstream changes. Spec files do not have
-> this intermediate state — a spec is either incomplete (`draft`) or verified (`ready`).
-
-### `figma`
-
-- `file`: Figma file key (not full URL).
-- `page`: Page name in Figma.
-- `component_set`: Component set name (not node ID).
-- `component_set_node_id`: Figma node id for deterministic placement (`123:456` format).
-  - Recommended in `draft`.
-  - Required in `ready`.
-  - If provided, skills that need deterministic Figma lookup must use this value.
-
-### `anatomy`
-
-- Each item has `id` (snake_case, e.g., `leading_icon`) and `description`.
-- Order matches visual top-to-bottom / left-to-right reading order.
-
-### `properties`
-
-- Must map 1:1 with the Figma component set properties.
-- `type`: Use canonical spec types - `enum`, `text`, `boolean`, `instance_swap`.
-- `values`: Array of allowed values for `enum`; omit for `text`, `boolean`, and `instance_swap`.
-- `default`: The Figma default value.
-- `required`: `true` or `false`.
-- Ordering MUST be deterministic and follow `component-spec-properties-order.mdc`.
-
-**Type mapping decision table** - canonical source of truth. All other rules and skills must reference this table, not duplicate it.
-
-> **Machine-readable version:** `tooling/lib/property-type-map.json` contains this table as structured data (bidirectional maps, ordering groups, `values` field rules, ready-spec constraints, and Figma node-ID pattern). Scripts must import the JSON instead of duplicating the table. Agents may read the JSON directly when they need to look up a type value programmatically.
-
-Type comparison is **case-insensitive** (`Enum`, `ENUM`, and `enum` are equivalent).
-
-| Spec `type` | Figma display type | `values` field | `default` format | Ordering group | On unknown |
-| ----------- | ------------------ | -------------- | ---------------- | -------------- | ---------- |
-| `enum` | `VARIANT` | Required - array of allowed string values | One of the `values` entries, or `TBD` if unknown | 1 | - |
-| `text` | `TEXT` | Omit | Any string, or `TBD` if unknown | 2 | - |
-| `boolean` | `BOOLEAN` | Omit | `true` or `false` (unquoted), or `TBD` if unknown | 3 | - |
-| `instance_swap` | `INSTANCE_SWAP` | Omit | Component name string, or `TBD` if unknown | 4 | - |
-| anything else (including `null`, `""`, missing) | _(invalid)_ | - | - | 5 | Stop; emit `SPEC01` (see `error-codes.mdc`) with the invalid type value; do not render the property |
-
-The "Stop; report error" instruction applies to **generating skills and scripts** (for example `ds:component-doc`, `ds:spec-from-figma`) and to `validate:docs`. Specs that violate this table are invalid and must be fixed before markdown generation.
-
-Ready spec constraint:
-
-- For `status: ready`, all property defaults must be concrete (not `TBD`), and `enum` defaults must match one of the `values`.
-
-> **`values: ["TBD"]` is never valid for `status: ready`.**
-> A single-entry `values` array whose only element is the string `"TBD"` does not satisfy the concrete-default requirement — the value is still unknown regardless of whether it technically matches the array entry. Validators must reject any `enum` property where `values` contains `"TBD"` as one of its entries when the spec is `status: ready`. Replace with real variant values before promoting.
-
-### `best_practices`
-
-- Always include both `do` and `dont` arrays.
-- Minimum 1 item each, or a single `TBD` entry.
-- Items are short imperative sentences.
-
-### `accessibility`
-
-- `role`: ARIA role (e.g., `alert`, `button`, `navigation`). Use `TBD` if unknown.
-- `focus.tokens`: Must reference real token paths for inner/outer focus outlines.
-- `hit_area`: Must reference A11y collection tokens for desktop and mobile.
-- `labeling.rules`: Array of labeling guidelines.
-
-### `token_mapping`
-
-- Keys follow pattern: `{anatomy_id}.{css_property}` (e.g., `container.background`, `label.color`).
-- Values are objects keyed by condition (e.g., `"state=default"`, `"type=warning"`).
-- Token paths must be real JSON keys - follow `prohibited-patterns.mdc`.
-- Use `TBD` as value when token is unknown.
-
-### `related_components` (optional)
-
-- Array of `snake_case` component slugs (no file extensions).
-- Duplicates are not allowed (case-insensitive).
-- Must not include the current component's slug.
-- For `status: ready`, every entry must resolve to an existing spec file at `docs/_spec/components/<slug>.yml`.
-
-## Deterministic placement contract
-
-- `figma.component_set_node_id` is the canonical traceability key for render placement.
-- Resolution precedence in runtime tools should be:
-  1. explicit CLI override (for controlled/manual execution),
-  2. `figma.component_set_node_id` from spec,
-  3. name-based lookup (allowed only when deterministic ID is unavailable).
-
-### `qa`
-
-- Minimum 2 items: property match check + token validity check.
-- Additional items for component-specific invariants.
-
-## File naming
-
-- One file per component: `<snake_case>.yml` (e.g., `status_bar.yml`).
-- File naming and `name` normalization must follow `component-name-normalization.mdc`.
-
-## Template
-
-`docs/_spec/components/_template.yml` is the canonical structural template - copy it for every new component.
-
-- Every required top-level field is present; use `TBD` for unknown values (never omit fields).
-- `properties` defaults to `[]` so a newly copied draft spec stays valid; uncomment the type-group examples and replace placeholders with concrete values.
-- Do NOT create a new spec by writing fields from memory; always start from the template to prevent omissions.
-- The template is the structural authority; this rule is the semantic authority.
+Error semantics (`SPEC01`, `REL01`, `NAME02`, `READY01`, `TRACE01`) are centralized in `error-codes.mdc` and `.agent/rules/_manifest.yml` (`checks`).

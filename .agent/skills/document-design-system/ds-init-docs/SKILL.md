@@ -2,11 +2,9 @@
 name: ds-init-docs
 description: Bootstrap a Markdown documentation structure for a Design System with a components-first baseline and optional extra sections.
 version: "1.3.0"
-requires_rules:
-  - ds-docs-guardrails: ">=1.0.0"
-  - docs-taxonomy: ">=1.0.0"
-  - frontmatter-contract: ">=1.0.0"
-  - docs-language-tone: ">=1.0.0"
+context:
+  doc_type: overview
+  stage: markdown
 compatible_agents:
   - codex
   - claude
@@ -144,7 +142,7 @@ All generated documentation must comply with:
 ### Optional: ${docs_root}/a11y/overview.md
 
 - Accessibility goals
-- What is documented here (focus, hit area, color contrast notes) — per `accessibility-docs.mdc`
+- What is documented here (focus, hit area, color contrast notes) — per `inclusive-docs.mdc`
 - How to raise gaps/issues
 
 ## End with a brief report

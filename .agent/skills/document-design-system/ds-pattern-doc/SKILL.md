@@ -2,15 +2,9 @@
 name: ds-pattern-doc
 description: Generate a reusable UX pattern page as a workflow document using a decision-first structure and explicit governance metadata.
 version: "1.0.0"
-requires_rules:
-  - ds-docs-guardrails: ">=1.0.0"
-  - docs-taxonomy: ">=1.0.0"
-  - frontmatter-contract: ">=1.0.0"
-  - docs-language-tone: ">=1.0.0"
-  - pattern-doc-workflow: ">=1.0.0"
-  - docs-governance-ops: ">=1.0.0"
-  - internationalization-docs: ">=1.0.0"
-  - skill-input-output-contract: ">=1.0.0"
+context:
+  doc_type: workflow
+  stage: markdown
 compatible_agents:
   - codex
   - claude
@@ -63,7 +57,7 @@ This skill must comply with:
 
 - `pattern-doc-workflow.mdc`
 - `docs-governance-ops.mdc`
-- `internationalization-docs.mdc`
+- `inclusive-docs.mdc`
 - `docs-taxonomy.mdc`
 - `frontmatter-contract.mdc`
 - `ds-docs-guardrails.mdc`
@@ -102,4 +96,3 @@ This skill must comply with:
 - Related component links included
 - Unresolved `TBD` list
 - Governance/i18n follow-ups
-

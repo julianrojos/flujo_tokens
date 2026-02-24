@@ -2,14 +2,9 @@
 name: ds-foundations
 description: Build optional Foundations pages (Color, Typography, Spacing/Sizing, Elevation, Iconography, A11y) in Markdown using the token registry as source of truth.
 version: "1.3.1"
-requires_rules:
-  - ds-docs-guardrails: ">=1.0.0"
-  - docs-taxonomy: ">=1.0.0"
-  - token-references: ">=1.0.0"
-  - token-registry-validation: ">=1.0.0"
-  - accessibility-docs: ">=1.0.0"
-  - docs-language-tone: ">=1.0.0"
-  - overview-index-maintenance: ">=1.0.0"
+context:
+  doc_type: foundation
+  stage: markdown
 compatible_agents:
   - codex
   - claude
@@ -125,7 +120,7 @@ This skill must produce output that complies with:
 - `ds-docs-guardrails.mdc` — global content integrity and no-invention policy
 - `token-references.mdc` — token path formatting, fallback values, and naming patterns in all foundation pages
 - `token-registry-validation.mdc` — validation of token references against the generated registry
-- `accessibility-docs.mdc` — conventions for documenting focus, hit area, and contrast in `a11y.md`
+- `inclusive-docs.mdc` — conventions for accessibility and localization documentation
 - `docs-taxonomy.mdc` — page type classification (`foundation`)
 - `docs-language-tone.mdc` — language and tone consistency
 - `overview-index-maintenance.mdc` — keep `foundations/overview.md` synchronized
@@ -182,8 +177,8 @@ This skill must produce output that complies with:
 
 1. A11y foundations (scope)
 2. Modes (link `_generated/a11y.modes.md` if available)
-3. Focus indicator tokens (if present) — follow `accessibility-docs.mdc` for focus outline token conventions
-4. Touch targets (values only) — reference A11y hit area tokens per `accessibility-docs.mdc`
+3. Focus indicator tokens (if present) — follow `inclusive-docs.mdc` for focus outline token conventions
+4. Touch targets (values only) — reference A11y hit area tokens per `inclusive-docs.mdc`
 5. Gaps / TBD
 
 ## End with a report

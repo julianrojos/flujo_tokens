@@ -151,8 +151,8 @@ Abre `.agent/rules/_manifest.yml` y actualiza la sección `rules`:
 
 ```yaml
 rules:
-  - id: accessibility-docs
-    file: accessibility-docs.mdc
+  - id: inclusive-docs
+    file: inclusive-docs.mdc
     owner: docs-governance
     applies_to: [markdown, spec]
     blocking: true

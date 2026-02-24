@@ -94,7 +94,7 @@ If additional details are needed, place them under `###` inside the nearest allo
 
 - Include `### Properties` with table schema:
   `| Name | Type | Default | Required | Description |`
-- Convert spec `type` values to Figma display types using the **type mapping decision table** in `component-spec-yaml.mdc`. That table is the single source of truth; do not duplicate the mapping here.
+- Convert spec `type` values to Figma display types using `tooling/lib/property-type-map.json` (canonical machine-readable mapping). Do not duplicate the mapping here.
 - Spec types are canonical **lowercase** (e.g. `enum`, `boolean`); Figma display types are **uppercase** (e.g. `VARIANT`, `BOOLEAN`).
 
 ### `## Visual Specifications`
@@ -134,7 +134,7 @@ If additional details are needed, place them under `###` inside the nearest allo
 ### `## Accessibility`
 
 - Cover role, keyboard interaction, focus management, labeling, and contrast.
-- Follow `accessibility-docs.mdc` for detailed accessibility format.
+- Follow `inclusive-docs.mdc` for detailed accessibility and i18n guidance.
 
 ### `## Related Components`
 

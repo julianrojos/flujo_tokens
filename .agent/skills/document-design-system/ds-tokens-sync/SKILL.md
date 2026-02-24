@@ -2,9 +2,9 @@
 name: ds-tokens-sync
 description: Regenerate token CSS outputs and token registry from JSON inputs using the project CLI.
 version: "1.2.2"
-requires_rules:
-  - ds-docs-guardrails: ">=1.0.0"
-  - token-registry-validation: ">=1.0.0"
+context:
+  doc_type: spec
+  stage: spec
 compatible_agents:
   - codex
   - claude

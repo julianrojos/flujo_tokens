@@ -19,9 +19,9 @@ This rule defines a safe migration path for versioned skills.
 ```yaml
 name: ds-component-doc
 version: "1.2.0" # SemVer
-requires_rules:
-  - component-doc: ">=1.0.0"
-  - token-references: ">=1.1.0"
+context:
+  doc_type: component
+  stage: markdown
 compatible_agents:
   - codex
   - claude
@@ -47,6 +47,11 @@ outputs:                       # Required — declare all file artifacts and rep
 ```
 
 `inputs` and `outputs` are required for all new or modified skills. Slot type definitions and agent behavior contract are in `skill-input-output-contract.mdc`.
+
+`context` is required for all new or modified skills:
+
+- `doc_type` must align with manifest doc domains (`component`, `overview`, `foundation`, `workflow`, `spec`, `skills`).
+- `stage` must align with manifest stage routing (`spec`, `markdown`, `figma`, `visual-proof`, `pipeline`, `skills`).
 
 ## Optional changelog block
 

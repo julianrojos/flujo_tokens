@@ -383,7 +383,7 @@ Rule Coverage Analysis (2026-02-24)
 ✅ HIGH COMPLIANCE (95-100%)
 ───────────────────────────────────────────────────────────────
 component-spec-yaml       29/30 docs  (96%) ─→ 1 violation: alert.yml
-accessibility-docs       28/30 docs  (93%) ─→ 2 violations: button.md, card.md
+inclusive-docs           28/30 docs  (93%) ─→ 2 violations: button.md, card.md
 component-doc           30/30 docs  (100%) ✅
 
 ⚠️  MEDIUM COMPLIANCE (80-94%)

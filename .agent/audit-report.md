@@ -65,12 +65,11 @@ El directorio de Skills tiene `document-design-system/ds-component-doc` pero tam
 
 **Archivos implicados:**
 
-- `accessibility-docs.mdc`
-- `internationalization-docs.mdc`
+- `inclusive-docs.mdc`
 - `ds-docs-guardrails.mdc`
 
 **Por qué es incoherente/solapado (Gravedad Baja):**
-`accessibility-docs.mdc` exige documentar el contraste y `hit_area`. `internationalization-docs.mdc` exige documentar `reduced-motion` y `zoom` (que son intrínsecamente a11y). `ds-docs-guardrails.mdc` dice "No asegures a11y sin pruebas".
+Antes, el contenido estaba separado en dos reglas distintas (accesibilidad e internacionalización): una exigía contraste y `hit_area`; la otra pedía `reduced-motion` y `zoom` (también a11y). `ds-docs-guardrails.mdc` añadía la restricción de no afirmar a11y sin pruebas.
 
 - **Problema:** Están fragmentando la directiva de accesibilidad en tres archivos. Si un agente va a escribir documentación, tiene que machetear 3 archivos distintos para no romper los guardarraíles.
-- **Solución propuesta:** Fusión del contenido de a11y de `internationalization` y `guardrails` dentro de `accessibility-docs.mdc` para que exista un único contrato de "Contenido inclusivo".
+- **Resolución aplicada:** Fusión en `inclusive-docs.mdc` como contrato único de contenido inclusivo.

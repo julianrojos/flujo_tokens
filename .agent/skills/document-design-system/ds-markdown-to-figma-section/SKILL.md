@@ -2,11 +2,9 @@
 name: ds-markdown-to-figma-section
 description: Render a component markdown doc into a styled Figma documentation section placed 200px to the right of the component section, using the shared theme contract in docs/_spec/figma_doc_theme.yml.
 version: "1.2.2"
-requires_rules:
-  - figma-rendering: ">=1.0.0"
-  - component-doc: ">=1.0.0"
-  - ds-docs-guardrails: ">=1.0.0"
-  - docs-pipeline-contract: ">=1.0.0"
+context:
+  doc_type: component
+  stage: figma
 compatible_agents:
   - codex
   - claude

@@ -28,7 +28,7 @@ Aquí tienes **10 propuestas priorizadas** con su justificación para incorporar
 
 ## 5. Regla: Especificación de Comportamiento e Interacción (State & Motion)
 
-**Falta actual:** No hay reglas claras sobre cómo documentar los estados transitivos (hover, active, focus, disabled) ni curvas de animación/duración (Motion). `internationalization-docs.mdc` lo toca sutilmente para a11y, pero no para la espeficicación base.
+**Falta actual:** No hay reglas claras sobre cómo documentar los estados transitivos (hover, active, focus, disabled) ni curvas de animación/duración (Motion). `inclusive-docs.mdc` lo toca sutilmente para a11y, pero no para la especificación base.
 **Justificación:** Los componentes web no son estáticos. Documentar las variables de CSS a aplicar en hover o focus, y los tokens de duración de animación, garantiza consistencia en interacciones que a menudo quedan a criterio del desarrollador o del navegador por defecto.
 
 ## 6. Regla: Composición y Patrones (Composition & Patterns)
@@ -43,7 +43,7 @@ Aquí tienes **10 propuestas priorizadas** con su justificación para incorporar
 
 ## 8. Regla: Principios de Localización Extensivos (Internacionalización Activa)
 
-**Falta actual:** Tienes `internationalization-docs.mdc` pero se enfoca en no hacer claims falsos y el comportamiento RTL. Falta dictar cómo manejar componentes donde el ancho del texto es crítico (botones o badges) bajo idiomas verbosos (ej. Alemán).
+**Falta actual:** Tienes `inclusive-docs.mdc` pero se enfoca en no hacer claims falsos y el comportamiento RTL. Falta dictar cómo manejar componentes donde el ancho del texto es crítico (botones o badges) bajo idiomas verbosos (ej. Alemán).
 **Justificación:** Evita roturas de layout tempranas. La regla debe forzar que componentes críticos incluyan un `stress-test` de longitud de texto y comportamiento wrap/truncate.
 
 ## 9. Regla: Guiones de Onboarding por Perfil (Role-based Onboarding)

@@ -6,8 +6,9 @@ description: >
   including scalable CSS Custom Properties implementation and migration guidance.
 scope: global
 version: "2.1.1"
-requires_rules:
-  - skill-versioning: ">=1.0.0"
+context:
+  doc_type: skills
+  stage: skills
 compatible_agents:
   - codex
   - claude

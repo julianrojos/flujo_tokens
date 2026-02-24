@@ -5,11 +5,9 @@ description: >
   Orchestrate the full design system documentation pipeline across all
   components or a single one. Detects orphans, validates preconditions,
   executes stages in order, and reports progress.
-requires_rules:
-  - docs-pipeline-contract: ">=1.0.0"
-  - ds-docs-guardrails: ">=1.0.0"
-  - component-name-normalization: ">=1.0.0"
-  - skill-input-output-contract: ">=1.0.0"
+context:
+  doc_type: component
+  stage: pipeline
 compatible_agents:
   - codex
   - claude
