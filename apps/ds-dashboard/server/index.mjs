@@ -40,6 +40,7 @@ import {
 } from "./lib/queue-utils.mjs";
 import { createOperationHistoryService } from "./lib/operation-history-service.mjs";
 import { createQueueEngineService } from "./lib/queue-engine-service.mjs";
+import { createCommandExecutionService } from "./lib/command-execution-service.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -137,129 +138,13 @@ const queueEngine = createQueueEngineService({
 
 const { queueJobs, queueMetrics, enqueueQueueJob, cancelQueueJob } = queueEngine;
 
-async function runQueuedSpawnCommand(args) {
-  const result = await runSpawnWithCapture({
-    cwd: args.cwd,
-    command: args.command,
-    commandArgs: args.commandArgs,
-    parseJsonStdout: args.parseJsonStdout === true,
-    maxOutputBytes: MAX_OUTPUT_BYTES,
-    onSpawn: args.registerProcess,
-    onStdoutChunk: (text) => args.emitChunk("stdout", text),
-    onStderrChunk: (text) => args.emitChunk("stderr", text),
-  });
+const commandExecutionService = createCommandExecutionService({
+  runSpawnWithCapture,
+  maxOutputBytes: MAX_OUTPUT_BYTES,
+  summarizePayloadFailure: toQueueSummaryFromPayload,
+});
 
-  if (result.spawnError) {
-    return {
-      ok: false,
-      code: 1,
-      summary: result.spawnError || `Unable to start command: ${args.commandLabel}`,
-      payload: {
-        ok: false,
-        command: args.commandLabel,
-        message: result.spawnError,
-        stdout: result.stdout,
-        stderr: result.stderr,
-      },
-    };
-  }
-
-  const exitCode = result.exitCode;
-  if (args.parseJsonStdout) {
-    const rawStdout = result.stdout;
-    if (result.jsonParseError) {
-      return {
-        ok: false,
-        code: exitCode,
-        summary: "Command returned invalid JSON.",
-        payload: {
-          ok: false,
-          command: args.commandLabel,
-          message: "Command returned invalid JSON.",
-          stdout: rawStdout,
-          stderr: result.stderr,
-          parse_error: result.jsonParseError,
-          code: exitCode,
-        },
-      };
-    }
-
-    const parsed = result.parsedJson;
-    if (exitCode !== 0 && args.allowNonZeroJson) {
-      const payload =
-        parsed && typeof parsed === "object"
-          ? {
-              ...parsed,
-              ok: false,
-              exit_code: exitCode,
-              stderr: result.stderr || undefined,
-            }
-          : {
-              ok: false,
-              exit_code: exitCode,
-              stderr: result.stderr || undefined,
-            };
-      return {
-        ok: false,
-        code: exitCode,
-        summary: toQueueSummaryFromPayload(payload, exitCode),
-        payload,
-      };
-    }
-
-    if (exitCode !== 0) {
-      return {
-        ok: false,
-        code: exitCode,
-        summary: `Failed with code ${exitCode}`,
-        payload: {
-          ok: false,
-          command: args.commandLabel,
-          code: exitCode,
-          stdout: rawStdout,
-          stderr: result.stderr,
-        },
-      };
-    }
-
-    const payload = parsed && typeof parsed === "object" ? parsed : {};
-    const ok = payload.ok !== false;
-    return {
-      ok,
-      code: ok ? 0 : 1,
-      summary: ok
-        ? String(payload.message ?? args.successSummary ?? "Completed successfully.")
-        : toQueueSummaryFromPayload(payload, 1),
-      payload,
-    };
-  }
-
-  if (exitCode !== 0) {
-    return {
-      ok: false,
-      code: exitCode,
-      summary: `Failed with code ${exitCode}`,
-      payload: {
-        ok: false,
-        command: args.commandLabel,
-        code: exitCode,
-        stdout: result.stdout,
-        stderr: result.stderr,
-      },
-    };
-  }
-
-  return {
-    ok: true,
-    code: 0,
-    summary: args.successSummary || "Completed successfully.",
-    payload: {
-      ok: true,
-      command: args.commandLabel,
-      output: result.stdout,
-    },
-  };
-}
+const { runQueuedSpawnCommand } = commandExecutionService;
 
 function toBooleanString(value, fallback) {
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -415,20 +300,6 @@ function isDevRuntime() {
 
 function sha256Text(value) {
   return createHash("sha256").update(value, "utf8").digest("hex");
-}
-
-async function runCommandCapture(args) {
-  const result = await runSpawnWithCapture({
-    cwd: args.cwd,
-    command: args.command,
-    commandArgs: args.commandArgs,
-  });
-  return {
-    ok: !result.spawnError && result.exitCode === 0,
-    code: result.exitCode,
-    stdout: result.stdout,
-    stderr: [result.stderr, result.spawnError].filter(Boolean).join("\n").trim(),
-  };
 }
 
 function getSystemContext(systemHeader) {
