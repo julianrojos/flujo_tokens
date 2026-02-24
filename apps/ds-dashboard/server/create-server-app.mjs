@@ -1,6 +1,5 @@
 import fsSync from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 import { Hono } from "hono";
@@ -32,6 +31,11 @@ import { createQueueEngineService } from "./lib/queue-engine-service.mjs";
 import { createCommandExecutionService } from "./lib/command-execution-service.mjs";
 import { createQueueJobFactoryService } from "./lib/queue-job-factory-service.mjs";
 import { buildCreateServerRouteDeps } from "./lib/create-server-route-deps.mjs";
+import {
+  createDevRuntimeChecker,
+  createSha256TextHasher,
+  createSystemContextResolver,
+} from "./lib/create-server-runtime-utils.mjs";
 import {
   buildApiErrorPayload,
   createApiRequestId,
@@ -138,17 +142,9 @@ export function createServerApp({
   const { runQueuedSpawnCommand } = commandExecutionService;
   const buildSnippet = createSnippetBuilder(MAX_SNIPPET_LINES);
 
-  function isDevRuntime() {
-    return env.NODE_ENV === "development";
-  }
-
-  function sha256Text(value) {
-    return createHash("sha256").update(value, "utf8").digest("hex");
-  }
-
-  function getSystemContext(systemHeader) {
-    return designSystemRepository.resolveDashboardSystemContext(systemHeader);
-  }
+  const isDevRuntime = createDevRuntimeChecker(env);
+  const sha256Text = createSha256TextHasher();
+  const getSystemContext = createSystemContextResolver(designSystemRepository);
 
   const queueJobFactory = createQueueJobFactoryService({
     getSystemContext,
