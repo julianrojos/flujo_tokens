@@ -13,6 +13,7 @@ import {
 import { OperationRow } from "./components/operation-row";
 import { PipelineForm } from "./components/pipeline-form";
 import { CaptureForm } from "./components/capture-form";
+import { FigmaTokenSyncForm } from "./components/figma-token-sync-form";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "./hooks/use-operation-runner";
 
@@ -389,6 +390,13 @@ export function OperationsPage() {
           label="Capture Figma Screenshot"
           description="Captura la visual proof de un nodo Figma por URL y la asocia al componente."
           endpoint="/api/capture-figma-screenshot"
+          onRunSuccess={refreshStatuses}
+        />
+        <FigmaTokenSyncForm
+          id="figma-token-sync"
+          label="Sync Figma Variables → Tokens"
+          description="Importa variables locales de Figma, escribe los JSON en input/ y compila a CSS custom properties."
+          endpoint="/api/sync-figma-tokens"
           onRunSuccess={refreshStatuses}
         />
       </section>

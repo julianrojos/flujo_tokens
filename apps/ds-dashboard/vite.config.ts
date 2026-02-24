@@ -1033,6 +1033,7 @@ function getSystemContextParams(req: { headers?: Record<string, string | string[
     tokenDiffScriptPath: path.join(repoRoot, "tooling", "scripts", "ds-token-diff.mjs"),
     healthSnapshotScriptPath: path.join(repoRoot, "tooling", "scripts", "ds-health-snapshot.mjs"),
     captureFromFigmaUrlScriptPath: path.join(repoRoot, "tooling", "scripts", "ds-capture-from-figma-url.mjs"),
+    tokensFromFigmaScriptPath: path.join(repoRoot, "tooling", "scripts", "ds-tokens-from-figma.mjs"),
     specBackupsDirPath: path.join(genDir, "spec-backups"),
     rawConfig: config
   };
@@ -1367,6 +1368,7 @@ function createLocalDataApi() {
       tokenDiffScriptPath,
       healthSnapshotScriptPath,
       captureFromFigmaUrlScriptPath,
+      tokensFromFigmaScriptPath,
       specBackupsDirPath
     } = sysCtx;
 
@@ -2314,6 +2316,42 @@ function createLocalDataApi() {
             "--format",
             "json",
           ],
+        });
+        return;
+      }
+
+      if (method === "POST" && url === "/api/sync-figma-tokens") {
+        const body = await readJsonBody(req);
+        const figmaUrl = String(body.url ?? body.figmaUrl ?? "").trim();
+        const figmaToken = String(body.figmaToken ?? "").trim();
+        const force = toBooleanString(body.force, false);
+        const merge = toBooleanString(body.merge, false);
+        const compile = toBooleanString(body.compile, true);
+        const dryRun = toBooleanString(body.dryRun, true);
+
+        const commandArgs: string[] = [
+          "--force", force,
+          "--merge", merge,
+          "--compile", compile,
+          "--dry-run", dryRun,
+        ];
+        if (figmaUrl) commandArgs.push("--url", figmaUrl);
+        if (figmaToken) commandArgs.push("--figma-token", figmaToken);
+
+        const commandDisplayArgs = [...commandArgs];
+        const tokenIdx = commandDisplayArgs.indexOf("--figma-token");
+        if (tokenIdx >= 0 && tokenIdx + 1 < commandDisplayArgs.length) {
+          commandDisplayArgs[tokenIdx + 1] = "***redacted***";
+        }
+
+        runNodeJsonCommand({
+          repoRoot,
+          res,
+          commandLabel: `node tooling/scripts/ds-tokens-from-figma.mjs ${commandDisplayArgs.join(" ")}`,
+          scriptPath: tokensFromFigmaScriptPath,
+          systemId,
+          scriptArgs: commandArgs,
+          allowNonZeroJson: true,
         });
         return;
       }
