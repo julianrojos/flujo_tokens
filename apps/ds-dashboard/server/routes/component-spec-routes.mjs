@@ -1,20 +1,18 @@
-import path from "node:path";
-
 import { buildSpecDiff } from "../../src/lib/spec-diff.ts";
 import { validateComponentSpec } from "../../src/lib/spec-validator.ts";
 import {
   MAX_COMPONENT_SPEC_BYTES,
-  buildSpecValidationPayload,
   loadTokenRegistry,
-  parseYamlSafely,
   persistSpecWithBackup,
   readLatestSpecBackup,
   readTextFileIfExists,
   restoreComponentSpecFromLatestBackup,
+  saveComponentSpecRaw,
   restoreSpecFromRaw,
   resolveComponentSpecTarget,
   runCommandCapture,
   sanitizeComponentSlug,
+  validateComponentSpecRaw,
 } from "../lib/component-spec-service.mjs";
 
 export function registerComponentSpecRoutes(app, deps) {
@@ -112,68 +110,18 @@ export function registerComponentSpecRoutes(app, deps) {
 
     const body = await readJsonBody(c);
     const raw = String(body.raw ?? "");
-    if (!raw.trim()) {
-      return c.json({
-        ok: true,
-        slug,
-        path: target.specRelPath,
-        rawHash: null,
-        parsed: null,
-        validation: {
-          valid: false,
-          blockingIssueCount: 1,
-          warningCount: 0,
-          issues: [
-            {
-              severity: "error",
-              code: "SPEC_EMPTY",
-              path: "$",
-              message: "Spec content cannot be empty.",
-            },
-          ],
-        },
-        diff: [],
-      });
-    }
-
-    if (Buffer.byteLength(raw, "utf8") > MAX_COMPONENT_SPEC_BYTES) {
-      return c.json({
-        ok: true,
-        slug,
-        path: target.specRelPath,
-        rawHash: null,
-        parsed: null,
-        validation: {
-          valid: false,
-          blockingIssueCount: 1,
-          warningCount: 0,
-          issues: [
-            {
-              severity: "error",
-              code: "SPEC_TOO_LARGE",
-              path: "$",
-              message: `Spec exceeds ${MAX_COMPONENT_SPEC_BYTES} bytes.`,
-            },
-          ],
-        },
-        diff: [],
-      });
-    }
-
-    const currentLoaded = await readTextFileIfExists(target.specAbsPath);
-    const currentRaw = currentLoaded.raw;
-    const baselineParsed = parseYamlSafely(currentRaw).parsed;
-    const tokenRegistry = await loadTokenRegistry(sysCtx.tokenRegistryPath);
-
-    const payload = buildSpecValidationPayload(
+    const payload = await validateComponentSpecRaw(
       {
         slug,
         path: target.specRelPath,
         raw,
-        baselineParsed,
-        tokenRegistry,
+        specAbsPath: target.specAbsPath,
+        tokenRegistryPath: sysCtx.tokenRegistryPath,
+        maxBytes: MAX_COMPONENT_SPEC_BYTES,
       },
       {
+        readTextFileIfExistsFn: readTextFileIfExists,
+        loadTokenRegistryFn: loadTokenRegistry,
         validateComponentSpecFn: validateComponentSpec,
         buildSpecDiffFn: buildSpecDiff,
         sha256TextFn: sha256Text,
@@ -227,188 +175,32 @@ export function registerComponentSpecRoutes(app, deps) {
         : String(body.expectedHash).trim() || null;
     const refreshRegistryAfterSave = body.refreshRegistry !== false;
     const confirmRiskyChanges = body.confirmRiskyChanges === true;
-
-    if (!raw.trim()) {
-      return c.json({
-        ok: false,
-        slug,
-        path: target.specRelPath,
-        rawHash: null,
-        backupPath: null,
-        parsed: null,
-        validation: {
-          valid: false,
-          blockingIssueCount: 1,
-          warningCount: 0,
-          issues: [
-            {
-              severity: "error",
-              code: "SPEC_EMPTY",
-              path: "$",
-              message: "Spec content cannot be empty.",
-            },
-          ],
-        },
-        diff: [],
-        message: "Spec content cannot be empty.",
-      });
-    }
-
-    if (Buffer.byteLength(raw, "utf8") > MAX_COMPONENT_SPEC_BYTES) {
-      return c.json({
-        ok: false,
-        slug,
-        path: target.specRelPath,
-        rawHash: null,
-        backupPath: null,
-        parsed: null,
-        validation: {
-          valid: false,
-          blockingIssueCount: 1,
-          warningCount: 0,
-          issues: [
-            {
-              severity: "error",
-              code: "SPEC_TOO_LARGE",
-              path: "$",
-              message: `Spec exceeds ${MAX_COMPONENT_SPEC_BYTES} bytes.`,
-            },
-          ],
-        },
-        diff: [],
-        message: `Spec exceeds ${MAX_COMPONENT_SPEC_BYTES} bytes.`,
-      });
-    }
-
-    const currentLoaded = await readTextFileIfExists(target.specAbsPath);
-    const currentRaw = currentLoaded.raw;
-    const currentExists = currentLoaded.exists;
-
-    const currentHash = currentExists ? sha256Text(currentRaw) : null;
-    if (expectedHash && expectedHash !== currentHash) {
-      return c.json({
-        ok: false,
-        slug,
-        path: target.specRelPath,
-        rawHash: currentHash,
-        backupPath: null,
-        parsed: null,
-        validation: {
-          valid: false,
-          blockingIssueCount: 1,
-          warningCount: 0,
-          issues: [
-            {
-              severity: "error",
-              code: "SPEC_CONFLICT",
-              path: "$",
-              message: "Spec file changed on disk since you opened the editor. Reload to merge latest content.",
-            },
-          ],
-        },
-        diff: [],
-        message: "Spec file changed on disk; reload before saving.",
-      });
-    }
-
-    const baselineParsed = parseYamlSafely(currentRaw).parsed;
-    const tokenRegistry = await loadTokenRegistry(sysCtx.tokenRegistryPath);
-    const validationPayload = buildSpecValidationPayload(
+    const payload = await saveComponentSpecRaw(
       {
         slug,
         path: target.specRelPath,
         raw,
-        baselineParsed,
-        tokenRegistry,
+        specAbsPath: target.specAbsPath,
+        specBackupsDirPath: sysCtx.specBackupsDirPath,
+        repoRoot: sysCtx.repoRoot,
+        tokenRegistryPath: sysCtx.tokenRegistryPath,
+        expectedHash,
+        confirmRiskyChanges,
+        refreshRegistryAfterSave,
+        maxBytes: MAX_COMPONENT_SPEC_BYTES,
       },
       {
+        readTextFileIfExistsFn: readTextFileIfExists,
+        loadTokenRegistryFn: loadTokenRegistry,
         validateComponentSpecFn: validateComponentSpec,
         buildSpecDiffFn: buildSpecDiff,
         sha256TextFn: sha256Text,
+        persistSpecWithBackupFn: persistSpecWithBackup,
+        runCommandCaptureFn: runCommandCapture,
       },
     );
 
-    if (!validationPayload.validation.valid) {
-      return c.json({
-        ok: false,
-        slug,
-        path: target.specRelPath,
-        rawHash: currentHash,
-        backupPath: null,
-        parsed: validationPayload.parsed,
-        validation: validationPayload.validation,
-        diff: validationPayload.diff,
-        message: "Spec has validation errors.",
-      });
-    }
-
-    const requiresConfirmation = validationPayload.validation.issues.some(
-      (issue) => issue.requiresConfirmation === true,
-    );
-    if (requiresConfirmation && !confirmRiskyChanges) {
-      return c.json({
-        ok: false,
-        slug,
-        path: target.specRelPath,
-        rawHash: currentHash,
-        backupPath: null,
-        parsed: validationPayload.parsed,
-        validation: validationPayload.validation,
-        diff: validationPayload.diff,
-        requiresConfirmation: true,
-        message: "This change includes risky fields and requires explicit confirmation.",
-      });
-    }
-
-    const persisted = await persistSpecWithBackup({
-      specAbsPath: target.specAbsPath,
-      specBackupsDirPath: sysCtx.specBackupsDirPath,
-      slug,
-      currentRaw,
-      currentExists,
-      nextRaw: raw,
-    });
-
-    let refreshed = false;
-    let refreshOutput = "";
-    if (refreshRegistryAfterSave) {
-      const refresh = await runCommandCapture({
-        cwd: sysCtx.repoRoot,
-        command: "npm",
-        commandArgs: ["run", "ds:registry:refresh"],
-      });
-      refreshed = refresh.ok;
-      refreshOutput = [refresh.stdout, refresh.stderr].filter(Boolean).join("\n").trim();
-      if (!refresh.ok) {
-        return c.json({
-          ok: false,
-          slug,
-          path: target.specRelPath,
-          rawHash: sha256Text(raw),
-          backupPath: path.relative(sysCtx.repoRoot, persisted.backupLatestPath),
-          parsed: validationPayload.parsed,
-          validation: validationPayload.validation,
-          diff: validationPayload.diff,
-          refreshed,
-          refreshOutput,
-          message: "Spec saved, but registry refresh failed.",
-        });
-      }
-    }
-
-    return c.json({
-      ok: true,
-      slug,
-      path: target.specRelPath,
-      rawHash: sha256Text(raw),
-      backupPath: path.relative(sysCtx.repoRoot, persisted.backupLatestPath),
-      parsed: validationPayload.parsed,
-      validation: validationPayload.validation,
-      diff: validationPayload.diff,
-      refreshed,
-      refreshOutput,
-      message: "Spec saved successfully.",
-    });
+    return c.json(payload);
   });
 
   app.post("/api/component-spec/:slug/restore-backup", async (c) => {

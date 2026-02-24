@@ -9,10 +9,12 @@ import {
   readLatestSpecBackup,
   readTextFileIfExists,
   restoreComponentSpecFromLatestBackup,
+  saveComponentSpecRaw,
   restoreSpecFromRaw,
   resolveComponentSpecTarget,
   runCommandCapture,
   sanitizeComponentSlug,
+  validateComponentSpecRaw,
 } from "./component-spec-service.mjs";
 
 test("component-spec-service: sanitizeComponentSlug enforces expected pattern", () => {
@@ -393,4 +395,65 @@ test("component-spec-service: restoreComponentSpecFromLatestBackup restores and 
       commandArgs: ["run", "ds:registry:refresh"],
     },
   ]);
+});
+
+test("component-spec-service: validateComponentSpecRaw returns empty payload for blank input", async () => {
+  const payload = await validateComponentSpecRaw(
+    {
+      slug: "button",
+      path: "docs/_spec/components/button.yml",
+      raw: "",
+      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      tokenRegistryPath: "/repo/docs/_generated/token-registry.json",
+      maxBytes: 10,
+    },
+    {
+      validateComponentSpecFn: () => {
+        throw new Error("should not be called");
+      },
+      buildSpecDiffFn: () => {
+        throw new Error("should not be called");
+      },
+      sha256TextFn: () => "unused",
+    },
+  );
+
+  assert.equal(payload.ok, true);
+  assert.equal(payload.validation.valid, false);
+  assert.equal(payload.validation.issues[0].code, "SPEC_EMPTY");
+});
+
+test("component-spec-service: saveComponentSpecRaw returns conflict on hash mismatch", async () => {
+  const payload = await saveComponentSpecRaw(
+    {
+      slug: "button",
+      path: "docs/_spec/components/button.yml",
+      raw: "name: Button\nstatus: ready\n",
+      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      repoRoot: "/repo",
+      tokenRegistryPath: "/repo/docs/_generated/token-registry.json",
+      expectedHash: "hash:expected",
+      confirmRiskyChanges: false,
+      refreshRegistryAfterSave: true,
+      maxBytes: 1000,
+    },
+    {
+      validateComponentSpecFn: () => {
+        throw new Error("should not be called");
+      },
+      buildSpecDiffFn: () => {
+        throw new Error("should not be called");
+      },
+      sha256TextFn: (value) => `hash:${value.length}`,
+      readTextFileIfExistsFn: async () => ({
+        exists: true,
+        raw: "name: Button\nstatus: draft\n",
+      }),
+    },
+  );
+
+  assert.equal(payload.ok, false);
+  assert.equal(payload.validation.issues[0].code, "SPEC_CONFLICT");
+  assert.equal(payload.message, "Spec file changed on disk; reload before saving.");
 });

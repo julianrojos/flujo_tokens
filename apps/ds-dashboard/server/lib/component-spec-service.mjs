@@ -297,3 +297,269 @@ export async function restoreComponentSpecFromLatestBackup(args, deps = {}) {
     message: "Spec restored from latest backup.",
   };
 }
+
+function buildIssue(code, message) {
+  return {
+    severity: "error",
+    code,
+    path: "$",
+    message,
+  };
+}
+
+function buildRawValidationFailurePayload({ mode, slug, path: specRelPath, code, message }) {
+  const payload = {
+    ok: mode === "validate",
+    slug,
+    path: specRelPath,
+    rawHash: null,
+    parsed: null,
+    validation: {
+      valid: false,
+      blockingIssueCount: 1,
+      warningCount: 0,
+      issues: [buildIssue(code, message)],
+    },
+    diff: [],
+  };
+  if (mode === "save") {
+    payload.backupPath = null;
+    payload.message = message;
+  }
+  return payload;
+}
+
+export async function validateComponentSpecRaw(args, deps = {}) {
+  const {
+    slug,
+    path: specRelPath,
+    raw,
+    specAbsPath,
+    tokenRegistryPath,
+    maxBytes = MAX_COMPONENT_SPEC_BYTES,
+  } = args;
+  const {
+    validateComponentSpecFn,
+    buildSpecDiffFn,
+    sha256TextFn,
+    readTextFileIfExistsFn = readTextFileIfExists,
+    parseYamlSafelyFn = parseYamlSafely,
+    loadTokenRegistryFn = loadTokenRegistry,
+    buildSpecValidationPayloadFn = buildSpecValidationPayload,
+  } = deps;
+
+  if (!raw.trim()) {
+    return buildRawValidationFailurePayload({
+      mode: "validate",
+      slug,
+      path: specRelPath,
+      code: "SPEC_EMPTY",
+      message: "Spec content cannot be empty.",
+    });
+  }
+
+  if (Buffer.byteLength(raw, "utf8") > maxBytes) {
+    return buildRawValidationFailurePayload({
+      mode: "validate",
+      slug,
+      path: specRelPath,
+      code: "SPEC_TOO_LARGE",
+      message: `Spec exceeds ${maxBytes} bytes.`,
+    });
+  }
+
+  const currentLoaded = await readTextFileIfExistsFn(specAbsPath);
+  const currentRaw = currentLoaded.raw;
+  const baselineParsed = parseYamlSafelyFn(currentRaw).parsed;
+  const tokenRegistry = await loadTokenRegistryFn(tokenRegistryPath);
+
+  return buildSpecValidationPayloadFn(
+    {
+      slug,
+      path: specRelPath,
+      raw,
+      baselineParsed,
+      tokenRegistry,
+    },
+    {
+      validateComponentSpecFn,
+      buildSpecDiffFn,
+      sha256TextFn,
+    },
+  );
+}
+
+export async function saveComponentSpecRaw(args, deps = {}) {
+  const {
+    slug,
+    path: specRelPath,
+    raw,
+    specAbsPath,
+    specBackupsDirPath,
+    repoRoot,
+    tokenRegistryPath,
+    expectedHash,
+    confirmRiskyChanges,
+    refreshRegistryAfterSave,
+    maxBytes = MAX_COMPONENT_SPEC_BYTES,
+  } = args;
+  const {
+    validateComponentSpecFn,
+    buildSpecDiffFn,
+    sha256TextFn,
+    readTextFileIfExistsFn = readTextFileIfExists,
+    parseYamlSafelyFn = parseYamlSafely,
+    loadTokenRegistryFn = loadTokenRegistry,
+    buildSpecValidationPayloadFn = buildSpecValidationPayload,
+    persistSpecWithBackupFn = persistSpecWithBackup,
+    runCommandCaptureFn = runCommandCapture,
+  } = deps;
+
+  if (!raw.trim()) {
+    return buildRawValidationFailurePayload({
+      mode: "save",
+      slug,
+      path: specRelPath,
+      code: "SPEC_EMPTY",
+      message: "Spec content cannot be empty.",
+    });
+  }
+
+  if (Buffer.byteLength(raw, "utf8") > maxBytes) {
+    return buildRawValidationFailurePayload({
+      mode: "save",
+      slug,
+      path: specRelPath,
+      code: "SPEC_TOO_LARGE",
+      message: `Spec exceeds ${maxBytes} bytes.`,
+    });
+  }
+
+  const currentLoaded = await readTextFileIfExistsFn(specAbsPath);
+  const currentRaw = currentLoaded.raw;
+  const currentExists = currentLoaded.exists;
+  const currentHash = currentExists ? sha256TextFn(currentRaw) : null;
+
+  if (expectedHash && expectedHash !== currentHash) {
+    return {
+      ok: false,
+      slug,
+      path: specRelPath,
+      rawHash: currentHash,
+      backupPath: null,
+      parsed: null,
+      validation: {
+        valid: false,
+        blockingIssueCount: 1,
+        warningCount: 0,
+        issues: [
+          buildIssue(
+            "SPEC_CONFLICT",
+            "Spec file changed on disk since you opened the editor. Reload to merge latest content.",
+          ),
+        ],
+      },
+      diff: [],
+      message: "Spec file changed on disk; reload before saving.",
+    };
+  }
+
+  const baselineParsed = parseYamlSafelyFn(currentRaw).parsed;
+  const tokenRegistry = await loadTokenRegistryFn(tokenRegistryPath);
+  const validationPayload = buildSpecValidationPayloadFn(
+    {
+      slug,
+      path: specRelPath,
+      raw,
+      baselineParsed,
+      tokenRegistry,
+    },
+    {
+      validateComponentSpecFn,
+      buildSpecDiffFn,
+      sha256TextFn,
+    },
+  );
+
+  if (!validationPayload.validation.valid) {
+    return {
+      ok: false,
+      slug,
+      path: specRelPath,
+      rawHash: currentHash,
+      backupPath: null,
+      parsed: validationPayload.parsed,
+      validation: validationPayload.validation,
+      diff: validationPayload.diff,
+      message: "Spec has validation errors.",
+    };
+  }
+
+  const requiresConfirmation = validationPayload.validation.issues.some(
+    (issue) => issue.requiresConfirmation === true,
+  );
+  if (requiresConfirmation && !confirmRiskyChanges) {
+    return {
+      ok: false,
+      slug,
+      path: specRelPath,
+      rawHash: currentHash,
+      backupPath: null,
+      parsed: validationPayload.parsed,
+      validation: validationPayload.validation,
+      diff: validationPayload.diff,
+      requiresConfirmation: true,
+      message: "This change includes risky fields and requires explicit confirmation.",
+    };
+  }
+
+  const persisted = await persistSpecWithBackupFn({
+    specAbsPath,
+    specBackupsDirPath,
+    slug,
+    currentRaw,
+    currentExists,
+    nextRaw: raw,
+  });
+
+  let refreshed = false;
+  let refreshOutput = "";
+  if (refreshRegistryAfterSave) {
+    const refresh = await runCommandCaptureFn({
+      cwd: repoRoot,
+      command: "npm",
+      commandArgs: ["run", "ds:registry:refresh"],
+    });
+    refreshed = refresh.ok;
+    refreshOutput = [refresh.stdout, refresh.stderr].filter(Boolean).join("\n").trim();
+    if (!refresh.ok) {
+      return {
+        ok: false,
+        slug,
+        path: specRelPath,
+        rawHash: sha256TextFn(raw),
+        backupPath: path.relative(repoRoot, persisted.backupLatestPath),
+        parsed: validationPayload.parsed,
+        validation: validationPayload.validation,
+        diff: validationPayload.diff,
+        refreshed,
+        refreshOutput,
+        message: "Spec saved, but registry refresh failed.",
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    slug,
+    path: specRelPath,
+    rawHash: sha256TextFn(raw),
+    backupPath: path.relative(repoRoot, persisted.backupLatestPath),
+    parsed: validationPayload.parsed,
+    validation: validationPayload.validation,
+    diff: validationPayload.diff,
+    refreshed,
+    refreshOutput,
+    message: "Spec saved successfully.",
+  };
+}
