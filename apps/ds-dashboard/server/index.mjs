@@ -42,6 +42,15 @@ import { createQueueEngineService } from "./lib/queue-engine-service.mjs";
 import { createCommandExecutionService } from "./lib/command-execution-service.mjs";
 import { createQueueJobFactoryService } from "./lib/queue-job-factory-service.mjs";
 import {
+  buildApiErrorPayload,
+  createApiRequestId,
+  createFailJson,
+  createHealthPayloadBuilder,
+  createOperationEventId,
+  nowIso,
+  writeStructuredLog,
+} from "./lib/api-response-service.mjs";
+import {
   createSnippetBuilder,
   findLineForQuery,
   guessContentType,
@@ -106,14 +115,6 @@ const SUPPORTED_REPLAY_OPERATIONS = new Set([
   "script:ds-health-snapshot.mjs",
   ...Array.from(REPLAYABLE_NPM_SCRIPTS).map((script) => `script:${script}`),
 ]);
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function createOperationEventId() {
-  return `op_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-}
 
 const operationHistoryService = createOperationHistoryService({
   repoRoot,
@@ -188,88 +189,16 @@ const {
 } = queueJobFactory;
 
 const app = new Hono();
+const failJson = createFailJson({
+  createRequestId: createApiRequestId,
+  buildApiErrorPayloadFn: buildApiErrorPayload,
+  writeStructuredLogFn: writeStructuredLog,
+});
 
-function createApiRequestId() {
-  return `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function writeStructuredLog(level, payload) {
-  const base = {
-    level,
-    ts: Date.now(),
-    service: "ds-dashboard-api",
-  };
-  const line = JSON.stringify({ ...base, ...(payload && typeof payload === "object" ? payload : {}) });
-  if (level === "error") {
-    // eslint-disable-next-line no-console
-    console.error(line);
-    return;
-  }
-  if (level === "warn") {
-    // eslint-disable-next-line no-console
-    console.warn(line);
-    return;
-  }
-  // eslint-disable-next-line no-console
-  console.log(line);
-}
-
-function buildApiErrorPayload({
-  code,
-  userMessage,
-  recoverable = false,
-  context,
-  requestId,
-}) {
-  const safeMessage = String(userMessage || "Request failed.");
-  const safeCode = String(code || "internal.unknown_error");
-  const safeRequestId = String(requestId || createApiRequestId());
-  const payload = {
-    ok: false,
-    message: safeMessage,
-    requestId: safeRequestId,
-    error: {
-      code: safeCode,
-      userMessage: safeMessage,
-      recoverable: recoverable === true,
-    },
-  };
-  if (context && typeof context === "object" && !Array.isArray(context)) {
-    payload.error.context = context;
-  }
-  return payload;
-}
-
-function failJson(c, statusCode, args) {
-  const requestId = String(args?.requestId || createApiRequestId());
-  const payload = buildApiErrorPayload({
-    ...args,
-    requestId,
-  });
-  if (args?.suppressLog !== true) {
-    writeStructuredLog(statusCode >= 500 ? "error" : "warn", {
-      event: "api.error",
-      requestId,
-      code: payload?.error?.code || "internal.unknown_error",
-      statusCode,
-      recoverable: payload?.error?.recoverable === true,
-      path: c.req.path,
-      method: c.req.method,
-      context: payload?.error?.context || null,
-    });
-  }
-  return c.json(payload, statusCode);
-}
-
-function buildHealthPayload() {
-  return {
-    status: "ok",
-    service: "ds-dashboard-api",
-    now: nowIso(),
-    uptime: process.uptime(),
-    queue: queueMetrics(),
-  };
-}
+const buildHealthPayload = createHealthPayloadBuilder({
+  queueMetrics,
+  nowIsoFn: nowIso,
+});
 
 registerSystemRoutes(app, {
   buildHealthPayload,
