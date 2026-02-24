@@ -1,4 +1,14 @@
 import { streamSSE } from "hono/streaming";
+import {
+  buildQueueJobNotCancelableErrorArgs,
+  buildQueueJobNotFoundErrorArgs,
+  buildQueueJobStatePayload,
+  buildQueueMissingJobStreamEvents,
+  buildQueueStreamTimeoutEvents,
+  decodeJobId,
+  parseJobEventsCursor,
+  parseJobEventsPage,
+} from "../lib/job-route-service.mjs";
 
 export function registerJobRoutes(app, deps) {
   const {
@@ -14,70 +24,52 @@ export function registerJobRoutes(app, deps) {
   } = deps;
 
   app.get("/api/jobs/:jobId", (c) => {
-    const jobId = decodeURIComponent(String(c.req.param("jobId") || ""));
+    const jobId = decodeJobId(c.req.param("jobId"));
     const job = queueJobs.get(jobId);
     if (!job) {
-      return failJson(c, 404, {
-        code: "queue.job_not_found",
-        userMessage: `Job '${jobId}' not found.`,
-        recoverable: true,
-        context: { jobId },
-      });
+      return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId));
     }
 
-    const sinceRaw = Number.parseInt(String(c.req.query("since") || ""), 10);
-    const limitRaw = Number.parseInt(String(c.req.query("limit") || ""), 10);
-    const since = Number.isFinite(sinceRaw) ? Math.max(0, sinceRaw) : 0;
-    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(limitRaw, 1_000)) : 300;
+    const { since, limit } = parseJobEventsPage(c.req.query("since"), c.req.query("limit"));
     const events = listQueueJobEvents(job, { since, limit });
-    const nextCursor =
-      job.events.length > 0 ? job.events[job.events.length - 1].seq : Math.max(0, job.nextSeq - 1);
-
-    return c.json({
-      ok: true,
-      job: queueJobSnapshot(job),
-      done: isQueueJobFinalStatus(job.status),
-      events,
-      nextCursor,
-    });
+    return c.json(
+      buildQueueJobStatePayload({
+        job,
+        events,
+        queueJobSnapshotFn: queueJobSnapshot,
+        isQueueJobFinalStatusFn: isQueueJobFinalStatus,
+      }),
+    );
   });
 
   app.delete("/api/jobs/:jobId", (c) => {
-    const jobId = decodeURIComponent(String(c.req.param("jobId") || ""));
+    const jobId = decodeJobId(c.req.param("jobId"));
     const job = queueJobs.get(jobId);
     if (!job) {
-      return failJson(c, 404, {
-        code: "queue.job_not_found",
-        userMessage: `Job '${jobId}' not found.`,
-        recoverable: true,
-        context: { jobId },
-      });
+      return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId));
     }
 
     const cancelled = cancelQueueJob(jobId);
     if (!cancelled.ok) {
-      return failJson(c, 409, {
-        code: "queue.job_not_cancelable",
-        userMessage: String(cancelled.message || "Job cannot be cancelled."),
-        recoverable: true,
-        context: { jobId, status: job.status },
-      });
+      return failJson(
+        c,
+        409,
+        buildQueueJobNotCancelableErrorArgs({
+          jobId,
+          status: job.status,
+          message: cancelled.message,
+        }),
+      );
     }
     return c.json({ ok: true, job: queueJobSnapshot(job) });
   });
 
   app.get("/api/jobs/:jobId/stream", (c) => {
-    const jobId = decodeURIComponent(String(c.req.param("jobId") || ""));
-    const sinceRaw = Number.parseInt(String(c.req.query("since") || ""), 10);
-    const since = Number.isFinite(sinceRaw) ? Math.max(0, sinceRaw) : 0;
+    const jobId = decodeJobId(c.req.param("jobId"));
+    const since = parseJobEventsCursor(c.req.query("since"));
     const existing = queueJobs.get(jobId);
     if (!existing) {
-      return failJson(c, 404, {
-        code: "queue.job_not_found",
-        userMessage: `Job '${jobId}' not found.`,
-        recoverable: true,
-        context: { jobId },
-      });
+      return failJson(c, 404, buildQueueJobNotFoundErrorArgs(jobId));
     }
 
     return streamSSE(c, async (stream) => {
@@ -90,21 +82,12 @@ export function registerJobRoutes(app, deps) {
       while (Date.now() < deadline) {
         const job = queueJobs.get(jobId);
         if (!job) {
-          await writeJsonEvent({
-            type: "error",
-            ...buildApiErrorPayload({
-              code: "queue.job_not_found",
-              userMessage: `Job '${jobId}' not found.`,
-              recoverable: true,
-              context: { jobId },
-            }),
+          const missing = buildQueueMissingJobStreamEvents({
+            jobId,
+            buildApiErrorPayloadFn: buildApiErrorPayload,
           });
-          await writeJsonEvent({
-            type: "end",
-            status: "error",
-            code: 404,
-            summary: `Job '${jobId}' not found.`,
-          });
+          await writeJsonEvent(missing.errorEvent);
+          await writeJsonEvent(missing.endEvent);
           return;
         }
 
@@ -126,21 +109,12 @@ export function registerJobRoutes(app, deps) {
         await new Promise((resolve) => setTimeout(resolve, 900));
       }
 
-      await writeJsonEvent({
-        type: "error",
-        ...buildApiErrorPayload({
-          code: "queue.stream_timeout",
-          userMessage: "Stream timeout waiting for job completion.",
-          recoverable: true,
-          context: { jobId },
-        }),
+      const timeout = buildQueueStreamTimeoutEvents({
+        jobId,
+        buildApiErrorPayloadFn: buildApiErrorPayload,
       });
-      await writeJsonEvent({
-        type: "end",
-        status: "error",
-        code: 408,
-        summary: "Stream timeout waiting for job completion.",
-      });
+      await writeJsonEvent(timeout.errorEvent);
+      await writeJsonEvent(timeout.endEvent);
     });
   });
 }
