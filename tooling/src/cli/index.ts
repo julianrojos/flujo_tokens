@@ -337,25 +337,52 @@ if (parsedArgs.help) {
 }
 
 const options: CliOptions = parsedArgs;
+type PipelineContextConfig = {
+    jsonDir: string;
+    outputFile: string;
+    outputPrimitives: string;
+    outputTokens: string;
+    registryOutput: string;
+    splitOutput: boolean;
+    registryEnabled: boolean;
+    preferredMode?: string;
+    modeStrict: boolean;
+    modeStrictPreferred: boolean;
+    effectiveSystemId: string;
+    cacheDir: string;
+    ingestCheckpointPath: string;
+    indexCheckpointPath: string;
+    analyzeCheckpointPath: string;
+};
 
-const JSON_DIR = options.inputDir;
-const OUTPUT_FILE = options.outputFile;
-const OUTPUT_PRIMITIVES = options.outputPrimitives;
-const OUTPUT_TOKENS = options.outputTokens;
-const REGISTRY_OUTPUT = options.registryOutput;
-const SPLIT_OUTPUT = options.split;
-const REGISTRY_ENABLED = options.registry;
-const PREFERRED_MODE = options.mode?.trim() || undefined;
-const MODE_STRICT = options.modeStrict;
-const MODE_STRICT_PREFERRED = MODE_STRICT && !!PREFERRED_MODE;
+function createPipelineContextConfig(args: CliOptions): PipelineContextConfig {
+    const preferredMode = args.mode?.trim() || undefined;
+    const modeStrict = args.modeStrict;
+    const modeStrictPreferred = modeStrict && !!preferredMode;
+    const effectiveSystemId = args.system || 'default';
+    const cacheDir = args.cacheDir || path.resolve(ROOT_DIR, '.cache', `tokens-${effectiveSystemId}`);
+    return {
+        jsonDir: args.inputDir,
+        outputFile: args.outputFile,
+        outputPrimitives: args.outputPrimitives,
+        outputTokens: args.outputTokens,
+        registryOutput: args.registryOutput,
+        splitOutput: args.split,
+        registryEnabled: args.registry,
+        preferredMode,
+        modeStrict,
+        modeStrictPreferred,
+        effectiveSystemId,
+        cacheDir,
+        ingestCheckpointPath: path.join(cacheDir, 'ingest-hash.json'),
+        indexCheckpointPath: path.join(cacheDir, 'index-map.json'),
+        analyzeCheckpointPath: path.join(cacheDir, 'analysis-report.json')
+    };
+}
 
-const effectiveSystemId = options.system || 'default';
-const CACHE_DIR = options.cacheDir || path.resolve(ROOT_DIR, '.cache', `tokens-${effectiveSystemId}`);
-const INGEST_CHECKPOINT_PATH = path.join(CACHE_DIR, 'ingest-hash.json');
-const INDEX_CHECKPOINT_PATH = path.join(CACHE_DIR, 'index-map.json');
-const ANALYZE_CHECKPOINT_PATH = path.join(CACHE_DIR, 'analysis-report.json');
+const pipelineContext = createPipelineContextConfig(options);
 
-if (MODE_STRICT && !PREFERRED_MODE) {
+if (pipelineContext.modeStrict && !pipelineContext.preferredMode) {
     console.warn(
         'ℹ️  --mode-strict was provided without --mode <name>; strict checks apply only when a preferred mode is set. Continuing in loose mode.'
     );
@@ -554,22 +581,25 @@ function buildScopeProcessingContexts(
     });
 }
 
-function getOutputTargets(fileEntries: FileEntry[]): OutputTarget[] {
+function getOutputTargets(
+    fileEntries: FileEntry[],
+    context: Pick<PipelineContextConfig, 'splitOutput' | 'outputPrimitives' | 'outputTokens' | 'outputFile'>
+): OutputTarget[] {
     const primitiveEntries = fileEntries.filter(entry => entry.originalName.startsWith('_'));
     const tokenEntries = fileEntries.filter(entry => !entry.originalName.startsWith('_'));
 
-    return SPLIT_OUTPUT
+    return context.splitOutput
         ? [
-            { label: 'primitives', filePath: OUTPUT_PRIMITIVES, emitEntries: primitiveEntries },
-            { label: 'tokens', filePath: OUTPUT_TOKENS, emitEntries: tokenEntries }
+            { label: 'primitives', filePath: context.outputPrimitives, emitEntries: primitiveEntries },
+            { label: 'tokens', filePath: context.outputTokens, emitEntries: tokenEntries }
         ]
-        : [{ label: 'custom properties', filePath: OUTPUT_FILE, emitEntries: fileEntries }];
+        : [{ label: 'custom properties', filePath: context.outputFile, emitEntries: fileEntries }];
 }
 
-function getEmitManifestPath(outputs: OutputTarget[]): string {
+function getEmitManifestPath(outputs: OutputTarget[], outputFile: string): string {
     const dirs = outputs.map(output => path.dirname(output.filePath));
     const allSame = dirs.every(dir => dir === dirs[0]);
-    const manifestDir = allSame ? dirs[0] : path.dirname(OUTPUT_FILE);
+    const manifestDir = allSame ? dirs[0] : path.dirname(outputFile);
     return path.join(manifestDir, '.emit-manifest.json');
 }
 
@@ -611,10 +641,10 @@ function createCorePipelinePlugins(): TokenPipelinePlugin[] {
                         fromPhase: options.fromPhase,
                         forcePhases: options.forcePhases
                     },
-                    ingestCheckpointPath: INGEST_CHECKPOINT_PATH,
+                    ingestCheckpointPath: pipelineContext.ingestCheckpointPath,
                     pipelineSchemaVersion: PIPELINE_SCHEMA_VERSION,
                     toolVersion: TOOL_VERSION,
-                    jsonDir: JSON_DIR,
+                    jsonDir: pipelineContext.jsonDir,
                     shouldBypassCheckpoint
                 })
         },
@@ -627,10 +657,10 @@ function createCorePipelinePlugins(): TokenPipelinePlugin[] {
                     options: {
                         fromPhase: options.fromPhase,
                         forcePhases: options.forcePhases,
-                        preferredMode: PREFERRED_MODE,
-                        modeStrictPreferred: MODE_STRICT_PREFERRED
+                        preferredMode: pipelineContext.preferredMode,
+                        modeStrictPreferred: pipelineContext.modeStrictPreferred
                     },
-                    indexCheckpointPath: INDEX_CHECKPOINT_PATH,
+                    indexCheckpointPath: pipelineContext.indexCheckpointPath,
                     pipelineSchemaVersion: PIPELINE_SCHEMA_VERSION,
                     toolVersion: TOOL_VERSION,
                     shouldBypassCheckpoint,
@@ -649,7 +679,7 @@ function createCorePipelinePlugins(): TokenPipelinePlugin[] {
                         fromPhase: options.fromPhase,
                         forcePhases: options.forcePhases
                     },
-                    analyzeCheckpointPath: ANALYZE_CHECKPOINT_PATH,
+                    analyzeCheckpointPath: pipelineContext.analyzeCheckpointPath,
                     pipelineSchemaVersion: PIPELINE_SCHEMA_VERSION,
                     toolVersion: TOOL_VERSION,
                     shouldBypassCheckpoint,
@@ -666,19 +696,19 @@ function createCorePipelinePlugins(): TokenPipelinePlugin[] {
                     options: {
                         fromPhase: options.fromPhase,
                         forcePhases: options.forcePhases,
-                        splitOutput: SPLIT_OUTPUT,
-                        registryEnabled: REGISTRY_ENABLED,
-                        registryOutput: REGISTRY_OUTPUT,
-                        preferredMode: PREFERRED_MODE,
-                        modeStrictPreferred: MODE_STRICT_PREFERRED
+                        splitOutput: pipelineContext.splitOutput,
+                        registryEnabled: pipelineContext.registryEnabled,
+                        registryOutput: pipelineContext.registryOutput,
+                        preferredMode: pipelineContext.preferredMode,
+                        modeStrictPreferred: pipelineContext.modeStrictPreferred
                     },
                     pipelineSchemaVersion: PIPELINE_SCHEMA_VERSION,
                     toolVersion: TOOL_VERSION,
                     shouldBypassCheckpoint,
                     toSummarySnapshot,
                     fromSummarySnapshot,
-                    getOutputTargets,
-                    getEmitManifestPath,
+                    getOutputTargets: (fileEntries) => getOutputTargets(fileEntries, pipelineContext),
+                    getEmitManifestPath: (outputs) => getEmitManifestPath(outputs, pipelineContext.outputFile),
                     isEmitCheckpointUsable,
                     buildScopeProcessingContexts
                 })
@@ -691,13 +721,13 @@ async function main() {
 
     const checkpointsEnabled = options.checkpoints;
     if (checkpointsEnabled) {
-        fs.mkdirSync(CACHE_DIR, { recursive: true });
+        fs.mkdirSync(pipelineContext.cacheDir, { recursive: true });
     }
 
-    const inputSnapshot = hashJsonInputDirectory(JSON_DIR);
+    const inputSnapshot = hashJsonInputDirectory(pipelineContext.jsonDir);
     const ingestDependencyHash = sha256FromObject({
         phase: 'ingest',
-        inputDir: JSON_DIR,
+        inputDir: pipelineContext.jsonDir,
         inputHash: inputSnapshot.inputHash
     });
 
