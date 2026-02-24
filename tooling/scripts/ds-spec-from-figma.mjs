@@ -18,12 +18,12 @@ import {
 } from "./lib/spec-registry-prompt.mjs";
 import { runSpecGenerationFlow } from "./lib/spec-generation-flow.mjs";
 import { finalizeSpecResult } from "./lib/spec-finalization.mjs";
+import { runSpecWithGuards } from "./lib/spec-runner.mjs";
 import { validateGeneratedSpec } from "./lib/spec-validation.mjs";
 import {
   ensureSpecOutputDirectory,
   ensureSpecTemplateExists,
   materializeAndWriteSpec as materializeSpecAndWrite,
-  parseExistingSpecFromSnapshot,
 } from "./lib/spec-write-adapter.mjs";
 import {
   captureFileSnapshot,
@@ -127,7 +127,6 @@ export function runSpecFromFigma(args, deps = {}) {
     assertScopedWritePolicyFn = assertScopedWritePolicy,
     ensureSpecTemplateExistsFn = ensureSpecTemplateExists,
     ensureSpecOutputDirectoryFn = ensureSpecOutputDirectory,
-    parseExistingSpecFromSnapshotFn = parseExistingSpecFromSnapshot,
     materializeSpecAndWriteFn = materializeSpecAndWrite,
     assertEvidenceGatedScalarChangesFn = assertEvidenceGatedScalarChanges,
     runSpecGenerationPromptFn = runSpecGenerationPrompt,
@@ -135,6 +134,7 @@ export function runSpecFromFigma(args, deps = {}) {
     validateGeneratedSpecFn = validateGeneratedSpec,
     syncDocumentationIndicesFn = syncDocumentationIndices,
     formatYamlFileFn = formatYamlFile,
+    runSpecWithGuardsFn = runSpecWithGuards,
   } = deps;
 
   const ctx = resolveSystemContextSafeFn({ system: args.system });
@@ -159,107 +159,87 @@ export function runSpecFromFigma(args, deps = {}) {
     allowedWritePaths,
   } = runCtx;
 
-  const outputSnapshot = captureFileSnapshotFn(outputPath);
-  let existingSpec = null;
-  existingSpec = parseExistingSpecFromSnapshotFn(outputSnapshot, outputPath);
-  const scopeSnapshot = captureScopedWriteSnapshotFn({
-    directories: [resolvedSpecRoot, ctx.paths.docs],
-    files: [registryIndexPath],
-    extensions: [".yml", ".md", ".json"],
-  });
-
-  ensureSpecTemplateExistsFn(templatePath);
-
-  const registryIndex = loadRegistryOrThrow({
-    loadTokenRegistryFn,
-    registryPath,
-  });
-
-  const prompt = buildSpecPromptWithRegistry({
-    figmaUrl,
-    nodeId,
-    componentName,
-    componentSlug,
+  return runSpecWithGuardsFn({
     outputPath,
-    templatePath,
-    registryPath,
-    fileKeyFromUrl,
-    registryIndex,
-  });
+    resolvedSpecRoot,
+    docsPath: ctx.paths.docs,
+    registryIndexPath,
+    allowedWritePaths,
+    captureFileSnapshotFn,
+    restoreFileSnapshotFn,
+    captureScopedWriteSnapshotFn,
+    assertScopedWritePolicyFn,
+    run: ({ existingSpec }) => {
+      ensureSpecTemplateExistsFn(templatePath);
 
-  ensureSpecOutputDirectoryFn(outputPath);
+      const registryIndex = loadRegistryOrThrow({
+        loadTokenRegistryFn,
+        registryPath,
+      });
 
-  try {
-    const materializeGeneratedSpec = () => {
-      return materializeSpecAndWriteFn({
+      const prompt = buildSpecPromptWithRegistry({
+        figmaUrl,
+        nodeId,
+        componentName,
+        componentSlug,
         outputPath,
         templatePath,
+        registryPath,
+        fileKeyFromUrl,
         registryIndex,
+      });
+
+      ensureSpecOutputDirectoryFn(outputPath);
+
+      const materializeGeneratedSpec = () => {
+        return materializeSpecAndWriteFn({
+          outputPath,
+          templatePath,
+          registryIndex,
+          componentName,
+          nodeId,
+          fileKeyFromUrl,
+          existingSpec,
+          allowNonEvidenceUpdates,
+          evidenceGate: assertEvidenceGatedScalarChangesFn,
+          evidenceBackedPrefixes: SPEC_EVIDENCE_BACKED_PREFIXES,
+          formatYamlFile: formatYamlFileFn,
+        });
+      };
+
+      const {
+        normalizedSpec,
+        prefilledCount,
+        validationReport,
+      } = runSpecGenerationFlow({
+        prompt,
+        agent,
         componentName,
         nodeId,
-        fileKeyFromUrl,
-        existingSpec,
-        allowNonEvidenceUpdates,
-        evidenceGate: assertEvidenceGatedScalarChangesFn,
-        evidenceBackedPrefixes: SPEC_EVIDENCE_BACKED_PREFIXES,
-        formatYamlFile: formatYamlFileFn,
+        skipValidation,
+        outputPath,
+        registryPath,
+        runSpecGenerationPromptFn,
+        runSpecRepairPromptFn,
+        validateGeneratedSpecFn,
+        materializeGeneratedSpec,
       });
-    };
 
-    const {
-      normalizedSpec,
-      prefilledCount,
-      validationReport,
-    } = runSpecGenerationFlow({
-      prompt,
-      agent,
-      componentName,
-      nodeId,
-      skipValidation,
-      outputPath,
-      registryPath,
-      runSpecGenerationPromptFn,
-      runSpecRepairPromptFn,
-      validateGeneratedSpecFn,
-      materializeGeneratedSpec,
-    });
-
-    assertScopedWritePolicyFn({
-      snapshot: scopeSnapshot,
-      allowedPaths: allowedWritePaths,
-      label: "ds-spec-from-figma",
-    });
-
-    const result = finalizeSpecResult({
-      outputPath,
-      normalizedSpec,
-      componentName,
-      nodeId,
-      prefilledCount,
-      validationReport,
-      resolvedSpecRoot,
-      docsRootDir,
-      overviewPath,
-      registryIndexPath,
-      syncDocumentationIndicesFn,
-    });
-    return result;
-  } catch (error) {
-    restoreFileSnapshotFn(outputPath, outputSnapshot);
-    let scopeMessage = "";
-    try {
-      assertScopedWritePolicyFn({
-        snapshot: scopeSnapshot,
-        allowedPaths: allowedWritePaths,
-        label: "ds-spec-from-figma",
+      return finalizeSpecResult({
+        outputPath,
+        normalizedSpec,
+        componentName,
+        nodeId,
+        prefilledCount,
+        validationReport,
+        resolvedSpecRoot,
+        docsRootDir,
+        overviewPath,
+        registryIndexPath,
+        syncDocumentationIndicesFn,
       });
-    } catch (scopeError) {
-      scopeMessage = `\n${scopeError instanceof Error ? scopeError.message : String(scopeError)}`;
-    }
-    throw new Error(
-      `${error instanceof Error ? error.message : String(error)}${scopeMessage}`
-    );
-  }
+    },
+  });
 }
 
 function main() {
