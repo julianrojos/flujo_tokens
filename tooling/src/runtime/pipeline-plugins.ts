@@ -76,8 +76,35 @@ function normalizeTimeout(rawTimeoutMs: number | undefined): number {
 }
 
 function defaultLogger(event: PipelinePluginLogEvent): void {
+    const ts = new Date().toISOString();
     const sink = event.level === 'error' ? console.error : console.log;
-    sink(JSON.stringify({ ts: Date.now(), ...event }));
+
+    if (event.event === 'pipeline_start') {
+        sink(`[${ts}] pipeline start · phases=${event.phaseCount} plugins=${event.pluginCount} timeout=${event.timeoutMs}ms`);
+        return;
+    }
+
+    if (event.event === 'plugin_start') {
+        sink(`[${ts}] plugin start · ${event.phase}/${event.plugin}`);
+        return;
+    }
+
+    if (event.event === 'plugin_finish') {
+        sink(`[${ts}] plugin finish · ${event.phase}/${event.plugin} (${event.durationMs}ms)`);
+        return;
+    }
+
+    if (event.event === 'plugin_error') {
+        sink(`[${ts}] plugin error · ${event.phase}/${event.plugin} (${event.durationMs}ms): ${event.message}`);
+        return;
+    }
+
+    if (event.event === 'pipeline_complete') {
+        sink(`[${ts}] pipeline complete (${event.durationMs}ms)`);
+        return;
+    }
+
+    sink(`[${ts}] pipeline failed (${event.durationMs}ms): ${event.message}`);
 }
 
 export function buildPhaseExecutionPlan<State>(args: {
