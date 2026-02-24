@@ -182,12 +182,12 @@ export function useOperationRunner(
           }
         } else {
           // ── JSON batch mode (runNpmScript) ─────────────────────────────
-          const data = await response.json().catch(() => ({}));
+          const data = await response.json().catch(() => ({} as Record<string, unknown>));
           isError = !response.ok || data.ok === false;
 
           // Show stdout/stderr as log lines
-          const out = stripAnsi(data.output ?? data.stdout ?? "").trim();
-          const err = stripAnsi(data.stderr ?? "").trim();
+          const out = stripAnsi(String(data.output ?? data.stdout ?? "")).trim();
+          const err = stripAnsi(String(data.stderr ?? "")).trim();
 
           if (out) {
             for (const line of out.split("\n")) {
@@ -204,10 +204,30 @@ export function useOperationRunner(
             }
           }
 
+          const exitCode = Number(data.code ?? data.exit_code);
+          const syncError = typeof data.sync === "object" && data.sync !== null
+            ? String((data.sync as Record<string, unknown>).error ?? "").trim()
+            : "";
+          const syncReason = typeof data.sync === "object" && data.sync !== null
+            ? String((data.sync as Record<string, unknown>).reason ?? "").trim()
+            : "";
+          const topLevelError = String(data.error ?? "").trim();
+          const topLevelMessage = String(data.message ?? "").trim();
+
+          if (isError && !err) {
+            const derived = topLevelMessage || topLevelError || syncError || syncReason;
+            if (derived) {
+              setLogLines((prev) => [...prev, { text: derived, kind: "stderr" }]);
+            }
+          }
+
           if (isError) {
             finalSummary =
-              data.message ??
-              (data.code ? `Falló con código ${data.code}` : "Error desconocido");
+              topLevelMessage ||
+              topLevelError ||
+              syncError ||
+              (syncReason ? `Fallo de sync: ${syncReason}` : "") ||
+              (Number.isFinite(exitCode) ? `Falló con código ${exitCode}` : "Error desconocido");
           } else {
             finalSummary = "Completado correctamente";
           }

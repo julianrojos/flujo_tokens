@@ -3,6 +3,8 @@ node_modules/
 .claude/
 *.log
 *.tsbuildinfo
+.cache/
+output/**/.emit-manifest.json
 docs/_generated/.sync-state.json
 docs/_generated/token-graph*
 docs/_generated/token-health.json
