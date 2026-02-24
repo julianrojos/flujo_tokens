@@ -39,7 +39,7 @@ If additional details are needed, place them under `###` inside the nearest allo
 
 ## `## Gaps / TBD` deterministic contract
 
-> **Machine-readable specification:** `tooling/scripts/lib/gaps-contract.mjs` (canonical contract including error codes GAP00–GAP02 and validation rules) and `tooling/scripts/lib/gaps.mjs` (gap detection logic).
+> **Machine-readable specification:** `tooling/scripts/lib/gaps-contract.mjs` (canonical contract and validation rules) and `tooling/scripts/lib/gaps.mjs` (gap detection logic). For code semantics and blocking policy (`GAP00`–`GAP02`), see `error-codes.mdc` and `.agent/rules/_manifest.yml` (`checks`).
 
 - This section is **binary and deterministic**:
   - Include it when unresolved gaps exist in the linked spec.
@@ -54,7 +54,7 @@ If additional details are needed, place them under `###` inside the nearest allo
   2. `TOKEN_INVALID`
   3. `CONTENT_UNKNOWN`
   4. `A11Y_TBD`
-- When gaps exist and `doc_status: ready`, the validation error is **GAP02** (blocking); resolve all gaps first.
+- When gaps exist and `doc_status: ready`, emit **`GAP02`** (see `error-codes.mdc`); resolve all gaps first.
 
 ## General rules
 

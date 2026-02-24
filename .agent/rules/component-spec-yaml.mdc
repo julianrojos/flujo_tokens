@@ -9,6 +9,8 @@ globs:
 Spec files in `docs/_spec/components/` are the structured source of truth for each component. The `ds-component-doc` skill consumes these to generate Markdown pages.
 
 > **Machine-readable version:** `tooling/schemas/component-spec.schema.json` contains the complete structural schema as JSON-Schema (draft-07). Use this for validation via ajv (or any JSON-Schema validator) instead of writing custom parsing logic. Agents and scripts must import this schema, not duplicate the constraints.
+>
+> Error-code semantics are centralized in `error-codes.mdc` and `.agent/rules/_manifest.yml` (`checks`). This rule only references the relevant code IDs when defining behavior.
 
 ## Required top-level fields
 
@@ -87,7 +89,7 @@ Type comparison is **case-insensitive** (`Enum`, `ENUM`, and `enum` are equivale
 | `text` | `TEXT` | Omit | Any string, or `TBD` if unknown | 2 | - |
 | `boolean` | `BOOLEAN` | Omit | `true` or `false` (unquoted), or `TBD` if unknown | 3 | - |
 | `instance_swap` | `INSTANCE_SWAP` | Omit | Component name string, or `TBD` if unknown | 4 | - |
-| anything else (including `null`, `""`, missing) | _(invalid)_ | - | - | 5 | Stop; report error `SPEC01` with the invalid type value; do not render the property |
+| anything else (including `null`, `""`, missing) | _(invalid)_ | - | - | 5 | Stop; emit `SPEC01` (see `error-codes.mdc`) with the invalid type value; do not render the property |
 
 The "Stop; report error" instruction applies to **generating skills and scripts** (for example `ds:component-doc`, `ds:spec-from-figma`) and to `validate:docs`. Specs that violate this table are invalid and must be fixed before markdown generation.
 

@@ -52,7 +52,7 @@ outputs:
 | `enum(v1,v2,…)` | One of a fixed set of string values | One of the declared values |
 | `report` | Structured summary output — not a file artifact | — (no `value` field) |
 
-No other types are valid. An unknown type triggers error `SLOT01` and blocks skill execution.
+No other types are valid. An unknown type emits `SLOT01`; semantics and blocking policy are defined in `error-codes.mdc` and `.agent/rules/_manifest.yml` (`checks`).
 
 ## Interpolation in `default` and `value` fields
 
@@ -90,6 +90,6 @@ When slots and prose sections (e.g. `## Inputs`, `## Output`) conflict, **slots 
 
 ## Validation
 
-- `SLOT01`: unknown slot type, or a `required: true` input without a `default` that is never supplied.
+- Emit `SLOT01` for slot-contract violations (unknown type, or missing required input resolution). See `error-codes.mdc` for canonical semantics.
 - Slot validation runs at skill-load time before execution begins.
 - The validator must check all SKILL.md files in `.agent/skills/**/SKILL.md` that declare `inputs` or `outputs`.

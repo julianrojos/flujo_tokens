@@ -6,7 +6,7 @@ globs:
 
 # Component spec deterministic property order
 
-> **Machine-readable enforcement:** `tooling/scripts/ds-sort-spec.mjs` is the canonical implementation of these ordering rules. Use `npm run ds:sort-spec -- --all` to auto-fix, or `npm run ds:sort-spec -- --check` to validate without writing. `npm run validate:docs` emits `DET01` when either group order or field order is violated.
+> **Machine-readable enforcement:** `tooling/scripts/ds-sort-spec.mjs` is the canonical implementation of these ordering rules. Use `npm run ds:sort-spec -- --all` to auto-fix, or `npm run ds:sort-spec -- --check` to validate without writing. `npm run validate:docs` emits `DET01` when either group order or field order is violated; canonical code semantics live in `error-codes.mdc`.
 
 This rule enforces a stable, deterministic order for `properties` entries in component specs.
 

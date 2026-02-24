@@ -96,6 +96,11 @@ rules:
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+  - id: error-codes
+    file: error-codes.mdc
+    owner: docs-governance
+    applies_to: [pipeline]
+    blocking: true
   - id: docs-governance-ops
     file: docs-governance-ops.mdc
     owner: docs-governance
@@ -198,6 +203,7 @@ rules:
     blocking: true
 
 checks:
+  source_catalog: error-codes
   REG01:
     rule_ids: [ds-docs-guardrails, docs-pipeline-contract]
     blocking: true
