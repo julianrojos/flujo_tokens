@@ -35,22 +35,17 @@ Aquí tienes el listado priorizado, ordenado de mayor a menor gravedad, junto co
 - **Problema:** Un Agente que intente crear "Empty State" podría dudar si tratarlo como un "Componente" (por la regla index) o como un "Workflow Pattern" (por la nueva regla).
 - **Solución propuesta:** Actualizar `overview-components-canonical-list.mdc` para excluir explícitamente la carpeta `docs/workflows/patterns/` del escaneo automático de componentes canónicos.
 
-## 3. Duplicidad en Generación a Figma: Rendering vs Subset
+## 3. Duplicidad en Generación a Figma: Rendering unificado
 
-**Archivos implicados:**
+**Archivo implicado (estado actual):**
 
-- `figma-doc-rendering.mdc`
-- `figma-doc-rendering-implementation.mdc`
-- `markdown-figma-subset.mdc`
+- `figma-rendering.mdc`
 
-**Por qué es incoherente/solapado (Gravedad Media):**
-Tienes **tres reglas separadas** regulando exactamente el mismo dominio: cómo convertir Markdown para que Figma lo pueda renderizar.
+**Por qué era incoherente/solapado (Gravedad Media):**
+Antes había tres reglas separadas regulando el mismo dominio (subset de Markdown, contrato de render, e implementación).
 
-- `markdown-figma-subset.mdc` habla sobre etiquetas permitidas (h1, b, i).
-- `figma-doc-rendering.mdc` dice que no se pongan colores _hardcoded_.
-- `figma-doc-rendering-implementation.mdc` dice _cómo_ resolver esos colores.
-- **Problema:** Un exceso de reglas con globs solapados (todos atacan a `docs/**/*.md`) consume contexto del LLM drásticamente y aumenta las alucinaciones.
-- **Solución propuesta:** Unificar las 3 reglas en un único archivo `markdown-to-figma-rendering.mdc` que contenga el subset de HTML permitido y la directiva de usar tokens dinámicos.
+- **Problema:** exceso de reglas con globs solapados y carga de contexto innecesaria.
+- **Resolución aplicada:** unificación en `figma-rendering.mdc` con secciones de authoring constraints, pipeline contract e implementation guide.
 
 ## 4. Skills Duplicadas: Documentación de Sistema vs Pipeline
 

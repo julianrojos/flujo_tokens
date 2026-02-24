@@ -23,34 +23,11 @@ rules:
     owner: docs-governance
     applies_to: [pipeline]
     blocking: true
-  - id: component-doc-content
-    file: component-doc-content.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: false
-    deprecated: true
-    superseded_by: component-doc
-    deprecation_note: "Merged into component-doc.mdc. Replace any requires_rules reference with 'component-doc'."
-  - id: component-doc-structure
-    file: component-doc-structure.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: false
-    deprecated: true
-    superseded_by: component-doc
-    deprecation_note: "Merged into component-doc.mdc. Replace any requires_rules reference with 'component-doc'."
   - id: component-doc
     file: component-doc.mdc
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
-  - id: component-code-examples
-    file: component-code-examples.mdc
-    owner: docs-governance
-    applies_to: [markdown]
-    blocking: false
-    deprecated: true
-    deprecation_note: "Disabled while docs pipeline is design-only. Re-enable only when code examples become an explicit stage."
   - id: component-figma-traceability
     file: component-figma-traceability.mdc
     owner: docs-governance
@@ -126,25 +103,15 @@ rules:
     owner: docs-governance
     applies_to: [spec, markdown, pipeline]
     blocking: true
-  - id: figma-doc-rendering
-    file: figma-doc-rendering.mdc
+  - id: figma-rendering
+    file: figma-rendering.mdc
     owner: docs-governance
-    applies_to: [pipeline]
+    applies_to: [markdown, pipeline]
     blocking: true
-  - id: figma-doc-rendering-implementation
-    file: figma-doc-rendering-implementation.mdc
-    owner: docs-governance
-    applies_to: [pipeline]
-    blocking: false
   - id: frontmatter-contract
     file: frontmatter-contract.mdc
     owner: docs-governance
     applies_to: [markdown]
-    blocking: true
-  - id: markdown-figma-subset
-    file: markdown-figma-subset.mdc
-    owner: docs-governance
-    applies_to: [markdown, pipeline]
     blocking: true
   - id: markdown-lifecycle-status
     file: markdown-lifecycle-status.mdc
@@ -286,9 +253,9 @@ checks:
     rule_ids: [component-doc, markdown-lifecycle-status, ds-docs-guardrails]
     blocking: true
   DEP01:
-    rule_ids: [component-doc-content, component-doc-structure]
+    rule_ids: [docs-governance-ops]
     blocking: true
-    description: "Detects requires_rules references to deprecated rules. Migrate to superseded_by target."
+    description: "Detects references to deprecated rule IDs in skill metadata."
   SLOT01:
     rule_ids: [skill-input-output-contract, skill-versioning]
     blocking: true
@@ -418,8 +385,7 @@ matrix:
         component-doc,
         ds-docs-guardrails,
         docs-pipeline-contract,
-        figma-doc-rendering,
-        markdown-figma-subset,
+        figma-rendering,
       ]
     ds-foundations:
       [

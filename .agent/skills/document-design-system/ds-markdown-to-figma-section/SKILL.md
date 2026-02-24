@@ -1,12 +1,11 @@
 ---
 name: ds-markdown-to-figma-section
 description: Render a component markdown doc into a styled Figma documentation section placed 200px to the right of the component section, using the shared theme contract in docs/_spec/figma_doc_theme.yml.
-version: "1.2.1"
+version: "1.2.2"
 requires_rules:
-  - figma-doc-rendering: ">=1.0.0"
+  - figma-rendering: ">=1.0.0"
   - component-doc: ">=1.0.0"
   - ds-docs-guardrails: ">=1.0.0"
-  - markdown-figma-subset: ">=1.0.0"
   - docs-pipeline-contract: ">=1.0.0"
 compatible_agents:
   - codex
@@ -73,10 +72,9 @@ Do not use this skill for non-component pages.
 
 This skill must comply with:
 
-- `figma-doc-rendering.mdc` — block types, determinism, theme contract, section placement, and table rendering rules
+- `figma-rendering.mdc` — authoring subset, block types, determinism, theme contract, section placement, and table rendering rules
 - `component-doc.mdc` — the Markdown input is expected to follow the required frontmatter + ordered sections
 - `ds-docs-guardrails.mdc` — no invented content; `VariableID:*` is prohibited in visible docs
-- `markdown-figma-subset.mdc` — supported markdown subset and table authoring constraints
 - `docs-pipeline-contract.mdc` — canonical stage order, preconditions, and validation gates
 
 ## Inputs (ask only if missing)
@@ -159,9 +157,9 @@ Notes:
    - Section name pattern: `Doc/{component_name}` unless overridden by theme.
    - Idempotent mode: if section already exists, clear and re-render content.
    - Never create duplicates with the same logical target.
-6. Parse markdown blocks in order using the supported block types defined in `figma-doc-rendering.mdc` (header, card_title, inline_heading, paragraph, list, table). Unsupported blocks → body text fallback + warning entry in report.
+6. Parse markdown blocks in order using the supported block types defined in `figma-rendering.mdc` (header, card_title, inline_heading, paragraph, list, table). Unsupported blocks → body text fallback + warning entry in report.
    - Ignore YAML frontmatter when present.
-7. Apply design contract from theme (see `figma-doc-rendering.mdc` for theme contract rules). No hardcoded styling outside theme, except fallback safety values.
+7. Apply design contract from theme (see `figma-rendering.mdc` for theme contract rules). No hardcoded styling outside theme, except fallback safety values.
 8. Produce a run report with:
    - `markdown_path`
    - `target_section_id`

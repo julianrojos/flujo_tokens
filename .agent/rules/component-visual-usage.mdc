@@ -19,7 +19,7 @@ Every component documentation page MUST include a visual diagram illustrating it
 ### Markdown vs Figma render scope
 
 - Visual images are required in the Markdown documentation artifact itself.
-- The Markdown -> Figma renderer may degrade image blocks (see `markdown-figma-subset.mdc`), which does not waive the Markdown requirement in this rule.
+- The Markdown -> Figma renderer may degrade image blocks (see `figma-rendering.mdc`), which does not waive the Markdown requirement in this rule.
 - Authors should keep clear alt text and nearby explanatory text so degraded Figma output remains understandable.
 
 ### Anatomy Format Example

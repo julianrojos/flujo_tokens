@@ -1,9 +1,0 @@
----
-description: "Deprecated. Merged into component-doc.mdc."
-deprecated: true
-globs:
-  - ".agent/rules/component-doc-content.mdc"
----
-
-> **Deprecated.** This rule has been merged into `component-doc.mdc`.
-> Update any `requires_rules` references from `component-doc-content` to `component-doc`.
