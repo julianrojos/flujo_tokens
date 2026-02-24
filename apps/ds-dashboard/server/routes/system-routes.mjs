@@ -3,6 +3,15 @@ import {
   buildDeleteDesignSystemConfigMutation,
   buildUpdateDesignSystemConfigMutation,
 } from "../lib/system-route-service.mjs";
+import {
+  buildCreateDesignSystemSuccessPayload,
+  buildDeleteDesignSystemSuccessPayload,
+  buildNoStoreJsonResponse,
+  buildUpdateDesignSystemSuccessPayload,
+  collectRemovableSystemPaths,
+  decodeSystemRouteId,
+  removeExistingPaths,
+} from "../lib/system-route-handler-service.mjs";
 
 export function registerSystemRoutes(app, deps) {
   const {
@@ -31,13 +40,7 @@ export function registerSystemRoutes(app, deps) {
 
   app.get("/api/design-systems", () => {
     const config = designSystemRepository.getConfig();
-    return new Response(JSON.stringify(config), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
-    });
+    return buildNoStoreJsonResponse(config);
   });
 
   app.post("/api/design-systems", async (c) => {
@@ -58,17 +61,17 @@ export function registerSystemRoutes(app, deps) {
     const { nextSystem, nextConfig } = mutation;
     designSystemRepository.saveConfig(nextConfig);
     return c.json(
-      {
-        ok: true,
-        system: { id: nextSystem.id, name: nextSystem.name },
-        config: summarizeDesignSystemsConfig(nextConfig),
-      },
+      buildCreateDesignSystemSuccessPayload({
+        nextSystem,
+        nextConfig,
+        summarizeDesignSystemsConfigFn: summarizeDesignSystemsConfig,
+      }),
       200,
     );
   });
 
   app.put("/api/design-systems/:id", async (c) => {
-    const routeSystemId = decodeURIComponent(String(c.req.param("id") || ""));
+    const routeSystemId = decodeSystemRouteId(c.req.param("id"));
     const body = await readJsonBody(c);
     const config = designSystemRepository.getConfig();
     const mutation = buildUpdateDesignSystemConfigMutation({
@@ -85,17 +88,18 @@ export function registerSystemRoutes(app, deps) {
     const { updated, nextConfig } = mutation;
     designSystemRepository.saveConfig(nextConfig);
     return c.json(
-      {
-        ok: true,
-        system: { id: routeSystemId, name: updated.name },
-        config: summarizeDesignSystemsConfig(nextConfig),
-      },
+      buildUpdateDesignSystemSuccessPayload({
+        routeSystemId,
+        updated,
+        nextConfig,
+        summarizeDesignSystemsConfigFn: summarizeDesignSystemsConfig,
+      }),
       200,
     );
   });
 
   app.delete("/api/design-systems/:id", (c) => {
-    const routeSystemId = decodeURIComponent(String(c.req.param("id") || ""));
+    const routeSystemId = decodeSystemRouteId(c.req.param("id"));
     const config = designSystemRepository.getConfig();
     const mutation = buildDeleteDesignSystemConfigMutation({ config, routeSystemId });
     if (mutation.error) {
@@ -103,21 +107,23 @@ export function registerSystemRoutes(app, deps) {
     }
     const { targetSystem, nextSystems, nextConfig } = mutation;
 
-    const removedPaths = targetSystem
-      ? resolveSafeSystemPathsForDeletion(targetSystem, repoRoot, nextSystems)
-      : [];
-    for (const targetPath of removedPaths) {
-      if (!fsSync.existsSync(targetPath)) continue;
-      fsSync.rmSync(targetPath, { recursive: true, force: true });
-    }
+    const removedPaths = removeExistingPaths(
+      collectRemovableSystemPaths({
+        targetSystem,
+        repoRoot,
+        nextSystems,
+        resolveSafeSystemPathsForDeletionFn: resolveSafeSystemPathsForDeletion,
+      }),
+      fsSync,
+    );
 
     designSystemRepository.saveConfig(nextConfig);
     return c.json(
-      {
-        ok: true,
+      buildDeleteDesignSystemSuccessPayload({
         removedPaths,
-        config: summarizeDesignSystemsConfig(nextConfig),
-      },
+        nextConfig,
+        summarizeDesignSystemsConfigFn: summarizeDesignSystemsConfig,
+      }),
       200,
     );
   });
