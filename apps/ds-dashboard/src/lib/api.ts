@@ -343,6 +343,66 @@ export function fetchHealthHistory(args?: {
   return getJson<HealthHistoryReport>(`/api/health-history${suffix}`);
 }
 
+export interface OperationHistoryEvent {
+  id: string;
+  timestamp: string;
+  eventType: string;
+  operation: string;
+  system: string;
+  status: string;
+  durationMs: number | null;
+  requestId: string | null;
+  jobId: string | null;
+  inputHash: string | null;
+  outputHash: string | null;
+  result: {
+    ok: boolean;
+    code: number | string | null;
+    summary: string | null;
+  };
+}
+
+export interface OperationsHistoryResponse {
+  ok: boolean;
+  events: OperationHistoryEvent[];
+  filters: {
+    systemId: string | null;
+    operation: string | null;
+    status: string | null;
+    from: string | null;
+    to: string | null;
+    limit: number;
+  };
+  summary: {
+    returned: number;
+    scannedRows: number;
+    scannedFiles: number;
+  };
+}
+
+export function fetchOperationsHistory(args?: {
+  systemId?: string;
+  operation?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  all?: boolean;
+}) {
+  const params = new URLSearchParams();
+  if (args?.systemId) params.set("system", args.systemId);
+  if (args?.operation) params.set("operation", args.operation);
+  if (args?.status) params.set("status", args.status);
+  if (args?.from) params.set("from", args.from);
+  if (args?.to) params.set("to", args.to);
+  if (typeof args?.limit === "number" && Number.isFinite(args.limit)) {
+    params.set("limit", String(Math.max(1, Math.floor(args.limit))));
+  }
+  if (args?.all === true) params.set("all", "true");
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return getJson<OperationsHistoryResponse>(`/api/operations/history${suffix}`);
+}
+
 export function fetchTokenDiff(beforeRef: string) {
   const params = new URLSearchParams({ beforeRef });
   return getJson<TokenDiffReport>(`/api/token-diff?${params.toString()}`);

@@ -58,12 +58,21 @@ const JOB_TIMEOUT_MS =
 const JOB_RETENTION_MS = 30 * 60 * 1000;
 const MAX_RETAINED_EVENTS = 2_000;
 const MAX_RETAINED_JOBS = 200;
+const OPS_LOG_MAX_FILE_BYTES =
+  Number.parseInt(String(process.env.DS_DASHBOARD_OPS_LOG_MAX_FILE_BYTES || "1048576"), 10) || 1_048_576;
+const OPS_LOG_RETENTION_DAYS =
+  Number.parseInt(String(process.env.DS_DASHBOARD_OPS_LOG_RETENTION_DAYS || "30"), 10) || 30;
+const OPS_HISTORY_DEFAULT_LIMIT = 100;
+const OPS_HISTORY_MAX_LIMIT = 500;
+const OPS_LOG_FILE_RE = /^operations-(\d{4}-\d{2}-\d{2})(?:\.(\d+))?\.ndjson$/;
 
 /** @type {Map<string, any>} */
 const queueJobs = new Map();
 /** @type {string[]} */
 const queuePendingIds = [];
 let queueActiveCount = 0;
+/** @type {Map<string, Promise<void>>} */
+const operationLogWriteLocks = new Map();
 
 function queueMetrics() {
   return {
@@ -75,6 +84,281 @@ function queueMetrics() {
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function createOperationEventId() {
+  return `op_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function operationResultSummary(result) {
+  if (!result || typeof result !== "object") return "";
+  const summary = String(result.summary ?? "").trim();
+  if (summary) return summary;
+  const payload = result.payload && typeof result.payload === "object" ? result.payload : null;
+  const payloadMessage = String(payload?.message ?? payload?.error ?? "").trim();
+  if (payloadMessage) return payloadMessage;
+  return "";
+}
+
+function hashUnknown(value) {
+  try {
+    return sha256Text(JSON.stringify(value ?? null));
+  } catch {
+    return null;
+  }
+}
+
+function operationDurationMs(startedAt, finishedAt) {
+  const startTs = startedAt ? new Date(startedAt).getTime() : NaN;
+  const endTs = finishedAt ? new Date(finishedAt).getTime() : NaN;
+  if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs < startTs) return null;
+  return endTs - startTs;
+}
+
+function resolveOpsLogDir(systemId) {
+  try {
+    const ctx = designSystemRepository.resolveSystemContext(systemId);
+    return path.join(ctx.paths.output, ".ops");
+  } catch {
+    const fallbackId = normalizeSystemId(systemId) || "_unknown";
+    return path.join(repoRoot, "output", fallbackId, ".ops");
+  }
+}
+
+function listOpsLogFiles(logDir) {
+  try {
+    const entries = fsSync.readdirSync(logDir, { withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isFile() && OPS_LOG_FILE_RE.test(entry.name))
+      .map((entry) => {
+        const absPath = path.join(logDir, entry.name);
+        const stat = fsSync.statSync(absPath);
+        return { name: entry.name, absPath, mtimeMs: stat.mtimeMs };
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs || b.name.localeCompare(a.name));
+  } catch {
+    return [];
+  }
+}
+
+function resolveWritableOpsLogPath(logDir, datePart, appendBytes) {
+  let suffix = 0;
+  while (suffix < 10_000) {
+    const fileName = suffix === 0 ? `operations-${datePart}.ndjson` : `operations-${datePart}.${suffix}.ndjson`;
+    const targetPath = path.join(logDir, fileName);
+    try {
+      const stat = fsSync.statSync(targetPath);
+      if (stat.size + appendBytes <= OPS_LOG_MAX_FILE_BYTES) return targetPath;
+    } catch {
+      return targetPath;
+    }
+    suffix += 1;
+  }
+  return path.join(logDir, `operations-${datePart}.${Date.now()}.ndjson`);
+}
+
+async function cleanupOpsLogFiles(logDir) {
+  const keepAfter = Date.now() - OPS_LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const files = listOpsLogFiles(logDir);
+  await Promise.all(
+    files.map(async (file) => {
+      const match = OPS_LOG_FILE_RE.exec(file.name);
+      if (!match) return;
+      const dayTs = new Date(`${match[1]}T00:00:00.000Z`).getTime();
+      if (!Number.isFinite(dayTs) || dayTs >= keepAfter) return;
+      await fs.rm(file.absPath, { force: true });
+    }),
+  );
+}
+
+function enqueueOpsLogWrite(logDir, writeTask) {
+  const previous = operationLogWriteLocks.get(logDir) || Promise.resolve();
+  const next = previous
+    .catch(() => {})
+    .then(writeTask)
+    .finally(() => {
+      if (operationLogWriteLocks.get(logDir) === next) {
+        operationLogWriteLocks.delete(logDir);
+      }
+    });
+  operationLogWriteLocks.set(logDir, next);
+  return next;
+}
+
+async function appendOperationEvent(entry) {
+  const timestamp = String(entry?.timestamp || nowIso());
+  const datePart = timestamp.slice(0, 10);
+  const logDir = resolveOpsLogDir(entry?.systemId);
+  const normalized = {
+    id: createOperationEventId(),
+    timestamp,
+    eventType: String(entry?.eventType || "operation.event"),
+    operation: String(entry?.operation || "unknown"),
+    system: String(entry?.systemId || ""),
+    status: String(entry?.status || "unknown"),
+    durationMs: Number.isFinite(entry?.durationMs) ? Number(entry.durationMs) : null,
+    requestId: entry?.requestId ? String(entry.requestId) : null,
+    jobId: entry?.jobId ? String(entry.jobId) : null,
+    inputHash: entry?.inputHash ? String(entry.inputHash) : null,
+    outputHash: entry?.outputHash ? String(entry.outputHash) : null,
+    result: {
+      ok: entry?.result?.ok === true,
+      code:
+        typeof entry?.result?.code === "number" || typeof entry?.result?.code === "string"
+          ? entry.result.code
+          : null,
+      summary: entry?.result?.summary ? String(entry.result.summary) : null,
+    },
+  };
+  const line = `${JSON.stringify(normalized)}\n`;
+  const lineBytes = Buffer.byteLength(line, "utf8");
+
+  await enqueueOpsLogWrite(logDir, async () => {
+    await fs.mkdir(logDir, { recursive: true });
+    const targetPath = resolveWritableOpsLogPath(logDir, datePart, lineBytes);
+    await fs.appendFile(targetPath, line, "utf8");
+    await cleanupOpsLogFiles(logDir);
+  });
+}
+
+function appendOperationEventSafe(entry) {
+  void appendOperationEvent(entry).catch((error) => {
+    writeStructuredLog("warn", {
+      event: "operations.history_write_failed",
+      systemId: entry?.systemId ? String(entry.systemId) : null,
+      operation: entry?.operation ? String(entry.operation) : null,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
+}
+
+function readOpsLogLines(filePath) {
+  try {
+    const raw = fsSync.readFileSync(filePath, "utf8");
+    return raw.split("\n").filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function toFiniteTimestamp(raw) {
+  const iso = String(raw || "").trim();
+  if (!iso) return NaN;
+  return new Date(iso).getTime();
+}
+
+function parseOperationEventLine(line, fallbackSystemId) {
+  let parsed = null;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+
+  const timestamp = String(parsed.timestamp || "").trim();
+  const operation = String(parsed.operation || "").trim();
+  if (!timestamp || !operation) return null;
+  if (!Number.isFinite(toFiniteTimestamp(timestamp))) return null;
+
+  const result =
+    parsed.result && typeof parsed.result === "object" && !Array.isArray(parsed.result)
+      ? parsed.result
+      : null;
+  const resultCode = result?.code;
+
+  return {
+    id: String(parsed.id || createOperationEventId()),
+    timestamp,
+    eventType: String(parsed.eventType || "operation.event"),
+    operation,
+    system: String(parsed.system ?? parsed.systemId ?? fallbackSystemId ?? ""),
+    status: String(parsed.status || "unknown").trim().toLowerCase() || "unknown",
+    durationMs:
+      typeof parsed.durationMs === "number" && Number.isFinite(parsed.durationMs) && parsed.durationMs >= 0
+        ? Math.round(parsed.durationMs)
+        : null,
+    requestId: parsed.requestId ? String(parsed.requestId) : null,
+    jobId: parsed.jobId ? String(parsed.jobId) : null,
+    inputHash: parsed.inputHash ? String(parsed.inputHash) : null,
+    outputHash: parsed.outputHash ? String(parsed.outputHash) : null,
+    result: {
+      ok: result?.ok === true,
+      code: typeof resultCode === "number" || typeof resultCode === "string" ? resultCode : null,
+      summary: result?.summary ? String(result.summary) : null,
+    },
+  };
+}
+
+function readOperationHistory({
+  systemId,
+  operation,
+  status,
+  from,
+  to,
+  limit,
+}) {
+  const maxRows = Math.max(1, Math.min(limit, OPS_HISTORY_MAX_LIMIT));
+  const filters = {
+    systemId: systemId ? String(systemId) : "",
+    operation: operation ? String(operation).trim().toLowerCase() : "",
+    status: status ? String(status).trim().toLowerCase() : "",
+    fromTs: toFiniteTimestamp(from),
+    toTs: toFiniteTimestamp(to),
+  };
+
+  /** @type {Array<{ systemId: string; logDir: string }>} */
+  const targets = [];
+  if (filters.systemId) {
+    targets.push({ systemId: filters.systemId, logDir: resolveOpsLogDir(filters.systemId) });
+  } else {
+    const config = designSystemRepository.getConfig();
+    for (const row of config.systems || []) {
+      const id = String(row?.id || "").trim();
+      if (!id) continue;
+      targets.push({ systemId: id, logDir: resolveOpsLogDir(id) });
+    }
+  }
+
+  const events = [];
+  let scannedRows = 0;
+  let scannedFiles = 0;
+
+  for (const target of targets) {
+    const files = listOpsLogFiles(target.logDir);
+    for (const file of files) {
+      scannedFiles += 1;
+      const lines = readOpsLogLines(file.absPath);
+      for (const line of lines) {
+        scannedRows += 1;
+        const parsed = parseOperationEventLine(line, target.systemId);
+        if (!parsed) continue;
+        const eventTs = toFiniteTimestamp(parsed?.timestamp);
+        if (Number.isFinite(filters.fromTs) && (!Number.isFinite(eventTs) || eventTs < filters.fromTs)) continue;
+        if (Number.isFinite(filters.toTs) && (!Number.isFinite(eventTs) || eventTs > filters.toTs)) continue;
+        const eventOperation = String(parsed?.operation || "").trim().toLowerCase();
+        if (filters.operation && !eventOperation.includes(filters.operation)) continue;
+        const eventStatus = String(parsed?.status || "").trim().toLowerCase();
+        if (filters.status && eventStatus !== filters.status) continue;
+        events.push(parsed);
+      }
+    }
+  }
+
+  events.sort((a, b) => {
+    const aTs = toFiniteTimestamp(a?.timestamp);
+    const bTs = toFiniteTimestamp(b?.timestamp);
+    if (!Number.isFinite(aTs) && !Number.isFinite(bTs)) return 0;
+    if (!Number.isFinite(aTs)) return 1;
+    if (!Number.isFinite(bTs)) return -1;
+    return bTs - aTs;
+  });
+
+  return {
+    events: events.slice(0, maxRows),
+    scannedRows,
+    scannedFiles,
+  };
 }
 
 function createQueueJobId() {
@@ -104,11 +388,13 @@ function queueJobSnapshot(job) {
   return {
     id: job.id,
     label: job.label,
+    operation: job.operationName,
     status: job.status,
     createdAt: job.createdAt,
     startedAt: job.startedAt,
     finishedAt: job.finishedAt,
     systemId: job.systemId,
+    requestId: job.requestId || null,
     result: job.result,
   };
 }
@@ -118,6 +404,7 @@ function queueJobAcceptedPayload(job) {
     ok: true,
     accepted: true,
     jobId: job.id,
+    requestId: job.requestId || null,
     status: job.status,
     statusUrl: `/api/jobs/${job.id}`,
     streamUrl: `/api/jobs/${job.id}/stream`,
@@ -125,11 +412,14 @@ function queueJobAcceptedPayload(job) {
   };
 }
 
-function enqueueQueueJob({ label, systemId, execute }) {
+function enqueueQueueJob({ label, systemId, operationName, requestId, inputHash, execute }) {
   const job = {
     id: createQueueJobId(),
     label,
     systemId,
+    operationName: String(operationName || label || "unknown.operation"),
+    requestId: requestId ? String(requestId) : null,
+    inputHash: inputHash ? String(inputHash) : hashUnknown({ label, systemId }),
     status: "queued",
     createdAt: nowIso(),
     startedAt: undefined,
@@ -145,6 +435,23 @@ function enqueueQueueJob({ label, systemId, execute }) {
   queueJobs.set(job.id, job);
   queuePendingIds.push(job.id);
   appendQueueJobEvent(job, { type: "status", status: "queued" });
+  appendOperationEventSafe({
+    timestamp: job.createdAt,
+    eventType: "job.queued",
+    operation: job.operationName,
+    systemId: job.systemId,
+    status: job.status,
+    durationMs: null,
+    requestId: job.requestId,
+    jobId: job.id,
+    inputHash: job.inputHash,
+    outputHash: null,
+    result: {
+      ok: false,
+      code: null,
+      summary: "Queued.",
+    },
+  });
   scheduleQueueJobs();
   cleanupQueueJobs();
   return job;
@@ -165,6 +472,23 @@ async function runQueueJob(job) {
   job.status = "running";
   job.startedAt = nowIso();
   appendQueueJobEvent(job, { type: "status", status: "running" });
+  appendOperationEventSafe({
+    timestamp: job.startedAt,
+    eventType: "job.running",
+    operation: job.operationName,
+    systemId: job.systemId,
+    status: job.status,
+    durationMs: null,
+    requestId: job.requestId,
+    jobId: job.id,
+    inputHash: job.inputHash,
+    outputHash: null,
+    result: {
+      ok: false,
+      code: null,
+      summary: "Running.",
+    },
+  });
   const timeoutMessage = `Job timed out after ${Math.round(JOB_TIMEOUT_MS / 1000)} seconds.`;
   let didTimeout = false;
   const timeoutId = setTimeout(() => {
@@ -211,6 +535,23 @@ async function runQueueJob(job) {
         summary: timeoutMessage,
         payload: job.result.payload,
       });
+      appendOperationEventSafe({
+        timestamp: job.finishedAt,
+        eventType: "job.finished",
+        operation: job.operationName,
+        systemId: job.systemId,
+        status: "error",
+        durationMs: operationDurationMs(job.startedAt, job.finishedAt),
+        requestId: job.requestId,
+        jobId: job.id,
+        inputHash: job.inputHash,
+        outputHash: hashUnknown(job.result?.payload),
+        result: {
+          ok: false,
+          code: job.result.code,
+          summary: timeoutMessage,
+        },
+      });
       return;
     }
 
@@ -225,6 +566,23 @@ async function runQueueJob(job) {
         summary,
         payload: result.payload,
       });
+      appendOperationEventSafe({
+        timestamp: job.finishedAt,
+        eventType: "job.finished",
+        operation: job.operationName,
+        systemId: job.systemId,
+        status: "cancelled",
+        durationMs: operationDurationMs(job.startedAt, job.finishedAt),
+        requestId: job.requestId,
+        jobId: job.id,
+        inputHash: job.inputHash,
+        outputHash: hashUnknown(result?.payload),
+        result: {
+          ok: false,
+          code: typeof result.code === "number" ? result.code : 1,
+          summary,
+        },
+      });
       return;
     }
 
@@ -237,6 +595,23 @@ async function runQueueJob(job) {
       code: typeof result.code === "number" ? result.code : result.ok ? 0 : 1,
       summary: result.summary,
       payload: result.payload,
+    });
+    appendOperationEventSafe({
+      timestamp: job.finishedAt,
+      eventType: "job.finished",
+      operation: job.operationName,
+      systemId: job.systemId,
+      status: job.status,
+      durationMs: operationDurationMs(job.startedAt, job.finishedAt),
+      requestId: job.requestId,
+      jobId: job.id,
+      inputHash: job.inputHash,
+      outputHash: hashUnknown(result?.payload),
+      result: {
+        ok: result?.ok === true,
+        code: typeof result.code === "number" ? result.code : result.ok ? 0 : 1,
+        summary: operationResultSummary(result),
+      },
     });
   } catch (error) {
     const message = didTimeout
@@ -262,6 +637,23 @@ async function runQueueJob(job) {
       status: "error",
       code: didTimeout ? 124 : 1,
       summary: message || "Unknown queue error.",
+    });
+    appendOperationEventSafe({
+      timestamp: job.finishedAt,
+      eventType: "job.finished",
+      operation: job.operationName,
+      systemId: job.systemId,
+      status: "error",
+      durationMs: operationDurationMs(job.startedAt, job.finishedAt),
+      requestId: job.requestId,
+      jobId: job.id,
+      inputHash: job.inputHash,
+      outputHash: null,
+      result: {
+        ok: false,
+        code: didTimeout ? 124 : 1,
+        summary: message || "Unknown queue error.",
+      },
     });
   } finally {
     clearTimeout(timeoutId);
@@ -293,6 +685,23 @@ function cancelQueueJob(jobId) {
       status: "cancelled",
       code: 1,
       summary: "Cancelled before execution.",
+    });
+    appendOperationEventSafe({
+      timestamp: job.finishedAt,
+      eventType: "job.finished",
+      operation: job.operationName,
+      systemId: job.systemId,
+      status: "cancelled",
+      durationMs: operationDurationMs(job.startedAt, job.finishedAt),
+      requestId: job.requestId,
+      jobId: job.id,
+      inputHash: job.inputHash,
+      outputHash: null,
+      result: {
+        ok: false,
+        code: 1,
+        summary: "Cancelled before execution.",
+      },
     });
     return { ok: true };
   }
@@ -1372,7 +1781,7 @@ function getSystemContext(systemHeader) {
   return designSystemRepository.resolveDashboardSystemContext(systemHeader);
 }
 
-function queueNpmScript({ repoRoot: root, script, systemId, commandLabel }) {
+function queueNpmScript({ repoRoot: root, script, systemId, commandLabel, requestId }) {
   const safeScript = String(script || "").trim();
   if (!safeScript) throw new Error("Missing script name.");
 
@@ -1383,6 +1792,17 @@ function queueNpmScript({ repoRoot: root, script, systemId, commandLabel }) {
   return enqueueQueueJob({
     label,
     systemId,
+    requestId,
+    operationName: `script:${safeScript}`,
+    inputHash: sha256Text(
+      JSON.stringify({
+        command: "npm",
+        script: safeScript,
+        args: scriptArgs,
+        cwd: root,
+        systemId: systemId || null,
+      }),
+    ),
     execute: async ({ emitChunk, setProcess }) =>
       await runQueuedSpawnCommand({
         cwd: root,
@@ -1402,6 +1822,7 @@ function queueNodeJsonCommand({
   scriptArgs,
   systemId,
   allowNonZeroJson,
+  requestId,
 }) {
   const finalArgs = [...scriptArgs];
   if (systemId) finalArgs.push("--system", systemId);
@@ -1410,6 +1831,17 @@ function queueNodeJsonCommand({
   return enqueueQueueJob({
     label: commandLabel,
     systemId,
+    requestId,
+    operationName: `script:${path.basename(scriptPath)}`,
+    inputHash: sha256Text(
+      JSON.stringify({
+        command: "node",
+        scriptPath,
+        args: commandArgs,
+        cwd: root,
+        systemId: systemId || null,
+      }),
+    ),
     execute: async ({ emitChunk, setProcess }) =>
       await runQueuedSpawnCommand({
         cwd: root,
@@ -1516,6 +1948,90 @@ app.get("/health", (c) =>
 );
 
 app.get("/api/health", (c) => c.json(buildHealthPayload()));
+
+app.get("/api/operations/history", async (c) => {
+  const systemFromQuery = String(c.req.query("system") || "").trim();
+  const systemFromHeader = String(c.req.header("x-ds-system") || "").trim();
+  const includeAll = String(c.req.query("all") || "").trim().toLowerCase() === "true";
+  const systemId = includeAll ? "" : systemFromQuery || systemFromHeader;
+  const operation = String(c.req.query("operation") || "").trim();
+  const status = String(c.req.query("status") || "").trim().toLowerCase();
+  const from = String(c.req.query("from") || "").trim();
+  const to = String(c.req.query("to") || "").trim();
+  const fromTs = from ? toFiniteTimestamp(from) : NaN;
+  const toTs = to ? toFiniteTimestamp(to) : NaN;
+  const limitRaw = Number.parseInt(String(c.req.query("limit") || ""), 10);
+  const limit = Number.isFinite(limitRaw)
+    ? Math.max(1, Math.min(limitRaw, OPS_HISTORY_MAX_LIMIT))
+    : OPS_HISTORY_DEFAULT_LIMIT;
+
+  if (from && !Number.isFinite(fromTs)) {
+    return failJson(c, 400, {
+      code: "validation.invalid_date_format",
+      userMessage: "Invalid 'from' date. Use an ISO-8601 value (for example 2026-02-24).",
+      recoverable: true,
+      context: { field: "from", value: from },
+    });
+  }
+
+  if (to && !Number.isFinite(toTs)) {
+    return failJson(c, 400, {
+      code: "validation.invalid_date_format",
+      userMessage: "Invalid 'to' date. Use an ISO-8601 value (for example 2026-02-24).",
+      recoverable: true,
+      context: { field: "to", value: to },
+    });
+  }
+
+  if (Number.isFinite(fromTs) && Number.isFinite(toTs) && fromTs > toTs) {
+    return failJson(c, 400, {
+      code: "validation.invalid_date_range",
+      userMessage: "'from' date must be earlier than or equal to 'to' date.",
+      recoverable: true,
+      context: { from, to },
+    });
+  }
+
+  if (systemId) {
+    const config = designSystemRepository.getConfig();
+    const exists = (config.systems || []).some((row) => String(row?.id || "").trim() === systemId);
+    if (!exists) {
+      return failJson(c, 400, {
+        code: "system.invalid_or_missing",
+        userMessage: `Unknown system '${systemId}'.`,
+        recoverable: true,
+        context: { systemId },
+      });
+    }
+  }
+
+  const history = readOperationHistory({
+    systemId: systemId || undefined,
+    operation: operation || undefined,
+    status: status || undefined,
+    from: from || undefined,
+    to: to || undefined,
+    limit,
+  });
+
+  return c.json({
+    ok: true,
+    events: history.events,
+    filters: {
+      systemId: systemId || null,
+      operation: operation || null,
+      status: status || null,
+      from: from || null,
+      to: to || null,
+      limit,
+    },
+    summary: {
+      returned: history.events.length,
+      scannedRows: history.scannedRows,
+      scannedFiles: history.scannedFiles,
+    },
+  });
+});
 
 app.get("/api/design-systems", () => {
   const config = designSystemRepository.getConfig();
@@ -2686,12 +3202,14 @@ app.get("/api/jobs/:jobId/stream", (c) => {
 });
 
 app.post("/api/run/:script", async (c) => {
+  const requestId = createApiRequestId();
   const scriptName = String(c.req.param("script") || "").trim();
   if (!scriptName) {
     return failJson(c, 400, {
       code: "validation.missing_script_name",
       userMessage: "Missing script name in URL.",
       recoverable: true,
+      requestId,
     });
   }
 
@@ -2714,6 +3232,17 @@ app.post("/api/run/:script", async (c) => {
   const job = enqueueQueueJob({
     label: commandLabel,
     systemId: sysCtx.systemId,
+    operationName: `run:${scriptName}`,
+    requestId,
+    inputHash: sha256Text(
+      JSON.stringify({
+        command: "npm",
+        args,
+        cwd: sysCtx.repoRoot,
+        systemId: sysCtx.systemId,
+        scriptName,
+      }),
+    ),
     execute: async ({ emitChunk, setProcess }) =>
       await runQueuedSpawnCommand({
         cwd: sysCtx.repoRoot,
@@ -2729,60 +3258,79 @@ app.post("/api/run/:script", async (c) => {
 });
 
 app.post("/api/refresh-registry", (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const job = queueNpmScript({
     repoRoot: sysCtx.repoRoot,
     script: "ds:registry:refresh",
     systemId: sysCtx.systemId,
+    requestId,
   });
   return c.json(queueJobAcceptedPayload(job), 202);
 });
 
 app.post("/api/refresh-token-usage-index", (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const job = queueNpmScript({
     repoRoot: sysCtx.repoRoot,
     script: "ds:token-usage-index",
     systemId: sysCtx.systemId,
+    requestId,
   });
   return c.json(queueJobAcceptedPayload(job), 202);
 });
 
 app.post("/api/refresh-token-graph", (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const job = queueNpmScript({
     repoRoot: sysCtx.repoRoot,
     script: "ds:token-graph",
     systemId: sysCtx.systemId,
+    requestId,
   });
   return c.json(queueJobAcceptedPayload(job), 202);
 });
 
 app.post("/api/refresh-token-health", (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const job = queueNpmScript({
     repoRoot: sysCtx.repoRoot,
     script: "ds:token-health",
     systemId: sysCtx.systemId,
+    requestId,
   });
   return c.json(queueJobAcceptedPayload(job), 202);
 });
 
 app.post("/api/refresh-components-health", (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const job = queueNpmScript({
     repoRoot: sysCtx.repoRoot,
     script: "ds:registry:report",
     systemId: sysCtx.systemId,
+    requestId,
   });
   return c.json(queueJobAcceptedPayload(job), 202);
 });
 
 app.post("/api/refresh-naming-debt", (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const job = enqueueQueueJob({
     label: "refresh naming debt",
     systemId: sysCtx.systemId,
+    operationName: "refresh:naming-debt",
+    requestId,
+    inputHash: sha256Text(
+      JSON.stringify({
+        script: "refresh-naming-debt",
+        systemId: sysCtx.systemId,
+      }),
+    ),
     execute: async ({ emitChunk }) => {
       emitChunk("system", "Computing naming debt report...");
       const report = await computeNamingDebtReport({
@@ -2810,6 +3358,7 @@ app.post("/api/refresh-naming-debt", (c) => {
 });
 
 app.post("/api/capture-health-snapshot", async (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const body = await readJsonBody(c);
 
@@ -2821,6 +3370,7 @@ app.post("/api/capture-health-snapshot", async (c) => {
       userMessage: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
       recoverable: true,
       context: { beforeRef: beforeRefRaw },
+      requestId,
     });
   }
 
@@ -2838,6 +3388,7 @@ app.post("/api/capture-health-snapshot", async (c) => {
       `--retention-days ${retentionDays} --skip-diff ${skipDiff}`,
     scriptPath: sysCtx.healthSnapshotScriptPath,
     systemId: sysCtx.systemId,
+    requestId,
     scriptArgs: [
       "--before-ref",
       beforeRef,
@@ -2853,6 +3404,7 @@ app.post("/api/capture-health-snapshot", async (c) => {
 });
 
 app.post("/api/sync-figma-tokens", async (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const body = await readJsonBody(c);
   const figmaUrl = String(body.url ?? body.figmaUrl ?? "").trim();
@@ -2886,6 +3438,7 @@ app.post("/api/sync-figma-tokens", async (c) => {
     commandLabel: `node tooling/scripts/ds-tokens-from-figma.mjs ${commandDisplayArgs.join(" ")}`,
     scriptPath: sysCtx.tokensFromFigmaScriptPath,
     systemId: sysCtx.systemId,
+    requestId,
     scriptArgs: commandArgs,
     allowNonZeroJson: true,
   });
@@ -2893,6 +3446,7 @@ app.post("/api/sync-figma-tokens", async (c) => {
 });
 
 app.post("/api/capture-figma-screenshot", async (c) => {
+  const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const body = await readJsonBody(c);
   const figmaUrl = String(body.figmaUrl ?? body.url ?? "").trim();
@@ -2902,6 +3456,7 @@ app.post("/api/capture-figma-screenshot", async (c) => {
       userMessage: "figmaUrl is required in request body.",
       recoverable: true,
       context: { field: "figmaUrl" },
+      requestId,
     });
   }
 
@@ -2914,6 +3469,7 @@ app.post("/api/capture-figma-screenshot", async (c) => {
       userMessage: "Invalid figmaUrl.",
       recoverable: true,
       context: { figmaUrl },
+      requestId,
     });
   }
   const host = String(parsedUrl.hostname || "").toLowerCase();
@@ -2923,6 +3479,7 @@ app.post("/api/capture-figma-screenshot", async (c) => {
       userMessage: `URL host is not figma.com: ${host}`,
       recoverable: true,
       context: { host, figmaUrl },
+      requestId,
     });
   }
 
@@ -2981,6 +3538,7 @@ app.post("/api/capture-figma-screenshot", async (c) => {
     commandLabel: `node tooling/scripts/ds-capture-from-figma-url.mjs ${commandDisplayArgs.join(" ")}`,
     scriptPath: sysCtx.captureFromFigmaUrlScriptPath,
     systemId: sysCtx.systemId,
+    requestId,
     scriptArgs: commandArgs,
     allowNonZeroJson: true,
   });

@@ -9,6 +9,8 @@ import {
   FlaskConical,
   Zap,
   Loader2,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { OperationRow } from "./components/operation-row";
 import { PipelineForm } from "./components/pipeline-form";
@@ -17,6 +19,8 @@ import { FigmaTokenSyncForm } from "./components/figma-token-sync-form";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "./hooks/use-operation-runner";
 import { API_ERROR_CODES } from "@/lib/api-errors";
+import { ApiErrorMessage } from "@/components/api-error-message";
+import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 
 // ─── Artifact Status ───────────────────────────────────────────────────────────
 
@@ -46,7 +50,13 @@ const INITIAL_ARTIFACTS: ArtifactMeta[] = [
   { id: "graph",    label: "Token Graph",  icon: GitGraph   },
 ];
 
-import { ApiError, getActiveSystemId, requestJson } from "@/lib/api";
+import {
+  ApiError,
+  fetchOperationsHistory,
+  type OperationHistoryEvent,
+  getActiveSystemId,
+  requestJson,
+} from "@/lib/api";
 
 const getSystemHeaders = (): HeadersInit | undefined => {
   const id = getActiveSystemId();
@@ -232,6 +242,39 @@ function useRunAll(onDone: () => void): [RunAllState, () => void] {
 export function OperationsPage() {
   const [artifacts, setArtifacts] = useState<ArtifactMeta[]>(INITIAL_ARTIFACTS);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [historyEvents, setHistoryEvents] = useState<OperationHistoryEvent[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<ApiErrorDisplay | null>(null);
+  const [selectedHistoryEventId, setSelectedHistoryEventId] = useState<string | null>(null);
+  const historyRequestInFlightRef = useRef(false);
+  const selectedHistoryEvent = historyEvents.find((event) => event.id === selectedHistoryEventId) || null;
+
+  const refreshOperationHistory = useCallback(async () => {
+    if (historyRequestInFlightRef.current) return;
+    historyRequestInFlightRef.current = true;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const payload = await fetchOperationsHistory({ limit: 12 });
+      const nextEvents = payload.events || [];
+      setHistoryEvents(nextEvents);
+      if (!nextEvents.some((event) => event.id === selectedHistoryEventId)) {
+        setSelectedHistoryEventId(nextEvents[0]?.id ?? null);
+      }
+    } catch (cause) {
+      setHistoryError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Operations history unavailable",
+          fallbackMessage: "Unable to load recent operations history.",
+        }),
+      );
+      setHistoryEvents([]);
+      setSelectedHistoryEventId(null);
+    } finally {
+      historyRequestInFlightRef.current = false;
+      setHistoryLoading(false);
+    }
+  }, [selectedHistoryEventId]);
 
   const refreshStatuses = useCallback(async () => {
     setIsRefreshing(true);
@@ -257,9 +300,13 @@ export function OperationsPage() {
 
   useEffect(() => {
     refreshStatuses();
-  }, [refreshStatuses]);
+    void refreshOperationHistory();
+  }, [refreshStatuses, refreshOperationHistory]);
 
-  const [runAllState, runAll] = useRunAll(refreshStatuses);
+  const [runAllState, runAll] = useRunAll(() => {
+    void refreshStatuses();
+    void refreshOperationHistory();
+  });
 
   const currentStepLabel =
     runAllState.isRunning && runAllState.stepIndex > 0
@@ -382,6 +429,135 @@ export function OperationsPage() {
         </div>
       </section>
 
+      {/* ── Recent Operations ─────────────────────────────────────────── */}
+      <section className="space-y-3 pt-2 border-t border-border/40">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Recent Operations
+          </h2>
+          <button
+            onClick={() => void refreshOperationHistory()}
+            disabled={historyLoading}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-3.5 w-3.5", historyLoading && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
+
+        {historyError ? <ApiErrorMessage error={historyError} /> : null}
+
+        <div className="rounded-xl border border-border/70 bg-card/50 shadow-sm overflow-hidden">
+          <div className="grid grid-cols-[140px_1fr_100px_100px] gap-3 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border/60">
+            <span>When</span>
+            <span>Operation</span>
+            <span>Status</span>
+            <span>Duration</span>
+          </div>
+          <div className="divide-y divide-border/50">
+            {historyLoading && historyEvents.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-muted-foreground">Loading recent operations...</div>
+            ) : historyEvents.length === 0 ? (
+              <div className="px-4 py-3 text-sm text-muted-foreground">No recent operations logged.</div>
+            ) : historyEvents.map((event) => {
+              const selected = selectedHistoryEvent?.id === event.id;
+              return (
+                <button
+                  key={event.id}
+                  type="button"
+                  onClick={() => setSelectedHistoryEventId(event.id)}
+                  className={cn(
+                    "grid w-full grid-cols-[140px_1fr_100px_100px] gap-3 px-4 py-3 text-xs text-left transition-colors",
+                    "hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    selected && "bg-muted/50",
+                  )}
+                >
+                  <span className="text-muted-foreground">{formatRelativeTime(event.timestamp)}</span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <ChevronRight
+                        className={cn(
+                          "h-3.5 w-3.5 text-muted-foreground transition-transform",
+                          selected && "rotate-90",
+                        )}
+                      />
+                      <span className="truncate font-medium">{event.operation}</span>
+                    </div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {event.result?.summary || "No summary"}
+                      {event.requestId ? ` · ${event.requestId}` : ""}
+                    </div>
+                  </div>
+                  <span
+                    className={cn(
+                      "inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium w-fit",
+                      event.status === "success"
+                        ? "bg-emerald-500/15 text-emerald-700"
+                        : event.status === "running" || event.status === "queued"
+                        ? "bg-blue-500/15 text-blue-700"
+                        : event.status === "cancelled"
+                        ? "bg-amber-500/15 text-amber-700"
+                        : "bg-red-500/15 text-red-700",
+                    )}
+                  >
+                    {event.status}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">
+                    {typeof event.durationMs === "number" ? `${event.durationMs} ms` : "—"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {selectedHistoryEvent ? (
+          <div className="rounded-xl border border-border/70 bg-card/50 p-4 shadow-sm space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate text-sm font-semibold">{selectedHistoryEvent.operation}</h3>
+                <p className="text-xs text-muted-foreground">
+                  {selectedHistoryEvent.timestamp} · {selectedHistoryEvent.eventType}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedHistoryEventId(null)}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+                Close
+              </button>
+            </div>
+
+            <div className="grid gap-2 text-xs md:grid-cols-2">
+              <DetailItem label="Status" value={selectedHistoryEvent.status} />
+              <DetailItem label="System" value={selectedHistoryEvent.system || "—"} />
+              <DetailItem label="Duration" value={typeof selectedHistoryEvent.durationMs === "number" ? `${selectedHistoryEvent.durationMs} ms` : "—"} />
+              <DetailItem label="Job ID" value={selectedHistoryEvent.jobId || "—"} mono />
+              <DetailItem label="Request ID" value={selectedHistoryEvent.requestId || "—"} mono />
+              <DetailItem label="Input Hash" value={selectedHistoryEvent.inputHash || "—"} mono />
+              <DetailItem label="Output Hash" value={selectedHistoryEvent.outputHash || "—"} mono />
+              <DetailItem
+                label="Result Code"
+                value={
+                  selectedHistoryEvent.result?.code === null || selectedHistoryEvent.result?.code === undefined
+                    ? "—"
+                    : String(selectedHistoryEvent.result.code)
+                }
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Result</p>
+              <pre className="max-h-56 overflow-auto rounded-md border border-border/70 bg-muted/30 p-3 text-[11px] leading-relaxed">
+                {JSON.stringify(selectedHistoryEvent.result || {}, null, 2)}
+              </pre>
+            </div>
+          </div>
+        ) : null}
+      </section>
+
       {/* ── Data & Indexing ─────────────────────────────────────────────── */}
       <section className="space-y-3 pt-2 border-t border-border/40">
         <SectionHeader
@@ -483,6 +659,23 @@ export function OperationsPage() {
           onRunSuccess={refreshStatuses}
         />
       </section>
+    </div>
+  );
+}
+
+function DetailItem({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="space-y-0.5">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn("truncate text-sm", mono && "font-mono text-[12px]")}>{value}</p>
     </div>
   );
 }
