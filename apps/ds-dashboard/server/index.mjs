@@ -24,6 +24,7 @@ import {
 } from "./system-repository.ts";
 import { registerSystemRoutes } from "./routes/system-routes.mjs";
 import { registerOperationsRoutes } from "./routes/operations-routes.mjs";
+import { registerRegistryRoutes } from "./routes/registry-routes.mjs";
 import { runSpawnWithCapture } from "./lib/spawn-runner.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1190,115 +1191,6 @@ function buildSnippet(content, line, before, after) {
   return { targetLine: target, startLine, endLine, snippet: snippetLines.join("\n") };
 }
 
-function buildTokenCollectionTrees(entries) {
-  const byCollection = new Map();
-  for (const entry of entries) {
-    const collection = String(entry.collection || "Uncategorized").trim() || "Uncategorized";
-    if (!byCollection.has(collection)) byCollection.set(collection, []);
-    byCollection.get(collection)?.push(entry);
-  }
-
-  const collections = Array.from(byCollection.entries())
-    .sort(([a], [b]) => a.localeCompare(b, "en", { sensitivity: "base" }))
-    .map(([collection, collectionEntries]) => {
-      const root = {
-        id: `collection:${collection}`,
-        name: collection,
-        type: "collection",
-        path: collection,
-        children: [],
-      };
-      const nodeByPath = new Map();
-      nodeByPath.set(root.path, root);
-
-      const sortedEntries = collectionEntries
-        .slice()
-        .sort((a, b) =>
-          String(a.path || a.slashPath || "").localeCompare(
-            String(b.path || b.slashPath || ""),
-            "en",
-            { sensitivity: "base" },
-          ),
-        );
-
-      for (const entry of sortedEntries) {
-        const slashPath = String(entry.slashPath || "").trim();
-        const pathValue = String(entry.path || "").trim();
-        const normalizedPath = slashPath || pathValue.replace(/\./g, "/");
-        if (!normalizedPath) continue;
-        const rawSegments = normalizedPath.split("/").filter(Boolean);
-        const segments =
-          rawSegments[0]?.localeCompare(collection, "en", { sensitivity: "base" }) === 0
-            ? rawSegments.slice(1)
-            : rawSegments;
-        if (segments.length === 0) continue;
-
-        let currentPath = collection;
-        let parent = root;
-        for (let i = 0; i < segments.length; i += 1) {
-          const segment = segments[i];
-          const isLeaf = i === segments.length - 1;
-          currentPath = `${currentPath}/${segment}`;
-
-          if (isLeaf) {
-            const tokenNode = {
-              id: `token:${currentPath}`,
-              name: segment,
-              type: "token",
-              path: currentPath,
-              children: [],
-              tokenData: entry,
-            };
-            parent.children.push(tokenNode);
-            continue;
-          }
-
-          let groupNode = nodeByPath.get(currentPath);
-          if (!groupNode) {
-            groupNode = {
-              id: `group:${currentPath}`,
-              name: segment,
-              type: "group",
-              path: currentPath,
-              children: [],
-            };
-            nodeByPath.set(currentPath, groupNode);
-            parent.children.push(groupNode);
-          }
-          parent = groupNode;
-        }
-      }
-
-      const sortTree = (nodes) => {
-        nodes.sort((a, b) => {
-          if (a.type !== b.type) {
-            if (a.type === "token") return 1;
-            if (b.type === "token") return -1;
-          }
-          return a.name.localeCompare(b.name, "en", { sensitivity: "base" });
-        });
-        for (const node of nodes) {
-          if (node.children.length > 0) sortTree(node.children);
-        }
-      };
-      sortTree(root.children);
-
-      return {
-        collection,
-        tokenCount: collectionEntries.length,
-        root,
-      };
-    });
-
-  return {
-    collections,
-    summary: {
-      collections: collections.length,
-      tokens: entries.length,
-    },
-  };
-}
-
 function normalizeTokenGraphDirection(raw) {
   const value = String(raw || "").trim().toLowerCase();
   if (value === "dependencies" || value === "dependents" || value === "both") return value;
@@ -1452,125 +1344,6 @@ function buildTokenGraphQueryPayload({ graph, token, direction, depth }) {
       edges: subgraphEdges,
     },
   };
-}
-
-function normalizeSlug(raw) {
-  return String(raw || "")
-    .trim()
-    .toLowerCase()
-    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-    .replace(/[\s\-./]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
-}
-
-function singularizeSlug(slug) {
-  const normalized = normalizeSlug(slug);
-  if (normalized.endsWith("ies") && normalized.length > 3) return `${normalized.slice(0, -3)}y`;
-  if (normalized.endsWith("s") && normalized.length > 1) return normalized.slice(0, -1);
-  return normalized;
-}
-
-function extractExplicitRelatedComponents(rawSpec) {
-  const blockMatch = String(rawSpec || "").match(
-    /^related_components:\s*\n((?:[ \t]*-\s*[^\n]+\n?)*)/m,
-  );
-  if (!blockMatch) return [];
-
-  const rows = String(blockMatch[1] || "")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith("- "));
-
-  return rows
-    .map((line) => line.replace(/^- /, "").trim().replace(/^['"]|['"]$/g, ""))
-    .filter(Boolean)
-    .map((item) => normalizeSlug(item));
-}
-
-function extractAnatomyItemRefs(rawSpec) {
-  const refs = new Set();
-  const text = String(rawSpec || "");
-  const idRegex = /^\s*-\s*id:\s*([A-Za-z0-9_-]+)\s*$/gm;
-  let idMatch = null;
-  while ((idMatch = idRegex.exec(text)) !== null) {
-    const id = normalizeSlug(String(idMatch[1] || ""));
-    if (!id) continue;
-    if (id.endsWith("_item") || id.endsWith("_items")) {
-      const base = id.replace(/_items?$/, "");
-      if (base) refs.add(base);
-      const singular = singularizeSlug(base);
-      if (singular) refs.add(singular);
-    }
-  }
-
-  const instanceRegex = /\b([A-Z][A-Za-z0-9_-]*)\s+instances\b/g;
-  let instanceMatch = null;
-  while ((instanceMatch = instanceRegex.exec(text)) !== null) {
-    const token = normalizeSlug(String(instanceMatch[1] || ""));
-    if (token) {
-      refs.add(token);
-      refs.add(singularizeSlug(token));
-    }
-  }
-
-  return Array.from(refs);
-}
-
-function buildComponentUsageIndex(rows, root) {
-  const slugSet = new Set(rows.map((row) => normalizeSlug(String(row.slug || ""))).filter(Boolean));
-  const usesMap = new Map();
-  for (const slug of Array.from(slugSet)) usesMap.set(slug, new Set());
-
-  for (const row of rows) {
-    const ownerSlug = normalizeSlug(String(row.slug || ""));
-    if (!ownerSlug || !usesMap.has(ownerSlug)) continue;
-    const specRelPath = String(row.paths?.spec || "").trim();
-    if (!specRelPath) continue;
-    const specPath = path.resolve(root, specRelPath);
-
-    let rawSpec = "";
-    try {
-      rawSpec = fsSync.readFileSync(specPath, "utf8");
-    } catch {
-      continue;
-    }
-
-    const refs = new Set([
-      ...extractExplicitRelatedComponents(rawSpec),
-      ...extractAnatomyItemRefs(rawSpec),
-    ]);
-    for (const ref of Array.from(refs)) {
-      const normalized = normalizeSlug(ref);
-      const singular = singularizeSlug(normalized);
-      const finalRef = slugSet.has(normalized) ? normalized : slugSet.has(singular) ? singular : "";
-      if (!finalRef || finalRef === ownerSlug) continue;
-      usesMap.get(ownerSlug)?.add(finalRef);
-    }
-  }
-
-  const usedInMap = new Map();
-  for (const slug of Array.from(slugSet)) usedInMap.set(slug, new Set());
-
-  for (const [ownerSlug, uses] of Array.from(usesMap.entries())) {
-    for (const targetSlug of Array.from(uses)) {
-      usedInMap.get(targetSlug)?.add(ownerSlug);
-    }
-  }
-
-  const bySlug = {};
-  for (const slug of Array.from(slugSet).sort((a, b) => a.localeCompare(b))) {
-    bySlug[slug] = {
-      uses: Array.from(usesMap.get(slug) || []).sort((a, b) =>
-        a.localeCompare(b, "en", { sensitivity: "base" }),
-      ),
-      used_in: Array.from(usedInMap.get(slug) || []).sort((a, b) =>
-        a.localeCompare(b, "en", { sensitivity: "base" }),
-      ),
-    };
-  }
-
-  return { by_slug: bySlug };
 }
 
 function buildEmptyTokenHealthReport(args) {
@@ -2345,48 +2118,9 @@ registerOperationsRoutes(app, {
   queueJobAcceptedPayload,
 });
 
-app.get("/api/component-registry", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const loaded = await loadJsonArtifactOrError(c, {
-    filePath: sysCtx.componentRegistryPath,
-    artifactName: "component registry",
-  });
-  if (!loaded.ok) return loaded.response;
-  return c.json(loaded.value);
-});
-
-app.get("/api/component-usage-index", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const loaded = await loadJsonArtifactOrError(c, {
-    filePath: sysCtx.componentRegistryPath,
-    artifactName: "component registry",
-  });
-  if (!loaded.ok) return loaded.response;
-  const registry = loaded.value;
-  const rows = Array.isArray(registry?.components) ? registry.components : [];
-  return c.json(buildComponentUsageIndex(rows, sysCtx.repoRoot));
-});
-
-app.get("/api/token-registry", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const loaded = await loadJsonArtifactOrError(c, {
-    filePath: sysCtx.tokenRegistryPath,
-    artifactName: "token registry",
-  });
-  if (!loaded.ok) return loaded.response;
-  return c.json(loaded.value);
-});
-
-app.get("/api/token-collection-trees", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const loaded = await loadJsonArtifactOrError(c, {
-    filePath: sysCtx.tokenRegistryPath,
-    artifactName: "token registry",
-  });
-  if (!loaded.ok) return loaded.response;
-  const parsed = loaded.value;
-  const entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
-  return c.json(buildTokenCollectionTrees(entries));
+registerRegistryRoutes(app, {
+  failJson,
+  getSystemContext,
 });
 
 app.get("/api/token-usage-index", async (c) => {
