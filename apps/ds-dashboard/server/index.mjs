@@ -14,16 +14,7 @@ import {
   resolveSafeSystemPathsForDeletion,
   summarizeDesignSystemsConfig,
 } from "./system-repository.ts";
-import { registerSystemRoutes } from "./routes/system-routes.mjs";
-import { registerOperationsRoutes } from "./routes/operations-routes.mjs";
-import { registerRegistryRoutes } from "./routes/registry-routes.mjs";
-import { registerTokenGraphRoutes } from "./routes/token-graph-routes.mjs";
-import { registerHealthRoutes } from "./routes/health-routes.mjs";
-import { registerAnalysisRoutes } from "./routes/analysis-routes.mjs";
-import { registerComponentSpecRoutes } from "./routes/component-spec-routes.mjs";
-import { registerFileRoutes } from "./routes/file-routes.mjs";
-import { registerJobRoutes } from "./routes/job-routes.mjs";
-import { registerCommandRoutes } from "./routes/command-routes.mjs";
+import { registerAllRoutes } from "./routes/register-all-routes.mjs";
 import {
   computeNamingDebtReport,
   validateGitRef,
@@ -190,7 +181,7 @@ const buildHealthPayload = createHealthPayloadBuilder({
   nowIsoFn: nowIso,
 });
 
-registerSystemRoutes(app, {
+registerAllRoutes(app, {
   buildHealthPayload,
   failJson,
   readJsonBody,
@@ -203,69 +194,27 @@ registerSystemRoutes(app, {
   resolveSafeSystemPathsForDeletion,
   repoRoot,
   fsSync,
-});
-
-registerOperationsRoutes(app, {
-  failJson,
   toFiniteTimestamp,
   OPS_HISTORY_MAX_LIMIT,
   OPS_HISTORY_DEFAULT_LIMIT,
   OPS_REGRESSION_MAX_LIMIT,
   OPS_REGRESSION_DEFAULT_LIMIT,
   OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-  designSystemRepository,
   readOperationHistory,
   buildOperationRegressionsReport,
   createApiRequestId,
-  readJsonBody,
-  normalizeSystemId,
   findOperationEventById,
   enqueueReplayJobFromOperation,
   queueJobAcceptedPayload,
-});
-
-registerRegistryRoutes(app, {
-  failJson,
-  getSystemContext,
-});
-
-registerTokenGraphRoutes(app, {
-  failJson,
-  getSystemContext,
-});
-
-registerHealthRoutes(app, {
-  failJson,
-  getSystemContext,
-});
-
-registerAnalysisRoutes(app, {
-  failJson,
-  getSystemContext,
-});
-
-registerComponentSpecRoutes(app, {
-  failJson,
   getSystemContext,
   isDevRuntime,
-  readJsonBody,
   resolveRepoFilePath,
   sha256Text,
-});
-
-registerFileRoutes(app, {
-  failJson,
-  getSystemContext,
-  resolveRepoFilePath,
   readTextFileLimited,
   findLineForQuery,
   buildSnippet,
   guessContentType,
   MAX_FILE_BYTES,
-});
-
-registerJobRoutes(app, {
-  failJson,
   queueJobs,
   listQueueJobEvents,
   queueJobSnapshot,
@@ -274,16 +223,7 @@ registerJobRoutes(app, {
   toQueueTerminalEvent,
   buildApiErrorPayload,
   MAX_RETAINED_EVENTS,
-});
-
-registerCommandRoutes(app, {
-  failJson,
-  createApiRequestId,
-  readJsonBody,
-  getSystemContext,
-  queueJobAcceptedPayload,
   enqueueQueueJob,
-  sha256Text,
   runQueuedSpawnCommand,
   queueNpmScript,
   enqueueRefreshNamingDebtJob,
