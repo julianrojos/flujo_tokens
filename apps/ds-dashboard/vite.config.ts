@@ -3322,6 +3322,40 @@ function createLocalDataApi() {
   };
 }
 
+const OPS_API_PROXY_TARGET = process.env.DS_DASHBOARD_API_URL || "http://127.0.0.1:8787";
+const OPS_API_PROXY_ROUTES = {
+  "/api/health": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/design-systems": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/component-registry": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/component-usage-index": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/token-registry": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/token-collection-trees": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/token-usage-index": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/token-graph": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/token-graph-query": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/token-health": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/components-health": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/health-history": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/token-diff": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/naming-debt": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/impact": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/component-spec": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/file": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/file-snippet": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/asset": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/run": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/jobs": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/refresh-registry": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/refresh-token-usage-index": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/refresh-token-graph": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/refresh-token-health": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/refresh-components-health": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/refresh-naming-debt": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/capture-health-snapshot": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/sync-figma-tokens": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+  "/api/capture-figma-screenshot": { target: OPS_API_PROXY_TARGET, changeOrigin: true },
+} as const;
+
 export default defineConfig({
   plugins: [react(), createLocalDataApi()],
   resolve: {
@@ -3333,5 +3367,6 @@ export default defineConfig({
     fs: {
       allow: [path.resolve(__dirname, "../..")],
     },
+    proxy: OPS_API_PROXY_ROUTES,
   },
 });
