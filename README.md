@@ -413,6 +413,17 @@ Component pages are governed by rules in `.agent/rules/` and must include:
   - prefer `figma.component_set_node_id` from the spec
   - in `ready` specs, `figma.component_set_node_id` is mandatory
   - runtime resolution order: `--component-set-id` -> `spec.figma.component_set_node_id` -> name lookup (`draft` only)
+- Workflow pattern docs are supported as a workflow subtype:
+  - recommended path: `docs/workflows/patterns/*.md`
+  - expected focus: problem, decision guide, composition, behavior, accessibility, i18n, governance, and metrics
+  - component APIs remain canonical in `docs/components/*.md` and should be linked, not duplicated
+- Governance workflow docs should explicitly define:
+  - ownership model, review cadence, and contribution/review path
+  - deprecation policy with replacement and migration window
+  - feedback intake channel plus KPI definitions (source, formula, cadence)
+- Internationalization expectations:
+  - component `Usage Guidelines -> Behavior` should cover RTL/LTR, text expansion, and locale-dependent formats
+  - interactive docs should state reduced-motion and zoom behavior (or `TBD` with a tracked gap)
 
 For markdown rendered to Figma, prefer the supported subset:
 

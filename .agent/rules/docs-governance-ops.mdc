@@ -1,0 +1,73 @@
+---
+description: Operational governance contract for design-system documentation lifecycle, ownership, deprecation, and measurement.
+globs:
+  - "docs/workflows/governance*.md"
+  - "docs/workflows/**/governance*.md"
+  - "docs/workflows/lifecycle*.md"
+  - "docs/workflows/**/lifecycle*.md"
+  - "docs/workflows/metrics*.md"
+  - "docs/workflows/**/metrics*.md"
+---
+
+# Documentation governance operations
+
+Governance pages define how documentation is owned, reviewed, changed, and measured.
+
+## Required governance topics
+
+Governance/lifecycle workflow pages must cover all topics below:
+
+1. Ownership model
+2. Contribution and review flow
+3. Release and version policy
+4. Deprecation and migration policy
+5. Review cadence
+6. Feedback intake and triage
+7. KPIs and health reporting
+
+## Ownership model
+
+- Define explicit owner roles (for example: docs maintainer, component owner, token maintainer).
+- Define approval responsibilities by change type.
+- Define escalation path for unresolved conflicts.
+
+## Contribution and review flow
+
+- Describe intake channel (issue, RFC, PR) and minimum required evidence.
+- Describe reviewers required before merge.
+- Describe fast-path vs standard-path conditions.
+
+## Release and version policy
+
+- State SemVer policy for docs/spec changes.
+- State where changelog entries are published.
+- State criteria to mark pages/components as `ready`.
+
+## Deprecation and migration policy
+
+- Deprecation entries must include:
+  - reason,
+  - replacement,
+  - migration path,
+  - target removal window.
+- Never deprecate without replacement guidance unless explicitly accepted risk is documented.
+
+## Review cadence
+
+- Define a recurring review cadence per scope (components/foundations/workflows).
+- Define stale-page trigger criteria (for example: no review in N months).
+
+## Feedback intake and triage
+
+- Define at least one async feedback channel.
+- Define triage SLA or review rhythm for incoming feedback.
+- Repeated questions should become documentation improvements.
+
+## KPIs and health reporting
+
+- Track at least:
+  - one adoption KPI,
+  - one quality KPI,
+  - one maintenance KPI.
+- KPI definitions must include source, formula, and reporting cadence.
+
