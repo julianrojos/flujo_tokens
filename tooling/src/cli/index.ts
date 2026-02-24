@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
+import { fileURLToPath } from 'url';
 
 // Types
 import type {
@@ -34,11 +34,12 @@ import {
     type InputHashSnapshot
 } from '../runtime/pipeline-cache.js';
 import { runPipelinePlugins, type PipelinePlugin } from '../runtime/pipeline-plugins.js';
+import { parseArgs, printUsage, type CliOptions } from './options.js';
+import { loadExternalPhasePlugins } from './plugins.js';
 
 // Utils
 import { normalizeModeName, normalizePreferredMode, matchesPreferredMode, formatModeLabel } from '../utils/modes.js';
 import { printExecutionSummary, logChangeDetection, printModeSummary, printModeFallbackSummary } from '../utils/reporting.js';
-import { formatDiagnostic } from '../utils/logging.js';
 
 // Core
 import { readAndCombineJsons } from '../core/ingest.js';
@@ -54,25 +55,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '../../..');
 const PIPELINE_SCHEMA_VERSION = 2;
 const PHASE_ORDER: PipelinePhase[] = ['ingest', 'index', 'analyze', 'emit'];
-
-type CliOptions = {
-    inputDir: string;
-    outputFile: string;
-    outputPrimitives: string;
-    outputTokens: string;
-    registryOutput: string;
-    split: boolean;
-    registry: boolean;
-    help: boolean;
-    mode?: string;
-    modeStrict: boolean;
-    system?: string;
-    fromPhase?: PipelinePhase;
-    forcePhases: PipelinePhase[];
-    checkpoints: boolean;
-    cacheDir?: string;
-    pluginModules: string[];
-};
 
 type ModeScope = {
     selector: string;
@@ -233,270 +215,6 @@ function readToolVersion(): string {
 
 const TOOL_VERSION = readToolVersion();
 
-function printUsage(): void {
-    console.log(`Usage: npm run generate -- [options]
-
-Options:
-  -h, --help           Show this help and exit
-  -i, --input <dir>    Directory with token JSON files (default: ./input)
-  -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
-      --split          Emit two files: primitives + tokens (default)
-      --single         Emit one file (disables split)
-      --output-primitives <file>  Primitives CSS output (default: ./output/primitives.css)
-      --output-tokens <file>      Tokens CSS output (default: ./output/tokens.css)
-      --registry       Also export docs token registry JSON (default: off)
-      --registry-output <file>    Token registry output (default: system dependent)
-      --system <id>        Set active design system (default: from config)
-  -m, --mode <name>    Preferred mode branch (default: none; uses modeDefault or first mode)
-      --mode-strict    Fail if preferred mode is missing in any node (default: off)
-      --mode-loose     Allow fallback to available mode if preferred is missing (default: on)
-      --from-phase <phase>   Re-run from phase: ingest|index|analyze|emit
-      --force-phase <phase>  Force a phase (and downstream). Repeatable or comma-separated
-      --plugin <path>        Load external phase plugin module (.mjs/.js/.ts). Repeatable
-      --no-checkpoints       Disable phase checkpoints
-      --cache-dir <dir>      Checkpoint directory (default: ./.cache/tokens-<system>)
-`);
-}
-
-function getSystemPaths(systemId?: string) {
-    const configRaw = fs.readFileSync(path.join(ROOT_DIR, 'tooling/config/design-systems.json'), 'utf8');
-    const config = JSON.parse(configRaw);
-    const sid = systemId || config.defaultSystem;
-    const sys = config.systems.find((s: any) => s.id === sid);
-    if (!sys) throw new Error(`Unknown system: ${sid}`);
-    return {
-        inputDir: path.resolve(ROOT_DIR, sys.inputDir),
-        outputPrimitives: path.resolve(ROOT_DIR, sys.outputDir, 'primitives.css'),
-        outputTokens: path.resolve(ROOT_DIR, sys.outputDir, 'tokens.css'),
-        outputFile: path.resolve(ROOT_DIR, sys.outputDir, 'custom-properties.css'),
-        registryOutput: path.resolve(ROOT_DIR, sys.docsDir, '_generated/token-registry.json'),
-    };
-}
-
-function parsePhaseName(value: string): PipelinePhase | null {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === 'ingest' || normalized === 'index' || normalized === 'analyze' || normalized === 'emit') {
-        return normalized;
-    }
-    return null;
-}
-
-function consumeArgValue(
-    argv: string[],
-    index: number,
-    optionName: string
-): { value: string; nextIndex: number } | null {
-    const value = argv[index + 1];
-    if (!value) {
-        console.error(formatDiagnostic('error', `Missing value for ${optionName}`));
-        return null;
-    }
-    return { value, nextIndex: index + 1 };
-}
-
-function parseArgs(argv: string[]): CliOptions | null {
-    let split = true;
-    let registry = false;
-    let help = false;
-    let mode: string | undefined;
-    let modeStrict = false;
-    let systemId: string | undefined;
-    let fromPhase: PipelinePhase | undefined;
-    const forcePhases: PipelinePhase[] = [];
-    let checkpoints = true;
-    let cacheDir: string | undefined;
-    const pluginModules: string[] = [];
-    const cwd = process.cwd();
-
-    // First pass loop just to find systemId.
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-        if (arg === '--system') {
-            const consumed = consumeArgValue(argv, i, '--system');
-            if (!consumed) return null;
-            systemId = consumed.value;
-            break;
-        }
-    }
-
-    const sysPaths = getSystemPaths(systemId);
-    let inputDir = sysPaths.inputDir;
-    let outputFile = sysPaths.outputFile;
-    let outputPrimitives = sysPaths.outputPrimitives;
-    let outputTokens = sysPaths.outputTokens;
-    let registryOutput = sysPaths.registryOutput;
-
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-
-        if (arg === '-h' || arg === '--help') {
-            help = true;
-            continue;
-        }
-
-        if (arg === '-i' || arg === '--input') {
-            const consumed = consumeArgValue(argv, i, '--input');
-            if (!consumed) return null;
-            inputDir = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '-o' || arg === '--output') {
-            const consumed = consumeArgValue(argv, i, '--output');
-            if (!consumed) return null;
-            outputFile = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '--split') {
-            split = true;
-            continue;
-        }
-
-        if (arg === '--single') {
-            split = false;
-            continue;
-        }
-
-        if (arg === '--output-primitives') {
-            const consumed = consumeArgValue(argv, i, '--output-primitives');
-            if (!consumed) return null;
-            outputPrimitives = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '--output-tokens') {
-            const consumed = consumeArgValue(argv, i, '--output-tokens');
-            if (!consumed) return null;
-            outputTokens = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '--registry') {
-            registry = true;
-            continue;
-        }
-
-        if (arg === '--registry-output') {
-            const consumed = consumeArgValue(argv, i, '--registry-output');
-            if (!consumed) return null;
-            registryOutput = path.resolve(cwd, consumed.value);
-            registry = true;
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '-m' || arg === '--mode') {
-            const consumed = consumeArgValue(argv, i, '--mode');
-            if (!consumed) return null;
-            mode = consumed.value;
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '--mode-strict') {
-            modeStrict = true;
-            continue;
-        }
-
-        if (arg === '--mode-loose') {
-            modeStrict = false;
-            continue;
-        }
-
-        if (arg === '--from-phase') {
-            const consumed = consumeArgValue(argv, i, '--from-phase');
-            if (!consumed) return null;
-            const parsedPhase = parsePhaseName(consumed.value);
-            if (!parsedPhase) {
-                console.error(
-                    formatDiagnostic(
-                        'error',
-                        `Invalid --from-phase: ${consumed.value} (use: ingest|index|analyze|emit)`
-                    )
-                );
-                return null;
-            }
-            fromPhase = parsedPhase;
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '--force-phase') {
-            const consumed = consumeArgValue(argv, i, '--force-phase');
-            if (!consumed) return null;
-            const rawPhases = consumed.value.split(',').map(s => s.trim()).filter(Boolean);
-            for (const raw of rawPhases) {
-                const parsedPhase = parsePhaseName(raw);
-                if (!parsedPhase) {
-                    console.error(
-                        formatDiagnostic(
-                            'error',
-                            `Invalid --force-phase value: ${raw} (use: ingest|index|analyze|emit)`
-                        )
-                    );
-                    return null;
-                }
-                forcePhases.push(parsedPhase);
-            }
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '--no-checkpoints') {
-            checkpoints = false;
-            continue;
-        }
-
-        if (arg === '--plugin') {
-            const consumed = consumeArgValue(argv, i, '--plugin');
-            if (!consumed) return null;
-            pluginModules.push(path.resolve(cwd, consumed.value));
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '--cache-dir') {
-            const consumed = consumeArgValue(argv, i, '--cache-dir');
-            if (!consumed) return null;
-            cacheDir = path.resolve(cwd, consumed.value);
-            i = consumed.nextIndex;
-            continue;
-        }
-
-        if (arg === '--system') {
-            i++;
-            continue;
-        }
-
-        console.error(formatDiagnostic('error', `Unknown argument: ${arg}`));
-        return null;
-    }
-
-    return {
-        inputDir,
-        outputFile,
-        outputPrimitives,
-        outputTokens,
-        registryOutput,
-        split,
-        registry,
-        help,
-        mode,
-        modeStrict,
-        system: systemId,
-        fromPhase,
-        forcePhases,
-        checkpoints,
-        cacheDir,
-        pluginModules
-    };
-}
-
 function getPhaseIndex(phase: PipelinePhase): number {
     return PHASE_ORDER.indexOf(phase);
 }
@@ -623,7 +341,7 @@ function fromSummarySnapshot(snapshot: SummarySnapshot): ExecutionSummary {
     };
 }
 
-const parsedArgs = parseArgs(process.argv.slice(2));
+const parsedArgs = parseArgs(process.argv.slice(2), { rootDir: ROOT_DIR });
 if (!parsedArgs) {
     printUsage();
     process.exit(1);
@@ -896,86 +614,6 @@ function isEmitCheckpointUsable(
 }
 
 // --- Main execution ---
-
-function isPipelinePhase(value: unknown): value is PipelinePhase {
-    return value === 'ingest' || value === 'index' || value === 'analyze' || value === 'emit';
-}
-
-function isPluginPlacement(value: unknown): value is 'before-core' | 'after-core' {
-    return value === 'before-core' || value === 'after-core';
-}
-
-function normalizePluginCandidates(raw: unknown): unknown[] {
-    if (Array.isArray(raw)) return raw;
-    if (raw == null) return [];
-    return [raw];
-}
-
-function parseExternalPlugin(modulePath: string, candidate: unknown, index: number): TokenPipelinePlugin {
-    const suffix = `External plugin ${index + 1} in ${modulePath}`;
-    if (!candidate || typeof candidate !== 'object') {
-        throw new Error(`${suffix} must be an object.`);
-    }
-
-    const plugin = candidate as {
-        name?: unknown;
-        phase?: unknown;
-        placement?: unknown;
-        transform?: unknown;
-    };
-
-    if (typeof plugin.name !== 'string' || !plugin.name.trim()) {
-        throw new Error(`${suffix} is missing a valid "name".`);
-    }
-    if (!isPipelinePhase(plugin.phase)) {
-        throw new Error(`${suffix} must define phase as ingest|index|analyze|emit.`);
-    }
-    if (typeof plugin.transform !== 'function') {
-        throw new Error(`${suffix} is missing a function "transform".`);
-    }
-
-    const placement = plugin.placement;
-    if (placement != null && !isPluginPlacement(placement)) {
-        throw new Error(`${suffix} has invalid placement "${String(placement)}". Use before-core|after-core.`);
-    }
-
-    return {
-        name: plugin.name.trim(),
-        phase: plugin.phase,
-        placement: placement || 'after-core',
-        transform: plugin.transform as TokenPipelinePlugin['transform']
-    };
-}
-
-async function loadExternalPhasePlugins(pluginModules: string[]): Promise<TokenPipelinePlugin[]> {
-    const plugins: TokenPipelinePlugin[] = [];
-    for (const modulePath of pluginModules) {
-        const resolvedPath = path.resolve(process.cwd(), modulePath);
-        if (!fs.existsSync(resolvedPath)) {
-            throw new Error(`Plugin file not found: ${resolvedPath}`);
-        }
-        const pluginStats = fs.statSync(resolvedPath);
-        if (!pluginStats.isFile()) {
-            throw new Error(`Plugin path must point to a file: ${resolvedPath}`);
-        }
-        const moduleUrl = pathToFileURL(resolvedPath).href;
-        const imported = (await import(moduleUrl)) as Record<string, unknown>;
-        const candidates = [
-            ...normalizePluginCandidates(imported.plugins),
-            ...normalizePluginCandidates(imported.plugin),
-            ...normalizePluginCandidates(imported.default)
-        ];
-        if (candidates.length === 0) {
-            throw new Error(
-                `Plugin module "${resolvedPath}" must export "plugin", "plugins", or "default" with plugin definitions.`
-            );
-        }
-        candidates.forEach((candidate, idx) => {
-            plugins.push(parseExternalPlugin(resolvedPath, candidate, idx));
-        });
-    }
-    return plugins;
-}
 
 function runIngestPhase(state: PipelineExecutionState): void {
     const bypassIngest = shouldBypassCheckpoint('ingest', options.fromPhase, options.forcePhases);
