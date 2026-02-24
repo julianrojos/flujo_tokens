@@ -50,6 +50,7 @@ import {
   nowIso,
   writeStructuredLog,
 } from "./lib/api-response-service.mjs";
+import { createServerConfig } from "./lib/server-config.mjs";
 import {
   createSnippetBuilder,
   findLineForQuery,
@@ -64,9 +65,30 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "../../..");
-const PORT = Number.parseInt(String(process.env.DS_DASHBOARD_API_PORT || "8787"), 10) || 8787;
 const designSystemRepository = createDesignSystemRepository({ repoRoot, watch: true });
 let designSystemRepositoryDisposed = false;
+
+const {
+  PORT,
+  MAX_OUTPUT_BYTES,
+  MAX_FILE_BYTES,
+  MAX_SNIPPET_LINES,
+  JOB_QUEUE_CONCURRENCY,
+  JOB_TIMEOUT_MS,
+  JOB_RETENTION_MS,
+  MAX_RETAINED_EVENTS,
+  MAX_RETAINED_JOBS,
+  OPS_LOG_MAX_FILE_BYTES,
+  OPS_LOG_RETENTION_DAYS,
+  OPS_HISTORY_DEFAULT_LIMIT,
+  OPS_HISTORY_MAX_LIMIT,
+  OPS_REGRESSION_DEFAULT_LIMIT,
+  OPS_REGRESSION_MAX_LIMIT,
+  OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
+  OPS_LOG_FILE_RE,
+  REPLAYABLE_NPM_SCRIPTS,
+  SUPPORTED_REPLAY_OPERATIONS,
+} = createServerConfig(process.env);
 
 function disposeDesignSystemRepository() {
   if (designSystemRepositoryDisposed) return;
@@ -83,38 +105,6 @@ function handleProcessShutdown(signal) {
 
 process.once("SIGINT", () => handleProcessShutdown("SIGINT"));
 process.once("SIGTERM", () => handleProcessShutdown("SIGTERM"));
-
-const MAX_OUTPUT_BYTES = 2 * 1024 * 1024; // 2MB
-const MAX_FILE_BYTES = 450_000;
-const MAX_SNIPPET_LINES = 15;
-const JOB_QUEUE_CONCURRENCY = 1;
-const JOB_TIMEOUT_MS =
-  Number.parseInt(String(process.env.DS_DASHBOARD_JOB_TIMEOUT_MS || "600000"), 10) || 600000;
-const JOB_RETENTION_MS = 30 * 60 * 1000;
-const MAX_RETAINED_EVENTS = 2_000;
-const MAX_RETAINED_JOBS = 200;
-const OPS_LOG_MAX_FILE_BYTES =
-  Number.parseInt(String(process.env.DS_DASHBOARD_OPS_LOG_MAX_FILE_BYTES || "1048576"), 10) || 1_048_576;
-const OPS_LOG_RETENTION_DAYS =
-  Number.parseInt(String(process.env.DS_DASHBOARD_OPS_LOG_RETENTION_DAYS || "30"), 10) || 30;
-const OPS_HISTORY_DEFAULT_LIMIT = 100;
-const OPS_HISTORY_MAX_LIMIT = 500;
-const OPS_REGRESSION_DEFAULT_LIMIT = 300;
-const OPS_REGRESSION_MAX_LIMIT = OPS_HISTORY_MAX_LIMIT;
-const OPS_REGRESSION_DEFAULT_MIN_SAMPLES = 4;
-const OPS_LOG_FILE_RE = /^operations-(\d{4}-\d{2}-\d{2})(?:\.(\d+))?\.ndjson$/;
-const REPLAYABLE_NPM_SCRIPTS = new Set([
-  "ds:registry:refresh",
-  "ds:token-usage-index",
-  "ds:token-graph",
-  "ds:token-health",
-  "ds:registry:report",
-]);
-const SUPPORTED_REPLAY_OPERATIONS = new Set([
-  "refresh:naming-debt",
-  "script:ds-health-snapshot.mjs",
-  ...Array.from(REPLAYABLE_NPM_SCRIPTS).map((script) => `script:${script}`),
-]);
 
 const operationHistoryService = createOperationHistoryService({
   repoRoot,
