@@ -25,16 +25,31 @@ export function registerComponentSpecRoutes(app, deps) {
     sha256Text,
   } = deps;
 
-  app.get("/api/component-spec/:slug", async (c) => {
+  async function resolveComponentSpecRequestContext(c, { requireDevEdit = false } = {}) {
     const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    const slug = sanitizeComponentSlug(decodeURIComponent(String(c.req.param("slug") || "")));
+    if (requireDevEdit && !isDevRuntime()) {
+      return {
+        ok: false,
+        response: failJson(c, 403, {
+          code: "component_spec.editing_disabled",
+          userMessage: "Spec editing is only enabled in development mode.",
+          recoverable: true,
+        }),
+      };
+    }
+
+    const rawSlug = decodeURIComponent(String(c.req.param("slug") || ""));
+    const slug = sanitizeComponentSlug(rawSlug);
     if (!slug) {
-      return failJson(c, 400, {
-        code: "validation.invalid_component_slug",
-        userMessage: "Invalid component slug.",
-        recoverable: true,
-        context: { slug: c.req.param("slug") },
-      });
+      return {
+        ok: false,
+        response: failJson(c, 400, {
+          code: "validation.invalid_component_slug",
+          userMessage: "Invalid component slug.",
+          recoverable: true,
+          context: { slug: c.req.param("slug") },
+        }),
+      };
     }
 
     const target = await resolveComponentSpecTarget(
@@ -46,13 +61,29 @@ export function registerComponentSpecRoutes(app, deps) {
       { resolveRepoFilePathFn: resolveRepoFilePath },
     );
     if (!target.ok) {
-      return failJson(c, 404, {
-        code: "component_spec.not_found",
-        userMessage: target.message,
-        recoverable: true,
-        context: { slug },
-      });
+      return {
+        ok: false,
+        response: failJson(c, 404, {
+          code: "component_spec.not_found",
+          userMessage: target.message,
+          recoverable: true,
+          context: { slug },
+        }),
+      };
     }
+
+    return {
+      ok: true,
+      sysCtx,
+      slug,
+      target,
+    };
+  }
+
+  app.get("/api/component-spec/:slug", async (c) => {
+    const resolved = await resolveComponentSpecRequestContext(c);
+    if (!resolved.ok) return resolved.response;
+    const { sysCtx, slug, target } = resolved;
 
     const loaded = await readTextFileIfExists(target.specAbsPath);
     const raw = loaded.raw;
@@ -72,41 +103,9 @@ export function registerComponentSpecRoutes(app, deps) {
   });
 
   app.post("/api/component-spec/:slug/validate", async (c) => {
-    const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    if (!isDevRuntime()) {
-      return failJson(c, 403, {
-        code: "component_spec.editing_disabled",
-        userMessage: "Spec editing is only enabled in development mode.",
-        recoverable: true,
-      });
-    }
-
-    const slug = sanitizeComponentSlug(decodeURIComponent(String(c.req.param("slug") || "")));
-    if (!slug) {
-      return failJson(c, 400, {
-        code: "validation.invalid_component_slug",
-        userMessage: "Invalid component slug.",
-        recoverable: true,
-        context: { slug: c.req.param("slug") },
-      });
-    }
-
-    const target = await resolveComponentSpecTarget(
-      {
-        repoRoot: sysCtx.repoRoot,
-        componentRegistryPath: sysCtx.componentRegistryPath,
-        slug,
-      },
-      { resolveRepoFilePathFn: resolveRepoFilePath },
-    );
-    if (!target.ok) {
-      return failJson(c, 404, {
-        code: "component_spec.not_found",
-        userMessage: target.message,
-        recoverable: true,
-        context: { slug },
-      });
-    }
+    const resolved = await resolveComponentSpecRequestContext(c, { requireDevEdit: true });
+    if (!resolved.ok) return resolved.response;
+    const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
     const raw = String(body.raw ?? "");
@@ -131,41 +130,9 @@ export function registerComponentSpecRoutes(app, deps) {
   });
 
   app.post("/api/component-spec/:slug/save", async (c) => {
-    const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    if (!isDevRuntime()) {
-      return failJson(c, 403, {
-        code: "component_spec.editing_disabled",
-        userMessage: "Spec editing is only enabled in development mode.",
-        recoverable: true,
-      });
-    }
-
-    const slug = sanitizeComponentSlug(decodeURIComponent(String(c.req.param("slug") || "")));
-    if (!slug) {
-      return failJson(c, 400, {
-        code: "validation.invalid_component_slug",
-        userMessage: "Invalid component slug.",
-        recoverable: true,
-        context: { slug: c.req.param("slug") },
-      });
-    }
-
-    const target = await resolveComponentSpecTarget(
-      {
-        repoRoot: sysCtx.repoRoot,
-        componentRegistryPath: sysCtx.componentRegistryPath,
-        slug,
-      },
-      { resolveRepoFilePathFn: resolveRepoFilePath },
-    );
-    if (!target.ok) {
-      return failJson(c, 404, {
-        code: "component_spec.not_found",
-        userMessage: target.message,
-        recoverable: true,
-        context: { slug },
-      });
-    }
+    const resolved = await resolveComponentSpecRequestContext(c, { requireDevEdit: true });
+    if (!resolved.ok) return resolved.response;
+    const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
     const raw = String(body.raw ?? "");
@@ -204,41 +171,9 @@ export function registerComponentSpecRoutes(app, deps) {
   });
 
   app.post("/api/component-spec/:slug/restore-backup", async (c) => {
-    const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    if (!isDevRuntime()) {
-      return failJson(c, 403, {
-        code: "component_spec.editing_disabled",
-        userMessage: "Spec editing is only enabled in development mode.",
-        recoverable: true,
-      });
-    }
-
-    const slug = sanitizeComponentSlug(decodeURIComponent(String(c.req.param("slug") || "")));
-    if (!slug) {
-      return failJson(c, 400, {
-        code: "validation.invalid_component_slug",
-        userMessage: "Invalid component slug.",
-        recoverable: true,
-        context: { slug: c.req.param("slug") },
-      });
-    }
-
-    const target = await resolveComponentSpecTarget(
-      {
-        repoRoot: sysCtx.repoRoot,
-        componentRegistryPath: sysCtx.componentRegistryPath,
-        slug,
-      },
-      { resolveRepoFilePathFn: resolveRepoFilePath },
-    );
-    if (!target.ok) {
-      return failJson(c, 404, {
-        code: "component_spec.not_found",
-        userMessage: target.message,
-        recoverable: true,
-        context: { slug },
-      });
-    }
+    const resolved = await resolveComponentSpecRequestContext(c, { requireDevEdit: true });
+    if (!resolved.ok) return resolved.response;
+    const { sysCtx, slug, target } = resolved;
 
     const body = await readJsonBody(c);
     const refreshRegistryAfterRestore = body.refreshRegistry !== false;
