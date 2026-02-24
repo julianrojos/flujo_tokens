@@ -77,7 +77,9 @@ export class ApiError extends Error {
 }
 
 function toRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return null;
   return value as Record<string, unknown>;
 }
 
@@ -107,7 +109,7 @@ async function buildApiError(response: Response): Promise<ApiError> {
     }
   }
 
-  const envelope = toRecord(payload) as ApiErrorEnvelope | null;
+  const envelope = toRecord(payload);
   const structured = toRecord(envelope?.error);
   const structuredMessage = toNonEmptyString(structured?.userMessage);
   const topLevelMessage = toNonEmptyString(envelope?.message);
