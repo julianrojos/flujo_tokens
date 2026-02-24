@@ -1,5 +1,10 @@
 import {
+  buildOperationsHistoryPayload,
+  buildOperationsRegressionsPayload,
+  buildReplayAcceptedPayload,
+  buildReplayNotSupportedErrorArgs,
   ensureKnownSystemId,
+  parseIncludeAllQuery,
   parseOperationsHistoryFilters,
   parseOperationsRegressionFilters,
   parseOperationsReplayRequest,
@@ -29,7 +34,7 @@ export function registerOperationsRoutes(app, deps) {
     const parsedFilters = parseOperationsHistoryFilters({
       systemFromQuery: c.req.query("system"),
       systemFromHeader: c.req.header("x-ds-system"),
-      includeAll: String(c.req.query("all") || "").trim().toLowerCase() === "true",
+      includeAll: parseIncludeAllQuery(c.req.query("all")),
       operation: c.req.query("operation"),
       status: c.req.query("status"),
       from: c.req.query("from"),
@@ -62,30 +67,14 @@ export function registerOperationsRoutes(app, deps) {
       limit,
     });
 
-    return c.json({
-      ok: true,
-      events: history.events,
-      filters: {
-        systemId: systemId || null,
-        operation: operation || null,
-        status: status || null,
-        from: from || null,
-        to: to || null,
-        limit,
-      },
-      summary: {
-        returned: history.events.length,
-        scannedRows: history.scannedRows,
-        scannedFiles: history.scannedFiles,
-      },
-    });
+    return c.json(buildOperationsHistoryPayload({ history, filters: parsedFilters.filters }));
   });
 
   app.get("/api/operations/regressions", async (c) => {
     const parsedFilters = parseOperationsRegressionFilters({
       systemFromQuery: c.req.query("system"),
       systemFromHeader: c.req.header("x-ds-system"),
-      includeAll: String(c.req.query("all") || "").trim().toLowerCase() === "true",
+      includeAll: parseIncludeAllQuery(c.req.query("all")),
       limitRaw: c.req.query("limit"),
       minSamplesRaw: c.req.query("minSamples"),
       regressionMaxLimit: OPS_REGRESSION_MAX_LIMIT,
@@ -112,17 +101,7 @@ export function registerOperationsRoutes(app, deps) {
       minSamples,
     });
 
-    return c.json({
-      ok: true,
-      generatedAt: report.generatedAt,
-      regressions: report.regressions,
-      filters: {
-        systemId: systemId || null,
-        limit,
-        minSamples,
-      },
-      summary: report.summary,
-    });
+    return c.json(buildOperationsRegressionsPayload({ report, filters: parsedFilters.filters }));
   });
 
   app.post("/api/operations/replay/:eventId", async (c) => {
@@ -154,30 +133,26 @@ export function registerOperationsRoutes(app, deps) {
         sourceEventId: eventId,
       });
     } catch (error) {
-      return failJson(c, 409, {
-        code: "operations.replay_not_supported",
-        userMessage: error instanceof Error ? error.message : String(error),
-        recoverable: true,
-        context: {
+      return failJson(
+        c,
+        409,
+        buildReplayNotSupportedErrorArgs({
           eventId,
-          operation: sourceEvent.operation,
-          sourceSystem: sourceEvent.system || null,
-          targetSystem: targetSystemId,
-        },
-        requestId,
-      });
+          sourceEvent,
+          targetSystemId,
+          error,
+          requestId,
+        }),
+      );
     }
 
     return c.json(
-      {
-        ...queueJobAcceptedPayload(job),
-        replay: {
-          sourceEventId: eventId,
-          sourceOperation: sourceEvent.operation,
-          sourceSystem: sourceEvent.system || null,
-          targetSystem: targetSystemId,
-        },
-      },
+      buildReplayAcceptedPayload({
+        acceptedPayload: queueJobAcceptedPayload(job),
+        eventId,
+        sourceEvent,
+        targetSystemId,
+      }),
       202,
     );
   });

@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildOperationsHistoryPayload,
+  buildOperationsRegressionsPayload,
+  buildReplayAcceptedPayload,
+  buildReplayNotSupportedErrorArgs,
   ensureKnownSystemId,
+  parseIncludeAllQuery,
   parseOperationsHistoryFilters,
   parseOperationsRegressionFilters,
   parseOperationsReplayRequest,
@@ -70,4 +75,63 @@ test("operations-route-service: parseOperationsReplayRequest resolves source and
   assert.equal(parsed.ok, true);
   assert.equal(parsed.payload.eventId, "op_123");
   assert.equal(parsed.payload.targetSystemId, "core");
+});
+
+test("operations-route-service: parseIncludeAllQuery normalizes query flag", () => {
+  assert.equal(parseIncludeAllQuery("true"), true);
+  assert.equal(parseIncludeAllQuery(" TRUE "), true);
+  assert.equal(parseIncludeAllQuery("false"), false);
+  assert.equal(parseIncludeAllQuery(""), false);
+});
+
+test("operations-route-service: payload builders keep API shape", () => {
+  const historyPayload = buildOperationsHistoryPayload({
+    history: { events: [{ id: "op_1" }], scannedRows: 10, scannedFiles: 2 },
+    filters: {
+      systemId: "core",
+      operation: "run:generate",
+      status: "ok",
+      from: "2026-01-01",
+      to: "2026-01-31",
+      limit: 20,
+    },
+  });
+  assert.equal(historyPayload.ok, true);
+  assert.equal(historyPayload.summary.returned, 1);
+  assert.equal(historyPayload.filters.systemId, "core");
+
+  const regressionsPayload = buildOperationsRegressionsPayload({
+    report: {
+      generatedAt: "2026-02-24T00:00:00.000Z",
+      regressions: [{ operation: "run:generate" }],
+      summary: { regressions: 1 },
+    },
+    filters: { systemId: "core", limit: 100, minSamples: 3 },
+  });
+  assert.equal(regressionsPayload.ok, true);
+  assert.equal(regressionsPayload.filters.minSamples, 3);
+  assert.equal(regressionsPayload.summary.regressions, 1);
+});
+
+test("operations-route-service: replay payload helpers build consistent structures", () => {
+  const sourceEvent = { operation: "run:generate", system: "core" };
+  const errorArgs = buildReplayNotSupportedErrorArgs({
+    eventId: "op_1",
+    sourceEvent,
+    targetSystemId: "brand",
+    error: new Error("unsupported"),
+    requestId: "req_1",
+  });
+  assert.equal(errorArgs.code, "operations.replay_not_supported");
+  assert.equal(errorArgs.context.targetSystem, "brand");
+
+  const accepted = buildReplayAcceptedPayload({
+    acceptedPayload: { ok: true, jobId: "job_1" },
+    eventId: "op_1",
+    sourceEvent,
+    targetSystemId: "core",
+  });
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.replay.sourceEventId, "op_1");
+  assert.equal(accepted.replay.targetSystem, "core");
 });

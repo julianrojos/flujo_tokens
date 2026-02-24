@@ -6,6 +6,10 @@ function toLowerTrimmed(value) {
   return toTrimmed(value).toLowerCase();
 }
 
+export function parseIncludeAllQuery(raw) {
+  return toLowerTrimmed(raw) === "true";
+}
+
 function parseLimitedInt(rawValue, { fallback, min, max }) {
   const parsed = Number.parseInt(String(rawValue || ""), 10);
   if (!Number.isFinite(parsed)) return fallback;
@@ -234,6 +238,78 @@ export function parseOperationsReplayRequest(args) {
       eventId,
       sourceEvent,
       targetSystemId,
+    },
+  };
+}
+
+export function buildOperationsHistoryPayload({ history, filters }) {
+  return {
+    ok: true,
+    events: history.events,
+    filters: {
+      systemId: filters.systemId || null,
+      operation: filters.operation || null,
+      status: filters.status || null,
+      from: filters.from || null,
+      to: filters.to || null,
+      limit: filters.limit,
+    },
+    summary: {
+      returned: history.events.length,
+      scannedRows: history.scannedRows,
+      scannedFiles: history.scannedFiles,
+    },
+  };
+}
+
+export function buildOperationsRegressionsPayload({ report, filters }) {
+  return {
+    ok: true,
+    generatedAt: report.generatedAt,
+    regressions: report.regressions,
+    filters: {
+      systemId: filters.systemId || null,
+      limit: filters.limit,
+      minSamples: filters.minSamples,
+    },
+    summary: report.summary,
+  };
+}
+
+export function buildReplayNotSupportedErrorArgs({
+  eventId,
+  sourceEvent,
+  targetSystemId,
+  error,
+  requestId,
+}) {
+  return {
+    code: "operations.replay_not_supported",
+    userMessage: error instanceof Error ? error.message : String(error),
+    recoverable: true,
+    context: {
+      eventId,
+      operation: sourceEvent.operation,
+      sourceSystem: sourceEvent.system || null,
+      targetSystem: targetSystemId,
+    },
+    requestId,
+  };
+}
+
+export function buildReplayAcceptedPayload({
+  acceptedPayload,
+  eventId,
+  sourceEvent,
+  targetSystemId,
+}) {
+  return {
+    ...acceptedPayload,
+    replay: {
+      sourceEventId: eventId,
+      sourceOperation: sourceEvent.operation,
+      sourceSystem: sourceEvent.system || null,
+      targetSystem: targetSystemId,
     },
   };
 }
