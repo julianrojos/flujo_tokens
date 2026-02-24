@@ -9,8 +9,6 @@ import yaml from "js-yaml";
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { streamSSE } from "hono/streaming";
-import { computeImpactReport } from "../src/lib/impact.ts";
-import { analyzeNamingDebt } from "../src/lib/naming-debt.ts";
 import { buildSpecDiff } from "../src/lib/spec-diff.ts";
 import { validateComponentSpec } from "../src/lib/spec-validator.ts";
 import {
@@ -27,6 +25,11 @@ import { registerOperationsRoutes } from "./routes/operations-routes.mjs";
 import { registerRegistryRoutes } from "./routes/registry-routes.mjs";
 import { registerTokenGraphRoutes } from "./routes/token-graph-routes.mjs";
 import { registerHealthRoutes } from "./routes/health-routes.mjs";
+import { registerAnalysisRoutes } from "./routes/analysis-routes.mjs";
+import {
+  computeNamingDebtReport,
+  validateGitRef,
+} from "./lib/analysis-artifacts-service.mjs";
 import { runSpawnWithCapture } from "./lib/spawn-runner.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -1130,16 +1133,6 @@ function toNumberString(value, fallback, max) {
   return String(parsed);
 }
 
-function validateGitRef(raw) {
-  const value = String(raw || "").trim();
-  if (!value) return null;
-  if (value.length > 140) return null;
-  if (value.includes(":")) return null;
-  if (/\s/.test(value)) return null;
-  if (!/^[A-Za-z0-9._/~^-]+$/.test(value)) return null;
-  return value;
-}
-
 function guessContentType(filePath) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".png") return "image/png";
@@ -1384,108 +1377,6 @@ async function runCommandCapture(args) {
     code: result.exitCode,
     stdout: result.stdout,
     stderr: [result.stderr, result.spawnError].filter(Boolean).join("\n").trim(),
-  };
-}
-
-function normalizeImpactWcagPairs(raw) {
-  const list =
-    raw && typeof raw === "object" && Array.isArray(raw.pairs)
-      ? raw.pairs
-      : [];
-
-  const pairs = [];
-  for (const item of list) {
-    if (!item || typeof item !== "object") continue;
-    const foreground = String(item.foreground ?? "").trim();
-    const background = String(item.background ?? "").trim();
-    if (!foreground || !background) continue;
-    const level = String(item.level ?? "AA").trim().toUpperCase() === "AAA" ? "AAA" : "AA";
-    const textSize =
-      String(item.textSize ?? "normal").trim().toLowerCase() === "large"
-        ? "large"
-        : "normal";
-    pairs.push({ foreground, background, level, textSize });
-  }
-  return pairs;
-}
-
-async function computeNamingDebtReport(args) {
-  const [tokenRegistryRaw, tokenUsageRaw, tokenGraphRaw, namingConfigRaw] = await Promise.all([
-    fs.readFile(args.tokenRegistryPath, "utf8"),
-    fs.readFile(args.tokenUsageIndexPath, "utf8").catch(() => "null"),
-    fs.readFile(args.tokenGraphVizPath, "utf8").catch(() => "null"),
-    fs.readFile(args.namingDebtConfigPath, "utf8").catch(() => "null"),
-  ]);
-
-  const tokenRegistry = JSON.parse(tokenRegistryRaw);
-  const tokenUsageIndex = tokenUsageRaw ? JSON.parse(tokenUsageRaw) : null;
-  const tokenGraph = tokenGraphRaw ? JSON.parse(tokenGraphRaw) : null;
-  const config = namingConfigRaw ? JSON.parse(namingConfigRaw) : null;
-
-  return analyzeNamingDebt({
-    tokenRegistry,
-    tokenUsageIndex,
-    tokenGraph,
-    config: config || undefined,
-  });
-}
-
-async function runNodeJsonCommandOnce(args) {
-  const result = await runSpawnWithCapture({
-    cwd: args.cwd,
-    command: args.command,
-    commandArgs: args.commandArgs,
-    parseJsonStdout: true,
-    maxOutputBytes: MAX_OUTPUT_BYTES,
-  });
-
-  if (result.spawnError) {
-    return {
-      ok: false,
-      statusCode: 500,
-      payload: {
-        ok: false,
-        command: args.commandLabel,
-        message: result.spawnError,
-        stdout: result.stdout,
-        stderr: result.stderr,
-      },
-    };
-  }
-
-  if (result.exitCode !== 0) {
-    return {
-      ok: false,
-      statusCode: 500,
-      payload: {
-        ok: false,
-        command: args.commandLabel,
-        code: result.exitCode,
-        stdout: result.stdout,
-        stderr: result.stderr,
-      },
-    };
-  }
-
-  if (result.jsonParseError) {
-    return {
-      ok: false,
-      statusCode: 500,
-      payload: {
-        ok: false,
-        command: args.commandLabel,
-        message: "Command returned invalid JSON.",
-        stdout: result.stdout,
-        stderr: result.stderr,
-        parse_error: result.jsonParseError,
-      },
-    };
-  }
-
-  return {
-    ok: true,
-    statusCode: 200,
-    payload: result.parsedJson,
   };
 }
 
@@ -1830,112 +1721,9 @@ registerHealthRoutes(app, {
   getSystemContext,
 });
 
-app.get("/api/token-diff", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const beforeRefRaw = c.req.query("beforeRef") ?? "HEAD~1";
-  const beforeRef = validateGitRef(beforeRefRaw);
-  if (!beforeRef) {
-    return failJson(c, 400, {
-      code: "validation.invalid_git_ref",
-      userMessage: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
-      recoverable: true,
-      context: { beforeRef: beforeRefRaw },
-    });
-  }
-
-  const result = await runNodeJsonCommandOnce({
-    cwd: sysCtx.repoRoot,
-    command: "node",
-    commandArgs: [sysCtx.tokenDiffScriptPath, "--before-ref", beforeRef, "--format", "json", "--system", sysCtx.systemId],
-    commandLabel: `node tooling/scripts/ds-token-diff.mjs --before-ref ${beforeRef} --format json`,
-  });
-  return c.json(result.payload, result.statusCode);
-});
-
-app.get("/api/naming-debt", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const refresh = String(c.req.query("refresh") ?? "false").trim() === "true";
-  if (!refresh) {
-    const loaded = await loadJsonArtifactOrError(c, {
-      filePath: sysCtx.namingDebtCachePath,
-      artifactName: "naming debt cache",
-      allowMissing: true,
-      missingValue: null,
-    });
-    if (!loaded.ok) return loaded.response;
-    if (loaded.value && typeof loaded.value === "object") {
-      return c.json(loaded.value);
-    }
-  }
-
-  const report = await computeNamingDebtReport({
-    tokenRegistryPath: sysCtx.tokenRegistryPath,
-    tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
-    tokenGraphVizPath: sysCtx.tokenGraphVizPath,
-    namingDebtConfigPath: sysCtx.namingDebtConfigPath,
-  });
-  await fs.mkdir(path.dirname(sysCtx.namingDebtCachePath), { recursive: true });
-  await fs.writeFile(sysCtx.namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  return c.json(report);
-});
-
-app.get("/api/impact", async (c) => {
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const tokenPath = String(c.req.query("tokenPath") ?? "").trim();
-  if (!tokenPath) {
-    return failJson(c, 400, {
-      code: "validation.token_path_required",
-      userMessage: "tokenPath query param is required.",
-      recoverable: true,
-      context: { field: "tokenPath" },
-    });
-  }
-
-  const newValueRaw = c.req.query("newValue");
-  const newValue = newValueRaw ? String(newValueRaw).trim() : null;
-  const depthRaw = c.req.query("depth");
-  const depthParsed = depthRaw ? Number.parseInt(String(depthRaw), 10) : Number.NaN;
-  const depth = Number.isFinite(depthParsed) ? depthParsed : undefined;
-
-  const [
-    tokenRegistryRaw,
-    tokenGraphRaw,
-    tokenUsageRaw,
-    tokenHealthRaw,
-    componentRegistryRaw,
-    wcagPairsRaw,
-  ] = await Promise.all([
-    fs.readFile(sysCtx.tokenRegistryPath, "utf8"),
-    fs.readFile(sysCtx.tokenGraphVizPath, "utf8"),
-    fs.readFile(sysCtx.tokenUsageIndexPath, "utf8"),
-    fs.readFile(sysCtx.tokenHealthPath, "utf8").catch(() => "null"),
-    fs.readFile(sysCtx.componentRegistryPath, "utf8").catch(() => "null"),
-    fs.readFile(sysCtx.wcagPairsPath, "utf8").catch(() => '{"pairs": []}'),
-  ]);
-
-  try {
-    const report = computeImpactReport({
-      tokenPath,
-      newValue,
-      depth,
-      tokenRegistry: JSON.parse(tokenRegistryRaw),
-      tokenGraph: JSON.parse(tokenGraphRaw),
-      tokenUsageIndex: JSON.parse(tokenUsageRaw),
-      tokenHealth: JSON.parse(tokenHealthRaw),
-      componentRegistry: JSON.parse(componentRegistryRaw),
-      wcagPairs: normalizeImpactWcagPairs(JSON.parse(wcagPairsRaw)),
-    });
-    return c.json(report);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const notFound = message.includes("not found");
-    return failJson(c, notFound ? 404 : 400, {
-      code: notFound ? "impact.token_not_found" : "impact.invalid_request",
-      userMessage: message,
-      recoverable: true,
-      context: { tokenPath },
-    });
-  }
+registerAnalysisRoutes(app, {
+  failJson,
+  getSystemContext,
 });
 
 app.get("/api/component-spec/:slug", async (c) => {
