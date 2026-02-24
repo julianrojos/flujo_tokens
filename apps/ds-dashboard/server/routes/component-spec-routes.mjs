@@ -46,115 +46,105 @@ export function registerComponentSpecRoutes(app, deps) {
     });
   }
 
-  app.get("/api/component-spec/:slug", async (c) => {
-    const resolved = await resolveRequestContext(c, false);
-    if (!resolved.ok) {
-      return failJson(c, resolved.error.statusCode, resolved.error.args);
-    }
-    const { slug, target } = resolved;
+  async function withResolvedContext(c, requireDevEdit, run) {
+    const resolved = await resolveRequestContext(c, requireDevEdit);
+    if (!resolved.ok) return failJson(c, resolved.error.statusCode, resolved.error.args);
+    return run(resolved);
+  }
 
-    const loaded = await readTextFileIfExists(target.specAbsPath);
-    return c.json(
-      buildComponentSpecGetPayload({
-        slug,
-        specRelPath: target.specRelPath,
-        exists: loaded.exists,
-        raw: loaded.raw,
-        parseYamlSafelyFn: parseYamlSafely,
-        sha256TextFn: sha256Text,
-      }),
-    );
+  app.get("/api/component-spec/:slug", async (c) => {
+    return withResolvedContext(c, false, async ({ slug, target }) => {
+      const loaded = await readTextFileIfExists(target.specAbsPath);
+      return c.json(
+        buildComponentSpecGetPayload({
+          slug,
+          specRelPath: target.specRelPath,
+          exists: loaded.exists,
+          raw: loaded.raw,
+          parseYamlSafelyFn: parseYamlSafely,
+          sha256TextFn: sha256Text,
+        }),
+      );
+    });
   });
 
   app.post("/api/component-spec/:slug/validate", async (c) => {
-    const resolved = await resolveRequestContext(c, true);
-    if (!resolved.ok) {
-      return failJson(c, resolved.error.statusCode, resolved.error.args);
-    }
-    const { sysCtx, slug, target } = resolved;
-
-    const body = await readJsonBody(c);
-    const validationArgs = buildValidateComponentSpecRouteArgs({
-      slug,
-      specRelPath: target.specRelPath,
-      specAbsPath: target.specAbsPath,
-      tokenRegistryPath: sysCtx.tokenRegistryPath,
-      maxBytes: MAX_COMPONENT_SPEC_BYTES,
-      body,
+    return withResolvedContext(c, true, async ({ sysCtx, slug, target }) => {
+      const body = await readJsonBody(c);
+      const validationArgs = buildValidateComponentSpecRouteArgs({
+        slug,
+        specRelPath: target.specRelPath,
+        specAbsPath: target.specAbsPath,
+        tokenRegistryPath: sysCtx.tokenRegistryPath,
+        maxBytes: MAX_COMPONENT_SPEC_BYTES,
+        body,
+      });
+      const payload = await validateComponentSpecRaw(
+        validationArgs,
+        {
+          readTextFileIfExistsFn: readTextFileIfExists,
+          loadTokenRegistryFn: loadTokenRegistry,
+          validateComponentSpecFn: validateComponentSpec,
+          buildSpecDiffFn: buildSpecDiff,
+          sha256TextFn: sha256Text,
+        },
+      );
+      return c.json(payload);
     });
-    const payload = await validateComponentSpecRaw(
-      validationArgs,
-      {
-        readTextFileIfExistsFn: readTextFileIfExists,
-        loadTokenRegistryFn: loadTokenRegistry,
-        validateComponentSpecFn: validateComponentSpec,
-        buildSpecDiffFn: buildSpecDiff,
-        sha256TextFn: sha256Text,
-      },
-    );
-    return c.json(payload);
   });
 
   app.post("/api/component-spec/:slug/save", async (c) => {
-    const resolved = await resolveRequestContext(c, true);
-    if (!resolved.ok) {
-      return failJson(c, resolved.error.statusCode, resolved.error.args);
-    }
-    const { sysCtx, slug, target } = resolved;
+    return withResolvedContext(c, true, async ({ sysCtx, slug, target }) => {
+      const body = await readJsonBody(c);
+      const saveArgs = buildSaveComponentSpecRouteArgs({
+        slug,
+        specRelPath: target.specRelPath,
+        specAbsPath: target.specAbsPath,
+        specBackupsDirPath: sysCtx.specBackupsDirPath,
+        repoRoot: sysCtx.repoRoot,
+        tokenRegistryPath: sysCtx.tokenRegistryPath,
+        maxBytes: MAX_COMPONENT_SPEC_BYTES,
+        body,
+      });
+      const payload = await saveComponentSpecRaw(
+        saveArgs,
+        {
+          readTextFileIfExistsFn: readTextFileIfExists,
+          loadTokenRegistryFn: loadTokenRegistry,
+          validateComponentSpecFn: validateComponentSpec,
+          buildSpecDiffFn: buildSpecDiff,
+          sha256TextFn: sha256Text,
+          persistSpecWithBackupFn: persistSpecWithBackup,
+          runCommandCaptureFn: runCommandCapture,
+        },
+      );
 
-    const body = await readJsonBody(c);
-    const saveArgs = buildSaveComponentSpecRouteArgs({
-      slug,
-      specRelPath: target.specRelPath,
-      specAbsPath: target.specAbsPath,
-      specBackupsDirPath: sysCtx.specBackupsDirPath,
-      repoRoot: sysCtx.repoRoot,
-      tokenRegistryPath: sysCtx.tokenRegistryPath,
-      maxBytes: MAX_COMPONENT_SPEC_BYTES,
-      body,
+      return c.json(payload);
     });
-    const payload = await saveComponentSpecRaw(
-      saveArgs,
-      {
-        readTextFileIfExistsFn: readTextFileIfExists,
-        loadTokenRegistryFn: loadTokenRegistry,
-        validateComponentSpecFn: validateComponentSpec,
-        buildSpecDiffFn: buildSpecDiff,
-        sha256TextFn: sha256Text,
-        persistSpecWithBackupFn: persistSpecWithBackup,
-        runCommandCaptureFn: runCommandCapture,
-      },
-    );
-
-    return c.json(payload);
   });
 
   app.post("/api/component-spec/:slug/restore-backup", async (c) => {
-    const resolved = await resolveRequestContext(c, true);
-    if (!resolved.ok) {
-      return failJson(c, resolved.error.statusCode, resolved.error.args);
-    }
-    const { sysCtx, slug, target } = resolved;
+    return withResolvedContext(c, true, async ({ sysCtx, slug, target }) => {
+      const body = await readJsonBody(c);
+      const restoreArgs = buildRestoreComponentSpecRouteArgs({
+        slug,
+        specRelPath: target.specRelPath,
+        specAbsPath: target.specAbsPath,
+        repoRoot: sysCtx.repoRoot,
+        specBackupsDirPath: sysCtx.specBackupsDirPath,
+        body,
+        sha256TextFn: sha256Text,
+      });
+      const restoredPayload = await restoreComponentSpecFromLatestBackup(
+        restoreArgs,
+        {
+          readLatestSpecBackupFn: readLatestSpecBackup,
+          restoreSpecFromRawFn: restoreSpecFromRaw,
+          runCommandCaptureFn: runCommandCapture,
+        },
+      );
 
-    const body = await readJsonBody(c);
-    const restoreArgs = buildRestoreComponentSpecRouteArgs({
-      slug,
-      specRelPath: target.specRelPath,
-      specAbsPath: target.specAbsPath,
-      repoRoot: sysCtx.repoRoot,
-      specBackupsDirPath: sysCtx.specBackupsDirPath,
-      body,
-      sha256TextFn: sha256Text,
+      return c.json(restoredPayload);
     });
-    const restoredPayload = await restoreComponentSpecFromLatestBackup(
-      restoreArgs,
-      {
-        readLatestSpecBackupFn: readLatestSpecBackup,
-        restoreSpecFromRawFn: restoreSpecFromRaw,
-        runCommandCaptureFn: runCommandCapture,
-      },
-    );
-
-    return c.json(restoredPayload);
   });
 }
