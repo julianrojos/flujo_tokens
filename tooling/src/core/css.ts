@@ -76,8 +76,13 @@ export function extractCssVariables(cssContent: string): Map<string, string> {
 }
 
 export function readCssVariablesFromFile(filePath: string): Map<string, string> {
-    const previousCss = fs.readFileSync(filePath, 'utf-8');
-    return extractCssVariables(previousCss);
+    try {
+        const previousCss = fs.readFileSync(filePath, 'utf-8');
+        return extractCssVariables(previousCss);
+    } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to read CSS variables from "${filePath}": ${detail}`);
+    }
 }
 
 /**
