@@ -1,7 +1,12 @@
 import fs from "node:fs/promises";
 import {
+  buildFileContentResponse,
+  buildFileSnippetResponse,
+  buildMissingAssetErrorArgs,
   buildNotFoundFileError,
+  parseSnippetWindow,
   parseSnippetLine,
+  readFileContentPayload,
   resolveRequestedRepoPath,
   resolveSnippetTargetLine,
 } from "../lib/file-route-service.mjs";
@@ -18,78 +23,57 @@ export function registerFileRoutes(app, deps) {
     MAX_FILE_BYTES,
   } = deps;
 
-  function resolvePathOrFail(c, { requested, code, userMessage }) {
+  function resolvePath(c, { requested, code, userMessage }) {
     const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    const resolved = resolveRequestedRepoPath({
+    return resolveRequestedRepoPath({
       repoRoot: sysCtx.repoRoot,
       requested,
       resolveRepoFilePathFn: resolveRepoFilePath,
       code,
       userMessage,
     });
-    if (!resolved.ok) {
-      return {
-        ok: false,
-        response: failJson(c, resolved.statusCode, resolved.errorArgs),
-      };
-    }
-    return { ok: true, absPath: resolved.absPath };
-  }
-
-  async function readContentOrFail(c, { absPath, requested }) {
-    try {
-      const payload = await readTextFileLimited(absPath, MAX_FILE_BYTES);
-      return { ok: true, content: payload.content, truncated: payload.truncated };
-    } catch (error) {
-      const failure = buildNotFoundFileError({
-        code: "file.not_found",
-        requested,
-        error,
-      });
-      return {
-        ok: false,
-        response: failJson(c, failure.statusCode, failure.errorArgs),
-      };
-    }
   }
 
   app.get("/api/file", async (c) => {
     const requested = c.req.query("path") ?? c.req.query("file") ?? "";
-    const resolved = resolvePathOrFail(c, {
+    const resolved = resolvePath(c, {
       requested,
       code: "file.invalid_path",
       userMessage: "Invalid file path.",
     });
-    if (!resolved.ok) return resolved.response;
+    if (!resolved.ok) return failJson(c, resolved.statusCode, resolved.errorArgs);
 
-    const loaded = await readContentOrFail(c, {
+    const loaded = await readFileContentPayload({
       absPath: resolved.absPath,
       requested,
+      notFoundCode: "file.not_found",
+      readTextFileLimitedFn: readTextFileLimited,
+      maxFileBytes: MAX_FILE_BYTES,
     });
-    if (!loaded.ok) return loaded.response;
+    if (!loaded.ok) return failJson(c, loaded.statusCode, loaded.errorArgs);
 
-    return c.json({
-      ok: true,
-      file: requested,
-      truncated: loaded.truncated,
-      content: loaded.content,
-    });
+    return c.json(
+      buildFileContentResponse({
+        requested,
+        truncated: loaded.truncated,
+        content: loaded.content,
+      }),
+    );
   });
 
   app.get("/api/file-snippet", async (c) => {
     const requested = c.req.query("file") ?? "";
-    const resolved = resolvePathOrFail(c, {
+    const resolved = resolvePath(c, {
       requested,
       code: "file.invalid_path",
       userMessage: "Invalid file path.",
     });
-    if (!resolved.ok) return resolved.response;
+    if (!resolved.ok) return failJson(c, resolved.statusCode, resolved.errorArgs);
 
     const rawLine = c.req.query("line");
     const rawBefore = c.req.query("before");
     const rawAfter = c.req.query("after");
-    const before = rawBefore ? Number.parseInt(rawBefore, 10) : 2;
-    const after = rawAfter ? Number.parseInt(rawAfter, 10) : 2;
+    const { before, after } = parseSnippetWindow(rawBefore, rawAfter, 2);
     const query = c.req.query("q") ?? "";
 
     const parsedLine = parseSnippetLine(rawLine);
@@ -98,11 +82,14 @@ export function registerFileRoutes(app, deps) {
     }
     let line = parsedLine.line;
 
-    const loaded = await readContentOrFail(c, {
+    const loaded = await readFileContentPayload({
       absPath: resolved.absPath,
       requested,
+      notFoundCode: "file.not_found",
+      readTextFileLimitedFn: readTextFileLimited,
+      maxFileBytes: MAX_FILE_BYTES,
     });
-    if (!loaded.ok) return loaded.response;
+    if (!loaded.ok) return failJson(c, loaded.statusCode, loaded.errorArgs);
     const { content } = loaded;
 
     const resolvedLine = resolveSnippetTargetLine({
@@ -119,36 +106,23 @@ export function registerFileRoutes(app, deps) {
     const matchedBy = resolvedLine.matchedBy;
 
     const snippet = buildSnippet(content, line, before, after);
-    return c.json({
-      ok: true,
-      file: requested,
-      line: snippet.targetLine,
-      startLine: snippet.startLine,
-      endLine: snippet.endLine,
-      matchedBy,
-      snippet: snippet.snippet,
-    });
+    return c.json(buildFileSnippetResponse({ requested, snippet, matchedBy }));
   });
 
   app.get("/api/asset", async (c) => {
     const requested = c.req.query("path") ?? "";
-    const resolved = resolvePathOrFail(c, {
+    const resolved = resolvePath(c, {
       requested,
       code: "asset.invalid_path",
       userMessage: "Invalid asset path.",
     });
-    if (!resolved.ok) return resolved.response;
+    if (!resolved.ok) return failJson(c, resolved.statusCode, resolved.errorArgs);
     const { absPath } = resolved;
 
     try {
       const stat = await fs.stat(absPath);
       if (!stat.isFile()) {
-        return failJson(c, 404, {
-          code: "asset.not_found",
-          userMessage: "Asset not found.",
-          recoverable: true,
-          context: { requested },
-        });
+        return failJson(c, 404, buildMissingAssetErrorArgs(requested));
       }
       const buffer = await fs.readFile(absPath);
       return c.body(buffer, 200, {
