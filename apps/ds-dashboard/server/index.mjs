@@ -1655,6 +1655,75 @@ async function readJsonBody(c) {
   }
 }
 
+async function loadJsonArtifactOrError(c, args) {
+  let raw = "";
+  try {
+    raw = await fs.readFile(args.filePath, "utf8");
+  } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error
+        ? String(error.code || "")
+        : "";
+    if (code === "ENOENT" && args.allowMissing) {
+      return { ok: true, value: args.missingValue };
+    }
+    if (code === "ENOENT") {
+      return {
+        ok: false,
+        response: failJson(c, 404, {
+          code: "file.not_found",
+          userMessage: `${args.artifactName} artifact not found.`,
+          recoverable: true,
+          context: { artifact: args.artifactName, filePath: args.filePath },
+        }),
+      };
+    }
+    return {
+      ok: false,
+      response: failJson(c, 500, {
+        code: "internal.unexpected_error",
+        userMessage: `Failed to read ${args.artifactName} artifact.`,
+        recoverable: true,
+        context: {
+          artifact: args.artifactName,
+          filePath: args.filePath,
+          reason: error instanceof Error ? error.message : String(error),
+        },
+      }),
+    };
+  }
+
+  if (!raw.trim()) {
+    return {
+      ok: false,
+      response: failJson(c, 500, {
+        code: "internal.unexpected_error",
+        userMessage: `${args.artifactName} artifact is empty.`,
+        recoverable: true,
+        context: { artifact: args.artifactName, filePath: args.filePath },
+      }),
+    };
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(raw) };
+  } catch (error) {
+    return {
+      ok: false,
+      response: failJson(c, 500, {
+        code: "internal.unexpected_error",
+        userMessage: `${args.artifactName} artifact is not valid JSON.`,
+        recoverable: true,
+        context: {
+          artifact: args.artifactName,
+          filePath: args.filePath,
+          reason: error instanceof Error ? error.message : String(error),
+        },
+      }),
+    };
+  }
+}
+
 function normalizeHealthHistoryRange(raw) {
   const value = String(raw || "").trim().toLowerCase();
   if (value === "7d" || value === "90d") return value;
@@ -2278,42 +2347,66 @@ registerOperationsRoutes(app, {
 
 app.get("/api/component-registry", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const raw = await fs.readFile(sysCtx.componentRegistryPath, "utf8");
-  return c.json(JSON.parse(raw));
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.componentRegistryPath,
+    artifactName: "component registry",
+  });
+  if (!loaded.ok) return loaded.response;
+  return c.json(loaded.value);
 });
 
 app.get("/api/component-usage-index", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const raw = await fs.readFile(sysCtx.componentRegistryPath, "utf8");
-  const registry = JSON.parse(raw);
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.componentRegistryPath,
+    artifactName: "component registry",
+  });
+  if (!loaded.ok) return loaded.response;
+  const registry = loaded.value;
   const rows = Array.isArray(registry?.components) ? registry.components : [];
   return c.json(buildComponentUsageIndex(rows, sysCtx.repoRoot));
 });
 
 app.get("/api/token-registry", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const raw = await fs.readFile(sysCtx.tokenRegistryPath, "utf8");
-  return c.json(JSON.parse(raw));
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.tokenRegistryPath,
+    artifactName: "token registry",
+  });
+  if (!loaded.ok) return loaded.response;
+  return c.json(loaded.value);
 });
 
 app.get("/api/token-collection-trees", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const raw = await fs.readFile(sysCtx.tokenRegistryPath, "utf8");
-  const parsed = JSON.parse(raw);
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.tokenRegistryPath,
+    artifactName: "token registry",
+  });
+  if (!loaded.ok) return loaded.response;
+  const parsed = loaded.value;
   const entries = Array.isArray(parsed?.entries) ? parsed.entries : [];
   return c.json(buildTokenCollectionTrees(entries));
 });
 
 app.get("/api/token-usage-index", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const raw = await fs.readFile(sysCtx.tokenUsageIndexPath, "utf8");
-  return c.json(JSON.parse(raw));
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.tokenUsageIndexPath,
+    artifactName: "token usage index",
+  });
+  if (!loaded.ok) return loaded.response;
+  return c.json(loaded.value);
 });
 
 app.get("/api/token-graph", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  const raw = await fs.readFile(sysCtx.tokenGraphVizPath, "utf8");
-  return c.json(JSON.parse(raw));
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.tokenGraphVizPath,
+    artifactName: "token graph",
+  });
+  if (!loaded.ok) return loaded.response;
+  return c.json(loaded.value);
 });
 
 app.get("/api/token-graph-query", async (c) => {
@@ -2330,8 +2423,12 @@ app.get("/api/token-graph-query", async (c) => {
 
   const direction = normalizeTokenGraphDirection(c.req.query("direction"));
   const depth = normalizeTokenGraphDepth(c.req.query("depth"));
-  const raw = await fs.readFile(sysCtx.tokenGraphVizPath, "utf8");
-  const graph = JSON.parse(raw);
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.tokenGraphVizPath,
+    artifactName: "token graph",
+  });
+  if (!loaded.ok) return loaded.response;
+  const graph = loaded.value;
   const payload = buildTokenGraphQueryPayload({ graph, token, direction, depth });
   if (!payload) {
     return failJson(c, 404, {
@@ -2346,52 +2443,53 @@ app.get("/api/token-graph-query", async (c) => {
 
 app.get("/api/token-health", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  try {
-    const raw = await fs.readFile(sysCtx.tokenHealthPath, "utf8");
-    return c.json(JSON.parse(raw));
-  } catch (error) {
-    const code =
-      typeof error === "object" && error && "code" in error
-        ? String(error.code || "")
-        : "";
-    if (code !== "ENOENT") throw error;
-
-    return c.json(
-      buildEmptyTokenHealthReport({
-        tokenRegistryPath: sysCtx.tokenRegistryPath,
-        tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
-        tokenGraphVizPath: sysCtx.tokenGraphVizPath,
-        wcagPairsPath: sysCtx.wcagPairsPath,
-        reason: "Token health artifact not found. Run the pipeline or capture components first.",
-      }),
-    );
-  }
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.tokenHealthPath,
+    artifactName: "token health",
+    allowMissing: true,
+    missingValue: null,
+  });
+  if (!loaded.ok) return loaded.response;
+  if (loaded.value !== null) return c.json(loaded.value);
+  return c.json(
+    buildEmptyTokenHealthReport({
+      tokenRegistryPath: sysCtx.tokenRegistryPath,
+      tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
+      tokenGraphVizPath: sysCtx.tokenGraphVizPath,
+      wcagPairsPath: sysCtx.wcagPairsPath,
+      reason: "Token health artifact not found. Run the pipeline or capture components first.",
+    }),
+  );
 });
 
 app.get("/api/components-health", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-  try {
-    const raw = await fs.readFile(sysCtx.componentsHealthPath, "utf8");
-    return c.json(JSON.parse(raw));
-  } catch (error) {
-    const code =
-      typeof error === "object" && error && "code" in error
-        ? String(error.code || "")
-        : "";
-    if (code !== "ENOENT") throw error;
-    return c.json(
-      buildEmptyComponentsHealthReport({
-        componentRegistryPath: sysCtx.componentRegistryPath,
-      }),
-    );
-  }
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.componentsHealthPath,
+    artifactName: "components health",
+    allowMissing: true,
+    missingValue: null,
+  });
+  if (!loaded.ok) return loaded.response;
+  if (loaded.value !== null) return c.json(loaded.value);
+  return c.json(
+    buildEmptyComponentsHealthReport({
+      componentRegistryPath: sysCtx.componentRegistryPath,
+    }),
+  );
 });
 
 app.get("/api/health-history", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const range = normalizeHealthHistoryRange(c.req.query("range"));
-  const raw = await fs.readFile(sysCtx.healthHistoryPath, "utf8").catch(() => "");
-  const parsed = normalizeHealthHistoryPayload(raw ? JSON.parse(raw) : null);
+  const loaded = await loadJsonArtifactOrError(c, {
+    filePath: sysCtx.healthHistoryPath,
+    artifactName: "health history",
+    allowMissing: true,
+    missingValue: null,
+  });
+  if (!loaded.ok) return loaded.response;
+  const parsed = normalizeHealthHistoryPayload(loaded.value);
   const snapshots = filterSnapshotsByRange(parsed.snapshots, range);
   return c.json({
     ...parsed,
@@ -2430,9 +2528,15 @@ app.get("/api/naming-debt", async (c) => {
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const refresh = String(c.req.query("refresh") ?? "false").trim() === "true";
   if (!refresh) {
-    const cached = await fs.readFile(sysCtx.namingDebtCachePath, "utf8").catch(() => "");
-    if (cached.trim()) {
-      return c.json(JSON.parse(cached));
+    const loaded = await loadJsonArtifactOrError(c, {
+      filePath: sysCtx.namingDebtCachePath,
+      artifactName: "naming debt cache",
+      allowMissing: true,
+      missingValue: null,
+    });
+    if (!loaded.ok) return loaded.response;
+    if (loaded.value && typeof loaded.value === "object") {
+      return c.json(loaded.value);
     }
   }
 
