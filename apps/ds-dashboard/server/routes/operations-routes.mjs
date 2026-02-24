@@ -9,6 +9,14 @@ import {
   parseOperationsRegressionFilters,
   parseOperationsReplayRequest,
 } from "../lib/operations-route-service.mjs";
+import {
+  buildOperationHistoryReadArgs,
+  buildOperationRegressionsArgs,
+  buildReplayEnqueueArgs,
+  resolveOperationsHistoryRequest,
+  resolveOperationsRegressionsRequest,
+  resolveOperationsReplayRequest,
+} from "../lib/operations-route-handler-service.mjs";
 
 export function registerOperationsRoutes(app, deps) {
   const {
@@ -31,75 +39,48 @@ export function registerOperationsRoutes(app, deps) {
   } = deps;
 
   app.get("/api/operations/history", async (c) => {
-    const parsedFilters = parseOperationsHistoryFilters({
-      systemFromQuery: c.req.query("system"),
-      systemFromHeader: c.req.header("x-ds-system"),
-      includeAll: parseIncludeAllQuery(c.req.query("all")),
-      operation: c.req.query("operation"),
-      status: c.req.query("status"),
-      from: c.req.query("from"),
-      to: c.req.query("to"),
-      limitRaw: c.req.query("limit"),
-      toFiniteTimestampFn: toFiniteTimestamp,
-      historyMaxLimit: OPS_HISTORY_MAX_LIMIT,
-      historyDefaultLimit: OPS_HISTORY_DEFAULT_LIMIT,
-    });
-    if (!parsedFilters.ok) {
-      return failJson(c, parsedFilters.error.statusCode, parsedFilters.error.args);
-    }
-
-    const systemValidation = ensureKnownSystemId({
+    const parsedFilters = resolveOperationsHistoryRequest({
+      parseOperationsHistoryFiltersFn: parseOperationsHistoryFilters,
+      ensureKnownSystemIdFn: ensureKnownSystemId,
       config: designSystemRepository.getConfig(),
-      systemId: parsedFilters.filters.systemId,
+      filtersArgs: {
+        systemFromQuery: c.req.query("system"),
+        systemFromHeader: c.req.header("x-ds-system"),
+        includeAll: parseIncludeAllQuery(c.req.query("all")),
+        operation: c.req.query("operation"),
+        status: c.req.query("status"),
+        from: c.req.query("from"),
+        to: c.req.query("to"),
+        limitRaw: c.req.query("limit"),
+        toFiniteTimestampFn: toFiniteTimestamp,
+        historyMaxLimit: OPS_HISTORY_MAX_LIMIT,
+        historyDefaultLimit: OPS_HISTORY_DEFAULT_LIMIT,
+      },
     });
-    if (!systemValidation.ok) {
-      return failJson(c, systemValidation.error.statusCode, systemValidation.error.args);
-    }
-
-    const { systemId, operation, status, from, to, limit } = parsedFilters.filters;
-
-    const history = readOperationHistory({
-      systemId: systemId || undefined,
-      operation: operation || undefined,
-      status: status || undefined,
-      from: from || undefined,
-      to: to || undefined,
-      limit,
-    });
+    if (!parsedFilters.ok) return failJson(c, parsedFilters.error.statusCode, parsedFilters.error.args);
+    const history = readOperationHistory(buildOperationHistoryReadArgs(parsedFilters.filters));
 
     return c.json(buildOperationsHistoryPayload({ history, filters: parsedFilters.filters }));
   });
 
   app.get("/api/operations/regressions", async (c) => {
-    const parsedFilters = parseOperationsRegressionFilters({
-      systemFromQuery: c.req.query("system"),
-      systemFromHeader: c.req.header("x-ds-system"),
-      includeAll: parseIncludeAllQuery(c.req.query("all")),
-      limitRaw: c.req.query("limit"),
-      minSamplesRaw: c.req.query("minSamples"),
-      regressionMaxLimit: OPS_REGRESSION_MAX_LIMIT,
-      regressionDefaultLimit: OPS_REGRESSION_DEFAULT_LIMIT,
-      regressionDefaultMinSamples: OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-    });
-    if (!parsedFilters.ok) {
-      return failJson(c, parsedFilters.error.statusCode, parsedFilters.error.args);
-    }
-
-    const systemValidation = ensureKnownSystemId({
+    const parsedFilters = resolveOperationsRegressionsRequest({
+      parseOperationsRegressionFiltersFn: parseOperationsRegressionFilters,
+      ensureKnownSystemIdFn: ensureKnownSystemId,
       config: designSystemRepository.getConfig(),
-      systemId: parsedFilters.filters.systemId,
+      filtersArgs: {
+        systemFromQuery: c.req.query("system"),
+        systemFromHeader: c.req.header("x-ds-system"),
+        includeAll: parseIncludeAllQuery(c.req.query("all")),
+        limitRaw: c.req.query("limit"),
+        minSamplesRaw: c.req.query("minSamples"),
+        regressionMaxLimit: OPS_REGRESSION_MAX_LIMIT,
+        regressionDefaultLimit: OPS_REGRESSION_DEFAULT_LIMIT,
+        regressionDefaultMinSamples: OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
+      },
     });
-    if (!systemValidation.ok) {
-      return failJson(c, systemValidation.error.statusCode, systemValidation.error.args);
-    }
-
-    const { systemId, limit, minSamples } = parsedFilters.filters;
-
-    const report = buildOperationRegressionsReport({
-      systemId: systemId || undefined,
-      limit,
-      minSamples,
-    });
+    if (!parsedFilters.ok) return failJson(c, parsedFilters.error.statusCode, parsedFilters.error.args);
+    const report = buildOperationRegressionsReport(buildOperationRegressionsArgs(parsedFilters.filters));
 
     return c.json(buildOperationsRegressionsPayload({ report, filters: parsedFilters.filters }));
   });
@@ -107,31 +88,34 @@ export function registerOperationsRoutes(app, deps) {
   app.post("/api/operations/replay/:eventId", async (c) => {
     const requestId = createApiRequestId();
     const body = await readJsonBody(c);
-    const parsedReplay = parseOperationsReplayRequest({
-      eventIdRaw: decodeURIComponent(String(c.req.param("eventId") || "")),
-      bodySystemIdRaw: body.systemId,
-      headerSystemId: c.req.header("x-ds-system"),
-      normalizeSystemIdFn: normalizeSystemId,
-      findOperationEventByIdFn: findOperationEventById,
-      config: designSystemRepository.getConfig(),
+    const parsedReplay = resolveOperationsReplayRequest({
+      parseOperationsReplayRequestFn: parseOperationsReplayRequest,
+      requestId,
+      replayArgs: {
+        eventIdRaw: decodeURIComponent(String(c.req.param("eventId") || "")),
+        bodySystemIdRaw: body.systemId,
+        headerSystemId: c.req.header("x-ds-system"),
+        normalizeSystemIdFn: normalizeSystemId,
+        findOperationEventByIdFn: findOperationEventById,
+        config: designSystemRepository.getConfig(),
+      },
     });
     if (!parsedReplay.ok) {
-      return failJson(c, parsedReplay.error.statusCode, {
-        ...parsedReplay.error.args,
-        requestId,
-      });
+      return failJson(c, parsedReplay.error.statusCode, parsedReplay.error.args);
     }
 
     const { eventId, sourceEvent, targetSystemId } = parsedReplay.payload;
 
     let job;
     try {
-      job = enqueueReplayJobFromOperation({
-        operation: sourceEvent.operation,
-        systemId: targetSystemId,
-        requestId,
-        sourceEventId: eventId,
-      });
+      job = enqueueReplayJobFromOperation(
+        buildReplayEnqueueArgs({
+          sourceEvent,
+          targetSystemId,
+          requestId,
+          eventId,
+        }),
+      );
     } catch (error) {
       return failJson(
         c,
