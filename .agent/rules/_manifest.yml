@@ -84,6 +84,11 @@ rules:
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+  - id: docs-governance-ops
+    file: docs-governance-ops.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
   - id: docs-pipeline-contract
     file: docs-pipeline-contract.mdc
     owner: docs-governance
@@ -139,6 +144,11 @@ rules:
     owner: docs-governance
     applies_to: [markdown]
     blocking: true
+  - id: pattern-doc-workflow
+    file: pattern-doc-workflow.mdc
+    owner: docs-governance
+    applies_to: [markdown]
+    blocking: true
   - id: prohibited-patterns
     file: prohibited-patterns.mdc
     owner: docs-governance
@@ -163,6 +173,11 @@ rules:
     file: token-references.mdc
     owner: docs-governance
     applies_to: [spec, markdown]
+    blocking: true
+  - id: internationalization-docs
+    file: internationalization-docs.mdc
+    owner: docs-governance
+    applies_to: [markdown]
     blocking: true
   - id: token-registry-validation
     file: token-registry-validation.mdc
@@ -280,6 +295,7 @@ matrix:
         component-doc,
         component-figma-traceability,
         accessibility-docs,
+        internationalization-docs,
         design-token-discrepancies,
         token-references,
         token-registry-validation,
@@ -301,6 +317,7 @@ matrix:
       [
         frontmatter-contract,
         docs-taxonomy,
+        internationalization-docs,
         token-references,
         token-registry-validation,
         design-token-discrepancies,
@@ -308,7 +325,15 @@ matrix:
         docs-language-tone,
       ]
     workflow:
-      [frontmatter-contract, docs-taxonomy, markdown-lifecycle-status, docs-language-tone]
+      [
+        frontmatter-contract,
+        docs-taxonomy,
+        docs-governance-ops,
+        pattern-doc-workflow,
+        internationalization-docs,
+        markdown-lifecycle-status,
+        docs-language-tone,
+      ]
     spec:
       [
         component-spec-yaml,
@@ -381,11 +406,32 @@ matrix:
       [
         ds-docs-guardrails,
         docs-taxonomy,
+        internationalization-docs,
         token-references,
         token-registry-validation,
         accessibility-docs,
         docs-language-tone,
         overview-index-maintenance,
+      ]
+    ds-pattern-doc:
+      [
+        ds-docs-guardrails,
+        docs-taxonomy,
+        frontmatter-contract,
+        docs-language-tone,
+        pattern-doc-workflow,
+        docs-governance-ops,
+        internationalization-docs,
+        skill-input-output-contract,
+      ]
+    ds-governance-audit:
+      [
+        docs-governance-ops,
+        internationalization-docs,
+        markdown-lifecycle-status,
+        docs-pipeline-contract,
+        ds-docs-guardrails,
+        skill-input-output-contract,
       ]
     ds-init-docs:
       [ds-docs-guardrails, docs-taxonomy, frontmatter-contract, docs-language-tone]
