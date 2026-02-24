@@ -3,10 +3,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 
 import { parseArgs, printUsage } from "./lib/parse-args.mjs";
 import { resolveSystemContextSafe, PROJECT_ROOT } from "./lib/system-context.mjs";
+import { runJsonCommand } from "./lib/exec.mjs";
 
 const DEFAULT_RETENTION_DAYS = 120;
 
@@ -171,37 +171,27 @@ function formatDateBucket(isoTimestamp) {
 
 function parseBreakingChangesFromTokenDiff(beforeRef) {
   const scriptPath = path.join(PROJECT_ROOT, "tooling", "scripts", "ds-token-diff.mjs");
-  const result = spawnSync(
-    process.execPath,
-    [scriptPath, "--before-ref", beforeRef, "--format", "json"],
-    {
-      cwd: PROJECT_ROOT,
-      encoding: "utf8",
-    },
-  );
-
-  if (result.status !== 0) {
-    return {
-      breakingChanges: null,
-      fingerprint: null,
-      warning:
-        result.stderr?.trim() ||
-        result.stdout?.trim() ||
-        `Token diff failed with exit code ${String(result.status ?? "unknown")}`,
-    };
-  }
-
-  const raw = String(result.stdout || "").trim();
-  if (!raw) {
-    return {
-      breakingChanges: null,
-      fingerprint: null,
-      warning: "Token diff returned empty output.",
-    };
-  }
-
   try {
-    const parsed = JSON.parse(raw);
+    const args = [scriptPath, "--before-ref", beforeRef, "--format", "json"];
+    const displayArgs = [path.relative(PROJECT_ROOT, scriptPath), "--before-ref", beforeRef, "--format", "json"];
+    const result = runJsonCommand(process.execPath, args, {
+      cwd: PROJECT_ROOT,
+      allowNonZeroExit: true,
+      displayArgs,
+    });
+
+    if (result.status !== 0) {
+      return {
+        breakingChanges: null,
+        fingerprint: null,
+        warning:
+          result.stderr?.trim() ||
+          result.stdout?.trim() ||
+          `Token diff failed with exit code ${String(result.status ?? "unknown")}`,
+      };
+    }
+
+    const parsed = result.data;
     const breakingChanges = Number(parsed?.summary?.breaking_changes);
     return {
       breakingChanges: Number.isFinite(breakingChanges) ? breakingChanges : null,
