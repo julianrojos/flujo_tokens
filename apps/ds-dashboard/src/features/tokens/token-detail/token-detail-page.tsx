@@ -2,23 +2,17 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, ArrowUpDown, Check, Copy } from "lucide-react";
 
-import {
-  fetchFileSnippet,
-  fetchComponentRegistry,
-  fetchTokenHealth,
-  fetchTokenGraphQuery,
-  fetchTokenRegistry,
-  fetchTokenUsageIndex,
-} from "@/lib/api";
-import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
+import { fetchFileSnippet } from "@/lib/api";
+import type {
+  ComponentRegistryItem,
+  PipelineStage,
+} from "@/types/component-registry";
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
 import type { FileSnippetPayload } from "@/lib/api";
 import type {
-  TokenUsageEntry,
   TokenUsageOccurrence,
 } from "@/types/token-usage-index";
-import type { TokenHealthReport } from "@/types/token-health";
-import type { TokenGraphQueryResult } from "@/types/token-graph";
+import { useTokenDetailData } from "./use-token-detail-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -443,45 +437,18 @@ export function TokenDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const decoded = tokenPath ? decodeURIComponent(tokenPath) : "";
 
-  const [registry, setRegistry] = useState<TokenRegistry | null>(null);
-  const [token, setToken] = useState<TokenEntry | null>(null);
-  const [usage, setUsage] = useState<TokenUsageEntry | null>(null);
-  const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
-  const [tokenHealth, setTokenHealth] = useState<TokenHealthReport | null>(null);
-  const [graphQuery, setGraphQuery] = useState<TokenGraphQueryResult | null>(null);
-  const [components, setComponents] = useState<ComponentRegistryItem[]>([]);
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!decoded) return;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [registry, usageIndex, health, graphData, componentRegistry] = await Promise.all([
-          fetchTokenRegistry(),
-          fetchTokenUsageIndex().catch(() => null),
-          fetchTokenHealth().catch(() => null),
-          fetchTokenGraphQuery({ tokenPath: decoded, direction: "both", depth: 4 }).catch(() => null),
-          fetchComponentRegistry().catch(() => null),
-        ]);
-        setRegistry(registry);
-        setToken(registry.byPath[decoded] ?? null);
-        setUsage(usageIndex?.byPath[decoded] ?? null);
-        setUsageByPath(usageIndex?.byPath ?? {});
-        setTokenHealth(health);
-        setGraphQuery(graphData);
-        setComponents(componentRegistry?.components ?? []);
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : String(cause));
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
-  }, [decoded]);
+  const {
+    loading,
+    error,
+    registry,
+    token,
+    usage,
+    usageByPath,
+    tokenHealth,
+    graphQuery,
+    components,
+  } = useTokenDetailData(decoded);
 
   const swatch = useMemo(
     () => (token ? resolveColorSwatch(token.resolvedValue) : null),

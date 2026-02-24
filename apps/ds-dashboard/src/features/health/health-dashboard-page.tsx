@@ -2,25 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { AlertTriangle, ArrowUpDown, CheckCircle2, RefreshCcw } from "lucide-react";
 
-import {
-  captureHealthSnapshot,
-  fetchComponentsHealth,
-  fetchHealthHistory,
-  fetchNamingDebt,
-  fetchTokenHealth,
-  refreshComponentsHealth,
-  refreshTokenHealth,
-} from "@/lib/api";
-import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
+import { type ApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
-import type { ComponentsHealthReport } from "@/types/components-health";
+import { useHealthDashboardData } from "./use-health-dashboard-data";
 import type {
   HealthHistoryBucket,
   HealthHistoryRange,
-  HealthHistoryReport,
 } from "@/types/health-history";
-import type { NamingDebtReport } from "@/types/naming-debt";
-import type { TokenHealthReport } from "@/types/token-health";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,22 +71,8 @@ function stageOrder(stage: string) {
 
 export function HealthDashboardPage() {
   const location = useLocation();
-  const [tokenHealth, setTokenHealth] = useState<TokenHealthReport | null>(null);
-  const [componentsHealth, setComponentsHealth] =
-    useState<ComponentsHealthReport | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [tokenError, setTokenError] = useState<ApiErrorDisplay | null>(null);
-  const [componentsError, setComponentsError] = useState<ApiErrorDisplay | null>(null);
-  const [refreshingTokens, setRefreshingTokens] = useState(false);
-  const [refreshingComponents, setRefreshingComponents] = useState(false);
-  const [history, setHistory] = useState<HealthHistoryReport | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyError, setHistoryError] = useState<ApiErrorDisplay | null>(null);
-  const [namingDebt, setNamingDebt] = useState<NamingDebtReport | null>(null);
-  const [namingError, setNamingError] = useState<ApiErrorDisplay | null>(null);
   const [historyRange, setHistoryRange] = useState<HealthHistoryRange>("30d");
   const [historyBucket, setHistoryBucket] = useState<HealthHistoryBucket>("day");
-  const [snapshotting, setSnapshotting] = useState(false);
   const [brokenAliasSort, toggleBrokenAliasSort] = useSortState<
     "token" | "alias" | "reason"
   >({ field: "token", dir: "asc" });
@@ -118,88 +92,30 @@ export function HealthDashboardPage() {
     return true;
   }, []);
 
-  const load = async () => {
-    setLoading(true);
-    setTokenError(null);
-    setComponentsError(null);
-    setNamingError(null);
-
-    const [tokensResult, componentsResult, namingResult] = await Promise.allSettled([
-      fetchTokenHealth(),
-      fetchComponentsHealth(),
-      fetchNamingDebt(),
-    ]);
-
-    if (tokensResult.status === "fulfilled") {
-      setTokenHealth(tokensResult.value);
-    } else {
-      setTokenHealth(null);
-      setTokenError(
-        toApiErrorDisplay(tokensResult.reason, {
-          fallbackTitle: "Token health unavailable",
-          fallbackMessage: "Unable to load token health report.",
-        }),
-      );
-    }
-
-    if (componentsResult.status === "fulfilled") {
-      setComponentsHealth(componentsResult.value);
-    } else {
-      setComponentsHealth(null);
-      setComponentsError(
-        toApiErrorDisplay(componentsResult.reason, {
-          fallbackTitle: "Components health unavailable",
-          fallbackMessage: "Unable to load components health report.",
-        }),
-      );
-    }
-
-    if (namingResult.status === "fulfilled") {
-      setNamingDebt(namingResult.value);
-    } else {
-      setNamingDebt(null);
-      setNamingError(
-        toApiErrorDisplay(namingResult.reason, {
-          fallbackTitle: "Naming report unavailable",
-          fallbackMessage: "Unable to load naming debt report.",
-        }),
-      );
-    }
-
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  const loadHistory = async (options?: {
-    range?: HealthHistoryRange;
-    bucket?: HealthHistoryBucket;
-  }) => {
-    const range = options?.range ?? historyRange;
-    const bucket = options?.bucket ?? historyBucket;
-    setHistoryLoading(true);
-    setHistoryError(null);
-    try {
-      const payload = await fetchHealthHistory({ range, bucket });
-      setHistory(payload);
-    } catch (cause) {
-      setHistoryError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Health history unavailable",
-          fallbackMessage: "Unable to load health history.",
-        }),
-      );
-    } finally {
-      setHistoryLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadHistory({ range: historyRange, bucket: historyBucket });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historyRange, historyBucket]);
+  const {
+    tokenHealth,
+    componentsHealth,
+    namingDebt,
+    history,
+    loading,
+    historyLoading,
+    reloadingAll,
+    refreshingTokens,
+    refreshingComponents,
+    snapshotting,
+    tokenError,
+    componentsError,
+    namingError,
+    historyError,
+    reloadAll,
+    reloadHistory,
+    refreshTokenReport,
+    refreshComponentsReport,
+    captureSnapshotAndReload,
+  } = useHealthDashboardData({
+    historyRange,
+    historyBucket,
+  });
 
   useEffect(() => {
     if (!location.hash || loading) return;
@@ -236,67 +152,6 @@ export function HealthDashboardPage() {
     },
     [location.pathname, scrollToHashTarget],
   );
-
-  const handleRefreshTokenHealth = async () => {
-    setRefreshingTokens(true);
-    setTokenError(null);
-    try {
-      await refreshTokenHealth();
-      const payload = await fetchTokenHealth();
-      setTokenHealth(payload);
-    } catch (cause) {
-      setTokenHealth(null);
-      setTokenError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Token health refresh failed",
-          fallbackMessage: "Unable to refresh token health report.",
-        }),
-      );
-    } finally {
-      setRefreshingTokens(false);
-    }
-  };
-
-  const handleRefreshComponentsHealth = async () => {
-    setRefreshingComponents(true);
-    setComponentsError(null);
-    try {
-      await refreshComponentsHealth();
-      const payload = await fetchComponentsHealth();
-      setComponentsHealth(payload);
-    } catch (cause) {
-      setComponentsHealth(null);
-      setComponentsError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Components health refresh failed",
-          fallbackMessage: "Unable to refresh components health report.",
-        }),
-      );
-    } finally {
-      setRefreshingComponents(false);
-    }
-  };
-
-  const handleCaptureSnapshot = async () => {
-    setSnapshotting(true);
-    setHistoryError(null);
-    try {
-      await captureHealthSnapshot();
-      await Promise.all([
-        load(),
-        loadHistory({ range: historyRange, bucket: historyBucket }),
-      ]);
-    } catch (cause) {
-      setHistoryError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Snapshot capture failed",
-          fallbackMessage: "Unable to capture a health snapshot.",
-        }),
-      );
-    } finally {
-      setSnapshotting(false);
-    }
-  };
 
   const renderErrorPanel = (error: ApiErrorDisplay, tipCommand: string) => (
     <ApiErrorMessage error={error}>
@@ -545,7 +400,7 @@ export function HealthDashboardPage() {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={handleCaptureSnapshot}
+            onClick={() => void captureSnapshotAndReload()}
             disabled={snapshotting}
           >
             <RefreshCcw className="mr-2 h-4 w-4" />
@@ -553,7 +408,7 @@ export function HealthDashboardPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={handleRefreshTokenHealth}
+            onClick={() => void refreshTokenReport()}
             disabled={refreshingTokens}
           >
             <RefreshCcw className="mr-2 h-4 w-4" />
@@ -561,15 +416,15 @@ export function HealthDashboardPage() {
           </Button>
           <Button
             variant="outline"
-            onClick={handleRefreshComponentsHealth}
+            onClick={() => void refreshComponentsReport()}
             disabled={refreshingComponents}
           >
             <RefreshCcw className="mr-2 h-4 w-4" />
             {refreshingComponents ? "Refreshing components…" : "Refresh components"}
           </Button>
-          <Button variant="outline" onClick={load} disabled={loading}>
+          <Button variant="outline" onClick={() => void reloadAll()} disabled={reloadingAll}>
             <RefreshCcw className="mr-2 h-4 w-4" />
-            {loading ? "Loading…" : "Reload all"}
+            {reloadingAll ? "Loading…" : "Reload all"}
           </Button>
         </div>
       </div>
@@ -608,7 +463,7 @@ export function HealthDashboardPage() {
             </Select>
             <Button
               variant="outline"
-              onClick={() => void loadHistory({ range: historyRange, bucket: historyBucket })}
+              onClick={() => void reloadHistory()}
               disabled={historyLoading}
             >
               {historyLoading ? "Loading…" : "Reload trends"}
