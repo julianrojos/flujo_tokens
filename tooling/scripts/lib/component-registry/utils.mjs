@@ -3,9 +3,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { isPlainObject } from "../is-plain-object.mjs";
+import { FIGMA_NODE_ID_RE } from "../node-id.mjs";
 import { PROJECT_ROOT } from "../system-context.mjs";
 
-export const NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
+export const NODE_ID_RE = FIGMA_NODE_ID_RE;
 
 export function stableSerialize(value) {
   if (Array.isArray(value)) {

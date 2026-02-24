@@ -16,6 +16,12 @@ Every component documentation page MUST include a visual diagram illustrating it
 - **Legend Table**: The diagram MUST be accompanied by a markdown table or numbered list mapping the markers to the structural parts.
 - **YAML Alignment**: The identifiers used in the legend MUST map exactly to the `anatomy` items defined in the component's YAML frontmatter (e.g., if marker 1 is "container", the frontmatter must have an anatomy item with id `container`).
 
+### Markdown vs Figma render scope
+
+- Visual images are required in the Markdown documentation artifact itself.
+- The Markdown -> Figma renderer may degrade image blocks (see `markdown-figma-subset.mdc`), which does not waive the Markdown requirement in this rule.
+- Authors should keep clear alt text and nearby explanatory text so degraded Figma output remains understandable.
+
 ### Anatomy Format Example
 
 ```markdown

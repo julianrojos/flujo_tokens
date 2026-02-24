@@ -12,11 +12,9 @@ import {
   normalizeComponentName,
 } from "./lib/component-name.mjs";
 import { resolveSystemContextSafe } from "./lib/system-context.mjs";
-import { normalizeNodeId } from "./lib/node-id.mjs";
+import { normalizeNodeId, isValidNodeId } from "./lib/node-id.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { fetchFigmaImages, fetchFigmaNodes } from "./lib/figma-api.mjs";
-
-const NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 
 const USAGE = {
   command:
@@ -132,10 +130,6 @@ const USAGE = {
     },
   ],
 };
-
-function isValidNodeId(value) {
-  return NODE_ID_RE.test(String(value || "").trim());
-}
 
 function parseBooleanOption(rawValue, optionName, fallback = false) {
   const normalized = String(rawValue ?? fallback).trim().toLowerCase();

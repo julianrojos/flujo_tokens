@@ -100,6 +100,45 @@ function parseSkillFrontmatter(skillPath) {
   return parseYamlDocument(match[1], `skill frontmatter (${path.basename(skillPath)})`);
 }
 
+function normalizeRuleId(rawRuleId) {
+  const raw = String(rawRuleId || "").trim();
+  if (!raw) return "";
+  const basename = raw.split("/").pop() || raw;
+  return basename.replace(/\.mdc$/i, "").trim();
+}
+
+function collectRequiresRuleIds(frontmatter) {
+  if (!frontmatter || !Array.isArray(frontmatter.requires_rules)) return [];
+  const ids = [];
+  for (const entry of frontmatter.requires_rules) {
+    if (typeof entry === "string") {
+      const normalized = normalizeRuleId(entry);
+      if (normalized) ids.push(normalized);
+      continue;
+    }
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+    for (const ruleId of Object.keys(entry)) {
+      const normalized = normalizeRuleId(ruleId);
+      if (normalized) ids.push(normalized);
+    }
+  }
+  return uniqueSorted(ids);
+}
+
+function collectDeprecatedRulesFromManifest(manifest) {
+  const rules = Array.isArray(manifest?.rules) ? manifest.rules : [];
+  const deprecatedMap = new Map();
+  for (const entry of rules) {
+    if (!entry || typeof entry !== "object") continue;
+    if (entry.deprecated !== true) continue;
+    const id = normalizeRuleId(entry.id);
+    if (!id) continue;
+    const supersededBy = normalizeRuleId(entry.superseded_by);
+    deprecatedMap.set(id, supersededBy || null);
+  }
+  return deprecatedMap;
+}
+
 function validateSkillVersioning(skillsRoot) {
   const skillFiles = collectSkillFiles(skillsRoot);
   const issues = [];
@@ -127,6 +166,40 @@ function validateSkillVersioning(skillsRoot) {
         issues.push({
           file: filePath,
           missing,
+        });
+      }
+    } catch (error) {
+      issues.push({
+        file: filePath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return {
+    checked: skillFiles.length,
+    issues,
+  };
+}
+
+function validateDeprecatedRuleReferences(skillsRoot, deprecatedRules = new Map()) {
+  const skillFiles = collectSkillFiles(skillsRoot);
+  const issues = [];
+
+  for (const filePath of skillFiles) {
+    try {
+      const frontmatter = parseSkillFrontmatter(filePath);
+      const requiredRuleIds = collectRequiresRuleIds(frontmatter);
+      const deprecatedRefs = requiredRuleIds
+        .filter((ruleId) => deprecatedRules.has(ruleId))
+        .map((ruleId) => ({
+          rule_id: ruleId,
+          superseded_by: deprecatedRules.get(ruleId),
+        }));
+      if (deprecatedRefs.length > 0) {
+        issues.push({
+          file: filePath,
+          deprecated_requires_rules: deprecatedRefs,
         });
       }
     } catch (error) {
@@ -178,6 +251,7 @@ function main() {
   const manifestPath = path.resolve(args.manifest || path.join(PROJECT_ROOT, ".agent", "rules", "_manifest.yml"));
   const rawComponentName = String(args["component-name"] || "").trim();
   const skipValidate = String(args["skip-validate"] || "false") === "true";
+  let parsedManifest = null;
 
   const checks = [];
 
@@ -201,7 +275,7 @@ function main() {
     );
   } else {
     try {
-      const parsedManifest = parseYamlDocument(
+      parsedManifest = parseYamlDocument(
         fs.readFileSync(manifestPath, "utf8"),
         "rules manifest",
       );
@@ -363,6 +437,50 @@ function main() {
         },
       ),
     );
+  }
+
+  if (!parsedManifest) {
+    checks.push(
+      createCheck(
+        "DEP01",
+        "warn",
+        "Deprecated rule reference check skipped because the rule manifest is unavailable.",
+        {
+          manifestPath,
+        },
+      ),
+    );
+  } else {
+    const deprecatedRules = collectDeprecatedRulesFromManifest(parsedManifest);
+    const deprecatedRuleRefs = validateDeprecatedRuleReferences(
+      skillsRoot,
+      deprecatedRules,
+    );
+    if (deprecatedRuleRefs.issues.length === 0) {
+      checks.push(
+        createCheck(
+          "DEP01",
+          "pass",
+          "No skills reference deprecated rules in requires_rules.",
+          {
+            checked: deprecatedRuleRefs.checked,
+            deprecatedRules: deprecatedRules.size,
+          },
+        ),
+      );
+    } else {
+      checks.push(
+        createCheck(
+          "DEP01",
+          "fail",
+          "One or more skills reference deprecated rules in requires_rules.",
+          {
+            checked: deprecatedRuleRefs.checked,
+            issues: deprecatedRuleRefs.issues,
+          },
+        ),
+      );
+    }
   }
 
   if (rawComponentName) {

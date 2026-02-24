@@ -25,6 +25,12 @@ This rule defines the authoring subset that renders reliably in the Markdown -> 
 
 If used, these blocks may be simplified or warned by the renderer.
 
+## Image scope clarification
+
+- This rule applies to the **Markdown -> Figma rendering stage**, not to overall Markdown documentation quality.
+- Component docs may still include images when required by documentation rules (for example, `component-visual-usage.mdc` anatomy and Do/Don't visuals).
+- In Figma render output, image blocks are expected to degrade to warnings and/or text fallbacks.
+
 ## Canonical task-list exception
 
 - `## Gaps / TBD` must keep checkbox items (`- [ ] ...`) as required by `component-doc.mdc`.

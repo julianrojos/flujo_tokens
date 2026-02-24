@@ -17,15 +17,11 @@ import { runAgentPrompt } from "./lib/agent-runner.mjs";
 import { validateDocs } from "./lib/docs-validator.mjs";
 import { DEFAULT_TOKEN_REGISTRY_PATH } from "./lib/token-registry.mjs";
 import { parseYamlDocument } from "./lib/parse-frontmatter.mjs";
-import { normalizeNodeId } from "./lib/node-id.mjs";
+import { normalizeNodeId, isValidNodeId } from "./lib/node-id.mjs";
 import { isTbdMarker } from "./lib/tbd.mjs";
 import { runOrThrow } from "./lib/exec.mjs";
 import { syncDocumentationIndices } from "./lib/component-registry/index.mjs";
 import { TempArtifactManager } from "./lib/temp-artifacts.mjs";
-
-function isValidNodeId(raw) {
-  return /^[A-Za-z0-9]+:[A-Za-z0-9]+$/.test(String(raw || "").trim());
-}
 
 function validateSpecPreflight(specPath, tokenRegistryPath) {
   const report = validateDocs({
