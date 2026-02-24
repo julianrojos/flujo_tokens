@@ -31,6 +31,14 @@ import {
   validateGitRef,
 } from "./lib/analysis-artifacts-service.mjs";
 import { runSpawnWithCapture } from "./lib/spawn-runner.mjs";
+import {
+  isQueueJobFinalStatus,
+  listQueueJobEvents,
+  queueJobAcceptedPayload,
+  queueJobSnapshot,
+  toQueueSummaryFromPayload,
+  toQueueTerminalEvent,
+} from "./lib/queue-utils.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -572,10 +580,6 @@ function createQueueJobId() {
   return `job_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function isQueueJobFinalStatus(status) {
-  return status === "success" || status === "error" || status === "cancelled";
-}
-
 function appendQueueJobEvent(job, event) {
   const fullEvent = {
     ...event,
@@ -589,35 +593,6 @@ function appendQueueJobEvent(job, event) {
   }
   job.emitter.emit("event", fullEvent);
   return fullEvent;
-}
-
-function queueJobSnapshot(job) {
-  return {
-    id: job.id,
-    label: job.label,
-    operation: job.operationName,
-    status: job.status,
-    createdAt: job.createdAt,
-    startedAt: job.startedAt,
-    finishedAt: job.finishedAt,
-    systemId: job.systemId,
-    requestId: job.requestId || null,
-    sourceEventId: job.sourceEventId || null,
-    result: job.result,
-  };
-}
-
-function queueJobAcceptedPayload(job) {
-  return {
-    ok: true,
-    accepted: true,
-    jobId: job.id,
-    requestId: job.requestId || null,
-    status: job.status,
-    statusUrl: `/api/jobs/${job.id}`,
-    streamUrl: `/api/jobs/${job.id}/stream`,
-    job: queueJobSnapshot(job),
-  };
 }
 
 function enqueueQueueJob({ label, systemId, operationName, requestId, sourceEventId, inputHash, execute }) {
@@ -930,14 +905,6 @@ function cancelQueueJob(jobId) {
   return { ok: true };
 }
 
-function listQueueJobEvents(job, args = {}) {
-  const since = Number.isFinite(args.since) ? Number(args.since) : 0;
-  const limit = Number.isFinite(args.limit) ? Math.max(1, Number(args.limit)) : 300;
-  const filtered = job.events.filter((event) => event.seq > since);
-  if (filtered.length <= limit) return filtered;
-  return filtered.slice(filtered.length - limit);
-}
-
 function cleanupQueueJobs() {
   const now = Date.now();
 
@@ -962,33 +929,6 @@ function cleanupQueueJobs() {
     if (!job) break;
     queueJobs.delete(job.id);
   }
-}
-
-function toQueueSummaryFromPayload(payload, fallbackCode) {
-  const row = payload && typeof payload === "object" ? payload : {};
-  const topLevelMessage = String(row.message ?? "").trim();
-  const topLevelError = String(row.error ?? "").trim();
-  const sync = row.sync && typeof row.sync === "object" ? row.sync : null;
-  const syncError = String(sync?.error ?? "").trim();
-  const syncReason = String(sync?.reason ?? "").trim();
-  const explicitCode = Number(row.code ?? row.exit_code ?? fallbackCode);
-  const codeText = Number.isFinite(explicitCode) ? `Failed with code ${explicitCode}` : "Unknown error";
-  return topLevelMessage || topLevelError || syncError || syncReason || codeText;
-}
-
-function toQueueTerminalEvent(job) {
-  const status = isQueueJobFinalStatus(job?.status) ? job.status : "error";
-  const result = job?.result && typeof job.result === "object" ? job.result : {};
-  const explicitCode = Number(result.code);
-  const code = Number.isFinite(explicitCode) ? explicitCode : status === "success" ? 0 : 1;
-  const summary = String(result.summary || "").trim() || (status === "success" ? "Completed successfully." : "Unknown error.");
-  return {
-    type: "end",
-    status,
-    code,
-    summary,
-    payload: result.payload,
-  };
 }
 
 async function runQueuedSpawnCommand(args) {
