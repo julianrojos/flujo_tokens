@@ -3,6 +3,13 @@ import path from "node:path";
 
 import { computeImpactReport } from "../../src/lib/impact.ts";
 import {
+  buildImpactFailure,
+  loadImpactArtifacts,
+  parseImpactRequest,
+  parseRefreshQuery,
+  parseTokenDiffBeforeRef,
+} from "../lib/analysis-route-service.mjs";
+import {
   computeNamingDebtReport,
   normalizeImpactWcagPairs,
   runNodeJsonCommandOnce,
@@ -28,16 +35,11 @@ export function registerAnalysisRoutes(app, deps) {
 
   app.get("/api/token-diff", async (c) => {
     const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    const beforeRefRaw = c.req.query("beforeRef") ?? "HEAD~1";
-    const beforeRef = validateGitRef(beforeRefRaw);
-    if (!beforeRef) {
-      return failJson(c, 400, {
-        code: "validation.invalid_git_ref",
-        userMessage: "Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -",
-        recoverable: true,
-        context: { beforeRef: beforeRefRaw },
-      });
+    const parsedBeforeRef = parseTokenDiffBeforeRef(c.req.query("beforeRef"), validateGitRef);
+    if (!parsedBeforeRef.ok) {
+      return failJson(c, parsedBeforeRef.statusCode, parsedBeforeRef.errorArgs);
     }
+    const { beforeRef } = parsedBeforeRef;
 
     const result = await runNodeJsonCommandOnce({
       cwd: sysCtx.repoRoot,
@@ -58,7 +60,7 @@ export function registerAnalysisRoutes(app, deps) {
 
   app.get("/api/naming-debt", async (c) => {
     const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    const refresh = String(c.req.query("refresh") ?? "false").trim() === "true";
+    const refresh = parseRefreshQuery(c.req.query("refresh"));
     if (!refresh) {
       const loaded = await loadArtifactOrFail(c, {
         filePath: sysCtx.namingDebtCachePath,
@@ -85,60 +87,31 @@ export function registerAnalysisRoutes(app, deps) {
 
   app.get("/api/impact", async (c) => {
     const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    const tokenPath = String(c.req.query("tokenPath") ?? "").trim();
-    if (!tokenPath) {
-      return failJson(c, 400, {
-        code: "validation.token_path_required",
-        userMessage: "tokenPath query param is required.",
-        recoverable: true,
-        context: { field: "tokenPath" },
-      });
+    const parsedRequest = parseImpactRequest({
+      tokenPathRaw: c.req.query("tokenPath"),
+      newValueRaw: c.req.query("newValue"),
+      depthRaw: c.req.query("depth"),
+    });
+    if (!parsedRequest.ok) {
+      return failJson(c, parsedRequest.statusCode, parsedRequest.errorArgs);
     }
-
-    const newValueRaw = c.req.query("newValue");
-    const newValue = newValueRaw ? String(newValueRaw).trim() : null;
-    const depthRaw = c.req.query("depth");
-    const depthParsed = depthRaw ? Number.parseInt(String(depthRaw), 10) : Number.NaN;
-    const depth = Number.isFinite(depthParsed) ? depthParsed : undefined;
-
-    const [
-      tokenRegistryRaw,
-      tokenGraphRaw,
-      tokenUsageRaw,
-      tokenHealthRaw,
-      componentRegistryRaw,
-      wcagPairsRaw,
-    ] = await Promise.all([
-      fs.readFile(sysCtx.tokenRegistryPath, "utf8"),
-      fs.readFile(sysCtx.tokenGraphVizPath, "utf8"),
-      fs.readFile(sysCtx.tokenUsageIndexPath, "utf8"),
-      fs.readFile(sysCtx.tokenHealthPath, "utf8").catch(() => "null"),
-      fs.readFile(sysCtx.componentRegistryPath, "utf8").catch(() => "null"),
-      fs.readFile(sysCtx.wcagPairsPath, "utf8").catch(() => '{"pairs": []}'),
-    ]);
+    const { tokenPath, newValue, depth } = parsedRequest.payload;
 
     try {
+      const impactArtifacts = await loadImpactArtifacts(sysCtx, {
+        readFileFn: fs.readFile,
+        normalizeImpactWcagPairsFn: normalizeImpactWcagPairs,
+      });
       const report = computeImpactReport({
         tokenPath,
         newValue,
         depth,
-        tokenRegistry: JSON.parse(tokenRegistryRaw),
-        tokenGraph: JSON.parse(tokenGraphRaw),
-        tokenUsageIndex: JSON.parse(tokenUsageRaw),
-        tokenHealth: JSON.parse(tokenHealthRaw),
-        componentRegistry: JSON.parse(componentRegistryRaw),
-        wcagPairs: normalizeImpactWcagPairs(JSON.parse(wcagPairsRaw)),
+        ...impactArtifacts,
       });
       return c.json(report);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const notFound = message.includes("not found");
-      return failJson(c, notFound ? 404 : 400, {
-        code: notFound ? "impact.token_not_found" : "impact.invalid_request",
-        userMessage: message,
-        recoverable: true,
-        context: { tokenPath },
-      });
+      const failure = buildImpactFailure(tokenPath, error);
+      return failJson(c, failure.statusCode, failure.errorArgs);
     }
   });
 }

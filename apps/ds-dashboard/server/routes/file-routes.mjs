@@ -1,4 +1,10 @@
 import fs from "node:fs/promises";
+import {
+  buildNotFoundFileError,
+  parseSnippetLine,
+  resolveRequestedRepoPath,
+  resolveSnippetTargetLine,
+} from "../lib/file-route-service.mjs";
 
 export function registerFileRoutes(app, deps) {
   const {
@@ -12,50 +18,72 @@ export function registerFileRoutes(app, deps) {
     MAX_FILE_BYTES,
   } = deps;
 
-  app.get("/api/file", async (c) => {
+  function resolvePathOrFail(c, { requested, code, userMessage }) {
     const sysCtx = getSystemContext(c.req.header("x-ds-system"));
-    const requested = c.req.query("path") ?? c.req.query("file") ?? "";
-    const absPath = resolveRepoFilePath(sysCtx.repoRoot, requested);
-    if (!absPath) {
-      return failJson(c, 400, {
-        code: "file.invalid_path",
-        userMessage: "Invalid file path.",
-        recoverable: true,
-        context: { requested },
-      });
+    const resolved = resolveRequestedRepoPath({
+      repoRoot: sysCtx.repoRoot,
+      requested,
+      resolveRepoFilePathFn: resolveRepoFilePath,
+      code,
+      userMessage,
+    });
+    if (!resolved.ok) {
+      return {
+        ok: false,
+        response: failJson(c, resolved.statusCode, resolved.errorArgs),
+      };
     }
+    return { ok: true, absPath: resolved.absPath };
+  }
 
+  async function readContentOrFail(c, { absPath, requested }) {
     try {
       const payload = await readTextFileLimited(absPath, MAX_FILE_BYTES);
-      return c.json({
-        ok: true,
-        file: requested,
-        truncated: payload.truncated,
-        content: payload.content,
-      });
+      return { ok: true, content: payload.content, truncated: payload.truncated };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return failJson(c, 404, {
+      const failure = buildNotFoundFileError({
         code: "file.not_found",
-        userMessage: message,
-        recoverable: true,
-        context: { requested },
+        requested,
+        error,
       });
+      return {
+        ok: false,
+        response: failJson(c, failure.statusCode, failure.errorArgs),
+      };
     }
+  }
+
+  app.get("/api/file", async (c) => {
+    const requested = c.req.query("path") ?? c.req.query("file") ?? "";
+    const resolved = resolvePathOrFail(c, {
+      requested,
+      code: "file.invalid_path",
+      userMessage: "Invalid file path.",
+    });
+    if (!resolved.ok) return resolved.response;
+
+    const loaded = await readContentOrFail(c, {
+      absPath: resolved.absPath,
+      requested,
+    });
+    if (!loaded.ok) return loaded.response;
+
+    return c.json({
+      ok: true,
+      file: requested,
+      truncated: loaded.truncated,
+      content: loaded.content,
+    });
   });
 
   app.get("/api/file-snippet", async (c) => {
-    const sysCtx = getSystemContext(c.req.header("x-ds-system"));
     const requested = c.req.query("file") ?? "";
-    const absPath = resolveRepoFilePath(sysCtx.repoRoot, requested);
-    if (!absPath) {
-      return failJson(c, 400, {
-        code: "file.invalid_path",
-        userMessage: "Invalid file path.",
-        recoverable: true,
-        context: { requested },
-      });
-    }
+    const resolved = resolvePathOrFail(c, {
+      requested,
+      code: "file.invalid_path",
+      userMessage: "Invalid file path.",
+    });
+    if (!resolved.ok) return resolved.response;
 
     const rawLine = c.req.query("line");
     const rawBefore = c.req.query("before");
@@ -64,44 +92,31 @@ export function registerFileRoutes(app, deps) {
     const after = rawAfter ? Number.parseInt(rawAfter, 10) : 2;
     const query = c.req.query("q") ?? "";
 
-    let line = rawLine ? Number.parseInt(rawLine, 10) : Number.NaN;
-    if (rawLine && !Number.isFinite(line)) {
-      return failJson(c, 400, {
-        code: "validation.invalid_line_parameter",
-        userMessage: "Invalid line parameter.",
-        recoverable: true,
-        context: { line: rawLine },
-      });
+    const parsedLine = parseSnippetLine(rawLine);
+    if (!parsedLine.ok) {
+      return failJson(c, parsedLine.statusCode, parsedLine.errorArgs);
     }
+    let line = parsedLine.line;
 
-    let content = "";
-    try {
-      const payload = await readTextFileLimited(absPath, MAX_FILE_BYTES);
-      content = payload.content;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return failJson(c, 404, {
-        code: "file.not_found",
-        userMessage: message,
-        recoverable: true,
-        context: { requested },
-      });
-    }
+    const loaded = await readContentOrFail(c, {
+      absPath: resolved.absPath,
+      requested,
+    });
+    if (!loaded.ok) return loaded.response;
+    const { content } = loaded;
 
-    let matchedBy = "line";
-    if (!rawLine) {
-      const detected = findLineForQuery(content, query);
-      if (!detected) {
-        return failJson(c, 404, {
-          code: "file.query_not_found",
-          userMessage: "Query not found in file.",
-          recoverable: true,
-          context: { requested, query },
-        });
-      }
-      line = detected;
-      matchedBy = "query";
+    const resolvedLine = resolveSnippetTargetLine({
+      rawLine,
+      content,
+      query,
+      findLineForQueryFn: findLineForQuery,
+      requested,
+    });
+    if (!resolvedLine.ok) {
+      return failJson(c, resolvedLine.statusCode, resolvedLine.errorArgs);
     }
+    if (Number.isFinite(resolvedLine.line)) line = resolvedLine.line;
+    const matchedBy = resolvedLine.matchedBy;
 
     const snippet = buildSnippet(content, line, before, after);
     return c.json({
@@ -116,17 +131,14 @@ export function registerFileRoutes(app, deps) {
   });
 
   app.get("/api/asset", async (c) => {
-    const sysCtx = getSystemContext(c.req.header("x-ds-system"));
     const requested = c.req.query("path") ?? "";
-    const absPath = resolveRepoFilePath(sysCtx.repoRoot, requested);
-    if (!absPath) {
-      return failJson(c, 400, {
-        code: "asset.invalid_path",
-        userMessage: "Invalid asset path.",
-        recoverable: true,
-        context: { requested },
-      });
-    }
+    const resolved = resolvePathOrFail(c, {
+      requested,
+      code: "asset.invalid_path",
+      userMessage: "Invalid asset path.",
+    });
+    if (!resolved.ok) return resolved.response;
+    const { absPath } = resolved;
 
     try {
       const stat = await fs.stat(absPath);
@@ -144,13 +156,12 @@ export function registerFileRoutes(app, deps) {
         "Cache-Control": "no-store",
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return failJson(c, 404, {
+      const failure = buildNotFoundFileError({
         code: "asset.not_found",
-        userMessage: message,
-        recoverable: true,
-        context: { requested },
+        requested,
+        error,
       });
+      return failJson(c, failure.statusCode, failure.errorArgs);
     }
   });
 }
