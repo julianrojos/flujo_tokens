@@ -41,6 +41,16 @@ import {
 import { createOperationHistoryService } from "./lib/operation-history-service.mjs";
 import { createQueueEngineService } from "./lib/queue-engine-service.mjs";
 import { createCommandExecutionService } from "./lib/command-execution-service.mjs";
+import {
+  createSnippetBuilder,
+  findLineForQuery,
+  guessContentType,
+  readJsonBody,
+  readTextFileLimited,
+  resolveRepoFilePath,
+  toBooleanString,
+  toNumberString,
+} from "./lib/request-file-helpers.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -146,153 +156,7 @@ const commandExecutionService = createCommandExecutionService({
 
 const { runQueuedSpawnCommand } = commandExecutionService;
 
-function toBooleanString(value, fallback) {
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === "true" || normalized === "false") return normalized;
-  }
-  return fallback ? "true" : "false";
-}
-
-function toNumberString(value, fallback, max) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return String(fallback);
-  if (max !== undefined && parsed > max) return String(max);
-  return String(parsed);
-}
-
-function guessContentType(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === ".png") return "image/png";
-  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
-  if (ext === ".webp") return "image/webp";
-  if (ext === ".svg") return "image/svg+xml";
-  if (ext === ".pdf") return "application/pdf";
-  if (ext === ".gif") return "image/gif";
-  return "application/octet-stream";
-}
-
-function clampInt(value, min, max) {
-  return Math.max(min, Math.min(max, value));
-}
-
-function resolveRepoFilePath(root, requestedPath) {
-  const raw = String(requestedPath || "").trim();
-  if (!raw) return null;
-  const resolved = path.resolve(root, raw);
-  const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
-  if (resolved !== root && !resolved.startsWith(rootWithSep)) return null;
-  return resolved;
-}
-
-async function readTextFileLimited(absPath, maxBytes) {
-  const buffer = await fs.readFile(absPath);
-  const truncated = buffer.byteLength > maxBytes;
-  const sliced = truncated ? buffer.subarray(0, maxBytes) : buffer;
-  return { content: sliced.toString("utf8"), truncated };
-}
-
-function findLineForQuery(content, query) {
-  const q = String(query || "").trim();
-  if (!q) return null;
-  const haystack = content.toLowerCase();
-  const needle = q.toLowerCase();
-  const idx = haystack.indexOf(needle);
-  if (idx === -1) return null;
-  const before = content.slice(0, idx);
-  return before.split("\n").length;
-}
-
-function buildSnippet(content, line, before, after) {
-  const lines = content.split("\n");
-  const target = clampInt(line, 1, Math.max(1, lines.length));
-  const safeBefore = clampInt(before, 0, MAX_SNIPPET_LINES - 1);
-  const safeAfter = clampInt(after, 0, MAX_SNIPPET_LINES - 1 - safeBefore);
-  const startLine = clampInt(target - safeBefore, 1, target);
-  const endLine = clampInt(target + safeAfter, target, lines.length);
-  const snippetLines = lines.slice(startLine - 1, endLine);
-  return { targetLine: target, startLine, endLine, snippet: snippetLines.join("\n") };
-}
-
-async function readJsonBody(c) {
-  try {
-    const parsed = await c.req.json();
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-    return parsed;
-  } catch {
-    return {};
-  }
-}
-
-async function loadJsonArtifactOrError(c, args) {
-  let raw = "";
-  try {
-    raw = await fs.readFile(args.filePath, "utf8");
-  } catch (error) {
-    const code =
-      typeof error === "object" && error && "code" in error
-        ? String(error.code || "")
-        : "";
-    if (code === "ENOENT" && args.allowMissing) {
-      return { ok: true, value: args.missingValue };
-    }
-    if (code === "ENOENT") {
-      return {
-        ok: false,
-        response: failJson(c, 404, {
-          code: "file.not_found",
-          userMessage: `${args.artifactName} artifact not found.`,
-          recoverable: true,
-          context: { artifact: args.artifactName, filePath: args.filePath },
-        }),
-      };
-    }
-    return {
-      ok: false,
-      response: failJson(c, 500, {
-        code: "internal.unexpected_error",
-        userMessage: `Failed to read ${args.artifactName} artifact.`,
-        recoverable: true,
-        context: {
-          artifact: args.artifactName,
-          filePath: args.filePath,
-          reason: error instanceof Error ? error.message : String(error),
-        },
-      }),
-    };
-  }
-
-  if (!raw.trim()) {
-    return {
-      ok: false,
-      response: failJson(c, 500, {
-        code: "internal.unexpected_error",
-        userMessage: `${args.artifactName} artifact is empty.`,
-        recoverable: true,
-        context: { artifact: args.artifactName, filePath: args.filePath },
-      }),
-    };
-  }
-
-  try {
-    return { ok: true, value: JSON.parse(raw) };
-  } catch (error) {
-    return {
-      ok: false,
-      response: failJson(c, 500, {
-        code: "internal.unexpected_error",
-        userMessage: `${args.artifactName} artifact is not valid JSON.`,
-        recoverable: true,
-        context: {
-          artifact: args.artifactName,
-          filePath: args.filePath,
-          reason: error instanceof Error ? error.message : String(error),
-        },
-      }),
-    };
-  }
-}
+const buildSnippet = createSnippetBuilder(MAX_SNIPPET_LINES);
 
 function isDevRuntime() {
   return process.env.NODE_ENV === "development";
