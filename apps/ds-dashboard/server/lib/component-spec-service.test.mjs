@@ -3,7 +3,12 @@ import test from "node:test";
 
 import {
   buildSpecValidationPayload,
+  loadTokenRegistry,
   parseYamlSafely,
+  persistSpecWithBackup,
+  readLatestSpecBackup,
+  readTextFileIfExists,
+  restoreSpecFromRaw,
   resolveComponentSpecTarget,
   runCommandCapture,
   sanitizeComponentSlug,
@@ -207,4 +212,108 @@ test("component-spec-service: runCommandCapture maps spawn result", async () => 
     stdout: "",
     stderr: "failed\nENOENT",
   });
+});
+
+test("component-spec-service: readTextFileIfExists and loadTokenRegistry handle missing files", async () => {
+  const loaded = await readTextFileIfExists("/repo/missing.yml", {
+    readFileFn: async () => {
+      const error = new Error("missing");
+      error.code = "ENOENT";
+      throw error;
+    },
+  });
+  assert.deepEqual(loaded, { exists: false, raw: "" });
+
+  const tokenRegistry = await loadTokenRegistry("/repo/missing-token-registry.json", {
+    readFileFn: async () => {
+      throw new Error("missing");
+    },
+  });
+  assert.equal(tokenRegistry, null);
+});
+
+test("component-spec-service: persistSpecWithBackup writes backup and next content atomically", async () => {
+  const calls = [];
+  const writes = new Map();
+  const renamed = [];
+
+  const persisted = await persistSpecWithBackup(
+    {
+      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      slug: "button",
+      currentRaw: "name: button\n",
+      currentExists: true,
+      nextRaw: "name: button\nstatus: ready\n",
+    },
+    {
+      mkdirFn: async (targetPath) => {
+        calls.push(["mkdir", targetPath]);
+      },
+      writeFileFn: async (targetPath, content) => {
+        writes.set(targetPath, content);
+      },
+      renameFn: async (from, to) => {
+        renamed.push([from, to]);
+      },
+      nowFn: () => new Date("2026-02-24T10:30:00.000Z"),
+      nowMsFn: () => 123,
+    },
+  );
+
+  assert.equal(calls.length, 2);
+  assert.match(persisted.backupLatestPath, /button\.last\.yml$/);
+  assert.match(persisted.backupTimestampPath, /button\.2026-02-24T10-30-00-000Z\.yml$/);
+  assert.equal(writes.get(persisted.backupLatestPath), "name: button\n");
+  assert.equal(
+    writes.get("/repo/docs/_spec/components/button.yml.tmp-123"),
+    "name: button\nstatus: ready\n",
+  );
+  assert.deepEqual(renamed, [
+    ["/repo/docs/_spec/components/button.yml.tmp-123", "/repo/docs/_spec/components/button.yml"],
+  ]);
+});
+
+test("component-spec-service: readLatestSpecBackup and restoreSpecFromRaw pipeline", async () => {
+  const backup = await readLatestSpecBackup(
+    {
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      slug: "button",
+    },
+    {
+      statFn: async () => ({ isFile: () => true }),
+      readFileFn: async () => "name: button\nstatus: draft\n",
+    },
+  );
+  assert.equal(backup.exists, true);
+  assert.match(backup.backupLatestPath, /button\.last\.yml$/);
+
+  const writes = [];
+  const renames = [];
+  await restoreSpecFromRaw(
+    {
+      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      raw: backup.raw,
+    },
+    {
+      mkdirFn: async () => {},
+      writeFileFn: async (targetPath, content) => {
+        writes.push([targetPath, content]);
+      },
+      renameFn: async (from, to) => {
+        renames.push([from, to]);
+      },
+      nowMsFn: () => 777,
+    },
+  );
+
+  assert.deepEqual(writes, [
+    ["/repo/docs/_spec/components/button.yml.tmp-restore-777", "name: button\nstatus: draft\n"],
+  ]);
+  assert.deepEqual(renames, [
+    [
+      "/repo/docs/_spec/components/button.yml.tmp-restore-777",
+      "/repo/docs/_spec/components/button.yml",
+    ],
+  ]);
 });

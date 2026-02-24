@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 
 import { buildSpecDiff } from "../../src/lib/spec-diff.ts";
@@ -6,7 +5,12 @@ import { validateComponentSpec } from "../../src/lib/spec-validator.ts";
 import {
   MAX_COMPONENT_SPEC_BYTES,
   buildSpecValidationPayload,
+  loadTokenRegistry,
   parseYamlSafely,
+  persistSpecWithBackup,
+  readLatestSpecBackup,
+  readTextFileIfExists,
+  restoreSpecFromRaw,
   resolveComponentSpecTarget,
   runCommandCapture,
   sanitizeComponentSlug,
@@ -51,20 +55,9 @@ export function registerComponentSpecRoutes(app, deps) {
       });
     }
 
-    let raw = "";
-    let exists = true;
-    try {
-      raw = await fs.readFile(target.specAbsPath, "utf8");
-    } catch (error) {
-      const code =
-        typeof error === "object" && error && "code" in error ? String(error.code || "") : "";
-      if (code === "ENOENT") {
-        exists = false;
-        raw = "";
-      } else {
-        throw error;
-      }
-    }
+    const loaded = await readTextFileIfExists(target.specAbsPath);
+    const raw = loaded.raw;
+    const exists = loaded.exists;
 
     const parsedPayload = parseYamlSafely(raw);
     return c.json({
@@ -166,15 +159,10 @@ export function registerComponentSpecRoutes(app, deps) {
       });
     }
 
-    let currentRaw = "";
-    try {
-      currentRaw = await fs.readFile(target.specAbsPath, "utf8");
-    } catch {
-      currentRaw = "";
-    }
+    const currentLoaded = await readTextFileIfExists(target.specAbsPath);
+    const currentRaw = currentLoaded.raw;
     const baselineParsed = parseYamlSafely(currentRaw).parsed;
-    const tokenRegistryRaw = await fs.readFile(sysCtx.tokenRegistryPath, "utf8").catch(() => "");
-    const tokenRegistry = tokenRegistryRaw ? JSON.parse(tokenRegistryRaw) : null;
+    const tokenRegistry = await loadTokenRegistry(sysCtx.tokenRegistryPath);
 
     const payload = buildSpecValidationPayload(
       {
@@ -291,20 +279,9 @@ export function registerComponentSpecRoutes(app, deps) {
       });
     }
 
-    let currentRaw = "";
-    let currentExists = true;
-    try {
-      currentRaw = await fs.readFile(target.specAbsPath, "utf8");
-    } catch (error) {
-      const code =
-        typeof error === "object" && error && "code" in error ? String(error.code || "") : "";
-      if (code === "ENOENT") {
-        currentRaw = "";
-        currentExists = false;
-      } else {
-        throw error;
-      }
-    }
+    const currentLoaded = await readTextFileIfExists(target.specAbsPath);
+    const currentRaw = currentLoaded.raw;
+    const currentExists = currentLoaded.exists;
 
     const currentHash = currentExists ? sha256Text(currentRaw) : null;
     if (expectedHash && expectedHash !== currentHash) {
@@ -334,8 +311,7 @@ export function registerComponentSpecRoutes(app, deps) {
     }
 
     const baselineParsed = parseYamlSafely(currentRaw).parsed;
-    const tokenRegistryRaw = await fs.readFile(sysCtx.tokenRegistryPath, "utf8").catch(() => "");
-    const tokenRegistry = tokenRegistryRaw ? JSON.parse(tokenRegistryRaw) : null;
+    const tokenRegistry = await loadTokenRegistry(sysCtx.tokenRegistryPath);
     const validationPayload = buildSpecValidationPayload(
       {
         slug,
@@ -383,18 +359,14 @@ export function registerComponentSpecRoutes(app, deps) {
       });
     }
 
-    await fs.mkdir(path.dirname(target.specAbsPath), { recursive: true });
-    await fs.mkdir(sysCtx.specBackupsDirPath, { recursive: true });
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const backupTimestampPath = path.join(sysCtx.specBackupsDirPath, `${slug}.${timestamp}.yml`);
-    const backupLatestPath = path.join(sysCtx.specBackupsDirPath, `${slug}.last.yml`);
-    const backupContent = currentExists ? currentRaw : "";
-    await fs.writeFile(backupTimestampPath, backupContent, "utf8");
-    await fs.writeFile(backupLatestPath, backupContent, "utf8");
-
-    const tempPath = `${target.specAbsPath}.tmp-${Date.now()}`;
-    await fs.writeFile(tempPath, raw, "utf8");
-    await fs.rename(tempPath, target.specAbsPath);
+    const persisted = await persistSpecWithBackup({
+      specAbsPath: target.specAbsPath,
+      specBackupsDirPath: sysCtx.specBackupsDirPath,
+      slug,
+      currentRaw,
+      currentExists,
+      nextRaw: raw,
+    });
 
     let refreshed = false;
     let refreshOutput = "";
@@ -412,7 +384,7 @@ export function registerComponentSpecRoutes(app, deps) {
           slug,
           path: target.specRelPath,
           rawHash: sha256Text(raw),
-          backupPath: path.relative(sysCtx.repoRoot, backupLatestPath),
+          backupPath: path.relative(sysCtx.repoRoot, persisted.backupLatestPath),
           parsed: validationPayload.parsed,
           validation: validationPayload.validation,
           diff: validationPayload.diff,
@@ -428,7 +400,7 @@ export function registerComponentSpecRoutes(app, deps) {
       slug,
       path: target.specRelPath,
       rawHash: sha256Text(raw),
-      backupPath: path.relative(sysCtx.repoRoot, backupLatestPath),
+      backupPath: path.relative(sysCtx.repoRoot, persisted.backupLatestPath),
       parsed: validationPayload.parsed,
       validation: validationPayload.validation,
       diff: validationPayload.diff,
@@ -477,13 +449,11 @@ export function registerComponentSpecRoutes(app, deps) {
 
     const body = await readJsonBody(c);
     const refreshRegistryAfterRestore = body.refreshRegistry !== false;
-    const backupLatestPath = path.join(sysCtx.specBackupsDirPath, `${slug}.last.yml`);
-    const backupExists = await fs
-      .stat(backupLatestPath)
-      .then((stat) => stat.isFile())
-      .catch(() => false);
-
-    if (!backupExists) {
+    const latestBackup = await readLatestSpecBackup({
+      specBackupsDirPath: sysCtx.specBackupsDirPath,
+      slug,
+    });
+    if (!latestBackup.exists) {
       return c.json({
         ok: false,
         slug,
@@ -494,22 +464,22 @@ export function registerComponentSpecRoutes(app, deps) {
       });
     }
 
-    const backupRaw = await fs.readFile(backupLatestPath, "utf8");
+    const backupRaw = latestBackup.raw;
     if (!backupRaw.trim()) {
       return c.json({
         ok: false,
         slug,
         path: target.specRelPath,
-        restoredFrom: path.relative(sysCtx.repoRoot, backupLatestPath),
+        restoredFrom: path.relative(sysCtx.repoRoot, latestBackup.backupLatestPath),
         rawHash: null,
         message: "Backup exists but is empty; restore skipped.",
       });
     }
 
-    await fs.mkdir(path.dirname(target.specAbsPath), { recursive: true });
-    const tempPath = `${target.specAbsPath}.tmp-restore-${Date.now()}`;
-    await fs.writeFile(tempPath, backupRaw, "utf8");
-    await fs.rename(tempPath, target.specAbsPath);
+    await restoreSpecFromRaw({
+      specAbsPath: target.specAbsPath,
+      raw: backupRaw,
+    });
 
     let refreshed = false;
     let refreshOutput = "";
@@ -527,7 +497,7 @@ export function registerComponentSpecRoutes(app, deps) {
       ok: true,
       slug,
       path: target.specRelPath,
-      restoredFrom: path.relative(sysCtx.repoRoot, backupLatestPath),
+      restoredFrom: path.relative(sysCtx.repoRoot, latestBackup.backupLatestPath),
       rawHash: sha256Text(backupRaw),
       refreshed,
       refreshOutput,

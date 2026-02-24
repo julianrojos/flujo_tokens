@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import path from "node:path";
 import yaml from "js-yaml";
 
 import { runSpawnWithCapture } from "./spawn-runner.mjs";
@@ -134,4 +135,95 @@ export async function runCommandCapture(args, deps = {}) {
     stdout: result.stdout,
     stderr: [result.stderr, result.spawnError].filter(Boolean).join("\n").trim(),
   };
+}
+
+export async function readTextFileIfExists(filePath, deps = {}) {
+  const readFileFn = deps.readFileFn || fs.readFile;
+  try {
+    const raw = await readFileFn(filePath, "utf8");
+    return { exists: true, raw };
+  } catch (error) {
+    const code =
+      typeof error === "object" && error && "code" in error ? String(error.code || "") : "";
+    if (code === "ENOENT") {
+      return { exists: false, raw: "" };
+    }
+    throw error;
+  }
+}
+
+export async function loadTokenRegistry(filePath, deps = {}) {
+  const readFileFn = deps.readFileFn || fs.readFile;
+  const raw = await readFileFn(filePath, "utf8").catch(() => "");
+  if (!raw) return null;
+  return JSON.parse(raw);
+}
+
+export async function persistSpecWithBackup(args, deps = {}) {
+  const {
+    specAbsPath,
+    specBackupsDirPath,
+    slug,
+    currentRaw,
+    currentExists,
+    nextRaw,
+  } = args;
+  const mkdirFn = deps.mkdirFn || fs.mkdir;
+  const writeFileFn = deps.writeFileFn || fs.writeFile;
+  const renameFn = deps.renameFn || fs.rename;
+  const nowFn = deps.nowFn || (() => new Date());
+  const nowMsFn = deps.nowMsFn || (() => Date.now());
+
+  await mkdirFn(path.dirname(specAbsPath), { recursive: true });
+  await mkdirFn(specBackupsDirPath, { recursive: true });
+  const timestamp = nowFn().toISOString().replace(/[:.]/g, "-");
+  const backupTimestampPath = path.join(specBackupsDirPath, `${slug}.${timestamp}.yml`);
+  const backupLatestPath = path.join(specBackupsDirPath, `${slug}.last.yml`);
+  const backupContent = currentExists ? currentRaw : "";
+  await writeFileFn(backupTimestampPath, backupContent, "utf8");
+  await writeFileFn(backupLatestPath, backupContent, "utf8");
+
+  const tempPath = `${specAbsPath}.tmp-${nowMsFn()}`;
+  await writeFileFn(tempPath, nextRaw, "utf8");
+  await renameFn(tempPath, specAbsPath);
+
+  return { backupTimestampPath, backupLatestPath };
+}
+
+export async function readLatestSpecBackup(args, deps = {}) {
+  const { specBackupsDirPath, slug } = args;
+  const statFn = deps.statFn || fs.stat;
+  const readFileFn = deps.readFileFn || fs.readFile;
+
+  const backupLatestPath = path.join(specBackupsDirPath, `${slug}.last.yml`);
+  const backupExists = await statFn(backupLatestPath)
+    .then((stat) => stat.isFile())
+    .catch(() => false);
+  if (!backupExists) {
+    return {
+      exists: false,
+      backupLatestPath,
+      raw: "",
+    };
+  }
+
+  const raw = await readFileFn(backupLatestPath, "utf8");
+  return {
+    exists: true,
+    backupLatestPath,
+    raw,
+  };
+}
+
+export async function restoreSpecFromRaw(args, deps = {}) {
+  const { specAbsPath, raw } = args;
+  const mkdirFn = deps.mkdirFn || fs.mkdir;
+  const writeFileFn = deps.writeFileFn || fs.writeFile;
+  const renameFn = deps.renameFn || fs.rename;
+  const nowMsFn = deps.nowMsFn || (() => Date.now());
+
+  await mkdirFn(path.dirname(specAbsPath), { recursive: true });
+  const tempPath = `${specAbsPath}.tmp-restore-${nowMsFn()}`;
+  await writeFileFn(tempPath, raw, "utf8");
+  await renameFn(tempPath, specAbsPath);
 }
