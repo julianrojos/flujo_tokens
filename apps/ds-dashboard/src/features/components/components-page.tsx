@@ -10,6 +10,7 @@ import {
   refreshRegistry,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
+import { useSortState } from "@/lib/use-sort-state";
 import type { ComponentRegistryItem } from "@/types/component-registry";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
@@ -63,8 +64,10 @@ export function ComponentsPage() {
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("all");
   const [docStatus, setDocStatus] = useState("all");
-  const [sortField, setSortField] = useState<SortField>("display_name");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sort, toggleSort] = useSortState<SortField>({
+    field: "display_name",
+    dir: "asc",
+  });
   const [syncing, setSyncing] = useState(false);
 
   const loadData = async () => {
@@ -107,22 +110,22 @@ export function ComponentsPage() {
 
     next.sort((a, b) => {
       const valueFor = (row: ComponentRegistryItem): string | number => {
-        if (sortField === "display_name") return row.display_name.toLowerCase();
-        if (sortField === "pipeline_stage") return row.pipeline_stage;
-        if (sortField === "doc_status") return row.doc.status;
-        if (sortField === "spec_status") return row.spec.status;
-        if (sortField === "usage_count") return usageBySlug[row.slug]?.used_in.length ?? 0;
+        if (sort.field === "display_name") return row.display_name.toLowerCase();
+        if (sort.field === "pipeline_stage") return row.pipeline_stage;
+        if (sort.field === "doc_status") return row.doc.status;
+        if (sort.field === "spec_status") return row.spec.status;
+        if (sort.field === "usage_count") return usageBySlug[row.slug]?.used_in.length ?? 0;
         return row.ready_for_publish ? 1 : 0;
       };
 
       const aValue = valueFor(a);
       const bValue = valueFor(b);
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      return sortDir === "asc" ? comparison : comparison * -1;
+      return sort.dir === "asc" ? comparison : comparison * -1;
     });
 
     return next;
-  }, [rows, search, stage, docStatus, sortField, sortDir]);
+  }, [rows, search, stage, docStatus, sort, usageBySlug]);
 
   const stats = useMemo(() => {
     const total = rows.length;
@@ -141,15 +144,6 @@ export function ComponentsPage() {
     }
     return map;
   }, [rows]);
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSortField(field);
-    setSortDir("asc");
-  };
 
   const handleRefreshFromPipeline = async () => {
     setSyncing(true);

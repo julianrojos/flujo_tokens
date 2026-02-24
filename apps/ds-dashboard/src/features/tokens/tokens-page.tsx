@@ -15,6 +15,7 @@ import {
   refreshTokenUsageIndex,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
+import { useSortState } from "@/lib/use-sort-state";
 import type { TokenCollectionTreeIndex } from "@/types/token-tree";
 import type { TokenEntry } from "@/types/token-registry";
 import type { TokenUsageEntry, TokenUsageIndexSummary } from "@/types/token-usage-index";
@@ -74,8 +75,7 @@ export function TokensPage() {
   const [search, setSearch] = useState("");
   const [collection, setCollection] = useState("all");
   const [type, setType] = useState("all");
-  const [sortField, setSortField] = useState<SortField>("path");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [sort, toggleSort] = useSortState<SortField>({ field: "path", dir: "asc" });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [usageError, setUsageError] = useState<ApiErrorDisplay | null>(null);
@@ -153,22 +153,22 @@ export function TokensPage() {
 
     next.sort((a, b) => {
       const valueFor = (entry: TokenEntry): string | number => {
-        if (sortField === "path") return entry.path.toLowerCase();
-        if (sortField === "collection") return entry.collection.toLowerCase();
-        if (sortField === "type") return entry.type.toLowerCase();
-        if (sortField === "cssVar") return entry.cssVar.toLowerCase();
-        if (sortField === "resolvedValue") return entry.resolvedValue.toLowerCase();
+        if (sort.field === "path") return entry.path.toLowerCase();
+        if (sort.field === "collection") return entry.collection.toLowerCase();
+        if (sort.field === "type") return entry.type.toLowerCase();
+        if (sort.field === "cssVar") return entry.cssVar.toLowerCase();
+        if (sort.field === "resolvedValue") return entry.resolvedValue.toLowerCase();
         return usageByPath[entry.path]?.usageCount ?? 0;
       };
 
       const aValue = valueFor(a);
       const bValue = valueFor(b);
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
-      return sortDir === "asc" ? comparison : comparison * -1;
+      return sort.dir === "asc" ? comparison : comparison * -1;
     });
 
     return next;
-  }, [entries, search, collection, type, sortField, sortDir, usageByPath]);
+  }, [entries, search, collection, type, sort, usageByPath]);
 
   const summary = useMemo(() => {
     const byCollection: Record<string, number> = {};
@@ -178,15 +178,6 @@ export function TokensPage() {
     }
     return byCollection;
   }, [entries]);
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-      return;
-    }
-    setSortField(field);
-    setSortDir("asc");
-  };
 
   const semanticColorOptions = useMemo(
     () => buildSemanticColorOptions(entries),

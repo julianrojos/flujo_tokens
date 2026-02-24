@@ -12,6 +12,7 @@ import {
   refreshTokenHealth,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
+import { useSortState } from "@/lib/use-sort-state";
 import type { ComponentsHealthReport } from "@/types/components-health";
 import type {
   HealthHistoryBucket,
@@ -98,18 +99,15 @@ export function HealthDashboardPage() {
   const [historyRange, setHistoryRange] = useState<HealthHistoryRange>("30d");
   const [historyBucket, setHistoryBucket] = useState<HealthHistoryBucket>("day");
   const [snapshotting, setSnapshotting] = useState(false);
-  const [brokenAliasSort, setBrokenAliasSort] = useState<{
-    field: "token" | "alias" | "reason";
-    dir: "asc" | "desc";
-  }>({ field: "token", dir: "asc" });
-  const [wcagSort, setWcagSort] = useState<{
-    field: "foreground" | "background" | "ratio";
-    dir: "asc" | "desc";
-  }>({ field: "ratio", dir: "desc" });
-  const [atRiskSort, setAtRiskSort] = useState<{
-    field: "component" | "stage" | "status" | "coverage";
-    dir: "asc" | "desc";
-  }>({ field: "coverage", dir: "desc" });
+  const [brokenAliasSort, toggleBrokenAliasSort] = useSortState<
+    "token" | "alias" | "reason"
+  >({ field: "token", dir: "asc" });
+  const [wcagSort, toggleWcagSort] = useSortState<
+    "foreground" | "background" | "ratio"
+  >({ field: "ratio", dir: "desc" });
+  const [atRiskSort, toggleAtRiskSort] = useSortState<
+    "component" | "stage" | "status" | "coverage"
+  >({ field: "coverage", dir: "desc" });
 
   const scrollToHashTarget = useCallback((hash: string, behavior: ScrollBehavior = "smooth") => {
     const id = decodeURIComponent(hash.replace(/^#/, "")).trim();
@@ -534,30 +532,6 @@ export function HealthDashboardPage() {
     });
     return rows;
   }, [atRiskSort, dashboard]);
-
-  const toggleBrokenAliasSort = (field: "token" | "alias" | "reason") => {
-    setBrokenAliasSort((current) =>
-      current.field === field
-        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
-        : { field, dir: "asc" },
-    );
-  };
-
-  const toggleWcagSort = (field: "foreground" | "background" | "ratio") => {
-    setWcagSort((current) =>
-      current.field === field
-        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
-        : { field, dir: "asc" },
-    );
-  };
-
-  const toggleAtRiskSort = (field: "component" | "stage" | "status" | "coverage") => {
-    setAtRiskSort((current) =>
-      current.field === field
-        ? { field, dir: current.dir === "asc" ? "desc" : "asc" }
-        : { field, dir: "asc" },
-    );
-  };
 
   return (
     <div className="space-y-6 animate-fade-slide-in">
