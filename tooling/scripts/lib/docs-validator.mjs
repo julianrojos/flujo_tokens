@@ -22,7 +22,7 @@ import {
   validateOverviewLinks,
   validateSpecMarkdownPairing,
 } from "./validators/linking.mjs";
-import { validateSpecYamlFiles } from "./validators/spec-yaml.mjs";
+import { validateSpecYamlFiles } from "./validators/yaml.mjs";
 import {
   createBaseReport,
   loadRuleManifest,
@@ -34,7 +34,7 @@ import {
   validateGapsSectionContract,
   validateVisualProofSection,
   validateReadyLifecycleConsistency,
-} from "./validators/traceability-readiness.mjs";
+} from "./validators/figma.mjs";
 import {
   buildRegistryIndexes,
   resolveTokenCandidate,
