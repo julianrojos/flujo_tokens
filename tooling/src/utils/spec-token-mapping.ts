@@ -11,8 +11,6 @@ export interface TokenRegistryEntry {
   [key: string]: unknown;
 }
 
-export interface TokenMappingNode extends Record<string, unknown> {}
-
 /**
  * Normalize a string for comparison (lowercase, alphanumeric only).
  */
@@ -176,7 +174,13 @@ export function pickBestTokenPath(
 
 /**
  * Pre-fill TBD markers in a spec node with token suggestions.
- * Returns the count of filled markers.
+ * 
+ * @mutates node - Directly modifies the input object, replacing TBD markers with suggestions.
+ * 
+ * @param node - The spec node object to pre-fill (will be mutated)
+ * @param componentTokenCandidates - Candidate tokens for the component
+ * @param keyPath - Optional path context for scoring
+ * @returns The count of TBD markers that were filled
  */
 export function prefillTokenMapping(
   node: unknown,

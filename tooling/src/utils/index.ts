@@ -116,5 +116,4 @@ export {
 
 export type {
   TokenRegistryEntry,
-  TokenMappingNode,
 } from "./spec-token-mapping.js";
