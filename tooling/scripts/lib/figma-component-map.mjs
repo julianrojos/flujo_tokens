@@ -264,11 +264,18 @@ function makePathLabel(pathItems) {
   return pathItems.filter(Boolean).join(" > ");
 }
 
+/**
+ * @param {Object} args
+ * @param {Record<string, any>} args.filePayload
+ * @param {Record<string, any>} args.fileDescriptor
+ * @param {boolean} [args.includeInstances]
+ * @returns {Record<string, any>}
+ */
 export function buildFigmaComponentMap({
   filePayload,
   fileDescriptor,
   includeInstances = true,
-} = {}) {
+}) {
   if (!isObject(filePayload)) {
     throw new Error("Invalid Figma payload: expected an object.");
   }

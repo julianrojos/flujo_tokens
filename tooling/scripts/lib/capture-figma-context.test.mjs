@@ -9,7 +9,7 @@ test("capture-figma-context: ensures file payload lazily and caches it", async (
     figmaToken: "token",
     fetchFigmaFileFn: async () => {
       fetchCount += 1;
-      return { document: { id: "0:0" } };
+      return /** @type {any} */ ({ document: { id: "0:0" } });
     }
   });
 
@@ -28,9 +28,9 @@ test("capture-figma-context: fetches nodes if nodeIdFromUrl is provided", async 
     figmaToken: "token",
     fetchFigmaNodesFn: async ({ nodeIds }) => {
       parsedNodeId = nodeIds[0];
-      return { nodes: { "1:2": { document: { id: "1:2", name: "Target" } } } };
+      return /** @type {any} */ ({ nodes: { "1:2": { document: { id: "1:2", name: "Target" } } } });
     },
-    extractSingleNodeCandidateFn: () => ({ node_id: "1:2", name: "Target", kind: "component" }),
+    extractSingleNodeCandidateFn: () => /** @type {any} */ ({ node_id: "1:2", name: "Target", kind: "component" }),
   });
 
   const { componentMap, singleNodeCandidate } = await resolveContext();
@@ -59,7 +59,9 @@ test("capture-figma-context: parses full file component map if no node id", asyn
   const { resolveContext } = configureFigmaContext({
     descriptor: { fileKey: "key" },
     figmaToken: "token",
-    fetchFigmaFileFn: async () => ({ document: { id: "0:0" } }),
+    fetchFigmaFileFn: async () => /** @type {any} */ ({
+      document: { id: "1" },
+    }),
     buildFigmaComponentMapFn: () => ({ components: [{ name: "A" }] }),
   });
 

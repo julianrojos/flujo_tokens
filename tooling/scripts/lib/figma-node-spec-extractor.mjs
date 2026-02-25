@@ -12,6 +12,11 @@
  *   const spec = extractComponentSpec(nodeDocument);
  */
 
+/**
+ * @typedef {import("ds-types").SpecAnatomyItem} SpecAnatomyItem
+ * @typedef {import("ds-types").SpecProperty} SpecProperty
+ */
+
 // ---------------------------------------------------------------------------
 // Helpers: color / style
 // ---------------------------------------------------------------------------
@@ -311,10 +316,13 @@ function extractProperties(componentSetNode) {
 
   const properties = [];
   for (const [name, def] of Object.entries(defs)) {
+    const typeStr = String(def.type || "").toLowerCase();
     const prop = {
       name,
-      type: String(def.type || "").toLowerCase(),
+      type: typeStr,
       default: def.defaultValue,
+      required: typeStr === "variant",
+      description: "",
     };
     if (def.type === "VARIANT" && Array.isArray(def.variantOptions)) {
       prop.values = def.variantOptions;
@@ -425,12 +433,12 @@ function parseVariantName(rawName) {
 /**
  * Extract a complete component spec from a Figma REST API node document.
  *
- * @param {object} nodeDocument - The `document` field from Figma's GET /v1/files/:key/nodes response.
- * @returns {object} Structured spec data.
+ * @param {any} nodeDocument - The `document` field from Figma's GET /v1/files/:key/nodes response.
+ * @returns {{ name: string, type: string, anatomy: SpecAnatomyItem[], properties: SpecProperty[], variants: any[], layout: any[] }} Structured spec data.
  */
 export function extractComponentSpec(nodeDocument) {
   if (!nodeDocument || typeof nodeDocument !== "object") {
-    return { anatomy: [], properties: [], variants: [], layout: [] };
+    return { name: "", type: "UNKNOWN", anatomy: [], properties: [], variants: [], layout: [] };
   }
 
   const isComponentSet = nodeDocument.type === "COMPONENT_SET";
@@ -606,6 +614,10 @@ function renderStatesMarkdown(properties) {
     : "- Default: `TBD`.\n- Other states: `TBD`.\n";
 }
 
+/**
+ * @param {Record<string, any>} spec
+ * @returns {{ anatomy: string, componentApi: string, visualSpecifications: string, variantsTableRows: string, statesMarkdown: string }}
+ */
 export function buildEnrichedMarkdownSections(spec) {
   const anatomy = renderAnatomyMarkdown(spec?.anatomy);
   const componentApi = `### Properties
@@ -641,11 +653,11 @@ ${renderLayoutTable(spec?.layout)}`;
  * Render a full enriched markdown seed from extracted spec data.
  *
  * @param {object} opts
- * @param {string} opts.slug - Component slug.
- * @param {string} opts.displayName - Display name of the component.
- * @param {string} opts.nodeUrl - Figma URL to the component.
- * @param {string} opts.nodeId - Figma node ID.
- * @param {object} opts.spec - Extracted spec from extractComponentSpec().
+ * @param {string} [opts.slug] - Component slug.
+ * @param {string} [opts.displayName] - Display name of the component.
+ * @param {string} [opts.nodeUrl] - Figma URL to the component.
+ * @param {string} [opts.nodeId] - Figma node ID.
+ * @param {Record<string, any>} [opts.spec] - Extracted spec from extractComponentSpec().
  * @returns {string} Markdown content.
  */
 export function renderEnrichedMarkdownSeed({

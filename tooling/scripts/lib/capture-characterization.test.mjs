@@ -74,7 +74,8 @@ test("capture characterization: exactly matches golden report", async () => {
         indices_refreshed: false,
       };
     },
-    runCaptureBatchFn: () => ({
+    executeCaptureBatchAndRefreshFn: ({ report }) => ({
+      ...report,
       captured: [{ slug: "example-button", status: "success" }],
       failed: [],
     }),

@@ -1,3 +1,72 @@
+/**
+ * @typedef {Object} FigmaColor
+ * @property {number} r
+ * @property {number} g
+ * @property {number} b
+ * @property {number} [a]
+ */
+
+/**
+ * @typedef {Object} FigmaNode
+ * @property {string} id
+ * @property {string} name
+ * @property {string} type
+ * @property {boolean} [visible]
+ * @property {FigmaNode[]} [children]
+ * @property {any[]} [fills]
+ * @property {any[]} [strokes]
+ * @property {any[]} [effects]
+ * @property {Object} [style]
+ * @property {Object} [absoluteBoundingBox]
+ * @property {number} [absoluteBoundingBox.width]
+ * @property {number} [absoluteBoundingBox.height]
+ * @property {Object} [size]
+ * @property {number} [size.width]
+ * @property {number} [size.height]
+ * @property {number} [cornerRadius]
+ * @property {number} [strokeWeight]
+ * @property {string} [layoutMode]
+ * @property {string} [primaryAxisAlignItems]
+ * @property {string} [counterAxisAlignItems]
+ * @property {string} [primaryAxisSizingMode]
+ * @property {string} [counterAxisSizingMode]
+ * @property {number} [itemSpacing]
+ * @property {number} [paddingTop]
+ * @property {number} [paddingRight]
+ * @property {number} [paddingBottom]
+ * @property {number} [paddingLeft]
+ * @property {number} [layoutGrow]
+ * @property {string} [layoutAlign]
+ * @property {string} [componentId]
+ * @property {Record<string, any>} [componentPropertyDefinitions]
+ */
+
+/**
+ * @typedef {Object} FigmaFileResponse
+ * @property {FigmaNode} document
+ * @property {Record<string, any>} components
+ * @property {Record<string, any>} componentSets
+ * @property {string} name
+ * @property {string} lastModified
+ * @property {string} thumbnailUrl
+ * @property {string} version
+ * @property {string} role
+ * @property {string} editorType
+ * @property {string} linkAccess
+ */
+
+/**
+ * @typedef {Object} FigmaNodesResponse
+ * @property {string} name
+ * @property {string} lastModified
+ * @property {string} thumbnailUrl
+ * @property {string} version
+ * @property {string} role
+ * @property {string} editorType
+ * @property {string} linkAccess
+ * @property {Record<string, { document: FigmaNode, components: Record<string, any>, componentSets: Record<string, any>, schemaVersion: number }>} nodes
+ */
+
 const FIGMA_API_BASE_URL = "https://api.figma.com";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -58,12 +127,20 @@ function resolveFetch() {
   return fetch;
 }
 
+/**
+ * @param {Object} args
+ * @param {string} args.endpointPath
+ * @param {string} args.token
+ * @param {Record<string, any>} [args.query]
+ * @param {number} [args.timeoutMs]
+ * @returns {Promise<any>}
+ */
 async function requestFigmaJson({
   endpointPath,
   token,
   query = {},
   timeoutMs = DEFAULT_TIMEOUT_MS,
-} = {}) {
+}) {
   const normalizedToken = sanitizeToken(token);
   const normalizedTimeoutMs = normalizePositiveInteger(
     timeoutMs,
@@ -129,12 +206,20 @@ async function requestFigmaJson({
   return payload;
 }
 
+/**
+ * @param {Object} args
+ * @param {string} args.fileKey
+ * @param {string|number} [args.depth]
+ * @param {boolean} [args.branchData]
+ * @param {string} [args.geometry]
+ * @returns {string}
+ */
 export function buildFigmaFileEndpoint({
   fileKey,
   depth,
   branchData = false,
   geometry = "",
-} = {}) {
+}) {
   const normalizedFileKey = normalizeFileKey(fileKey);
   const apiUrl = new URL(`/v1/files/${encodeURIComponent(normalizedFileKey)}`, FIGMA_API_BASE_URL);
 
@@ -153,6 +238,16 @@ export function buildFigmaFileEndpoint({
   return apiUrl.toString();
 }
 
+/**
+ * @param {Object} args
+ * @param {string} args.fileKey
+ * @param {string} args.token
+ * @param {string|number} [args.depth]
+ * @param {boolean} [args.branchData]
+ * @param {string} [args.geometry]
+ * @param {number} [args.timeoutMs]
+ * @returns {Promise<FigmaFileResponse>}
+ */
 export async function fetchFigmaFile({
   fileKey,
   token,
@@ -160,7 +255,7 @@ export async function fetchFigmaFile({
   branchData = false,
   geometry = "",
   timeoutMs = DEFAULT_TIMEOUT_MS,
-} = {}) {
+}) {
   const normalizedToken = sanitizeToken(token);
   const endpoint = buildFigmaFileEndpoint({
     fileKey,
@@ -225,13 +320,22 @@ export async function fetchFigmaFile({
   return payload;
 }
 
+/**
+ * @param {Object} args
+ * @param {string} args.fileKey
+ * @param {string[]|string} args.nodeIds
+ * @param {string} args.token
+ * @param {string|number} [args.depth]
+ * @param {number} [args.timeoutMs]
+ * @returns {Promise<FigmaNodesResponse>}
+ */
 export async function fetchFigmaNodes({
   fileKey,
   nodeIds = [],
   token,
   depth,
   timeoutMs = DEFAULT_TIMEOUT_MS,
-} = {}) {
+}) {
   const normalizedFileKey = normalizeFileKey(fileKey);
   const ids = Array.isArray(nodeIds)
     ? nodeIds
@@ -256,11 +360,18 @@ export async function fetchFigmaNodes({
   });
 }
 
+/**
+ * @param {Object} args
+ * @param {string} args.fileKey
+ * @param {string} args.token
+ * @param {number} [args.timeoutMs]
+ * @returns {Promise<any>}
+ */
 export async function fetchFigmaLocalVariables({
   fileKey,
   token,
   timeoutMs = DEFAULT_TIMEOUT_MS,
-} = {}) {
+}) {
   const normalizedFileKey = normalizeFileKey(fileKey);
   return requestFigmaJson({
     endpointPath: `/v1/files/${encodeURIComponent(
@@ -271,6 +382,16 @@ export async function fetchFigmaLocalVariables({
   });
 }
 
+/**
+ * @param {Object} args
+ * @param {string} args.fileKey
+ * @param {string[]|string} args.nodeIds
+ * @param {string} args.token
+ * @param {string} [args.format]
+ * @param {number|string} [args.scale]
+ * @param {number} [args.timeoutMs]
+ * @returns {Promise<any>}
+ */
 export async function fetchFigmaImages({
   fileKey,
   nodeIds = [],
@@ -278,7 +399,7 @@ export async function fetchFigmaImages({
   format = "png",
   scale,
   timeoutMs = DEFAULT_TIMEOUT_MS,
-} = {}) {
+}) {
   const normalizedFileKey = normalizeFileKey(fileKey);
   const ids = Array.isArray(nodeIds)
     ? nodeIds

@@ -74,13 +74,13 @@ export function createCaptureContextMock(overrides = {}) {
     runJsonCommandFn: () => ({
       data: { ok: true },
     }),
-    extractComponentSpec: () => null,
-    resolveSpecExhibitNodeIds: () => null,
-    renderEnrichedMarkdownSeed: () => null,
-    injectExtractedSpecSectionsIntoMarkdown: () => ({ changed: true, content: "mocked" }),
-    buildMarkdownSeed: () => null,
-    writeTextAtomic: () => null,
-    stderrWrite: () => {},
+    extractComponentSpecFn: () => null,
+    resolveSpecExhibitNodeIdsFn: () => null,
+    renderEnrichedMarkdownSeedFn: () => null,
+    injectExtractedSpecSectionsIntoMarkdownFn: () => ({ changed: true, content: "mocked" }),
+    buildMarkdownSeedFn: () => null,
+    writeTextAtomicFn: () => null,
+    stderrWriteFn: () => {},
   };
 
   return { ...defaultDeps, ...overrides };
