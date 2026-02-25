@@ -4,7 +4,7 @@ description: Review pre-commit: examina cambios línea a línea, detecta bugs/re
 
 # /review — Pre-stage code review
 
-Este comando realiza una auditoría crítica de los cambios locales antes de ser confirmados (staged o commit). No se debe cambiar el código en este momento, sólo revisarlo. Se enfoca en la calidad técnica, la seguridad y la prevención de regresiones, evitando ruido innecesario.
+Este comando realiza una auditoría crítica de los cambios locales antes de ser confirmados (staged o commit). No se debe cambiar el código en este momento, sólo comprenderlo y revisarlo. Se enfoca en la calidad técnica, la seguridad y la prevención de regresiones, evitando ruido innecesario.
 
 ## Objetivos del Review
 

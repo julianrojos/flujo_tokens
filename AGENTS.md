@@ -17,6 +17,10 @@ Operational instructions for AI agents in this repository.
 - Resolve relative paths referenced by a skill from that skill's own directory first.
 - Prefer the minimal set of skills needed for the task.
 
+## Workflows
+
+- Workflows are defined in `.agent/workflows/*.md`.
+
 ## Repo Conventions
 
 - Canonical component docs directory: `docs/components`.
