@@ -120,6 +120,9 @@ export { runHealthSnapshot } from '../runners/health-snapshot-runner.js';
 // Token diff runners
 export { runTokenDiff } from '../runners/token-diff-runner.js';
 
+// Tokens sync runners
+export { runTokensSync } from '../runners/tokens-sync-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
