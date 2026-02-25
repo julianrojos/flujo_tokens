@@ -10,6 +10,7 @@ const COMMAND_EXISTS_CACHE_MAX_AGE_MS = 5_000;
 
 /**
  * Check if a command exists in the system PATH.
+ * Uses 'which' on Unix-like systems and 'where' on Windows.
  * Results are cached for 5 seconds to avoid repeated spawnSync calls.
  */
 export function commandExists(command: string): boolean {
@@ -25,7 +26,9 @@ export function commandExists(command: string): boolean {
     COMMAND_EXISTS_CACHE.delete(key);
   }
 
-  const probe = spawnSync("which", [key], { stdio: "pipe" });
+  // Use platform-specific command: 'which' on Unix, 'where' on Windows
+  const isWindows = process.platform === "win32";
+  const probe = spawnSync(isWindows ? "where" : "which", [key], { stdio: "pipe" });
   const exists = (probe.status ?? 1) === 0;
   COMMAND_EXISTS_CACHE.set(key, { exists, checkedAt: Date.now() });
   return exists;
