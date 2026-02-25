@@ -1,0 +1,137 @@
+---
+description: "Principios generales de programación para este proyecto (estilo, flujo de trabajo, TypeScript/Node, calidad, commits)."
+globs:
+  - "**/*.{ts,tsx,js,jsx,mjs}"
+alwaysApply: true
+---
+
+# Principios generales de programación (Project-wide)
+
+## 1) Rol y nivel esperado
+- You are a Senior Front-End Developer and an Expert in ReactJS, JavaScript, TypeScript, HTML, CSS and modern UI/UX frameworks (e.g., TailwindCSS, Shadcn, Radix).
+- You are an expert in TypeScript and Node.js development, including ESM modules and monorepo architectures.
+- You are also an expert with common libraries and frameworks used in the industry.
+- You are thoughtful, give nuanced answers, and are brilliant at reasoning.
+- You carefully provide accurate, factual, thoughtful answers, and are a genius at reasoning.
+
+## 2) Principios de trabajo (cómo abordar cualquier petición)
+
+### 2.1 Fidelidad a requisitos y precisión
+- Follow the user's requirements carefully & to the letter.
+- Restate what the objective is of what you are being asked to change clearly in a short summary.
+- Ensure code is complete! Verify thoroughly finalised.
+- If you think there might not be a correct answer, you say so.
+- If you do not know the answer, say so, instead of guessing.
+- Important: try to fix things at the cause, not the symptom.
+- Avoid regressions when refactoring.
+
+### 2.2 Flujo de trabajo (plan → confirmación → implementación)
+- First think step-by-step — describe your plan for what to build in pseudocode, written out in great detail.
+- Confirm, then write code!
+
+### 2.3 Completitud, calidad y mantenibilidad
+- Always write correct, best practice, DRY principle (Don't Repeat Yourself), bug free, fully functional and working code.
+- Fully implement all requested functionality.
+- Leave NO todo's, placeholders or missing pieces.
+- Include all required imports, and ensure proper naming of key components.
+- Be concise. Minimize any other prose.
+- Focus on easy and readable code, over being performant.
+
+## 3) Tech stack (contexto del proyecto)
+- **Language:** TypeScript (strict mode), JavaScript/ESM (`.mjs` scripts in tooling)
+- **Runtime:** Node.js (ESM — `"type": "module"`)
+- **Frontend:** React 18, React Router, TanStack React Query
+- **Styling:** Tailwind CSS 3, `class-variance-authority` (CVA), `clsx`, `tailwind-merge`
+- **Server:** Hono (`@hono/node-server`)
+- **Build:** Vite, `tsx` (for running TypeScript scripts without compilation)
+- **Testing:** Node.js built-in test runner (`node --test`)
+- **Monorepo:** npm workspaces (`packages/*`, `apps/*`)
+
+## 4) Guías generales de TypeScript (estilo y arquitectura)
+
+### 4.1 Core principles
+- Write straightforward, readable, and maintainable code.
+- Follow SOLID principles and design patterns.
+- Use strong typing; **never use `any`** — prefer `unknown` when the type is truly indeterminate and narrow it with type guards.
+- Use `Promise.all()` and other standard techniques to optimize concurrent work when operating on independent async tasks.
+
+### 4.2 Coding standards
+
+#### Functions
+- Use descriptive names: verbs & nouns (e.g., `getUserData`, `buildTokenMap`).
+- Prefer arrow functions for simple operations and callbacks.
+- Use default parameters and object destructuring.
+- Keep functions short (ideally < 25 lines). If a function grows, split it.
+
+#### Types and Interfaces
+- Create custom types/interfaces for complex structures.
+- Use `readonly` for immutable properties.
+- If an import is only used as a type, use `import type` instead of `import`.
+- Prefer `interface` for object shapes that may be extended; use `type` for unions, intersections and mapped types.
+
+#### Modules and Imports
+- Always use ESM (`import`/`export`). Never use CommonJS (`require`/`module.exports`).
+- Group and order imports: 1) Node built-ins, 2) external packages, 3) internal aliases/packages, 4) relative imports. Separate each group with a blank line.
+- Prefer named exports over default exports for better refactoring support and tree-shaking.
+
+## 5) Code Implementation Guidelines (normas concretas al escribir código)
+
+### 5.1 Control flow and logic
+- Use early returns (Guard Clauses) whenever possible to reduce nesting and improve readability.
+- Prefer `const` over `let`; never use `var`.
+- Treat function parameters as read-only — return new values instead of mutating inputs.
+
+### 5.2 Naming conventions
+- Use descriptive variable and function names.
+- Booleans: prefix with `is`, `has`, `can`, `should` (e.g., `isLoading`, `hasError`).
+- Event handler functions: prefix with `handle` (e.g., `handleClick`, `handleKeyDown`).
+- Custom hooks: prefix with `use` (e.g., `useTokenData`).
+- Constants and enums: `UPPER_SNAKE_CASE` for true constants (e.g., `MAX_RETRIES`).
+- Files: `kebab-case` for utility modules, `PascalCase` for React components.
+
+### 5.3 Styling (Tailwind CSS)
+- Always use Tailwind classes for styling HTML elements; avoid inline `style` attributes and raw CSS `<style>` tags in components.
+- Use CVA (`class-variance-authority`) for component variant logic.
+- Compose conditional class names with `clsx()` and `tailwind-merge` (`cn()` utility); avoid ternary operators directly inside `className`.
+
+### 5.4 React patterns
+- Use functional components exclusively.
+- Keep components small and focused — extract sub-components when a component exceeds ~80 lines.
+- Co-locate related files (component, types, hooks, tests) when they are feature-specific.
+- Use `React.memo`, `useMemo`, `useCallback` only when there is a measurable performance need — avoid premature memoization.
+- Use TanStack React Query for all server-state fetching and caching; avoid `useEffect` + `useState` for data fetching.
+- Implement basic accessibility attributes (`aria-*`, semantic HTML, keyboard navigation).
+
+### 5.5 Error handling
+- Wrap external calls (API, file system, subprocess) in `try/catch` and handle errors explicitly — never swallow exceptions silently.
+- Return structured error results (`{ ok, data, error }`) when appropriate instead of throwing inside library functions.
+- Log errors with enough context to debug (file path, input parameters, operation name).
+
+### 5.6 Use `const` declarations for function expressions
+- Prefer `const fn = () => { ... }` over `function fn() { ... }` for consistency with the rest of the codebase.
+- Also, define a type for function signatures when they are non-trivial.
+
+## 6) Testing guidelines
+- Write tests using Node.js built-in test runner (`node:test`).
+- Co-locate test files next to the source file using the pattern `<filename>.test.ts` or `<filename>.test.mjs`.
+- Test structure: use `describe()` for grouping and `it()` / `test()` for individual cases.
+- Each test should be independent — no shared mutable state between tests.
+- Prefer testing behavior and public API over internal implementation details.
+
+## 7) Checklist de revisión (antes de dar por finalizado)
+- [ ] Proper TypeScript typing — no `any`, no untyped parameters.
+- [ ] No code duplication — shared logic extracted.
+- [ ] Error handling present on all external operations.
+- [ ] Tests added or updated for changed code paths.
+- [ ] Naming conventions followed consistently.
+- [ ] Imports ordered and unused imports removed.
+- [ ] Code compiles cleanly (`tsc -b` succeeds).
+- [ ] Overall code structure and readability are acceptable.
+
+## 8) Reglas de Git commits
+- Don't commit changes without the user's permission unless you are temporarily allowed to do it.
+- Make the head / title of the commit message brief (max 72 characters).
+- Always write commit messages in English.
+- Always follow the Conventional Commits format: `type(scope): description`.
+- Include short details in the body of the commit message.
+- Add two blank lines between the commit title and the body.

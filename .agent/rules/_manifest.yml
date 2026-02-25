@@ -135,6 +135,12 @@ rules:
     applies_to: [markdown]
     blocking: true
     layer: stage
+  - id: general-programming-principles
+    file: general-programming-principles.mdc
+    owner: docs-governance
+    applies_to: [markdown, spec]
+    blocking: false
+    layer: core
   - id: markdown-lifecycle-status
     file: markdown-lifecycle-status.mdc
     owner: docs-governance
@@ -205,7 +211,8 @@ checks:
     rule_ids: [ds-docs-guardrails, docs-pipeline-contract]
     blocking: true
   FM01:
-    rule_ids: [frontmatter-contract, component-figma-traceability, docs-taxonomy]
+    rule_ids:
+      [frontmatter-contract, component-figma-traceability, docs-taxonomy]
     blocking: true
   FM02:
     rule_ids: [frontmatter-contract, markdown-lifecycle-status]
@@ -223,7 +230,13 @@ checks:
     rule_ids: [token-references, token-registry-validation]
     blocking: true
   TOK03:
-    rule_ids: [prohibited-patterns, ds-docs-guardrails, token-references, token-registry-validation]
+    rule_ids:
+      [
+        prohibited-patterns,
+        ds-docs-guardrails,
+        token-references,
+        token-registry-validation,
+      ]
     blocking: true
   SPEC01:
     rule_ids: [component-spec-yaml, token-registry-validation]
@@ -271,7 +284,8 @@ checks:
     rule_ids: [docs-pipeline-contract, ds-docs-guardrails]
     blocking: true
   READY01:
-    rule_ids: [markdown-lifecycle-status, component-spec-yaml, ds-docs-guardrails]
+    rule_ids:
+      [markdown-lifecycle-status, component-spec-yaml, ds-docs-guardrails]
     blocking: true
   QLT01:
     rule_ids: [ds-docs-guardrails]
@@ -316,6 +330,7 @@ matrix:
         ds-docs-guardrails,
         evidence-gated-mutations,
         prohibited-patterns,
+        general-programming-principles,
       ]
     overview:
       [
@@ -370,9 +385,16 @@ matrix:
         component-spec-properties-order,
         component-name-normalization,
         token-registry-validation,
+        general-programming-principles,
       ]
     markdown:
-      [component-doc, frontmatter-contract, markdown-lifecycle-status, docs-language-tone]
+      [
+        component-doc,
+        frontmatter-contract,
+        markdown-lifecycle-status,
+        docs-language-tone,
+        general-programming-principles,
+      ]
     figma: [figma-rendering]
     visual-proof: [component-figma-traceability]
     pipeline: [docs-pipeline-contract, component-indices-sync]
