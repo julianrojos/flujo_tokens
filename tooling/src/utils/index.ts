@@ -117,6 +117,9 @@ export { runFoundationsSync } from '../runners/foundations-sync-runner.js';
 // Health runners
 export { runHealthSnapshot } from '../runners/health-snapshot-runner.js';
 
+// Token diff runners
+export { runTokenDiff } from '../runners/token-diff-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
