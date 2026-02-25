@@ -1,5 +1,3 @@
-export interface ParsedArgs extends Record<string, string | boolean> {}
-
 export interface ArgOption {
   name: string;
   description?: string;
@@ -22,8 +20,8 @@ export interface PrintUsageOptions {
 /**
  * Parse command-line arguments in --key=value or --key value format.
  */
-export function parseArgs(argv: readonly string[]): ParsedArgs {
-  const args: ParsedArgs = {};
+export function parseArgs(argv: readonly string[]): Record<string, string | boolean> {
+  const args: Record<string, string | boolean> = {};
   
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];

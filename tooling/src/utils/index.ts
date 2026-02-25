@@ -46,8 +46,29 @@ export {
 } from "./parse-args.js";
 
 export type {
-  ParsedArgs,
   ArgOption,
   ArgConfig,
   PrintUsageOptions,
 } from "./parse-args.js";
+
+// Alias for the return type of parseArgs
+export type ParsedArgs = Record<string, string | boolean>;
+
+// Logger utility
+export { logger } from "./logger.js";
+
+// Log level type (centralized to avoid duplication)
+export type { LogLevel } from "./logger-types.js";
+
+// TBD marker utility
+export { isTbdMarker } from "./tbd.js";
+
+// Frontmatter parsing utilities
+export {
+  parseYamlDocument,
+  parseMarkdownFrontmatter,
+} from "./parse-frontmatter.js";
+
+export type {
+  ParsedFrontmatter,
+} from "./parse-frontmatter.js";
