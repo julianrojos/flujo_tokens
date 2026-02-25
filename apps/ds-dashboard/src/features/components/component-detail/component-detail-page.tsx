@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
 import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component-usage-index";
-import type { ComponentSpec } from "@/types/component-spec";
+import type { ComponentSpec } from "ds-types";
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
 import { ComponentSpecViewer } from "./component-spec-viewer";

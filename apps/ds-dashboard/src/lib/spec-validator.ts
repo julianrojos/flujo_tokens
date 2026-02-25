@@ -1,5 +1,6 @@
+import { buildSpecDiff, type SpecDiffEntry } from "./spec-diff";
 import type { TokenRegistry } from "../types/token-registry";
-import type { ComponentSpec } from "../types/component-spec";
+import type { ComponentSpec } from "ds-types";
 import type { SpecValidationIssue, SpecValidationResult } from "../types/spec-editor";
 
 type ValidationContext = {

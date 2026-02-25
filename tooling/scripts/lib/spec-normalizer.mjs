@@ -1,3 +1,5 @@
+/** @typedef {import('ds-types').ComponentSpec} ComponentSpec */
+
 import { isPlainObject } from "./is-plain-object.mjs";
 import { isTbdMarker } from "./tbd.mjs";
 import { componentNameToDisplayName } from "./component-name.mjs";
@@ -133,6 +135,17 @@ export function normalizeSpecOrder(spec) {
   return ordered;
 }
 
+/**
+ * @param {Object} args
+ * @param {Partial<ComponentSpec> | Record<string, any>} args.templateSpec
+ * @param {Partial<ComponentSpec> | Record<string, any>} args.generatedSpecRaw
+ * @param {string} [args.componentName]
+ * @param {string} [args.nodeId]
+ * @param {string} [args.fileKeyFromUrl]
+ * @param {any} [args.tokenCandidates]
+ * @param {Function} [args.prefillTokenMappingFn=function(){ return 0; }]
+ * @returns {{ normalizedSpec: Partial<ComponentSpec>, prefilledCount: number }}
+ */
 export function normalizeSpec({
   templateSpec,
   generatedSpecRaw,
@@ -168,6 +181,7 @@ export function normalizeSpec({
     "token_mapping",
   );
 
+  /** @type {any} */
   const normalizedSpec = normalizeSpecOrder(mergedSpec);
 
   return {

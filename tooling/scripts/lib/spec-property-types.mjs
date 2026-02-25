@@ -9,6 +9,7 @@
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
+/** @type {any} */
 const TYPE_MAP = require("../../lib/property-type-map.json");
 
 // Build the same shape as the old hardcoded object so callers are unchanged.

@@ -6,6 +6,10 @@
   "dependencies": {
     "js-yaml": "^4.1.0"
   },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "generate": "tsx tooling/src/cli/index.ts",
     "generate:registry": "tsx tooling/src/cli/index.ts --registry",
@@ -54,6 +58,6 @@
     "@types/node": "^20.10.0",
     "prettier": "^3.3.3",
     "tsx": "^4.7.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.9.3"
   }
 }

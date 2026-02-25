@@ -1,4 +1,4 @@
-import type { ComponentSpec } from "./component-spec";
+import type { ComponentSpec } from "ds-types";
 
 export type SpecValidationSeverity = "error" | "warning";
 
@@ -25,17 +25,17 @@ export interface SpecDiffEntry {
   beforeValue: string | null;
   afterValue: string | null;
   category:
-    | "metadata"
-    | "figma"
-    | "summary"
-    | "anatomy"
-    | "properties"
-    | "token_mapping"
-    | "accessibility"
-    | "content"
-    | "qa"
-    | "related_components"
-    | "other";
+  | "metadata"
+  | "figma"
+  | "summary"
+  | "anatomy"
+  | "properties"
+  | "token_mapping"
+  | "accessibility"
+  | "content"
+  | "qa"
+  | "related_components"
+  | "other";
   risk: "low" | "medium" | "high";
 }
 

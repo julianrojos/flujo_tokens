@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ComponentSpec, SpecProperty } from "@/types/component-spec";
+import type { ComponentSpec, SpecProperty } from "ds-types";
 import type { TokenEntry } from "@/types/token-registry";
 import { ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
