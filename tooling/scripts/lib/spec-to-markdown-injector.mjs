@@ -70,23 +70,23 @@ export function injectSpecZones(markdown, spec, slug) {
   let result = markdown;
 
   // 1. Anatomy Zone
-  const anatomyContent = renderAnatomyMarkdown(spec.anatomy);
+  const anatomyContent = renderAnatomyMarkdown(spec.anatomy || []);
   result = processZone(result, "ANATOMY", anatomyContent, slug);
 
   // 2. Properties Zone
-  const rawPropsRows = renderPropertiesTable(spec.properties);
+  const rawPropsRows = renderPropertiesTable(spec.properties || []);
   const propsTable = `| Name | Type | Default | Required | Description | Narrative Notes |\n| --- | --- | --- | --- | --- | --- |\n${rawPropsRows}`;
   result = processZone(result, "PROPERTIES", propsTable, slug);
 
   // 3. Visuals Zone (Diffs and Layout)
-  const diffs = renderVariantSpecs(spec.variants) || "- `TBD`\n";
-  const rawLayoutRows = renderLayoutTable(spec.layout);
+  const diffs = renderVariantSpecs(spec.variants || []) || "- `TBD`\n";
+  const rawLayoutRows = renderLayoutTable(spec.layout || []);
   const layoutTable = `| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |\n| --- | --- | --- | --- | --- | --- | --- |\n${rawLayoutRows}`;
   const visualsContent = `### Per-variant attributes\n\n${diffs}\n### Layout and spacing\n\n${layoutTable}`;
   result = processZone(result, "VISUALS", visualsContent, slug);
 
   // 4. Variants Matrix Zone
-  const rawVarRows = renderVariantRows(spec.variants);
+  const rawVarRows = renderVariantRows(spec.variants || []);
   const matrixContent = `| Variant | Token | Fallback | Notes |\n| --- | --- | --- | --- |\n${rawVarRows}\n`;
   result = processZone(result, "VARIANTS", matrixContent, slug);
 

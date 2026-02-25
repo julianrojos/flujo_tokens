@@ -470,9 +470,15 @@ export function extractComponentSpec(nodeDocument) {
 // ---------------------------------------------------------------------------
 
 export function renderAnatomyMarkdown(anatomy) {
-  if (!anatomy || anatomy.length === 0) return "1. **Container**: TBD\n";
+  if (!anatomy || !Array.isArray(anatomy) || anatomy.length === 0) {
+    return "1. **Container**: TBD\n";
+  }
   const lines = [];
-  for (const part of anatomy) {
+  for (let i = 0; i < anatomy.length; i++) {
+    const part = anatomy[i];
+    const index = part.index ?? (i + 1);
+    const name = part.name || part.id || "Unnamed";
+
     let attrs = [];
     if (part.dimensions) {
       const d = part.dimensions;
@@ -491,7 +497,7 @@ export function renderAnatomyMarkdown(anatomy) {
     if (part.effects) attrs.push(part.effects.join("; "));
 
     const attrStr = attrs.length > 0 ? ` — ${attrs.join(", ")}` : "";
-    lines.push(`${part.index}. **${part.name}**${attrStr}`);
+    lines.push(`${index}. **${name}**${attrStr}`);
   }
   return lines.join("\n") + "\n";
 }
