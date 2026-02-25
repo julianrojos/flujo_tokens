@@ -155,3 +155,20 @@ export type {
   AgentOutputError,
   AgentOutputContractResult,
 } from "./agent-output-contract.js";
+
+// Figma component map utilities
+export {
+  parseFigmaFileUrl,
+  buildFigmaComponentMap,
+  formatFigmaComponentMap,
+  toHyphenNodeId,
+  sanitizeNodeId,
+  parseNodeIdFromUrl,
+} from "./figma-component-map.js";
+
+export type {
+  FigmaComponentMap,
+  FigmaComponentItem,
+  FigmaPageItem,
+  ParsedFigmaFileUrl,
+} from "./figma-component-map.js";
