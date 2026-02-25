@@ -1,5 +1,7 @@
 export type {
     ComponentSpec,
     SpecProperty,
-    SpecAnatomyItem
+    SpecAnatomyItem,
+    SpecLayoutItem,
+    SpecVariantVisual
 } from "./component-spec";

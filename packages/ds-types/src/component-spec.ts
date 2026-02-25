@@ -5,11 +5,42 @@ export interface SpecProperty {
     default: string | boolean | null;
     required: boolean;
     description: string;
+    narrative_notes?: string;
 }
 
 export interface SpecAnatomyItem {
     id: string;
-    description: string;
+    description?: string;
+    name?: string;
+    type?: string;
+    index?: number;
+    dimensions?: { width?: number; height?: number; borderRadius?: number; borderWeight?: number; aspectRatio?: string };
+    fill?: string;
+    stroke?: string;
+    textStyle?: string;
+    textColor?: string;
+    textAlign?: string;
+    instanceOf?: string;
+    effects?: string[];
+}
+
+export interface SpecLayoutItem {
+    node: string;
+    direction: "Horizontal" | "Vertical" | "—";
+    hSizing: string;
+    vSizing: string;
+    alignment: string;
+    itemSpacing: string | number;
+    padding?: { top: number; right: number; bottom: number; left: number };
+}
+
+export interface SpecVariantVisual {
+    name: string;
+    properties: Record<string, string>;
+    /**
+     * Opaque blob of structural properties (fills, strokes, effects) used strictly for visual regression detection
+     */
+    fingerprints: Record<string, any>;
 }
 
 export interface ComponentSpec {
@@ -39,4 +70,6 @@ export interface ComponentSpec {
     token_mapping: Record<string, Record<string, string>>;
     qa: string[];
     related_components?: string[];
+    layout?: SpecLayoutItem[];
+    variant_visuals?: SpecVariantVisual[];
 }
