@@ -37,3 +37,17 @@ export { isPlainObject } from "./is-plain-object.js";
 
 // Command utilities
 export { commandExists } from "./command-exists.js";
+
+// Argument parsing utilities
+export {
+  parseArgs,
+  renderUsage,
+  printUsage,
+} from "./parse-args.js";
+
+export type {
+  ParsedArgs,
+  ArgOption,
+  ArgConfig,
+  PrintUsageOptions,
+} from "./parse-args.js";
