@@ -129,6 +129,9 @@ export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';
 // Component doc runners
 export { runComponentDoc } from '../runners/component-doc-runner.js';
 
+// Validate docs runners
+export { runValidateDocs } from '../runners/validate-docs-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
