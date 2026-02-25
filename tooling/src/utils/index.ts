@@ -126,6 +126,9 @@ export { runTokensSync } from '../runners/tokens-sync-runner.js';
 // Tokens from Figma runners
 export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';
 
+// Component doc runners
+export { runComponentDoc } from '../runners/component-doc-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
