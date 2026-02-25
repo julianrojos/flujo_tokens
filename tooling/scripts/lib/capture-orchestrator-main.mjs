@@ -17,6 +17,8 @@ import {
   getSystemConfig,
   runTokensCompileIfNeeded,
 } from "./capture-system-bootstrap.mjs";
+import { orchestrateTokenSync } from "./capture-token-orchestrator.mjs";
+import { configureFigmaContext } from "./capture-figma-context.mjs";
 import {
   extractComponentSpec,
   renderEnrichedMarkdownSeed,
@@ -47,24 +49,11 @@ import {
   resolveSpecExhibitNodeIds,
 } from "./figma-component-discovery.mjs";
 import { injectExtractedSpecSectionsIntoMarkdown } from "./capture-markdown-sections.mjs";
-import { runCaptureBatch } from "./capture-orchestrator.mjs";
 import { buildCaptureTargets } from "./capture-target-builder.mjs";
 import { createCaptureReport } from "./capture-report.mjs";
+import { executeCaptureBatchAndRefresh } from "./capture-batch-execution.mjs";
 
-function runNodeScriptJson({ repoRoot, scriptPath, scriptArgs, runJsonCommandFn }) {
-  const scriptArgsList = Array.isArray(scriptArgs) ? [...scriptArgs] : [];
-  const displayArgs = [...scriptArgsList];
-  const tokenArgIndex = displayArgs.indexOf("--figma-token");
-  if (tokenArgIndex >= 0 && tokenArgIndex + 1 < displayArgs.length) {
-    displayArgs[tokenArgIndex + 1] = "***redacted***";
-  }
 
-  const result = runJsonCommandFn(process.execPath, [scriptPath, ...scriptArgsList], {
-    cwd: repoRoot,
-    displayArgs: [path.relative(repoRoot, scriptPath), ...displayArgs],
-  });
-  return result.data;
-}
 
 export async function runCaptureFromFigmaUrl(args, deps = {}) {
   const {
@@ -92,7 +81,7 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     classifyTargetKindFn = classifyTargetKind,
     buildCaptureTargetsFn = buildCaptureTargets,
     createCaptureReportFn = createCaptureReport,
-    runCaptureBatchFn = runCaptureBatch,
+    executeCaptureBatchAndRefreshFn = executeCaptureBatchAndRefresh,
     runJsonCommandFn = runJsonCommand,
     extractComponentSpecFn = extractComponentSpec,
     resolveSpecExhibitNodeIdsFn = resolveSpecExhibitNodeIds,
@@ -103,6 +92,8 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     writeTextAtomic: writeTextAtomicFn,
     stderrWrite: stderrWriteFn,
     createPipelineContext: createPipelineContextFn = createPipelineContext,
+    orchestrateTokenSyncFn = orchestrateTokenSync,
+    configureFigmaContextFn = configureFigmaContext,
   } = deps;
 
   const figmaUrl = String(args.url || "").trim();
@@ -151,70 +142,28 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
   } = flags;
 
   const descriptor = parseFigmaFileUrlFn(figmaUrl);
-  let tokenBootstrap = {
-    attempted: false,
-    created: false,
-    reason: dryRun ? "skipped-dry-run" : "not-run",
-  };
-  let tokenCompile = {
-    attempted: false,
-    compiled: false,
-    reason: dryRun ? "skipped-dry-run" : "not-run",
-  };
+  const { tokenBootstrap, tokenCompile } = await orchestrateTokenSyncFn({
+    dryRun,
+    projectRoot,
+    systemId: ctx.id,
+    fileKey: descriptor.fileKey,
+    figmaToken,
+    getSystemConfigFn,
+    bootstrapInputJsonFromFigmaVariablesFn,
+    ensureCollectionsConfiguredFn,
+    runTokensCompileIfNeededFn,
+  });
 
-  if (!dryRun) {
-    let systemConfig = getSystemConfigFn({ repoRoot: projectRoot, systemId: ctx.id });
-    tokenBootstrap = await bootstrapInputJsonFromFigmaVariablesFn({
-      repoRoot: projectRoot,
-      system: systemConfig,
-      fileKey: descriptor.fileKey,
-      figmaToken,
-    });
-    ensureCollectionsConfiguredFn({ repoRoot: projectRoot, systemId: ctx.id });
-    systemConfig = getSystemConfigFn({ repoRoot: projectRoot, systemId: ctx.id });
-    tokenCompile = runTokensCompileIfNeededFn({
-      repoRoot: projectRoot,
-      system: systemConfig,
-    });
-  }
+  const { ensureFilePayload, resolveContext } = configureFigmaContextFn({
+    descriptor,
+    figmaToken,
+    fetchFigmaFileFn,
+    fetchFigmaNodesFn,
+    extractSingleNodeCandidateFn,
+    buildFigmaComponentMapFn,
+  });
 
-  let componentMap = null;
-  let singleNodeCandidate = null;
-  let filePayload = null;
-  const ensureFilePayload = async () => {
-    if (filePayload) return filePayload;
-    filePayload = await fetchFigmaFileFn({
-      fileKey: descriptor.fileKey,
-      token: figmaToken,
-    });
-    return filePayload;
-  };
-
-  if (descriptor.nodeIdFromUrl) {
-    try {
-      const nodePayload = await fetchFigmaNodesFn({
-        fileKey: descriptor.fileKey,
-        nodeIds: [descriptor.nodeIdFromUrl],
-        token: figmaToken,
-        depth: 1,
-      });
-      singleNodeCandidate = extractSingleNodeCandidateFn(nodePayload, descriptor.nodeIdFromUrl);
-    } catch {
-      singleNodeCandidate = {
-        node_id: descriptor.nodeIdFromUrl,
-        name: descriptor.nodeIdFromUrl,
-        kind: "unknown",
-        page_name: null,
-      };
-    }
-  } else {
-    filePayload = await ensureFilePayload();
-    componentMap = buildFigmaComponentMapFn({
-      filePayload,
-      fileDescriptor: descriptor,
-      includeInstances: true,
-    });
-  }
+  const { componentMap, singleNodeCandidate } = await resolveContext();
 
   ensureSystemDocsScaffoldFn({ docsRootDir, componentDocsDir });
 
@@ -293,15 +242,12 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     return report;
   }
 
-  const captureBatch = runCaptureBatchFn({
+  return executeCaptureBatchAndRefreshFn({
+    report,
     targets,
-    repoRoot: projectRoot,
-    captureScriptPath,
-    runScriptJson: (params) =>
-      runNodeScriptJson({
-        ...params,
-        runJsonCommandFn,
-      }),
+    projectRoot,
+    systemId: ctx.id,
+    runJsonCommandFn,
     continueOnError,
     figmaToken,
     format,
@@ -312,22 +258,6 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     variantLimit,
     agent,
     mainCaptureMode,
+    refreshIndices,
   });
-  report.captured = captureBatch.captured;
-  report.failed = captureBatch.failed;
-
-  if (refreshIndices) {
-    const refreshArgs = ["--system", args.system || ctx.id];
-    const refreshResult = runNodeScriptJson({
-      repoRoot: projectRoot,
-      scriptPath: registryRefreshScriptPath,
-      scriptArgs: refreshArgs,
-      runJsonCommandFn,
-    });
-    report.indices_refreshed = Boolean(refreshResult?.ok);
-    report.registry_refresh = refreshResult;
-  }
-
-  report.ok = report.captured.length > 0 && report.failed.length === 0;
-  return report;
 }

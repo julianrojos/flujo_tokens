@@ -67,9 +67,12 @@ test("capture-orchestrator-main: dry-run returns report without running capture 
         skipped: [],
         indices_refreshed: false,
       }),
-      runCaptureBatchFn: () => {
+      executeCaptureBatchAndRefreshFn: ({ report }) => {
         captureBatchCalls += 1;
-        return { captured: [], failed: [] };
+        report.captured = [];
+        report.failed = [];
+        report.ok = true;
+        return report;
       },
     },
   );
@@ -147,10 +150,12 @@ test("capture-orchestrator-main: non-dry run updates report with capture result"
         skipped: [],
         indices_refreshed: false,
       }),
-      runCaptureBatchFn: () => ({
-        captured: [{ slug: "alert" }],
-        failed: [],
-      }),
+      executeCaptureBatchAndRefreshFn: ({ report }) => {
+        report.captured = [{ slug: "alert" }];
+        report.failed = [];
+        report.ok = true;
+        return report;
+      },
     },
   );
 

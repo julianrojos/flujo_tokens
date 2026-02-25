@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildCaptureArgs, runCaptureBatch } from "./capture-orchestrator.mjs";
+import { buildCaptureArgs, runCaptureBatch } from "./capture-batch-runner.mjs";
 
 test("capture-orchestrator: buildCaptureArgs adds spec file when target has spec", () => {
   const args = buildCaptureArgs({
