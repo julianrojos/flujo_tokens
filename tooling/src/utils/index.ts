@@ -103,3 +103,18 @@ export {
 export type {
   NormalizedComponentName,
 } from "./component-name.js";
+
+// Spec token mapping utilities
+export {
+  normalizeCompareKey,
+  extractUniqueRegistryEntries,
+  pickComponentTokenCandidates,
+  buildTokenMenuLines,
+  pickBestTokenPath,
+  prefillTokenMapping,
+} from "./spec-token-mapping.js";
+
+export type {
+  TokenRegistryEntry,
+  TokenMappingNode,
+} from "./spec-token-mapping.js";
