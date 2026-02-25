@@ -102,6 +102,9 @@ export { runSortSpec } from '../runners/sort-spec-runner.js';
 // Doc regeneration runners
 export { runRegenerateDocs } from '../runners/regenerate-docs-runner.js';
 
+// Governance runners
+export { runMarkNeedsReview } from '../runners/mark-needs-review-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
