@@ -132,6 +132,9 @@ export { runComponentDoc } from '../runners/component-doc-runner.js';
 // Validate docs runners
 export { runValidateDocs } from '../runners/validate-docs-runner.js';
 
+// Audit consistency runners
+export { runAuditConsistency } from '../runners/audit-consistency-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
