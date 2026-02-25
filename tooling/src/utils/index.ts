@@ -108,6 +108,8 @@ export { runMarkNeedsReview } from '../runners/mark-needs-review-runner.js';
 // Registry runners (additional)
 export { runRegistryOverview } from '../runners/registry-overview-runner.js';
 export { runRegistryRefresh } from '../runners/registry-refresh-runner.js';
+export { runRegistryValidate } from '../runners/registry-validate-runner.js';
+export { runRegistryReport } from '../runners/registry-report-runner.js';
 
 // Command execution utilities
 export {
