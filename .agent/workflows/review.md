@@ -8,7 +8,7 @@ Este comando realiza una auditoría crítica de los cambios locales antes de ser
 
 ## Objetivos del Review
 
-- **Bugs Críticos (Confianza ≥ 50%):** Identificar errores de lógica, fugas de memoria o fallos fatales. Buscar la **raíz**, no el síntoma.
+- **Bugs Críticos (Confianza ≥ 50%):** Identificar errores de lógica, fugas de memoria o fallos. Buscar la **raíz**, no el síntoma.
 - **Regresiones (Confianza ≥ 50%):** Detectar si el cambio rompe funcionalidades existentes en otras partes del sistema o invalida contratos previos.
 - **Mejoras Técnicas (Confianza ≥ 70%):** Sugerir refactorizaciones, mejoras de legibilidad o uso de patrones más adecuados del proyecto.
 
