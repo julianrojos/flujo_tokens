@@ -154,9 +154,11 @@ function uniqueSorted<T>(values: T[], comparator?: (a: T, b: T) => number): T[] 
   return Array.from(new Set(values)).sort(cmp);
 }
 
-// Internal helper - validates Figma hostname (case-insensitive)
+// Internal helper - validates Figma hostname.
+// Uses strict equality for root domain to prevent subdomain confusion attacks
+// (e.g. evilfigma.com ends with figma.com but is not a valid Figma host).
 const isValidFigmaHostname = (hostname: string): boolean =>
-  hostname.endsWith("figma.com") || hostname.endsWith(".figma.com");
+  hostname === 'figma.com' || hostname.endsWith('.figma.com');
 
 /**
  * Parse a Figma URL and extract file information.
