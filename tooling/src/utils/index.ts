@@ -45,6 +45,54 @@ export type {
 // Runners
 export { runDoctor } from '../runners/doctor-runner.js';
 
+// Token services (types)
+export type {
+  TokenRegistry,
+  TokenRegistryEntry,
+  CssVarReference,
+  TokenUsage,
+  TokenGraphNode,
+  TokenGraphEdge,
+  TokenGraph,
+  WcagPair,
+  TokenHealthStatus,
+  TokenHealthIssue,
+  TokenHealthReport,
+  TokenUsageIndexReport,
+  TokenGraphReport,
+  TokenServiceOptions,
+} from '../services/token-types.js';
+
+// Token services (utils)
+export {
+  CSS_VAR_REF_RE,
+  CSS_CUSTOM_PROP_DECL_RE,
+  A11Y_MODE_DOT_RE,
+  A11Y_MODE_SLASH_RE,
+  parseBooleanOption,
+  parsePositiveInteger,
+  extractCssVarReferences,
+  extractCssDeclarations,
+  isCssVarRef,
+  extractVarName,
+  normalizeA11yPath,
+  loadTokenRegistry,
+  findTokenByCssVar,
+  findTokenByPath,
+  findTokenById,
+  getTokenAliases,
+  isPrimitiveValue,
+  groupTokensByCollection,
+  groupTokensByMode,
+  computeSha256,
+  computeFileSha256,
+} from '../services/token-utils.js';
+
+// Token services (runners)
+export { runTokenUsageIndex } from '../runners/token-usage-index-runner.js';
+export { runTokenGraph } from '../runners/token-graph-runner.js';
+export { runTokenHealth } from '../runners/token-health-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
