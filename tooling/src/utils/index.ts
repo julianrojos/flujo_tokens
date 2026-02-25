@@ -111,6 +111,9 @@ export { runRegistryRefresh } from '../runners/registry-refresh-runner.js';
 export { runRegistryValidate } from '../runners/registry-validate-runner.js';
 export { runRegistryReport } from '../runners/registry-report-runner.js';
 
+// Foundations runners
+export { runFoundationsSync } from '../runners/foundations-sync-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
