@@ -140,3 +140,18 @@ export type {
   FetchFigmaNodesOptions,
   FetchFigmaImagesOptions,
 } from "./figma-api.js";
+
+// Agent output contract utilities
+export {
+  validateAgentOutputContract,
+  writeAgentOutputErrorReport,
+  ALLOWED_DOC_STATUS,
+  CANONICAL_H2_ORDER,
+  REQUIRED_CANONICAL_H2,
+} from "./agent-output-contract.js";
+
+export type {
+  AgentOutputContractOptions,
+  AgentOutputError,
+  AgentOutputContractResult,
+} from "./agent-output-contract.js";
