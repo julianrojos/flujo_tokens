@@ -46,6 +46,7 @@
     "ds:registry:overview": "node tooling/scripts/ds-registry-overview.mjs",
     "ds:registry:report": "node tooling/scripts/ds-registry-report.mjs",
     "ds:audit-consistency": "node tooling/scripts/ds-audit-consistency.mjs",
+    "ds:detect-missing-zones": "node tooling/scripts/ds-detect-missing-zones.mjs",
     "ds:doctor": "node tooling/scripts/ds-doctor.mjs",
     "ds:pipeline": "node tooling/scripts/ds-pipeline.mjs",
     "test:tooling": "node --import tsx/esm --test tooling/src/utils/*.test.ts tooling/src/services/*.test.ts",

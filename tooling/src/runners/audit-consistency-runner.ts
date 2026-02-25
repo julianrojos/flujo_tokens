@@ -12,21 +12,37 @@ import * as path from 'node:path';
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import type { RegistryEntry, RegistryLookup } from '../types/registry.js';
 
 // Import from existing libs during migration
-import { parseMarkdownFrontmatter, parseYamlDocument } from '../../scripts/lib/parse-frontmatter.mjs';
+import {
+  parseMarkdownFrontmatter,
+  parseYamlDocument,
+} from '../../scripts/lib/parse-frontmatter.mjs';
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
-import { loadTokenRegistry, DEFAULT_TOKEN_REGISTRY_PATH } from '../../scripts/lib/token-registry.mjs';
+import {
+  loadTokenRegistry,
+  DEFAULT_TOKEN_REGISTRY_PATH,
+} from '../../scripts/lib/token-registry.mjs';
 import { componentNameToSnakeCase } from '../../scripts/lib/component-name.mjs';
 import { normalizeNodeId } from '../../scripts/lib/node-id.mjs';
 import { extractSectionBody } from '../../scripts/lib/markdown-sections.mjs';
 import { TOKEN_COLLECTION_PREFIXES } from '../../scripts/lib/docs-config.mjs';
 
-const TOKEN_CODES = new Set(['TOK01', 'TOK02', 'TOK03', 'SPEC01', 'TOKEN_MISSING', 'TOKEN_AMBIGUOUS', 'TOKEN_DEPRECATED']);
+const TOKEN_CODES = new Set([
+  'TOK01',
+  'TOK02',
+  'TOK03',
+  'SPEC01',
+  'TOKEN_MISSING',
+  'TOKEN_AMBIGUOUS',
+  'TOKEN_DEPRECATED',
+]);
 
 const CLI_CONFIG = {
   command: 'ds:audit-consistency [options]',
-  description: 'Audits consistency between spec ↔ markdown ↔ token-registry ↔ Figma.',
+  description:
+    'Audits consistency between spec ↔ markdown ↔ token-registry ↔ Figma.',
   options: [
     {
       name: '--docs-root',
@@ -58,14 +74,23 @@ const CLI_CONFIG = {
   ],
 };
 
-function collectComponentPairs(params: { docsRoot: string; specRoot: string; componentName?: string | null }) {
+function collectComponentPairs(params: {
+  docsRoot: string;
+  specRoot: string;
+  componentName?: string | null;
+}) {
   const { docsRoot, specRoot, componentName } = params;
   const markdownBySlug = new Map<string, string>();
   const specBySlug = new Map<string, string>();
 
   if (fs.existsSync(docsRoot)) {
     for (const entry of fs.readdirSync(docsRoot, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.md') || entry.name === 'overview.md') continue;
+      if (
+        !entry.isFile() ||
+        !entry.name.endsWith('.md') ||
+        entry.name === 'overview.md'
+      )
+        continue;
       const slug = path.basename(entry.name, '.md');
       markdownBySlug.set(slug, path.join(docsRoot, entry.name));
     }
@@ -73,7 +98,12 @@ function collectComponentPairs(params: { docsRoot: string; specRoot: string; com
 
   if (fs.existsSync(specRoot)) {
     for (const entry of fs.readdirSync(specRoot, { withFileTypes: true })) {
-      if (!entry.isFile() || !entry.name.endsWith('.yml') || entry.name === '_template.yml') continue;
+      if (
+        !entry.isFile() ||
+        !entry.name.endsWith('.yml') ||
+        entry.name === '_template.yml'
+      )
+        continue;
       const slug = path.basename(entry.name, '.yml');
       specBySlug.set(slug, path.join(specRoot, entry.name));
     }
@@ -81,24 +111,20 @@ function collectComponentPairs(params: { docsRoot: string; specRoot: string; com
 
   const slugs = componentName
     ? [componentNameToSnakeCase(componentName)]
-    : Array.from(new Set([...markdownBySlug.keys(), ...specBySlug.keys()])).sort((a, b) =>
-        a.localeCompare(b, 'en', { sensitivity: 'base' }),
-      );
+    : Array.from(
+        new Set([...markdownBySlug.keys(), ...specBySlug.keys()]),
+      ).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
 
-  return slugs
-    .filter(Boolean)
-    .map((slug) => ({
-      slug,
-      markdownPath: markdownBySlug.get(slug) || '',
-      specPath: specBySlug.get(slug) || '',
-    }));
+  return slugs.filter(Boolean).map((slug) => ({
+    slug,
+    markdownPath: markdownBySlug.get(slug) || '',
+    specPath: specBySlug.get(slug) || '',
+  }));
 }
 
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => String(item ?? '').trim())
-    .filter(Boolean);
+  return value.map((item) => String(item ?? '').trim()).filter(Boolean);
 }
 
 function escapeRegex(value: string): string {
@@ -123,7 +149,10 @@ function splitSpecTokenValue(raw: string): string[] {
     .filter(Boolean);
 }
 
-function collectTokenMappingValues(node: unknown, bucket: string[] = []): string[] {
+function collectTokenMappingValues(
+  node: unknown,
+  bucket: string[] = [],
+): string[] {
   if (typeof node === 'string') {
     for (const token of splitSpecTokenValue(node)) bucket.push(token);
     return bucket;
@@ -133,13 +162,16 @@ function collectTokenMappingValues(node: unknown, bucket: string[] = []): string
     return bucket;
   }
   if (node && typeof node === 'object') {
-    for (const value of Object.values(node)) collectTokenMappingValues(value, bucket);
+    for (const value of Object.values(node))
+      collectTokenMappingValues(value, bucket);
   }
   return bucket;
 }
 
-function buildRegistryLookup(registry: any) {
-  const entries: any[] = [];
+function buildRegistryLookup(
+  registry: Record<string, RegistryEntry>,
+): RegistryLookup {
+  const entries: RegistryEntry[] = [];
   const seen = new Set<string>();
 
   for (const value of Object.values(registry)) {
@@ -153,8 +185,8 @@ function buildRegistryLookup(registry: any) {
     entries.push(value);
   }
 
-  const byPath = new Map<string, any>();
-  const bySlash = new Map<string, any>();
+  const byPath = new Map<string, RegistryEntry>();
+  const bySlash = new Map<string, RegistryEntry>();
   for (const entry of entries) {
     const pathKey = String(entry.path || '').trim();
     const slashKey = String(entry.slashPath || '').trim();
@@ -165,7 +197,10 @@ function buildRegistryLookup(registry: any) {
   return { entries, byPath, bySlash };
 }
 
-function resolveTokenForms(token: string, lookup: ReturnType<typeof buildRegistryLookup>): string[] {
+function resolveTokenForms(
+  token: string,
+  lookup: ReturnType<typeof buildRegistryLookup>,
+): string[] {
   const value = String(token || '').trim();
   if (!value) return [];
 
@@ -204,7 +239,10 @@ function includesAnyTokenForm(sectionText: string, forms: string[]): boolean {
     const escaped = escapeRegex(form);
     if (new RegExp(`\`${escaped}\``).test(haystack)) return true;
     if (
-      new RegExp(`(^|[^A-Za-z0-9_./-])${escaped}([^A-Za-z0-9_./-]|$)`, 'i').test(haystack)
+      new RegExp(
+        `(^|[^A-Za-z0-9_./-])${escaped}([^A-Za-z0-9_./-]|$)`,
+        'i',
+      ).test(haystack)
     )
       return true;
   }
@@ -220,7 +258,10 @@ function checkSpecMarkdownConsistency(params: {
   const { spec, frontmatter, markdownContent, lookup } = params;
   const errors: string[] = [];
   const componentApi = extractSectionBody(markdownContent, 'Component API');
-  const visualSpecs = extractSectionBody(markdownContent, 'Visual Specifications');
+  const visualSpecs = extractSectionBody(
+    markdownContent,
+    'Visual Specifications',
+  );
 
   const properties = Array.isArray(spec.properties) ? spec.properties : [];
   for (const property of properties) {
@@ -230,12 +271,16 @@ function checkSpecMarkdownConsistency(params: {
       errors.push(`Missing property in markdown Component API: \`${name}\`.`);
     }
 
-    const type = String(property?.type ?? '').trim().toLowerCase();
+    const type = String(property?.type ?? '')
+      .trim()
+      .toLowerCase();
     if (type === 'enum') {
       const values = normalizeStringArray(property?.values);
       for (const value of values) {
         if (!containsWholeTerm(componentApi, value)) {
-          errors.push(`Missing enum value \`${value}\` for property \`${name}\` in Component API.`);
+          errors.push(
+            `Missing enum value \`${value}\` for property \`${name}\` in Component API.`,
+          );
         }
       }
     }
@@ -254,8 +299,12 @@ function checkSpecMarkdownConsistency(params: {
     }
   }
 
-  const specStatus = String(spec.status || '').trim().toLowerCase();
-  const docStatus = String(frontmatter.doc_status || '').trim().toLowerCase();
+  const specStatus = String(spec.status || '')
+    .trim()
+    .toLowerCase();
+  const docStatus = String(frontmatter.doc_status || '')
+    .trim()
+    .toLowerCase();
   if (
     (specStatus === 'ready' && docStatus !== 'ready') ||
     (docStatus === 'ready' && specStatus !== 'ready')
@@ -278,12 +327,22 @@ function checkMarkdownFigmaConsistency(params: {
 }) {
   const { spec, frontmatter, markdownContent } = params;
   const errors: string[] = [];
-  const figmaFm = frontmatter?.figma && typeof frontmatter.figma === 'object' ? frontmatter.figma : {};
-  const figmaSpec = spec?.figma && typeof spec.figma === 'object' ? spec.figma : {};
+  const figmaFm = (
+    frontmatter?.figma && typeof frontmatter.figma === 'object'
+      ? frontmatter.figma
+      : {}
+  ) as Record<string, unknown>;
+  const figmaSpec = (
+    spec?.figma && typeof spec.figma === 'object' ? spec.figma : {}
+  ) as Record<string, unknown>;
 
   const specComponentSet = String(figmaSpec.component_set || '').trim();
   const markdownComponent = String(figmaFm.component || '').trim();
-  if (specComponentSet && markdownComponent && specComponentSet !== markdownComponent) {
+  if (
+    specComponentSet &&
+    markdownComponent &&
+    specComponentSet !== markdownComponent
+  ) {
     errors.push(
       `Figma component mismatch: spec figma.component_set is \`${specComponentSet}\`, markdown figma.component is \`${markdownComponent}\`.`,
     );
@@ -292,26 +351,39 @@ function checkMarkdownFigmaConsistency(params: {
   const specPage = String(figmaSpec.page || '').trim();
   const markdownPage = String(figmaFm.page || '').trim();
   if (specPage && markdownPage && specPage !== markdownPage) {
-    errors.push(`Figma page mismatch: spec page is \`${specPage}\`, markdown page is \`${markdownPage}\`.`);
+    errors.push(
+      `Figma page mismatch: spec page is \`${specPage}\`, markdown page is \`${markdownPage}\`.`,
+    );
   }
 
-  const specNode = normalizeNodeId(String(figmaSpec.component_set_node_id || '').trim());
-  const markdownNode = normalizeNodeId(String(figmaFm.component_set_node_id || '').trim());
+  const specNode = normalizeNodeId(
+    String(figmaSpec.component_set_node_id || '').trim(),
+  );
+  const markdownNode = normalizeNodeId(
+    String(figmaFm.component_set_node_id || '').trim(),
+  );
   if (specNode && markdownNode && specNode !== markdownNode) {
     errors.push(
       `Figma node mismatch: spec figma.component_set_node_id is \`${specNode}\`, markdown frontmatter has \`${markdownNode}\`.`,
     );
   }
 
-  const stateProperty = (Array.isArray(spec.properties) ? spec.properties : []).find(
-    (property) => String(property?.name || '').trim().toLowerCase() === 'state',
+  const stateProperty = (
+    Array.isArray(spec.properties) ? spec.properties : []
+  ).find(
+    (property) =>
+      String(property?.name || '')
+        .trim()
+        .toLowerCase() === 'state',
   );
   if (stateProperty) {
     const stateSection = extractSectionBody(markdownContent, 'States');
     const stateValues = normalizeStringArray(stateProperty.values);
     for (const stateValue of stateValues) {
       if (!containsWholeTerm(stateSection, stateValue)) {
-        errors.push(`State \`${stateValue}\` is defined in spec but missing in markdown \`## States\` section.`);
+        errors.push(
+          `State \`${stateValue}\` is defined in spec but missing in markdown \`## States\` section.`,
+        );
       }
     }
   }
@@ -354,7 +426,11 @@ function checkTokenValidity(params: {
   };
 }
 
-function buildSuggestedCommands(params: { markdownPath: string; specPath: string; registryPath: string }) {
+function buildSuggestedCommands(params: {
+  markdownPath: string;
+  specPath: string;
+  registryPath: string;
+}) {
   const { markdownPath, specPath, registryPath } = params;
   return [
     `npm run validate:docs -- --check token-registry --file "${markdownPath}" --spec-file "${specPath}" --no-overview true`,
@@ -371,10 +447,24 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
-  const docsRoot = path.resolve(String(parsed['docs-root'] || ctx.paths.docs));
-  const specRoot = path.resolve(String(parsed['spec-root'] || ctx.paths.specs));
-  const registryPath = path.resolve(String(parsed.registry || DEFAULT_TOKEN_REGISTRY_PATH));
+  const ctx = resolveSystemContextSafe({
+    system: String(parsed.system || '').trim(),
+  });
+  const docsRoot = path.resolve(
+    typeof parsed['docs-root'] === 'string'
+      ? parsed['docs-root']
+      : ctx.paths.docs,
+  );
+  const specRoot = path.resolve(
+    typeof parsed['spec-root'] === 'string'
+      ? parsed['spec-root']
+      : ctx.paths.specs,
+  );
+  const registryPath = path.resolve(
+    typeof parsed.registry === 'string'
+      ? parsed.registry
+      : DEFAULT_TOKEN_REGISTRY_PATH,
+  );
   const componentName = String(parsed['component-name'] || '').trim() || null;
 
   let registry: any;
@@ -391,7 +481,8 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
             {
               code: 'AUDIT_REGISTRY',
               message: error instanceof Error ? error.message : String(error),
-              suggested: 'Run `npm run generate:registry` before auditing consistency.',
+              suggested:
+                'Run `npm run generate:registry` before auditing consistency.',
             },
           ],
         },
@@ -432,24 +523,32 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
   for (const pair of pairs) {
     const problems: string[] = [];
     if (!pair.markdownPath || !fs.existsSync(pair.markdownPath)) {
-      problems.push(`Missing markdown file: ${pair.markdownPath || `<docs/components/${pair.slug}.md>`}`);
+      problems.push(
+        `Missing markdown file: ${pair.markdownPath || `<docs/components/${pair.slug}.md>`}`,
+      );
     }
     if (!pair.specPath || !fs.existsSync(pair.specPath)) {
-      problems.push(`Missing spec file: ${pair.specPath || `<docs/_spec/components/${pair.slug}.yml>`}`);
+      problems.push(
+        `Missing spec file: ${pair.specPath || `<docs/_spec/components/${pair.slug}.yml>`}`,
+      );
     }
 
     if (problems.length > 0) {
       componentReports.push({
         component: pair.slug,
         ok: false,
-        paths: { markdown: pair.markdownPath || null, spec: pair.specPath || null },
+        paths: {
+          markdown: pair.markdownPath || null,
+          spec: pair.specPath || null,
+        },
         checks: {
           spec_markdown_consistency: { ok: false, errors: problems },
           markdown_figma_consistency: { ok: false, errors: [] },
           token_validity: { ok: false, errors: [] },
         },
         suggested: buildSuggestedCommands({
-          markdownPath: pair.markdownPath || path.join(docsRoot, `${pair.slug}.md`),
+          markdownPath:
+            pair.markdownPath || path.join(docsRoot, `${pair.slug}.md`),
           specPath: pair.specPath || path.join(specRoot, `${pair.slug}.yml`),
           registryPath,
         }),
@@ -491,13 +590,15 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
 
     const specMarkdown = checkSpecMarkdownConsistency({
       spec,
-      frontmatter: frontmatter && typeof frontmatter === 'object' ? frontmatter : {},
+      frontmatter:
+        frontmatter && typeof frontmatter === 'object' ? frontmatter : {},
       markdownContent: markdown,
       lookup,
     });
     const markdownFigma = checkMarkdownFigmaConsistency({
       spec,
-      frontmatter: frontmatter && typeof frontmatter === 'object' ? frontmatter : {},
+      frontmatter:
+        frontmatter && typeof frontmatter === 'object' ? frontmatter : {},
       markdownContent: markdown,
     });
     const tokenValidity = checkTokenValidity({
@@ -547,7 +648,9 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runAuditConsistency(process.argv.slice(2)).catch((error) => {
-    logger.error('Audit consistency runner failed:', error);
+    logger.error(
+      `Audit consistency runner failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
     process.exit(1);
   });
 }

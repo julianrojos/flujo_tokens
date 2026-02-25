@@ -135,18 +135,17 @@ export { runValidateDocs } from '../runners/validate-docs-runner.js';
 // Audit consistency runners
 export { runAuditConsistency } from '../runners/audit-consistency-runner.js';
 
+// Detect missing zones runners
+export { runDetectMissingZones } from '../runners/detect-missing-zones-runner.js';
+
 // Command execution utilities
-export {
-  parseJsonFromText,
-  runJsonCommand,
-  runOrThrow,
-} from "./exec.js";
+export { parseJsonFromText, runJsonCommand, runOrThrow } from './exec.js';
 
 export type {
   JsonParseResult,
   RunJsonCommandOptions,
   RunJsonCommandResult,
-} from "./exec.js";
+} from './exec.js';
 
 // System context utilities
 export {
@@ -156,52 +155,40 @@ export {
   resolveSystemContextSafe,
   getDefaultSystemContext,
   loadDesignSystemsConfig,
-} from "./system-context.js";
+} from './system-context.js';
 
-export type {
-  ScriptSystemContext,
-} from "./system-context.js";
+export type { ScriptSystemContext } from './system-context.js';
 
 // Type guards
-export { isPlainObject } from "./is-plain-object.js";
+export { isPlainObject } from './is-plain-object.js';
 
 // Command utilities
-export { commandExists } from "./command-exists.js";
+export { commandExists } from './command-exists.js';
 
 // Argument parsing utilities
-export {
-  parseArgs,
-  renderUsage,
-  printUsage,
-} from "./parse-args.js";
+export { parseArgs, renderUsage, printUsage } from './parse-args.js';
 
-export type {
-  ArgOption,
-  ArgConfig,
-  PrintUsageOptions,
-} from "./parse-args.js";
+export type { ArgOption, ArgConfig, PrintUsageOptions } from './parse-args.js';
 
 // Alias for the return type of parseArgs
 export type ParsedArgs = Record<string, string | boolean>;
 
 // Logger utility
-export { logger } from "./logger.js";
+export { logger } from './logger.js';
 
 // Log level type (centralized to avoid duplication)
-export type { LogLevel } from "./logger-types.js";
+export type { LogLevel } from './logger-types.js';
 
 // TBD marker utility
-export { isTbdMarker } from "./tbd.js";
+export { isTbdMarker } from './tbd.js';
 
 // Frontmatter parsing utilities
 export {
   parseYamlDocument,
   parseMarkdownFrontmatter,
-} from "./parse-frontmatter.js";
+} from './parse-frontmatter.js';
 
-export type {
-  ParsedFrontmatter,
-} from "./parse-frontmatter.js";
+export type { ParsedFrontmatter } from './parse-frontmatter.js';
 
 // Cache utilities
 export {
@@ -210,7 +197,7 @@ export {
   saveSyncState,
   shouldSkipTask,
   updateTaskState,
-} from "./cache-utils.js";
+} from './cache-utils.js';
 
 export type {
   SyncState,
@@ -219,7 +206,7 @@ export type {
   ShouldSkipTaskOptions,
   ShouldSkipTaskResult,
   UpdateTaskStateOptions,
-} from "./cache-utils.js";
+} from './cache-utils.js';
 
 // Component name utilities
 export {
@@ -228,11 +215,9 @@ export {
   normalizeComponentName,
   componentNameFromFilePath,
   isSnakeCaseFileSlug,
-} from "./component-name.js";
+} from './component-name.js';
 
-export type {
-  NormalizedComponentName,
-} from "./component-name.js";
+export type { NormalizedComponentName } from './component-name.js';
 
 // Spec token mapping utilities
 export {
@@ -242,11 +227,9 @@ export {
   buildTokenMenuLines,
   pickBestTokenPath,
   prefillTokenMapping,
-} from "./spec-token-mapping.js";
+} from './spec-token-mapping.js';
 
-export type {
-  TokenRegistryEntry,
-} from "./spec-token-mapping.js";
+export type { TokenRegistryEntry } from './spec-token-mapping.js';
 
 // Figma API utilities
 export {
@@ -258,7 +241,7 @@ export {
   normalizePositiveInteger,
   sanitizeToken,
   normalizeFileKey,
-} from "./figma-api.js";
+} from './figma-api.js';
 
 export type {
   FigmaColor,
@@ -269,7 +252,7 @@ export type {
   FetchFigmaFileOptions,
   FetchFigmaNodesOptions,
   FetchFigmaImagesOptions,
-} from "./figma-api.js";
+} from './figma-api.js';
 
 // Agent output contract utilities
 export {
@@ -278,13 +261,13 @@ export {
   ALLOWED_DOC_STATUS,
   CANONICAL_H2_ORDER,
   REQUIRED_CANONICAL_H2,
-} from "./agent-output-contract.js";
+} from './agent-output-contract.js';
 
 export type {
   AgentOutputContractOptions,
   AgentOutputError,
   AgentOutputContractResult,
-} from "./agent-output-contract.js";
+} from './agent-output-contract.js';
 
 // Figma component map utilities
 export {
@@ -294,21 +277,21 @@ export {
   toHyphenNodeId,
   sanitizeNodeId,
   parseNodeIdFromUrl,
-} from "./figma-component-map.js";
+} from './figma-component-map.js';
 
 export type {
   FigmaComponentMap,
   FigmaComponentItem,
   FigmaPageItem,
   ParsedFigmaFileUrl,
-} from "./figma-component-map.js";
+} from './figma-component-map.js';
 
 // Figma node spec extractor utilities
 export {
   extractComponentSpec,
   generateSpecSections,
   generateSpecMarkdown,
-} from "./figma-node-spec-extractor.js";
+} from './figma-node-spec-extractor.js';
 
 export type {
   // FigmaNode is now canonical here (removed from figma-api exports)
@@ -319,4 +302,4 @@ export type {
   SpecSections,
   LayoutInfo,
   LayoutTreeNode,
-} from "./figma-node-spec-extractor.js";
+} from './figma-node-spec-extractor.js';
