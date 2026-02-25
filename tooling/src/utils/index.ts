@@ -138,6 +138,9 @@ export { runAuditConsistency } from '../runners/audit-consistency-runner.js';
 // Detect missing zones runners
 export { runDetectMissingZones } from '../runners/detect-missing-zones-runner.js';
 
+// Migrate markdown zones runners
+export { runMigrateMarkdownZones } from '../runners/migrate-markdown-zones-runner.js';
+
 // Command execution utilities
 export { parseJsonFromText, runJsonCommand, runOrThrow } from './exec.js';
 
@@ -164,6 +167,7 @@ export { isPlainObject } from './is-plain-object.js';
 
 // Command utilities
 export { commandExists } from './command-exists.js';
+export { isMain } from './is-main.js';
 
 // Argument parsing utilities
 export { parseArgs, renderUsage, printUsage } from './parse-args.js';
@@ -228,8 +232,6 @@ export {
   pickBestTokenPath,
   prefillTokenMapping,
 } from './spec-token-mapping.js';
-
-export type { TokenRegistryEntry } from './spec-token-mapping.js';
 
 // Figma API utilities
 export {

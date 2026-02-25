@@ -9,7 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { parseArgs, printUsage, isMain } from '../utils/index.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import type { RegistryEntry, RegistryLookup } from '../types/registry.js';
@@ -112,8 +112,8 @@ function collectComponentPairs(params: {
   const slugs = componentName
     ? [componentNameToSnakeCase(componentName)]
     : Array.from(
-        new Set([...markdownBySlug.keys(), ...specBySlug.keys()]),
-      ).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+      new Set([...markdownBySlug.keys(), ...specBySlug.keys()]),
+    ).sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
 
   return slugs.filter(Boolean).map((slug) => ({
     slug,
@@ -646,7 +646,7 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
 }
 
 // CLI entry point
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   runAuditConsistency(process.argv.slice(2)).catch((error) => {
     logger.error(
       `Audit consistency runner failed: ${error instanceof Error ? error.message : String(error)}`,

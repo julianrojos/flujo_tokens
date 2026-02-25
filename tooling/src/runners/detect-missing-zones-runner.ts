@@ -9,7 +9,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { parseArgs, printUsage, isMain } from '../utils/index.js';
 import { logger } from '../utils/logger.js';
 
 export const ZONES = ['ANATOMY', 'PROPERTIES', 'VISUALS', 'VARIANTS'];
@@ -99,7 +99,7 @@ export async function runDetectMissingZones(
 }
 
 // CLI entry point
-if (import.meta.url === `file://${path.resolve(process.argv[1])}`) {
+if (isMain(import.meta.url)) {
   runDetectMissingZones(process.argv.slice(2)).catch((error) => {
     logger.error(
       `Detect missing zones runner failed: ${error instanceof Error ? error.message : String(error)}`,

@@ -1,51 +1,42 @@
 #!/usr/bin/env node
 
-import fs from "node:fs/promises";
-import path from "node:path";
-import process from "node:process";
+/**
+ * Migrate Markdown Zones - Wrapper Script
+ *
+ * Compatibility wrapper for the TypeScript runner.
+ *
+ * @deprecated Use `tsx tooling/src/runners/migrate-markdown-zones-runner.ts` directly
+ */
 
-const mdDir = path.resolve(process.cwd(), "docs/components");
+import { spawnSync } from 'child_process';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import fs from 'fs';
 
-async function main() {
-  const files = await fs.readdir(mdDir);
-  const mdFiles = files.filter(f => f.endsWith(".md") && !f.startsWith("_"));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const runnerPath = path.join(
+  __dirname,
+  '../src/runners/migrate-markdown-zones-runner.ts',
+);
+const projectRoot = path.join(__dirname, '../../..');
 
-  let migrated = 0;
-  for (const file of mdFiles) {
-    const fullPath = path.join(mdDir, file);
-    let original = await fs.readFile(fullPath, "utf-8");
-    let content = original;
-
-    // Anatomy
-    if (!content.includes("AUTO-GENERATED-ANATOMY:START") && content.includes("## Anatomy")) {
-      content = content.replace(/(##\s+Anatomy\s*\n)([\s\S]*?)(?=\n## |\n*$)/, "$1<!-- AUTO-GENERATED-ANATOMY:START -->\n$2\n<!-- AUTO-GENERATED-ANATOMY:END -->");
-    }
-
-    // Properties (Usually ### Properties inside ## Component API or similar)
-    if (!content.includes("AUTO-GENERATED-PROPERTIES:START") && content.includes("### Properties")) {
-      content = content.replace(/(###\s+Properties\s*\n)([\s\S]*?)(?=\n### |\n## |\n*$)/, "$1<!-- AUTO-GENERATED-PROPERTIES:START -->\n$2\n<!-- AUTO-GENERATED-PROPERTIES:END -->");
-    }
-
-    // Visuals (Layout and spacing)
-    if (!content.includes("AUTO-GENERATED-VISUALS:START") && content.includes("### Layout and spacing")) {
-      content = content.replace(/(###\s+Per-variant attributes[\s\S]*?###\s+Layout and spacing\s*\n[\s\S]*?)(?=\n### |\n## |\n*$)/, "<!-- AUTO-GENERATED-VISUALS:START -->\n$1\n<!-- AUTO-GENERATED-VISUALS:END -->");
-    }
-
-    // Variants (usually ## Variants)
-    if (!content.includes("AUTO-GENERATED-VARIANTS:START") && content.includes("## Variants")) {
-      content = content.replace(/(##\s+Variants\s*\n)([\s\S]*?)(?=\n## |\n*$)/, "$1<!-- AUTO-GENERATED-VARIANTS:START -->\n$2\n<!-- AUTO-GENERATED-VARIANTS:END -->");
-    }
-
-    if (content !== original) {
-      await fs.writeFile(fullPath, content, "utf-8");
-      migrated++;
-      console.log(`[MIGRATED] ${file}`);
-    }
-  }
-  console.log(`\nMigration complete. Wrapped ${migrated} files with boundary tags.`);
+if (!fs.existsSync(runnerPath)) {
+  console.error(`Error: Runner not found at ${runnerPath}`);
+  process.exit(1);
 }
 
-main().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+const result = spawnSync(
+  'npx',
+  [
+    '--yes',
+    'tsx',
+    runnerPath,
+    ...process.argv.slice(2).filter((a) => typeof a === 'string'),
+  ],
+  {
+    stdio: 'inherit',
+    cwd: projectRoot,
+  },
+);
+
+process.exit(result.status ?? 1);

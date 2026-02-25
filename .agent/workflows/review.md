@@ -1,10 +1,10 @@
 ---
-description: Review pre-commit: analiza cambios línea a línea, detecta bugs/regresiones probables y propone mejoras con umbrales de confianza.
+description: Review pre-commit: examina cambios línea a línea, detecta bugs/regresiones probables y propone mejoras con umbrales de confianza.
 ---
 
 # /review — Pre-stage code review
 
-Este comando realiza una auditoría crítica de los cambios locales antes de ser confirmados (staged o commit). Se enfoca en la calidad técnica, la seguridad y la prevención de regresiones, evitando ruido innecesario.
+Este comando realiza una auditoría crítica de los cambios locales antes de ser confirmados (staged o commit). No se debe cambiar el código en este momento, sólo revisarlo. Se enfoca en la calidad técnica, la seguridad y la prevención de regresiones, evitando ruido innecesario.
 
 ## Objetivos del Review
 
@@ -14,12 +14,13 @@ Este comando realiza una auditoría crítica de los cambios locales antes de ser
 
 ## Reglas de Oro
 
-1. **Línea a línea:** Analiza cada cambio en el diff, pero entiende el contexto del archivo completo.
-2. **Sin validaciones positivas:** No digas qué está bien. Si no hay nada que reportar, termina con un breve mensaje indicando que no se han encontrado problemas significativos.
-3. **Sin redundancias:** Si una solución, mejora o fix ya está implementado en el código actual, no lo menciones.
-4. **Laconismo y Directo:** Sé breve pero explicativo. Usa el mínimo de palabras posible para asegurar la claridad. Sin "sugarcoating" ni cortesías innecesarias.
-5. **Humildad en soluciones:** Para bugs y regresiones, propón una solución breve pero **advirtiendo que debe explorarse una alternativa mejor** (incluye al menos una idea alternativa).
-6. **Contexto Real:** No inventes errores. Basa tus sospechas en el código y el stack tecnológico del proyecto.
+1. **No cambies el código:** Limítate a emitir una revisión informada.
+2. **Línea a línea:** Analiza cada cambio en el diff, pero entiende el contexto del archivo completo.
+3. **Sin validaciones positivas:** No digas qué está bien. Si no hay nada que reportar, termina con un breve mensaje indicando que no se han encontrado problemas significativos.
+4. **Sin redundancias:** Si una solución, mejora o fix ya está implementado en el código actual, no lo menciones: se trata de proponer mejoras o informar de posibles errores o regresiones, no de informar sobre qué se ha hecho.
+5. **Laconismo y Directo:** Sé breve pero explicativo. Usa el mínimo de palabras posible para asegurar la claridad. Sin "sugarcoating" ni cortesías innecesarias.
+6. **Humildad en soluciones:** Para bugs y regresiones, propón una solución breve pero **advirtiendo que debe explorarse una alternativa mejor** (incluye al menos una idea alternativa).
+7. **Contexto Real:** No inventes errores. Basa tus sospechas en el código y el stack tecnológico del proyecto.
 
 ---
 
