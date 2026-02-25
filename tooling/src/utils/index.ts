@@ -1,9 +1,49 @@
 /**
  * Central exports for tooling utilities
- * 
+ *
  * This module provides a unified entry point for all tooling utilities,
  * enabling consistent imports across the codebase.
  */
+
+// Services (explicit exports to avoid name collisions)
+export {
+  createCheck,
+  sortUniqueStrings,
+  normalizeRuleId,
+  collectRequiresRuleIds,
+  hasValidSkillContext,
+  collectManifestRuleFiles,
+  collectDeprecatedRulesFromManifest,
+  collectAllowedContextValues,
+  validateSkillVersioning,
+  validateDeprecatedRuleReferences,
+  computeSummary,
+  buildDoctorReport,
+  validateRuleCoverage,
+} from '../services/doctor.js';
+
+export type {
+  CheckStatus,
+  DoctorCheck,
+  DoctorReport,
+  DoctorSummary,
+  ManifestDocument,
+  ManifestRuleEntry,
+  SkillFrontmatter,
+  SkillVersioningResult,
+  SkillVersioningIssue,
+  ValidateSkillVersioningOptions,
+  AllowedContextValues,
+  DeprecatedRulesMap,
+  CreateCheckOptions,
+  DoctorConfig,
+  ComponentRegistryComparison,
+  DocsValidationResult,
+  AgentInfo,
+} from '../services/doctor-types.js';
+
+// Runners
+export { runDoctor } from '../runners/doctor-runner.js';
 
 // Command execution utilities
 export {
@@ -172,3 +212,21 @@ export type {
   FigmaPageItem,
   ParsedFigmaFileUrl,
 } from "./figma-component-map.js";
+
+// Figma node spec extractor utilities
+export {
+  extractComponentSpec,
+  generateSpecSections,
+  generateSpecMarkdown,
+} from "./figma-node-spec-extractor.js";
+
+export type {
+  // FigmaNode is now canonical here (removed from figma-api exports)
+  FigmaNode,
+  SpecAnatomyItem,
+  SpecProperty,
+  ExtractedComponentSpec,
+  SpecSections,
+  LayoutInfo,
+  LayoutTreeNode,
+} from "./figma-node-spec-extractor.js";
