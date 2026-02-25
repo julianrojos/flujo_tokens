@@ -96,6 +96,9 @@ export { runTokenHealth } from '../runners/token-health-runner.js';
 // Registry runners
 export { runRegistrySync } from '../runners/registry-sync-runner.js';
 
+// Spec runners
+export { runSortSpec } from '../runners/sort-spec-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
