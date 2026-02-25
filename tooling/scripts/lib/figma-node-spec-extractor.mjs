@@ -469,7 +469,7 @@ export function extractComponentSpec(nodeDocument) {
 // Markdown rendering helpers
 // ---------------------------------------------------------------------------
 
-function renderAnatomyMarkdown(anatomy) {
+export function renderAnatomyMarkdown(anatomy) {
   if (!anatomy || anatomy.length === 0) return "1. **Container**: TBD\n";
   const lines = [];
   for (const part of anatomy) {
@@ -514,22 +514,24 @@ function mapPropertyDescription(rawType) {
   return "Component property.";
 }
 
-function renderPropertiesTable(properties) {
+export function renderPropertiesTable(properties) {
   if (!properties || properties.length === 0) {
-    return "| TBD | TBD | TBD | TBD | TBD |\n";
+    return "| TBD | TBD | TBD | TBD | TBD | TBD |\n";
   }
   const rows = [];
   for (const prop of properties) {
     const type = mapPropertyTypeLabel(prop.type);
     const isRequired = String(prop.type || "").trim().toLowerCase() === "variant";
+    // Clean narrative_notes from line breaks so it doesn't break table markdown if present
+    const notes = prop.narrative_notes ? prop.narrative_notes.replace(/\n/g, " ") : "";
     rows.push(
-      `| ${prop.name} | ${type} | ${String(prop.default ?? "—")} | ${isRequired ? "true" : "false"} | ${mapPropertyDescription(prop.type)} |`,
+      `| ${prop.name} | ${type} | ${String(prop.default ?? "—")} | ${isRequired ? "true" : "false"} | ${mapPropertyDescription(prop.type)} | ${notes} |`,
     );
   }
   return rows.join("\n") + "\n";
 }
 
-function renderVariantSpecs(variants) {
+export function renderVariantSpecs(variants) {
   if (!variants || variants.length === 0) return "";
   const lines = [];
 
@@ -557,7 +559,7 @@ function renderVariantSpecs(variants) {
   return lines.join("\n") + "\n";
 }
 
-function renderLayoutTable(layout) {
+export function renderLayoutTable(layout) {
   if (!layout || layout.length === 0) {
     return "| TBD | TBD | TBD | TBD | TBD | TBD | TBD |\n";
   }
@@ -573,7 +575,7 @@ function renderLayoutTable(layout) {
   return rows.join("\n") + "\n";
 }
 
-function renderVariantRows(variants) {
+export function renderVariantRows(variants) {
   if (!variants || variants.length === 0) {
     return "| `N/A` | `TBD` | `TBD` | No variant axis detected. |\n";
   }
@@ -622,8 +624,8 @@ export function buildEnrichedMarkdownSections(spec) {
   const anatomy = renderAnatomyMarkdown(spec?.anatomy);
   const componentApi = `### Properties
 
-| Name | Type | Default | Required | Description |
-| --- | --- | --- | --- | --- |
+| Name | Type | Default | Required | Description | Narrative Notes |
+| --- | --- | --- | --- | --- | --- |
 ${renderPropertiesTable(spec?.properties)}`;
   const variantAttributes = renderVariantSpecs(spec?.variants)
     ? renderVariantSpecs(spec?.variants).trimEnd()
