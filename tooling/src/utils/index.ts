@@ -99,6 +99,9 @@ export { runRegistrySync } from '../runners/registry-sync-runner.js';
 // Spec runners
 export { runSortSpec } from '../runners/sort-spec-runner.js';
 
+// Doc regeneration runners
+export { runRegenerateDocs } from '../runners/regenerate-docs-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
