@@ -48,10 +48,12 @@ describe("figma-api utils", () => {
         /Missing Figma API token/
       );
       assert.throws(
+        // Intentional type coercion to test runtime validation
         () => sanitizeToken(null as any),
         /Missing Figma API token/
       );
       assert.throws(
+        // Intentional type coercion to test runtime validation
         () => sanitizeToken(undefined as any),
         /Missing Figma API token/
       );
@@ -69,6 +71,7 @@ describe("figma-api utils", () => {
         /Missing Figma file key/
       );
       assert.throws(
+        // Intentional type coercion to test runtime validation
         () => normalizeFileKey(null as any),
         /Missing Figma file key/
       );

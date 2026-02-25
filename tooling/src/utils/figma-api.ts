@@ -328,10 +328,29 @@ export async function fetchFigmaNodes(options: FetchFigmaNodesOptions): Promise<
   });
 }
 
+export interface FigmaVariablesResponse {
+  meta: {
+    variables: Record<string, {
+      id: string;
+      name: string;
+      key: string;
+      variableCollectionId: string;
+      resolvedType: string;
+      valuesByMode: Record<string, unknown>;
+    }>;
+    variableCollections: Record<string, {
+      id: string;
+      name: string;
+      key: string;
+      modes: Array<{ modeId: string; name: string }>;
+    }>;
+  };
+}
+
 /**
  * Fetch local variables from a Figma file.
  */
-export async function fetchFigmaLocalVariables(options: FigmaApiOptions & { fileKey: string }): Promise<unknown> {
+export async function fetchFigmaLocalVariables(options: FigmaApiOptions & { fileKey: string }): Promise<FigmaVariablesResponse> {
   const { fileKey, token, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
   const normalizedFileKey = normalizeFileKey(fileKey);
 

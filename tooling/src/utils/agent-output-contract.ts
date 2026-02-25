@@ -23,6 +23,10 @@ export interface AgentOutputContractResult {
   errors: AgentOutputError[];
 }
 
+// Duplicated from scripts/lib/docs-config.mjs
+// TODO: Migrate docs-config.mjs to TypeScript and import from there
+// For now, keep these constants in sync manually
+
 /**
  * Allowed doc status values.
  */

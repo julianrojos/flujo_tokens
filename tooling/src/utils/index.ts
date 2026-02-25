@@ -132,9 +132,9 @@ export {
 
 export type {
   FigmaColor,
-  FigmaNode,
   FigmaFileResponse,
   FigmaNodesResponse,
+  FigmaVariablesResponse,
   FigmaApiOptions,
   FetchFigmaFileOptions,
   FetchFigmaNodesOptions,

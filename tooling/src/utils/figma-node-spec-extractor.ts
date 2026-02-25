@@ -88,6 +88,7 @@ export interface LayoutInfo {
 }
 
 export interface LayoutTreeNode {
+  // name and type are required - partial specs without these are invalid
   name: string;
   type: string;
   width?: number;

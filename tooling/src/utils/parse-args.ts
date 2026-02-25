@@ -18,11 +18,12 @@ export interface PrintUsageOptions {
 }
 
 /**
- * Parse command-line arguments in --key=value or --key value format.
+ * Parse command-line arguments in --key=value, --key value, or --no-key format.
+ * Supports --no-key convention for boolean false values.
  */
 export function parseArgs(argv: readonly string[]): Record<string, string | boolean> {
   const args: Record<string, string | boolean> = {};
-  
+
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (!token.startsWith("--")) continue;
@@ -36,6 +37,20 @@ export function parseArgs(argv: readonly string[]): Record<string, string | bool
     }
 
     const key = token.slice(2);
+    
+    // Handle --no-key convention for boolean false
+    // Edge cases: 
+    //   --no-verbose → args["verbose"] = false
+    //   --no- → ignored (empty key after "no-")
+    //   --no-no-verbose → args["no-verbose"] = false (NOT double negation)
+    if (key.startsWith("no-") && key.length > 3) {
+      const actualKey = key.slice(3);
+      if (actualKey) {
+        args[actualKey] = false;
+        continue;
+      }
+    }
+    
     const next = argv[i + 1];
     if (!next || next.startsWith("--")) {
       args[key] = true;
@@ -44,7 +59,7 @@ export function parseArgs(argv: readonly string[]): Record<string, string | bool
     args[key] = next;
     i += 1;
   }
-  
+
   return args;
 }
 

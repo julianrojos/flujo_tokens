@@ -41,14 +41,25 @@ export interface ParsedFigmaFileUrl {
   figmaUrl: string;
 }
 
+interface CatalogItem {
+  node_id: string;
+  key: string;
+  name: string;
+  description: string;
+  kind: "component" | "component_set";
+}
+
+interface CatalogIndex {
+  catalog: CatalogItem[];
+  byNodeId: Map<string, CatalogItem>;
+  byKey: Map<string, string>;
+  keyCollisions: Array<{ component_key: string; node_ids: string[] }>;
+}
+
 function compareStrings(a: unknown, b: unknown): number {
   return String(a || "").localeCompare(String(b || ""), "en", {
     sensitivity: "base",
   });
-}
-
-function compareNodeIds(a: unknown, b: unknown): number {
-  return compareStrings(a, b);
 }
 
 export function toHyphenNodeId(nodeId: unknown): string {
@@ -135,10 +146,22 @@ export function parseNodeIdFromUrl(url: URL): string {
   return sanitizeNodeId(decodeURIComponent(inlineMatch[1]));
 }
 
-function uniqueSorted<T>(values: T[], comparator: (a: T, b: T) => number = compareStrings as any): T[] {
-  return Array.from(new Set(values)).sort(comparator);
+// Overloads for uniqueSorted to avoid unsafe type assertions
+function uniqueSorted(values: string[]): string[];
+function uniqueSorted<T>(values: T[], comparator: (a: T, b: T) => number): T[];
+function uniqueSorted<T>(values: T[], comparator?: (a: T, b: T) => number): T[] {
+  const cmp = comparator || ((a, b) => String(a).localeCompare(String(b)));
+  return Array.from(new Set(values)).sort(cmp);
 }
 
+// Internal helper - validates Figma hostname (case-insensitive)
+const isValidFigmaHostname = (hostname: string): boolean =>
+  hostname.endsWith("figma.com") || hostname.endsWith(".figma.com");
+
+/**
+ * Parse a Figma URL and extract file information.
+ * Public API - validates hostname and extracts file key, surface, etc.
+ */
 export function parseFigmaFileUrl(figmaUrl: unknown): ParsedFigmaFileUrl {
   const raw = String(figmaUrl || "").trim();
   if (!raw) {
@@ -152,7 +175,7 @@ export function parseFigmaFileUrl(figmaUrl: unknown): ParsedFigmaFileUrl {
     throw new Error(`Invalid Figma URL: ${raw}`);
   }
 
-  if (!url.hostname.endsWith("figma.com")) {
+  if (!isValidFigmaHostname(url.hostname)) {
     throw new Error(`Invalid Figma URL hostname: ${url.hostname}`);
   }
 
@@ -167,6 +190,79 @@ export function parseFigmaFileUrl(figmaUrl: unknown): ParsedFigmaFileUrl {
     surface,
     rootNodeId,
     figmaUrl: raw,
+  };
+}
+
+// Internal helper - normalize component catalog entries
+function normalizeComponentCatalog(rawCatalog: unknown, fallbackKind: "component" | "component_set"): CatalogItem[] {
+  if (!isObject(rawCatalog)) return [];
+  const normalized: CatalogItem[] = [];
+
+  for (const [nodeId, meta] of Object.entries(rawCatalog)) {
+    if (!isObject(meta)) continue;
+    const typedMeta = meta as Record<string, unknown>;
+    normalized.push({
+      node_id: String(nodeId || "").trim(),
+      key: String(typedMeta.key || "").trim(),
+      name: normalizeName(typedMeta.name, ""),
+      description: normalizeName(typedMeta.description, ""),
+      kind: fallbackKind,
+    });
+  }
+
+  return normalized
+    .filter((item) => item.node_id)
+    .sort((a, b) =>
+      compareStrings(
+        `${a.kind}|${a.name}|${a.node_id}`,
+        `${b.kind}|${b.name}|${b.node_id}`,
+      ),
+    );
+}
+
+function buildCatalogIndex(filePayload: Record<string, unknown>): CatalogIndex {
+  const components = normalizeComponentCatalog(filePayload.components, "component");
+  const componentSets = normalizeComponentCatalog(
+    filePayload.componentSets,
+    "component_set",
+  );
+  const merged = [...components, ...componentSets];
+
+  const byNodeId = new Map<string, CatalogItem>();
+  const byKey = new Map<string, string>();
+  const keyCollisions: Array<{ component_key: string; node_ids: string[] }> = [];
+
+  for (const item of merged) {
+    byNodeId.set(item.node_id, item);
+    const componentKey = String(item.key || "").trim();
+    if (!componentKey) continue;
+
+    if (!byKey.has(componentKey)) {
+      byKey.set(componentKey, item.node_id);
+      continue;
+    }
+    // Safe to use non-null assertion - has() check above guarantees existence
+    const existingNodeId = byKey.get(componentKey)!;
+    if (existingNodeId !== item.node_id) {
+      keyCollisions.push({
+        component_key: componentKey,
+        node_ids: uniqueSorted<string>([existingNodeId, item.node_id], compareStrings),
+      });
+    }
+  }
+
+  keyCollisions.sort((a, b) =>
+    compareStrings(
+      `${a.component_key}|${a.node_ids.join(",")}`,
+      `${b.component_key}|${b.node_ids.join(",")}`,
+    ),
+  );
+
+  return {
+    catalog: merged,
+    byNodeId,
+    byKey,
+    keyCollisions,
   };
 }
 
@@ -200,8 +296,7 @@ export function buildFigmaComponentMap(
     if (!isObject(compData)) continue;
     const typedCompData = compData as Record<string, unknown>;
     const name = normalizeName(typedCompData.name, id);
-    const componentSetId = typedCompData.componentSetId as string | undefined;
-    
+
     componentsList.push({
       id,
       name,
@@ -210,11 +305,6 @@ export function buildFigmaComponentMap(
       description: normalizeName(typedCompData.description),
       documentationLinks: [],
     });
-
-    // Link to component set if applicable
-    if (componentSetId && componentSets[componentSetId]) {
-      // Component is part of a set - already handled above
-    }
   }
 
   // Process nodes (pages and children)
@@ -258,9 +348,9 @@ export function buildFigmaComponentMap(
   }
 
   // Sort all lists
-  componentsList.sort((a, b) => compareNodeIds(a.nodeId, b.nodeId));
-  componentSetsList.sort((a, b) => compareNodeIds(a.nodeId, b.nodeId));
-  pages.sort((a, b) => compareNodeIds(a.nodeId, b.nodeId));
+  componentsList.sort((a, b) => compareStrings(a.name, b.name));
+  componentSetsList.sort((a, b) => compareStrings(a.name, b.name));
+  pages.sort((a, b) => compareStrings(a.name, b.name));
 
   return {
     fileKey: parsedUrl.fileKey,
