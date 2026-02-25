@@ -93,6 +93,9 @@ export { runTokenUsageIndex } from '../runners/token-usage-index-runner.js';
 export { runTokenGraph } from '../runners/token-graph-runner.js';
 export { runTokenHealth } from '../runners/token-health-runner.js';
 
+// Registry runners
+export { runRegistrySync } from '../runners/registry-sync-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
