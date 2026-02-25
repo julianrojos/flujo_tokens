@@ -48,7 +48,7 @@ import {
   isKindAllowed,
   resolveSpecExhibitNodeIds,
 } from "./figma-component-discovery.mjs";
-import { injectExtractedSpecSectionsIntoMarkdown } from "./capture-markdown-sections.mjs";
+import { injectSpecZones } from "./spec-to-markdown-injector.mjs";
 import { buildCaptureTargets } from "./capture-target-builder.mjs";
 import { createCaptureReport } from "./capture-report.mjs";
 import { executeCaptureBatchAndRefresh } from "./capture-batch-execution.mjs";
@@ -87,8 +87,8 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     resolveSpecExhibitNodeIdsFn = resolveSpecExhibitNodeIds,
     resolveDocsPathsFn = resolveDocsPaths,
     renderEnrichedMarkdownSeedFn = renderEnrichedMarkdownSeed,
-    injectExtractedSpecSectionsIntoMarkdown: injectExtractedSpecSectionsIntoMarkdownFn,
-    buildMarkdownSeed: buildMarkdownSeedFn,
+    injectSpecZonesFn = injectSpecZones,
+    buildMarkdownSeedFn = buildMarkdownSeed,
     writeTextAtomic: writeTextAtomicFn,
     stderrWrite: stderrWriteFn,
     createPipelineContext: createPipelineContextFn = createPipelineContext,
@@ -207,7 +207,7 @@ export async function runCaptureFromFigmaUrl(args, deps = {}) {
     buildFigmaNodeUrl: buildFigmaNodeUrlFn,
     classifyTargetKind: classifyTargetKindFn,
     renderEnrichedMarkdownSeed: renderEnrichedMarkdownSeedFn,
-    injectExtractedSpecSectionsIntoMarkdown: injectExtractedSpecSectionsIntoMarkdownFn,
+    injectSpecZones: injectSpecZonesFn,
     buildMarkdownSeed: buildMarkdownSeedFn,
     writeTextAtomic: writeTextAtomicFn,
     stderrWrite: stderrWriteFn,

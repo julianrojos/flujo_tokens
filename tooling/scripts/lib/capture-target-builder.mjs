@@ -1,3 +1,5 @@
+import fs from "node:fs/promises";
+import yaml from "js-yaml";
 import { componentNameToDisplayName } from "./component-name.mjs";
 import path from "node:path";
 import { resolveInferredSlug } from "./capture-targets.mjs";
@@ -17,6 +19,23 @@ function mapSpecExhibit(sourceNodeId, imagesByNodeId) {
     imageUrl: imageUrl || null,
   };
 }
+
+async function writeDualAtomic(ymlPath, ymlContent, mdPath, mdContent) {
+  const ts = Date.now();
+  const ymlTemp = `${ymlPath}.tmp.${ts}`;
+  const mdTemp = `${mdPath}.tmp.${ts}`;
+  try {
+    await fs.writeFile(ymlTemp, ymlContent, "utf8");
+    await fs.writeFile(mdTemp, mdContent, "utf8");
+    await fs.rename(ymlTemp, ymlPath);
+    await fs.rename(mdTemp, mdPath);
+  } catch (error) {
+    await fs.unlink(ymlTemp).catch(() => {});
+    await fs.unlink(mdTemp).catch(() => {});
+    throw error;
+  }
+}
+
 
 export async function buildCaptureTargets({
   sourceCandidates,
@@ -40,7 +59,7 @@ export async function buildCaptureTargets({
   buildFigmaNodeUrl,
   classifyTargetKind,
   renderEnrichedMarkdownSeed,
-  injectExtractedSpecSectionsIntoMarkdown,
+  injectSpecZones,
   buildMarkdownSeed,
   writeTextAtomic,
   stderrWrite = process.stderr.write.bind(process.stderr),
@@ -154,68 +173,82 @@ export async function buildCaptureTargets({
       continue;
     }
 
-    if (!requireExistingDoc && !markdownExists) {
-      try {
-        let seed;
-        if (extractedNodeSpec) {
-          seed = renderEnrichedMarkdownSeed({
+    let finalWritePayloads = null;
+
+    try {
+      if (extractedNodeSpec) {
+        /** @type {any} */
+        let currentYml = {};
+        try {
+          if (specExistsFn(resolvedPaths.specPath)) {
+            currentYml = yaml.load(await fs.readFile(resolvedPaths.specPath, "utf-8")) || {};
+          } else {
+            currentYml = { name: inferredSlug, figma: { component_set_node_id: nodeId } };
+          }
+        } catch { /* assume empty/corrupt and overwrite safely */ }
+
+        currentYml.anatomy = extractedNodeSpec.anatomy;
+        currentYml.properties = extractedNodeSpec.properties;
+        currentYml.variants = extractedNodeSpec.variants;
+        currentYml.layout = extractedNodeSpec.layout;
+
+        const mergedYmlText = yaml.dump(currentYml, { lineWidth: -1 });
+
+        let mdToWrite = null;
+        if (markdownExists && injectDocSpecs) {
+          const currentMarkdown = readMarkdownContentFn(resolvedPaths.markdownPath);
+          const newMd = injectSpecZones(currentMarkdown, currentYml, inferredSlug);
+          if (newMd !== currentMarkdown || !specExistsFn(resolvedPaths.specPath)) {
+            mdToWrite = newMd;
+          }
+        } else if (!markdownExists && !requireExistingDoc) {
+          const seed = renderEnrichedMarkdownSeed({
             slug: inferredSlug,
-            displayName:
-              componentNameToDisplayName(String(candidate.name || "").trim()) ||
-              inferredSlug,
+            displayName: componentNameToDisplayName(String(candidate.name || "").trim()) || inferredSlug,
             nodeUrl,
             nodeId,
-            spec: extractedNodeSpec,
+            spec: currentYml,
           });
-          const enrichedSeed = injectExtractedSpecSectionsIntoMarkdown(
-            seed,
-            extractedNodeSpec,
-            specExhibits,
-          );
-          seed = enrichedSeed.content;
+          mdToWrite = injectSpecZones(seed, currentYml, inferredSlug);
         }
-        if (!seed) {
-          seed = buildMarkdownSeed({
-            slug: inferredSlug,
-            candidateName: String(candidate.name || "").trim() || inferredSlug,
-            nodeUrl,
-            nodeId,
-          });
+
+        if (mdToWrite !== null || (!specExistsFn(resolvedPaths.specPath) && injectDocSpecs)) {
+          finalWritePayloads = { yml: mergedYmlText, md: mdToWrite || readMarkdownContentFn(resolvedPaths.markdownPath) };
         }
+      } else if (!markdownExists && !requireExistingDoc) {
+        const seed = buildMarkdownSeed({
+          slug: inferredSlug,
+          candidateName: String(candidate.name || "").trim() || inferredSlug,
+          nodeUrl,
+          nodeId,
+        });
         writeTextAtomic(resolvedPaths.markdownPath, seed);
+      }
+    } catch (error) {
+      skipped.push({
+        slug: inferredSlug,
+        node_id: nodeId,
+        name: String(candidate.name || "").trim() || inferredSlug,
+        reason: "markdown-enrich-failed",
+        markdown_path: resolvedPaths.markdownPath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
+
+    if (finalWritePayloads) {
+      try {
+        await writeDualAtomic(resolvedPaths.specPath, finalWritePayloads.yml, resolvedPaths.markdownPath, finalWritePayloads.md);
       } catch (error) {
         skipped.push({
           slug: inferredSlug,
           node_id: nodeId,
           name: String(candidate.name || "").trim() || inferredSlug,
-          reason: "markdown-create-failed",
+          reason: "atomic-write-failed",
           markdown_path: resolvedPaths.markdownPath,
           error: error instanceof Error ? error.message : String(error),
         });
         continue;
-      }
-    }
-
-    if (injectDocSpecs && markdownExists && extractedNodeSpec) {
-      try {
-        const currentMarkdown = readMarkdownContentFn(resolvedPaths.markdownPath);
-        const injection = injectExtractedSpecSectionsIntoMarkdown(
-          currentMarkdown,
-          extractedNodeSpec,
-          specExhibits,
-        );
-        if (injection.changed) {
-          writeTextAtomic(resolvedPaths.markdownPath, injection.content);
-        }
-      } catch (error) {
-        skipped.push({
-          slug: inferredSlug,
-          node_id: nodeId,
-          name: String(candidate.name || "").trim() || inferredSlug,
-          reason: "markdown-enrich-failed",
-          markdown_path: resolvedPaths.markdownPath,
-          error: error instanceof Error ? error.message : String(error),
-        });
       }
     }
 
