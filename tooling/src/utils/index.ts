@@ -114,6 +114,9 @@ export { runRegistryReport } from '../runners/registry-report-runner.js';
 // Foundations runners
 export { runFoundationsSync } from '../runners/foundations-sync-runner.js';
 
+// Health runners
+export { runHealthSnapshot } from '../runners/health-snapshot-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
