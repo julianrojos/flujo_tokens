@@ -36,13 +36,14 @@ test("spec-orchestrator: returns stable result with injected dependencies", () =
         },
       }),
       ensureSpecOutputDirectoryFn: () => {},
-      materializeSpecAndWriteFn: () => ({
-        normalizedSpec: {
-          name: "Alert",
-          token_mapping: { icon_color: "components/alert/icon/color" },
-        },
-        prefilledCount: 1,
+      materializeSpecFn: () => ({
+        normalizedSpec: { name: "Alert", properties: [] },
+        prefilledCount: 0,
       }),
+      assertEvidenceGatedScalarChangesFn: () => {},
+      writeSpecWithSnapshotGuardFn: ({ normalizedSpec, applyWriteFn }) => {
+        if (applyWriteFn) applyWriteFn({ outputPath: "/tmp/_out.yml", normalizedSpec });
+      },
       runSpecGenerationPromptFn: () => {},
       runSpecRepairPromptFn: () => {},
       validateGeneratedSpecFn: () => ({

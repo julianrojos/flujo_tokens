@@ -1,4 +1,6 @@
 import { isPlainObject } from "./is-plain-object.mjs";
+import { isTbdMarker } from "./tbd.mjs";
+import { componentNameToDisplayName } from "./component-name.mjs";
 import {
   PROPERTY_FIELD_ORDER,
   coerceSpecPropertyType,
@@ -19,6 +21,19 @@ export const SPEC_TOP_LEVEL_ORDER = Object.freeze([
   "qa",
   "related_components",
 ]);
+
+export function countTbdValues(value) {
+  if (typeof value === "string") return isTbdMarker(value) ? 1 : 0;
+  if (Array.isArray(value))
+    return value.reduce((sum, item) => sum + countTbdValues(item), 0);
+  if (isPlainObject(value)) {
+    return Object.values(value).reduce(
+      (sum, item) => sum + countTbdValues(item),
+      0,
+    );
+  }
+  return 0;
+}
 
 const FIGMA_FIELD_ORDER = Object.freeze([
   "file",
@@ -116,4 +131,47 @@ export function normalizeSpecOrder(spec) {
   }
 
   return ordered;
+}
+
+export function normalizeSpec({
+  templateSpec,
+  generatedSpecRaw,
+  componentName,
+  nodeId,
+  fileKeyFromUrl,
+  tokenCandidates,
+  prefillTokenMappingFn
+}) {
+  const mergedSpec = mergeWithTemplate(templateSpec, generatedSpecRaw);
+  
+  // ensureSpecMetadata logic
+  if (!isPlainObject(mergedSpec.figma)) mergedSpec.figma = {};
+  if (componentName && isTbdMarker(mergedSpec.name))
+    mergedSpec.name = componentNameToDisplayName(componentName);
+  if (componentName && !String(mergedSpec.name || "").trim())
+    mergedSpec.name = componentNameToDisplayName(componentName);
+
+  if (fileKeyFromUrl && (!mergedSpec.figma.file || isTbdMarker(mergedSpec.figma.file))) {
+    mergedSpec.figma.file = fileKeyFromUrl;
+  }
+  if (
+    nodeId &&
+    (!mergedSpec.figma.component_set_node_id ||
+      isTbdMarker(mergedSpec.figma.component_set_node_id))
+  ) {
+    mergedSpec.figma.component_set_node_id = nodeId;
+  }
+  
+  const prefilledCount = prefillTokenMappingFn(
+    mergedSpec.token_mapping,
+    tokenCandidates,
+    "token_mapping",
+  );
+
+  const normalizedSpec = normalizeSpecOrder(mergedSpec);
+
+  return {
+    normalizedSpec,
+    prefilledCount,
+  };
 }

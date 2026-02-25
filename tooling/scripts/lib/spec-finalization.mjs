@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { countTbdValues } from "./spec-token-mapping.mjs";
+import { countTbdValues } from "./spec-normalizer.mjs";
 import { buildSpecGenerationResult } from "./spec-result.mjs";
 
 export function finalizeSpecResult({

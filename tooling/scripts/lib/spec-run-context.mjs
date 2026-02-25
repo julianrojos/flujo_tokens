@@ -3,10 +3,9 @@ import path from "node:path";
 import { normalizeComponentName } from "./component-name.mjs";
 import { normalizeNodeId } from "./node-id.mjs";
 import { buildSpecOutputPath } from "./spec-paths.mjs";
-import { parseFigmaUrl } from "./spec-source.mjs";
+import { resolveFigmaSource } from "./spec-source.mjs";
 import {
   assertBypassPolicy,
-  assertFigmaSourceProvided,
   assertOutputPath,
 } from "./spec-run-guards.mjs";
 
@@ -29,11 +28,11 @@ export function createSpecRunContext({ context, args }) {
 
   assertBypassPolicy({ force, skipValidation, allowNonEvidenceUpdates });
 
-  const parsedUrl = parseFigmaUrl(figmaUrl);
-  const fileKeyFromUrl = parsedUrl.fileKey;
-  const nodeId = explicitNodeId || parsedUrl.nodeId;
-
-  assertFigmaSourceProvided({ figmaUrl, nodeId, rawComponentName });
+  const { fileKeyFromUrl, nodeId } = resolveFigmaSource({
+    figmaUrl,
+    explicitNodeId,
+    rawComponentName,
+  });
 
   const outputPath = buildSpecOutputPath(args, specRoot, componentSlug, nodeId);
   assertOutputPath(outputPath);

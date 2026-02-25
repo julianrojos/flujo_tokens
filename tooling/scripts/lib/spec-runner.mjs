@@ -11,13 +11,16 @@ export function runSpecWithGuards({
   run,
   label = "ds-spec-from-figma",
   captureFileSnapshotFn = captureFileSnapshot,
-  restoreFileSnapshotFn = restoreFileSnapshot,
   parseExistingSpecFromSnapshotFn = parseExistingSpecFromSnapshot,
   captureScopedWriteSnapshotFn = captureScopedWriteSnapshot,
   assertScopedWritePolicyFn = assertScopedWritePolicy,
 }) {
-  const outputSnapshot = captureFileSnapshotFn(outputPath);
-  const existingSpec = parseExistingSpecFromSnapshotFn(outputSnapshot, outputPath);
+  // We capture the file state here strictly to parse the existing spec for evidence gates.
+  // Note: Rollbacks for 'outputPath' are handled independently by 'writeSpecWithSnapshotGuard'
+  // inside the orchestrator right when the write happens, so we do not restore it in this catch block.
+  const existingFileState = captureFileSnapshotFn(outputPath);
+  const existingSpec = parseExistingSpecFromSnapshotFn(existingFileState, outputPath);
+  
   const scopeSnapshot = captureScopedWriteSnapshotFn({
     directories: [resolvedSpecRoot, docsPath],
     files: [registryIndexPath],
@@ -33,7 +36,6 @@ export function runSpecWithGuards({
     });
     return result;
   } catch (error) {
-    restoreFileSnapshotFn(outputPath, outputSnapshot);
     let scopeMessage = "";
     try {
       assertScopedWritePolicyFn({

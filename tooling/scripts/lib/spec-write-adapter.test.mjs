@@ -7,7 +7,7 @@ import yaml from "js-yaml";
 
 import {
   ensureSpecTemplateExists,
-  materializeAndWriteSpec,
+  materializeSpec,
   parseExistingSpecFromSnapshot,
 } from "./spec-write-adapter.mjs";
 
@@ -15,7 +15,7 @@ function createTempDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "spec-write-adapter-"));
 }
 
-test("spec-write-adapter: materializeAndWriteSpec writes normalized YAML and prefills token mappings", () => {
+test("spec-write-adapter: materializeSpec merges YAML and prefills token mappings", () => {
   const tmpDir = createTempDir();
   const templatePath = path.join(tmpDir, "_template.yml");
   const outputPath = path.join(tmpDir, "alert.yml");
@@ -49,7 +49,7 @@ test("spec-write-adapter: materializeAndWriteSpec writes normalized YAML and pre
     "utf8",
   );
 
-  const { normalizedSpec, prefilledCount } = materializeAndWriteSpec({
+  const { normalizedSpec, prefilledCount } = materializeSpec({
     outputPath,
     templatePath,
     registryIndex: {
@@ -66,7 +66,6 @@ test("spec-write-adapter: materializeAndWriteSpec writes normalized YAML and pre
     allowNonEvidenceUpdates: false,
     evidenceGate: () => {},
     evidenceBackedPrefixes: ["name"],
-    formatYamlFile: () => {},
   });
 
   assert.equal(normalizedSpec.name, "Alert");
@@ -77,9 +76,6 @@ test("spec-write-adapter: materializeAndWriteSpec writes normalized YAML and pre
     "components/alert/icon/color",
   );
   assert.equal(prefilledCount, 1);
-
-  const persisted = yaml.load(fs.readFileSync(outputPath, "utf8"));
-  assert.equal(persisted.name, "Alert");
 });
 
 test("spec-write-adapter: calls evidence gate when existing spec is present and bypass is disabled", () => {
@@ -91,7 +87,7 @@ test("spec-write-adapter: calls evidence gate when existing spec is present and 
   fs.writeFileSync(outputPath, "name: Alert\nfigma:\n  page: Components\n", "utf8");
 
   let invoked = false;
-  materializeAndWriteSpec({
+  materializeSpec({
     outputPath,
     templatePath,
     registryIndex: {},
@@ -104,7 +100,6 @@ test("spec-write-adapter: calls evidence gate when existing spec is present and 
       invoked = true;
     },
     evidenceBackedPrefixes: ["name"],
-    formatYamlFile: () => {},
   });
 
   assert.equal(invoked, true);

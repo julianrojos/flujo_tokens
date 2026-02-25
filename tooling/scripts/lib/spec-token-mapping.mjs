@@ -179,15 +179,3 @@ export function prefillTokenMapping(
   return filledCount;
 }
 
-export function countTbdValues(value) {
-  if (typeof value === "string") return isTbdMarker(value) ? 1 : 0;
-  if (Array.isArray(value))
-    return value.reduce((sum, item) => sum + countTbdValues(item), 0);
-  if (isPlainObject(value)) {
-    return Object.values(value).reduce(
-      (sum, item) => sum + countTbdValues(item),
-      0,
-    );
-  }
-  return 0;
-}

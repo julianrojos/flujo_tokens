@@ -1,4 +1,5 @@
 import { normalizeNodeId } from "./node-id.mjs";
+import { assertFigmaSourceProvided } from "./spec-run-guards.mjs";
 
 export function parseFigmaUrl(figmaUrl) {
   if (!figmaUrl) return { fileKey: "", nodeId: "" };
@@ -51,4 +52,20 @@ export function parseFigmaUrl(figmaUrl) {
 
   const nodeId = normalizeNodeId(rawNodeId);
   return { fileKey, nodeId };
+}
+
+export function resolveFigmaSource({ figmaUrl, explicitNodeId, rawComponentName }) {
+  assertFigmaSourceProvided({ figmaUrl, nodeId: explicitNodeId, rawComponentName });
+  
+  const parsedUrl = parseFigmaUrl(figmaUrl);
+  const fileKeyFromUrl = parsedUrl.fileKey;
+  const nodeId = explicitNodeId || parsedUrl.nodeId;
+  
+  // Re-verify after parse in case URL didn't contain an ID and no explicit ID was provided
+  assertFigmaSourceProvided({ figmaUrl, nodeId, rawComponentName });
+
+  return {
+    fileKeyFromUrl,
+    nodeId
+  };
 }

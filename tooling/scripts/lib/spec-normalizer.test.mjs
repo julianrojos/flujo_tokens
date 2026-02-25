@@ -5,6 +5,8 @@ import {
   SPEC_TOP_LEVEL_ORDER,
   mergeWithTemplate,
   normalizeSpecOrder,
+  countTbdValues,
+  normalizeSpec,
 } from "./spec-normalizer.mjs";
 
 test("spec-normalizer: mergeWithTemplate preserves template defaults and generated overrides", () => {
@@ -131,4 +133,47 @@ test("spec-normalizer: normalizeSpecOrder is idempotent", () => {
   const once = normalizeSpecOrder(input);
   const twice = normalizeSpecOrder(once);
   assert.deepEqual(twice, once);
+});
+
+test("spec-normalizer: countTbdValues counts TBDs accurately", () => {
+  const input = {
+    name: "TBD",
+    status: "draft",
+    figma: {
+      file: "TBD",
+      page: "TBD",
+      component_set_node_id: "123:456"
+    },
+    properties: [
+      { type: "TEXT", name: "TBD", description: "Label text" },
+      { type: "variant", name: "size", default: "sm" },
+    ],
+  };
+
+  assert.equal(countTbdValues(input), 4);
+});
+
+test("spec-normalizer: normalizeSpec orchestrates merge, metadata, and order", () => {
+  const templateSpec = { name: "TBD", figma: { file: "TBD" } };
+  const generatedSpecRaw = { name: "Alert" };
+  const prefillTokenMappingFn = () => 1;
+
+  const result = normalizeSpec({
+    templateSpec,
+    generatedSpecRaw,
+    componentName: "alert",
+    nodeId: "123",
+    fileKeyFromUrl: "abc",
+    tokenCandidates: [],
+    prefillTokenMappingFn
+  });
+
+  assert.equal(result.prefilledCount, 1);
+  assert.deepEqual(result.normalizedSpec, {
+    name: "Alert",
+    figma: {
+      file: "abc",
+      component_set_node_id: "123"
+    }
+  });
 });

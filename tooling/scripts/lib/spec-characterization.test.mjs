@@ -31,15 +31,17 @@ test("spec characterization: exactly matches golden YAML", async () => {
     assertScopedWritePolicyFn: () => {},
     ensureSpecTemplateExistsFn: () => {},
     ensureSpecOutputDirectoryFn: () => {},
-    materializeSpecAndWriteFn: ({ outputPath }) => {
+    materializeSpecFn: () => {
       // simulate the file writing that typical adapter would do
-      writtenOutputPath = outputPath;
       writtenYamlContent = goldenSpecRaw;
       return {
         ok: true,
-        normalizedSpec: parseMarkdownFrontmatter(goldenSpecRaw).content.trim(), // It actually parses the yaml in real code but keeping simple here or use parseYamlDocument
-        outputPath,
+        normalizedSpec: parseMarkdownFrontmatter(goldenSpecRaw).content.trim(),
       };
+    },
+    writeSpecWithSnapshotGuardFn: ({ outputPath, applyWriteFn }) => {
+       writtenOutputPath = outputPath;
+       if (applyWriteFn) applyWriteFn({ outputPath });
     },
     assertEvidenceGatedScalarChangesFn: () => {},
     runSpecGenerationPromptFn: async () => ({

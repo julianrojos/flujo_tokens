@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import {
   buildTokenMenuLines,
-  countTbdValues,
   extractUniqueRegistryEntries,
   pickBestTokenPath,
   pickComponentTokenCandidates,
@@ -87,14 +86,4 @@ test("spec-token-mapping: prefillTokenMapping fills TBD values recursively", () 
   assert.equal(filled, 2);
   assert.equal(mapping.color_default, "components/alert/color/default");
   assert.equal(mapping.nested.icon_path, "components/alert/icon/path");
-});
-
-test("spec-token-mapping: countTbdValues counts nested arrays and objects", () => {
-  const value = {
-    a: "TBD",
-    b: ["ok", "tbd", { c: "TBD" }],
-    c: { d: "unknown", e: "ready" },
-  };
-
-  assert.equal(countTbdValues(value), 3);
 });

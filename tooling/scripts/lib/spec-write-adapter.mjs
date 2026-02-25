@@ -3,10 +3,7 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { parseYamlDocument } from "./parse-frontmatter.mjs";
-import { componentNameToDisplayName } from "./component-name.mjs";
-import { isPlainObject } from "./is-plain-object.mjs";
-import { isTbdMarker } from "./tbd.mjs";
-import { mergeWithTemplate, normalizeSpecOrder } from "./spec-normalizer.mjs";
+import { normalizeSpec } from "./spec-normalizer.mjs";
 import {
   extractUniqueRegistryEntries,
   pickComponentTokenCandidates,
@@ -31,27 +28,7 @@ export function parseExistingSpecFromSnapshot(outputSnapshot, outputPath) {
   );
 }
 
-function ensureSpecMetadata(spec, { componentName, nodeId, fileKeyFromUrl }) {
-  if (!isPlainObject(spec.figma)) spec.figma = {};
-  if (componentName && isTbdMarker(spec.name))
-    spec.name = componentNameToDisplayName(componentName);
-  if (componentName && !String(spec.name || "").trim())
-    spec.name = componentNameToDisplayName(componentName);
-
-  if (fileKeyFromUrl && (!spec.figma.file || isTbdMarker(spec.figma.file))) {
-    spec.figma.file = fileKeyFromUrl;
-  }
-  if (
-    nodeId &&
-    (!spec.figma.component_set_node_id ||
-      isTbdMarker(spec.figma.component_set_node_id))
-  ) {
-    spec.figma.component_set_node_id = nodeId;
-  }
-  return spec;
-}
-
-export function materializeAndWriteSpec({
+export function materializeSpec({
   outputPath,
   templatePath,
   registryIndex,
@@ -62,36 +39,33 @@ export function materializeAndWriteSpec({
   allowNonEvidenceUpdates,
   evidenceGate,
   evidenceBackedPrefixes,
-  formatYamlFile,
 }) {
-  if (!fs.existsSync(outputPath)) {
-    throw new Error(`Expected generated spec file not found at ${outputPath}`);
-  }
-
   const templateSpec = parseYamlDocument(
     fs.readFileSync(templatePath, "utf8"),
     `spec template (${templatePath})`,
   );
+  
   const generatedSpecRaw = parseYamlDocument(
     fs.readFileSync(outputPath, "utf8"),
     `generated spec (${outputPath})`,
   );
 
-  const mergedSpec = mergeWithTemplate(templateSpec, generatedSpecRaw);
-  ensureSpecMetadata(mergedSpec, { componentName, nodeId, fileKeyFromUrl });
-
   const registryEntries = extractUniqueRegistryEntries(registryIndex);
   const tokenCandidates = pickComponentTokenCandidates(
     registryEntries,
-    mergedSpec.name || componentName,
-  );
-  const prefilledCount = prefillTokenMapping(
-    mergedSpec.token_mapping,
-    tokenCandidates,
-    "token_mapping",
+    generatedSpecRaw.name || componentName,
   );
 
-  const normalizedSpec = normalizeSpecOrder(mergedSpec);
+  const { normalizedSpec, prefilledCount } = normalizeSpec({
+    templateSpec,
+    generatedSpecRaw,
+    componentName,
+    nodeId,
+    fileKeyFromUrl,
+    tokenCandidates,
+    prefillTokenMappingFn: prefillTokenMapping
+  });
+
   if (existingSpec && !allowNonEvidenceUpdates) {
     evidenceGate({
       before: existingSpec,
@@ -101,17 +75,6 @@ export function materializeAndWriteSpec({
     });
   }
 
-  fs.writeFileSync(
-    outputPath,
-    yaml.dump(normalizedSpec, {
-      lineWidth: 120,
-      noRefs: true,
-      sortKeys: false,
-    }),
-    "utf8",
-  );
-
-  formatYamlFile(outputPath);
 
   return {
     normalizedSpec,
