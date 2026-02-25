@@ -105,6 +105,10 @@ export { runRegenerateDocs } from '../runners/regenerate-docs-runner.js';
 // Governance runners
 export { runMarkNeedsReview } from '../runners/mark-needs-review-runner.js';
 
+// Registry runners (additional)
+export { runRegistryOverview } from '../runners/registry-overview-runner.js';
+export { runRegistryRefresh } from '../runners/registry-refresh-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
