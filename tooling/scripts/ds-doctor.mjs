@@ -9,7 +9,7 @@
  * @deprecated Use `tsx tooling/src/runners/doctor-runner.ts` directly instead
  */
 
-import { execSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs';
@@ -24,23 +24,11 @@ if (!fs.existsSync(runnerPath)) {
   process.exit(1);
 }
 
-// Quote arguments with spaces to preserve them in shell execution
-const args = process.argv.slice(2).map(arg => {
-  return arg.includes(' ') ? `"${arg}"` : arg;
-}).join(' ');
+// Use spawnSync with array of args — no shell quoting needed
+const result = spawnSync('tsx', [runnerPath, ...process.argv.slice(2)], {
+  stdio: 'inherit',
+  cwd: projectRoot,
+});
 
-const command = `tsx "${runnerPath}" ${args}`;
-
-try {
-  // execSync with stdio: 'inherit' passes stdout/stderr directly to terminal
-  // execSync throws when child process exits with non-zero code
-  execSync(command, {
-    stdio: 'inherit',
-    cwd: projectRoot,
-  });
-  // If execSync returns, child process exited with 0
-  process.exit(0);
-} catch (error) {
-  // execSync throws Error with status property containing child's exit code
-  process.exit(error.status ?? 1);
-}
+// Propagate exit code from child process
+process.exit(result.status ?? 1);
