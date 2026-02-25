@@ -36,6 +36,7 @@ Source: [Percentage Pie Graph in Figma](https://www.figma.com/design/3hGC1ju0d5A
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 The component includes:
 
 1. **Background ring** (`ELLIPSE`)
@@ -45,15 +46,18 @@ The component includes:
 5. **Value text** (percentage)
 6. **Label text** (supporting label)
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Change_Graph_Number` | `TEXT` | `65%` | `false` | Overrides the central percentage value text. |
 | `Change_Graph_Text` | `TEXT` | `Graph text` | `false` | Overrides the supporting graph label text. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -75,8 +79,10 @@ The component includes:
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 This component has no variant axis in the current Figma definition.
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

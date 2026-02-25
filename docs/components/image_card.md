@@ -46,13 +46,16 @@ Source: [Image-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIy
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
 2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Type` | `VARIANT` | `Vertical` | `true` | Variant selector extracted from Figma property `Type`. Allowed values: `Vertical`, `Horizontal`. |
@@ -61,6 +64,7 @@ Source: [Image-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIy
 | `Show_Footer` | `BOOLEAN` | `true` | `false` | Property extracted from Figma property `Show_Footer`. |
 | `Show_Title` | `BOOLEAN` | `true` | `false` | Property extracted from Figma property `Show_Title`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -81,11 +85,13 @@ Source: [Image-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIy
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Type=Vertical` | `TBD` | `TBD` | Variant captured from Figma property `Type`. |
 | `Type=Horizontal` | `TBD` | `TBD` | Variant captured from Figma property `Type`. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

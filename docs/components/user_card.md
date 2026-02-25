@@ -46,13 +46,16 @@ Source: [User-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
 2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Property 1` | `VARIANT` | `Person_Left` | `true` | Variant selector extracted from Figma property `Property 1`. Allowed values: `Person_Left`, `Person_Right`. |
@@ -61,6 +64,7 @@ Source: [User-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu
 | `Show_User_Right` | `BOOLEAN` | `true` | `false` | Property extracted from Figma property `Show_User_Right`. |
 | `Show_User_Stats` | `BOOLEAN` | `true` | `false` | Property extracted from Figma property `Show_User_Stats`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -81,11 +85,13 @@ Source: [User-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Property 1=Person_Left` | `TBD` | `TBD` | Variant captured from Figma property `Property 1`. |
 | `Property 1=Person_Right` | `TBD` | `TBD` | Variant captured from Figma property `Property 1`. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

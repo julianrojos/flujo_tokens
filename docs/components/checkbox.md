@@ -37,17 +37,21 @@ The **Checkbox** component captures a binary checked or unchecked selection stat
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Variant container**: Per-variant frame with fixed `24 x 24` dimensions.
 2. **Icon instance**: Nested icon instance that represents checked or unchecked visuals.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `State` | `VARIANT` | `Default` | `true` | Visual selection state axis. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -64,11 +68,13 @@ The **Checkbox** component captures a binary checked or unchecked selection stat
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `Default` | `TBD` | `TBD` | Unchecked selection visual. |
 | `Checked` | `TBD` | `TBD` | Checked selection visual. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: Represented by `State=Default`.

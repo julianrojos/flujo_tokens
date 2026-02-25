@@ -42,17 +42,21 @@ Source: [Overlay in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/P
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
 2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Property 1` | `VARIANT` | `Modal` | `true` | Variant selector extracted from Figma property `Property 1`. Allowed values: `Modal`, `Media`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -73,11 +77,13 @@ Source: [Overlay in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/P
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Property 1=Modal` | `TBD` | `TBD` | Variant captured from Figma property `Property 1`. |
 | `Property 1=Media` | `TBD` | `TBD` | Variant captured from Figma property `Property 1`. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

@@ -42,17 +42,21 @@ Source: [Focus-Outline in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9p
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
 2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Radius` | `VARIANT` | `square` | `true` | Variant selector extracted from Figma property `Radius`. Allowed values: `square`, `rounded`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -73,11 +77,13 @@ Source: [Focus-Outline in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9p
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Radius=square` | `TBD` | `TBD` | Variant captured from Figma property `Radius`. |
 | `Radius=rounded` | `TBD` | `TBD` | Variant captured from Figma property `Radius`. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

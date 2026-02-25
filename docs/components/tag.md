@@ -40,18 +40,22 @@ Source: [Tag in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): rounded shape with stroke and fill.
 2. **Label text** (`TEXT`): single-line label controlled by `Tag-Text`.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Size` | `VARIANT` | `Small` | `true` | Controls dimensions, paddings, and typography scale. |
 | `Tag-Text` | `TEXT` | `Tag text` | `false` | Overrides the visible label string. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -85,11 +89,13 @@ Source: [Tag in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Size=Small` | `TBD` | `TBD` | Compact tag with smaller text and padding. |
 | `Size=Medium` | `TBD` | `TBD` | Taller tag with larger vertical rhythm. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

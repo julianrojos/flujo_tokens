@@ -37,19 +37,23 @@ Source: [Avatar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PF
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 Each avatar contains:
 
 1. **Container** (`COMPONENT`, `90 x 90`)
 2. **Img_bg** (`RECTANGLE`, `90 x 90`, image fill)
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description                                               |
 | ---- | ---- | ------- | -------- | --------------------------------------------------------- |
 | `—`  | `—`  | `—`     | `—`      | This component has no exposed Figma component properties. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -84,8 +88,10 @@ Each avatar contains:
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 This component has no variants in the current Figma definition.
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states.

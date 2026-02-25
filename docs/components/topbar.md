@@ -35,6 +35,7 @@ Source: [Topbar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PF
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 The topbar includes:
 
 1. **Header container** (`FRAME`)
@@ -43,15 +44,18 @@ The topbar includes:
 4. **Right-side icon area** (`Topbar_Icons`)
 5. **Secondary navigation area** (`Secondary_Navigation`)
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name          | Type      | Default       | Required | Description |
 | ------------- | --------- | ------------- | -------- | ----------- |
 | `Show_Back`   | `BOOLEAN` | `false`       | `false`  | Toggles visibility of the back affordance section. |
 | `Change_Text` | `TEXT`    | `View header` | `false`  | Overrides the header title text. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -82,10 +86,12 @@ The topbar includes:
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 This component has no `VARIANT` axis in the current Figma definition.
 
 Behavioral variation is controlled by component properties (`Show_Back`, `Change_Text`).
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - No explicit interactive state variants are defined at root component level.

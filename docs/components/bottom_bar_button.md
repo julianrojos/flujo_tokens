@@ -41,22 +41,26 @@ Source: [Bottom_Bar_Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKza
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 Each button item contains:
 
 1. **Container** (`Auto Layout`, vertical)
 2. **Icon slot** (`INSTANCE_SWAP`)
 3. **Label text** (`TEXT`)
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name                                 | Type            | Default   | Required | Description                                 |
 | ------------------------------------ | --------------- | --------- | -------- | ------------------------------------------- |
 | `State`                              | `VARIANT`       | `Default` | `true`   | Visual state. Options: `Default`, `Selected`. |
 | `Change_Text`                        | `TEXT`          | `Text`    | `false`  | Overrides the button label text.            |
 | `Change_Bottom_Bar_Button_Icon`      | `INSTANCE_SWAP` | `TBD`     | `false`  | Replaces the icon instance rendered in slot. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -86,11 +90,13 @@ Each button item contains:
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant    | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | ---------- | ------------------------ | ----------------- | ---------------- |
 | `Default`  | `TBD`                    | `TBD`             | Unselected item appearance. |
 | `Selected` | `TBD`                    | `TBD`             | Selected item appearance. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - `Default`: baseline navigation item style.

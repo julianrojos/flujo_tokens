@@ -37,16 +37,19 @@ The **Text Area** component captures multi-line textual input with optional labe
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Field container**: Main multi-line input surface and border.
 2. **Label**: Optional field label text.
 3. **Value/Placeholder**: Multi-line content area.
 4. **Type icon**: Optional leading icon slot.
 5. **Support message**: Optional helper/validation text.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Type` | `VARIANT` | `Default` | `true` | Visual and semantic state of the text area. |
@@ -61,6 +64,7 @@ The **Text Area** component captures multi-line textual input with optional labe
 | `Show_Label` | `BOOLEAN` | `true` | `false` | Toggles label visibility. |
 | `Show_message_layer` | `BOOLEAN` | `true` | `false` | Toggles message layer container visibility. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -78,6 +82,7 @@ The **Text Area** component captures multi-line textual input with optional labe
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `Type=Default` | `TBD` | `TBD` | Neutral text-area state. |
@@ -85,6 +90,7 @@ The **Text Area** component captures multi-line textual input with optional labe
 | `Type=Success` | `TBD` | `TBD` | Validation success style. |
 | `Type=Error` | `TBD` | `TBD` | Validation error style. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: `Type=Default`.

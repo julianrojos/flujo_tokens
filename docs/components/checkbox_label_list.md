@@ -32,14 +32,17 @@ The **Checkbox Label List** component composes multiple labeled checkbox rows in
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Vertical container**: Auto Layout `VERTICAL` list wrapper.
 2. **Row instances**: Repeated `Checkbox-Label` instances (10 in source node).
 3. **Visibility toggles**: Boolean component properties per row to show/hide items.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Show_Checkbox__Label_1` | `BOOLEAN` | `true` | `false` | Toggles visibility of row 1. |
@@ -53,6 +56,7 @@ The **Checkbox Label List** component composes multiple labeled checkbox rows in
 | `Show_Checkbox__Label_10` | `BOOLEAN` | `true` | `false` | Toggles visibility of row 10. |
 | `Show_Checkbox__Label_11` | `BOOLEAN` | `true` | `false` | Toggles visibility of row 11. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -71,10 +75,12 @@ The **Checkbox Label List** component composes multiple labeled checkbox rows in
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `N/A` | `TBD` | `TBD` | No variant axis; behavior is controlled by boolean row visibility properties. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: All row-visibility booleans are `true` in the source node.

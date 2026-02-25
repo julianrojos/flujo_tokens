@@ -39,19 +39,23 @@ Source: [Image in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 Each image variant contains:
 
 1. **Container** (`COMPONENT`)
 2. **Image layer** (`RECTANGLE` with image fill)
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Size` | `VARIANT` | `90x90` | `true` | Size axis. Options: `90x90`, `196x214`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -69,11 +73,13 @@ Each image variant contains:
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Size=90x90` | `TBD` | `TBD` | Compact square image slot. |
 | `Size=196x214` | `TBD` | `TBD` | Larger rectangular image slot. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

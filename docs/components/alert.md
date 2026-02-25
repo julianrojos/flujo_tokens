@@ -42,6 +42,7 @@ Source: [Alert in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 Each alert contains:
 
 1. **Container** (`Auto Layout`, horizontal)
@@ -54,15 +55,18 @@ Current variant dimensions in Figma:
 - `Type=Warning`: `383 x 38`
 - `Type=Positive`: `383 x 38`
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name                  | Type      | Default          | Required | Description                                                         |
 | --------------------- | --------- | ---------------- | -------- | ------------------------------------------------------------------- |
 | `Type`                | `VARIANT` | `Information`    | `true`   | Semantic alert type. Options: `Information`, `Warning`, `Positive`. |
 | `Change_Message_Text` | `TEXT`    | `Text text text` | `false`  | Overrides the main alert message copy.                              |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -98,12 +102,14 @@ Current variant dimensions in Figma:
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant       | Differentiating token(s)                                               | Fallback value(s)    | Visual indicator                                         |
 | ------------- | ---------------------------------------------------------------------- | -------------------- | -------------------------------------------------------- |
 | `Information` | `Color/Border/Feedback/Information`, `Color/Icon/Feedback/Information` | `#BAA06B`, `#9D8555` | `information-circle-contained` icon + information border |
 | `Warning`     | `Color/Border/Feedback/Danger`, `Color/Icon/Feedback/Danger`           | `#B22222`, `#B22222` | `x-circle-contained` icon + warning border               |
 | `Positive`    | `Color/Border/Feedback/Success`, `Color/Icon/Feedback/Success`         | `#299157`, `#299157` | `check-contained` icon + success border                  |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma component set.

@@ -37,20 +37,24 @@ The **Step** component represents one progress item in a multi-step flow.
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Marker**: Circular step indicator with step number.
 2. **Label**: Text caption for the step.
 3. **Connector context**: Visual relation to adjacent steps in composition.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `State` | `VARIANT` | `Default` | `true` | Visual emphasis state for the step item. |
 | `Change_Number` | `TEXT` | `1` | `false` | Step number content. |
 | `Change_Text` | `TEXT` | `STEP TEXT` | `false` | Step label content. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -65,11 +69,13 @@ The **Step** component represents one progress item in a multi-step flow.
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `State=Default` | `TBD` | `TBD` | Inactive step visual. |
 | `State=Active` | `TBD` | `TBD` | Current step visual emphasis. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: `State=Default`.

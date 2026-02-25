@@ -40,14 +40,17 @@ Source: [Tags-List in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): horizontal auto-layout wrapper.
 2. **Tag item** (`INSTANCE`): repeated `Tag` components.
 3. **Visibility controls** (`BOOLEAN` properties): toggle each slot independently.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Size` | `VARIANT` | `Small` | `true` | Controls size variant and spacing for the list. |
@@ -62,6 +65,7 @@ Source: [Tags-List in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu
 | `Show Tag_9` | `BOOLEAN` | `true` | `false` | Toggles visibility of tag item 9. |
 | `Show Tag_10` | `BOOLEAN` | `true` | `false` | Toggles visibility of tag item 10. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -87,11 +91,13 @@ Source: [Tags-List in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Size=Small` | `TBD` | `TBD` | Dense row of compact tag items with 4px gap. |
 | `Size=Medium` | `TBD` | `TBD` | Taller row with 8px spacing and larger tag instances. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no internal interactive states in the current Figma definition.

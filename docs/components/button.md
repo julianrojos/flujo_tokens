@@ -51,6 +51,7 @@ Source: [Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PF
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 | Part              | Type                     | Size / Values | Description                     |
 | ----------------- | ------------------------ | ------------- | ------------------------------- |
 | **Container**     | `HORIZONTAL` Auto Layout | `133 x 44`    | Main button frame with styling. |
@@ -62,10 +63,12 @@ Current variant dimensions in Figma:
 
 - All variants: `133 x 44`
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name                 | Type            | Default   | Required | Description                                                                |
 | -------------------- | --------------- | --------- | -------- | -------------------------------------------------------------------------- |
 | `State`              | `VARIANT`       | `Default` | `true`   | Interaction state axis. Options: `Default`, `Hover`, `Active`, `Disabled`. |
@@ -77,6 +80,7 @@ Current variant dimensions in Figma:
 | `↳ Change icn left`  | `INSTANCE_SWAP` | `arrow-left-square-contained`  | `false`  | Swaps the leading icon instance from preferred icon options.               |
 | `↳ Change icn right` | `INSTANCE_SWAP` | `arrow-right-square-contained` | `false`  | Swaps the trailing icon instance from preferred icon options.              |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -133,6 +137,7 @@ Current variant dimensions in Figma:
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Type        | State      | Differentiating token(s)                                                                        | Fallback value(s)                 | Visual indicator                                | Node      |
 | ----------- | ---------- | ----------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------- | --------- |
 | `Primary`   | `Default`  | `Color/Background/Action/Primary/Default`, `Color/Text/Action/On-Primary`, shadow `100` set     | `#ADD8E6`, `#483F3F`, `#00000014` | Blue background, dark text/icons, medium shadow | `59:391`  |
@@ -148,6 +153,7 @@ Current variant dimensions in Figma:
 | `Cancel`    | `Active`   | `Color/Background/Action/Danger/Active`, `Color/Text/Action/On-Danger`                          | `#901212`, `#FFFFFF`              | Darker red background, no shadow                | `77:4322` |
 | `Cancel`    | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled`                     | `#ECECEC`, `#5D5252`              | Neutral disabled surface and text               | `77:4374` |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - **Default**: Uses each type’s `/Default` background token and the shadow `100` token set.

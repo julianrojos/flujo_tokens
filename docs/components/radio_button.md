@@ -37,17 +37,21 @@ The **Radio Button** component represents one mutually exclusive selection contr
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Control ring**: Outer circular radio control.
 2. **Selected indicator**: Inner dot visible in checked state.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `State` | `VARIANT` | `Default` | `true` | Visual state of the radio control. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -61,11 +65,13 @@ The **Radio Button** component represents one mutually exclusive selection contr
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `State=Default` | `TBD` | `TBD` | Unselected radio visual. |
 | `State=Checked` | `TBD` | `TBD` | Selected radio visual with inner indicator. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: `State=Default`.

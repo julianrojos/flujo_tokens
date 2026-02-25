@@ -32,17 +32,21 @@ The **Radio Button Label** component combines one radio control with adjacent la
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Radio control**: Nested `Radio-Button` instance.
 2. **Label frame**: Text container for option label.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Change_Radio_Label_Text` | `TEXT` | `Label` | `false` | Overrides visible option label text. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -56,10 +60,12 @@ The **Radio Button Label** component combines one radio control with adjacent la
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `N/A` | `TBD` | `TBD` | No variant axis on this composed component. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default/Checked state behavior is delegated to nested `Radio-Button` instance.

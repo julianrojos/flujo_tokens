@@ -32,14 +32,17 @@ The **Stepper** component arranges multiple Step items to communicate linear pro
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Stepper container**: Wrapper frame for step items.
 2. **Step item instances**: Repeated `Step` components.
 3. **Visibility toggles**: Boolean properties controlling each step slot.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Show_Step_1` | `BOOLEAN` | `true` | `false` | Toggles visibility of step 1. |
@@ -47,6 +50,7 @@ The **Stepper** component arranges multiple Step items to communicate linear pro
 | `Show_Step_3` | `BOOLEAN` | `true` | `false` | Toggles visibility of step 3. |
 | `Show_Step_4` | `BOOLEAN` | `true` | `false` | Toggles visibility of step 4. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -61,10 +65,12 @@ The **Stepper** component arranges multiple Step items to communicate linear pro
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `N/A` | `TBD` | `TBD` | No variant axis; behavior configured via visibility booleans. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: All step toggles are `true` in source component.

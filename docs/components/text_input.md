@@ -37,16 +37,19 @@ The **Text Input** component captures single-line textual data with optional lab
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Field container**: Main input surface and border.
 2. **Label**: Optional text label.
 3. **Value/Placeholder**: Content area text.
 4. **Type icon**: Optional leading icon slot.
 5. **Support message**: Optional validation/helper text.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Type` | `VARIANT` | `Default` | `true` | Visual and semantic state of the input field. |
@@ -60,6 +63,7 @@ The **Text Input** component captures single-line textual data with optional lab
 | `Show_message_layer` | `BOOLEAN` | `true` | `false` | Toggles message layer container visibility. |
 | `Show_label` | `BOOLEAN` | `true` | `false` | Toggles label visibility. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -77,6 +81,7 @@ The **Text Input** component captures single-line textual data with optional lab
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `Type=Default` | `TBD` | `TBD` | Neutral input state. |
@@ -84,6 +89,7 @@ The **Text Input** component captures single-line textual data with optional lab
 | `Type=Success` | `TBD` | `TBD` | Validation success style. |
 | `Type=Error` | `TBD` | `TBD` | Validation error style. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: `Type=Default`.

@@ -44,19 +44,23 @@ Source: [Illustration-Block in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
 2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Orientation` | `VARIANT` | `Illustration_Left` | `true` | Variant selector extracted from Figma property `Orientation`. Allowed values: `Illustration_Left`, `Illustration_Right`. |
 | `Change_Text` | `TEXT` | `Your message here` | `false` | Property extracted from Figma property `Change_Text`. |
 | `Change_Illustration` | `INSTANCE_SWAP` | `2065:135` | `false` | Property extracted from Figma property `Change_Illustration`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -77,11 +81,13 @@ Source: [Illustration-Block in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Orientation=Illustration_Left` | `TBD` | `TBD` | Variant captured from Figma property `Orientation`. |
 | `Orientation=Illustration_Right` | `TBD` | `TBD` | Variant captured from Figma property `Orientation`. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

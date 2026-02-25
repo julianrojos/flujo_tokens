@@ -32,14 +32,17 @@ The **Radio Button List** component groups multiple labeled radio options into o
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **List container**: Wrapper for the option rows.
 2. **Option rows**: Repeated `Radio-Button-Label` instances.
 3. **Visibility toggles**: Boolean properties controlling each option slot.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Show_Radio_Button_Label_1` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 1. |
@@ -49,6 +52,7 @@ The **Radio Button List** component groups multiple labeled radio options into o
 | `Show_Radio_Button_Label_5` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 5. |
 | `Show_Radio_Button_Label_6` | `BOOLEAN` | `true` | `false` | Toggles visibility of option 6. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -63,10 +67,12 @@ The **Radio Button List** component groups multiple labeled radio options into o
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `N/A` | `TBD` | `TBD` | No variant axis; configuration is driven by option visibility booleans. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: All option toggles `true` in source component.

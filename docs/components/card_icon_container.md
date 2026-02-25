@@ -43,18 +43,22 @@ Source: [Card-Icon-Container in Figma](https://www.figma.com/design/3hGC1ju0d5AK
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
 2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Background_Color` | `VARIANT` | `Background_Color1` | `true` | Variant selector extracted from Figma property `Background_Color`. Allowed values: `Background_Color1`, `Background_Color2`, `Background_Color3`, `Background_Color4`, `Background_Color5`, `Background_Color6`. |
 | `Change_Icon` | `INSTANCE_SWAP` | `65:710` | `false` | Property extracted from Figma property `Change_Icon`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -79,6 +83,7 @@ Source: [Card-Icon-Container in Figma](https://www.figma.com/design/3hGC1ju0d5AK
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Background_Color=Background_Color1` | `TBD` | `TBD` | Variant captured from Figma property `Background_Color`. |
@@ -88,6 +93,7 @@ Source: [Card-Icon-Container in Figma](https://www.figma.com/design/3hGC1ju0d5AK
 | `Background_Color=Background_Color5` | `TBD` | `TBD` | Variant captured from Figma property `Background_Color`. |
 | `Background_Color=Background_Color6` | `TBD` | `TBD` | Variant captured from Figma property `Background_Color`. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

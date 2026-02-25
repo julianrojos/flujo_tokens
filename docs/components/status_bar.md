@@ -43,6 +43,7 @@ Source: [Status-Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIy
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 Each status bar contains:
 
 1. **Container** (`COMPONENT`, `440 x 44`)
@@ -53,14 +54,17 @@ Each status bar contains:
    - `Wifi` (`VECTOR`)
    - `Battery` (`VECTOR`)
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name         | Type      | Default       | Required | Description                                        |
 | ------------ | --------- | ------------- | -------- | -------------------------------------------------- |
 | `Background` | `VARIANT` | `Transparent` | `true`   | Background style. Options: `Transparent`, `Brand`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -105,11 +109,13 @@ Each status bar contains:
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant                  | Differentiating token(s)           | Fallback value(s) | Visual indicator             |
 | ------------------------ | ---------------------------------- | ----------------- | ---------------------------- |
 | `Background=Transparent` | `—`                                | `Transparent`     | No background fill           |
 | `Background=Brand`       | `Color/Background/Brand/Secondary` | `#C9E0BE`         | Brand secondary surface fill |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states.

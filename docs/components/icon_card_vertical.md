@@ -45,13 +45,16 @@ Source: [Icon-Card-Vertical in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
 2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Background` | `VARIANT` | `Palette_1` | `true` | Variant selector extracted from Figma property `Background`. Allowed values: `Palette_2`, `Palette_3`, `Palette_4`, `Palette_6`, `Palette_7`, `Palette_1`. |
@@ -59,6 +62,7 @@ Source: [Icon-Card-Vertical in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 | `Change_Card_Title` | `TEXT` | `Icon card title icon card title` | `false` | Property extracted from Figma property `Change_Card_Title`. |
 | `Change_Icon` | `INSTANCE_SWAP` | `65:1033` | `false` | Property extracted from Figma property `Change_Icon`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -83,6 +87,7 @@ Source: [Icon-Card-Vertical in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `Background=Palette_2` | `TBD` | `TBD` | Variant captured from Figma property `Background`. |
@@ -92,6 +97,7 @@ Source: [Icon-Card-Vertical in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 | `Background=Palette_7` | `TBD` | `TBD` | Variant captured from Figma property `Background`. |
 | `Background=Palette_1` | `TBD` | `TBD` | Variant captured from Figma property `Background`. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 This component has no interactive states in the current Figma definition.

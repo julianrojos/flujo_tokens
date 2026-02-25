@@ -32,18 +32,22 @@ The **Checkbox Label** component combines a checkbox control with adjacent text 
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Checkbox instance**: Nested `Checkbox` instance (`24 x 24`).
 2. **Label text**: Text layer (`Label`) rendered to the right of the control.
 3. **Auto layout row**: Horizontal container with `8px` item spacing.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `Change_Text` | `TEXT` | `Label` | `false` | Overrides the visible label string. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -63,10 +67,12 @@ The **Checkbox Label** component combines a checkbox control with adjacent text 
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Token | Fallback | Notes |
 | --- | --- | --- | --- |
 | `N/A` | `TBD` | `TBD` | This component has no variant axis in Figma. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 - Default: Visible checkbox plus label text.

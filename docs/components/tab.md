@@ -43,18 +43,22 @@ Source: [Tab in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 1. **Container** (`COMPONENT`): hosts the primary layout and visual surface.
 2. **Content** (`TEXT/INSTANCE`): variant-dependent content slots and text values.
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name | Type | Default | Required | Description |
 | --- | --- | --- | --- | --- |
 | `State` | `VARIANT` | `Default` | `true` | Variant selector extracted from Figma property `State`. Allowed values: `Default`, `Selected`. |
 | `Change_Tab_Text` | `TEXT` | `TBD` | `false` | Property extracted from Figma property `Change_Tab_Text`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -75,11 +79,13 @@ Source: [Tab in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant | Differentiating token(s) | Fallback value(s) | Visual indicator |
 | --- | --- | --- | --- |
 | `State=Default` | `TBD` | `TBD` | Variant captured from Figma property `State`. |
 | `State=Selected` | `TBD` | `TBD` | Variant captured from Figma property `State`. |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 State variants in Figma:

@@ -34,6 +34,7 @@ Source: [Bottom_Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIy
 
 ## Anatomy
 
+<!-- AUTO-GENERATED-ANATOMY:START -->
 Each bottom bar contains:
 
 1. **Container** (`COMPONENT`, `440 x 80`)
@@ -41,18 +42,21 @@ Each bottom bar contains:
 3. **Per-button icon slot** (`INSTANCE`, default icon component)
 4. **Per-button text label** (`TEXT`, default `Text`)
 
+<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 The root `Bottom_Bar` component does not expose root-level component properties. Available properties are exposed by each nested `Bottom_Bar_Button` item.
 
 ### Properties
 
+<!-- AUTO-GENERATED-PROPERTIES:START -->
 | Name                                 | Type            | Default                 | Required | Description                                        |
 | ------------------------------------ | --------------- | ----------------------- | -------- | -------------------------------------------------- |
 | `Item.Change_Bottom_Bar_Button_Icon` | `INSTANCE_SWAP` | `default icon instance` | `TBD`    | Replaces the icon rendered in each button item.    |
 | `Item.Change_Text`                   | `TEXT`          | `Text`                  | `TBD`    | Overrides the label text for each button item.     |
 | `Item.State`                         | `VARIANT`       | `Default`               | `true`   | Item visual state. Options: `Default`, `Selected`. |
 
+<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
 
 ### Container
@@ -108,11 +112,13 @@ The root `Bottom_Bar` component does not expose root-level component properties.
 
 ## Variants
 
+<!-- AUTO-GENERATED-VARIANTS:START -->
 | Variant group | Variant name | Differentiating token(s) | Fallback value(s) | Visual indicator                       |
 | ------------- | ------------ | ------------------------ | ----------------- | -------------------------------------- |
 | `Item.State`  | `Default`    | `TBD`                    | `TBD`             | Neutral, unselected item appearance    |
 | `Item.State`  | `Selected`   | `TBD`                    | `TBD`             | Selected/active destination appearance |
 
+<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
 The root container has no independent interaction state. State behavior is controlled by each nested button item.
