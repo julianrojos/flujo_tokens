@@ -90,3 +90,16 @@ export type {
   ShouldSkipTaskResult,
   UpdateTaskStateOptions,
 } from "./cache-utils.js";
+
+// Component name utilities
+export {
+  componentNameToSnakeCase,
+  componentNameToDisplayName,
+  normalizeComponentName,
+  componentNameFromFilePath,
+  isSnakeCaseFileSlug,
+} from "./component-name.js";
+
+export type {
+  NormalizedComponentName,
+} from "./component-name.js";
