@@ -117,3 +117,26 @@ export {
 export type {
   TokenRegistryEntry,
 } from "./spec-token-mapping.js";
+
+// Figma API utilities
+export {
+  buildFigmaFileEndpoint,
+  fetchFigmaFile,
+  fetchFigmaNodes,
+  fetchFigmaLocalVariables,
+  fetchFigmaImages,
+  normalizePositiveInteger,
+  sanitizeToken,
+  normalizeFileKey,
+} from "./figma-api.js";
+
+export type {
+  FigmaColor,
+  FigmaNode,
+  FigmaFileResponse,
+  FigmaNodesResponse,
+  FigmaApiOptions,
+  FetchFigmaFileOptions,
+  FetchFigmaNodesOptions,
+  FetchFigmaImagesOptions,
+} from "./figma-api.js";
