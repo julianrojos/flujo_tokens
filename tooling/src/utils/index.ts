@@ -123,6 +123,9 @@ export { runTokenDiff } from '../runners/token-diff-runner.js';
 // Tokens sync runners
 export { runTokensSync } from '../runners/tokens-sync-runner.js';
 
+// Tokens from Figma runners
+export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';
+
 // Command execution utilities
 export {
   parseJsonFromText,
