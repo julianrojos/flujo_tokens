@@ -1,68 +1,119 @@
 ---
-description: Review pre-commit: examina cambios línea a línea, detecta bugs/regresiones probables y propone mejoras con umbrales de confianza.
+description: Review pre-commit (staged-first): examina cambios línea a línea, detecta bugs/regresiones probables y propone mejoras con umbrales de confianza, minimizando ruido.
 ---
 
-# /review — Pre-stage code review
+# /review — Pre-commit code review (staged-first)
 
-Este comando realiza una auditoría crítica de los cambios locales antes de ser confirmados (staged o commit). No se debe cambiar el código en este momento, sólo comprenderlo y revisarlo. Se enfoca en la calidad técnica, la seguridad y la prevención de regresiones, evitando ruido innecesario.
+Este comando realiza una auditoría crítica de los cambios locales **antes de commitear** (por defecto: **staged**, con fallback al working tree).  
+**No se debe cambiar el código en este momento**: solo comprenderlo y revisarlo. Enfoque: calidad técnica, seguridad y prevención de regresiones, evitando ruido.
 
 ## Objetivos del Review
 
-- **Bugs Críticos (Confianza ≥ 50%):** Identificar errores de lógica, fugas de memoria o fallos. Buscar la **raíz**, no el síntoma.
-- **Regresiones (Confianza ≥ 50%):** Detectar si el cambio rompe funcionalidades existentes en otras partes del sistema o invalida contratos previos.
-- **Mejoras Técnicas (Confianza ≥ 70%):** Sugerir refactorizaciones, mejoras de legibilidad o uso de patrones más adecuados del proyecto.
+- **Bugs (Confianza ≥ 50%)**: identificar errores de lógica, fallos, fugas, edge cases relevantes. Buscar la **causa raíz**, no el síntoma.
+- **Regresiones (Confianza ≥ 50%)**: detectar si el cambio rompe comportamiento previo o contratos existentes.
+- **Mejoras técnicas (Confianza ≥ 70%)**: sugerir refactors/mejoras de legibilidad o patrones más adecuados al proyecto.
 
 ## Reglas de Oro
 
-1. **No cambies el código:** Limítate a emitir una revisión informada.
-2. **Línea a línea:** Analiza cada cambio en el diff, pero entiende el contexto del archivo completo.
-3. **Sin validaciones positivas:** No digas qué está bien. Si no hay nada que reportar, termina con un breve mensaje indicando que no se han encontrado problemas significativos.
-4. **Sin redundancias:** Si una solución, mejora o fix ya está implementado en el código actual, no lo menciones: se trata de proponer mejoras o informar de posibles errores o regresiones, no de informar sobre qué se ha hecho.
-5. **Laconismo y Directo:** Sé breve pero explicativo. Usa el mínimo de palabras posible para asegurar la claridad. Sin "sugarcoating" ni cortesías innecesarias.
-6. **Humildad en soluciones:** Para bugs y regresiones, propón una solución breve pero **advirtiendo que debe explorarse una alternativa mejor** (incluye al menos una idea alternativa).
-7. **Contexto Real:** No inventes errores. Basa tus sospechas en el código y el stack tecnológico del proyecto.
+1) **No cambies el código**: solo revisión informada.  
+2) **Scope staged-first**: revisa primero lo que realmente se va a commitear (staged). Si no hay staged, revisa working tree.  
+3) **Línea a línea con contexto**: analiza cada hunk del diff, pero valida con el contexto del archivo cuando sea necesario.  
+4) **Sin validaciones positivas**: no digas qué está bien. Si no hay hallazgos, termina con el mensaje final ✅.  
+5) **Sin redundancias (filtrado)**: si un hallazgo ya está resuelto en el código actual (incluyendo contexto alrededor del diff) o en el propio diff, **no lo incluyas**. No escribas “ya está solucionado”: **omítelo**.  
+6) **Laconismo y directo**: breve pero explicativo. Sin cortesías innecesarias.  
+7) **Proactividad en soluciones**: en bugs/regresiones, sugiere una solución breve y **1 alternativa** que podría ser mejor (si no se te ocurre, admítelo).  
+8) **Contexto real (anti-invención)**: basa todo en evidencia del diff/código/stack. Si no hay evidencia suficiente, **no lo afirmes como hallazgo**.  
+9) **Gates (anti-ruido)**:  
+   - No informes de **BUG/REGRESIÓN** por debajo de 50%.  
+   - No informes de **MEJORA** por debajo de 70%.  
+   - Excepción: si el riesgo potencial es alto pero no puedes superar el umbral, añádelo como **“Pregunta de verificación”** (máx. 3) al final, sin etiquetarlo como hallazgo.
 
 ---
 
-## Paso 1 — Obtener los cambios
+## Paso 1 — Obtener los cambios (staged-first)
 
 // turbo
-
 1. Ejecuta:
    ```bash
    git status --porcelain=v1
    ```
-2. Si hay cambios en el **index (staged)**, extrae el diff de ellos:
+
+// turbo
+2. Si hay cambios staged, extrae el diff staged:
    ```bash
    git diff --staged --no-color
    ```
-3. Si **NO hay cambios staged**, avisa al usuario y extrae el diff del **working tree** (cambios sin stage):
+   Si **NO** hay cambios staged, avisa al usuario y extrae el diff del working tree:
    ```bash
    git diff --no-color
    ```
 
-## Paso 2 — Análisis y Diagnóstico
+// turbo
+3. Saca una vista rápida del alcance:
+   ```bash
+   git diff --staged --stat --no-color || git diff --stat --no-color
+   ```
 
-Para cada archivo y bloque de código modificado:
+---
 
-1. **Verifica Tipado:** ¿Hay riesgos de `any`, `null` o `undefined` no controlados?
-2. **Contratos:** ¿Se están respetando las reglas de `general-programming-principles.md?` (Early returns, naming, etc.)
-3. **Efectos Secundarios:** En el pipeline de herramientas (`tooling/`), ¿el cambio afecta a otros comandos?
-4. **Lógica de Raíz:** Si ves un fix, ¿está arreglando el origen del dato o solo "tapando" el error en la UI?
+## Paso 2 — Análisis y Diagnóstico (línea a línea + checks)
 
-## Paso 3 — Reporte de Hallazgos
+Para cada archivo y hunk modificado:
 
-Presenta los resultados en este formato:
+1) **Verifica tipado**  
+   - Riesgos de `any`, `unknown` mal acotado, `null/undefined` no controlados.  
+   - Narrowing y guards consistentes con el estilo del repo.
+
+2) **Contratos del proyecto**  
+   - ¿Respeta `general-programming-principles.md`? (naming, early returns, etc.)
+
+3) **Efectos secundarios / acoplamientos**  
+   - Si toca `tooling/`, ¿afecta a otros comandos?  
+   - Si toca APIs/utilidades, ¿rompe consumidores aguas abajo?
+
+4) **Lógica de raíz**  
+   - Si parece un “fix”: ¿arregla el origen del dato o solo tapa el síntoma (UI/handler)?
+
+5) **Seguridad y secretos (check explícito)**  
+   - ¿Se han añadido keys/tokens/URLs privadas?  
+   - ¿Entradas validadas/sanitizadas donde toca?  
+   - ¿Cambios en dependencias/lockfiles con riesgo? (si aplica)
+
+### Filtro de redundancias (antes de reportar)
+Antes de incluir un hallazgo:
+- Verifica si ya está mitigado en el propio diff o en el contexto cercano del archivo.
+- Si necesitas más contexto, obténlo de forma read-only (elige una):
+  - Re-diff con más contexto del archivo:
+    ```bash
+    git diff --staged --no-color -U20 -- <ruta-del-archivo> || git diff --no-color -U20 -- <ruta-del-archivo>
+    ```
+  - O inspecciona el archivo alrededor del cambio (sin editar) con el visor/lectura del IDE.
+
+Si está ya resuelto → **omite el punto** (no lo menciones).
+
+---
+
+## Paso 3 — Reporte de Hallazgos (solo si pasan gates)
+
+Presenta resultados agrupados por archivo, en este formato:
 
 ### 📁 [Ruta del archivo]
 
 - **[TIPO] (Confianza: XX%)** — _[Descripción concisa del hallazgo]_
-  - **Sugerencia:** [Solución recomendada]
-  - **Nota:** Esta solución es inmediata, pero se debería considerar: _[Opción alternativa/mejor]_
+  - **Evidencia:** [hunk/fragmento específico del diff o referencia clara]
+  - **Causa raíz probable:** [1 frase]
+  - **Sugerencia:** [solución recomendada, breve]
+  - **Alternativa:** [otra opción que podría ser mejor + por qué] / “No se me ocurre una alternativa mejor con el contexto actual”
+  - **Riesgo de regresión (si aplica):** [qué podría romper + mitigación breve]
 
 _(Tipos: BUG, REGRESIÓN, MEJORA)_
 
+### Preguntas de verificación (solo si alto riesgo y no supera umbral; máx. 3)
+- **[Pregunta]** — _[qué habría que comprobar para elevar la confianza]_  
+  - **Evidencia parcial:** [qué te lo sugiere]  
+  - **Qué faltaría:** [test, contrato, caso borde, archivo relacionado, etc.]
+
 ---
 
-_Si no hay hallazgos:_
+### Si no hay hallazgos (y sin preguntas de verificación)
 "✅ No se han detectado bugs, regresiones o mejoras críticas con el umbral de confianza requerido."

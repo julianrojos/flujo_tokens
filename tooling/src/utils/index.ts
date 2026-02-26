@@ -129,6 +129,9 @@ export { runTokensFromFigma } from '../runners/tokens-from-figma-runner.js';
 // Component doc runners
 export { runComponentDoc } from '../runners/component-doc-runner.js';
 
+// Spec to markdown runners
+export { runSpecToMarkdown } from '../runners/spec-to-markdown-runner.js';
+
 // Validate docs runners
 export { runValidateDocs } from '../runners/validate-docs-runner.js';
 
@@ -238,6 +241,32 @@ export {
   pickBestTokenPath,
   prefillTokenMapping,
 } from './spec-token-mapping.js';
+
+// Spec to markdown utilities
+export {
+  makeHeader,
+  processZone,
+  renderAnatomyMarkdown,
+  renderPropertiesTable,
+  renderLayoutTable,
+  renderVariantSpecs,
+  renderVariantRows,
+  injectSpecZones,
+  isSpecInput,
+} from '../services/spec-to-markdown.js';
+
+export type {
+  ZoneProcessResult,
+  SpecToMarkdownResult,
+} from '../services/spec-to-markdown.js';
+
+export type {
+  SpecAnatomyItem,
+  SpecProperty,
+  SpecLayoutItem,
+  SpecVariant,
+  SpecToMarkdownInput,
+} from '../types/spec.js';
 
 // Figma API utilities
 export {

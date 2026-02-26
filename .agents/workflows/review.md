@@ -2,4 +2,4 @@
 description:
 ---
 
-For workflows, refer to .agent/workflows/review.md
+For /review, refer to .agent/workflows/review.md
