@@ -338,13 +338,14 @@ function main() {
     `${FIGMA_DOC_MODELS_DIR}/${componentName.toLowerCase()}.doc-model.json`;
 
   const markdown = fs.readFileSync(markdownPath, "utf8");
-  const { content } = parseMarkdownFrontmatter(markdown);
+  const { content, frontmatter } = parseMarkdownFrontmatter(markdown);
   const blocks = parseMarkdown(content);
   const model = {
     version: 2,
     componentName,
     markdownPath,
     title: deriveTitle(blocks, componentName),
+    frontmatter: frontmatter || {},
     blocks,
     stats: summarizeBlocks(blocks),
   };

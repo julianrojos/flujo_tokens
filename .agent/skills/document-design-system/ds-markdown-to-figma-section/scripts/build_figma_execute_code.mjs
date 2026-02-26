@@ -836,6 +836,103 @@ function createChip(parent, label, theme) {
   });
 }
 
+function createCodeBlock(parent, codeBlock, theme) {
+  // Helper to apply consistent styling to code block frames
+  function applyCodeBlockStyle(frame, { isPlaceholder = false } = {}) {
+    const bgColor = resolveColor(theme, tokenColors, "code_bg", "#F5F5F5");
+    const borderColor = isPlaceholder 
+      ? resolveColor(theme, tokenColors, "code_text", "#2D2D2D") 
+      : resolveColor(theme, tokenColors, "code_border", "#E0E0E0");
+    
+    frame.fills = [solid(bgColor, 1)];
+    frame.strokes = [solid(borderColor, isPlaceholder ? 0.3 : 1)];
+    frame.strokeWeight = Number(getPath(theme, "components.code_block.stroke_weight", 1));
+    frame.cornerRadius = resolveRadiusValue(
+      theme,
+      tokenDimensions,
+      getPath(theme, "components.code_block.border_radius", 6),
+      6
+    );
+    const padding = Number(getPath(theme, "components.code_block.padding", 12));
+    frame.paddingTop = padding;
+    frame.paddingRight = padding;
+    frame.paddingBottom = padding;
+    frame.paddingLeft = padding;
+  }
+
+  const codeText = String(codeBlock.text || "");
+  if (!codeText.trim()) {
+    // Render empty state placeholder instead of returning null
+    const codeCard = createVerticalFrame("CodeBlock");
+    codeCard.layoutAlign = "STRETCH";
+    applyCodeBlockStyle(codeCard, { isPlaceholder: true });
+    parent.appendChild(codeCard);
+    
+    const placeholderNode = figma.createText();
+    const monoFamily = getPath(theme, "theme.typography.font_family_mono", "Roboto Mono");
+    const codeSize = Number(getPath(theme, "theme.typography.code_size", 13));
+    placeholderNode.fontName = { family: monoFamily, style: "Regular" };
+    placeholderNode.fontSize = codeSize;
+    placeholderNode.lineHeight = { unit: "PIXELS", value: codeSize * 1.5 };
+    const textColor = resolveColor(theme, tokenColors, "code_text", "#2D2D2D");
+    placeholderNode.fills = [solid(textColor, 0.5)];
+    placeholderNode.textAutoResize = "HEIGHT";
+    placeholderNode.characters = "// Empty code block";
+    codeCard.appendChild(placeholderNode);
+    return codeCard;
+  }
+
+  const codeCard = createVerticalFrame("CodeBlock");
+  codeCard.layoutAlign = "STRETCH";
+  applyCodeBlockStyle(codeCard);
+  parent.appendChild(codeCard);
+  
+  // Get code language
+  const language = String(codeBlock.language || "");
+  
+  // Create language label if present
+  if (language) {
+    const langChip = createHorizontalFrame("CodeLanguage");
+    langChip.paddingTop = 4;
+    langChip.paddingBottom = 4;
+    langChip.paddingLeft = 8;
+    langChip.paddingRight = 8;
+    langChip.fills = [solid(resolveColor(theme, tokenColors, "code_language_bg", "#E8E8E8"), 1)];
+    langChip.cornerRadius = 4;
+    codeCard.appendChild(langChip);
+    
+    createText(langChip, language, "body_small", theme, {
+      colorOverride: resolveColor(theme, tokenColors, "code_text", "#2D2D2D"),
+      wrap: false,
+    });
+  }
+  
+  // Create code text with monospace font
+  const monoFamily = getPath(theme, "theme.typography.font_family_mono", "Roboto Mono");
+  const codeSize = Number(getPath(theme, "theme.typography.code_size", 13));
+  const codeLineHeight = Number(getPath(theme, "theme.typography.code_line_height", 20));
+  
+  const codeNode = figma.createText();
+  codeNode.fontName = { family: monoFamily, style: "Regular" };
+  codeNode.fontSize = codeSize;
+  codeNode.lineHeight = { unit: "PIXELS", value: codeLineHeight };
+  codeNode.fills = [solid(textColor, 1)];
+  codeNode.textAutoResize = "HEIGHT";
+  codeNode.characters = codeText;
+  codeCard.appendChild(codeNode);
+  
+  // Resize code node to fit parent width
+  const parentWidth = "width" in parent ? Number(parent.width || 0) : 0;
+  const padLeft = "paddingLeft" in codeCard ? Number(codeCard.paddingLeft || 0) : 0;
+  const padRight = "paddingRight" in codeCard ? Number(codeCard.paddingRight || 0) : 0;
+  const targetWidth = Math.max(1, parentWidth - padLeft - padRight);
+  if (targetWidth > 1) {
+    codeNode.resize(targetWidth, codeNode.height);
+  }
+  
+  return codeCard;
+}
+
 function resolveTableMinRowHeight(theme, cellPaddingV) {
   const configured = getPath(theme, "components.table_card.table.min_row_height", null);
   const configuredString = String(configured == null ? "" : configured).trim().toLowerCase();
@@ -1273,6 +1370,43 @@ chipsRow.itemSpacing = Number(getPath(theme, "components.chips_row.item_spacing"
 chipsRow.layoutAlign = "STRETCH";
 canvas.appendChild(chipsRow);
 
+// Add status badge if doc_status is present in frontmatter
+const docStatus = model.frontmatter?.doc_status;
+if (docStatus) {
+  const statusLabel = String(docStatus).replace(/-/g, " ").toUpperCase();
+  const statusChip = createHorizontalFrame("Status/" + statusLabel);
+  statusChip.itemSpacing = 0;
+  statusChip.layoutAlign = "FIXED";
+  
+  // Color coding for status
+  let statusBgColor = "#F6EFE4"; // default (needs-review)
+  let statusTextColor = "chip_text";
+  
+  if (docStatus === "draft") {
+    statusBgColor = resolveColor(theme, tokenColors, "status_draft_bg", "#FFF4E5");
+    statusTextColor = resolveColor(theme, tokenColors, "status_draft_text", "#B7894C");
+  } else if (docStatus === "ready") {
+    statusBgColor = resolveColor(theme, tokenColors, "status_ready_bg", "#E8F5E9");
+    statusTextColor = resolveColor(theme, tokenColors, "status_ready_text", "#2E7D32");
+  } else if (docStatus === "needs-review") {
+    statusBgColor = resolveColor(theme, tokenColors, "status_needs_review_bg", "#FFF8E1");
+    statusTextColor = resolveColor(theme, tokenColors, "status_needs_review_text", "#F57F17");
+  }
+  
+  statusChip.paddingTop = 4;
+  statusChip.paddingBottom = 4;
+  statusChip.paddingLeft = 8;
+  statusChip.paddingRight = 8;
+  statusChip.fills = [solid(statusBgColor, 1)];
+  statusChip.cornerRadius = 4;
+  chipsRow.appendChild(statusChip);
+  
+  const statusText = createText(statusChip, statusLabel, "body_small", theme, {
+    colorOverride: statusTextColor,
+    wrap: false,
+  });
+}
+
 const sectionCount = blocks.filter(
   (block) => block.type === "heading" && Number(block.level) === 2
 ).length;
@@ -1334,12 +1468,7 @@ for (let blockIndex = 0; blockIndex < blocks.length; blockIndex += 1) {
 
   if (block.type === "code_block") {
     renderedCount.code_block += 1;
-    unsupportedBlocks.push({
-      index: blockIndex,
-      type: "code_block",
-      reason: "Rendered as fallback paragraph",
-    });
-    createText(currentCard, "[code block omitted in visual render]", "body", theme, {});
+    createCodeBlock(currentCard, block, theme);
     continue;
   }
 
