@@ -37,6 +37,7 @@ import {
 } from '../services/capture-visual-proof-services.js';
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { isMain } from '../utils/is-main.js';
+import { isPlainObject } from '../utils/is-plain-object.js';
 import { runAgentPrompt } from '../services/agent-runner.js';
 import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 import {
@@ -197,7 +198,7 @@ function resolveNodeId({
   if (!nodeId || !isValidNodeId(nodeId)) {
     throw new Error(
       'Unable to resolve a valid figma.component_set_node_id from spec. ' +
-        'Provide --component-set-id explicitly or update the spec.',
+      'Provide --component-set-id explicitly or update the spec.',
     );
   }
   return nodeId;
@@ -255,7 +256,7 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
   );
   const proofImageDir = path.resolve(
     args['proof-image-dir'] ||
-      path.join(ctx.paths.generated, 'visual-proofs', 'images'),
+    path.join(ctx.paths.generated, 'visual-proofs', 'images'),
   );
   const format = String(args.format || 'png').trim().toLowerCase();
   const scale = Number(args.scale || 2);
@@ -350,8 +351,7 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
       normalizedNodeId = nodeId;
     } catch (error) {
       logger.error(
-        `Main screenshot capture via REST failed: ${
-          error instanceof Error ? error.message : String(error)
+        `Main screenshot capture via REST failed: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       process.exit(1);
@@ -371,18 +371,18 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     }
 
     const payload = extractFirstJsonObject(response.stdout || '');
-    if (!payload || typeof payload !== 'object') {
+    if (!isPlainObject(payload)) {
       logger.error(
         'Unable to parse JSON screenshot payload from agent output. ' +
-          'Run again with --agent codex and verify MCP connectivity.',
+        'Run again with --agent codex and verify MCP connectivity.',
       );
       process.exit(1);
     }
 
     imageUrlRaw = String(
-      (payload as Record<string, string>).image_url || (payload as Record<string, string>).url || (payload as Record<string, string>).imageUrl || '',
+      (payload as Record<string, unknown>).image_url || (payload as Record<string, unknown>).url || (payload as Record<string, unknown>).imageUrl || '',
     ).trim();
-    const nodeIdRaw = String((payload as Record<string, string>).node_id || (payload as Record<string, string>).nodeId || nodeId).trim();
+    const nodeIdRaw = String((payload as Record<string, unknown>).node_id || (payload as Record<string, unknown>).nodeId || nodeId).trim();
     normalizedNodeId = normalizeNodeId(nodeIdRaw) || nodeId;
   }
 
@@ -481,7 +481,11 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
           depth: 2,
           timeoutMs: downloadTimeoutMs,
         });
-        const variantNodes = extractVariantNodes(variantTree as unknown as Record<string, unknown>, normalizedNodeId, normalizeNodeId, isValidNodeId).slice(
+        if (!isPlainObject(variantTree)) {
+          logger.error('Figma API response for variants is malformed.');
+          process.exit(1);
+        }
+        const variantNodes = extractVariantNodes(variantTree as Record<string, unknown>, normalizedNodeId, normalizeNodeId, isValidNodeId).slice(
           0,
           variantLimit,
         );
@@ -586,9 +590,9 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     ).split(path.sep).join('/');
   const localImagePathForMarkdown = localImageInfo.path
     ? (
-        path.relative(path.dirname(markdownPath), localImageInfo.path) ||
-        path.basename(localImageInfo.path)
-      ).split(path.sep).join('/')
+      path.relative(path.dirname(markdownPath), localImageInfo.path) ||
+      path.basename(localImageInfo.path)
+    ).split(path.sep).join('/')
     : '';
   const localImagePathForJson = localImageInfo.path
     ? path.relative(docsRootDir, localImageInfo.path).split(path.sep).join('/')

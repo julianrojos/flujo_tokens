@@ -12,6 +12,7 @@ import * as path from 'node:path';
 
 import { parseArgs } from '../utils/parse-args.js';
 import { isMain } from '../utils/is-main.js';
+import { isPlainObject } from '../utils/is-plain-object.js';
 import { resolveSystemContextSafe, DEFAULT_THEME_PATH, PROJECT_ROOT } from '../utils/system-context.js';
 import {
   normalizeComponentName,
@@ -50,7 +51,7 @@ function validateSpecPreflight(specPath: string, tokenRegistryPath: string): voi
   if (report.ok) return;
 
   const specErrors = report.errors.filter(
-    (error) =>
+    (error: { file?: string }) =>
       path.resolve(String(error.file || '')) === path.resolve(specPath),
   );
   const payload = {
@@ -59,8 +60,8 @@ function validateSpecPreflight(specPath: string, tokenRegistryPath: string): voi
   };
   throw new Error(
     'Spec validation failed. Rendering to Figma was blocked.\n' +
-      `Run: npm run validate:docs -- --spec-file "${specPath}" --no-overview true\n` +
-      `${JSON.stringify(payload, null, 2)}`,
+    `Run: npm run validate:docs -- --spec-file "${specPath}" --no-overview true\n` +
+    `${JSON.stringify(payload, null, 2)}`,
   );
 }
 
@@ -79,12 +80,15 @@ function detectMarkdownStaleness({
   const specPathResolved = path.resolve(specPath);
   const markdownPathResolved = path.resolve(markdownPath);
   const taskId = `ds-component-doc:${specPathResolved}->${markdownPathResolved}`;
-  const state = loadSyncState(syncStatePath);
-  const task = state.tasks?.[taskId];
+  const state: { tasks?: Record<string, unknown> } = syncStatePath
+    ? (loadSyncState(syncStatePath) || { tasks: {} })
+    : { tasks: {} };
+  const task = state.tasks?.[taskId] as Record<string, unknown> | undefined;
   const currentSpecHash = computeFingerprint({ files: [specPathResolved] });
 
-  if (task?.metadata?.specHashAtGeneration) {
-    if (String(task.metadata.specHashAtGeneration) === currentSpecHash) {
+  if (task && typeof task === 'object' && 'metadata' in task && task.metadata && typeof task.metadata === 'object' && 'specHashAtGeneration' in task.metadata) {
+    const specHashAtGeneration = String((task.metadata as Record<string, unknown>).specHashAtGeneration);
+    if (specHashAtGeneration === currentSpecHash) {
       return {
         stale: false,
         reason: 'spec_unchanged_since_markdown_generation',
@@ -191,6 +195,32 @@ function firstPresent(...values: unknown[]): unknown {
 }
 
 /**
+ * Extract string field from object safely.
+ */
+function extractStringField(
+  obj: Record<string, unknown>,
+  key: string,
+  fallback: string | null = null,
+): string | null {
+  const value = obj[key];
+  if (typeof value === 'string') return value.trim();
+  return fallback;
+}
+
+/**
+ * Extract number field from object safely.
+ */
+function extractNumberField(
+  obj: Record<string, unknown>,
+  key: string,
+  fallback: number | null = null,
+): number | null {
+  const value = obj[key];
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return fallback;
+}
+
+/**
  * Get value from path expression.
  */
 function getPathValue(
@@ -270,13 +300,8 @@ function normalizeRenderReport(raw: Record<string, unknown>): RenderReport {
     ? Number(unsupportedBlocksRaw)
     : unsupportedBlocks.length;
 
-  const offsetXRaw = firstPresent(
-    report.offset_x_applied,
-    report.offsetXApplied,
-  );
-  const offsetXApplied = Number.isFinite(Number(offsetXRaw))
-    ? Number(offsetXRaw)
-    : null;
+  const offsetXApplied = extractNumberField(report, 'offset_x_applied') ??
+    extractNumberField(report, 'offsetXApplied');
 
   const renderedCountRaw = firstPresent(
     report.renderedCount,
@@ -290,26 +315,19 @@ function normalizeRenderReport(raw: Record<string, unknown>): RenderReport {
   return {
     ok: report.ok !== false,
     raw: report,
-    targetSectionId: firstPresent(
-      report.target_section_id,
-      report.targetSectionId,
-    ),
-    targetSectionName: firstPresent(
-      report.target_section_name,
-      report.targetSectionName,
-    ),
-    themeName: firstPresent(report.theme_name, report.themeName),
+    targetSectionId: extractStringField(report, 'target_section_id') ??
+      extractStringField(report, 'targetSectionId'),
+    targetSectionName: extractStringField(report, 'target_section_name') ??
+      extractStringField(report, 'targetSectionName'),
+    themeName: extractStringField(report, 'theme_name') ??
+      extractStringField(report, 'themeName'),
     offsetXApplied,
     unsupportedBlocks,
     unsupportedBlocksCount,
-    componentSetId: firstPresent(
-      report.component_set_id,
-      report.componentSetId,
-    ),
-    componentSectionId: firstPresent(
-      report.component_section_id,
-      report.componentSectionId,
-    ),
+    componentSetId: extractStringField(report, 'component_set_id') ??
+      extractStringField(report, 'componentSetId'),
+    componentSectionId: extractStringField(report, 'component_section_id') ??
+      extractStringField(report, 'componentSectionId'),
     renderedCount,
   };
 }
@@ -325,8 +343,8 @@ function parseRenderReportFromOutput(rawText: string): RenderReport | null {
     const normalized = normalizeRenderReport(candidate);
     return Boolean(
       normalized.targetSectionId ||
-        normalized.targetSectionName ||
-        normalized.themeName,
+      normalized.targetSectionName ||
+      normalized.themeName,
     );
   });
   const selected =
@@ -392,7 +410,7 @@ function cleanupLegacyTempOutputs({
   ]);
   return tempArtifacts.purgeMatching({
     dir: generatedDir,
-    matcher: (name) => allowedNames.has(name),
+    matcher: (name: string) => allowedNames.has(name),
   });
 }
 
@@ -413,13 +431,31 @@ function readRenderExpectations({
   if (!fs.existsSync(payloadPath)) {
     throw new Error(
       'Missing render payload for structural checks.\n' +
-        `Expected: ${path.resolve(payloadPath)}`,
+      `Expected: ${path.resolve(payloadPath)}`,
     );
   }
 
-  const parsed = JSON.parse(fs.readFileSync(payloadPath, 'utf8')) as Record<string, unknown>;
-  const model =
-    parsed && typeof parsed.model === 'object' ? parsed.model : {};
+  let parsed: unknown;
+  try {
+    const content = fs.readFileSync(payloadPath, 'utf8');
+    parsed = JSON.parse(content);
+  } catch (error) {
+    const content = fs.readFileSync(payloadPath, 'utf8');
+    const truncated = content.slice(0, 200).replace(/\n/g, '\\n');
+    throw new Error(
+      `Failed to parse render payload JSON at ${path.resolve(payloadPath)}.\n` +
+      `Error: ${error instanceof Error ? error.message : String(error)}\n` +
+      `Content (first 200 chars): ${truncated}...`
+    );
+  }
+
+  if (!isPlainObject(parsed)) {
+    throw new Error(
+      `Invalid render payload structure at ${path.resolve(payloadPath)} (expected object).`
+    );
+  }
+
+  const model = isPlainObject(parsed.model) ? parsed.model : {};
   const blocks = Array.isArray((model as Record<string, unknown>).blocks)
     ? ((model as Record<string, unknown>).blocks as Record<string, unknown>[])
     : [];
@@ -433,7 +469,7 @@ function readRenderExpectations({
     getPathValue(parsed, 'theme.layout.target.section_name_pattern', 'Doc/{component_name}'),
   ).trim();
   const expectedSectionName = sectionNamePattern.includes('{component_name}')
-    ? sectionNamePattern.replaceAll('{component_name}', componentName)
+    ? sectionNamePattern.replace(new RegExp('{component_name}', 'g'), componentName)
     : sectionNamePattern || `Doc/${componentName}`;
 
   return {
@@ -738,14 +774,14 @@ export async function runActiveMdToFigma(
     normalizedName.fileSlug || componentNameToSnakeCase(fileBase);
   const specPath = path.resolve(
     args['spec-file'] ||
-      path.join(ctx.paths.specs, `${componentSlug}.yml`),
+    path.join(ctx.paths.specs, `${componentSlug}.yml`),
   );
 
   if (!fs.existsSync(specPath)) {
     logger.error(
       'Missing required spec file.\n' +
-        `Spec: ${specPath}\n` +
-        `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"`,
+      `Spec: ${specPath}\n` +
+      `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"`,
     );
     process.exit(1);
   }
@@ -761,7 +797,7 @@ export async function runActiveMdToFigma(
   if (skipValidation && !force) {
     logger.error(
       'Validation gate bypass requires explicit force.\n' +
-        'Use `--skip-validation true --force true` only for exceptional cases.',
+      'Use `--skip-validation true --force true` only for exceptional cases.',
     );
     process.exit(1);
   }
@@ -787,8 +823,8 @@ export async function runActiveMdToFigma(
         if (specStatus === 'ready') {
           logger.error(
             'Invalid figma.component_set_node_id in ready spec.\n' +
-              `Spec: ${specPath}\n` +
-              'Expected format: 123:456',
+            `Spec: ${specPath}\n` +
+            'Expected format: 123:456',
           );
           process.exit(1);
         }
@@ -809,8 +845,8 @@ export async function runActiveMdToFigma(
   if (cliNodeId && !isValidNodeId(cliNodeId)) {
     logger.error(
       'Invalid --component-set-id format.\n' +
-        `Provided: ${cliNodeIdRaw}\n` +
-        'Expected format: 123:456',
+      `Provided: ${cliNodeIdRaw}\n` +
+      'Expected format: 123:456',
     );
     process.exit(1);
   }
@@ -818,9 +854,9 @@ export async function runActiveMdToFigma(
   if (cliNodeId && specNodeId && cliNodeId !== specNodeId && !force) {
     logger.error(
       'Traceability mismatch between CLI and spec.\n' +
-        `CLI --component-set-id: ${cliNodeId}\n` +
-        `Spec figma.component_set_node_id: ${specNodeId}\n` +
-        'Use --force true only if you intentionally want to override the spec.',
+      `CLI --component-set-id: ${cliNodeId}\n` +
+      `Spec figma.component_set_node_id: ${specNodeId}\n` +
+      'Use --force true only if you intentionally want to override the spec.',
     );
     process.exit(1);
   }
@@ -830,8 +866,8 @@ export async function runActiveMdToFigma(
     if (specStatus === 'ready') {
       logger.error(
         'Missing figma.component_set_node_id for ready spec.\n' +
-          `Spec: ${specPath}\n` +
-          'Add figma.component_set_node_id to the spec to keep Figma placement deterministic.',
+        `Spec: ${specPath}\n` +
+        'Add figma.component_set_node_id to the spec to keep Figma placement deterministic.',
       );
       process.exit(1);
     }
@@ -872,11 +908,11 @@ export async function runActiveMdToFigma(
     if (staleness.stale) {
       logger.error(
         'Markdown is stale relative to its source spec. Rendering to Figma was blocked.\n' +
-          `Reason: ${staleness.reason}\n` +
-          `Spec: ${specPath}\n` +
-          `Markdown: ${markdownPath}\n` +
-          `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"\n` +
-          'Use --force true only if you intentionally want to render without regenerating markdown.',
+        `Reason: ${staleness.reason}\n` +
+        `Spec: ${specPath}\n` +
+        `Markdown: ${markdownPath}\n` +
+        `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"\n` +
+        'Use --force true only if you intentionally want to render without regenerating markdown.',
       );
       process.exit(1);
     }
@@ -1109,8 +1145,8 @@ export async function runActiveMdToFigma(
       });
       throw new Error(
         'Unable to parse render report JSON from agent output.\n' +
-          `Expected keys: target_section_id, target_section_name, offset_x_applied, theme_name.\n` +
-          `Saved raw agent output: ${outputPath}`,
+        `Expected keys: target_section_id, target_section_name, offset_x_applied, theme_name.\n` +
+        `Saved raw agent output: ${outputPath}`,
       );
     }
     if (!renderReport.targetSectionId || !renderReport.targetSectionName) {
@@ -1123,7 +1159,7 @@ export async function runActiveMdToFigma(
       });
       throw new Error(
         'Render report is missing target section identifiers.\n' +
-          `Saved raw agent output: ${outputPath}`,
+        `Saved raw agent output: ${outputPath}`,
       );
     }
     if (!renderReport.themeName) {
@@ -1136,8 +1172,8 @@ export async function runActiveMdToFigma(
       });
       throw new Error(
         'Render report is missing theme_name. This usually means the generated themed renderer was not executed.\n' +
-          `Expected theme: ${expectedThemeName}\n` +
-          `Saved raw agent output: ${outputPath}`,
+        `Expected theme: ${expectedThemeName}\n` +
+        `Saved raw agent output: ${outputPath}`,
       );
     }
     if (renderReport.themeName !== expectedThemeName) {
@@ -1153,6 +1189,7 @@ export async function runActiveMdToFigma(
     const expectedOffsetX = Number(offsetX);
     if (
       Number.isFinite(expectedOffsetX) &&
+      renderReport.offsetXApplied !== null &&
       Number.isFinite(renderReport.offsetXApplied) &&
       Math.abs(renderReport.offsetXApplied - expectedOffsetX) > 1
     ) {
@@ -1180,9 +1217,9 @@ export async function runActiveMdToFigma(
       });
       throw new Error(
         'Render report failed strict primary validation.\n' +
-          primaryReportValidation.issues.map((issue) => `- ${issue}`).join('\n') +
-          '\n' +
-          `Saved raw agent output: ${outputPath}`,
+        primaryReportValidation.issues.map((issue) => `- ${issue}`).join('\n') +
+        '\n' +
+        `Saved raw agent output: ${outputPath}`,
       );
     }
 
@@ -1211,8 +1248,8 @@ export async function runActiveMdToFigma(
       });
       throw new Error(
         'Unable to parse render structure audit report JSON from agent output.\n' +
-          'Expected keys: has_doc_canvas, card_count, table_container_count, header_row_count, body_row_count.\n' +
-          `Saved raw audit output: ${outputPath}`,
+        'Expected keys: has_doc_canvas, card_count, table_container_count, header_row_count, body_row_count.\n' +
+        `Saved raw audit output: ${outputPath}`,
       );
     }
     const auditValidation = validateRenderAudit({
@@ -1230,9 +1267,9 @@ export async function runActiveMdToFigma(
       });
       throw new Error(
         'Render structure audit failed. Themed renderer output is inconsistent; fallback-like render blocked.\n' +
-          auditValidation.issues.map((issue) => `- ${issue}`).join('\n') +
-          '\n' +
-          `Saved raw audit output: ${outputPath}`,
+        auditValidation.issues.map((issue) => `- ${issue}`).join('\n') +
+        '\n' +
+        `Saved raw audit output: ${outputPath}`,
       );
     }
 
@@ -1302,9 +1339,8 @@ export async function runActiveMdToFigma(
         try {
           runOrThrow('node', proofArgs);
         } catch (error) {
-          const message = `Visual proof capture failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`;
+          const message = `Visual proof capture failed: ${error instanceof Error ? error.message : String(error)
+            }`;
           if (captureProofStrict) {
             throw new Error(message);
           }
