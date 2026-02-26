@@ -139,7 +139,7 @@ export function runJsonCommand<T = unknown>(
     );
   }
 
-  const status = Number.isInteger(result.status) ? result.status : 1;
+  const status = Number.isInteger(result.status) ? result.status! : 1;
   if (status !== 0 && options.allowNonZeroExit !== true) {
     throw new Error(
       `Command failed (${status}) for \`${commandText}\`\nSTDERR:\n${stderr}\nSTDOUT:\n${stdout}`,
@@ -150,7 +150,7 @@ export function runJsonCommand<T = unknown>(
     status,
     stdout,
     stderr,
-    data: parsed.value,
+    data: parsed.value!,
   };
 }
 

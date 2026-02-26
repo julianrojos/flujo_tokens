@@ -31,9 +31,9 @@ import { updateAgentDriftBaseline } from '../../scripts/lib/agent-drift-detector
 import { buildAgentPrompt, canonicalH2ConstraintLines, RULE_BLOCKS } from '../../scripts/lib/prompts.mjs';
 import { formatMarkdownTarget } from '../../scripts/lib/format-markdown.mjs';
 import { normalizeComponentName, componentNameFromFilePath, componentNameToSnakeCase } from '../../scripts/lib/component-name.mjs';
-import { computeFingerprint, shouldSkipTask, updateTaskState } from '../../scripts/lib/cache-utils.mjs';
+import { computeFingerprint, shouldSkipTask, updateTaskState } from '../services/cache-utils.js';
 import { TRACEABILITY_CONTRACT_VERSION } from '../../scripts/lib/docs-config.mjs';
-import { captureFileSnapshot, restoreFileSnapshot } from '../../scripts/lib/file-snapshot.mjs';
+import { captureFileSnapshot, restoreFileSnapshot } from '../services/file-snapshot.js';
 import { assertDocStatusStable, assertEvidenceGatedScalarChanges } from '../../scripts/lib/evidence-gated-mutations.mjs';
 import { assertScopedWritePolicy, captureScopedWriteSnapshot } from '../../scripts/lib/scoped-write-guard.mjs';
 import { syncDocumentationIndices } from '../../scripts/lib/component-registry/index.mjs';
