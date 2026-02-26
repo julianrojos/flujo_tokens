@@ -5,7 +5,7 @@ description: 2ª opinión sobre un informe /review: valida cada punto en orden, 
 # /judge — Validar informe de /review (pre-commit, sin tocar código)
 
 Este workflow se usa **después** de ejecutar `/review` (otro workflow o IA).  
-El usuario **pegará un informe** y el agente emitirá una **segunda opinión** punto por punto, manteniendo el **mismo orden**.
+El usuario **pegará un informe** y el agente emitirá una **segunda opinión** punto por punto, manteniendo el **mismo orden** sin modificar el código por el momento.
 
 > Workflows en Antigravity se definen como archivos Markdown en `.agent/workflows/` con **YAML frontmatter** `description:` y pasos en el cuerpo.  
 > `// turbo` se reserva para pasos con comandos seguros (*read-only*) y se aplica **al paso inmediatamente siguiente**.  
