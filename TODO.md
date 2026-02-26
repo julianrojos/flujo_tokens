@@ -278,3 +278,13 @@ Añadir home contextual por rol/caso de uso (Token Maintainer, Component Maintai
     Crear un nuevo sistema tiene múltiples pasos no evidentes (URL Figma → scan → variables → compile → docs). Un flujo de onboarding en stepper (3-5 pasos visibles, con estado y validación inline) reduciría el abandono y el soporte necesario.
 
 Las 3 de mayor impacto inmediato por coste/beneficio: la Homepage (#1), el Hub de componente (#2) y el Agrupamiento por estado (#7) — pueden implementarse sin cambiar la estructura de datos, solo reorganizando lo que ya existe.
+
+
+
+
+---------------
+Company Docs MCP
+
+Añadir esto para buscar con IA en la docu:
+
+https://github.com/southleft/company-docs-mcp
