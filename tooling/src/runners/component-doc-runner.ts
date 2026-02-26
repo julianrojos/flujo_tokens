@@ -36,7 +36,7 @@ import { TRACEABILITY_CONTRACT_VERSION } from '../../scripts/lib/docs-config.mjs
 import { captureFileSnapshot, restoreFileSnapshot } from '../services/file-snapshot.js';
 import { assertDocStatusStable, assertEvidenceGatedScalarChanges } from '../../scripts/lib/evidence-gated-mutations.mjs';
 import { assertScopedWritePolicy, captureScopedWriteSnapshot } from '../../scripts/lib/scoped-write-guard.mjs';
-import { syncDocumentationIndices } from '../../scripts/lib/component-registry/index.mjs';
+import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../../scripts/lib/temp-artifacts.mjs';
 
 const USAGE = {

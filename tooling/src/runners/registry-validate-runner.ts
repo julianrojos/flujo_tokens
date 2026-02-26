@@ -19,7 +19,7 @@ import {
   DEFAULT_COMPONENT_SPECS_DIR,
   DEFAULT_RENDER_PAYLOADS_DIR,
   DEFAULT_VISUAL_PROOFS_DIR,
-} from '../../scripts/lib/component-registry/index.mjs';
+} from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {
   command: 'ds:registry:validate [options]',

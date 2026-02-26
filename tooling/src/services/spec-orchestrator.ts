@@ -24,8 +24,11 @@ import {
     createPipelineContext,
 } from '../utils/index.js';
 
-// @ts-ignore - Temporary JS import for syncDocumentationIndices
-import { syncDocumentationIndices as syncDocumentationIndicesJs } from '../../scripts/lib/component-registry/index.mjs';
+// Import syncDocumentationIndices with type safety from component-registry-index
+import { syncDocumentationIndices as syncDocumentationIndicesJs } from '../services/component-registry-index.js';
+
+// Type-safe wrapper for syncDocumentationIndices
+const syncDocumentationIndices: typeof syncDocumentationIndicesJs = syncDocumentationIndicesJs;
 
 const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
     'name',

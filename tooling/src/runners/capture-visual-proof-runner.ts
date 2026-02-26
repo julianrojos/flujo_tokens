@@ -46,7 +46,7 @@ import {
 } from '../utils/component-name.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { normalizeNodeId, isValidNodeId } from '../utils/figma-node-id.js';
-import { syncDocumentationIndices } from '../../scripts/lib/component-registry/index.mjs';
+import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { fetchFigmaImages, fetchFigmaNodes } from '../utils/figma-api.js';
 import { logger } from '../utils/logger.js';
 

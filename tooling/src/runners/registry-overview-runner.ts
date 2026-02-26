@@ -17,7 +17,7 @@ import {
   DEFAULT_COMPONENT_OVERVIEW_PATH,
   DEFAULT_COMPONENT_REGISTRY_PATH,
   syncComponentOverview,
-} from '../../scripts/lib/component-registry/index.mjs';
+} from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {
   command: 'ds:registry:overview [options]',

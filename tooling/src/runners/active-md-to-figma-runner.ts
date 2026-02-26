@@ -29,7 +29,7 @@ import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { normalizeNodeId, isValidNodeId } from '../utils/figma-node-id.js';
 import { isTbdMarker } from '../utils/tbd.js';
 import { runOrThrow } from '../utils/exec.js';
-import { syncDocumentationIndices } from '../../scripts/lib/component-registry/index.mjs';
+import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../../scripts/lib/temp-artifacts.mjs';
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
 import { DEFAULT_TOKEN_REGISTRY_PATH } from '../../scripts/lib/token-registry.mjs';

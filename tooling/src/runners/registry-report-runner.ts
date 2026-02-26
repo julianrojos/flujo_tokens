@@ -17,8 +17,8 @@ import { logger } from '../utils/logger.js';
 import {
   DEFAULT_COMPONENT_REGISTRY_PATH,
   readComponentRegistry,
-} from '../../scripts/lib/component-registry/index.mjs';
-import { normalizeSortKey, stableHash } from '../../scripts/lib/component-registry/utils.mjs';
+} from '../services/component-registry-index.js';
+import { normalizeSortKey, stableHash } from '../services/component-registry-index.js';
 
 const REPORT_SCHEMA_VERSION = 1;
 

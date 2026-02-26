@@ -42,7 +42,7 @@ import { logger } from '../utils/logger.js';
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
 import { loadTokenRegistry } from '../../scripts/lib/token-registry.mjs';
 import { componentNameToSnakeCase } from '../../scripts/lib/component-name.mjs';
-import { compareComponentRegistryToSources } from '../../scripts/lib/component-registry/index.mjs';
+import { compareComponentRegistryToSources } from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {
   command: 'ds:doctor [options]',

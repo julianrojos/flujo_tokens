@@ -13,7 +13,7 @@ import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.
 import { logger } from '../utils/logger.js';
 
 // Import from existing lib during migration period
-import { syncComponentRegistry } from '../../scripts/lib/component-registry/index.mjs';
+import { syncComponentRegistry } from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {
   command: 'ds:registry:sync [options]',

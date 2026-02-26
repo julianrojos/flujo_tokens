@@ -49,7 +49,7 @@ import {
   captureScopedWriteSnapshot,
 } from '../../scripts/lib/scoped-write-guard.mjs';
 import { runOrThrow } from '../utils/exec.js';
-import { syncDocumentationIndices } from '../../scripts/lib/component-registry/index.mjs';
+import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../../scripts/lib/temp-artifacts.mjs';
 import { fetchFigmaFile } from '../utils/figma-api.js';
 import {
