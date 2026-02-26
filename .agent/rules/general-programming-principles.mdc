@@ -149,7 +149,8 @@ alwaysApply: true
 - [ ] If any `SHOULD` is not followed, record a short reason in the change summary.
 
 ## 8) Git commit rules
-- Don't commit changes without the user's permission unless you are temporarily allowed to do it.
+- `MUST`: **NEVER, EVER commit changes automatically.** You must exclusively prepare changes in the working directory and PROPOSE them.
+- `MUST`: Explicitly ask for the user's permission before staging or committing any files to the repository.
 - Make the head/title of the commit message brief (max 72 characters).
 - Always write commit messages in English.
 - Always follow the Conventional Commits format: `type(scope): description`.
