@@ -143,5 +143,124 @@ export function appendSpecExhibit(
   return `${normalized}\n\n${exhibitBlock}`;
 }
 
-// Note: injectExtractedSpecSectionsIntoMarkdown has been removed.
-// Use spec-to-markdown-injector.ts or figma-node-spec-extractor.ts for full section injection.
+/**
+ * Spec sections content for injection.
+ */
+export interface SpecSectionsContent {
+  anatomy: string;
+  componentApi: string;
+  visualSpecifications: string;
+}
+
+/**
+ * Build spec sections content from extracted spec.
+ *
+ * @param spec - Extracted component spec.
+ * @returns Spec sections content.
+ */
+export function buildSpecSectionsContent(spec: Record<string, unknown>): SpecSectionsContent {
+  const anatomy = Array.isArray(spec.anatomy)
+    ? (spec.anatomy as unknown[])
+        .map((item) => {
+          if (item && typeof item === 'object' && 'name' in item) {
+            const it = item as { name: string; description?: string };
+            return `- **${it.name}**: ${it.description || 'TBD'}`;
+          }
+          return '';
+        })
+        .filter(Boolean)
+        .join('\n')
+    : 'TBD';
+
+  const componentApi = Array.isArray(spec.properties)
+    ? (spec.properties as unknown[])
+        .map((item) => {
+          if (item && typeof item === 'object' && 'name' in item) {
+            const it = item as { name: string; type?: string; required?: boolean };
+            return `- **${it.name}**: ${it.type || 'unknown'}${it.required ? ' (required)' : ''}`;
+          }
+          return '';
+        })
+        .filter(Boolean)
+        .join('\n')
+    : 'TBD';
+
+  const visualSpecifications =
+    spec.layout && typeof spec.layout === 'object'
+      ? `Layout: ${JSON.stringify(spec.layout, null, 2)}`
+      : 'TBD';
+
+  return {
+    anatomy,
+    componentApi,
+    visualSpecifications,
+  };
+}
+
+/**
+ * Inject extracted spec sections into markdown documentation.
+ *
+ * Replaces Anatomy, Component API, and Visual Specifications sections
+ * with content extracted from Figma spec, optionally including exhibits.
+ *
+ * @param markdown - Original markdown content.
+ * @param spec - Spec object with anatomy, properties, layout, variants.
+ * @param exhibits - Optional exhibits for anatomy, properties, and layout.
+ * @returns Result with changed flag and updated markdown content.
+ */
+export function injectExtractedSpecSectionsIntoMarkdown(
+  markdown: string,
+  spec: Record<string, unknown> | null,
+  exhibits: {
+    anatomy?: SpecExhibit | null;
+    properties?: SpecExhibit | null;
+    layout?: SpecExhibit | null;
+  } | null = {},
+): SectionInjectionResult {
+  if (!spec || typeof spec !== 'object') {
+    return { changed: false, content: markdown };
+  }
+
+  const sections = buildSpecSectionsContent(spec);
+
+  const anatomyBody = appendSpecExhibit(
+    sections.anatomy,
+    'Anatomy',
+    exhibits?.anatomy ?? null,
+  );
+
+  const componentApiBody = appendSpecExhibit(
+    sections.componentApi,
+    'Properties',
+    exhibits?.properties ?? null,
+  );
+
+  const visualSpecsBody = appendSpecExhibit(
+    sections.visualSpecifications,
+    'Layout and spacing',
+    exhibits?.layout ?? null,
+  );
+
+  let current = markdown;
+  let changed = false;
+
+  const anatomyResult = replaceH2Section(current, 'Anatomy', anatomyBody);
+  current = anatomyResult.content;
+  changed = changed || anatomyResult.changed;
+
+  const apiResult = replaceH2Section(current, 'Component API', componentApiBody);
+  current = apiResult.content;
+  changed = changed || apiResult.changed;
+
+  const visualResult = replaceH2Section(
+    current,
+    'Visual Specifications',
+    visualSpecsBody,
+  );
+  current = visualResult.content;
+  changed = changed || visualResult.changed;
+
+  return { changed, content: current };
+}
+
+// Note: For full enriched markdown generation, use figma-node-spec-extractor.ts directly.
