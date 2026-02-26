@@ -4,6 +4,11 @@ const INSTANCE_TYPE = "INSTANCE";
 const PAGE_TYPE = "CANVAS";
 const SUPPORTED_FILE_SURFACES = new Set(["design", "file"]);
 
+/**
+ * Maximum number of top dependencies to include in the summary report.
+ */
+const MAX_TOP_DEPENDENCIES = 10;
+
 export interface FigmaComponentMap {
   fileKey: string;
   fileName: string;
@@ -412,4 +417,148 @@ export function formatFigmaComponentMap(map: FigmaComponentMap): string {
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Raw internal type for buildFigmaComponentMapSummary input.
+ * Reduces repetitive type assertions in the function body.
+ */
+interface FigmaComponentMapRaw {
+  stats?: Record<string, unknown>;
+  source?: Record<string, unknown>;
+  pages?: Array<Record<string, unknown>>;
+  relations?: {
+    component_dependencies?: Array<Record<string, unknown>>;
+  };
+}
+
+/**
+ * Build summary statistics from component map.
+ */
+export interface FigmaComponentMapSummary {
+  source: {
+    file_key: string;
+    file_name: string;
+    file_url: string;
+  };
+  stats: {
+    pages: number;
+    component_sets: number;
+    components: number;
+    component_nodes_total: number;
+    tree_contains_relations: number;
+    instance_dependencies: number;
+    unresolved_instance_records: number;
+  };
+  pages: Array<{
+    name: string;
+    component_like_count: number;
+    component_sets: number;
+    components: number;
+  }>;
+  top_dependencies: Array<{
+    owner_component_name: string;
+    used_component_name: string;
+    instance_count: number;
+  }>;
+}
+
+export function buildFigmaComponentMapSummary(componentMap: unknown): FigmaComponentMapSummary {
+  // Defensive validation: fail-fast on unexpected input types
+  if (!componentMap || typeof componentMap !== 'object' || Array.isArray(componentMap)) {
+    throw new Error(
+      `buildFigmaComponentMapSummary: expected object, got ${componentMap === null ? 'null' : Array.isArray(componentMap) ? 'array' : typeof componentMap}`,
+    );
+  }
+
+  const map = componentMap as FigmaComponentMapRaw;
+  const stats = (map.stats && typeof map.stats === 'object') ? map.stats : {};
+  const source = (map.source && typeof map.source === 'object') ? map.source : {};
+  const pages = Array.isArray(map.pages) ? map.pages : [];
+  const relations = map.relations;
+  
+  const componentDeps = Array.isArray(relations?.component_dependencies)
+    ? relations.component_dependencies
+        .slice()
+        .sort((a, b) => {
+          const countDiff = Number(b.instance_count || 0) - Number(a.instance_count || 0);
+          if (countDiff !== 0) return countDiff;
+          return compareStrings(
+            `${a.owner_component_name || ""}|${a.used_component_name || ""}`,
+            `${b.owner_component_name || ""}|${b.used_component_name || ""}`,
+          );
+        })
+        .slice(0, MAX_TOP_DEPENDENCIES)
+    : [];
+
+  return {
+    source: {
+      file_key: String(source.file_key || ""),
+      file_name: String(source.file_name || ""),
+      file_url: String(source.file_url || ""),
+    },
+    stats: {
+      pages: Number(stats.pages || 0),
+      component_sets: Number(stats.component_sets || 0),
+      components: Number(stats.components || 0),
+      component_nodes_total: Number(stats.component_nodes_total || 0),
+      tree_contains_relations: Number(stats.tree_contains_relations || 0),
+      instance_dependencies: Number(stats.instance_dependencies || 0),
+      unresolved_instance_records: Number(stats.unresolved_instance_records || 0),
+    },
+    pages: pages.map((page) => ({
+      name: String(page.name || ""),
+      component_like_count: Number(page.component_like_count || 0),
+      component_sets: Number(page.component_set_count || 0),
+      components: Number(page.component_count || 0),
+    })),
+    top_dependencies: componentDeps.map((edge) => ({
+      owner_component_name: String(edge.owner_component_name || edge.owner_component_node_id || ""),
+      used_component_name: String(edge.used_component_name || edge.used_component_node_id || ""),
+      instance_count: Number(edge.instance_count || 0),
+    })),
+  };
+}
+
+/**
+ * Render component map as text summary.
+ */
+export function renderFigmaComponentMapText(componentMap: unknown): string {
+  const summary = buildFigmaComponentMapSummary(componentMap);
+  const lines: string[] = [];
+
+  lines.push(`File: ${summary.source.file_name} (${summary.source.file_key})`);
+  lines.push(`URL: ${summary.source.file_url}`);
+  lines.push("");
+  lines.push(
+    `Components: ${summary.stats.component_nodes_total} (${summary.stats.component_sets} sets, ${summary.stats.components} components)`,
+  );
+  lines.push(`Pages: ${summary.stats.pages}`);
+  lines.push(`Nested relations: ${summary.stats.tree_contains_relations}`);
+  lines.push(`Instance dependencies: ${summary.stats.instance_dependencies}`);
+  lines.push(
+    `Unresolved instance references: ${summary.stats.unresolved_instance_records}`,
+  );
+
+  if (summary.pages.length > 0) {
+    lines.push("");
+    lines.push("By page:");
+    for (const page of summary.pages) {
+      lines.push(
+        `- ${page.name}: ${page.component_like_count} total (${page.component_sets} sets, ${page.components} components)`,
+      );
+    }
+  }
+
+  if (summary.top_dependencies.length > 0) {
+    lines.push("");
+    lines.push("Top dependencies:");
+    for (const dep of summary.top_dependencies) {
+      lines.push(
+        `- ${dep.owner_component_name} -> ${dep.used_component_name} (${dep.instance_count})`,
+      );
+    }
+  }
+
+  return `${lines.join("\n")}\n`;
 }

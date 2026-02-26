@@ -314,6 +314,8 @@ export {
   toHyphenNodeId,
   sanitizeNodeId,
   parseNodeIdFromUrl,
+  buildFigmaComponentMapSummary,
+  renderFigmaComponentMapText,
 } from './figma-component-map.js';
 
 export type {
@@ -321,7 +323,11 @@ export type {
   FigmaComponentItem,
   FigmaPageItem,
   ParsedFigmaFileUrl,
+  FigmaComponentMapSummary,
 } from './figma-component-map.js';
+
+// Figma component map runners
+export { runFigmaComponentMap } from '../runners/figma-component-map-runner.js';
 
 // Figma node spec extractor utilities
 export {
