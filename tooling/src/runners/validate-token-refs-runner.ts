@@ -16,7 +16,7 @@ import { logger } from '../utils/logger.js';
 
 // Import from existing lib during migration
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
-import { DEFAULT_TOKEN_REGISTRY_PATH } from '../../scripts/lib/token-registry.mjs';
+import { DEFAULT_TOKEN_REGISTRY_PATH } from '../services/token-registry.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 

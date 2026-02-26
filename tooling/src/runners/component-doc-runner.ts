@@ -20,7 +20,7 @@ import { logger } from '../utils/logger.js';
 import { runAgentPrompt } from '../../scripts/lib/agent-runner.mjs';
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
 import { parseMarkdownFrontmatter, parseYamlDocument } from '../../scripts/lib/parse-frontmatter.mjs';
-import { loadTokenRegistry } from '../../scripts/lib/token-registry.mjs';
+import { loadTokenRegistry } from '../services/token-registry.js';
 import { extractGapsFromSpec, upsertGapsSection } from '../../scripts/lib/gaps.mjs';
 import { isPlainObject } from '../../scripts/lib/is-plain-object.mjs';
 import { deriveFigmaFrontmatterTraceability } from '../../scripts/lib/figma-traceability.mjs';

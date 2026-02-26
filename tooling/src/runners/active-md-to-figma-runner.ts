@@ -32,7 +32,7 @@ import { runOrThrow } from '../utils/exec.js';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
-import { DEFAULT_TOKEN_REGISTRY_PATH } from '../../scripts/lib/token-registry.mjs';
+import { DEFAULT_TOKEN_REGISTRY_PATH } from '../services/token-registry.js';
 import { logger } from '../utils/logger.js';
 
 /**

@@ -40,7 +40,7 @@ import { logger } from '../utils/logger.js';
 // Re-import these from legacy modules for now
 // TODO: Migrate to services in future iteration
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
-import { loadTokenRegistry } from '../../scripts/lib/token-registry.mjs';
+import { loadTokenRegistry } from '../services/token-registry.js';
 import { componentNameToSnakeCase } from '../../scripts/lib/component-name.mjs';
 import { compareComponentRegistryToSources } from '../services/component-registry-index.js';
 

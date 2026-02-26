@@ -23,7 +23,7 @@ import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
 import {
   loadTokenRegistry,
   DEFAULT_TOKEN_REGISTRY_PATH,
-} from '../../scripts/lib/token-registry.mjs';
+} from '../services/token-registry.js';
 import { componentNameToSnakeCase } from '../../scripts/lib/component-name.mjs';
 import { normalizeNodeId } from '../../scripts/lib/node-id.mjs';
 import { extractSectionBody } from '../../scripts/lib/markdown-sections.mjs';
