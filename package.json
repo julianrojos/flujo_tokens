@@ -51,6 +51,7 @@
     "ds:audit-consistency": "node tooling/scripts/ds-audit-consistency.mjs",
     "ds:detect-missing-zones": "node tooling/scripts/ds-detect-missing-zones.mjs",
     "ds:doctor": "node tooling/scripts/ds-doctor.mjs",
+    "ds:qa": "node tooling/scripts/ds-qa.mjs",
     "ds:pipeline": "node tooling/scripts/ds-pipeline.mjs",
     "test:tooling": "node --import tsx/esm --test tooling/src/utils/*.test.ts tooling/src/services/*.test.ts",
     "test:server:node": "node --test apps/ds-dashboard/server/lib/*.test.mjs apps/ds-dashboard/server/routes/*.test.mjs",
