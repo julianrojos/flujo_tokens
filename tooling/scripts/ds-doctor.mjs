@@ -25,7 +25,7 @@ if (!fs.existsSync(runnerPath)) {
 }
 
 // Use spawnSync with array of args — no shell quoting needed
-const result = spawnSync('tsx', [runnerPath, ...process.argv.slice(2)], {
+const result = spawnSync('npx', ['tsx', runnerPath, ...process.argv.slice(2)], {
   stdio: 'inherit',
   cwd: projectRoot,
 });

@@ -141,6 +141,12 @@ export { runDetectMissingZones } from '../runners/detect-missing-zones-runner.js
 // Migrate markdown zones runners
 export { runMigrateMarkdownZones } from '../runners/migrate-markdown-zones-runner.js';
 
+// Validate token refs runners
+export { runValidateTokenRefs } from '../runners/validate-token-refs-runner.js';
+
+// Compute traceability runners
+export { runComputeTraceability } from '../runners/compute-traceability-runner.js';
+
 // Command execution utilities
 export { parseJsonFromText, runJsonCommand, runOrThrow } from './exec.js';
 

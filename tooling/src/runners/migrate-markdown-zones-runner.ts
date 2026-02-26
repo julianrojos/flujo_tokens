@@ -14,40 +14,133 @@ import { logger } from '../utils/logger.js';
 
 /**
  * Zone configuration for migration.
+ * Each zone is self-contained with its own test case for validation.
  */
 export interface MigrationZone {
   name: string;
   pattern: RegExp;
   searchString: string;
+  /**
+   * Minimal test content that should match this zone's pattern.
+   * Used for validation at module load time.
+   */
+  testCase: string;
+}
+
+/**
+ * Factory function to create a validated migration zone.
+ * Ensures each zone has a valid pattern and test case.
+ */
+function createMigrationZone(zone: MigrationZone): MigrationZone {
+  // Validate pattern doesn't use global flag (would break exec() reuse)
+  if (zone.pattern.global) {
+    throw new Error(
+      `Zone "${zone.name}" pattern cannot use global flag (/g). ` +
+        `The exec() method is called once per zone and should not maintain state.`,
+    );
+  }
+
+  // Validate pattern matches its own test case
+  const match = zone.pattern.exec(zone.testCase);
+  const groups = match?.groups;
+
+  if (!groups) {
+    throw new Error(
+      `Zone "${zone.name}" pattern does not match its test case. ` +
+        `Ensure the pattern has named groups 'before' and 'body'.`,
+    );
+  }
+
+  if (!('before' in groups) || !('body' in groups)) {
+    throw new Error(
+      `Zone "${zone.name}" pattern missing required named groups. ` +
+        `Required: 'before' and 'body'. Found: ${Object.keys(groups).join(', ')}`,
+    );
+  }
+
+  return zone;
 }
 
 /**
  * Zones affected by the migration.
+ * Each zone includes its own test case for self-validation.
  */
 export const MIGRATION_ZONES: MigrationZone[] = [
   {
     name: 'ANATOMY',
     pattern: /(?<before>##\s+Anatomy\s*\n)(?<body>[\s\S]*?)(?=\n## |\n*$)/,
     searchString: '## Anatomy',
+    testCase: [
+      '## Anatomy',
+      '',
+      'Test anatomy content here',
+      '',
+      '## Next section',
+    ].join('\n'),
   },
   {
     name: 'PROPERTIES',
     pattern:
       /(?<before>###\s+Properties\s*\n)(?<body>[\s\S]*?)(?=\n### |\n## |\n*$)/,
     searchString: '### Properties',
+    testCase: [
+      '### Properties',
+      '',
+      'Test properties content here',
+      '',
+      '### Next subsection',
+    ].join('\n'),
   },
   {
     name: 'VISUALS',
     pattern:
       /(?<before>###\s+Per-variant attributes[\s\S]*?###\s+Layout and spacing\s*\n\s*)(?<body>[\s\S]*?)(?=\n### |\n## |\n*$)/,
     searchString: '### Layout and spacing',
+    testCase: [
+      '### Per-variant attributes',
+      '',
+      'Some variant attributes',
+      '',
+      '### Layout and spacing',
+      '',
+      'Test layout content here',
+      '',
+      '### Next subsection',
+    ].join('\n'),
   },
   {
     name: 'VARIANTS',
     pattern: /(?<before>##\s+Variants\s*\n)(?<body>[\s\S]*?)(?=\n## |\n*$)/,
     searchString: '## Variants',
+    testCase: [
+      '## Variants',
+      '',
+      'Test variants content here',
+      '',
+      '## Next section',
+    ].join('\n'),
   },
 ];
+
+/**
+ * Validate and initialize zones at module load time.
+ * Returns validated zones or throws error immediately.
+ */
+function validateAndInitializeZones(): MigrationZone[] {
+  // Each zone is already validated by createMigrationZone factory
+  // This function ensures all zones pass validation before use
+  return MIGRATION_ZONES.map(createMigrationZone);
+}
+
+/**
+ * Validated zones (checked at module load time).
+ * 
+ * IMPORTANT: If a zone pattern is invalid, this initialization will throw
+ * an error BEFORE the script starts executing. This is intentional fail-fast
+ * behavior - configuration errors are caught immediately rather than during
+ * file processing.
+ */
+const VALIDATED_ZONES = validateAndInitializeZones();
 
 const CLI_CONFIG = {
   command: 'ds:migrate-markdown-zones [options]',
@@ -102,30 +195,28 @@ function wrapSection(
     return { content, migrated: false }; // Zone not found
   }
 
-  let migrated = false;
-  const nextContent = content.replace(pattern, (match, ...args) => {
-    // Last args before match are named groups if present
-    const groups = args[args.length - 1] as Record<string, unknown> | undefined;
+  // Use exec() for robust named group access.
+  // Note: pattern must NOT have /g flag (validated at module load time).
+  // exec() without /g resets lastIndex automatically on each call.
+  const match = pattern.exec(content);
+  const groups = match?.groups;
 
-    // Validate named groups exist and are strings (defensive programming)
-    if (
-      !groups ||
-      !('before' in groups) ||
-      !('body' in groups) ||
-      typeof groups.before !== 'string' ||
-      typeof groups.body !== 'string'
-    ) {
-      migrated = false;
-      return match; // Return original if groups are invalid
-    }
+  // Validate named groups exist and are strings (defensive programming)
+  if (
+    !groups ||
+    !('before' in groups) ||
+    !('body' in groups) ||
+    typeof groups.before !== 'string' ||
+    typeof groups.body !== 'string'
+  ) {
+    return { content, migrated: false }; // Return original if groups are invalid
+  }
 
-    const before = groups.before;
-    const body = groups.body;
-    migrated = true;
-    return `${before}${startTag}\n${body}\n${endTag}`;
-  });
+  const before = groups.before;
+  const body = groups.body;
+  const wrappedContent = `${before}${startTag}\n${body}\n${endTag}`;
 
-  return { content: nextContent, migrated };
+  return { content: wrappedContent, migrated: true };
 }
 
 export interface MigrationResult {
@@ -144,32 +235,6 @@ export interface MigrationReport {
   };
 }
 
-/**
- * Validate that all zone patterns have required named groups.
- */
-function validateMigrationZones(): void {
-  const requiredGroups = ['before', 'body'];
-
-  for (const zone of MIGRATION_ZONES) {
-    const groups = zone.pattern.namedGroups;
-    if (!groups) {
-      logger.error(
-        `Zone "${zone.name}" pattern has no named groups. Required: ${requiredGroups.join(', ')}`,
-      );
-      process.exit(1);
-    }
-
-    for (const group of requiredGroups) {
-      if (!(group in groups)) {
-        logger.error(
-          `Zone "${zone.name}" pattern missing required group "${group}". Required: ${requiredGroups.join(', ')}`,
-        );
-        process.exit(1);
-      }
-    }
-  }
-}
-
 export async function runMigrateMarkdownZones(
   args: string[] = [],
 ): Promise<void> {
@@ -180,8 +245,9 @@ export async function runMigrateMarkdownZones(
     process.exit(0);
   }
 
-  // Validate zone patterns before processing
-  validateMigrationZones();
+  // Zones are already validated at module load time (VALIDATED_ZONES).
+  // If a zone pattern is invalid, the script threw during initialization,
+  // before this function was called.
 
   const format = String(parsed.format || 'text').toLowerCase();
   const mdDir = path.resolve(
@@ -217,7 +283,7 @@ export async function runMigrateMarkdownZones(
     let content = original;
     const migrationZones: string[] = [];
 
-    for (const zone of MIGRATION_ZONES) {
+    for (const zone of VALIDATED_ZONES) {
       const result = wrapSection(
         content,
         zone.pattern,
