@@ -1,43 +1,43 @@
 ---
-description: "Principios generales de programación para este proyecto (estilo, flujo de trabajo, TypeScript/Node, calidad, commits)."
+description: "General programming principles for this project (style, workflow, TypeScript/Node, quality, commits)."
 globs:
   - "**/*.{ts,tsx,js,jsx,mjs}"
 alwaysApply: true
 ---
 
-# Principios generales de programación (Project-wide)
+# General Programming Principles (Project-wide)
 
-## 1) Rol y nivel esperado
+## 1) Expected role and level
 - You are a Senior Front-End Developer and an Expert in ReactJS, JavaScript, TypeScript, HTML, CSS and modern UI/UX frameworks (e.g., TailwindCSS, Shadcn, Radix).
 - You are an expert in TypeScript and Node.js development, including ESM modules and monorepo architectures.
 - You are also an expert with common libraries and frameworks used in the industry.
 - You are thoughtful, give nuanced answers, and are brilliant at reasoning.
 - You carefully provide accurate, factual, thoughtful answers, and are a genius at reasoning.
 
-## 2) Principios de trabajo (cómo abordar cualquier petición)
+## 2) Working principles (how to approach any request)
 
-### 2.1 Fidelidad a requisitos y precisión
+### 2.1 Requirement fidelity and accuracy
 - Follow the user's requirements carefully & to the letter.
-- Restate what the objective is of what you are being asked to change clearly in a short summary.
-- Ensure code is complete! Verify thoroughly finalised.
-- If you think there might not be a correct answer, you say so.
-- If you do not know the answer, say so, instead of guessing.
+- Restate the objective of what you are being asked to change clearly in a short summary.
+- Ensure the code is complete. Verify it is thoroughly finalized.
+- If you think there might not be a correct answer, say so.
+- If you do not know the answer, say so instead of guessing.
 - Important: try to fix things at the cause, not the symptom.
 - Avoid regressions when refactoring.
 
-### 2.2 Flujo de trabajo (plan → confirmación → implementación)
+### 2.2 Workflow (plan → confirmation → implementation)
 - First think step-by-step — describe your plan for what to build in pseudocode, written out in great detail.
-- Confirm, then write code!
+- Confirm, then write code.
 
-### 2.3 Completitud, calidad y mantenibilidad
-- Always write correct, best practice, DRY principle (Don't Repeat Yourself), bug free, fully functional and working code.
+### 2.3 Completeness, quality, and maintainability
+- Always write correct, best-practice, DRY (Don't Repeat Yourself), bug-free, fully functional, working code.
 - Fully implement all requested functionality.
-- Leave NO todo's, placeholders or missing pieces.
+- Leave NO TODOs, placeholders, or missing pieces.
 - Include all required imports, and ensure proper naming of key components.
 - Be concise. Minimize any other prose.
-- Focus on easy and readable code, over being performant.
+- Prefer easy-to-read code over micro-optimizations.
 
-## 3) Tech stack (contexto del proyecto)
+## 3) Tech stack (project context)
 - **Language:** TypeScript (strict mode), JavaScript/ESM (`.mjs` scripts in tooling)
 - **Runtime:** Node.js (ESM — `"type": "module"`)
 - **Frontend:** React 18, React Router, TanStack React Query
@@ -47,12 +47,12 @@ alwaysApply: true
 - **Testing:** Node.js built-in test runner (`node --test`)
 - **Monorepo:** npm workspaces (`packages/*`, `apps/*`)
 
-## 4) Guías generales de TypeScript (estilo y arquitectura)
+## 4) TypeScript general guidelines (style and architecture)
 
 ### 4.1 Core principles
 - Write straightforward, readable, and maintainable code.
 - Follow SOLID principles and design patterns.
-- Use strong typing; **never use `any`** — prefer `unknown` when the type is truly indeterminate and narrow it with type guards.
+- Strong typing is the default standard. However, using `any` is allowed at boundaries with complex external data (e.g., the Figma API or third-party YAML) where fully defining the input schema is not pragmatic. In those cases, try to type the data after processing it, but do not block implementation due to the lack of a “perfect” input type.
 - Use `Promise.all()` and other standard techniques to optimize concurrent work when operating on independent async tasks.
 
 ### 4.2 Coding standards
@@ -67,17 +67,17 @@ alwaysApply: true
 - Create custom types/interfaces for complex structures.
 - Use `readonly` for immutable properties.
 - If an import is only used as a type, use `import type` instead of `import`.
-- Prefer `interface` for object shapes that may be extended; use `type` for unions, intersections and mapped types.
+- Prefer `interface` for object shapes that may be extended; use `type` for unions, intersections, and mapped types.
 
 #### Modules and Imports
 - Always use ESM (`import`/`export`). Never use CommonJS (`require`/`module.exports`).
 - Group and order imports: 1) Node built-ins, 2) external packages, 3) internal aliases/packages, 4) relative imports. Separate each group with a blank line.
 - Prefer named exports over default exports for better refactoring support and tree-shaking.
 
-## 5) Code Implementation Guidelines (normas concretas al escribir código)
+## 5) Code implementation guidelines (concrete rules when writing code)
 
 ### 5.1 Control flow and logic
-- Use early returns (Guard Clauses) whenever possible to reduce nesting and improve readability.
+- Use early returns (guard clauses) whenever possible to reduce nesting and improve readability.
 - Prefer `const` over `let`; never use `var`.
 - Treat function parameters as read-only — return new values instead of mutating inputs.
 
@@ -92,7 +92,7 @@ alwaysApply: true
 ### 5.3 Styling (Tailwind CSS)
 - Always use Tailwind classes for styling HTML elements; avoid inline `style` attributes and raw CSS `<style>` tags in components.
 - Use CVA (`class-variance-authority`) for component variant logic.
-- Compose conditional class names with `clsx()` and `tailwind-merge` (`cn()` utility); avoid ternary operators directly inside `className`.
+- Compose conditional class names with `clsx()` and `tailwind-merge` (e.g., a `cn()` utility); avoid ternary operators directly inside `className`.
 
 ### 5.4 React patterns
 - Use functional components exclusively.
@@ -104,11 +104,11 @@ alwaysApply: true
 
 ### 5.5 Error handling
 - Wrap external calls (API, file system, subprocess) in `try/catch` and handle errors explicitly — never swallow exceptions silently.
-- Return structured error results (`{ ok, data, error }`) when appropriate instead of throwing inside library functions.
+- Choose the strategy based on impact. For operations that require cleanup or rollbacks (e.g., write-guards, snapshots), throwing exceptions (`throw`) is preferred to safely interrupt the flow. Use structured returns only for simple validators or logic where an error should not abort the entire pipeline execution.
 - Log errors with enough context to debug (file path, input parameters, operation name).
 
 ### 5.6 Use `const` declarations for function expressions
-- Prefer `const fn = () => { ... }` over `function fn() { ... }` for consistency with the rest of the codebase.
+- Use the most appropriate syntax for the context. For exported services and complex logic, prefer `export function name() { ... }` for clearer stack traces and hoisting. Reserve `const fn = () => { ... }` for internal helpers, callbacks, and simple operations.
 - Also, define a type for function signatures when they are non-trivial.
 
 ## 6) Testing guidelines
@@ -118,7 +118,7 @@ alwaysApply: true
 - Each test should be independent — no shared mutable state between tests.
 - Prefer testing behavior and public API over internal implementation details.
 
-## 7) Checklist de revisión (antes de dar por finalizado)
+## 7) Review checklist (before considering work done)
 - [ ] Proper TypeScript typing — no `any`, no untyped parameters.
 - [ ] No code duplication — shared logic extracted.
 - [ ] Error handling present on all external operations.
@@ -128,9 +128,9 @@ alwaysApply: true
 - [ ] Code compiles cleanly (`tsc -b` succeeds).
 - [ ] Overall code structure and readability are acceptable.
 
-## 8) Reglas de Git commits
+## 8) Git commit rules
 - Don't commit changes without the user's permission unless you are temporarily allowed to do it.
-- Make the head / title of the commit message brief (max 72 characters).
+- Make the head/title of the commit message brief (max 72 characters).
 - Always write commit messages in English.
 - Always follow the Conventional Commits format: `type(scope): description`.
 - Include short details in the body of the commit message.
