@@ -97,6 +97,7 @@ export { runTokenHealth } from '../runners/token-health-runner.js';
 export { runRegistrySync } from '../runners/registry-sync-runner.js';
 
 // Spec runners
+export { runSpecFromFigmaRunner } from '../runners/spec-from-figma-runner.js';
 export { runSortSpec } from '../runners/sort-spec-runner.js';
 
 // Doc regeneration runners

@@ -4,7 +4,7 @@
  * Reusable pattern for loading token registry with graceful error handling.
  */
 
-import { loadTokenRegistry } from './token-registry.js';
+import { loadTokenRegistry } from '../services/token-utils.js';
 
 /**
  * Load token registry or throw a user-friendly error.
