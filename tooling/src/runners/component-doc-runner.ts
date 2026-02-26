@@ -17,7 +17,7 @@ import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
 // Import from existing libs during migration
-import { runAgentPrompt } from '../../scripts/lib/agent-runner.mjs';
+import { runAgentPrompt } from '../services/agent-runner.js';
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
 import { parseMarkdownFrontmatter, parseYamlDocument } from '../../scripts/lib/parse-frontmatter.mjs';
 import { loadTokenRegistry } from '../services/token-registry.js';
