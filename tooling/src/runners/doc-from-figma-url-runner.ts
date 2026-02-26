@@ -50,7 +50,7 @@ import {
 } from '../../scripts/lib/scoped-write-guard.mjs';
 import { runOrThrow } from '../utils/exec.js';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
-import { TempArtifactManager } from '../../scripts/lib/temp-artifacts.mjs';
+import { TempArtifactManager } from '../services/temp-artifacts.js';
 import { fetchFigmaFile } from '../utils/figma-api.js';
 import {
   buildFigmaComponentMap,

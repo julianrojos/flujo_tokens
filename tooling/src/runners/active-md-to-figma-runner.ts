@@ -30,7 +30,7 @@ import { normalizeNodeId, isValidNodeId } from '../utils/figma-node-id.js';
 import { isTbdMarker } from '../utils/tbd.js';
 import { runOrThrow } from '../utils/exec.js';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
-import { TempArtifactManager } from '../../scripts/lib/temp-artifacts.mjs';
+import { TempArtifactManager } from '../services/temp-artifacts.js';
 import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
 import { DEFAULT_TOKEN_REGISTRY_PATH } from '../../scripts/lib/token-registry.mjs';
 import { logger } from '../utils/logger.js';
@@ -410,7 +410,7 @@ function cleanupLegacyTempOutputs({
   ]);
   return tempArtifacts.purgeMatching({
     dir: generatedDir,
-    matcher: (name: string) => allowedNames.has(name),
+    matcher: (name: string, _absolutePath: string) => allowedNames.has(name),
   });
 }
 

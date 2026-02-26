@@ -37,7 +37,7 @@ import { captureFileSnapshot, restoreFileSnapshot } from '../services/file-snaps
 import { assertDocStatusStable, assertEvidenceGatedScalarChanges } from '../../scripts/lib/evidence-gated-mutations.mjs';
 import { assertScopedWritePolicy, captureScopedWriteSnapshot } from '../../scripts/lib/scoped-write-guard.mjs';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
-import { TempArtifactManager } from '../../scripts/lib/temp-artifacts.mjs';
+import { TempArtifactManager } from '../services/temp-artifacts.js';
 
 const USAGE = {
   command: 'npm run ds:component-doc -- --component-name Alert [--agent codex] [--output docs/components/alert.md]',
