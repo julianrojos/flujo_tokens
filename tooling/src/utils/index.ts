@@ -178,6 +178,191 @@ export { isPlainObject } from './is-plain-object.js';
 export { commandExists } from './command-exists.js';
 export { isMain } from './is-main.js';
 
+// Agent runner utilities
+export { runAgentPrompt } from '../services/agent-runner.js';
+
+export type {
+  AgentType,
+  AgentPromptOptions,
+  AgentPromptResult,
+} from '../services/agent-runner.js';
+
+// Spec agent runner utilities
+export {
+  buildSpecPrompt,
+  buildSpecValidationFeedbackPrompt,
+  buildSpecAgentLabel,
+  runSpecGenerationPrompt,
+  runSpecRepairPrompt,
+  GOLDEN_COMPONENT_SPEC_SAMPLE_PATH,
+  SPEC_REQUIRED_TOP_LEVEL_FIELDS,
+  RULE_BLOCKS,
+} from '../services/spec-agent-runner.js';
+
+export type {
+  BuildSpecPromptOptions,
+  BuildSpecValidationFeedbackPromptOptions,
+  BuildSpecAgentLabelOptions,
+  RunSpecGenerationPromptOptions,
+  RunSpecRepairPromptOptions,
+} from '../services/spec-agent-runner.js';
+
+// Spec run guards and resolvers
+export {
+  assertBypassPolicy,
+  assertFigmaSourceProvided,
+  assertOutputPath,
+  resolveFigmaSource,
+} from '../services/spec-guards.js';
+
+export type {
+  BypassPolicyOptions,
+  FigmaSourceInputs,
+  ResolvedFigmaSource,
+} from '../services/spec-guards.js';
+
+// Spec run context service
+export { createSpecRunContext } from '../services/spec-run-context.js';
+
+export type { CreateSpecRunContextOptions } from '../services/spec-run-context.js';
+
+// Pipeline types
+export type {
+  PipelineIdentity,
+  PipelinePaths,
+  PipelineFlags,
+  PipelineContext,
+  SpecRunContext,
+} from '../types/pipeline.js';
+
+// Spec registry and flow services
+export { loadRegistryOrThrow, buildSpecPromptWithRegistry } from '../services/spec-registry-prompt.js';
+export { runSpecGenerationFlow } from '../services/spec-generation-flow.js';
+
+export type {
+  BuildSpecPromptWithRegistryOptions,
+  LoadRegistryOptions,
+} from '../services/spec-registry-prompt.js';
+
+export type {
+  RunSpecGenerationFlowOptions,
+  SpecGenerationFlowResult,
+} from '../services/spec-generation-flow.js';
+
+export {
+  coerceSpecPropertyType,
+  getSpecPropertyTypeInfo,
+  getValidSpecPropertyTypes,
+  PROPERTY_FIELD_ORDER,
+} from '../services/spec-property-types.js';
+
+export type {
+  SpecPropertyType,
+  SpecPropertyTypeInfo,
+} from '../services/spec-property-types.js';
+
+export {
+  countTbdValues,
+  mergeWithTemplate,
+  normalizeSpecOrder,
+  normalizeSpec,
+  SPEC_TOP_LEVEL_ORDER,
+} from '../services/spec-normalizer.js';
+
+export type { NormalizeSpecOptions } from '../services/spec-normalizer.js';
+
+// Validation services
+export { validateDocs } from '../services/docs-validator.js';
+export { validateGeneratedSpec } from '../services/spec-validation.js';
+
+export type {
+  DocsValidatorIssue,
+  DocsValidationSummary,
+  DocsValidationReport,
+  DocsValidatorOptions,
+} from '../services/docs-validator.js';
+
+export type { SpecValidationResult } from '../services/spec-validation.js';
+
+// Evidence-gated mutations
+export {
+  assertEvidenceGatedScalarChanges,
+  assertDocStatusStable,
+  readDocStatus,
+} from '../services/evidence-gated-mutations.js';
+
+export type {
+  AssertEvidenceGatedOptions,
+  AssertDocStatusStableOptions,
+  MutationViolation,
+} from '../services/evidence-gated-mutations.js';
+
+// Spec write adapter
+export {
+  ensureSpecTemplateExists,
+  ensureSpecOutputDirectory,
+  materializeSpec,
+  parseExistingSpecFromSnapshot,
+} from '../services/spec-write-adapter.js';
+
+export type {
+  MaterializeSpecOptions,
+  SpecOutputSnapshot,
+} from '../services/spec-write-adapter.js';
+
+// File snapshot utilities
+export { captureFileSnapshot, restoreFileSnapshot } from './file-snapshot.js';
+
+export type { FileSnapshot } from './file-snapshot.js';
+
+// Scoped write guard
+export {
+  captureScopedWriteSnapshot,
+  assertScopedWritePolicy,
+} from '../services/scoped-write-guard.js';
+
+export type {
+  ScopedWriteSnapshot,
+  FileChange,
+} from '../services/scoped-write-guard.js';
+
+// Spec writer
+export {
+  formatYamlFile,
+  writeNormalizedSpec,
+  writeSpecWithSnapshotGuard,
+} from '../services/spec-writer.js';
+
+// Spec result and finalization
+export { buildSpecGenerationResult } from '../services/spec-result.js';
+export { finalizeSpecResult } from '../services/spec-finalization.js';
+
+export type {
+  SpecGenerationResult,
+  IndexSyncResult,
+  BuildSpecResultOptions,
+} from '../services/spec-result.js';
+
+export type { FinalizeSpecOptions } from '../services/spec-finalization.js';
+
+// Spec runner
+export { runSpecWithGuards } from '../services/spec-runner.js';
+
+export type { RunSpecWithGuardsOptions } from '../services/spec-runner.js';
+
+// Pipeline context
+export {
+  createPipelineContext,
+  parsePipelineIdentity,
+  parsePipelineOptions,
+  resolvePipelinePaths,
+} from '../services/pipeline-context.js';
+
+// Spec orchestrator
+export { runSpecFromFigma } from '../services/spec-orchestrator.js';
+
+export type { SpecOrchestratorDeps } from '../services/spec-orchestrator.js';
+
 // Argument parsing utilities
 export { parseArgs, renderUsage, printUsage } from './parse-args.js';
 
@@ -326,6 +511,21 @@ export type {
   FigmaComponentMapSummary,
 } from './figma-component-map.js';
 
+// Figma node ID utilities
+export {
+  FIGMA_NODE_ID_RE,
+  normalizeNodeId,
+  isValidNodeId,
+} from './figma-node-id.js';
+
+// Figma URL parser utilities
+export { parseFigmaUrl } from './figma-url-parser.js';
+
+export type { ParsedFigmaUrl } from './figma-url-parser.js';
+
+// Spec path utilities
+export { buildSpecOutputPath } from './spec-paths.js';
+
 // Figma component map runners
 export { runFigmaComponentMap } from '../runners/figma-component-map-runner.js';
 
@@ -339,8 +539,6 @@ export {
 export type {
   // FigmaNode is now canonical here (removed from figma-api exports)
   FigmaNode,
-  SpecAnatomyItem,
-  SpecProperty,
   ExtractedComponentSpec,
   SpecSections,
   LayoutInfo,
