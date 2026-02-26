@@ -236,7 +236,7 @@ export type {
 } from '../types/pipeline.js';
 
 // Spec registry and flow services
-export { loadRegistryOrThrow, buildSpecPromptWithRegistry } from '../services/spec-registry-prompt.js';
+export { buildSpecPromptWithRegistry } from '../services/spec-registry-prompt.js';
 export { runSpecGenerationFlow } from '../services/spec-generation-flow.js';
 
 export type {
@@ -309,6 +309,9 @@ export type {
   MaterializeSpecOptions,
   SpecOutputSnapshot,
 } from '../services/spec-write-adapter.js';
+
+// Registry loader
+export { loadRegistryOrThrow } from './registry-loader.js';
 
 // File snapshot utilities
 export { captureFileSnapshot, restoreFileSnapshot } from './file-snapshot.js';

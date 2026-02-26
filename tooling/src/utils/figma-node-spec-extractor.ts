@@ -1,4 +1,5 @@
 import { componentNameToSnakeCase } from "./component-name.js";
+import { type SpecAnatomyItem, type SpecProperty } from "../types/spec.js";
 
 /**
  * figma-node-spec-extractor.ts
@@ -37,25 +38,7 @@ export interface FigmaNode {
   componentPropertyDefinitions?: Record<string, any>;
 }
 
-export interface SpecAnatomyItem {
-  name: string;
-  type: string;
-  width?: number;
-  height?: number;
-  fill?: string | null;
-  stroke?: string | null;
-  cornerRadius?: number;
-  effects?: string[];
-  textStyle?: string | null;
-  children?: SpecAnatomyItem[];
-}
-
-export interface SpecProperty {
-  name: string;
-  type: string;
-  defaultValue?: any;
-  variant?: boolean;
-}
+// Types imported from ../types/spec.js
 
 export interface ExtractedComponentSpec {
   anatomy: SpecAnatomyItem[];
