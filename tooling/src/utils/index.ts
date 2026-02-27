@@ -474,11 +474,12 @@ export type {
   FigmaFileResponse,
   FigmaNodesResponse,
   FigmaVariablesResponse,
+  FigmaImagesResponse,
   FigmaApiOptions,
   FetchFigmaFileOptions,
   FetchFigmaNodesOptions,
   FetchFigmaImagesOptions,
-} from './figma-api.js';
+} from './figma.js';
 
 // Agent output contract utilities
 export {
@@ -505,7 +506,7 @@ export {
   parseNodeIdFromUrl,
   buildFigmaComponentMapSummary,
   renderFigmaComponentMapText,
-} from './figma-component-map.js';
+} from '../services/figma-component-map.js';
 
 export type {
   FigmaComponentMap,
@@ -513,7 +514,7 @@ export type {
   FigmaPageItem,
   ParsedFigmaFileUrl,
   FigmaComponentMapSummary,
-} from './figma-component-map.js';
+} from '../services/figma-component-map.js';
 
 // Figma node ID utilities
 export {
