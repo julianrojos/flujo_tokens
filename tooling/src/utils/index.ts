@@ -429,7 +429,7 @@ export {
   buildTokenMenuLines,
   pickBestTokenPath,
   prefillTokenMapping,
-} from './spec-token-mapping.js';
+} from '../services/spec-token-mapping.js';
 
 // Spec to markdown utilities
 export {
@@ -528,7 +528,7 @@ export { parseFigmaUrl } from './figma-url-parser.js';
 export type { ParsedFigmaUrl } from './figma-url-parser.js';
 
 // Spec path utilities
-export { buildSpecOutputPath } from './spec-paths.js';
+export { buildSpecOutputPath } from '../services/spec-paths.js';
 
 // Figma component map runners
 export { runFigmaComponentMap } from '../runners/figma-component-map-runner.js';
