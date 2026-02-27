@@ -112,19 +112,16 @@ Antes de incluir un hallazgo:
 - No imprimas bloques vacíos ni “resúmenes por archivo”.
 
 ### Formato de hallazgos (OBLIGATORIO)
-Para cada hallazgo (que pasa gates y es accionable):
+Para cada hallazgo (que pasa gates y es accionable) lista únicamente:
 
 ### 📁 [Ruta del archivo]
-
 - **[TIPO] (Confianza: XX%)** — _[Descripción concisa del hallazgo]_
   - **Evidencia:** [hunk/fragmento específico del diff o referencia clara]
   - **Causa raíz probable:** [1 frase]
   - **Acción recomendada (obligatoria):** [cambio concreto en imperativo]
   - **Alternativa:** [otra opción que podría ser mejor + por qué] / “No se me ocurre una alternativa mejor con el contexto actual”
   - **Riesgo de regresión (si aplica):** [qué podría romper + mitigación breve]
-
 _(Tipos: BUG, REGRESIÓN, MEJORA)_
-
 ### Preguntas de verificación (máx. 3; solo si alto riesgo y no supera umbral)
 - **[PREGUNTA]** — _[qué habría que comprobar para elevar la confianza]_  
   - **Evidencia parcial:** [qué te lo sugiere]  
