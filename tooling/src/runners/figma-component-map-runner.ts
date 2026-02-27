@@ -270,16 +270,18 @@ export async function runFigmaComponentMap(
   const filePayload = await fetchFigmaFile({
     fileKey: parsedUrl.fileKey,
     token,
-    depth: depth?.toString(),
+    depth,
     timeoutMs,
   });
 
   // Build component map
-  const componentMap = buildFigmaComponentMap({
-    filePayload,
-    fileDescriptor: parsedUrl,
-    includeInstances,
-  });
+  const componentMap = buildFigmaComponentMap(
+    parsedUrl,
+    filePayload.document,
+    filePayload.components || {},
+    filePayload.componentSets || {},
+    includeInstances
+  );
   const summary = buildFigmaComponentMapSummary(componentMap);
 
   // Check for unresolved instances
