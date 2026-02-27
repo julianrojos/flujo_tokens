@@ -6,7 +6,7 @@
 
 import * as path from 'node:path';
 import { validateDocs, PROJECT_ROOT } from '../utils/index.js';
-import type { DocsValidationReport, DocsValidatorIssue } from './docs-validator.js';
+import type { DocsValidationReport, DocsValidatorIssue } from './docs-validator-types.js';
 
 export interface SpecValidationResult {
     ok: boolean;

@@ -281,7 +281,7 @@ export type {
   DocsValidationSummary,
   DocsValidationReport,
   DocsValidatorOptions,
-} from '../services/docs-validator.js';
+} from '../services/docs-validator-types.js';
 
 export type { SpecValidationResult } from '../services/spec-validation.js';
 

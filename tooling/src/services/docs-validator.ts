@@ -29,13 +29,18 @@ import {
 } from '../utils/figma-node-id.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 
+// Import shared types (single source of truth for validator types)
+import type {
+  DocsValidatorIssue,
+  DocsValidationSummary,
+  DocsValidationGovernance,
+  DocsValidationReport,
+  DocsValidatorOptions,
+} from './docs-validator-types.js';
+
 // Import from newly created services
 import {
-  CANONICAL_H2_ORDER,
-  REQUIRED_CANONICAL_H2,
-  ALLOWED_DOC_STATUS,
   SPEC_ALLOWED_STATUS,
-  COMPONENT_REQUIRED_FIGMA_FRONTMATTER_FIELDS,
   SPEC_REQUIRED_TOP_LEVEL_FIELDS,
   TRACEABILITY_CONTRACT_VERSION,
   TOKEN_COLLECTION_PREFIXES,
@@ -64,60 +69,31 @@ import {
   extractNonEmptySectionLines,
 } from './gaps.js';
 
+// Import extracted validator modules (FULLY WIRED - single source of truth)
+import {
+  validateComponentFrontmatter,
+  validateOverviewFrontmatter,
+  validateWorkflowOrFoundationFrontmatter,
+} from './frontmatter.js';
+import { validateOverviewLinks, validateSpecMarkdownPairing } from './linking.js';
+import {
+  validateSectionOrder,
+  validateComponentDocFileName,
+  validateVariableIds,
+  validateEditorialPlaceholders,
+  validateInternalLinks,
+} from './markdown-quality.js';
+import {
+  buildLineStarts,
+  lineFromOffset,
+  collectMarkdownFiles,
+  collectSpecFiles,
+} from './runtime-utils.js';
+import { loadRuleManifest, annotateFindingsWithManifest, createBaseReport } from './governance.js';
+
 // ============================================================================
-// Type Definitions
+// Internal Type Definitions (not exported - use docs-validator-types.ts for public API)
 // ============================================================================
-
-export interface DocsValidatorIssue {
-  code: string;
-  file: string;
-  line?: number;
-  message: string;
-  severity?: 'error' | 'warning' | 'info';
-  details?: unknown;
-  suggested?: string;
-  expected?: string | string[];
-  actual?: string | string[];
-  token?: string;
-  rule_ids?: string[];
-  blocking?: boolean;
-}
-
-export interface DocsValidationSummary {
-  filesChecked: number;
-  specFilesChecked: number;
-  tokenRefsChecked: number;
-  tokenRefsInvalid: number;
-  errors: number;
-  warnings: number;
-}
-
-export interface DocsValidationGovernance {
-  manifestPath: string;
-  manifestLoaded: boolean;
-}
-
-export interface DocsValidationReport {
-  ok: boolean;
-  generatedAt: string;
-  governance: DocsValidationGovernance;
-  summary: DocsValidationSummary;
-  errors: DocsValidatorIssue[];
-  warnings: DocsValidatorIssue[];
-}
-
-export interface DocsValidatorOptions {
-  docsRoot?: string;
-  specRoot?: string;
-  specFilePath?: string;
-  registryPath?: string;
-  filePath?: string;
-  allowExtraH2?: boolean;
-  checkPairing?: boolean;
-  checkOverview?: boolean;
-  checkSpecs?: boolean;
-  manifestPath?: string;
-}
 
 interface RegistryIndexes {
   keySet: Set<string>;
@@ -181,18 +157,9 @@ const CSS_DIMENSION_RE = /^-?\d+(?:\.\d+)?(?:px|rem|em|%)?$/i;
 const TOKEN_COLLECTION_PREFIXES_LOWER = new Set(
   [...TOKEN_COLLECTION_PREFIXES].map((value) => String(value).toLowerCase())
 );
-const VARIABLE_ID_RE_SOURCE = '\\bVariableID:[A-Za-z0-9:-]+\\b';
-const MARKDOWN_LINK_RE = /(?<!!)\[[^\]]*\]\(([^)\n]+)\)/g;
-const PLACEHOLDER_PATTERNS = [
-  { regex: /\bTODO\b/gi, label: 'TODO' },
-  { regex: /\bXXX\b/gi, label: 'XXX' },
-  { regex: /\{placeholder\}/gi, label: '{placeholder}' },
-  { regex: /<placeholder>/gi, label: '<placeholder>' },
-];
 
 const FILE_HASH_CACHE = new Map<string, { digest: string; size: number; mtimeMs: number }>();
 const FILE_HASH_CACHE_MAX_ENTRIES = 1_000;
-const HEADING_ANCHOR_CACHE = new Map<string, Set<string>>();
 
 // Get system context for default paths (context-aware, supports active system)
 const _defaultCtx = resolveSystemContextSafe();
@@ -439,148 +406,6 @@ function resolveInternalLink(filePath: string, target: string): {
     resolvedPath,
     anchor: normalizeMarkdownAnchor(anchorPart),
   };
-}
-
-function buildLineStarts(text: string): number[] {
-  const starts = [0];
-  for (let i = 0; i < text.length; i += 1) {
-    if (text[i] === '\n') starts.push(i + 1);
-  }
-  return starts;
-}
-
-function lineFromOffset(lineStarts: number[], offset: number): number {
-  let left = 0;
-  let right = lineStarts.length - 1;
-  while (left <= right) {
-    const mid = Math.floor((left + right) / 2);
-    const start = lineStarts[mid];
-    const nextStart = mid + 1 < lineStarts.length ? lineStarts[mid + 1] : Number.MAX_SAFE_INTEGER;
-    if (offset >= start && offset < nextStart) return mid + 1;
-    if (offset < start) right = mid - 1;
-    else left = mid + 1;
-  }
-  return 1;
-}
-
-function collectMarkdownFiles(docsRoot: string, explicitFilePath: string | null): string[] {
-  if (explicitFilePath) return [path.resolve(explicitFilePath)];
-  if (!fs.existsSync(docsRoot)) return [];
-  const files: string[] = [];
-  const queue: string[] = [path.resolve(docsRoot)];
-
-  while (queue.length > 0) {
-    const currentDir = queue.shift()!;
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const absolutePath = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        queue.push(absolutePath);
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith('.md')) {
-        files.push(absolutePath);
-      }
-    }
-  }
-
-  return files.sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
-}
-
-function collectSpecFiles(specRoot: string): string[] {
-  if (!fs.existsSync(specRoot)) return [];
-  return fs
-    .readdirSync(specRoot, { withFileTypes: true })
-    .filter(
-      (entry) =>
-        entry.isFile() &&
-        entry.name.endsWith('.yml') &&
-        entry.name !== '_template.yml'
-    )
-    .map((entry) => path.join(specRoot, entry.name))
-    .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
-}
-
-// ============================================================================
-// Report Creation and Governance
-// ============================================================================
-
-function createBaseReport(options: { manifestPath: string }): DocsValidationReport {
-  return {
-    ok: true,
-    generatedAt: new Date().toISOString(),
-    governance: {
-      manifestPath: options.manifestPath,
-      manifestLoaded: false,
-    },
-    summary: {
-      filesChecked: 0,
-      specFilesChecked: 0,
-      tokenRefsChecked: 0,
-      tokenRefsInvalid: 0,
-      errors: 0,
-      warnings: 0,
-    },
-    errors: [],
-    warnings: [],
-  };
-}
-
-function loadRuleManifest(manifestPath: string): ManifestInfo {
-  const resolvedPath = path.resolve(manifestPath);
-  if (!fs.existsSync(resolvedPath)) {
-    return {
-      path: resolvedPath,
-      checks: {},
-      loaded: false,
-      error: null,
-    };
-  }
-
-  try {
-    const parsed = parseYamlDocument<Record<string, unknown>>(
-      fs.readFileSync(resolvedPath, 'utf8'),
-      `rule manifest (${path.basename(resolvedPath)})`
-    );
-    const checks = isPlainObject(parsed.checks)
-      ? (parsed.checks as Record<string, { rule_ids?: string[]; blocking?: boolean }>)
-      : {};
-    return {
-      path: resolvedPath,
-      checks,
-      loaded: true,
-      error: null,
-    };
-  } catch (error) {
-    return {
-      path: resolvedPath,
-      checks: {},
-      loaded: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
-
-function annotateFindingsWithManifest(
-  findings: DocsValidatorIssue[],
-  manifestChecks: Record<string, { rule_ids?: string[]; blocking?: boolean }>
-): void {
-  if (!Array.isArray(findings) || findings.length === 0) return;
-  for (const finding of findings) {
-    const code = String(finding?.code || '').trim();
-    if (!code) continue;
-    const manifestEntry = manifestChecks[code];
-    if (!isPlainObject(manifestEntry)) continue;
-    const ruleIds = Array.isArray(manifestEntry.rule_ids)
-      ? manifestEntry.rule_ids
-          .map((value) => String(value || '').trim())
-          .filter(Boolean)
-      : [];
-    finding.rule_ids = ruleIds;
-    if (typeof manifestEntry.blocking === 'boolean') {
-      finding.blocking = manifestEntry.blocking;
-    }
-  }
 }
 
 // ============================================================================
@@ -930,242 +755,6 @@ function findDiscrepancyStatuses(rawMarkdown: string): string[] {
 // ============================================================================
 // Markdown Quality Validators
 // ============================================================================
-
-function validateSectionOrder(
-  filePath: string,
-  content: string,
-  report: DocsValidationReport,
-  lineStarts: number[],
-  lineFromOffsetFn: (starts: number[], offset: number) => number,
-  baseOffset: number,
-  options: { allowExtraH2: boolean }
-): void {
-  const allowExtraH2 = Boolean(options.allowExtraH2);
-  const headings = collectH2Headings(content);
-  const canonicalIndex = new Map(
-    CANONICAL_H2_ORDER.map((heading, index) => [normalizeHeadingText(heading), index])
-  );
-  const firstOccurrence = new Map<string, { heading: string; normalized: string; offset: number }>();
-  const duplicateHeadings = new Set<string>();
-
-  for (const heading of headings) {
-    if (firstOccurrence.has(heading.normalized)) {
-      duplicateHeadings.add(heading.normalized);
-      continue;
-    }
-    firstOccurrence.set(heading.normalized, heading);
-  }
-
-  for (const normalizedHeading of duplicateHeadings) {
-    const first = firstOccurrence.get(normalizedHeading);
-    if (!first) continue;
-    report.errors.push({
-      code: 'SEC01',
-      file: filePath,
-      line: lineFromOffsetFn(lineStarts, baseOffset + first.offset),
-      message: `Duplicate H2 heading is not allowed: \`## ${first.heading}\`.`,
-    });
-  }
-
-  for (const required of REQUIRED_CANONICAL_H2) {
-    const key = normalizeHeadingText(required);
-    const found = firstOccurrence.get(key);
-    if (!found) {
-      report.errors.push({
-        code: 'SEC01',
-        file: filePath,
-        message: `Missing required H2 heading: \`## ${required}\`.`,
-      });
-    }
-  }
-
-  let previousCanonicalIndex = -1;
-  for (const heading of headings) {
-    const currentIndex = canonicalIndex.get(heading.normalized);
-    if (currentIndex == null) {
-      const finding = {
-        code: 'SEC02',
-        file: filePath,
-        line: lineFromOffsetFn(lineStarts, baseOffset + heading.offset),
-        message:
-          `Unauthorized H2 heading: \`## ${heading.heading}\`. ` +
-          `Allowed H2 headings: ${CANONICAL_H2_ORDER.join(', ')}.`,
-      };
-      if (allowExtraH2) {
-        report.warnings.push(finding);
-      } else {
-        report.errors.push(finding);
-      }
-      continue;
-    }
-
-    if (currentIndex < previousCanonicalIndex) {
-      const expectedNext =
-        CANONICAL_H2_ORDER[Math.max(previousCanonicalIndex, 0)] ||
-        'the previous canonical heading';
-      report.errors.push({
-        code: 'SEC01',
-        file: filePath,
-        line: lineFromOffsetFn(lineStarts, baseOffset + heading.offset),
-        message:
-          `Heading out of canonical order: \`## ${heading.heading}\`. ` +
-          `Move it after \`## ${expectedNext}\` according to canonical H2 order.`,
-      });
-    }
-    previousCanonicalIndex = Math.max(previousCanonicalIndex, currentIndex);
-  }
-}
-
-function collectH2Headings(content: string): { heading: string; normalized: string; offset: number }[] {
-  const headings: { heading: string; normalized: string; offset: number }[] = [];
-  const regex = /^##\s+(.+?)\s*$/gm;
-  let match: RegExpExecArray | null;
-  while ((match = regex.exec(content)) !== null) {
-    headings.push({
-      heading: match[1].trim(),
-      normalized: normalizeHeadingText(match[1]),
-      offset: match.index,
-    });
-  }
-  return headings;
-}
-
-function validateVariableIds(
-  filePath: string,
-  rawMarkdown: string,
-  report: DocsValidationReport,
-  lineStarts: number[],
-  lineFromOffsetFn: (starts: number[], offset: number) => number
-): void {
-  const variableIdRegex = new RegExp(VARIABLE_ID_RE_SOURCE, 'g');
-  let match: RegExpExecArray | null;
-  while ((match = variableIdRegex.exec(rawMarkdown)) !== null) {
-    report.errors.push({
-      code: 'TOK03',
-      file: filePath,
-      line: lineFromOffsetFn(lineStarts, match.index),
-      message: `Forbidden Figma variable ID found: \`${match[0]}\`.`,
-    });
-  }
-}
-
-function validateEditorialPlaceholders(
-  filePath: string,
-  content: string,
-  report: DocsValidationReport,
-  lineStarts: number[],
-  lineFromOffsetFn: (starts: number[], offset: number) => number,
-  baseOffset: number
-): void {
-  const source = String(content || '');
-  for (const pattern of PLACEHOLDER_PATTERNS) {
-    pattern.regex.lastIndex = 0;
-    let match: RegExpExecArray | null;
-    while ((match = pattern.regex.exec(source)) !== null) {
-      report.errors.push({
-        code: 'QLT01',
-        file: filePath,
-        line: lineFromOffsetFn(lineStarts, baseOffset + match.index),
-        message: `Unresolved editorial placeholder marker found: \`${pattern.label}\`.`,
-      });
-    }
-  }
-}
-
-function validateInternalLinks(
-  filePath: string,
-  rawMarkdown: string,
-  report: DocsValidationReport,
-  lineStarts: number[],
-  lineFromOffsetFn: (starts: number[], offset: number) => number
-): void {
-  let content = String(rawMarkdown || '');
-  let contentOffset = 0;
-  try {
-    const parsed = parseMarkdownFrontmatter(rawMarkdown);
-    content = parsed.content;
-    contentOffset = String(rawMarkdown || '').length - String(content || '').length;
-  } catch {
-    content = String(rawMarkdown || '');
-    contentOffset = 0;
-  }
-
-  MARKDOWN_LINK_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = MARKDOWN_LINK_RE.exec(content)) !== null) {
-    const normalizedTarget = normalizeLinkTarget(match[1]);
-    if (!normalizedTarget) continue;
-    if (isExternalLinkTarget(normalizedTarget)) continue;
-
-    const line = lineFromOffsetFn(lineStarts, contentOffset + match.index);
-    const { resolvedPath, anchor } = resolveInternalLink(filePath, normalizedTarget);
-
-    if (!fs.existsSync(resolvedPath)) {
-      report.errors.push({
-        code: 'LINK03',
-        file: filePath,
-        line,
-        message: `Internal link target does not exist: \`${normalizedTarget}\`.`,
-        suggested: path.relative(process.cwd(), resolvedPath),
-      });
-      continue;
-    }
-
-    if (!anchor) continue;
-    if (path.extname(resolvedPath).toLowerCase() !== '.md') continue;
-
-    const anchors = getHeadingAnchorsForFile(resolvedPath);
-    if (anchors.has(anchor)) continue;
-
-    report.errors.push({
-      code: 'LINK03',
-      file: filePath,
-      line,
-      message: `Internal link anchor is missing in target file: \`${normalizedTarget}\`.`,
-      suggested: path.relative(process.cwd(), resolvedPath),
-    });
-  }
-}
-
-function getHeadingAnchorsForFile(filePath: string): Set<string> {
-  const resolved = path.resolve(filePath);
-  if (HEADING_ANCHOR_CACHE.has(resolved)) {
-    return HEADING_ANCHOR_CACHE.get(resolved)!;
-  }
-  if (!fs.existsSync(resolved)) {
-    const empty = new Set<string>();
-    HEADING_ANCHOR_CACHE.set(resolved, empty);
-    return empty;
-  }
-  const raw = fs.readFileSync(resolved, 'utf8');
-  const anchors = collectHeadingAnchorsFromMarkdown(raw);
-  HEADING_ANCHOR_CACHE.set(resolved, anchors);
-  return anchors;
-}
-
-function collectHeadingAnchorsFromMarkdown(rawMarkdown: string): Set<string> {
-  let content = String(rawMarkdown || '');
-  try {
-    const parsed = parseMarkdownFrontmatter(rawMarkdown);
-    content = parsed.content;
-  } catch {
-    // Fall back to raw markdown when frontmatter parsing fails.
-  }
-
-  const headingRegex = /^#{1,6}\s+(.+?)\s*$/gm;
-  const counts = new Map<string, number>();
-  const anchors = new Set<string>();
-  let match: RegExpExecArray | null;
-  while ((match = headingRegex.exec(content)) !== null) {
-    const base = slugifyHeading(match[1]);
-    if (!base) continue;
-    const count = counts.get(base) || 0;
-    const slug = count === 0 ? base : `${base}-${count}`;
-    counts.set(base, count + 1);
-    anchors.add(slug);
-  }
-  return anchors;
-}
 
 // ============================================================================
 // Token Reference Validators
@@ -1798,9 +1387,6 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
 
   const registryIndexes = buildRegistryIndexes(registry);
   const markdownFiles = collectMarkdownFiles(docsRoot, explicitFilePath);
-  const overviewFiles = markdownFiles.filter(
-    (filePath) => path.basename(filePath) === 'overview.md'
-  );
   const componentFiles: string[] = [];
 
   const specResolution: { specFilePath?: string } =
@@ -1837,22 +1423,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
     report.summary.filesChecked += 1;
     if (isOverview) {
       // Validate overview frontmatter
-      const docType = String(frontmatter.doc_type || '').trim();
-      if (docType !== 'overview') {
-        report.errors.push({
-          code: 'FM01',
-          file: filePath,
-          message: 'Frontmatter must include `doc_type: overview`.',
-        });
-      }
-      const status = String(frontmatter.doc_status || '').trim();
-      if (!ALLOWED_DOC_STATUS.has(status)) {
-        report.errors.push({
-          code: 'FM02',
-          file: filePath,
-          message: 'Frontmatter `doc_status` must be one of: draft, ready, needs-review.',
-        });
-      }
+      validateOverviewFrontmatter(filePath, frontmatter, report);
       continue;
     }
 
@@ -1862,56 +1433,11 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
     if (treatAsComponent) {
       componentFiles.push(filePath);
 
+      // Validate component filename
+      validateComponentDocFileName(filePath, report);
+
       // Validate component frontmatter
-      if (frontmatter.doc_type !== 'component') {
-        report.errors.push({
-          code: 'FM01',
-          file: filePath,
-          message: 'Frontmatter must include `doc_type: component`.',
-        });
-      }
-
-      const status = String(frontmatter.doc_status || '').trim();
-      if (!ALLOWED_DOC_STATUS.has(status)) {
-        report.errors.push({
-          code: 'FM02',
-          file: filePath,
-          message: 'Frontmatter `doc_status` must be one of: draft, ready, needs-review.',
-        });
-      }
-
-      // Validate figma frontmatter
-      const figma = frontmatter.figma;
-      if (!figma || typeof figma !== 'object' || Array.isArray(figma)) {
-        report.errors.push({
-          code: 'FM01',
-          file: filePath,
-          message: 'Frontmatter `figma` object is required.',
-        });
-      } else {
-        for (const field of COMPONENT_REQUIRED_FIGMA_FRONTMATTER_FIELDS) {
-          const value = String((figma as Record<string, unknown>)[field] ?? '').trim();
-          if (!value) {
-            report.errors.push({
-              code: 'FM01',
-              file: filePath,
-              message: `Frontmatter figma.${field} is required.`,
-            });
-          }
-        }
-
-        const componentHash = String(
-          (figma as Record<string, unknown>).component_hash ?? ''
-        ).trim();
-        if (componentHash && (isTbdMarker(componentHash) || !HASH_RE.test(componentHash))) {
-          report.errors.push({
-            code: 'FM01',
-            file: filePath,
-            message:
-              'Frontmatter figma.component_hash must be a 64-char sha256 hex string when declared.',
-          });
-        }
-      }
+      validateComponentFrontmatter(filePath, frontmatter, report);
 
       // Validate section order
       validateSectionOrder(
@@ -2018,52 +1544,21 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
       );
     } else {
       // Validate workflow/foundation frontmatter
-      const allowed = new Set(['workflow', 'foundation']);
-      if (!allowed.has(docType)) {
-        report.errors.push({
-          code: 'FM01',
-          file: filePath,
-          message:
-            'Frontmatter `doc_type` must be `component`, `overview`, `foundation`, or `workflow`.',
-        });
-      }
+      validateWorkflowOrFoundationFrontmatter(filePath, frontmatter, report);
     }
   }
 
   // Validate spec-markdown pairing
   if (checkPairing) {
-    const componentSet = new Set(componentFiles.map((filePath) => path.resolve(filePath)));
-    const specFilesForPairing = explicitSpecFilePath
-      ? [path.resolve(explicitSpecFilePath)]
-      : checkSpecs
-        ? collectSpecFiles(specRoot)
-        : [];
-
-    for (const componentFile of componentFiles) {
-      const slug = path.basename(componentFile, path.extname(componentFile));
-      const expectedSpecPath = path.resolve(specRoot, `${slug}.yml`);
-      if (fs.existsSync(expectedSpecPath)) continue;
-      report.errors.push({
-        code: 'PAIR01',
-        file: componentFile,
-        message:
-          'Component markdown must have a matching spec YAML file: ' +
-          `${path.relative(process.cwd(), expectedSpecPath)}.`,
-      });
-    }
-
-    for (const specFile of specFilesForPairing) {
-      const slug = path.basename(specFile, path.extname(specFile));
-      const expectedMarkdownPath = path.resolve(docsRoot, `${slug}.md`);
-      if (componentSet.has(expectedMarkdownPath) || fs.existsSync(expectedMarkdownPath)) continue;
-      report.errors.push({
-        code: 'PAIR01',
-        file: specFile,
-        message:
-          'Component spec YAML must have a matching markdown file: ' +
-          `${path.relative(process.cwd(), expectedMarkdownPath)}.`,
-      });
-    }
+    validateSpecMarkdownPairing({
+      componentFiles,
+      docsRoot,
+      specRoot,
+      checkSpecs,
+      explicitSpecFilePath,
+      explicitFilePath,
+      report,
+    });
   }
 
   // Validate spec YAML files
@@ -2138,6 +1633,15 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
         });
       }
     }
+  }
+
+  // Validate overview links
+  if (checkOverview) {
+    validateOverviewLinks({
+      docsRoot,
+      componentFiles,
+      report,
+    });
   }
 
   // Annotate findings with manifest
