@@ -114,7 +114,7 @@ Antes de incluir un hallazgo:
 ### Formato de hallazgos (OBLIGATORIO)
 Para cada hallazgo (que pasa gates y es accionable) lista únicamente (no introduzcas más información):
 
-### 📁 [Ruta del archivo]
+1) ### 📁 [Ruta del archivo]
 - **[TIPO] (Confianza: XX%)** — _[Descripción concisa del hallazgo]_
   - **Evidencia:** [hunk/fragmento específico del diff o referencia clara]
   - **Causa raíz probable:** [1 frase]

@@ -121,7 +121,8 @@ Para **cada ítem** del informe (en orden):
 Responde **solo** con una lista numerada y **en el mismo orden** que el informe de entrada.  
 Cada ítem debe respetar esta plantilla:
 
-1) **[TIPO]** — Veredicto: {Cierto | Probable | No concluyente | Probable falso}
+1) ### 📁 [Ruta del archivo]
+**[TIPO]** — Veredicto: {Cierto | Probable | No concluyente | Probable falso}
    - Confianza (juez): **XX%**
    - Confianza (informe): **YY%** / “no indicada”
    - ¿Acometer?: {Sí ahora | Sí, pero después | No merece la pena} — razón (1–2 frases)
