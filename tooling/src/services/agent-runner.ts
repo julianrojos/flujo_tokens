@@ -8,27 +8,48 @@
 import { spawnSync, type SpawnSyncOptions } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+
+import { commandExists } from "../utils/command-exists.js";
 import { logger } from "../utils/logger.js";
-import type {
-  AgentCommandCandidate,
-  AgentType,
-  RunAgentPromptOptions,
-  RunAgentPromptResult,
-} from "../types/agent-runner.js";
 
 /**
- * Check if command exists in PATH.
+ * Agent type identifier.
  */
-function commandExists(command: string): boolean {
-  try {
-    const result = spawnSync(command, ["--version"], {
-      stdio: "pipe",
-      timeout: 5000,
-    });
-    return (result.status ?? 1) === 0;
-  } catch {
-    return false;
-  }
+export type AgentType = "codex" | "claude" | "gemini" | "";
+
+/**
+ * Agent prompt execution options.
+ */
+export interface AgentPromptOptions {
+  /** Prompt text to send to the agent. */
+  prompt: string;
+  /** Explicit agent to use (or 'auto' for auto-detection). */
+  agent?: AgentType | "auto";
+  /** Label for prompt fallback file naming. */
+  label?: string;
+  /** Whether to passthrough stdout/stderr to console. */
+  passthrough?: boolean;
+}
+
+/**
+ * Agent prompt execution result.
+ */
+export interface AgentPromptResult {
+  ok: true;
+  agent: string;
+  command: string;
+  args: string[];
+  status: number;
+  stdout: string;
+  stderr: string;
+}
+
+/**
+ * Candidate command configuration.
+ */
+interface CandidateCommand {
+  command: string;
+  args: string[];
 }
 
 /**
@@ -83,7 +104,7 @@ function pickAgent(explicitAgent: AgentType | "auto" | undefined): AgentType {
 /**
  * Generate candidate commands for agent execution.
  */
-function candidateCommands(agent: AgentType, prompt: string, cwd: string): AgentCommandCandidate[] {
+function candidateCommands(agent: AgentType, prompt: string, cwd: string): CandidateCommand[] {
   if (agent === "codex") {
     return [
       {
@@ -141,9 +162,9 @@ function writePromptFallback(prompt: string, label?: string): string {
 }
 
 /**
- * Run agent prompt with automatic agent selection and fallback.
+ * Run a prompt via agent CLI.
  */
-export function runAgentPrompt(options: RunAgentPromptOptions): RunAgentPromptResult {
+export function runAgentPrompt(options: AgentPromptOptions): AgentPromptResult {
   const { prompt, agent, label, passthrough = true } = options;
   const cwd = process.cwd();
   const selectedAgent = pickAgent(agent || "auto");
@@ -173,7 +194,6 @@ export function runAgentPrompt(options: RunAgentPromptOptions): RunAgentPromptRe
   logger.debug(
     `runAgentPrompt: ${installedCandidates.length}/${candidates.length} candidate command variants available for "${selectedAgent}".`,
   );
-  
   if (!installedCandidates.length) {
     const promptPath = writePromptFallback(prompt, label);
     throw new Error(
@@ -181,7 +201,7 @@ export function runAgentPrompt(options: RunAgentPromptOptions): RunAgentPromptRe
     );
   }
 
-  let lastFailure: { candidate: AgentCommandCandidate; result: ReturnType<typeof spawnSync> } | null = null;
+  let lastFailure: { candidate: CandidateCommand; result: ReturnType<typeof spawnSync> } | null = null;
 
   for (const candidate of installedCandidates) {
     logger.debug(
