@@ -12,7 +12,7 @@ alwaysApply: true
   - `MUST`: blocking quality/safety requirement.
   - `SHOULD`: strong default; may be bypassed with a brief justification.
   - `NICE_TO_HAVE`: useful improvement, never blocking.
-- Legacy code is allowed to exist.
+- Legacy code is allowed to exist, but it should be refactored when possible.
 - Rule of change: do not make touched code worse in readability, safety, or architecture.
 - Prefer incremental hardening over broad refactors unless explicitly requested.
 - If strict compliance requires disproportionate effort for the task, document the tradeoff and apply the safest practical improvement.
@@ -127,7 +127,30 @@ alwaysApply: true
 - `SHOULD`: Reserve `const fn = () => { ... }` for internal helpers, callbacks, and simple operations.
 - `NICE_TO_HAVE`: Define explicit function signature types when signatures are non-trivial.
 
-## 6) Testing guidelines
+## 6) Code for production, performance, and optimization
+
+### 6.1 Production readiness (risk-based)
+- `MUST`: In touched critical paths, handle failures explicitly (timeouts, error paths, actionable messages).
+- `MUST`: Do not introduce unbounded work in request/command paths (unbounded loops, uncontrolled concurrency, unpaginated scans).
+- `MUST`: Keep backwards compatibility for existing public contracts unless the change is explicitly requested.
+- `SHOULD`: Add lightweight observability in changed critical flows (timing, counts, error context).
+- `SHOULD`: Prefer safe defaults (idempotent operations, explicit retries only where appropriate).
+- `NICE_TO_HAVE`: Add runbook notes for operationally sensitive scripts.
+
+### 6.2 Performance and optimization
+- `MUST`: Optimize only where there is evidence (measured bottleneck, incident, or clear hot path).
+- `MUST`: Avoid algorithmic regressions in touched code (e.g., accidental O(n²) where data can grow).
+- `SHOULD`: For non-trivial performance changes, include a small before/after measurement or reasoned estimate.
+- `SHOULD`: Prefer structural wins over micro-optimizations (I/O reduction, batching, caching, avoiding repeated parsing).
+- `SHOULD`: Keep memory growth bounded in long-running processes.
+- `NICE_TO_HAVE`: Define per-command budgets once baselines are stable.
+
+### 6.3 Legacy tolerance and delivery speed
+- `MUST`: No mandatory large refactors outside touched scope.
+- `SHOULD`: If a `SHOULD` is skipped, document the tradeoff in 1-2 lines.
+- `NICE_TO_HAVE`: Create follow-up tasks instead of blocking delivery for non-critical improvements.
+
+## 7) Testing guidelines
 - `MUST`: Use Node.js built-in test runner (`node:test`) for new tests unless a package has a documented exception.
 - `SHOULD`: Co-locate test files as `<filename>.test.ts` or `<filename>.test.mjs`.
 - `SHOULD`: Structure tests with `describe()` and `it()`/`test()`.
@@ -136,7 +159,7 @@ alwaysApply: true
 - `MUST` (risk-based): Add or update tests when changing critical paths (state, parsing, transforms, persistence, side effects).
 - `SHOULD`: For low-risk presentation or wiring-only changes, tests are recommended but not strictly blocking.
 
-## 7) Review checklist (before considering work done)
+## 8) Review checklist (before considering work done)
 - [ ] `MUST`: Touched code has sensible typing; `any` only at justified boundaries.
 - [ ] `MUST`: External operations have explicit error handling.
 - [ ] `MUST`: No regression in behavior or architecture in modified paths.
@@ -148,7 +171,7 @@ alwaysApply: true
 - [ ] `SHOULD`: Overall structure/readability is improved or preserved.
 - [ ] If any `SHOULD` is not followed, record a short reason in the change summary.
 
-## 8) Git commit rules
+## 9) Git commit rules
 - `MUST`: **NEVER, EVER commit changes automatically.** You must exclusively prepare changes in the working directory and PROPOSE them.
 - `MUST`: Explicitly ask for the user's permission before staging or committing any files to the repository.
 - Make the head/title of the commit message brief (max 72 characters).
@@ -156,3 +179,6 @@ alwaysApply: true
 - Always follow the Conventional Commits format: `type(scope): description`.
 - Include short details in the body of the commit message.
 - Add two blank lines between the commit title and the body.
+
+
+
