@@ -17,7 +17,7 @@ import { logger } from '../utils/logger.js';
 import {
   syncFigmaTokensToInput,
   runTokensCompile,
-} from '../utils/figma-token-sync.js';
+} from '../services/figma-token-sync.js';
 
 const CLI_CONFIG = {
   command: 'ds:tokens-from-figma [options]',
@@ -204,7 +204,9 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
         dryRun,
         system: systemId,
         fileKey,
-        variablesImported: syncResult.variables?.length || 0,
+        // Note: variablesImported is deprecated, use tokensImported instead
+        variablesImported: syncResult.tokens_written || 0,  // Deprecated but kept for backward compatibility
+        tokensImported: syncResult.tokens_written || 0,
         compiled: compile,
       },
       null,
