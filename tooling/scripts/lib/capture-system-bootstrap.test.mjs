@@ -8,7 +8,7 @@ import {
   inferCollectionsFromInputDir,
   runTokensCompileIfNeeded,
   toCollectionLabel,
-} from "./capture-system-bootstrap.mjs";
+} from "../../src/services/capture-system-bootstrap.js";
 
 test("capture-system-bootstrap: toCollectionLabel normalizes file names", () => {
   assert.equal(toCollectionLabel("semantic_tokens.json"), "Semantic Tokens");
