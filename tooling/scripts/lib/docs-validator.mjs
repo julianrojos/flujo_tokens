@@ -61,7 +61,7 @@ export { OPTIONAL_CANONICAL_H2 } from "./docs-config.mjs";
 
 const _defaultCtx = resolveSystemContextSafe();
 const SPEC_COMPONENTS_DIR = _defaultCtx.paths.specs;
-const RULE_MANIFEST_PATH = path.join(PROJECT_ROOT, ".agent", "rules", "_manifest.yml");
+const RULE_MANIFEST_PATH = path.join(PROJECT_ROOT, ".agents", "rules", "_manifest.yml");
 
 export function validateDocs(options = {}) {
   const docsRoot = path.resolve(options.docsRoot || _defaultCtx.paths.docs);

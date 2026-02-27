@@ -307,7 +307,7 @@ npm run ds:pipeline -- --component Alert --render-figma
 - **`npm run dashboard:build`**: Builds the local dashboard app.
 - **`npm run dashboard:preview`**: Previews the dashboard production build locally.
 - **`npm run validate:docs`**: Validates component docs and spec YAMLs against project rules and `docs/_generated/token-registry.json` (frontmatter, section order, token references, required fallback values in token tables/prose, forbidden `VariableID:*`, spec schema, overview links, canonical `snake_case` file naming, strict 1:1 markdown↔spec mapping, `component_set_node_id` format/requirements, spec↔markdown traceability consistency, deterministic `Gaps / TBD` contract, unresolved editorial placeholders, and internal markdown link integrity).
-  - Validation findings are annotated with rule IDs using `.agent/rules/_manifest.yml`.
+  - Validation findings are annotated with rule IDs using `.agents/rules/_manifest.yml`.
   - Includes drift checks for generated markdown traceability hashes (`spec`, `token registry`, `generator script`).
   - Enforces `ready` lifecycle consistency (`doc_status` ↔ spec status, no `TBD`, no unresolved discrepancy rows, and concrete `### Visual Proof` screenshot reference: URL or local proof image).
 
@@ -368,7 +368,7 @@ npm run dashboard:preview
 
 ### Documentation governance (rules)
 
-Component pages are governed by rules in `.agent/rules/` and must include:
+Component pages are governed by rules in `.agents/rules/` and must include:
 
 - YAML frontmatter metadata:
   - `doc_type: component`
@@ -396,7 +396,7 @@ Component pages are governed by rules in `.agent/rules/` and must include:
     - in `ready` specs, every entry must resolve to an existing component spec YAML
   - component index artifacts must be refreshed atomically (`docs/_generated/component-registry.json` + `docs/components/overview.md`)
   - validation is a gate after spec and markdown generation
-  - see `.agent/rules/docs-pipeline-contract.mdc` for the full stage contract
+  - see `.agents/rules/docs-pipeline-contract.mdc` for the full stage contract
 - `## Gaps / TBD` contract is enforced:
   - include only when linked spec has unresolved gaps
   - omit when linked spec has no unresolved gaps
@@ -707,7 +707,7 @@ Validation command options:
 - `npm run validate:docs -- --file docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
 - `npm run validate:docs -- --spec-file docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
 - `npm run validate:docs -- --allow-extra-h2 true` -> temporary transition mode (downgrades unauthorized H2 from error to warning)
-- validation output includes `rule_ids` per finding when mapped in `.agent/rules/_manifest.yml`
+- validation output includes `rule_ids` per finding when mapped in `.agents/rules/_manifest.yml`
 
 Doctor command examples:
 

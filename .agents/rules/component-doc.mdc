@@ -39,7 +39,7 @@ If additional details are needed, place them under `###` inside the nearest allo
 
 ## `## Gaps / TBD` deterministic contract
 
-> **Machine-readable specification:** `tooling/scripts/lib/gaps-contract.mjs` (canonical contract and validation rules) and `tooling/scripts/lib/gaps.mjs` (gap detection logic). For code semantics and blocking policy (`GAP00`–`GAP02`), see `error-codes.mdc` and `.agent/rules/_manifest.yml` (`checks`).
+> **Machine-readable specification:** `tooling/scripts/lib/gaps-contract.mjs` (canonical contract and validation rules) and `tooling/scripts/lib/gaps.mjs` (gap detection logic). For code semantics and blocking policy (`GAP00`–`GAP02`), see `error-codes.mdc` and `.agents/rules/_manifest.yml` (`checks`).
 
 - This section is **binary and deterministic**:
   - Include it when unresolved gaps exist in the linked spec.

@@ -1,6 +1,6 @@
 # Propuestas de Mejora: Reglas de Documentación de Sistema de Diseño
 
-Tras analizar los documentos de benchmarking (Claude, GPT, Gemini, Perplexity, Qwen) presentes en `md_buenas prácticas` y cruzar los datos de frecuencia de temas con las **35 Cursor Rules (.mdc)** actuales de tu directorio `.agent/rules/`, he identificado áreas clave donde las reglas actuales se quedan cortas o no cubren las mejores prácticas de la industria.
+Tras analizar los documentos de benchmarking (Claude, GPT, Gemini, Perplexity, Qwen) presentes en `md_buenas prácticas` y cruzar los datos de frecuencia de temas con las **35 Cursor Rules (.mdc)** actuales de tu directorio `.agents/rules/`, he identificado áreas clave donde las reglas actuales se quedan cortas o no cubren las mejores prácticas de la industria.
 
 Aquí tienes **10 propuestas priorizadas** con su justificación para incorporar como nuevas `.mdc` o actualizar las existentes, evitando duplicar lo que ya tienes (como nomenclatura de tokens, accesibilidad básica o estructura de YAML).
 

@@ -20,7 +20,7 @@
   - CI gate en pre-commit
 - **Files to create:**
   ```
-  .agent/rules/_schemas/
+  .agents/rules/_schemas/
     ├── component-spec-yaml.schema.json
     ├── frontmatter-contract.schema.json
     ├── component-doc.schema.json
@@ -96,13 +96,13 @@
 ## Phase 1: Foundation (Semanas 1-2)
 
 ### Week 1 — Setup
-- [ ] Create `.agent/rules/_schemas/` directory
+- [ ] Create `.agents/rules/_schemas/` directory
 - [ ] Write `component-spec-yaml.schema.json` (2h)
 - [ ] Write `frontmatter-contract.schema.json` (1h)
 - [ ] Write `token-references.schema.json` (1.5h)
 - [ ] Write `component-doc.schema.json` (1h)
 - [ ] Write `component-name-normalization.schema.json` (1h)
-- [ ] Create `.agent/rules/_schemas/test-cases/` with ✅ and ❌ examples
+- [ ] Create `.agents/rules/_schemas/test-cases/` with ✅ and ❌ examples
 - [ ] Add `agent_expectations` field to `ds-component-doc/SKILL.md`
 - [ ] Start 3.1: Add violation examples to top 3 rules
 
@@ -121,7 +121,7 @@
 - [ ] Create comprehensive test cases for all 5 schemas
 - [ ] Wire test runner into `validate-rules.mjs`
 - [ ] Add `version` field to all 30 rules (1-2h total)
-- [ ] Create `.agent/rules/CHANGELOG.md`
+- [ ] Create `.agents/rules/CHANGELOG.md`
 - [ ] Write `validate-skill-versions.mjs` (3h)
 - [ ] Update all SKILL.md files with `requires_rules` pinned versions
 - [ ] Continue 3.1: Examples for remaining rules
@@ -148,10 +148,10 @@
 
 ### "Quiero agregar una rule nueva"
 ```
-1. Escribe la regla en `.agent/rules/new-rule.mdc`
+1. Escribe la regla en `.agents/rules/new-rule.mdc`
 2. Agrega frontmatter (name, version, description, globs)
 3. Si validable:
-   - Crea `.agent/rules/_schemas/new-rule.schema.json`
+   - Crea `.agents/rules/_schemas/new-rule.schema.json`
    - Agrega test-cases ✅/❌
    - Declare en `_manifest.yml`
 4. Si semántica (prose only):
@@ -175,7 +175,7 @@
 
 ### "Quiero cambiar una rule existente"
 ```
-1. Edita `.agent/rules/rule-name.mdc`
+1. Edita `.agents/rules/rule-name.mdc`
 2. ¿Es breaking change?
    → SÍ: Bump version MAJOR, agrega migration guide, update CHANGELOG
    → NO: Bump version MINOR/PATCH
@@ -204,9 +204,9 @@
 
 ### New Files
 ```
-.agent/rules/_schemas/*.schema.json          [5 archivos críticos + más después]
-.agent/rules/_schemas/test-cases/*           [fixtures de prueba]
-.agent/rules/CHANGELOG.md                    [history de cambios]
+.agents/rules/_schemas/*.schema.json          [5 archivos críticos + más después]
+.agents/rules/_schemas/test-cases/*           [fixtures de prueba]
+.agents/rules/CHANGELOG.md                    [history de cambios]
 tooling/scripts/validate-rules.mjs           [CLI validator]
 tooling/scripts/validate-agent-compatibility.mjs
 tooling/scripts/validate-skill-versions.mjs
@@ -215,14 +215,14 @@ tooling/scripts/measure-rule-ambiguity.mjs
 tooling/scripts/measure-skill-health.mjs
 .github/workflows/validate-rules.yml         [CI gate]
 .github/workflows/measure-coverage.yml       [reporting]
-.agent/RULE_QUALITY_SCORECARD.md            [metrics]
+.agents/RULE_QUALITY_SCORECARD.md            [metrics]
 ```
 
 ### Modified Files
 ```
-.agent/rules/_manifest.yml                   [agregar info de schema/versioning]
-.agent/rules/*.mdc (all 30 files)            [agregar violation examples]
-.agent/skills/**/SKILL.md (all 7 skills)     [agregar agent_expectations, version]
+.agents/rules/_manifest.yml                   [agregar info de schema/versioning]
+.agents/rules/*.mdc (all 30 files)            [agregar violation examples]
+.agents/skills/**/SKILL.md (all 7 skills)     [agregar agent_expectations, version]
 package.json                                  [agregar devDependencies: ajv, semver, etc]
 .gitignore                                    [agregar .reports/]
 ```

@@ -3,7 +3,7 @@ description: Unified contract for Markdown-to-Figma rendering: authoring subset,
 globs:
   - "docs/components/*.md"
   - "docs/_generated/figma_doc_models/*.json"
-  - ".agent/skills/document-design-system/ds-markdown-to-figma-section/**"
+  - ".agents/skills/document-design-system/ds-markdown-to-figma-section/**"
 ---
 
 # Figma rendering

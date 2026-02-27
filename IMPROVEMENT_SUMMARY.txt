@@ -11,7 +11,7 @@ DOCUMENTOS GENERADOS: 3 archivos
 1. DIAGNÓSTICO ACTUAL
 ================================================================================
 
-Tu sistema `.agent/` es sólido pero tiene 5 gaps críticos:
+Tu sistema `.agents/` es sólido pero tiene 5 gaps críticos:
 
 🔴 GAP 1: Validación NO automatizada
    - Rules son Markdown, no máquina-validables
@@ -48,7 +48,7 @@ Tu sistema `.agent/` es sólido pero tiene 5 gaps críticos:
 │                                                                             │
 │ 1.1 JSON Schemas para 5 rules críticas                          [10h]      │
 │     → component-spec-yaml, frontmatter, component-doc, etc.                │
-│     → .agent/rules/_schemas/*.json + test cases                            │
+│     → .agents/rules/_schemas/*.json + test cases                            │
 │                                                                             │
 │ 1.2 Validador ajv CLI (npm run validate:rules)                  [6h]       │
 │     → tooling/scripts/validate-rules.mjs                                   │
@@ -141,23 +141,23 @@ TOTAL: ~2.5h
 DESPUÉS: Tendrás un prototipo de schema + test cases que sirve de template
 para los otros 4 schemas críticos.
 
-VER: .agent/QUICK_WINS.md para paso a paso.
+VER: .agents/QUICK_WINS.md para paso a paso.
 
 ================================================================================
 5. DOCUMENTOS GENERADOS
 ================================================================================
 
-📄 /Users/julian/Documents/flujo_tokens/IMPROVEMENT_PLAN.md
+📄 IMPROVEMENT_PLAN.md
    → Plan detallado (20 iniciativas, timeline, dependencias)
    → 50 páginas técnico
    → Qué hacer, cómo, cuándo, quién
 
-📄 /Users/julian/Documents/flujo_tokens/.agent/IMPLEMENTATION_ROADMAP.md
+📄 .agents/IMPLEMENTATION_ROADMAP.md
    → Referencia rápida (decision trees, checklist, risks)
    → 30 páginas operacional
    → Para el equipo que implementa
 
-📄 /Users/julian/Documents/flujo_tokens/.agent/QUICK_WINS.md
+📄 .agents/QUICK_WINS.md
    → 5 acciones inmediatas de alto valor
    → 15 páginas con código ready-to-copy-paste
    → Puedes empezar AHORA
@@ -170,7 +170,7 @@ VER: .agent/QUICK_WINS.md para paso a paso.
 ================================================================================
 
 OPCIÓN A: Quick Start (Si quieres probar hoy)
-  1. Lee .agent/QUICK_WINS.md
+  1. Lee .agents/QUICK_WINS.md
   2. Haz Wins 1-2 (violation examples) → 50 min
   3. Haz Wins 3-5 (schemas + structure) → 1.5h
   4. Total: 2.5h de trabajo tangible

@@ -205,7 +205,7 @@ export async function runDoctor(args: string[] = []): Promise<void> {
     parsed['proof-dir'] || path.join(ctx.paths.generated, 'visual-proofs'),
   );
   const manifestPath = path.resolve(
-    parsed.manifest || path.join(PROJECT_ROOT, '.agent', 'rules', '_manifest.yml'),
+    parsed.manifest || path.join(PROJECT_ROOT, '.agents', 'rules', '_manifest.yml'),
   );
   const rawComponentName = String(parsed['component-name'] || '').trim();
   const skipValidate = String(parsed['skip-validate'] || 'false') === 'true';
@@ -429,7 +429,7 @@ export async function runDoctor(args: string[] = []): Promise<void> {
   }
 
   // Check SKILL_VERSIONING
-  const skillsRoot = path.join(PROJECT_ROOT, '.agent', 'skills');
+  const skillsRoot = path.join(PROJECT_ROOT, '.agents', 'skills');
   const allowedContext = collectAllowedContextValues(parsedManifest);
   const skillFiles = collectSkillFiles(skillsRoot);
   const skills = skillFiles.map(parseSkillFrontmatter);

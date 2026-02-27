@@ -945,10 +945,10 @@ export async function runActiveMdToFigma(
   const offsetX = args['offset-x'] || '200';
   const figmaUrl = args.url || '';
   const markdownToModelScriptPath = path.resolve(
-    '.agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs',
+    '.agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs',
   );
   const modelToExecuteScriptPath = path.resolve(
-    '.agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs',
+    '.agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs',
   );
 
   fs.mkdirSync(path.resolve(generatedDir), { recursive: true });
@@ -971,7 +971,7 @@ export async function runActiveMdToFigma(
 
   if (!modelSync.skip) {
     runOrThrow('node', [
-      '.agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs',
+      '.agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs',
       '--markdown',
       markdownPath,
       '--component-name',
@@ -991,7 +991,7 @@ export async function runActiveMdToFigma(
   }
 
   const stepBArgs: string[] = [
-    '.agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs',
+    '.agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs',
     '--model',
     docModelPath,
     '--theme',

@@ -15,8 +15,8 @@
 Developer escribe:
   docs/_spec/components/alert.yml
   docs/components/alert.md
-  .agent/rules/new-rule.mdc
-  .agent/skills/ds-component-doc/SKILL.md
+  .agents/rules/new-rule.mdc
+  .agents/skills/ds-component-doc/SKILL.md
                     │
                     ▼
         ❌ SIN VALIDACIÓN AUTOMÁTICA
@@ -260,7 +260,7 @@ for (const file of mdFiles) {
 
 // 4. VALIDATE SKILLS
 console.log('\n🔧 Validating skill slots...');
-const skillFiles = await glob('.agent/skills/**/SKILL.md');
+const skillFiles = await glob('.agents/skills/**/SKILL.md');
 let skillViolations = 0;
 
 for (const file of skillFiles) {
@@ -359,7 +359,7 @@ $ npm run validate:rules
   ✅ docs/components/button.md
 
 🔧 Validating skill slots...
-  ✅ .agent/skills/document-design-system/ds-component-doc/SKILL.md
+  ✅ .agents/skills/document-design-system/ds-component-doc/SKILL.md
 
 🔍 Semantic validation...
   ❌ docs/_spec/components/alert.yml: token 'Primary.Color' not in registry
@@ -772,7 +772,7 @@ TOTAL: 26 horas
 
 ```bash
 # 1. Crear schema
-cat > .agent/rules/_schemas/new-rule.schema.json << 'EOF'
+cat > .agents/rules/_schemas/new-rule.schema.json << 'EOF'
 {
   "$schema": "...",
   ...
@@ -780,11 +780,11 @@ cat > .agent/rules/_schemas/new-rule.schema.json << 'EOF'
 EOF
 
 # 2. Crear test cases
-cat > .agent/rules/_schemas/test-cases/new-rule.valid.yml << 'EOF'
+cat > .agents/rules/_schemas/test-cases/new-rule.valid.yml << 'EOF'
 # ✅ VÁLIDO
 EOF
 
-cat > .agent/rules/_schemas/test-cases/new-rule.invalid-reason.yml << 'EOF'
+cat > .agents/rules/_schemas/test-cases/new-rule.invalid-reason.yml << 'EOF'
 # ❌ INVÁLIDO
 EOF
 
@@ -885,7 +885,7 @@ npm run validate:rules -- --test
 
 ## Extending Validation
 
-See `.agent/rules/_schemas/` for schema patterns.
+See `.agents/rules/_schemas/` for schema patterns.
 ```
 
 ---

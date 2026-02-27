@@ -12,7 +12,7 @@ Objetivo: maximizar **señal/ruido**, descartar falsos positivos y mejorar diagn
 ---
 
 ## Workflow contract
-state_file: `.agent/state/excellence-registry.yml`  
+state_file: `.agents/state/excellence-registry.yml`  
 consumes: `Repo Excellence Report v2.2` (+ optional registry)  
 produces: `Judge Repo Excellence Report v2.2` + `registry_patch` (autoridad de estado)  
 next: (manual) aplicar patch + iterar con `/findExcellence`

@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Component spec template - governed by .agent/rules/component-spec-yaml.mdc
+# Component spec template - governed by .agents/rules/component-spec-yaml.mdc
 # -----------------------------------------------------------------------------
 # Usage:
 #   1. Copy this file to docs/_spec/components/<snake_case>.yml

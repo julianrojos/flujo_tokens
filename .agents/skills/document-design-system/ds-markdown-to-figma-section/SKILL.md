@@ -105,7 +105,7 @@ If any precondition fails, STOP and report the exact blocker.
 Run:
 
 ```bash
-node .agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs \
+node .agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs \
   --markdown docs/components/<component>.md \
   --component-name <ComponentName> \
   --out docs/_generated/figma_doc_models/<component>.doc-model.json
@@ -116,7 +116,7 @@ node .agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/m
 Run:
 
 ```bash
-node .agent/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs \
+node .agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs \
   --model docs/_generated/figma_doc_models/<component>.doc-model.json \
   --theme docs/_spec/figma_doc_theme.yml \
   --component-name <ComponentName> \

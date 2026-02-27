@@ -1,6 +1,6 @@
-# Auditoría de Incoherencias y Solapamientos en `.agent/`
+# Auditoría de Incoherencias y Solapamientos en `.agents/`
 
-Tras una lectura exhaustiva de las más de 35 reglas (`.mdc`) y las Skills (`.md`) contenidas en el directorio `.agent/`, he identificado varios **solapamientos, incoherencias y duplicidades** que pueden confundir a los LLMs o causar comportamientos cíclicos.
+Tras una lectura exhaustiva de las más de 35 reglas (`.mdc`) y las Skills (`.md`) contenidas en el directorio `.agents/`, he identificado varios **solapamientos, incoherencias y duplicidades** que pueden confundir a los LLMs o causar comportamientos cíclicos.
 
 Aquí tienes el listado priorizado, ordenado de mayor a menor gravedad, junto con la justificación y propuesta de resolución:
 

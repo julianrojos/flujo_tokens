@@ -9,7 +9,7 @@
 
 ## El Problema (en 30 segundos)
 
-Tu sistema `.agent/` tiene 30 rules de diseño excelentes, pero:
+Tu sistema `.agents/` tiene 30 rules de diseño excelentes, pero:
 
 ```
 ❌ No hay validación automática → IA interpreta mal → 40% error rate
@@ -160,7 +160,7 @@ Day 2-5:
 
 **New Files (Phase 1):**
 ```
-.agent/rules/_schemas/
+.agents/rules/_schemas/
   ├── component-spec-yaml.schema.json
   ├── frontmatter-contract.schema.json
   ├── component-doc.schema.json
@@ -176,12 +176,12 @@ tooling/scripts/
 
 **Modified Files (Phase 1):**
 ```
-.agent/rules/
+.agents/rules/
   ├── *.mdc (agregar ## Examples of Violations a cada una)
   ├── _manifest.yml (agregar has_schema, has_examples flags)
   └── CHANGELOG.md (crear)
 
-.agent/skills/**/ SKILL.md
+.agents/skills/**/ SKILL.md
   └── (agregar agent_expectations field)
 
 .github/workflows/

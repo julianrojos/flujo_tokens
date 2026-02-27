@@ -9,7 +9,7 @@
 ## 📋 Documentos Generados
 
 ### 1. **IMPROVEMENT_SUMMARY.txt** (Este es el punto de partida)
-**Ubicación:** `/Users/julian/Documents/flujo_tokens/IMPROVEMENT_SUMMARY.txt`
+**Ubicación:** `IMPROVEMENT_SUMMARY.txt`
 **Tiempo de lectura:** 10 min
 **Para quién:** Todos (ejecutivos, team leads, developers)
 
@@ -25,7 +25,7 @@
 ---
 
 ### 2. **IMPROVEMENT_PLAN.md** (El plan técnico detallado)
-**Ubicación:** `/Users/julian/Documents/flujo_tokens/IMPROVEMENT_PLAN.md`
+**Ubicación:** `IMPROVEMENT_PLAN.md`
 **Tiempo de lectura:** 60 min
 **Para quién:** Team leads, technical owners, developers
 
@@ -41,8 +41,8 @@
 
 ---
 
-### 3. **.agent/IMPLEMENTATION_ROADMAP.md** (La guía operacional)
-**Ubicación:** `/Users/julian/Documents/flujo_tokens/.agent/IMPLEMENTATION_ROADMAP.md`
+### 3. **.agents/IMPLEMENTATION_ROADMAP.md** (La guía operacional)
+**Ubicación:** `.agents/IMPLEMENTATION_ROADMAP.md`
 **Tiempo de lectura:** 30 min
 **Para quién:** Implementadores, developers, CI/CD engineers
 
@@ -58,8 +58,8 @@
 
 ---
 
-### 4. **.agent/QUICK_WINS.md** (Acciones inmediatas)
-**Ubicación:** `/Users/julian/Documents/flujo_tokens/.agent/QUICK_WINS.md`
+### 4. **.agents/QUICK_WINS.md** (Acciones inmediatas)
+**Ubicación:** `.agents/QUICK_WINS.md`
 **Tiempo de lectura:** 20 min + 2.5h de work
 **Para quién:** Developers (comienza hoy)
 
@@ -73,8 +73,8 @@
 
 ---
 
-### 5. **.agent/ARCHITECTURE_IMPROVED.md** (Diagrama visual)
-**Ubicación:** `/Users/julian/Documents/flujo_tokens/.agent/ARCHITECTURE_IMPROVED.md`
+### 5. **.agents/ARCHITECTURE_IMPROVED.md** (Diagrama visual)
+**Ubicación:** `.agents/ARCHITECTURE_IMPROVED.md`
 **Tiempo de lectura:** 20 min
 **Para quién:** Visuales, architects, stakeholders
 
@@ -119,7 +119,7 @@
 
 ## 🎯 Por Qué Este Plan Existe
 
-Tu sistema `.agent/` tiene reglas de alta calidad pero **les falta mecanización y claridad**:
+Tu sistema `.agents/` tiene reglas de alta calidad pero **les falta mecanización y claridad**:
 
 - ❌ Rules son Markdown (humano-legible, máquina-opaco)
 - ❌ IA interpreta diferente → 40% de violaciones se cuelan
@@ -200,7 +200,7 @@ flujo_tokens/
 ├── IMPROVEMENT_SUMMARY.txt       ← Empieza aquí
 ├── IMPROVEMENT_PLAN.md           ← Detalle técnico
 ├── INDEX.md                      ← Este archivo
-└── .agent/
+└── .agents/
     ├── IMPLEMENTATION_ROADMAP.md ← Cómo implementar
     ├── QUICK_WINS.md             ← 5 cambios hoy
     ├── ARCHITECTURE_IMPROVED.md   ← Diagramas
@@ -246,7 +246,7 @@ Al final, tendrás una **máquina de validación automática** para design syste
 
 ## 🤝 Créditos & Context
 
-Este plan fue generado como análisis de tu sistema `.agent/` existente.
+Este plan fue generado como análisis de tu sistema `.agents/` existente.
 
 - **Diagnosticó:** 30 reglas, 7 skills, ~50 documentos de config
 - **Identificó:** 5 gaps críticos

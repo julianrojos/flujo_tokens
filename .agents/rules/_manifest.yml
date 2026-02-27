@@ -141,6 +141,12 @@ rules:
     applies_to: [markdown, spec]
     blocking: false
     layer: core
+  - id: git-constraints
+    file: git-constraints.mdc
+    owner: docs-governance
+    applies_to: [pipeline]
+    blocking: true
+    layer: core
   - id: markdown-lifecycle-status
     file: markdown-lifecycle-status.mdc
     owner: docs-governance
@@ -312,6 +318,9 @@ checks:
   EVID02:
     rule_ids: [evidence-gated-mutations, docs-pipeline-contract]
     blocking: true
+  GIT01:
+    rule_ids: [git-constraints]
+    blocking: true
 
 matrix:
   by_doc_type:
@@ -331,6 +340,7 @@ matrix:
         evidence-gated-mutations,
         prohibited-patterns,
         general-programming-principles,
+        git-constraints,
       ]
     overview:
       [
@@ -341,6 +351,7 @@ matrix:
         markdown-lifecycle-status,
         docs-language-tone,
         ds-docs-guardrails,
+        git-constraints,
       ]
     foundation:
       [
@@ -353,6 +364,7 @@ matrix:
         markdown-lifecycle-status,
         docs-language-tone,
         ds-docs-guardrails,
+        git-constraints,
       ]
     workflow:
       [
@@ -364,6 +376,7 @@ matrix:
         markdown-lifecycle-status,
         docs-language-tone,
         ds-docs-guardrails,
+        git-constraints,
       ]
     spec:
       [
@@ -376,8 +389,9 @@ matrix:
         ds-docs-guardrails,
         evidence-gated-mutations,
         prohibited-patterns,
+        git-constraints,
       ]
-    skills: [skill-versioning, skill-input-output-contract]
+    skills: [skill-versioning, skill-input-output-contract, git-constraints]
   by_stage:
     spec:
       [
@@ -386,6 +400,7 @@ matrix:
         component-name-normalization,
         token-registry-validation,
         general-programming-principles,
+        git-constraints,
       ]
     markdown:
       [
@@ -394,8 +409,9 @@ matrix:
         markdown-lifecycle-status,
         docs-language-tone,
         general-programming-principles,
+        git-constraints,
       ]
     figma: [figma-rendering]
     visual-proof: [component-figma-traceability]
-    pipeline: [docs-pipeline-contract, component-indices-sync]
-    skills: [skill-versioning, skill-input-output-contract]
+    pipeline: [docs-pipeline-contract, component-indices-sync, git-constraints]
+    skills: [skill-versioning, skill-input-output-contract, git-constraints]

@@ -7,7 +7,7 @@ globs:
   - "tooling/src/cli/**/*.ts"
   - "tooling/scripts/lib/agent-runner.mjs"
   - "docs/_spec/**/*.yml"
-  - ".agent/rules/*.mdc"
+  - ".agents/rules/*.mdc"
 ---
 
 # README maintenance standards
@@ -44,7 +44,7 @@ Public behavior includes:
 
 ## Documentation governance section
 
-If rules under `.agent/rules/*.mdc` add or change author-facing requirements, update the README governance summary accordingly.
+If rules under `.agents/rules/*.mdc` add or change author-facing requirements, update the README governance summary accordingly.
 
 Examples:
 

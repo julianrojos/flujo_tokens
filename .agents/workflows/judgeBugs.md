@@ -12,7 +12,7 @@ Objetivo: maximizar **precisión** y mejorar calidad de razones/soluciones en it
 ---
 
 ## Workflow contract
-state_file: `.agent/state/bug-registry.yml`  
+state_file: `.agents/state/bug-registry.yml`  
 consumes: `FindBugs Report v3.1` (+ optional registry)  
 produces: `JudgeBugs Report v3.1` + `registry_patch` (autoridad de estado)  
 next: (manual) aplicar patch + iterar con `/findBugs`

@@ -6,7 +6,7 @@ description: "Handoff: empaqueta el estado del trabajo para transferirlo a otra 
 
 Este workflow genera un **handoff pack** para que otra IA pueda retomar el trabajo sin dudas.
 
-Workflows en Antigravity se definen como archivos Markdown en `.agent/workflows/` con YAML frontmatter `description:` y pasos en el cuerpo.  
+Workflows en Antigravity se definen como archivos Markdown en `.agents/workflows/` con YAML frontmatter `description:` y pasos en el cuerpo.  
 `// turbo` se reserva para comandos seguros (*read-only*).
 
 ## Reglas

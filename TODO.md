@@ -76,7 +76,7 @@ Implementation Order (Dependency Graph)
 
 ### Files to create
 
-- `.agent/skills/document-design-system/ds-spec-from-figma/SKILL.md`
+- `.agents/skills/document-design-system/ds-spec-from-figma/SKILL.md`
 
 #### Skill workflow (agent-driven, uses Figma MCP)
 

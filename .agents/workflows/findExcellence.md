@@ -12,7 +12,7 @@ No edites código ni hagas commits.
 ---
 
 ## Workflow contract
-state_file: `.agent/state/excellence-registry.yml`  
+state_file: `.agents/state/excellence-registry.yml`  
 produces: `Repo Excellence Report v2.2` + `registry_seed|registry_patch` (para aplicar manualmente)  
 next: `/judgeExcellence`
 
@@ -179,7 +179,7 @@ Entonces devuelve **solo** el bloque `NO_UPDATES OUTPUT` (abajo).
 
 ## Metadata
 - iteration: <number or unknown>
-- registry_path: ".agent/state/excellence-registry.yml"
+- registry_path: ".agents/state/excellence-registry.yml"
 - registry_loaded: <true|false>
 - churn_window_days: 14
 - churn_hotspots_top: ["<file1>", "<file2>", "<file3>"]

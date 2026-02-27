@@ -12,10 +12,10 @@
 
 **Cómo:**
 ```bash
-cd /Users/julian/Documents/flujo_tokens
+cd "$(git rev-parse --show-toplevel)"
 ```
 
-Edita `.agent/rules/docs-language-tone.mdc` y agrega esto antes del cierre:
+Edita `.agents/rules/docs-language-tone.mdc` y agrega esto antes del cierre:
 
 ```markdown
 ## Examples of Violations
@@ -88,7 +88,7 @@ Place the Alert above the main content area for maximum visibility.
 **Qué:** El rule ya es claro pero agregar examples refuerza.
 
 **Cómo:**
-Abre `.agent/rules/prohibited-patterns.mdc` y agrega:
+Abre `.agents/rules/prohibited-patterns.mdc` y agrega:
 
 ```markdown
 ## Examples of Violations
@@ -147,7 +147,7 @@ See [Figma component set](link?node-id=1234:5678) for all properties.
 **Qué:** Documentar en el manifest cuáles rules tienen schema validable.
 
 **Cómo:**
-Abre `.agent/rules/_manifest.yml` y actualiza la sección `rules`:
+Abre `.agents/rules/_manifest.yml` y actualiza la sección `rules`:
 
 ```yaml
 rules:
@@ -200,14 +200,14 @@ stats:
 
 ---
 
-## Win 4: Create `.agent/rules/_schemas/` Directory Structure (10 min)
+## Win 4: Create `.agents/rules/_schemas/` Directory Structure (10 min)
 
 **Qué:** Prepara la estructura donde van a vivir los JSON schemas.
 
 **Cómo:**
 ```bash
-mkdir -p /Users/julian/Documents/flujo_tokens/.agent/rules/_schemas/test-cases
-touch /Users/julian/Documents/flujo_tokens/.agent/rules/_schemas/README.md
+mkdir -p .agents/rules/_schemas/test-cases
+touch .agents/rules/_schemas/README.md
 ```
 
 Contenido de `README.md`:
@@ -271,7 +271,7 @@ See `../../IMPLEMENTATION_ROADMAP.md` for priority order.
 **Por qué:** Va a ser el prototipo que los demás siguen. Aprenderás qué funciona y qué no.
 
 **Cómo:**
-Crea `.agent/rules/_schemas/component-spec-yaml.schema.json`:
+Crea `.agents/rules/_schemas/component-spec-yaml.schema.json`:
 
 ```json
 {
@@ -505,7 +505,7 @@ Crea `.agent/rules/_schemas/component-spec-yaml.schema.json`:
 }
 ```
 
-Luego crea test cases en `.agent/rules/_schemas/test-cases/`:
+Luego crea test cases en `.agents/rules/_schemas/test-cases/`:
 
 **`component-spec-yaml.valid.yml`:**
 ```yaml
@@ -625,7 +625,7 @@ figma:
 | 1. Violation examples in language-tone | `docs-language-tone.mdc` | 30 min | 🟢 Easy |
 | 2. Violation examples in prohibited-patterns | `prohibited-patterns.mdc` | 20 min | 🟢 Easy |
 | 3. Update manifest with schema info | `_manifest.yml` | 15 min | 🟢 Easy |
-| 4. Create schemas directory structure | `.agent/rules/_schemas/` | 10 min | 🟢 Easy |
+| 4. Create schemas directory structure | `.agents/rules/_schemas/` | 10 min | 🟢 Easy |
 | 5. Write component-spec-yaml schema | `.schema.json` + test cases | 1.1h | 🟡 Medium |
 | | | **~2.5h total** | |
 
@@ -646,22 +646,22 @@ Or if prefieres, puedes paralelizar: mientras escribes los otros violation examp
 
 ```bash
 # Open your editor
-cd /Users/julian/Documents/flujo_tokens
+cd "$(git rev-parse --show-toplevel)"
 
 # Start with Win 1 (easiest)
-# Edit: .agent/rules/docs-language-tone.mdc
+# Edit: .agents/rules/docs-language-tone.mdc
 # Add the violation examples section above
 
 # Then Win 2
-# Edit: .agent/rules/prohibited-patterns.mdc
+# Edit: .agents/rules/prohibited-patterns.mdc
 
 # Then Wins 3 + 4 (structural)
-# Confirm .agent/rules/_manifest.yml exists
-# Create: .agent/rules/_schemas/ directory
+# Confirm .agents/rules/_manifest.yml exists
+# Create: .agents/rules/_schemas/ directory
 
 # Finally Win 5 (technical)
-# Write: .agent/rules/_schemas/component-spec-yaml.schema.json
-# Write: .agent/rules/_schemas/test-cases/*.yml files
+# Write: .agents/rules/_schemas/component-spec-yaml.schema.json
+# Write: .agents/rules/_schemas/test-cases/*.yml files
 ```
 
 All of this can be done **today** in about 2.5 hours. 🚀

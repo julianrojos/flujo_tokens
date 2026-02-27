@@ -62,7 +62,7 @@ RESULT: 40% error catch rate, agent-dependent behavior, ambiguous rules
         ╠════════════════════════════════════════════════════╣
         ║                                                    ║
         ║  1. JSON SCHEMA VALIDATION                        ║
-        ║     ├─ .agent/rules/_schemas/*.json               ║
+        ║     ├─ .agents/rules/_schemas/*.json               ║
         ║     └─ Validates structure (not prose)            ║
         ║                                                    ║
         ║  2. RULE COMPLIANCE CHECKER                       ║
@@ -145,7 +145,7 @@ Developer writes: docs/_spec/components/alert.yml
         ┌──────────────────────────────────────┐
         │  1. Schema Validation                │
         │     Validate against:                │
-        │     .agent/rules/_schemas/           │
+        │     .agents/rules/_schemas/           │
         │     component-spec-yaml.schema.json  │
         └────┬─────────────────────────────────┘
              │
@@ -283,7 +283,7 @@ Skill: ds-component-doc generates markdown
 ### Flow 3: Skill Compatibility Testing
 
 ```
-Developer pushes: .agent/skills/document-design-system/
+Developer pushes: .agents/skills/document-design-system/
                   ds-component-doc/SKILL.md
                              │
                              ▼
@@ -477,7 +477,7 @@ ACTION ITEMS:
 ## File Structure After Implementation
 
 ```
-.agent/
+.agents/
 ├── rules/
 │   ├── *.mdc                          ← 30 rule definitions
 │   ├── CHANGELOG.md                   ← Version history
@@ -533,6 +533,6 @@ tooling/scripts/
 
 ## Next: Implementation
 
-See **`.agent/QUICK_WINS.md`** for immediate actions you can take today.
+See **`.agents/QUICK_WINS.md`** for immediate actions you can take today.
 See **`IMPROVEMENT_PLAN.md`** for full technical breakdown.
 See **`IMPLEMENTATION_ROADMAP.md`** for team coordination.

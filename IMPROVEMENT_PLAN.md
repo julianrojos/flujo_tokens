@@ -8,7 +8,7 @@
 
 ## Resumen Ejecutivo
 
-Tu sistema `.agent/` tiene una arquitectura sólida pero carece de **validación mecanizada** y **claridad operacional**. Este plan traduce 5 áreas de mejora en 20 iniciativas concretas con timeline y deliverables.
+Tu sistema `.agents/` tiene una arquitectura sólida pero carece de **validación mecanizada** y **claridad operacional**. Este plan traduce 5 áreas de mejora en 20 iniciativas concretas con timeline y deliverables.
 
 **Impacto esperado:**
 - ✅ 95% de errores de rules capturados pre-commit (vs. 40% ahora)
@@ -36,7 +36,7 @@ Ejemplo: `component-spec-yaml.mdc` dice "`status` solo puede ser `draft` o `read
 **Objetivo:** Cada `.mdc` tiene un JSON Schema asociado que define su estructura validable.
 
 **Deliverables:**
-- Crear `.agent/rules/_schemas/` con un archivo por regla:
+- Crear `.agents/rules/_schemas/` con un archivo por regla:
   - `component-spec-yaml.schema.json` (valida YAML de specs)
   - `frontmatter-contract.schema.json` (valida YAML frontmatter)
   - `component-doc.schema.json` (valida estructura Markdown de componentes)
@@ -115,8 +115,8 @@ import fs from 'fs';
 
 const ajv = new Ajv();
 const schemas = {
-  'component-spec': loadSchema('.agent/rules/_schemas/component-spec-yaml.schema.json'),
-  'frontmatter': loadSchema('.agent/rules/_schemas/frontmatter-contract.schema.json'),
+  'component-spec': loadSchema('.agents/rules/_schemas/component-spec-yaml.schema.json'),
+  'frontmatter': loadSchema('.agents/rules/_schemas/frontmatter-contract.schema.json'),
 };
 
 // Validar specs
@@ -158,7 +158,7 @@ jobs:
 **Objetivo:** Cada schema tiene un `test-cases/` con ejemplos válidos e inválidos.
 
 **Deliverables:**
-- Crear `.agent/rules/_schemas/test-cases/`:
+- Crear `.agents/rules/_schemas/test-cases/`:
   - `component-spec-yaml.valid.yml` — spec que pasa validación
   - `component-spec-yaml.invalid-status.yml` — spec con `status: "in-progress"` (inválido)
   - `component-spec-yaml.invalid-missing-required.yml` — falta `anatomy`
@@ -166,7 +166,7 @@ jobs:
 
 **Ejemplo:**
 ```yaml
-# .agent/rules/_schemas/test-cases/component-spec-yaml.invalid-status.yml
+# .agents/rules/_schemas/test-cases/component-spec-yaml.invalid-status.yml
 name: BadAlert
 status: "in-progress"  # ❌ Solo "draft" o "ready" permitidos
 figma:
@@ -178,7 +178,7 @@ figma:
 **Test runner `validate-rules.mjs` también:**
 ```javascript
 // Validar test cases
-const testCases = glob('.agent/rules/_schemas/test-cases/*.yml');
+const testCases = glob('.agents/rules/_schemas/test-cases/*.yml');
 testCases
   .filter(f => f.includes('.valid.'))
   .forEach(f => {
@@ -240,7 +240,7 @@ Sin contrato explícito, nadie se da cuenta.
       test_fixture: "properties_correct_order.yml"
   ```
 
-**Archivo ejemplo: `.agent/skills/document-design-system/ds-component-doc/SKILL.md`**
+**Archivo ejemplo: `.agents/skills/document-design-system/ds-component-doc/SKILL.md`**
 ```yaml
 ---
 name: ds-component-doc
@@ -300,13 +300,13 @@ agent_expectations:
 **Pseudocódigo:**
 ```javascript
 // tooling/scripts/validate-agent-compatibility.mjs
-const skills = glob('.agent/skills/**/SKILL.md').map(f => {
+const skills = glob('.agents/skills/**/SKILL.md').map(f => {
   const frontmatter = extractYAML(f);
   return {
     name: frontmatter.name,
     compatible_agents: frontmatter.compatible_agents,
     expectations: frontmatter.agent_expectations,
-    test_fixtures: glob(`.agent/skills/${name}/test-fixtures/**`)
+    test_fixtures: glob(`.agents/skills/${name}/test-fixtures/**`)
   };
 });
 
@@ -480,15 +480,15 @@ Si `token-references` se actualiza a v2.0.0 (breaking change), ¿quién detecta 
 - Script `tooling/scripts/validate-skill-versions.mjs`:
   - Lee frontmatter de todas las `SKILL.md`
   - Para cada entrada en `requires_rules`, verifica:
-    - La regla existe en `.agent/rules/`
+    - La regla existe en `.agents/rules/`
     - La versión matches la declarada (SemVer range)
   - Report: ✅/❌ con detalles de versión
 
 **Pseudocódigo:**
 ```javascript
 // tooling/scripts/validate-skill-versions.mjs
-const skills = glob('.agent/skills/**/SKILL.md').map(f => extractYAML(f));
-const rules = glob('.agent/rules/*.mdc').map(f => ({
+const skills = glob('.agents/skills/**/SKILL.md').map(f => extractYAML(f));
+const rules = glob('.agents/rules/*.mdc').map(f => ({
   name: path.basename(f, '.mdc'),
   version: extractYAML(f).version
 }));
@@ -521,7 +521,7 @@ skills.forEach(skill => {
 **Objetivo:** Centralizar cambios de reglas y facilitar upgrade.
 
 **Deliverables:**
-- Archivo `.agent/rules/CHANGELOG.md`:
+- Archivo `.agents/rules/CHANGELOG.md`:
   ```markdown
   # Rules Changelog
 
@@ -560,7 +560,7 @@ No hay forma de medir:
 **Objetivo:** Scorecard para evaluar qué reglas se pueden refactorizar.
 
 **Deliverables:**
-- Documento `.agent/RULE_QUALITY_SCORECARD.md`:
+- Documento `.agents/RULE_QUALITY_SCORECARD.md`:
 
 ```markdown
 # Rule Quality Scorecard
@@ -571,8 +571,8 @@ A high-quality rule meets these criteria. Score: 0-100 points.
 
 | Criterion | Points | Measurable | How to Measure |
 | --------- | ------ | ---------- | -------------- |
-| Has JSON Schema | 15 | ✅ | File exists: `.agent/rules/_schemas/{rule}.schema.json` |
-| Has Test Fixtures | 15 | ✅ | Test cases exist: `.agent/rules/_schemas/test-cases/{rule}.*.yml` |
+| Has JSON Schema | 15 | ✅ | File exists: `.agents/rules/_schemas/{rule}.schema.json` |
+| Has Test Fixtures | 15 | ✅ | Test cases exist: `.agents/rules/_schemas/test-cases/{rule}.*.yml` |
 | Has Violation Examples | 10 | ✅ | ## Examples of Violations section exists and has ≥2 examples |
 | Versioning Declared | 10 | ✅ | Frontmatter includes `version: "X.Y.Z"` |
 | Referenced by ≥2 Skills | 10 | ✅ | Rule appears in ≥2 `requires_rules` declarations |
@@ -810,8 +810,8 @@ graph TD
 ## Deliverables por Semana
 
 ### Semana 1
-- [ ] `.agent/rules/_schemas/` (5 schemas + docs)
-- [ ] `.agent/rules/RULE_QUALITY_SCORECARD.md`
+- [ ] `.agents/rules/_schemas/` (5 schemas + docs)
+- [ ] `.agents/rules/RULE_QUALITY_SCORECARD.md`
 - [ ] Updated SKILL.md for ds-component-doc (agent_expectations)
 - [ ] Initial 3.1 examples (top 3 rules)
 

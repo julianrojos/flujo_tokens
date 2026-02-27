@@ -12,7 +12,7 @@ No edites código ni hagas commits.
 ---
 
 ## Workflow contract
-state_file: `.agent/state/bug-registry.yml`  
+state_file: `.agents/state/bug-registry.yml`  
 produces: `FindBugs Report v3.1` + `registry_seed|registry_patch` (para aplicar manualmente)  
 next: `/judgeBugs`
 
@@ -47,7 +47,7 @@ next: `/judgeBugs`
 
 ## Paso 1 — Cargar Bug Registry (si existe)
 
-Ruta estándar: `.agent/state/bug-registry.yml`
+Ruta estándar: `.agents/state/bug-registry.yml`
 
 Si existe, úsalo como fuente de verdad para:
 - no repetir items descartados
@@ -188,7 +188,7 @@ Si no hay delta real → no lo vuelvas a reportar.
 
 ## Metadata
 - iteration: <number or unknown>
-- registry_path: ".agent/state/bug-registry.yml"
+- registry_path: ".agents/state/bug-registry.yml"
 - registry_loaded: <true|false>
 - focus: <discovery|verification|mixed>
 

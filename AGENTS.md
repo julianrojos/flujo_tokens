@@ -4,22 +4,22 @@ Operational instructions for AI agents in this repository.
 
 ## Rule Loading (No Duplication)
 
-- Source of truth for rules is `.agent/rules/*.mdc`.
+- Source of truth for rules is `.agents/rules/*.mdc`.
 - For each task, read rule files and apply only those whose `globs` match the files being read, edited, or generated.
 - If a task touches multiple file groups, apply the union of matching rules.
 - Do not duplicate rule content in this file; update rule files directly.
-- Precedence for conflicts: system > developer > user > `AGENTS.md` > `.agent/rules/*.mdc`.
+- Precedence for conflicts: system > developer > user > `AGENTS.md` > `.agents/rules/*.mdc`.
 
 ## Skills Loading
 
-- Skills are defined in `.agent/skills/**/SKILL.md`.
+- Skills are defined in `.agents/skills/**/SKILL.md`.
 - If the user names a skill (or the task clearly matches one), load only the relevant `SKILL.md` files and follow their workflow.
 - Resolve relative paths referenced by a skill from that skill's own directory first.
 - Prefer the minimal set of skills needed for the task.
 
 ## Workflows
 
-- Workflows are defined in `.agent/workflows/*.md`.
+- Workflows are defined in `.agents/workflows/*.md`.
 
 ## Repo Conventions
 
