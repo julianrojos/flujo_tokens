@@ -8,13 +8,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { PROJECT_ROOT } from '../utils/system-context.js';
-import { createDesignSystemRepository } from '../utils/system-repository.js';
+import { createDesignSystemRepository } from '../../scripts/lib/system-repository.mjs';
 import {
   hasInputJsonFiles,
   runTokensCompile,
   syncFigmaTokensToInput,
-} from '../utils/figma-token-sync.js';
-import type { DesignSystemConfig } from '../utils/system-repository.js';
+} from './figma-token-sync.js';
+import type { DesignSystemConfigEntry } from '../../scripts/lib/system-repository.mjs';
 
 /**
  * Convert raw value to collection label (title case).
@@ -72,20 +72,20 @@ export function ensureCollectionsConfigured(params: {
   systemId?: string;
 }): void {
   const { repoRoot, systemId } = params;
-  
+
   if (!systemId || systemId === '_legacy') return;
-  
+
   const repository = getSystemRepository(repoRoot);
-  const config = repository.getConfig() as DesignSystemConfig | null;
-  
+  const config = repository.getConfig();
+
   if (!config || typeof config !== 'object' || !Array.isArray(config.systems)) return;
 
   const targetIndex = config.systems.findIndex(
-    (item) => String(item?.id || '').trim() === systemId,
+    (item) => String((item as { id?: unknown })?.id || '').trim() === systemId,
   );
   if (targetIndex < 0) return;
-  
-  const target = config.systems[targetIndex];
+
+  const target = config.systems[targetIndex] as DesignSystemConfigEntry;
   if (Array.isArray(target.collections) && target.collections.length > 0) return;
 
   const inferred = inferCollectionsFromInputDir(repoRoot, target.inputDir);
@@ -104,11 +104,13 @@ export function getSystemConfig(params: {
   systemId?: string;
 }): Record<string, unknown> | null {
   const { repoRoot, systemId } = params;
-  
+
   if (!systemId || systemId === '_legacy') return null;
-  
+
   try {
-    return getSystemRepository(repoRoot).getSystem(systemId).system || null;
+    // Use resolveSystemContext instead of non-existent getSystem
+    const system = getSystemRepository(repoRoot).resolveSystemContext(systemId);
+    return system as Record<string, unknown> || null;
   } catch {
     return null;
   }
@@ -142,11 +144,13 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   
   const docsDir = path.resolve(repoRoot, String(system.docsDir || ''));
   const tokenRegistryPath = path.join(docsDir, '_generated', 'token-registry.json');
-  
+
   if (fs.existsSync(tokenRegistryPath)) {
     return { attempted: false, created: false, reason: 'token-registry-exists' };
   }
-  if (hasInputJsonFiles(repoRoot, system.inputDir)) {
+  // Narrow inputDir to string for type-safe usage
+  const inputDir = String(system.inputDir || '');
+  if (hasInputJsonFiles(repoRoot, inputDir)) {
     return { attempted: false, created: false, reason: 'input-json-exists' };
   }
   if (!fileKey) {
@@ -205,7 +209,7 @@ export function runTokensCompileIfNeeded(params: {
   return {
     attempted: compileResult.attempted,
     compiled: compileResult.compiled ?? false,
-    reason: compileResult.reason,
+    reason: compileResult.reason ?? (compileResult.compiled ? 'compiled' : 'unknown'),
     stderr: compileResult.stderr,
     output: compileResult.output,
   };
