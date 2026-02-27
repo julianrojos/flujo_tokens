@@ -1,9 +1,7 @@
 /**
  * Component registry - TypeScript entry point.
- * 
+ *
  * Provides type-safe exports for component registry operations.
- * 
- * @deprecated Temporary migration layer. Pure TypeScript implementation in progress.
  */
 
 // Re-export types
@@ -28,39 +26,56 @@ export type {
   SyncRegistryOptions,
   SyncRegistryResult,
   VisualProofVariant,
-} from "../types/component-registry.js";
+  NormalizeSortKeyFn,
+  StableHashFn,
+} from '../types/component-registry.js';
 
 // Re-export constants
 export {
   COMPONENT_REGISTRY_SCHEMA_VERSION,
   PIPELINE_STAGE_ORDER,
-} from "../types/component-registry.js";
+  DEFAULT_COMPONENT_SPECS_DIR,
+  DEFAULT_COMPONENT_DOCS_DIR,
+  DEFAULT_VISUAL_PROOFS_DIR,
+  DEFAULT_RENDER_PAYLOADS_DIR,
+  DEFAULT_COMPONENT_REGISTRY_PATH,
+  DEFAULT_COMPONENT_OVERVIEW_PATH,
+} from './component-registry-constants.js';
 
-// Export typed wrappers from .mjs modules
+// Export from TypeScript modules
 export {
   buildComponentRegistry,
-  validateComponentRegistry,
-} from "../../scripts/lib/component-registry/build.mjs";
+} from './component-registry-build.js';
 
 export {
   readComponentRegistry,
   buildExpectedComponentRegistry,
   compareComponentRegistryToSources,
   syncComponentRegistry,
-} from "../../scripts/lib/component-registry/sync.mjs";
+} from './component-registry-sync.js';
+
+export {
+  syncDocumentationIndices,
+} from './component-registry-refresh.js';
 
 export {
   syncComponentOverview,
   buildComponentListLines,
   upsertComponentList,
-} from "../../scripts/lib/component-registry/overview-sync.mjs";
+} from './component-registry-overview-sync.js';
 
 export {
-  syncDocumentationIndices,
-} from "../../scripts/lib/component-registry/refresh.mjs";
+  stableHash,
+  normalizeSortKey,
+  writeJsonAtomic,
+  toProjectRelativePath,
+  fileExists,
+  normalizeDisplayLabel,
+  isValidHttpUrl,
+  isValidNodeId,
+} from './component-registry-utils.js';
 
-// Export utils with type assertions
-import { normalizeSortKey as normalizeSortKeyJs, stableHash as stableHashJs } from "../../scripts/lib/component-registry/utils.mjs";
-
-export const normalizeSortKey = normalizeSortKeyJs as import("../types/component-registry.js").NormalizeSortKeyFn;
-export const stableHash = stableHashJs as import("../types/component-registry.js").StableHashFn;
+export {
+  captureFileSnapshot,
+  restoreFileSnapshot,
+} from './file-snapshot.js';
