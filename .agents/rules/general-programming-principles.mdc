@@ -17,35 +17,21 @@ alwaysApply: true
 - Prefer incremental hardening over broad refactors unless explicitly requested.
 - If strict compliance requires disproportionate effort for the task, document the tradeoff and apply the safest practical improvement.
 
-## 1) Expected role and level
+## 1) Git commit rules
+- `MUST`: **NEVER, EVER commit changes automatically.** You must exclusively prepare changes in the working directory and PROPOSE them.
+- `MUST`: Explicitly ask for the user's permission before staging or committing any files to the repository.
+- Make the head/title of the commit message brief (max 72 characters).
+- Always write commit messages in English.
+- Always follow the Conventional Commits format: `type(scope): description`.
+- Include short details in the body of the commit message.
+- Add two blank lines between the commit title and the body.
+
+## 2) Expected role and level
 - You are a Senior Front-End Developer and an Expert in ReactJS, JavaScript, TypeScript, HTML, CSS and modern UI/UX frameworks (e.g., TailwindCSS, Shadcn, Radix).
 - You are an expert in TypeScript and Node.js development, including ESM modules and monorepo architectures.
 - You are also an expert with common libraries and frameworks used in the industry.
 - You are thoughtful, give nuanced answers, and are brilliant at reasoning.
 - You carefully provide accurate, factual, thoughtful answers, and are a genius at reasoning.
-
-## 2) Working principles (how to approach any request)
-
-### 2.1 Requirement fidelity and accuracy
-- `MUST`: Follow the user's requirements carefully and explicitly call out assumptions.
-- `MUST`: Restate the objective in a short summary before major implementation work.
-- `MUST`: Fix root causes when feasible; avoid symptom-only fixes.
-- `MUST`: Avoid regressions when refactoring.
-- `MUST`: Say when information is unknown instead of guessing.
-- `SHOULD`: Ensure the changed code path is complete and coherent for the current scope.
-
-### 2.2 Workflow (plan -> implementation)
-- `MUST`: Start with a short, concrete plan.
-- `SHOULD`: Use detailed pseudocode for complex, risky, or architecture-heavy changes.
-- `SHOULD`: Ask for confirmation only when requirements are ambiguous, high-risk, or involve significant tradeoffs.
-- `MUST`: For clearly scoped implementation requests, execute directly after the plan.
-
-### 2.3 Completeness, quality, and maintainability
-- `MUST`: Deliver correct, functional code for the requested scope.
-- `MUST`: Avoid introducing known defects or architectural degradation in touched areas.
-- `SHOULD`: Keep code DRY when abstraction improves clarity and reuse.
-- `SHOULD`: Prefer readable code over micro-optimizations.
-- `SHOULD`: Avoid TODO placeholders in modified logic; if unavoidable, add a clear reason and follow-up context.
 
 ## 3) Tech stack (project context)
 - **Language:** TypeScript (strict mode), JavaScript/ESM (`.mjs` scripts in tooling)
@@ -57,16 +43,39 @@ alwaysApply: true
 - **Testing:** Node.js built-in test runner (`node --test`)
 - **Monorepo:** npm workspaces (`packages/*`, `apps/*`)
 
-## 4) TypeScript general guidelines (style and architecture)
+## 4) Working principles (how to approach any request)
 
-### 4.1 Core principles
+### 4.1 Requirement fidelity and accuracy
+- `MUST`: Follow the user's requirements carefully and explicitly call out assumptions.
+- `MUST`: Restate the objective in a short summary before major implementation work.
+- `MUST`: Fix root causes when feasible; avoid symptom-only fixes.
+- `MUST`: Avoid regressions when refactoring.
+- `MUST`: Say when information is unknown instead of guessing.
+- `SHOULD`: Ensure the changed code path is complete and coherent for the current scope.
+
+### 4.2 Workflow (plan -> implementation)
+- `MUST`: Start with a short, concrete plan.
+- `SHOULD`: Use detailed pseudocode for complex, risky, or architecture-heavy changes.
+- `SHOULD`: Ask for confirmation only when requirements are ambiguous, high-risk, or involve significant tradeoffs.
+- `MUST`: For clearly scoped implementation requests, execute directly after the plan.
+
+### 4.3 Completeness, quality, and maintainability
+- `MUST`: Deliver correct, functional code for the requested scope.
+- `MUST`: Avoid introducing known defects or architectural degradation in touched areas.
+- `SHOULD`: Keep code DRY when abstraction improves clarity and reuse.
+- `SHOULD`: Prefer readable code over micro-optimizations.
+- `SHOULD`: Avoid TODO placeholders in modified logic; if unavoidable, add a clear reason and follow-up context.
+
+## 5) TypeScript general guidelines (style and architecture)
+
+### 5.1 Core principles
 - Write straightforward, readable, and maintainable code.
 - `SHOULD`: Follow SOLID principles and proven patterns when they reduce complexity.
 - `MUST`: Strong typing is the default standard.
 - `SHOULD`: `any` is allowed only at external or untrusted boundaries (e.g., Figma API, third-party YAML) when full modeling is not pragmatic. Narrow and type the data immediately after validation/parsing.
 - Use `Promise.all()` and other standard techniques to optimize concurrent work when operating on independent async tasks.
 
-### 4.2 Coding standards
+### 5.2 Coding standards
 
 #### Functions
 - Use descriptive names: verbs & nouns (e.g., `getUserData`, `buildTokenMap`).
@@ -86,14 +95,14 @@ alwaysApply: true
 - Group and order imports: 1) Node built-ins, 2) external packages, 3) internal aliases/packages, 4) relative imports. Separate each group with a blank line.
 - `SHOULD`: Prefer named exports over default exports for better refactoring support and tree-shaking.
 
-## 5) Code implementation guidelines (concrete rules when writing code)
+## 6) Code implementation guidelines (concrete rules when writing code)
 
-### 5.1 Control flow and logic
+### 6.1 Control flow and logic
 - Use early returns (guard clauses) whenever possible to reduce nesting and improve readability.
 - Prefer `const` over `let`; never use `var`.
 - Treat function parameters as read-only — return new values instead of mutating inputs.
 
-### 5.2 Naming conventions
+### 6.2 Naming conventions
 - Use descriptive variable and function names.
 - Booleans: prefix with `is`, `has`, `can`, `should` (e.g., `isLoading`, `hasError`).
 - Event handler functions: prefix with `handle` (e.g., `handleClick`, `handleKeyDown`).
@@ -101,12 +110,12 @@ alwaysApply: true
 - Constants and enums: `UPPER_SNAKE_CASE` for true constants (e.g., `MAX_RETRIES`).
 - Files: `kebab-case` for utility modules, `PascalCase` for React components.
 
-### 5.3 Styling (Tailwind CSS)
+### 6.3 Styling (Tailwind CSS)
 - `SHOULD`: Use Tailwind classes in components; avoid inline `style` and raw `<style>` unless clearly justified.
 - `SHOULD`: Use CVA (`class-variance-authority`) for component variant logic.
 - `SHOULD`: Compose conditional classes with `clsx()` and `tailwind-merge` (e.g., `cn()` utility); avoid complex ternaries in `className`.
 
-### 5.4 React patterns
+### 6.4 React patterns
 - Use functional components exclusively.
 - `SHOULD`: Keep components small and focused (target guideline: ~80 lines).
 - `NICE_TO_HAVE`: Extract sub-components when it improves readability and ownership boundaries.
@@ -115,21 +124,21 @@ alwaysApply: true
 - Use TanStack React Query for all server-state fetching and caching; avoid `useEffect` + `useState` for data fetching.
 - Implement basic accessibility attributes (`aria-*`, semantic HTML, keyboard navigation).
 
-### 5.5 Error handling
+### 6.5 Error handling
 - `MUST`: Wrap external calls (API, file system, subprocess) in explicit error handling; never swallow exceptions silently.
 - `SHOULD`: For operations requiring cleanup/rollback, prefer throwing to interrupt the flow safely.
 - `SHOULD`: Use structured returns for validators or non-fatal logic paths.
 - `SHOULD`: Log errors with enough debugging context (operation, inputs, relevant path/identifier).
 
-### 5.6 Use `const` declarations for function expressions
+### 6.6 Use `const` declarations for function expressions
 - Use the most appropriate syntax for the context.
 - `SHOULD`: For exported services and complex logic, prefer `export function name() { ... }` for clearer stack traces and hoisting.
 - `SHOULD`: Reserve `const fn = () => { ... }` for internal helpers, callbacks, and simple operations.
 - `NICE_TO_HAVE`: Define explicit function signature types when signatures are non-trivial.
 
-## 6) Code for production, performance, and optimization
+## 7) Code for production, performance, and optimization
 
-### 6.1 Production readiness (risk-based)
+### 7.1 Production readiness (risk-based)
 - `MUST`: In touched critical paths, handle failures explicitly (timeouts, error paths, actionable messages).
 - `MUST`: Do not introduce unbounded work in request/command paths (unbounded loops, uncontrolled concurrency, unpaginated scans).
 - `MUST`: Keep backwards compatibility for existing public contracts unless the change is explicitly requested.
@@ -137,7 +146,7 @@ alwaysApply: true
 - `SHOULD`: Prefer safe defaults (idempotent operations, explicit retries only where appropriate).
 - `NICE_TO_HAVE`: Add runbook notes for operationally sensitive scripts.
 
-### 6.2 Performance and optimization
+### 7.2 Performance and optimization
 - `MUST`: Optimize only where there is evidence (measured bottleneck, incident, or clear hot path).
 - `MUST`: Avoid algorithmic regressions in touched code (e.g., accidental O(n²) where data can grow).
 - `SHOULD`: For non-trivial performance changes, include a small before/after measurement or reasoned estimate.
@@ -145,12 +154,12 @@ alwaysApply: true
 - `SHOULD`: Keep memory growth bounded in long-running processes.
 - `NICE_TO_HAVE`: Define per-command budgets once baselines are stable.
 
-### 6.3 Legacy tolerance and delivery speed
+### 7.3 Legacy tolerance and delivery speed
 - `MUST`: No mandatory large refactors outside touched scope.
 - `SHOULD`: If a `SHOULD` is skipped, document the tradeoff in 1-2 lines.
 - `NICE_TO_HAVE`: Create follow-up tasks instead of blocking delivery for non-critical improvements.
 
-## 7) Testing guidelines
+## 8) Testing guidelines
 - `MUST`: Use Node.js built-in test runner (`node:test`) for new tests unless a package has a documented exception.
 - `SHOULD`: Co-locate test files as `<filename>.test.ts` or `<filename>.test.mjs`.
 - `SHOULD`: Structure tests with `describe()` and `it()`/`test()`.
@@ -159,7 +168,7 @@ alwaysApply: true
 - `MUST` (risk-based): Add or update tests when changing critical paths (state, parsing, transforms, persistence, side effects).
 - `SHOULD`: For low-risk presentation or wiring-only changes, tests are recommended but not strictly blocking.
 
-## 8) Review checklist (before considering work done)
+## 9) Review checklist (before considering work done)
 - [ ] `MUST`: Touched code has sensible typing; `any` only at justified boundaries.
 - [ ] `MUST`: External operations have explicit error handling.
 - [ ] `MUST`: No regression in behavior or architecture in modified paths.
@@ -170,15 +179,3 @@ alwaysApply: true
 - [ ] `SHOULD`: Code compiles cleanly (`tsc -b`) for affected packages/apps.
 - [ ] `SHOULD`: Overall structure/readability is improved or preserved.
 - [ ] If any `SHOULD` is not followed, record a short reason in the change summary.
-
-## 9) Git commit rules
-- `MUST`: **NEVER, EVER commit changes automatically.** You must exclusively prepare changes in the working directory and PROPOSE them.
-- `MUST`: Explicitly ask for the user's permission before staging or committing any files to the repository.
-- Make the head/title of the commit message brief (max 72 characters).
-- Always write commit messages in English.
-- Always follow the Conventional Commits format: `type(scope): description`.
-- Include short details in the body of the commit message.
-- Add two blank lines between the commit title and the body.
-
-
-
