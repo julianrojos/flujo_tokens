@@ -112,7 +112,7 @@ Antes de incluir un hallazgo:
 - No imprimas bloques vacíos ni “resúmenes por archivo”.
 
 ### Formato de hallazgos (OBLIGATORIO)
-Para cada hallazgo (que pasa gates y es accionable) lista únicamente:
+Para cada hallazgo (que pasa gates y es accionable) lista únicamente (no introduzcas más información):
 
 ### 📁 [Ruta del archivo]
 - **[TIPO] (Confianza: XX%)** — _[Descripción concisa del hallazgo]_
