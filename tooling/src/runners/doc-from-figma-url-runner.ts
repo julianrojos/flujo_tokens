@@ -52,13 +52,14 @@ import { runOrThrow } from '../utils/exec.js';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 import { fetchFigmaFile } from '../utils/figma-api.js';
+import type { FigmaNode } from '../utils/figma.js';
 import {
   buildFigmaComponentMap,
   buildFigmaComponentMapSummary,
   parseFigmaFileUrl,
   type FigmaComponentMap,
   type ParsedFigmaFileUrl,
-} from '../utils/figma-component-map.js';
+} from '../services/figma-component-map.js';
 import { parseFigmaUrl } from '../utils/figma-url-parser.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { logger } from '../utils/logger.js';
@@ -221,15 +222,29 @@ function writeJsonFileAtomic(filePath: string, payload: unknown): string {
  * Render component URL suggestions from component map.
  */
 function renderComponentUrlSuggestions(
-  componentMap: Record<string, unknown>,
+  componentMap: { 
+    fileKey?: string;
+    fileSlug?: string;
+    surface?: string;
+    components?: Array<{ name?: string; nodeId?: string; type?: string }> 
+  },
   maxItems = 20,
 ): string {
-  const rows = Array.isArray(componentMap?.component_urls)
-    ? (componentMap.component_urls as Record<string, string>[])
-    : [];
-  return rows
+  const components = Array.isArray(componentMap?.components) ? componentMap.components : [];
+  const fileKey = componentMap?.fileKey || '';
+  const fileSlug = componentMap?.fileSlug || '';
+  const surface = componentMap?.surface || 'design';
+  
+  return components
     .slice(0, Math.max(1, Math.floor(maxItems)))
-    .map((row) => `- ${row.kind} | ${row.name} | ${row.url}`)
+    .map((comp) => {
+      const nodeId = comp.nodeId || '';
+      const name = comp.name || '';
+      const url = nodeId && fileKey 
+        ? `https://www.figma.com/file/${fileKey}/${fileSlug}?node-id=${nodeId}&surface=${surface}`
+        : '';
+      return `- ${comp.type || 'component'} | ${name} | ${url || `--component-name "${name}"`}`;
+    })
     .join('\n');
 }
 
@@ -338,9 +353,10 @@ export async function runDocFromFigmaUrl(
 
     const componentMap = buildFigmaComponentMap(
       figmaFileDescriptor,
-      isPlainObject(filePayload.nodes) ? (filePayload.nodes as Record<string, unknown>) : {},
+      isPlainObject(filePayload.document) ? (filePayload.document as FigmaNode) : { id: '', type: 'DOCUMENT', name: '', children: [] },
       isPlainObject(filePayload.components) ? (filePayload.components as Record<string, unknown>) : {},
       isPlainObject(filePayload.componentSets) ? (filePayload.componentSets as Record<string, unknown>) : {},
+      true
     );
     const writtenPath = writeJsonFileAtomic(figmaMapOutPath, componentMap);
     const summary = buildFigmaComponentMapSummary(componentMap);
