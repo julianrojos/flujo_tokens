@@ -17,8 +17,8 @@ import { isMain } from '../utils/index.js';
 import { logger } from '../utils/logger.js';
 
 // Import from existing lib during migration
-import { parseMarkdownFrontmatter } from '../../scripts/lib/parse-frontmatter.mjs';
-import { isPlainObject } from '../../scripts/lib/is-plain-object.mjs';
+import { parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
+import { isPlainObject } from '../utils/is-plain-object.js';
 
 const CLI_CONFIG = {
   command: 'ds:compute-traceability [options]',

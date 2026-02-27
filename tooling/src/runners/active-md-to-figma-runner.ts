@@ -31,7 +31,7 @@ import { isTbdMarker } from '../utils/tbd.js';
 import { runOrThrow } from '../utils/exec.js';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
-import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
+import { validateDocs } from '../utils/docs-validator.js';
 import { DEFAULT_TOKEN_REGISTRY_PATH } from '../services/token-registry.js';
 import { logger } from '../utils/logger.js';
 

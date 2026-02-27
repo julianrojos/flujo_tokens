@@ -39,9 +39,9 @@ import { logger } from '../utils/logger.js';
 
 // Re-import these from legacy modules for now
 // TODO: Migrate to services in future iteration
-import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
+import { validateDocs } from '../utils/docs-validator.js';
 import { loadTokenRegistry } from '../services/token-registry.js';
-import { componentNameToSnakeCase } from '../../scripts/lib/component-name.mjs';
+import { componentNameToSnakeCase } from '../utils/component-name.js';
 import { compareComponentRegistryToSources } from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {

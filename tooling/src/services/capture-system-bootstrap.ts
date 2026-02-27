@@ -8,13 +8,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { PROJECT_ROOT } from '../utils/system-context.js';
-import { createDesignSystemRepository } from '../../scripts/lib/system-repository.mjs';
+import { createDesignSystemRepository } from '../utils/system-repository.js';
 import {
   hasInputJsonFiles,
   runTokensCompile,
   syncFigmaTokensToInput,
-} from '../../scripts/lib/figma-token-sync.mjs';
-import type { DesignSystemConfig } from '../../scripts/lib/system-repository.mjs';
+} from '../utils/figma-token-sync.js';
+import type { DesignSystemConfig } from '../utils/system-repository.js';
 
 /**
  * Convert raw value to collection label (title case).

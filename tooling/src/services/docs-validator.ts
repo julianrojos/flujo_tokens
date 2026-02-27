@@ -2,10 +2,15 @@
  * Documentation Validator Service
  *
  * Provides typed access to the documentation validation logic.
- * Currently wraps the existing JS implementation for gradual migration.
+ * 
+ * @internal Temporary wrapper until docs-validator.mjs is fully migrated.
+ * The underlying .mjs implementation has complex dependencies that require
+ * a dedicated migration effort. For now, this wrapper provides type safety
+ * for callers while delegating to the battle-tested JS implementation.
  */
 
 import * as path from 'node:path';
+// TODO: Migrate docs-validator.mjs to TypeScript (complex, ~320 lines with many dependencies)
 // @ts-ignore - Importing .mjs from .ts is allowed by config but might confuse TS
 import { validateDocs as validateDocsJs } from '../../scripts/lib/docs-validator.mjs';
 

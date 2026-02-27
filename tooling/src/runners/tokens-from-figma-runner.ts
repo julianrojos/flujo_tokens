@@ -17,7 +17,7 @@ import { logger } from '../utils/logger.js';
 import {
   syncFigmaTokensToInput,
   runTokensCompile,
-} from '../../scripts/lib/figma-token-sync.mjs';
+} from '../utils/figma-token-sync.js';
 
 const CLI_CONFIG = {
   command: 'ds:tokens-from-figma [options]',

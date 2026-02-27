@@ -19,23 +19,23 @@ import {
   normalizeComponentName,
   componentNameToSnakeCase,
 } from '../utils/component-name.js';
-import { resolveStyleReferencePath } from '../../scripts/lib/style-reference.mjs';
-import { normalizeAgentOutputFile } from '../../scripts/lib/agent-output-normalizer.mjs';
+import { resolveStyleReferencePath } from '../utils/style-reference.js';
+import { normalizeAgentOutputFile } from '../services/agent-output-normalizer.js';
 import {
   GOLDEN_COMPONENT_DOC_SAMPLE_PATH,
   writeComponentDocSkeleton,
-} from '../../scripts/lib/doc-templates.mjs';
+} from '../utils/doc-templates.js';
 import {
   validateAgentOutputContract,
   writeAgentOutputErrorReport,
-} from '../../scripts/lib/agent-output-contract.mjs';
-import { updateAgentDriftBaseline } from '../../scripts/lib/agent-drift-detector.mjs';
+} from '../utils/agent-output-contract.js';
+import { updateAgentDriftBaseline } from '../services/agent-drift-detector.js';
 import {
   buildAgentPrompt,
   canonicalH2ConstraintLines,
   RULE_BLOCKS,
-} from '../../scripts/lib/prompts.mjs';
-import { formatMarkdownTarget } from '../../scripts/lib/format-markdown.mjs';
+} from '../utils/prompts.js';
+import { formatMarkdownTarget } from '../utils/format-markdown.js';
 import {
   captureFileSnapshot,
   restoreFileSnapshot,
@@ -43,11 +43,11 @@ import {
 import {
   assertDocStatusStable,
   assertEvidenceGatedScalarChanges,
-} from '../../scripts/lib/evidence-gated-mutations.mjs';
+} from '../utils/evidence-gated-mutations.js';
 import {
   assertScopedWritePolicy,
   captureScopedWriteSnapshot,
-} from '../../scripts/lib/scoped-write-guard.mjs';
+} from '../utils/scoped-write-guard.js';
 import { runOrThrow } from '../utils/exec.js';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';

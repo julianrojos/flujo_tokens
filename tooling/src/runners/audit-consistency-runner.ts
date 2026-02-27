@@ -18,16 +18,16 @@ import type { RegistryEntry, RegistryLookup } from '../types/registry.js';
 import {
   parseMarkdownFrontmatter,
   parseYamlDocument,
-} from '../../scripts/lib/parse-frontmatter.mjs';
-import { validateDocs } from '../../scripts/lib/docs-validator.mjs';
+} from '../utils/parse-frontmatter.js';
+import { validateDocs } from '../utils/docs-validator.js';
 import {
   loadTokenRegistry,
   DEFAULT_TOKEN_REGISTRY_PATH,
 } from '../services/token-registry.js';
-import { componentNameToSnakeCase } from '../../scripts/lib/component-name.mjs';
-import { normalizeNodeId } from '../../scripts/lib/node-id.mjs';
-import { extractSectionBody } from '../../scripts/lib/markdown-sections.mjs';
-import { TOKEN_COLLECTION_PREFIXES } from '../../scripts/lib/docs-config.mjs';
+import { componentNameToSnakeCase } from '../utils/component-name.js';
+import { normalizeNodeId } from '../utils/node-id.js';
+import { extractSectionBody } from '../utils/markdown-sections.js';
+import { TOKEN_COLLECTION_PREFIXES } from '../utils/docs-config.js';
 
 const TOKEN_CODES = new Set([
   'TOK01',
