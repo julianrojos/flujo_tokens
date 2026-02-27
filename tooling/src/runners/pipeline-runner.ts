@@ -350,7 +350,7 @@ export async function runPipeline(args: string[] = []): Promise<void> {
     process.exit(1);
   }
 
-  // Create plan (createPlan loads registry internally)
+  // Create plan
   if (!json) {
     console.log('\n\x1b[35m=== PHASE 1: PLANNING ===\x1b[0m');
   }

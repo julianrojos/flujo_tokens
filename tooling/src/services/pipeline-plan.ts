@@ -130,9 +130,7 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
   try {
     registryContents = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
   } catch (err) {
-    const errorMsg = `Cannot read component-registry at ${registryPath}: ${err instanceof Error ? err.message : String(err)}`;
-    console.error(`[Plan] Error: ${errorMsg}`);
-    throw new Error(errorMsg);  // Fail-fast: registry is required for planning
+    throw new Error(`[Plan] Fatal: Cannot read component-registry at ${registryPath}`);
   }
 
   // Identify all possible components
@@ -164,7 +162,7 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
 
     // Orphan detection: strict conditions to avoid false positives
     if (inFigma && !hasSpec && !hasDoc) plan.orphans.figma_only.push(slug);
-    if (hasDoc && !hasSpec && !inFigma) plan.orphans.doc_only.push(slug);  // Doc-only orphan (no Spec, no Figma)
+    if (hasDoc && !hasSpec && !inFigma) plan.orphans.doc_only.push(slug);
     if (hasSpec && !hasDoc) plan.orphans.spec_only.push(slug);
 
     const steps = PIPELINE_STEPS.map((stepObj) => {
