@@ -355,12 +355,12 @@ export { runSpecWithGuards } from '../services/spec-runner.js';
 export type { RunSpecWithGuardsOptions } from '../services/spec-runner.js';
 
 // Pipeline context
-export {
-  createPipelineContext,
-  parsePipelineIdentity,
-  parsePipelineOptions,
-  resolvePipelinePaths,
-} from '../services/pipeline-context.js';
+export { createPipelineContext } from '../services/pipeline-context.js';
+
+// Pipeline helpers (extracted to separate modules)
+export { parsePipelineIdentity } from '../services/pipeline-identity.js';
+export { parsePipelineOptions } from '../services/pipeline-options.js';
+export { resolvePipelinePaths } from '../services/pipeline-path-resolver.js';
 
 // Spec orchestrator
 export { runSpecFromFigma } from '../services/spec-orchestrator.js';

@@ -43,7 +43,7 @@ export interface PipelineContext extends PipelineIdentity {
     system: ScriptSystemContext;
     paths: PipelinePaths;
     flags: PipelineFlags;
-    argsRaw: Record<string, string | boolean>;
+    argsRaw: Record<string, unknown>;  // Flexible to accommodate all CLI argument types
 }
 
 export interface SpecRunContext {

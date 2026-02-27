@@ -1,25 +1,32 @@
 /**
- * Design System Pipeline Report Service
+ * Pipeline Report
  *
- * Core logic for generating pipeline reports.
- * This module contains pure functions for building report data.
- * Console output and file writing are handled by the runner.
- *
- * @see ./runners/pipeline-runner.ts for I/O operations
+ * Generate execution report for documentation pipeline.
  */
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { resolveSystemContextSafe, type ScriptSystemContext } from '../utils/system-context.js';
+import type { PipelinePlan } from './pipeline-plan.js';
 
-import type {
-  PipelinePlan,
-  PipelineExecutionState,
-  ReportMeta,
-  PipelineOptions,
-  PipelineStats,
-  PipelineResult,
-} from './pipeline-types.js';
+export interface ExecutionState {
+  components?: Record<string, { success?: boolean }>;
+}
 
-/**
- * ANSI color codes for terminal output
- */
+export interface ReportMeta {
+  hasFailures?: boolean;
+  failedComponents?: string[];
+}
+
+export interface ReportOptions {
+  json?: boolean;
+  'dry-run'?: boolean;
+  'status-only'?: boolean;
+  system?: string;
+  dsContext?: ScriptSystemContext;
+  [key: string]: unknown;
+}
+
+// ANSI color codes for backward compatibility with pipeline-runner.ts
 export const COLORS = {
   reset: '\x1b[0m',
   bright: '\x1b[1m',
@@ -30,20 +37,21 @@ export const COLORS = {
 } as const;
 
 /**
- * Build JSON report data (pure function)
+ * Build report data object for JSON export.
  */
 export function buildReportData(
   plan: PipelinePlan,
-  executionState: PipelineExecutionState,
-  options: PipelineOptions,
-  meta: ReportMeta,
-): PipelineResult {
+  executionState: ExecutionState,
+  options: ReportOptions,
+  meta: ReportMeta
+): Record<string, unknown> {
+  const { hasFailures = false, failedComponents = [] } = meta;
   return {
     timestamp: new Date().toISOString(),
-    success: !meta.hasFailures,
+    success: !hasFailures,
     options,
     orphans: plan.orphans,
-    failedComponents: meta.failedComponents,
+    failedComponents,
     executionSummary: {
       ...executionState,
       plan: plan.components,
@@ -52,36 +60,80 @@ export function buildReportData(
 }
 
 /**
- * Calculate execution statistics from plan
+ * Format orphan report section.
  */
-export function calculateStats(
-  plan: PipelinePlan,
-  executionState?: PipelineExecutionState,
-  options?: {
-    dryRun?: boolean;
-    statusOnly?: boolean;
-  },
-): PipelineStats {
-  const stats: PipelineStats = {
-    processed: 0,
-    errors: 0,
-    skippedCached: 0,
-    skippedOnlyStep: 0,
-  };
+export function formatOrphanReport(plan: PipelinePlan): string {
+  const totalOrphans =
+    plan.orphans.figma_only.length + plan.orphans.doc_only.length + plan.orphans.spec_only.length;
+  if (totalOrphans === 0) return '';
 
-  const isDryRun = options?.dryRun || options?.statusOnly;
+  const reset = '\x1b[0m';
+  const bright = '\x1b[1m';
+  const fgGreen = '\x1b[32m';
+  const fgYellow = '\x1b[33m';
+  const fgCyan = '\x1b[36m';
+  const fgRed = '\x1b[31m';
 
+  let output = `${bright}⚠️ ORPHAN DETECTIONS (${totalOrphans})${reset}\n`;
+  if (plan.orphans.figma_only.length > 0) {
+    output += `   ${fgCyan}Figma Only (Needs Spec+Doc):${reset} ${plan.orphans.figma_only.join(', ')}\n`;
+    output += `     ↳ Fix with: npm run ds:spec-from-figma -- --component-name <component>\n`;
+  }
+  if (plan.orphans.spec_only.length > 0) {
+    output += `   ${fgYellow}Spec Only (Needs Doc):${reset} ${plan.orphans.spec_only.join(', ')}\n`;
+    output += `     ↳ Fix with: npm run ds:component-doc -- --component-name <Component>\n`;
+  }
+  if (plan.orphans.doc_only.length > 0) {
+    output += `   ${fgRed}Doc Only (Not in Figma/Unmapped):${reset} ${plan.orphans.doc_only.join(', ')}\n`;
+    output += `     ↳ Fix by: Verifying Figma URL mapping or deleting the component markup.\n`;
+  }
+  return output + '\n';
+}
+
+/**
+ * Format component plan section.
+ */
+export function formatComponentPlan(plan: PipelinePlan): string {
+  const reset = '\x1b[0m';
+  const bright = '\x1b[1m';
+  const fgGreen = '\x1b[32m';
+  const fgYellow = '\x1b[33m';
+  const fgRed = '\x1b[31m';
+
+  let output = `${bright}📦 COMPONENT EXECUTION PLAN${reset}\n`;
+  for (const [slug, data] of Object.entries(plan.components)) {
+    if (data.orphanStatus) {
+      output += `   • ${slug.padEnd(20)} ${fgYellow}[ORPHAN: ${data.orphanStatus}]${reset}\n`;
+    } else {
+      const neededSteps = data.steps.filter((s) => s.needed).map((s) => s.id);
+      const blockedSteps = data.steps.filter((s) => s.blocked).map((s) => s.id);
+      const statusLabel =
+        neededSteps.length === 0 ? `${fgGreen}[SYNCED]${reset}` : `${fgYellow}[PENDING STEPS]${reset}`;
+      const blockedStr =
+        blockedSteps.length > 0 ? ` ${fgRed}(Blocked: ${blockedSteps.join(', ')})${reset}` : '';
+      output += `   • ${slug.padEnd(20)} ${statusLabel} -> ${neededSteps.length > 0 ? neededSteps.join(' -> ') : 'All good'}${blockedStr}\n`;
+    }
+  }
+  return output + '\n';
+}
+
+/**
+ * Format stats section.
+ */
+export function formatStats(plan: PipelinePlan, executionState: ExecutionState): string {
+  const reset = '\x1b[0m';
+  const bright = '\x1b[1m';
+
+  let stats = { processed: 0, errors: 0, skippedCached: 0, skippedOnlyStep: 0 };
   for (const [slug, data] of Object.entries(plan.components)) {
     if (data.orphanStatus) {
       stats.skippedCached++;
       continue;
     }
-
-    const neededSteps = data.steps.filter(s => s.needed);
-
+    const neededSteps = data.steps.filter((s) => s.needed);
     if (neededSteps.length === 0) {
       const skippedByOnlyStep = data.steps.some(
-        s => s.reason && s.reason.includes('--only-step'),
+        (s) => s.reason && s.reason.includes('Filtered by --only-step')
       );
       if (skippedByOnlyStep) {
         stats.skippedOnlyStep++;
@@ -91,139 +143,138 @@ export function calculateStats(
     } else {
       const execData = executionState?.components?.[slug];
       if (execData) {
-        if (execData.success === false) {
-          stats.errors++;
-        } else {
-          stats.processed++;
-        }
+        execData.success === false ? (stats.errors += 1) : (stats.processed += 1);
       } else {
-        // Planned but not executed (dry-run / status-only)
-        stats.skippedCached++;
+        stats.skippedCached++; // planned but not executed (dry-run / status-only)
       }
     }
   }
 
-  return stats;
+  return `${bright}📊 SUMMARY${reset}   processed: ${stats.processed}   errors: ${stats.errors}   skipped (cached): ${stats.skippedCached}   skipped (only-step): ${stats.skippedOnlyStep}\n`;
 }
 
 /**
- * Format orphan components report lines
+ * Format failure summary.
  */
-export function formatOrphanReport(plan: PipelinePlan): string[] {
-  const lines: string[] = [];
-  const { bright, fgCyan, fgYellow, fgRed, reset } = COLORS;
+export function formatFailureSummary(meta: ReportMeta): string {
+  const { hasFailures = false, failedComponents = [] } = meta;
+  const reset = '\x1b[0m';
+  const bright = '\x1b[1m';
+  const fgRed = '\x1b[31m';
 
-  const totalOrphans =
-    plan.orphans.figma_only.length +
-    plan.orphans.doc_only.length +
-    plan.orphans.spec_only.length;
+  if (!hasFailures) return '';
 
-  if (totalOrphans === 0) {
-    return lines;
+  let output = `${bright}${fgRed}❌ PIPELINE FINISHED WITH ERRORS${reset}\n`;
+  if (failedComponents.length > 0) {
+    output += `   Failed components: ${failedComponents.join(', ')}\n`;
   }
-
-  lines.push(`${bright}⚠️ ORPHAN DETECTIONS (${totalOrphans})${reset}`);
-
-  if (plan.orphans.figma_only.length > 0) {
-    lines.push(
-      `   ${fgCyan}Figma Only (Needs Spec+Doc):${reset} ${plan.orphans.figma_only.join(', ')}`,
-    );
-    lines.push(`     ↳ Fix with: npm run ds:spec-from-figma -- --component-name <component>`);
-  }
-
-  if (plan.orphans.spec_only.length > 0) {
-    lines.push(
-      `   ${fgYellow}Spec Only (Needs Doc):${reset} ${plan.orphans.spec_only.join(', ')}`,
-    );
-    lines.push(`     ↳ Fix with: npm run ds:component-doc -- --component-name <Component>`);
-  }
-
-  if (plan.orphans.doc_only.length > 0) {
-    lines.push(
-      `   ${fgRed}Doc Only (Not in Figma/Unmapped):${reset} ${plan.orphans.doc_only.join(', ')}`,
-    );
-    lines.push(`     ↳ Fix by: Verifying Figma URL mapping or deleting the component markup.`);
-  }
-
-  return lines;
+  return output + '\n';
 }
 
 /**
- * Format component execution plan lines
+ * Format success message.
  */
-export function formatComponentPlan(plan: PipelinePlan): string[] {
-  const lines: string[] = [];
-  const { bright, fgGreen, fgYellow, fgRed, reset } = COLORS;
-
-  for (const [slug, data] of Object.entries(plan.components)) {
-    if (data.orphanStatus) {
-      lines.push(`   • ${slug.padEnd(20)} ${fgYellow}[ORPHAN: ${data.orphanStatus}]${reset}`);
-    } else {
-      const neededSteps = data.steps.filter(s => s.needed).map(s => s.id);
-      const blockedSteps = data.steps.filter(s => s.blocked).map(s => s.id);
-
-      const statusLabel =
-        neededSteps.length === 0
-          ? `${fgGreen}[SYNCED]${reset}`
-          : `${fgYellow}[PENDING STEPS]${reset}`;
-
-      const blockedStr =
-        blockedSteps.length > 0
-          ? ` ${fgRed}(Blocked: ${blockedSteps.join(', ')})${reset}`
-          : '';
-
-      const stepsStr =
-        neededSteps.length > 0 ? neededSteps.join(' -> ') : 'All good';
-
-      lines.push(`   • ${slug.padEnd(20)} ${statusLabel} -> ${stepsStr}${blockedStr}`);
-    }
-  }
-
-  return lines;
+export function formatSuccessMessage(): string {
+  const reset = '\x1b[0m';
+  const bright = '\x1b[1m';
+  const fgGreen = '\x1b[32m';
+  return `${bright}${fgGreen}✅ PIPELINE COMPLETED SUCCESSFULLY${reset}\n\n`;
 }
 
 /**
- * Format statistics line
- */
-export function formatStats(stats: PipelineStats): string {
-  const { bright, reset } = COLORS;
-  return `${bright}📊 SUMMARY${reset}   processed: ${stats.processed}   errors: ${stats.errors}   skipped (cached): ${stats.skippedCached}   skipped (only-step): ${stats.skippedOnlyStep}`;
-}
-
-/**
- * Format failure summary
- */
-export function formatFailureSummary(meta: ReportMeta, isDryRun: boolean): string[] {
-  const lines: string[] = [];
-  const { bright, fgRed, reset } = COLORS;
-
-  if (meta.hasFailures && !isDryRun) {
-    lines.push(`${bright}${fgRed}❌ PIPELINE FINISHED WITH ERRORS${reset}`);
-    if (meta.failedComponents.length > 0) {
-      lines.push(`   Failed components: ${meta.failedComponents.join(', ')}`);
-    }
-  }
-
-  return lines;
-}
-
-/**
- * Format success message
- */
-export function formatSuccessMessage(isDryRun: boolean): string {
-  const { bright, fgGreen, reset } = COLORS;
-
-  if (isDryRun) {
-    return '';
-  }
-
-  return `${bright}${fgGreen}✅ PIPELINE COMPLETED SUCCESSFULLY${reset}\n`;
-}
-
-/**
- * Format dry run notice
+ * Format dry run notice.
  */
 export function formatDryRunNotice(): string {
-  const { fgYellow, reset } = COLORS;
-  return `${fgYellow}* DRY/STATUS RUN ONLY - NO CHANGES MADE *${reset}\n`;
+  const reset = '\x1b[0m';
+  const bright = '\x1b[1m';
+  const fgYellow = '\x1b[33m';
+  return `${bright}${fgYellow}* DRY/STATUS RUN ONLY - NO CHANGES MADE *${reset}\n\n`;
+}
+
+/**
+ * Generate pipeline execution report.
+ */
+export function generateReport(
+  plan: PipelinePlan,
+  executionState: ExecutionState = {},
+  options: ReportOptions = {},
+  meta: ReportMeta = {}
+): void {
+  const isDryRun = options['dry-run'] || options['status-only'];
+  const { hasFailures = false, failedComponents = [] } = meta;
+
+  // ANSI colors for console output (declared at function scope for all blocks)
+  const reset = '\x1b[0m';
+  const bright = '\x1b[1m';
+  const fgGreen = '\x1b[32m';
+  const fgYellow = '\x1b[33m';
+  const fgCyan = '\x1b[36m';
+  const fgRed = '\x1b[31m';
+
+  if (options.json) {
+    console.log(JSON.stringify(buildReportData(plan, executionState, options, meta), null, 2));
+    return;
+  }
+
+  console.log(`\n${bright}=== DS PIPELINE SUMMARY ===${reset}\n`);
+
+  if (isDryRun) {
+    console.log(formatDryRunNotice());
+  }
+
+  // Orphans report
+  const orphanOutput = formatOrphanReport(plan);
+  if (orphanOutput) {
+    console.log(orphanOutput);
+  }
+
+  // Component Execution Plan Summary
+  console.log(formatComponentPlan(plan));
+
+  // Stats
+  console.log(formatStats(plan, executionState));
+  console.log('');
+
+  // Failure or success summary
+  if (hasFailures && !isDryRun) {
+    console.log(formatFailureSummary(meta));
+  } else if (!isDryRun) {
+    console.log(formatSuccessMessage());
+  }
+
+  // Next actions
+  if (!isDryRun && (executionState?.components && Object.keys(executionState.components).length > 0)) {
+    const stats = { processed: 0, errors: 0 };
+    for (const execData of Object.values(executionState.components)) {
+      execData.success === false ? (stats.errors += 1) : (stats.processed += 1);
+    }
+    if (stats.errors > 0 || stats.processed > 0) {
+      console.log(`${bright}📝 NEXT ACTIONS${reset}`);
+      if (stats.errors > 0) {
+        console.log(`   ${fgRed}• Review errors above and fix failing components${reset}`);
+      }
+      if (stats.processed > 0) {
+        console.log(
+          `${fgGreen}• Commit changes: git add docs/ && git commit -m "docs: update components"${reset}`
+        );
+      }
+      console.log('');
+    }
+  }
+
+  // Write report to disk (unless dry-run)
+  if (!isDryRun) {
+    try {
+      // Use provided dsContext or resolve from options.system
+      const ctx = options.dsContext || resolveSystemContextSafe({ system: options.system });
+      const reportDir = ctx.paths.generated;
+      if (!fs.existsSync(reportDir)) fs.mkdirSync(reportDir, { recursive: true });
+
+      const reportPath = path.join(reportDir, 'pipeline-report.json');
+      fs.writeFileSync(reportPath, JSON.stringify(buildReportData(plan, executionState, options, meta), null, 2));
+      console.log(`${fgGreen}✅ Report saved to ${reportPath}${reset}`);
+    } catch (err) {
+      console.warn(`[Report] Warning: Could not write report to disk: ${err}`);
+    }
+  }
 }

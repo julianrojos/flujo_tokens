@@ -17,11 +17,7 @@ import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.
 import { logger } from '../utils/logger.js';
 import { runDoctor } from './doctor-runner.js';
 
-import {
-  createPlan,
-  normalizeComponentSlug,
-  calculateStats,
-} from '../services/pipeline.js';
+import { createPlan } from '../services/pipeline-plan.js';
 
 import {
   buildReportData,
@@ -354,24 +350,12 @@ export async function runPipeline(args: string[] = []): Promise<void> {
     process.exit(1);
   }
 
-  // Load registry
-  const ctx = resolveSystemContextSafe({ system: options.system });
-  const registryPath = ctx.paths.registry;
-  let registryContents: any;
-
-  try {
-    registryContents = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
-  } catch (err) {
-    console.warn(`[Pipeline] Warning: Cannot read component-registry at ${registryPath}`);
-    process.exit(0);
-  }
-
-  // Create plan
+  // Create plan (createPlan loads registry internally)
   if (!json) {
     console.log('\n\x1b[35m=== PHASE 1: PLANNING ===\x1b[0m');
   }
 
-  const plan = createPlan(options, registryContents.components || []);
+  const plan = createPlan(options);
 
   // Status-only mode
   if (options['status-only']) {
@@ -491,32 +475,24 @@ function printReport(
   }
 
   // Orphans report
-  const orphanLines = formatOrphanReport(plan);
-  if (orphanLines.length > 0) {
-    console.log(orphanLines.join('\n'));
-    console.log('');
+  const orphanOutput = formatOrphanReport(plan);
+  if (orphanOutput) {
+    console.log(orphanOutput);
   }
 
   // Component plan
-  console.log(`${bright}📦 COMPONENT EXECUTION PLAN${reset}`);
-  const componentLines = formatComponentPlan(plan);
-  console.log(componentLines.join('\n'));
-  console.log('');
+  console.log(formatComponentPlan(plan));
 
   // Statistics
-  const stats = calculateStats(plan, executionState, {
-    dryRun: options['dry-run'],
-    statusOnly: options['status-only'],
-  });
-  console.log(formatStats(stats));
+  console.log(formatStats(plan, executionState));
   console.log('');
 
   // Failure/success summary
   if (meta.hasFailures) {
-    const failureLines = formatFailureSummary(meta, isDryRun!);
-    console.log(failureLines.join('\n'));
-  } else {
-    console.log(formatSuccessMessage(isDryRun!));
+    console.log(formatFailureSummary(meta));
+  } else if (!isDryRun) {
+    // Only show success message if not in dry-run/status-only mode
+    console.log(formatSuccessMessage());
   }
 
   // Write report file
