@@ -130,7 +130,10 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
   try {
     registryContents = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
   } catch (err) {
-    throw new Error(`[Plan] Fatal: Cannot read component-registry at ${registryPath}`);
+    const reason = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `[Plan] Fatal: Cannot read component-registry at ${registryPath}: ${reason}`
+    );
   }
 
   // Identify all possible components
