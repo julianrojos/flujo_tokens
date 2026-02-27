@@ -1,31 +1,34 @@
 /**
- * Capture Orchestrator Main
+ * Capture Orchestrator - Main Entry Point
  *
- * Main orchestrator for capture-from-figma-url workflow.
- * Coordinates token sync, Figma context resolution, target building,
- * batch execution, and registry refresh.
+ * Orchestrates the complete capture pipeline from Figma URL to visual proof.
  */
 
-import type { ParsedFigmaUrl } from '../utils/figma-url-parser.js';
-import type { ScriptSystemContext } from '../utils/system-context.js';
+import * as path from 'node:path';
+
 import {
-  parseFigmaFileUrl,
+  buildFigmaComponentMap,
   buildFigmaNodeUrl,
-} from '../utils/figma-url-parser.js';
+  parseFigmaFileUrl,
+} from './figma-component-map.js';
+import {
+  fetchFigmaFile,
+  fetchFigmaImages,
+  fetchFigmaNodes,
+} from './figma-api.js';
+import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import {
+  bootstrapInputJsonFromFigmaVariables,
+  ensureCollectionsConfigured,
+  getSystemConfig,
+  runTokensCompileIfNeeded,
+} from './capture-system-bootstrap.js';
+import { orchestrateTokenSync } from './capture-token-orchestrator.js';
+import { configureFigmaContext } from './capture-figma-context.js';
 import {
   extractComponentSpec,
   renderEnrichedMarkdownSeed,
-  type FigmaNode,
-  type ExtractedComponentSpec,
 } from '../utils/figma-node-spec-extractor.js';
-import {
-  classifyTargetKind,
-  extractSingleNodeCandidate,
-  isKindAllowed,
-  resolveSpecExhibitNodeIds,
-} from '../utils/figma-component-discovery.js';
-import { injectSpecZones } from '../utils/spec-to-markdown-injector.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { runJsonCommand } from '../utils/exec.js';
 import {
   parseBooleanOption,
@@ -33,7 +36,7 @@ import {
   parseMainCaptureMode,
   parsePositiveNumber,
 } from './capture-options.js';
-import { createPipelineContext, type PipelineContext } from './pipeline-context.js';
+import { createPipelineContext } from './pipeline-context.js';
 import {
   buildMarkdownSeed,
   ensureSystemDocsScaffold,
@@ -45,89 +48,37 @@ import {
   buildSlugLookupFromSpecContents,
 } from './capture-targets.js';
 import { createCaptureServices } from './capture-services.js';
-import { buildCaptureTargets, type SourceCandidate } from './capture-target-builder.js';
+import {
+  classifyTargetKind,
+  extractSingleNodeCandidate,
+  isKindAllowed,
+  resolveSpecExhibitNodeIds,
+} from './figma-component-discovery.js';
+import { injectSpecZones } from './spec-to-markdown-injector.js';
+import { buildCaptureTargets } from './capture-target-builder.js';
 import { createCaptureReport } from './capture-report.js';
 import { executeCaptureBatchAndRefresh } from './capture-batch-execution.js';
-import { orchestrateTokenSync } from './capture-token-orchestrator.js';
-import { configureFigmaContext } from './capture-figma-context.js';
-import type { FigmaComponentMap, FigmaNodePayload, FigmaImagesPayload } from '../types/figma.js';
+import type { FigmaDescriptor } from './figma-component-map.js';
+import type { CaptureContext } from './capture-target-builder.js';
+import type { PipelineContext } from './pipeline-context.js';
 
 /**
- * Capture orchestration arguments.
+ * Dependencies for runCaptureFromFigmaUrl.
  */
-export interface CaptureFromFigmaUrlArgs {
-  url?: string;
-  'figma-token'?: string;
-  'docs-root'?: string;
-  'proof-dir'?: string;
-  'proof-image-dir'?: string;
-  'component-slug'?: string;
-  'component-kind'?: string;
-  'require-existing-doc'?: string;
-  'include-variants'?: string;
-  'variant-limit'?: string;
-  format?: string;
-  scale?: string;
-  'main-capture-mode'?: string;
-  agent?: string;
-  'continue-on-error'?: string;
-  'refresh-indices'?: string;
-  'dry-run'?: string;
-  'inject-doc-specs'?: string;
-  'include-spec-exhibits'?: string;
-  system?: string;
-  help?: boolean | string;
-}
-
-/**
- * Dependency injection options for testing.
- */
-export interface CaptureFromFigmaUrlDeps {
+export interface RunCaptureFromFigmaUrlDeps {
   projectRoot?: string;
   resolveSystemContextSafeFn?: typeof resolveSystemContextSafe;
   parseFigmaFileUrlFn?: typeof parseFigmaFileUrl;
-  fetchFigmaFileFn?: (params: { fileKey: string; token: string }) => Promise<unknown>;
-  fetchFigmaNodesFn?: (params: {
-    fileKey: string;
-    nodeIds: string[];
-    token: string;
-    depth?: number;
-  }) => Promise<FigmaNodePayload>;
-  fetchFigmaImagesFn?: (params: {
-    fileKey: string;
-    nodeIds: string[];
-    token: string;
-    format: string;
-    scale: number;
-  }) => Promise<FigmaImagesPayload>;
-  buildFigmaComponentMapFn?: (params: {
-    filePayload: unknown;
-    fileDescriptor: ParsedFigmaUrl;
-    includeInstances?: boolean;
-  }) => FigmaComponentMap;
+  fetchFigmaFileFn?: typeof fetchFigmaFile;
+  fetchFigmaNodesFn?: typeof fetchFigmaNodes;
+  fetchFigmaImagesFn?: typeof fetchFigmaImages;
+  buildFigmaComponentMapFn?: typeof buildFigmaComponentMap;
   buildFigmaNodeUrlFn?: typeof buildFigmaNodeUrl;
-  bootstrapInputJsonFromFigmaVariablesFn?: (params: {
-    repoRoot: string;
-    system: ScriptSystemContext | null;
-    fileKey: string;
-    figmaToken: string;
-  }) => Promise<Record<string, unknown>>;
-  ensureCollectionsConfiguredFn?: (params: {
-    repoRoot: string;
-    systemId: string;
-  }) => void;
-  getSystemConfigFn?: (params: {
-    repoRoot: string;
-    systemId: string;
-  }) => ScriptSystemContext | null;
-  runTokensCompileIfNeededFn?: (params: {
-    repoRoot: string;
-    system: ScriptSystemContext | null;
-  }) => Record<string, unknown>;
-  extractSingleNodeCandidateFn?: (
-    payload: FigmaNodePayload,
-    nodeId: string,
-  ) => { node_id: string; name: string; kind: string; page_name: string | null } | null;
+  bootstrapInputJsonFromFigmaVariablesFn?: typeof bootstrapInputJsonFromFigmaVariables;
+  ensureCollectionsConfiguredFn?: typeof ensureCollectionsConfigured;
+  getSystemConfigFn?: typeof getSystemConfig;
+  runTokensCompileIfNeededFn?: typeof runTokensCompileIfNeeded;
+  extractSingleNodeCandidateFn?: typeof extractSingleNodeCandidate;
   parseBooleanOptionFn?: typeof parseBooleanOption;
   parseComponentKindFn?: typeof parseComponentKind;
   parseMainCaptureModeFn?: typeof parseMainCaptureMode;
@@ -141,47 +92,50 @@ export interface CaptureFromFigmaUrlDeps {
   createCaptureReportFn?: typeof createCaptureReport;
   executeCaptureBatchAndRefreshFn?: typeof executeCaptureBatchAndRefresh;
   runJsonCommandFn?: typeof runJsonCommand;
-  extractComponentSpecFn?: (node: FigmaNode) => ExtractedComponentSpec | null;
+  extractComponentSpecFn?: typeof extractComponentSpec;
   resolveSpecExhibitNodeIdsFn?: typeof resolveSpecExhibitNodeIds;
   resolveDocsPathsFn?: typeof resolveDocsPaths;
   renderEnrichedMarkdownSeedFn?: typeof renderEnrichedMarkdownSeed;
   injectSpecZonesFn?: typeof injectSpecZones;
   buildMarkdownSeedFn?: typeof buildMarkdownSeed;
-  writeTextAtomicFn?: typeof writeTextAtomic;
-  stderrWriteFn?: (message: string) => void;
-  createPipelineContextFn?: typeof createPipelineContext;
+  writeTextAtomic?: typeof writeTextAtomic;
+  stderrWrite?: (data: string) => void;
+  createPipelineContext?: typeof createPipelineContext;
   orchestrateTokenSyncFn?: typeof orchestrateTokenSync;
   configureFigmaContextFn?: typeof configureFigmaContext;
 }
 
 /**
- * Run capture from Figma URL.
- *
- * Main entry point for the capture-from-figma-url workflow.
- * Orchestrates token sync, Figma context resolution, target building,
- * batch execution, and registry refresh.
- *
- * @param args - Capture orchestration arguments.
- * @param deps - Optional dependency overrides for testing.
- * @returns Capture report.
+ * Result of running capture from Figma URL.
+ */
+export interface RunCaptureFromFigmaUrlResult {
+  ok: boolean;
+  report?: unknown;
+  captured?: unknown[];
+  failed?: unknown[];
+  [key: string]: unknown;
+}
+
+/**
+ * Main entry point for capture from Figma URL.
  */
 export async function runCaptureFromFigmaUrl(
-  args: CaptureFromFigmaUrlArgs,
-  deps: CaptureFromFigmaUrlDeps = {},
-): Promise<Record<string, unknown>> {
+  args: Record<string, unknown>,
+  deps: RunCaptureFromFigmaUrlDeps = {},
+): Promise<RunCaptureFromFigmaUrlResult> {
   const {
     projectRoot = PROJECT_ROOT,
     resolveSystemContextSafeFn = resolveSystemContextSafe,
     parseFigmaFileUrlFn = parseFigmaFileUrl,
-    fetchFigmaFileFn,
-    fetchFigmaNodesFn,
-    fetchFigmaImagesFn,
-    buildFigmaComponentMapFn,
+    fetchFigmaFileFn = fetchFigmaFile,
+    fetchFigmaNodesFn = fetchFigmaNodes,
+    fetchFigmaImagesFn = fetchFigmaImages,
+    buildFigmaComponentMapFn = buildFigmaComponentMap,
     buildFigmaNodeUrlFn = buildFigmaNodeUrl,
-    bootstrapInputJsonFromFigmaVariablesFn,
-    ensureCollectionsConfiguredFn,
-    getSystemConfigFn,
-    runTokensCompileIfNeededFn,
+    bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
+    ensureCollectionsConfiguredFn = ensureCollectionsConfigured,
+    getSystemConfigFn = getSystemConfig,
+    runTokensCompileIfNeededFn = runTokensCompileIfNeeded,
     extractSingleNodeCandidateFn = extractSingleNodeCandidate,
     parseBooleanOptionFn = parseBooleanOption,
     parseComponentKindFn = parseComponentKind,
@@ -202,9 +156,9 @@ export async function runCaptureFromFigmaUrl(
     renderEnrichedMarkdownSeedFn = renderEnrichedMarkdownSeed,
     injectSpecZonesFn = injectSpecZones,
     buildMarkdownSeedFn = buildMarkdownSeed,
-    writeTextAtomicFn = writeTextAtomic,
-    stderrWriteFn = process.stderr.write.bind(process.stderr),
-    createPipelineContextFn = createPipelineContext,
+    writeTextAtomic: writeTextAtomicFn = writeTextAtomic,
+    stderrWrite: stderrWriteFn = process.stderr.write.bind(process.stderr),
+    createPipelineContext: createPipelineContextFn = createPipelineContext,
     orchestrateTokenSyncFn = orchestrateTokenSync,
     configureFigmaContextFn = configureFigmaContext,
   } = deps;
@@ -216,12 +170,10 @@ export async function runCaptureFromFigmaUrl(
 
   const figmaTokenRaw = String(args['figma-token'] || process.env.FIGMA_TOKEN || '').trim();
   if (!figmaTokenRaw) {
-    throw new Error(
-      'Missing Figma token. Provide --figma-token <token> or set FIGMA_TOKEN.',
-    );
+    throw new Error('Missing Figma token. Provide --figma-token <token> or set FIGMA_TOKEN.');
   }
 
-  const context = createPipelineContextFn(args);
+  const context: PipelineContext = createPipelineContextFn(args);
   const {
     repoRoot,
     figmaToken,
@@ -256,10 +208,7 @@ export async function runCaptureFromFigmaUrl(
     mainCaptureMode,
   } = flags;
 
-  // Parse Figma URL descriptor
-  const descriptor = parseFigmaFileUrlFn(figmaUrl);
-
-  // Orchestrate token sync
+  const descriptor: FigmaDescriptor = parseFigmaFileUrlFn(figmaUrl);
   const { tokenBootstrap, tokenCompile } = await orchestrateTokenSyncFn({
     dryRun,
     projectRoot,
@@ -272,7 +221,6 @@ export async function runCaptureFromFigmaUrl(
     runTokensCompileIfNeededFn,
   });
 
-  // Configure Figma context
   const { ensureFilePayload, resolveContext } = configureFigmaContextFn({
     descriptor,
     figmaToken,
@@ -284,10 +232,8 @@ export async function runCaptureFromFigmaUrl(
 
   const { componentMap, singleNodeCandidate } = await resolveContext();
 
-  // Ensure docs scaffold exists
   ensureSystemDocsScaffoldFn({ docsRootDir, componentDocsDir });
 
-  // Create capture services
   const services = createCaptureServices({ context });
   const componentRows = services.readComponentRegistry();
   const slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
@@ -295,24 +241,16 @@ export async function runCaptureFromFigmaUrl(
   const slugByNodeFromSpecs = buildSlugLookupFromSpecContentsFn(specContents);
 
   const allComponents = Array.isArray(componentMap?.components) ? componentMap.components : [];
-
-  const sourceCandidates: SourceCandidate[] = descriptor.nodeIdFromUrl
-    ? [singleNodeCandidate].filter(Boolean) as SourceCandidate[]
+  const sourceCandidates = descriptor.nodeIdFromUrl
+    ? [singleNodeCandidate].filter(Boolean)
     : allComponents.filter((component) =>
         isKindAllowedFn(classifyTargetKindFn(component.kind), componentKind),
       );
-
   const applySlugOverride = Boolean(componentSlugOverride && descriptor.nodeIdFromUrl);
 
-  // Validate required Figma API dependencies before building targets
-  if (!fetchFigmaNodesFn) {
-    throw new Error('fetchFigmaNodesFn is required for Figma node fetching');
-  }
-  if (!fetchFigmaImagesFn) {
-    throw new Error('fetchFigmaImagesFn is required for Figma image exporting');
-  }
+  const captureScriptPath = path.join(projectRoot, 'tooling', 'scripts', 'ds-capture-visual-proof.mjs');
+  const registryRefreshScriptPath = path.join(projectRoot, 'tooling', 'scripts', 'ds-registry-refresh.mjs');
 
-  // Build capture targets
   const { targets, skipped } = await buildCaptureTargetsFn({
     sourceCandidates,
     descriptor,
@@ -345,7 +283,6 @@ export async function runCaptureFromFigmaUrl(
     readMarkdownContentFn: services.readMarkdownContent,
   });
 
-  // Create capture report
   const report = createCaptureReportFn({
     dryRun,
     descriptor,
@@ -369,10 +306,9 @@ export async function runCaptureFromFigmaUrl(
   });
 
   if (dryRun) {
-    return report;
+    return report as RunCaptureFromFigmaUrlResult;
   }
 
-  // Execute batch and refresh
   return executeCaptureBatchAndRefreshFn({
     report,
     targets,

@@ -1,37 +1,48 @@
 /**
  * Capture Doc Scaffold
  *
- * Utilities for creating documentation scaffold (markdown seeds, atomic writes).
+ * Creates initial documentation structure for components.
+ * Handles atomic writes and seed content generation.
  */
 
-import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import crypto from 'node:crypto';
 
 import { componentNameToDisplayName } from '../utils/component-name.js';
 
 /**
+ * Options for ensuring system docs scaffold.
+ */
+export interface EnsureSystemDocsScaffoldOptions {
+  docsRootDir: string;
+  componentDocsDir: string;
+}
+
+/**
+ * Result of ensuring system docs scaffold.
+ */
+export interface EnsureSystemDocsScaffoldResult {
+  specsDir: string;
+  generatedDir: string;
+  overviewPath: string;
+}
+
+/**
  * Write text to file atomically using temp file + rename.
- *
- * Uses crypto random bytes to prevent race conditions when multiple processes
- * write to the same file concurrently.
- *
- * @param filePath - Target file path.
- * @param content - Content to write.
  */
 export function writeTextAtomic(filePath: string, content: string): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-
-  const randomSuffix = crypto.randomBytes(4).toString('hex');
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.${randomSuffix}.tmp`;
+  const uniqueId = crypto.randomBytes(4).toString('hex');
+  const ts = Date.now();
+  const pid = process.pid;
+  const tempPath = `${filePath}.${pid}.${ts}.${uniqueId}.tmp`;
   fs.writeFileSync(tempPath, content, 'utf8');
   fs.renameSync(tempPath, filePath);
 }
 
 /**
- * Build overview markdown seed.
- *
- * @returns Overview markdown content.
+ * Build seed content for overview.md.
  */
 export function buildOverviewSeed(): string {
   return `---
@@ -47,21 +58,13 @@ doc_status: draft
 }
 
 /**
- * Ensure system docs scaffold exists.
- *
- * @param params - Scaffold parameters.
- * @returns Created directories and files.
+ * Ensure system documentation scaffold exists.
  */
-export function ensureSystemDocsScaffold(params: {
-  docsRootDir: string;
-  componentDocsDir: string;
-}): {
-  specsDir: string;
-  generatedDir: string;
-  overviewPath: string;
-} {
-  const { docsRootDir, componentDocsDir } = params;
-
+export function ensureSystemDocsScaffold(
+  options: EnsureSystemDocsScaffoldOptions,
+): EnsureSystemDocsScaffoldResult {
+  const { docsRootDir, componentDocsDir } = options;
+  
   const specsDir = path.join(docsRootDir, '_spec', 'components');
   const generatedDir = path.join(docsRootDir, '_generated');
   const overviewPath = path.join(componentDocsDir, 'overview.md');
@@ -78,22 +81,17 @@ export function ensureSystemDocsScaffold(params: {
 }
 
 /**
- * Build markdown seed for a component.
- *
- * @param params - Seed parameters.
- * @returns Markdown content.
+ * Build seed markdown for new component.
  */
 export function buildMarkdownSeed(params: {
   slug: string;
-  candidateName: string;
-  nodeUrl: string;
-  nodeId: string;
+  candidateName?: string;
+  nodeUrl?: string;
+  nodeId?: string;
 }): string {
   const { slug, candidateName, nodeUrl, nodeId } = params;
-
-  const displayName =
-    componentNameToDisplayName(candidateName || slug) || 'Component';
-
+  const displayName = componentNameToDisplayName(candidateName || slug) || 'Component';
+  
   return `---
 doc_type: component
 doc_status: draft

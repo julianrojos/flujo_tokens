@@ -1,108 +1,79 @@
 /**
  * Capture Targets
  *
- * Utilities for building slug lookups and resolving target slugs.
+ * Utilities for resolving and building capture targets.
  */
+
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import { componentNameToSnakeCase } from '../utils/component-name.js';
 
 /**
- * Regex to extract component_set_node_id from YAML spec files.
- * Matches format: component_set_node_id: "123:456" or component_set_node_id: 123:456
+ * Normalize name to snake_case slug.
  */
-const COMPONENT_SET_NODE_ID_REGEX =
-  /^\s*component_set_node_id:\s*["']?([0-9]+:[0-9]+)["']?\s*$/m;
-
-/**
- * Normalize name to slug.
- *
- * @param rawName - Raw component name.
- * @returns Normalized slug.
- */
-export function normalizeNameToSlug(rawName: string): string {
+export function normalizeNameToSlug(rawName: unknown): string {
   const normalized = componentNameToSnakeCase(String(rawName || '').trim());
   return normalized || '';
 }
 
 /**
- * Build slug lookup from component registry.
- *
- * @param componentRows - Component registry rows.
- * @returns Map of node ID to slug.
+ * Build slug lookup map from component registry.
  */
 export function buildSlugLookupFromRegistry(
-  componentRows: Array<{ slug?: string; figma?: { component_set_node_id?: string } } | null>,
+  componentRows: unknown[],
 ): Map<string, string> {
   const byNodeId = new Map<string, string>();
-
-  if (!Array.isArray(componentRows)) {
-    return byNodeId;
-  }
-
+  
+  if (!Array.isArray(componentRows)) return byNodeId;
+  
   for (const row of componentRows) {
-    const slug = String(row?.slug || '').trim();
-    const nodeId = String(row?.figma?.component_set_node_id || '').trim();
-
-    if (!slug || !nodeId) {
-      continue;
-    }
-
-    if (!byNodeId.has(nodeId)) {
-      byNodeId.set(nodeId, slug);
-    }
+    if (!row || typeof row !== 'object') continue;
+    const rowObj = row as Record<string, unknown>;
+    const slug = String(rowObj?.slug || '').trim();
+    const nodeId = String((rowObj.figma as Record<string, unknown>)?.component_set_node_id || '').trim();
+    
+    if (!slug || !nodeId) continue;
+    if (!byNodeId.has(nodeId)) byNodeId.set(nodeId, slug);
   }
-
+  
   return byNodeId;
 }
 
 /**
- * Build slug lookup from spec file contents.
- *
- * @param specFiles - Spec files with slug and content.
- * @returns Map of node ID to slug.
+ * Build slug lookup map from spec file contents.
  */
 export function buildSlugLookupFromSpecContents(
-  specFiles: Array<{ slug?: string; content: string } | null>,
+  specFiles: Array<{ slug: string; content: string }>,
 ): Map<string, string> {
   const byNodeId = new Map<string, string>();
-
-  if (!Array.isArray(specFiles)) {
-    return byNodeId;
-  }
-
+  
+  if (!Array.isArray(specFiles)) return byNodeId;
+  
   for (const file of specFiles) {
-    const raw = String(file?.content || '');
-    const slug = String(file?.slug || '').trim();
-
-    const match = raw.match(COMPONENT_SET_NODE_ID_REGEX);
-
-    if (!match || !match[1]) {
-      continue;
-    }
-
+    const raw = String(file.content || '');
+    const slug = String(file.slug || '').trim();
+    const match = raw.match(/^\s*component_set_node_id:\s*["']?([0-9]+:[0-9]+)["']?\s*$/m);
+    
+    if (!match || !match[1]) continue;
     const nodeId = String(match[1]).trim();
-
-    if (!byNodeId.has(nodeId)) {
-      byNodeId.set(nodeId, slug || normalizeNameToSlug(file?.slug || ''));
-    }
+    
+    if (!byNodeId.has(nodeId)) byNodeId.set(nodeId, slug);
   }
-
+  
   return byNodeId;
 }
 
 /**
- * Resolve inferred slug for a component.
- *
- * @param params - Slug resolution parameters.
- * @returns Inferred slug.
+ * Resolve inferred slug for candidate.
  */
 export function resolveInferredSlug(params: {
-  applySlugOverride: boolean;
-  componentSlugOverride: string | null;
+  applySlugOverride?: boolean;
+  componentSlugOverride?: string;
   slugByNodeFromRegistry: Map<string, string>;
   slugByNodeFromSpecs: Map<string, string>;
   nodeId: string;
-  candidateName: string;
+  candidateName?: unknown;
 }): string {
   const {
     applySlugOverride,

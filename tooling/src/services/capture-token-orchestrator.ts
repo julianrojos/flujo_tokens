@@ -1,152 +1,100 @@
 /**
  * Capture Token Orchestrator
  *
- * Orchestrates token bootstrap and compilation during capture workflows.
- * Coordinates between Figma variables and design system token configuration.
- *
- * Note: This is a simplified version that assumes token sync functions
- * will be provided via dependency injection.
+ * Orchestrates token sync and compilation for capture pipeline.
  */
 
-import type { ScriptSystemContext } from '../utils/system-context.js';
-
-/**
- * Token bootstrap result.
- */
-export interface TokenBootstrapResult {
-  /** Whether the bootstrap was attempted. */
-  attempted: boolean;
-  /** Whether tokens were created. */
-  created: boolean;
-  /** Reason for the result state. */
-  reason: string;
-  /** Number of files written (if applicable). */
-  files_written?: number;
-  /** Number of tokens written (if applicable). */
-  tokens_written?: number;
-  /** Error message (if failed). */
-  error?: string;
-}
+import {
+  bootstrapInputJsonFromFigmaVariables,
+  ensureCollectionsConfigured,
+  getSystemConfig,
+  runTokensCompileIfNeeded,
+} from './capture-system-bootstrap.js';
 
 /**
- * Token compile result.
+ * Options for orchestrating token sync.
  */
-export interface TokenCompileResult {
-  /** Whether compilation was attempted. */
-  attempted: boolean;
-  /** Whether compilation succeeded. */
-  compiled: boolean;
-  /** Reason for the result state. */
-  reason: string;
-  /** Stderr output (if applicable). */
-  stderr?: string;
-  /** Output data (if applicable). */
-  output?: unknown;
-}
-
-/**
- * Token sync orchestration options.
- */
-export interface TokenSyncOptions {
-  /** Whether to run in dry-run mode. */
+export interface OrchestrateTokenSyncOptions {
   dryRun: boolean;
-  /** Project root directory. */
   projectRoot: string;
-  /** Design system ID. */
-  systemId: string;
-  /** Figma file key. */
+  systemId?: string;
   fileKey: string;
-  /** Figma API token. */
   figmaToken: string;
-  /** Optional: Bootstrap function (injected). */
-  bootstrapInputJsonFromFigmaVariablesFn?: (params: {
-    repoRoot: string;
-    system: ScriptSystemContext | null;
-    fileKey: string;
-    figmaToken: string;
-  }) => Promise<TokenBootstrapResult>;
-  /** Optional: Ensure collections configured function (injected). */
-  ensureCollectionsConfiguredFn?: (params: {
-    repoRoot: string;
-    systemId: string;
-  }) => void;
-  /** Optional: Get system config function (injected). */
-  getSystemConfigFn?: (params: {
-    repoRoot: string;
-    systemId: string;
-  }) => ScriptSystemContext | null;
-  /** Optional: Run tokens compile function (injected). */
-  runTokensCompileIfNeededFn?: (params: {
-    repoRoot: string;
-    system: ScriptSystemContext | null;
-  }) => TokenCompileResult;
+  getSystemConfigFn?: typeof getSystemConfig;
+  bootstrapInputJsonFromFigmaVariablesFn?: typeof bootstrapInputJsonFromFigmaVariables;
+  ensureCollectionsConfiguredFn?: typeof ensureCollectionsConfigured;
+  runTokensCompileIfNeededFn?: typeof runTokensCompileIfNeeded;
 }
 
 /**
- * Token sync orchestration result.
+ * Result of orchestrating token sync.
  */
-export interface TokenSyncResult {
-  /** Token bootstrap result. */
-  tokenBootstrap: TokenBootstrapResult;
-  /** Token compile result. */
-  tokenCompile: TokenCompileResult;
+export interface OrchestrateTokenSyncResult {
+  tokenBootstrap: {
+    attempted: boolean;
+    created: boolean;
+    reason: string;
+    files_written?: number;
+    tokens_written?: number;
+    files?: string[];
+    error?: string;
+  };
+  tokenCompile: {
+    attempted: boolean;
+    compiled: boolean;
+    reason: string;
+    stderr?: string;
+    output?: string;
+  };
 }
 
 /**
- * Orchestrate token synchronization during capture workflow.
- *
- * @param options - Token sync options.
- * @returns Token sync result with bootstrap and compile status.
+ * Orchestrate token sync and compilation.
  */
 export async function orchestrateTokenSync(
-  options: TokenSyncOptions,
-): Promise<TokenSyncResult> {
+  options: OrchestrateTokenSyncOptions,
+): Promise<OrchestrateTokenSyncResult> {
   const {
     dryRun,
     projectRoot,
     systemId,
     fileKey,
     figmaToken,
-    getSystemConfigFn,
-    bootstrapInputJsonFromFigmaVariablesFn,
-    ensureCollectionsConfiguredFn,
-    runTokensCompileIfNeededFn,
+    getSystemConfigFn = getSystemConfig,
+    bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
+    ensureCollectionsConfiguredFn = ensureCollectionsConfigured,
+    runTokensCompileIfNeededFn = runTokensCompileIfNeeded,
   } = options;
 
-  let tokenBootstrap: TokenBootstrapResult = {
+  let tokenBootstrap: OrchestrateTokenSyncResult['tokenBootstrap'] = {
     attempted: false,
     created: false,
     reason: dryRun ? 'skipped-dry-run' : 'not-run',
   };
-
-  let tokenCompile: TokenCompileResult = {
+  let tokenCompile: OrchestrateTokenSyncResult['tokenCompile'] = {
     attempted: false,
     compiled: false,
     reason: dryRun ? 'skipped-dry-run' : 'not-run',
   };
 
-  if (!dryRun && bootstrapInputJsonFromFigmaVariablesFn && getSystemConfigFn) {
+  if (!dryRun) {
     let systemConfig = getSystemConfigFn({ repoRoot: projectRoot, systemId });
-
+    
     tokenBootstrap = await bootstrapInputJsonFromFigmaVariablesFn({
       repoRoot: projectRoot,
       system: systemConfig,
       fileKey,
       figmaToken,
     });
-
-    if (ensureCollectionsConfiguredFn) {
-      ensureCollectionsConfiguredFn({ repoRoot: projectRoot, systemId });
-    }
-
+    
+    ensureCollectionsConfiguredFn({ repoRoot: projectRoot, systemId });
+    
     systemConfig = getSystemConfigFn({ repoRoot: projectRoot, systemId });
-
-    if (runTokensCompileIfNeededFn) {
-      tokenCompile = runTokensCompileIfNeededFn({
-        repoRoot: projectRoot,
-        system: systemConfig,
-      });
-    }
+    
+    tokenCompile = runTokensCompileIfNeededFn({
+      repoRoot: projectRoot,
+      system: systemConfig,
+    });
   }
 
   return { tokenBootstrap, tokenCompile };

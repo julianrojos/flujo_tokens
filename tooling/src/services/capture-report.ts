@@ -1,24 +1,14 @@
 /**
  * Capture Report
  *
- * Creates and formats capture reports for batch operations.
+ * Creates capture report from pipeline execution results.
  */
 
 import * as path from 'node:path';
 
-import type { ParsedFigmaUrl } from '../utils/figma-url-parser.js';
 import type { CaptureTarget } from './capture-target-builder.js';
-import type { TokenBootstrapResult, TokenCompileResult } from './capture-token-orchestrator.js';
-
-/**
- * Spec exhibit data for report.
- */
-export interface SpecExhibitData {
-  specs_node_id: string | null;
-  anatomy: unknown | null;
-  properties: unknown | null;
-  layout: unknown | null;
-}
+import type { SourceCandidate } from './capture-target-builder.js';
+import type { SpecExhibits } from './capture-target-builder.js';
 
 /**
  * Mapped capture target for report.
@@ -32,44 +22,12 @@ export interface MappedCaptureTarget {
   spec_path: string;
   spec_exists: boolean;
   figma_url: string;
-  spec_exhibits: SpecExhibitData | null;
-}
-
-/**
- * Skipped component entry.
- */
-export interface SkippedComponent {
-  slug?: string;
-  node_id: string;
-  name: string;
-  reason: string;
-  markdown_path?: string;
-  error?: string;
-}
-
-/**
- * Source candidate for capture.
- */
-export interface SourceCandidate {
-  node_id: string;
-  name: string;
-  kind?: string;
-  [key: string]: unknown;
-}
-
-/**
- * Create capture report parameters.
- */
-export interface CreateCaptureReportParams {
-  dryRun: boolean;
-  descriptor: ParsedFigmaUrl;
-  requested: Record<string, unknown>;
-  tokenBootstrap: TokenBootstrapResult;
-  tokenCompile: TokenCompileResult;
-  sourceCandidates: SourceCandidate[];
-  targets: CaptureTarget[];
-  skipped: SkippedComponent[];
-  repoRoot: string;
+  spec_exhibits: {
+    specs_node_id: string | null;
+    anatomy: { nodeId: string | null; imageUrl: string | null } | null;
+    properties: { nodeId: string | null; imageUrl: string | null } | null;
+    layout: { nodeId: string | null; imageUrl: string | null } | null;
+  } | null;
 }
 
 /**
@@ -84,23 +42,19 @@ export interface CaptureReport {
     node_id_from_url: string | null;
   };
   requested: Record<string, unknown>;
-  tokens_bootstrap: TokenBootstrapResult;
-  tokens_compile: TokenCompileResult;
+  tokens_bootstrap: unknown;
+  tokens_compile: unknown;
   total_candidates: number;
   targets_total: number;
   targets: MappedCaptureTarget[];
   captured: unknown[];
   failed: unknown[];
-  skipped: SkippedComponent[];
+  skipped: unknown[];
   indices_refreshed: boolean;
 }
 
 /**
  * Map capture target to report format.
- *
- * @param target - Capture target.
- * @param repoRoot - Repository root.
- * @returns Mapped target for report.
  */
 export function mapCaptureTargetForReport(
   target: CaptureTarget,
@@ -117,22 +71,33 @@ export function mapCaptureTargetForReport(
     figma_url: target.nodeUrl,
     spec_exhibits: target.specExhibits
       ? {
-          specs_node_id: target.specExhibits.specsNodeId ?? null,
-          anatomy: target.specExhibits.anatomy ?? null,
-          properties: target.specExhibits.properties ?? null,
-          layout: target.specExhibits.layout ?? null,
+          specs_node_id: target.specExhibits.specsNodeId || null,
+          anatomy: target.specExhibits.anatomy || null,
+          properties: target.specExhibits.properties || null,
+          layout: target.specExhibits.layout || null,
         }
       : null,
   };
 }
 
 /**
- * Create capture report from batch operation results.
- *
- * @param params - Report creation parameters.
- * @returns Capture report.
+ * Create capture report from pipeline execution.
  */
-export function createCaptureReport(params: CreateCaptureReportParams): CaptureReport {
+export function createCaptureReport(params: {
+  dryRun: boolean;
+  descriptor: {
+    sourceUrl: string;
+    fileKey: string;
+    nodeIdFromUrl?: string;
+  };
+  requested: Record<string, unknown>;
+  tokenBootstrap: unknown;
+  tokenCompile: unknown;
+  sourceCandidates: SourceCandidate[];
+  targets: CaptureTarget[];
+  skipped: unknown[];
+  repoRoot: string;
+}): CaptureReport {
   const {
     dryRun,
     descriptor,
@@ -149,9 +114,9 @@ export function createCaptureReport(params: CreateCaptureReportParams): CaptureR
     ok: true,
     dryRun,
     source: {
-      figma_url: descriptor.figmaUrl,
+      figma_url: descriptor.sourceUrl,
       file_key: descriptor.fileKey,
-      node_id_from_url: descriptor.nodeIdFromUrl ?? null,
+      node_id_from_url: descriptor.nodeIdFromUrl || null,
     },
     requested,
     tokens_bootstrap: tokenBootstrap,

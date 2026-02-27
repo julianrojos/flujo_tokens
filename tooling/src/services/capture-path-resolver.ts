@@ -1,49 +1,23 @@
 /**
  * Capture Path Resolver
  *
- * Resolves documentation paths for capture targets.
+ * Resolves documentation paths for capture operations.
  */
 
 import * as path from 'node:path';
 
-import type { ScriptSystemContext } from '../utils/system-context.js';
+import type { CaptureContext, DocsPaths } from '../types/capture-path-resolver.js';
 
 /**
- * Path resolution parameters.
+ * Resolve documentation paths for a component slug.
  */
-export interface ResolveDocsPathsParams {
-  /** System context. */
-  ctx: Pick<ScriptSystemContext, 'id' | 'paths'>;
-  /** Docs root override. */
-  docsRootOverride?: string | null;
-  /** Component slug. */
+export function resolveDocsPaths(params: {
+  ctx: CaptureContext;
+  docsRootOverride?: string;
   slug: string;
-}
-
-/**
- * Resolved documentation paths.
- */
-export interface ResolvedDocsPaths {
-  /** Docs root directory. */
-  docsRootDir: string;
-  /** Component docs directory. */
-  componentDocsDir: string;
-  /** Markdown file path. */
-  markdownPath: string;
-  /** Spec file path. */
-  specPath: string;
-}
-
-/**
- * Resolve documentation paths for a capture target.
- *
- * @param params - Path resolution parameters.
- * @returns Resolved paths.
- */
-export function resolveDocsPaths(params: ResolveDocsPathsParams): ResolvedDocsPaths {
+}): DocsPaths {
   const { ctx, docsRootOverride, slug } = params;
-
-  const docsRoot = docsRootOverride || ctx.paths?.docs || 'docs';
+  const docsRoot = docsRootOverride || ctx.paths.docs;
   const docsRootResolved = path.resolve(docsRoot);
 
   const componentDocsDir =
