@@ -183,6 +183,12 @@ rules:
     applies_to: [pipeline]
     blocking: true
     layer: domain
+  - id: review-judge-workflow-format
+    file: review-judge-workflow-format.mdc
+    owner: docs-governance
+    applies_to: [pipeline]
+    blocking: true
+    layer: core
   - id: skill-input-output-contract
     file: skill-input-output-contract.mdc
     owner: docs-governance
@@ -413,5 +419,11 @@ matrix:
       ]
     figma: [figma-rendering]
     visual-proof: [component-figma-traceability]
-    pipeline: [docs-pipeline-contract, component-indices-sync, git-constraints]
+    pipeline:
+      [
+        docs-pipeline-contract,
+        component-indices-sync,
+        review-judge-workflow-format,
+        git-constraints,
+      ]
     skills: [skill-versioning, skill-input-output-contract, git-constraints]
