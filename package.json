@@ -47,7 +47,6 @@
     "ds:registry:overview": "node tooling/scripts/ds-registry-overview.mjs",
     "ds:registry:report": "node tooling/scripts/ds-registry-report.mjs",
     "ds:validate-token-refs": "node tooling/scripts/ds-validate-token-refs.mjs",
-    "ds:compute-traceability": "node tooling/scripts/ds-compute-traceability.mjs",
     "ds:audit-consistency": "node tooling/scripts/ds-audit-consistency.mjs",
     "ds:detect-missing-zones": "node tooling/scripts/ds-detect-missing-zones.mjs",
     "ds:doctor": "node tooling/scripts/ds-doctor.mjs",
@@ -62,6 +61,7 @@
     "dashboard:preview": "npm --prefix apps/ds-dashboard run preview"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.0",
     "prettier": "^3.3.3",
     "tsx": "^4.7.0",
