@@ -13,7 +13,7 @@ import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
 // Import from existing lib during migration
-import { validateDocs } from '../utils/docs-validator.js';
+import { validateDocs } from '../services/docs-validator.js';
 
 const TOKEN_REGISTRY_CHECK = 'token-registry';
 const TOKEN_SOURCE_CODES = new Set(['TOK01', 'TOK02', 'TOK03', 'SPEC01']);

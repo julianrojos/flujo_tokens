@@ -18,7 +18,7 @@ import { logger } from '../utils/logger.js';
 
 // Import from existing libs during migration
 import { runAgentPrompt } from '../services/agent-runner.js';
-import { validateDocs } from '../utils/docs-validator.js';
+import { validateDocs } from '../services/docs-validator.js';
 import { parseMarkdownFrontmatter, parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { loadTokenRegistry } from '../services/token-registry.js';
 import { extractGapsFromSpec, upsertGapsSection } from '../utils/gaps.js';

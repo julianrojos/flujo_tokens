@@ -19,7 +19,7 @@ import {
   parseMarkdownFrontmatter,
   parseYamlDocument,
 } from '../utils/parse-frontmatter.js';
-import { validateDocs } from '../utils/docs-validator.js';
+import { validateDocs } from '../services/docs-validator.js';
 import {
   loadTokenRegistry,
   DEFAULT_TOKEN_REGISTRY_PATH,

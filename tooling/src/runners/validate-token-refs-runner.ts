@@ -15,7 +15,7 @@ import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
 // Import from existing lib during migration
-import { validateDocs } from '../utils/docs-validator.js';
+import { validateDocs } from '../services/docs-validator.js';
 import { DEFAULT_TOKEN_REGISTRY_PATH } from '../services/token-registry.js';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
