@@ -175,33 +175,37 @@ function parseFilePathInfo(url: URL): { surface: string; fileKey: string; slug: 
     return { surface, fileKey, slug };
 }
 
-function parseNodeIdFromUrl(url: URL): string {
+export function sanitizeNodeId(rawNodeId: unknown): string {
+    const v = String(rawNodeId || "").trim().replace(/-/g, ":");
+    return /^\d+:\d+$/.test(v) ? v : "";
+}
+
+export function parseNodeIdFromUrl(url: URL): string {
     const paramNames = ["node-id", "node_id", "nodeId"];
-    const sanitize = (val: string | null) => {
-        const v = String(val || "").trim().replace(/-/g, ":");
-        return /^\d+:\d+$/.test(v) ? v : "";
-    };
     for (const key of paramNames) {
-        const value = sanitize(url.searchParams.get(key));
+        const value = sanitizeNodeId(url.searchParams.get(key));
         if (value) return value;
     }
     const hashRaw = String(url.hash || "").replace(/^#/, "");
     if (hashRaw) {
         const hashParams = new URLSearchParams(hashRaw.replace(/^[/?]+/, ""));
         for (const key of paramNames) {
-            const value = sanitize(hashParams.get(key));
+            const value = sanitizeNodeId(hashParams.get(key));
             if (value) return value;
         }
         const inlineMatch = hashRaw.match(/(?:^|[?&])node-?id=([^&]+)/i);
-        if (inlineMatch && inlineMatch[1]) return sanitize(decodeURIComponent(inlineMatch[1]));
+        if (inlineMatch && inlineMatch[1]) return sanitizeNodeId(decodeURIComponent(inlineMatch[1]));
     }
     return "";
 }
 
-function buildFigmaNodeUrl(fileDescriptor: ParsedFigmaFileUrl, nodeId: string): string {
+export function buildFigmaNodeUrl(fileDescriptor: ParsedFigmaFileUrl, nodeId: string): string {
     const base = 'https://www.figma.com/file';
-    return `${base}/${fileDescriptor.fileKey}/${fileDescriptor.fileSlug}?node-id=${nodeId}&surface=${fileDescriptor.surface}`;
+    const fileSlug = String(fileDescriptor.fileSlug || '');
+    const surface = String(fileDescriptor.surface || '');
+    return `${base}/${fileDescriptor.fileKey}/${fileSlug}?node-id=${nodeId}&surface=${surface}`;
 }
+
 
 function buildCatalogIndex(
     components: Record<string, any> = {},
@@ -469,6 +473,9 @@ export function buildFigmaComponentMapSummary(map: ComponentMapWithRelations): {
     };
 }
 
+/** Convenience type alias for the return shape of {@link buildFigmaComponentMapSummary}. */
+export type FigmaComponentMapSummary = ReturnType<typeof buildFigmaComponentMapSummary>;
+
 /**
  * Render component map as text summary.
  */
@@ -494,4 +501,50 @@ export function renderFigmaComponentMapText(map: ComponentMapWithRelations): str
     }
 
     return lines.join("\n") + "\n";
+}
+
+/**
+ * Format a component map as a Markdown document.
+ *
+ * @deprecated Use {@link renderFigmaComponentMapText} for richer output.
+ * Preserved for backwards compatibility with consumers that rely on the
+ * heading-based Markdown format (H1 file name, H2 sections).
+ */
+export function formatFigmaComponentMap(map: FigmaComponentMap): string {
+    const lines: string[] = [];
+    lines.push(`# ${map.fileName}`);
+    lines.push('');
+    lines.push(`**File Key:** ${map.fileKey}`);
+    lines.push(`**Surface:** ${map.surface}`);
+    lines.push(`**Root Node:** ${map.rootNodeId || 'N/A'}`);
+    lines.push('');
+
+    if (map.componentSets.length > 0) {
+        lines.push('## Component Sets');
+        lines.push('');
+        for (const set of map.componentSets) {
+            lines.push(`- **${set.name}** (\`${set.nodeId}\`)`);
+        }
+        lines.push('');
+    }
+
+    if (map.components.length > 0) {
+        lines.push('## Components');
+        lines.push('');
+        for (const component of map.components) {
+            lines.push(`- **${component.name}** (\`${component.nodeId}\`)`);
+        }
+        lines.push('');
+    }
+
+    if (map.pages.length > 0) {
+        lines.push('## Pages');
+        lines.push('');
+        for (const page of map.pages) {
+            lines.push(`- **${page.name}** (\`${page.nodeId}\`)`);
+        }
+        lines.push('');
+    }
+
+    return lines.join('\n');
 }
