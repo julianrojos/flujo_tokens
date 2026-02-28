@@ -363,11 +363,27 @@ export function validateGeneratedTraceability(
   specRoot: string,
   registryPath: string,
   report: DocsValidationReport,
-  specResolution: SpecResolution = {},
-  strict = false
+  specResolution: SpecResolution = {}
 ): void {
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   if (!spec.exists || spec.parseError) return;
+
+  const compareOptionalCount = (fieldName: string, expectedValue: number) => {
+    const raw = figma[fieldName];
+    if (raw === undefined || raw === null || raw === '') return;
+    const parsed = Number(String(raw).trim());
+    if (!Number.isInteger(parsed)) return;
+    if (parsed !== expectedValue) {
+      report.errors.push({
+        code: 'TRACE03',
+        file: filePath,
+        message: `Traceability drift in figma.${fieldName}. Regenerate markdown using the suggested command.`,
+        expected: String(expectedValue),
+        actual: String(parsed),
+        suggested: regenerateCommand,
+      });
+    }
+  };
 
   const regenerateCommand = buildTraceabilityRegenerationCommand({
     markdownPath: filePath,
@@ -463,27 +479,8 @@ export function validateGeneratedTraceability(
     });
   }
 
-  const compareOptionalCount = (fieldName: string, expectedValue: number) => {
-    const raw = figma[fieldName];
-    if (raw === undefined || raw === null || raw === '') return;
-    const parsed = Number(String(raw).trim());
-    if (!Number.isInteger(parsed)) return;
-    if (parsed !== expectedValue) {
-      report.errors.push({
-        code: 'TRACE03',
-        file: filePath,
-        message: `Traceability drift in figma.${fieldName}. Regenerate markdown using the suggested command.`,
-        expected: String(expectedValue),
-        actual: String(parsed),
-        suggested: regenerateCommand,
-      });
-    }
-  };
-
-  if (strict) {
-    compareOptionalCount('properties_count', expectedFigma.propertiesCount);
-    compareOptionalCount('variants_count', expectedFigma.variantsCount);
-  }
+  compareOptionalCount('properties_count', expectedFigma.propertiesCount);
+  compareOptionalCount('variants_count', expectedFigma.variantsCount);
 }
 
 /**

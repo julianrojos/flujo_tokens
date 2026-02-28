@@ -255,7 +255,12 @@ function buildCatalogIndex(
 export function parseFigmaFileUrl(figmaUrl: unknown): ParsedFigmaFileUrl {
     const raw = String(figmaUrl || "").trim();
     if (!raw) throw new Error("Missing Figma URL");
-    const url = new URL(raw);
+    let url: URL;
+    try {
+        url = new URL(raw);
+    } catch {
+        throw new Error(`Invalid Figma URL: ${raw}`);
+    }
     const hostname = url.hostname;
     if (hostname !== 'figma.com' && !hostname.endsWith('.figma.com')) {
         throw new Error(`Invalid Figma URL hostname: ${hostname}`);
