@@ -363,7 +363,8 @@ export function validateGeneratedTraceability(
   specRoot: string,
   registryPath: string,
   report: DocsValidationReport,
-  specResolution: SpecResolution = {}
+  specResolution: SpecResolution = {},
+  strict = false
 ): void {
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   if (!spec.exists || spec.parseError) return;
@@ -479,8 +480,10 @@ export function validateGeneratedTraceability(
     }
   };
 
-  compareOptionalCount('properties_count', expectedFigma.propertiesCount);
-  compareOptionalCount('variants_count', expectedFigma.variantsCount);
+  if (strict) {
+    compareOptionalCount('properties_count', expectedFigma.propertiesCount);
+    compareOptionalCount('variants_count', expectedFigma.variantsCount);
+  }
 }
 
 /**
