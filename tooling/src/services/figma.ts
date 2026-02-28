@@ -15,6 +15,7 @@ import { isTbdMarker } from '../utils/tbd.js';
 import { extractSectionBody } from './markdown-sections.js';
 import { TRACEABILITY_CONTRACT_VERSION } from './docs-config.js';
 import { deriveFigmaFrontmatterTraceability } from './figma-traceability.js';
+import type { FigmaNode } from '../types/figma.js';
 import {
   extractGapsFromSpec,
   buildGapsChecklistLines,

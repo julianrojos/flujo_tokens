@@ -7,6 +7,7 @@
 import * as crypto from 'node:crypto';
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { normalizeNodeId } from '../utils/figma-node-id.js';
+import type { FigmaNode } from '../types/figma.js';
 
 const FIGMA_NODE_ID_RE = /^[A-Za-z0-9]+:[A-Za-z0-9]+$/;
 
