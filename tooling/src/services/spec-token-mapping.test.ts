@@ -1,10 +1,11 @@
 /**
  * Spec Token Mapping Tests
  *
- * Tests for token mapping utilities.
+ * Tests for token mapping functions.
  */
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
 import {
   buildTokenMenuLines,
   extractUniqueRegistryEntries,
@@ -60,30 +61,46 @@ describe('spec-token-mapping', () => {
         },
       ];
 
-      const lines = buildTokenMenuLines(registryEntries, 'alert', 10);
-      // Should have 1 line (the component candidate, not semantic fallback)
-      assert.equal(lines.length, 1);
-      assert.ok(lines[0].includes('components/alert/icon/color'));
-      assert.ok(lines[0].includes('#FF0000'));
+      const lines = buildTokenMenuLines(registryEntries, 'Alert');
+      assert.deepEqual(lines, ['components/alert/icon/color (color: #FF0000)']);
+    });
+  });
+
+  describe('pickBestTokenPath()', () => {
+    it('requires strong or unique match', () => {
+      const candidates = [
+        { path: 'components.alert.background.default', slashPath: 'components/alert/background/default' },
+        { path: 'components.alert.border.default', slashPath: 'components/alert/border/default' },
+      ];
+
+      assert.equal(
+        pickBestTokenPath(candidates, 'token_mapping.background', 'default'),
+        'components/alert/background/default',
+      );
+      assert.equal(
+        pickBestTokenPath(candidates, 'token_mapping.unknown', 'default'),
+        '',
+      );
     });
   });
 
   describe('prefillTokenMapping()', () => {
-    it('fills TBD values with suggestions from registry', () => {
-      const registryEntries = [
-        { path: 'components.alert.icon.color', slashPath: 'components/alert/icon/color', collection: 'components', type: 'color' },
-        { path: 'semantic.surface.default', slashPath: 'semantic/surface/default', collection: 'semantic', type: 'color' },
-      ];
-
-      const node = {
-        icon: {
-          color: 'TBD',
+    it('fills TBD values recursively', () => {
+      const mapping = {
+        color_default: 'TBD',
+        nested: {
+          icon_path: 'TBD',
         },
       };
+      const candidates = [
+        { path: 'components.alert.color.default', slashPath: 'components/alert/color/default' },
+        { path: 'components.alert.icon.path', slashPath: 'components/alert/icon/path' },
+      ];
 
-      const filledCount = prefillTokenMapping(node, registryEntries, 'icon');
-      assert.ok(filledCount > 0);
-      assert.ok(node.icon.color.includes('components/alert/icon/color'));
+      const filled = prefillTokenMapping(mapping, candidates, 'token_mapping');
+      assert.equal(filled, 2);
+      assert.equal(mapping.color_default, 'components/alert/color/default');
+      assert.equal(mapping.nested.icon_path, 'components/alert/icon/path');
     });
   });
 });

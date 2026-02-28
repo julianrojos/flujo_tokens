@@ -1,142 +1,131 @@
-/**
- * Spec Source Tests
- *
- * Tests for resolveFigmaSource and parseFigmaUrl.
- */
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveFigmaSource, parseFigmaUrl } from './spec-source.js';
+import { describe, it } from 'node:test';
+
+import { parseFigmaUrl, resolveFigmaSource } from './spec-source.js';
 
 describe('spec-source', () => {
   describe('parseFigmaUrl()', () => {
-    it('should extract node-id from URL parameter', () => {
-      const result = parseFigmaUrl('https://www.figma.com/file/abc123/Test?node-id=123:456');
-      
-      assert.equal(result.fileKey, 'abc123');
-      assert.equal(result.nodeId, '123:456');
+    it('extracts file key and node id from search params', () => {
+      const parsed = parseFigmaUrl(
+        'https://www.figma.com/design/FILE123/Components?node-id=123-456'
+      );
+
+      assert.deepEqual(parsed, {
+        fileKey: 'FILE123',
+        nodeId: '123:456',
+      });
     });
 
-    it('should return empty nodeId when URL has no node-id parameter', () => {
-      const result = parseFigmaUrl('https://www.figma.com/file/abc123/Test');
-      
-      assert.equal(result.fileKey, 'abc123');
-      assert.equal(result.nodeId, '');
+    it('extracts node id from hash params', () => {
+      const parsed = parseFigmaUrl(
+        'https://www.figma.com/file/FILE999/Name#node-id=9-10'
+      );
+
+      assert.deepEqual(parsed, {
+        fileKey: 'FILE999',
+        nodeId: '9:10',
+      });
     });
 
-    it('should handle node_id (underscore) variant', () => {
-      const result = parseFigmaUrl('https://www.figma.com/file/abc123/Test?node_id=789:012');
-      
-      assert.equal(result.fileKey, 'abc123');
-      assert.equal(result.nodeId, '789:012');
+    it('returns empty values for invalid urls', () => {
+      const parsed = parseFigmaUrl('not-a-url');
+
+      assert.deepEqual(parsed, { fileKey: '', nodeId: '' });
     });
 
-    it('should handle nodeId (camelCase) variant', () => {
-      const result = parseFigmaUrl('https://www.figma.com/file/abc123/Test?nodeId=345:678');
-      
-      assert.equal(result.fileKey, 'abc123');
-      assert.equal(result.nodeId, '345:678');
+    it('returns empty node id when the url has no node parameter', () => {
+      const parsed = parseFigmaUrl('https://www.figma.com/file/FILE999/Name');
+
+      assert.deepEqual(parsed, {
+        fileKey: 'FILE999',
+        nodeId: '',
+      });
     });
   });
 
   describe('resolveFigmaSource()', () => {
-    it('should return explicit nodeId without validation', () => {
-      const result = resolveFigmaSource({
+    it('throws if no source is provided', () => {
+      assert.throws(
+        () => resolveFigmaSource({ figmaUrl: '', nodeId: '', rawComponentName: '' }),
+        /Missing Figma source/
+      );
+    });
+
+    it('resolves with valid figmaUrl', () => {
+      const resolved = resolveFigmaSource({
+        figmaUrl: 'https://www.figma.com/design/FILE123/Components?node-id=123-456',
+        nodeId: '',
+        rawComponentName: '',
+      });
+
+      assert.deepEqual(resolved, {
+        fileKeyFromUrl: 'FILE123',
         nodeId: '123:456',
-        figmaUrl: undefined,
-        rawComponentName: undefined,
       });
-      
-      assert.equal(result.nodeId, '123:456');
-      assert.equal(result.fileKeyFromUrl, '');
     });
 
-    it('should extract nodeId from URL', () => {
-      const result = resolveFigmaSource({
-        figmaUrl: 'https://www.figma.com/file/abc123/Test?node-id=123:456',
-        nodeId: undefined,
-        rawComponentName: undefined,
+    it('resolves with explicit nodeId', () => {
+      const resolved = resolveFigmaSource({
+        figmaUrl: '',
+        nodeId: '9:10',
+        rawComponentName: '',
       });
-      
-      assert.equal(result.nodeId, '123:456');
-      assert.equal(result.fileKeyFromUrl, 'abc123');
+
+      assert.deepEqual(resolved, {
+        fileKeyFromUrl: '',
+        nodeId: '9:10',
+      });
     });
 
-    it('should throw error when URL has no node-id and no explicit nodeId', () => {
+    it('prioritizes explicit nodeId over url nodeId', () => {
+      const resolved = resolveFigmaSource({
+        figmaUrl: 'https://www.figma.com/design/FILE123/Components?node-id=123-456',
+        nodeId: '9:10',
+        rawComponentName: '',
+      });
+
+      assert.deepEqual(resolved, {
+        fileKeyFromUrl: 'FILE123',
+        nodeId: '9:10',
+      });
+    });
+
+    it('throws when figmaUrl has no node id and no raw component name', () => {
       assert.throws(
-        () => resolveFigmaSource({
-          figmaUrl: 'https://www.figma.com/file/abc123/Test',
-          nodeId: undefined,
-          rawComponentName: undefined,
-        }),
-        {
-          message: /No node-id found in Figma URL/,
-        },
-        'Should throw error when nodeId is missing from URL'
+        () =>
+          resolveFigmaSource({
+            figmaUrl: 'https://www.figma.com/file/FILE999/Name',
+            nodeId: '',
+            rawComponentName: '',
+          }),
+        /No node-id found in Figma URL/
       );
     });
 
-    it('should throw error when no source is provided', () => {
-      assert.throws(
-        () => resolveFigmaSource({
-          figmaUrl: undefined,
-          nodeId: undefined,
-          rawComponentName: undefined,
-        }),
-        {
-          message: /Missing Figma source/,
-        },
-        'Should throw error when no source is provided'
-      );
-    });
-
-    it('should throw error when only figmaUrl without nodeId or rawComponentName', () => {
-      assert.throws(
-        () => resolveFigmaSource({
-          figmaUrl: 'https://www.figma.com/file/abc123/Test',
-          nodeId: undefined,
-          rawComponentName: undefined,
-        }),
-        {
-          message: /No node-id found in Figma URL/,
-        },
-        'Should throw error when URL has no nodeId and no componentName'
-      );
-    });
-
-    it('should accept rawComponentName as fallback', () => {
-      const result = resolveFigmaSource({
-        figmaUrl: undefined,
-        nodeId: undefined,
-        rawComponentName: 'Test Component',
+    it('allows rawComponentName without url for deferred resolution', () => {
+      const resolved = resolveFigmaSource({
+        figmaUrl: '',
+        nodeId: '',
+        rawComponentName: 'Button',
       });
-      
-      // Should not throw, but nodeId will be empty (to be resolved by name later)
-      assert.equal(result.nodeId, '');
-      assert.equal(result.fileKeyFromUrl, '');
+
+      assert.deepEqual(resolved, {
+        fileKeyFromUrl: '',
+        nodeId: '',
+      });
     });
 
-    it('should accept rawComponentName with figmaUrl (nodeId will be resolved later)', () => {
-      const result = resolveFigmaSource({
-        figmaUrl: 'https://www.figma.com/file/abc123/Test',
-        nodeId: undefined,
-        rawComponentName: 'Test Component',
+    it('allows rawComponentName with url and no node id', () => {
+      const resolved = resolveFigmaSource({
+        figmaUrl: 'https://www.figma.com/file/FILE999/Name',
+        nodeId: '',
+        rawComponentName: 'Button',
       });
-      
-      // Should not throw - componentName is valid source even with URL
-      assert.equal(result.nodeId, '');
-      assert.equal(result.fileKeyFromUrl, 'abc123');
-    });
 
-    it('should preserve nodeId from URL when rawComponentName is also provided', () => {
-      const result = resolveFigmaSource({
-        figmaUrl: 'https://www.figma.com/file/abc123/Test?node-id=123:456',
-        nodeId: undefined,
-        rawComponentName: 'Test Component',
+      assert.deepEqual(resolved, {
+        fileKeyFromUrl: 'FILE999',
+        nodeId: '',
       });
-      
-      // Should use nodeId from URL when available
-      assert.equal(result.nodeId, '123:456');
-      assert.equal(result.fileKeyFromUrl, 'abc123');
     });
   });
 });
