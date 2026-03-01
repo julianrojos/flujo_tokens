@@ -73,12 +73,12 @@ export function materializeSpec(options: MaterializeSpecOptions): { normalizedSp
     const generatedSpecRaw = parseYamlDocument(
         fs.readFileSync(outputPath, 'utf8'),
         `generated spec (${outputPath})`,
-    );
+    ) as Record<string, unknown>;
 
     const registryEntries = extractUniqueRegistryEntries(registryIndex);
     const tokenCandidates = pickComponentTokenCandidates(
         registryEntries,
-        generatedSpecRaw.name || componentName || '',
+        String(generatedSpecRaw.name) || componentName || '',
     );
 
     const { normalizedSpec, prefilledCount } = normalizeSpec({

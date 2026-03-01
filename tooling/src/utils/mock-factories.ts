@@ -5,56 +5,13 @@
  * Migrated from tooling/scripts/lib/mock-factories.mjs
  */
 
-export interface PipelineContext {
-  figmaUrl: string;
-  figmaToken: string;
-  system: {
-    id: string;
-    paths: {
-      docs: string;
-      generated: string;
-      specs: string;
-      registry: string;
-      tokenRegistry: string;
-    };
-  };
-  paths: {
-    docsRootOverride: string | null;
-    docsRootDir: string;
-    componentDocsDir: string;
-    proofDir: string;
-    proofImageDir: string;
-    resolvedSpecRoot: string;
-    templatePath: string;
-    tokenRegistryPath: string;
-    overviewPath: string;
-    registryIndexPath: string;
-  };
-  flags: {
-    componentSlugOverride: string;
-    componentKind: string;
-    includeVariants: boolean;
-    requireExistingDoc: boolean;
-    continueOnError: boolean;
-    refreshIndices: boolean;
-    dryRun: boolean;
-    injectDocSpecs: boolean;
-    includeSpecExhibits: boolean;
-    variantLimit: number;
-    scale: number;
-    format: string;
-    agent: string;
-    mainCaptureMode: string;
-    force: boolean;
-    skipValidation: boolean;
-    allowNonEvidenceUpdates: boolean;
-  };
-}
+import type { PipelineContext } from '../types/pipeline.js';
+import type { FigmaFileResponse, FigmaNodesResponse } from '../types/figma.js';
 
 export interface MockDeps {
   createPipelineContextFn: () => PipelineContext;
-  fetchFigmaFileFn: () => Promise<{ document: { id: string; name: string; type: string; children?: any[] } }>;
-  fetchFigmaNodesFn: () => Promise<{ nodes: Record<string, { document: { id: string; name: string; type: string } }> }>;
+  fetchFigmaFileFn: () => Promise<FigmaFileResponse>;
+  fetchFigmaNodesFn: () => Promise<FigmaNodesResponse>;
   fetchFigmaImagesFn: () => Promise<{ images: Record<string, string> }>;
   bootstrapInputJsonFromFigmaVariablesFn: () => Promise<{ attempted: boolean; created: boolean; reason: string }>;
   runTokensCompileIfNeededFn: () => { attempted: boolean; compiled: boolean; reason: string };
@@ -78,11 +35,16 @@ export interface MockDeps {
 export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): MockDeps {
   const defaultDeps: MockDeps = {
     createPipelineContextFn: () => ({
+      repoRoot: '/mock/repo',
       figmaUrl: 'https://www.figma.com/design/example-file/Components?node-id=100-200',
       figmaToken: 'mock-token',
       system: {
         id: 'system',
+        name: 'Mock System',
+        docsDir: '/mock/repo/docs',
         paths: {
+          input: '/mock/repo/input',
+          output: '/mock/repo/output',
           docs: '/mock/repo/docs',
           generated: '/mock/repo/docs/_generated',
           specs: '/mock/repo/docs/_spec/components',
@@ -121,16 +83,29 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
         skipValidation: false,
         allowNonEvidenceUpdates: false,
       },
+      argsRaw: {},
     }),
     fetchFigmaFileFn: async () => ({
+      name: 'Example File',
+      lastModified: '2024-01-01T00:00:00Z',
+      thumbnailUrl: 'https://figma.com/thumb.png',
+      version: '1',
       document: {
         id: '0:0',
+        name: 'Canvas',
+        type: 'CANVAS',
         children: [{ id: '100:200', name: 'ExampleNode', type: 'COMPONENT_SET' }],
       },
+      components: {},
+      componentSets: {},
+      schemaVersion: 1,
     }),
     fetchFigmaNodesFn: async () => ({
+      name: 'Example File',
+      lastModified: '2024-01-01T00:00:00Z',
+      thumbnailUrl: 'https://figma.com/thumb.png',
       nodes: {
-        '100:200': { document: { id: '100:200', name: 'ExampleNode', type: 'COMPONENT_SET' } },
+        '100:200': { document: { id: '100:200', name: 'ExampleNode', type: 'COMPONENT_SET' }, components: {}, schemaVersion: 1 },
       },
     }),
     fetchFigmaImagesFn: async () => ({
