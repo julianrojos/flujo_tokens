@@ -1,1 +1,1 @@
-export * from "../services/analysis-artifacts-service.mjs";
+export * from '../services/analysis-artifacts-service.mjs';
