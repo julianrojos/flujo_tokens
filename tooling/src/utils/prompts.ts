@@ -62,6 +62,7 @@ export interface BuildAgentPromptOptions {
   constraints?: string[];
   examples?: string[];
   expectedOutput?: string[];
+  spec?: string[];
 }
 
 /**
@@ -76,6 +77,7 @@ export function buildAgentPrompt(
     constraints = [],
     examples = [],
     expectedOutput = [],
+    spec = [],
   } = options;
 
   const sections = [
@@ -84,6 +86,7 @@ export function buildAgentPrompt(
     ...renderSection('Constraints', constraints),
     ...renderSection('Examples', examples),
     ...renderSection('Expected Output', expectedOutput),
+    ...renderSection('Spec', spec),
   ];
 
   const trimmed = sections.slice();
