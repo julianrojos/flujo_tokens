@@ -4,7 +4,6 @@
  * Combines token registry data with spec generation prompts.
  */
 
-import { loadRegistryOrThrow as loadRegistryOrThrowFromUtils } from '../utils/registry-loader.js';
 import {
     buildSpecPrompt,
     buildTokenMenuLines,
@@ -21,7 +20,15 @@ export interface LoadRegistryOptions {
  * @deprecated Use loadRegistryOrThrow from utils/registry-loader.js instead.
  */
 export function loadRegistryOrThrow(options: LoadRegistryOptions): unknown {
-    return loadRegistryOrThrowFromUtils(options.registryPath);
+    const { loadTokenRegistryFn, registryPath } = options;
+
+    try {
+        return loadTokenRegistryFn(registryPath);
+    } catch (error) {
+        throw new Error(
+            `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`,
+        );
+    }
 }
 
 export interface BuildSpecPromptWithRegistryOptions extends Omit<BuildSpecPromptOptions, 'tokenMenuLines'> {
