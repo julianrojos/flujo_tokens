@@ -10,8 +10,6 @@ import {
     runSpecGenerationPrompt,
     runSpecRepairPrompt,
     createSpecRunContext,
-    buildSpecPromptWithRegistry,
-    loadRegistryOrThrow,
     runSpecGenerationFlow,
     finalizeSpecResult,
     runSpecWithGuards,
@@ -23,6 +21,10 @@ import {
     writeSpecWithSnapshotGuard,
     createPipelineContext,
 } from '../utils/index.js';
+import {
+    buildSpecPromptWithRegistry,
+    loadRegistryOrThrow,
+} from './spec-registry-prompt.js';
 
 // Import syncDocumentationIndices with type safety from component-registry-index
 import { syncDocumentationIndices as syncDocumentationIndicesJs } from '../services/component-registry-index.js';
@@ -49,7 +51,7 @@ export interface SpecOrchestratorDeps {
     runSpecGenerationPromptFn?: typeof runSpecGenerationPrompt;
     runSpecRepairPromptFn?: typeof runSpecRepairPrompt;
     validateGeneratedSpecFn?: typeof validateGeneratedSpec;
-    syncDocumentationIndicesFn?: (opts: any) => any;
+    syncDocumentationIndicesFn?: typeof syncDocumentationIndices;
     runSpecWithGuardsFn?: typeof runSpecWithGuards;
     createPipelineContextFn?: typeof createPipelineContext;
     writeSpecWithSnapshotGuardFn?: typeof writeSpecWithSnapshotGuard;
