@@ -130,5 +130,58 @@ describe('analysis-artifacts-service', () => {
       assert.equal(result.statusCode, 500);
       assert.equal((result.payload as any).message, 'ENOENT');
     });
+
+    it('surfaces non-zero exit codes with code field', async () => {
+      const result = await runNodeJsonCommandOnce(
+        {
+          cwd: '/repo',
+          command: 'node',
+          commandArgs: ['script.mjs'],
+          commandLabel: 'node script.mjs',
+        },
+        {
+          runSpawnWithCaptureFn: async () => ({
+            spawnError: null,
+            exitCode: 3,
+            stdout: '',
+            stderr: 'error output',
+            jsonParseError: null,
+            parsedJson: null,
+          }),
+        }
+      );
+
+      assert.equal(result.ok, false);
+      assert.equal(result.statusCode, 500);
+      assert.equal((result.payload as any).code, 3);
+      assert.equal((result.payload as any).stdout, '');
+      assert.equal((result.payload as any).stderr, 'error output');
+    });
+
+    it('surfaces JSON parse errors with parse_error field', async () => {
+      const result = await runNodeJsonCommandOnce(
+        {
+          cwd: '/repo',
+          command: 'node',
+          commandArgs: ['script.mjs'],
+          commandLabel: 'node script.mjs',
+        },
+        {
+          runSpawnWithCaptureFn: async () => ({
+            spawnError: null,
+            exitCode: 0,
+            stdout: '{invalid json',
+            stderr: '',
+            jsonParseError: 'Unexpected token i in JSON',
+            parsedJson: null,
+          }),
+        }
+      );
+
+      assert.equal(result.ok, false);
+      assert.equal(result.statusCode, 500);
+      assert.equal((result.payload as any).message, 'Command returned invalid JSON.');
+      assert.equal((result.payload as any).parse_error, 'Unexpected token i in JSON');
+    });
   });
 });

@@ -173,7 +173,7 @@ export async function runNodeJsonCommandOnce(
       payload: {
         ok: false,
         command: args.commandLabel,
-        message: result.stderr || `Exit code ${result.exitCode}`,
+        code: result.exitCode,
         stdout: result.stdout,
         stderr: result.stderr,
       },
@@ -187,9 +187,10 @@ export async function runNodeJsonCommandOnce(
       payload: {
         ok: false,
         command: args.commandLabel,
-        message: result.jsonParseError,
+        message: 'Command returned invalid JSON.',
         stdout: result.stdout,
         stderr: result.stderr,
+        parse_error: result.jsonParseError,
       },
     };
   }
