@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 
-import { isQueueJobFinalStatus } from "../lib/queue-utils.mjs";
+import { isQueueJobFinalStatus } from "../lib/queue-utils.ts";
 
 function defaultOperationDurationMs(startedAt, finishedAt) {
   const startTs = startedAt ? new Date(startedAt).getTime() : NaN;

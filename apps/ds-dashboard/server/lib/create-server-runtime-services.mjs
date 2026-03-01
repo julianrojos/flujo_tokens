@@ -4,9 +4,9 @@ import { createDevRuntimeChecker, createSha256TextHasher, createSystemContextRes
 import { createOperationHistoryService } from "../services/operation-history-service.mjs";
 import { createQueueEngineService } from "../services/queue-engine-service.mjs";
 import { createQueueJobFactoryService } from "../services/queue-job-factory-service.mjs";
-import { createSnippetBuilder } from "./request-file-helpers.mjs";
+import { createSnippetBuilder } from "./request-file-helpers.ts";
 import { runSpawnWithCapture } from "./spawn-runner.mjs";
-import { toQueueSummaryFromPayload } from "./queue-utils.mjs";
+import { toQueueSummaryFromPayload } from "./queue-utils.ts";
 
 export function createServerRuntimeServices(config) {
   const {

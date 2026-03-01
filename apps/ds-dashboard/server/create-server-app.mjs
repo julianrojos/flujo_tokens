@@ -21,7 +21,7 @@ import {
   queueJobAcceptedPayload,
   queueJobSnapshot,
   toQueueTerminalEvent,
-} from "./lib/queue-utils.mjs";
+} from "./lib/queue-utils.ts";
 import { buildCreateServerAppRouteDeps } from "./lib/create-server-app-route-deps.mjs";
 import { createServerHttpApp } from "./lib/create-server-http-app.mjs";
 import { createServerRuntimeServices } from "./lib/create-server-runtime-services.mjs";
@@ -31,8 +31,8 @@ import {
   createOperationEventId,
   nowIso,
   writeStructuredLog,
-} from "./lib/api-response-service.mjs";
-import { createServerConfig } from "./lib/server-config.mjs";
+} from "./lib/api-response-service.ts";
+import { createServerConfig } from "./lib/server-config.ts";
 import {
   findLineForQuery,
   guessContentType,
@@ -41,7 +41,7 @@ import {
   resolveRepoFilePath,
   toBooleanString,
   toNumberString,
-} from "./lib/request-file-helpers.mjs";
+} from "./lib/request-file-helpers.ts";
 
 function defaultRepoRoot() {
   const __filename = fileURLToPath(import.meta.url);

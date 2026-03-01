@@ -4,7 +4,7 @@ import { registerAllRoutes } from "../routes/register-all-routes.mjs";
 import {
   createFailJson,
   createHealthPayloadBuilder,
-} from "./api-response-service.mjs";
+} from "./api-response-service.ts";
 import { buildCreateServerRouteDeps } from "./create-server-route-deps.mjs";
 import { registerUnhandledErrorMiddleware } from "./error-middleware.mjs";
 
