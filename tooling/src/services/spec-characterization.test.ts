@@ -29,6 +29,15 @@ describe('spec-characterization', () => {
           'Components/Button/Background/Primary/Default': { value: '#1C6B4A' },
         },
       }),
+      loadRegistryOrThrowFn: () => ({
+        token_a: {
+          path: 'components.alert.icon.color',
+          slashPath: 'components/alert/icon/color',
+          collection: 'components',
+          type: 'color',
+          resolvedValue: '#FF0000',
+        },
+      }),
       ensureSpecTemplateExistsFn: () => {},
       ensureSpecOutputDirectoryFn: () => {},
       materializeSpecFn: () => {

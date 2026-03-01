@@ -242,7 +242,6 @@ export { runSpecGenerationFlow } from '../services/spec-generation-flow.js';
 
 export type {
   BuildSpecPromptWithRegistryOptions,
-  LoadRegistryOptions,
 } from '../services/spec-registry-prompt.js';
 
 export type {

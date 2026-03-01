@@ -11,26 +11,6 @@ import {
 } from '../utils/index.js';
 import type { BuildSpecPromptOptions } from '../utils/index.js';
 
-export interface LoadRegistryOptions {
-    loadTokenRegistryFn: (path: string) => unknown;
-    registryPath: string;
-}
-
-/**
- * @deprecated Use loadRegistryOrThrow from utils/registry-loader.js instead.
- */
-export function loadRegistryOrThrow(options: LoadRegistryOptions): unknown {
-    const { loadTokenRegistryFn, registryPath } = options;
-
-    try {
-        return loadTokenRegistryFn(registryPath);
-    } catch (error) {
-        throw new Error(
-            `${error instanceof Error ? error.message : String(error)}. Run \`npm run generate:registry\` first.`,
-        );
-    }
-}
-
 export interface BuildSpecPromptWithRegistryOptions extends Omit<BuildSpecPromptOptions, 'tokenMenuLines'> {
     componentSlug: string;
     registryIndex: unknown;
@@ -61,7 +41,7 @@ export function buildSpecPromptWithRegistry(options: BuildSpecPromptWithRegistry
         registryPath,
         fileKeyFromUrl,
         tokenMenuLines: buildTokenMenuLines(
-            extractUniqueRegistryEntries(registryIndex),
+            extractUniqueRegistryEntries(registryIndex as Record<string, unknown>),
             componentName || componentSlug,
         ),
     });

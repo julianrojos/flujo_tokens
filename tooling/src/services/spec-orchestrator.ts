@@ -20,10 +20,10 @@ import {
     assertEvidenceGatedScalarChanges,
     writeSpecWithSnapshotGuard,
     createPipelineContext,
+    loadRegistryOrThrow,
 } from '../utils/index.js';
 import {
     buildSpecPromptWithRegistry,
-    loadRegistryOrThrow,
 } from './spec-registry-prompt.js';
 
 // Import syncDocumentationIndices with type safety from component-registry-index
@@ -44,6 +44,7 @@ const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
 
 export interface SpecOrchestratorDeps {
     loadTokenRegistryFn?: typeof loadTokenRegistry;
+    loadRegistryOrThrowFn?: typeof loadRegistryOrThrow;
     ensureSpecTemplateExistsFn?: typeof ensureSpecTemplateExists;
     ensureSpecOutputDirectoryFn?: typeof ensureSpecOutputDirectory;
     materializeSpecFn?: typeof materializeSpec;
@@ -63,6 +64,7 @@ export interface SpecOrchestratorDeps {
 export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrchestratorDeps = {}): Promise<any> {
     const {
         loadTokenRegistryFn = loadTokenRegistry,
+        loadRegistryOrThrowFn = loadRegistryOrThrow,
         ensureSpecTemplateExistsFn = ensureSpecTemplateExists,
         ensureSpecOutputDirectoryFn = ensureSpecOutputDirectory,
         materializeSpecFn = materializeSpec,
@@ -106,10 +108,7 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
         run: ({ existingSpec }) => {
             ensureSpecTemplateExistsFn(templatePath);
 
-            const registryIndex = loadRegistryOrThrow({
-                loadTokenRegistryFn,
-                registryPath,
-            });
+            const registryIndex = loadRegistryOrThrowFn(registryPath);
 
             const prompt = buildSpecPromptWithRegistry({
                 figmaUrl,

@@ -6,33 +6,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { buildSpecPromptWithRegistry, loadRegistryOrThrow } from './spec-registry-prompt.js';
+import { buildSpecPromptWithRegistry } from './spec-registry-prompt.js';
 
 describe('spec-registry-prompt', () => {
-  describe('loadRegistryOrThrow()', () => {
-    it('returns registry when available', () => {
-      const registry = loadRegistryOrThrow({
-        loadTokenRegistryFn: () => ({ a: 1 }),
-        registryPath: '/tmp/registry.json',
-      });
-
-      assert.deepEqual(registry, { a: 1 });
-    });
-
-    it('appends actionable hint on error', () => {
-      assert.throws(
-        () =>
-          loadRegistryOrThrow({
-            loadTokenRegistryFn: () => {
-              throw new Error('Cannot read registry');
-            },
-            registryPath: '/tmp/registry.json',
-          }),
-        /npm run generate:registry/,
-      );
-    });
-  });
-
   describe('buildSpecPromptWithRegistry()', () => {
     it('includes deterministic source context', () => {
       const prompt = buildSpecPromptWithRegistry({
