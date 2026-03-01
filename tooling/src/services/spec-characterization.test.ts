@@ -11,8 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import { runSpecFromFigma } from './spec-orchestrator.js';
 import { parseYamlDocument } from '../utils/parse-frontmatter.js';
-
-import { createCaptureContextMock } from '../../scripts/lib/mock-factories.mjs';
+import { createCaptureContextMock } from '../utils/mock-factories.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GOLDEN_SPEC_PATH = path.join(__dirname, '../../scripts/lib/golden-samples/component-spec.yml');
