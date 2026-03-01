@@ -1,3 +1,8 @@
+/**
+ * Spec Source Tests
+ *
+ * Tests for parseFigmaUrl and resolveFigmaSource functions.
+ */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
@@ -7,7 +12,7 @@ describe('spec-source', () => {
   describe('parseFigmaUrl()', () => {
     it('extracts file key and node id from search params', () => {
       const parsed = parseFigmaUrl(
-        'https://www.figma.com/design/FILE123/Components?node-id=123-456'
+        'https://www.figma.com/design/FILE123/Components?node-id=123-456',
       );
 
       assert.deepEqual(parsed, {
@@ -18,7 +23,7 @@ describe('spec-source', () => {
 
     it('extracts node id from hash params', () => {
       const parsed = parseFigmaUrl(
-        'https://www.figma.com/file/FILE999/Name#node-id=9-10'
+        'https://www.figma.com/file/FILE999/Name#node-id=9-10',
       );
 
       assert.deepEqual(parsed, {
@@ -29,7 +34,6 @@ describe('spec-source', () => {
 
     it('returns empty values for invalid urls', () => {
       const parsed = parseFigmaUrl('not-a-url');
-
       assert.deepEqual(parsed, { fileKey: '', nodeId: '' });
     });
 
@@ -44,10 +48,10 @@ describe('spec-source', () => {
   });
 
   describe('resolveFigmaSource()', () => {
-    it('throws if no source is provided', () => {
+    it('throws if no source provided', () => {
       assert.throws(
         () => resolveFigmaSource({ figmaUrl: '', nodeId: '', rawComponentName: '' }),
-        /Missing Figma source/
+        /Missing Figma source/,
       );
     });
 
@@ -66,18 +70,18 @@ describe('spec-source', () => {
 
     it('resolves with explicit nodeId', () => {
       const resolved = resolveFigmaSource({
-        figmaUrl: '',
+        figmaUrl: 'https://www.figma.com/design/FILE123/Components',
         nodeId: '9:10',
         rawComponentName: '',
       });
 
       assert.deepEqual(resolved, {
-        fileKeyFromUrl: '',
+        fileKeyFromUrl: 'FILE123',
         nodeId: '9:10',
       });
     });
 
-    it('prioritizes explicit nodeId over url nodeId', () => {
+    it('prioritizes explicit nodeId over figmaUrl nodeId', () => {
       const resolved = resolveFigmaSource({
         figmaUrl: 'https://www.figma.com/design/FILE123/Components?node-id=123-456',
         nodeId: '9:10',
@@ -98,7 +102,7 @@ describe('spec-source', () => {
             nodeId: '',
             rawComponentName: '',
           }),
-        /No node-id found in Figma URL/
+        /No node-id found in Figma URL/,
       );
     });
 
