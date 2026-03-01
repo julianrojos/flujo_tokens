@@ -585,16 +585,19 @@ export function validateTokenFallbacks(
     }
   }
 
-  validateProseTokenFallbacks(
-    filePath,
-    content,
-    registryIndexes,
-    report,
-    lineStarts,
-    lineFromOffset,
-    baseOffset,
-    tables
-  );
+  // NOTE: validateProseTokenFallbacks desactivada (commit 5a5ac12 la añadió
+  // silenciosamente como parte de un "optimize" sin tests). Se reactivará
+  // cuando haya tests que documenten el comportamiento esperado.
+  // validateProseTokenFallbacks(
+  //   filePath,
+  //   content,
+  //   registryIndexes,
+  //   report,
+  //   lineStarts,
+  //   lineFromOffset,
+  //   baseOffset,
+  //   tables
+  // );
 }
 
 /**
