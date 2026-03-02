@@ -8,6 +8,7 @@
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
 import type { RenderPipelineState } from './render-pipeline-state.js';
 import type { PhaseResult, RenderPhase } from './render-phase.js';
+import { PipelineError } from './pipeline-error.js';
 
 /**
  * Execute render phases in sequence.
@@ -28,19 +29,29 @@ export async function runRenderPhases(
   context: ActiveMdToFigmaRuntimeContext,
   phases: RenderPhase[],
 ): Promise<RenderPipelineState> {
-  let state: RenderPipelineState = {};
+  let state: RenderPipelineState = { stage: 'initial' };
 
-  for (const phase of phases) {
-    const result = await phase(context, state);
+  for (const [index, phase] of phases.entries()) {
+    let result: PhaseResult;
+    try {
+      result = await phase.execute(context, state);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new PipelineError(message, 'PHASE_EXCEPTION', phase.name || `phase-${index}`);
+    }
 
     // Handle phase failure
     if (!result.ok) {
-      throw new Error(result.error || 'Phase failed');
+      throw new PipelineError(
+        result.error || 'Phase failed',
+        'PHASE_FAILED',
+        phase.name || `phase-${index}`,
+      );
     }
 
     // Merge phase output into state
     if (result.output) {
-      state = { ...state, ...result.output };
+      state = result.output;
     }
 
     // Handle skip with exit behavior
@@ -55,7 +66,7 @@ export async function runRenderPhases(
 /**
  * Create a phase result for successful execution.
  */
-export function phaseSuccess<T extends Partial<RenderPipelineState>>(
+export function phaseSuccess<T extends RenderPipelineState>(
   output?: T,
 ): PhaseResult<T> {
   return {
@@ -67,7 +78,7 @@ export function phaseSuccess<T extends Partial<RenderPipelineState>>(
 /**
  * Create a phase result for skipped execution.
  */
-export function phaseSkip<T extends Partial<RenderPipelineState>>(
+export function phaseSkip<T extends RenderPipelineState>(
   reason: string,
   behavior: SkipBehavior = 'continue',
   output?: T,
