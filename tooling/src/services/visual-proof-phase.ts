@@ -7,8 +7,12 @@
 
 import { runOrThrow } from '../utils/exec.js';
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
-import type { RenderPipelineState, VisualProofPhaseOutput } from './render-pipeline-state.js';
-import type { PhaseResult, SkipBehavior } from './render-phase.js';
+import {
+  hasAuditState,
+  type RenderPipelineState,
+  type VisualProofPhaseOutput,
+} from './render-pipeline-state.js';
+import type { PhaseResult, RenderPhase } from './render-phase.js';
 
 export interface VisualProofCaptureOptions {
   captureProofStrict: boolean;
@@ -127,10 +131,19 @@ function handleProofCaptureError(
  * Skips with continue behavior if componentSetId is unavailable.
  * Uses captureProofStrict from context (no external options needed).
  */
-export async function visualProofPhase(
-  context: ActiveMdToFigmaRuntimeContext,
-  _state: RenderPipelineState,
-): Promise<PhaseResult<VisualProofPhaseOutput>> {
+export const visualProofPhase: RenderPhase<VisualProofPhaseOutput> = {
+  name: 'visual-proof-phase',
+  async execute(
+    context: ActiveMdToFigmaRuntimeContext,
+    state: RenderPipelineState,
+  ): Promise<PhaseResult<VisualProofPhaseOutput>> {
+  if (!hasAuditState(state)) {
+    return {
+      ok: false,
+      error: 'Visual proof phase requires auditResult from previous phase',
+    };
+  }
+
   const result = executeVisualProofPhase(context, {
     captureProofStrict: context.captureProofStrict,
   });
@@ -140,9 +153,14 @@ export async function visualProofPhase(
     return {
       ok: true,
       skipped: true,
-      skipBehavior: 'continue' as SkipBehavior,
+      skipBehavior: 'continue',
       reason: result.skipReason,
       output: {
+        stage: 'complete',
+        pipeline: state.pipeline,
+        renderExpectations: state.renderExpectations,
+        renderReport: state.renderReport,
+        auditResult: state.auditResult,
         visualProofResult: result,
       },
     };
@@ -159,7 +177,13 @@ export async function visualProofPhase(
   return {
     ok: true,
     output: {
+      stage: 'complete',
+      pipeline: state.pipeline,
+      renderExpectations: state.renderExpectations,
+      renderReport: state.renderReport,
+      auditResult: state.auditResult,
       visualProofResult: result,
     },
   };
-}
+  },
+};
