@@ -2,10 +2,10 @@
  * Tree traversal utilities.
  */
 
-import type { ExecutionSummary, WalkHandlers } from '../types/tokens.js';
+import type { ExecutionSummary, TokenValue, WalkHandlers } from '../types/tokens.js';
 import { isPlainObject, isModeKey, shouldSkipKey, isModeDefaultKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedPreferredModeFallback, warnedInvalidTokenDetails, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedInvalidTokenDetails, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 import { normalizePreferredMode, matchesPreferredMode as matchesPreferredModeAny } from '../utils/modes.js';
@@ -15,14 +15,14 @@ import { normalizePreferredMode, matchesPreferredMode as matchesPreferredModeAny
  * When exceeded, traversal is truncated and the incident is recorded in the summary.
  */
 export function checkDepthLimit(summary: ExecutionSummary, depth: number, currentPath: string[]): boolean {
-    if (depth <= MAX_DEPTH) return false;
-    console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${pathStr(currentPath)}; truncating traversal.`);
-    summary.depthLimitHits++;
-    return true;
+  if (depth <= MAX_DEPTH) return false;
+  console.error(`❌ Depth limit (${MAX_DEPTH}) reached at ${pathStr(currentPath)}; truncating traversal.`);
+  summary.depthLimitHits++;
+  return true;
 }
 
 export function pickModeKey(keys: string[], preferredMode?: string): string | undefined {
-    return selectModeKey(keys, { preferredMode });
+  return selectModeKey(keys, { preferredMode });
 }
 
 /**
@@ -30,61 +30,63 @@ export function pickModeKey(keys: string[], preferredMode?: string): string | un
  * Used to keep mode selection deterministic when we intentionally do not sort keys.
  */
 function compareByCodeUnit(a: string, b: string): number {
-    return a > b ? 1 : a < b ? -1 : 0;
+  return a > b ? 1 : a < b ? -1 : 0;
 }
 
 function matchesPreferredMode(key: string, preferred?: string): boolean {
-    if (!isModeKey(key)) return false;
-    return matchesPreferredModeAny(key, preferred);
+  if (!isModeKey(key)) return false;
+  return matchesPreferredModeAny(key, preferred);
 }
 
-function warnPreferredModeFallbackOnce(path: string, preferred: string | undefined, modeKey: string | undefined, hasValue: boolean): void {
-    const warnKey = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;
-    if (warnedPreferredModeFallback.has(warnKey)) return;
-    warnedPreferredModeFallback.add(warnKey);
+const warnedPreferredModeFallback = new Set<string>();
 
-    console.warn(
-        `ℹ️  Preferred mode "${preferred}" not found at ${path}; ${hasValue ? 'emitting base $value only' : 'using available mode branch'} (${modeKey ?? 'none'}).`
-    );
+function warnPreferredModeFallbackOnce(path: string, preferred: string | undefined, modeKey: string | undefined, hasValue: boolean): void {
+  const warnKey = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;
+  if (warnedPreferredModeFallback.has(warnKey)) return;
+  warnedPreferredModeFallback.add(warnKey);
+
+  console.warn(
+    `ℹ️  Preferred mode "${preferred}" not found at ${path}; ${hasValue ? 'emitting base $value only' : 'using available mode branch'} (${modeKey ?? 'none'}).`
+  );
 }
 
 export interface ModeSelectOptions {
-    preferredMode?: string;
-    strict?: boolean;
-    sort?: boolean;
-    allowFallback?: boolean;
+  preferredMode?: string;
+  strict?: boolean;
+  sort?: boolean;
+  allowFallback?: boolean;
 }
 
 export function selectModeKey(keys: string[], options: ModeSelectOptions = {}): string | undefined {
-    const { preferredMode, strict = false, sort = false, allowFallback = true } = options;
-    const preferred = normalizePreferredMode(preferredMode);
+  const { preferredMode, strict = false, sort = false, allowFallback = true } = options;
+  const preferred = normalizePreferredMode(preferredMode);
 
-    const source = sort ? [...keys].sort(compareByCodeUnit) : keys;
-    const preferredMatch = source.find(k => matchesPreferredMode(k, preferred));
-    if (preferredMatch) return preferredMatch;
+  const source = sort ? [...keys].sort(compareByCodeUnit) : keys;
+  const preferredMatch = source.find(k => matchesPreferredMode(k, preferred));
+  if (preferredMatch) return preferredMatch;
 
-    if (strict && preferred) {
-        return undefined;
-    }
+  if (strict && preferred) {
+    return undefined;
+  }
 
-    if (!allowFallback) {
-        return undefined;
-    }
+  if (!allowFallback) {
+    return undefined;
+  }
 
-    return source.find(isModeDefaultKey) ?? source.find(isModeKey);
+  return source.find(isModeDefaultKey) ?? source.find(isModeKey);
 }
 
 function pickModeDefaultKey(keys: string[], sortKeys: boolean): string | undefined {
-    if (sortKeys) {
-        return keys.find(isModeDefaultKey);
-    }
+  if (sortKeys) {
+    return keys.find(isModeDefaultKey);
+  }
 
-    let best: string | undefined;
-    for (const k of keys) {
-        if (!isModeDefaultKey(k)) continue;
-        if (!best || compareByCodeUnit(k, best) < 0) best = k;
-    }
-    return best;
+  let best: string | undefined;
+  for (const k of keys) {
+    if (!isModeDefaultKey(k)) continue;
+    if (!best || compareByCodeUnit(k, best) < 0) best = k;
+  }
+  return best;
 }
 
 /**
@@ -92,274 +94,333 @@ function pickModeDefaultKey(keys: string[], sortKeys: boolean): string | undefin
  * This does not change selection; it only surfaces potentially confusing exports.
  */
 export function warnAmbiguousModeDefault(keys: string[], currentPath: string[]): void {
-    let count = 0;
-    for (const k of keys) if (isModeDefaultKey(k)) count++;
-    if (count <= 1) return;
+  let count = 0;
+  for (const k of keys) if (isModeDefaultKey(k)) count++;
+  if (count <= 1) return;
 
-    const at = pathStr(currentPath);
-    const sig = `${at}|${count}`;
-    if (warnedAmbiguousModeDefaultAt.has(sig)) return;
-    warnedAmbiguousModeDefaultAt.add(sig);
+  const at = pathStr(currentPath);
+  const sig = `${at}|${count}`;
+  if (warnedAmbiguousModeDefaultAt.has(sig)) return;
+  warnedAmbiguousModeDefaultAt.add(sig);
 
-    console.warn(
-        `⚠️  Multiple "modeDefault" keys detected at ${at} (count=${count}). ` +
-        `Mode selection is deterministic but may be surprising; consider normalizing the export.`
-    );
+  console.warn(
+    `⚠️  Multiple "modeDefault" keys detected at ${at} (count=${count}). ` +
+    `Mode selection is deterministic but may be surprising; consider normalizing the export.`
+  );
 }
 
 /**
- * Traverses the token object tree.
- *
- * Behaviors:
- * - Deterministic traversal when `sortKeys=true`.
- * - Mode branches: mode keys are skipped during base traversal; a single selected mode branch is traversed afterwards.
- * - Leaf detection:
- *   - objects containing `$value` are treated as W3C token leaves
- *   - primitive leaves are treated as legacy tokens
- * - `$type` inheritance: a `$type` on a parent node applies to descendants unless overridden.
- *
- * Performance:
- * - Uses mutable stacks (`prefix`, `currentPath`) with `push`/`pop` + `try/finally` to avoid per-node allocations.
+ * Mutable state for token tree traversal.
  */
-export function walkTokenTree(
-    summary: ExecutionSummary,
-    obj: any,
-    prefix: string[],
-    currentPath: string[],
-    handlers: WalkHandlers,
-    depth = 0,
-    inModeBranch = false,
-    sortKeys = true,
-    inheritedType?: string,
-    preferredMode?: string,
-    modeStrict = false,
-    skipBaseWhenMode = true,
-    modeOverridesOnly = false,
-    allowModeBranches = true
+export interface WalkState {
+  summary: ExecutionSummary;
+  prefix: string[];
+  currentPath: string[];
+  depth: number;
+  inModeBranch: boolean;
+  inheritedType?: string;
+}
+
+/**
+ * Configuration options for token tree traversal.
+ */
+export interface WalkOptions {
+  sortKeys?: boolean;
+  preferredMode?: string;
+  modeStrict?: boolean;
+  skipBaseWhenMode?: boolean;
+  modeOverridesOnly?: boolean;
+  allowModeBranches?: boolean;
+}
+
+/**
+ * Context for token tree traversal (handlers + resolved options).
+ */
+export interface WalkContext {
+  handlers: WalkHandlers;
+  options: Required<WalkOptions>;
+}
+
+type TokenObject = Record<string, unknown>;
+
+/**
+ * Internal implementation with refactored signature.
+ */
+export function walkTokenTreeInternal(
+  obj: unknown,
+  state: WalkState,
+  ctx: WalkContext
 ): void {
-    if (checkDepthLimit(summary, depth, currentPath)) return;
+  const { summary, prefix, currentPath, depth, inModeBranch, inheritedType } = state;
+  const { handlers, options } = ctx;
+  const { sortKeys, preferredMode, modeStrict, skipBaseWhenMode, modeOverridesOnly, allowModeBranches } = options;
 
-    // Propagate `$type` down the tree unless a child provides its own `$type`.
-    let nextInheritedType = inheritedType;
-    if (isPlainObject(obj)) {
-        const t = (obj as any).$type;
-        if (typeof t === 'string' && t) nextInheritedType = t;
+  if (checkDepthLimit(summary, depth, currentPath)) return;
+
+  // Propagate `$type` down the tree unless a child provides its own `$type`.
+  let nextInheritedType = inheritedType;
+  if (isPlainObject(obj)) {
+    const t = obj.$type;
+    if (typeof t === 'string' && t) nextInheritedType = t;
+  }
+
+  const isObj = isPlainObject(obj);
+  const objRecord: TokenObject | undefined = isObj ? obj : undefined;
+  const rawKeys = objRecord ? (sortKeys ? Object.keys(objRecord).sort() : Object.keys(objRecord)) : [];
+  let keys = rawKeys;
+  const hasAnyModeBranchRaw = rawKeys.some(isModeKey);
+  const hasValue = !!objRecord && '$value' in objRecord;
+
+  if (!isObj) return;
+
+  warnAmbiguousModeDefault(keys, currentPath);
+
+  const effectiveAllowModes = allowModeBranches || inModeBranch;
+  if (!effectiveAllowModes) {
+    // In base scopes, ignore mode branches entirely.
+    keys = keys.filter(k => !isModeKey(k));
+  }
+
+  const modeKey = !effectiveAllowModes
+    ? undefined
+    : modeOverridesOnly
+    ? selectModeKey(keys, { preferredMode, allowFallback: false })
+    : selectModeKey(keys, { preferredMode, sort: !sortKeys });
+  const hasAnyModeBranch = keys.some(isModeKey);
+  const preferred = normalizePreferredMode(preferredMode);
+  const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
+  const missingPreferred = !!(preferred && hasAnyModeBranch && (!modeKey || !preferredFound));
+
+  if (hasAnyModeBranch) {
+    for (const k of keys) {
+      if (isModeKey(k)) foundModeKeys.add(k);
+    }
+  }
+
+  if (modeStrict && missingPreferred) {
+    const path = pathStr(currentPath) || '<root>';
+    throw new Error(`Preferred mode "${preferred}" not found at ${path}`);
+  }
+
+  let skipModeTraversal = false;
+
+  if (!effectiveAllowModes && hasAnyModeBranchRaw && !hasValue) {
+    // In base scopes, when a node has mode branches but no base value,
+    // fold modeDefault into base traversal when available.
+    const modeDefaultKey = pickModeDefaultKey(rawKeys, sortKeys);
+    if (modeDefaultKey && objRecord[modeDefaultKey] !== undefined) {
+      currentPath.push(modeDefaultKey);
+      try {
+        walkTokenTreeInternal(
+          objRecord[modeDefaultKey],
+          { ...state, depth: depth + 1, inheritedType: nextInheritedType },
+          ctx
+        );
+      } finally {
+        currentPath.pop();
+      }
+    }
+    // Keep traversing non-mode children in this node; do not early-return here.
+  }
+
+  if (hasValue) {
+    // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
+    // Mode branches are allowed; non-mode children block emission.
+    const reserved = new Set(['$value', '$type', '$description', '$extensions', '$id']);
+    const extraKeys = keys.filter(k => !reserved.has(k) && !isModeKey(k));
+
+    if (extraKeys.length > 0) {
+      const detail = `${pathStr(currentPath)} (Ambiguous: has $value + children)`;
+      if (summary.invalidTokens.includes(detail)) {
+        return;
+      }
+
+      if (!warnedInvalidTokenDetails.has(detail)) {
+        warnedInvalidTokenDetails.add(detail);
+        console.error(
+          `❌  Token/Group Ambiguity Error at ${pathStr(currentPath)}: has $value but also extra keys (${extraKeys.join(', ')}). ` +
+          `BLOCKED: This token will not be emitted as it is invalid per DTCG.`
+        );
+      }
+      // Strict blocking: record error and do NOT process the token value.
+      summary.invalidTokens.push(detail);
+      return;
     }
 
-    const isObj = isPlainObject(obj);
-    const rawKeys = isObj ? (sortKeys ? Object.keys(obj).sort() : Object.keys(obj)) : [];
-    let keys = rawKeys;
-    const hasAnyModeBranchRaw = rawKeys.some(isModeKey);
-    const hasValue = obj && typeof obj === 'object' && '$value' in obj;
+    const path = pathStr(currentPath);
+    let shouldEmitBase =
+      !hasAnyModeBranch ||
+      !modeKey ||
+      missingPreferred ||
+      (modeKey && !skipBaseWhenMode);
 
-    if (!isObj) return;
+    skipModeTraversal = hasAnyModeBranch && missingPreferred && hasValue;
 
-    warnAmbiguousModeDefault(keys, currentPath);
-
-    const effectiveAllowModes = allowModeBranches || inModeBranch;
-    if (!effectiveAllowModes) {
-        // In base scopes, ignore mode branches entirely.
-        keys = keys.filter(k => !isModeKey(k));
-    }
-
-    const modeKey = !effectiveAllowModes
-        ? undefined
-        : modeOverridesOnly
-        ? selectModeKey(keys, { preferredMode, allowFallback: false })
-        : selectModeKey(keys, { preferredMode, sort: !sortKeys });
-    const hasAnyModeBranch = keys.some(isModeKey);
-    const preferred = normalizePreferredMode(preferredMode);
-    const preferredFound = preferred && modeKey ? matchesPreferredMode(modeKey, preferred) : false;
-    const missingPreferred = preferred && hasAnyModeBranch && (!modeKey || !preferredFound);
-
-    if (hasAnyModeBranch) {
-        for (const k of keys) {
-            if (isModeKey(k)) foundModeKeys.add(k);
-        }
-    }
-
-    if (modeStrict && missingPreferred) {
-        const path = pathStr(currentPath) || '<root>';
-        throw new Error(`Preferred mode "${preferred}" not found at ${path}`);
-    }
-
-    let skipModeTraversal = false;
-
-    if (!effectiveAllowModes && hasAnyModeBranchRaw && !hasValue) {
-        // In base scopes, when a node has mode branches but no base value,
-        // fold modeDefault into base traversal when available.
-        const modeDefaultKey = pickModeDefaultKey(rawKeys, sortKeys);
-        if (modeDefaultKey && (obj as Record<string, any>)[modeDefaultKey] !== undefined) {
-            currentPath.push(modeDefaultKey);
-            try {
-                walkTokenTree(
-                    summary,
-                    (obj as Record<string, any>)[modeDefaultKey],
-                    prefix,
-                    currentPath,
-                    handlers,
-                    depth + 1,
-                    false,
-                    sortKeys,
-                    nextInheritedType,
-                    preferredMode,
-                    modeStrict,
-                    skipBaseWhenMode,
-                    modeOverridesOnly,
-                    allowModeBranches
-                );
-            } finally {
-                currentPath.pop();
-            }
-        }
-        // Keep traversing non-mode children in this node; do not early-return here.
-    }
-
-    if (hasValue) {
-        // DTCG Ambiguity Check: A node with $value should not have other children (except $type, $description, etc.)
-        // Mode branches are allowed; non-mode children block emission.
-        const reserved = new Set(['$value', '$type', '$description', '$extensions', '$id']);
-        const extraKeys = keys.filter(k => !reserved.has(k) && !isModeKey(k));
-
-        if (extraKeys.length > 0) {
-            const detail = `${pathStr(currentPath)} (Ambiguous: has $value + children)`;
-            if (summary.invalidTokens.includes(detail)) {
-                return;
-            }
-
-            if (!warnedInvalidTokenDetails.has(detail)) {
-                warnedInvalidTokenDetails.add(detail);
-                console.error(
-                    `❌  Token/Group Ambiguity Error at ${pathStr(currentPath)}: has $value but also extra keys (${extraKeys.join(', ')}). ` +
-                    `BLOCKED: This token will not be emitted as it is invalid per DTCG.`
-                );
-            }
-            // Strict blocking: record error and do NOT process the token value.
-            summary.invalidTokens.push(detail);
-            return;
-        }
-
-        const path = pathStr(currentPath);
-        let shouldEmitBase =
-            !hasAnyModeBranch ||
-            !modeKey ||
-            missingPreferred ||
-            (modeKey && !skipBaseWhenMode);
-
-        skipModeTraversal = hasAnyModeBranch && missingPreferred && hasValue;
-
-        if (modeOverridesOnly && preferred && !inModeBranch) {
-            // In override scopes, do not emit base values outside the selected mode branch.
-            if (!hasAnyModeBranch || missingPreferred) {
-                shouldEmitBase = false;
-            }
-        }
-
-        if (missingPreferred && !(modeOverridesOnly && preferred)) {
-            warnPreferredModeFallbackOnce(path, preferred, modeKey, hasValue);
-        } else if (modeKey && skipBaseWhenMode) {
-            const warnKey = `${path}|${modeKey}`;
-            if (!warnedBaseValueSkippedForMode.has(warnKey)) {
-                warnedBaseValueSkippedForMode.add(warnKey);
-                console.warn(
-                    `ℹ️  ${path} has $value and mode branch "${modeKey}". Base $value is skipped to avoid double emission.`
-                );
-            }
-        }
-
-        if (shouldEmitBase) {
-            handlers.onTokenValue?.({ obj, prefix, currentPath, depth, inModeBranch, inheritedType: nextInheritedType });
-        }
-
-        if (modeKey && skipModeTraversal) {
-            return;
-        }
-    }
-    else if (hasAnyModeBranch && missingPreferred) {
-        // No base value and preferred mode missing: do not traverse any mode branch in this scope.
-        skipModeTraversal = true;
-    }
-
-    for (const key of keys) {
-        if (shouldSkipKey(key)) continue;
-
-        const value = (obj as Record<string, any>)[key];
-        const normalizedKey = toKebabCase(key);
-
-        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-            // Legacy primitives are reported as parent path + leaf key.
-            handlers.onLegacyPrimitive?.({
-                value,
-                key,
-                normalizedKey,
-                prefix,
-                currentPath,
-                depth,
-                inModeBranch,
-                inheritedType: nextInheritedType
-            });
-            continue;
-        }
-
-        prefix.push(normalizedKey);
-        currentPath.push(key);
-        try {
-            walkTokenTree(
-                summary,
-                value,
-                prefix,
-                currentPath,
-                handlers,
-                depth + 1,
-                inModeBranch,
-                sortKeys,
-                nextInheritedType,
-                preferredMode,
-                modeStrict,
-                skipBaseWhenMode,
-                modeOverridesOnly,
-                allowModeBranches
-            );
-        } finally {
-            currentPath.pop();
-            prefix.pop();
-        }
+    if (modeOverridesOnly && preferred && !inModeBranch) {
+      // In override scopes, do not emit base values outside the selected mode branch.
+      if (!hasAnyModeBranch || missingPreferred) {
+        shouldEmitBase = false;
+      }
     }
 
     if (missingPreferred && !(modeOverridesOnly && preferred)) {
-        const path = pathStr(currentPath);
-        warnPreferredModeFallbackOnce(path, preferred, modeKey, hasValue);
-        const key = preferred ?? '<none>';
-        modeFallbackCounts.set(key, (modeFallbackCounts.get(key) || 0) + 1);
-        const samples = modeFallbackExamples.get(key) ?? [];
-        if (samples.length < 5) {
-            samples.push(path || '<root>');
-            modeFallbackExamples.set(key, samples);
-        }
+      warnPreferredModeFallbackOnce(path, preferred, modeKey, hasValue);
+    } else if (modeKey && skipBaseWhenMode) {
+      const warnKey = `${path}|${modeKey}`;
+      if (!warnedBaseValueSkippedForMode.has(warnKey)) {
+        warnedBaseValueSkippedForMode.add(warnKey);
+        console.warn(
+          `ℹ️  ${path} has $value and mode branch "${modeKey}". Base $value is skipped to avoid double emission.`
+        );
+      }
     }
 
-    if (modeKey && !skipModeTraversal && effectiveAllowModes) {
-        // Mode branches affect the JSON path but must not affect the CSS var name prefix.
-        currentPath.push(modeKey);
-        try {
-            walkTokenTree(
-                summary,
-                (obj as Record<string, any>)[modeKey],
-                prefix,
-                currentPath,
-                handlers,
-                depth + 1,
-                true,
-                sortKeys,
-                nextInheritedType,
-                preferredMode,
-                modeStrict,
-                skipBaseWhenMode,
-                modeOverridesOnly,
-                allowModeBranches
-            );
-        } finally {
-            currentPath.pop();
-        }
+    if (shouldEmitBase) {
+      handlers.onTokenValue?.({
+        obj: objRecord as TokenValue,
+        prefix,
+        currentPath,
+        depth,
+        inModeBranch,
+        inheritedType: nextInheritedType
+      });
     }
+
+    if (modeKey && skipModeTraversal) {
+      return;
+    }
+  }
+  else if (hasAnyModeBranch && missingPreferred) {
+    // No base value and preferred mode missing: do not traverse any mode branch in this scope.
+    skipModeTraversal = true;
+  }
+
+  for (const key of keys) {
+    if (shouldSkipKey(key)) continue;
+
+    const value = objRecord[key];
+    const normalizedKey = toKebabCase(key);
+
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      // Legacy primitives are reported as parent path + leaf key.
+      handlers.onLegacyPrimitive?.({
+        value,
+        key,
+        normalizedKey,
+        prefix,
+        currentPath,
+        depth,
+        inModeBranch,
+        inheritedType: nextInheritedType
+      });
+      continue;
+    }
+
+    prefix.push(normalizedKey);
+    currentPath.push(key);
+    try {
+      walkTokenTreeInternal(
+        value,
+        { ...state, depth: depth + 1, inheritedType: nextInheritedType },
+        ctx
+      );
+    } finally {
+      currentPath.pop();
+      prefix.pop();
+    }
+  }
+
+  if (missingPreferred && !(modeOverridesOnly && preferred)) {
+    const path = pathStr(currentPath);
+    warnPreferredModeFallbackOnce(path, preferred, modeKey, hasValue);
+    const key = preferred ?? '<none>';
+    modeFallbackCounts.set(key, (modeFallbackCounts.get(key) || 0) + 1);
+    const samples = modeFallbackExamples.get(key) ?? [];
+    if (samples.length < 5) {
+      samples.push(path || '<root>');
+      modeFallbackExamples.set(key, samples);
+    }
+  }
+
+  if (modeKey && !skipModeTraversal && effectiveAllowModes) {
+    // Mode branches affect the JSON path but must not affect the CSS var name prefix.
+    currentPath.push(modeKey);
+    try {
+      walkTokenTreeInternal(
+        objRecord[modeKey],
+        { ...state, depth: depth + 1, inModeBranch: true, inheritedType: nextInheritedType },
+        ctx
+      );
+    } finally {
+      currentPath.pop();
+    }
+  }
+}
+
+/**
+ * Create walk context with resolved defaults.
+ */
+export function createWalkContext(
+  handlers: WalkHandlers,
+  options: WalkOptions = {}
+): WalkContext {
+  const {
+    sortKeys = true,
+    preferredMode,
+    modeStrict = false,
+    skipBaseWhenMode = true,
+    modeOverridesOnly = false,
+    allowModeBranches = true,
+  } = options;
+
+  return {
+    handlers,
+    options: {
+      sortKeys,
+      preferredMode: preferredMode ?? '',
+      modeStrict,
+      skipBaseWhenMode,
+      modeOverridesOnly,
+      allowModeBranches,
+    },
+  };
+}
+
+/**
+ * Legacy signature wrapper for backward compatibility.
+ * @deprecated Use walkTokenTree with WalkState and WalkContext instead
+ */
+export function walkTokenTreeLegacy(
+  summary: ExecutionSummary,
+  obj: unknown,
+  prefix: string[],
+  currentPath: string[],
+  handlers: WalkHandlers,
+  depth = 0,
+  inModeBranch = false,
+  sortKeys = true,
+  inheritedType?: string,
+  preferredMode?: string,
+  modeStrict = false,
+  skipBaseWhenMode = true,
+  modeOverridesOnly = false,
+  allowModeBranches = true
+): void {
+  const state: WalkState = {
+    summary,
+    prefix,
+    currentPath,
+    depth,
+    inModeBranch,
+    inheritedType,
+  };
+  const ctx = createWalkContext(handlers, {
+    sortKeys,
+    preferredMode,
+    modeStrict,
+    skipBaseWhenMode,
+    modeOverridesOnly,
+    allowModeBranches,
+  });
+  walkTokenTreeInternal(obj, state, ctx);
 }

@@ -2,8 +2,12 @@
  * Indexing phase: builds lookup structures for reference resolution.
  */
 
-import type { IndexingContext, TokenValue, BaseContext, CssVarOwner } from '../types/tokens.js';
-import { walkTokenTree } from './walk.js';
+import type { IndexingContext, TokenValue, BaseContext, CssVarOwner, WalkHandlers } from '../types/tokens.js';
+import type { WalkState, WalkOptions } from './walk.js';
+import {
+    walkTokenTreeInternal,
+    createWalkContext,
+} from './walk.js';
 import { buildPathKey, normalizePathKey, pathStr } from '../utils/paths.js';
 import { buildCssVarNameFromPrefix, isValidCssVariableName } from '../utils/strings.js';
 import { warnedDuplicateTokenIds } from '../runtime/state.js';
@@ -133,94 +137,100 @@ export function collectTokenMaps(
     };
 
     // Indexing does not require sorted traversal order.
-    walkTokenTree(
+    const state: WalkState = {
         summary,
-        obj,
         prefix,
         currentPath,
-        {
-            onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch, inheritedType }) => {
-                const rawValue = (tokenObj as TokenValue).$value;
-                if (rawValue == null) return;
+        depth: 0,
+        inModeBranch: false,
+        inheritedType: undefined,
+    };
 
-                const tokenPathKey = buildPathKey(tokenPath);
-                const normalizedKey = normalizePathKey(tokenPathKey);
-
-                const varName = buildCssVarNameFromPrefix(tokenPrefix);
-
-                // If it won't be emitted, do not index it (prevents unresolved "phantom" refs).
-                if (!isValidCssVariableName(varName)) {
-                    recordInvalidCssVarName(summary, tokenPath, varName);
-                    return;
-                }
-
-                indexTokenId(tokenObj, varName, normalizedKey, idToVarName, idToTokenKey);
-
-                trackCssVarNameCollision(ctx, varName, {
-                    tokenKey: normalizedKey,
-                    tokenPath: pathStr(tokenPath),
-                    id: typeof (tokenObj as any)?.$id === 'string' ? (tokenObj as any).$id : undefined
-                });
-
-                // Persist effective type (including inherited type) for consistent downstream behavior.
-                const rawType = (tokenObj as TokenValue).$type;
-                const effectiveType = rawType ?? inheritedType;
-                const storedTokenObj: TokenValue =
-                    rawType == null && effectiveType
-                        ? ({ ...(tokenObj as TokenValue), $type: effectiveType } as TokenValue)
-                        : (tokenObj as TokenValue);
-
-                upsertKey(normalizedKey, varName, storedTokenObj, inModeBranch);
-
-                const relativePathKey = buildPathKey(tokenPath, 1);
-                const relativeNormalizedKey = normalizePathKey(relativePathKey);
-                if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
-                    upsertKey(relativeNormalizedKey, varName, storedTokenObj, inModeBranch);
-                }
-            },
-
-            onLegacyPrimitive: ({
-                value,
-                key,
-                normalizedKey,
-                currentPath: parentPath,
-                prefix: parentPrefix,
-                inModeBranch,
-                inheritedType
-            }) => {
-                const leafPath = [...parentPath, key];
-                const leafPrefix = [...parentPrefix, normalizedKey];
-                const varName = buildCssVarNameFromPrefix(leafPrefix);
-
-                if (!isValidCssVariableName(varName)) {
-                    recordInvalidCssVarName(summary, leafPath, varName);
-                    return;
-                }
-
-                const tokenPathKey = buildPathKey(leafPath);
-                const normalizedPathKey = normalizePathKey(tokenPathKey);
-
-                const legacyTokenObj: TokenValue = inheritedType ? { $value: value, $type: inheritedType } : { $value: value };
-
-                trackCssVarNameCollision(ctx, varName, { tokenKey: normalizedPathKey, tokenPath: pathStr(leafPath) });
-
-                upsertKey(normalizedPathKey, varName, legacyTokenObj, inModeBranch);
-
-                const relativePathKey = buildPathKey(leafPath, 1);
-                const relativeNormalizedKey = normalizePathKey(relativePathKey);
-                if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
-                    upsertKey(relativeNormalizedKey, varName, legacyTokenObj, inModeBranch);
-                }
-            }
-        },
-        0,
-        false,
-        false,
-        undefined,
+    const options: WalkOptions = {
+        sortKeys: false,
         preferredMode,
         modeStrict,
         skipBaseWhenMode,
         modeOverridesOnly,
-        allowModeBranches
-    );
+        allowModeBranches,
+    };
+
+    const handlers: WalkHandlers = {
+        onTokenValue: ({ obj: tokenObj, prefix: tokenPrefix, currentPath: tokenPath, inModeBranch, inheritedType }) => {
+            const rawValue = tokenObj.$value;
+            if (rawValue == null) return;
+
+            const tokenPathKey = buildPathKey(tokenPath);
+            const normalizedKey = normalizePathKey(tokenPathKey);
+
+            const varName = buildCssVarNameFromPrefix(tokenPrefix);
+
+            // If it won't be emitted, do not index it (prevents unresolved "phantom" refs).
+            if (!isValidCssVariableName(varName)) {
+                recordInvalidCssVarName(summary, tokenPath, varName);
+                return;
+            }
+
+            indexTokenId(tokenObj, varName, normalizedKey, idToVarName, idToTokenKey);
+
+            trackCssVarNameCollision(ctx, varName, {
+                tokenKey: normalizedKey,
+                tokenPath: pathStr(tokenPath),
+                id: typeof tokenObj.$id === 'string' ? tokenObj.$id : undefined
+            });
+
+            // Persist effective type (including inherited type) for consistent downstream behavior.
+            const rawType = tokenObj.$type;
+            const effectiveType = rawType ?? inheritedType;
+            const storedTokenObj: TokenValue =
+                rawType == null && effectiveType
+                    ? { ...tokenObj, $type: effectiveType }
+                    : tokenObj;
+
+            upsertKey(normalizedKey, varName, storedTokenObj, inModeBranch);
+
+            const relativePathKey = buildPathKey(tokenPath, 1);
+            const relativeNormalizedKey = normalizePathKey(relativePathKey);
+            if (relativeNormalizedKey && relativeNormalizedKey !== normalizedKey) {
+                upsertKey(relativeNormalizedKey, varName, storedTokenObj, inModeBranch);
+            }
+        },
+
+        onLegacyPrimitive: ({
+            value,
+            key,
+            normalizedKey,
+            currentPath: parentPath,
+            prefix: parentPrefix,
+            inModeBranch,
+            inheritedType
+        }) => {
+            const leafPath = [...parentPath, key];
+            const leafPrefix = [...parentPrefix, normalizedKey];
+            const varName = buildCssVarNameFromPrefix(leafPrefix);
+
+            if (!isValidCssVariableName(varName)) {
+                recordInvalidCssVarName(summary, leafPath, varName);
+                return;
+            }
+
+            const tokenPathKey = buildPathKey(leafPath);
+            const normalizedPathKey = normalizePathKey(tokenPathKey);
+
+            const legacyTokenObj: TokenValue = inheritedType ? { $value: value, $type: inheritedType } : { $value: value };
+
+            trackCssVarNameCollision(ctx, varName, { tokenKey: normalizedPathKey, tokenPath: pathStr(leafPath) });
+
+            upsertKey(normalizedPathKey, varName, legacyTokenObj, inModeBranch);
+
+            const relativePathKey = buildPathKey(leafPath, 1);
+            const relativeNormalizedKey = normalizePathKey(relativePathKey);
+            if (relativeNormalizedKey && relativeNormalizedKey !== normalizedPathKey) {
+                upsertKey(relativeNormalizedKey, varName, legacyTokenObj, inModeBranch);
+            }
+        }
+    };
+
+    const walkCtx = createWalkContext(handlers, options);
+    walkTokenTreeInternal(obj, state, walkCtx);
 }

@@ -5,10 +5,11 @@
 import fs from 'fs';
 import path from 'path';
 
-import type { EmissionContext, TokenValue } from '../types/tokens.js';
+import type { EmissionContext, TokenValue, WalkHandlers } from '../types/tokens.js';
+import type { WalkState, WalkOptions } from './walk.js';
 import { isVariableAlias } from '../types/tokens.js';
 import { createSummary } from '../runtime/context.js';
-import { walkTokenTree } from './walk.js';
+import { walkTokenTreeInternal, createWalkContext } from './walk.js';
 import { processValue } from './emit.js';
 import { buildPathKey, buildVisitedRefSet, normalizePathKey } from '../utils/paths.js';
 import { buildCssVarNameFromPrefix, toKebabCase } from '../utils/strings.js';
@@ -105,89 +106,93 @@ export interface TokenRegistryIndex {
     bySlashPath: Record<string, TokenRegistryEntry>;
 }
 
-export function exportTokenRegistry(ctx: Readonly<EmissionContext>): TokenRegistryIndex {
+export function exportTokenRegistry(emissionCtx: Readonly<EmissionContext>): TokenRegistryIndex {
     const localSummary = createSummary();
     const localCtx: EmissionContext = {
-        ...ctx,
+        ...emissionCtx,
         summary: localSummary
     };
 
     const registry = new Map<string, TokenRegistryEntry>();
 
-    walkTokenTree(
-        localSummary,
-        ctx.tokensData,
-        [],
-        [],
-        {
-            onTokenValue: ({ obj, prefix, currentPath, inheritedType }) => {
-                const tokenObj = obj as TokenValue;
-                const rawValue = tokenObj.$value;
-                if (rawValue == null) return;
+    const state: WalkState = {
+        summary: localSummary,
+        prefix: [],
+        currentPath: [],
+        depth: 0,
+        inModeBranch: false,
+        inheritedType: undefined,
+    };
 
-                const fullPathKey = buildPathKey(currentPath);
-                if (!fullPathKey) return;
+    const options: WalkOptions = {
+        sortKeys: true,
+        preferredMode: undefined,
+        modeStrict: false,
+        skipBaseWhenMode: false,
+        modeOverridesOnly: false,
+        allowModeBranches: true,
+    };
 
-                const relativePathKey = buildPathKey(currentPath, 1);
-                const pathSegments = buildRegistryPathSegments(fullPathKey);
-                if (pathSegments.length === 0) return;
+    const walkCtx = createWalkContext({
+        onTokenValue: ({ obj: tokenObj, prefix, currentPath, inheritedType }) => {
+            const rawValue = tokenObj.$value;
+            if (rawValue == null) return;
 
-                const collection = pathSegments[0];
-                const dotPath = pathSegments.join('.');
-                const slashPath = (pathSegments.length > 1 ? pathSegments.slice(1) : pathSegments).join('/');
+            const fullPathKey = buildPathKey(currentPath);
+            if (!fullPathKey) return;
 
-                const effectiveType = tokenObj.$type ?? inheritedType ?? inferValueType(rawValue);
-                const cssVar = resolveCssVarName(ctx, fullPathKey, relativePathKey, prefix);
-                const resolvedValue = buildResolvedValue(localCtx, rawValue, effectiveType, currentPath);
-                const aliasOf = resolveAliasTarget(ctx, rawValue);
+            const relativePathKey = buildPathKey(currentPath, 1);
+            const pathSegments = buildRegistryPathSegments(fullPathKey);
+            if (pathSegments.length === 0) return;
 
-                upsertRegistryEntry(registry, {
-                    path: dotPath,
-                    slashPath,
-                    cssVar,
-                    type: String(effectiveType || 'unknown'),
-                    resolvedValue,
-                    aliasOf,
-                    collection
-                });
-            },
-            onLegacyPrimitive: ({ value, key, normalizedKey, currentPath, prefix, inheritedType }) => {
-                const leafPath = [...currentPath, key];
-                const fullPathKey = buildPathKey(leafPath);
-                if (!fullPathKey) return;
+            const collection = pathSegments[0];
+            const dotPath = pathSegments.join('.');
+            const slashPath = (pathSegments.length > 1 ? pathSegments.slice(1) : pathSegments).join('/');
 
-                const relativePathKey = buildPathKey(leafPath, 1);
-                const pathSegments = buildRegistryPathSegments(fullPathKey);
-                if (pathSegments.length === 0) return;
+            const effectiveType = tokenObj.$type ?? inheritedType ?? inferValueType(rawValue);
+            const cssVar = resolveCssVarName(emissionCtx, fullPathKey, relativePathKey, prefix);
+            const resolvedValue = buildResolvedValue(localCtx, rawValue, effectiveType, currentPath);
+            const aliasOf = resolveAliasTarget(emissionCtx, rawValue);
 
-                const collection = pathSegments[0];
-                const dotPath = pathSegments.join('.');
-                const slashPath = (pathSegments.length > 1 ? pathSegments.slice(1) : pathSegments).join('/');
-
-                const cssVar = resolveCssVarName(ctx, fullPathKey, relativePathKey, [...prefix, normalizedKey]);
-                const resolvedValue = buildResolvedValue(localCtx, value, inheritedType, leafPath);
-                const type = inheritedType ?? inferValueType(value);
-
-                upsertRegistryEntry(registry, {
-                    path: dotPath,
-                    slashPath,
-                    cssVar,
-                    type,
-                    resolvedValue,
-                    collection
-                });
-            }
+            upsertRegistryEntry(registry, {
+                path: dotPath,
+                slashPath,
+                cssVar,
+                type: String(effectiveType || 'unknown'),
+                resolvedValue,
+                aliasOf,
+                collection
+            });
         },
-        0,
-        false,
-        true,
-        undefined,
-        undefined,
-        false,
-        false,
-        false,
-        true
-    );
+        onLegacyPrimitive: ({ value, key, normalizedKey, currentPath: parentPath, prefix: parentPrefix, inheritedType }) => {
+            const leafPath = [...parentPath, key];
+            const fullPathKey = buildPathKey(leafPath);
+            if (!fullPathKey) return;
+
+            const relativePathKey = buildPathKey(leafPath, 1);
+            const pathSegments = buildRegistryPathSegments(fullPathKey);
+            if (pathSegments.length === 0) return;
+
+            const collection = pathSegments[0];
+            const dotPath = pathSegments.join('.');
+            const slashPath = (pathSegments.length > 1 ? pathSegments.slice(1) : pathSegments).join('/');
+
+            const cssVar = resolveCssVarName(emissionCtx, fullPathKey, relativePathKey, [...parentPrefix, toKebabCase(key)]);
+            const resolvedValue = buildResolvedValue(localCtx, value, inheritedType, leafPath);
+            const type = inheritedType ?? inferValueType(value);
+
+            upsertRegistryEntry(registry, {
+                path: dotPath,
+                slashPath,
+                cssVar,
+                type,
+                resolvedValue,
+                collection
+            });
+        }
+    }, options);
+
+    walkTokenTreeInternal(localCtx.tokensData, state, walkCtx);
 
     const entries = Array.from(registry.values()).sort((a, b) =>
         a.path.localeCompare(b.path, 'en', { sensitivity: 'base' })

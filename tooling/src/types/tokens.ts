@@ -138,7 +138,7 @@ export type WalkPrimitive = string | number | boolean;
 
 export type WalkHandlers = {
     onTokenValue?: (ctx: {
-        obj: any;
+        obj: TokenValue;
         prefix: string[];
         currentPath: string[];
         depth: number;
