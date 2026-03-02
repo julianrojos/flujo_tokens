@@ -24,334 +24,48 @@ import {
   shouldSkipTask,
   updateTaskState,
 } from '../utils/cache-utils.js';
-import { runAgentPrompt } from '../services/agent-runner.js';
 import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { normalizeNodeId, isValidNodeId } from '../utils/figma-node-id.js';
 import { isTbdMarker } from '../utils/tbd.js';
 import { runOrThrow } from '../utils/exec.js';
-import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
-import { validateDocs } from '../services/docs-validator.js';
-import { DEFAULT_TOKEN_REGISTRY_PATH } from '../services/token-registry.js';
 import { logger } from '../utils/logger.js';
+import {
+  validateSpecPreflight,
+  ensureValidationResults,
+} from '../services/spec-validation-phase.js';
+import {
+  executeAgentPrompt,
+  type AgentExecutionResult,
+} from '../services/agent-execution-phase.js';
+import { detectMarkdownStaleness } from '../services/markdown-staleness.js';
+import { readRenderExpectations } from '../services/render-expectations.js';
+import { syncDocumentationIndices } from '../services/component-registry-index.js';
+import {
+  executeRenderAuditPhase,
+  type RenderAuditPhaseResult,
+} from '../services/render-audit-phase.js';
+import {
+  parseRenderReportFromOutput,
+  validateRenderReport,
+  validatePrimaryRenderReport,
+  type RenderReport,
+  type RenderReportValidationResult,
+  type RenderAuditReport,
+  type RenderExpectations,
+} from '../services/render-report-parser.js';
 
 /**
- * Validate spec pre-flight.
+ * Context for active markdown to Figma execution.
  */
-function validateSpecPreflight(specPath: string, tokenRegistryPath: string): void {
-  const report = validateDocs({
-    docsRoot: path.join(PROJECT_ROOT, '__docs_validation_stub__'),
-    registryPath: tokenRegistryPath,
-    checkOverview: false,
-    checkSpecs: true,
-    checkPairing: false,
-    specFilePath: specPath,
-  });
-
-  if (report.ok) return;
-
-  const specErrors = report.errors.filter(
-    (error: { file?: string }) =>
-      path.resolve(String(error.file || '')) === path.resolve(specPath),
-  );
-  const payload = {
-    file: specPath,
-    errors: specErrors.length > 0 ? specErrors : report.errors,
-  };
-  throw new Error(
-    'Spec validation failed. Rendering to Figma was blocked.\n' +
-    `Run: npm run validate:docs -- --spec-file "${specPath}" --no-overview true\n` +
-    `${JSON.stringify(payload, null, 2)}`,
-  );
-}
-
-/**
- * Detect markdown staleness.
- */
-function detectMarkdownStaleness({
-  specPath,
-  markdownPath,
-  syncStatePath,
-}: {
+interface ActiveMdToFigmaContext {
   specPath: string;
   markdownPath: string;
-  syncStatePath?: string;
-}): { stale: boolean; reason: string; taskId?: string } {
-  const specPathResolved = path.resolve(specPath);
-  const markdownPathResolved = path.resolve(markdownPath);
-  const taskId = `ds-component-doc:${specPathResolved}->${markdownPathResolved}`;
-  const state: { tasks?: Record<string, unknown> } = syncStatePath
-    ? (loadSyncState(syncStatePath) || { tasks: {} })
-    : { tasks: {} };
-  const task = state.tasks?.[taskId] as Record<string, unknown> | undefined;
-  const currentSpecHash = computeFingerprint({ files: [specPathResolved] });
-
-  if (task && typeof task === 'object' && 'metadata' in task && task.metadata && typeof task.metadata === 'object' && 'specHashAtGeneration' in task.metadata) {
-    const specHashAtGeneration = String((task.metadata as Record<string, unknown>).specHashAtGeneration);
-    if (specHashAtGeneration === currentSpecHash) {
-      return {
-        stale: false,
-        reason: 'spec_unchanged_since_markdown_generation',
-      };
-    }
-    return {
-      stale: true,
-      reason: 'spec_changed_since_markdown_generation',
-      taskId,
-    };
-  }
-
-  // Backward-compatible fallback for older sync state entries.
-  const specMtime = fs.statSync(specPathResolved).mtimeMs;
-  const markdownMtime = fs.statSync(markdownPathResolved).mtimeMs;
-  if (specMtime > markdownMtime) {
-    return {
-      stale: true,
-      reason: 'spec_newer_than_markdown',
-      taskId,
-    };
-  }
-
-  return { stale: false, reason: 'timestamp_fallback_allows_render' };
-}
-
-/**
- * Extract JSON objects from text.
- */
-function extractJsonObjects(rawText: string): Record<string, unknown>[] {
-  const text = String(rawText || '').trim();
-  if (!text) return [];
-
-  const objects: Record<string, unknown>[] = [];
-  const seen = new Set<string>();
-  const pushCandidate = (candidate: string) => {
-    const normalized = String(candidate || '').trim();
-    if (!normalized || seen.has(normalized)) return;
-    try {
-      const parsed = JSON.parse(normalized);
-      if (parsed && typeof parsed === 'object') {
-        objects.push(parsed);
-        seen.add(normalized);
-      }
-    } catch {
-      // Ignore invalid JSON candidates.
-    }
-  };
-
-  pushCandidate(text);
-
-  const fencedMatches = text.matchAll(/```json\s*([\s\S]*?)```/gi);
-  for (const match of fencedMatches) {
-    pushCandidate(match[1] || '');
-  }
-
-  let depth = 0;
-  let start = -1;
-  let inString = false;
-  let escaped = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const ch = text[i];
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (ch === '\\') {
-        escaped = true;
-      } else if (ch === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (ch === '"') {
-      inString = true;
-      continue;
-    }
-    if (ch === '{') {
-      if (depth === 0) start = i;
-      depth += 1;
-      continue;
-    }
-    if (ch === '}') {
-      if (depth > 0) depth -= 1;
-      if (depth === 0 && start !== -1) {
-        pushCandidate(text.slice(start, i + 1));
-        start = -1;
-      }
-    }
-  }
-
-  return objects;
-}
-
-/**
- * Get first non-empty value.
- */
-function firstPresent(...values: unknown[]): unknown {
-  for (const value of values) {
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      return value;
-    }
-  }
-  return null;
-}
-
-/**
- * Extract string field from object safely.
- */
-function extractStringField(
-  obj: Record<string, unknown>,
-  key: string,
-  fallback: string | null = null,
-): string | null {
-  const value = obj[key];
-  if (typeof value === 'string') return value.trim();
-  return fallback;
-}
-
-/**
- * Extract number field from object safely.
- */
-function extractNumberField(
-  obj: Record<string, unknown>,
-  key: string,
-  fallback: number | null = null,
-): number | null {
-  const value = obj[key];
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  return fallback;
-}
-
-/**
- * Get value from path expression.
- */
-function getPathValue(
-  source: unknown,
-  pathExpression: string,
-  fallbackValue: unknown = null,
-): unknown {
-  const root = source && typeof source === 'object' ? source : null;
-  if (!root) return fallbackValue;
-  const pathParts = String(pathExpression || '')
-    .split('.')
-    .map((part) => part.trim())
-    .filter(Boolean);
-  let current: unknown = root;
-  for (const part of pathParts) {
-    if (
-      !current ||
-      typeof current !== 'object' ||
-      !Object.prototype.hasOwnProperty.call(current, part)
-    ) {
-      return fallbackValue;
-    }
-    current = (current as Record<string, unknown>)[part];
-  }
-  return current == null ? fallbackValue : current;
-}
-
-/**
- * Parse as finite number.
- */
-function asFiniteNumber(rawValue: unknown): number | null {
-  const parsed = Number(rawValue);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
-/**
- * Parse as boolean.
- */
-function asBoolean(rawValue: unknown): boolean | null {
-  if (typeof rawValue === 'boolean') return rawValue;
-  if (typeof rawValue === 'number') return rawValue !== 0;
-  if (typeof rawValue === 'string') {
-    const normalized = rawValue.trim().toLowerCase();
-    if (['true', '1', 'yes'].includes(normalized)) return true;
-    if (['false', '0', 'no'].includes(normalized)) return false;
-  }
-  return null;
-}
-
-/**
- * Normalize render report.
- */
-interface RenderReport {
-  ok: boolean;
-  raw: Record<string, unknown>;
-  targetSectionId: unknown;
-  targetSectionName: unknown;
-  themeName: unknown;
-  offsetXApplied: number | null;
-  unsupportedBlocks: unknown[];
-  unsupportedBlocksCount: number;
-  componentSetId: unknown;
-  componentSectionId: unknown;
-  renderedCount: Record<string, unknown> | null;
-}
-
-function normalizeRenderReport(raw: Record<string, unknown>): RenderReport {
-  const report = raw && typeof raw === 'object' ? raw : {};
-  const unsupportedBlocksRaw = firstPresent(
-    report.unsupported_blocks,
-    report.unsupportedBlocks,
-  );
-  const unsupportedBlocks = Array.isArray(unsupportedBlocksRaw)
-    ? unsupportedBlocksRaw
-    : [];
-  const unsupportedBlocksCount = Number.isFinite(Number(unsupportedBlocksRaw))
-    ? Number(unsupportedBlocksRaw)
-    : unsupportedBlocks.length;
-
-  const offsetXApplied = extractNumberField(report, 'offset_x_applied') ??
-    extractNumberField(report, 'offsetXApplied');
-
-  const renderedCountRaw = firstPresent(
-    report.renderedCount,
-    report.rendered_count,
-  );
-  const renderedCount =
-    renderedCountRaw && typeof renderedCountRaw === 'object'
-      ? (renderedCountRaw as Record<string, unknown>)
-      : null;
-
-  return {
-    ok: report.ok !== false,
-    raw: report,
-    targetSectionId: extractStringField(report, 'target_section_id') ??
-      extractStringField(report, 'targetSectionId'),
-    targetSectionName: extractStringField(report, 'target_section_name') ??
-      extractStringField(report, 'targetSectionName'),
-    themeName: extractStringField(report, 'theme_name') ??
-      extractStringField(report, 'themeName'),
-    offsetXApplied,
-    unsupportedBlocks,
-    unsupportedBlocksCount,
-    componentSetId: extractStringField(report, 'component_set_id') ??
-      extractStringField(report, 'componentSetId'),
-    componentSectionId: extractStringField(report, 'component_section_id') ??
-      extractStringField(report, 'componentSectionId'),
-    renderedCount,
-  };
-}
-
-/**
- * Parse render report from output.
- */
-function parseRenderReportFromOutput(rawText: string): RenderReport | null {
-  const candidates = extractJsonObjects(rawText);
-  if (candidates.length === 0) return null;
-
-  const withRenderKeys = candidates.filter((candidate) => {
-    const normalized = normalizeRenderReport(candidate);
-    return Boolean(
-      normalized.targetSectionId ||
-      normalized.targetSectionName ||
-      normalized.themeName,
-    );
-  });
-  const selected =
-    withRenderKeys.length > 0
-      ? withRenderKeys[withRenderKeys.length - 1]
-      : candidates[candidates.length - 1];
-  return normalizeRenderReport(selected);
+  tokenRegistryPath: string;
+  expectedThemeName: string;
+  offsetX: number;
+  force: boolean;
+  skipValidation: boolean;
 }
 
 /**
@@ -369,352 +83,6 @@ function readThemeName(themePath: string): string {
     );
   }
   return name;
-}
-
-/**
- * Write agent output file.
- */
-function writeAgentOutput({
-  tempArtifacts,
-  generatedDir,
-  fileBase,
-  suffix,
-  content,
-}: {
-  tempArtifacts: TempArtifactManager;
-  generatedDir: string;
-  fileBase: string;
-  suffix: string;
-  content: string;
-}): string {
-  const safeSuffix = String(suffix || 'agent-output').trim();
-  const outputPath = path.resolve(generatedDir, `${fileBase}.${safeSuffix}.txt`);
-  return tempArtifacts.writeTrackedFile(outputPath, content, 'utf8');
-}
-
-/**
- * Cleanup legacy temp outputs.
- */
-function cleanupLegacyTempOutputs({
-  tempArtifacts,
-  generatedDir,
-  fileBase,
-}: {
-  tempArtifacts: TempArtifactManager;
-  generatedDir: string;
-  fileBase: string;
-}): string[] {
-  const allowedNames = new Set([
-    `${fileBase}.render-agent-output.txt`,
-    `${fileBase}.render-audit-output.txt`,
-  ]);
-  return tempArtifacts.purgeMatching({
-    dir: generatedDir,
-    matcher: (name: string, _absolutePath: string) => allowedNames.has(name),
-  });
-}
-
-/**
- * Read render expectations from payload.
- */
-function readRenderExpectations({
-  payloadPath,
-  componentName,
-}: {
-  payloadPath: string;
-  componentName: string;
-}): {
-  expectedCardCount: number;
-  expectedTableCount: number;
-  expectedSectionName: string;
-} {
-  if (!fs.existsSync(payloadPath)) {
-    throw new Error(
-      'Missing render payload for structural checks.\n' +
-      `Expected: ${path.resolve(payloadPath)}`,
-    );
-  }
-
-  let parsed: unknown;
-  try {
-    const content = fs.readFileSync(payloadPath, 'utf8');
-    parsed = JSON.parse(content);
-  } catch (error) {
-    const content = fs.readFileSync(payloadPath, 'utf8');
-    const truncated = content.slice(0, 200).replace(/\n/g, '\\n');
-    throw new Error(
-      `Failed to parse render payload JSON at ${path.resolve(payloadPath)}.\n` +
-      `Error: ${error instanceof Error ? error.message : String(error)}\n` +
-      `Content (first 200 chars): ${truncated}...`
-    );
-  }
-
-  if (!isPlainObject(parsed)) {
-    throw new Error(
-      `Invalid render payload structure at ${path.resolve(payloadPath)} (expected object).`
-    );
-  }
-
-  const model = isPlainObject(parsed.model) ? parsed.model : {};
-  const blocks = Array.isArray((model as Record<string, unknown>).blocks)
-    ? ((model as Record<string, unknown>).blocks as Record<string, unknown>[])
-    : [];
-  const expectedCardCount = blocks.filter(
-    (block) => block?.type === 'heading' && Number(block.level) === 2,
-  ).length;
-  const expectedTableCount = blocks.filter(
-    (block) => block?.type === 'table',
-  ).length;
-  const sectionNamePattern = String(
-    getPathValue(parsed, 'theme.layout.target.section_name_pattern', 'Doc/{component_name}'),
-  ).trim();
-  const expectedSectionName = sectionNamePattern.includes('{component_name}')
-    ? sectionNamePattern.replace(new RegExp('{component_name}', 'g'), componentName)
-    : sectionNamePattern || `Doc/${componentName}`;
-
-  return {
-    expectedCardCount,
-    expectedTableCount,
-    expectedSectionName,
-  };
-}
-
-/**
- * Validate primary render report.
- */
-function validatePrimaryRenderReport({
-  renderReport,
-  expectations,
-}: {
-  renderReport: RenderReport;
-  expectations: { expectedCardCount: number; expectedTableCount: number };
-}): { ok: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!renderReport.ok) {
-    issues.push('Render report marked the run as not ok.');
-  }
-  if (!renderReport.componentSetId) {
-    issues.push('Missing component_set_id in render report.');
-  }
-  if (!renderReport.componentSectionId) {
-    issues.push('Missing component_section_id in render report.');
-  }
-  if (!renderReport.renderedCount) {
-    issues.push('Missing rendered_count block in render report.');
-  } else {
-    const renderedTableCount = asFiniteNumber(renderReport.renderedCount.table);
-    if (renderedTableCount == null) {
-      issues.push('Missing rendered_count.table in render report.');
-    } else if (renderedTableCount !== expectations.expectedTableCount) {
-      issues.push(
-        `Rendered table count mismatch (expected ${expectations.expectedTableCount}, got ${renderedTableCount}).`,
-      );
-    }
-  }
-  return {
-    ok: issues.length === 0,
-    issues,
-  };
-}
-
-/**
- * Build render audit prompt.
- */
-function buildRenderAuditPrompt({
-  figmaUrl,
-  targetSectionId,
-  targetSectionName,
-  expectedSectionName,
-  expectedCardCount,
-  expectedTableCount,
-}: {
-  figmaUrl: string;
-  targetSectionId: string;
-  targetSectionName: string;
-  expectedSectionName: string;
-  expectedCardCount: number;
-  expectedTableCount: number;
-}): string {
-  return [
-    'Context',
-    '- Validate that the Figma documentation section was rendered by the themed markdown renderer (not a fallback renderer).',
-    '',
-    'Sources',
-    figmaUrl ? `- Figma URL (if connection needed): ${figmaUrl}` : '',
-    `- Target section id: ${targetSectionId}`,
-    `- Target section name from render report: ${targetSectionName}`,
-    `- Expected section name: ${expectedSectionName}`,
-    `- Expected H2 card count: ${expectedCardCount}`,
-    `- Expected table count: ${expectedTableCount}`,
-    '',
-    'Constraints',
-    '- Read-only audit: do not modify any node.',
-    '- Use figma_execute to inspect only descendants of the target section id.',
-    '- has_doc_canvas: true only if a direct child FRAME named "Doc Canvas" exists.',
-    '- card_count: number of descendant FRAME nodes with names starting with "Card/".',
-    '- table_container_count: number of descendant FRAME nodes named exactly "Table".',
-    '- header_row_count: number of descendant FRAME nodes named exactly "Header Row".',
-    '- body_row_count: number of descendant FRAME nodes named exactly "Body Row".',
-    "- pass must be true only when the structure is consistent with the expected themed renderer output.",
-    '- Return exactly one JSON object and no prose.',
-    '',
-    'Expected Output',
-    '- JSON keys: ok, pass, target_section_id, target_section_name, has_doc_canvas, card_count, table_container_count, header_row_count, body_row_count, reasons.',
-  ]
-    .filter(Boolean)
-    .join('\n');
-}
-
-/**
- * Normalize render audit report.
- */
-interface RenderAuditReport {
-  ok: boolean;
-  pass: boolean | null;
-  targetSectionId: unknown;
-  targetSectionName: unknown;
-  hasDocCanvas: boolean | null;
-  cardCount: number | null;
-  tableContainerCount: number | null;
-  headerRowCount: number | null;
-  bodyRowCount: number | null;
-  reasons: unknown[];
-  raw: Record<string, unknown>;
-}
-
-function normalizeRenderAuditReport(raw: Record<string, unknown>): RenderAuditReport {
-  const report = raw && typeof raw === 'object' ? raw : {};
-  return {
-    ok: report.ok !== false,
-    pass: asBoolean(firstPresent(report.pass, report.valid, report.is_valid)),
-    targetSectionId: firstPresent(
-      report.target_section_id,
-      report.targetSectionId,
-    ),
-    targetSectionName: firstPresent(
-      report.target_section_name,
-      report.targetSectionName,
-    ),
-    hasDocCanvas: asBoolean(
-      firstPresent(report.has_doc_canvas, report.hasDocCanvas),
-    ),
-    cardCount: asFiniteNumber(firstPresent(report.card_count, report.cardCount)),
-    tableContainerCount: asFiniteNumber(
-      firstPresent(report.table_container_count, report.tableContainerCount),
-    ),
-    headerRowCount: asFiniteNumber(
-      firstPresent(report.header_row_count, report.headerRowCount),
-    ),
-    bodyRowCount: asFiniteNumber(
-      firstPresent(report.body_row_count, report.bodyRowCount),
-    ),
-    reasons: Array.isArray(report.reasons) ? report.reasons : [],
-    raw: report,
-  };
-}
-
-/**
- * Parse render audit from output.
- */
-function parseRenderAuditFromOutput(rawText: string): RenderAuditReport | null {
-  const candidates = extractJsonObjects(rawText);
-  if (candidates.length === 0) return null;
-  const withAuditKeys = candidates.filter((candidate) =>
-    Object.prototype.hasOwnProperty.call(candidate, 'has_doc_canvas') ||
-    Object.prototype.hasOwnProperty.call(candidate, 'hasDocCanvas') ||
-    Object.prototype.hasOwnProperty.call(candidate, 'card_count') ||
-    Object.prototype.hasOwnProperty.call(candidate, 'cardCount'),
-  );
-  const selected =
-    withAuditKeys.length > 0
-      ? withAuditKeys[withAuditKeys.length - 1]
-      : candidates[candidates.length - 1];
-  return normalizeRenderAuditReport(selected);
-}
-
-/**
- * Validate render audit.
- */
-function validateRenderAudit({
-  audit,
-  renderReport,
-  expectations,
-}: {
-  audit: RenderAuditReport;
-  renderReport: RenderReport;
-  expectations: {
-    expectedCardCount: number;
-    expectedTableCount: number;
-    expectedSectionName: string;
-  };
-}): { ok: boolean; issues: string[] } {
-  const issues: string[] = [];
-  if (!audit.ok) {
-    issues.push('Audit report marked the run as not ok.');
-  }
-  if (audit.pass !== true) {
-    issues.push('Audit report did not pass structural validation.');
-  }
-  if (!audit.targetSectionId) {
-    issues.push('Audit report is missing target_section_id.');
-  }
-  if (!audit.targetSectionName) {
-    issues.push('Audit report is missing target_section_name.');
-  }
-  if (
-    audit.targetSectionId &&
-    renderReport.targetSectionId &&
-    String(audit.targetSectionId) !== String(renderReport.targetSectionId)
-  ) {
-    issues.push('Audit target_section_id does not match render report.');
-  }
-  if (audit.hasDocCanvas !== true) {
-    issues.push('Missing direct "Doc Canvas" frame in rendered section.');
-  }
-  if (audit.cardCount == null || audit.cardCount < expectations.expectedCardCount) {
-    issues.push(
-      `Card count below expected H2 sections (expected >= ${expectations.expectedCardCount}, got ${String(audit.cardCount)}).`,
-    );
-  }
-  if (
-    expectations.expectedSectionName &&
-    audit.targetSectionName &&
-    String(audit.targetSectionName) !== String(expectations.expectedSectionName)
-  ) {
-    issues.push(
-      `Section name mismatch (expected "${expectations.expectedSectionName}", got "${audit.targetSectionName}").`,
-    );
-  }
-  if (expectations.expectedTableCount > 0) {
-    if (
-      audit.tableContainerCount == null ||
-      audit.tableContainerCount < expectations.expectedTableCount
-    ) {
-      issues.push(
-        `Table container count below expected tables (expected >= ${expectations.expectedTableCount}, got ${String(audit.tableContainerCount)}).`,
-      );
-    }
-    if (
-      audit.headerRowCount == null ||
-      audit.headerRowCount < expectations.expectedTableCount
-    ) {
-      issues.push(
-        `Header row count below expected tables (expected >= ${expectations.expectedTableCount}, got ${String(audit.headerRowCount)}).`,
-      );
-    }
-    if (
-      audit.bodyRowCount == null ||
-      audit.bodyRowCount < expectations.expectedTableCount
-    ) {
-      issues.push(
-        `Body row count below expected tables (expected >= ${expectations.expectedTableCount}, got ${String(audit.bodyRowCount)}).`,
-      );
-    }
-  }
-  return {
-    ok: issues.length === 0,
-    issues,
-  };
 }
 
 /**
@@ -794,14 +162,6 @@ export async function runActiveMdToFigma(
   const captureProof = String(args['capture-proof'] || 'true') !== 'false';
   const captureProofStrict = String(args['capture-proof-strict'] || 'false') === 'true';
 
-  if (skipValidation && !force) {
-    logger.error(
-      'Validation gate bypass requires explicit force.\n' +
-      'Use `--skip-validation true --force true` only for exceptional cases.',
-    );
-    process.exit(1);
-  }
-
   let specStatus = 'draft';
   let specNodeId = '';
   try {
@@ -876,27 +236,19 @@ export async function runActiveMdToFigma(
     );
   }
 
-  if (!skipValidation) {
-    const validationReport = validateDocs({
-      filePath: markdownPath,
-      specFilePath: specPath,
-      checkOverview: false,
-      registryPath: tokenRegistryPath,
+  // Validate spec and markdown pre-flight (policy handled by spec-validation-phase service)
+  try {
+    const validationResult = validateSpecPreflight({
+      specPath,
+      tokenRegistryPath,
+      markdownPath,
+      skipValidation,
+      force,
     });
-    if (!validationReport.ok) {
-      logger.error(
-        'Documentation validation failed. Rendering to Figma was blocked.',
-      );
-      process.stdout.write(`${JSON.stringify(validationReport, null, 2)}\n`);
-      process.exit(1);
-    }
-
-    try {
-      validateSpecPreflight(specPath, tokenRegistryPath);
-    } catch (error) {
-      logger.error(error instanceof Error ? error.message : String(error));
-      process.exit(1);
-    }
+    ensureValidationResults(validationResult, specPath);
+  } catch (error) {
+    logger.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
   }
 
   if (!force) {
@@ -922,14 +274,16 @@ export async function runActiveMdToFigma(
   const generatedDir = args['generated-dir'] || path.join(ctx.paths.generated, 'figma_doc_models');
   const tempArtifacts = new TempArtifactManager();
   tempArtifacts.attachProcessHooks();
-  const staleArtifacts = cleanupLegacyTempOutputs({
-    tempArtifacts,
-    generatedDir,
-    fileBase,
+  const staleArtifacts = tempArtifacts.purgeMatching({
+    dir: generatedDir,
+    matcher: (name: string) => [
+      `${fileBase}.render-agent-output.txt`,
+      `${fileBase}.render-audit-output.txt`,
+    ].includes(name),
   });
-  if (staleArtifacts.length > 0) {
+  if (staleArtifacts.removed.length > 0) {
     logger.warn(
-      `Removed stale temporary artifacts for ${fileBase}: ${staleArtifacts
+      `Removed stale temporary artifacts for ${fileBase}: ${staleArtifacts.removed
         .map((artifactPath) => path.basename(artifactPath))
         .join(', ')}`,
     );
@@ -1089,11 +443,7 @@ export async function runActiveMdToFigma(
     return;
   }
 
-  let renderExpectations: {
-    expectedCardCount: number;
-    expectedTableCount: number;
-    expectedSectionName: string;
-  };
+  let renderExpectations: RenderExpectations;
   try {
     renderExpectations = readRenderExpectations({
       payloadPath,
@@ -1128,93 +478,54 @@ export async function runActiveMdToFigma(
     .join('\n');
 
   try {
-    const agentResponse = runAgentPrompt({
+    const agentResponse: AgentExecutionResult = executeAgentPrompt({
       prompt,
       agent: agent as 'codex' | 'claude' | 'gemini' | 'auto',
       label: `active-md-to-figma-${fileBase}`,
-      passthrough: false,
     });
     const renderReport = parseRenderReportFromOutput(agentResponse.stdout);
     if (!renderReport) {
-      const outputPath = writeAgentOutput({
-        tempArtifacts,
-        generatedDir,
-        fileBase,
-        suffix: 'render-agent-output',
-        content: agentResponse.stdout,
-      });
+      const outputPath = path.resolve(generatedDir, `${fileBase}.render-agent-output.txt`);
+      tempArtifacts.writeTrackedFile(outputPath, agentResponse.stdout, 'utf8');
       throw new Error(
         'Unable to parse render report JSON from agent output.\n' +
         `Expected keys: target_section_id, target_section_name, offset_x_applied, theme_name.\n` +
         `Saved raw agent output: ${outputPath}`,
       );
     }
-    if (!renderReport.targetSectionId || !renderReport.targetSectionName) {
-      const outputPath = writeAgentOutput({
-        tempArtifacts,
-        generatedDir,
-        fileBase,
-        suffix: 'render-agent-output',
-        content: agentResponse.stdout,
-      });
+
+    // Validate render report using agent-execution-phase service
+    const reportValidation: RenderReportValidationResult = validateRenderReport({
+      report: renderReport,
+      expectedThemeName: expectedThemeName,
+      expectedOffsetX: Number(offsetX),
+      force,
+    });
+
+    if (!reportValidation.ok) {
+      const outputPath = path.resolve(generatedDir, `${fileBase}.render-agent-output.txt`);
+      tempArtifacts.writeTrackedFile(outputPath, agentResponse.stdout, 'utf8');
       throw new Error(
-        'Render report is missing target section identifiers.\n' +
+        'Render report validation failed.\n' +
+        reportValidation.errors.map((issue) => `- ${issue}`).join('\n') +
+        '\n' +
         `Saved raw agent output: ${outputPath}`,
       );
-    }
-    if (!renderReport.themeName) {
-      const outputPath = writeAgentOutput({
-        tempArtifacts,
-        generatedDir,
-        fileBase,
-        suffix: 'render-agent-output',
-        content: agentResponse.stdout,
-      });
-      throw new Error(
-        'Render report is missing theme_name. This usually means the generated themed renderer was not executed.\n' +
-        `Expected theme: ${expectedThemeName}\n` +
-        `Saved raw agent output: ${outputPath}`,
-      );
-    }
-    if (renderReport.themeName !== expectedThemeName) {
-      const message =
-        'Theme mismatch detected in render report.\n' +
-        `Expected theme: ${expectedThemeName}\n` +
-        `Reported theme: ${renderReport.themeName}`;
-      if (!force) {
-        throw new Error(`${message}\nUse --force true only for explicit emergency bypass.`);
-      }
-      logger.warn(`${message}\nWarning: continuing because --force true was provided.`);
-    }
-    const expectedOffsetX = Number(offsetX);
-    if (
-      Number.isFinite(expectedOffsetX) &&
-      renderReport.offsetXApplied !== null &&
-      Number.isFinite(renderReport.offsetXApplied) &&
-      Math.abs(renderReport.offsetXApplied - expectedOffsetX) > 1
-    ) {
-      const message =
-        'Unexpected render offset reported by agent.\n' +
-        `Expected offset_x: ${expectedOffsetX}\n` +
-        `Reported offset_x: ${renderReport.offsetXApplied}`;
-      if (!force) {
-        throw new Error(`${message}\nUse --force true only for explicit emergency bypass.`);
-      }
-      logger.warn(`${message}\nWarning: continuing because --force true was provided.`);
     }
 
+    // Log warnings from validation
+    for (const warning of reportValidation.warnings) {
+      logger.warn(warning);
+    }
+
+    // Validate primary render report against expectations
     const primaryReportValidation = validatePrimaryRenderReport({
       renderReport,
       expectations: renderExpectations,
     });
     if (!primaryReportValidation.ok) {
-      const outputPath = writeAgentOutput({
-        tempArtifacts,
-        generatedDir,
-        fileBase,
-        suffix: 'render-agent-output',
-        content: agentResponse.stdout,
-      });
+      const outputPath = path.resolve(generatedDir, `${fileBase}.render-agent-output.txt`);
+      tempArtifacts.writeTrackedFile(outputPath, agentResponse.stdout, 'utf8');
       throw new Error(
         'Render report failed strict primary validation.\n' +
         primaryReportValidation.issues.map((issue) => `- ${issue}`).join('\n') +
@@ -1223,53 +534,27 @@ export async function runActiveMdToFigma(
       );
     }
 
-    const auditPrompt = buildRenderAuditPrompt({
+    // Execute render audit phase
+    const auditResult: RenderAuditPhaseResult = executeRenderAuditPhase({
       figmaUrl,
       targetSectionId: String(renderReport.targetSectionId),
       targetSectionName: String(renderReport.targetSectionName),
       expectedSectionName: renderExpectations.expectedSectionName,
       expectedCardCount: renderExpectations.expectedCardCount,
       expectedTableCount: renderExpectations.expectedTableCount,
-    });
-    const auditResponse = runAgentPrompt({
-      prompt: auditPrompt,
       agent: agent as 'codex' | 'claude' | 'gemini' | 'auto',
-      label: `active-md-to-figma-audit-${fileBase}`,
-      passthrough: false,
-    });
-    const auditReport = parseRenderAuditFromOutput(auditResponse.stdout);
-    if (!auditReport) {
-      const outputPath = writeAgentOutput({
-        tempArtifacts,
-        generatedDir,
-        fileBase,
-        suffix: 'render-audit-output',
-        content: auditResponse.stdout,
-      });
-      throw new Error(
-        'Unable to parse render structure audit report JSON from agent output.\n' +
-        'Expected keys: has_doc_canvas, card_count, table_container_count, header_row_count, body_row_count.\n' +
-        `Saved raw audit output: ${outputPath}`,
-      );
-    }
-    const auditValidation = validateRenderAudit({
-      audit: auditReport,
+      fileBase,
+      generatedDir,
       renderReport,
       expectations: renderExpectations,
     });
-    if (!auditValidation.ok) {
-      const outputPath = writeAgentOutput({
-        tempArtifacts,
-        generatedDir,
-        fileBase,
-        suffix: 'render-audit-output',
-        content: auditResponse.stdout,
-      });
+
+    if (!auditResult.ok) {
       throw new Error(
         'Render structure audit failed. Themed renderer output is inconsistent; fallback-like render blocked.\n' +
-        auditValidation.issues.map((issue) => `- ${issue}`).join('\n') +
+        (auditResult.errors?.map((issue) => `- ${issue}`).join('\n') || 'Unknown audit errors') +
         '\n' +
-        `Saved raw audit output: ${outputPath}`,
+        `Saved raw audit output: ${auditResult.outputPath}`,
       );
     }
 
@@ -1300,11 +585,11 @@ export async function runActiveMdToFigma(
         themeName: renderReport.themeName,
         unsupportedBlocksCount: renderReport.unsupportedBlocksCount,
         structureAudit: {
-          hasDocCanvas: true,
-          cardCount: auditReport.cardCount,
-          tableContainerCount: auditReport.tableContainerCount,
-          headerRowCount: auditReport.headerRowCount,
-          bodyRowCount: auditReport.bodyRowCount,
+          hasDocCanvas: auditResult.auditReport.hasDocCanvas,
+          cardCount: auditResult.auditReport.cardCount,
+          tableContainerCount: auditResult.auditReport.tableContainerCount,
+          headerRowCount: auditResult.auditReport.headerRowCount,
+          bodyRowCount: auditResult.auditReport.bodyRowCount,
         },
       },
       statePath: syncStatePath,
@@ -1362,6 +647,7 @@ export async function runActiveMdToFigma(
   }
 }
 
+// CLI entry point
 if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   const parsed = parseArgs(args) as ActiveMdToFigmaArgs;
