@@ -602,8 +602,8 @@ export async function runActiveMdToFigma(
       specPath,
       componentSetId: resolvedComponentSetId,
       agent: agent as 'codex' | 'claude' | 'gemini' | 'auto',
-      system: args.system || undefined,
-      figmaUrl: figmaUrl || undefined,
+      system: args.system,
+      figmaUrl: figmaUrl,
       captureProofStrict: captureProofStrict,
     });
 
