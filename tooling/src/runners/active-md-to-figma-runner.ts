@@ -28,6 +28,7 @@ import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { normalizeNodeId, isValidNodeId } from '../utils/figma-node-id.js';
 import { isTbdMarker } from '../utils/tbd.js';
 import { runOrThrow } from '../utils/exec.js';
+import { executeVisualProofPhase } from '../services/visual-proof-phase.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 import { logger } from '../utils/logger.js';
 import {
@@ -595,43 +596,21 @@ export async function runActiveMdToFigma(
       statePath: syncStatePath,
     });
 
-    if (captureProof) {
-      if (!resolvedComponentSetId) {
-        const message =
-          'Visual proof capture skipped: no deterministic component_set_node_id available.';
-        if (captureProofStrict) {
-          throw new Error(message);
-        }
-        logger.warn(message);
-      } else {
-        const proofArgs = [
-          'tooling/scripts/ds-capture-visual-proof.mjs',
-          '--markdown',
-          markdownPath,
-          '--spec-file',
-          specPath,
-          '--component-set-id',
-          resolvedComponentSetId,
-          '--agent',
-          agent,
-        ];
-        if (args.system) {
-          proofArgs.push('--system', args.system);
-        }
-        if (figmaUrl) {
-          proofArgs.push('--url', figmaUrl);
-        }
-        try {
-          runOrThrow('node', proofArgs);
-        } catch (error) {
-          const message = `Visual proof capture failed: ${error instanceof Error ? error.message : String(error)
-            }`;
-          if (captureProofStrict) {
-            throw new Error(message);
-          }
-          logger.warn(message);
-        }
-      }
+    // Execute visual proof capture phase
+    const proofResult = executeVisualProofPhase({
+      markdownPath,
+      specPath,
+      componentSetId: resolvedComponentSetId,
+      agent: agent as 'codex' | 'claude' | 'gemini' | 'auto',
+      system: args.system || undefined,
+      figmaUrl: figmaUrl || undefined,
+      captureProofStrict: captureProofStrict,
+    });
+
+    if (proofResult.skipped) {
+      logger.warn(proofResult.skipReason);
+    } else if (!proofResult.ok) {
+      logger.warn(proofResult.error);
     }
 
     syncDocumentationIndices({
