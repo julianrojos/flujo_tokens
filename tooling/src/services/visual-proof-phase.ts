@@ -122,8 +122,8 @@ export function executeVisualProofPhase(options: VisualProofCaptureOptions): Vis
     specPath,
     componentSetId,
     agent,
-    system: system || undefined,
-    figmaUrl: figmaUrl || undefined,
+    system,
+    figmaUrl,
   });
 
   // Execute capture
