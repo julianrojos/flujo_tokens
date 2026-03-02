@@ -1,19 +1,20 @@
 /**
  * Render Phase Runner Tests
- *
- * Unit tests for runRenderPhases orchestrator.
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
-import { runRenderPhases, phaseSuccess, phaseSkip, phaseFailure } from './render-phase-runner.js';
+import { runRenderPhases, phaseFailure, phaseSkip, phaseSuccess } from './render-phase-runner.js';
+import type { RenderPhase } from './render-phase.js';
+import type {
+  RenderPipelineState,
+  PipelineRenderState,
+  AgentRenderState,
+  AuditRenderState,
+} from './render-pipeline-state.js';
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
-import type { RenderPipelineState } from './render-pipeline-state.js';
 
-/**
- * Create a mock runtime context for testing.
- */
 function createMockContext(): ActiveMdToFigmaRuntimeContext {
   return {
     specPath: '/test/spec.yml',
@@ -48,189 +49,141 @@ function createMockContext(): ActiveMdToFigmaRuntimeContext {
   };
 }
 
+function createPipelineState(): PipelineRenderState {
+  return {
+    stage: 'pipeline',
+    pipeline: {
+      ok: true,
+      paths: {
+        docModelPath: '/a',
+        executePath: '/b',
+        payloadPath: '/c',
+      },
+      skipped: false,
+    },
+  };
+}
+
+function createAgentState(): AgentRenderState {
+  return {
+    stage: 'agent',
+    pipeline: createPipelineState().pipeline,
+    renderExpectations: {
+      expectedCardCount: 3,
+      expectedTableCount: 1,
+      expectedSectionName: 'Doc/Test',
+    },
+    renderReport: {
+      ok: true,
+      targetSectionId: '123',
+      targetSectionName: 'Doc/Test',
+      themeName: 'default',
+      offsetXApplied: 200,
+      unsupportedBlocks: [],
+      unsupportedBlocksCount: 0,
+      componentSetId: '1:2',
+      componentSectionId: '9:9',
+      renderedCount: { table: 1, card: 3, section: 1 },
+    },
+  };
+}
+
+function createAuditState(): AuditRenderState {
+  return {
+    stage: 'audit',
+    ...createAgentState(),
+    auditResult: {
+      ok: true,
+      auditReport: {
+        ok: true,
+        pass: true,
+        targetSectionId: '123',
+        targetSectionName: 'Doc/Test',
+        hasDocCanvas: true,
+        cardCount: 3,
+        tableContainerCount: 1,
+        headerRowCount: 1,
+        bodyRowCount: 2,
+        reasons: [],
+      },
+      outputPath: '/tmp/audit.txt',
+      rawOutput: '{}',
+    },
+  };
+}
+
 describe('render-phase-runner', () => {
   describe('runRenderPhases', () => {
-    it('should execute phases in sequence and merge outputs', async () => {
-      const context = createMockContext();
-      const phases = [
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ pipeline: { ok: true, paths: { docModelPath: '/a', executePath: '/b', payloadPath: '/c' }, skipped: false } }),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ renderReport: { ok: true } as any }),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ auditResult: { ok: true } as any }),
+    it('executes phases in sequence and carries staged state forward', async () => {
+      const phases: RenderPhase[] = [
+        {
+          name: 'pipeline',
+          execute: async () => phaseSuccess(createPipelineState()),
+        },
+        {
+          name: 'agent',
+          execute: async (_ctx, state) => {
+            assert.strictEqual(state.stage, 'pipeline');
+            return phaseSuccess(createAgentState());
+          },
+        },
+        {
+          name: 'audit',
+          execute: async (_ctx, state) => {
+            assert.strictEqual(state.stage, 'agent');
+            return phaseSuccess(createAuditState());
+          },
+        },
       ];
 
-      const state = await runRenderPhases(context, phases);
-
-      assert.ok(state.pipeline);
-      assert.ok(state.renderReport);
-      assert.ok(state.auditResult);
+      const state = await runRenderPhases(createMockContext(), phases);
+      assert.strictEqual(state.stage, 'audit');
+      assert.ok(state.auditResult.ok);
     });
 
-    it('should throw error when phase returns ok: false', async () => {
-      const context = createMockContext();
-      const phases = [
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ pipeline: { ok: true, paths: { docModelPath: '/a', executePath: '/b', payloadPath: '/c' }, skipped: false } }),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseFailure('Test error'),
+    it('throws a phase-named error when a phase returns ok=false', async () => {
+      const phases: RenderPhase[] = [
+        { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
+        { name: 'audit', execute: async () => phaseFailure('Test error') },
       ];
 
       await assert.rejects(
-        async () => runRenderPhases(context, phases),
-        /Test error/,
+        async () => runRenderPhases(createMockContext(), phases),
+        /\[audit\] Test error/,
       );
     });
 
-    it('should stop execution when skipBehavior is exit', async () => {
-      const context = createMockContext();
-      const phases = [
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ pipeline: { ok: true, paths: { docModelPath: '/a', executePath: '/b', payloadPath: '/c' }, skipped: false } }),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSkip('Cache hit', 'exit'),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ renderReport: { ok: true } as any }),
-      ];
-
-      const state = await runRenderPhases(context, phases);
-
-      // Should have pipeline from first phase
-      assert.ok(state.pipeline);
-      // Should NOT have renderReport from third phase (not executed)
-      assert.strictEqual(state.renderReport, undefined);
-    });
-
-    it('should continue execution when skipBehavior is continue', async () => {
-      const context = createMockContext();
-      const phases = [
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ pipeline: { ok: true, paths: { docModelPath: '/a', executePath: '/b', payloadPath: '/c' }, skipped: false } }),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSkip('Optional feature unavailable', 'continue'),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ renderReport: { ok: true } as any }),
-      ];
-
-      const state = await runRenderPhases(context, phases);
-
-      // Should have pipeline from first phase
-      assert.ok(state.pipeline);
-      // Should have renderReport from third phase (executed despite skip)
-      assert.ok(state.renderReport);
-    });
-
-    it('should merge outputs from multiple phases', async () => {
-      const context = createMockContext();
-      const phases = [
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ pipeline: { ok: true, paths: { docModelPath: '/a', executePath: '/b', payloadPath: '/c' }, skipped: false } }),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ renderExpectations: { expectedCardCount: 5 } as any }),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, _state: RenderPipelineState) =>
-          phaseSuccess({ renderReport: { ok: true, targetSectionId: '123' } as any }),
-      ];
-
-      const state = await runRenderPhases(context, phases);
-
-      assert.ok(state.pipeline);
-      assert.ok(state.renderExpectations);
-      assert.ok(state.renderReport);
-      assert.strictEqual(state.renderExpectations?.expectedCardCount, 5);
-    });
-
-    it('should handle empty phases array', async () => {
-      const context = createMockContext();
-      const state = await runRenderPhases(context, []);
-
-      assert.deepStrictEqual(state, {});
-    });
-
-    it('should accumulate state across phases', async () => {
-      const context = createMockContext();
-      const phases = [
-        async (_ctx: ActiveMdToFigmaRuntimeContext, state: RenderPipelineState) =>
-          phaseSuccess({ pipeline: { ok: true, paths: { docModelPath: '/a', executePath: '/b', payloadPath: '/c' }, skipped: false } }),
-        async (_ctx: ActiveMdToFigmaRuntimeContext, state: RenderPipelineState) => {
-          // Second phase can read state from first
-          assert.ok(state.pipeline);
-          return phaseSuccess({ renderReport: { ok: true } as any });
-        },
-        async (_ctx: ActiveMdToFigmaRuntimeContext, state: RenderPipelineState) => {
-          // Third phase can read state from first and second
-          assert.ok(state.pipeline);
-          assert.ok(state.renderReport);
-          return phaseSuccess({ auditResult: { ok: true } as any });
+    it('stops execution when skipBehavior is exit', async () => {
+      const phases: RenderPhase[] = [
+        { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
+        { name: 'cache', execute: async () => phaseSkip('Cache hit', 'exit') },
+        {
+          name: 'agent',
+          execute: async () => {
+            assert.fail('agent phase should not execute after exit skip');
+          },
         },
       ];
 
-      const state = await runRenderPhases(context, phases);
-
-      assert.ok(state.pipeline);
-      assert.ok(state.renderReport);
-      assert.ok(state.auditResult);
-    });
-  });
-
-  describe('phaseSuccess', () => {
-    it('should create success result with output', () => {
-      const result = phaseSuccess({ pipeline: { ok: true, paths: { docModelPath: '/a', executePath: '/b', payloadPath: '/c' }, skipped: false } });
-
-      assert.strictEqual(result.ok, true);
-      assert.ok(result.output);
-      assert.strictEqual(result.skipped, undefined);
+      const state = await runRenderPhases(createMockContext(), phases);
+      assert.strictEqual(state.stage, 'pipeline');
     });
 
-    it('should create success result without output', () => {
-      const result = phaseSuccess();
+    it('continues execution when skipBehavior is continue', async () => {
+      const phases: RenderPhase[] = [
+        { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
+        { name: 'proof', execute: async () => phaseSkip('Optional unavailable', 'continue') },
+        { name: 'agent', execute: async () => phaseSuccess(createAgentState()) },
+      ];
 
-      assert.strictEqual(result.ok, true);
-      assert.strictEqual(result.output, undefined);
-    });
-  });
-
-  describe('phaseSkip', () => {
-    it('should create skip result with exit behavior', () => {
-      const result = phaseSkip('Cache hit', 'exit');
-
-      assert.strictEqual(result.ok, true);
-      assert.strictEqual(result.skipped, true);
-      assert.strictEqual(result.skipBehavior, 'exit');
-      assert.strictEqual(result.reason, 'Cache hit');
+      const state = await runRenderPhases(createMockContext(), phases);
+      assert.strictEqual(state.stage, 'agent');
+      assert.ok(state.renderReport.ok);
     });
 
-    it('should create skip result with continue behavior', () => {
-      const result = phaseSkip('Optional unavailable', 'continue');
-
-      assert.strictEqual(result.ok, true);
-      assert.strictEqual(result.skipped, true);
-      assert.strictEqual(result.skipBehavior, 'continue');
-      assert.strictEqual(result.reason, 'Optional unavailable');
-    });
-
-    it('should default to continue behavior', () => {
-      const result = phaseSkip('Some reason');
-
-      assert.strictEqual(result.skipBehavior, 'continue');
-    });
-
-    it('should include output if provided', () => {
-      const output = { visualProofResult: { ok: true } as any };
-      const result = phaseSkip('No component ID', 'continue', output);
-
-      assert.strictEqual(result.output, output);
-    });
-  });
-
-  describe('phaseFailure', () => {
-    it('should create failure result with error', () => {
-      const result = phaseFailure('Something went wrong');
-
-      assert.strictEqual(result.ok, false);
-      assert.strictEqual(result.error, 'Something went wrong');
-      assert.strictEqual(result.skipped, undefined);
-      assert.strictEqual(result.output, undefined);
+    it('returns initial state when phases array is empty', async () => {
+      const state = await runRenderPhases(createMockContext(), []);
+      assert.deepStrictEqual(state, { stage: 'initial' });
     });
   });
 });

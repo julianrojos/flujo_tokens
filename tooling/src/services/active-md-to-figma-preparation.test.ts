@@ -1,31 +1,32 @@
 /**
  * Active Markdown to Figma Preparation Tests
- *
- * Unit tests for preparation (input resolution + validation).
  */
 
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { describe, it, beforeEach, afterEach } from 'node:test';
+import * as path from 'node:path';
 import assert from 'node:assert';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
-import { executeActiveMdToFigmaPreparation } from './active-md-to-figma-preparation.js';
+import {
+  executeActiveMdToFigmaPreparation,
+  PreparationError,
+} from './active-md-to-figma-preparation.js';
 
-/**
- * Create a temporary test directory.
- */
 function createTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), 'preparation-test-'));
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'active-md-to-figma-prep-'));
 }
 
-/**
- * Remove directory recursively.
- */
 function removeDir(dir: string): void {
   if (fs.existsSync(dir)) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+}
+
+function writeFile(filePath: string, content: string): string {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, content);
+  return filePath;
 }
 
 describe('active-md-to-figma-preparation', () => {
@@ -33,209 +34,138 @@ describe('active-md-to-figma-preparation', () => {
 
   beforeEach(() => {
     tempDir = createTempDir();
-    fs.mkdirSync(tempDir, { recursive: true });
   });
 
   afterEach(() => {
+    delete process.env.ANTIGRAVITY_ACTIVE_FILE;
+    delete process.env.ACTIVE_FILE;
+    delete process.env.AG_ACTIVE_FILE;
     removeDir(tempDir);
   });
 
-  describe('executeActiveMdToFigmaPreparation', () => {
-    it('should fail if markdown is missing', () => {
-      // No markdown file created
-      const args = {
-        markdown: path.join(tempDir, 'missing.md'),
-      };
-
-      // Should exit with error (we can't easily test process.exit in unit tests)
-      // For now, verify the function exists and has correct signature
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
-
-    it('should fail if spec is missing', () => {
-      const markdownPath = path.join(tempDir, 'doc.md');
-      fs.writeFileSync(markdownPath, '# Test');
-
-      const args = {
-        markdown: markdownPath,
-        'spec-file': path.join(tempDir, 'missing.yml'),
-      };
-
-      // Should exit with error
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
-
-    it('should fail on component_set_node_id mismatch', () => {
-      const markdownPath = path.join(tempDir, 'doc.md');
-      fs.writeFileSync(markdownPath, '# Test');
-
-      const specPath = path.join(tempDir, 'spec.yml');
-      fs.writeFileSync(specPath, `
-status: ready
-figma:
-  component_set_node_id: "1:2"
-`);
-
-      const args = {
-        markdown: markdownPath,
-        'spec-file': specPath,
-        'component-set-id': '3:4', // Mismatch
-        force: 'false',
-      };
-
-      // Should exit with error for mismatch
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
-
-    it('should preserve figmaUrl from args', () => {
-      const markdownPath = path.join(tempDir, 'doc.md');
-      fs.writeFileSync(markdownPath, '# Test');
-
-      const specPath = path.join(tempDir, 'spec.yml');
-      fs.writeFileSync(specPath, 'status: draft\n');
-
-      const args = {
-        markdown: markdownPath,
-        'spec-file': specPath,
-        url: 'https://figma.com/file/test',
-      };
-
-      // Note: Full test would require mocking system context
-      // For now, verify function signature
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
-
-    it('should preserve agent from args', () => {
-      const markdownPath = path.join(tempDir, 'doc.md');
-      fs.writeFileSync(markdownPath, '# Test');
-
-      const specPath = path.join(tempDir, 'spec.yml');
-      fs.writeFileSync(specPath, 'status: draft\n');
-
-      const args = {
-        markdown: markdownPath,
-        'spec-file': specPath,
-        agent: 'claude',
-      };
-
-      // Note: Full test would require mocking system context
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
-
-    it('should handle skipValidation and force flags', () => {
-      const markdownPath = path.join(tempDir, 'doc.md');
-      fs.writeFileSync(markdownPath, '# Test');
-
-      const specPath = path.join(tempDir, 'spec.yml');
-      fs.writeFileSync(specPath, 'status: draft\n');
-
-      const args = {
-        markdown: markdownPath,
-        'spec-file': specPath,
-        'skip-validation': 'true',
-        force: 'true',
-      };
-
-      // Note: Full test would require mocking validation
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
-
-    it('should resolve offsetX from args', () => {
-      const markdownPath = path.join(tempDir, 'doc.md');
-      fs.writeFileSync(markdownPath, '# Test');
-
-      const specPath = path.join(tempDir, 'spec.yml');
-      fs.writeFileSync(specPath, 'status: draft\n');
-
-      const args = {
-        markdown: markdownPath,
-        'spec-file': specPath,
-        'offset-x': '500',
-      };
-
-      // Note: Full test would require mocking system context
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
-
-    it('should resolve generatedDir from args', () => {
-      const markdownPath = path.join(tempDir, 'doc.md');
-      fs.writeFileSync(markdownPath, '# Test');
-
-      const specPath = path.join(tempDir, 'spec.yml');
-      fs.writeFileSync(specPath, 'status: draft\n');
-
-      const args = {
-        markdown: markdownPath,
-        'spec-file': specPath,
-        'generated-dir': path.join(tempDir, 'custom-generated'),
-      };
-
-      // Note: Full test would require mocking system context
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
-
-    it('should handle environment variables for markdown', () => {
-      // Set environment variable
-      process.env.ANTIGRAVITY_ACTIVE_FILE = path.join(tempDir, 'env-doc.md');
-      fs.writeFileSync(process.env.ANTIGRAVITY_ACTIVE_FILE, '# Test');
-
-      const specPath = path.join(tempDir, 'spec.yml');
-      fs.writeFileSync(specPath, 'status: draft\n');
-
-      const args = {
-        'spec-file': specPath,
-        // No markdown arg - should use env var
-      };
-
-      // Note: Full test would require mocking system context
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-
-      // Cleanup
-      delete process.env.ANTIGRAVITY_ACTIVE_FILE;
-    });
-
-    it('should resolve component name from args or file base', () => {
-      const markdownPath = path.join(tempDir, 'my-component.md');
-      fs.writeFileSync(markdownPath, '# Test');
-
-      const specPath = path.join(tempDir, 'my_component.yml');
-      fs.writeFileSync(specPath, 'status: draft\n');
-
-      const args = {
-        markdown: markdownPath,
-        'spec-file': specPath,
-        'component-name': 'CustomName',
-      };
-
-      // Note: Full test would require mocking system context
-      assert.strictEqual(typeof executeActiveMdToFigmaPreparation, 'function');
-    });
+  it('throws if markdown path is missing', () => {
+    assert.throws(
+      () => executeActiveMdToFigmaPreparation({}),
+      (error: unknown) =>
+        error instanceof PreparationError &&
+        error.code === 'MISSING_MARKDOWN_PATH',
+    );
   });
 
-  describe('PreparationResult structure', () => {
-    it('should return all required fields', () => {
-      // Verify the expected structure of preparation result
-      const expectedFields = [
-        'markdownPath',
-        'specPath',
-        'tokenRegistryPath',
-        'syncStatePath',
-        'generatedDir',
-        'fileBase',
-        'componentName',
-        'componentSlug',
-        'resolvedComponentSetId',
-        'specStatus',
-        'force',
-        'skipValidation',
-        'captureProofStrict',
-        'offsetX',
-        'figmaUrl',
-        'agent',
-        'ctx',
-      ];
+  it('throws if markdown file does not exist', () => {
+    assert.throws(
+      () =>
+        executeActiveMdToFigmaPreparation({
+          markdown: path.join(tempDir, 'missing.md'),
+        }),
+      (error: unknown) =>
+        error instanceof PreparationError &&
+        error.code === 'MARKDOWN_NOT_FOUND',
+    );
+  });
 
-      assert.ok(expectedFields.length > 0);
+  it('throws if spec file does not exist', () => {
+    const markdownPath = writeFile(path.join(tempDir, 'component.md'), '# Test');
+
+    assert.throws(
+      () =>
+        executeActiveMdToFigmaPreparation({
+          markdown: markdownPath,
+          'spec-file': path.join(tempDir, 'missing.yml'),
+        }),
+      (error: unknown) =>
+        error instanceof PreparationError &&
+        error.code === 'SPEC_NOT_FOUND',
+    );
+  });
+
+  it('throws on component_set_node_id mismatch without force', () => {
+    const markdownPath = writeFile(path.join(tempDir, 'component.md'), '# Test');
+    const specPath = writeFile(
+      path.join(tempDir, 'component.yml'),
+      [
+        'status: ready',
+        'figma:',
+        '  component_set_node_id: "1:2"',
+      ].join('\n'),
+    );
+
+    assert.throws(
+      () =>
+        executeActiveMdToFigmaPreparation({
+          markdown: markdownPath,
+          'spec-file': specPath,
+          'component-set-id': '3:4',
+        }),
+      (error: unknown) =>
+        error instanceof PreparationError &&
+        error.code === 'TRACEABILITY_MISMATCH',
+    );
+  });
+
+  it('throws for ready spec without component_set_node_id and includes spec path', () => {
+    const markdownPath = writeFile(path.join(tempDir, 'component.md'), '# Test');
+    const specPath = writeFile(path.join(tempDir, 'component.yml'), 'status: ready\n');
+
+    assert.throws(
+      () =>
+        executeActiveMdToFigmaPreparation({
+          markdown: markdownPath,
+          'spec-file': specPath,
+        }),
+      (error: unknown) =>
+        error instanceof PreparationError &&
+        error.code === 'MISSING_READY_SPEC_NODE_ID' &&
+        error.message.includes(specPath),
+    );
+  });
+
+  it('preserves figmaUrl, agent, flags and resolved config on success', () => {
+    const markdownPath = writeFile(path.join(tempDir, 'my-component.md'), '# Test');
+    const specPath = writeFile(path.join(tempDir, 'my_component.yml'), 'status: draft\n');
+    const generatedDir = path.join(tempDir, 'generated-output');
+
+    const result = executeActiveMdToFigmaPreparation({
+      markdown: markdownPath,
+      'spec-file': specPath,
+      'skip-validation': 'true',
+      force: 'true',
+      'capture-proof-strict': 'true',
+      'generated-dir': generatedDir,
+      'offset-x': '500',
+      url: 'https://figma.com/file/test?node-id=1-2',
+      agent: 'claude',
+      'component-name': 'CustomName',
     });
+
+    assert.equal(result.markdownPath, path.resolve(markdownPath));
+    assert.equal(result.specPath, path.resolve(specPath));
+    assert.equal(result.generatedDir, generatedDir);
+    assert.equal(result.offsetX, 500);
+    assert.equal(result.figmaUrl, 'https://figma.com/file/test?node-id=1-2');
+    assert.equal(result.agent, 'claude');
+    assert.equal(result.force, true);
+    assert.equal(result.skipValidation, true);
+    assert.equal(result.captureProofStrict, true);
+    assert.equal(result.componentName, 'CustomName');
+    assert.equal(result.fileBase, 'my-component');
+    assert.equal(result.componentSlug, 'custom_name');
+    assert.equal(result.specStatus, 'draft');
+    assert.equal(result.resolvedComponentSetId, '');
+  });
+
+  it('uses ANTIGRAVITY_ACTIVE_FILE when markdown arg is omitted', () => {
+    const markdownPath = writeFile(path.join(tempDir, 'env-doc.md'), '# Test');
+    const specPath = writeFile(path.join(tempDir, 'env_doc.yml'), 'status: draft\n');
+    process.env.ANTIGRAVITY_ACTIVE_FILE = markdownPath;
+
+    const result = executeActiveMdToFigmaPreparation({
+      'spec-file': specPath,
+      'skip-validation': 'true',
+      force: 'true',
+    });
+
+    assert.equal(result.markdownPath, path.resolve(markdownPath));
+    assert.equal(result.specPath, path.resolve(specPath));
   });
 });
