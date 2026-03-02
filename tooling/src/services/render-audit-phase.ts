@@ -19,8 +19,12 @@ import type {
   RenderAuditReport,
 } from './render-report-parser.js';
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
-import type { RenderPipelineState, RenderAuditPhaseOutput } from './render-pipeline-state.js';
-import type { PhaseResult } from './render-phase.js';
+import {
+  hasAgentState,
+  type RenderPipelineState,
+  type RenderAuditPhaseOutput,
+} from './render-pipeline-state.js';
+import type { PhaseResult, RenderPhase } from './render-phase.js';
 
 export interface RenderAuditOptions {
   renderReport: RenderReport;
@@ -120,21 +124,17 @@ export function executeRenderAuditPhase(
  * Reads renderReport and renderExpectations from state,
  * executes audit agent, validates output.
  */
-export async function renderAuditPhase(
-  context: ActiveMdToFigmaRuntimeContext,
-  state: RenderPipelineState,
-): Promise<PhaseResult<RenderAuditPhaseOutput>> {
+export const renderAuditPhase: RenderPhase<RenderAuditPhaseOutput> = {
+  name: 'render-audit-phase',
+  async execute(
+    context: ActiveMdToFigmaRuntimeContext,
+    state: RenderPipelineState,
+  ): Promise<PhaseResult<RenderAuditPhaseOutput>> {
   // Require render report and expectations from previous phases
-  if (!state.renderReport) {
+  if (!hasAgentState(state)) {
     return {
       ok: false,
-      error: 'Render audit phase requires renderReport from previous phase',
-    };
-  }
-  if (!state.renderExpectations) {
-    return {
-      ok: false,
-      error: 'Render audit phase requires renderExpectations from previous phase',
+      error: 'Render audit phase requires renderReport and renderExpectations from previous phase',
     };
   }
 
@@ -157,7 +157,12 @@ export async function renderAuditPhase(
   return {
     ok: true,
     output: {
+      stage: 'audit',
+      pipeline: state.pipeline,
+      renderExpectations: state.renderExpectations,
+      renderReport: state.renderReport,
       auditResult: result,
     },
   };
-}
+  },
+};

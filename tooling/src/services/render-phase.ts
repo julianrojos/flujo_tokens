@@ -19,7 +19,7 @@ export type SkipBehavior = 'exit' | 'continue';
  * Result of a phase execution.
  * Generic over the output type to allow type-safe state accumulation.
  */
-export interface PhaseResult<T extends Partial<RenderPipelineState> = {}> {
+export interface PhaseResult<T extends RenderPipelineState | undefined = undefined> {
   /** Whether the phase succeeded */
   ok: boolean;
   
@@ -40,10 +40,13 @@ export interface PhaseResult<T extends Partial<RenderPipelineState> = {}> {
 }
 
 /**
- * Phase function type.
- * Receives context and current state, returns a phase result.
+ * Phase contract.
+ * Each phase must declare a stable name for debugging and error reporting.
  */
-export type RenderPhase<T extends Partial<RenderPipelineState> = {}> = (
-  context: ActiveMdToFigmaRuntimeContext,
-  state: RenderPipelineState,
-) => Promise<PhaseResult<T>> | PhaseResult<T>;
+export interface RenderPhase<T extends RenderPipelineState | undefined = undefined> {
+  name: string;
+  execute: (
+    context: ActiveMdToFigmaRuntimeContext,
+    state: RenderPipelineState,
+  ) => Promise<PhaseResult<T>> | PhaseResult<T>;
+}

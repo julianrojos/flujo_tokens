@@ -36,22 +36,35 @@ import {
 } from './render-cache-update-phase.js';
 import type { ActiveMdToFigmaPreparationResult } from './active-md-to-figma-preparation.js';
 import type { RenderPhase } from './render-phase.js';
+import { RuntimeError } from './pipeline-error.js';
 
 /**
  * Read theme name from theme file.
  */
 function readThemeName(themePath: string): string {
+  if (!fs.existsSync(themePath)) {
+    throw new RuntimeError(`Theme file not found: ${themePath}`, 'THEME_NOT_FOUND');
+  }
   const parsed = parseYamlDocument(
     fs.readFileSync(themePath, 'utf8'),
     `theme YAML (${path.basename(themePath)})`,
   );
   const name = String((parsed as Record<string, unknown>)?.name || '').trim();
   if (!name) {
-    throw new Error(
+    throw new RuntimeError(
       `Missing required theme name in ${themePath}. Expected top-level "name".`,
+      'MISSING_THEME_NAME',
     );
   }
   return name;
+}
+
+function resolveScriptPath(relativePath: string): string {
+  const resolved = path.resolve(relativePath);
+  if (!fs.existsSync(resolved)) {
+    throw new RuntimeError(`Required script not found: ${resolved}`, 'MISSING_SCRIPT');
+  }
+  return resolved;
 }
 
 /**
@@ -118,10 +131,10 @@ export function buildActiveMdToFigmaRuntime(
 
   // Build script paths
   const scripts: PipelineScriptPaths = {
-    markdownToModelScript: path.resolve(
+    markdownToModelScript: resolveScriptPath(
       '.agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs',
     ),
-    modelToExecuteScript: path.resolve(
+    modelToExecuteScript: resolveScriptPath(
       '.agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/build_figma_execute_code.mjs',
     ),
   };

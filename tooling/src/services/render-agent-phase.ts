@@ -13,13 +13,15 @@ import {
   parseRenderReportFromOutput,
   validateRenderReport,
   validatePrimaryRenderReport,
-  type RenderReport,
-  type RenderReportValidationResult,
   type RenderExpectations,
 } from './render-report-parser.js';
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
-import type { RenderPipelineState, RenderAgentPhaseOutput } from './render-pipeline-state.js';
-import type { PhaseResult } from './render-phase.js';
+import {
+  hasPipelineState,
+  type RenderPipelineState,
+  type RenderAgentPhaseOutput,
+} from './render-pipeline-state.js';
+import type { PhaseResult, RenderPhase } from './render-phase.js';
 import { RenderArtifactManager } from './render-artifacts.js';
 import { logger } from '../utils/logger.js';
 
@@ -73,18 +75,17 @@ function buildRenderPrompt(options: {
  */
 export function createRenderAgentPhase(
   options: RenderAgentPhaseOptions,
-): (
-  context: ActiveMdToFigmaRuntimeContext,
-  state: RenderPipelineState,
-) => Promise<PhaseResult<RenderAgentPhaseOutput>> {
-  return async function renderAgentPhase(
-    context: ActiveMdToFigmaRuntimeContext,
-    state: RenderPipelineState,
-  ): Promise<PhaseResult<RenderAgentPhaseOutput>> {
+): RenderPhase<RenderAgentPhaseOutput> {
+  return {
+    name: 'render-agent-phase',
+    async execute(
+      context: ActiveMdToFigmaRuntimeContext,
+      state: RenderPipelineState,
+    ): Promise<PhaseResult<RenderAgentPhaseOutput>> {
     const { artifactManager, agent } = options;
 
     // Require pipeline to have executed
-    if (!state.pipeline) {
+    if (!hasPipelineState(state)) {
       return {
         ok: false,
         error: 'Render agent phase requires pipeline to have executed first',
@@ -136,7 +137,7 @@ export function createRenderAgentPhase(
     }
 
     // Validate render report
-    const reportValidation: RenderReportValidationResult = validateRenderReport({
+    const reportValidation = validateRenderReport({
       report: renderReport,
       expectedThemeName: context.expectedThemeName,
       expectedOffsetX: context.offsetX,
@@ -180,9 +181,12 @@ export function createRenderAgentPhase(
     return {
       ok: true,
       output: {
+        stage: 'agent',
+        pipeline: state.pipeline,
         renderExpectations,
         renderReport,
       },
     };
+    },
   };
 }

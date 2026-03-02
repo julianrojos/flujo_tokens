@@ -33,7 +33,10 @@ import {
   normalizeComponentName,
   componentNameToSnakeCase,
 } from '../utils/component-name.js';
-import type { SystemContext } from '../utils/system-context.js';
+import {
+  resolveSystemContextSafe,
+  type SystemContext,
+} from '../utils/system-context.js';
 
 /**
  * Arguments for preparation.
@@ -89,6 +92,16 @@ export interface ActiveMdToFigmaPreparationResult {
   ctx: SystemContext;
 }
 
+export class PreparationError extends Error {
+  readonly code: string;
+
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = 'PreparationError';
+    this.code = code;
+  }
+}
+
 /**
  * Execute preparation (resolution + validation).
  *
@@ -103,7 +116,7 @@ export interface ActiveMdToFigmaPreparationResult {
  *
  * @param args - Command line arguments
  * @returns Preparation result with all resolved values
- * @throws {Error} If preparation validation fails (process exits)
+ * @throws {PreparationError} If preparation validation fails
  */
 export function executeActiveMdToFigmaPreparation(
   args: ActiveMdToFigmaPreparationArgs,
@@ -116,16 +129,18 @@ export function executeActiveMdToFigmaPreparation(
     process.env.AG_ACTIVE_FILE;
 
   if (!activeMarkdown) {
-    logger.error(
+    throw new PreparationError(
       'Missing active markdown path.\nUse --markdown <path> (and optionally --agent codex|claude|gemini) or export ANTIGRAVITY_ACTIVE_FILE.',
+      'MISSING_MARKDOWN_PATH',
     );
-    process.exit(1);
   }
 
   const markdownPath = path.resolve(activeMarkdown);
   if (!fs.existsSync(markdownPath)) {
-    logger.error(`Markdown file not found: ${markdownPath}`);
-    process.exit(1);
+    throw new PreparationError(
+      `Markdown file not found: ${markdownPath}`,
+      'MARKDOWN_NOT_FOUND',
+    );
   }
 
   // Resolve system context
@@ -147,12 +162,12 @@ export function executeActiveMdToFigmaPreparation(
   );
 
   if (!fs.existsSync(specPath)) {
-    logger.error(
+    throw new PreparationError(
       'Missing required spec file.\n' +
       `Spec: ${specPath}\n` +
       `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"`,
+      'SPEC_NOT_FOUND',
     );
-    process.exit(1);
   }
 
   // Parse configuration flags
@@ -173,6 +188,7 @@ export function executeActiveMdToFigmaPreparation(
   // Resolve CLI node ID and validate traceability
   const resolvedComponentSetId = resolveComponentSetId(
     args,
+    specPath,
     specNodeId,
     specStatus,
     force,
@@ -229,12 +245,12 @@ function parseSpecAndResolveNodeId(specPath: string): { specStatus: string; spec
       const normalizedSpecNodeId = normalizeNodeId(specNodeIdRaw);
       if (!isValidNodeId(normalizedSpecNodeId)) {
         if (specStatus === 'ready') {
-          logger.error(
+          throw new PreparationError(
             'Invalid figma.component_set_node_id in ready spec.\n' +
             `Spec: ${specPath}\n` +
             'Expected format: 123:456',
+            'INVALID_READY_SPEC_NODE_ID',
           );
-          process.exit(1);
         }
         logger.warn(
           `Warning: ignoring invalid figma.component_set_node_id in spec (${specNodeIdRaw}).`,
@@ -244,8 +260,13 @@ function parseSpecAndResolveNodeId(specPath: string): { specStatus: string; spec
       }
     }
   } catch (error) {
-    logger.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
+    if (error instanceof PreparationError) {
+      throw error;
+    }
+    throw new PreparationError(
+      error instanceof Error ? error.message : String(error),
+      'SPEC_PARSE_FAILED',
+    );
   }
 
   return { specStatus, specNodeId };
@@ -255,7 +276,8 @@ function parseSpecAndResolveNodeId(specPath: string): { specStatus: string; spec
  * Resolve component set ID from CLI and spec.
  */
 function resolveComponentSetId(
-  args: ActiveMdToFigmaPreflightArgs,
+  args: ActiveMdToFigmaPreparationArgs,
+  specPath: string,
   specNodeId: string,
   specStatus: string,
   force: boolean,
@@ -264,34 +286,34 @@ function resolveComponentSetId(
   const cliNodeId = cliNodeIdRaw ? normalizeNodeId(cliNodeIdRaw) : '';
 
   if (cliNodeId && !isValidNodeId(cliNodeId)) {
-    logger.error(
+    throw new PreparationError(
       'Invalid --component-set-id format.\n' +
       `Provided: ${cliNodeIdRaw}\n` +
       'Expected format: 123:456',
+      'INVALID_COMPONENT_SET_ID',
     );
-    process.exit(1);
   }
 
   if (cliNodeId && specNodeId && cliNodeId !== specNodeId && !force) {
-    logger.error(
+    throw new PreparationError(
       'Traceability mismatch between CLI and spec.\n' +
       `CLI --component-set-id: ${cliNodeId}\n` +
       `Spec figma.component_set_node_id: ${specNodeId}\n` +
       'Use --force true only if you intentionally want to override the spec.',
+      'TRACEABILITY_MISMATCH',
     );
-    process.exit(1);
   }
 
   const resolvedComponentSetId = cliNodeId || specNodeId || '';
 
   if (!resolvedComponentSetId) {
     if (specStatus === 'ready') {
-      logger.error(
+      throw new PreparationError(
         'Missing figma.component_set_node_id for ready spec.\n' +
         `Spec: ${specPath}\n` +
         'Add figma.component_set_node_id to the spec to keep Figma placement deterministic.',
+        'MISSING_READY_SPEC_NODE_ID',
       );
-      process.exit(1);
     }
     logger.warn(
       'Warning: component_set_node_id not available. Falling back to name-based lookup (non-deterministic).',
@@ -321,8 +343,13 @@ function validateSpecAndMarkdown(
     });
     ensureValidationResults(validationResult, specPath);
   } catch (error) {
-    logger.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
+    if (error instanceof PreparationError) {
+      throw error;
+    }
+    throw new PreparationError(
+      error instanceof Error ? error.message : String(error),
+      'PREVALIDATION_FAILED',
+    );
   }
 }
 
@@ -342,15 +369,15 @@ function checkMarkdownStaleness(
       syncStatePath,
     });
     if (staleness.stale) {
-      logger.error(
+      throw new PreparationError(
         'Markdown is stale relative to its source spec. Rendering to Figma was blocked.\n' +
         `Reason: ${staleness.reason}\n` +
         `Spec: ${specPath}\n` +
         `Markdown: ${markdownPath}\n` +
         `Run: npm run ds:component-doc -- --spec-file "${specPath}" --output "${markdownPath}"\n` +
         'Use --force true only if you intentionally want to render without regenerating markdown.',
+        'MARKDOWN_STALE',
       );
-      process.exit(1);
     }
   }
 }
