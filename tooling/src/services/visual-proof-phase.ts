@@ -12,8 +12,8 @@ export interface VisualProofCaptureOptions {
   specPath: string;
   componentSetId: string;
   agent: 'codex' | 'claude' | 'gemini' | 'auto';
-  system?: string | null;
-  figmaUrl?: string | null;
+  system?: string;
+  figmaUrl?: string;
   captureProofStrict: boolean;
 }
 
@@ -122,8 +122,8 @@ export function executeVisualProofPhase(options: VisualProofCaptureOptions): Vis
     specPath,
     componentSetId,
     agent,
-    system,
-    figmaUrl,
+    system: system || undefined,
+    figmaUrl: figmaUrl || undefined,
   });
 
   // Execute capture
