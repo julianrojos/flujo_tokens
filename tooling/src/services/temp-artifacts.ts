@@ -1,6 +1,6 @@
 /**
  * Temp Artifact Manager
- * 
+ *
  * Manages temporary artifacts with automatic cleanup on process exit.
  * Tracks created files and removes them when no longer needed.
  */
@@ -13,6 +13,40 @@ import type {
   PurgeResult,
   TempArtifactManagerOptions,
 } from "../types/temp-artifacts.js";
+
+/**
+ * Module-level state for process hooks.
+ * Ensures hooks are attached only once across all instances.
+ */
+let processHooksAttached = false;
+const allTrackedFiles = new Set<string>();
+
+/**
+ * Cleanup function for process exit.
+ */
+function cleanupOnExit(): void {
+  for (const filePath of allTrackedFiles) {
+    if (!fs.existsSync(filePath)) continue;
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) continue;
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+  allTrackedFiles.clear();
+}
+
+/**
+ * Attach process hooks for automatic cleanup on exit.
+ * Idempotent: only attaches once per process.
+ */
+function attachProcessHooks(): void {
+  if (processHooksAttached) return;
+  processHooksAttached = true;
+  process.once("exit", cleanupOnExit);
+}
 
 /**
  * Resolve file path to absolute path.
@@ -28,24 +62,19 @@ function resolveFilePath(filePath: string): string {
  */
 export class TempArtifactManager {
   private keep: boolean;
-  private trackedFiles: Set<string>;
-  private _hooksAttached: boolean;
+  private instanceFiles: Set<string>;
 
   constructor(options: TempArtifactManagerOptions = {}) {
     this.keep = Boolean(options.keep);
-    this.trackedFiles = new Set<string>();
-    this._hooksAttached = false;
+    this.instanceFiles = new Set<string>();
   }
 
   /**
    * Attach process hooks for automatic cleanup on exit.
+   * Idempotent: hooks are attached only once per process.
    */
   attachProcessHooks(): void {
-    if (this._hooksAttached) return;
-    this._hooksAttached = true;
-    process.once("exit", () => {
-      this.cleanup();
-    });
+    attachProcessHooks();
   }
 
   /**
@@ -55,7 +84,8 @@ export class TempArtifactManager {
   track(filePath: string): string {
     const resolved = resolveFilePath(filePath);
     if (!resolved) return "";
-    this.trackedFiles.add(resolved);
+    this.instanceFiles.add(resolved);
+    allTrackedFiles.add(resolved);
     return resolved;
   }
 
@@ -68,13 +98,14 @@ export class TempArtifactManager {
     if (!resolved) {
       throw new Error("Cannot write tracked temp artifact: missing file path.");
     }
-    
+
     // Create directories and write file BEFORE tracking
     fs.mkdirSync(path.dirname(resolved), { recursive: true });
     fs.writeFileSync(resolved, String(content || ""), encoding);
-    
+
     // Track only after successful write
-    this.trackedFiles.add(resolved);
+    this.instanceFiles.add(resolved);
+    allTrackedFiles.add(resolved);
     return resolved;
   }
 
@@ -89,7 +120,8 @@ export class TempArtifactManager {
     const stats = fs.statSync(resolved);
     if (!stats.isFile()) return false;
     fs.unlinkSync(resolved);
-    this.trackedFiles.delete(resolved);
+    this.instanceFiles.delete(resolved);
+    allTrackedFiles.delete(resolved);
     return true;
   }
 
@@ -111,7 +143,8 @@ export class TempArtifactManager {
       const absolutePath = path.join(resolvedDir, entry.name);
       if (!matcher(entry.name, absolutePath)) continue;
       fs.unlinkSync(absolutePath);
-      this.trackedFiles.delete(absolutePath);
+      this.instanceFiles.delete(absolutePath);
+      allTrackedFiles.delete(absolutePath);
       removed.push(absolutePath);
     }
 
@@ -123,11 +156,11 @@ export class TempArtifactManager {
    */
   cleanup(): CleanupResult {
     if (this.keep) {
-      return { removed: [], kept: Array.from(this.trackedFiles) };
+      return { removed: [], kept: Array.from(this.instanceFiles) };
     }
 
     const removed: string[] = [];
-    for (const filePath of this.trackedFiles) {
+    for (const filePath of this.instanceFiles) {
       if (!fs.existsSync(filePath)) continue;
       const stats = fs.statSync(filePath);
       if (!stats.isFile()) continue;
@@ -135,7 +168,16 @@ export class TempArtifactManager {
       removed.push(filePath);
     }
 
-    this.trackedFiles.clear();
+    this.instanceFiles.clear();
     return { removed, kept: [] };
   }
+}
+
+/**
+ * Reset module state for testing.
+ * Only use in test teardown.
+ */
+export function __resetProcessHooksForTest(): void {
+  processHooksAttached = false;
+  allTrackedFiles.clear();
 }

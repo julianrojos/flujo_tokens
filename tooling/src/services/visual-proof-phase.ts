@@ -6,14 +6,11 @@
  */
 
 import { runOrThrow } from '../utils/exec.js';
+import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
+import type { RenderPipelineState, VisualProofPhaseOutput } from './render-pipeline-state.js';
+import type { PhaseResult, SkipBehavior } from './render-phase.js';
 
 export interface VisualProofCaptureOptions {
-  markdownPath: string;
-  specPath: string;
-  componentSetId: string;
-  agent: 'codex' | 'claude' | 'gemini' | 'auto';
-  system?: string;
-  figmaUrl?: string;
   captureProofStrict: boolean;
 }
 
@@ -25,42 +22,72 @@ export interface VisualProofCaptureResult {
 }
 
 /**
+ * Execute visual proof capture phase.
+ *
+ * Uses runtime context to build capture command and execute.
+ */
+export function executeVisualProofPhase(
+  context: ActiveMdToFigmaRuntimeContext,
+  options: VisualProofCaptureOptions,
+): VisualProofCaptureResult {
+  const { captureProofStrict } = options;
+
+  // Check if component set ID is available
+  if (!context.resolvedComponentSetId) {
+    const message = 'Visual proof capture skipped: no deterministic component_set_node_id available.';
+    if (captureProofStrict) {
+      throw new Error(message);
+    }
+    return {
+      ok: true,
+      skipped: true,
+      skipReason: message,
+    };
+  }
+
+  // Build proof arguments
+  const proofArgs = buildProofArgs(context);
+
+  // Execute capture
+  try {
+    executeProofCapture(proofArgs);
+    return {
+      ok: true,
+    };
+  } catch (error) {
+    const errorMessage = handleProofCaptureError(error, captureProofStrict);
+    return {
+      ok: false,
+      error: errorMessage,
+    };
+  }
+}
+
+// ============================================================================
+// Private Helpers
+// ============================================================================
+
+/**
  * Build visual proof capture command arguments.
  */
-function buildProofArgs(options: {
-  markdownPath: string;
-  specPath: string;
-  componentSetId: string;
-  agent: string;
-  system?: string;
-  figmaUrl?: string;
-}): string[] {
-  const {
-    markdownPath,
-    specPath,
-    componentSetId,
-    agent,
-    system,
-    figmaUrl,
-  } = options;
-
+function buildProofArgs(context: ActiveMdToFigmaRuntimeContext): string[] {
   const args: string[] = [
     'tooling/scripts/ds-capture-visual-proof.mjs',
     '--markdown',
-    markdownPath,
+    context.markdownPath,
     '--spec-file',
-    specPath,
+    context.specPath,
     '--component-set-id',
-    componentSetId,
+    context.resolvedComponentSetId,
     '--agent',
-    agent,
+    'auto', // Default agent for visual proof
   ];
 
-  if (system) {
-    args.push('--system', system);
+  if (context.system) {
+    args.push('--system', context.system);
   }
-  if (figmaUrl) {
-    args.push('--url', figmaUrl);
+  if (context.figmaUrl) {
+    args.push('--url', context.figmaUrl);
   }
 
   return args;
@@ -81,62 +108,58 @@ function handleProofCaptureError(
   captureProofStrict: boolean
 ): string {
   const message = `Visual proof capture failed: ${error instanceof Error ? error.message : String(error)}`;
-  
+
   if (captureProofStrict) {
     throw new Error(message);
   }
-  
+
   return message;
 }
 
-/**
- * Execute visual proof capture phase.
- */
-export function executeVisualProofPhase(options: VisualProofCaptureOptions): VisualProofCaptureResult {
-  const {
-    markdownPath,
-    specPath,
-    componentSetId,
-    agent,
-    system,
-    figmaUrl,
-    captureProofStrict,
-  } = options;
+// ============================================================================
+// Phase Wrapper - For functional orchestrator
+// ============================================================================
 
-  // Check if component set ID is available
-  if (!componentSetId) {
-    const message = 'Visual proof capture skipped: no deterministic component_set_node_id available.';
-    if (captureProofStrict) {
-      throw new Error(message);
-    }
+/**
+ * Visual proof phase function.
+ *
+ * Executes visual proof capture.
+ * Skips with continue behavior if componentSetId is unavailable.
+ * Uses captureProofStrict from context (no external options needed).
+ */
+export async function visualProofPhase(
+  context: ActiveMdToFigmaRuntimeContext,
+  _state: RenderPipelineState,
+): Promise<PhaseResult<VisualProofPhaseOutput>> {
+  const result = executeVisualProofPhase(context, {
+    captureProofStrict: context.captureProofStrict,
+  });
+
+  // Handle skip - continue to next phase (sync, cache update)
+  if (result.skipped) {
     return {
       ok: true,
       skipped: true,
-      skipReason: message,
+      skipBehavior: 'continue' as SkipBehavior,
+      reason: result.skipReason,
+      output: {
+        visualProofResult: result,
+      },
     };
   }
 
-  // Build proof arguments
-  const proofArgs = buildProofArgs({
-    markdownPath,
-    specPath,
-    componentSetId,
-    agent,
-    system,
-    figmaUrl,
-  });
-
-  // Execute capture
-  try {
-    executeProofCapture(proofArgs);
-    return {
-      ok: true,
-    };
-  } catch (error) {
-    const errorMessage = handleProofCaptureError(error, captureProofStrict);
+  // Handle error
+  if (!result.ok) {
     return {
       ok: false,
-      error: errorMessage,
+      error: result.error,
     };
   }
+
+  return {
+    ok: true,
+    output: {
+      visualProofResult: result,
+    },
+  };
 }
