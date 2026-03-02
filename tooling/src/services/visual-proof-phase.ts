@@ -12,8 +12,8 @@ export interface VisualProofCaptureOptions {
   specPath: string;
   componentSetId: string;
   agent: 'codex' | 'claude' | 'gemini' | 'auto';
-  system?: string;
-  figmaUrl?: string;
+  system?: string | undefined;
+  figmaUrl?: string | undefined;
   captureProofStrict: boolean;
 }
 
