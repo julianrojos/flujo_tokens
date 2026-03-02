@@ -298,7 +298,7 @@ export async function runActiveMdToFigma(
     `${fileBase}.render-payload.json`,
   );
   const offsetX = args['offset-x'] || '200';
-  const figmaUrl = args.url || '';
+  const figmaUrl = args.url;
   const markdownToModelScriptPath = path.resolve(
     '.agents/skills/document-design-system/ds-markdown-to-figma-section/scripts/markdown_to_doc_model.mjs',
   );
