@@ -1,19 +1,19 @@
 /**
  * QA Audit Service
- * 
+ *
  * Performs comprehensive quality assurance audits on design system documentation.
  * Checks coverage, freshness, completeness, and integrity across the docs pipeline.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import yaml from 'js-yaml';
 import { logger } from '../utils/logger.js';
+import { parseMarkdownFrontmatter, parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
+import { buildFindings } from './qa-audit-findings.js';
 import type {
   QaAuditOptions,
   QaAuditResult,
-  AuditFinding,
   CoverageSpecVsMarkdown,
   CoverageMarkdownVsOverview,
   CoverageTokenPaths,
@@ -21,40 +21,6 @@ import type {
   CompletenessAudit,
   IntegrityAudit,
 } from '../types/qa-audit.js';
-
-/**
- * Extract frontmatter YAML from markdown content.
- */
-function extractFrontmatter(content: string): Record<string, unknown> | null {
-  const match = content.match(/^---\n([\s\S]*?)\n---/);
-  if (!match) return null;
-
-  const yamlContent = match[1];
-  try {
-    return yaml.load(yamlContent) as Record<string, unknown> || null;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(`extractFrontmatter: failed to parse frontmatter YAML: ${message}`);
-    return null;
-  }
-}
-
-/**
- * Load and parse a YAML file (simple parser for spec files).
- * Returns null if the YAML is not a plain object (arrays, primitives, invalid syntax).
- */
-export function loadYamlFile(filePath: string): Record<string, unknown> | null {
-  try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    const parsed = yaml.load(content) as unknown;
-    if (!isPlainObject(parsed)) return null;
-    return parsed as Record<string, unknown>;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(`loadYamlFile: failed to read ${filePath}: ${message}`);
-    return null;
-  }
-}
 
 /**
  * Load token registry and extract all token paths.
@@ -279,10 +245,16 @@ function auditFreshness(
     if (!file.endsWith('.yml')) continue;
 
     const filePath = path.join(specsDir, file);
-    const spec = loadYamlFile(filePath);
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const spec = parseYamlDocument<Record<string, unknown>>(content, filePath);
 
-    if (spec?.status === 'draft') {
-      draftSpecs.push(filePath);
+      if (spec?.status === 'draft') {
+        draftSpecs.push(filePath);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`auditFreshness: failed to parse ${filePath}: ${message}`);
     }
   }
 
@@ -292,7 +264,16 @@ function auditFreshness(
 
     const filePath = path.join(componentsDir, file);
     const content = fs.readFileSync(filePath, 'utf8');
-    const frontmatter = extractFrontmatter(content);
+
+    let frontmatter: Record<string, unknown> | null = null;
+    try {
+      const result = parseMarkdownFrontmatter<Record<string, unknown>>(content);
+      frontmatter = result.frontmatter;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`auditFreshness: failed to parse frontmatter in ${filePath}: ${message}`);
+      continue;
+    }
 
     if (!frontmatter) continue;
 
@@ -332,7 +313,16 @@ function auditCompleteness(specsDir: string, componentsDir: string): Completenes
     if (!file.endsWith('.yml')) continue;
 
     const filePath = path.join(specsDir, file);
-    const content = fs.readFileSync(filePath, 'utf8');
+
+    let content: string;
+    try {
+      content = fs.readFileSync(filePath, 'utf8');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`auditCompleteness: failed to read ${filePath}: ${message}`);
+      continue;
+    }
+
     const tbdFields: string[] = [];
 
     // Look for lines with TBD values
@@ -361,7 +351,15 @@ function auditCompleteness(specsDir: string, componentsDir: string): Completenes
     if (!file.endsWith('.md') || file === 'overview.md') continue;
 
     const filePath = path.join(componentsDir, file);
-    const content = fs.readFileSync(filePath, 'utf8');
+
+    let content: string;
+    try {
+      content = fs.readFileSync(filePath, 'utf8');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`auditCompleteness: failed to read ${filePath}: ${message}`);
+      continue;
+    }
 
     if (/^##\s+Gaps\s*\/\s*TBD\b/im.test(content)) {
       markdownsWithGaps.push(filePath);
@@ -379,7 +377,6 @@ function auditIntegrity(
   componentsDir: string,
   tokenRegistryPath: string,
 ): IntegrityAudit {
-  const validTokens = loadTokenPaths(tokenRegistryPath);
   const missingTokenRefs: Array<{ tokenPath: string; referencedIn: string }> = [];
   const overviewMismatches: Array<{ linkText: string; linkPath: string; issue: string }> = [];
 
@@ -410,156 +407,6 @@ function auditIntegrity(
   }
 
   return { missingTokenRefs, overviewMismatches };
-}
-
-/**
- * Build audit findings from audit results.
- */
-function buildFindings(
-  coverage: {
-    specVsMarkdown: CoverageSpecVsMarkdown;
-    markdownVsOverview: CoverageMarkdownVsOverview;
-    tokenPaths: CoverageTokenPaths;
-  },
-  freshness: FreshnessAudit,
-  completeness: CompletenessAudit,
-  integrity: IntegrityAudit,
-): AuditFinding[] {
-  const findings: AuditFinding[] = [];
-
-  // COV-01: Spec YAMLs vs. markdown files
-  for (const spec of coverage.specVsMarkdown.specsWithoutMarkdown) {
-    findings.push({
-      id: 'COV-01',
-      category: 'coverage',
-      severity: 'error',
-      title: 'Spec without markdown',
-      location: `docs/_spec/components/${spec}.yml`,
-      message: `Spec YAML exists but no corresponding markdown file`,
-      suggestion: `Run ds-spec-to-markdown to generate markdown from spec`,
-    });
-  }
-
-  for (const md of coverage.specVsMarkdown.markdownsWithoutSpec) {
-    findings.push({
-      id: 'COV-01',
-      category: 'coverage',
-      severity: 'warning',
-      title: 'Markdown without spec',
-      location: `docs/components/${md}.md`,
-      message: `Markdown file exists but no corresponding spec YAML`,
-      suggestion: `Create spec YAML or regenerate markdown from Figma`,
-    });
-  }
-
-  // COV-02: Markdown files vs. overview links
-  for (const link of coverage.markdownVsOverview.brokenLinks) {
-    findings.push({
-      id: 'COV-02',
-      category: 'coverage',
-      severity: 'error',
-      title: 'Broken overview link',
-      location: 'docs/components/overview.md',
-      message: `Overview links to non-existent file: ${link}`,
-      suggestion: `Remove broken link or restore the missing file`,
-    });
-  }
-
-  // COV-03: Token paths in docs vs. token registry
-  for (const { tokenPath, referencedIn } of coverage.tokenPaths.missingTokens) {
-    findings.push({
-      id: 'COV-03',
-      category: 'coverage',
-      severity: 'error',
-      title: 'Missing token reference',
-      location: referencedIn,
-      message: `Token path not found in registry: ${tokenPath}`,
-      suggestion: `Verify token path or run ds-tokens-sync to update registry`,
-    });
-  }
-
-  // FRE-01: Draft specs
-  for (const spec of freshness.draftSpecs) {
-    findings.push({
-      id: 'FRE-01',
-      category: 'freshness',
-      severity: 'info',
-      title: 'Draft spec',
-      location: spec,
-      message: 'Spec is still in draft status',
-      suggestion: 'Review and update spec status to ready when complete',
-    });
-  }
-
-  // FRE-02: Needs review
-  for (const md of freshness.needsReview) {
-    findings.push({
-      id: 'FRE-02',
-      category: 'freshness',
-      severity: 'warning',
-      title: 'Needs review',
-      location: md,
-      message: 'Markdown marked as needs-review',
-      suggestion: 'Review and update doc_status to ready',
-    });
-  }
-
-  // FRE-03: Stale files
-  for (const { path: filePath, lastVerified, daysOld } of freshness.staleFiles) {
-    findings.push({
-      id: 'FRE-03',
-      category: 'freshness',
-      severity: 'warning',
-      title: 'Stale documentation',
-      location: filePath,
-      message: `File not verified in ${daysOld} days (last: ${lastVerified})`,
-      suggestion: 'Verify documentation is still accurate and update last_verified',
-    });
-  }
-
-  // COM-01: Spec YAMLs with TBD values
-  for (const { path: filePath, tbdFields, tbdCount } of completeness.specsWithTbd) {
-    findings.push({
-      id: 'COM-01',
-      category: 'completeness',
-      severity: 'info',
-      title: 'Incomplete spec',
-      location: filePath,
-      message: `Spec has ${tbdCount} TBD field(s): ${tbdFields.join(', ')}`,
-      suggestion: 'Fill in TBD fields with actual values',
-    });
-  }
-
-  // COM-02: Markdowns with Gaps / TBD section
-  for (const md of completeness.markdownsWithGaps) {
-    findings.push({
-      id: 'COM-02',
-      category: 'completeness',
-      severity: 'info',
-      title: 'Documentation gaps',
-      location: md,
-      message: 'Markdown contains ## Gaps / TBD section',
-      suggestion: 'Address gaps and remove TBD section',
-    });
-  }
-
-  // INT-01: Missing token refs (duplicate of COV-03, keeping for integrity category)
-  // Already covered above
-
-  // INT-02: Overview mismatches
-  for (const { linkText, linkPath, issue } of integrity.overviewMismatches) {
-    findings.push({
-      id: 'INT-02',
-      category: 'integrity',
-      severity: 'error',
-      title: 'Overview link mismatch',
-      location: 'docs/components/overview.md',
-      message: `Overview link "${linkText}" -> ${linkPath}: ${issue}`,
-      suggestion: 'Fix or remove broken link',
-    });
-  }
-
-  return findings;
 }
 
 /**
@@ -624,79 +471,4 @@ export function runQaAudit(options: QaAuditOptions = {}): QaAuditResult {
   }
 
   return result;
-}
-
-/**
- * Format audit results for console output.
- */
-export function formatAuditReport(result: QaAuditResult): string {
-  const lines: string[] = [];
-
-  lines.push('');
-  lines.push('╔══════════════════════════════════════════════════════════╗');
-  lines.push('║           DESIGN SYSTEM QA AUDIT REPORT                 ║');
-  lines.push('╚══════════════════════════════════════════════════════════╝');
-  lines.push('');
-  lines.push(`Timestamp: ${result.timestamp}`);
-  lines.push('');
-  lines.push('┌──────────────────────────────────────────────────────────┐');
-  lines.push('│ SUMMARY                                                  │');
-  lines.push('└──────────────────────────────────────────────────────────┘');
-  lines.push(`  Total findings: ${result.summary.totalFindings}`);
-  lines.push(`  Errors:   ${result.summary.errors}`);
-  lines.push(`  Warnings: ${result.summary.warnings}`);
-  lines.push(`  Info:     ${result.summary.info}`);
-  lines.push('');
-
-  if (result.findings.length === 0) {
-    lines.push('✅ No issues found!');
-    return lines.join('\n');
-  }
-
-  // Group findings by category
-  const byCategory: Record<string, AuditFinding[]> = {};
-  for (const finding of result.findings) {
-    if (!byCategory[finding.category]) {
-      byCategory[finding.category] = [];
-    }
-    byCategory[finding.category].push(finding);
-  }
-
-  // Output by category
-  const categoryOrder = ['coverage', 'freshness', 'completeness', 'integrity'];
-  const categoryTitles: Record<string, string> = {
-    coverage: 'COVERAGE',
-    freshness: 'FRESHNESS',
-    completeness: 'COMPLETENESS',
-    integrity: 'INTEGRITY',
-  };
-
-  for (const category of categoryOrder) {
-    const categoryFindings = byCategory[category] || [];
-    if (categoryFindings.length === 0) continue;
-
-    lines.push(`┌──────────────────────────────────────────────────────────┐`);
-    lines.push(`│ ${categoryTitles[category]}`.padEnd(59) + '│');
-    lines.push(`└──────────────────────────────────────────────────────────┘`);
-
-    for (const finding of categoryFindings) {
-      const severityIcon = {
-        error: '❌',
-        warning: '⚠️',
-        info: 'ℹ️',
-      }[finding.severity];
-
-      lines.push('');
-      lines.push(`  ${severityIcon} [${finding.id}] ${finding.title}`);
-      lines.push(`     Location: ${finding.location}`);
-      lines.push(`     ${finding.message}`);
-      if (finding.suggestion) {
-        lines.push(`     → ${finding.suggestion}`);
-      }
-    }
-
-    lines.push('');
-  }
-
-  return lines.join('\n');
 }

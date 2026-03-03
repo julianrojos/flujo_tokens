@@ -7,13 +7,31 @@ import assert from 'node:assert';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import yaml from 'js-yaml';
 
 // Import functions to test
-import { extractTokenPathsFromText, loadYamlFile } from './qa-audit.js';
+import { extractTokenPathsFromText } from './qa-audit.js';
+import { isPlainObject } from '../utils/is-plain-object.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const TEST_FIXTURES_DIR = path.join(__dirname, '__fixtures__');
+
+/**
+ * Load and parse a YAML file (simple parser for spec files).
+ * Returns null if the YAML is not a plain object (arrays, primitives, invalid syntax).
+ * Local helper for tests - mirrors the old loadYamlFile behavior.
+ */
+function loadYamlFile(filePath: string): Record<string, unknown> | null {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const parsed = yaml.load(content) as unknown;
+    if (!isPlainObject(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    return null;
+  }
+}
 
 // Setup and cleanup fixtures directory
 beforeEach(() => {
@@ -240,7 +258,8 @@ describe('qa-audit', () => {
 
       assert.ok(result !== null);
       assert.ok(typeof result.figma === 'object');
-      assert.strictEqual(result.figma?.file, 'abc123');
+      const figma = result.figma as Record<string, unknown>;
+      assert.strictEqual(figma.file, 'abc123');
     });
   });
 });

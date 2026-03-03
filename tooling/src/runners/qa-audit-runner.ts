@@ -14,7 +14,8 @@ const __dirname = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../../..');
 
 import { logger } from '../utils/logger.js';
-import { runQaAudit, formatAuditReport } from '../services/qa-audit.js';
+import { runQaAudit } from '../services/qa-audit.js';
+import { formatAuditReport } from '../services/qa-audit-formatter.js';
 import type { QaAuditOptions } from '../types/qa-audit.js';
 
 /**
