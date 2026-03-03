@@ -6,7 +6,6 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as crypto from 'node:crypto';
 
 import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
@@ -15,7 +14,11 @@ import { isTbdMarker } from '../utils/tbd.js';
 import { extractSectionBody } from './markdown-sections.js';
 import { TRACEABILITY_CONTRACT_VERSION } from './docs-config.js';
 import { deriveFigmaFrontmatterTraceability } from './figma-traceability.js';
+import { sha256FileCached } from '../utils/file-hash.js';
+import { escapeRegex, getH2SectionRange, findDiscrepancyStatuses, extractVisualProof } from './markdown-doc-parser.js';
+import { toCliPath, buildTraceabilityRegenerationCommand } from './traceability-command.js';
 import type { FigmaNode } from '../types/figma.js';
+import { readComponentSpecByDocPath, type ComponentSpec, type SpecResolution } from './spec-loader.js';
 import {
   extractGapsFromSpec,
   buildGapsChecklistLines,
@@ -30,247 +33,14 @@ import {
 import type { DocsValidationReport } from './docs-validator-types.js';
 
 // ============================================================================
-// Type Definitions
+// Type Definitions (Local)
 // ============================================================================
-
-interface VisualProofSection {
-  hasOverview: boolean;
-  hasSection: boolean;
-  headingOffset: number;
-  body: string;
-}
-
-interface ComponentSpec {
-  specPath: string;
-  exists: boolean;
-  status: string;
-  componentSetNodeIdRaw: string;
-  componentSetNodeId: string;
-  parsed: Record<string, unknown> | null;
-  parseError: string | null;
-}
-
-interface SpecResolution {
-  specFilePath?: string;
-}
 
 // ============================================================================
 // Constants
 // ============================================================================
 
 const HASH_RE = /^[a-f0-9]{64}$/i;
-const FILE_HASH_CACHE = new Map<string, { digest: string; size: number; mtimeMs: number }>();
-const FILE_HASH_CACHE_MAX_ENTRIES = 1_000;
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Convert file path to CLI-friendly relative path.
- */
-function toCliPath(filePath: string): string {
-  const resolved = path.resolve(String(filePath || ''));
-  const relative = path.relative(process.cwd(), resolved);
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    return resolved;
-  }
-  return relative;
-}
-
-/**
- * Build regeneration command for traceability issues.
- */
-function buildTraceabilityRegenerationCommand(paths: {
-  markdownPath: string;
-  specPath: string;
-  registryPath: string;
-}): string {
-  const specArg = JSON.stringify(toCliPath(paths.specPath));
-  const outputArg = JSON.stringify(toCliPath(paths.markdownPath));
-  const registryArg = JSON.stringify(toCliPath(paths.registryPath));
-  return `npm run ds:component-doc -- --spec-file ${specArg} --output ${outputArg} --registry ${registryArg} --force true`;
-}
-
-/**
- * SHA256 hash of file with caching.
- */
-function sha256FileCached(filePath: string): string {
-  const resolved = path.resolve(filePath);
-  const stat = fs.statSync(resolved);
-  const size = Number(stat.size || 0);
-  const mtimeMs = Number(stat.mtimeMs || 0);
-
-  const cached = FILE_HASH_CACHE.get(resolved);
-  if (
-    cached &&
-    cached.size === size &&
-    cached.mtimeMs === mtimeMs &&
-    typeof cached.digest === 'string'
-  ) {
-    return cached.digest;
-  }
-
-  if (
-    !FILE_HASH_CACHE.has(resolved) &&
-    FILE_HASH_CACHE.size >= FILE_HASH_CACHE_MAX_ENTRIES
-  ) {
-    const firstKey = FILE_HASH_CACHE.keys().next().value;
-    if (typeof firstKey === 'string') FILE_HASH_CACHE.delete(firstKey);
-  }
-
-  const hash = crypto.createHash('sha256');
-  hash.update(fs.readFileSync(resolved));
-  const digest = hash.digest('hex');
-  FILE_HASH_CACHE.set(resolved, { digest, size, mtimeMs });
-  return digest;
-}
-
-/**
- * Escape special regex characters in string.
- */
-function escapeRegex(value: string): string {
-  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Extract H2 section range from markdown.
- */
-function getH2SectionRange(
-  rawMarkdown: string,
-  headingTitle: string
-): { headingOffset: number; bodyStart: number; end: number; body: string } | null {
-  const raw = String(rawMarkdown || '');
-  const headingRegex = new RegExp(`^##\\s+${escapeRegex(headingTitle)}\\s*$`, 'm');
-  const headingMatch = headingRegex.exec(raw);
-  if (!headingMatch) return null;
-
-  const headingLineEnd = raw.indexOf('\n', headingMatch.index);
-  const bodyStart = headingLineEnd === -1 ? raw.length : headingLineEnd + 1;
-  const rest = raw.slice(bodyStart);
-  const nextHeadingMatch = /^##\s+/m.exec(rest);
-  const end = nextHeadingMatch ? bodyStart + nextHeadingMatch.index : raw.length;
-
-  return {
-    headingOffset: headingMatch.index,
-    bodyStart,
-    end,
-    body: raw.slice(bodyStart, end),
-  };
-}
-
-/**
- * Find discrepancy statuses in Design-Token Discrepancies section.
- */
-function findDiscrepancyStatuses(rawMarkdown: string): string[] {
-  const body = extractSectionBody(rawMarkdown, 'Design–Token Discrepancies');
-  if (!body) return [];
-  const matches: string[] = [];
-  const statusCellRegex = /\|\s*`?(open|accepted|resolved)`?\s*\|/gi;
-  let match: RegExpExecArray | null;
-  while ((match = statusCellRegex.exec(body)) !== null) {
-    matches.push(String(match[1] || '').toLowerCase());
-  }
-  return matches;
-}
-
-/**
- * Extract Visual Proof section from markdown.
- */
-function extractVisualProof(rawMarkdown: string): VisualProofSection {
-  const overview = getH2SectionRange(rawMarkdown, 'Overview');
-  if (!overview) {
-    return {
-      hasOverview: false,
-      hasSection: false,
-      headingOffset: -1,
-      body: '',
-    };
-  }
-
-  const visualHeadingRegex = /^###\s+Visual Proof\s*$/m;
-  const headingMatch = visualHeadingRegex.exec(overview.body);
-  if (!headingMatch) {
-    return {
-      hasOverview: true,
-      hasSection: false,
-      headingOffset: overview.headingOffset,
-      body: '',
-    };
-  }
-
-  const absoluteHeadingOffset = overview.bodyStart + headingMatch.index;
-  const afterHeadingRaw = overview.body.slice(headingMatch.index + headingMatch[0].length);
-  const afterHeading = afterHeadingRaw.replace(/^\n+/, '');
-  const nextH3Match = /^###\s+/m.exec(afterHeading);
-  const body = (nextH3Match
-    ? afterHeading.slice(0, nextH3Match.index)
-    : afterHeading
-  ).trim();
-
-  return {
-    hasOverview: true,
-    hasSection: true,
-    headingOffset: absoluteHeadingOffset,
-    body,
-  };
-}
-
-/**
- * Read component spec by doc path.
- */
-function readComponentSpecByDocPath(
-  componentDocPath: string,
-  specRoot: string,
-  options: SpecResolution = {}
-): ComponentSpec {
-  const explicitSpecFilePath = options.specFilePath
-    ? path.resolve(String(options.specFilePath))
-    : '';
-  const fileBase = path.basename(componentDocPath, path.extname(componentDocPath));
-  const specPath = explicitSpecFilePath || path.join(specRoot, `${fileBase}.yml`);
-
-  if (!fs.existsSync(specPath)) {
-    return {
-      specPath,
-      exists: false,
-      status: '',
-      componentSetNodeIdRaw: '',
-      componentSetNodeId: '',
-      parsed: null,
-      parseError: null,
-    };
-  }
-
-  try {
-    const parsed = parseYamlDocument<Record<string, unknown>>(
-      fs.readFileSync(specPath, 'utf8'),
-      `spec YAML (${path.basename(specPath)})`
-    );
-    const status = String(parsed.status || '').trim().toLowerCase();
-    const figma = isPlainObject(parsed.figma) ? (parsed.figma as Record<string, unknown>) : {};
-    const componentSetNodeIdRaw = String(figma.component_set_node_id || '').trim();
-    return {
-      specPath,
-      exists: true,
-      status,
-      componentSetNodeIdRaw,
-      componentSetNodeId: normalizeNodeId(componentSetNodeIdRaw),
-      parsed,
-      parseError: null,
-    };
-  } catch (error) {
-    return {
-      specPath,
-      exists: true,
-      status: '',
-      componentSetNodeIdRaw: '',
-      componentSetNodeId: '',
-      parsed: null,
-      parseError: error instanceof Error ? error.message : String(error),
-    };
-  }
-}
 
 // ============================================================================
 // Public API - Figma Traceability Validators
