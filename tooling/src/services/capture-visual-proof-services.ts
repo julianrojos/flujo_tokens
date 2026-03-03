@@ -14,7 +14,14 @@ import type {
   ImageDimensions,
   SplitFrontmatterResult,
   VariantNode,
+  VisualProofVariant,
+  VisualProofPayload,
 } from '../types/capture-visual-proof.js';
+import { CaptureError } from './capture-visual-proof-error.js';
+import { runAgentPrompt } from './agent-runner.js';
+import { isPlainObject } from '../utils/is-plain-object.js';
+import { normalizeNodeId } from '../utils/figma-node-id.js';
+import { fetchFigmaImages, fetchFigmaNodes } from '../utils/figma-api.js';
 
 /**
  * Write buffer to file atomically using temp file + rename.
@@ -601,4 +608,362 @@ export function normalizeVariantSlug(rawValue: string): string {
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 64);
+}
+
+/**
+ * Context for main image capture.
+ */
+export interface MainCaptureContext {
+  figmaUrl: string;
+  nodeId: string;
+  format: string;
+  scale: number;
+  figmaToken: string;
+  figmaFileKey: string;
+  agent: string;
+  componentSlug: string;
+  mainCaptureMode: 'auto' | 'agent' | 'rest';
+  downloadTimeoutMs: number;
+}
+
+/**
+ * Result of main image capture.
+ */
+export interface MainCaptureResult {
+  imageUrlRaw: string;
+  normalizedNodeId: string;
+  captureSource: 'REST' | 'Agent';
+}
+
+/**
+ * Capture main image via REST API or Agent.
+ */
+export async function captureMainImage(ctx: MainCaptureContext): Promise<MainCaptureResult> {
+  const canUseRest = Boolean(ctx.figmaToken && ctx.figmaFileKey);
+  const useRestForMainCapture =
+    ctx.mainCaptureMode === 'rest' || (ctx.mainCaptureMode === 'auto' && canUseRest);
+
+  let imageUrlRaw = '';
+  let normalizedNodeId = ctx.nodeId;
+
+  if (useRestForMainCapture) {
+    if (!ctx.figmaToken || !ctx.figmaFileKey) {
+      throw new CaptureError(
+        'Main capture mode `rest` requires --figma-token (or FIGMA_TOKEN) and a resolvable Figma file key.',
+        'REST_CAPTURE_MISSING_CREDENTIALS',
+      );
+    }
+    try {
+      const imagePayload = await fetchFigmaImages({
+        fileKey: ctx.figmaFileKey,
+        nodeIds: [ctx.nodeId],
+        token: ctx.figmaToken,
+        format: ctx.format as 'png' | 'jpg' | 'svg' | 'pdf',
+        scale: ctx.scale,
+        timeoutMs: ctx.downloadTimeoutMs,
+      }) as { images: Record<string, string> | null };
+      const imageMap =
+        imagePayload?.images ? (imagePayload.images as Record<string, string>) : {};
+      imageUrlRaw = String(imageMap[ctx.nodeId] || '').trim();
+      normalizedNodeId = ctx.nodeId;
+    } catch (error) {
+      throw new CaptureError(
+        `Main screenshot capture via REST failed: ${error instanceof Error ? error.message : String(error)}`,
+        'REST_CAPTURE_FAILED',
+      );
+    }
+  } else {
+    const prompt = buildCapturePrompt({ figmaUrl: ctx.figmaUrl, nodeId: ctx.nodeId, format: ctx.format, scale: ctx.scale });
+    let response;
+    try {
+      response = runAgentPrompt({
+        prompt,
+        agent: ctx.agent as 'codex' | 'claude' | 'gemini' | 'auto',
+        label: `capture-visual-proof-${ctx.componentSlug || 'component'}`,
+        passthrough: false,
+      });
+    } catch (error) {
+      throw new CaptureError(
+        error instanceof Error ? error.message : String(error),
+        'AGENT_CAPTURE_FAILED',
+      );
+    }
+
+    const payload = extractFirstJsonObject(response.stdout || '');
+    if (!isPlainObject(payload)) {
+      throw new CaptureError(
+        'Unable to parse JSON screenshot payload from agent output. ' +
+        'Run again with --agent codex and verify MCP connectivity.',
+        'AGENT_OUTPUT_PARSE_FAILED',
+      );
+    }
+
+    imageUrlRaw = String(
+      (payload as Record<string, unknown>).image_url || (payload as Record<string, unknown>).url || (payload as Record<string, unknown>).imageUrl || '',
+    ).trim();
+    const nodeIdRaw = String((payload as Record<string, unknown>).node_id || (payload as Record<string, unknown>).nodeId || ctx.nodeId).trim();
+    normalizedNodeId = normalizeNodeId(nodeIdRaw) || ctx.nodeId;
+  }
+
+  const captureSource = useRestForMainCapture ? 'REST' : 'Agent';
+
+  if (!/^https?:\/\/\S+$/i.test(imageUrlRaw)) {
+    throw new CaptureError(
+      `${captureSource} output did not include a valid image URL. Received: ${imageUrlRaw || '<empty>'}`,
+      'INVALID_IMAGE_URL',
+    );
+  }
+  if (!normalizedNodeId || !/^\d+:\d+$/.test(normalizedNodeId)) {
+    throw new CaptureError(
+      `${captureSource} output did not include a valid node id. Received: <invalid-node-id>`,
+      'INVALID_NODE_ID',
+    );
+  }
+
+  return {
+    imageUrlRaw,
+    normalizedNodeId,
+    captureSource,
+  };
+}
+
+/**
+ * Context for variant capture.
+ */
+export interface VariantCaptureContext {
+  figmaToken: string;
+  figmaFileKey: string;
+  normalizedNodeId: string;
+  format: string;
+  scale: number;
+  downloadTimeoutMs: number;
+  variantLimit: number;
+  componentSlug: string;
+  proofImageDir: string;
+  docsRootDir: string;
+  storeLocalImage: boolean;
+  requireLocalImage: boolean;
+  dryRun: boolean;
+}
+
+/**
+ * Capture variant images.
+ */
+export async function captureVariantImages(
+  ctx: VariantCaptureContext,
+  capturedAt: string,
+): Promise<VisualProofVariant[]> {
+  if (!ctx.figmaToken || !ctx.figmaFileKey) {
+    return [];
+  }
+
+  const variantTree = await fetchFigmaNodes({
+    fileKey: ctx.figmaFileKey,
+    nodeIds: [ctx.normalizedNodeId],
+    token: ctx.figmaToken,
+    depth: 2,
+    timeoutMs: ctx.downloadTimeoutMs,
+  });
+
+  if (!isPlainObject(variantTree)) {
+    throw new CaptureError('Figma API response for variants is malformed.', 'VARIANT_API_MALFORMED');
+  }
+
+  const variantNodes = extractVariantNodes(
+    variantTree as Record<string, unknown>,
+    ctx.normalizedNodeId,
+    normalizeNodeId,
+    (nodeId: string) => /^\d+:\d+$/.test(nodeId),
+  ).slice(0, ctx.variantLimit);
+
+  if (variantNodes.length === 0) {
+    return [];
+  }
+
+  const imagePayload = await fetchFigmaImages({
+    fileKey: ctx.figmaFileKey,
+    nodeIds: variantNodes.map((variant) => variant.nodeId),
+    token: ctx.figmaToken,
+    format: ctx.format as 'png' | 'jpg' | 'svg' | 'pdf',
+    scale: ctx.scale,
+    timeoutMs: ctx.downloadTimeoutMs,
+  }) as { images: Record<string, string> | null };
+
+  const imageMap =
+    imagePayload?.images ? (imagePayload.images as Record<string, string>) : {};
+
+  const variantProofs: VisualProofVariant[] = [];
+
+  for (let index = 0; index < variantNodes.length; index += 1) {
+    const variant = variantNodes[index];
+    const screenshotUrl = String(imageMap[variant.nodeId] || '').trim();
+    if (!/^https?:\/\/\S+$/i.test(screenshotUrl)) continue;
+
+    const variantInfo: VisualProofVariant = {
+      name: variant.name,
+      node_id: variant.nodeId,
+      screenshot_url: screenshotUrl,
+      image_path: null,
+      image_sha256: null,
+      image_bytes: null,
+      image_content_type: null,
+      image_width: null,
+      image_height: null,
+      captured_at: capturedAt,
+    };
+
+    if (ctx.storeLocalImage) {
+      try {
+        const downloaded = await downloadBinary(
+          screenshotUrl,
+          ctx.downloadTimeoutMs,
+        );
+        const extension = normalizeImageExtension(
+          ctx.format,
+          downloaded.contentType,
+          screenshotUrl,
+        );
+        const variantSlug = normalizeVariantSlug(variant.name) || `variant_${index + 1}`;
+        const localVariantPath = path.join(
+          ctx.proofImageDir,
+          'variants',
+          `${ctx.componentSlug || 'component'}__${String(index + 1).padStart(2, '0')}__${variantSlug}.${extension}`,
+        );
+        const dimensions = extractImageDimensions(
+          downloaded.buffer,
+          extension,
+        );
+        if (!ctx.dryRun) {
+          writeBufferAtomic(localVariantPath, downloaded.buffer);
+        }
+        variantInfo.image_path = path
+          .relative(ctx.docsRootDir, localVariantPath)
+          .split(path.sep)
+          .join('/');
+        variantInfo.image_sha256 = sha256Hex(downloaded.buffer);
+        variantInfo.image_bytes = downloaded.buffer.byteLength;
+        variantInfo.image_content_type =
+          downloaded.contentType || `image/${extension}`;
+        variantInfo.image_width = dimensions.width;
+        variantInfo.image_height = dimensions.height;
+      } catch (error) {
+        const reason =
+          error instanceof Error ? error.message : String(error);
+        if (ctx.requireLocalImage) {
+          throw new CaptureError(
+            `Unable to persist local image for variant '${variant.name}': ${reason}`,
+            'VARIANT_IMAGE_PERSIST_FAILED',
+          );
+        }
+      }
+    }
+
+    variantProofs.push(variantInfo);
+  }
+
+  return variantProofs;
+}
+
+/**
+ * Build visual proof payload.
+ */
+export function buildProofPayload({
+  componentSlug,
+  markdownPath,
+  specPath,
+  figmaUrl,
+  mainResult,
+  localImageInfo,
+  variantProofs,
+  capturedAt,
+  format,
+  scale,
+  docsRootDir,
+}: {
+  componentSlug: string;
+  markdownPath: string;
+  specPath: string;
+  figmaUrl: string;
+  mainResult: MainCaptureResult;
+  localImageInfo: LocalImageInfo;
+  variantProofs: VisualProofVariant[];
+  capturedAt: string;
+  format: string;
+  scale: number;
+  docsRootDir: string;
+}): VisualProofPayload {
+  const localImagePathForJson = localImageInfo.path
+    ? path.relative(docsRootDir, localImageInfo.path).split(path.sep).join('/')
+    : null;
+
+  return {
+    component: componentSlug || path.basename(markdownPath, path.extname(markdownPath)),
+    markdown_path: markdownPath,
+    spec_path: specPath,
+    source_url: figmaUrl || undefined,
+    node_id: mainResult.normalizedNodeId,
+    format,
+    scale,
+    screenshot_url: mainResult.imageUrlRaw,
+    image_url: mainResult.imageUrlRaw,
+    image_path: localImagePathForJson,
+    image_sha256: localImageInfo.sha256,
+    image_bytes: localImageInfo.bytes,
+    image_content_type: localImageInfo.contentType,
+    image_width: localImageInfo.width,
+    image_height: localImageInfo.height,
+    captured_at: capturedAt,
+    captured_with: 'figma_take_screenshot',
+    image: {
+      path: localImagePathForJson,
+      sha256: localImageInfo.sha256,
+      bytes: localImageInfo.bytes,
+      content_type: localImageInfo.contentType,
+      width: localImageInfo.width,
+      height: localImageInfo.height,
+    },
+    variants_count: variantProofs.length,
+    variants: variantProofs,
+  };
+}
+
+/**
+ * Build visual section lines for markdown.
+ */
+export function buildVisualSectionLines({
+  mainResult,
+  localImageInfo,
+  variantProofs,
+  capturedAt,
+  artifactPathForMarkdown,
+  markdownPath,
+}: {
+  mainResult: MainCaptureResult;
+  localImageInfo: LocalImageInfo;
+  variantProofs: VisualProofVariant[];
+  capturedAt: string;
+  artifactPathForMarkdown: string;
+  markdownPath: string;
+}): string[] {
+  const capturedDate = capturedAt.slice(0, 10);
+  const localImagePathForMarkdown = localImageInfo.path
+    ? path.relative(path.dirname(markdownPath), localImageInfo.path).split(path.sep).join('/')
+    : '';
+
+  return [
+    '### Visual Proof',
+    '',
+    ...(localImagePathForMarkdown
+      ? [`![Visual proof snapshot](${localImagePathForMarkdown})`, '']
+      : []),
+    `- Screenshot: [Captured (${capturedDate})](${mainResult.imageUrlRaw})`,
+    `- Source node: \`${mainResult.normalizedNodeId}\``,
+    ...(localImageInfo.sha256
+      ? [`- Image hash: \`${localImageInfo.sha256}\``]
+      : []),
+    ...(variantProofs.length > 0
+      ? [`- Variants captured: \`${variantProofs.length}\``]
+      : []),
+    `- Artifact: \`${artifactPathForMarkdown}\``,
+  ];
 }
