@@ -16,12 +16,15 @@ import type {
   VariantNode,
   VisualProofVariant,
   VisualProofPayload,
+  CaptureVisualProofReport,
 } from '../types/capture-visual-proof.js';
 import { CaptureError } from './capture-visual-proof-error.js';
 import { runAgentPrompt } from './agent-runner.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { normalizeNodeId } from '../utils/figma-node-id.js';
 import { fetchFigmaImages, fetchFigmaNodes } from '../utils/figma-api.js';
+import { logger } from '../utils/logger.js';
+import { syncDocumentationIndices } from './component-registry-index.js';
 
 /**
  * Write buffer to file atomically using temp file + rename.
@@ -862,6 +865,219 @@ export async function captureVariantImages(
   }
 
   return variantProofs;
+}
+
+/**
+ * Download and store main image locally.
+ */
+export async function downloadAndStoreMainImage(
+  ctx: {
+    proofImageDir: string;
+    componentSlug: string;
+    format: string;
+    downloadTimeoutMs: number;
+    dryRun: boolean;
+    storeLocalImage: boolean;
+    requireLocalImage: boolean;
+  },
+  mainResult: MainCaptureResult,
+): Promise<LocalImageInfo> {
+  const localImageInfo: LocalImageInfo = {
+    path: null,
+    sha256: null,
+    bytes: null,
+    contentType: null,
+    width: null,
+    height: null,
+  };
+
+  if (!ctx.storeLocalImage) {
+    return localImageInfo;
+  }
+
+  try {
+    const downloaded = await downloadBinary(mainResult.imageUrlRaw, ctx.downloadTimeoutMs);
+    const extension = normalizeImageExtension(
+      ctx.format,
+      downloaded.contentType,
+      mainResult.imageUrlRaw,
+    );
+    const localImagePath = path.join(
+      ctx.proofImageDir,
+      `${ctx.componentSlug || 'component'}.${extension}`,
+    );
+    const dimensions = extractImageDimensions(downloaded.buffer, extension);
+
+    if (!ctx.dryRun) {
+      writeBufferAtomic(localImagePath, downloaded.buffer);
+    }
+
+    localImageInfo.path = localImagePath;
+    localImageInfo.sha256 = sha256Hex(downloaded.buffer);
+    localImageInfo.bytes = downloaded.buffer.byteLength;
+    localImageInfo.contentType =
+      downloaded.contentType || `image/${extension}`;
+    localImageInfo.width = dimensions.width;
+    localImageInfo.height = dimensions.height;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    if (ctx.requireLocalImage) {
+      throw new CaptureError(
+        `Unable to persist local visual proof image: ${reason}`,
+        'LOCAL_IMAGE_PERSIST_FAILED',
+      );
+    }
+    logger.warn(
+      `Warning: local visual proof image was not stored (${reason}).`,
+    );
+  }
+
+  return localImageInfo;
+}
+
+/**
+ * Load previous proof image paths from existing payload.
+ */
+export async function loadPreviousProofImagePaths(
+  proofFilePath: string,
+  docsRootDir: string,
+  dryRun: boolean,
+): Promise<string[]> {
+  if (dryRun) {
+    return [];
+  }
+
+  if (!fs.existsSync(proofFilePath)) {
+    return [];
+  }
+
+  try {
+    const previousPayload = JSON.parse(fs.readFileSync(proofFilePath, 'utf8'));
+    return collectProofImagePaths({
+      proofPayload: previousPayload,
+      docsRootDir,
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Write proof artifacts and cleanup stale images.
+ */
+export async function writeProofArtifacts(
+  ctx: {
+    proofDir: string;
+    proofImageDir: string;
+    docsRootDir: string;
+    componentDocsDir: string;
+    specPath: string;
+    skipIndexSync: boolean;
+    dryRun: boolean;
+  },
+  proofFilePath: string,
+  proofPayload: VisualProofPayload,
+  markdownPath: string,
+  frontmatterRaw: string,
+  nextContent: string,
+  localImageInfo: LocalImageInfo,
+  variantProofs: VisualProofVariant[],
+  previousProofImagePaths: string[],
+): Promise<string[]> {
+  const deletedStaleImages: string[] = [];
+
+  if (ctx.dryRun) {
+    return deletedStaleImages;
+  }
+
+  fs.mkdirSync(ctx.proofDir, { recursive: true });
+  writeTextAtomic(
+    proofFilePath,
+    `${JSON.stringify(proofPayload, null, 2)}\n`,
+  );
+  const markdownPrefix = frontmatterRaw
+    ? `${frontmatterRaw}\n`
+    : '';
+  writeTextAtomic(
+    markdownPath,
+    `${markdownPrefix}${nextContent.replace(/^\n+/, '')}`,
+  );
+
+  const keepPaths = new Set<string>();
+  if (localImageInfo.path) keepPaths.add(path.resolve(localImageInfo.path));
+  for (const variant of variantProofs) {
+    const absoluteVariantPath = resolveProofImageAbsolutePath({
+      docsRootDir: ctx.docsRootDir,
+      imagePath: variant.image_path || '',
+    });
+    if (absoluteVariantPath) keepPaths.add(absoluteVariantPath);
+  }
+  for (const oldPath of previousProofImagePaths) {
+    const absoluteOldPath = path.resolve(oldPath);
+    if (keepPaths.has(absoluteOldPath)) continue;
+    if (!fs.existsSync(absoluteOldPath)) continue;
+    try {
+      fs.unlinkSync(absoluteOldPath);
+      deletedStaleImages.push(
+        path.relative(ctx.docsRootDir, absoluteOldPath).split(path.sep).join('/'),
+      );
+      removeEmptyParentDirs(path.dirname(absoluteOldPath), ctx.proofImageDir);
+    } catch {
+      // Best-effort cleanup; do not fail capture flow for stale artifacts.
+    }
+  }
+
+  if (!ctx.skipIndexSync) {
+    syncDocumentationIndices({
+      docsDir: ctx.componentDocsDir,
+      overviewPath: path.join(ctx.componentDocsDir, 'overview.md'),
+      specsDir: path.dirname(ctx.specPath),
+      proofsDir: ctx.proofDir,
+      renderDir: path.join(ctx.docsRootDir, '_generated', 'figma_doc_models'),
+      registryPath: path.join(ctx.docsRootDir, '_generated', 'component-registry.json'),
+    });
+  }
+
+  return deletedStaleImages;
+}
+
+/**
+ * Build capture report.
+ */
+export function buildCaptureReport(
+  ctx: {
+    dryRun: boolean;
+    componentSlug: string;
+    markdownPath: string;
+    specPath: string;
+    skipIndexSync: boolean;
+    format: string;
+    scale: number;
+  },
+  mainResult: MainCaptureResult,
+  localImageInfo: LocalImageInfo,
+  variantProofs: VisualProofVariant[],
+  proofFilePath: string,
+  deletedStaleImages: string[],
+): CaptureVisualProofReport {
+  return {
+    ok: true,
+    dryRun: ctx.dryRun,
+    component: ctx.componentSlug,
+    markdownPath: ctx.markdownPath,
+    specPath: ctx.specPath,
+    proofFilePath,
+    localImagePath: localImageInfo.path,
+    screenshotUrl: mainResult.imageUrlRaw,
+    nodeId: mainResult.normalizedNodeId,
+    format: ctx.format,
+    scale: ctx.scale,
+    imageSha256: localImageInfo.sha256,
+    variantsCount: variantProofs.length,
+    mainCaptureMode: mainResult.captureSource === 'REST' ? 'rest' : 'agent',
+    indexSyncSkipped: ctx.skipIndexSync,
+    deletedStaleImages,
+  };
 }
 
 /**

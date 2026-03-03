@@ -14,16 +14,7 @@ import type { CaptureVisualProofArgs, CaptureVisualProofReport } from '../types/
 import type { LocalImageInfo, VisualProofVariant } from '../types/capture-visual-proof.js';
 import type { CaptureVisualProofContext } from '../services/capture-visual-proof-preparation.js';
 import {
-  writeBufferAtomic,
-  writeTextAtomic,
-  sha256Hex,
-  normalizeImageExtension,
-  extractImageDimensions,
-  downloadBinary,
   splitFrontmatter,
-  collectProofImagePaths,
-  resolveProofImageAbsolutePath,
-  removeEmptyParentDirs,
   upsertVisualProofInOverview,
   captureMainImage,
   captureVariantImages,
@@ -31,12 +22,15 @@ import {
   VariantCaptureContext,
   buildProofPayload,
   buildVisualSectionLines,
+  downloadAndStoreMainImage,
+  loadPreviousProofImagePaths,
+  writeProofArtifacts,
+  buildCaptureReport,
 } from '../services/capture-visual-proof-services.js';
 import { CaptureError } from '../services/capture-visual-proof-error.js';
 import { prepareCaptureContext } from '../services/capture-visual-proof-preparation.js';
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { isMain } from '../utils/is-main.js';
-import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { logger } from '../utils/logger.js';
 
 const USAGE = {
@@ -188,68 +182,16 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     ctx.proofDir,
     `${ctx.componentSlug || 'component'}.json`,
   );
-  const localImageInfo: LocalImageInfo = {
-    path: null,
-    sha256: null,
-    bytes: null,
-    contentType: null,
-    width: null,
-    height: null,
-  };
+  const localImageInfo = await downloadAndStoreMainImage(ctx, mainResult);
 
-  let previousProofImagePaths: string[] = [];
-  if (!ctx.dryRun && fs.existsSync(proofFilePath)) {
-    try {
-      const previousPayload = JSON.parse(fs.readFileSync(proofFilePath, 'utf8'));
-      previousProofImagePaths = collectProofImagePaths({
-        proofPayload: previousPayload,
-        docsRootDir: ctx.docsRootDir,
-      });
-    } catch {
-      previousProofImagePaths = [];
-    }
-  }
+  // 4. Load previous proof image paths for cleanup
+  const previousProofImagePaths = await loadPreviousProofImagePaths(
+    proofFilePath,
+    ctx.docsRootDir,
+    ctx.dryRun,
+  );
 
-  if (ctx.storeLocalImage) {
-    try {
-      const downloaded = await downloadBinary(mainResult.imageUrlRaw, ctx.downloadTimeoutMs);
-      const extension = normalizeImageExtension(
-        ctx.format,
-        downloaded.contentType,
-        mainResult.imageUrlRaw,
-      );
-      const localImagePath = path.join(
-        ctx.proofImageDir,
-        `${ctx.componentSlug || 'component'}.${extension}`,
-      );
-      const dimensions = extractImageDimensions(downloaded.buffer, extension);
-
-      if (!ctx.dryRun) {
-        writeBufferAtomic(localImagePath, downloaded.buffer);
-      }
-
-      localImageInfo.path = localImagePath;
-      localImageInfo.sha256 = sha256Hex(downloaded.buffer);
-      localImageInfo.bytes = downloaded.buffer.byteLength;
-      localImageInfo.contentType =
-        downloaded.contentType || `image/${extension}`;
-      localImageInfo.width = dimensions.width;
-      localImageInfo.height = dimensions.height;
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      if (ctx.requireLocalImage) {
-        throw new CaptureError(
-          `Unable to persist local visual proof image: ${reason}`,
-          'LOCAL_IMAGE_PERSIST_FAILED',
-        );
-      }
-      logger.warn(
-        `Warning: local visual proof image was not stored (${reason}).`,
-      );
-    }
-  }
-
-  // 4. Capture variants
+  // 5. Capture variants
   const variantProofs: VisualProofVariant[] = [];
   if (ctx.includeVariants) {
     const variantCtx: VariantCaptureContext = {
@@ -318,76 +260,28 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     );
   }
 
-  const deletedStaleImages: string[] = [];
-
-  if (!ctx.dryRun) {
-    fs.mkdirSync(ctx.proofDir, { recursive: true });
-    writeTextAtomic(
-      proofFilePath,
-      `${JSON.stringify(proofPayload, null, 2)}\n`,
-    );
-    const markdownPrefix = frontmatterRaw
-      ? `${frontmatterRaw}\n`
-      : '';
-    writeTextAtomic(
-      ctx.markdownPath,
-      `${markdownPrefix}${nextContent.replace(/^\n+/, '')}`,
-    );
-
-    const keepPaths = new Set<string>();
-    if (localImageInfo.path) keepPaths.add(path.resolve(localImageInfo.path));
-    for (const variant of variantProofs) {
-      const absoluteVariantPath = resolveProofImageAbsolutePath({
-        docsRootDir: ctx.docsRootDir,
-        imagePath: variant.image_path || '',
-      });
-      if (absoluteVariantPath) keepPaths.add(absoluteVariantPath);
-    }
-    for (const oldPath of previousProofImagePaths) {
-      const absoluteOldPath = path.resolve(oldPath);
-      if (keepPaths.has(absoluteOldPath)) continue;
-      if (!fs.existsSync(absoluteOldPath)) continue;
-      try {
-        fs.unlinkSync(absoluteOldPath);
-        deletedStaleImages.push(
-          path.relative(ctx.docsRootDir, absoluteOldPath).split(path.sep).join('/'),
-        );
-        removeEmptyParentDirs(path.dirname(absoluteOldPath), ctx.proofImageDir);
-      } catch {
-        // Best-effort cleanup; do not fail capture flow for stale artifacts.
-      }
-    }
-
-    if (!ctx.skipIndexSync) {
-      syncDocumentationIndices({
-        docsDir: ctx.componentDocsDir,
-        overviewPath: path.join(ctx.componentDocsDir, 'overview.md'),
-        specsDir: path.dirname(ctx.specPath),
-        proofsDir: ctx.proofDir,
-        renderDir: path.join(ctx.docsRootDir, '_generated', 'figma_doc_models'),
-        registryPath: path.join(ctx.docsRootDir, '_generated', 'component-registry.json'),
-      });
-    }
-  }
-
-  const report: CaptureVisualProofReport = {
-    ok: true,
-    dryRun: ctx.dryRun,
-    component: ctx.componentSlug,
-    markdownPath: ctx.markdownPath,
-    specPath: ctx.specPath,
+  // 8. Write artifacts and cleanup stale images
+  const deletedStaleImages = await writeProofArtifacts(
+    ctx,
     proofFilePath,
-    localImagePath: localImageInfo.path,
-    screenshotUrl: mainResult.imageUrlRaw,
-    nodeId: mainResult.normalizedNodeId,
-    format: ctx.format,
-    scale: ctx.scale,
-    imageSha256: localImageInfo.sha256,
-    variantsCount: variantProofs.length,
-    mainCaptureMode: mainResult.captureSource === 'REST' ? 'rest' : 'agent',
-    indexSyncSkipped: ctx.skipIndexSync,
+    proofPayload,
+    ctx.markdownPath,
+    frontmatterRaw,
+    nextContent,
+    localImageInfo,
+    variantProofs,
+    previousProofImagePaths,
+  );
+
+  // 9. Build and output report
+  const report = buildCaptureReport(
+    ctx,
+    mainResult,
+    localImageInfo,
+    variantProofs,
+    proofFilePath,
     deletedStaleImages,
-  };
+  );
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 }
 
