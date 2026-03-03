@@ -12,14 +12,67 @@ import { CaptureError } from './capture-visual-proof-error.js';
 import {
   loadSpecFigma,
   resolveFigmaFileKey,
-  parseBooleanOption,
-  parsePositiveInteger,
-  parseMainCaptureMode,
-} from './capture-visual-proof-services.js';
+} from './capture-visual-proof-figma.js';
 import { parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { normalizeComponentName, componentNameToSnakeCase } from '../utils/component-name.js';
 import { normalizeNodeId, isValidNodeId } from '../utils/figma-node-id.js';
+
+/**
+ * Parse boolean option with validation.
+ */
+export function parseBooleanOption(
+  rawValue: string | undefined,
+  optionName: string,
+  fallback = false,
+): boolean {
+  const normalized = String(rawValue ?? fallback).trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  throw new Error(`Invalid ${optionName} value: ${rawValue}. Allowed: true, false.`);
+}
+
+/**
+ * Parse positive integer with validation.
+ */
+export function parsePositiveInteger(
+  rawValue: string | undefined,
+  optionName: string,
+  fallback: number,
+): number {
+  const parsed = Number(rawValue ?? fallback);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(
+      `Invalid ${optionName} value: ${rawValue}. Expected a positive number.`,
+    );
+  }
+  return Math.floor(parsed);
+}
+
+/**
+ * Parse main capture mode with validation.
+ */
+export function parseMainCaptureMode(rawValue: string): 'auto' | 'agent' | 'rest' {
+  const normalized = String(rawValue || 'auto').trim().toLowerCase();
+  if (normalized === 'auto' || normalized === 'agent' || normalized === 'rest') {
+    return normalized as 'auto' | 'agent' | 'rest';
+  }
+  throw new Error(
+    `Invalid --main-capture-mode value: ${rawValue}. Allowed: auto, agent, rest.`,
+  );
+}
+
+/**
+ * Normalize variant slug.
+ */
+export function normalizeVariantSlug(rawValue: string): string {
+  return String(rawValue || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64);
+}
 
 /**
  * Resolved capture context.

@@ -13,20 +13,22 @@ import * as path from 'node:path';
 import type { CaptureVisualProofArgs, CaptureVisualProofReport } from '../types/capture-visual-proof.js';
 import type { LocalImageInfo, VisualProofVariant } from '../types/capture-visual-proof.js';
 import type { CaptureVisualProofContext } from '../services/capture-visual-proof-preparation.js';
+import { splitFrontmatter } from '../services/capture-visual-proof-io.js';
+import { upsertVisualProofInOverview } from '../services/capture-visual-proof-payload.js';
 import {
-  splitFrontmatter,
-  upsertVisualProofInOverview,
   captureMainImage,
   captureVariantImages,
   MainCaptureContext,
   VariantCaptureContext,
-  buildProofPayload,
-  buildVisualSectionLines,
   downloadAndStoreMainImage,
   loadPreviousProofImagePaths,
+} from '../services/capture-visual-proof-image.js';
+import {
+  buildProofPayload,
+  buildVisualSectionLines,
   writeProofArtifacts,
   buildCaptureReport,
-} from '../services/capture-visual-proof-services.js';
+} from '../services/capture-visual-proof-payload.js';
 import { CaptureError } from '../services/capture-visual-proof-error.js';
 import { prepareCaptureContext } from '../services/capture-visual-proof-preparation.js';
 import { parseArgs, printUsage } from '../utils/parse-args.js';
@@ -261,7 +263,7 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
   }
 
   // 8. Write artifacts and cleanup stale images
-  const deletedStaleImages = await writeProofArtifacts(
+  const deletedStaleImages = writeProofArtifacts(
     ctx,
     proofFilePath,
     proofPayload,
