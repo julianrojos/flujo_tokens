@@ -10,13 +10,10 @@ import * as path from 'node:path';
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
-import {
-  renderPipelinePhase,
-  type RenderPipelineResult,
-  type RenderPipelinePaths,
-} from './render-pipeline-phase.js';
+import { renderPipelinePhase, type RenderPipelineResult } from './render-pipeline-phase.js';
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
 import type { PhaseResult } from './render-phase.js';
+import type { PipelinePhaseOutput } from './render-pipeline-state.js';
 
 /**
  * Create a mock runtime context for testing.
@@ -38,40 +35,25 @@ function createMockContext(overrides?: Partial<ActiveMdToFigmaRuntimeContext>): 
     syncStatePath: '/test/sync-state.json',
     figmaUrl: undefined,
     system: undefined,
+    scripts: {
+      markdownToModelScript: '/test/scripts/markdown-to-model.mjs',
+      modelToExecuteScript: '/test/scripts/model-to-execute.mjs',
+    },
+    themePath: '/test/themes/default.yml',
+    systemPaths: {
+      docsDir: '/test/docs',
+      overviewPath: '/test/docs/overview.md',
+      specsDir: '/test/specs',
+      proofsDir: '/test/proofs',
+      renderDir: '/test/render',
+      registryPath: '/test/registry.json',
+    },
+    captureProofStrict: false,
     ...overrides,
   };
 }
 
 describe('render-pipeline-phase', () => {
-  describe('RenderPipelinePaths type', () => {
-    it('should have correct structure', () => {
-      const paths: RenderPipelinePaths = {
-        docModelPath: '/test/path.doc-model.json',
-        executePath: '/test/path.figma-execute.js',
-        payloadPath: '/test/path.render-payload.json',
-      };
-
-      assert.ok('docModelPath' in paths);
-      assert.ok('executePath' in paths);
-      assert.ok('payloadPath' in paths);
-      assert.strictEqual(typeof paths.docModelPath, 'string');
-      assert.strictEqual(typeof paths.executePath, 'string');
-      assert.strictEqual(typeof paths.payloadPath, 'string');
-    });
-
-    it('should use correct file extensions', () => {
-      const paths: RenderPipelinePaths = {
-        docModelPath: '/test/test-component.doc-model.json',
-        executePath: '/test/test-component.figma-execute.js',
-        payloadPath: '/test/test-component.render-payload.json',
-      };
-
-      assert.ok(paths.docModelPath.endsWith('.doc-model.json'));
-      assert.ok(paths.executePath.endsWith('.figma-execute.js'));
-      assert.ok(paths.payloadPath.endsWith('.render-payload.json'));
-    });
-  });
-
   describe('RenderPipelineResult type', () => {
     it('should have ok, paths, and skipped properties', () => {
       const result: RenderPipelineResult = {
@@ -202,18 +184,12 @@ describe('render-pipeline-phase', () => {
 
   describe('renderPipelinePhase', () => {
     it('should return PhaseResult with pipeline output on success', async () => {
-      const context = createMockContext();
-      const scripts = context.scripts;
-      const themePath = context.themePath;
-
-      // Note: This test will fail in isolation due to external script dependencies
-      // It demonstrates the expected API contract
-      // In a real test environment, we would mock runOrThrow and shouldSkipTask
-
-      // Test structure validation only
-      const result: PhaseResult<{ pipeline: RenderPipelineResult }> = {
+      // Test the expected PhaseResult structure with PipelinePhaseOutput
+      // Note: Full execution test requires mocking external script dependencies
+      const result: PhaseResult<PipelinePhaseOutput> = {
         ok: true,
         output: {
+          stage: 'pipeline',
           pipeline: {
             ok: true,
             paths: {
@@ -227,18 +203,20 @@ describe('render-pipeline-phase', () => {
       };
 
       assert.strictEqual(result.ok, true);
+      assert.strictEqual(result.output?.stage, 'pipeline');
       assert.ok(result.output?.pipeline);
       assert.strictEqual(result.output.pipeline.skipped, false);
     });
 
     it('should return skip result with exit behavior when pipeline skipped', async () => {
-      // Test the expected skip result structure
-      const result: PhaseResult<{ pipeline: RenderPipelineResult }> = {
+      // Test the expected skip result structure with PipelinePhaseOutput
+      const result: PhaseResult<PipelinePhaseOutput> = {
         ok: true,
         skipped: true,
         skipBehavior: 'exit',
         reason: 'fingerprint_match',
         output: {
+          stage: 'pipeline',
           pipeline: {
             ok: true,
             paths: {
@@ -256,6 +234,7 @@ describe('render-pipeline-phase', () => {
       assert.strictEqual(result.skipped, true);
       assert.strictEqual(result.skipBehavior, 'exit');
       assert.strictEqual(result.reason, 'fingerprint_match');
+      assert.strictEqual(result.output?.stage, 'pipeline');
       assert.ok(result.output?.pipeline?.skipped);
     });
 
@@ -273,20 +252,6 @@ describe('render-pipeline-phase', () => {
       assert.strictEqual(expectedDocModelPath, '/custom/generated/test-button.doc-model.json');
       assert.strictEqual(expectedExecutePath, '/custom/generated/test-button.figma-execute.js');
       assert.strictEqual(expectedPayloadPath, '/custom/generated/test-button.render-payload.json');
-    });
-
-    it('should use context.scripts and context.themePath', () => {
-      const context = createMockContext({
-        scripts: {
-          markdownToModelScript: '/custom/model.mjs',
-          modelToExecuteScript: '/custom/execute.mjs',
-        },
-        themePath: '/custom/theme.yml',
-      });
-
-      assert.strictEqual(context.scripts.markdownToModelScript, '/custom/model.mjs');
-      assert.strictEqual(context.scripts.modelToExecuteScript, '/custom/execute.mjs');
-      assert.strictEqual(context.themePath, '/custom/theme.yml');
     });
   });
 });

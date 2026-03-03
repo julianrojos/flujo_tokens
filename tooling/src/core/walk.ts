@@ -5,7 +5,7 @@
 import type { ExecutionSummary, TokenValue, WalkHandlers } from '../types/tokens.js';
 import { isPlainObject, isModeKey, shouldSkipKey, isModeDefaultKey } from '../types/tokens.js';
 import { MAX_DEPTH } from '../runtime/config.js';
-import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedInvalidTokenDetails, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
+import { warnedAmbiguousModeDefaultAt, warnedBaseValueSkippedForMode, warnedInvalidTokenDetails, foundModeKeys, modeFallbackCounts, modeFallbackExamples, warnedPreferredModeFallback } from '../runtime/state.js';
 import { pathStr } from '../utils/paths.js';
 import { toKebabCase } from '../utils/strings.js';
 import { normalizePreferredMode, matchesPreferredMode as matchesPreferredModeAny } from '../utils/modes.js';
@@ -37,8 +37,6 @@ function matchesPreferredMode(key: string, preferred?: string): boolean {
   if (!isModeKey(key)) return false;
   return matchesPreferredModeAny(key, preferred);
 }
-
-const warnedPreferredModeFallback = new Set<string>();
 
 function warnPreferredModeFallbackOnce(path: string, preferred: string | undefined, modeKey: string | undefined, hasValue: boolean): void {
   const warnKey = `${path}|${preferred ?? 'none'}|${modeKey ?? 'none'}`;

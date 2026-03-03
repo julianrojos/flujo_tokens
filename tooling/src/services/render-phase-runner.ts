@@ -6,8 +6,8 @@
  */
 
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
-import type { RenderPipelineState } from './render-pipeline-state.js';
-import type { PhaseResult, RenderPhase } from './render-phase.js';
+import type { RenderPipelineState, RenderPipelinePhase } from './render-pipeline-state.js';
+import type { PhaseResult, RenderPhase, SkipBehavior } from './render-phase.js';
 import { PipelineError } from './pipeline-error.js';
 
 /**
@@ -27,12 +27,12 @@ import { PipelineError } from './pipeline-error.js';
  */
 export async function runRenderPhases(
   context: ActiveMdToFigmaRuntimeContext,
-  phases: RenderPhase[],
+  phases: RenderPipelinePhase[],
 ): Promise<RenderPipelineState> {
   let state: RenderPipelineState = { stage: 'initial' };
 
   for (const [index, phase] of phases.entries()) {
-    let result: PhaseResult;
+    let result: PhaseResult<RenderPipelineState>;
     try {
       result = await phase.execute(context, state);
     } catch (error) {

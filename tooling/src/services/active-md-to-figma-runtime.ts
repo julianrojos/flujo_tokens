@@ -18,10 +18,8 @@ import {
 } from './render-agent-phase.js';
 import {
   buildActiveMdToFigmaRuntimeContext,
-  type ActiveMdToFigmaRuntimeContext,
-  type PipelineScriptPaths,
-  type SystemContextPaths,
 } from '../utils/active-md-to-figma-context.js';
+import type { ActiveMdToFigmaRuntimeContext, PipelineScriptPaths, SystemContextPaths } from '../types/active-md-to-figma.js';
 import {
   renderPipelinePhase,
 } from './render-pipeline-phase.js';
@@ -35,7 +33,7 @@ import {
   renderCacheUpdatePhase,
 } from './render-cache-update-phase.js';
 import type { ActiveMdToFigmaPreparationResult } from './active-md-to-figma-preparation.js';
-import type { RenderPhase } from './render-phase.js';
+import type { RenderPipelinePhase } from './render-pipeline-state.js';
 import { RuntimeError } from './pipeline-error.js';
 
 /**
@@ -76,9 +74,9 @@ function resolveScriptPath(relativePath: string): string {
 export interface ActiveMdToFigmaRuntime {
   /** Runtime context for all phases */
   context: ActiveMdToFigmaRuntimeContext;
-  
+
   /** All phases in execution order */
-  phases: RenderPhase[];
+  phases: RenderPipelinePhase[];
 }
 
 /**
@@ -179,8 +177,11 @@ export function buildActiveMdToFigmaRuntime(
   });
 
   // Build phases array in execution order (5 phases, documentation sync is a helper)
-  const phases: RenderPhase[] = [
-    renderPipelinePhase,
+  const phases: RenderPipelinePhase[] = [
+    {
+      name: 'render-pipeline',
+      execute: renderPipelinePhase,
+    },
     renderAgentPhase,
     renderAuditPhase,
     visualProofPhase,

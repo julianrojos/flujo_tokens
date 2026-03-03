@@ -35,6 +35,7 @@ import { buildActiveMdToFigmaRuntime } from '../services/active-md-to-figma-runt
 import { syncDocumentation } from '../services/documentation-sync.js';
 import { formatPipelineSkipOutput } from '../services/active-md-to-figma-output.js';
 import { runRenderPhases } from '../services/render-phase-runner.js';
+import { hasPipelineState } from '../services/render-pipeline-state.js';
 import { logger } from '../utils/logger.js';
 import { PipelineError } from '../services/pipeline-error.js';
 import type { ActiveMdToFigmaPreparationResult } from '../services/active-md-to-figma-preparation.js';
@@ -85,29 +86,28 @@ export async function runActiveMdToFigma(
   const runtime = deps.buildRuntime(preflight, args.theme);
 
   // 3. Execute phases
-  try {
-    const state = await deps.runPhases(runtime.context, runtime.phases);
+  const state = await deps.runPhases(runtime.context, runtime.phases);
 
-    // 4. Handle pipeline skip (cache hit)
-    if (state.pipeline?.skipped) {
-      deps.writeStdout(
-        deps.formatSkipOutput(
-          state.pipeline.skipReason,
-          runtime.context.markdownPath,
-          componentName,
-          state.pipeline.paths,
-        ),
-      );
-      return;
-    }
+  // 4. Handle pipeline skip (cache hit)
+  if (hasPipelineState(state) && state.pipeline.skipped) {
+    // skipReason is guaranteed when skipped === true, but TypeScript doesn't narrow it.
+    // Provide a fallback to satisfy the type contract of formatSkipOutput.
+    const skipReason = state.pipeline.skipReason ?? 'cache hit';
+    deps.writeStdout(
+      deps.formatSkipOutput(
+        skipReason,
+        runtime.context.markdownPath,
+        componentName,
+        state.pipeline.paths,
+      ),
+    );
+    return;
+  }
 
-    // 5. Sync documentation indices (always runs after successful pipeline)
-    const syncResult = deps.syncDocs(runtime.context);
-    if (!syncResult.ok) {
-      logger.warn(`[documentation-sync] ${syncResult.error}`);
-    }
-  } catch (error) {
-    throw error;
+  // 5. Sync documentation indices (always runs after successful pipeline)
+  const syncResult = deps.syncDocs(runtime.context);
+  if (!syncResult.ok) {
+    logger.warn(`[documentation-sync] ${syncResult.error ?? 'Unknown sync error'}`);
   }
 }
 

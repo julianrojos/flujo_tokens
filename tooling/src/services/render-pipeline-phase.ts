@@ -15,7 +15,7 @@ import {
 import { runOrThrow } from '../utils/exec.js';
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
 import type { PhaseResult, RenderPhase } from './render-phase.js';
-import type { PipelinePhaseOutput } from './render-pipeline-state.js';
+import type { PipelinePhaseOutput, RenderPipelineState } from './render-pipeline-state.js';
 
 /**
  * Paths to generated artifacts (internal - not exported).
@@ -129,35 +129,7 @@ export function updateRenderCacheState(
   });
 }
 
-export const renderPipelinePhase: RenderPhase<PipelinePhaseOutput> = {
-  name: 'render-pipeline-phase',
-  execute(
-    context: ActiveMdToFigmaRuntimeContext,
-  ): PhaseResult<PipelinePhaseOutput> {
-    const pipeline = executeRenderPipeline(context, context.scripts, context.themePath);
 
-    if (pipeline.skipped) {
-      return {
-        ok: true,
-        skipped: true,
-        skipBehavior: 'exit',
-        reason: pipeline.skipReason,
-        output: {
-          stage: 'pipeline',
-          pipeline,
-        },
-      };
-    }
-
-    return {
-      ok: true,
-      output: {
-        stage: 'pipeline',
-        pipeline,
-      },
-    };
-  },
-};
 
 // ============================================================================
 // Private Helpers - Not exported to runner
@@ -394,9 +366,6 @@ function computeRenderFingerprint(
 // Phase Wrapper - For functional orchestrator
 // ============================================================================
 
-import type { PhaseResult } from './render-phase.js';
-import type { PipelinePhaseOutput } from './render-pipeline-state.js';
-
 /**
  * Phase wrapper for render pipeline.
  *
@@ -407,6 +376,7 @@ import type { PipelinePhaseOutput } from './render-pipeline-state.js';
  */
 export async function renderPipelinePhase(
   context: ActiveMdToFigmaRuntimeContext,
+  _state?: RenderPipelineState,
 ): Promise<PhaseResult<PipelinePhaseOutput>> {
   const pipeline = executeRenderPipeline(
     context,
@@ -420,12 +390,12 @@ export async function renderPipelinePhase(
       skipped: true,
       skipBehavior: 'exit',
       reason: pipeline.skipReason,
-      output: { pipeline },
+      output: { stage: 'pipeline', pipeline },
     };
   }
 
   return {
     ok: true,
-    output: { pipeline },
+    output: { stage: 'pipeline', pipeline },
   };
 }

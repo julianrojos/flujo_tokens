@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
 import { runRenderPhases, phaseFailure, phaseSkip, phaseSuccess } from './render-phase-runner.js';
+import { PipelineError } from './pipeline-error.js';
 import type { RenderPhase } from './render-phase.js';
 import type {
   RenderPipelineState,
@@ -90,8 +91,8 @@ function createAgentState(): AgentRenderState {
 
 function createAuditState(): AuditRenderState {
   return {
-    stage: 'audit',
     ...createAgentState(),
+    stage: 'audit',  // override after spread to avoid clobbering
     auditResult: {
       ok: true,
       auditReport: {
@@ -115,7 +116,7 @@ function createAuditState(): AuditRenderState {
 describe('render-phase-runner', () => {
   describe('runRenderPhases', () => {
     it('executes phases in sequence and carries staged state forward', async () => {
-      const phases: RenderPhase[] = [
+      const phases = [
         {
           name: 'pipeline',
           execute: async () => phaseSuccess(createPipelineState()),
@@ -142,19 +143,25 @@ describe('render-phase-runner', () => {
     });
 
     it('throws a phase-named error when a phase returns ok=false', async () => {
-      const phases: RenderPhase[] = [
+      const phases = [
         { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
         { name: 'audit', execute: async () => phaseFailure('Test error') },
       ];
 
       await assert.rejects(
         async () => runRenderPhases(createMockContext(), phases),
-        /\[audit\] Test error/,
+        (error: Error) => {
+          // PipelineError stores phase separately; message is just the raw message
+          assert.ok(error instanceof PipelineError);
+          assert.strictEqual((error as PipelineError).phase, 'audit');
+          assert.match(error.message, /Test error/);
+          return true;
+        },
       );
     });
 
     it('stops execution when skipBehavior is exit', async () => {
-      const phases: RenderPhase[] = [
+      const phases = [
         { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
         { name: 'cache', execute: async () => phaseSkip('Cache hit', 'exit') },
         {
@@ -170,7 +177,7 @@ describe('render-phase-runner', () => {
     });
 
     it('continues execution when skipBehavior is continue', async () => {
-      const phases: RenderPhase[] = [
+      const phases = [
         { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
         { name: 'proof', execute: async () => phaseSkip('Optional unavailable', 'continue') },
         { name: 'agent', execute: async () => phaseSuccess(createAgentState()) },
