@@ -29,6 +29,7 @@ import {
   extractVariantNodes,
   extractFirstJsonObject,
 } from './capture-visual-proof-figma.js';
+import { normalizeVariantSlug } from '../utils/parse-options.js';
 
 /**
  * Context for main image capture.
@@ -413,16 +414,4 @@ export async function loadPreviousProofImagePaths(
   } catch {
     return [];
   }
-}
-
-/**
- * Normalize variant slug.
- */
-export function normalizeVariantSlug(rawValue: string): string {
-  return String(rawValue || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 64);
 }

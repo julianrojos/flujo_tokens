@@ -553,3 +553,33 @@ export function formatFigmaComponentMap(map: FigmaComponentMap): string {
 
     return lines.join('\n');
 }
+
+/**
+ * Render component URL suggestions from component map.
+ */
+export function renderComponentUrlSuggestions(
+  componentMap: {
+    fileKey?: string;
+    fileSlug?: string;
+    surface?: string;
+    components?: Array<{ name?: string; nodeId?: string; type?: string }>
+  },
+  maxItems = 20,
+): string {
+  const components = Array.isArray(componentMap?.components) ? componentMap.components : [];
+  const fileKey = componentMap?.fileKey || '';
+  const fileSlug = componentMap?.fileSlug || '';
+  const surface = componentMap?.surface || 'design';
+
+  return components
+    .slice(0, Math.max(1, Math.floor(maxItems)))
+    .map((comp) => {
+      const nodeId = comp.nodeId || '';
+      const name = comp.name || '';
+      const url = nodeId && fileKey
+        ? `https://www.figma.com/file/${fileKey}/${fileSlug}?node-id=${nodeId}&surface=${surface}`
+        : '';
+      return `- ${comp.type || 'component'} | ${name} | ${url || `--component-name "${name}"`}`;
+    })
+    .join('\n');
+}

@@ -285,3 +285,15 @@ export function removeEmptyParentDirs(startDir: string, stopDir: string): void {
     }
   }
 }
+
+/**
+ * Write JSON file atomically.
+ */
+export function writeJsonFileAtomic(filePath: string, payload: unknown): string {
+  const resolved = path.resolve(filePath);
+  fs.mkdirSync(path.dirname(resolved), { recursive: true });
+  const tempPath = `${resolved}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  fs.renameSync(tempPath, resolved);
+  return resolved;
+}
