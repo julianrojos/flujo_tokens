@@ -13,3 +13,4 @@ apps/ds-dashboard/dist/
 apps/ds-dashboard/vite.config.js
 apps/ds-dashboard/vite.config.d.ts
 .refactor-pending/
+QWEN.md
