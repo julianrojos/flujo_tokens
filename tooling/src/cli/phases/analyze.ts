@@ -1,5 +1,6 @@
 import type { PipelinePhase } from '../../runtime/pipeline-cache.js';
 import { loadCheckpoint, saveCheckpoint } from '../../runtime/pipeline-cache.js';
+import type { CssVarOwner, CssVarCollision } from '../../types/tokens.js';
 
 type AnalyzeCheckpointPayload = {
     indexHash: string;
@@ -19,6 +20,8 @@ type AnalyzePhaseState = {
     analyzeDependencyHash: string;
     analyzedScopes: any[];
     scopedIndices: any[];
+    cssVarNameOwners: Map<string, CssVarOwner>;
+    cssVarNameCollisionMap: Map<string, CssVarCollision>;
     detectedModeSet: Set<string>;
     emittedModeSet: Set<string>;
 };
@@ -34,7 +37,11 @@ type AnalyzePhaseContext = {
         forcePhases: PipelinePhase[]
     ) => boolean;
     sha256FromObject: (value: unknown) => string;
-    analyzeScopedIndices: (scopedIndices: any[]) => any[];
+    analyzeScopedIndices: (
+        scopedIndices: any[],
+        cssVarNameOwners: Map<string, CssVarOwner>,
+        cssVarNameCollisionMap: Map<string, CssVarCollision>
+    ) => any[];
 };
 
 export function runAnalyzePhase(
@@ -70,7 +77,11 @@ export function runAnalyzePhase(
         }
 
         console.log('🧩 Phase ANALYZE: checkpoint miss');
-        state.analyzedScopes = context.analyzeScopedIndices(state.scopedIndices);
+        state.analyzedScopes = context.analyzeScopedIndices(
+            state.scopedIndices,
+            state.cssVarNameOwners,
+            state.cssVarNameCollisionMap
+        );
         const analyzePayload: AnalyzeCheckpointPayload = {
             indexHash: state.indexDependencyHash,
             detectedModes: Array.from(state.detectedModeSet),
@@ -94,7 +105,11 @@ export function runAnalyzePhase(
         console.log('⏭️  Phase ANALYZE: forced re-run');
     }
 
-    state.analyzedScopes = context.analyzeScopedIndices(state.scopedIndices);
+    state.analyzedScopes = context.analyzeScopedIndices(
+        state.scopedIndices,
+        state.cssVarNameOwners,
+        state.cssVarNameCollisionMap
+    );
 
     if (state.checkpointsEnabled) {
         const analyzePayload: AnalyzeCheckpointPayload = {

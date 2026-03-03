@@ -21,7 +21,7 @@ import type {
 import { isModeDefaultKey } from '../types/tokens.js';
 
 // Runtime
-import { resetRuntimeState, foundModeKeys, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
+import { resetRuntimeState, modeFallbackCounts, modeFallbackExamples } from '../runtime/state.js';
 import { createSummary, createProcessingContext } from '../runtime/context.js';
 import {
     hashJsonInputDirectory,
@@ -33,6 +33,33 @@ import {
 import { runPipelinePlugins, type PipelinePlugin } from '../runtime/pipeline-plugins.js';
 import { parseArgs, printUsage, type CliOptions } from './options.js';
 import { loadExternalPhasePlugins } from './plugins.js';
+import { buildIndexArtifacts, analyzeScopedIndices } from './phases/index-artifacts.js';
+import {
+    serializeIndexingContext,
+    createIndexingContextFromSerialized,
+    serializeTokenGraph,
+    deserializeTokenGraph,
+    serializeCssCollisionMap,
+    deserializeCssCollisionMap,
+    toSummarySnapshot,
+    fromSummarySnapshot
+} from './checkpoint-serializer.js';
+import type {
+    ModeScope,
+    FileEntry,
+    SerializedIndexContext,
+    SerializedScopeIndex,
+    SerializedTokenGraph,
+    SerializedAnalyzedScope,
+    SerializedCssVarCollision,
+    IndexCheckpointPayload,
+    SummarySnapshot,
+    EmitOutputSnapshot,
+    EmitCheckpointPayload,
+    OutputTarget,
+    PipelineExecutionState,
+    TokenPipelinePlugin
+} from './cli-types.js';
 import { runIngestPhase as runIngestPhaseModule } from './phases/ingest.js';
 import { runIndexPhase as runIndexPhaseModule } from './phases/index.js';
 import { runAnalyzePhase as runAnalyzePhaseModule } from './phases/analyze.js';
@@ -52,140 +79,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = path.resolve(__dirname, '../../..');
 const PIPELINE_SCHEMA_VERSION = 2;
 const PHASE_ORDER: PipelinePhase[] = ['ingest', 'index', 'analyze', 'emit'];
-
-type ModeScope = {
-    selector: string;
-    mode?: string;
-    skipBaseWhenMode: boolean;
-    modeOverridesOnly: boolean;
-    allowModeBranches: boolean;
-};
-
-type FileEntry = {
-    originalName: string;
-    content: any;
-};
-
-type SerializedIndexContext = {
-    refMap: Array<[string, string]>;
-    valueMap: Array<[string, TokenValue]>;
-    collisionKeys: string[];
-    idToVarName: Array<[string, string]>;
-    idToTokenKey: Array<[string, string]>;
-};
-
-type SerializedScopeIndex = {
-    scope: ModeScope;
-    index: SerializedIndexContext;
-};
-
-type SerializedTokenGraph = {
-    nodes: Array<
-        [
-            string,
-            {
-                id: string;
-                path: string[];
-                value: TokenValue['$value'];
-                type?: string;
-                aliases: string[];
-                dependents: string[];
-                metadata: { collection: string; cssVar?: string; mode?: string };
-            }
-        ]
-    >;
-    edges: Array<[string, Array<{ from: string; to: string; kind: 'w3c-ref' | 'alias-id'; ref: string }>]>;
-    reverseEdges: Array<[string, Array<{ from: string; to: string; kind: 'w3c-ref' | 'alias-id'; ref: string }>]>;
-    collections: Array<[string, string[]]>;
-    modes: Array<[string, { key: string; selector?: string; isDefault?: boolean }]>;
-    pathToNodeId: Array<[string, string]>;
-    idToNodeId: Array<[string, string]>;
-    cycleNodeIds: string[];
-};
-
-type SerializedAnalyzedScope = {
-    scope: ModeScope;
-    index: SerializedIndexContext;
-    graph: SerializedTokenGraph;
-    cycleStatus: Array<[string, boolean]>;
-    emittableKeys: string[];
-};
-
-type SerializedCssVarCollision = {
-    first: CssVarOwner;
-    others: Array<[string, CssVarOwner]>;
-};
-
-type IndexCheckpointPayload = {
-    ingestHash: string;
-    preferredMode?: string;
-    modeStrictPreferred: boolean;
-    detectedModes: string[];
-    emittedModes: string[];
-    scopes: ModeScope[];
-    scopedIndices: SerializedScopeIndex[];
-    cssVarNameOwners: Array<[string, CssVarOwner]>;
-    cssVarNameCollisionMap: Array<[string, SerializedCssVarCollision]>;
-    cssVarNameCollisions: number;
-    cssVarNameCollisionDetails: string[];
-};
-
-type SummarySnapshot = {
-    totalTokens: number;
-    successCount: number;
-    unresolvedRefs: string[];
-    invalidNames: string[];
-    circularDeps: number;
-    depthLimitHits: number;
-    cssVarNameCollisions: number;
-    cssVarNameCollisionDetails: string[];
-    invalidTokens: string[];
-    tokenTypeCounts: Record<string, number>;
-};
-
-type EmitOutputSnapshot = {
-    label: string;
-    filePath: string;
-    contentHash: string;
-};
-
-type EmitCheckpointPayload = {
-    analyzeHash: string;
-    emitHash: string;
-    outputs: EmitOutputSnapshot[];
-    registry?: { filePath: string; contentHash: string };
-    summary: SummarySnapshot;
-    detectedModes: string[];
-    emittedModes: string[];
-};
-
-type OutputTarget = {
-    label: string;
-    filePath: string;
-    emitEntries: FileEntry[];
-};
-
-type PipelineExecutionState = {
-    summary: ExecutionSummary;
-    checkpointsEnabled: boolean;
-    inputSnapshot: InputHashSnapshot;
-    ingestDependencyHash: string;
-    combinedTokens: Record<string, any>;
-    fileEntries: FileEntry[];
-    indexDependencyHash: string;
-    detectedModeSet: Set<string>;
-    emittedModeSet: Set<string>;
-    scopedIndices: SerializedScopeIndex[];
-    cssVarNameOwners: Map<string, CssVarOwner>;
-    cssVarNameCollisionMap: Map<string, CssVarCollision>;
-    analyzeDependencyHash: string;
-    analyzedScopes: SerializedAnalyzedScope[];
-    outputs: OutputTarget[];
-    emitManifestPath: string;
-    emitDependencyHash: string;
-};
-
-type TokenPipelinePlugin = PipelinePlugin<PipelineExecutionState>;
 
 function readToolVersion(): string {
     try {
@@ -217,112 +110,6 @@ function setsEqual<T>(a: Set<T>, b: Set<T>): boolean {
         if (!b.has(value)) return false;
     }
     return true;
-}
-
-function serializeIndexingContext(ctx: Readonly<IndexingContext>): SerializedIndexContext {
-    return {
-        refMap: Array.from(ctx.refMap.entries()),
-        valueMap: Array.from(ctx.valueMap.entries()),
-        collisionKeys: Array.from(ctx.collisionKeys.values()),
-        idToVarName: Array.from(ctx.idToVarName.entries()),
-        idToTokenKey: Array.from(ctx.idToTokenKey.entries())
-    };
-}
-
-function createIndexingContextFromSerialized(serialized: SerializedIndexContext): Readonly<IndexingContext> {
-    const summary = createSummary();
-    return createProcessingContext({
-        summary,
-        refMap: new Map<string, string>(serialized.refMap),
-        valueMap: new Map<string, TokenValue>(serialized.valueMap),
-        collisionKeys: new Set<string>(serialized.collisionKeys),
-        idToVarName: new Map<string, string>(serialized.idToVarName),
-        idToTokenKey: new Map<string, string>(serialized.idToTokenKey)
-    });
-}
-
-function serializeTokenGraph(graph: TokenGraph): SerializedTokenGraph {
-    return {
-        nodes: Array.from(graph.nodes.entries()),
-        edges: Array.from(graph.edges.entries()),
-        reverseEdges: Array.from(graph.reverseEdges.entries()),
-        collections: Array.from(graph.collections.entries()),
-        modes: Array.from(graph.modes.entries()),
-        pathToNodeId: Array.from(graph.pathToNodeId.entries()),
-        idToNodeId: Array.from(graph.idToNodeId.entries()),
-        cycleNodeIds: Array.from(graph.cycleNodeIds.values())
-    };
-}
-
-function deserializeTokenGraph(serialized: SerializedTokenGraph): TokenGraph {
-    return {
-        nodes: new Map(serialized.nodes),
-        edges: new Map(serialized.edges),
-        reverseEdges: new Map(serialized.reverseEdges),
-        collections: new Map(serialized.collections),
-        modes: new Map(serialized.modes),
-        pathToNodeId: new Map(serialized.pathToNodeId),
-        idToNodeId: new Map(serialized.idToNodeId),
-        cycleNodeIds: new Set(serialized.cycleNodeIds)
-    };
-}
-
-function serializeCssCollisionMap(
-    map: Map<string, CssVarCollision>
-): Array<[string, SerializedCssVarCollision]> {
-    return Array.from(map.entries()).map(([name, collision]) => [
-        name,
-        {
-            first: collision.first,
-            others: Array.from(collision.others.entries())
-        }
-    ]);
-}
-
-function deserializeCssCollisionMap(
-    entries: Array<[string, SerializedCssVarCollision]>
-): Map<string, CssVarCollision> {
-    const map = new Map<string, CssVarCollision>();
-    for (const [name, collision] of entries) {
-        map.set(name, {
-            first: collision.first,
-            others: new Map<string, CssVarOwner>(collision.others)
-        });
-    }
-    return map;
-}
-
-function toSummarySnapshot(summary: ExecutionSummary): SummarySnapshot {
-    return {
-        totalTokens: summary.totalTokens,
-        successCount: summary.successCount,
-        unresolvedRefs: [...summary.unresolvedRefs],
-        invalidNames: [...summary.invalidNames],
-        circularDeps: summary.circularDeps,
-        depthLimitHits: summary.depthLimitHits,
-        cssVarNameCollisions: summary.cssVarNameCollisions,
-        cssVarNameCollisionDetails: [...summary.cssVarNameCollisionDetails],
-        invalidTokens: [...summary.invalidTokens],
-        tokenTypeCounts: { ...summary.tokenTypeCounts }
-    };
-}
-
-function fromSummarySnapshot(snapshot: SummarySnapshot): ExecutionSummary {
-    return {
-        totalTokens: snapshot.totalTokens,
-        successCount: snapshot.successCount,
-        unresolvedRefs: [...snapshot.unresolvedRefs],
-        invalidNames: [...snapshot.invalidNames],
-        circularDeps: snapshot.circularDeps,
-        depthLimitHits: snapshot.depthLimitHits,
-        cssVarNameCollisions: snapshot.cssVarNameCollisions,
-        cssVarNameCollisionDetails: [...snapshot.cssVarNameCollisionDetails],
-        invalidTokens: [...snapshot.invalidTokens],
-        tokenTypeCounts: { ...snapshot.tokenTypeCounts },
-        countedTokenKeys: new Set<string>(),
-        countedGeneratedKeys: new Set<string>(),
-        countedTokenTypeKeys: new Set<string>()
-    };
 }
 
 const parsedArgs = parseArgs(process.argv.slice(2), { rootDir: ROOT_DIR });
@@ -386,173 +173,6 @@ if (pipelineContext.modeStrict && !pipelineContext.preferredMode) {
     console.warn(
         'ℹ️  --mode-strict was provided without --mode <name>; strict checks apply only when a preferred mode is set. Continuing in loose mode.'
     );
-}
-
-function buildIndexArtifacts(
-    fileEntries: FileEntry[],
-    summary: ExecutionSummary,
-    preferredMode: string | undefined,
-    modeStrictPreferred: boolean
-): {
-    payload: IndexCheckpointPayload;
-    detectedModeSet: Set<string>;
-    emittedModeSet: Set<string>;
-    cssVarNameOwners: Map<string, CssVarOwner>;
-    cssVarNameCollisionMap: Map<string, CssVarCollision>;
-} {
-    const refMap = new Map<string, string>();
-    const valueMap = new Map<string, TokenValue>();
-    const collisionKeys = new Set<string>();
-    const idToVarName = new Map<string, string>();
-    const idToTokenKey = new Map<string, string>();
-
-    const cssVarNameOwners = new Map<string, CssVarOwner>();
-    const cssVarNameCollisionMap = new Map<string, CssVarCollision>();
-
-    const indexingCtx = createProcessingContext({
-        summary,
-        refMap,
-        valueMap,
-        collisionKeys,
-        idToVarName,
-        idToTokenKey,
-        cssVarNameOwners,
-        cssVarNameCollisionMap
-    });
-
-    for (const { originalName, content } of fileEntries) {
-        collectTokenMaps(indexingCtx, content, [], [originalName], preferredMode, modeStrictPreferred, true);
-    }
-
-    const modeKeys = Array.from(foundModeKeys);
-    const sortedModes = modeKeys.slice().sort((a, b) => normalizeModeName(a).localeCompare(normalizeModeName(b)));
-    const detectedModeSet = new Set<string>(sortedModes);
-
-    const scopes: ModeScope[] = [];
-    scopes.push({ selector: ':root', mode: undefined, skipBaseWhenMode: false, modeOverridesOnly: false, allowModeBranches: false });
-
-    let emittedModes = sortedModes.filter(modeKey => !isModeDefaultKey(modeKey));
-    const preferredForEmission = normalizePreferredMode(preferredMode);
-    if (preferredForEmission) {
-        const preferredModes = emittedModes.filter(modeKey => matchesPreferredMode(modeKey, preferredForEmission));
-        if (preferredModes.length > 0) {
-            emittedModes = preferredModes;
-        } else {
-            console.warn(`ℹ️  Preferred mode "${preferredMode}" was not detected in mode scopes; emitting all detected modes.`);
-        }
-    }
-
-    for (const modeKey of emittedModes) {
-        const selectorValue = normalizeModeName(modeKey);
-        const selector = `[data-theme="${selectorValue}"]`;
-        scopes.push({ selector, mode: modeKey, skipBaseWhenMode: true, modeOverridesOnly: true, allowModeBranches: true });
-    }
-    const emittedModeSet = new Set<string>(emittedModes);
-
-    const baseRefMap = new Map<string, string>();
-    const baseValueMap = new Map<string, TokenValue>();
-    const baseCollisionKeys = new Set<string>();
-    const baseIdToVarName = new Map<string, string>();
-    const baseIdToTokenKey = new Map<string, string>();
-
-    const baseSummary = createSummary();
-    const baseIndexingCtx = createProcessingContext({
-        summary: baseSummary,
-        refMap: baseRefMap,
-        valueMap: baseValueMap,
-        collisionKeys: baseCollisionKeys,
-        idToVarName: baseIdToVarName,
-        idToTokenKey: baseIdToTokenKey
-    });
-
-    for (const { originalName, content } of fileEntries) {
-        collectTokenMaps(
-            baseIndexingCtx,
-            content,
-            [],
-            [originalName],
-            undefined,
-            modeStrictPreferred,
-            false,
-            false,
-            false
-        );
-    }
-
-    const scopedIndices: SerializedScopeIndex[] = [];
-    for (const scope of scopes) {
-        const scopeRefMap = new Map<string, string>(baseRefMap);
-        const scopeValueMap = new Map<string, TokenValue>(baseValueMap);
-        const scopeCollisionKeys = new Set<string>(baseCollisionKeys);
-        const scopeIdToVarName = new Map<string, string>(baseIdToVarName);
-        const scopeIdToTokenKey = new Map<string, string>(baseIdToTokenKey);
-        const scopeSummary = createSummary();
-        const scopeIndexingCtx = createProcessingContext({
-            summary: scopeSummary,
-            refMap: scopeRefMap,
-            valueMap: scopeValueMap,
-            collisionKeys: scopeCollisionKeys,
-            idToVarName: scopeIdToVarName,
-            idToTokenKey: scopeIdToTokenKey
-        });
-
-        if (scope.mode) {
-            for (const { originalName, content } of fileEntries) {
-                collectTokenMaps(
-                    scopeIndexingCtx,
-                    content,
-                    [],
-                    [originalName],
-                    scope.mode,
-                    false,
-                    scope.skipBaseWhenMode,
-                    scope.modeOverridesOnly,
-                    scope.allowModeBranches
-                );
-            }
-        }
-
-        scopedIndices.push({
-            scope,
-            index: serializeIndexingContext(scopeIndexingCtx)
-        });
-    }
-
-    const payload: IndexCheckpointPayload = {
-        ingestHash: '',
-        preferredMode,
-        modeStrictPreferred,
-        detectedModes: Array.from(detectedModeSet),
-        emittedModes: Array.from(emittedModeSet),
-        scopes,
-        scopedIndices,
-        cssVarNameOwners: Array.from(cssVarNameOwners.entries()),
-        cssVarNameCollisionMap: serializeCssCollisionMap(cssVarNameCollisionMap),
-        cssVarNameCollisions: summary.cssVarNameCollisions,
-        cssVarNameCollisionDetails: [...summary.cssVarNameCollisionDetails]
-    };
-
-    return { payload, detectedModeSet, emittedModeSet, cssVarNameOwners, cssVarNameCollisionMap };
-}
-
-function analyzeScopedIndices(scopedIndices: SerializedScopeIndex[]): SerializedAnalyzedScope[] {
-    return scopedIndices.map(({ scope, index }) => {
-        const scopeIndexingCtx = createIndexingContextFromSerialized(index);
-        const graph = createTokenGraph(scopeIndexingCtx, {
-            key: scope.mode ?? 'modeDefault',
-            selector: scope.selector,
-            isDefault: !scope.mode
-        });
-        const cycleStatus = buildCycleStatusFromGraph(graph);
-        const emittableKeys = buildEmittableKeySetFromGraph(graph);
-        return {
-            scope,
-            index,
-            graph: serializeTokenGraph(graph),
-            cycleStatus: Array.from(cycleStatus.entries()),
-            emittableKeys: Array.from(emittableKeys.values()).sort((a, b) => a.localeCompare(b))
-        };
-    });
 }
 
 function buildScopeProcessingContexts(
