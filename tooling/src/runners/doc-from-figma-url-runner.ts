@@ -21,7 +21,7 @@ import {
 } from '../utils/prompts.js';
 import { GOLDEN_COMPONENT_DOC_SAMPLE_PATH } from '../utils/doc-templates.js';
 import { captureFileSnapshot, restoreFileSnapshot } from '../utils/file-snapshot.js';
-import { assertScopedWritePolicy } from '../utils/scoped-write-guard.js';
+import { assertScopedWritePolicy } from '../services/scoped-write-guard.js';
 import { logger } from '../utils/logger.js';
 import { resolveDocContext } from '../services/doc-from-figma-url-context.js';
 import { runDocGenerationPipeline } from '../services/doc-from-figma-url-pipeline.js';
@@ -119,18 +119,6 @@ const USAGE = {
   ],
 };
 
-const FRONTMATTER_EVIDENCE_PREFIXES = Object.freeze([
-  'figma.file_url',
-  'figma.page',
-  'figma.component',
-  'figma.component_set_node_id',
-  'figma.last_verified',
-  'figma.component_hash',
-  'figma.properties_count',
-  'figma.variants_count',
-  'pipeline.ds_component_doc',
-]);
-
 /**
  * Doc from Figma URL arguments.
  */
@@ -195,11 +183,11 @@ export async function runDocFromFigmaUrl(
   const figmaMapOutPath = args['component-map-out']
     ? path.resolve(args['component-map-out'])
     : path.join(
-        docsRootDir,
-        '_generated',
-        'figma-component-map',
-        `${figmaFileDescriptor.fileKey}.json`,
-      );
+      docsRootDir,
+      '_generated',
+      'figma-component-map',
+      `${figmaFileDescriptor.fileKey}.json`,
+    );
   const figmaToken = String(args['figma-token'] || process.env.FIGMA_TOKEN || '').trim();
   const isFileLevelUrl = !figmaUrlParsed.nodeId;
 
@@ -207,13 +195,13 @@ export async function runDocFromFigmaUrl(
     if (!autoComponentMap) {
       throw new Error(
         'Figma URL has no node-id and automatic file component mapping is disabled.\n' +
-          'Either pass a component URL with node-id, or enable --auto-component-map true.',
+        'Either pass a component URL with node-id, or enable --auto-component-map true.',
       );
     }
     if (!figmaToken) {
       throw new Error(
         'Figma file URL detected (no node-id), but no API token is available.\n' +
-          'Provide --figma-token <token> or set FIGMA_TOKEN to auto-discover component URLs.',
+        'Provide --figma-token <token> or set FIGMA_TOKEN to auto-discover component URLs.',
       );
     }
 

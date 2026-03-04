@@ -3,6 +3,22 @@ import path from "node:path";
 
 import { isPlainObject } from "./is-plain-object.js";
 import { parseMarkdownFrontmatter } from "./parse-frontmatter.js";
+import {
+  ALLOWED_DOC_STATUS,
+  CANONICAL_H2_ORDER,
+  REQUIRED_CANONICAL_H2,
+} from "./docs-config.js";
+import { GAPS_VALIDATION } from "../services/gaps-contract.js";
+import {
+  extractGapsSection,
+  extractNonEmptySectionLines,
+} from "../services/gaps.js";
+
+export {
+  ALLOWED_DOC_STATUS,
+  CANONICAL_H2_ORDER,
+  REQUIRED_CANONICAL_H2,
+};
 
 const VARIABLE_ID_RE = /VariableID:[A-Za-z0-9:-]+/g;
 const IMPLEMENTATION_CODE_FENCE_RE =
@@ -23,36 +39,6 @@ export interface AgentOutputContractResult {
   errors: AgentOutputError[];
 }
 
-// Duplicated from scripts/lib/docs-config.mjs
-// TODO: Migrate docs-config.mjs to TypeScript and import from there
-// For now, keep these constants in sync manually
-
-/**
- * Allowed doc status values.
- */
-export const ALLOWED_DOC_STATUS = new Set(["draft", "ready", "needs-review"]);
-
-/**
- * Canonical H2 heading order for component docs.
- */
-export const CANONICAL_H2_ORDER = [
-  "Overview",
-  "Anatomy",
-  "Properties",
-  "Variants",
-  "States",
-  "Behaviors",
-  "Accessibility",
-  "Code examples",
-  "Design tokens",
-  "References",
-];
-
-/**
- * Required canonical H2 headings.
- */
-export const REQUIRED_CANONICAL_H2 = ["Overview", "Anatomy", "Properties"];
-
 /**
  * Normalize a heading string to a comparable key.
  */
@@ -72,7 +58,7 @@ function extractH2Headings(markdownContent: string): string[] {
   const headings: string[] = [];
   const h2Regex = /^##\s+(.+?)\s*$/gm;
   let match: RegExpExecArray | null;
-  
+
   while ((match = h2Regex.exec(String(markdownContent || ""))) !== null) {
     headings.push(String(match[1] || "").trim());
   }
@@ -132,11 +118,11 @@ export function validateAgentOutputContract(
   const { markdown, expectedComponentName, unresolvedGapCount } = options;
   const errors: AgentOutputError[] = [];
   const source = String(markdown || "");
-  
+
   let frontmatter: Record<string, unknown> = {};
   let content = source;
   let frontmatterParseError = "";
-  
+
   try {
     const result = parseMarkdownFrontmatter(source);
     frontmatter = result.frontmatter as Record<string, unknown>;
@@ -220,7 +206,9 @@ export function validateAgentOutputContract(
 
   const h2Headings = extractH2Headings(content);
   const normalizedHeadings = h2Headings.map(normalizeHeadingKey);
-  
+  const canonicalSet = new Set(CANONICAL_H2_ORDER.map(normalizeHeadingKey));
+
+  // 1. Check required headings
   for (const required of REQUIRED_CANONICAL_H2) {
     const key = normalizeHeadingKey(required);
     if (!normalizedHeadings.includes(key)) {
@@ -231,32 +219,77 @@ export function validateAgentOutputContract(
     }
   }
 
-  const variableMatches = content.match(VARIABLE_ID_RE);
-  if (variableMatches && variableMatches.length > 0) {
-    const uniqueVariables = new Set(variableMatches);
-    if (uniqueVariables.size > 5) {
+  // 2. Check unauthorized headings
+  for (let i = 0; i < h2Headings.length; i++) {
+    const key = normalizedHeadings[i];
+    if (!canonicalSet.has(key)) {
       errors.push({
-        code: "AOC04",
-        message: `Too many VariableID references (${uniqueVariables.size}). Use design tokens instead.`,
+        code: "AOC03",
+        message: `Unauthorized H2 heading: ${h2Headings[i]}`,
       });
     }
   }
 
+  // 3. Check canonical order
+  let lastCanonicalIndex = -1;
+  const canonicalOrderMap = new Map(CANONICAL_H2_ORDER.map((h, i) => [normalizeHeadingKey(h), i]));
+
+  for (let i = 0; i < normalizedHeadings.length; i++) {
+    const key = normalizedHeadings[i];
+    const canonicalIndex = canonicalOrderMap.get(key);
+    if (canonicalIndex !== undefined) {
+      if (canonicalIndex < lastCanonicalIndex) {
+        errors.push({
+          code: "AOC03",
+          message: `H2 headings out of order: ${h2Headings[i]} appears after a later canonical section`,
+        });
+      }
+      lastCanonicalIndex = canonicalIndex;
+    }
+  }
+
+  const variableMatches = content.match(VARIABLE_ID_RE);
+  if (variableMatches && variableMatches.length > 0) {
+    const uniqueVariables = new Set(variableMatches);
+    errors.push({
+      code: "AOC04",
+      message: `VariableID references are not allowed (${uniqueVariables.size} found). Use design tokens instead.`,
+    });
+  }
+
   const hasCodeFence = IMPLEMENTATION_CODE_FENCE_RE.test(content);
-  if (!hasCodeFence && expectedComponentName) {
+  if (hasCodeFence) {
     errors.push({
       code: "AOC05",
-      message: "Missing implementation code examples.",
+      message: "Implementation code fences are not allowed.",
     });
   }
 
   if (typeof unresolvedGapCount === "number" && unresolvedGapCount > 0) {
-    const gapsSection = content.match(/##\s+Gaps\s*\n([\s\S]*?)(?=^##\s+)/m);
+    const gapsSection = extractGapsSection(content);
     if (!gapsSection) {
       errors.push({
         code: "AOC06",
-        message: "Document has unresolved gaps but no Gaps section.",
+        message: "Document has unresolved gaps but no Gaps / TBD section.",
       });
+    } else {
+      const checklistLines = extractNonEmptySectionLines(gapsSection.body);
+      if (!checklistLines.length) {
+        errors.push({
+          code: "AOC06",
+          message: "Document has unresolved gaps but Gaps / TBD section is empty.",
+        });
+      } else if (
+        checklistLines.some(
+          (line) => !GAPS_VALIDATION.checkboxFormatRegex.test(line),
+        )
+      ) {
+        errors.push({
+          code: "AOC06",
+          message:
+            "Document has unresolved gaps but Gaps / TBD section must use canonical checkbox format.",
+        });
+      }
     }
   }
 
@@ -267,22 +300,35 @@ export function validateAgentOutputContract(
  * Write an agent output error report to a file.
  */
 export function writeAgentOutputErrorReport(options: {
-  outputPath: string;
+  outputPath?: string;  // Optional: defaults to docs/_generated/agent_output_errors/
   componentSlug?: string;
+  markdownPath?: string;  // Optional: actual markdown file path
+  scriptName?: string;  // Optional: defaults to "agent-output-contract"
   errors: AgentOutputError[];
   rawOutput?: string;
 }): void {
-  const { outputPath, componentSlug, errors, rawOutput } = options;
-  
+  const {
+    outputPath,
+    componentSlug,
+    markdownPath,
+    scriptName = "agent-output-contract",
+    errors,
+    rawOutput
+  } = options;
+
   const safeSlug = sanitizeComponentSlug(componentSlug);
+
+  // Use provided outputPath or default to docs/_generated/agent_output_errors/
+  const reportPath = outputPath || `docs/_generated/agent_output_errors/${safeSlug}.error.json`;
+
   const report = {
     componentSlug: safeSlug,
-    scriptName: "agent-output-contract",
-    markdownPath: `${safeSlug}.md`,
+    scriptName,
+    markdownPath: markdownPath || `${safeSlug}.md`,
     errors,
     rawOutput: rawOutput || "",
   };
 
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify(report, null, 2) + "\n", "utf8");
+  fs.mkdirSync(path.dirname(reportPath), { recursive: true });
+  fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + "\n", "utf8");
 }

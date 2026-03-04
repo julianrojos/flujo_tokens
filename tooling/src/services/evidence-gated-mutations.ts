@@ -67,7 +67,7 @@ function flattenScalars(node: any, prefix = '', output = new Map<string, any>())
     return output;
 }
 
-function isAllowedKnownToKnown(pathKey: string, allowedPrefixes: string[]): boolean {
+function isAllowedKnownToKnown(pathKey: string, allowedPrefixes: readonly string[]): boolean {
     for (const prefixRaw of allowedPrefixes || []) {
         const prefix = String(prefixRaw || '').trim();
         if (!prefix) continue;
@@ -95,7 +95,7 @@ function formatViolation(violation: MutationViolation): string {
 export interface AssertEvidenceGatedOptions {
     before: any;
     after: any;
-    allowedKnownToKnownPrefixes?: string[];
+    allowedKnownToKnownPrefixes?: readonly string[];
     label?: string;
 }
 

@@ -17,15 +17,15 @@ import { updateAgentDriftBaseline } from '../services/agent-drift-detector.js';
 import {
   assertDocStatusStable,
   assertEvidenceGatedScalarChanges,
-} from '../utils/evidence-gated-mutations.js';
-import { assertScopedWritePolicy } from '../utils/scoped-write-guard.js';
+} from '../services/evidence-gated-mutations.js';
+import { assertScopedWritePolicy } from '../services/scoped-write-guard.js';
 import { runOrThrow } from '../utils/exec.js';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { runAgentPrompt } from '../services/agent-runner.js';
 import { logger } from '../utils/logger.js';
 import type { DocGenerationContext } from './doc-from-figma-url-context.js';
 
-const FRONTMATTER_EVIDENCE_PREFIXES = Object.freeze([
+const FRONTMATTER_EVIDENCE_PREFIXES: readonly string[] = Object.freeze([
   'figma.file_url',
   'figma.page',
   'figma.component',
@@ -35,7 +35,7 @@ const FRONTMATTER_EVIDENCE_PREFIXES = Object.freeze([
   'figma.properties_count',
   'figma.variants_count',
   'pipeline.ds_component_doc',
-]);
+] as const);
 
 /**
  * Run doc generation pipeline.
@@ -85,18 +85,26 @@ export async function runDocGenerationPipeline(
     markdown: generatedMarkdown,
     expectedComponentName: ctx.componentName || undefined,
   });
-  if (!outputContract.ok) {
+  if (outputContract.errors.length > 0) {
     const resolvedSlug = ctx.componentSlug || ctx.outputSlug;
-    const reportPath = writeAgentOutputErrorReport({
+    const reportPath = path.join(
+      ctx.docsRootDir,
+      '_generated',
+      'agent_output_errors',
+      `${resolvedSlug}.error.json`,
+    );
+    writeAgentOutputErrorReport({
+      outputPath: reportPath,
       componentSlug: resolvedSlug,
       markdownPath: ctx.outputPath,
+      scriptName: "ds-doc-from-figma-url",
       errors: outputContract.errors,
       rawOutput: generatedMarkdown,
     });
     throw new Error(
       'Generated markdown failed output contract.\n' +
-        `Report: ${reportPath}\n` +
-        `${JSON.stringify({ file: ctx.outputPath, errors: outputContract.errors }, null, 2)}`,
+      `Report: ${reportPath}\n` +
+      `${JSON.stringify({ file: ctx.outputPath, errors: outputContract.errors }, null, 2)}`,
     );
   }
 
@@ -108,9 +116,9 @@ export async function runDocGenerationPipeline(
   if (drift.driftDetected) {
     logger.warn(
       'Output contract drift detected.\n' +
-        `Baseline: ${drift.baselinePath}\n` +
-        `Previous hash: ${drift.previousHash}\n` +
-        `Current hash: ${drift.hash}`,
+      `Baseline: ${drift.baselinePath}\n` +
+      `Previous hash: ${drift.previousHash}\n` +
+      `Current hash: ${drift.hash}`,
     );
   }
 
@@ -150,9 +158,8 @@ export async function runDocGenerationPipeline(
           ...(ctx.figmaToken ? ['--figma-token', ctx.figmaToken] : []),
         ]);
       } catch (error) {
-        const message = `Automatic visual proof capture failed: ${
-          error instanceof Error ? error.message : String(error)
-        }`;
+        const message = `Automatic visual proof capture failed: ${error instanceof Error ? error.message : String(error)
+          }`;
         if (ctx.captureProofStrict) {
           throw new Error(message);
         }
