@@ -39,14 +39,23 @@ export interface RenderAuditPhaseResult {
   errors?: string[];
 }
 
+export interface RenderAuditDependencies {
+  executeAgentPrompt: typeof executeAgentPrompt;
+}
+
+const defaultDependencies: RenderAuditDependencies = {
+  executeAgentPrompt,
+};
+
 /**
  * Execute render audit agent.
  */
 function executeRenderAudit(
   context: ActiveMdToFigmaRuntimeContext,
   auditPrompt: string,
+  dependencies: RenderAuditDependencies,
 ): AgentExecutionResult {
-  return executeAgentPrompt({
+  return dependencies.executeAgentPrompt({
     prompt: auditPrompt,
     agent: 'auto', // Default agent for audit
     label: `active-md-to-figma-audit-${context.fileBase}`,
@@ -61,6 +70,7 @@ function executeRenderAudit(
 export function executeRenderAuditPhase(
   context: ActiveMdToFigmaRuntimeContext,
   options: RenderAuditOptions,
+  dependencies: RenderAuditDependencies = defaultDependencies,
 ): RenderAuditPhaseResult {
   const { renderReport, expectations } = options;
 
@@ -75,7 +85,7 @@ export function executeRenderAuditPhase(
   });
 
   // Execute audit agent
-  const auditResponse = executeRenderAudit(context, auditPrompt);
+  const auditResponse = executeRenderAudit(context, auditPrompt, dependencies);
 
   // Parse audit report
   const auditReport = parseRenderAuditFromOutput(auditResponse.stdout);
@@ -124,53 +134,64 @@ export function executeRenderAuditPhase(
  * Reads renderReport and renderExpectations from state,
  * executes audit agent, validates output.
  */
-export const renderAuditPhase: RenderPhase<RenderAuditPhaseOutput> = {
-  name: 'render-audit-phase',
-  async execute(
-    context: ActiveMdToFigmaRuntimeContext,
-    state: RenderPipelineState,
-  ): Promise<PhaseResult<RenderAuditPhaseOutput>> {
-    // Require render report and expectations from previous phases
-    if (!hasAgentState(state)) {
-      return {
-        ok: false,
-        error: 'Render audit phase requires renderReport and renderExpectations from previous phase',
-      };
-    }
+export function createRenderAuditPhase(
+  dependencies: RenderAuditDependencies = defaultDependencies,
+): RenderPhase<RenderAuditPhaseOutput> {
+  return {
+    name: 'render-audit-phase',
+    async execute(
+      context: ActiveMdToFigmaRuntimeContext,
+      state: RenderPipelineState,
+    ): Promise<PhaseResult<RenderAuditPhaseOutput>> {
+      // Require render report and expectations from previous phases
+      if (!hasAgentState(state)) {
+        return {
+          ok: false,
+          error:
+            'Render audit phase requires renderReport and renderExpectations from previous phase',
+        };
+      }
 
-    let result: RenderAuditPhaseResult;
-    try {
-      result = executeRenderAuditPhase(context, {
-        renderReport: state.renderReport,
-        expectations: state.renderExpectations,
-      });
-    } catch (err: unknown) {
-      return {
-        ok: false,
-        error: `Render structure audit failed: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
+      let result: RenderAuditPhaseResult;
+      try {
+        result = executeRenderAuditPhase(
+          context,
+          {
+            renderReport: state.renderReport,
+            expectations: state.renderExpectations,
+          },
+          dependencies,
+        );
+      } catch (err: unknown) {
+        return {
+          ok: false,
+          error: `Render structure audit failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
 
-    if (!result.ok) {
-      return {
-        ok: false,
-        error:
-          'Render structure audit failed. Themed renderer output is inconsistent; fallback-like render blocked.\n' +
-          (result.errors?.map((issue) => `- ${issue}`).join('\n') || 'Unknown audit errors') +
-          '\n' +
-          `Saved raw audit output: ${result.outputPath}`,
-      };
-    }
+      if (!result.ok) {
+        return {
+          ok: false,
+          error:
+            'Render structure audit failed. Themed renderer output is inconsistent; fallback-like render blocked.\n' +
+            (result.errors?.map((issue) => `- ${issue}`).join('\n') || 'Unknown audit errors') +
+            '\n' +
+            `Saved raw audit output: ${result.outputPath}`,
+        };
+      }
 
-    return {
-      ok: true,
-      output: {
-        stage: 'audit',
-        pipeline: state.pipeline,
-        renderExpectations: state.renderExpectations,
-        renderReport: state.renderReport,
-        auditResult: result,
-      },
-    };
-  },
-};
+      return {
+        ok: true,
+        output: {
+          stage: 'audit',
+          pipeline: state.pipeline,
+          renderExpectations: state.renderExpectations,
+          renderReport: state.renderReport,
+          auditResult: result,
+        },
+      };
+    },
+  };
+}
+
+export const renderAuditPhase = createRenderAuditPhase();

@@ -5,7 +5,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
 
-import { renderAuditPhase } from './render-audit-phase.js';
+import { createRenderAuditPhase, renderAuditPhase } from './render-audit-phase.js';
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
 import type { AgentRenderState } from './render-pipeline-state.js';
 
@@ -88,7 +88,23 @@ describe('render-audit-phase', () => {
   });
 
   it('returns phase failure when audit execution cannot parse output', async () => {
-    const result = await renderAuditPhase.execute(createMockContext(), createAgentState());
+    const phase = createRenderAuditPhase({
+      executeAgentPrompt: () => ({
+        stdout: 'not valid audit json',
+        stderr: '',
+        raw: {
+          ok: true,
+          agent: 'test',
+          command: 'test-agent',
+          args: [],
+          status: 0,
+          stdout: 'not valid audit json',
+          stderr: '',
+        },
+      }),
+    });
+
+    const result = await phase.execute(createMockContext(), createAgentState());
     assert.strictEqual(result.ok, false);
     assert.match(result.error || '', /render structure audit failed|unable to parse/i);
   });
