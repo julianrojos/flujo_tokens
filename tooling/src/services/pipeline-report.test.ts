@@ -8,9 +8,10 @@ import {
   formatStats,
   generateReport,
 } from './pipeline-report.js';
-import type { PipelineExecutionState, PipelinePlan, StepPlan } from './pipeline-types.js';
+import type { PipelineExecutionState } from './pipeline-types.js';
+import type { PipelineComponent, PipelinePlan, PipelineStep } from './pipeline-plan.js';
 
-const createNeededStep = (id: StepPlan['id']): StepPlan => ({
+const createNeededStep = (id: PipelineStep['id']): PipelineStep => ({
   id,
   desc: `${id} step`,
   needed: true,
@@ -19,26 +20,22 @@ const createNeededStep = (id: StepPlan['id']): StepPlan => ({
   blocked: false,
 });
 
+const createComponent = (component: PipelineComponent): PipelineComponent => component;
+
 const createPlan = (): PipelinePlan => ({
   components: {
-    alert: {
+    alert: createComponent({
       slug: 'alert',
-      orphanStatus: null,
+      figma_node_id: '123:456',
+      orphanStatus: false,
       steps: [createNeededStep('spec')],
-      hasSpec: true,
-      hasDoc: true,
-      inFigma: true,
-      needsReview: false,
-    },
-    badge: {
+    }),
+    badge: createComponent({
       slug: 'badge',
-      orphanStatus: null,
+      figma_node_id: '789:012',
+      orphanStatus: false,
       steps: [createNeededStep('markdown')],
-      hasSpec: true,
-      hasDoc: true,
-      inFigma: true,
-      needsReview: false,
-    },
+    }),
   },
   orphans: {
     figma_only: [],

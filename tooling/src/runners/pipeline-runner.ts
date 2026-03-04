@@ -3,22 +3,18 @@
 /**
  * Design System Pipeline Runner
  *
- * I/O operations and CLI entry point for the pipeline orchestrator.
- * This module handles filesystem operations, external command execution,
- * and orchestrates the pure logic from ./services/pipeline.ts
+ * CLI entry point for the pipeline orchestrator.
+ * Orchestrates execution functions and outputs reports.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import { runDoctor } from './doctor-runner.js';
-
 import { createPlan } from '../services/pipeline-plan.js';
-
 import {
   buildReportData,
   formatOrphanReport,
@@ -29,14 +25,22 @@ import {
   formatDryRunNotice,
   COLORS,
 } from '../services/pipeline-report.js';
+import {
+  runGlobalCommand,
+  executeComponentTasks,
+  writeReportFile,
+} from '../services/pipeline-execution.js';
+import type { DoctorReport } from '../services/doctor-types.js';
 
 import type {
   PipelineOptions,
   PipelineExecutionState,
-  GlobalExecutionState,
   ComponentExecutionMetrics,
-  PipelineStepId,
 } from '../services/pipeline-types.js';
+
+function isDoctorReport(report: unknown): report is DoctorReport {
+  return Boolean(report) && typeof report === 'object' && 'checks' in report;
+}
 
 const CLI_CONFIG = {
   command: 'ds:pipeline [options]',
@@ -65,7 +69,13 @@ const CLI_CONFIG = {
 };
 
 /**
- * Run preflight checks using ds:doctor
+ * Run preflight checks using ds:doctor.
+ * 
+ * Invokes the doctor command to ensure the environment is healthy before
+ * running the pipeline. Validates core paths and registries.
+ *
+ * @param options - Pipeline options including the target system and JSON output flag.
+ * @returns A promise resolving to true if preflight passes, false otherwise.
  */
 async function runPreflight(options: PipelineOptions): Promise<boolean> {
   const { json, system } = options;
@@ -85,256 +95,102 @@ async function runPreflight(options: PipelineOptions): Promise<boolean> {
       console.log('\n\x1b[35m=== RUNNING PREFLIGHT (ds:doctor) ===\x1b[0m');
     }
 
-    // Capture doctor output by temporarily redirecting stdout
-    const originalStdoutWrite = process.stdout.write;
-    const originalStderrWrite = process.stderr.write;
-    let stdout = '';
-    let stderr = '';
+    // Build args for doctor
+    const doctorArgs: string[] = [];
+    if (system) {
+      doctorArgs.push('--system', system);
+    }
+    doctorArgs.push('--json');
 
-    process.stdout.write = function (chunk: any, ...args: any[]) {
-      stdout += chunk?.toString() || '';
-      return true;
-    };
-    process.stderr.write = function (chunk: any, ...args: any[]) {
-      stderr += chunk?.toString() || '';
-      return true;
-    };
-
+    // Run doctor - it returns the report directly now
+    // Any exception from runDoctor() is treated as preflight failure
+    let doctorReport: DoctorReport | null = null;
     try {
-      // Build args for doctor
-      const doctorArgs: string[] = [];
-      if (system) {
-        doctorArgs.push('--system', system);
-      }
-      doctorArgs.push('--json');
-
-      // Run doctor directly (not via spawn)
-      try {
-        await runDoctor(doctorArgs);
-      } catch (error) {
-        // Doctor exits with code 1 on failures - that's expected
-        // We'll parse the JSON output to check results
-      }
-
-      // Restore stdout/stderr
-      process.stdout.write = originalStdoutWrite;
-      process.stderr.write = originalStderrWrite;
-
-      // Parse JSON output
-      let doctorChecks: any[] = [];
-      if (stdout) {
-        try {
-          const doctorReport = JSON.parse(stdout);
-          doctorChecks = Array.isArray(doctorReport.checks) ? doctorReport.checks : [];
-        } catch {
-          // Ignore parse errors
-        }
-      }
-
-      const fatalFailures = doctorChecks.filter(
-        (c) => FATAL_PREFLIGHT_CHECKS.has(c.id) && c.status === 'fail',
-      );
-
-      if (fatalFailures.length > 0) {
+      const doctorResult = await runDoctor(doctorArgs);
+      if (!isDoctorReport(doctorResult)) {
         if (!json) {
-          console.error('\x1b[31m❌ Preflight failed on core checks:\x1b[0m');
-          for (const c of fatalFailures) {
-            console.error(`   • ${c.id}: ${c.message}`);
-          }
+          console.error('\x1b[31m❌ Preflight failed: ds:doctor returned no checks.\x1b[0m');
+        } else {
+          console.log(JSON.stringify({ ok: false, reason: 'preflight', error: 'ds:doctor returned no checks' }, null, 2));
         }
         return false;
-      } else if (!json) {
-        const skipped = doctorChecks
-          .filter((c) => !FATAL_PREFLIGHT_CHECKS.has(c.id) && c.status === 'fail')
-          .map((c) => c.id);
-        console.log(
-          `✅ Preflight passed${skipped.length > 0 ? ` (non-fatal skipped: ${skipped.join(', ')})` : ''}`,
-        );
       }
-
-      return true;
+      doctorReport = doctorResult;
     } catch (error) {
-      // Restore stdout/stderr on error
-      process.stdout.write = originalStdoutWrite;
-      process.stderr.write = originalStderrWrite;
-
+      // runDoctor() throws on unexpected errors - treat as preflight failure
+      const errorMessage = error instanceof Error ? error.message : String(error);
       if (!json) {
-        console.error(
-          '\x1b[31m❌ Preflight failed: unable to run ds:doctor.\x1b[0m',
-        );
-        console.error(error instanceof Error ? error.message : String(error));
+        console.error('\x1b[31m❌ Preflight failed: unable to run ds:doctor.\x1b[0m');
+        console.error(errorMessage);
+      } else {
+        console.log(JSON.stringify({ ok: false, reason: 'preflight', error: errorMessage }, null, 2));
       }
       return false;
     }
+
+    const doctorChecks = doctorReport?.checks ?? [];
+    const fatalFailures = doctorChecks.filter(
+      (c) => FATAL_PREFLIGHT_CHECKS.has(c.id) && c.status === 'fail',
+    );
+
+    if (fatalFailures.length > 0) {
+      if (!json) {
+        console.error('\x1b[31m❌ Preflight failed on core checks:\x1b[0m');
+        for (const c of fatalFailures) {
+          console.error(`   • ${c.id}: ${c.message}`);
+        }
+      } else {
+        console.log(JSON.stringify({ ok: false, reason: 'preflight', errors: fatalFailures }, null, 2));
+      }
+      return false;
+    } else if (!json) {
+      const skipped = doctorChecks
+        .filter((c) => !FATAL_PREFLIGHT_CHECKS.has(c.id) && c.status === 'fail')
+        .map((c) => c.id);
+      console.log(
+        `✅ Preflight passed${skipped.length > 0 ? ` (non-fatal skipped: ${skipped.join(', ')})` : ''}`,
+      );
+    }
+
+    return true;
   }
 
   return true;
 }
 
 /**
- * Run a global command (e.g., npm run generate:registry)
+ * Pipeline report structure
  */
-function runGlobalCommand(
-  message: string,
-  cmd: string,
-  args: string[],
-  options: {
-    silent?: boolean;
-    dryRun?: boolean;
-  } = {},
-): boolean {
-  const { silent = false, dryRun = false } = options;
-
-  if (!silent) {
-    console.log(`\x1b[36m[SYS] ${message}\x1b[0m`);
-  }
-
-  if (dryRun) {
-    if (!silent) {
-      console.log(`   (Dry Run: Skipping ${cmd} ${args.join(' ')})`);
-    }
-    return true;
-  }
-
-  const res = spawnSync(cmd, args, {
-    stdio: silent ? 'pipe' : 'inherit',
-    shell: false,
-    cwd: PROJECT_ROOT,
-  });
-
-  return res.status === 0;
+export interface PipelineReport {
+  ok: boolean;
+  reason?: string;
+  plan?: ReturnType<typeof createPlan>;
+  executionState?: PipelineExecutionState;
+  options?: PipelineOptions;
+  meta?: { hasFailures: boolean; failedComponents: string[] };
 }
 
 /**
- * Execute tasks for a single component
+ * Main runner function - returns report for testability
  */
-function executeComponentTasks(
-  componentPlan: any,
-  options: PipelineOptions,
-): ComponentExecutionMetrics {
-  const { slug, steps } = componentPlan;
-  const { dryRun, json, strict } = options;
-
-  const metrics: ComponentExecutionMetrics = {
-    success: true,
-    executedSteps: [],
-    failedSteps: [],
-  };
-
-  const sysArgs = options.system ? ['--', '--system', options.system] : [];
-
-  for (const step of steps) {
-    if (!step.needed || step.blocked) {
-      continue;
-    }
-
-    if (!json) {
-      console.log(`\n\x1b[35m--- ${slug}: Executing step ${step.id} ---\x1b[0m`);
-    }
-
-    let cmd: string;
-    let stepArgs: string[];
-
-    switch (step.id) {
-      case 'spec':
-        // Spec generation would go here
-        continue;
-      case 'markdown':
-        cmd = 'npm';
-        stepArgs = ['run', 'ds:component-doc', ...sysArgs, '--', '--component-name', slug];
-        break;
-      case 'render':
-        cmd = 'npm';
-        stepArgs = ['run', 'ds:active-md-to-figma', ...sysArgs, '--', '--component-name', slug];
-        break;
-      case 'proof':
-        cmd = 'npm';
-        stepArgs = ['run', 'ds:capture-visual-proof', ...sysArgs, '--', '--component-name', slug];
-        break;
-      default:
-        continue;
-    }
-
-    const result = spawnSync(cmd, stepArgs, {
-      stdio: json ? 'pipe' : 'inherit',
-      shell: false,
-      cwd: PROJECT_ROOT,
-    });
-
-    if (result.status === 0) {
-      metrics.executedSteps.push(step.id as PipelineStepId);
-    } else {
-      metrics.failedSteps.push(step.id as PipelineStepId);
-      metrics.success = false;
-
-      if (strict && !dryRun) {
-        if (!json) {
-          console.error(
-            `\n\x1b[31m❌ Strict mode: Aborting due to failure in '${slug}' at step '${step.id}'.\x1b[0m`,
-          );
-        }
-        break;
-      }
-    }
-  }
-
-  return metrics;
-}
-
-/**
- * Write report to file
- */
-function writeReportFile(
-  reportData: any,
-  options: PipelineOptions,
-): string | null {
-  const isDryRun = options['dry-run'] || options['status-only'];
-
-  if (isDryRun) {
-    return null;
-  }
-
-  try {
-    const ctx = resolveSystemContextSafe({ system: options.system });
-    const reportDir = ctx.paths.generated;
-
-    if (!fs.existsSync(reportDir)) {
-      fs.mkdirSync(reportDir, { recursive: true });
-    }
-
-    const reportPath = path.join(reportDir, 'pipeline-report.json');
-    fs.writeFileSync(reportPath, JSON.stringify(reportData, null, 2), 'utf8');
-
-    return reportPath;
-  } catch (err) {
-    console.error(
-      `${COLORS.fgRed}Failed to write JSON report: ${(err as Error).message}${COLORS.reset}`,
-    );
-    return null;
-  }
-}
-
-/**
- * Main runner function
- */
-export async function runPipeline(args: string[] = []): Promise<void> {
+export async function runPipeline(args: string[] = []): Promise<PipelineReport> {
   const parsed = parseArgs(args);
 
   if (parsed.help) {
     printUsage(CLI_CONFIG);
-    process.exit(0);
+    return { ok: true, reason: 'help' };
   }
 
   const options: PipelineOptions = {
-    component: parsed.component,
+    component: parsed.component ? String(parsed.component) : undefined,
     all: parsed.all === 'true' || !!parsed.all,
-    'from-step': parsed['from-step'],
-    'only-step': parsed['only-step'],
+    'from-step': parsed['from-step'] ? String(parsed['from-step']) : undefined,
+    'only-step': parsed['only-step'] ? String(parsed['only-step']) : undefined,
     'render-figma': parsed['render-figma'] === 'true' || !!parsed['render-figma'],
     'dry-run': parsed['dry-run'] === 'true' || !!parsed['dry-run'],
     'status-only': parsed['status-only'] === 'true' || !!parsed['status-only'],
     strict: parsed.strict === 'true' || !!parsed.strict,
-    system: parsed.system,
+    system: parsed.system ? String(parsed.system) : undefined,
     json: parsed.json === 'true' || !!parsed.json,
   };
 
@@ -347,7 +203,7 @@ export async function runPipeline(args: string[] = []): Promise<void> {
   // Run preflight checks
   const preflightOk = await runPreflight(options);
   if (!preflightOk) {
-    process.exit(1);
+    return { ok: false, reason: 'preflight' };
   }
 
   // Create plan
@@ -355,12 +211,17 @@ export async function runPipeline(args: string[] = []): Promise<void> {
     console.log('\n\x1b[35m=== PHASE 1: PLANNING ===\x1b[0m');
   }
 
-  const plan = createPlan(options);
+  const plan = createPlan({
+    'from-step': options['from-step'],
+    'only-step': options['only-step'],
+    'render-figma': options['render-figma'],
+    component: options.component,
+  });
 
   // Status-only mode
   if (options['status-only']) {
-    printReport(plan, {}, options, { hasFailures: false, failedComponents: [] });
-    process.exit(0);
+    printReport(plan, { global: { tokensSync: null, finalGate: null }, components: {} }, options, { hasFailures: false, failedComponents: [] });
+    return { ok: true, plan, executionState: { global: { tokensSync: null, finalGate: null }, components: {} }, options, meta: { hasFailures: false, failedComponents: [] } };
   }
 
   // Execution phase
@@ -389,7 +250,7 @@ export async function runPipeline(args: string[] = []): Promise<void> {
 
   if (!tokensOk && !options['dry-run']) {
     console.error('❌ Failed to sync token registry. Aborting.');
-    process.exit(1);
+    return { ok: false, reason: 'tokens', plan, executionState, options };
   }
 
   // Process components
@@ -444,15 +305,17 @@ export async function runPipeline(args: string[] = []): Promise<void> {
   printReport(plan, executionState, options, { hasFailures, failedComponents });
 
   if (hasFailures && !options['dry-run']) {
-    process.exit(1);
+    return { ok: false, reason: 'execution', plan, executionState, options, meta: { hasFailures, failedComponents } };
   }
+
+  return { ok: true, plan, executionState, options, meta: { hasFailures, failedComponents } };
 }
 
 /**
  * Print pipeline report
  */
 function printReport(
-  plan: any,
+  plan: ReturnType<typeof createPlan>,
   executionState: PipelineExecutionState,
   options: PipelineOptions,
   meta: { hasFailures: boolean; failedComponents: string[] },
@@ -461,7 +324,12 @@ function printReport(
   const isDryRun = options['dry-run'] || options['status-only'];
 
   if (json) {
-    const reportData = buildReportData(plan, executionState, options, meta);
+    const reportData = buildReportData(plan, executionState, {
+      json,
+      'dry-run': options['dry-run'],
+      'status-only': options['status-only'],
+      system: options.system,
+    }, meta);
     console.log(JSON.stringify(reportData, null, 2));
     return;
   }
@@ -497,8 +365,18 @@ function printReport(
 
   // Write report file
   if (!isDryRun) {
-    const reportData = buildReportData(plan, executionState, options, meta);
-    const reportPath = writeReportFile(reportData, options);
+    const reportDir = resolveSystemContextSafe({ system: options.system }).paths.generated;
+    const reportData = buildReportData(plan, executionState, {
+      json,
+      'dry-run': options['dry-run'],
+      'status-only': options['status-only'],
+      system: options.system,
+    }, meta);
+    const reportPath = writeReportFile(reportData, {
+      dryRun: options['dry-run'],
+      statusOnly: options['status-only'],
+      reportDir,
+    });
     if (reportPath) {
       console.log(`${COLORS.fgGreen}✅ Report saved to ${reportPath}${COLORS.reset}`);
     }
@@ -509,8 +387,16 @@ function printReport(
  * CLI entry point
  */
 if (import.meta.url === `file://${process.argv[1]}`) {
-  runPipeline(process.argv.slice(2)).catch((error) => {
-    logger.error('Pipeline runner failed:', error);
-    process.exit(1);
-  });
+  runPipeline(process.argv.slice(2))
+    .then((report) => {
+      if (report.reason === 'help') {
+        return;
+      }
+
+      process.exitCode = report.ok ? 0 : 1;
+    })
+    .catch((error) => {
+      logger.error(`Pipeline runner failed: ${error instanceof Error ? error.message : String(error)}`);
+      process.exitCode = 1;
+    });
 }
