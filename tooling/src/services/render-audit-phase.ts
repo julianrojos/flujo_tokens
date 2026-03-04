@@ -130,39 +130,47 @@ export const renderAuditPhase: RenderPhase<RenderAuditPhaseOutput> = {
     context: ActiveMdToFigmaRuntimeContext,
     state: RenderPipelineState,
   ): Promise<PhaseResult<RenderAuditPhaseOutput>> {
-  // Require render report and expectations from previous phases
-  if (!hasAgentState(state)) {
+    // Require render report and expectations from previous phases
+    if (!hasAgentState(state)) {
+      return {
+        ok: false,
+        error: 'Render audit phase requires renderReport and renderExpectations from previous phase',
+      };
+    }
+
+    let result: RenderAuditPhaseResult;
+    try {
+      result = executeRenderAuditPhase(context, {
+        renderReport: state.renderReport,
+        expectations: state.renderExpectations,
+      });
+    } catch (err: unknown) {
+      return {
+        ok: false,
+        error: `Render structure audit failed: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+
+    if (!result.ok) {
+      return {
+        ok: false,
+        error:
+          'Render structure audit failed. Themed renderer output is inconsistent; fallback-like render blocked.\n' +
+          (result.errors?.map((issue) => `- ${issue}`).join('\n') || 'Unknown audit errors') +
+          '\n' +
+          `Saved raw audit output: ${result.outputPath}`,
+      };
+    }
+
     return {
-      ok: false,
-      error: 'Render audit phase requires renderReport and renderExpectations from previous phase',
+      ok: true,
+      output: {
+        stage: 'audit',
+        pipeline: state.pipeline,
+        renderExpectations: state.renderExpectations,
+        renderReport: state.renderReport,
+        auditResult: result,
+      },
     };
-  }
-
-  const result = executeRenderAuditPhase(context, {
-    renderReport: state.renderReport,
-    expectations: state.renderExpectations,
-  });
-
-  if (!result.ok) {
-    return {
-      ok: false,
-      error:
-        'Render structure audit failed. Themed renderer output is inconsistent; fallback-like render blocked.\n' +
-        (result.errors?.map((issue) => `- ${issue}`).join('\n') || 'Unknown audit errors') +
-        '\n' +
-        `Saved raw audit output: ${result.outputPath}`,
-    };
-  }
-
-  return {
-    ok: true,
-    output: {
-      stage: 'audit',
-      pipeline: state.pipeline,
-      renderExpectations: state.renderExpectations,
-      renderReport: state.renderReport,
-      auditResult: result,
-    },
-  };
   },
 };
