@@ -17,6 +17,7 @@ import {
   checkComponentByName,
   checkValidateDocs,
   checkPaths,
+  checkAgents,
 } from './doctor-checks.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -316,6 +317,25 @@ Test rule content
       // 'warn' is only for when skipValidate is true
       assert.ok(checks[0].status === 'pass' || checks[0].status === 'fail');
       assert.ok(!checks[0].message?.includes('skipped'));
+      assert.ok(!checks[0].message?.includes('skipped'));
+    });
+  });
+
+  describe('checkAgents', () => {
+    it('returns a check for available agents', () => {
+      const checks = checkAgents();
+
+      assert.strictEqual(checks.length, 1);
+      assert.strictEqual(checks[0].id, 'AGENTS');
+
+      // Depending on the machine running the tests, it could be either pass or fail
+      assert.ok(checks[0].status === 'pass' || checks[0].status === 'fail');
+
+      if (checks[0].status === 'pass') {
+        assert.ok(checks[0].message?.includes('available'));
+      } else {
+        assert.ok(checks[0].message?.includes('No supported'));
+      }
     });
   });
 });

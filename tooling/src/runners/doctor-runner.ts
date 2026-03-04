@@ -44,15 +44,22 @@ const CLI_CONFIG = {
   ],
 };
 
+export interface DoctorHelpResult {
+  ok: true;
+  reason: 'help';
+}
+
+export type DoctorRunnerResult = ReturnType<typeof buildDoctorReport> | DoctorHelpResult;
+
 /**
  * Main runner function - returns report for testability
  */
-export async function runDoctor(args: string[] = []): Promise<ReturnType<typeof buildDoctorReport>> {
+export async function runDoctor(args: string[] = []): Promise<DoctorRunnerResult> {
   const parsed = parseArgs(args);
 
   if (parsed.help) {
     printUsage(CLI_CONFIG);
-    process.exit(0);
+    return { ok: true, reason: 'help' };
   }
 
   const systemCtx = resolveSystemContextSafe({ system: String(parsed.system ?? '') });
@@ -84,8 +91,12 @@ export async function runDoctor(args: string[] = []): Promise<ReturnType<typeof 
 if (import.meta.url === `file://${process.argv[1]}`) {
   runDoctor(process.argv.slice(2))
     .then((report) => {
+      if ('reason' in report && report.reason === 'help') {
+        return;
+      }
+
       process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-      process.exit(report.ok ? 0 : 1);
+      process.exitCode = report.ok ? 0 : 1;
     })
     .catch((error) => {
       logger.error(`Doctor runner failed: ${error instanceof Error ? error.message : String(error)}`);
