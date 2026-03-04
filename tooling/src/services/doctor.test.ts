@@ -348,6 +348,7 @@ describe('doctor service', () => {
       const skills = [
         {
           filePath: '/skills/test/SKILL.md',
+          frontmatter: null,
           error: 'Missing YAML frontmatter block.',
         },
       ];
