@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 import {
+  ApiError,
   captureFigmaScreenshot,
   createDesignSystem,
   type CaptureFigmaProgress,
@@ -81,6 +82,42 @@ function getCaptureErrorMessage(error: unknown): string {
   }
 }
 
+function stringifySafe(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function getCaptureErrorDetails(error: unknown): string {
+  if (error instanceof ApiError) {
+    const lines = [
+      `message: ${error.message || "Unknown API error"}`,
+      `status: ${error.status} ${error.statusText}`,
+      `code: ${error.code}`,
+      `recoverable: ${error.recoverable ? "yes" : "no"}`,
+    ];
+    if (error.requestId) {
+      lines.push(`requestId: ${error.requestId}`);
+    }
+    if (error.context) {
+      lines.push(`context:\n${stringifySafe(error.context)}`);
+    }
+    if (error.payload) {
+      lines.push(`payload:\n${stringifySafe(error.payload)}`);
+    }
+    return lines.join("\n\n");
+  }
+
+  if (error instanceof Error) {
+    return error.stack || error.message || String(error);
+  }
+
+  if (typeof error === "string") return error;
+  return stringifySafe(error);
+}
+
 function makeInlineErrorDisplay(args: {
   title: string;
   message: string;
@@ -115,6 +152,8 @@ export function NewSystemPage() {
   const [showImportProgressModal, setShowImportProgressModal] = useState(false);
   const [importCompleted, setImportCompleted] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [importErrorDetails, setImportErrorDetails] = useState("");
+  const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -155,6 +194,8 @@ export function NewSystemPage() {
     setShowImportProgressModal(false);
     setImportCompleted(false);
     setImportError(null);
+    setImportErrorDetails("");
+    setShowImportErrorDetails(false);
     try {
       const response = await createDesignSystem({
         id: generatedSystemId,
@@ -194,52 +235,60 @@ export function NewSystemPage() {
           );
           // In dashboard server mode this endpoint is queued and returns 202 + jobId.
           // Keep strict validation only when a synchronous capture payload is returned.
-          const isQueuedResponse =
-            typeof (captureResult as { jobId?: unknown })?.jobId === "string" &&
-            (captureResult.targets_total === undefined &&
-              captureResult.captured === undefined &&
-              captureResult.failed === undefined);
+          const hasDetailedCaptureResult =
+            captureResult.targets_total !== undefined ||
+            Array.isArray(captureResult.targets) ||
+            Array.isArray(captureResult.captured) ||
+            Array.isArray(captureResult.failed) ||
+            Array.isArray(captureResult.skipped);
 
-          if (!isQueuedResponse) {
-            const targetsCount =
-              captureResult.targets_total ??
-              captureResult.targets?.length ??
-              0;
-            const capturedCount = captureResult.captured?.length ?? 0;
-            const failedCount = captureResult.failed?.length ?? 0;
-            const captureFailureDetail =
-              captureResult.error ||
-              captureResult.message ||
-              captureResult.stderr ||
-              captureResult.failed?.[0]?.error ||
-              captureResult.registry_refresh?.stderr ||
-              "";
+          const targetsCount =
+            captureResult.targets_total ??
+            captureResult.targets?.length ??
+            0;
+          const capturedCount = captureResult.captured?.length ?? 0;
+          const failedCount = captureResult.failed?.length ?? 0;
+          const captureFailureDetail =
+            captureResult.error ||
+            captureResult.message ||
+            captureResult.stderr ||
+            captureResult.failed?.[0]?.error ||
+            captureResult.registry_refresh?.stderr ||
+            "";
 
-            if (!captureResult.ok && captureFailureDetail) {
-              throw new Error(captureFailureDetail);
-            }
+          if (!hasDetailedCaptureResult) {
+            throw new Error(
+              captureFailureDetail || "The import job finished without a detailed result payload.",
+            );
+          }
 
-            if (
-              targetsCount > 0 &&
-              capturedCount === 0 &&
-              failedCount > 0
-            ) {
-              throw new Error(
-                captureFailureDetail ||
-                  "Targets were found but every capture failed.",
-              );
-            }
+          if (!captureResult.ok) {
+            throw new Error(captureFailureDetail || "Initial Figma import failed.");
+          }
 
-            if (targetsCount === 0 && capturedCount === 0) {
-              throw new Error(
-                "No capturable components were found for the provided URL.",
-              );
-            }
+          if (
+            targetsCount > 0 &&
+            capturedCount === 0 &&
+            failedCount > 0
+          ) {
+            throw new Error(
+              captureFailureDetail ||
+                "Targets were found but every capture failed.",
+            );
+          }
+
+          if (targetsCount === 0 && capturedCount === 0) {
+            throw new Error(
+              "No capturable components were found for the provided URL.",
+            );
           }
           captureFinishedOk = true;
         } catch (error) {
           const details = getCaptureErrorMessage(error);
+          const technicalDetails = getCaptureErrorDetails(error);
           setImportError(details);
+          setImportErrorDetails(technicalDetails);
+          setShowImportErrorDetails(false);
           setSaveError(
             makeInlineErrorDisplay({
               title: "System created with warnings",
@@ -438,7 +487,21 @@ export function NewSystemPage() {
 
             {importError ? (
               <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400">
-                {importError}
+                <p>{importError}</p>
+                <div className="mt-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowImportErrorDetails((current) => !current)}
+                  >
+                    {showImportErrorDetails ? "Hide error details" : "View error details"}
+                  </Button>
+                </div>
+                {showImportErrorDetails ? (
+                  <pre className="mt-3 max-h-64 overflow-auto rounded-md border border-red-500/30 bg-black/10 p-3 text-xs text-red-900 dark:text-red-200">
+                    {importErrorDetails || importError}
+                  </pre>
+                ) : null}
               </div>
             ) : null}
 
@@ -448,13 +511,13 @@ export function NewSystemPage() {
                   to="/tokens"
                   className={cn(buttonVariants({ variant: "default" }))}
                 >
-                  Ver Design Tokens
+                  View Design Tokens
                 </Link>
                 <Link
                   to="/components"
                   className={cn(buttonVariants({ variant: "outline" }))}
                 >
-                  Ver componentes
+                  View components
                 </Link>
               </div>
             ) : null}
@@ -465,7 +528,7 @@ export function NewSystemPage() {
                 onClick={() => setShowImportProgressModal(false)}
                 disabled={saving && !importError && !importCompleted}
               >
-                Cerrar
+                Close
               </Button>
             </div>
           </div>

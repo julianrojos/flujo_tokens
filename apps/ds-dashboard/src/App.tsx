@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { NavLink, Route, Routes, Navigate } from "react-router-dom";
 import {
   Activity,
   ArrowLeftRight,
@@ -8,6 +8,7 @@ import {
   Layers3,
   NotebookPen,
   Settings2,
+  TrendingDown,
   type LucideIcon,
   Search,
   Zap,
@@ -44,7 +45,6 @@ import { NamingDebtPage } from "@/features/tokens/naming-debt/naming-debt-page";
 import { TokensPage } from "@/features/tokens/tokens-page";
 import { TokenDetailPage } from "@/features/tokens/token-detail/token-detail-page";
 import { cn } from "@/lib/utils";
-import { fetchComponentRegistry } from "@/lib/api";
 import { useDesignSystem } from "@/lib/design-system-context";
 
 type NavItem = {
@@ -111,7 +111,7 @@ const navSections: NavSection[] = [
         to: "/impact",
         label: "Impact",
         description: "What breaks if X changes",
-        icon: Zap,
+        icon: TrendingDown,
       },
       {
         to: "/tokens/naming-debt",
@@ -138,13 +138,9 @@ const navSections: NavSection[] = [
 export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [enabledSystems, setEnabledSystems] = useState<Record<string, boolean>>({});
-  const location = useLocation();
-  const { activeSystem, systems } = useDesignSystem();
+  const { systems } = useDesignSystem();
   const hasSystems = systems.length > 0;
-  const isNewSystemRoute = location.pathname === "/system/new";
-  const isSystemEnabled = !!activeSystem && !!enabledSystems[activeSystem];
-  const shouldLockSidebar = !hasSystems || (isNewSystemRoute && !isSystemEnabled);
+  const shouldLockSidebar = !hasSystems;
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -155,42 +151,6 @@ export default function App() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    if (!activeSystem) return;
-    let cancelled = false;
-    const loadSystemState = async () => {
-      try {
-        const registry = await fetchComponentRegistry();
-        const hasComponents = Array.isArray(registry.components) && registry.components.length > 0;
-        if (!cancelled) {
-          setEnabledSystems((prev) => ({ ...prev, [activeSystem]: hasComponents }));
-        }
-      } catch {
-        if (!cancelled) {
-          setEnabledSystems((prev) => ({ ...prev, [activeSystem]: false }));
-        }
-      }
-    };
-    void loadSystemState();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeSystem]);
-
-  useEffect(() => {
-    const onSystemCaptured = (event: Event) => {
-      const customEvent = event as CustomEvent<{ systemId?: string; capturedCount?: number }>;
-      const systemId = String(customEvent.detail?.systemId || "").trim();
-      const capturedCount = Number(customEvent.detail?.capturedCount || 0);
-      if (!systemId || capturedCount <= 0) return;
-      setEnabledSystems((prev) => ({ ...prev, [systemId]: true }));
-    };
-    window.addEventListener("ds:system-captured-first-component", onSystemCaptured);
-    return () => {
-      window.removeEventListener("ds:system-captured-first-component", onSystemCaptured);
-    };
   }, []);
 
   return (
