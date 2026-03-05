@@ -47,6 +47,7 @@ export interface ParsedFigmaFileUrl {
     surface: string;
     rootNodeId: string;
     figmaUrl: string;
+    nodeIdFromUrl?: string;
 }
 
 export interface FigmaComponentMap {

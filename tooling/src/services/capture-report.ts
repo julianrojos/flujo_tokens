@@ -61,20 +61,20 @@ export function mapCaptureTargetForReport(
   repoRoot: string,
 ): MappedCaptureTarget {
   return {
-    slug: target.slug,
-    node_id: target.nodeId,
-    kind: target.kind,
-    page_name: target.pageName,
-    markdown_path: path.relative(repoRoot, target.markdownPath),
-    spec_path: path.relative(repoRoot, target.specPath),
-    spec_exists: target.specExists,
-    figma_url: target.nodeUrl,
+    slug: String(target.slug),
+    node_id: String(target.nodeId),
+    kind: String(target.kind),
+    page_name: target.pageName ? String(target.pageName) : null,
+    markdown_path: path.relative(repoRoot, String(target.markdownPath)),
+    spec_path: path.relative(repoRoot, String(target.specPath)),
+    spec_exists: Boolean(target.specExists),
+    figma_url: target.nodeUrl ? String(target.nodeUrl) : '',
     spec_exhibits: target.specExhibits
       ? {
-          specs_node_id: target.specExhibits.specsNodeId || null,
-          anatomy: target.specExhibits.anatomy || null,
-          properties: target.specExhibits.properties || null,
-          layout: target.specExhibits.layout || null,
+          specs_node_id: target.specExhibits.specsNodeId,
+          anatomy: target.specExhibits.anatomy,
+          properties: target.specExhibits.properties,
+          layout: target.specExhibits.layout,
         }
       : null,
   };

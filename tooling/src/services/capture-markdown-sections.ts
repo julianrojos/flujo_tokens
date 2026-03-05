@@ -6,7 +6,8 @@
  */
 
 import { buildEnrichedMarkdownSections } from '../utils/figma-node-spec-extractor.js';
-import type { ExtractedComponentSpec, SpecExhibits } from './capture-target-builder.js';
+import type { ExtractedComponentSpec } from '../types/spec.js';
+import type { SpecExhibits } from '../types/capture-targets.js';
 
 /**
  * Result of markdown injection operation.
@@ -14,6 +15,17 @@ import type { ExtractedComponentSpec, SpecExhibits } from './capture-target-buil
 export interface InjectSpecSectionsResult {
   changed: boolean;
   content: string;
+}
+
+function isExtractedComponentSpec(value: unknown): value is ExtractedComponentSpec {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ExtractedComponentSpec>;
+  return (
+    Array.isArray(candidate.anatomy) &&
+    Array.isArray(candidate.properties) &&
+    Array.isArray(candidate.layout) &&
+    Array.isArray(candidate.variants)
+  );
 }
 
 /**
@@ -105,11 +117,11 @@ export function injectExtractedSpecSectionsIntoMarkdown(
   spec: unknown,
   exhibits: SpecExhibits | null = null,
 ): InjectSpecSectionsResult {
-  if (!spec || typeof spec !== 'object') {
+  if (!isExtractedComponentSpec(spec)) {
     return { changed: false, content: markdown };
   }
 
-  const sections = buildEnrichedMarkdownSections(spec as ExtractedComponentSpec);
+  const sections = buildEnrichedMarkdownSections(spec);
   const anatomyBody = appendSpecExhibit(
     sections.anatomy,
     'Anatomy',
@@ -125,7 +137,7 @@ export function injectExtractedSpecSectionsIntoMarkdown(
     'Layout and spacing',
     exhibits?.layout || null,
   );
-  
+
   let current = markdown;
   let changed = false;
 

@@ -7,9 +7,11 @@
 
 import { fetchFigmaFile, fetchFigmaNodes } from './figma-api.js';
 import { extractSingleNodeCandidate } from './figma-component-discovery.js';
-import { buildFigmaComponentMap } from './figma-component-map.js';
-import type { FigmaDescriptor, FigmaComponentMap } from './figma-component-map.js';
+import { buildFigmaComponentMap, type ParsedFigmaFileUrl } from './figma-component-map.js';
+import type { FigmaComponentMap } from './figma-component-map.js';
+import type { FigmaDescriptor } from './capture-target-builder.js';
 import type { SourceCandidate } from './capture-target-builder.js';
+import type { FigmaNode } from '../types/figma.js';
 
 /**
  * Options for configuring Figma context.
@@ -38,6 +40,63 @@ export interface FigmaContext {
   ensureFilePayload: () => Promise<unknown>;
   resolveContext: () => Promise<ResolveFigmaContextResult>;
   getFilePayload: () => unknown | null;
+}
+
+interface FigmaFilePayload {
+  document: FigmaNode;
+  components: Record<string, unknown>;
+  componentSets: Record<string, unknown>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isFigmaNode(value: unknown): value is FigmaNode {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.type === 'string'
+  );
+}
+
+function toFigmaFilePayload(payload: unknown): FigmaFilePayload {
+  if (!isRecord(payload) || !isFigmaNode(payload.document)) {
+    throw new Error('Invalid Figma file payload: missing document node.');
+  }
+
+  return {
+    document: payload.document,
+    components: isRecord(payload.components) ? payload.components : {},
+    componentSets: isRecord(payload.componentSets) ? payload.componentSets : {},
+  };
+}
+
+function toParsedFigmaFileUrl(descriptor: FigmaDescriptor): ParsedFigmaFileUrl {
+  const fileKey = String(descriptor.fileKey || '').trim();
+  if (!fileKey) {
+    throw new Error('Invalid Figma descriptor: missing fileKey.');
+  }
+
+  const fileSlug = String(descriptor.fileSlug || descriptor.fileName || fileKey).trim();
+  const fileName = String(descriptor.fileName || descriptor.fileSlug || fileKey).trim();
+  const surface = String(descriptor.surface || 'design').trim() || 'design';
+  const rootNodeId = String(descriptor.rootNodeId || '').trim();
+  const figmaUrl = String(descriptor.figmaUrl || descriptor.sourceUrl || '').trim();
+  if (!figmaUrl) {
+    throw new Error('Invalid Figma descriptor: missing figmaUrl/sourceUrl.');
+  }
+
+  return {
+    fileKey,
+    fileName,
+    fileSlug,
+    surface,
+    rootNodeId,
+    figmaUrl,
+    nodeIdFromUrl: String(descriptor.nodeIdFromUrl || '').trim() || undefined,
+  };
 }
 
 /**
@@ -73,27 +132,40 @@ export function configureFigmaContext(
     if (descriptor.nodeIdFromUrl) {
       try {
         const nodePayload = await fetchFigmaNodesFn({
-          fileKey: descriptor.fileKey,
-          nodeIds: [descriptor.nodeIdFromUrl],
+          fileKey: String(descriptor.fileKey),
+          nodeIds: [String(descriptor.nodeIdFromUrl)],
           token: figmaToken,
           depth: 1,
         });
-        singleNodeCandidate = extractSingleNodeCandidateFn(nodePayload, descriptor.nodeIdFromUrl);
+        const normalizedPayload = isRecord(nodePayload) ? nodePayload : null;
+        const extractedCandidate = extractSingleNodeCandidateFn(
+          normalizedPayload,
+          String(descriptor.nodeIdFromUrl),
+        );
+        singleNodeCandidate = {
+          node_id: extractedCandidate.node_id,
+          name: extractedCandidate.name,
+          kind: extractedCandidate.kind,
+          page_name: extractedCandidate.page_name,
+        };
       } catch {
         singleNodeCandidate = {
-          node_id: descriptor.nodeIdFromUrl,
-          name: descriptor.nodeIdFromUrl,
+          node_id: String(descriptor.nodeIdFromUrl),
+          name: String(descriptor.nodeIdFromUrl),
           kind: 'unknown',
-          page_name: null,
+          page_name: undefined,
         };
       }
     } else {
       filePayload = await ensureFilePayload();
-      componentMap = buildFigmaComponentMapFn({
-        filePayload,
-        fileDescriptor: descriptor,
-        includeInstances: true,
-      });
+      const typedPayload = toFigmaFilePayload(filePayload);
+      componentMap = buildFigmaComponentMapFn(
+        toParsedFigmaFileUrl(descriptor),
+        typedPayload.document,
+        typedPayload.components,
+        typedPayload.componentSets,
+        true,
+      );
     }
 
     return {

@@ -13,26 +13,25 @@ import { componentNameToDisplayName } from '../utils/component-name.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { resolveInferredSlug } from './capture-targets.js';
 import { resolveDocsPaths } from './capture-path-resolver.js';
-import type { CaptureTarget, CaptureTargetKind } from '../types/capture-targets.js';
-import type { DocsPaths } from '../types/capture-path-resolver.js';
 import type { ExtractedComponentSpec } from '../types/spec.js';
+import type { DocsPaths, CaptureContext } from '../types/capture-path-resolver.js';
+import type { CaptureTarget, CaptureTargetKind, SpecExhibit, SpecExhibits } from '../types/capture-targets.js';
 
-/**
- * Context for capture operations.
- */
-export interface CaptureContext {
-  specsDir?: string;
-  docsDir?: string;
-  generatedDir?: string;
-  [key: string]: unknown;
-}
+// Re-export types for consumers
+export type { ExtractedComponentSpec, CaptureTarget, CaptureTargetKind, CaptureContext, SpecExhibit, SpecExhibits };
 
 /**
  * Figma descriptor for source.
  */
 export interface FigmaDescriptor {
   fileKey: string;
-  sourceUrl: string;
+  sourceUrl?: string;
+  figmaUrl?: string;
+  fileName?: string;
+  fileSlug?: string;
+  surface?: string;
+  rootNodeId?: string;
+  nodeIdFromUrl?: string;
   [key: string]: unknown;
 }
 
@@ -44,25 +43,8 @@ export interface SourceCandidate {
   name?: string;
   page_name?: string;
   kind?: string;
+  type?: string;
   [key: string]: unknown;
-}
-
-/**
- * Spec exhibit mapping.
- */
-export interface SpecExhibit {
-  nodeId: string | null;
-  imageUrl: string | null;
-}
-
-/**
- * Spec exhibits collection.
- */
-export interface SpecExhibits {
-  specsNodeId: string | null;
-  anatomy: SpecExhibit | null;
-  properties: SpecExhibit | null;
-  layout: SpecExhibit | null;
 }
 
 /**
@@ -71,12 +53,12 @@ export interface SpecExhibits {
 export interface BuildCaptureTargetsOptions {
   sourceCandidates: SourceCandidate[];
   descriptor: FigmaDescriptor;
-  ctx: CaptureContext;
+  ctx: CaptureContext | Record<string, unknown>;
   docsRootOverride?: string;
   applySlugOverride?: boolean;
   componentSlugOverride?: string;
-  slugByNodeFromRegistry?: Record<string, string>;
-  slugByNodeFromSpecs?: Record<string, string>;
+  slugByNodeFromRegistry?: Map<string, string> | Record<string, string>;
+  slugByNodeFromSpecs?: Map<string, string> | Record<string, string>;
   requireExistingDoc?: boolean;
   injectDocSpecs?: boolean;
   includeSpecExhibits?: boolean;
@@ -96,9 +78,15 @@ export interface BuildCaptureTargetsOptions {
     propertiesNodeId?: string;
     layoutNodeId?: string;
   } | null;
-  buildFigmaNodeUrl: (descriptor: FigmaDescriptor, nodeId: string) => string;
-  classifyTargetKind: (kind?: string) => CaptureTargetKind;
-  renderEnrichedMarkdownSeed: (options: { slug: string; displayName: string; nodeUrl: string; nodeId: string; spec?: unknown }) => string;
+  buildFigmaNodeUrl: (descriptor: FigmaDescriptor | Record<string, unknown>, nodeId: string) => string;
+  classifyTargetKind: (kind?: string | null) => CaptureTargetKind;
+  renderEnrichedMarkdownSeed: (options: {
+    slug: string;
+    displayName: string;
+    nodeUrl: string;
+    nodeId: string;
+    spec?: ExtractedComponentSpec;
+  }) => string;
   injectSpecZones: (markdown: string, spec: unknown, slug: string) => string;
   writeTextAtomic: (filePath: string, content: string) => Promise<void>;
   stderrWrite?: (data: string) => void;
@@ -138,7 +126,7 @@ function buildNodeErrorMessage(prefix: string, nodeId: string, error: unknown): 
 /**
  * Map spec exhibit from images by node ID.
  */
-function mapSpecExhibit(sourceNodeId: string, imagesByNodeId: Record<string, string>): SpecExhibit | null {
+function mapSpecExhibit(sourceNodeId: string | undefined, imagesByNodeId: Record<string, string>): SpecExhibit | null {
   const normalizedNodeId = String(sourceNodeId || '').trim();
   if (!normalizedNodeId) return null;
   
@@ -164,7 +152,7 @@ async function writeDualAtomic(
   const pid = process.pid;
   const ymlTemp = `${ymlPath}.tmp.${pid}.${ts}.${uniqueId}`;
   const mdTemp = `${mdPath}.tmp.${pid}.${ts}.${uniqueId}`;
-  
+
   try {
     await fs.writeFile(ymlTemp, ymlContent, 'utf8');
     await fs.writeFile(mdTemp, mdContent, 'utf8');
@@ -179,6 +167,23 @@ async function writeDualAtomic(
     ]);
     throw error;
   }
+}
+
+function normalizeSlugLookup(
+  lookup: Map<string, string> | Record<string, string> | undefined,
+): Map<string, string> {
+  if (lookup instanceof Map) return lookup;
+  const normalized = new Map<string, string>();
+  if (!lookup || typeof lookup !== 'object') return normalized;
+
+  for (const [nodeId, slug] of Object.entries(lookup)) {
+    const normalizedNodeId = String(nodeId || '').trim();
+    const normalizedSlug = String(slug || '').trim();
+    if (!normalizedNodeId || !normalizedSlug) continue;
+    normalized.set(normalizedNodeId, normalizedSlug);
+  }
+
+  return normalized;
 }
 
 /**
@@ -219,6 +224,8 @@ export async function buildCaptureTargets(
 
   const targets: CaptureTarget[] = [];
   const skipped: SkippedTarget[] = [];
+  const slugByNodeFromRegistryMap = normalizeSlugLookup(slugByNodeFromRegistry);
+  const slugByNodeFromSpecsMap = normalizeSlugLookup(slugByNodeFromSpecs);
 
   for (const candidate of sourceCandidates) {
     const nodeId = String(candidate.node_id || '').trim();
@@ -227,8 +234,8 @@ export async function buildCaptureTargets(
     const inferredSlug = resolveInferredSlug({
       applySlugOverride,
       componentSlugOverride,
-      slugByNodeFromRegistry,
-      slugByNodeFromSpecs,
+      slugByNodeFromRegistry: slugByNodeFromRegistryMap,
+      slugByNodeFromSpecs: slugByNodeFromSpecsMap,
       nodeId,
       candidateName: candidate.name,
     });
@@ -243,12 +250,12 @@ export async function buildCaptureTargets(
     }
 
     const resolvedPaths: DocsPaths = resolveDocsPaths({
-      ctx,
+      ctx: ctx as import('../types/capture-path-resolver.js').CaptureContext,
       docsRootOverride,
       slug: inferredSlug,
     });
     
-    const nodeUrl = buildFigmaNodeUrl(descriptor, nodeId) || descriptor.sourceUrl;
+    const nodeUrl = buildFigmaNodeUrl(descriptor, nodeId) || descriptor.figmaUrl || descriptor.sourceUrl || '';
     const markdownExists = markdownExistsFn(resolvedPaths.markdownPath);
     let extractedNodeSpec: ExtractedComponentSpec | null = null;
     let specExhibits: SpecExhibits | null = null;
@@ -324,7 +331,7 @@ export async function buildCaptureTargets(
       continue;
     }
 
-    let finalWritePayloads: { yml: string; md: string | null } | null = null;
+    let finalWritePayloads: { yml: string; md: string } | null = null;
 
     try {
       if (extractedNodeSpec) {
@@ -367,15 +374,20 @@ export async function buildCaptureTargets(
             displayName: componentNameToDisplayName(String(candidate.name || '').trim()) || inferredSlug,
             nodeUrl,
             nodeId,
-            spec: currentYml,
+            spec: extractedNodeSpec,
           });
           mdToWrite = injectSpecZones(seed, currentYml, inferredSlug);
         }
 
-        if (mdToWrite !== null || (!specExistsFn(resolvedPaths.specPath) && injectDocSpecs)) {
-          finalWritePayloads = { 
-            yml: mergedYmlText, 
-            md: mdToWrite || readMarkdownContentFn(resolvedPaths.markdownPath),
+        if (mdToWrite !== null) {
+          finalWritePayloads = {
+            yml: mergedYmlText,
+            md: mdToWrite,
+          };
+        } else if (!specExistsFn(resolvedPaths.specPath) && injectDocSpecs && markdownExists) {
+          finalWritePayloads = {
+            yml: mergedYmlText,
+            md: readMarkdownContentFn(resolvedPaths.markdownPath),
           };
         }
       } else if (!markdownExists && !requireExistingDoc) {

@@ -6,7 +6,7 @@
 
 import * as path from 'node:path';
 
-import type { CaptureTarget } from './capture-targets.js';
+import type { CaptureTarget } from './capture-target-builder.js';
 import type { RunScriptJsonFn } from '../types/capture-batch-runner.js';
 
 /**
@@ -89,9 +89,9 @@ export function buildCaptureArgs(options: BuildCaptureArgsOptions): string[] {
     '--markdown',
     target.markdownPath,
     '--component-set-id',
-    target.nodeId,
+    String(target.nodeId),
     '--url',
-    target.nodeUrl,
+    String(target.nodeUrl ?? ''),
     '--figma-token',
     figmaToken,
     '--format',

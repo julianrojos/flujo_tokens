@@ -6,30 +6,7 @@
  */
 
 import * as path from 'node:path';
-
-/**
- * Capture target for batch execution.
- */
-export interface CaptureTarget {
-  /** Component slug. */
-  slug: string;
-  /** Figma node ID. */
-  nodeId: string;
-  /** Component display name. */
-  name: string;
-  /** Markdown file path. */
-  markdownPath: string;
-  /** Spec file path. */
-  specPath: string;
-  /** Whether spec file exists. */
-  specExists: boolean;
-  /** Figma node URL. */
-  nodeUrl: string;
-  /** Component kind. */
-  kind: string;
-  /** Page name. */
-  pageName: string | null;
-}
+import type { CaptureTarget } from '../types/capture-targets.js';
 
 /**
  * Captured component result.

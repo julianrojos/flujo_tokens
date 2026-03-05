@@ -131,8 +131,8 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
     renderEnrichedMarkdownSeedFn: () => null,
     injectExtractedSpecSectionsIntoMarkdownFn: () => ({ changed: true, content: 'mocked' }),
     buildMarkdownSeedFn: () => null,
-    writeTextAtomicFn: () => {},
-    stderrWriteFn: () => {},
+    writeTextAtomicFn: () => { },
+    stderrWriteFn: () => { },
   };
 
   return { ...defaultDeps, ...overrides };
