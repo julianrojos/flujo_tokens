@@ -600,6 +600,73 @@ type QueueWaitOptions = {
   onPoll?: (payload: Record<string, unknown>) => void;
 };
 
+function isLowSignalQueueSummary(rawValue: unknown): boolean {
+  const value = toNonEmptyString(rawValue).toLowerCase();
+  if (!value) return true;
+  if (value === "unknown error." || value === "unknown queue error.") return true;
+  if (/^failed with code \d+$/i.test(value)) return true;
+  if (/^queued operation finished with status '?(error|cancelled)'?\.?$/i.test(value)) return true;
+  return false;
+}
+
+function pickQueueFailureSummary(candidates: unknown[], fallback: string): string {
+  const normalized = candidates
+    .map((candidate) => toNonEmptyString(candidate))
+    .filter(Boolean);
+  if (normalized.length === 0) return fallback;
+  const highSignal = normalized.find((candidate) => !isLowSignalQueueSummary(candidate));
+  return highSignal || normalized[0] || fallback;
+}
+
+function findQueuePayloadFailureSummary(
+  payload: Record<string, unknown>,
+  status: string,
+): string {
+  const fallback = `Queued operation finished with status '${status}'.`;
+  const job = toRecord(payload.job);
+  const result = toRecord(job?.result);
+  const resultPayload = toRecord(result?.payload);
+  const sync = toRecord(resultPayload?.sync);
+  const registryRefresh = toRecord(resultPayload?.registry_refresh);
+  const failed = Array.isArray(resultPayload?.failed) ? resultPayload.failed : [];
+  const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
+  const events = Array.isArray(payload.events) ? payload.events : [];
+
+  let lastErrorEventMessage = "";
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = toRecord(events[index]);
+    if (!event) continue;
+    const eventType = toNonEmptyString(event.type).toLowerCase();
+    if (eventType === "error") {
+      lastErrorEventMessage = toNonEmptyString(event.message);
+      if (lastErrorEventMessage) break;
+    }
+    if (eventType === "end") {
+      const endStatus = toNonEmptyString(event.status).toLowerCase();
+      if (endStatus === "error" || endStatus === "cancelled") {
+        lastErrorEventMessage = toNonEmptyString(event.summary);
+        if (lastErrorEventMessage) break;
+      }
+    }
+  }
+
+  return pickQueueFailureSummary(
+    [
+      resultPayload?.error,
+      resultPayload?.message,
+      resultPayload?.stderr,
+      firstFailed?.error,
+      sync?.error,
+      sync?.reason,
+      sync?.stderr,
+      registryRefresh?.stderr,
+      lastErrorEventMessage,
+      result?.summary,
+    ],
+    fallback,
+  );
+}
+
 function normalizePositiveInteger(value: unknown, fallback: number): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric) || numeric <= 0) return fallback;
@@ -665,10 +732,7 @@ async function waitForQueuedJob(
     const status = toNonEmptyString(job?.status).toLowerCase();
     if (status === "success") return payload;
     if (status === "error" || status === "cancelled") {
-      const result = toRecord(job?.result);
-      const summary =
-        toNonEmptyString(result?.summary) ||
-        `Queued operation finished with status '${status}'.`;
+      const summary = findQueuePayloadFailureSummary(payload, status);
       throw new ApiError({
         status: 409,
         statusText: "Conflict",

@@ -83,6 +83,11 @@ describe('queue-utils', () => {
   describe('toQueueSummaryFromPayload()', () => {
     it('prioritizes message fields', () => {
       assert.equal(toQueueSummaryFromPayload({ message: 'Primary' }, 1), 'Primary');
+      assert.equal(toQueueSummaryFromPayload({ stderr: 'STDERR failure' }, 1), 'STDERR failure');
+      assert.equal(
+        toQueueSummaryFromPayload({ failed: [{ error: 'First failed capture' }] }, 1),
+        'First failed capture'
+      );
       assert.equal(toQueueSummaryFromPayload({ sync: { reason: 'Sync failed' } }, 1), 'Sync failed');
       assert.match(toQueueSummaryFromPayload({}, 7), /code 7/i);
     });

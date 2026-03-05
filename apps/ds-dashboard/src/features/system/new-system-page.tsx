@@ -58,7 +58,99 @@ function toDocumentWideFigmaUrl(rawUrl: string): string {
   }
 }
 
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function toNonEmptyString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isLowSignalCaptureMessage(rawValue: unknown): boolean {
+  const value = toNonEmptyString(rawValue).toLowerCase();
+  if (!value) return true;
+  if (value === "unknown error." || value === "unknown queue error.") return true;
+  if (/^failed with code \d+$/i.test(value)) return true;
+  if (/^queued operation finished with status '?(error|cancelled)'?\.?$/i.test(value)) return true;
+  if (value === "the import job finished without a detailed result payload.") return true;
+  return false;
+}
+
+function pickCaptureFailureMessage(candidates: unknown[]): string {
+  const messages = candidates
+    .map((candidate) => toNonEmptyString(candidate))
+    .filter(Boolean);
+  if (messages.length === 0) return "";
+  const highSignal = messages.find((message) => !isLowSignalCaptureMessage(message));
+  return highSignal || messages[0] || "";
+}
+
+function extractCaptureFailureFromPayload(payload: unknown): string {
+  const root = toRecord(payload);
+  if (!root) return "";
+
+  const job = toRecord(root.job);
+  const result = toRecord(job?.result);
+  const resultPayload = toRecord(result?.payload);
+  const sync = toRecord(resultPayload?.sync);
+  const registryRefresh = toRecord(resultPayload?.registry_refresh);
+  const failed = Array.isArray(resultPayload?.failed) ? resultPayload.failed : [];
+  const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
+  const events = Array.isArray(root.events) ? root.events : [];
+
+  let lastErrorEventMessage = "";
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = toRecord(events[index]);
+    if (!event) continue;
+    const eventType = toNonEmptyString(event.type).toLowerCase();
+    if (eventType === "error") {
+      lastErrorEventMessage = toNonEmptyString(event.message);
+      if (lastErrorEventMessage) break;
+    }
+    if (eventType === "end") {
+      const eventStatus = toNonEmptyString(event.status).toLowerCase();
+      if (eventStatus === "error" || eventStatus === "cancelled") {
+        lastErrorEventMessage = toNonEmptyString(event.summary);
+        if (lastErrorEventMessage) break;
+      }
+    }
+  }
+
+  return pickCaptureFailureMessage([
+    resultPayload?.error,
+    resultPayload?.message,
+    resultPayload?.stderr,
+    firstFailed?.error,
+    sync?.error,
+    sync?.reason,
+    sync?.stderr,
+    registryRefresh?.stderr,
+    lastErrorEventMessage,
+    result?.summary,
+  ]);
+}
+
+function getImportErrorHint(message: string): string | null {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("figma api error 404")) {
+    return "Figma returned 404. Check that the file key is correct and the token has access to that file.";
+  }
+  if (normalized.includes("figma api error 403")) {
+    return "Figma returned 403. The token is valid but it does not have permission to read this file.";
+  }
+  if (normalized.includes("validation.invalid_figma_host")) {
+    return "The URL host is not valid for Figma. Use a figma.com design/file URL.";
+  }
+  return null;
+}
+
 function getCaptureErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) {
+    const payloadMessage = extractCaptureFailureFromPayload(error.payload);
+    return payloadMessage || error.message || "Unknown API error";
+  }
+
   if (!(error instanceof Error)) return String(error);
   const message = error.message || "Unknown error";
   const match = message.match(/:\s*(\{[\s\S]+\})\s*$/);
@@ -92,12 +184,16 @@ function stringifySafe(value: unknown): string {
 
 function getCaptureErrorDetails(error: unknown): string {
   if (error instanceof ApiError) {
+    const payloadCause = extractCaptureFailureFromPayload(error.payload);
     const lines = [
       `message: ${error.message || "Unknown API error"}`,
       `status: ${error.status} ${error.statusText}`,
       `code: ${error.code}`,
       `recoverable: ${error.recoverable ? "yes" : "no"}`,
     ];
+    if (payloadCause) {
+      lines.push(`derivedCause: ${payloadCause}`);
+    }
     if (error.requestId) {
       lines.push(`requestId: ${error.requestId}`);
     }
@@ -156,6 +252,8 @@ export function NewSystemPage() {
   const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
   const [importSourceUrl, setImportSourceUrl] = useState("");
   const [importSourceFileKey, setImportSourceFileKey] = useState("");
+  const [importJobId, setImportJobId] = useState("");
+  const [importRequestId, setImportRequestId] = useState("");
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -182,6 +280,32 @@ export function NewSystemPage() {
   const progressTotal = captureProgress?.total ?? 0;
   const progressCompleted = captureProgress?.completed ?? 0;
   const progressRemaining = captureProgress?.remaining ?? Math.max(0, progressTotal - progressCompleted);
+  const importErrorHint = importError ? getImportErrorHint(importError) : null;
+  const importStatusText = useMemo(() => {
+    if (importError) return "Import failed.";
+    if (importCompleted) return "Import completed successfully.";
+    if (!captureProgress) return "Preparing import...";
+    if (captureProgress.status === "queued") {
+      return "Queued in backend. Waiting for worker assignment...";
+    }
+    if (captureProgress.status === "running") {
+      if (progressTotal > 0) {
+        return `${progressCompleted}/${progressTotal} downloaded · ${progressRemaining} remaining`;
+      }
+      return "Running import. Waiting for first progress event...";
+    }
+    if (captureProgress.status === "cancelled") return "Import was cancelled.";
+    if (captureProgress.status === "error") return "Import failed.";
+    return "Import completed successfully.";
+  }, [
+    captureProgress,
+    importCompleted,
+    importError,
+    progressCompleted,
+    progressRemaining,
+    progressTotal,
+  ]);
+  const importCurrentSlug = captureProgress?.currentSlug?.trim() || "";
 
   useEffect(() => {
     if (!hasExistingSystems) {
@@ -200,6 +324,8 @@ export function NewSystemPage() {
     setShowImportErrorDetails(false);
     setImportSourceUrl("");
     setImportSourceFileKey("");
+    setImportJobId("");
+    setImportRequestId("");
     try {
       const response = await createDesignSystem({
         id: generatedSystemId,
@@ -238,9 +364,15 @@ export function NewSystemPage() {
               systemId: response.system.id,
               onProgress: (progress) => {
                 setCaptureProgress(progress);
+                if (progress.jobId) {
+                  setImportJobId(progress.jobId);
+                }
               },
             },
           );
+          if (captureResult.jobId) {
+            setImportJobId(captureResult.jobId);
+          }
           // In dashboard server mode this endpoint is queued and returns 202 + jobId.
           // Keep strict validation only when a synchronous capture payload is returned.
           const hasDetailedCaptureResult =
@@ -296,6 +428,9 @@ export function NewSystemPage() {
           const technicalDetails = getCaptureErrorDetails(error);
           setImportError(details);
           setImportErrorDetails(technicalDetails);
+          if (error instanceof ApiError) {
+            setImportRequestId(error.requestId || "");
+          }
           setShowImportErrorDetails(false);
           setSaveError(
             makeInlineErrorDisplay({
@@ -451,11 +586,9 @@ export function NewSystemPage() {
             <Button onClick={handleCreateSystem} disabled={!canSave}>
               {saving ? "Saving..." : "Create system"}
             </Button>
-            {saving && hasFigmaUrl && captureProgress ? (
+            {saving && hasFigmaUrl && showImportProgressModal ? (
               <span className="text-sm text-muted-foreground">
-                {captureProgress.total > 0
-                  ? `Importing from Figma: ${captureProgress.completed}/${captureProgress.total} downloaded · ${captureProgress.remaining} remaining`
-                  : "Importing from Figma..."}
+                {`Importing from Figma: ${importStatusText}`}
               </span>
             ) : null}
             {savedSystemId ? (
@@ -488,20 +621,39 @@ export function NewSystemPage() {
               Importing from Figma
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {progressTotal > 0
-                ? `${progressCompleted}/${progressTotal} downloaded · ${progressRemaining} remaining`
-                : "Preparing import..."}
+              {importStatusText}
             </p>
+            {importCurrentSlug ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Current component: <code>{importCurrentSlug}</code>
+              </p>
+            ) : null}
             <p className="mt-2 break-all text-xs text-muted-foreground">
               Source URL: <code>{importSourceUrl || "n/a"}</code>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               File key: <code>{importSourceFileKey || "n/a"}</code>
             </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Job ID: <code>{importJobId || "n/a"}</code>
+            </p>
+            {importRequestId ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Request ID: <code>{importRequestId}</code>
+              </p>
+            ) : null}
 
             {importError ? (
               <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400">
                 <p>{importError}</p>
+                <p className="mt-2 text-xs text-red-800 dark:text-red-300">
+                  No components or design tokens were generated because the import failed.
+                </p>
+                {importErrorHint ? (
+                  <p className="mt-2 text-xs text-red-800 dark:text-red-300">
+                    {importErrorHint}
+                  </p>
+                ) : null}
                 <div className="mt-3">
                   <Button
                     variant="outline"

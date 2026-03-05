@@ -58,6 +58,15 @@ export interface ListQueueJobEventsArgs {
   limit?: number;
 }
 
+function toRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function toTrimmedString(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 /**
  * Check if a queue job status is final (terminal).
  */
@@ -116,14 +125,37 @@ export function listQueueJobEvents(job: QueueJob, args: ListQueueJobEventsArgs =
  */
 export function toQueueSummaryFromPayload(payload: Record<string, unknown>, fallbackCode: number): string {
   const row = payload && typeof payload === 'object' ? payload : {};
-  const topLevelMessage = String(row.message ?? '').trim();
-  const topLevelError = String(row.error ?? '').trim();
-  const sync = row.sync && typeof row.sync === 'object' ? (row.sync as Record<string, unknown>) : null;
-  const syncError = String((sync as any)?.error ?? '').trim();
-  const syncReason = String((sync as any)?.reason ?? '').trim();
+
+  const topLevelMessage = toTrimmedString(row.message);
+  const topLevelError = toTrimmedString(row.error);
+  const topLevelStderr = toTrimmedString(row.stderr);
+
+  const sync = toRecord(row.sync);
+  const syncError = toTrimmedString(sync?.error);
+  const syncReason = toTrimmedString(sync?.reason);
+  const syncStderr = toTrimmedString(sync?.stderr);
+
+  const registryRefresh = toRecord(row.registry_refresh);
+  const registryRefreshStderr = toTrimmedString(registryRefresh?.stderr);
+
+  const failed = Array.isArray(row.failed) ? row.failed : [];
+  const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
+  const firstFailedError = toTrimmedString(firstFailed?.error);
+
   const explicitCode = Number(row.code ?? (row as any).exit_code ?? fallbackCode);
   const codeText = Number.isFinite(explicitCode) ? `Failed with code ${explicitCode}` : 'Unknown error';
-  return topLevelMessage || topLevelError || syncError || syncReason || codeText;
+
+  return (
+    topLevelMessage ||
+    topLevelError ||
+    topLevelStderr ||
+    firstFailedError ||
+    syncError ||
+    syncReason ||
+    syncStderr ||
+    registryRefreshStderr ||
+    codeText
+  );
 }
 
 /**
