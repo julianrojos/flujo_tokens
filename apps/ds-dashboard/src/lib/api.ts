@@ -597,6 +597,7 @@ type QueuedRefreshAcceptedPayload = {
 type QueueWaitOptions = {
   timeoutMs?: number;
   pollIntervalMs?: number;
+  onPoll?: (payload: Record<string, unknown>) => void;
 };
 
 function normalizePositiveInteger(value: unknown, fallback: number): number {
@@ -647,6 +648,12 @@ async function waitForQueuedJob(
         continue;
       }
       throw error;
+    }
+
+    try {
+      options.onPoll?.(payload);
+    } catch {
+      // ignore UI-only polling callback errors
     }
 
     const nextCursor = Number(payload.nextCursor);
@@ -866,6 +873,80 @@ export interface CaptureFigmaScreenshotResult {
   stderr?: string;
 }
 
+export interface CaptureFigmaProgress {
+  jobId?: string;
+  status: "queued" | "running" | "success" | "error" | "cancelled";
+  completed: number;
+  total: number;
+  remaining: number;
+  currentSlug?: string;
+  message?: string;
+}
+
+type CaptureProgressSnapshot = {
+  completed?: unknown;
+  total?: unknown;
+  remaining?: unknown;
+  slug?: unknown;
+  state?: unknown;
+};
+
+function toProgressInt(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.floor(parsed);
+}
+
+function parseCaptureProgressSnapshot(raw: unknown): CaptureProgressSnapshot | null {
+  const value = toRecord(raw);
+  if (!value) return null;
+  return {
+    completed: value.completed,
+    total: value.total,
+    remaining: value.remaining,
+    slug: value.slug,
+    state: value.state,
+  };
+}
+
+function parseCaptureProgressChunks(args: {
+  events: unknown[];
+  buffer: string;
+}): {
+  buffer: string;
+  snapshots: CaptureProgressSnapshot[];
+} {
+  const { events } = args;
+  let buffer = args.buffer;
+  const snapshots: CaptureProgressSnapshot[] = [];
+
+  for (const rawEvent of events) {
+    const event = toRecord(rawEvent);
+    if (!event || toNonEmptyString(event.type) !== "chunk") continue;
+    const text = typeof event.text === "string" ? event.text : "";
+    if (!text) continue;
+    buffer += text;
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const marker = "[capture-progress]";
+      const markerIndex = line.indexOf(marker);
+      if (markerIndex < 0) continue;
+      const jsonPart = line.slice(markerIndex + marker.length).trim();
+      if (!jsonPart) continue;
+      try {
+        const parsed = JSON.parse(jsonPart);
+        const snapshot = parseCaptureProgressSnapshot(parsed);
+        if (snapshot) snapshots.push(snapshot);
+      } catch {
+        // ignore malformed progress lines
+      }
+    }
+  }
+
+  return { buffer, snapshots };
+}
+
 export function fetchFile(filePath: string) {
   const params = new URLSearchParams({ path: filePath });
   return getJson<FilePayload>(`/api/file?${params.toString()}`);
@@ -888,14 +969,109 @@ export function fetchFileSnippet(args: {
 
 export function captureFigmaScreenshot(
   args: CaptureFigmaScreenshotArgs,
-  options?: { systemId?: string },
+  options?: {
+    systemId?: string;
+    onProgress?: (progress: CaptureFigmaProgress) => void;
+  },
 ) {
-  return getJson<CaptureFigmaScreenshotResult>("/api/capture-figma-screenshot", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options?.systemId ? { "x-ds-system": options.systemId } : {}),
-    },
-    body: JSON.stringify(args),
-  });
+  return (async () => {
+    const accepted = await getJson<CaptureFigmaScreenshotResult>("/api/capture-figma-screenshot", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options?.systemId ? { "x-ds-system": options.systemId } : {}),
+      },
+      body: JSON.stringify(args),
+    });
+
+    const statusUrl = toQueuedStatusUrl(accepted);
+    if (!statusUrl) return accepted;
+
+    const onProgress = options?.onProgress;
+    const jobId = toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
+    let progressBuffer = "";
+    let latestCompleted = 0;
+    let latestTotal = 0;
+    let latestSlug: string | undefined;
+
+    onProgress?.({
+      jobId,
+      status: "queued",
+      completed: 0,
+      total: 0,
+      remaining: 0,
+      message: "Queued",
+    });
+
+    const finalState = await waitForQueuedJob(statusUrl, {
+      onPoll: (payload) => {
+        const job = toRecord(payload.job);
+        const statusRaw = toNonEmptyString(job?.status).toLowerCase();
+        const status: CaptureFigmaProgress["status"] =
+          statusRaw === "running"
+            ? "running"
+            : statusRaw === "success"
+              ? "success"
+              : statusRaw === "error"
+                ? "error"
+                : statusRaw === "cancelled"
+                  ? "cancelled"
+                  : "queued";
+
+        const events = Array.isArray(payload.events) ? payload.events : [];
+        const parsed = parseCaptureProgressChunks({
+          events,
+          buffer: progressBuffer,
+        });
+        progressBuffer = parsed.buffer;
+        const lastSnapshot =
+          parsed.snapshots.length > 0
+            ? parsed.snapshots[parsed.snapshots.length - 1]
+            : null;
+        if (lastSnapshot) {
+          latestCompleted = toProgressInt(lastSnapshot.completed);
+          latestTotal = toProgressInt(lastSnapshot.total);
+          latestSlug = toNonEmptyString(lastSnapshot.slug) || latestSlug;
+        }
+
+        const total = latestTotal;
+        const completed = Math.min(latestCompleted, total || latestCompleted);
+        const remaining = Math.max(0, (total || 0) - completed);
+
+        onProgress?.({
+          jobId,
+          status,
+          completed,
+          total,
+          remaining,
+          currentSlug: latestSlug,
+        });
+      },
+    });
+
+    const job = toRecord(finalState.job);
+    const result = toRecord(job?.result);
+    const payload = toRecord(result?.payload);
+    if (payload) {
+      const typed = payload as unknown as CaptureFigmaScreenshotResult;
+      const total =
+        Number(typed.targets_total) ||
+        (Array.isArray(typed.targets) ? typed.targets.length : latestTotal);
+      const completed =
+        Array.isArray(typed.captured) || Array.isArray(typed.failed)
+          ? (typed.captured?.length || 0) + (typed.failed?.length || 0)
+          : latestCompleted;
+      onProgress?.({
+        jobId,
+        status: typed.ok ? "success" : "error",
+        completed,
+        total,
+        remaining: Math.max(0, total - completed),
+        currentSlug: latestSlug,
+      });
+      return typed;
+    }
+
+    return accepted;
+  })();
 }

@@ -7,6 +7,7 @@ import { useDesignSystem } from "@/lib/design-system-context";
 import {
   captureFigmaScreenshot,
   fetchComponentRegistry,
+  type CaptureFigmaProgress,
   type CaptureFigmaScreenshotResult,
   type CaptureFigmaScreenshotArgs,
 } from "@/lib/api";
@@ -145,6 +146,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<CaptureFigmaProgress | null>(null);
   const [result, setResult] = useState<ScannerResult | null>(null);
   const [existingSlugs, setExistingSlugs] = useState<Set<string>>(new Set());
   const [registryLoaded, setRegistryLoaded] = useState(false);
@@ -270,7 +272,9 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
   };
 
   const runScanRequest = async (request: CaptureFigmaScreenshotArgs) => {
-    const data = await captureFigmaScreenshot(request);
+    const data = await captureFigmaScreenshot(request, {
+      onProgress: (nextProgress) => setProgress(nextProgress),
+    });
     await applyScanResult(data);
   };
 
@@ -279,6 +283,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
 
     setConfirmModal(null);
     setLoading(true);
+    setProgress(null);
     setResult(null);
 
     try {
@@ -328,12 +333,14 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       });
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
   const handleConfirmContinue = async () => {
     if (!confirmModal) return;
     setLoading(true);
+    setProgress(null);
     setResult(null);
     try {
       await runScanRequest(confirmModal.request);
@@ -345,6 +352,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       });
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -407,6 +415,13 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         </div>
         {!!url.trim() && urlValidationError ? (
           <p className="text-xs text-amber-700 dark:text-amber-400">{urlValidationError}</p>
+        ) : null}
+        {loading && progress ? (
+          <p className="text-xs text-muted-foreground">
+            {progress.total > 0
+              ? `Importing from Figma: ${progress.completed}/${progress.total} downloaded · ${progress.remaining} remaining`
+              : "Importing from Figma..."}
+          </p>
         ) : null}
 
         {/* Advanced options toggle */}

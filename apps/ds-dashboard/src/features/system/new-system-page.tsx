@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
-import { captureFigmaScreenshot, createDesignSystem } from "@/lib/api";
+import {
+  captureFigmaScreenshot,
+  createDesignSystem,
+  type CaptureFigmaProgress,
+} from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 
@@ -106,6 +110,7 @@ export function NewSystemPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
   const [savedSystemId, setSavedSystemId] = useState("");
+  const [captureProgress, setCaptureProgress] = useState<CaptureFigmaProgress | null>(null);
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -132,6 +137,7 @@ export function NewSystemPage() {
   const doCreate = async () => {
     setSaving(true);
     setSaveError(null);
+    setCaptureProgress(null);
     try {
       const response = await createDesignSystem({
         id: generatedSystemId,
@@ -160,7 +166,12 @@ export function NewSystemPage() {
               refreshIndices: true,
               componentKind: "all",
             },
-            { systemId: response.system.id },
+            {
+              systemId: response.system.id,
+              onProgress: (progress) => {
+                setCaptureProgress(progress);
+              },
+            },
           );
           // In dashboard server mode this endpoint is queued and returns 202 + jobId.
           // Keep strict validation only when a synchronous capture payload is returned.
@@ -230,6 +241,7 @@ export function NewSystemPage() {
       );
     } finally {
       setSaving(false);
+      setCaptureProgress(null);
     }
   };
 
@@ -355,6 +367,13 @@ export function NewSystemPage() {
             <Button onClick={handleCreateSystem} disabled={!canSave}>
               {saving ? "Saving..." : "Create system"}
             </Button>
+            {saving && hasFigmaUrl && captureProgress ? (
+              <span className="text-sm text-muted-foreground">
+                {captureProgress.total > 0
+                  ? `Importing from Figma: ${captureProgress.completed}/${captureProgress.total} downloaded · ${captureProgress.remaining} remaining`
+                  : "Importing from Figma..."}
+              </span>
+            ) : null}
             {savedSystemId ? (
               <span className="text-sm text-emerald-600 dark:text-emerald-400">
                 Saved as <code>{savedSystemId}</code>

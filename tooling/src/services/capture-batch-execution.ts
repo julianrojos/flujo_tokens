@@ -92,6 +92,20 @@ export interface CaptureBatchResult {
   failed: FailedCapture[];
 }
 
+function emitCaptureProgress(snapshot: {
+  completed: number;
+  total: number;
+  remaining: number;
+  slug?: string;
+  state: 'starting' | 'captured' | 'failed' | 'completed';
+}): void {
+  try {
+    process.stderr.write(`[capture-progress] ${JSON.stringify(snapshot)}\n`);
+  } catch {
+    // best-effort progress event
+  }
+}
+
 /**
  * Build capture script arguments for a target.
  *
@@ -185,6 +199,14 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
 
   const captured: CapturedComponent[] = [];
   const failed: FailedCapture[] = [];
+  const total = targets.length;
+
+  emitCaptureProgress({
+    completed: 0,
+    total,
+    remaining: total,
+    state: 'starting',
+  });
 
   for (const target of targets) {
     const captureArgs = buildCaptureArgs({
@@ -216,6 +238,14 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
         local_image_path: (captureResult.localImagePath as string) || null,
         variants_count: Number(captureResult.variantsCount || 0),
       });
+      const completed = captured.length + failed.length;
+      emitCaptureProgress({
+        completed,
+        total,
+        remaining: Math.max(0, total - completed),
+        slug: target.slug,
+        state: 'captured',
+      });
     } catch (error) {
       failed.push({
         slug: target.slug,
@@ -223,12 +253,28 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
         markdown_path: path.relative(repoRoot, target.markdownPath),
         error: error instanceof Error ? error.message : String(error),
       });
+      const completed = captured.length + failed.length;
+      emitCaptureProgress({
+        completed,
+        total,
+        remaining: Math.max(0, total - completed),
+        slug: target.slug,
+        state: 'failed',
+      });
 
       if (!continueOnError) {
         break;
       }
     }
   }
+
+  const completed = captured.length + failed.length;
+  emitCaptureProgress({
+    completed,
+    total,
+    remaining: Math.max(0, total - completed),
+    state: 'completed',
+  });
 
   return { captured, failed };
 }
