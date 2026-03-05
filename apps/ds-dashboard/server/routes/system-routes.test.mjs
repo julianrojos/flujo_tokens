@@ -163,7 +163,22 @@ test("system-routes: create bootstraps system scaffold artifacts", async () => {
 });
 
 test("system-routes: delete allows removing the last remaining system", async () => {
-  const { app, repo } = createTestApp();
+  const existing = new Set();
+  const writes = new Map();
+
+  const { app, repo } = createTestApp({
+    fsSync: {
+      existsSync: (targetPath) => existing.has(targetPath),
+      mkdirSync: (targetPath) => {
+        existing.add(targetPath);
+      },
+      writeFileSync: (targetPath, content) => {
+        existing.add(targetPath);
+        writes.set(targetPath, String(content));
+      },
+      rmSync: () => {},
+    },
+  });
   const res = await app.request("/api/design-systems/core", { method: "DELETE" });
   assert.equal(res.status, 200);
   const payload = await res.json();
@@ -171,4 +186,9 @@ test("system-routes: delete allows removing the last remaining system", async ()
   assert.equal(repo.getSaved().length, 1);
   assert.deepEqual(repo.getSaved()[0].systems, []);
   assert.equal(repo.getSaved()[0].defaultSystem, "");
+  assert.ok(writes.has("/repo/docs/_generated/component-registry.json"));
+  assert.ok(writes.has("/repo/docs/COMPONENTS_INDEX.md"));
+
+  const registry = JSON.parse(writes.get("/repo/docs/_generated/component-registry.json"));
+  assert.equal(registry.summary.total_components, 0);
 });

@@ -9,6 +9,7 @@ import {
   collectRemovableSystemPaths,
   decodeSystemRouteId,
   ensureSystemFilesystemScaffold,
+  resetGlobalArtifactsForNoSystems,
   removeExistingPaths,
 } from "./system-route-handler-service.mjs";
 
@@ -118,4 +119,45 @@ test("system-route-handler-service: ensureSystemFilesystemScaffold creates expec
   assert.deepEqual(componentRegistry.components, []);
   assert.equal(componentRegistry.summary.total_components, 0);
   assert.deepEqual(tokenRegistry.entries, []);
+});
+
+test("system-route-handler-service: resetGlobalArtifactsForNoSystems writes empty global artifacts", () => {
+  const existing = new Set();
+  const writes = new Map();
+  const mkdirs = [];
+
+  const fsSync = {
+    existsSync: (targetPath) => existing.has(targetPath),
+    mkdirSync: (targetPath) => {
+      mkdirs.push(targetPath);
+      existing.add(targetPath);
+    },
+    writeFileSync: (targetPath, content) => {
+      writes.set(targetPath, String(content));
+      existing.add(targetPath);
+    },
+  };
+
+  const result = resetGlobalArtifactsForNoSystems({
+    repoRoot: "/repo",
+    fsSync,
+  });
+
+  assert.ok(mkdirs.includes("/repo/docs"));
+  assert.ok(mkdirs.includes("/repo/docs/_generated"));
+  assert.equal(
+    result.componentRegistryPath,
+    "/repo/docs/_generated/component-registry.json",
+  );
+  assert.equal(
+    result.componentsIndexPath,
+    "/repo/docs/COMPONENTS_INDEX.md",
+  );
+
+  const registry = JSON.parse(writes.get(result.componentRegistryPath));
+  assert.equal(registry.summary.total_components, 0);
+
+  const indexRaw = writes.get(result.componentsIndexPath);
+  assert.match(indexRaw, /Total components: 0/);
+  assert.match(indexRaw, /No components available\./);
 });

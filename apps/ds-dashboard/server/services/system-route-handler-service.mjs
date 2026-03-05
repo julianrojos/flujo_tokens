@@ -8,6 +8,7 @@ import {
   buildDeleteDesignSystemSuccessPayload,
   buildNoStoreJsonResponse,
   ensureSystemFilesystemScaffold,
+  resetGlobalArtifactsForNoSystems,
   buildUpdateDesignSystemSuccessPayload,
   collectRemovableSystemPaths,
   decodeSystemRouteId,
@@ -150,6 +151,24 @@ export function handleDeleteDesignSystemRoute(c, deps) {
     }),
     fsSync,
   );
+
+  if (nextSystems.length === 0) {
+    try {
+      resetGlobalArtifactsForNoSystems({
+        repoRoot,
+        fsSync,
+      });
+    } catch (error) {
+      return failJson(c, 500, {
+        code: "design_system.cleanup_failed",
+        userMessage: "Failed to reset global documentation artifacts after removing the last design system.",
+        recoverable: true,
+        context: {
+          reason: error instanceof Error ? error.message : String(error),
+        },
+      });
+    }
+  }
 
   designSystemRepository.saveConfig(nextConfig);
   return c.json(

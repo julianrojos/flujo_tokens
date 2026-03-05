@@ -88,6 +88,35 @@ doc_status: draft
 `;
 }
 
+function buildEmptyComponentsIndexSeed() {
+  return `---
+doc_type: workflow
+doc_status: ready
+---
+
+# Design System Components Index
+
+Source registry: \`docs/_generated/component-registry.json\`
+Registry fingerprint: \`n/a\`
+
+This file is generated from the component registry projection and should not be edited manually.
+
+## Summary
+
+- Total components: 0
+- Ready: 0
+- Needs review: 0
+- Draft: 0
+- Missing: 0
+- With visual proof: 0
+- Average coverage: 0%
+
+## Components
+
+No components available.
+`;
+}
+
 function writeJsonIfMissing(filePath, payload, fsSync) {
   if (fsSync.existsSync(filePath)) return false;
   fsSync.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
@@ -147,5 +176,47 @@ export function ensureSystemFilesystemScaffold({
     componentRegistryPath,
     tokenRegistryPath,
     createdPaths,
+  };
+}
+
+export function resetGlobalArtifactsForNoSystems({
+  repoRoot,
+  fsSync,
+}) {
+  const docsDir = path.resolve(repoRoot, "docs");
+  const generatedDir = path.join(docsDir, "_generated");
+  const componentRegistryPath = path.join(generatedDir, "component-registry.json");
+  const tokenRegistryPath = path.join(generatedDir, "token-registry.json");
+  const componentsIndexPath = path.join(docsDir, "COMPONENTS_INDEX.md");
+
+  const touchedPaths = [];
+  for (const dirPath of [docsDir, generatedDir]) {
+    if (fsSync.existsSync(dirPath)) continue;
+    fsSync.mkdirSync(dirPath, { recursive: true });
+    touchedPaths.push(dirPath);
+  }
+
+  fsSync.writeFileSync(
+    componentRegistryPath,
+    `${JSON.stringify(createEmptyComponentRegistry(), null, 2)}\n`,
+    "utf8",
+  );
+  touchedPaths.push(componentRegistryPath);
+
+  fsSync.writeFileSync(
+    tokenRegistryPath,
+    `${JSON.stringify(createEmptyTokenRegistry(), null, 2)}\n`,
+    "utf8",
+  );
+  touchedPaths.push(tokenRegistryPath);
+
+  fsSync.writeFileSync(componentsIndexPath, buildEmptyComponentsIndexSeed(), "utf8");
+  touchedPaths.push(componentsIndexPath);
+
+  return {
+    componentRegistryPath,
+    tokenRegistryPath,
+    componentsIndexPath,
+    touchedPaths,
   };
 }
