@@ -8,7 +8,7 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
   const { systems, activeSystem, setActiveSystem } = useDesignSystem();
   const navigate = useNavigate();
   const hasSystems = systems.length > 0;
-  const selectValue = hasSystems ? activeSystem : "new-system";
+  const selectValue = hasSystems ? activeSystem : "";
   
   const handleSystemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -34,7 +34,12 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
           className="w-full text-sm font-medium h-9"
         >
           {!hasSystems ? (
-            <option value="new-system">+ Add New Design System</option>
+            <>
+              <option value="" disabled>
+                No design systems configured
+              </option>
+              <option value="new-system">+ Add New Design System</option>
+            </>
           ) : (
             <>
               {systems.map((sys) => (
