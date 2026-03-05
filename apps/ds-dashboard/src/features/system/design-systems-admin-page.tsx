@@ -57,6 +57,57 @@ function buildFieldId(systemId: string, fieldName: string) {
   return `ds-admin-${safeSystemId}-${fieldName}`;
 }
 
+function normalizeDraftText(value: string): string {
+  return String(value || "").trim();
+}
+
+function normalizeDraftCollections(value: string): string {
+  return parseCollections(value).join(",");
+}
+
+function hasDraftChanges(
+  system: DesignSystemConfigEntry,
+  draft: RowDraft,
+  defaultSystemId: string,
+): boolean {
+  const base = toDraft(system, defaultSystemId);
+  return (
+    hasNonDefaultDraftChanges(system, draft, defaultSystemId) ||
+    base.makeDefault !== draft.makeDefault
+  );
+}
+
+function hasNonDefaultDraftChanges(
+  system: DesignSystemConfigEntry,
+  draft: RowDraft,
+  defaultSystemId: string,
+): boolean {
+  const base = toDraft(system, defaultSystemId);
+  return (
+    normalizeDraftText(base.name) !== normalizeDraftText(draft.name) ||
+    normalizeDraftText(base.appName) !== normalizeDraftText(draft.appName) ||
+    normalizeDraftText(base.figmaFileId) !== normalizeDraftText(draft.figmaFileId) ||
+    normalizeDraftText(base.figmaApiToken) !== normalizeDraftText(draft.figmaApiToken) ||
+    normalizeDraftText(base.inputDir) !== normalizeDraftText(draft.inputDir) ||
+    normalizeDraftText(base.outputDir) !== normalizeDraftText(draft.outputDir) ||
+    normalizeDraftText(base.docsDir) !== normalizeDraftText(draft.docsDir) ||
+    normalizeDraftCollections(base.collections) !== normalizeDraftCollections(draft.collections) ||
+    base.compileVariablesOnCapture !== draft.compileVariablesOnCapture
+  );
+}
+
+function shouldShowSaveButton(
+  system: DesignSystemConfigEntry,
+  draft: RowDraft,
+  defaultSystemId: string,
+): boolean {
+  const base = toDraft(system, defaultSystemId);
+  const hasNonDefaultChanges = hasNonDefaultDraftChanges(system, draft, defaultSystemId);
+  if (hasNonDefaultChanges) return true;
+  // For default switches, show Save only on the target row that becomes default.
+  return base.makeDefault !== draft.makeDefault && draft.makeDefault;
+}
+
 export function DesignSystemsAdminPage() {
   const { replaceSystems } = useDesignSystem();
   const [systems, setSystems] = useState<DesignSystemConfigEntry[]>([]);
@@ -237,6 +288,8 @@ export function DesignSystemsAdminPage() {
             const draft = drafts[id] || toDraft(system, defaultSystem);
             const isBusy = !!busyIds[id];
             const isDefault = id === defaultSystem;
+            const hasChanges = hasDraftChanges(system, draft, defaultSystem);
+            const showSaveButton = shouldShowSaveButton(system, draft, defaultSystem);
             return (
               <section key={id} className="rounded-xl border border-border bg-card p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -250,9 +303,11 @@ export function DesignSystemsAdminPage() {
                     <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{id}</code>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" onClick={() => void handleSave(id)} disabled={isBusy}>
-                      Save
-                    </Button>
+                    {hasChanges && showSaveButton ? (
+                      <Button size="sm" onClick={() => void handleSave(id)} disabled={isBusy}>
+                        Save
+                      </Button>
+                    ) : null}
                     <Button
                       size="sm"
                       variant="outline"
