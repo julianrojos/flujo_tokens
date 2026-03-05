@@ -7,13 +7,15 @@ import { cn } from "@/lib/utils";
 export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
   const { systems, activeSystem, setActiveSystem } = useDesignSystem();
   const navigate = useNavigate();
+  const hasSystems = systems.length > 0;
+  const selectValue = hasSystems ? activeSystem : "new-system";
   
   const handleSystemChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     if (value === "new-system") {
       navigate("/system/new");
-      // Keep the actual system selected visually or revert it so the layout stays correct
-      e.target.value = activeSystem;
+      // Keep current system selected when available.
+      if (hasSystems) e.target.value = activeSystem;
       return;
     }
     setActiveSystem(value);
@@ -27,12 +29,12 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
       
       <div className="mt-1">
         <Select
-          value={activeSystem}
+          value={selectValue}
           onChange={handleSystemChange}
           className="w-full text-sm font-medium h-9"
         >
-          {systems.length === 0 ? (
-            <option value="">Loading...</option>
+          {!hasSystems ? (
+            <option value="new-system">+ Add New Design System</option>
           ) : (
             <>
               {systems.map((sys) => (

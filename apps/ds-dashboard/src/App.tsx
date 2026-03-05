@@ -140,10 +140,11 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [enabledSystems, setEnabledSystems] = useState<Record<string, boolean>>({});
   const location = useLocation();
-  const { activeSystem } = useDesignSystem();
+  const { activeSystem, systems } = useDesignSystem();
+  const hasSystems = systems.length > 0;
   const isNewSystemRoute = location.pathname === "/system/new";
   const isSystemEnabled = !!activeSystem && !!enabledSystems[activeSystem];
-  const shouldLockSidebar = isNewSystemRoute && !isSystemEnabled;
+  const shouldLockSidebar = !hasSystems || (isNewSystemRoute && !isSystemEnabled);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

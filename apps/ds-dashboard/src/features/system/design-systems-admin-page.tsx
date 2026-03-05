@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
+import { NewSystemPage } from "@/features/system/new-system-page";
 
 type RowDraft = {
   name: string;
@@ -207,6 +208,10 @@ export function DesignSystemsAdminPage() {
     }
   };
 
+  if (!loading && !error && sortedSystems.length === 0) {
+    return <NewSystemPage />;
+  }
+
   return (
     <div className="mx-auto max-w-5xl py-8">
       <div className="mb-2 flex items-center justify-between gap-3">
@@ -255,7 +260,7 @@ export function DesignSystemsAdminPage() {
                         setDeleteModalTarget({ id, name: String(system.name || id) });
                         setDeleteConfirmed(false);
                       }}
-                      disabled={isBusy || isDefault}
+                      disabled={isBusy}
                     >
                       Delete
                     </Button>

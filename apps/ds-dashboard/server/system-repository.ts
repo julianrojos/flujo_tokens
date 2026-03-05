@@ -94,10 +94,6 @@ function coerceConfig(raw: unknown): DesignSystemsConfig {
     ? base.systems.map(normalizeSystemEntry).filter((row) => row.id)
     : [];
 
-  if (normalizedSystems.length === 0) {
-    throw new Error("design-systems.json must contain at least one system with a non-empty `id`.");
-  }
-
   const seenSystemIds = new Set<string>();
   const duplicateSystemIds = new Set<string>();
   for (const system of normalizedSystems) {
@@ -116,9 +112,12 @@ function coerceConfig(raw: unknown): DesignSystemsConfig {
   }
 
   const configuredDefault = String(base.defaultSystem || "").trim();
-  const defaultSystem = normalizedSystems.some((row) => row.id === configuredDefault)
-    ? configuredDefault
-    : normalizedSystems[0].id;
+  const defaultSystem =
+    normalizedSystems.length === 0
+      ? ""
+      : normalizedSystems.some((row) => row.id === configuredDefault)
+        ? configuredDefault
+        : normalizedSystems[0].id;
 
   return {
     ...base,

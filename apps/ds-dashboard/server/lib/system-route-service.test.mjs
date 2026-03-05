@@ -109,20 +109,24 @@ test("system-route-service: update mutation preserves id and updates directories
   assert.equal(mutation.nextConfig?.defaultSystem, "alpha");
 });
 
-test("system-route-service: delete mutation rejects missing and last system", () => {
+test("system-route-service: delete mutation rejects missing system", () => {
   const missing = buildDeleteDesignSystemConfigMutation({
     config: createConfig(),
     routeSystemId: "missing",
   });
   assert.equal(missing.error?.status, 404);
+});
 
+test("system-route-service: delete mutation allows deleting the last system", () => {
   const singleConfig = createConfig();
-  const last = buildDeleteDesignSystemConfigMutation({
+  const mutation = buildDeleteDesignSystemConfigMutation({
     config: singleConfig,
     routeSystemId: "alpha",
   });
-  assert.equal(last.error?.status, 400);
-  assert.equal(last.error?.payload.code, "design_system.last_system_protected");
+  assert.ok(!mutation.error);
+  assert.equal(mutation.nextSystems?.length, 0);
+  assert.equal(mutation.nextConfig?.systems.length, 0);
+  assert.equal(mutation.nextConfig?.defaultSystem, "");
 });
 
 test("system-route-service: delete mutation computes next default when removing current default", () => {

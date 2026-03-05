@@ -147,19 +147,16 @@ export function buildDeleteDesignSystemConfigMutation({ config, routeSystemId })
     });
   }
 
-  if (nextSystems.length === 0) {
-    return buildFailure(
-      400,
-      "design_system.last_system_protected",
-      "Cannot delete the last design system.",
-      { systemId: routeSystemId },
-    );
-  }
-
+  const configuredDefault = String(config.defaultSystem || "");
+  const hasConfiguredDefault = nextSystems.some(
+    (row) => String(row?.id || "").trim() === configuredDefault,
+  );
   const nextDefault =
-    config.defaultSystem === routeSystemId
-      ? String(nextSystems[0]?.id || "")
-      : String(config.defaultSystem || nextSystems[0]?.id || "");
+    nextSystems.length === 0
+      ? ""
+      : configuredDefault === routeSystemId || !hasConfiguredDefault
+        ? String(nextSystems[0]?.id || "")
+        : configuredDefault;
 
   return {
     targetSystem,

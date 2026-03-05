@@ -80,9 +80,14 @@ export function DesignSystemProvider({ children }: { children: React.ReactNode }
     options?: { activeSystemId?: string },
   ) => {
     setSystems(nextSystems);
-    if (options?.activeSystemId) {
+    if (typeof options?.activeSystemId === "string") {
       setActiveSystemState(options.activeSystemId);
       setActiveSystemId(options.activeSystemId);
+      return;
+    }
+    if (nextSystems.length === 0) {
+      setActiveSystemState("");
+      setActiveSystemId("");
       return;
     }
     const hasCurrent = nextSystems.some((item) => item.id === activeSystem);

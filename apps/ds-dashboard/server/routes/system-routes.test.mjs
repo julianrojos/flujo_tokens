@@ -162,10 +162,13 @@ test("system-routes: create bootstraps system scaffold artifacts", async () => {
   assert.deepEqual(tokenRegistry.entries, []);
 });
 
-test("system-routes: delete protects last remaining system", async () => {
-  const { app } = createTestApp();
+test("system-routes: delete allows removing the last remaining system", async () => {
+  const { app, repo } = createTestApp();
   const res = await app.request("/api/design-systems/core", { method: "DELETE" });
-  assert.equal(res.status, 400);
+  assert.equal(res.status, 200);
   const payload = await res.json();
-  assert.equal(payload.code, "design_system.last_system_protected");
+  assert.equal(payload.ok, true);
+  assert.equal(repo.getSaved().length, 1);
+  assert.deepEqual(repo.getSaved()[0].systems, []);
+  assert.equal(repo.getSaved()[0].defaultSystem, "");
 });
