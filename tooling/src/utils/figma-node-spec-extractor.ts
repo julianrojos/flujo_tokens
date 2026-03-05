@@ -1,5 +1,15 @@
 import { componentNameToSnakeCase } from "./component-name.js";
-import { type SpecAnatomyItem, type SpecProperty } from "../types/spec.js";
+import {
+  type ExtractedComponentSpec,
+  type LayoutInfo,
+  type LayoutTreeNode,
+  type SpecAnatomyItem,
+  type SpecLayoutItem,
+  type SpecProperty,
+  type SpecVariant,
+} from "../types/spec.js";
+
+export type { LayoutInfo, LayoutTreeNode };
 
 /**
  * figma-node-spec-extractor.ts
@@ -35,16 +45,13 @@ export interface FigmaNode {
   layoutGrow?: number;
   layoutAlign?: string;
   componentId?: string;
-  componentPropertyDefinitions?: Record<string, any>;
+  componentPropertyDefinitions?: Record<string, unknown>;
 }
 
-// Types imported from ../types/spec.js
-
-export interface ExtractedComponentSpec {
-  anatomy: SpecAnatomyItem[];
-  properties: SpecProperty[];
-  layoutTree: LayoutTreeNode;
-  variantProperties: string[];
+interface FigmaComponentPropertyDefinition {
+  type?: string;
+  defaultValue?: string | number | boolean;
+  variant?: boolean;
 }
 
 export interface SpecSections {
@@ -53,31 +60,6 @@ export interface SpecSections {
   visualSpecifications: string;
   variantsTableRows: string;
   statesMarkdown: string;
-}
-
-export interface LayoutInfo {
-  layoutMode?: string;
-  primaryAxisAlignItems?: string;
-  counterAxisAlignItems?: string;
-  primaryAxisSizingMode?: string;
-  counterAxisSizingMode?: string;
-  itemSpacing?: number;
-  paddingTop?: number;
-  paddingRight?: number;
-  paddingBottom?: number;
-  paddingLeft?: number;
-  layoutGrow?: number;
-  layoutAlign?: string;
-}
-
-export interface LayoutTreeNode {
-  // name and type are required - partial specs without these are invalid
-  name: string;
-  type: string;
-  width?: number;
-  height?: number;
-  layout?: LayoutInfo;
-  children?: LayoutTreeNode[];
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +165,15 @@ function extractLayoutInfo(node: FigmaNode): LayoutInfo {
 }
 
 function extractAnatomyItem(node: FigmaNode): SpecAnatomyItem {
+  const nodeId = String(node.id || "").trim();
+  if (!nodeId) {
+    throw new Error(
+      `Missing Figma node id while extracting anatomy item: ${node.name || "Unnamed"}`,
+    );
+  }
+
   const item: SpecAnatomyItem = {
+    id: nodeId,
     name: node.name || "Unnamed",
     type: node.type || "UNKNOWN",
   };
@@ -219,12 +209,13 @@ function extractProperties(node: FigmaNode): SpecProperty[] {
 
   for (const [name, def] of Object.entries(propDefs)) {
     if (!def || typeof def !== "object") continue;
-    const typedDef = def as Record<string, any>;
+    const typedDef = def as FigmaComponentPropertyDefinition;
     properties.push({
       name,
       type: typedDef.type || "unknown",
-      defaultValue: typedDef.defaultValue,
-      variant: typedDef.variant || false,
+      default: typedDef.defaultValue,
+      variant: Boolean(typedDef.variant),
+      required: !typedDef.variant,
     });
   }
 
@@ -251,8 +242,8 @@ function extractVariantProperties(node: FigmaNode): string[] {
 
   for (const [name, def] of Object.entries(propDefs)) {
     if (!def || typeof def !== "object") continue;
-    const typedDef = def as Record<string, any>;
-    if (typedDef.variant) {
+    const typedDef = def as FigmaComponentPropertyDefinition;
+    if (Boolean(typedDef.variant)) {
       props.add(name);
     }
   }
@@ -282,6 +273,52 @@ function buildLayoutTree(node: FigmaNode): LayoutTreeNode {
   return tree;
 }
 
+function flattenLayoutTree(node: LayoutTreeNode): SpecLayoutItem[] {
+  const current: SpecLayoutItem = {
+    node: node.name,
+    direction: node.layout?.layoutMode || "NONE",
+    alignment:
+      node.layout?.primaryAxisAlignItems ||
+      node.layout?.counterAxisAlignItems ||
+      "AUTO",
+    hSizing: node.layout?.primaryAxisSizingMode || "FIXED",
+    vSizing: node.layout?.counterAxisSizingMode || "FIXED",
+  };
+
+  if (node.layout?.itemSpacing !== undefined) {
+    current.itemSpacing = node.layout.itemSpacing;
+  }
+
+  const hasPadding =
+    node.layout?.paddingTop !== undefined ||
+    node.layout?.paddingRight !== undefined ||
+    node.layout?.paddingBottom !== undefined ||
+    node.layout?.paddingLeft !== undefined;
+  if (hasPadding) {
+    current.padding = {
+      top: node.layout?.paddingTop,
+      right: node.layout?.paddingRight,
+      bottom: node.layout?.paddingBottom,
+      left: node.layout?.paddingLeft,
+    };
+  }
+
+  const children = Array.isArray(node.children)
+    ? node.children.flatMap(flattenLayoutTree)
+    : [];
+
+  return [current, ...children];
+}
+
+function buildVariantSpecs(properties: SpecProperty[]): SpecVariant[] {
+  return properties
+    .filter((property) => property.variant)
+    .map((property) => ({
+      name: property.name,
+      type: "variant",
+    }));
+}
+
 /**
  * Extract a complete component spec from a Figma node tree.
  */
@@ -290,11 +327,15 @@ export function extractComponentSpec(node: FigmaNode): ExtractedComponentSpec {
   const properties = extractProperties(node);
   const layoutTree = buildLayoutTree(node);
   const variantProperties = extractVariantProperties(node);
+  const layout = flattenLayoutTree(layoutTree);
+  const variants = buildVariantSpecs(properties);
 
   return {
     anatomy,
     properties,
     layoutTree,
+    layout,
+    variants,
     variantProperties,
   };
 }
@@ -333,6 +374,19 @@ export function generateSpecSections(spec: ExtractedComponentSpec): SpecSections
     variantsTableRows,
     statesMarkdown,
   };
+}
+
+/**
+ * Build enriched markdown sections from extracted spec.
+ */
+export function buildEnrichedMarkdownSections(spec: ExtractedComponentSpec): {
+  anatomy: string;
+  componentApi: string;
+  visualSpecifications: string;
+  variantsTableRows: string;
+  statesMarkdown: string;
+} {
+  return generateSpecSections(spec);
 }
 
 /**
@@ -431,4 +485,161 @@ ${sections.statesMarkdown}
 
 - [ ] [CONTENT_UNKNOWN] Complete usage, accessibility, and token mapping details with product evidence.
 `;
+}
+
+/**
+ * Render enriched markdown seed from extracted spec data.
+ */
+export function renderEnrichedMarkdownSeed(opts: {
+  slug?: string;
+  displayName?: string;
+  nodeUrl?: string;
+  nodeId?: string;
+  spec?: ExtractedComponentSpec;
+}): string {
+  const { slug, displayName, nodeUrl, nodeId, spec } = opts;
+  const safeName = displayName || spec?.name || "Component";
+  const properties = spec?.properties ?? [];
+  const propsForOverview = properties
+    .filter((property) => property.variant)
+    .map((property) => property.name)
+    .join(", ");
+  const safeUrl = nodeUrl || "TBD";
+
+  return `---
+doc_type: component
+doc_status: draft
+figma:
+  file_url: ${safeUrl}
+  page: TBD
+  component: ${safeName}
+  component_set_node_id: ${nodeId || "TBD"}
+  last_verified: TBD
+---
+
+# ${safeName}
+
+Auto-generated component documentation from Figma capture.
+
+## Overview
+
+- Purpose: TBD
+- Figma component set: \`${safeName}\`.
+- Variant properties: ${propsForOverview || "TBD"}.
+- Source: [${safeName} in Figma](${safeUrl}).
+
+### Visual Proof
+
+- Screenshot: TBD
+- Source node: ${nodeId || "TBD"}
+- Artifact: TBD
+
+## Anatomy
+
+${renderAnatomyMarkdown(spec?.anatomy)}
+
+## Component API
+
+${renderPropertiesTable(spec?.properties)}
+
+## Visual Specifications
+
+${renderVariantSpecs(spec?.variants)}
+
+## Variants
+
+| Variant | Token | Fallback | Notes |
+| --- | --- | --- | --- |
+${renderVariantRows(spec?.variants)}
+
+## States
+
+${renderStatesMarkdown(spec?.properties)}
+
+## Usage Guidelines
+
+### When to use
+
+- TBD
+
+### When not to use
+
+- TBD
+
+## Content Guidelines
+
+- Keep labels concise and task-oriented.
+- Preserve consistent naming across variant values.
+
+## Accessibility
+
+- ARIA: TBD
+- Keyboard: TBD
+- Focus: \`Semantic.Color.Focus-Outline.Inner\` (\`#FFFFFF\`) and \`Semantic.Color.Focus-Outline.Outer\` (\`#567680\`).
+- Hit area: \`A11y.A11y.Dimension.Min-Hit-Area\` (\`24px\`) and \`Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA\` (\`48px\`).
+- Contrast: TBD (pending audit)
+
+## Related Components
+
+- [TBD](tbd.md): TBD
+
+## Gaps / TBD
+
+- [ ] [CONTENT_UNKNOWN] Complete usage, accessibility, and token mapping details with product evidence.
+`;
+}
+
+function renderAnatomyMarkdown(anatomy: SpecAnatomyItem[] | undefined): string {
+  if (!Array.isArray(anatomy) || anatomy.length === 0) return "No anatomy items found.";
+  return anatomy
+    .map(
+      (item) =>
+        `- **${item.name || "Unknown"}** (${item.type || "unknown"}): ${item.width || "?"}×${item.height || "?"}`,
+    )
+    .join("\n");
+}
+
+function renderPropertiesTable(properties: SpecProperty[] | undefined): string {
+  if (!Array.isArray(properties) || properties.length === 0) {
+    return "| N/A | - | - | - | - | - |";
+  }
+  return properties
+    .map(
+      (property) =>
+        `| ${property.name || "TBD"} | ${property.type || "unknown"} | ${property.default ?? "-"} | ${property.required ? "Yes" : "No"} | ${property.description || "-"} | TBD |`,
+    )
+    .join("\n");
+}
+
+function renderVariantSpecs(variants: SpecVariant[] | undefined): string {
+  if (!Array.isArray(variants) || variants.length === 0) return "- `TBD`";
+  return variants
+    .map(
+      (variant) =>
+        `- \`${variant.name || "TBD"}\`: ${Array.isArray(variant.values) ? variant.values.join(", ") : "TBD"}`,
+    )
+    .join("\n");
+}
+
+function renderVariantRows(variants: SpecVariant[] | undefined): string {
+  if (!Array.isArray(variants) || variants.length === 0) return "| N/A | - | - | No variants found |";
+  return variants
+    .map((variant) => `| ${variant.name || "TBD"} | Token | Fallback | TBD |`)
+    .join("\n");
+}
+
+function renderStatesMarkdown(properties: SpecProperty[] | undefined): string {
+  if (!Array.isArray(properties) || properties.length === 0) return "- Default: `TBD`.\n- Other states: `TBD`.";
+  const stateProps = properties.filter((property) =>
+    String(property.name || "")
+      .toLowerCase()
+      .includes("state"),
+  );
+  if (stateProps.length === 0) return "- Default: `TBD`.\n- Other states: `TBD`.";
+  return stateProps
+    .map((property) => {
+      const values = (property as { values?: unknown }).values;
+      return `- ${property.name}: \`${Array.isArray(values) ? values.join("`, `") : "TBD"}\``;
+    })
+    .join("\n");
 }

@@ -27,7 +27,9 @@ export function buildComponentListLines(
   const entries = (Array.isArray(components) ? components : [])
     .filter((component): component is Record<string, unknown> => {
       const comp = component as Record<string, unknown>;
-      return comp?.doc && typeof comp.doc === 'object' && (comp.doc as Record<string, unknown>).exists === true;
+      const doc = comp?.doc;
+      const existsValue = (doc as Record<string, unknown>).exists;
+      return doc && typeof doc === 'object' && (existsValue === true || existsValue === 'true') ? true : false;
     })
     .map((component) => ({
       displayName: String((component as Record<string, unknown>).display_name || '').trim(),

@@ -137,8 +137,10 @@ describe("figma-node-spec-extractor utils", () => {
       const sections = generateSpecSections({ 
         anatomy: [], 
         properties: [], 
-        layoutTree: { name: "Empty", type: "FRAME" }, 
-        variantProperties: [] 
+        layoutTree: { name: "Empty", type: "FRAME" },
+        layout: [],
+        variants: [],
+        variantProperties: [],
       });
       assert.ok(sections.anatomy.includes("No anatomy items"));
       assert.ok(sections.componentApi.includes("No properties"));

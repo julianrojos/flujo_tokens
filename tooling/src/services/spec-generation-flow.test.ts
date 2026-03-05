@@ -7,22 +7,33 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { runSpecGenerationFlow } from './spec-generation-flow.js';
+import type { AgentPromptResult } from '../utils/index.js';
+
+function buildAgentPromptResult(): AgentPromptResult {
+  return {
+    ok: true,
+    agent: 'codex',
+    command: 'codex',
+    args: [],
+    status: 0,
+    stdout: '',
+    stderr: '',
+  };
+}
 
 describe('spec-generation-flow', () => {
   describe('runSpecGenerationFlow()', () => {
     it('success path without repair', () => {
       const result = runSpecGenerationFlow({
         prompt: 'prompt',
-        agent: 'auto',
+        agent: 'auto' as const,
         componentName: 'Alert',
         nodeId: '1:1',
         skipValidation: false,
         outputPath: '/tmp/alert.yml',
         registryPath: '/tmp/registry.json',
-        runSpecGenerationPromptFn: () => {},
-        runSpecRepairPromptFn: () => {
-          throw new Error('should not run');
-        },
+        runSpecGenerationPromptFn: (): AgentPromptResult => buildAgentPromptResult(),
+        runSpecRepairPromptFn: (): AgentPromptResult => { throw new Error('should not run'); },
         validateGeneratedSpecFn: () => ({ ok: true, report: { ok: true }, errors: [] }),
         materializeGeneratedSpec: () => ({ normalizedSpec: { name: 'Alert' }, prefilledCount: 1 }),
       });
@@ -35,14 +46,14 @@ describe('spec-generation-flow', () => {
       let validationCalls = 0;
       const result = runSpecGenerationFlow({
         prompt: 'prompt',
-        agent: 'auto',
+        agent: 'auto' as const,
         componentName: 'Alert',
         nodeId: '1:1',
         skipValidation: false,
         outputPath: '/tmp/alert.yml',
         registryPath: '/tmp/registry.json',
-        runSpecGenerationPromptFn: () => {},
-        runSpecRepairPromptFn: () => {},
+        runSpecGenerationPromptFn: (): AgentPromptResult => buildAgentPromptResult(),
+        runSpecRepairPromptFn: (): AgentPromptResult => buildAgentPromptResult(),
         validateGeneratedSpecFn: () => {
           validationCalls += 1;
           if (validationCalls === 1) {
@@ -62,14 +73,14 @@ describe('spec-generation-flow', () => {
       assert.throws(() =>
         runSpecGenerationFlow({
           prompt: 'prompt',
-          agent: 'auto',
+          agent: 'auto' as const,
           componentName: 'Alert',
           nodeId: '1:1',
           skipValidation: false,
           outputPath: '/tmp/alert.yml',
           registryPath: '/tmp/registry.json',
-          runSpecGenerationPromptFn: () => {},
-          runSpecRepairPromptFn: () => {},
+          runSpecGenerationPromptFn: (): AgentPromptResult => buildAgentPromptResult(),
+          runSpecRepairPromptFn: (): AgentPromptResult => buildAgentPromptResult(),
           validateGeneratedSpecFn: () => ({ ok: false, report: { ok: false }, errors: [{ code: 'SPEC01' }] }),
           materializeGeneratedSpec: () => ({ normalizedSpec: { name: 'Alert' }, prefilledCount: 0 }),
         }),

@@ -19,6 +19,7 @@ import {
     materializeSpec,
     assertEvidenceGatedScalarChanges,
     writeSpecWithSnapshotGuard,
+    type AgentType,
     createPipelineContext,
     loadRegistryOrThrow,
 } from '../utils/index.js';
@@ -29,7 +30,6 @@ import {
 // Import syncDocumentationIndices with type safety from component-registry-index
 import { syncDocumentationIndices as syncDocumentationIndicesJs } from '../services/component-registry-index.js';
 
-// Type-safe wrapper for syncDocumentationIndices
 const syncDocumentationIndices: typeof syncDocumentationIndicesJs = syncDocumentationIndicesJs;
 
 const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
@@ -126,7 +126,7 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
 
             const { normalizedSpec, prefilledCount, validationReport } = runSpecGenerationFlow({
                 prompt,
-                agent: agent as any,
+                agent: agent as AgentType | undefined,
                 componentName,
                 nodeId,
                 skipValidation,

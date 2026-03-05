@@ -127,7 +127,7 @@ export function normalizeSpecOrder(spec: any): any {
             index,
         }));
 
-        stableDecorated.sort((a, b) => {
+        stableDecorated.sort((a: { item: Record<string, unknown>; index: number }, b: { item: Record<string, unknown>; index: number }) => {
             const typeA = coerceSpecPropertyType(a.item.type);
             const typeB = coerceSpecPropertyType(b.item.type);
             const infoA = typeA ? getSpecPropertyTypeInfo(typeA) : null;
@@ -138,10 +138,10 @@ export function normalizeSpecOrder(spec: any): any {
             return a.index - b.index;
         });
 
-        ordered.properties = stableDecorated.map(({ item }) => {
+        ordered.properties = stableDecorated.map(({ item }: { item: Record<string, unknown> }) => {
             const canonicalType = coerceSpecPropertyType(item.type);
             if (canonicalType) item.type = canonicalType;
-            const propertyOrdered: any = {};
+            const propertyOrdered: Record<string, unknown> = {};
             for (const key of PROPERTY_FIELD_ORDER) {
                 if (key in item) propertyOrdered[key] = item[key];
             }

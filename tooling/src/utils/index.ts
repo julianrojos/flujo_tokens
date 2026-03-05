@@ -448,14 +448,6 @@ export type {
   SpecToMarkdownResult,
 } from '../services/spec-to-markdown.js';
 
-export type {
-  SpecAnatomyItem,
-  SpecProperty,
-  SpecLayoutItem,
-  SpecVariant,
-  SpecToMarkdownInput,
-} from '../types/spec.js';
-
 // Figma API utilities
 export {
   buildFigmaFileEndpoint,
@@ -538,13 +530,24 @@ export {
   extractComponentSpec,
   generateSpecSections,
   generateSpecMarkdown,
+  renderEnrichedMarkdownSeed,
+  buildEnrichedMarkdownSections,
 } from './figma-node-spec-extractor.js';
 
 export type {
   // FigmaNode is now canonical here (removed from figma-api exports)
   FigmaNode,
-  ExtractedComponentSpec,
   SpecSections,
   LayoutInfo,
   LayoutTreeNode,
 } from './figma-node-spec-extractor.js';
+
+// Re-export spec types from canonical location
+export type {
+  ExtractedComponentSpec,
+  SpecAnatomyItem,
+  SpecProperty,
+  SpecLayoutItem,
+  SpecVariant,
+  SpecToMarkdownInput,
+} from '../types/spec.js';

@@ -23,6 +23,8 @@ import type {
   VisualProofVariant,
   PipelineStage,
   BuildRegistryOptions,
+  SpecStatus,
+  DocStatus,
 } from '../types/component-registry.js';
 import {
   COMPONENT_REGISTRY_SCHEMA_VERSION,
@@ -144,7 +146,7 @@ function readSpecState(specPath: string): ComponentSpecState {
   const spec = parseYamlDocument(
     fs.readFileSync(specPath, 'utf8'),
     `component spec (${path.basename(specPath)})`,
-  );
+  ) as unknown as Record<string, unknown>;
   const figma = isPlainObject(spec.figma) ? (spec.figma as Record<string, unknown>) : {};
 
   const normalizedNodeId = normalizeNodeId(String(figma.component_set_node_id || '').trim());
@@ -157,7 +159,7 @@ function readSpecState(specPath: string): ComponentSpecState {
 
   return {
     exists: true,
-    status: normalizeStatus(spec.status, SPEC_STATUS),
+    status: normalizeStatus(spec.status, SPEC_STATUS) as SpecStatus,
     name,
     componentSetNodeId,
   };
@@ -181,7 +183,7 @@ function readDocState(docPath: string): ComponentDocState {
   const { frontmatter, content } = parseMarkdownFrontmatter(rawMarkdown);
   const frontmatterObj = isPlainObject(frontmatter) ? frontmatter : {};
   const figma = isPlainObject(frontmatterObj.figma) ? (frontmatterObj.figma as Record<string, unknown>) : {};
-  const status = normalizeStatus(frontmatterObj.doc_status, DOC_STATUS);
+  const status = normalizeStatus(frontmatterObj.doc_status, DOC_STATUS) as DocStatus;
 
   const fileUrlRaw = String(figma.file_url || '').trim();
   const figmaFileUrl = isValidHttpUrl(fileUrlRaw) ? fileUrlRaw : null;
@@ -483,10 +485,15 @@ function buildComponentEntry(params: {
     spec: {
       exists: spec.exists,
       status: spec.status,
+      name: spec.name || '',
+      componentSetNodeId: spec.componentSetNodeId || null,
     },
     doc: {
       exists: doc.exists,
       status: doc.status,
+      title: doc.title || '',
+      figmaFileUrl: doc.figmaFileUrl || null,
+      componentSetNodeId: doc.componentSetNodeId || null,
     },
     figma: {
       file_url: figmaUrl,
