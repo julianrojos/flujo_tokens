@@ -9,6 +9,7 @@ output/**/.emit-manifest.json
 docs/_generated/.sync-state.json
 docs/_generated/token-graph*
 docs/_generated/token-health.json
+docs/**/_generated/agent_prompts/
 apps/ds-dashboard/dist/
 apps/ds-dashboard/vite.config.js
 apps/ds-dashboard/vite.config.d.ts
