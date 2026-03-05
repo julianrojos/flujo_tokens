@@ -124,6 +124,7 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   system?: Record<string, unknown> | null;
   fileKey?: string;
   figmaToken: string;
+  syncFigmaTokensToInputFn?: typeof syncFigmaTokensToInput;
 }): Promise<{
   attempted: boolean;
   created: boolean;
@@ -133,13 +134,16 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   files?: string[];
   error?: string;
 }> {
-  const { repoRoot, system, fileKey, figmaToken } = params;
+  const {
+    repoRoot,
+    system,
+    fileKey,
+    figmaToken,
+    syncFigmaTokensToInputFn = syncFigmaTokensToInput,
+  } = params;
   
   if (!system) {
     return { attempted: false, created: false, reason: 'system-missing' };
-  }
-  if (system.compileVariablesOnCapture === false) {
-    return { attempted: false, created: false, reason: 'disabled-by-config' };
   }
   
   const docsDir = path.resolve(repoRoot, String(system.docsDir || ''));
@@ -157,7 +161,7 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     return { attempted: false, created: false, reason: 'figma-file-key-missing' };
   }
 
-  const syncResult = await syncFigmaTokensToInput({
+  const syncResult = await syncFigmaTokensToInputFn({
     repoRoot,
     system,
     fileKey,

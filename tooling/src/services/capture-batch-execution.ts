@@ -6,7 +6,9 @@
  */
 
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 import type { CaptureTarget } from '../types/capture-targets.js';
+import { syncDocumentationIndices } from './component-registry-index.js';
 
 /**
  * Captured component result.
@@ -242,6 +244,41 @@ export interface RegistryRefreshResult {
 }
 
 /**
+ * Convert unknown errors to message strings.
+ */
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Count markdown component docs excluding overview.
+ */
+function countComponentDocs(docsDir: string): number {
+  if (!fs.existsSync(docsDir)) return 0;
+  return fs
+    .readdirSync(docsDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.md'))
+    .map((entry) => entry.name.toLowerCase())
+    .filter((name) => name !== 'overview.md')
+    .length;
+}
+
+/**
+ * Read component count from the registry artifact.
+ */
+function readRegistryComponentCount(registryPath: string): number {
+  if (!fs.existsSync(registryPath)) return 0;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as {
+      components?: unknown[];
+    };
+    return Array.isArray(parsed.components) ? parsed.components.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Type guard to check if a value is a valid refresh result.
  *
  * @param obj - Value to check.
@@ -345,16 +382,73 @@ export function executeCaptureBatchAndRefresh(params: {
   report.failed = captureBatch.failed;
 
   if (refreshIndices) {
-    const refreshArgs = ['--system', systemId];
-    const refreshResult = runNodeScriptJson({
-      repoRoot: projectRoot,
-      scriptPath: registryRefreshScriptPath,
-      scriptArgs: refreshArgs,
-      runJsonCommandFn,
-    });
+    const docsRootDir = path.dirname(path.dirname(proofDir));
+    const docsDir = path.join(docsRootDir, 'components');
+    const specsDir = path.join(docsRootDir, '_spec', 'components');
+    const generatedDir = path.join(docsRootDir, '_generated');
+    const registryPath = path.join(generatedDir, 'component-registry.json');
+    const overviewPath = path.join(docsDir, 'overview.md');
+    const renderDir = path.join(generatedDir, 'figma_doc_models');
+    const proofsDir = proofDir;
 
-    report.indices_refreshed = isRefreshResult(refreshResult) && refreshResult.ok;
-    report.registry_refresh = refreshResult;
+    const refreshArgs = ['--system', systemId];
+    let refreshResult: unknown = null;
+    let refreshError: unknown = null;
+    try {
+      refreshResult = runNodeScriptJson({
+        repoRoot: projectRoot,
+        scriptPath: registryRefreshScriptPath,
+        scriptArgs: refreshArgs,
+        runJsonCommandFn,
+      });
+    } catch (error) {
+      refreshError = error;
+    }
+
+    const primaryRefreshOk = isRefreshResult(refreshResult) && refreshResult.ok;
+    const docsCount = countComponentDocs(docsDir);
+    const registryComponentCount = readRegistryComponentCount(registryPath);
+    const hasDocsButRegistryEmpty = docsCount > 0 && registryComponentCount === 0;
+
+    if (primaryRefreshOk && !hasDocsButRegistryEmpty) {
+      report.indices_refreshed = true;
+      report.registry_refresh = refreshResult;
+    } else {
+      try {
+        const fallbackResult = syncDocumentationIndices({
+          registryPath,
+          overviewPath,
+          specsDir,
+          docsDir,
+          proofsDir,
+          renderDir,
+          dryRun: false,
+        });
+        report.indices_refreshed = fallbackResult.ok;
+        report.registry_refresh = {
+          ok: fallbackResult.ok,
+          strategy: 'direct-sync-fallback',
+          fallback_reason: hasDocsButRegistryEmpty
+            ? 'docs-present-registry-empty'
+            : 'primary-refresh-failed',
+          primary_result: refreshResult,
+          primary_error: refreshError ? toErrorMessage(refreshError) : null,
+          data: fallbackResult,
+        };
+      } catch (fallbackError) {
+        report.indices_refreshed = false;
+        report.registry_refresh = {
+          ok: false,
+          strategy: 'direct-sync-fallback',
+          fallback_reason: hasDocsButRegistryEmpty
+            ? 'docs-present-registry-empty'
+            : 'primary-refresh-failed',
+          primary_result: refreshResult,
+          primary_error: refreshError ? toErrorMessage(refreshError) : null,
+          fallback_error: toErrorMessage(fallbackError),
+        };
+      }
+    }
   }
 
   report.ok =
