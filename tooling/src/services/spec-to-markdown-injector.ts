@@ -9,63 +9,46 @@ import {
   renderLayoutTable,
   renderVariantSpecs,
   renderVariantRows,
+  type SpecAnatomyItem as RenderAnatomyItem,
+  type SpecVariantFingerprint,
 } from './spec-renderer.js';
+import type { SpecAnatomyItem, SpecProperty as SpecPropertyType, SpecVariant, SpecLayoutItem } from '../types/spec.js';
+import type { SpecProperty as RendererSpecProperty, SpecLayoutRow } from './spec-renderer.js';
 
-export interface SpecAnatomyItem {
-  id: string;
-  name: string;
-  description?: string;
-}
+// Local alias for SpecLayoutItem to maintain compatibility with existing code
+export type SpecLayout = SpecLayoutItem;
 
-export interface SpecProperty {
-  name: string;
-  type: string;
-  default: string;
-  required: boolean;
-  description: string;
-}
-
-export interface SpecVariant {
-  // Manual spec format (from YAML)
+/**
+ * Manual variant format (from YAML) - distinct from enriched Figma format.
+ */
+export interface ManualSpecVariant {
   name?: string;
   value?: string;
   token?: string;
   fallback?: string;
   notes?: string;
-  
-  // Enriched Figma format (from extraction)
-  properties?: Record<string, string>;
-  fingerprints?: Map<string, {
-    nodeType?: string;
-    fill?: string;
-    stroke?: string;
-    textStyle?: string;
-    textCase?: string;
-    effects?: string[];
-  }>;
 }
 
-export interface SpecLayout {
-  node: string;
-  direction: string;
-  alignment: string;
-  hSizing: string;
-  vSizing: string;
-  itemSpacing: string | number;
-  padding?: {
-    top: number;
-    right: number;
-    bottom: number;
-    left: number;
+/**
+ * Enriched variant format (from Figma extraction).
+ */
+export interface EnrichedSpecVariant extends SpecVariantFingerprint {
+  _manual?: {
+    token?: string;
+    fallback?: string;
+    notes?: string;
   };
 }
 
+/**
+ * Component spec with explicit metadata field for extensibility.
+ */
 export interface ComponentSpec {
   anatomy?: SpecAnatomyItem[];
-  properties?: SpecProperty[];
-  variants?: SpecVariant[];
-  layout?: SpecLayout[];
-  [key: string]: unknown;
+  properties?: SpecPropertyType[];
+  variants?: (ManualSpecVariant | EnrichedSpecVariant)[];
+  layout?: SpecLayoutItem[];
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -80,39 +63,72 @@ function makeHeader(slug: string): string {
 }
 
 /**
+ * Type guard to check if variant is already in enriched format.
+ * Checks for EITHER properties OR fingerprints to catch partially enriched variants.
+ */
+function isEnrichedSpecVariant(variant: unknown): variant is EnrichedSpecVariant {
+  return (
+    typeof variant === 'object' &&
+    variant !== null &&
+    ('properties' in variant || 'fingerprints' in variant)
+  );
+}
+
+/**
+ * Type guard to validate ManualSpecVariant shape.
+ * Excludes any variant with properties or fingerprints (enriched format markers).
+ */
+function isManualSpecVariant(variant: unknown): variant is ManualSpecVariant {
+  return (
+    typeof variant === 'object' &&
+    variant !== null &&
+    !('properties' in variant || 'fingerprints' in variant) &&
+    ('name' in variant || 'value' in variant || 'token' in variant || 'fallback' in variant || 'notes' in variant)
+  );
+}
+
+/**
  * Adapt manual spec variants to enriched format for renderer.
  * Manual format: { name, value, token, fallback }
  * Enriched format: { name, properties, fingerprints }
- * 
+ *
  * Preserves manual data in _manual field for renderVariantRows to consume.
+ * Pass-through enriched variants unchanged.
+ * Filters out invalid variants (returns null) to prevent 'Unknown' rows in output.
  */
 function adaptManualVariantsToEnriched(
-  variants: SpecVariant[] | undefined | null
-): Array<{ name: string; properties: Record<string, string>; fingerprints: Map<string, unknown>; _manual?: { token?: string; fallback?: string; notes?: string } }> {
+  variants: (ManualSpecVariant | EnrichedSpecVariant)[] | undefined | null
+): EnrichedSpecVariant[] {
   if (!variants || variants.length === 0) return [];
-  
-  return variants.map((variant) => {
-    // If already in enriched format, pass through
-    if (variant.properties && variant.fingerprints) {
-      return variant as { name: string; properties: Record<string, string>; fingerprints: Map<string, unknown>; _manual?: { token?: string; fallback?: string; notes?: string } };
+
+  return variants.flatMap((variant) => {
+    // Pass-through: already in enriched format
+    if (isEnrichedSpecVariant(variant)) {
+      return [variant];
     }
-    
+
+    // Drop invalid variant objects to avoid rendering placeholder rows.
+    if (!isManualSpecVariant(variant)) {
+      return [];
+    }
+
     // Convert manual format to enriched format
     const properties: Record<string, string> = {};
     if (variant.name) properties.Variant = variant.name;
     if (variant.value) properties.Value = variant.value;
-    
-    const fingerprints = new Map<string, unknown>();
+
+    const fingerprints = new Map<string, {
+      nodeType?: string;
+      fill?: string;
+      stroke?: string;
+      textStyle?: string;
+      textCase?: string;
+      effects?: string[];
+    }>();
     if (variant.token) {
       fingerprints.set('token', { fill: variant.token });
     }
-    if (variant.fallback) {
-      fingerprints.set('fallback', { note: variant.fallback });
-    }
-    if (variant.notes) {
-      fingerprints.set('notes', { note: variant.notes });
-    }
-    
+
     // Preserve manual data for renderVariantRows to consume
     return {
       name: variant.name || 'Variant',
@@ -179,6 +195,50 @@ function processZone(
   return before + newContent + after;
 }
 
+function toRendererAnatomyItems(
+  anatomy: SpecAnatomyItem[] | undefined,
+): RenderAnatomyItem[] {
+  if (!Array.isArray(anatomy) || anatomy.length === 0) return [];
+  return anatomy.map((item, index) => ({
+    id: String(item.id || `${item.name || 'part'}-${index + 1}`),
+    name: item.name,
+  }));
+}
+
+/**
+ * Map SpecProperty from types/spec.ts to renderer SpecProperty format.
+ */
+function toRendererSpecProperties(
+  properties: SpecPropertyType[] | undefined,
+): RendererSpecProperty[] {
+  if (!Array.isArray(properties) || properties.length === 0) return [];
+  return properties.map((prop) => ({
+    name: prop.name,
+    type: prop.type,
+    default: prop.default !== undefined ? String(prop.default) : undefined,
+    required: prop.required,
+    description: prop.description,
+  }));
+}
+
+/**
+ * Map SpecLayoutItem from types/spec.ts to renderer SpecLayoutRow format.
+ */
+function toRendererLayoutRows(
+  layout: SpecLayoutItem[] | undefined,
+): SpecLayoutRow[] {
+  if (!Array.isArray(layout) || layout.length === 0) return [];
+  return layout.map((row) => ({
+    node: row.node,
+    direction: row.direction,
+    alignment: row.alignment,
+    hSizing: row.hSizing,
+    vSizing: row.vSizing,
+    itemSpacing: row.itemSpacing !== undefined ? row.itemSpacing : '-',
+    padding: row.padding as SpecLayoutRow['padding'],
+  }));
+}
+
 /**
  * Main Injector - Inject spec zones into markdown.
  *
@@ -202,11 +262,13 @@ export function injectSpecZones(
   let result = markdown;
 
   // 1. Anatomy Zone
-  const anatomyContent = renderAnatomyMarkdown(spec.anatomy || []);
+  const anatomyContent = renderAnatomyMarkdown(
+    toRendererAnatomyItems(spec.anatomy),
+  );
   result = processZone(result, 'ANATOMY', anatomyContent, slug);
 
   // 2. Properties Zone
-  const rawPropsRows = renderPropertiesTable(spec.properties || []);
+  const rawPropsRows = renderPropertiesTable(toRendererSpecProperties(spec.properties));
   const propsTable =
     '| Name | Type | Default | Required | Description | Narrative Notes |\n' +
     '| --- | --- | --- | --- | --- | --- |\n' +
@@ -214,9 +276,9 @@ export function injectSpecZones(
   result = processZone(result, 'PROPERTIES', propsTable, slug);
 
   // 3. Visuals Zone (Diffs and Layout)
-  const adaptedVariants = adaptManualVariantsToEnriched(spec.variants || []);
+  const adaptedVariants = adaptManualVariantsToEnriched(spec.variants);
   const diffs = renderVariantSpecs(adaptedVariants) || '- `TBD`\n';
-  const rawLayoutRows = renderLayoutTable(spec.layout || []);
+  const rawLayoutRows = renderLayoutTable(toRendererLayoutRows(spec.layout));
   const layoutTable =
     '| Node | Direction | Alignment | H Sizing | V Sizing | Item Spacing | Padding (T/R/B/L) |\n' +
     '| --- | --- | --- | --- | --- | --- | --- |\n' +

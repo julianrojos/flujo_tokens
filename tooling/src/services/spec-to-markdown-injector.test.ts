@@ -111,6 +111,47 @@ Trailing prose.
       assert.ok(result.includes('`TBD`'), 'Must render TBD when a manual variant lacks data');
     });
 
+    it('does not render Unknown row when variant shape is invalid', () => {
+      const spec = {
+        anatomy: [],
+        properties: [],
+        variants: [{}],
+        layout: [],
+      };
+
+      const result = injectSpecZones(baseMarkdown, spec, 'test_component');
+
+      assert.ok(
+        !result.includes('Unknown'),
+        'Must not emit Unknown placeholder rows for invalid variants',
+      );
+    });
+
+    it('keeps partially enriched variants in enriched path', () => {
+      const spec = {
+        anatomy: [],
+        properties: [],
+        variants: [
+          {
+            name: 'Default',
+            properties: { State: 'Default' },
+          },
+        ],
+        layout: [],
+      };
+
+      const result = injectSpecZones(baseMarkdown, spec, 'test_component');
+
+      assert.ok(
+        result.includes('#### State=Default'),
+        'Must preserve enriched properties as-is for partially enriched variants',
+      );
+      assert.ok(
+        !result.includes('#### Variant=Default'),
+        'Must not coerce partially enriched variants into manual format',
+      );
+    });
+
     it('appends new zones if tags are completely missing', () => {
       const markdown = `# Simple Component\n\nNo tags here.`;
       const spec = { anatomy: [], properties: [], variants: [], layout: [] };
