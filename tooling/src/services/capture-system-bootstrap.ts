@@ -145,15 +145,11 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   if (!system) {
     return { attempted: false, created: false, reason: 'system-missing' };
   }
-  
-  const docsDir = path.resolve(repoRoot, String(system.docsDir || ''));
-  const tokenRegistryPath = path.join(docsDir, '_generated', 'token-registry.json');
 
-  if (fs.existsSync(tokenRegistryPath)) {
-    return { attempted: false, created: false, reason: 'token-registry-exists' };
+  const inputDir = String(system.inputDir || '').trim();
+  if (!inputDir) {
+    return { attempted: false, created: false, reason: 'system-input-dir-missing' };
   }
-  // Narrow inputDir to string for type-safe usage
-  const inputDir = String(system.inputDir || '');
   if (hasInputJsonFiles(repoRoot, inputDir)) {
     return { attempted: false, created: false, reason: 'input-json-exists' };
   }
@@ -201,13 +197,6 @@ export function runTokensCompileIfNeeded(params: {
   
   const enabled = system.compileVariablesOnCapture !== false;
   if (!enabled) return { attempted: false, compiled: false, reason: 'disabled-by-config' };
-
-  const docsDir = path.resolve(repoRoot, String(system.docsDir || ''));
-  const tokenRegistryPath = path.join(docsDir, '_generated', 'token-registry.json');
-  
-  if (fs.existsSync(tokenRegistryPath)) {
-    return { attempted: false, compiled: false, reason: 'token-registry-exists' };
-  }
 
   const compileResult = runTokensCompile({ repoRoot, system });
   return {
