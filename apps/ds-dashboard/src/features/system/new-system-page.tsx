@@ -10,6 +10,8 @@ import {
   captureFigmaScreenshot,
   createDesignSystem,
   type CaptureFigmaProgress,
+  type TokensBootstrapResult,
+  type TokensCompileResult,
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
@@ -145,6 +147,68 @@ function getImportErrorHint(message: string): string | null {
   return null;
 }
 
+function normalizeReason(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function mapTokensBootstrapReason(reason: string): string {
+  const normalized = normalizeReason(reason);
+  if (normalized === "variables-empty") {
+    return "No Figma local variables were found in this file.";
+  }
+  if (normalized === "input-json-exists") {
+    return "Input token JSON already exists, so bootstrap was skipped.";
+  }
+  if (normalized === "figma-file-key-missing") {
+    return "Figma file key could not be resolved for token bootstrap.";
+  }
+  if (normalized === "system-input-dir-missing") {
+    return "Input directory is not configured for this system.";
+  }
+  if (normalized === "system-missing") {
+    return "System configuration could not be resolved for token bootstrap.";
+  }
+  if (normalized === "fetch-failed") {
+    return "Fetching Figma variables failed.";
+  }
+  return reason ? `Unknown reason: ${reason}` : "No bootstrap reason was provided.";
+}
+
+function isCriticalTokensBootstrapFailure(result: TokensBootstrapResult | null): boolean {
+  if (!result) return false;
+  if (result.error) return true;
+  const normalized = normalizeReason(result.reason || "");
+  return (
+    normalized === "fetch-failed" ||
+    normalized === "system-missing" ||
+    normalized === "system-input-dir-missing" ||
+    normalized === "figma-file-key-missing"
+  );
+}
+
+function mapTokensCompileReason(reason: string): string {
+  const normalized = normalizeReason(reason);
+  if (normalized === "disabled-by-config") {
+    return "Token compilation is disabled for this system (compileVariablesOnCapture is off).";
+  }
+  if (normalized === "input-json-missing") {
+    return "Token compilation was skipped because no input JSON files were available.";
+  }
+  if (normalized === "system-input-dir-missing") {
+    return "Input directory is not configured for this system.";
+  }
+  if (normalized === "system-missing") {
+    return "System configuration could not be resolved for token compilation.";
+  }
+  if (normalized === "compile-failed") {
+    return "Token compilation command failed.";
+  }
+  if (normalized === "compiled") {
+    return "Token compilation completed successfully.";
+  }
+  return reason ? `Unknown reason: ${reason}` : "No compilation reason was provided.";
+}
+
 function getCaptureErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     const payloadMessage = extractCaptureFailureFromPayload(error.payload);
@@ -254,6 +318,8 @@ export function NewSystemPage() {
   const [importSourceFileKey, setImportSourceFileKey] = useState("");
   const [importJobId, setImportJobId] = useState("");
   const [importRequestId, setImportRequestId] = useState("");
+  const [importTokensBootstrap, setImportTokensBootstrap] = useState<TokensBootstrapResult | null>(null);
+  const [importTokensCompile, setImportTokensCompile] = useState<TokensCompileResult | null>(null);
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -306,6 +372,18 @@ export function NewSystemPage() {
     progressTotal,
   ]);
   const importCurrentSlug = captureProgress?.currentSlug?.trim() || "";
+  const bootstrapReason = importTokensBootstrap?.reason ?? "";
+  const bootstrapReasonMessage = mapTokensBootstrapReason(bootstrapReason);
+  const bootstrapHasCriticalFailure = isCriticalTokensBootstrapFailure(importTokensBootstrap);
+  const compileReason = importTokensCompile?.reason ?? "";
+  const compileReasonMessage = mapTokensCompileReason(compileReason);
+  const tokensAttempted = importTokensCompile?.attempted === true;
+  const tokensCompiled = importTokensCompile?.compiled === true;
+  const canShowTokensLink =
+    importCompleted &&
+    !importError &&
+    !bootstrapHasCriticalFailure &&
+    (!importTokensCompile || tokensCompiled);
 
   useEffect(() => {
     if (!hasExistingSystems) {
@@ -326,6 +404,8 @@ export function NewSystemPage() {
     setImportSourceFileKey("");
     setImportJobId("");
     setImportRequestId("");
+    setImportTokensBootstrap(null);
+    setImportTokensCompile(null);
     try {
       const response = await createDesignSystem({
         id: generatedSystemId,
@@ -372,6 +452,12 @@ export function NewSystemPage() {
           );
           if (captureResult.jobId) {
             setImportJobId(captureResult.jobId);
+          }
+          if (captureResult.tokens_bootstrap) {
+            setImportTokensBootstrap(captureResult.tokens_bootstrap);
+          }
+          if (captureResult.tokens_compile) {
+            setImportTokensCompile(captureResult.tokens_compile);
           }
           // In dashboard server mode this endpoint is queued and returns 202 + jobId.
           // Keep strict validation only when a synchronous capture payload is returned.
@@ -671,14 +757,66 @@ export function NewSystemPage() {
               </div>
             ) : null}
 
+            {importTokensBootstrap ? (
+              bootstrapHasCriticalFailure ? (
+                <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+                  <p className="font-semibold">Token bootstrap failed</p>
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                    Figma variables could not be initialized into the system input directory.
+                  </p>
+                  <p className="mt-1 text-xs">{bootstrapReasonMessage}</p>
+                  {importTokensBootstrap.error ? (
+                    <pre className="mt-2 max-h-32 overflow-auto rounded-md border border-amber-500/30 bg-black/10 p-2 text-xs text-amber-900 dark:text-amber-200">
+                      {importTokensBootstrap.error}
+                    </pre>
+                  ) : null}
+                </div>
+              ) : importTokensBootstrap.created ? (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Figma variables were bootstrapped into input JSON files.
+                </p>
+              ) : (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {bootstrapReasonMessage}
+                </p>
+              )
+            ) : null}
+
+            {importTokensCompile && !bootstrapHasCriticalFailure ? (
+              tokensCompiled ? (
+                <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">
+                  ✓ Design tokens compiled successfully.
+                </p>
+              ) : tokensAttempted ? (
+                <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
+                  <p className="font-semibold">Token compilation failed</p>
+                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                    The Tokens page will not be available until compilation succeeds.
+                  </p>
+                  <p className="mt-1 text-xs">{compileReasonMessage}</p>
+                  {importTokensCompile.stderr ? (
+                    <pre className="mt-2 max-h-32 overflow-auto rounded-md border border-amber-500/30 bg-black/10 p-2 text-xs text-amber-900 dark:text-amber-200">
+                      {importTokensCompile.stderr}
+                    </pre>
+                  ) : null}
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  {compileReasonMessage}
+                </p>
+              )
+            ) : null}
+
             {importCompleted && !importError ? (
               <div className="mt-5 flex flex-wrap gap-2">
-                <Link
-                  to="/tokens"
-                  className={cn(buttonVariants({ variant: "default" }))}
-                >
-                  View Design Tokens
-                </Link>
+                {canShowTokensLink ? (
+                  <Link
+                    to="/tokens"
+                    className={cn(buttonVariants({ variant: "default" }))}
+                  >
+                    View Design Tokens
+                  </Link>
+                ) : null}
                 <Link
                   to="/components"
                   className={cn(buttonVariants({ variant: "outline" }))}

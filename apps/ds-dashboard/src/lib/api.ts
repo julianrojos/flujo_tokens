@@ -880,6 +880,24 @@ export interface CaptureFigmaScreenshotArgs {
   injectDocSpecs?: boolean;
 }
 
+export interface TokensBootstrapResult {
+  attempted?: boolean;
+  created?: boolean;
+  reason?: string;
+  files_written?: number;
+  tokens_written?: number;
+  files?: string[];
+  error?: string;
+}
+
+export interface TokensCompileResult {
+  attempted?: boolean;
+  compiled?: boolean;
+  reason?: string;
+  stderr?: string;
+  output?: string;
+}
+
 export interface CaptureFigmaScreenshotResult {
   ok: boolean;
   jobId?: string;
@@ -932,6 +950,8 @@ export interface CaptureFigmaScreenshotResult {
     output?: string;
     stderr?: string;
   };
+  tokens_bootstrap?: TokensBootstrapResult;
+  tokens_compile?: TokensCompileResult;
   error?: string;
   message?: string;
   stderr?: string;
