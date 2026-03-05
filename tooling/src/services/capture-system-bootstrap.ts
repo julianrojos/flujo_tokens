@@ -89,9 +89,9 @@ export function ensureCollectionsConfigured(params: {
   if (Array.isArray(target.collections) && target.collections.length > 0) return;
 
   const inferred = inferCollectionsFromInputDir(repoRoot, target.inputDir);
-  const collections = inferred.length > 0 ? inferred : ['Primitives', 'Typography', 'Semantic', 'Components', 'A11y'];
-  
-  target.collections = collections;
+  if (inferred.length === 0) return;
+
+  target.collections = inferred;
   config.systems[targetIndex] = target;
   repository.saveConfig(config);
 }

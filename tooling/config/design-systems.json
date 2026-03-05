@@ -1,4 +1,17 @@
 {
-  "systems": [],
-  "defaultSystem": ""
+  "systems": [
+    {
+      "id": "caca",
+      "name": "caca",
+      "appName": "caca",
+      "figmaFileId": "rYOptx0KbO77Z6EJYadlvN",
+      "figmaApiToken": "${FIGMA_TOKEN_CACA}",
+      "inputDir": "input/caca",
+      "outputDir": "output/caca",
+      "docsDir": "docs/caca",
+      "collections": [],
+      "compileVariablesOnCapture": true
+    }
+  ],
+  "defaultSystem": "caca"
 }

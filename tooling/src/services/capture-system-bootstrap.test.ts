@@ -6,6 +6,7 @@ import { describe, it } from 'node:test';
 
 import {
   bootstrapInputJsonFromFigmaVariables,
+  ensureCollectionsConfigured,
   runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
 import type { SyncFigmaTokensToInputOptions } from './figma-token-sync.js';
@@ -136,5 +137,92 @@ describe('capture-system-bootstrap', () => {
       compiled: false,
       reason: 'disabled-by-config',
     });
+  });
+
+  it('does not inject fallback collections when input directory has no JSON files', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-empty-'));
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'tooling', 'config'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'input', 'demo'), { recursive: true });
+      fs.writeFileSync(
+        path.join(repoRoot, 'tooling', 'config', 'design-systems.json'),
+        JSON.stringify(
+          {
+            systems: [
+              {
+                id: 'demo',
+                name: 'Demo',
+                inputDir: 'input/demo',
+                outputDir: 'output/demo',
+                docsDir: 'docs/demo',
+                collections: [],
+              },
+            ],
+            defaultSystem: 'demo',
+          },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+
+      ensureCollectionsConfigured({
+        repoRoot,
+        systemId: 'demo',
+      });
+
+      const nextConfig = JSON.parse(
+        fs.readFileSync(path.join(repoRoot, 'tooling', 'config', 'design-systems.json'), 'utf8'),
+      ) as { systems: Array<{ collections?: string[] }> };
+      assert.deepEqual(nextConfig.systems[0]?.collections ?? [], []);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('infers collections from input JSON filenames when available', () => {
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-infer-'));
+    try {
+      fs.mkdirSync(path.join(repoRoot, 'tooling', 'config'), { recursive: true });
+      fs.mkdirSync(path.join(repoRoot, 'input', 'demo'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'input', 'demo', 'primitives.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(repoRoot, 'input', 'demo', 'theme-semantic.json'), '{}', 'utf8');
+      fs.writeFileSync(
+        path.join(repoRoot, 'tooling', 'config', 'design-systems.json'),
+        JSON.stringify(
+          {
+            systems: [
+              {
+                id: 'demo',
+                name: 'Demo',
+                inputDir: 'input/demo',
+                outputDir: 'output/demo',
+                docsDir: 'docs/demo',
+                collections: [],
+              },
+            ],
+            defaultSystem: 'demo',
+          },
+          null,
+          2,
+        ),
+        'utf8',
+      );
+
+      ensureCollectionsConfigured({
+        repoRoot,
+        systemId: 'demo',
+      });
+
+      const nextConfig = JSON.parse(
+        fs.readFileSync(path.join(repoRoot, 'tooling', 'config', 'design-systems.json'), 'utf8'),
+      ) as { systems: Array<{ collections?: string[] }> };
+      const collections = [...(nextConfig.systems[0]?.collections ?? [])].sort((a, b) =>
+        a.localeCompare(b),
+      );
+      assert.deepEqual(collections, ['Primitives', 'Theme Semantic']);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });

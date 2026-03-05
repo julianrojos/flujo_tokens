@@ -4,7 +4,10 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { createDesignSystemRepository } from "../system-repository.js";
+import {
+  createDesignSystemRepository,
+  resolveSafeSystemPathsForDeletion,
+} from "../system-repository.js";
 
 function createRepoRoot(config: unknown) {
   const repoRoot = fsSync.mkdtempSync(path.join(os.tmpdir(), "ds-dashboard-repo-"));
@@ -47,5 +50,45 @@ describe("system-repository empty config support", () => {
     } finally {
       fsSync.rmSync(repoRoot, { recursive: true, force: true });
     }
+  });
+
+  it("resolveSafeSystemPathsForDeletion removes output/<id> when outputDir is missing", () => {
+    const removed = resolveSafeSystemPathsForDeletion(
+      {
+        id: "core",
+        inputDir: "input/core",
+        docsDir: "docs/core",
+      },
+      "/repo",
+      [],
+    );
+
+    assert.deepEqual(removed.sort(), [
+      "/repo/docs/core",
+      "/repo/input/core",
+      "/repo/output/core",
+    ]);
+  });
+
+  it("resolveSafeSystemPathsForDeletion preserves fallback dirs used by surviving systems", () => {
+    const removed = resolveSafeSystemPathsForDeletion(
+      {
+        id: "legacy",
+        outputDir: "output/core",
+      },
+      "/repo",
+      [
+        {
+          id: "core",
+          // Legacy config without outputDir should still protect output/core fallback.
+          inputDir: "input/core",
+          docsDir: "docs/core",
+        },
+      ],
+    );
+
+    assert.equal(removed.includes("/repo/output/core"), false);
+    assert.equal(removed.includes("/repo/input/legacy"), true);
+    assert.equal(removed.includes("/repo/docs/legacy"), true);
   });
 });

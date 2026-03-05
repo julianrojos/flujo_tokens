@@ -154,6 +154,8 @@ export function NewSystemPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importErrorDetails, setImportErrorDetails] = useState("");
   const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
+  const [importSourceUrl, setImportSourceUrl] = useState("");
+  const [importSourceFileKey, setImportSourceFileKey] = useState("");
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -196,6 +198,8 @@ export function NewSystemPage() {
     setImportError(null);
     setImportErrorDetails("");
     setShowImportErrorDetails(false);
+    setImportSourceUrl("");
+    setImportSourceFileKey("");
     try {
       const response = await createDesignSystem({
         id: generatedSystemId,
@@ -213,6 +217,10 @@ export function NewSystemPage() {
       const trimmedUrl = toDocumentWideFigmaUrl(figmaFileUrl);
       let captureFinishedOk = false;
       if (trimmedUrl) {
+        const sourceUrl = trimmedUrl;
+        const sourceFileKey = extractFigmaFileIdFromUrl(sourceUrl);
+        setImportSourceUrl(sourceUrl);
+        setImportSourceFileKey(sourceFileKey);
         setShowImportProgressModal(true);
         const runtimeToken = figmaAccessToken.trim();
         try {
@@ -483,6 +491,12 @@ export function NewSystemPage() {
               {progressTotal > 0
                 ? `${progressCompleted}/${progressTotal} downloaded · ${progressRemaining} remaining`
                 : "Preparing import..."}
+            </p>
+            <p className="mt-2 break-all text-xs text-muted-foreground">
+              Source URL: <code>{importSourceUrl || "n/a"}</code>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              File key: <code>{importSourceFileKey || "n/a"}</code>
             </p>
 
             {importError ? (

@@ -169,15 +169,22 @@ export function resolveSafeSystemPathsForDeletion(
   repoRoot: string,
   survivingSystems: DesignSystemConfigEntry[],
 ) {
-  const candidates = [system?.inputDir, system?.outputDir, system?.docsDir]
-    .map((value) => String(value || "").trim())
-    .filter(Boolean);
+  function resolveSystemDirCandidates(entry: DesignSystemConfigEntry | undefined | null) {
+    const systemId = String(entry?.id || "").trim();
+    return [
+      String(entry?.inputDir || (systemId ? `input/${systemId}` : "")).trim(),
+      String(entry?.outputDir || (systemId ? `output/${systemId}` : "")).trim(),
+      String(entry?.docsDir || (systemId ? `docs/${systemId}` : "")).trim(),
+    ].filter(Boolean);
+  }
+
+  const candidates = resolveSystemDirCandidates(system);
   const rootWithSep = repoRoot.endsWith(path.sep) ? repoRoot : `${repoRoot}${path.sep}`;
 
   const survivingDirs = new Set(
     survivingSystems.flatMap((nextSystem) =>
-      [nextSystem?.inputDir, nextSystem?.outputDir, nextSystem?.docsDir]
-        .map((value) => path.resolve(repoRoot, String(value || "").trim()))
+      resolveSystemDirCandidates(nextSystem)
+        .map((value) => path.resolve(repoRoot, value))
         .filter(Boolean),
     ),
   );
