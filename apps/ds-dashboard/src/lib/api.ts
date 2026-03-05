@@ -583,8 +583,8 @@ export function restoreComponentSpecBackup(args: {
   );
 }
 
-const QUEUE_POLL_INTERVAL_MS = 900;
-const QUEUE_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
+const DEFAULT_QUEUE_POLL_INTERVAL_MS = 900;
+const DEFAULT_QUEUE_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
 
 type QueuedRefreshAcceptedPayload = {
   ok?: boolean;
@@ -594,6 +594,17 @@ type QueuedRefreshAcceptedPayload = {
   stderr?: string;
 };
 
+type QueueWaitOptions = {
+  timeoutMs?: number;
+  pollIntervalMs?: number;
+};
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return fallback;
+  return Math.floor(numeric);
+}
+
 function toQueuedStatusUrl(payload: QueuedRefreshAcceptedPayload): string {
   const jobId = toNonEmptyString(payload.jobId);
   const statusUrl = toNonEmptyString(payload.statusUrl);
@@ -602,9 +613,20 @@ function toQueuedStatusUrl(payload: QueuedRefreshAcceptedPayload): string {
   return "";
 }
 
-async function waitForQueuedJob(statusUrl: string): Promise<Record<string, unknown>> {
+async function waitForQueuedJob(
+  statusUrl: string,
+  options: QueueWaitOptions = {},
+): Promise<Record<string, unknown>> {
+  const timeoutMs = normalizePositiveInteger(
+    options.timeoutMs,
+    DEFAULT_QUEUE_WAIT_TIMEOUT_MS,
+  );
+  const pollIntervalMs = normalizePositiveInteger(
+    options.pollIntervalMs,
+    DEFAULT_QUEUE_POLL_INTERVAL_MS,
+  );
   let cursor = 0;
-  const deadline = Date.now() + QUEUE_WAIT_TIMEOUT_MS;
+  const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
     const separator = statusUrl.includes("?") ? "&" : "?";
@@ -620,7 +642,7 @@ async function waitForQueuedJob(statusUrl: string): Promise<Record<string, unkno
         (error.status >= 500 || error.status === 429)
       ) {
         await new Promise<void>((resolve) => {
-          window.setTimeout(resolve, QUEUE_POLL_INTERVAL_MS);
+          window.setTimeout(resolve, pollIntervalMs);
         });
         continue;
       }
@@ -656,7 +678,7 @@ async function waitForQueuedJob(statusUrl: string): Promise<Record<string, unkno
     }
 
     await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, QUEUE_POLL_INTERVAL_MS);
+      window.setTimeout(resolve, pollIntervalMs);
     });
   }
 
@@ -668,12 +690,15 @@ async function waitForQueuedJob(statusUrl: string): Promise<Record<string, unkno
     recoverable: true,
     context: {
       statusUrl,
-      timeoutMs: QUEUE_WAIT_TIMEOUT_MS,
+      timeoutMs,
     },
   });
 }
 
-async function runQueuedRefresh(endpoint: string) {
+async function runQueuedRefresh(
+  endpoint: string,
+  options: QueueWaitOptions = {},
+) {
   const accepted = await getJson<QueuedRefreshAcceptedPayload>(endpoint, {
     method: "POST",
   });
@@ -687,7 +712,7 @@ async function runQueuedRefresh(endpoint: string) {
     };
   }
 
-  const finalState = await waitForQueuedJob(statusUrl);
+  const finalState = await waitForQueuedJob(statusUrl, options);
   const job = toRecord(finalState.job);
   const result = toRecord(job?.result);
   const payload = toRecord(result?.payload);
@@ -707,24 +732,24 @@ async function runQueuedRefresh(endpoint: string) {
   };
 }
 
-export async function refreshRegistry() {
-  return runQueuedRefresh("/api/refresh-registry");
+export async function refreshRegistry(options?: QueueWaitOptions) {
+  return runQueuedRefresh("/api/refresh-registry", options);
 }
 
-export async function refreshTokenUsageIndex() {
-  return runQueuedRefresh("/api/refresh-token-usage-index");
+export async function refreshTokenUsageIndex(options?: QueueWaitOptions) {
+  return runQueuedRefresh("/api/refresh-token-usage-index", options);
 }
 
-export async function refreshTokenGraph() {
-  return runQueuedRefresh("/api/refresh-token-graph");
+export async function refreshTokenGraph(options?: QueueWaitOptions) {
+  return runQueuedRefresh("/api/refresh-token-graph", options);
 }
 
-export async function refreshTokenHealth() {
-  return runQueuedRefresh("/api/refresh-token-health");
+export async function refreshTokenHealth(options?: QueueWaitOptions) {
+  return runQueuedRefresh("/api/refresh-token-health", options);
 }
 
-export async function refreshComponentsHealth() {
-  return runQueuedRefresh("/api/refresh-components-health");
+export async function refreshComponentsHealth(options?: QueueWaitOptions) {
+  return runQueuedRefresh("/api/refresh-components-health", options);
 }
 
 export async function refreshNamingDebt() {

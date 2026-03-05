@@ -1,4 +1,8 @@
 import path from "node:path";
+import {
+  createEmptyComponentRegistry,
+  createEmptyTokenRegistry,
+} from "./registry-seed-service.mjs";
 
 export function decodeSystemRouteId(rawRouteId) {
   return decodeURIComponent(String(rawRouteId || ""));
@@ -120,26 +124,7 @@ export function ensureSystemFilesystemScaffold({
   if (
     writeJsonIfMissing(
       componentRegistryPath,
-      {
-        schema_version: 1,
-        components: [],
-        summary: {
-          total_components: 0,
-          with_spec: 0,
-          with_doc: 0,
-          with_render_payload: 0,
-          with_visual_proof: 0,
-          ready_for_publish: 0,
-          by_pipeline_stage: {
-            "missing-spec": 0,
-            spec: 0,
-            markdown: 0,
-            render: 0,
-            "visual-proof": 0,
-          },
-        },
-        fingerprint_sha256: "",
-      },
+      createEmptyComponentRegistry(),
       fsSync,
     )
   ) {
@@ -149,11 +134,7 @@ export function ensureSystemFilesystemScaffold({
   if (
     writeJsonIfMissing(
       tokenRegistryPath,
-      {
-        entries: [],
-        byPath: {},
-        bySlashPath: {},
-      },
+      createEmptyTokenRegistry(),
       fsSync,
     )
   ) {

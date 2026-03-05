@@ -347,6 +347,7 @@ export async function runCaptureFromFigmaUrl(
     targets: targets as unknown as CaptureTarget[],
     projectRoot,
     systemId: ctx.id,
+    docsRootDir,
     runJsonCommandFn,
     continueOnError,
     figmaToken,

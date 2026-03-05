@@ -304,6 +304,7 @@ export function executeCaptureBatchAndRefresh(params: {
   targets: CaptureTarget[];
   projectRoot: string;
   systemId: string;
+  docsRootDir?: string;
   runCaptureBatchFn?: typeof runCaptureBatch;
   runJsonCommandFn: (
     command: string,
@@ -327,6 +328,7 @@ export function executeCaptureBatchAndRefresh(params: {
     targets,
     projectRoot,
     systemId,
+    docsRootDir,
     runCaptureBatchFn = runCaptureBatch,
     runJsonCommandFn,
     continueOnError,
@@ -382,10 +384,12 @@ export function executeCaptureBatchAndRefresh(params: {
   report.failed = captureBatch.failed;
 
   if (refreshIndices) {
-    const docsRootDir = path.dirname(path.dirname(proofDir));
-    const docsDir = path.join(docsRootDir, 'components');
-    const specsDir = path.join(docsRootDir, '_spec', 'components');
-    const generatedDir = path.join(docsRootDir, '_generated');
+    const resolvedDocsRootDir = docsRootDir
+      ? path.resolve(docsRootDir)
+      : path.dirname(path.dirname(proofDir));
+    const docsDir = path.join(resolvedDocsRootDir, 'components');
+    const specsDir = path.join(resolvedDocsRootDir, '_spec', 'components');
+    const generatedDir = path.join(resolvedDocsRootDir, '_generated');
     const registryPath = path.join(generatedDir, 'component-registry.json');
     const overviewPath = path.join(docsDir, 'overview.md');
     const renderDir = path.join(generatedDir, 'figma_doc_models');

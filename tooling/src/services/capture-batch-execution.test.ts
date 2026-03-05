@@ -64,6 +64,7 @@ describe('capture-batch-execution', () => {
         targets: [],
         projectRoot: repoRoot,
         systemId: 'simple-design-system',
+        docsRootDir,
         runCaptureBatchFn: () => ({
           captured: [
             {
