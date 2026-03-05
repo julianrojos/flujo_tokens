@@ -108,6 +108,13 @@ const USAGE = {
       defaultValue: '6',
     },
     {
+      name: '--strict-style-reference <true|false>',
+      description:
+        'Fail when style reference cannot be resolved. Defaults to true when CI=true.',
+      defaultValue: 'false (or true when CI=true)',
+      // Note: This flag is processed in resolveDocContext() in doc-from-figma-url-context.ts
+    },
+    {
       name: '--force <true|false>',
       description: 'Required when allowing doc_status changes.',
       defaultValue: 'false',
@@ -136,6 +143,7 @@ export interface DocFromFigmaUrlArgs {
   'capture-proof-strict'?: string;
   'capture-proof-variants'?: string;
   'capture-proof-variant-limit'?: string;
+  'strict-style-reference'?: string;
   force?: string;
   system?: string;
   help?: boolean | string;
@@ -152,11 +160,13 @@ export async function runDocFromFigmaUrl(
 
   if (String(args.help || 'false') === 'true') {
     printUsage(USAGE, { exitCode: 0 });
+    return;
   }
 
   const figmaUrl = args.url;
   if (!figmaUrl) {
     printUsage(USAGE, { stream: 'stderr' as const, exitCode: 1 });
+    return;
   }
   const autoComponentMap = parseBooleanOption(
     args['auto-component-map'],
@@ -172,7 +182,7 @@ export async function runDocFromFigmaUrl(
     path.basename(docsRootResolved) === 'components'
       ? docsRootResolved
       : path.join(docsRootResolved, 'components');
-  const docsRootDir =
+  const docsRootDir: string =
     path.basename(docsRootResolved) === 'components'
       ? path.dirname(docsRootResolved)
       : docsRootResolved;
@@ -180,8 +190,9 @@ export async function runDocFromFigmaUrl(
   // Parse URL to determine if it's a file-level or component-level URL
   const figmaFileDescriptor = parseFigmaFileUrl(figmaUrl);
   const figmaUrlParsed = parseFigmaUrl(figmaUrl);
-  const figmaMapOutPath = args['component-map-out']
-    ? path.resolve(args['component-map-out'])
+  const componentMapOutArg: string | undefined = args['component-map-out'];
+  const figmaMapOutPath: string = componentMapOutArg !== undefined
+    ? path.resolve(componentMapOutArg)
     : path.join(
       docsRootDir,
       '_generated',
@@ -216,7 +227,7 @@ export async function runDocFromFigmaUrl(
   }
 
   // Resolve doc context
-  const ctx = resolveDocContext(
+  const ctx = await resolveDocContext(
     args,
     figmaFileDescriptor,
     figmaUrl,

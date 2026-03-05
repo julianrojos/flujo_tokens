@@ -9,17 +9,88 @@ import * as path from 'node:path';
 
 import { PROJECT_ROOT } from '../utils/system-context.js';
 import { normalizeComponentName } from '../utils/component-name.js';
-import { resolveStyleReferencePath } from '../../scripts/lib/style-reference.mjs';
 import { writeComponentDocSkeleton } from '../utils/doc-templates.js';
 import { captureScopedWriteSnapshot } from '../services/scoped-write-guard.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 import type { ParsedFigmaFileUrl } from './figma-component-map.js';
 import { parseFigmaUrl } from '../utils/figma-url-parser.js';
+import { logger } from '../utils/logger.js';
 import {
   parseBooleanOption,
   parsePositiveNumber,
   parseAgentType,
 } from '../utils/parse-options.js';
+
+type ResolveStyleReferencePathFn = (opts: {
+  componentDocsDir: string;
+  outputPath: string;
+}) => string;
+
+type StyleReferenceStatus = 'missing' | 'error' | 'ok';
+
+interface StyleReferenceModule {
+  resolveStyleReferencePath?: ResolveStyleReferencePathFn;
+}
+
+interface StyleReferenceResolution {
+  status: StyleReferenceStatus;
+  resolver: ResolveStyleReferencePathFn | null;
+  reason?: string;
+}
+
+interface ResolveDocContextDeps {
+  importStyleReferenceModule?: () => Promise<StyleReferenceModule>;
+  warn?: (message: string) => void;
+  ci?: string | undefined;
+}
+
+const importStyleReferenceModuleDefault = async (): Promise<StyleReferenceModule> =>
+  // @ts-ignore - .mjs module resolution issue (declaration exists at ../../scripts/lib/style-reference.d.ts)
+  import('../../scripts/lib/style-reference.mjs') as Promise<StyleReferenceModule>;
+
+let styleReferenceResolutionCache: StyleReferenceResolution | null = null;
+
+function summarizeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function resolveStyleReferenceLoader(
+  importStyleReferenceModule: (() => Promise<StyleReferenceModule>) | undefined,
+): Promise<StyleReferenceResolution> {
+  const shouldUseCache = !importStyleReferenceModule;
+  if (shouldUseCache && styleReferenceResolutionCache) {
+    return styleReferenceResolutionCache;
+  }
+
+  let resolved: StyleReferenceResolution;
+  const importer = importStyleReferenceModule ?? importStyleReferenceModuleDefault;
+  try {
+    const mod = await importer();
+    if (typeof mod.resolveStyleReferencePath !== 'function') {
+      resolved = {
+        status: 'missing',
+        resolver: null,
+        reason: 'Module export `resolveStyleReferencePath` is not available.',
+      };
+    } else {
+      resolved = {
+        status: 'ok',
+        resolver: mod.resolveStyleReferencePath,
+      };
+    }
+  } catch (error) {
+    resolved = {
+      status: 'error',
+      resolver: null,
+      reason: summarizeError(error),
+    };
+  }
+
+  if (shouldUseCache) {
+    styleReferenceResolutionCache = resolved;
+  }
+  return resolved;
+}
 
 /**
  * Resolved doc generation context.
@@ -43,6 +114,7 @@ export interface DocGenerationContext {
   visualProofImagePath: string;
   skeletonPath: string;
   styleReferencePath: string;
+  styleReferenceStatus: StyleReferenceStatus;
 
   // Args
   figmaUrl: string;
@@ -71,7 +143,7 @@ export interface DocGenerationContext {
  * Validates output path, allowDocStatusChange + force constraints.
  * Throws Error instead of calling process.exit() for testability.
  */
-export function resolveDocContext(
+export async function resolveDocContext(
   args: {
     'component-name'?: string;
     output?: string;
@@ -82,6 +154,7 @@ export function resolveDocContext(
     'capture-proof-strict'?: string;
     'capture-proof-variants'?: string;
     'capture-proof-variant-limit'?: string;
+    'strict-style-reference'?: string;
     force?: string;
     system?: string;
   },
@@ -92,11 +165,28 @@ export function resolveDocContext(
   docsRootDir: string,
   componentDocsDir: string,
   tempArtifacts: TempArtifactManager,
-): DocGenerationContext {
+  deps: ResolveDocContextDeps = {},
+): Promise<DocGenerationContext> {
+  const {
+    importStyleReferenceModule,
+    warn = logger.warn,
+    ci = process.env.CI,
+  } = deps;
+
   const agent = parseAgentType(args.agent, '--agent');
   const force = String(args.force || 'false') === 'true';
   const allowDocStatusChange =
     String(args['allow-doc-status-change'] || 'false') === 'true';
+  
+  // CI detection: accept common truthy values (true, 1, yes, on)
+  const ciValue = String(ci || '').trim().toLowerCase();
+  const isCI = ciValue === 'true' || ciValue === '1' || ciValue === 'yes' || ciValue === 'on';
+  
+  const strictStyleReference = parseBooleanOption(
+    args['strict-style-reference'],
+    '--strict-style-reference',
+    isCI,
+  );
   const rawComponentName = args['component-name'] || '';
   const normalized = normalizeComponentName(rawComponentName);
   const componentName = normalized.displayName;
@@ -179,10 +269,44 @@ export function resolveDocContext(
     outputPath,
   });
   tempArtifacts.track(skeletonPath);
-  const styleReferencePath = resolveStyleReferencePath({
-    componentDocsDir,
-    outputPath,
-  });
+  const styleReferenceLoad = await resolveStyleReferenceLoader(importStyleReferenceModule);
+  let styleReferenceStatus: StyleReferenceStatus = styleReferenceLoad.status;
+  let styleReferenceReason = styleReferenceLoad.reason || '';
+  let styleReferencePath = '';
+
+  if (styleReferenceLoad.resolver) {
+    try {
+      const resolvedPath = String(
+        styleReferenceLoad.resolver({ componentDocsDir, outputPath }) || '',
+      ).trim();
+      if (resolvedPath) {
+        styleReferencePath = resolvedPath;
+        styleReferenceStatus = 'ok';
+      } else {
+        styleReferenceStatus = 'missing';
+        styleReferenceReason =
+          styleReferenceReason ||
+          'resolveStyleReferencePath returned an empty path.';
+      }
+    } catch (error) {
+      styleReferenceStatus = 'error';
+      styleReferenceReason = summarizeError(error);
+    }
+  }
+
+  if (styleReferenceStatus !== 'ok') {
+    warn(
+      `[ds:doc-from-figma-url] Style reference unavailable (${styleReferenceStatus}). ` +
+      `Continuing without style reference. ${styleReferenceReason ? `Reason: ${styleReferenceReason}` : ''}`.trim(),
+    );
+    if (strictStyleReference) {
+      throw new Error(
+        `Style reference resolution failed in strict mode (${styleReferenceStatus}). ` +
+        `${styleReferenceReason ? `Reason: ${styleReferenceReason}. ` : ''}` +
+        'Set --strict-style-reference false (or CI=false) to continue without style reference.',
+      );
+    }
+  }
 
   const captureProof = parseBooleanOption(
     args['capture-proof'],
@@ -224,6 +348,7 @@ export function resolveDocContext(
     visualProofImagePath,
     skeletonPath,
     styleReferencePath,
+    styleReferenceStatus,
 
     // Args
     figmaUrl,
@@ -245,4 +370,12 @@ export function resolveDocContext(
     scopeSnapshot,
     allowedWritePaths,
   };
+}
+
+/**
+ * Clear the style reference resolution cache.
+ * Exported for test teardown to prevent cache contamination between tests.
+ */
+export function clearStyleReferenceCache(): void {
+  styleReferenceResolutionCache = null;
 }
