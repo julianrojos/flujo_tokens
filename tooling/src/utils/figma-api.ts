@@ -17,6 +17,9 @@ import type {
   FigmaImagesResponse,
 } from './figma.js';
 
+// Re-export Figma types for consumers
+export type { FigmaVariablesResponse };
+
 // ============================================================================
 // Constants
 // ============================================================================

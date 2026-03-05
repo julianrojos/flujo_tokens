@@ -75,7 +75,7 @@ function readStderr(stderrBuffer: Buffer | null | undefined): string {
  * Check if error is likely a CLI shape error (unknown option, etc.).
  */
 function isLikelyCliShapeError(result: ReturnType<typeof spawnSync>): boolean {
-  const stderr = readStderr(result.stderr);
+  const stderr = readStderr(result.stderr as Buffer | null | undefined);
   return (
     stderr.includes("unknown option") ||
     stderr.includes("unrecognized option") ||

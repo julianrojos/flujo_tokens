@@ -8,8 +8,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import type { FigmaVariablesResponse } from '../utils/figma-api.js';
-import { fetchFigmaLocalVariables } from '../utils/figma-api.js';
+import { fetchFigmaLocalVariables, type FigmaVariablesResponse } from '../utils/figma-api.js';
 
 // ─── File helpers ─────────────────────────────────────────────────────────────
 

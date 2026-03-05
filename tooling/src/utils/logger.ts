@@ -29,8 +29,8 @@ function currentLevel(): LogLevel {
  * Check if a message should be logged at the given level.
  */
 function shouldLog(level: LogLevel): boolean {
-  const target = LEVELS.get(level) ?? LEVELS.get("info");
-  const active = LEVELS.get(currentLevel()) ?? LEVELS.get("info");
+  const target = LEVELS.get(level) ?? LEVELS.get("info") ?? 20;
+  const active = LEVELS.get(currentLevel()) ?? LEVELS.get("info") ?? 20;
   return target >= active;
 }
 

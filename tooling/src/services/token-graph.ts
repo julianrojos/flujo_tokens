@@ -20,6 +20,7 @@ import {
   extractCssVarReferences,
   findTokenByCssVar,
   findTokenByPath,
+  findTokenById,
   isPrimitiveValue,
 } from './token-utils.js';
 

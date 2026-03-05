@@ -206,7 +206,7 @@ export function walkTokenTreeInternal(
     // In base scopes, when a node has mode branches but no base value,
     // fold modeDefault into base traversal when available.
     const modeDefaultKey = pickModeDefaultKey(rawKeys, sortKeys);
-    if (modeDefaultKey && objRecord[modeDefaultKey] !== undefined) {
+    if (modeDefaultKey && objRecord?.[modeDefaultKey] !== undefined) {
       currentPath.push(modeDefaultKey);
       try {
         walkTokenTreeInternal(
@@ -296,7 +296,7 @@ export function walkTokenTreeInternal(
   for (const key of keys) {
     if (shouldSkipKey(key)) continue;
 
-    const value = objRecord[key];
+    const value = objRecord?.[key];
     const normalizedKey = toKebabCase(key);
 
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -345,7 +345,7 @@ export function walkTokenTreeInternal(
     currentPath.push(modeKey);
     try {
       walkTokenTreeInternal(
-        objRecord[modeKey],
+        objRecord?.[modeKey],
         { ...state, depth: depth + 1, inModeBranch: true, inheritedType: nextInheritedType },
         ctx
       );
