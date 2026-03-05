@@ -15,14 +15,20 @@ import * as path from 'node:path';
 import { updateTaskState } from '../utils/cache-utils.js';
 import { computeFingerprint } from '../utils/cache-utils.js';
 import type { ActiveMdToFigmaRuntimeContext } from '../types/active-md-to-figma.js';
-import { hasAuditState, hasPipelineState, type RenderPipelineState } from './render-pipeline-state.js';
-import type { PhaseResult, RenderPhase } from './render-phase.js';
+import {
+  hasAuditState,
+  hasPipelineState,
+  type RenderPipelinePhase,
+  type RenderPipelineState,
+} from './render-pipeline-state.js';
+import type { PhaseResult } from './render-phase.js';
 import type { UpdateTaskOptions } from '../types/cache-utils.js';
 
 /**
  * Metadata for render cache state.
  */
 interface RenderCacheMetadata {
+  [key: string]: unknown;
   command: string;
   targetSectionId: string | null;
   targetSectionName: string | null;
@@ -92,7 +98,7 @@ function buildRenderCacheMetadata(
       headerRowCount: auditResult.auditReport.headerRowCount,
       bodyRowCount: auditResult.auditReport.bodyRowCount,
     } : undefined,
-  };
+  } as RenderCacheMetadata;
 }
 
 /**
@@ -126,12 +132,12 @@ function buildRenderCacheTaskUpdate(
  * - If pipeline was skipped (cache hit), returns skipBehavior: 'continue'
  * - If pipeline executed but missing renderReport/auditResult, returns error
  */
-export const renderCacheUpdatePhase: RenderPhase = {
+export const renderCacheUpdatePhase: RenderPipelinePhase = {
   name: 'render-cache-update-phase',
   async execute(
     context: ActiveMdToFigmaRuntimeContext,
     state: RenderPipelineState,
-  ): Promise<PhaseResult> {
+  ): Promise<PhaseResult<RenderPipelineState>> {
   // If pipeline was skipped, skip cache update too (nothing to cache)
   if (hasPipelineState(state) && state.pipeline.skipped) {
     return {
@@ -152,7 +158,7 @@ export const renderCacheUpdatePhase: RenderPhase = {
   }
 
   // Build and execute task update
-  const taskUpdate = buildRenderCacheTaskUpdate(context, state);
+  const taskUpdate = buildRenderCacheTaskUpdate(context, state as Extract<RenderPipelineState, { stage: 'audit' | 'complete' }>);
   updateTaskState(taskUpdate);
 
   return {

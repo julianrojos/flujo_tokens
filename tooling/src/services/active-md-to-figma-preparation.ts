@@ -35,7 +35,7 @@ import {
 } from '../utils/component-name.js';
 import {
   resolveSystemContextSafe,
-  type SystemContext,
+  type ScriptSystemContext,
 } from '../utils/system-context.js';
 
 /**
@@ -89,7 +89,7 @@ export interface ActiveMdToFigmaPreparationResult {
   agent: 'codex' | 'claude' | 'gemini' | 'auto';
 
   // System context
-  ctx: SystemContext;
+  ctx: ScriptSystemContext;
 }
 
 export class PreparationError extends Error {
@@ -383,4 +383,4 @@ function checkMarkdownStaleness(
 }
 
 // Re-export for runner convenience
-export { resolveSystemContextSafe, DEFAULT_THEME_PATH, type SystemContext } from '../utils/system-context.js';
+export { resolveSystemContextSafe, DEFAULT_THEME_PATH, type ScriptSystemContext as SystemContext } from '../utils/system-context.js';

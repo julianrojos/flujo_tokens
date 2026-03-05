@@ -39,10 +39,11 @@ function createMockPreparation(tempDir: string): ActiveMdToFigmaPreparationResul
     offsetX: 200,
     figmaUrl: 'https://figma.com/file/abc',
     agent: 'auto',
-    themePath: path.join(tempDir, 'theme.yml'),
     expectedThemeName: 'test-theme',
     ctx: {
-      system: 'test',
+      id: 'test',
+      name: 'Test System',
+      docsDir: path.join(tempDir, 'docs'),
       paths: {
         input: path.join(tempDir, 'input'),
         output: path.join(tempDir, 'output'),

@@ -24,10 +24,11 @@ function createPreflight(): ActiveMdToFigmaPreparationResult {
     offsetX: 200,
     figmaUrl: 'https://figma.com/file/abc',
     agent: 'auto',
-    themePath: '/theme.yml',
     expectedThemeName: 'default',
     ctx: {
-      system: 'test',
+      id: 'test',
+      name: 'Test System',
+      docsDir: '/docs',
       paths: {
         input: '/input',
         output: '/output',

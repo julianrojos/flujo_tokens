@@ -163,7 +163,7 @@ export function buildActiveMdToFigmaRuntime(
     skipValidation,
     syncStatePath,
     figmaUrl,
-    system: ctx.system,
+    system: ctx.id,
     scripts,
     themePath,
     systemPaths,
