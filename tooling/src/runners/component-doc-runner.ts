@@ -17,25 +17,25 @@ import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
 // Import from existing libs during migration
-import { runAgentPrompt } from '../services/agent-runner.js';
+import { runAgentPrompt, type AgentType } from '../services/agent-runner.js';
 import { validateDocs } from '../services/docs-validator.js';
 import { parseMarkdownFrontmatter, parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { loadTokenRegistry } from '../services/token-registry.js';
-import { extractGapsFromSpec, upsertGapsSection } from '../utils/gaps.js';
+import { extractGapsFromSpec } from '../services/gaps.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
-import { deriveFigmaFrontmatterTraceability } from '../utils/figma-traceability.js';
-import { normalizeAgentOutputFile } from '../services/agent-output-normalizer.js';
+import { deriveFigmaFrontmatterTraceability } from '../services/figma-traceability.js';
+import { normalizeAgentOutput } from '../services/agent-output-normalizer.js';
 import { GOLDEN_COMPONENT_DOC_SAMPLE_PATH, writeComponentDocSkeleton } from '../utils/doc-templates.js';
 import { validateAgentOutputContract, writeAgentOutputErrorReport } from '../utils/agent-output-contract.js';
 import { updateAgentDriftBaseline } from '../services/agent-drift-detector.js';
 import { buildAgentPrompt, canonicalH2ConstraintLines, RULE_BLOCKS } from '../utils/prompts.js';
-import { formatMarkdownTarget } from '../utils/format-markdown.js';
 import { normalizeComponentName, componentNameFromFilePath, componentNameToSnakeCase } from '../utils/component-name.js';
 import { computeFingerprint, shouldSkipTask, updateTaskState } from '../services/cache-utils.js';
+import type { SkipTaskResult } from '../types/cache-utils.js';
 import { TRACEABILITY_CONTRACT_VERSION } from '../utils/docs-config.js';
 import { captureFileSnapshot, restoreFileSnapshot } from '../services/file-snapshot.js';
-import { assertDocStatusStable, assertEvidenceGatedScalarChanges } from '../utils/evidence-gated-mutations.js';
-import { assertScopedWritePolicy, captureScopedWriteSnapshot } from '../utils/scoped-write-guard.js';
+import { assertDocStatusStable, assertEvidenceGatedScalarChanges } from '../services/evidence-gated-mutations.js';
+import { assertScopedWritePolicy, captureScopedWriteSnapshot } from '../services/scoped-write-guard.js';
 import { syncDocumentationIndices } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 
@@ -102,19 +102,33 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
-  const componentName = String(parsed['component-name'] || '').trim();
-  const specFile = parsed['spec-file'] ? path.resolve(String(parsed['spec-file'])) : undefined;
-  const outputFile = parsed.output ? path.resolve(String(parsed.output)) : undefined;
-  const registryPath = path.resolve(String(parsed.registry || ctx.paths.tokenRegistry));
-  const agent = String(parsed.agent || 'auto').trim();
-  const force = parseBooleanOption(parsed.force, false);
-  const skipValidation = parseBooleanOption(parsed['skip-validation'], false);
-  const dryRun = parseBooleanOption(parsed['dry-run'], false);
+  const ctx = resolveSystemContextSafe({ system: typeof parsed.system === 'string' ? parsed.system : undefined });
+  const parsedArgs = parsed as Record<string, string | boolean>;
+  const componentName = String(parsedArgs['component-name'] || '').trim();
+  const specFile = parsedArgs['spec-file'] && typeof parsedArgs['spec-file'] === 'string'
+    ? path.resolve(parsedArgs['spec-file'])
+    : undefined;
+  const outputFile = parsedArgs.output && typeof parsedArgs.output === 'string'
+    ? path.resolve(parsedArgs.output)
+    : undefined;
+  
+  // Resolve registry path with explicit validation
+  const parsedRegistry = typeof parsedArgs.registry === 'string' ? parsedArgs.registry : undefined;
+  const ctxRegistry = ctx.paths.tokenRegistry;
+  const registryPath = parsedRegistry 
+    ? path.resolve(parsedRegistry)
+    : ctxRegistry 
+      ? path.resolve(ctxRegistry)
+      : path.resolve(ctx.paths.docs, '_generated', 'token-registry.json');
+  
+  const agent = String(parsedArgs.agent || 'auto').trim();
+  const force = parseBooleanOption(parsedArgs.force, false);
+  const skipValidation = parseBooleanOption(parsedArgs['skip-validation'], false);
+  const dryRun = parseBooleanOption(parsedArgs['dry-run'], false);
 
-  // Resolve paths
+  // Resolve paths - ctx.paths.docs already points to <docsDir>/components per system-context.ts
+  const docsDir = ctx.paths.docs;
   const specsDir = ctx.paths.specs;
-  const docsDir = path.join(ctx.paths.docs, 'components');
 
   // Infer spec file path if not provided
   let resolvedSpecFile: string;
@@ -161,7 +175,7 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
   });
 
   const taskId = `ds-component-doc:${resolvedSpecFile}`;
-  const sync = shouldSkipTask({
+  const sync: SkipTaskResult = shouldSkipTask({
     taskId,
     fingerprint,
     outputs: [resolvedOutputFile],
@@ -169,45 +183,56 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
   });
 
   if (sync.skip && !force) {
-    console.log(JSON.stringify({
+    const skipPayload = {
       ok: true,
       skipped: true,
       reason: sync.reason,
       component: componentName || resolvedSpecFile,
-    }, null, 2));
+    };
+    console.log(JSON.stringify(skipPayload, null, 2));
     return;
   }
 
   // Build agent prompt
   const prompt = await buildAgentPrompt({
-    spec,
-    tokenRegistry,
-    componentName,
-    rules: RULE_BLOCKS,
-    canonicalH2s: canonicalH2ConstraintLines,
-    goldenSample: GOLDEN_COMPONENT_DOC_SAMPLE_PATH,
+    spec: [JSON.stringify(spec)],
+    context: [JSON.stringify(tokenRegistry)],
+    constraints: Object.values(RULE_BLOCKS),
+    examples: [GOLDEN_COMPONENT_DOC_SAMPLE_PATH],
   });
 
   // Run agent
   const agentResult = await runAgentPrompt({
     prompt,
-    agent,
-    dryRun,
+    agent: agent as AgentType | 'auto' | undefined,
   });
 
-  // Normalize agent output
-  const normalizedOutput = normalizeAgentOutputFile(agentResult.output);
+  // Normalize agent output with guard for undefined stdout
+  const normalizedOutput = normalizeAgentOutput(agentResult.stdout ?? '');
+  if (!normalizedOutput.trim()) {
+    logger.error('Agent produced empty output. Check agent configuration and prompt.');
+    process.exit(1);
+  }
 
   // Validate agent output contract
-  const contractResult = validateAgentOutputContract(normalizedOutput, {
-    componentName,
-    spec,
-  });
+  const contractResult = validateAgentOutputContract({ markdown: normalizedOutput });
+  const contractOk = contractResult.errors.length === 0;
 
-  if (!contractResult.ok) {
-    writeAgentOutputErrorReport(contractResult.errors);
+  if (!contractOk) {
+    writeAgentOutputErrorReport({
+      errors: contractResult.errors,
+      outputPath: resolvedOutputFile,
+      componentSlug: componentName ? componentNameToSnakeCase(componentName) : undefined,
+      markdownPath: resolvedOutputFile,
+      scriptName: 'component-doc-runner',
+      rawOutput: normalizedOutput,
+    });
     if (!dryRun) {
-      updateAgentDriftBaseline({ component: componentName || resolvedSpecFile, errors: contractResult.errors });
+      updateAgentDriftBaseline({
+        markdownPath: resolvedOutputFile,
+        componentSlug: componentName ? componentNameToSnakeCase(componentName) : undefined,
+        scriptName: 'component-doc-runner',
+      });
     }
     process.exit(1);
   }
@@ -223,11 +248,12 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
 
   // Update cache state
   if (!dryRun) {
+    const metadata = { agent, component: componentName || resolvedSpecFile };
     updateTaskState({
       taskId,
       fingerprint,
       outputs: [resolvedOutputFile],
-      metadata: { agent, component: componentName || resolvedSpecFile },
+      metadata,
     });
   }
 
@@ -249,9 +275,10 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
   if (!dryRun) {
     syncDocumentationIndices({
       registryPath: ctx.paths.registry,
-      overviewPath: path.join(docsDir, 'overview.md'),
-      specsDir,
-      docsDir,
+      overviewPath: path.join(ctx.paths.docs, 'overview.md'),
+      specsDir: ctx.paths.specs,
+      docsDir: ctx.paths.docs,
+      dryRun: false,
     });
   }
 
@@ -268,7 +295,7 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runComponentDoc(process.argv.slice(2)).catch((error) => {
-    logger.error('Component doc runner failed:', error);
+    logger.error(`Component doc runner failed: ${error}`);
     process.exit(1);
   });
 }
