@@ -77,7 +77,7 @@ export async function runDoctor(args: string[] = []): Promise<DoctorRunnerResult
     ...checkTokenRegistry(ctx),
     ...checkComponentRegistry(ctx),
     ...checkAgents(),
-    ...checkSkillVersioning(ctx, manifest),
+    ...checkSkillVersioning(ctx, manifest ?? null),
     ...checkComponentByName(ctx),
     ...checkValidateDocs(ctx),
   );

@@ -10,7 +10,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
@@ -248,25 +248,25 @@ export async function runHealthSnapshot(args: string[] = []): Promise<void> {
     DEFAULT_RETENTION_DAYS,
     1,
   );
-  const beforeRef = String(parsed['before-ref'] || 'HEAD~1').trim();
+  const beforeRef = String(getStringArg(parsed, 'before-ref') || 'HEAD~1').trim();
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
   const genDir = ctx.paths.generated;
 
   const tokenHealthPath = resolveSafePath(
-    String(parsed['token-health'] || path.join(genDir, 'token-health.json')),
+    String(getStringArg(parsed, 'token-health') || path.join(genDir, 'token-health.json')),
     '--token-health',
   );
   const componentsHealthPath = resolveSafePath(
-    String(parsed['components-health'] || path.join(genDir, 'components-health.json')),
+    String(getStringArg(parsed, 'components-health') || path.join(genDir, 'components-health.json')),
     '--components-health',
   );
   const tokenUsageIndexPath = resolveSafePath(
-    String(parsed['token-usage-index'] || path.join(genDir, 'token-usage-index.json')),
+    String(getStringArg(parsed, 'token-usage-index') || path.join(genDir, 'token-usage-index.json')),
     '--token-usage-index',
   );
   const outPath = resolveSafePath(
-    String(parsed.out || path.join(genDir, 'health-history.json')),
+    String(getStringArg(parsed, 'out') || path.join(genDir, 'health-history.json')),
     '--out',
   );
 
@@ -398,7 +398,8 @@ export async function runHealthSnapshot(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runHealthSnapshot(process.argv.slice(2)).catch((error) => {
-    logger.error('Health snapshot runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Health snapshot runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

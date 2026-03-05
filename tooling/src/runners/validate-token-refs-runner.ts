@@ -9,7 +9,7 @@
 
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { isMain } from '../utils/index.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
@@ -342,21 +342,19 @@ export async function runValidateTokenRefs(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
-  const componentName = parsed['component-name'] || parsed.component || null;
-  const registryPath = String(parsed.registry || DEFAULT_TOKEN_REGISTRY_PATH);
-  const jsonOutput = String(parsed.json || 'false') === 'true';
-  const noSpecs = String(parsed['no-specs'] || 'false') === 'true';
-  const noMarkdown = String(parsed['no-markdown'] || 'false') === 'true';
+  const componentName = getStringArg(parsed, 'component-name') || getStringArg(parsed, 'component') || null;
+  const registryPath = String(getStringArg(parsed, 'registry') || DEFAULT_TOKEN_REGISTRY_PATH);
+  const jsonOutput = String(getStringArg(parsed, 'json') || 'false') === 'true';
+  const noSpecs = String(getStringArg(parsed, 'no-specs') || 'false') === 'true';
+  const noMarkdown = String(getStringArg(parsed, 'no-markdown') || 'false') === 'true';
 
   // Resolve target files from component name or explicit paths
-  let filePath: string | null = parsed.file
-    ? path.resolve(String(parsed.file))
-    : null;
-  let specFilePath: string | null = parsed['spec-file']
-    ? path.resolve(String(parsed['spec-file']))
-    : null;
+  const fileArg = getStringArg(parsed, 'file');
+  let filePath: string | null = fileArg ? path.resolve(fileArg) : null;
+  const specFileArg = getStringArg(parsed, 'spec-file');
+  let specFilePath: string | null = specFileArg ? path.resolve(specFileArg) : null;
 
   if (componentName && !filePath && !specFilePath) {
     const snake = componentName
@@ -367,18 +365,18 @@ export async function runValidateTokenRefs(args: string[] = []): Promise<void> {
     specFilePath = noSpecs ? null : path.join(ctx.paths.specs, `${snake}.yml`);
   }
 
-  const docsRoot = noMarkdown ? null : parsed['docs-root'] || ctx.paths.docs;
+  const docsRoot = noMarkdown ? undefined : (getStringArg(parsed, 'docs-root') || ctx.paths.docs);
 
   let baseReport: any;
   try {
     baseReport = validateDocs({
-      docsRoot: filePath ? null : docsRoot,
+      docsRoot: filePath ? undefined : docsRoot,
       registryPath,
-      filePath: noMarkdown ? null : filePath,
-      specFilePath: noSpecs ? null : specFilePath,
-      checkOverview: false, // not relevant for token-ref validation
+      filePath: filePath ?? undefined,
+      specFilePath: specFilePath ?? undefined,
+      checkOverview: false,
       checkSpecs: !noSpecs,
-      allowExtraH2: true, // structural checks not the concern here
+      allowExtraH2: true,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -400,7 +398,8 @@ export async function runValidateTokenRefs(args: string[] = []): Promise<void> {
 // CLI entry point
 if (isMain(import.meta.url)) {
   runValidateTokenRefs(process.argv.slice(2)).catch((error) => {
-    logger.error('Validate token refs runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Validate token refs runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

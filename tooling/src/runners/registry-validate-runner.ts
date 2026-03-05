@@ -117,7 +117,8 @@ export async function runRegistryValidate(args: string[] = []): Promise<void> {
       process.exit(1);
     }
   } catch (error) {
-    logger.error('Registry validate failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Registry validate failed: ${errorMessage}`);
     process.exit(1);
   }
 }
@@ -125,7 +126,8 @@ export async function runRegistryValidate(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runRegistryValidate(process.argv.slice(2)).catch((error) => {
-    logger.error('Registry validate runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Registry validate runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

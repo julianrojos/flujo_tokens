@@ -10,8 +10,9 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+
 import {
   parseSpec,
   dumpSpec,
@@ -134,7 +135,7 @@ export async function runSortSpec(args: string[] = []): Promise<void> {
   // Resolve list of files
   let files: string[] = [];
   if (hasAll) {
-    const ctx = resolveSystemContextSafe({ system: parsed.system });
+    const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
     const specDir = ctx.paths.specs;
 
     if (!fs.existsSync(specDir)) {

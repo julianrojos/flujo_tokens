@@ -8,7 +8,7 @@
 
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
@@ -88,22 +88,23 @@ export async function runRegistryRefresh(args: string[] = []): Promise<void> {
   }
 
   const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
   try {
     const report = syncDocumentationIndices({
-      registryPath: path.resolve(String(parsed.registry || ctx.paths.registry)),
-      overviewPath: path.resolve(String(parsed.overview || path.join(ctx.paths.docs, 'overview.md'))),
-      specsDir: path.resolve(String(parsed['spec-root'] || ctx.paths.specs)),
-      docsDir: path.resolve(String(parsed['docs-root'] || ctx.paths.docs)),
-      renderDir: path.resolve(String(parsed['render-dir'] || path.join(ctx.paths.generated, 'figma_doc_models'))),
-      proofsDir: path.resolve(String(parsed['proof-dir'] || path.join(ctx.paths.generated, 'visual-proofs'))),
+      registryPath: path.resolve(String(getStringArg(parsed, 'registry') || ctx.paths.registry)),
+      overviewPath: path.resolve(String(getStringArg(parsed, 'overview') || path.join(ctx.paths.docs, 'overview.md'))),
+      specsDir: path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs)),
+      docsDir: path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs)),
+      renderDir: path.resolve(String(getStringArg(parsed, 'render-dir') || path.join(ctx.paths.generated, 'figma_doc_models'))),
+      proofsDir: path.resolve(String(getStringArg(parsed, 'proof-dir') || path.join(ctx.paths.generated, 'visual-proofs'))),
       dryRun,
     });
 
     console.log(JSON.stringify(report, null, 2));
   } catch (error) {
-    logger.error('Registry refresh failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Registry refresh failed: ${errorMessage}`);
     process.exit(1);
   }
 }
@@ -111,7 +112,8 @@ export async function runRegistryRefresh(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runRegistryRefresh(process.argv.slice(2)).catch((error) => {
-    logger.error('Registry refresh runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Registry refresh runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

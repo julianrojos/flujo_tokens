@@ -259,7 +259,8 @@ export async function runTokenDiff(args: string[] = []): Promise<void> {
   try {
     currentRaw = fs.readFileSync(currentPath, 'utf8');
   } catch (error) {
-    logger.error('Failed to read current registry:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to read current registry: ${errorMessage}`);
     process.exit(1);
   }
 
@@ -270,14 +271,16 @@ export async function runTokenDiff(args: string[] = []): Promise<void> {
     try {
       beforeRaw = fs.readFileSync(path.resolve(String(beforeFile)), 'utf8');
     } catch (error) {
-      logger.error('Failed to read before registry:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to read before registry: ${errorMessage}`);
       process.exit(1);
     }
   } else {
     try {
       beforeRaw = readRegistryFromGitRef(beforeRef, registryAtRef);
     } catch (error) {
-      logger.error('Failed to read registry from git ref:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to read registry from git ref: ${errorMessage}`);
       process.exit(1);
     }
   }
@@ -312,7 +315,7 @@ export async function runTokenDiff(args: string[] = []): Promise<void> {
       if (beforeCompare !== currentCompare) {
         modified.push({
           ...currentEntry,
-          before,
+          before: beforeEntry,
           isBreaking: isBreakingChange(beforeEntry, currentEntry),
         });
       }
@@ -384,7 +387,8 @@ export async function runTokenDiff(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runTokenDiff(process.argv.slice(2)).catch((error) => {
-    logger.error('Token diff runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Token diff runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

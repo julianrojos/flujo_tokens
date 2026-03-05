@@ -220,7 +220,8 @@ export async function runComputeTraceability(
 // CLI entry point
 if (isMain(import.meta.url)) {
   runComputeTraceability(process.argv.slice(2)).catch((error) => {
-    logger.error('Compute traceability runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Compute traceability runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

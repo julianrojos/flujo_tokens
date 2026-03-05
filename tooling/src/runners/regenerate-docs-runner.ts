@@ -11,7 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { componentNameToSnakeCase } from '../utils/component-name.js';
 
@@ -97,20 +97,20 @@ export async function runRegenerateDocs(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
-  const docsRootInput = path.resolve(String(parsed['docs-root'] || ctx.paths.docs));
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const docsRootInput = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs));
   const componentDocsDir =
     path.basename(docsRootInput) === 'components'
       ? docsRootInput
       : path.join(docsRootInput, 'components');
-  const specRoot = path.resolve(String(parsed['spec-root'] || ctx.paths.specs));
-  const registryPath = path.resolve(String(parsed.registry || ctx.paths.tokenRegistry));
-  const agent = String(parsed.agent || process.env.DS_AGENT || 'auto');
+  const specRoot = path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs));
+  const registryPath = path.resolve(String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry));
+  const agent = String(getStringArg(parsed, 'agent') || process.env.DS_AGENT || 'auto');
   const force = parseBooleanOption(String(parsed.force), '--force', true) ? 'true' : 'false';
   const skipValidation = parseBooleanOption(String(parsed['skip-validation']), '--skip-validation', false);
   const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
   const continueOnError = parseBooleanOption(String(parsed['continue-on-error']), '--continue-on-error', false);
-  const componentFilter = normalizeComponentFilter(parsed.component || parsed['component-name']);
+  const componentFilter = normalizeComponentFilter(String(parsed.component || parsed['component-name'] || ''));
 
   if (!fs.existsSync(COMPONENT_DOC_SCRIPT_PATH)) {
     console.error(`Missing script: ${COMPONENT_DOC_SCRIPT_PATH}`);

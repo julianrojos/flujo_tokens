@@ -7,7 +7,8 @@
  * TypeScript runner for ds-capture-from-figma-url script.
  */
 
-import { parseArgs, printUsage, isMain } from '../utils/parse-args.js';
+import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { isMain } from '../utils/is-main.js';
 import { runCaptureFromFigmaUrl } from '../services/capture-orchestrator-main.js';
 import { logger } from '../utils/logger.js';
 

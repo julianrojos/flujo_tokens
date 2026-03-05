@@ -9,9 +9,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+
 import { loadTokenRegistry } from '../services/token-utils.js';
 import { generateGraphReport, buildTokenGraph } from '../services/token-graph.js';
 
@@ -137,14 +138,14 @@ export async function runTokenGraph(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
   const registryPath = path.resolve(
-    String(parsed.registry || ctx.paths.tokenRegistry),
+    String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),
   );
-  const outJson = path.resolve(String(parsed['out-json'] || ctx.paths.generated + '/token-graph.json'));
-  const outVizJson = path.resolve(String(parsed['out-viz-json'] || ctx.paths.generated + '/token-graph.viz.json'));
-  const outMd = path.resolve(String(parsed['out-md'] || ctx.paths.generated + '/token-graph.md'));
+  const outJson = path.resolve(String(getStringArg(parsed, 'out-json') || ctx.paths.generated + '/token-graph.json'));
+  const outVizJson = path.resolve(String(getStringArg(parsed, 'out-viz-json') || ctx.paths.generated + '/token-graph.viz.json'));
+  const outMd = path.resolve(String(getStringArg(parsed, 'out-md') || ctx.paths.generated + '/token-graph.md'));
   const outMermaid = path.resolve(String(parsed['out-mermaid'] || ctx.paths.generated + '/token-graph.mmd'));
   const format = String(parsed.format || 'json');
   const indirectionThreshold = parsePositiveInteger(String(parsed['indirection-threshold']), '--indirection-threshold', 3);
@@ -291,7 +292,8 @@ function generateMermaidGraph(graph: any, maxEdges: number): string {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runTokenGraph(process.argv.slice(2)).catch((error) => {
-    logger.error('Token graph runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Token graph runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

@@ -8,7 +8,7 @@
 
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
@@ -128,13 +128,15 @@ export async function runValidateDocs(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
-  const docsRoot = String(parsed['docs-root'] || ctx.paths.docs);
-  const registryPath = String(parsed.registry || ctx.paths.tokenRegistry);
-  const filePath = parsed.file ? path.resolve(String(parsed.file)) : null;
-  const specFilePath = parsed['spec-file'] ? path.resolve(String(parsed['spec-file'])) : null;
-  const strict = parseBooleanOption(parsed.strict, false);
+  const docsRoot = String(getStringArg(parsed, 'docs-root') || ctx.paths.docs);
+  const registryPath = String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry);
+  const fileArg = getStringArg(parsed, 'file');
+  const specFileArg = getStringArg(parsed, 'spec-file');
+  const filePath = fileArg ? path.resolve(fileArg) : null;
+  const specFilePath = specFileArg ? path.resolve(specFileArg) : null;
+  const strict = parseBooleanOption(getStringArg(parsed, 'strict'), false);
   const noOverview = parseBooleanOption(parsed['no-overview'], false);
   const noSpecs = parseBooleanOption(parsed['no-specs'], false);
   const allowExtraH2 = parseBooleanOption(parsed['allow-extra-h2'], false);
@@ -148,8 +150,8 @@ export async function runValidateDocs(args: string[] = []): Promise<void> {
   const baseReport = validateDocs({
     docsRoot,
     registryPath,
-    filePath,
-    specFilePath,
+    filePath: filePath ?? undefined,
+    specFilePath: specFilePath ?? undefined,
     allowExtraH2,
     checkOverview: !noOverview,
     checkSpecs: !noSpecs,
@@ -161,7 +163,8 @@ export async function runValidateDocs(args: string[] = []): Promise<void> {
 
   const shouldFail = !report.ok || (strict && report.summary.warnings > 0);
   if (shouldFail) {
-    logger.error('Validation failed:', report.errors.slice(0, 5));
+    const errorMessages = report.errors.slice(0, 5).join('; ');
+    logger.error(`Validation failed: ${errorMessages}`);
     process.exit(1);
   }
 }
@@ -169,7 +172,8 @@ export async function runValidateDocs(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runValidateDocs(process.argv.slice(2)).catch((error) => {
-    logger.error('Validate docs runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Validate docs runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

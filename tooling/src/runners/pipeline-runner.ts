@@ -39,7 +39,11 @@ import type {
 } from '../services/pipeline-types.js';
 
 function isDoctorReport(report: unknown): report is DoctorReport {
-  return Boolean(report) && typeof report === 'object' && 'checks' in report;
+  return report != null && typeof report === 'object' && 'checks' in report;
+}
+
+function isPipelineReport(report: unknown): report is PipelineReport {
+  return report != null && typeof report === 'object' && 'ok' in report;
 }
 
 const CLI_CONFIG = {
@@ -330,7 +334,7 @@ function printReport(
       'status-only': options['status-only'],
       system: options.system,
     }, meta);
-    console.log(JSON.stringify(reportData, null, 2));
+    console.log(JSON.stringify(reportData ?? {}, null, 2));
     return;
   }
 

@@ -9,7 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
@@ -19,8 +19,8 @@ import {
   extractCssReferences,
   buildAliasChains,
   generateUsageIndex,
-  loadTokenRegistry,
 } from '../services/token-usage-index.js';
+import { loadTokenRegistry } from '../services/token-utils.js';
 
 const CLI_CONFIG = {
   command: 'ds:token-usage-index [options]',
@@ -94,13 +94,13 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
   const registryPath = path.resolve(
-    String(parsed.registry || ctx.paths.tokenRegistry),
+    String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),
   );
   const specRoot = path.resolve(
-    String(parsed['spec-root'] || ctx.paths.specs),
+    String(getStringArg(parsed, 'spec-root') || ctx.paths.specs),
   );
   const cssFiles = String(parsed['css-files'] || 'output/primitives.css,output/tokens.css')
     .split(',')
@@ -153,7 +153,8 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runTokenUsageIndex(process.argv.slice(2)).catch((error) => {
-    logger.error('Token usage index runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Token usage index runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

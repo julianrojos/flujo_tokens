@@ -88,7 +88,8 @@ export async function runRegistryOverview(args: string[] = []): Promise<void> {
     });
     console.log(JSON.stringify(report, null, 2));
   } catch (error) {
-    logger.error('Registry overview failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Registry overview failed: ${errorMessage}`);
     process.exit(1);
   }
 }
@@ -96,7 +97,8 @@ export async function runRegistryOverview(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runRegistryOverview(process.argv.slice(2)).catch((error) => {
-    logger.error('Registry overview runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Registry overview runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

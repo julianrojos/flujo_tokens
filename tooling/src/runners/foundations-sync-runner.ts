@@ -9,7 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
@@ -84,16 +84,16 @@ export async function runFoundationsSync(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
-  const docsRoot = path.resolve(String(parsed['docs-root'] || ctx.paths.docs));
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const docsRoot = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs));
   const foundationsRoot = path.resolve(
-    String(parsed['foundations-root'] || path.join(docsRoot, 'foundations')),
+    String(getStringArg(parsed, 'foundations-root') || path.join(docsRoot, 'foundations')),
   );
   const registryPath = path.resolve(
-    String(parsed.registry || path.join(docsRoot, '_generated', 'token-registry.json')),
+    String(getStringArg(parsed, 'registry') || path.join(docsRoot, '_generated', 'token-registry.json')),
   );
 
-  const status = String(parsed.status || DEFAULT_STATUS).trim().toLowerCase();
+  const status = String(getStringArg(parsed, 'status') || DEFAULT_STATUS).trim().toLowerCase();
   const createRoot = parseBooleanOption(String(parsed['create-root']), '--create-root', false);
   const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
   const maxSamples = Math.max(1, Math.floor(Number(parsed['max-samples'] || 2)));
@@ -119,7 +119,8 @@ export async function runFoundationsSync(args: string[] = []): Promise<void> {
     const content = fs.readFileSync(registryPath, 'utf8');
     registry = JSON.parse(content);
   } catch (error) {
-    logger.error('Failed to load token registry:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Failed to load token registry: ${errorMessage}`);
     process.exit(1);
   }
 
@@ -149,7 +150,8 @@ export async function runFoundationsSync(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runFoundationsSync(process.argv.slice(2)).catch((error) => {
-    logger.error('Foundations sync runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Foundations sync runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

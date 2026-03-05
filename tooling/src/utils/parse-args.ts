@@ -64,6 +64,19 @@ export function parseArgs(argv: readonly string[]): Record<string, string | bool
 }
 
 /**
+ * Safely extract a string argument from parsed CLI args.
+ */
+export function getStringArg(
+  args: Record<string, string | boolean>,
+  key: string,
+  fallback?: string,
+): string | undefined {
+  const value = args[key];
+  if (typeof value === "string") return value;
+  return fallback;
+}
+
+/**
  * Format a default value for display in usage text.
  */
 function formatDefaultValue(value: unknown): string {

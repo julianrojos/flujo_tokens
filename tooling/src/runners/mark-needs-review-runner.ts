@@ -11,7 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as yaml from 'js-yaml';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
 
@@ -208,15 +208,15 @@ export async function runMarkNeedsReview(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
-  const docsRootInput = path.resolve(String(parsed['docs-root'] || ctx.paths.docs));
-  const specRoot = path.resolve(String(parsed['spec-root'] || ctx.paths.specs));
-  const registryPath = path.resolve(String(parsed.registry || ctx.paths.tokenRegistry));
-  const explicitFilePath = parsed.file ? path.resolve(String(parsed.file)) : '';
-  const explicitSpecFilePath = parsed['spec-file']
-    ? path.resolve(String(parsed['spec-file']))
-    : '';
+  const docsRootInput = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs));
+  const specRoot = path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs));
+  const registryPath = path.resolve(String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry));
+  const fileArg = getStringArg(parsed, 'file');
+  const specFileArg = getStringArg(parsed, 'spec-file');
+  const explicitFilePath = fileArg ? path.resolve(fileArg) : '';
+  const explicitSpecFilePath = specFileArg ? path.resolve(specFileArg) : '';
   const dryRun = String(parsed['dry-run'] || 'false') === 'true';
 
   const files = collectComponentMarkdownFiles(docsRootInput, explicitFilePath);

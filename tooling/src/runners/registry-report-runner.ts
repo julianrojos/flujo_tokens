@@ -9,7 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 
@@ -239,11 +239,11 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
-  const registryPath = path.resolve(String(parsed.registry || DEFAULT_COMPONENT_REGISTRY_PATH));
-  const outMd = assertPathInsideProject(String(parsed['out-md'] || 'docs/COMPONENTS_INDEX.md'), '--out-md');
-  const outJson = assertPathInsideProject(String(parsed['out-json'] || 'docs/_generated/components-health.json'), '--out-json');
-  const format = String(parsed.format || 'json');
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const registryPath = path.resolve(String(getStringArg(parsed, 'registry') || DEFAULT_COMPONENT_REGISTRY_PATH));
+  const outMd = assertPathInsideProject(String(getStringArg(parsed, 'out-md') || 'docs/COMPONENTS_INDEX.md'), '--out-md');
+  const outJson = assertPathInsideProject(String(getStringArg(parsed, 'out-json') || 'docs/_generated/components-health.json'), '--out-json');
+  const format = String(getStringArg(parsed, 'format') || 'json');
   const maxFilterItems = parseIntegerOption(String(parsed['max-filter-items']), '--max-filter-items', 20, 1);
   const skipMd = parseBooleanOption(String(parsed['no-md']), '--no-md', false);
   const skipJson = parseBooleanOption(String(parsed['no-json']), '--no-json', false);
@@ -286,7 +286,8 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runRegistryReport(process.argv.slice(2)).catch((error) => {
-    logger.error('Registry report runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Registry report runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

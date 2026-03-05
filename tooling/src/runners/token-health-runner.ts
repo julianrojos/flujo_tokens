@@ -9,9 +9,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+
 import { loadTokenRegistry } from '../services/token-utils.js';
 import { generateHealthReport } from '../services/token-health.js';
 
@@ -117,13 +118,13 @@ export async function runTokenHealth(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: parsed.system });
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
   const registryPath = path.resolve(
-    String(parsed.registry || ctx.paths.tokenRegistry),
+    String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),
   );
   const usageIndexPath = path.resolve(
-    String(parsed['usage-index'] || ctx.paths.generated + '/token-usage-index.json'),
+    String(getStringArg(parsed, 'usage-index') || ctx.paths.generated + '/token-usage-index.json'),
   );
   const graphVizPath = path.resolve(
     String(parsed['graph-viz'] || ctx.paths.generated + '/token-graph.viz.json'),
@@ -197,7 +198,8 @@ export async function runTokenHealth(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runTokenHealth(process.argv.slice(2)).catch((error) => {
-    logger.error('Token health runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Token health runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }

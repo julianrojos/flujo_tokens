@@ -239,7 +239,8 @@ export async function runTokensSync(args: string[] = []): Promise<void> {
       ),
     );
   } catch (error) {
-    logger.error('Tokens sync failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Tokens sync failed: ${errorMessage}`);
     process.exit(1);
   }
 }
@@ -247,7 +248,8 @@ export async function runTokensSync(args: string[] = []): Promise<void> {
 // CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runTokensSync(process.argv.slice(2)).catch((error) => {
-    logger.error('Tokens sync runner failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`Tokens sync runner failed: ${errorMessage}`);
     process.exit(1);
   });
 }
