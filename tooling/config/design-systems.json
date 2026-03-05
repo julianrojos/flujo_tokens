@@ -1,23 +1,4 @@
 {
-  "systems": [
-    {
-      "id": "iter",
-      "name": "Iter",
-      "appName": "Karmap",
-      "figmaFileId": "3hGC1ju0d5AKzaoI9pKIyu",
-      "figmaApiToken": "${FIGMA_TOKEN_ITER}",
-      "inputDir": "input/iter",
-      "outputDir": "output/iter",
-      "docsDir": "docs/iter",
-      "collections": [
-        "Primitives",
-        "Typography",
-        "Semantic",
-        "Components",
-        "A11y"
-      ],
-      "compileVariablesOnCapture": true
-    }
-  ],
-  "defaultSystem": "iter"
+  "systems": [],
+  "defaultSystem": ""
 }
