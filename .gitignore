@@ -6,6 +6,7 @@ node_modules/.package-lock.json
 *.tsbuildinfo
 .cache/
 output/**/.emit-manifest.json
+output/**/.ops/
 docs/_generated/.sync-state.json
 docs/_generated/token-graph*
 docs/_generated/token-health.json
