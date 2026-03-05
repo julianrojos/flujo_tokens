@@ -77,8 +77,9 @@ describe('command-route-enqueue-service', () => {
     const parsed = {
       commandLabel: 'node tooling/scripts/ds-health-snapshot.mjs --before-ref HEAD~1',
       scriptArgs: ['--before-ref', 'HEAD~1'],
-      commandDisplayArgs: ['--url', 'https://figma.com/file/abc', '--figma-token', '***redacted***'],
-      commandArgs: ['--url', 'https://figma.com/file/abc', '--figma-token', 'secret'],
+      commandDisplayArgs: ['--url', 'https://figma.com/file/abc'],
+      commandArgs: ['--url', 'https://figma.com/file/abc'],
+      commandEnv: { FIGMA_TOKEN: 'secret' },
     };
 
     it('buildHealthSnapshotQueueArgs', () => {
@@ -90,14 +91,15 @@ describe('command-route-enqueue-service', () => {
       const sync = buildSyncFigmaTokensQueueArgs({ sysCtx, requestId, parsed });
       assert.equal(sync.allowNonZeroJson, true);
       assert.match(sync.commandLabel, /ds-tokens-from-figma\.mjs/);
-      assert.match(sync.commandLabel, /\*\*\*redacted\*\*\*/);
-      assert.ok(sync.scriptArgs.includes('secret'));
+      assert.deepEqual(sync.commandEnv, { FIGMA_TOKEN: 'secret' });
+      assert.ok(!sync.scriptArgs.includes('secret'));
     });
 
     it('buildCaptureFigmaScreenshotQueueArgs', () => {
       const capture = buildCaptureFigmaScreenshotQueueArgs({ sysCtx, requestId, parsed });
       assert.equal(capture.allowNonZeroJson, true);
       assert.match(capture.commandLabel, /ds-capture-from-figma-url\.mjs/);
+      assert.deepEqual(capture.commandEnv, { FIGMA_TOKEN: 'secret' });
     });
   });
 });

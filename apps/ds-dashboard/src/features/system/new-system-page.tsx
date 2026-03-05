@@ -106,7 +106,6 @@ export function NewSystemPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
   const [savedSystemId, setSavedSystemId] = useState("");
-  const [complexFileModal, setComplexFileModal] = useState<{ componentCount: number } | null>(null);
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -163,39 +162,49 @@ export function NewSystemPage() {
             },
             { systemId: response.system.id },
           );
-          const targetsCount =
-            captureResult.targets_total ??
-            captureResult.targets?.length ??
-            0;
-          const capturedCount = captureResult.captured?.length ?? 0;
-          const failedCount = captureResult.failed?.length ?? 0;
-          const captureFailureDetail =
-            captureResult.error ||
-            captureResult.message ||
-            captureResult.stderr ||
-            captureResult.failed?.[0]?.error ||
-            captureResult.registry_refresh?.stderr ||
-            "";
+          // In dashboard server mode this endpoint is queued and returns 202 + jobId.
+          // Keep strict validation only when a synchronous capture payload is returned.
+          const isQueuedResponse =
+            typeof (captureResult as { jobId?: unknown })?.jobId === "string" &&
+            (captureResult.targets_total === undefined &&
+              captureResult.captured === undefined &&
+              captureResult.failed === undefined);
 
-          if (!captureResult.ok && captureFailureDetail) {
-            throw new Error(captureFailureDetail);
-          }
+          if (!isQueuedResponse) {
+            const targetsCount =
+              captureResult.targets_total ??
+              captureResult.targets?.length ??
+              0;
+            const capturedCount = captureResult.captured?.length ?? 0;
+            const failedCount = captureResult.failed?.length ?? 0;
+            const captureFailureDetail =
+              captureResult.error ||
+              captureResult.message ||
+              captureResult.stderr ||
+              captureResult.failed?.[0]?.error ||
+              captureResult.registry_refresh?.stderr ||
+              "";
 
-          if (
-            targetsCount > 0 &&
-            capturedCount === 0 &&
-            failedCount > 0
-          ) {
-            throw new Error(
-              captureFailureDetail ||
-                "Targets were found but every capture failed.",
-            );
-          }
+            if (!captureResult.ok && captureFailureDetail) {
+              throw new Error(captureFailureDetail);
+            }
 
-          if (targetsCount === 0 && capturedCount === 0) {
-            throw new Error(
-              "No capturable components were found for the provided URL.",
-            );
+            if (
+              targetsCount > 0 &&
+              capturedCount === 0 &&
+              failedCount > 0
+            ) {
+              throw new Error(
+                captureFailureDetail ||
+                  "Targets were found but every capture failed.",
+              );
+            }
+
+            if (targetsCount === 0 && capturedCount === 0) {
+              throw new Error(
+                "No capturable components were found for the provided URL.",
+              );
+            }
           }
         } catch (error) {
           const details = getCaptureErrorMessage(error);
@@ -227,46 +236,7 @@ export function NewSystemPage() {
   const handleCreateSystem = async () => {
     if (!canSave) return;
     setSaveError(null);
-
-    const trimmedUrl = toDocumentWideFigmaUrl(figmaFileUrl);
-    if (trimmedUrl) {
-      setSaving(true);
-      try {
-        const runtimeToken = figmaAccessToken.trim();
-        const scanResult = await captureFigmaScreenshot({
-          figmaUrl: trimmedUrl,
-          figmaToken: runtimeToken || undefined,
-          dryRun: true,
-          componentKind: "all",
-        });
-        const count =
-          scanResult.targets_total ?? scanResult.targets?.length ?? 0;
-        if (count > 1) {
-          setSaving(false);
-          setComplexFileModal({ componentCount: count });
-          return;
-        }
-      } catch (error) {
-        // Pre-scan failed — warn the user but don't block creation
-        const msg = error instanceof Error ? error.message : String(error);
-        console.warn("[NewSystemPage] dry-run pre-scan failed:", error);
-        setSaveError(
-          makeInlineErrorDisplay({
-            title: "Pre-scan warning",
-            message: `${msg}. The system will still be created.`,
-            action: "Review URL/token and retry if needed.",
-          }),
-        );
-      }
-      setSaving(false);
-    }
-
     await doCreate();
-  };
-
-  const handleConfirmCreate = () => {
-    setComplexFileModal(null);
-    void doCreate();
   };
 
   return (
@@ -403,27 +373,6 @@ export function NewSystemPage() {
         </section>
       </div>
 
-      {/* Complex Figma file confirmation modal */}
-      {complexFileModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
-            <h2 className="mb-2 text-lg font-semibold">Complex Figma file detected</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
-              This file contains{" "}
-              <strong>{complexFileModal.componentCount}</strong> component sets.
-              Do you want to add the full design system?
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setComplexFileModal(null)}>
-                Cancel
-              </Button>
-              <Button onClick={handleConfirmCreate}>
-                Yes, add full design system
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

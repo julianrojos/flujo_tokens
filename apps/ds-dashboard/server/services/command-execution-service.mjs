@@ -6,6 +6,7 @@ export function createCommandExecutionService(config) {
       cwd: args.cwd,
       command: args.command,
       commandArgs: args.commandArgs,
+      env: args.commandEnv,
       parseJsonStdout: args.parseJsonStdout === true,
       maxOutputBytes,
       onSpawn: args.registerProcess,

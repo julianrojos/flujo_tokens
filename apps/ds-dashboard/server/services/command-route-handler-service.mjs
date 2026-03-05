@@ -119,11 +119,10 @@ export async function handleSyncFigmaTokensRoute(c, deps) {
   const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const body = await readJsonBody(c);
-  const { commandArgs, commandDisplayArgs } = buildSyncFigmaTokensCommandConfig({
+  const parsed = buildSyncFigmaTokensCommandConfig({
     body,
     toBooleanString,
   });
-  const parsed = { commandArgs, commandDisplayArgs };
 
   const job = queueNodeJsonCommand(buildSyncFigmaTokensQueueArgs({ sysCtx, requestId, parsed }));
   return c.json(queueJobAcceptedPayload(job), 202);

@@ -13,6 +13,7 @@ export interface CommandExecutionOptions {
   cwd: string;
   command: string;
   commandArgs: string[];
+  commandEnv?: Record<string, string>;
   commandLabel: string;
   emitChunk: (stream: 'stdout' | 'stderr', chunk: string) => void;
   registerProcess?: (process: ChildProcess) => void;
@@ -48,6 +49,7 @@ export function createCommandExecutionService(options: CreateCommandExecutionSer
       cwd,
       command,
       commandArgs,
+      commandEnv,
       commandLabel,
       emitChunk,
       registerProcess,
@@ -59,6 +61,7 @@ export function createCommandExecutionService(options: CreateCommandExecutionSer
       cwd,
       command,
       commandArgs,
+      env: commandEnv,
       parseJsonStdout,
       maxOutputBytes,
       onSpawn: registerProcess,

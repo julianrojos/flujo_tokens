@@ -10,6 +10,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 export interface RunSpawnWithCaptureOptions {
   command: string;
   commandArgs?: string[];
+  env?: Record<string, string>;
   cwd?: string;
   parseJsonStdout?: boolean;
   maxOutputBytes?: number;
@@ -45,6 +46,7 @@ export async function runSpawnWithCapture(options: RunSpawnWithCaptureOptions): 
   return await new Promise((resolve) => {
     const child = spawn(options.command, options.commandArgs || [], {
       cwd: options.cwd,
+      env: options.env ? { ...process.env, ...options.env } : process.env,
       shell: false,
     });
     if (typeof options.onSpawn === 'function') options.onSpawn(child);

@@ -69,6 +69,8 @@ function createBaseDeps(overrides = {}) {
       repoRoot: "/repo",
       fsSync: {
         existsSync: () => false,
+        mkdirSync: () => {},
+        writeFileSync: () => {},
         rmSync: () => {},
       },
       ...overrides,
@@ -119,6 +121,45 @@ test("system-routes: create appends system and persists config", async () => {
   assert.equal(repo.getSaved().length, 1);
   assert.equal(repo.getSaved()[0].systems.length, 2);
   assert.equal(repo.getSaved()[0].defaultSystem, "marketing-ds");
+});
+
+test("system-routes: create bootstraps system scaffold artifacts", async () => {
+  const existing = new Set();
+  const writes = new Map();
+
+  const { app } = createTestApp({
+    readJsonBody: async () => ({
+      id: "Simple Design System",
+      name: "Simple Design System",
+    }),
+    fsSync: {
+      existsSync: (targetPath) => existing.has(targetPath),
+      mkdirSync: (targetPath) => {
+        existing.add(targetPath);
+      },
+      writeFileSync: (targetPath, content) => {
+        existing.add(targetPath);
+        writes.set(targetPath, String(content));
+      },
+      rmSync: () => {},
+    },
+  });
+
+  const res = await app.request("/api/design-systems", { method: "POST" });
+  assert.equal(res.status, 200);
+
+  const componentRegistryPath = "/repo/docs/simple-design-system/_generated/component-registry.json";
+  const tokenRegistryPath = "/repo/docs/simple-design-system/_generated/token-registry.json";
+  const overviewPath = "/repo/docs/simple-design-system/components/overview.md";
+
+  assert.ok(writes.has(componentRegistryPath));
+  assert.ok(writes.has(tokenRegistryPath));
+  assert.ok(writes.has(overviewPath));
+
+  const componentRegistry = JSON.parse(writes.get(componentRegistryPath));
+  const tokenRegistry = JSON.parse(writes.get(tokenRegistryPath));
+  assert.deepEqual(componentRegistry.components, []);
+  assert.deepEqual(tokenRegistry.entries, []);
 });
 
 test("system-routes: delete protects last remaining system", async () => {

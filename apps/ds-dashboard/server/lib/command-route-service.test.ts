@@ -58,7 +58,7 @@ describe('command-route-service', () => {
   });
 
   describe('buildSyncFigmaTokensCommandConfig()', () => {
-    it('redacts figma token', () => {
+    it('moves figma token to command env', () => {
       const payload = buildSyncFigmaTokensCommandConfig({
         body: {
           figmaUrl: 'https://www.figma.com/file/abc/xyz',
@@ -68,8 +68,8 @@ describe('command-route-service', () => {
         toBooleanString: (value: unknown, fallback: boolean) =>
           value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
       });
-      assert.ok(payload.commandArgs.includes('secret'));
-      assert.ok(payload.commandDisplayArgs.includes('***redacted***'));
+      assert.ok(!payload.commandArgs.includes('secret'));
+      assert.deepEqual(payload.commandEnv, { FIGMA_TOKEN: 'secret' });
     });
   });
 
@@ -103,7 +103,8 @@ describe('command-route-service', () => {
       });
       assert.equal(valid.ok, true);
       assert.ok((valid as any).commandArgs.includes('--url'));
-      assert.ok((valid as any).commandDisplayArgs.includes('***redacted***'));
+      assert.ok(!(valid as any).commandArgs.includes('secret'));
+      assert.deepEqual((valid as any).commandEnv, { FIGMA_TOKEN: 'secret' });
     });
   });
 });

@@ -583,39 +583,148 @@ export function restoreComponentSpecBackup(args: {
   );
 }
 
+const QUEUE_POLL_INTERVAL_MS = 900;
+const QUEUE_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
+
+type QueuedRefreshAcceptedPayload = {
+  ok?: boolean;
+  jobId?: string;
+  statusUrl?: string;
+  output?: string;
+  stderr?: string;
+};
+
+function toQueuedStatusUrl(payload: QueuedRefreshAcceptedPayload): string {
+  const jobId = toNonEmptyString(payload.jobId);
+  const statusUrl = toNonEmptyString(payload.statusUrl);
+  if (statusUrl) return statusUrl;
+  if (jobId) return `/api/jobs/${encodeURIComponent(jobId)}`;
+  return "";
+}
+
+async function waitForQueuedJob(statusUrl: string): Promise<Record<string, unknown>> {
+  let cursor = 0;
+  const deadline = Date.now() + QUEUE_WAIT_TIMEOUT_MS;
+
+  while (Date.now() < deadline) {
+    const separator = statusUrl.includes("?") ? "&" : "?";
+    let payload: Record<string, unknown>;
+    try {
+      payload = await requestJson<Record<string, unknown>>(
+        `${statusUrl}${separator}since=${cursor}`,
+      );
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.recoverable &&
+        (error.status >= 500 || error.status === 429)
+      ) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, QUEUE_POLL_INTERVAL_MS);
+        });
+        continue;
+      }
+      throw error;
+    }
+
+    const nextCursor = Number(payload.nextCursor);
+    if (Number.isFinite(nextCursor) && nextCursor > cursor) {
+      cursor = nextCursor;
+    }
+
+    const job = toRecord(payload.job);
+    const status = toNonEmptyString(job?.status).toLowerCase();
+    if (status === "success") return payload;
+    if (status === "error" || status === "cancelled") {
+      const result = toRecord(job?.result);
+      const summary =
+        toNonEmptyString(result?.summary) ||
+        `Queued operation finished with status '${status}'.`;
+      throw new ApiError({
+        status: 409,
+        statusText: "Conflict",
+        code: "queue.job_failed_or_cancelled" as ApiErrorCode,
+        userMessage: summary,
+        recoverable: true,
+        context: {
+          status,
+          statusUrl,
+          jobId: toNonEmptyString(job?.id) || null,
+        },
+        payload,
+      });
+    }
+
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, QUEUE_POLL_INTERVAL_MS);
+    });
+  }
+
+  throw new ApiError({
+    status: 408,
+    statusText: "Request Timeout",
+    code: "queue.stream_timeout" as ApiErrorCode,
+    userMessage: "Timeout waiting for queued operation.",
+    recoverable: true,
+    context: {
+      statusUrl,
+      timeoutMs: QUEUE_WAIT_TIMEOUT_MS,
+    },
+  });
+}
+
+async function runQueuedRefresh(endpoint: string) {
+  const accepted = await getJson<QueuedRefreshAcceptedPayload>(endpoint, {
+    method: "POST",
+  });
+
+  const statusUrl = toQueuedStatusUrl(accepted);
+  if (!statusUrl) {
+    return {
+      ok: accepted.ok !== false,
+      output: toNonEmptyString(accepted.output) || undefined,
+      stderr: toNonEmptyString(accepted.stderr) || undefined,
+    };
+  }
+
+  const finalState = await waitForQueuedJob(statusUrl);
+  const job = toRecord(finalState.job);
+  const result = toRecord(job?.result);
+  const payload = toRecord(result?.payload);
+
+  if (payload) {
+    return {
+      ok: payload.ok !== false,
+      output: toNonEmptyString(payload.output) || undefined,
+      stderr: toNonEmptyString(payload.stderr) || undefined,
+    };
+  }
+
+  return {
+    ok: true,
+    output: undefined,
+    stderr: undefined,
+  };
+}
+
 export async function refreshRegistry() {
-  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
-    "/api/refresh-registry",
-    { method: "POST" },
-  );
+  return runQueuedRefresh("/api/refresh-registry");
 }
 
 export async function refreshTokenUsageIndex() {
-  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
-    "/api/refresh-token-usage-index",
-    { method: "POST" },
-  );
+  return runQueuedRefresh("/api/refresh-token-usage-index");
 }
 
 export async function refreshTokenGraph() {
-  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
-    "/api/refresh-token-graph",
-    { method: "POST" },
-  );
+  return runQueuedRefresh("/api/refresh-token-graph");
 }
 
 export async function refreshTokenHealth() {
-  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
-    "/api/refresh-token-health",
-    { method: "POST" },
-  );
+  return runQueuedRefresh("/api/refresh-token-health");
 }
 
 export async function refreshComponentsHealth() {
-  return getJson<{ ok: boolean; output?: string; stderr?: string }>(
-    "/api/refresh-components-health",
-    { method: "POST" },
-  );
+  return runQueuedRefresh("/api/refresh-components-health");
 }
 
 export async function refreshNamingDebt() {
@@ -677,6 +786,7 @@ export interface CaptureFigmaScreenshotArgs {
 
 export interface CaptureFigmaScreenshotResult {
   ok: boolean;
+  jobId?: string;
   dryRun?: boolean;
   source?: {
     figma_url?: string;

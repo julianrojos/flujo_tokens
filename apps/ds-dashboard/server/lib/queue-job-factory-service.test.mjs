@@ -63,19 +63,23 @@ test("queue-job-factory: queueNpmScript enqueues npm command with system arg", (
   assert.match(enqueued[0].label, /npm run ds:registry:refresh/);
 });
 
-test("queue-job-factory: queueNodeJsonCommand configures JSON parsing", () => {
-  const { service, enqueued } = createFactory();
+test("queue-job-factory: queueNodeJsonCommand configures JSON parsing", async () => {
+  const { service, enqueued, runCalls } = createFactory();
   service.queueNodeJsonCommand({
     repoRoot: "/repo",
     commandLabel: "node script.mjs",
     scriptPath: "tooling/scripts/script.mjs",
     scriptArgs: ["--flag", "1"],
+    commandEnv: { FIGMA_TOKEN: "secret" },
     systemId: "core",
     allowNonZeroJson: true,
   });
 
   assert.equal(enqueued.length, 1);
   assert.equal(enqueued[0].operationName, "script:script.mjs");
+  await enqueued[0].execute({ emitChunk() {}, setProcess() {} });
+  assert.equal(runCalls.length, 1);
+  assert.deepEqual(runCalls[0].commandEnv, { FIGMA_TOKEN: "secret" });
 });
 
 test("queue-job-factory: replay handles run: operations", () => {

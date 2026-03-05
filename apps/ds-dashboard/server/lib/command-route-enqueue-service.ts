@@ -65,6 +65,7 @@ export interface HealthSnapshotQueueArgs {
   systemId: string;
   requestId: string;
   scriptArgs: string[];
+  commandEnv?: Record<string, string>;
 }
 
 export interface SyncFigmaTokensQueueArgs {
@@ -74,6 +75,7 @@ export interface SyncFigmaTokensQueueArgs {
   systemId: string;
   requestId: string;
   scriptArgs: string[];
+  commandEnv?: Record<string, string>;
   allowNonZeroJson: boolean;
 }
 
@@ -84,6 +86,7 @@ export interface CaptureFigmaScreenshotQueueArgs {
   systemId: string;
   requestId: string;
   scriptArgs: string[];
+  commandEnv?: Record<string, string>;
   allowNonZeroJson: boolean;
 }
 
@@ -92,6 +95,7 @@ export interface ParsedCommandConfig {
   scriptArgs: string[];
   commandDisplayArgs: string[];
   commandArgs: string[];
+  commandEnv?: Record<string, string>;
 }
 
 /**
@@ -184,6 +188,7 @@ export function buildHealthSnapshotQueueArgs(options: {
     systemId: sysCtx.systemId,
     requestId,
     scriptArgs: parsed.scriptArgs,
+    commandEnv: parsed.commandEnv,
   };
 }
 
@@ -203,6 +208,7 @@ export function buildSyncFigmaTokensQueueArgs(options: {
     systemId: sysCtx.systemId,
     requestId,
     scriptArgs: parsed.commandArgs,
+    commandEnv: parsed.commandEnv,
     allowNonZeroJson: true,
   };
 }
@@ -223,6 +229,7 @@ export function buildCaptureFigmaScreenshotQueueArgs(options: {
     systemId: sysCtx.systemId,
     requestId,
     scriptArgs: parsed.commandArgs,
+    commandEnv: parsed.commandEnv,
     allowNonZeroJson: true,
   };
 }

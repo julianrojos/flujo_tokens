@@ -61,6 +61,7 @@ export interface SyncFigmaTokensCommandConfigOptions {
 export interface SyncFigmaTokensCommandConfigResult {
   commandArgs: string[];
   commandDisplayArgs: string[];
+  commandEnv?: Record<string, string>;
 }
 
 export interface CaptureFigmaScreenshotCommandConfigOptions {
@@ -96,6 +97,7 @@ export interface CaptureFigmaScreenshotCommandConfigResult {
   };
   commandArgs?: string[];
   commandDisplayArgs?: string[];
+  commandEnv?: Record<string, string>;
 }
 
 function toTrimmed(value: unknown): string {
@@ -200,11 +202,12 @@ export function buildSyncFigmaTokensCommandConfig(
     dryRun,
   ];
   if (figmaUrl) commandArgs.push('--url', figmaUrl);
-  if (figmaToken) commandArgs.push('--figma-token', figmaToken);
+  const commandEnv = figmaToken ? { FIGMA_TOKEN: figmaToken } : undefined;
 
   return {
     commandArgs,
     commandDisplayArgs: redactFigmaToken(commandArgs),
+    commandEnv,
   };
 }
 
@@ -298,11 +301,12 @@ export function buildCaptureFigmaScreenshotCommandConfig(
     componentKind,
   ];
   if (componentSlug) commandArgs.push('--component-slug', componentSlug);
-  if (figmaToken) commandArgs.push('--figma-token', figmaToken);
+  const commandEnv = figmaToken ? { FIGMA_TOKEN: figmaToken } : undefined;
 
   return {
     ok: true,
     commandArgs,
     commandDisplayArgs: redactFigmaToken(commandArgs),
+    commandEnv,
   };
 }

@@ -7,6 +7,7 @@ import {
   buildCreateDesignSystemSuccessPayload,
   buildDeleteDesignSystemSuccessPayload,
   buildNoStoreJsonResponse,
+  ensureSystemFilesystemScaffold,
   buildUpdateDesignSystemSuccessPayload,
   collectRemovableSystemPaths,
   decodeSystemRouteId,
@@ -42,6 +43,8 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     normalizeFigmaApiTokenRef,
     normalizeCollectionList,
     summarizeDesignSystemsConfig,
+    repoRoot,
+    fsSync,
   } = deps;
   const body = await readJsonBody(c);
   const config = designSystemRepository.getConfig();
@@ -58,6 +61,21 @@ export async function handleCreateDesignSystemRoute(c, deps) {
   }
 
   const { nextSystem, nextConfig } = mutation;
+  try {
+    ensureSystemFilesystemScaffold({ nextSystem, repoRoot, fsSync });
+  } catch (error) {
+    return failJson(c, 500, {
+      code: "design_system.bootstrap_failed",
+      userMessage: "Failed to initialize filesystem scaffold for the new design system.",
+      recoverable: true,
+      context: {
+        systemId: nextSystem.id,
+        docsDir: nextSystem.docsDir,
+        reason: error instanceof Error ? error.message : String(error),
+      },
+    });
+  }
+
   designSystemRepository.saveConfig(nextConfig);
   return c.json(
     buildCreateDesignSystemSuccessPayload({
