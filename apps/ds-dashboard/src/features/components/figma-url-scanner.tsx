@@ -549,9 +549,16 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
       </CardContent>
 
       {confirmModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="figma-overwrite-confirm-modal-title"
+        >
           <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
-            <h2 className="mb-2 text-lg font-semibold">Overwrite existing component data?</h2>
+            <h2 id="figma-overwrite-confirm-modal-title" className="mb-2 text-lg font-semibold">
+              Overwrite existing component data?
+            </h2>
             <p className="mb-3 text-sm text-muted-foreground">
               This scan targets {confirmModal.totalTargets} component
               {confirmModal.totalTargets === 1 ? "" : "s"} and will overwrite existing

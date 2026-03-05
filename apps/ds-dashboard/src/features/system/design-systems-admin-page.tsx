@@ -424,9 +424,16 @@ export function DesignSystemsAdminPage() {
       )}
 
       {deleteModalTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="design-system-delete-modal-title"
+        >
           <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
-            <h2 className="mb-2 text-lg font-semibold">Confirm deletion</h2>
+            <h2 id="design-system-delete-modal-title" className="mb-2 text-lg font-semibold">
+              Confirm deletion
+            </h2>
             <p className="mb-4 text-sm text-muted-foreground">
               Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>. All its
               data will be removed. This action cannot be undone.

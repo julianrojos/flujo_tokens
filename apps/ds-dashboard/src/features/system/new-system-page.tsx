@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
+import { cn } from "@/lib/utils";
 
 function toSystemId(rawName: string) {
   return rawName
@@ -98,7 +99,7 @@ function makeInlineErrorDisplay(args: {
 
 export function NewSystemPage() {
   const navigate = useNavigate();
-  const { replaceSystems } = useDesignSystem();
+  const { replaceSystems, systems } = useDesignSystem();
 
   const [systemName, setSystemName] = useState("");
   const [systemIdOverride, setSystemIdOverride] = useState("");
@@ -111,6 +112,9 @@ export function NewSystemPage() {
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
   const [savedSystemId, setSavedSystemId] = useState("");
   const [captureProgress, setCaptureProgress] = useState<CaptureFigmaProgress | null>(null);
+  const [showImportProgressModal, setShowImportProgressModal] = useState(false);
+  const [importCompleted, setImportCompleted] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -133,11 +137,24 @@ export function NewSystemPage() {
   })();
   const canSave = !!systemName.trim() && !!generatedSystemId && !saving
     && (!hasFigmaUrl || hasToken) && figmaUrlValid;
+  const hasExistingSystems = systems.length > 0;
+  const progressTotal = captureProgress?.total ?? 0;
+  const progressCompleted = captureProgress?.completed ?? 0;
+  const progressRemaining = captureProgress?.remaining ?? Math.max(0, progressTotal - progressCompleted);
+
+  useEffect(() => {
+    if (!hasExistingSystems) {
+      setMakeDefault(false);
+    }
+  }, [hasExistingSystems]);
 
   const doCreate = async () => {
     setSaving(true);
     setSaveError(null);
     setCaptureProgress(null);
+    setShowImportProgressModal(false);
+    setImportCompleted(false);
+    setImportError(null);
     try {
       const response = await createDesignSystem({
         id: generatedSystemId,
@@ -153,7 +170,9 @@ export function NewSystemPage() {
       });
 
       const trimmedUrl = toDocumentWideFigmaUrl(figmaFileUrl);
+      let captureFinishedOk = false;
       if (trimmedUrl) {
+        setShowImportProgressModal(true);
         const runtimeToken = figmaAccessToken.trim();
         try {
           const captureResult = await captureFigmaScreenshot(
@@ -217,8 +236,10 @@ export function NewSystemPage() {
               );
             }
           }
+          captureFinishedOk = true;
         } catch (error) {
           const details = getCaptureErrorMessage(error);
+          setImportError(details);
           setSaveError(
             makeInlineErrorDisplay({
               title: "System created with warnings",
@@ -231,7 +252,12 @@ export function NewSystemPage() {
 
       replaceSystems(response.config.systems, { activeSystemId: response.system.id });
       setSavedSystemId(response.system.id);
-      navigate("/components");
+      if (trimmedUrl && captureFinishedOk) {
+        setImportCompleted(true);
+      }
+      if (!trimmedUrl) {
+        navigate("/components");
+      }
     } catch (error) {
       setSaveError(
         toApiErrorDisplay(error, {
@@ -241,7 +267,6 @@ export function NewSystemPage() {
       );
     } finally {
       setSaving(false);
-      setCaptureProgress(null);
     }
   };
 
@@ -349,15 +374,17 @@ export function NewSystemPage() {
             </span>
           </label>
 
-          <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={makeDefault}
-              onChange={(e) => setMakeDefault(e.target.checked)}
-              className="h-4 w-4"
-            />
-            Set as active system after creation
-          </label>
+          {hasExistingSystems ? (
+            <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={makeDefault}
+                onChange={(e) => setMakeDefault(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Set as active system after creation
+            </label>
+          ) : null}
 
           {saveError ? (
             <ApiErrorMessage error={saveError} className="mt-3" />
@@ -391,6 +418,59 @@ export function NewSystemPage() {
           <FigmaUrlScanner />
         </section>
       </div>
+
+      {showImportProgressModal ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="import-progress-modal-title"
+        >
+          <div className="w-full max-w-xl rounded-xl border border-border bg-card p-5 shadow-xl">
+            <h2 id="import-progress-modal-title" className="text-lg font-semibold">
+              Importing from Figma
+            </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {progressTotal > 0
+                ? `${progressCompleted}/${progressTotal} downloaded · ${progressRemaining} remaining`
+                : "Preparing import..."}
+            </p>
+
+            {importError ? (
+              <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400">
+                {importError}
+              </div>
+            ) : null}
+
+            {importCompleted && !importError ? (
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Link
+                  to="/tokens"
+                  className={cn(buttonVariants({ variant: "default" }))}
+                >
+                  Ver Design Tokens
+                </Link>
+                <Link
+                  to="/components"
+                  className={cn(buttonVariants({ variant: "outline" }))}
+                >
+                  Ver componentes
+                </Link>
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowImportProgressModal(false)}
+                disabled={saving && !importError && !importCompleted}
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
     </div>
   );
