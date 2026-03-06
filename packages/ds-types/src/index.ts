@@ -1,5 +1,6 @@
 export type {
     ComponentSpec,
+    PartialComponentSpec,
     SpecProperty,
     SpecAnatomyItem,
     SpecLayoutItem,

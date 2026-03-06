@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ComponentSpec, SpecProperty } from "ds-types";
+import type { PartialComponentSpec, SpecProperty } from "ds-types";
 import type { TokenEntry } from "@/types/token-registry";
 import { ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +65,7 @@ function PropertyRow({ prop }: { prop: SpecProperty }) {
 }
 
 interface ComponentSpecViewerProps {
-  spec: ComponentSpec;
+  spec: PartialComponentSpec;
   resolveToken?: (tokenRef: string) => { token: TokenEntry | null; usageCount: number | null };
 }
 
@@ -75,6 +75,8 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
     when_to_use: "—",
     when_not_to_use: "—",
   };
+  const anatomyItems = spec.anatomy ?? [];
+  const propertyItems = spec.properties ?? [];
 
   const [propertySort, setPropertySort] = useState<{
     field: "name" | "type" | "values" | "default" | "required" | "description";
@@ -86,7 +88,7 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
   }>({ field: "condition", dir: "asc" });
 
   const sortedProperties = useMemo(() => {
-    const rows = (spec.properties ?? []).slice();
+    const rows = propertyItems.slice();
     rows.sort((left, right) => {
       const valueFor = (prop: SpecProperty) => {
         if (propertySort.field === "name") return prop.name.toLowerCase();
@@ -102,7 +104,7 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
       return propertySort.dir === "asc" ? comparison : comparison * -1;
     });
     return rows;
-  }, [propertySort, spec.properties]);
+  }, [propertyItems, propertySort]);
 
   const sortMappingEntries = (conditions: Record<string, string>) => {
     const rows = Object.entries(conditions);
@@ -153,13 +155,13 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
       </section>
 
       {/* Anatomy */}
-      {spec.anatomy?.length > 0 ? (
+      {anatomyItems.length > 0 ? (
         <section>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Anatomy
           </h4>
           <ol className="space-y-1 text-sm">
-            {spec.anatomy.map((item, idx) => (
+            {anatomyItems.map((item, idx) => (
               <li key={item.id} className="flex gap-2">
                 <span className="w-5 flex-none font-mono text-xs text-muted-foreground">
                   {idx + 1}.
@@ -176,7 +178,7 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
       ) : null}
 
       {/* Properties */}
-      {spec.properties?.length > 0 ? (
+      {propertyItems.length > 0 ? (
         <section>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Properties

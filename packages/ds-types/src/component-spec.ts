@@ -73,3 +73,10 @@ export interface ComponentSpec {
     layout?: SpecLayoutItem[];
     variant_visuals?: SpecVariantVisual[];
 }
+
+/**
+ * UI/runtime-friendly shape for partially captured specs (e.g. raw Figma extraction).
+ * Use this type in ingestion and read-only surfaces that must tolerate missing fields.
+ * Keep `ComponentSpec` strict for validated/editorial contracts.
+ */
+export type PartialComponentSpec = Partial<ComponentSpec>;

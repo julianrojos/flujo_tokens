@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
 import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component-usage-index";
-import type { ComponentSpec } from "ds-types";
+import type { PartialComponentSpec } from "ds-types";
 import type { TokenEntry, TokenRegistry } from "@/types/token-registry";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
 import { ComponentSpecViewer } from "./component-spec-viewer";
@@ -227,7 +227,7 @@ export function ComponentDetailPage() {
   const [item, setItem] = useState<ComponentRegistryItem | null>(null);
   const [usage, setUsage] = useState<ComponentUsageEntry | null>(null);
   const [allItems, setAllItems] = useState<ComponentRegistryItem[]>([]);
-  const [spec, setSpec] = useState<ComponentSpec | null>(null);
+  const [spec, setSpec] = useState<PartialComponentSpec | null>(null);
   const [specRaw, setSpecRaw] = useState("");
   const [specRawHash, setSpecRawHash] = useState<string | null>(null);
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
@@ -259,7 +259,7 @@ export function ComponentDetailPage() {
         setUsage(usageIndex.by_slug[slug] ?? null);
         const hasSpec = Boolean(specPayload?.ok && specPayload.exists);
         setSpec(
-          hasSpec && specPayload?.parsed ? (specPayload.parsed as ComponentSpec) : null,
+          hasSpec && specPayload?.parsed ? (specPayload.parsed as PartialComponentSpec) : null,
         );
         setSpecRawHash(specPayload?.rawHash ?? null);
         setSpecRaw(
