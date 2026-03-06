@@ -64,6 +64,28 @@ import type { ParsedFigmaFileUrl } from './figma-component-map.js';
 import type { ExtractedComponentSpec } from '../types/spec.js';
 import type { CaptureTarget } from '../types/capture-targets.js';
 
+type CapturePipelinePhase =
+  | 'validate_input'
+  | 'parse_descriptor'
+  | 'token_sync'
+  | 'resolve_context'
+  | 'build_targets'
+  | 'capture_batch'
+  | 'dry_run';
+
+function throwWithPipelinePhase(error: unknown, phase: CapturePipelinePhase): never {
+  if (error instanceof Error) {
+    const enriched = error as Error & { pipeline_phase?: string };
+    if (!enriched.pipeline_phase) {
+      enriched.pipeline_phase = phase;
+    }
+    throw enriched;
+  }
+  const wrapped = new Error(String(error));
+  (wrapped as Error & { pipeline_phase?: string }).pipeline_phase = phase;
+  throw wrapped;
+}
+
 /**
  * Dependencies for runCaptureFromFigmaUrl.
  */
@@ -166,13 +188,17 @@ export async function runCaptureFromFigmaUrl(
   } = deps;
 
   const figmaUrl = String(args.url || '').trim();
+  let phase: CapturePipelinePhase = 'validate_input';
   if (!figmaUrl) {
-    throw new Error('Missing Figma URL. Provide --url <figma-url>.');
+    throwWithPipelinePhase(new Error('Missing Figma URL. Provide --url <figma-url>.'), phase);
   }
 
   const figmaTokenRaw = String(args['figma-token'] || process.env.FIGMA_TOKEN || '').trim();
   if (!figmaTokenRaw) {
-    throw new Error('Missing Figma token. Provide --figma-token <token> or set FIGMA_TOKEN.');
+    throwWithPipelinePhase(
+      new Error('Missing Figma token. Provide --figma-token <token> or set FIGMA_TOKEN.'),
+      phase,
+    );
   }
 
   const context: PipelineContext = createPipelineContextFn(args);
@@ -210,23 +236,38 @@ export async function runCaptureFromFigmaUrl(
     mainCaptureMode,
   } = flags;
 
-  const descriptor: ParsedFigmaFileUrl = parseFigmaFileUrlFn(figmaUrl);
+  phase = 'parse_descriptor';
+  let descriptor: ParsedFigmaFileUrl;
+  try {
+    descriptor = parseFigmaFileUrlFn(figmaUrl);
+  } catch (error) {
+    throwWithPipelinePhase(error, phase);
+  }
   const descriptorWithSource: FigmaDescriptor & { nodeIdFromUrl?: string } = {
     ...descriptor,
     sourceUrl: descriptor.figmaUrl,
     nodeIdFromUrl: descriptor.rootNodeId || undefined,
   };
-  const { tokenBootstrap, tokenCompile } = await orchestrateTokenSyncFn({
-    dryRun,
-    projectRoot,
-    systemId: ctx.id,
-    fileKey: descriptor.fileKey,
-    figmaToken,
-    getSystemConfigFn,
-    bootstrapInputJsonFromFigmaVariablesFn,
-    ensureCollectionsConfiguredFn,
-    runTokensCompileIfNeededFn,
-  });
+  phase = 'token_sync';
+  let tokenBootstrap: unknown;
+  let tokenCompile: unknown;
+  try {
+    const tokenSync = await orchestrateTokenSyncFn({
+      dryRun,
+      projectRoot,
+      systemId: ctx.id,
+      fileKey: descriptor.fileKey,
+      figmaToken,
+      getSystemConfigFn,
+      bootstrapInputJsonFromFigmaVariablesFn,
+      ensureCollectionsConfiguredFn,
+      runTokensCompileIfNeededFn,
+    });
+    tokenBootstrap = tokenSync.tokenBootstrap;
+    tokenCompile = tokenSync.tokenCompile;
+  } catch (error) {
+    throwWithPipelinePhase(error, phase);
+  }
 
   const { ensureFilePayload, resolveContext } = configureFigmaContextFn({
     descriptor: descriptorWithSource,
@@ -237,15 +278,31 @@ export async function runCaptureFromFigmaUrl(
     buildFigmaComponentMapFn,
   });
 
-  const { componentMap, singleNodeCandidate } = await resolveContext();
+  phase = 'resolve_context';
+  let componentMap: Awaited<ReturnType<typeof resolveContext>>['componentMap'];
+  let singleNodeCandidate: Awaited<ReturnType<typeof resolveContext>>['singleNodeCandidate'];
+  try {
+    const resolved = await resolveContext();
+    componentMap = resolved.componentMap;
+    singleNodeCandidate = resolved.singleNodeCandidate;
+  } catch (error) {
+    throwWithPipelinePhase(error, phase);
+  }
 
-  ensureSystemDocsScaffoldFn({ docsRootDir, componentDocsDir });
-
-  const services = createCaptureServices({ context });
-  const componentRows = services.readComponentRegistry();
-  const slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
-  const specContents = services.readSpecContents();
-  const slugByNodeFromSpecs = buildSlugLookupFromSpecContentsFn(specContents);
+  phase = 'build_targets';
+  let services: ReturnType<typeof createCaptureServices>;
+  let slugByNodeFromRegistry: ReturnType<typeof buildSlugLookupFromRegistryFn>;
+  let slugByNodeFromSpecs: ReturnType<typeof buildSlugLookupFromSpecContentsFn>;
+  try {
+    ensureSystemDocsScaffoldFn({ docsRootDir, componentDocsDir });
+    services = createCaptureServices({ context });
+    const componentRows = services.readComponentRegistry();
+    slugByNodeFromRegistry = buildSlugLookupFromRegistryFn(componentRows);
+    const specContents = services.readSpecContents();
+    slugByNodeFromSpecs = buildSlugLookupFromSpecContentsFn(specContents);
+  } catch (error) {
+    throwWithPipelinePhase(error, phase);
+  }
 
   const allComponents = Array.isArray(componentMap?.components) ? componentMap.components : [];
   const hasNodeIdFromUrl = Boolean(descriptor.rootNodeId);
@@ -282,35 +339,43 @@ export async function runCaptureFromFigmaUrl(
   const captureScriptPath = path.join(projectRoot, 'tooling', 'scripts', 'ds-capture-visual-proof.mjs');
   const registryRefreshScriptPath = path.join(projectRoot, 'tooling', 'scripts', 'ds-registry-refresh.mjs');
 
-  const { targets, skipped } = await buildCaptureTargetsFn({
-    sourceCandidates,
-    descriptor: descriptorWithSource,
-    ctx: ctx as unknown as CaptureContext | Record<string, unknown>,
-    docsRootOverride: paths.docsRootOverride ?? undefined,
-    applySlugOverride,
-    componentSlugOverride,
-    slugByNodeFromRegistry,
-    slugByNodeFromSpecs,
-    requireExistingDoc,
-    injectDocSpecs,
-    includeSpecExhibits,
-    figmaToken,
-    repoRoot: projectRoot,
-    ensureFilePayload,
-    fetchFigmaNodes: fetchFigmaNodesFn,
-    fetchFigmaImages: fetchFigmaImagesFn as unknown as (options: { fileKey: string; nodeIds: string[]; token: string; format?: string; scale?: number }) => Promise<{ images?: Record<string, string> }>,
-    extractComponentSpec: extractComponentSpecFn as unknown as (node: unknown) => import('./capture-target-builder.js').ExtractedComponentSpec,
-    resolveSpecExhibitNodeIds: resolveSpecExhibitNodeIdsFn as unknown as (options: { figmaFilePayload: unknown; targetNodeId: string }) => { specsNodeId?: string; anatomyNodeId?: string; propertiesNodeId?: string; layoutNodeId?: string } | null,
-    buildFigmaNodeUrl: buildFigmaNodeUrlFn as unknown as (descriptor: FigmaDescriptor | Record<string, unknown>, nodeId: string) => string,
-    classifyTargetKind: classifyTargetKindFn as unknown as (kind?: string | null) => CaptureTargetKind,
-    renderEnrichedMarkdownSeed: renderEnrichedMarkdownSeedFn as unknown as (options: { slug: string; displayName: string; nodeUrl: string; nodeId: string; spec?: unknown }) => string,
-    injectSpecZones: injectSpecZonesFn as unknown as (markdown: string, spec: unknown, slug: string) => string,
-    writeTextAtomic: writeTextAtomicFn as unknown as (filePath: string, content: string) => Promise<void>,
-    stderrWrite: stderrWriteFn,
-    markdownExistsFn: services.markdownExists,
-    specExistsFn: services.specExists,
-    readMarkdownContentFn: services.readMarkdownContent,
-  });
+  let targets: CaptureTarget[];
+  let skipped: unknown[];
+  try {
+    const targetBuild = await buildCaptureTargetsFn({
+      sourceCandidates,
+      descriptor: descriptorWithSource,
+      ctx: ctx as unknown as CaptureContext | Record<string, unknown>,
+      docsRootOverride: paths.docsRootOverride ?? undefined,
+      applySlugOverride,
+      componentSlugOverride,
+      slugByNodeFromRegistry,
+      slugByNodeFromSpecs,
+      requireExistingDoc,
+      injectDocSpecs,
+      includeSpecExhibits,
+      figmaToken,
+      repoRoot: projectRoot,
+      ensureFilePayload,
+      fetchFigmaNodes: fetchFigmaNodesFn,
+      fetchFigmaImages: fetchFigmaImagesFn as unknown as (options: { fileKey: string; nodeIds: string[]; token: string; format?: string; scale?: number }) => Promise<{ images?: Record<string, string> }>,
+      extractComponentSpec: extractComponentSpecFn as unknown as (node: unknown) => import('./capture-target-builder.js').ExtractedComponentSpec,
+      resolveSpecExhibitNodeIds: resolveSpecExhibitNodeIdsFn as unknown as (options: { figmaFilePayload: unknown; targetNodeId: string }) => { specsNodeId?: string; anatomyNodeId?: string; propertiesNodeId?: string; layoutNodeId?: string } | null,
+      buildFigmaNodeUrl: buildFigmaNodeUrlFn as unknown as (descriptor: FigmaDescriptor | Record<string, unknown>, nodeId: string) => string,
+      classifyTargetKind: classifyTargetKindFn as unknown as (kind?: string | null) => CaptureTargetKind,
+      renderEnrichedMarkdownSeed: renderEnrichedMarkdownSeedFn as unknown as (options: { slug: string; displayName: string; nodeUrl: string; nodeId: string; spec?: unknown }) => string,
+      injectSpecZones: injectSpecZonesFn as unknown as (markdown: string, spec: unknown, slug: string) => string,
+      writeTextAtomic: writeTextAtomicFn as unknown as (filePath: string, content: string) => Promise<void>,
+      stderrWrite: stderrWriteFn,
+      markdownExistsFn: services.markdownExists,
+      specExistsFn: services.specExists,
+      readMarkdownContentFn: services.readMarkdownContent,
+    });
+    targets = targetBuild.targets as CaptureTarget[];
+    skipped = targetBuild.skipped as unknown[];
+  } catch (error) {
+    throwWithPipelinePhase(error, phase);
+  }
 
   const report = createCaptureReportFn({
     dryRun,
@@ -339,28 +404,38 @@ export async function runCaptureFromFigmaUrl(
   });
 
   if (dryRun) {
-    return { ok: true, report: report as unknown as Record<string, unknown> } as RunCaptureFromFigmaUrlResult;
+    phase = 'dry_run';
+    return {
+      ok: true,
+      report: report as unknown as Record<string, unknown>,
+    } as RunCaptureFromFigmaUrlResult;
   }
 
-  const batchResult = executeCaptureBatchAndRefreshFn({
-    report: report as unknown as Record<string, unknown>,
-    targets: targets as unknown as CaptureTarget[],
-    projectRoot,
-    systemId: ctx.id,
-    docsRootDir,
-    runJsonCommandFn,
-    continueOnError,
-    figmaToken,
-    format,
-    scale,
-    proofDir,
-    proofImageDir,
-    includeVariants,
-    variantLimit,
-    agent,
-    mainCaptureMode,
-    refreshIndices,
-  });
+  phase = 'capture_batch';
+  let batchResult: Record<string, unknown>;
+  try {
+    batchResult = executeCaptureBatchAndRefreshFn({
+      report: report as unknown as Record<string, unknown>,
+      targets: targets as unknown as CaptureTarget[],
+      projectRoot,
+      systemId: ctx.id,
+      docsRootDir,
+      runJsonCommandFn,
+      continueOnError,
+      figmaToken,
+      format,
+      scale,
+      proofDir,
+      proofImageDir,
+      includeVariants,
+      variantLimit,
+      agent,
+      mainCaptureMode,
+      refreshIndices,
+    });
+  } catch (error) {
+    throwWithPipelinePhase(error, phase);
+  }
 
   return batchResult as unknown as RunCaptureFromFigmaUrlResult;
 }

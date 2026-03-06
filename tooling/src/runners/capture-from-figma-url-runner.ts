@@ -11,6 +11,8 @@ import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { isMain } from '../utils/is-main.js';
 import { runCaptureFromFigmaUrl } from '../services/capture-orchestrator-main.js';
 import { logger } from '../utils/logger.js';
+import { toFigmaErrorDetail } from '../utils/figma-api.js';
+import type { FigmaErrorDetail } from '../utils/figma-api.js';
 
 const CLI_CONFIG = {
   command:
@@ -149,6 +151,28 @@ export async function runCaptureFromFigmaUrlRunner(args: string[] = []): Promise
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const figmaError = toFigmaErrorDetail(error);
+    const pipelinePhase =
+      error && typeof error === 'object' && 'pipeline_phase' in error
+        ? String((error as { pipeline_phase?: unknown }).pipeline_phase || '').trim()
+        : '';
+    const errorPayload: {
+      ok: false;
+      error: string;
+      figma_error?: FigmaErrorDetail;
+      pipeline_phase?: string;
+    } = {
+      ok: false,
+      error: message,
+    };
+    if (figmaError) {
+      errorPayload.figma_error = figmaError;
+    }
+    if (pipelinePhase) {
+      errorPayload.pipeline_phase = pipelinePhase;
+    }
+
+    process.stdout.write(`${JSON.stringify(errorPayload, null, 2)}\n`);
     logger.error(message);
 
     if (message.startsWith('Missing Figma URL.')) {

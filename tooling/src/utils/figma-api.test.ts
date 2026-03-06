@@ -2,9 +2,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert";
 import {
   buildFigmaFileEndpoint,
+  FigmaApiError,
   normalizeFileKey,
   sanitizeToken,
   normalizePositiveInteger,
+  toFigmaErrorDetail,
 } from "./figma-api.js";
 
 describe("figma-api utils", () => {
@@ -117,6 +119,33 @@ describe("figma-api utils", () => {
         () => buildFigmaFileEndpoint({ fileKey: "" }),
         /Missing Figma file key/
       );
+    });
+  });
+
+  describe("toFigmaErrorDetail", () => {
+    it("returns null for non-FigmaApiError values", () => {
+      assert.equal(toFigmaErrorDetail(new Error("boom")), null);
+      assert.equal(toFigmaErrorDetail("boom"), null);
+    });
+
+    it("serializes FigmaApiError fields", () => {
+      const error = new FigmaApiError({
+        type: "figma_api_error",
+        message: "Figma API error 404",
+        endpoint: "https://api.figma.com/v1/files/abc123",
+        fileKey: "abc123",
+        status: 404,
+        code: "Not found",
+      });
+
+      const detail = toFigmaErrorDetail(error);
+      assert.ok(detail);
+      assert.equal(detail?.type, "figma_api_error");
+      assert.equal(detail?.status, 404);
+      assert.equal(detail?.fileKey, "abc123");
+      assert.equal(detail?.endpoint, "https://api.figma.com/v1/files/abc123");
+      assert.equal(detail?.message, "Figma API error 404");
+      assert.equal(detail?.code, "Not found");
     });
   });
 });

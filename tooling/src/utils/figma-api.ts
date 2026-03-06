@@ -27,6 +27,70 @@ export type { FigmaVariablesResponse };
 const FIGMA_API_BASE_URL = 'https://api.figma.com';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
+export type FigmaErrorType = 'figma_api_error' | 'figma_timeout' | 'figma_network_error';
+
+export interface FigmaErrorDetail {
+  type: FigmaErrorType;
+  message: string;
+  endpoint: string;
+  fileKey?: string;
+  status?: number;
+  code?: string;
+  details?: string;
+  retryAfterSeconds?: number | null;
+}
+
+/**
+ * Structured error emitted for failures while calling Figma REST API.
+ */
+export class FigmaApiError extends Error {
+  readonly type: FigmaErrorType;
+  readonly endpoint: string;
+  readonly fileKey?: string;
+  readonly status?: number;
+  readonly code?: string;
+  readonly details?: string;
+  readonly retryAfterSeconds?: number | null;
+
+  constructor(args: {
+    type: FigmaErrorType;
+    message: string;
+    endpoint: string;
+    fileKey?: string;
+    status?: number;
+    code?: string;
+    details?: string;
+    retryAfterSeconds?: number | null;
+  }) {
+    super(args.message);
+    this.name = 'FigmaApiError';
+    this.type = args.type;
+    this.endpoint = args.endpoint;
+    this.fileKey = args.fileKey;
+    this.status = args.status;
+    this.code = args.code;
+    this.details = args.details;
+    this.retryAfterSeconds = args.retryAfterSeconds;
+  }
+}
+
+/**
+ * Convert unknown errors to serializable Figma error details.
+ */
+export function toFigmaErrorDetail(error: unknown): FigmaErrorDetail | null {
+  if (!(error instanceof FigmaApiError)) return null;
+  return {
+    type: error.type,
+    message: error.message,
+    endpoint: error.endpoint,
+    fileKey: error.fileKey,
+    status: error.status,
+    code: error.code,
+    details: error.details,
+    retryAfterSeconds: error.retryAfterSeconds,
+  };
+}
+
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -93,6 +157,23 @@ function buildErrorDetails(payload: unknown): string {
   return err || msg;
 }
 
+function extractFigmaFileKeyFromEndpoint(rawEndpoint: string): string | undefined {
+  try {
+    const parsed = new URL(rawEndpoint);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    for (let i = 0; i < segments.length - 1; i += 1) {
+      if (segments[i] === 'files') {
+        const rawKey = segments[i + 1] || '';
+        if (!rawKey) return undefined;
+        return decodeURIComponent(rawKey);
+      }
+    }
+  } catch {
+    // no-op
+  }
+  return undefined;
+}
+
 /**
  * Resolve fetch function for current runtime.
  */
@@ -145,11 +226,20 @@ async function requestFigmaJson<T>(options: {
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     if (String(reason).toLowerCase().includes('abort')) {
-      throw new Error(
-        `Figma request timed out after ${normalizedTimeoutMs}ms: ${apiUrl.toString()}`
-      );
+      throw new FigmaApiError({
+        type: 'figma_timeout',
+        message: `Figma request timed out after ${normalizedTimeoutMs}ms: ${apiUrl.toString()}`,
+        endpoint: apiUrl.toString(),
+        fileKey: extractFigmaFileKeyFromEndpoint(apiUrl.toString()),
+      });
     }
-    throw new Error(`Figma request failed: ${reason}`);
+    throw new FigmaApiError({
+      type: 'figma_network_error',
+      message: `Figma request failed: ${reason}`,
+      endpoint: apiUrl.toString(),
+      fileKey: extractFigmaFileKeyFromEndpoint(apiUrl.toString()),
+      details: reason,
+    });
   } finally {
     clearTimeout(timer);
   }
@@ -163,11 +253,21 @@ async function requestFigmaJson<T>(options: {
       payload = null;
     }
     const details = buildErrorDetails(payload);
+    const payloadRecord =
+      payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null;
+    const payloadCode = String(payloadRecord?.err || payloadRecord?.error || '').trim() || undefined;
     const retryAfter = readRetryAfterSeconds(response);
     const retryHint = retryAfter !== null ? ` Retry after ${retryAfter}s.` : '';
-    throw new Error(
-      `Figma API error ${response.status} for ${apiUrl.toString()}.${details ? ` ${details}.` : ''}${retryHint}`
-    );
+    throw new FigmaApiError({
+      type: 'figma_api_error',
+      message: `Figma API error ${response.status} for ${apiUrl.toString()}.${details ? ` ${details}.` : ''}${retryHint}`,
+      status: response.status,
+      endpoint: apiUrl.toString(),
+      fileKey: extractFigmaFileKeyFromEndpoint(apiUrl.toString()),
+      code: payloadCode,
+      details: details || undefined,
+      retryAfterSeconds: retryAfter,
+    });
   }
 
   let payload: unknown;
