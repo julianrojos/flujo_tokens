@@ -439,7 +439,7 @@ export function DesignSystemsAdminPage() {
                       id={buildFieldId(id, "collections")}
                       value={draft.collections}
                       onChange={(e) => handleFieldChange(id, "collections", e.target.value)}
-                      placeholder="Primitives, Typography, Semantic, Components, A11y"
+                      placeholder="_Primitives, Semantic, Components..."
                       disabled={isBusy}
                     />
                   </div>
