@@ -7,10 +7,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { runSpecFromFigma } from './spec-orchestrator.js';
+import type { MaterializeSpecOptions } from './spec-write-adapter.js';
 
 describe('spec-orchestrator', () => {
   describe('runSpecFromFigma()', () => {
     it('returns stable result with injected dependencies', async () => {
+      let capturedMaterializeOptions: MaterializeSpecOptions | null = null;
       const result = await runSpecFromFigma(
         {
           url: 'https://www.figma.com/design/FILE123/Components?node-id=123-456',
@@ -86,10 +88,13 @@ describe('spec-orchestrator', () => {
           runSpecWithGuardsFn: ({ run }: any) => run({ existingSpec: null }),
           ensureSpecTemplateExistsFn: () => {},
           ensureSpecOutputDirectoryFn: () => {},
-          materializeSpecFn: () => ({
-            normalizedSpec: { name: 'Alert', properties: [] },
-            prefilledCount: 0,
-          }),
+          materializeSpecFn: (options: MaterializeSpecOptions) => {
+            capturedMaterializeOptions = options;
+            return {
+              normalizedSpec: { name: 'Alert', properties: [] },
+              prefilledCount: 0,
+            };
+          },
           assertEvidenceGatedScalarChangesFn: () => {},
           writeSpecWithSnapshotGuardFn: ({ normalizedSpec, applyWriteFn }: any) => {
             if (applyWriteFn) applyWriteFn({ outputPath: '/tmp/_out.yml', normalizedSpec });
@@ -128,6 +133,15 @@ describe('spec-orchestrator', () => {
       assert.equal(result.ok, true);
       assert.equal(result.componentName, 'Alert');
       assert.equal(result.componentSetNodeId, '123:456');
+      assert.ok(Array.isArray(capturedMaterializeOptions?.evidenceBackedPrefixes));
+      assert.equal(
+        capturedMaterializeOptions.evidenceBackedPrefixes.includes('variants'),
+        true,
+      );
+      assert.equal(
+        capturedMaterializeOptions.evidenceBackedPrefixes.includes('layout'),
+        true,
+      );
     });
   });
 });

@@ -67,6 +67,27 @@ export function buildSaveComponentSpecRouteArgs({
   };
 }
 
+export function buildPatchEditorialSpecRouteArgs({
+  slug,
+  specRelPath,
+  specAbsPath,
+  specBackupsDirPath,
+  repoRoot,
+  body,
+}) {
+  return {
+    slug,
+    path: specRelPath,
+    specAbsPath,
+    specBackupsDirPath,
+    repoRoot,
+    body: {
+      expectedHash: normalizeExpectedHash(body?.expectedHash),
+      fields: body?.fields ?? {},
+    },
+  };
+}
+
 export function buildRestoreComponentSpecRouteArgs({
   slug,
   specRelPath,

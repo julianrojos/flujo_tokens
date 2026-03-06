@@ -14,6 +14,7 @@ import {
     prefillTokenMapping,
     assertEvidenceGatedScalarChanges,
 } from '../utils/index.js';
+import { mergeSpecPreservingEditorial } from '../utils/spec-merge.js';
 
 export function ensureSpecTemplateExists(templatePath: string): void {
     if (!fs.existsSync(templatePath)) {
@@ -91,17 +92,25 @@ export function materializeSpec(options: MaterializeSpecOptions): { normalizedSp
         prefillTokenMappingFn: prefillTokenMapping,
     });
 
+    const finalSpec =
+        existingSpec && typeof existingSpec === 'object'
+            ? mergeSpecPreservingEditorial(
+                existingSpec as Record<string, unknown>,
+                normalizedSpec as Record<string, unknown>,
+            )
+            : normalizedSpec;
+
     if (existingSpec && !allowNonEvidenceUpdates) {
         evidenceGate({
             before: existingSpec,
-            after: normalizedSpec,
+            after: finalSpec,
             allowedKnownToKnownPrefixes: evidenceBackedPrefixes,
             label: `${outputPath} spec`,
         });
     }
 
     return {
-        normalizedSpec,
+        normalizedSpec: finalSpec,
         prefilledCount,
     };
 }

@@ -40,6 +40,8 @@ const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
     'figma.component_set_node_id',
     'properties',
     'anatomy',
+    'variants',
+    'layout',
 ]);
 
 export interface SpecOrchestratorDeps {

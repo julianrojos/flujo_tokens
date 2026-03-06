@@ -73,6 +73,16 @@ test("component-spec-routes: write endpoints are blocked outside development", a
   assert.equal(payload.code, "component_spec.editing_disabled");
 });
 
+test("component-spec-routes: patch editorial is blocked outside development", async () => {
+  const app = createTestApp({
+    isDevRuntime: () => false,
+  });
+  const res = await app.request("/api/component-spec/button/editorial", { method: "PATCH" });
+  assert.equal(res.status, 403);
+  const payload = await res.json();
+  assert.equal(payload.code, "component_spec.editing_disabled");
+});
+
 test("component-spec-routes: get returns current spec document payload", async () => {
   await withTempDir(async (dir) => {
     const componentRegistryPath = path.join(dir, "docs/_generated/component-registry.json");
@@ -111,5 +121,67 @@ test("component-spec-routes: get returns current spec document payload", async (
     assert.equal(payload.path, specRelPath);
     assert.equal(payload.rawHash, "hash");
     assert.equal(payload.parsed.name, "button");
+  });
+});
+
+test("component-spec-routes: patch editorial updates allowed fields", async () => {
+  await withTempDir(async (dir) => {
+    const componentRegistryPath = path.join(dir, "docs/_generated/component-registry.json");
+    const specRelPath = "docs/_spec/components/button.yml";
+    const specAbsPath = path.join(dir, specRelPath);
+    await fs.mkdir(path.dirname(componentRegistryPath), { recursive: true });
+    await fs.mkdir(path.dirname(specAbsPath), { recursive: true });
+    await fs.writeFile(
+      componentRegistryPath,
+      JSON.stringify({
+        components: [
+          {
+            slug: "button",
+            paths: { spec: specRelPath },
+          },
+        ],
+      }),
+      "utf8",
+    );
+    await fs.writeFile(
+      specAbsPath,
+      [
+        "name: Button",
+        "status: draft",
+        "summary:",
+        "  purpose: old",
+        "  when_to_use: old",
+        "  when_not_to_use: old",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const app = createTestApp({
+      readJsonBody: async () => ({
+        expectedHash: null,
+        fields: {
+          summary: {
+            purpose: "new",
+            when_to_use: "new",
+            when_not_to_use: "new",
+          },
+        },
+      }),
+      getSystemContext: () => ({
+        repoRoot: dir,
+        componentRegistryPath,
+        specBackupsDirPath: path.join(dir, "docs/_generated/spec-backups"),
+        tokenRegistryPath: path.join(dir, "docs/_generated/token-registry.json"),
+      }),
+    });
+
+    const res = await app.request("/api/component-spec/button/editorial", { method: "PATCH" });
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.deepEqual(payload.savedKeys, ["summary"]);
+    const updated = await fs.readFile(specAbsPath, "utf8");
+    assert.match(updated, /purpose: new/);
   });
 });

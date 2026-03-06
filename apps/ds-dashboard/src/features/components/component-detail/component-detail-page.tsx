@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/card";
 import { FigmaCaptureModal } from "./figma-capture-modal";
 import { SpecEditorDrawer } from "@/features/spec-editor/spec-editor-drawer";
+import { ComponentSpecEditor } from "./component-spec-editor";
 
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
@@ -234,6 +235,7 @@ export function ComponentDetailPage() {
   const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
   const [specEditorOpen, setSpecEditorOpen] = useState(false);
+  const [editorialEditorOpen, setEditorialEditorOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -271,6 +273,7 @@ export function ComponentDetailPage() {
         );
         setTokenRegistry(tokenRegistryPayload);
         setTokenUsageIndex(tokenUsagePayload);
+        setEditorialEditorOpen(false);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -710,6 +713,15 @@ export function ComponentDetailPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => setEditorialEditorOpen(true)}
+                    disabled={editorialEditorOpen}
+                  >
+                    <FilePenLine className="mr-2 h-4 w-4" />
+                    Edit summary
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setSpecEditorOpen(true)}
                   >
                     <FilePenLine className="mr-2 h-4 w-4" />
@@ -722,6 +734,22 @@ export function ComponentDetailPage() {
                   spec={spec}
                   resolveToken={resolveTokenMeta ?? undefined}
                 />
+                {editorialEditorOpen ? (
+                  <div className="mt-4">
+                    <ComponentSpecEditor
+                      slug={item.slug}
+                      spec={spec}
+                      expectedHash={specRawHash}
+                      onCancel={() => setEditorialEditorOpen(false)}
+                      onSaved={({ message, rawHash }) => {
+                        setCaptureSummary(message);
+                        setSpecRawHash(rawHash);
+                        setReloadNonce((prev) => prev + 1);
+                        setEditorialEditorOpen(false);
+                      }}
+                    />
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           ) : (

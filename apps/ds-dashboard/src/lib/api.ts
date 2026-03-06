@@ -16,6 +16,7 @@ import type {
   HealthHistoryReport,
 } from "@/types/health-history";
 import type {
+  ComponentSpecPatchEditorialResponse,
   ComponentSpecRestoreResponse,
   ComponentSpecSaveResponse,
   ComponentSpecValidateResponse,
@@ -569,6 +570,26 @@ export function restoreComponentSpecBackup(args: {
       },
       body: JSON.stringify({
         refreshRegistry: args.refreshRegistry !== false,
+      }),
+    },
+  );
+}
+
+export function patchEditorialSpec(args: {
+  slug: string;
+  expectedHash?: string | null;
+  fields: Record<string, unknown>;
+}) {
+  return getJson<ComponentSpecPatchEditorialResponse>(
+    `/api/component-spec/${encodeURIComponent(args.slug)}/editorial`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        expectedHash: args.expectedHash ?? null,
+        fields: args.fields,
       }),
     },
   );

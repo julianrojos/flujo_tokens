@@ -9,6 +9,7 @@ import {
   readLatestSpecBackup,
   readTextFileIfExists,
   restoreComponentSpecFromLatestBackup,
+  saveEditorialSpecFields,
   saveComponentSpecRaw,
   restoreSpecFromRaw,
   resolveComponentSpecTarget,
@@ -456,4 +457,148 @@ test("component-spec-service: saveComponentSpecRaw returns conflict on hash mism
   assert.equal(payload.ok, false);
   assert.equal(payload.validation.issues[0].code, "SPEC_CONFLICT");
   assert.equal(payload.message, "Spec file changed on disk; reload before saving.");
+});
+
+test("component-spec-service: saveEditorialSpecFields persists allowed editorial keys", async () => {
+  const persistCalls = [];
+  const payload = await saveEditorialSpecFields(
+    {
+      slug: "button",
+      path: "docs/_spec/components/button.yml",
+      body: {
+        expectedHash: null,
+        fields: {
+          summary: {
+            purpose: "Human summary",
+            when_to_use: "Use when primary action is needed",
+            when_not_to_use: "Do not use for destructive actions",
+          },
+        },
+      },
+      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      repoRoot: "/repo",
+    },
+    {
+      sha256TextFn: (value) => `hash:${value.length}`,
+      readTextFileIfExistsFn: async () => ({
+        exists: true,
+        raw: "name: Button\nstatus: draft\nsummary:\n  purpose: old\n",
+      }),
+      parseYamlSafelyFn: () => ({
+        parsed: {
+          name: "Button",
+          status: "draft",
+          summary: { purpose: "old", when_to_use: "old", when_not_to_use: "old" },
+          anatomy: [{ id: "container", description: "x" }],
+        },
+        parseError: null,
+      }),
+      persistSpecWithBackupFn: async (args) => {
+        persistCalls.push(args);
+        return { backupLatestPath: "/repo/docs/_spec/.backups/button.last.yml" };
+      },
+    },
+  );
+
+  assert.equal(payload.ok, true);
+  assert.equal(payload.slug, "button");
+  assert.equal(payload.path, "docs/_spec/components/button.yml");
+  assert.equal(payload.savedKeys.length, 1);
+  assert.equal(payload.savedKeys[0], "summary");
+  assert.equal(payload.backupPath, "docs/_spec/.backups/button.last.yml");
+  assert.equal(persistCalls.length, 1);
+  assert.match(persistCalls[0].nextRaw, /purpose:\s+Human summary/);
+});
+
+test("component-spec-service: saveEditorialSpecFields rejects capture keys", async () => {
+  await assert.rejects(
+    () =>
+      saveEditorialSpecFields(
+        {
+          slug: "button",
+          path: "docs/_spec/components/button.yml",
+          body: {
+            fields: {
+              anatomy: [],
+            },
+          },
+          specAbsPath: "/repo/docs/_spec/components/button.yml",
+          specBackupsDirPath: "/repo/docs/_spec/.backups",
+          repoRoot: "/repo",
+        },
+        {
+          sha256TextFn: () => "hash",
+        },
+      ),
+    (error) => Number(error?.statusCode) === 400,
+  );
+});
+
+test("component-spec-service: saveEditorialSpecFields rejects hash mismatch", async () => {
+  await assert.rejects(
+    () =>
+      saveEditorialSpecFields(
+        {
+          slug: "button",
+          path: "docs/_spec/components/button.yml",
+          body: {
+            expectedHash: "hash:old",
+            fields: {
+              summary: {
+                purpose: "x",
+                when_to_use: "y",
+                when_not_to_use: "z",
+              },
+            },
+          },
+          specAbsPath: "/repo/docs/_spec/components/button.yml",
+          specBackupsDirPath: "/repo/docs/_spec/.backups",
+          repoRoot: "/repo",
+        },
+        {
+          sha256TextFn: (value) => `hash:${value.length}`,
+          readTextFileIfExistsFn: async () => ({
+            exists: true,
+            raw: "name: Button\nstatus: draft\n",
+          }),
+        },
+      ),
+    (error) => Number(error?.statusCode) === 409,
+  );
+});
+
+test("component-spec-service: saveEditorialSpecFields rejects partial replacement for nested editorial fields", async () => {
+  await assert.rejects(
+    () =>
+      saveEditorialSpecFields(
+        {
+          slug: "button",
+          path: "docs/_spec/components/button.yml",
+          body: {
+            expectedHash: null,
+            fields: {
+              accessibility: {
+                role: "button",
+              },
+            },
+          },
+          specAbsPath: "/repo/docs/_spec/components/button.yml",
+          specBackupsDirPath: "/repo/docs/_spec/.backups",
+          repoRoot: "/repo",
+        },
+        {
+          sha256TextFn: (value) => `hash:${value.length}`,
+          readTextFileIfExistsFn: async () => ({
+            exists: true,
+            raw: "name: Button\nstatus: draft\n",
+          }),
+          parseYamlSafelyFn: () => ({
+            parsed: { name: "Button", status: "draft" },
+            parseError: null,
+          }),
+        },
+      ),
+    (error) => Number(error?.statusCode) === 400,
+  );
 });

@@ -84,7 +84,67 @@ describe('spec-write-adapter', () => {
       assert.equal(prefilledCount, 1);
     });
 
-    it('calls evidence gate when existing spec is present and bypass is disabled', () => {
+    it('preserves existing editorial summary during recapture materialization', () => {
+      const tmpDir = createTempDir();
+      const templatePath = path.join(tmpDir, '_template.yml');
+      const outputPath = path.join(tmpDir, 'alert.yml');
+
+      fs.writeFileSync(
+        templatePath,
+        [
+          'name: TBD',
+          'status: draft',
+          'figma:',
+          '  file: TBD',
+          '  page: TBD',
+          '  component_set: TBD',
+          'summary:',
+          '  purpose: TBD',
+          '  when_to_use: TBD',
+          '  when_not_to_use: TBD',
+          '',
+        ].join('\n'),
+        'utf8'
+      );
+
+      fs.writeFileSync(
+        outputPath,
+        [
+          'name: Alert',
+          'summary:',
+          '  purpose: Generated purpose',
+          '  when_to_use: Generated when-to-use',
+          '  when_not_to_use: Generated when-not-to-use',
+          '',
+        ].join('\n'),
+        'utf8'
+      );
+
+      const { normalizedSpec } = materializeSpec({
+        outputPath,
+        templatePath,
+        registryIndex: {},
+        componentName: 'Alert',
+        nodeId: '123:456',
+        fileKeyFromUrl: 'FILE_KEY',
+        existingSpec: {
+          summary: {
+            purpose: 'Human-authored purpose',
+            when_to_use: 'Human-authored when to use',
+            when_not_to_use: 'Human-authored when not to use',
+          },
+        },
+        allowNonEvidenceUpdates: false,
+        evidenceGate: () => {},
+        evidenceBackedPrefixes: ['name', 'anatomy', 'properties'],
+      });
+
+      assert.equal(normalizedSpec.summary.purpose, 'Human-authored purpose');
+      assert.equal(normalizedSpec.summary.when_to_use, 'Human-authored when to use');
+      assert.equal(normalizedSpec.summary.when_not_to_use, 'Human-authored when not to use');
+    });
+
+    it('calls evidence gate with provided evidence-backed prefixes when existing spec is present', () => {
       const tmpDir = createTempDir();
       const templatePath = path.join(tmpDir, '_template.yml');
       const outputPath = path.join(tmpDir, 'alert.yml');
@@ -92,7 +152,7 @@ describe('spec-write-adapter', () => {
       fs.writeFileSync(templatePath, 'name: TBD\nfigma:\n  file: TBD\n', 'utf8');
       fs.writeFileSync(outputPath, 'name: Alert\nfigma:\n  page: Components\n', 'utf8');
 
-      let invoked = false;
+      let gateArgs: any = null;
       materializeSpec({
         outputPath,
         templatePath,
@@ -102,13 +162,14 @@ describe('spec-write-adapter', () => {
         fileKeyFromUrl: '',
         existingSpec: { name: 'Old Alert' },
         allowNonEvidenceUpdates: false,
-        evidenceGate: () => {
-          invoked = true;
+        evidenceGate: (args: any) => {
+          gateArgs = args;
         },
-        evidenceBackedPrefixes: ['name'],
+        evidenceBackedPrefixes: ['name', 'variants', 'layout'],
       });
 
-      assert.equal(invoked, true);
+      assert.ok(gateArgs);
+      assert.deepEqual(gateArgs.allowedKnownToKnownPrefixes, ['name', 'variants', 'layout']);
     });
   });
 

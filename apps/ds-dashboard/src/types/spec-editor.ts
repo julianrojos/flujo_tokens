@@ -75,3 +75,12 @@ export interface ComponentSpecRestoreResponse {
   message?: string;
 }
 
+export interface ComponentSpecPatchEditorialResponse {
+  ok: boolean;
+  slug: string;
+  path: string;
+  rawHash: string | null;
+  backupPath: string | null;
+  savedKeys: string[];
+  message?: string;
+}

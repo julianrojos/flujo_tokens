@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildPatchEditorialSpecRouteArgs,
   buildComponentSpecGetPayload,
   buildRestoreComponentSpecRouteArgs,
   buildSaveComponentSpecRouteArgs,
@@ -57,6 +58,24 @@ test("component-spec-route-handler-service: save args normalize flags and expect
   assert.equal(args.expectedHash, null);
   assert.equal(args.confirmRiskyChanges, true);
   assert.equal(args.refreshRegistryAfterSave, false);
+});
+
+test("component-spec-route-handler-service: patch editorial args normalize payload", () => {
+  const args = buildPatchEditorialSpecRouteArgs({
+    slug: "button",
+    specRelPath: "docs/_spec/components/button.yml",
+    specAbsPath: "/repo/docs/_spec/components/button.yml",
+    specBackupsDirPath: "/repo/docs/_generated/spec-backups",
+    repoRoot: "/repo",
+    body: {
+      expectedHash: "   ",
+      fields: { summary: { purpose: "x" } },
+    },
+  });
+  assert.equal(args.slug, "button");
+  assert.equal(args.path, "docs/_spec/components/button.yml");
+  assert.equal(args.body.expectedHash, null);
+  assert.deepEqual(args.body.fields, { summary: { purpose: "x" } });
 });
 
 test("component-spec-route-handler-service: restore args normalize refresh flag", () => {

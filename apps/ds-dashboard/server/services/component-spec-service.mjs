@@ -3,9 +3,71 @@ import path from "node:path";
 import yaml from "js-yaml";
 
 import { runSpawnWithCapture } from "../lib/spawn-runner.mjs";
+import { CAPTURE_KEYS, EDITORIAL_KEYS } from "../lib/spec-keys.mjs";
 
 const COMPONENT_SLUG_RE = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 export const MAX_COMPONENT_SPEC_BYTES = 100_000;
+
+function isPlainObject(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
+const EDITORIAL_OBJECT_REQUIRED_KEYS = Object.freeze({
+  summary: ["purpose", "when_to_use", "when_not_to_use"],
+  accessibility: ["role", "focus", "hit_area", "labeling"],
+  content_guidelines: ["rules"],
+  best_practices: ["do", "dont"],
+});
+
+function assertEditorialReplacementContract(fields) {
+  for (const [key, value] of Object.entries(fields)) {
+    const requiredKeys = EDITORIAL_OBJECT_REQUIRED_KEYS[key];
+    if (requiredKeys) {
+      if (!isPlainObject(value)) {
+        const error = new Error(
+          `Field '${key}' must be a complete object replacement including: ${requiredKeys.join(", ")}`,
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+      const missing = requiredKeys.filter((requiredKey) => !(requiredKey in value));
+      if (missing.length > 0) {
+        const error = new Error(
+          `Field '${key}' must include all required keys for full replacement: ${missing.join(", ")}`,
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+      continue;
+    }
+
+    if (key === "token_mapping") {
+      if (value !== null && !isPlainObject(value)) {
+        const error = new Error("Field 'token_mapping' must be an object or null.");
+        error.statusCode = 400;
+        throw error;
+      }
+      continue;
+    }
+
+    if (key === "qa" || key === "related_components") {
+      if (!Array.isArray(value)) {
+        const error = new Error(`Field '${key}' must be an array.`);
+        error.statusCode = 400;
+        throw error;
+      }
+      continue;
+    }
+
+    if (key === "status" && typeof value !== "string") {
+      const error = new Error("Field 'status' must be a string.");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+}
 
 export function sanitizeComponentSlug(raw) {
   const slug = String(raw || "").trim().toLowerCase();
@@ -561,5 +623,110 @@ export async function saveComponentSpecRaw(args, deps = {}) {
     refreshed,
     refreshOutput,
     message: "Spec saved successfully.",
+  };
+}
+
+/**
+ * Save editorial fields only.
+ *
+ * Contract:
+ * - Each key in `body.fields` replaces the entire existing top-level editorial value.
+ * - Callers must provide full object values for nested fields (no partial nested patches).
+ */
+export async function saveEditorialSpecFields(args, deps = {}) {
+  const {
+    slug,
+    path: specRelPath,
+    body,
+    specAbsPath,
+    specBackupsDirPath,
+    repoRoot,
+  } = args;
+  const {
+    sha256TextFn,
+    readTextFileIfExistsFn = readTextFileIfExists,
+    parseYamlSafelyFn = parseYamlSafely,
+    persistSpecWithBackupFn = persistSpecWithBackup,
+  } = deps;
+
+  if (typeof sha256TextFn !== "function") {
+    throw new Error("sha256TextFn is required");
+  }
+
+  const rawFields = body?.fields;
+  if (!isPlainObject(rawFields)) {
+    const error = new Error("fields must be a JSON object.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const fields = rawFields;
+  const incomingKeys = Object.keys(fields);
+  const forbiddenCaptureKeys = incomingKeys.filter((key) => CAPTURE_KEYS.includes(key));
+  if (forbiddenCaptureKeys.length > 0) {
+    const error = new Error(
+      `Cannot overwrite capture keys via editorial PATCH: ${forbiddenCaptureKeys.join(", ")}`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const unknownKeys = incomingKeys.filter((key) => !EDITORIAL_KEYS.includes(key));
+  if (unknownKeys.length > 0) {
+    const error = new Error(
+      `Unknown editorial keys: ${unknownKeys.join(", ")}. Allowed: ${EDITORIAL_KEYS.join(", ")}`,
+    );
+    error.statusCode = 400;
+    throw error;
+  }
+  assertEditorialReplacementContract(fields);
+
+  const expectedHashRaw = body?.expectedHash;
+  const expectedHash =
+    expectedHashRaw === null || expectedHashRaw === undefined
+      ? null
+      : String(expectedHashRaw).trim() || null;
+
+  const currentLoaded = await readTextFileIfExistsFn(specAbsPath);
+  const currentRaw = currentLoaded.raw;
+  const currentExists = currentLoaded.exists;
+  const currentHash = currentExists ? sha256TextFn(currentRaw) : null;
+  if (expectedHash && expectedHash !== currentHash) {
+    const error = new Error("Spec file changed on disk; reload before saving editorial fields.");
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const currentParsed = parseYamlSafelyFn(currentRaw);
+  if (currentParsed.parseError) {
+    const error = new Error(`Spec YAML parse error: ${currentParsed.parseError}`);
+    error.statusCode = 422;
+    throw error;
+  }
+
+  const existing = isPlainObject(currentParsed.parsed) ? currentParsed.parsed : {};
+  const nextSpec = { ...existing };
+  for (const [key, value] of Object.entries(fields)) {
+    nextSpec[key] = value;
+  }
+
+  const nextRaw = yaml.dump(nextSpec, { lineWidth: -1 });
+  const persisted = await persistSpecWithBackupFn({
+    specAbsPath,
+    specBackupsDirPath,
+    slug,
+    currentRaw,
+    currentExists,
+    nextRaw,
+  });
+
+  return {
+    ok: true,
+    slug,
+    path: specRelPath,
+    rawHash: sha256TextFn(nextRaw),
+    backupPath: path.relative(repoRoot, persisted.backupLatestPath),
+    savedKeys: incomingKeys,
+    message: "Editorial fields saved successfully.",
   };
 }

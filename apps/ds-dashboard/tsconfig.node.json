@@ -22,6 +22,7 @@
     "src/lib/spec-diff.ts",
     "src/lib/spec-validator.ts",
     "server/system-repository.ts",
+    "server/lib/env-ref-utils.ts",
     "src/features/tokens/accessibility/color-utils.ts",
     "src/types/**/*.ts"
   ]
