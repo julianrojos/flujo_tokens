@@ -6,11 +6,21 @@ import { Input } from "@/components/ui/input";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 import {
+  buildPhaseAwareError,
+  extractCaptureFigmaErrorDetail,
+  extractCapturePipelinePhase,
+  extractPhaseAwareCaptureFigmaError,
+  formatCaptureFigmaErrorMessage,
+  toCapturePipelinePhase,
+  toPipelinePhaseFromError,
+} from "@/features/system/new-system-import-errors";
+import {
   ApiError,
   cancelQueueJob,
   captureFigmaScreenshot,
   createDesignSystem,
   pingFigmaFile,
+  type CaptureFigmaErrorDetail,
   type CaptureFigmaProgress,
   type FigmaPingResult,
   type TokensBootstrapResult,
@@ -91,6 +101,32 @@ function pickCaptureFailureMessage(candidates: unknown[]): string {
   return highSignal || messages[0] || "";
 }
 
+function formatPipelinePhaseLabel(phase: string): string {
+  return phase.replace(/_/g, " ");
+}
+
+function formatPipelinePhaseMessage(phase: string): string {
+  if (!phase) return "";
+  return `Import failed during '${formatPipelinePhaseLabel(phase)}' phase.`;
+}
+
+function getPipelinePhaseHint(phase: string): string | null {
+  if (phase === "token_sync") {
+    return "The import failed while syncing Figma variables. Components and tokens were not generated.";
+  }
+  if (phase === "resolve_context" || phase === "parse_descriptor") {
+    return "The import failed before component capture started. Check Figma URL, file key and access permissions.";
+  }
+  if (phase === "build_targets") {
+    return "The import failed while resolving capturable components from the Figma file.";
+  }
+  if (phase === "capture_batch") {
+    return "The import failed during screenshot/component capture execution.";
+  }
+  return null;
+}
+
+
 function extractCaptureFailureFromPayload(payload: unknown): string {
   const root = toRecord(payload);
   if (!root) return "";
@@ -103,6 +139,8 @@ function extractCaptureFailureFromPayload(payload: unknown): string {
   const failed = Array.isArray(resultPayload?.failed) ? resultPayload.failed : [];
   const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
   const events = Array.isArray(root.events) ? root.events : [];
+  const figmaErrorDetail = extractCaptureFigmaErrorDetail(payload);
+  const pipelinePhase = extractCapturePipelinePhase(payload);
 
   let lastErrorEventMessage = "";
   for (let index = events.length - 1; index >= 0; index -= 1) {
@@ -123,6 +161,7 @@ function extractCaptureFailureFromPayload(payload: unknown): string {
   }
 
   return pickCaptureFailureMessage([
+    formatCaptureFigmaErrorMessage(figmaErrorDetail),
     resultPayload?.error,
     resultPayload?.message,
     resultPayload?.stderr,
@@ -133,10 +172,25 @@ function extractCaptureFailureFromPayload(payload: unknown): string {
     registryRefresh?.stderr,
     lastErrorEventMessage,
     result?.summary,
+    formatPipelinePhaseMessage(pipelinePhase),
   ]);
 }
 
-function getImportErrorHint(message: string): string | null {
+function getImportErrorHint(
+  message: string,
+  figmaError: CaptureFigmaErrorDetail | null,
+  pipelinePhase: string,
+): string | null {
+  const phaseHint = getPipelinePhaseHint(pipelinePhase);
+  if (phaseHint) return phaseHint;
+
+  const status = figmaError?.status;
+  if (status === 404) {
+    return "Figma returned 404 for this file key. Verify the URL/file key and that the token can access that file.";
+  }
+  if (status === 403) {
+    return "Figma returned 403. The token is valid but does not have permission to read this file.";
+  }
   const normalized = message.toLowerCase();
   if (normalized.includes("figma api error 404")) {
     return "Figma returned 404. Check that the file key is correct and the token has access to that file.";
@@ -214,8 +268,11 @@ function mapTokensCompileReason(reason: string): string {
 
 function getCaptureErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
+    const figmaErrorMessage = formatCaptureFigmaErrorMessage(
+      extractCaptureFigmaErrorDetail(error.payload),
+    );
     const payloadMessage = extractCaptureFailureFromPayload(error.payload);
-    return payloadMessage || error.message || "Unknown API error";
+    return figmaErrorMessage || payloadMessage || error.message || "Unknown API error";
   }
 
   if (!(error instanceof Error)) return String(error);
@@ -252,6 +309,8 @@ function stringifySafe(value: unknown): string {
 function getCaptureErrorDetails(error: unknown): string {
   if (error instanceof ApiError) {
     const payloadCause = extractCaptureFailureFromPayload(error.payload);
+    const figmaErrorDetail = extractCaptureFigmaErrorDetail(error.payload);
+    const pipelinePhase = extractCapturePipelinePhase(error.payload);
     const lines = [
       `message: ${error.message || "Unknown API error"}`,
       `status: ${error.status} ${error.statusText}`,
@@ -260,6 +319,12 @@ function getCaptureErrorDetails(error: unknown): string {
     ];
     if (payloadCause) {
       lines.push(`derivedCause: ${payloadCause}`);
+    }
+    if (pipelinePhase) {
+      lines.push(`pipelinePhase: ${pipelinePhase}`);
+    }
+    if (figmaErrorDetail) {
+      lines.push(`figmaError:\n${stringifySafe(figmaErrorDetail)}`);
     }
     if (error.requestId) {
       lines.push(`requestId: ${error.requestId}`);
@@ -274,7 +339,13 @@ function getCaptureErrorDetails(error: unknown): string {
   }
 
   if (error instanceof Error) {
-    return error.stack || error.message || String(error);
+    const lines = [error.message || "Unknown error"];
+    const figmaError = extractPhaseAwareCaptureFigmaError(error);
+    const pipelinePhase = toPipelinePhaseFromError(error);
+    if (pipelinePhase) lines.push(`pipelinePhase: ${pipelinePhase}`);
+    if (figmaError) lines.push(`figmaError:\n${stringifySafe(figmaError)}`);
+    if (error.stack) lines.push(error.stack);
+    return lines.join("\n\n");
   }
 
   if (typeof error === "string") return error;
@@ -317,6 +388,8 @@ export function NewSystemPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importErrorDetails, setImportErrorDetails] = useState("");
   const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
+  const [importFigmaError, setImportFigmaError] = useState<CaptureFigmaErrorDetail | null>(null);
+  const [importPipelinePhase, setImportPipelinePhase] = useState("");
   const [importSourceUrl, setImportSourceUrl] = useState("");
   const [importSourceFileKey, setImportSourceFileKey] = useState("");
   const [importJobId, setImportJobId] = useState("");
@@ -356,7 +429,9 @@ export function NewSystemPage() {
   const progressTotal = captureProgress?.total ?? 0;
   const progressCompleted = captureProgress?.completed ?? 0;
   const progressRemaining = captureProgress?.remaining ?? Math.max(0, progressTotal - progressCompleted);
-  const importErrorHint = importError ? getImportErrorHint(importError) : null;
+  const importErrorHint = importError
+    ? getImportErrorHint(importError, importFigmaError, importPipelinePhase)
+    : null;
   const importStatusText = useMemo(() => {
     if (isCancellingImport) return "Stopping import...";
     if (importError) return "Import failed.";
@@ -454,6 +529,8 @@ export function NewSystemPage() {
     setImportError(null);
     setImportErrorDetails("");
     setShowImportErrorDetails(false);
+    setImportFigmaError(null);
+    setImportPipelinePhase("");
     setImportSourceUrl("");
     setImportSourceFileKey("");
     setImportJobId("");
@@ -530,7 +607,9 @@ export function NewSystemPage() {
             0;
           const capturedCount = captureResult.captured?.length ?? 0;
           const failedCount = captureResult.failed?.length ?? 0;
+          const capturePipelinePhase = toCapturePipelinePhase(captureResult.pipeline_phase);
           const captureFailureDetail =
+            formatCaptureFigmaErrorMessage(captureResult.figma_error || null) ||
             captureResult.error ||
             captureResult.message ||
             captureResult.stderr ||
@@ -539,13 +618,20 @@ export function NewSystemPage() {
             "";
 
           if (!hasDetailedCaptureResult) {
-            throw new Error(
-              captureFailureDetail || "The import job finished without a detailed result payload.",
-            );
+            throw buildPhaseAwareError({
+              message:
+                captureFailureDetail || "The import job finished without a detailed result payload.",
+              pipelinePhase: capturePipelinePhase,
+              figmaError: captureResult.figma_error || null,
+            });
           }
 
           if (!captureResult.ok) {
-            throw new Error(captureFailureDetail || "Initial Figma import failed.");
+            throw buildPhaseAwareError({
+              message: captureFailureDetail || "Initial Figma import failed.",
+              pipelinePhase: capturePipelinePhase,
+              figmaError: captureResult.figma_error || null,
+            });
           }
 
           if (
@@ -553,16 +639,21 @@ export function NewSystemPage() {
             capturedCount === 0 &&
             failedCount > 0
           ) {
-            throw new Error(
-              captureFailureDetail ||
+            throw buildPhaseAwareError({
+              message:
+                captureFailureDetail ||
                 "Targets were found but every capture failed.",
-            );
+              pipelinePhase: capturePipelinePhase,
+              figmaError: captureResult.figma_error || null,
+            });
           }
 
           if (targetsCount === 0 && capturedCount === 0) {
-            throw new Error(
-              "No capturable components were found for the provided URL.",
-            );
+            throw buildPhaseAwareError({
+              message: "No capturable components were found for the provided URL.",
+              pipelinePhase: capturePipelinePhase,
+              figmaError: captureResult.figma_error || null,
+            });
           }
           captureFinishedOk = true;
         } catch (error) {
@@ -593,6 +684,8 @@ export function NewSystemPage() {
             setImportError(null);
             setImportErrorDetails("");
             setShowImportErrorDetails(false);
+            setImportFigmaError(null);
+            setImportPipelinePhase("");
             setSaveError(null);
             if (error.requestId) {
               setImportRequestId(error.requestId);
@@ -600,8 +693,18 @@ export function NewSystemPage() {
           } else {
             const details = getCaptureErrorMessage(error);
             const technicalDetails = getCaptureErrorDetails(error);
+            const figmaErrorDetail =
+              error instanceof ApiError
+                ? extractCaptureFigmaErrorDetail(error.payload)
+                : extractPhaseAwareCaptureFigmaError(error);
+            const pipelinePhase =
+              error instanceof ApiError
+                ? extractCapturePipelinePhase(error.payload)
+                : toPipelinePhaseFromError(error);
             setImportError(details);
             setImportErrorDetails(technicalDetails);
+            setImportFigmaError(figmaErrorDetail);
+            setImportPipelinePhase(pipelinePhase);
             if (error instanceof ApiError) {
               setImportRequestId(error.requestId || "");
             }
@@ -674,6 +777,12 @@ export function NewSystemPage() {
             : String(error);
       setImportError(`Unable to stop import: ${message || "Unknown error"}`);
       setImportErrorDetails(getCaptureErrorDetails(error));
+      setImportFigmaError(
+        error instanceof ApiError
+          ? extractCaptureFigmaErrorDetail(error.payload)
+          : extractPhaseAwareCaptureFigmaError(error),
+      );
+      setImportPipelinePhase(error instanceof ApiError ? extractCapturePipelinePhase(error.payload) : "");
       setShowImportErrorDetails(false);
       if (error instanceof ApiError && error.requestId) {
         setImportRequestId(error.requestId);
@@ -902,6 +1011,30 @@ export function NewSystemPage() {
                 <p className="mt-2 text-xs text-red-800 dark:text-red-300">
                   No components or design tokens were generated because the import failed.
                 </p>
+                {importPipelinePhase ? (
+                  <p className="mt-2 text-xs text-red-800 dark:text-red-300">
+                    Pipeline phase: <code>{importPipelinePhase}</code>
+                  </p>
+                ) : null}
+                {importFigmaError ? (
+                  <div className="mt-2 space-y-1 text-xs text-red-800 dark:text-red-300">
+                    {typeof importFigmaError.status === "number" ? (
+                      <p>
+                        Figma status: <code>{importFigmaError.status}</code>
+                      </p>
+                    ) : null}
+                    {importFigmaError.fileKey ? (
+                      <p>
+                        File key: <code>{importFigmaError.fileKey}</code>
+                      </p>
+                    ) : null}
+                    {importFigmaError.endpoint ? (
+                      <p className="break-all">
+                        Endpoint: <code>{importFigmaError.endpoint}</code>
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
                 {importErrorHint ? (
                   <p className="mt-2 text-xs text-red-800 dark:text-red-300">
                     {importErrorHint}

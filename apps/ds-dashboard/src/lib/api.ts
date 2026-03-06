@@ -619,6 +619,18 @@ function findQueuePayloadFailureSummary(
   const resultPayload = toRecord(result?.payload);
   const sync = toRecord(resultPayload?.sync);
   const registryRefresh = toRecord(resultPayload?.registry_refresh);
+  const figmaError = toRecord(resultPayload?.figma_error);
+  const figmaErrorMessage = toNonEmptyString(figmaError?.message);
+  const figmaErrorStatus =
+    typeof figmaError?.status === "number"
+      ? String(figmaError.status)
+      : toNonEmptyString(figmaError?.status);
+  const figmaErrorEndpoint = toNonEmptyString(figmaError?.endpoint);
+  const figmaErrorSummary =
+    figmaErrorMessage ||
+    (figmaErrorStatus ? `Figma API error ${figmaErrorStatus}` : "") ||
+    (figmaErrorEndpoint ? `Figma request failed: ${figmaErrorEndpoint}` : "");
+  const pipelinePhase = toNonEmptyString(resultPayload?.pipeline_phase).toLowerCase();
   const failed = Array.isArray(resultPayload?.failed) ? resultPayload.failed : [];
   const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
   const events = Array.isArray(payload.events) ? payload.events : [];
@@ -643,6 +655,8 @@ function findQueuePayloadFailureSummary(
 
   return pickQueueFailureSummary(
     [
+      figmaErrorSummary,
+      pipelinePhase ? `Failed during '${pipelinePhase}' phase.` : "",
       resultPayload?.error,
       resultPayload?.message,
       resultPayload?.stderr,
@@ -911,9 +925,21 @@ export interface TokensCompileResult {
   output?: string;
 }
 
+export interface CaptureFigmaErrorDetail {
+  type?: string;
+  message?: string;
+  endpoint?: string;
+  fileKey?: string;
+  status?: number;
+  code?: string;
+  details?: string;
+  retryAfterSeconds?: number | null;
+}
+
 export interface CaptureFigmaScreenshotResult {
   ok: boolean;
   jobId?: string;
+  pipeline_phase?: string;
   dryRun?: boolean;
   source?: {
     figma_url?: string;
@@ -965,6 +991,7 @@ export interface CaptureFigmaScreenshotResult {
   };
   tokens_bootstrap?: TokensBootstrapResult;
   tokens_compile?: TokensCompileResult;
+  figma_error?: CaptureFigmaErrorDetail;
   error?: string;
   message?: string;
   stderr?: string;

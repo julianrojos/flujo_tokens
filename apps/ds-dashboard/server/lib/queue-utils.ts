@@ -67,6 +67,12 @@ function toTrimmedString(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function formatPipelinePhaseSummary(rawPhase: unknown): string {
+  const phase = toTrimmedString(rawPhase).toLowerCase();
+  if (!phase) return '';
+  return `Failed during '${phase}' phase.`;
+}
+
 /**
  * Check if a queue job status is final (terminal).
  */
@@ -137,6 +143,18 @@ export function toQueueSummaryFromPayload(payload: Record<string, unknown>, fall
 
   const registryRefresh = toRecord(row.registry_refresh);
   const registryRefreshStderr = toTrimmedString(registryRefresh?.stderr);
+  const pipelinePhaseSummary = formatPipelinePhaseSummary(row.pipeline_phase);
+  const figmaError = toRecord(row.figma_error);
+  const figmaErrorMessage = toTrimmedString(figmaError?.message);
+  const figmaErrorStatus =
+    typeof figmaError?.status === 'number'
+      ? String(figmaError.status)
+      : toTrimmedString(figmaError?.status);
+  const figmaErrorEndpoint = toTrimmedString(figmaError?.endpoint);
+  const figmaErrorSummary =
+    figmaErrorMessage ||
+    (figmaErrorStatus ? `Figma API error ${figmaErrorStatus}` : "") ||
+    (figmaErrorEndpoint ? `Figma request failed: ${figmaErrorEndpoint}` : "");
 
   const failed = Array.isArray(row.failed) ? row.failed : [];
   const firstFailed = failed.length > 0 ? toRecord(failed[0]) : null;
@@ -149,6 +167,8 @@ export function toQueueSummaryFromPayload(payload: Record<string, unknown>, fall
     topLevelMessage ||
     topLevelError ||
     topLevelStderr ||
+    figmaErrorSummary ||
+    pipelinePhaseSummary ||
     firstFailedError ||
     syncError ||
     syncReason ||

@@ -91,6 +91,26 @@ describe('queue-utils', () => {
       assert.equal(toQueueSummaryFromPayload({ sync: { reason: 'Sync failed' } }, 1), 'Sync failed');
       assert.match(toQueueSummaryFromPayload({}, 7), /code 7/i);
     });
+
+    it('surfaces pipeline phase when payload has no stronger message', () => {
+      assert.equal(
+        toQueueSummaryFromPayload({ pipeline_phase: 'token_sync' }, 1),
+        "Failed during 'token_sync' phase."
+      );
+    });
+
+    it('prioritizes figma error summary over pipeline phase summary', () => {
+      assert.equal(
+        toQueueSummaryFromPayload(
+          {
+            pipeline_phase: 'token_sync',
+            figma_error: { status: 403, endpoint: 'https://api.figma.com/v1/files/abc' },
+          },
+          1
+        ),
+        'Figma API error 403'
+      );
+    });
   });
 
   describe('toQueueTerminalEvent()', () => {
