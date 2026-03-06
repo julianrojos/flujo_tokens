@@ -734,30 +734,6 @@ export function NewSystemPage() {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                System id
-              </label>
-              <Input
-                placeholder="auto-generated from name"
-                value={systemIdOverride}
-                onChange={(e) => setSystemIdOverride(e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Resolved id: <code>{generatedSystemId || "—"}</code>
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                App name
-              </label>
-              <Input
-                placeholder="defaults to system name"
-                value={appName}
-                onChange={(e) => setAppName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Figma access token (for initial import)
               </label>
               <Input
@@ -793,6 +769,30 @@ export function NewSystemPage() {
                   </p>
                 )
               ) : null}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                App name
+              </label>
+              <Input
+                placeholder="defaults to system name"
+                value={appName}
+                onChange={(e) => setAppName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                System id
+              </label>
+              <Input
+                placeholder="auto-generated from name"
+                value={systemIdOverride}
+                onChange={(e) => setSystemIdOverride(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Resolved id: <code>{generatedSystemId || "—"}</code>
+              </p>
             </div>
 
           </div>
