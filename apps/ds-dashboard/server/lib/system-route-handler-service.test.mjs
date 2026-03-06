@@ -107,18 +107,27 @@ test("system-route-handler-service: ensureSystemFilesystemScaffold creates expec
     result.tokenRegistryPath,
     "/repo/docs/simple-design-system/_generated/token-registry.json",
   );
+  assert.equal(
+    result.tokenUsageIndexPath,
+    "/repo/docs/simple-design-system/_generated/token-usage-index.json",
+  );
   assert.ok(mkdirs.includes("/repo/docs/simple-design-system/components"));
 
   const componentRegistryRaw = writes.get(result.componentRegistryPath);
   const tokenRegistryRaw = writes.get(result.tokenRegistryPath);
+  const tokenUsageIndexRaw = writes.get(result.tokenUsageIndexPath);
   assert.ok(componentRegistryRaw);
   assert.ok(tokenRegistryRaw);
+  assert.ok(tokenUsageIndexRaw);
 
   const componentRegistry = JSON.parse(componentRegistryRaw);
   const tokenRegistry = JSON.parse(tokenRegistryRaw);
+  const tokenUsageIndex = JSON.parse(tokenUsageIndexRaw);
   assert.deepEqual(componentRegistry.components, []);
   assert.equal(componentRegistry.summary.total_components, 0);
   assert.deepEqual(tokenRegistry.entries, []);
+  assert.equal(tokenUsageIndex.ok, true);
+  assert.equal(tokenUsageIndex.summary.tokens_total, 0);
 });
 
 test("system-route-handler-service: resetGlobalArtifactsForNoSystems writes empty global artifacts", () => {
@@ -153,9 +162,16 @@ test("system-route-handler-service: resetGlobalArtifactsForNoSystems writes empt
     result.componentsIndexPath,
     "/repo/docs/COMPONENTS_INDEX.md",
   );
+  assert.equal(
+    result.tokenUsageIndexPath,
+    "/repo/docs/_generated/token-usage-index.json",
+  );
 
   const registry = JSON.parse(writes.get(result.componentRegistryPath));
   assert.equal(registry.summary.total_components, 0);
+  const tokenUsageIndex = JSON.parse(writes.get(result.tokenUsageIndexPath));
+  assert.equal(tokenUsageIndex.ok, true);
+  assert.equal(tokenUsageIndex.summary.tokens_total, 0);
 
   const indexRaw = writes.get(result.componentsIndexPath);
   assert.match(indexRaw, /Total components: 0/);

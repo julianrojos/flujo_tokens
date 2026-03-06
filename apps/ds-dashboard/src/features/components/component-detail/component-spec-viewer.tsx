@@ -70,6 +70,12 @@ interface ComponentSpecViewerProps {
 }
 
 export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerProps) {
+  const summary = spec.summary ?? {
+    purpose: "—",
+    when_to_use: "—",
+    when_not_to_use: "—",
+  };
+
   const [propertySort, setPropertySort] = useState<{
     field: "name" | "type" | "values" | "default" | "required" | "description";
     dir: "asc" | "desc";
@@ -133,15 +139,15 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
         <dl className="space-y-2 text-sm">
           <div>
             <dt className="font-medium">Purpose</dt>
-            <dd className="text-muted-foreground">{spec.summary.purpose}</dd>
+            <dd className="text-muted-foreground">{summary.purpose || "—"}</dd>
           </div>
           <div>
             <dt className="font-medium">When to use</dt>
-            <dd className="text-muted-foreground">{spec.summary.when_to_use}</dd>
+            <dd className="text-muted-foreground">{summary.when_to_use || "—"}</dd>
           </div>
           <div>
             <dt className="font-medium">When not to use</dt>
-            <dd className="text-muted-foreground">{spec.summary.when_not_to_use}</dd>
+            <dd className="text-muted-foreground">{summary.when_not_to_use || "—"}</dd>
           </div>
         </dl>
       </section>

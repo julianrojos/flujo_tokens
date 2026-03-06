@@ -239,20 +239,41 @@ function normalizeOptionalIsoDate(rawValue: unknown): string | null {
 /**
  * Normalize proof image path to project-relative path.
  */
-function normalizeProofImagePath(rawPath: string): string | null {
+function normalizeProofImagePath(
+  rawPath: string,
+  options: { relativeBaseDirs?: string[] } = {},
+): string | null {
   const value = String(rawPath || '').trim();
   if (!value) return null;
 
-  const absolute = path.isAbsolute(value)
-    ? path.resolve(value)
-    : path.resolve(PROJECT_ROOT, value);
-
-  if (!fileExists(absolute)) return null;
-  try {
-    return toProjectRelativePath(absolute);
-  } catch {
-    return null;
+  const candidates: string[] = [];
+  if (path.isAbsolute(value)) {
+    candidates.push(path.resolve(value));
+  } else {
+    const baseDirs = Array.isArray(options.relativeBaseDirs)
+      ? options.relativeBaseDirs
+      : [];
+    for (const baseDir of baseDirs) {
+      const resolvedBase = String(baseDir || '').trim();
+      if (!resolvedBase) continue;
+      candidates.push(path.resolve(resolvedBase, value));
+    }
+    candidates.push(path.resolve(PROJECT_ROOT, value));
   }
+
+  const visited = new Set<string>();
+  for (const candidate of candidates) {
+    if (visited.has(candidate)) continue;
+    visited.add(candidate);
+    if (!fileExists(candidate)) continue;
+    try {
+      return toProjectRelativePath(candidate);
+    } catch {
+      // Keep searching: candidate may exist but be outside project root.
+      continue;
+    }
+  }
+  return null;
 }
 
 /**
@@ -265,7 +286,10 @@ function hasVisualProofAsset(visualProof: ComponentVisualProofState): boolean {
 /**
  * Normalize visual variant from raw object.
  */
-function normalizeVisualVariant(rawVariant: unknown): VisualProofVariant | null {
+function normalizeVisualVariant(
+  rawVariant: unknown,
+  options: { relativeBaseDirs?: string[] } = {},
+): VisualProofVariant | null {
   if (!isPlainObject(rawVariant)) return null;
   const variant = rawVariant as Record<string, unknown>;
 
@@ -273,7 +297,7 @@ function normalizeVisualVariant(rawVariant: unknown): VisualProofVariant | null 
   const nodeId = isValidNodeId(nodeIdRaw) ? nodeIdRaw : null;
   const screenshotRaw = String(variant.screenshot_url || '').trim();
   const screenshotUrl = isValidHttpUrl(screenshotRaw) ? screenshotRaw : null;
-  const imagePath = normalizeProofImagePath(String(variant.image_path || ''));
+  const imagePath = normalizeProofImagePath(String(variant.image_path || ''), options);
   const capturedAt = normalizeOptionalIsoDate(variant.captured_at);
   const name = String(variant.name || '').trim() || nodeId || 'Variant';
 
@@ -336,8 +360,11 @@ function readVisualProofState(proofPath: string): ComponentVisualProofState {
     parsedObj.screenshot_url || (parsedObj as any).image_url || (parsedObj as any).url || '',
   ).trim();
   const screenshotUrl = isValidHttpUrl(screenshotRaw) ? screenshotRaw : null;
+  const docsRootDir = path.resolve(path.dirname(proofPath), '..', '..');
+  const relativeBaseDirs = [docsRootDir];
   const imagePath = normalizeProofImagePath(
     String((parsedObj.image as Record<string, unknown>)?.path || parsedObj.image_path || ''),
+    { relativeBaseDirs },
   );
 
   const sourceRaw = String((parsedObj as any).source_url || '').trim();
@@ -347,7 +374,7 @@ function readVisualProofState(proofPath: string): ComponentVisualProofState {
   const nodeId = isValidNodeId(rawNodeId) ? rawNodeId : null;
   const variants = Array.isArray(parsedObj.variants)
     ? parsedObj.variants
-        .map((variant) => normalizeVisualVariant(variant))
+        .map((variant) => normalizeVisualVariant(variant, { relativeBaseDirs }))
         .filter((v): v is VisualProofVariant => v !== null)
         .sort((a, b) =>
           `${a.name}|${a.node_id || ''}`.localeCompare(

@@ -403,6 +403,12 @@ export function executeCaptureBatchAndRefresh(params: {
     'scripts',
     'ds-registry-refresh.mjs',
   );
+  const tokenUsageIndexScriptPath = path.join(
+    projectRoot,
+    'tooling',
+    'scripts',
+    'ds-token-usage-index.mjs',
+  );
 
   const captureBatch = runCaptureBatchFn({
     targets,
@@ -498,6 +504,21 @@ export function executeCaptureBatchAndRefresh(params: {
           fallback_error: toErrorMessage(fallbackError),
         };
       }
+    }
+
+    try {
+      const tokenUsageResult = runNodeScriptJson({
+        repoRoot: projectRoot,
+        scriptPath: tokenUsageIndexScriptPath,
+        scriptArgs: ['--system', systemId],
+        runJsonCommandFn,
+      });
+      report.token_usage_refresh = tokenUsageResult;
+    } catch (tokenUsageError) {
+      report.token_usage_refresh = {
+        ok: false,
+        error: toErrorMessage(tokenUsageError),
+      };
     }
   }
 

@@ -1,6 +1,7 @@
 import path from "node:path";
 import {
   createEmptyComponentRegistry,
+  createEmptyTokenUsageIndex,
   createEmptyTokenRegistry,
 } from "./registry-seed-service.mjs";
 
@@ -137,6 +138,7 @@ export function ensureSystemFilesystemScaffold({
   const overviewPath = path.join(componentsDir, "overview.md");
   const componentRegistryPath = path.join(generatedDir, "component-registry.json");
   const tokenRegistryPath = path.join(generatedDir, "token-registry.json");
+  const tokenUsageIndexPath = path.join(generatedDir, "token-usage-index.json");
 
   const createdPaths = [];
   for (const dirPath of [inputDir, outputDir, docsDir, generatedDir, specsDir, componentsDir]) {
@@ -170,11 +172,22 @@ export function ensureSystemFilesystemScaffold({
     createdPaths.push(tokenRegistryPath);
   }
 
+  if (
+    writeJsonIfMissing(
+      tokenUsageIndexPath,
+      createEmptyTokenUsageIndex(),
+      fsSync,
+    )
+  ) {
+    createdPaths.push(tokenUsageIndexPath);
+  }
+
   return {
     docsDir,
     generatedDir,
     componentRegistryPath,
     tokenRegistryPath,
+    tokenUsageIndexPath,
     createdPaths,
   };
 }
@@ -187,6 +200,7 @@ export function resetGlobalArtifactsForNoSystems({
   const generatedDir = path.join(docsDir, "_generated");
   const componentRegistryPath = path.join(generatedDir, "component-registry.json");
   const tokenRegistryPath = path.join(generatedDir, "token-registry.json");
+  const tokenUsageIndexPath = path.join(generatedDir, "token-usage-index.json");
   const componentsIndexPath = path.join(docsDir, "COMPONENTS_INDEX.md");
 
   const touchedPaths = [];
@@ -210,12 +224,20 @@ export function resetGlobalArtifactsForNoSystems({
   );
   touchedPaths.push(tokenRegistryPath);
 
+  fsSync.writeFileSync(
+    tokenUsageIndexPath,
+    `${JSON.stringify(createEmptyTokenUsageIndex(), null, 2)}\n`,
+    "utf8",
+  );
+  touchedPaths.push(tokenUsageIndexPath);
+
   fsSync.writeFileSync(componentsIndexPath, buildEmptyComponentsIndexSeed(), "utf8");
   touchedPaths.push(componentsIndexPath);
 
   return {
     componentRegistryPath,
     tokenRegistryPath,
+    tokenUsageIndexPath,
     componentsIndexPath,
     touchedPaths,
   };
