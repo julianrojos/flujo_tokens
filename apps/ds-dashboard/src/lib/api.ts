@@ -817,8 +817,10 @@ async function waitForQueuedJob(
 async function runQueuedRefresh(
   endpoint: string,
   options: QueueWaitOptions = {},
+  init?: Omit<RequestInit, "method">,
 ) {
   const accepted = await getJson<QueuedRefreshAcceptedPayload>(endpoint, {
+    ...(init || {}),
     method: "POST",
   });
 
@@ -869,6 +871,25 @@ export async function refreshTokenHealth(options?: QueueWaitOptions) {
 
 export async function refreshComponentsHealth(options?: QueueWaitOptions) {
   return runQueuedRefresh("/api/refresh-components-health", options);
+}
+
+export async function regenerateComponentMarkdown(
+  args: { slug: string },
+  options?: QueueWaitOptions,
+) {
+  return runQueuedRefresh(
+    "/api/run/ds:pipeline",
+    options,
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        component: args.slug,
+        onlyStep: "markdown",
+      }),
+    },
+  );
 }
 
 export async function refreshNamingDebt() {

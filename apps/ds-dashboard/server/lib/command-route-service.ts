@@ -12,6 +12,7 @@ export interface RunScriptCommandArgsOptions {
     all?: boolean;
     component?: string;
     fromStep?: string;
+    onlyStep?: string;
     dryRun?: boolean;
     [key: string]: unknown;
   };
@@ -127,6 +128,7 @@ export function buildRunScriptCommandArgs(options: RunScriptCommandArgsOptions):
   if (body.all) args.push('--all');
   if (body.component) args.push('--component', String(body.component));
   if (body.fromStep) args.push('--from-step', String(body.fromStep));
+  if (body.onlyStep) args.push('--only-step', String(body.onlyStep));
   if (body.dryRun) args.push('--status-only');
   return { args };
 }

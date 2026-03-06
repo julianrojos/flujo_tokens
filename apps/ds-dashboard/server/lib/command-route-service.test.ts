@@ -19,7 +19,13 @@ describe('command-route-service', () => {
       const payload = buildRunScriptCommandArgs({
         scriptName: 'ds:pipeline',
         systemId: 'core',
-        body: { all: true, component: 'button', fromStep: 'markdown', dryRun: true },
+        body: {
+          all: true,
+          component: 'button',
+          fromStep: 'markdown',
+          onlyStep: 'markdown',
+          dryRun: true,
+        },
       });
       assert.deepEqual(payload.args, [
         'run',
@@ -31,6 +37,8 @@ describe('command-route-service', () => {
         '--component',
         'button',
         '--from-step',
+        'markdown',
+        '--only-step',
         'markdown',
         '--status-only',
       ]);
