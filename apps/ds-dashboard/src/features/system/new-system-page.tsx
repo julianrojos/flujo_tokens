@@ -7,6 +7,7 @@ import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 import {
   ApiError,
+  cancelQueueJob,
   captureFigmaScreenshot,
   createDesignSystem,
   pingFigmaFile,
@@ -320,6 +321,8 @@ export function NewSystemPage() {
   const [importSourceFileKey, setImportSourceFileKey] = useState("");
   const [importJobId, setImportJobId] = useState("");
   const [importRequestId, setImportRequestId] = useState("");
+  const [isCancellingImport, setIsCancellingImport] = useState(false);
+  const [importControlNotice, setImportControlNotice] = useState("");
   const [importTokensBootstrap, setImportTokensBootstrap] = useState<TokensBootstrapResult | null>(null);
   const [importTokensCompile, setImportTokensCompile] = useState<TokensCompileResult | null>(null);
   const [pingResult, setPingResult] = useState<FigmaPingResult | null>(null);
@@ -355,6 +358,7 @@ export function NewSystemPage() {
   const progressRemaining = captureProgress?.remaining ?? Math.max(0, progressTotal - progressCompleted);
   const importErrorHint = importError ? getImportErrorHint(importError) : null;
   const importStatusText = useMemo(() => {
+    if (isCancellingImport) return "Stopping import...";
     if (importError) return "Import failed.";
     if (importCompleted) return "Import completed successfully.";
     if (!captureProgress) return "Preparing import...";
@@ -372,6 +376,7 @@ export function NewSystemPage() {
     return "Import completed successfully.";
   }, [
     captureProgress,
+    isCancellingImport,
     importCompleted,
     importError,
     progressCompleted,
@@ -391,6 +396,11 @@ export function NewSystemPage() {
     !importError &&
     !bootstrapHasCriticalFailure &&
     (!importTokensCompile || tokensCompiled);
+  const isImportCancelable =
+    !!importJobId &&
+    !importCompleted &&
+    !importError &&
+    (captureProgress?.status === "queued" || captureProgress?.status === "running");
 
   useEffect(() => {
     if (!hasExistingSystems) {
@@ -448,6 +458,8 @@ export function NewSystemPage() {
     setImportSourceFileKey("");
     setImportJobId("");
     setImportRequestId("");
+    setIsCancellingImport(false);
+    setImportControlNotice("");
     setImportTokensBootstrap(null);
     setImportTokensCompile(null);
     try {
@@ -554,21 +566,51 @@ export function NewSystemPage() {
           }
           captureFinishedOk = true;
         } catch (error) {
-          const details = getCaptureErrorMessage(error);
-          const technicalDetails = getCaptureErrorDetails(error);
-          setImportError(details);
-          setImportErrorDetails(technicalDetails);
-          if (error instanceof ApiError) {
-            setImportRequestId(error.requestId || "");
+          const cancelledByUser =
+            error instanceof ApiError &&
+            error.code === "queue.job_failed_or_cancelled" &&
+            toNonEmptyString(error.context?.status).toLowerCase() === "cancelled";
+          if (cancelledByUser) {
+            setCaptureProgress((current) =>
+              current
+                ? {
+                    ...current,
+                    status: "cancelled",
+                    message: "Cancelled by user",
+                  }
+                : {
+                    jobId: undefined,
+                    status: "cancelled",
+                    completed: 0,
+                    total: 0,
+                    remaining: 0,
+                    message: "Cancelled by user",
+                  },
+            );
+            setImportError(null);
+            setImportErrorDetails("");
+            setShowImportErrorDetails(false);
+            setSaveError(null);
+            if (error.requestId) {
+              setImportRequestId(error.requestId);
+            }
+          } else {
+            const details = getCaptureErrorMessage(error);
+            const technicalDetails = getCaptureErrorDetails(error);
+            setImportError(details);
+            setImportErrorDetails(technicalDetails);
+            if (error instanceof ApiError) {
+              setImportRequestId(error.requestId || "");
+            }
+            setShowImportErrorDetails(false);
+            setSaveError(
+              makeInlineErrorDisplay({
+                title: "System created with warnings",
+                message: `Initial Figma import failed: ${details}`,
+                action: 'Retry from "Import Components from Figma".',
+              }),
+            );
           }
-          setShowImportErrorDetails(false);
-          setSaveError(
-            makeInlineErrorDisplay({
-              title: "System created with warnings",
-              message: `Initial Figma import failed: ${details}`,
-              action: 'Retry from "Import Components from Figma".',
-            }),
-          );
         }
       }
 
@@ -589,6 +631,52 @@ export function NewSystemPage() {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancelImport = async () => {
+    if (!importJobId || isCancellingImport || !isImportCancelable) return;
+    setIsCancellingImport(true);
+    setImportControlNotice("");
+    try {
+      await cancelQueueJob(importJobId);
+      setCaptureProgress((current) =>
+        current?.status === "cancelled"
+          ? current
+          : current
+            ? {
+                ...current,
+                status: "cancelled",
+                message: "Cancel requested",
+              }
+            : {
+                jobId: importJobId,
+                status: "cancelled",
+                completed: 0,
+                total: 0,
+                remaining: 0,
+                message: "Cancel requested",
+              },
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "queue.job_not_cancelable") {
+        setImportControlNotice("Import is already completing and can no longer be stopped.");
+        return;
+      }
+      const message =
+        error instanceof ApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      setImportError(`Unable to stop import: ${message || "Unknown error"}`);
+      setImportErrorDetails(getCaptureErrorDetails(error));
+      setShowImportErrorDetails(false);
+      if (error instanceof ApiError && error.requestId) {
+        setImportRequestId(error.requestId);
+      }
+    } finally {
+      setIsCancellingImport(false);
     }
   };
 
@@ -783,6 +871,11 @@ export function NewSystemPage() {
             <p className="mt-2 text-sm text-muted-foreground">
               {importStatusText}
             </p>
+            {importControlNotice ? (
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                {importControlNotice}
+              </p>
+            ) : null}
             {importCurrentSlug ? (
               <p className="mt-1 text-xs text-muted-foreground">
                 Current component: <code>{importCurrentSlug}</code>
@@ -901,6 +994,16 @@ export function NewSystemPage() {
             ) : null}
 
             <div className="mt-5 flex justify-end gap-2">
+              {isImportCancelable ? (
+                <Button
+                  variant="outline"
+                  className="border-red-500/40 text-red-700 hover:bg-red-500/10 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                  onClick={handleCancelImport}
+                  disabled={isCancellingImport}
+                >
+                  {isCancellingImport ? "Stopping..." : "Stop Import"}
+                </Button>
+              ) : null}
               <Button
                 variant="outline"
                 onClick={() => setShowImportProgressModal(false)}

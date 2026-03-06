@@ -681,6 +681,28 @@ function toQueuedStatusUrl(payload: QueuedRefreshAcceptedPayload): string {
   return "";
 }
 
+export interface CancelQueueJobResult {
+  ok: boolean;
+  job?: Record<string, unknown>;
+}
+
+export async function cancelQueueJob(jobId: string): Promise<CancelQueueJobResult> {
+  const trimmedJobId = toNonEmptyString(jobId);
+  if (!trimmedJobId) {
+    throw new ApiError({
+      status: 400,
+      statusText: "Bad Request",
+      code: "validation.missing_required_fields" as ApiErrorCode,
+      userMessage: "Job id is required to cancel a queued operation.",
+      recoverable: true,
+      context: { field: "jobId" },
+    });
+  }
+  return requestJson<CancelQueueJobResult>(`/api/jobs/${encodeURIComponent(trimmedJobId)}`, {
+    method: "DELETE",
+  });
+}
+
 async function waitForQueuedJob(
   statusUrl: string,
   options: QueueWaitOptions = {},
