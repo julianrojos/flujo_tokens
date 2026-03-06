@@ -8,6 +8,7 @@ import { registerComponentSpecRoutes } from "./component-spec-routes.mjs";
 import { registerFileRoutes } from "./file-routes.mjs";
 import { registerJobRoutes } from "./job-routes.mjs";
 import { registerCommandRoutes } from "./command-routes.mjs";
+import { registerFigmaPingRoute } from "./figma-ping-route.mjs";
 import { buildAllRouteDeps } from "../lib/register-all-routes-service.mjs";
 
 export function registerAllRoutes(app, deps) {
@@ -23,4 +24,5 @@ export function registerAllRoutes(app, deps) {
   registerFileRoutes(app, routeDeps.fileDeps);
   registerJobRoutes(app, routeDeps.jobDeps);
   registerCommandRoutes(app, routeDeps.commandDeps);
+  registerFigmaPingRoute(app, routeDeps.figmaPingDeps);
 }

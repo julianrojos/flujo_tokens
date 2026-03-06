@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -9,7 +9,9 @@ import {
   ApiError,
   captureFigmaScreenshot,
   createDesignSystem,
+  pingFigmaFile,
   type CaptureFigmaProgress,
+  type FigmaPingResult,
   type TokensBootstrapResult,
   type TokensCompileResult,
 } from "@/lib/api";
@@ -320,6 +322,9 @@ export function NewSystemPage() {
   const [importRequestId, setImportRequestId] = useState("");
   const [importTokensBootstrap, setImportTokensBootstrap] = useState<TokensBootstrapResult | null>(null);
   const [importTokensCompile, setImportTokensCompile] = useState<TokensCompileResult | null>(null);
+  const [pingResult, setPingResult] = useState<FigmaPingResult | null>(null);
+  const [pingLoading, setPingLoading] = useState(false);
+  const pingRequestSeqRef = useRef(0);
 
   const generatedFromName = useMemo(() => toSystemId(systemName), [systemName]);
   const generatedSystemId = (systemIdOverride.trim() || generatedFromName).trim();
@@ -342,6 +347,8 @@ export function NewSystemPage() {
   })();
   const canSave = !!systemName.trim() && !!generatedSystemId && !saving
     && (!hasFigmaUrl || hasToken) && figmaUrlValid;
+  const pingValidationPending =
+    hasFigmaUrl && hasToken && figmaUrlValid && !pingLoading && !pingResult;
   const hasExistingSystems = systems.length > 0;
   const progressTotal = captureProgress?.total ?? 0;
   const progressCompleted = captureProgress?.completed ?? 0;
@@ -390,6 +397,43 @@ export function NewSystemPage() {
       setMakeDefault(false);
     }
   }, [hasExistingSystems]);
+
+  const triggerPing = async () => {
+    if (!hasFigmaUrl || !hasToken || !figmaUrlValid) return;
+    const requestSeq = pingRequestSeqRef.current + 1;
+    pingRequestSeqRef.current = requestSeq;
+    const pingUrl = figmaFileUrl.trim();
+    const pingToken = figmaAccessToken.trim();
+    setPingLoading(true);
+    setPingResult(null);
+    try {
+      const result = await pingFigmaFile({
+        figmaUrl: pingUrl,
+        figmaToken: pingToken,
+      });
+      if (requestSeq !== pingRequestSeqRef.current) return;
+      setPingResult(result);
+    } catch (error) {
+      if (requestSeq !== pingRequestSeqRef.current) return;
+      if (error instanceof ApiError) {
+        setPingResult({
+          ok: false,
+          code: error.code,
+          message: error.message || "Credential validation failed.",
+        });
+      } else {
+        setPingResult({
+          ok: false,
+          code: "ping.client_error",
+          message: "Could not reach the server to validate credentials.",
+        });
+      }
+    } finally {
+      if (requestSeq === pingRequestSeqRef.current) {
+        setPingLoading(false);
+      }
+    }
+  };
 
   const doCreate = async () => {
     setSaving(true);
@@ -550,6 +594,9 @@ export function NewSystemPage() {
 
   const handleCreateSystem = async () => {
     if (!canSave) return;
+    if (pingValidationPending) {
+      void triggerPing();
+    }
     setSaveError(null);
     await doCreate();
   };
@@ -575,9 +622,12 @@ export function NewSystemPage() {
                 placeholder="https://www.figma.com/design/..."
                 value={figmaFileUrl}
                 onChange={(e) => {
-                  const nextUrl = e.target.value;
-                  setFigmaFileUrl(nextUrl);
+                  setFigmaFileUrl(e.target.value);
+                  pingRequestSeqRef.current += 1;
+                  setPingLoading(false);
+                  setPingResult(null);
                 }}
+                onBlur={triggerPing}
               />
               <p className="text-[11px] text-muted-foreground">
                 Full document import: if URL includes <code>node-id</code>, it will be ignored.
@@ -626,7 +676,13 @@ export function NewSystemPage() {
                 type="password"
                 placeholder="figd_..."
                 value={figmaAccessToken}
-                onChange={(e) => setFigmaAccessToken(e.target.value)}
+                onChange={(e) => {
+                  setFigmaAccessToken(e.target.value);
+                  pingRequestSeqRef.current += 1;
+                  setPingLoading(false);
+                  setPingResult(null);
+                }}
+                onBlur={triggerPing}
               />
               <p className="text-[11px] text-muted-foreground">
                 Used only to run the first capture right after creation.
@@ -635,6 +691,19 @@ export function NewSystemPage() {
                 <p className="text-[11px] text-amber-700 dark:text-amber-400">
                   A token is required when a Figma URL is provided.
                 </p>
+              ) : null}
+              {pingLoading ? (
+                <p className="text-[11px] text-muted-foreground">Checking access…</p>
+              ) : pingResult && hasFigmaUrl && hasToken ? (
+                pingResult.ok ? (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                    ✓ Access confirmed — {pingResult.fileName}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-red-600 dark:text-red-400">
+                    ✗ {pingResult.message}
+                  </p>
+                )
               ) : null}
             </div>
 
@@ -683,6 +752,11 @@ export function NewSystemPage() {
               </span>
             ) : null}
           </div>
+          {pingValidationPending ? (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Figma access has not been validated yet. Creation will continue and import will still run.
+            </p>
+          ) : null}
         </section>
 
         <section>

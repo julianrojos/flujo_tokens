@@ -967,6 +967,29 @@ export interface CaptureFigmaProgress {
   message?: string;
 }
 
+export interface FigmaPingResult {
+  ok: boolean;
+  /** Resolved file name from Figma (on success). */
+  fileName?: string;
+  /** Extracted file key (on success or partial failure). */
+  fileKey?: string;
+  /** Machine-readable error code (on failure). */
+  code?: string;
+  /** Human-readable error message (on failure). */
+  message?: string;
+}
+
+export async function pingFigmaFile(args: {
+  figmaUrl: string;
+  figmaToken: string;
+}): Promise<FigmaPingResult> {
+  return requestJson<FigmaPingResult>("/api/figma-ping", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(args),
+  });
+}
+
 type CaptureProgressSnapshot = {
   completed?: unknown;
   total?: unknown;

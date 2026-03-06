@@ -1,0 +1,159 @@
+/**
+ * POST /api/figma-ping
+ *
+ * Lightweight pre-flight check: verifies that a Figma token can read a file
+ * before the user submits the full creation form.
+ *
+ * Body:  { figmaUrl: string, figmaToken: string }
+ * Returns (always HTTP 200 for Figma-level errors, 400 for bad requests):
+ *   { ok: true,  fileName: string, fileKey: string }
+ *   { ok: false, code: string,     message: string, fileKey?: string }
+ *
+ * Runs synchronously — does NOT enqueue a queue job.
+ */
+
+const FIGMA_API_TIMEOUT_MS = 8_000;
+
+function parseFigmaUrl(figmaUrl) {
+  try {
+    const parsed = new URL(figmaUrl);
+    const host = String(parsed.hostname || "").trim().toLowerCase();
+    const hostValid = host === "figma.com" || host.endsWith(".figma.com");
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    let fileKey = "";
+    for (let i = 0; i < segments.length - 1; i += 1) {
+      if (segments[i] === "file" || segments[i] === "design") {
+        fileKey = segments[i + 1] || "";
+        break;
+      }
+    }
+    return { ok: true, hostValid, fileKey };
+  } catch {
+    return { ok: false, hostValid: false, fileKey: "" };
+  }
+}
+
+/**
+ * Resolves a token value that may be a literal token or an env-var reference.
+ *   "figd_..."          → returned as-is
+ *   "${FIGMA_TOKEN}"    → resolves process.env.FIGMA_TOKEN
+ *   "$FIGMA_TOKEN"      → resolves process.env.FIGMA_TOKEN
+ *   "FIGMA_TOKEN"       → treated as literal (no $ prefix)
+ */
+function resolveTokenValue(raw) {
+  const envBraces = raw.match(/^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/);
+  if (envBraces) return process.env[envBraces[1]] || "";
+  const envDollar = raw.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
+  if (envDollar) return process.env[envDollar[1]] || "";
+  return raw;
+}
+
+export async function handleFigmaPingRoute(c, deps) {
+  const { failJson, readJsonBody } = deps;
+  const body = await readJsonBody(c);
+
+  const figmaUrl = String(body.figmaUrl || "").trim();
+  const figmaToken = String(body.figmaToken || "").trim();
+
+  if (!figmaUrl || !figmaToken) {
+    return failJson(c, 400, {
+      code: "ping.missing_params",
+      userMessage: "Both figmaUrl and figmaToken are required.",
+      recoverable: true,
+    });
+  }
+
+  const parsedUrl = parseFigmaUrl(figmaUrl);
+  if (!parsedUrl.ok) {
+    return failJson(c, 400, {
+      code: "ping.invalid_url",
+      userMessage: "Invalid Figma URL.",
+      recoverable: true,
+    });
+  }
+  if (!parsedUrl.hostValid) {
+    return failJson(c, 400, {
+      code: "ping.invalid_host",
+      userMessage: "URL host must be figma.com.",
+      recoverable: true,
+    });
+  }
+
+  const fileKey = parsedUrl.fileKey;
+  if (!fileKey) {
+    return failJson(c, 400, {
+      code: "ping.invalid_url",
+      userMessage: "Could not extract a file key from the provided Figma URL.",
+      recoverable: true,
+    });
+  }
+
+  const resolvedToken = resolveTokenValue(figmaToken);
+  if (!resolvedToken) {
+    return c.json(
+      {
+        ok: false,
+        code: "ping.env_var_not_set",
+        message: "The environment variable referenced by the token is not set on the server.",
+        fileKey,
+      },
+      200,
+    );
+  }
+
+  let figmaResponse;
+  try {
+    figmaResponse = await fetch(`https://api.figma.com/v1/files/${fileKey}?depth=1`, {
+      headers: { "X-Figma-Token": resolvedToken },
+      signal: AbortSignal.timeout(FIGMA_API_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const isTimeout = err?.name === "TimeoutError" || err?.name === "AbortError";
+    return c.json(
+      {
+        ok: false,
+        code: isTimeout ? "ping.timeout" : "ping.network_error",
+        message: isTimeout
+          ? "Figma API did not respond within the timeout. Check your network."
+          : "Could not reach the Figma API. Check your network connection.",
+      },
+      200,
+    );
+  }
+
+  if (!figmaResponse.ok) {
+    const status = figmaResponse.status;
+    if (status === 403) {
+      return c.json(
+        { ok: false, code: "figma.403", message: "The token does not have permission to read this file.", fileKey },
+        200,
+      );
+    }
+    if (status === 404) {
+      return c.json(
+        { ok: false, code: "figma.404", message: "File not found. Verify the URL is correct.", fileKey },
+        200,
+      );
+    }
+    return c.json(
+      { ok: false, code: `figma.${status}`, message: `Figma returned HTTP ${status}.`, fileKey },
+      200,
+    );
+  }
+
+  let json;
+  try {
+    json = await figmaResponse.json();
+  } catch {
+    return c.json(
+      { ok: false, code: "ping.parse_error", message: "Figma responded but the body could not be parsed." },
+      200,
+    );
+  }
+
+  return c.json({ ok: true, fileName: String(json.name || fileKey), fileKey }, 200);
+}
+
+export function registerFigmaPingRoute(app, deps) {
+  app.post("/api/figma-ping", (c) => handleFigmaPingRoute(c, deps));
+}

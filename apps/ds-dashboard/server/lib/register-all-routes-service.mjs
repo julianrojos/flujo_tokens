@@ -88,5 +88,9 @@ export function buildAllRouteDeps(deps) {
       toNumberString: deps.toNumberString,
       validateGitRef: deps.validateGitRef,
     },
+    figmaPingDeps: {
+      failJson: deps.failJson,
+      readJsonBody: deps.readJsonBody,
+    },
   };
 }
