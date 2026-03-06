@@ -35,7 +35,7 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -156,8 +156,8 @@ export async function runSortSpec(args: string[] = []): Promise<void> {
     process.exit(1);
   }
 
-  const check = parseBooleanOption(String(parsed.check), '--check', false);
-  const json = parseBooleanOption(String(parsed.json), '--json', false);
+  const check = parseBooleanOption(parsed.check, '--check', false);
+  const json = parseBooleanOption(parsed.json, '--json', false);
 
   const results = files.map((f) => processSpecFile(f, { check }));
 

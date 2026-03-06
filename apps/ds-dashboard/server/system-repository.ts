@@ -1,5 +1,6 @@
 import fsSync, { type FSWatcher } from "node:fs";
 import path from "node:path";
+import { normalizeEnvRef } from "./lib/env-ref-utils.js";
 
 export type DesignSystemConfigEntry = {
   id: string;
@@ -154,14 +155,7 @@ export function ensureRelativeDir(raw: unknown, fallback: string) {
 }
 
 export function normalizeFigmaApiTokenRef(raw: unknown, fallback = "") {
-  const value = String(raw ?? "").trim();
-  const source = value || String(fallback || "").trim();
-  if (!source) return "";
-  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(source)) return source;
-  const dollarVar = source.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
-  if (dollarVar) return `\${${dollarVar[1]}}`;
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(source)) return `\${${source}}`;
-  return source;
+  return normalizeEnvRef(raw, fallback);
 }
 
 export function resolveSafeSystemPathsForDeletion(

@@ -15,7 +15,7 @@ import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runnerPath = path.join(__dirname, '../src/runners/registry-report-runner.ts');
-const projectRoot = path.join(__dirname, '../../..');
+const projectRoot = path.join(__dirname, '../..');
 
 if (!fs.existsSync(runnerPath)) {
   console.error(`Error: Runner not found at ${runnerPath}`);

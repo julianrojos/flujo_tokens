@@ -12,6 +12,7 @@ import * as path from 'node:path';
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveEnvRef } from '../utils/env-ref.js';
 
 // Import from existing lib during migration period
 import {
@@ -92,28 +93,6 @@ function extractFileKeyFromUrl(rawUrl: unknown): string | null {
   return null;
 }
 
-function resolveSystemFigmaToken(rawTokenRef: string | undefined | null): string {
-  const raw = String(rawTokenRef || '').trim();
-  if (!raw) return '';
-
-  const bracedRef = raw.match(/^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/);
-  if (bracedRef) {
-    return String(process.env[bracedRef[1]] || '').trim();
-  }
-
-  const dollarRef = raw.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
-  if (dollarRef) {
-    return String(process.env[dollarRef[1]] || '').trim();
-  }
-
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw)) {
-    const envValue = String(process.env[raw] || '').trim();
-    if (envValue) return envValue;
-  }
-
-  return raw;
-}
-
 export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   const parsed = parseArgs(args);
 
@@ -154,7 +133,7 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   // ── Resolve Figma API token ──────────────────────────────────────────────
   const figmaTokenArg = String(parsed['figma-token'] || '').trim();
   const figmaTokenEnv = String(process.env.FIGMA_TOKEN || '').trim();
-  const figmaToken = resolveSystemFigmaToken(figmaTokenArg || figmaTokenEnv);
+  const figmaToken = resolveEnvRef(figmaTokenArg || figmaTokenEnv);
 
   if (!figmaToken) {
     console.error(

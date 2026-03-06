@@ -79,7 +79,7 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -235,10 +235,10 @@ export async function runHealthSnapshot(args: string[] = []): Promise<void> {
     throw new Error(`Invalid --format value: ${format}. Allowed: json, text.`);
   }
 
-  const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
-  const skipDiff = parseBooleanOption(String(parsed['skip-diff']), '--skip-diff', false);
+  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
+  const skipDiff = parseBooleanOption(parsed['skip-diff'], '--skip-diff', false);
   const allowDuplicateDay = parseBooleanOption(
-    String(parsed['allow-duplicate-day']),
+    parsed['allow-duplicate-day'],
     '--allow-duplicate-day',
     false,
   );

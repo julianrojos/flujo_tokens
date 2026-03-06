@@ -98,7 +98,7 @@ function parsePositiveInteger(
 }
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -137,7 +137,7 @@ export async function runTokenHealth(args: string[] = []): Promise<void> {
   const maxItems = parsePositiveInteger(String(parsed['max-items']), '--max-items', 100);
   const highUsageThreshold = parsePositiveInteger(String(parsed['high-usage-threshold']), '--high-usage-threshold', 25);
   const highIndegreeThreshold = parsePositiveInteger(String(parsed['high-indegree-threshold']), '--high-indegree-threshold', 15);
-  const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
+  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
 
   // Load registry
   const registry = loadTokenRegistry(registryPath);

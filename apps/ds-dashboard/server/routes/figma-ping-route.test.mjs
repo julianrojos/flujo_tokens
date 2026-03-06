@@ -92,6 +92,9 @@ test("figma-ping-route: returns success payload for readable file", async () => 
 test("figma-ping-route: maps timeout-like fetch failures to ping.timeout", async (t) => {
   const app = createTestApp();
   const originalFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
 
   const timeoutNames = ["TimeoutError", "AbortError"];
   for (const errorName of timeoutNames) {
@@ -117,8 +120,6 @@ test("figma-ping-route: maps timeout-like fetch failures to ping.timeout", async
       assert.equal(payload.code, "ping.timeout");
     });
   }
-
-  globalThis.fetch = originalFetch;
 });
 
 test("figma-ping-route: maps generic fetch failure to ping.network_error", async () => {
@@ -144,5 +145,44 @@ test("figma-ping-route: maps generic fetch failure to ping.network_error", async
     assert.equal(payload.code, "ping.network_error");
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("figma-ping-route: resolves plain env-var token name when it exists", async () => {
+  const app = createTestApp();
+  const originalFetch = globalThis.fetch;
+  const envKey = "FIGMA_PING_ROUTE_TEST_TOKEN";
+  const previousEnv = process.env[envKey];
+  process.env[envKey] = "figd_from_env";
+
+  globalThis.fetch = async (_url, init) => {
+    const headers = new Headers(init?.headers ?? {});
+    assert.equal(headers.get("X-Figma-Token"), "figd_from_env");
+    return new Response(JSON.stringify({ name: "Simple DS" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const response = await app.request("/api/figma-ping", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        figmaUrl: "https://www.figma.com/design/abc123/Test",
+        figmaToken: envKey,
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.ok, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousEnv === undefined) {
+      delete process.env[envKey];
+    } else {
+      process.env[envKey] = previousEnv;
+    }
   }
 });

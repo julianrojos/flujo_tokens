@@ -566,10 +566,13 @@ export function NewSystemPage() {
           }
           captureFinishedOk = true;
         } catch (error) {
+          const queueStatus = toNonEmptyString(
+            error instanceof ApiError ? error.context?.status : "",
+          ).toLowerCase();
           const cancelledByUser =
             error instanceof ApiError &&
             error.code === "queue.job_failed_or_cancelled" &&
-            toNonEmptyString(error.context?.status).toLowerCase() === "cancelled";
+            (queueStatus === "cancelled" || queueStatus === "canceled");
           if (cancelledByUser) {
             setCaptureProgress((current) =>
               current
@@ -682,9 +685,6 @@ export function NewSystemPage() {
 
   const handleCreateSystem = async () => {
     if (!canSave) return;
-    if (pingValidationPending) {
-      void triggerPing();
-    }
     setSaveError(null);
     await doCreate();
   };

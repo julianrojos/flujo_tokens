@@ -51,7 +51,7 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -71,7 +71,7 @@ export async function runRegistryOverview(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
+  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
   const registryPath = path.resolve(String(parsed.registry || DEFAULT_COMPONENT_REGISTRY_PATH));
   const overviewPath = path.resolve(String(parsed.overview || DEFAULT_COMPONENT_OVERVIEW_PATH));
 

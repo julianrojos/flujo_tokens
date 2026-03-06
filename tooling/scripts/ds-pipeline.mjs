@@ -16,7 +16,7 @@ import fs from 'fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const runnerPath = path.join(__dirname, '../src/runners/pipeline-runner.ts');
-const projectRoot = path.join(__dirname, '../../..');
+const projectRoot = path.join(__dirname, '../..');
 
 // Validate runner exists before attempting to run
 if (!fs.existsSync(runnerPath)) {

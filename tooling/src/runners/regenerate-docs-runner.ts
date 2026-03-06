@@ -62,7 +62,7 @@ function normalizeComponentFilter(rawValue: string | undefined | null): string {
 }
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -106,10 +106,10 @@ export async function runRegenerateDocs(args: string[] = []): Promise<void> {
   const specRoot = path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs));
   const registryPath = path.resolve(String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry));
   const agent = String(getStringArg(parsed, 'agent') || process.env.DS_AGENT || 'auto');
-  const force = parseBooleanOption(String(parsed.force), '--force', true) ? 'true' : 'false';
-  const skipValidation = parseBooleanOption(String(parsed['skip-validation']), '--skip-validation', false);
-  const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
-  const continueOnError = parseBooleanOption(String(parsed['continue-on-error']), '--continue-on-error', false);
+  const force = parseBooleanOption(parsed.force, '--force', true) ? 'true' : 'false';
+  const skipValidation = parseBooleanOption(parsed['skip-validation'], '--skip-validation', false);
+  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
+  const continueOnError = parseBooleanOption(parsed['continue-on-error'], '--continue-on-error', false);
   const componentFilter = normalizeComponentFilter(String(parsed.component || parsed['component-name'] || ''));
 
   if (!fs.existsSync(COMPONENT_DOC_SCRIPT_PATH)) {

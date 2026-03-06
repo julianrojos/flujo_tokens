@@ -64,7 +64,7 @@ const DOC_STATUS_ALLOWED = new Set(['draft', 'ready', 'needs-review']);
 const DEFAULT_STATUS = 'draft';
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -94,8 +94,8 @@ export async function runFoundationsSync(args: string[] = []): Promise<void> {
   );
 
   const status = String(getStringArg(parsed, 'status') || DEFAULT_STATUS).trim().toLowerCase();
-  const createRoot = parseBooleanOption(String(parsed['create-root']), '--create-root', false);
-  const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
+  const createRoot = parseBooleanOption(parsed['create-root'], '--create-root', false);
+  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
   const maxSamples = Math.max(1, Math.floor(Number(parsed['max-samples'] || 2)));
 
   if (!DOC_STATUS_ALLOWED.has(status)) {

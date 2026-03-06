@@ -74,7 +74,7 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -107,8 +107,8 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
     .map((f: string) => path.resolve(f.trim()));
   const outPath = path.resolve(String(parsed.out || ctx.paths.generated + '/token-usage-index.json'));
   const format = String(parsed.format || 'json');
-  const strictUnresolved = parseBooleanOption(String(parsed['strict-unresolved']), '--strict-unresolved', false);
-  const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
+  const strictUnresolved = parseBooleanOption(parsed['strict-unresolved'], '--strict-unresolved', false);
+  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
 
   // Generate usage index
   const report = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);

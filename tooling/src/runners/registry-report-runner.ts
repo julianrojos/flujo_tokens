@@ -79,7 +79,7 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -245,9 +245,9 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
   const outJson = assertPathInsideProject(String(getStringArg(parsed, 'out-json') || 'docs/_generated/components-health.json'), '--out-json');
   const format = String(getStringArg(parsed, 'format') || 'json');
   const maxFilterItems = parseIntegerOption(String(parsed['max-filter-items']), '--max-filter-items', 20, 1);
-  const skipMd = parseBooleanOption(String(parsed['no-md']), '--no-md', false);
-  const skipJson = parseBooleanOption(String(parsed['no-json']), '--no-json', false);
-  const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
+  const skipMd = parseBooleanOption(parsed['no-md'], '--no-md', false);
+  const skipJson = parseBooleanOption(parsed['no-json'], '--no-json', false);
+  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
 
   // Load registry
   const registry = readComponentRegistry(registryPath);

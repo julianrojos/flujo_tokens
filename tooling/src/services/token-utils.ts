@@ -37,7 +37,7 @@ export const A11Y_MODE_SLASH_RE = /^A11y\/A11y\/mode[A-Za-z0-9_-]+\//;
  * Parse boolean option from string
  */
 export function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {

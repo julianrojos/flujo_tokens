@@ -8,7 +8,7 @@
  * Parse boolean option with validation.
  */
 export function parseBooleanOption(
-  rawValue: string | undefined,
+  rawValue: unknown,
   optionName: string,
   fallback = false,
 ): boolean {

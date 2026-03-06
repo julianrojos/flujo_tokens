@@ -97,7 +97,7 @@ function collectInputJsonFiles(inputDir: string): string[] {
 }
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   fallback: boolean = false,
 ): boolean {
   const normalized = String(rawValue ?? fallback).trim().toLowerCase();
@@ -114,18 +114,18 @@ export async function runTokensSync(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const force = parseBooleanOption(String(parsed.force), false);
+  const force = parseBooleanOption(parsed.force, false);
   const syncStatePath = parsed['sync-state'] ? path.resolve(String(parsed['sync-state'])) : undefined;
 
   const inputDir = path.resolve(String(parsed.input || path.join(PROJECT_ROOT, 'input')));
-  const split = parseBooleanOption(String(parsed.single), false) !== true;
+  const split = parseBooleanOption(parsed.single, false) !== true;
   const outputFile = path.resolve(String(parsed.output || path.join(PROJECT_ROOT, 'output/custom-properties.css')));
   const outputPrimitives = path.resolve(String(parsed['output-primitives'] || path.join(PROJECT_ROOT, 'output/primitives.css')));
   const outputTokens = path.resolve(String(parsed['output-tokens'] || path.join(PROJECT_ROOT, 'output/tokens.css')));
   const registryOutput = path.resolve(String(parsed['registry-output'] || 'docs/_generated/token-registry.json'));
   const mode = String(parsed.mode || '').trim();
-  const modeStrict = parseBooleanOption(String(parsed['mode-strict']), false);
-  const modeLoose = parseBooleanOption(String(parsed['mode-loose']), false);
+  const modeStrict = parseBooleanOption(parsed['mode-strict'], false);
+  const modeLoose = parseBooleanOption(parsed['mode-loose'], false);
   const allowJsonRepair = String(process.env.ALLOW_JSON_REPAIR || '').toLowerCase();
   const allowAliasScan = String(process.env.ALLOW_ALIAS_SCAN || '').toLowerCase();
 

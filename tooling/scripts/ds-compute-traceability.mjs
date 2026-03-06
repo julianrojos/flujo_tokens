@@ -18,7 +18,7 @@ const runnerPath = path.join(
   __dirname,
   '../src/runners/compute-traceability-runner.ts',
 );
-const projectRoot = path.join(__dirname, '../../..');
+const projectRoot = path.join(__dirname, '../..');
 
 if (!fs.existsSync(runnerPath)) {
   console.error(`Error: Runner not found at ${runnerPath}`);

@@ -71,7 +71,7 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -247,7 +247,7 @@ export async function runTokenDiff(args: string[] = []): Promise<void> {
     throw new Error(`Invalid --format value: ${format}. Allowed: json, text.`);
   }
 
-  const strict = parseBooleanOption(String(parsed.strict), '--strict', false);
+  const strict = parseBooleanOption(parsed.strict, '--strict', false);
   const currentPath = path.resolve(String(parsed.current || 'docs/_generated/token-registry.json'));
   const beforeRef = String(parsed['before-ref'] || DEFAULT_BEFORE_REF).trim();
   const registryAtRef = String(parsed['registry-at-ref'] || 'docs/_generated/token-registry.json').trim();

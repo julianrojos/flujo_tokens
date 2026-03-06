@@ -64,7 +64,7 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -84,7 +84,7 @@ export async function runRegistryValidate(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const strict = parseBooleanOption(String(parsed.strict), '--strict', true);
+  const strict = parseBooleanOption(parsed.strict, '--strict', true);
 
   try {
     const comparison = compareComponentRegistryToSources({

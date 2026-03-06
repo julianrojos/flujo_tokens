@@ -62,7 +62,7 @@ const CLI_CONFIG = {
 };
 
 function parseBooleanOption(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: boolean = false,
 ): boolean {
@@ -82,7 +82,7 @@ export async function runRegistrySync(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const dryRun = parseBooleanOption(String(parsed['dry-run']), '--dry-run', false);
+  const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
   const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
   try {

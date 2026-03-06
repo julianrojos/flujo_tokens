@@ -21,6 +21,7 @@ import type {
   ComponentSpecValidateResponse,
 } from "@/types/spec-editor";
 import type { ApiErrorCode } from "@/lib/api-errors";
+import { normalizeEnvRef } from "@/lib/env-ref";
 
 let activeSystemId: string | null = null;
 export function getActiveSystemId() {
@@ -232,22 +233,12 @@ export interface MutateDesignSystemResponse {
   };
 }
 
-function normalizeFigmaApiTokenRef(raw: unknown) {
-  const value = String(raw ?? "").trim();
-  if (!value) return "";
-  if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(value)) return value;
-  const dollarVar = value.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
-  if (dollarVar) return `\${${dollarVar[1]}}`;
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(value)) return `\${${value}}`;
-  return value;
-}
-
 export function createDesignSystem(args: CreateDesignSystemPayload) {
   const payload = {
     ...args,
     figmaApiToken:
       args.figmaApiToken !== undefined
-        ? normalizeFigmaApiTokenRef(args.figmaApiToken) || undefined
+        ? normalizeEnvRef(args.figmaApiToken) || undefined
         : undefined,
   };
   return getJson<CreateDesignSystemResponse>("/api/design-systems", {
@@ -268,7 +259,7 @@ export function updateDesignSystem(id: string, args: Partial<CreateDesignSystemP
     ...args,
     figmaApiToken:
       args.figmaApiToken !== undefined
-        ? normalizeFigmaApiTokenRef(args.figmaApiToken) || undefined
+        ? normalizeEnvRef(args.figmaApiToken) || undefined
         : undefined,
   };
   return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {

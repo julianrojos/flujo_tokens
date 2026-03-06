@@ -1,3 +1,5 @@
+import { resolveEnvRef } from "../lib/env-ref-utils.ts";
+
 /**
  * POST /api/figma-ping
  *
@@ -12,7 +14,17 @@
  * Runs synchronously — does NOT enqueue a queue job.
  */
 
-const FIGMA_API_TIMEOUT_MS = 8_000;
+const DEFAULT_FIGMA_API_TIMEOUT_MS = 8_000;
+
+function resolveFigmaApiTimeoutMs(rawValue) {
+  const parsed = Number(rawValue);
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return Math.floor(parsed);
+  }
+  return DEFAULT_FIGMA_API_TIMEOUT_MS;
+}
+
+const FIGMA_API_TIMEOUT_MS = resolveFigmaApiTimeoutMs(process.env.FIGMA_PING_TIMEOUT_MS);
 
 function parseFigmaUrl(figmaUrl) {
   try {
@@ -38,14 +50,10 @@ function parseFigmaUrl(figmaUrl) {
  *   "figd_..."          → returned as-is
  *   "${FIGMA_TOKEN}"    → resolves process.env.FIGMA_TOKEN
  *   "$FIGMA_TOKEN"      → resolves process.env.FIGMA_TOKEN
- *   "FIGMA_TOKEN"       → treated as literal (no $ prefix)
+ *   "FIGMA_TOKEN"       → resolves process.env.FIGMA_TOKEN if set, otherwise literal
  */
 function resolveTokenValue(raw) {
-  const envBraces = raw.match(/^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/);
-  if (envBraces) return process.env[envBraces[1]] || "";
-  const envDollar = raw.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
-  if (envDollar) return process.env[envDollar[1]] || "";
-  return raw;
+  return resolveEnvRef(raw);
 }
 
 export async function handleFigmaPingRoute(c, deps) {
@@ -102,10 +110,14 @@ export async function handleFigmaPingRoute(c, deps) {
   }
 
   let figmaResponse;
+  const timeoutController = new AbortController();
+  const timeoutHandle = setTimeout(() => {
+    timeoutController.abort();
+  }, FIGMA_API_TIMEOUT_MS);
   try {
     figmaResponse = await fetch(`https://api.figma.com/v1/files/${fileKey}?depth=1`, {
       headers: { "X-Figma-Token": resolvedToken },
-      signal: AbortSignal.timeout(FIGMA_API_TIMEOUT_MS),
+      signal: timeoutController.signal,
     });
   } catch (err) {
     const isTimeout = err?.name === "TimeoutError" || err?.name === "AbortError";
@@ -119,6 +131,8 @@ export async function handleFigmaPingRoute(c, deps) {
       },
       200,
     );
+  } finally {
+    clearTimeout(timeoutHandle);
   }
 
   if (!figmaResponse.ok) {
