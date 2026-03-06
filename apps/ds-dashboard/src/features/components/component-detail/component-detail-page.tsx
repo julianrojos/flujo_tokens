@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Camera, ExternalLink, FilePenLine } from "lucide-react";
 
 import {
@@ -26,7 +26,27 @@ import {
 } from "@/components/ui/card";
 import { FigmaCaptureModal } from "./figma-capture-modal";
 import { SpecEditorDrawer } from "@/features/spec-editor/spec-editor-drawer";
-import { ComponentSpecEditor } from "./component-spec-editor";
+
+const ComponentSpecEditor = lazy(() => import("./component-spec-editor").then(module => ({
+  default: module.ComponentSpecEditor,
+})));
+const ComponentDocsModal = lazy(() => import("./component-docs-modal").then(module => ({
+  default: module.ComponentDocsModal,
+})));
+
+const ModalLoadingFallback = ({ message, zIndex }: { message: string; zIndex: number }) => (
+  <div
+    className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px]"
+    style={{ zIndex }}
+  >
+    <div className="rounded-xl border border-border bg-card p-6 shadow-2xl">
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-primary" />
+        {message}
+      </div>
+    </div>
+  </div>
+);
 
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
@@ -234,6 +254,7 @@ export function ComponentDetailPage() {
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
   const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
+  const [docsModalOpen, setDocsModalOpen] = useState(false);
   const [specEditorOpen, setSpecEditorOpen] = useState(false);
   const [editorialEditorOpen, setEditorialEditorOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
@@ -273,6 +294,7 @@ export function ComponentDetailPage() {
         );
         setTokenRegistry(tokenRegistryPayload);
         setTokenUsageIndex(tokenUsagePayload);
+        setDocsModalOpen(false);
         setEditorialEditorOpen(false);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
@@ -405,15 +427,9 @@ export function ComponentDetailPage() {
       title: "Next step",
       description: "Component is in visual-proof stage. Verify docs and publish when ready.",
       cta: item.paths.doc ? "Open docs" : null,
-      onClick: item.paths.doc
-        ? () =>
-            navigate({
-              pathname: "/file",
-              search: new URLSearchParams({ path: item.paths.doc }).toString(),
-            })
-        : null,
+      onClick: item.paths.doc ? () => setDocsModalOpen(true) : null,
     };
-  }, [item, navigate]);
+  }, [item]);
 
   return (
     <div className="space-y-5 animate-fade-slide-in">
@@ -514,16 +530,14 @@ export function ComponentDetailPage() {
                     Update from Figma URL
                   </Button>
                   {item.doc.exists && item.paths.doc ? (
-                    <Link
-                      to={{
-                        pathname: "/file",
-                        search: new URLSearchParams({ path: item.paths.doc }).toString(),
-                      }}
-                      className={buttonVariants({ variant: "outline", size: "sm" })}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDocsModalOpen(true)}
                       aria-label={`Open ${item.display_name} documentation`}
                     >
-                      Docs
-                    </Link>
+                      View docs (rendered)
+                    </Button>
                   ) : null}
                   {item.figma.file_url ? (
                     <a
@@ -717,7 +731,7 @@ export function ComponentDetailPage() {
                     disabled={editorialEditorOpen}
                   >
                     <FilePenLine className="mr-2 h-4 w-4" />
-                    Edit summary
+                    Edit summary (spec source)
                   </Button>
                   <Button
                     variant="outline"
@@ -734,22 +748,6 @@ export function ComponentDetailPage() {
                   spec={spec}
                   resolveToken={resolveTokenMeta ?? undefined}
                 />
-                {editorialEditorOpen ? (
-                  <div className="mt-4">
-                    <ComponentSpecEditor
-                      slug={item.slug}
-                      spec={spec}
-                      expectedHash={specRawHash}
-                      onCancel={() => setEditorialEditorOpen(false)}
-                      onSaved={({ message, rawHash }) => {
-                        setCaptureSummary(message);
-                        setSpecRawHash(rawHash);
-                        setReloadNonce((prev) => prev + 1);
-                        setEditorialEditorOpen(false);
-                      }}
-                    />
-                  </div>
-                ) : null}
               </CardContent>
             </Card>
           ) : (
@@ -848,6 +846,37 @@ export function ComponentDetailPage() {
             </Card>
           </div>
         </>
+      ) : null}
+
+      {item && editorialEditorOpen ? (
+        <Suspense fallback={<ModalLoadingFallback message="Loading editor..." zIndex={1102} />}>
+          <ComponentSpecEditor
+            open={true}
+            slug={item.slug}
+            spec={spec}
+            expectedHash={specRawHash}
+            onCancel={() => setEditorialEditorOpen(false)}
+            onSaved={({ message, rawHash }) => {
+              setCaptureSummary(
+                `${message} Docs may be outdated until markdown is regenerated.`,
+              );
+              setSpecRawHash(rawHash);
+              setReloadNonce((prev) => prev + 1);
+              setEditorialEditorOpen(false);
+            }}
+          />
+        </Suspense>
+      ) : null}
+
+      {item && item.doc.exists && item.paths.doc && docsModalOpen ? (
+        <Suspense fallback={<ModalLoadingFallback message="Loading docs..." zIndex={1003} />}>
+          <ComponentDocsModal
+            open={true}
+            onClose={() => setDocsModalOpen(false)}
+            filePath={item.paths.doc}
+            displayName={item.display_name}
+          />
+        </Suspense>
       ) : null}
 
       {item ? (
