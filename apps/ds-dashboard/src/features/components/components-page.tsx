@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpDown, ExternalLink, RefreshCcw } from "lucide-react";
+import { ExternalLink, RefreshCcw } from "lucide-react";
 
 import { FigmaUrlScanner } from "./figma-url-scanner";
 
@@ -25,11 +25,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -246,60 +246,12 @@ export function ComponentsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => toggleSort("display_name")}
-                  >
-                    Component <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => toggleSort("pipeline_stage")}
-                  >
-                    Stage <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => toggleSort("doc_status")}
-                  >
-                    Doc status <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => toggleSort("spec_status")}
-                  >
-                    Spec status <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => toggleSort("usage_count")}
-                  >
-                    Used In <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() => toggleSort("ready_for_publish")}
-                  >
-                    Ready <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
+                <SortableTableHead label="Component" onSort={() => toggleSort("display_name")} />
+                <SortableTableHead label="Stage" onSort={() => toggleSort("pipeline_stage")} />
+                <SortableTableHead label="Doc status" onSort={() => toggleSort("doc_status")} />
+                <SortableTableHead label="Spec status" onSort={() => toggleSort("spec_status")} />
+                <SortableTableHead label="Used In" onSort={() => toggleSort("usage_count")} />
+                <SortableTableHead label="Ready" onSort={() => toggleSort("ready_for_publish")} />
               </TableRow>
             </TableHeader>
             <TableBody>

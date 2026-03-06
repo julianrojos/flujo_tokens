@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpDown, RefreshCcw, X } from "lucide-react";
+import { RefreshCcw, X } from "lucide-react";
 
 import { fetchTokenDiff, fetchTokenGraph, fetchTokenUsageIndex } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
@@ -19,11 +19,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -412,84 +412,61 @@ export function TokenDiffPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() =>
-                      setTableSort((current) =>
-                        current.field === "token"
-                          ? { field: "token", dir: current.dir === "asc" ? "desc" : "asc" }
-                          : { field: "token", dir: "asc" },
-                      )
-                    }
-                  >
-                    Token <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() =>
-                      setTableSort((current) =>
-                        current.field === "status"
-                          ? { field: "status", dir: current.dir === "asc" ? "desc" : "asc" }
-                          : { field: "status", dir: "asc" },
-                      )
-                    }
-                  >
-                    Status <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead className="text-right" showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() =>
-                      setTableSort((current) =>
-                        current.field === "uses"
-                          ? { field: "uses", dir: current.dir === "asc" ? "desc" : "asc" }
-                          : { field: "uses", dir: "asc" },
-                      )
-                    }
-                  >
-                    Uses <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead className="text-right" showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() =>
-                      setTableSort((current) =>
-                        current.field === "dependents"
-                          ? {
-                              field: "dependents",
-                              dir: current.dir === "asc" ? "desc" : "asc",
-                            }
-                          : { field: "dependents", dir: "asc" },
-                      )
-                    }
-                  >
-                    Dependents <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    onClick={() =>
-                      setTableSort((current) =>
-                        current.field === "notes"
-                          ? { field: "notes", dir: current.dir === "asc" ? "desc" : "asc" }
-                          : { field: "notes", dir: "asc" },
-                      )
-                    }
-                  >
-                    Notes <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
+                <SortableTableHead
+                  label="Token"
+                  onSort={() =>
+                    setTableSort((current) =>
+                      current.field === "token"
+                        ? { field: "token", dir: current.dir === "asc" ? "desc" : "asc" }
+                        : { field: "token", dir: "asc" },
+                    )
+                  }
+                />
+                <SortableTableHead
+                  label="Status"
+                  onSort={() =>
+                    setTableSort((current) =>
+                      current.field === "status"
+                        ? { field: "status", dir: current.dir === "asc" ? "desc" : "asc" }
+                        : { field: "status", dir: "asc" },
+                    )
+                  }
+                />
+                <SortableTableHead
+                  className="text-right"
+                  label="Uses"
+                  onSort={() =>
+                    setTableSort((current) =>
+                      current.field === "uses"
+                        ? { field: "uses", dir: current.dir === "asc" ? "desc" : "asc" }
+                        : { field: "uses", dir: "asc" },
+                    )
+                  }
+                />
+                <SortableTableHead
+                  className="text-right"
+                  label="Dependents"
+                  onSort={() =>
+                    setTableSort((current) =>
+                      current.field === "dependents"
+                        ? {
+                            field: "dependents",
+                            dir: current.dir === "asc" ? "desc" : "asc",
+                          }
+                        : { field: "dependents", dir: "asc" },
+                    )
+                  }
+                />
+                <SortableTableHead
+                  label="Notes"
+                  onSort={() =>
+                    setTableSort((current) =>
+                      current.field === "notes"
+                        ? { field: "notes", dir: current.dir === "asc" ? "desc" : "asc" }
+                        : { field: "notes", dir: "asc" },
+                    )
+                  }
+                />
               </TableRow>
             </TableHeader>
             <TableBody>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { AlertTriangle, ArrowUpDown, CheckCircle2, RefreshCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCcw } from "lucide-react";
 
 import { type ApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { HealthTrendsChart } from "./health-trends-chart";
 
@@ -706,33 +707,12 @@ export function HealthDashboardPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleBrokenAliasSort("token")}
-                          >
-                            Token <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleBrokenAliasSort("alias")}
-                          >
-                            Alias CSS var <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleBrokenAliasSort("reason")}
-                          >
-                            Reason <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
+                        <SortableTableHead label="Token" onSort={() => toggleBrokenAliasSort("token")} />
+                        <SortableTableHead
+                          label="Alias CSS var"
+                          onSort={() => toggleBrokenAliasSort("alias")}
+                        />
+                        <SortableTableHead label="Reason" onSort={() => toggleBrokenAliasSort("reason")} />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -810,33 +790,15 @@ export function HealthDashboardPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleWcagSort("foreground")}
-                          >
-                            Foreground <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleWcagSort("background")}
-                          >
-                            Background <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleWcagSort("ratio")}
-                          >
-                            Ratio <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
+                        <SortableTableHead
+                          label="Foreground"
+                          onSort={() => toggleWcagSort("foreground")}
+                        />
+                        <SortableTableHead
+                          label="Background"
+                          onSort={() => toggleWcagSort("background")}
+                        />
+                        <SortableTableHead label="Ratio" onSort={() => toggleWcagSort("ratio")} />
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -931,42 +893,17 @@ export function HealthDashboardPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleAtRiskSort("component")}
-                          >
-                            Component <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleAtRiskSort("stage")}
-                          >
-                            Stage <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
-                        <TableHead showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleAtRiskSort("status")}
-                          >
-                            Status <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
-                        <TableHead className="text-right" showSortIcon={false}>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1"
-                            onClick={() => toggleAtRiskSort("coverage")}
-                          >
-                            Coverage <ArrowUpDown className="h-3.5 w-3.5" />
-                          </button>
-                        </TableHead>
+                        <SortableTableHead
+                          label="Component"
+                          onSort={() => toggleAtRiskSort("component")}
+                        />
+                        <SortableTableHead label="Stage" onSort={() => toggleAtRiskSort("stage")} />
+                        <SortableTableHead label="Status" onSort={() => toggleAtRiskSort("status")} />
+                        <SortableTableHead
+                          className="text-right"
+                          label="Coverage"
+                          onSort={() => toggleAtRiskSort("coverage")}
+                        />
                       </TableRow>
                     </TableHeader>
                     <TableBody>

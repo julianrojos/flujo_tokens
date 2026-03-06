@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createSearchParams, Link, useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowUpDown, ShieldAlert, Target } from "lucide-react";
+import { AlertTriangle, ShieldAlert, Target } from "lucide-react";
 
 import { fetchImpact, fetchTokenRegistry } from "@/lib/api";
 import { normalizeToHex6 } from "@/features/tokens/accessibility/color-utils";
@@ -21,10 +21,10 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 function parseDepth(raw: string | null) {
   const parsed = Number.parseInt(String(raw || ""), 10);
@@ -453,51 +453,11 @@ export function ImpactExplorerPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedTokenSort("severity")}
-                      >
-                        Severity <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedTokenSort("token")}
-                      >
-                        Token <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedTokenSort("depth")}
-                      >
-                        Depth <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedTokenSort("uses")}
-                      >
-                        Uses <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedTokenSort("reasons")}
-                      >
-                        Reasons <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
+                    <SortableTableHead label="Severity" onSort={() => toggleAffectedTokenSort("severity")} />
+                    <SortableTableHead label="Token" onSort={() => toggleAffectedTokenSort("token")} />
+                    <SortableTableHead label="Depth" onSort={() => toggleAffectedTokenSort("depth")} />
+                    <SortableTableHead label="Uses" onSort={() => toggleAffectedTokenSort("uses")} />
+                    <SortableTableHead label="Reasons" onSort={() => toggleAffectedTokenSort("reasons")} />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -539,60 +499,30 @@ export function ImpactExplorerPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedComponentSort("severity")}
-                      >
-                        Severity <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedComponentSort("component")}
-                      >
-                        Component <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedComponentSort("pipeline")}
-                      >
-                        Pipeline <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedComponentSort("tokens")}
-                      >
-                        Tokens <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedComponentSort("occurrences")}
-                      >
-                        Occurrences <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleAffectedComponentSort("visualProof")}
-                      >
-                        Visual proof <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
+                    <SortableTableHead
+                      label="Severity"
+                      onSort={() => toggleAffectedComponentSort("severity")}
+                    />
+                    <SortableTableHead
+                      label="Component"
+                      onSort={() => toggleAffectedComponentSort("component")}
+                    />
+                    <SortableTableHead
+                      label="Pipeline"
+                      onSort={() => toggleAffectedComponentSort("pipeline")}
+                    />
+                    <SortableTableHead
+                      label="Tokens"
+                      onSort={() => toggleAffectedComponentSort("tokens")}
+                    />
+                    <SortableTableHead
+                      label="Occurrences"
+                      onSort={() => toggleAffectedComponentSort("occurrences")}
+                    />
+                    <SortableTableHead
+                      label="Visual proof"
+                      onSort={() => toggleAffectedComponentSort("visualProof")}
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -651,51 +581,14 @@ export function ImpactExplorerPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleWcagSort("pair")}
-                        >
-                          Pair <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleWcagSort("level")}
-                        >
-                          Level <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleWcagSort("original")}
-                        >
-                          Original <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleWcagSort("simulated")}
-                        >
-                          Simulated <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleWcagSort("status")}
-                        >
-                          Status <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
+                      <SortableTableHead label="Pair" onSort={() => toggleWcagSort("pair")} />
+                      <SortableTableHead label="Level" onSort={() => toggleWcagSort("level")} />
+                      <SortableTableHead label="Original" onSort={() => toggleWcagSort("original")} />
+                      <SortableTableHead
+                        label="Simulated"
+                        onSort={() => toggleWcagSort("simulated")}
+                      />
+                      <SortableTableHead label="Status" onSort={() => toggleWcagSort("status")} />
                     </TableRow>
                   </TableHeader>
                   <TableBody>

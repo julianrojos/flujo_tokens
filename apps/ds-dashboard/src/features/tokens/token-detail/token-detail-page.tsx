@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ArrowUpDown, Check, Copy } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy } from "lucide-react";
 
 import { fetchFileSnippet } from "@/lib/api";
 import type {
@@ -30,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
@@ -288,51 +289,36 @@ function UsageGroup({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead showSortIcon={false}>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1"
-                onClick={() =>
-                  setSort((current) =>
-                    current.field === "owner"
-                      ? { field: "owner", dir: current.dir === "asc" ? "desc" : "asc" }
-                      : { field: "owner", dir: "asc" },
-                  )
-                }
-              >
-                Owner <ArrowUpDown className="h-3.5 w-3.5" />
-              </button>
-            </TableHead>
-            <TableHead showSortIcon={false}>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1"
-                onClick={() =>
-                  setSort((current) =>
-                    current.field === "file"
-                      ? { field: "file", dir: current.dir === "asc" ? "desc" : "asc" }
-                      : { field: "file", dir: "asc" },
-                  )
-                }
-              >
-                File <ArrowUpDown className="h-3.5 w-3.5" />
-              </button>
-            </TableHead>
-            <TableHead showSortIcon={false}>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1"
-                onClick={() =>
-                  setSort((current) =>
-                    current.field === "line"
-                      ? { field: "line", dir: current.dir === "asc" ? "desc" : "asc" }
-                      : { field: "line", dir: "asc" },
-                  )
-                }
-              >
-                Line <ArrowUpDown className="h-3.5 w-3.5" />
-              </button>
-            </TableHead>
+            <SortableTableHead
+              label="Owner"
+              onSort={() =>
+                setSort((current) =>
+                  current.field === "owner"
+                    ? { field: "owner", dir: current.dir === "asc" ? "desc" : "asc" }
+                    : { field: "owner", dir: "asc" },
+                )
+              }
+            />
+            <SortableTableHead
+              label="File"
+              onSort={() =>
+                setSort((current) =>
+                  current.field === "file"
+                    ? { field: "file", dir: current.dir === "asc" ? "desc" : "asc" }
+                    : { field: "file", dir: "asc" },
+                )
+              }
+            />
+            <SortableTableHead
+              label="Line"
+              onSort={() =>
+                setSort((current) =>
+                  current.field === "line"
+                    ? { field: "line", dir: current.dir === "asc" ? "desc" : "asc" }
+                    : { field: "line", dir: "asc" },
+                )
+              }
+            />
             <TableHead className="w-28" showSortIcon={false}>
               Snippet
             </TableHead>

@@ -688,31 +688,6 @@ export function ComponentDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Pipeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Pipeline</CardTitle>
-              <CardDescription>
-                Etapa actual:{" "}
-                <span className="font-semibold">{STAGE_LABELS[item.pipeline_stage]}</span>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PipelineTimeline current={item.pipeline_stage} />
-              {nextStep ? (
-                <div className="mt-4 rounded-lg border border-border/70 bg-background/60 p-3">
-                  <p className="text-sm font-semibold">{nextStep.title}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{nextStep.description}</p>
-                  {nextStep.cta && nextStep.onClick ? (
-                    <Button variant="outline" size="sm" className="mt-3" onClick={nextStep.onClick}>
-                      {nextStep.cta}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-
           {/* Spec */}
           {spec ? (
             <Card>
@@ -845,6 +820,31 @@ export function ComponentDetailPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Pipeline */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Pipeline</CardTitle>
+              <CardDescription>
+                Etapa actual:{" "}
+                <span className="font-semibold">{STAGE_LABELS[item.pipeline_stage]}</span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <PipelineTimeline current={item.pipeline_stage} />
+              {nextStep ? (
+                <div className="mt-4 rounded-lg border border-border/70 bg-background/60 p-3">
+                  <p className="text-sm font-semibold">{nextStep.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{nextStep.description}</p>
+                  {nextStep.cta && nextStep.onClick ? (
+                    <Button variant="outline" size="sm" className="mt-3" onClick={nextStep.onClick}>
+                      {nextStep.cta}
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
         </>
       ) : null}
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpDown, Download, RefreshCcw } from "lucide-react";
+import { Download, RefreshCcw } from "lucide-react";
 
 import { fetchNamingDebt, refreshNamingDebt } from "@/lib/api";
 import type {
@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 
 function severityVariant(severity: NamingDebtSeverity) {
   if (severity === "error") return "warning" as const;
@@ -338,51 +339,11 @@ export function NamingDebtPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleViolationSort("token")}
-                        >
-                          Token <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleViolationSort("rule")}
-                        >
-                          Rule <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleViolationSort("severity")}
-                        >
-                          Severity <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleViolationSort("category")}
-                        >
-                          Category <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
-                      <TableHead showSortIcon={false}>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-1"
-                          onClick={() => toggleViolationSort("suggestion")}
-                        >
-                          Suggestion <ArrowUpDown className="h-3.5 w-3.5" />
-                        </button>
-                      </TableHead>
+                      <SortableTableHead label="Token" onSort={() => toggleViolationSort("token")} />
+                      <SortableTableHead label="Rule" onSort={() => toggleViolationSort("rule")} />
+                      <SortableTableHead label="Severity" onSort={() => toggleViolationSort("severity")} />
+                      <SortableTableHead label="Category" onSort={() => toggleViolationSort("category")} />
+                      <SortableTableHead label="Suggestion" onSort={() => toggleViolationSort("suggestion")} />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -431,51 +392,14 @@ export function NamingDebtPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleProposalSort("current")}
-                      >
-                        Current <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleProposalSort("suggested")}
-                      >
-                        Suggested <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleProposalSort("risk")}
-                      >
-                        Risk <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleProposalSort("refs")}
-                      >
-                        Refs <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
-                    <TableHead showSortIcon={false}>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1"
-                        onClick={() => toggleProposalSort("affectedSpecs")}
-                      >
-                        Affected specs <ArrowUpDown className="h-3.5 w-3.5" />
-                      </button>
-                    </TableHead>
+                    <SortableTableHead label="Current" onSort={() => toggleProposalSort("current")} />
+                    <SortableTableHead label="Suggested" onSort={() => toggleProposalSort("suggested")} />
+                    <SortableTableHead label="Risk" onSort={() => toggleProposalSort("risk")} />
+                    <SortableTableHead label="Refs" onSort={() => toggleProposalSort("refs")} />
+                    <SortableTableHead
+                      label="Affected specs"
+                      onSort={() => toggleProposalSort("affectedSpecs")}
+                    />
                     <TableHead showSortIcon={false}>Actions</TableHead>
                   </TableRow>
                 </TableHeader>

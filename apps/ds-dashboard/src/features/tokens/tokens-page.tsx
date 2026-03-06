@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   Accessibility,
   ArrowLeftRight,
-  ArrowUpDown,
   FolderTree,
   RefreshCcw,
 } from "lucide-react";
@@ -31,11 +30,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { SortableTableHead } from "@/components/ui/sortable-table-head";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -402,66 +401,36 @@ export function TokensPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    aria-label="Sort by token path"
-                    onClick={() => toggleSort("path")}
-                  >
-                    Token Path <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    aria-label="Sort by collection"
-                    onClick={() => toggleSort("collection")}
-                  >
-                    Collection <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    aria-label="Sort by type"
-                    onClick={() => toggleSort("type")}
-                  >
-                    Type <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    aria-label="Sort by CSS variable"
-                    onClick={() => toggleSort("cssVar")}
-                  >
-                    CSS Variable <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    aria-label="Sort by resolved value"
-                    onClick={() => toggleSort("resolvedValue")}
-                  >
-                    Resolved Value <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
-                <TableHead showSortIcon={false}>
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-1"
-                    aria-label="Sort by usage count"
-                    onClick={() => toggleSort("usageCount")}
-                  >
-                    Used In <ArrowUpDown className="h-3.5 w-3.5" />
-                  </button>
-                </TableHead>
+                <SortableTableHead
+                  label="Token Path"
+                  ariaLabel="Sort by token path"
+                  onSort={() => toggleSort("path")}
+                />
+                <SortableTableHead
+                  label="Collection"
+                  ariaLabel="Sort by collection"
+                  onSort={() => toggleSort("collection")}
+                />
+                <SortableTableHead
+                  label="Type"
+                  ariaLabel="Sort by type"
+                  onSort={() => toggleSort("type")}
+                />
+                <SortableTableHead
+                  label="CSS Variable"
+                  ariaLabel="Sort by CSS variable"
+                  onSort={() => toggleSort("cssVar")}
+                />
+                <SortableTableHead
+                  label="Resolved Value"
+                  ariaLabel="Sort by resolved value"
+                  onSort={() => toggleSort("resolvedValue")}
+                />
+                <SortableTableHead
+                  label="Used In"
+                  ariaLabel="Sort by usage count"
+                  onSort={() => toggleSort("usageCount")}
+                />
               </TableRow>
             </TableHeader>
             <TableBody>
