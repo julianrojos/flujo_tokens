@@ -32,15 +32,16 @@ function createRepository(config) {
 }
 
 function createBaseDeps(overrides = {}) {
+  const systemId = overrides.systemId || "core";
   const repo = createRepository({
-    defaultSystem: "core",
+    defaultSystem: systemId,
     systems: [
       {
-        id: "core",
-        name: "Core",
-        inputDir: "input/core",
-        outputDir: "output/core",
-        docsDir: "docs/core",
+        id: systemId,
+        name: systemId.charAt(0).toUpperCase() + systemId.slice(1),
+        inputDir: `input/${systemId}`,
+        outputDir: `output/${systemId}`,
+        docsDir: `docs/${systemId}`,
       },
     ],
   });
@@ -65,13 +66,16 @@ function createBaseDeps(overrides = {}) {
         systems: config.systems.map((row) => ({ id: row.id, name: row.name })),
         defaultSystem: config.defaultSystem,
       }),
-      resolveSafeSystemPathsForDeletion: () => [],
+      resolveSafeSystemPathsForDeletion: overrides.resolveSafeSystemPathsForDeletion || (() => []),
       repoRoot: "/repo",
       fsSync: {
         existsSync: () => false,
         mkdirSync: () => {},
         writeFileSync: () => {},
         rmSync: () => {},
+        statSync: () => ({ isDirectory: () => true }),
+        readdirSync: () => [],
+        rmdirSync: () => {},
       },
       ...overrides,
     },
@@ -191,4 +195,65 @@ test("system-routes: delete allows removing the last remaining system", async ()
 
   const registry = JSON.parse(writes.get("/repo/docs/_generated/component-registry.json"));
   assert.equal(registry.summary.total_components, 0);
+});
+
+test("system-routes: delete prunes empty ancestor directories", async () => {
+  const existing = new Set([
+    "/repo/docs/acme",
+    "/repo/docs/acme/_spec",
+    "/repo/docs/acme/_spec/components",
+    "/repo/input/acme",
+    "/repo/output/acme",
+  ]);
+  const removedPaths = [];
+  const prunedDirs = [];
+  const writes = new Map();
+
+  const { app, repo } = createTestApp({
+    systemId: "acme",
+    // Return actual system directory paths (as the real implementation does)
+    resolveSafeSystemPathsForDeletion: () => [
+      "/repo/docs/acme/_spec/components",
+      "/repo/input/acme",
+      "/repo/output/acme",
+    ],
+    fsSync: {
+      existsSync: (p) => existing.has(p),
+      statSync: () => ({ isDirectory: () => true }),
+      readdirSync: (p) => {
+        // After deletion, these directories are empty
+        if (p === "/repo/docs/acme/_spec/components") return [];
+        if (p === "/repo/docs/acme/_spec") return [];
+        if (p === "/repo/docs/acme") return [];
+        // Protected root has other content
+        if (p === "/repo/docs") return [{ name: "other-system" }];
+        if (p === "/repo/input") return [{ name: "other-system" }];
+        if (p === "/repo/output") return [{ name: "other-system" }];
+        return [{ name: "other" }];
+      },
+      rmSync: (p) => {
+        existing.delete(p);
+        removedPaths.push(p);
+      },
+      rmdirSync: (p) => {
+        existing.delete(p);
+        prunedDirs.push(p);
+      },
+      // Required for resetGlobalArtifactsForNoSystems when deleting last system
+      mkdirSync: (p) => {
+        existing.add(p);
+      },
+      writeFileSync: (p, content) => {
+        existing.add(p);
+        writes.set(p, String(content));
+      },
+    },
+  });
+
+  const res = await app.request("/api/design-systems/acme", { method: "DELETE" });
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.ok, true);
+  assert.ok(Array.isArray(payload.prunedEmptyDirs));
+  assert.ok(payload.prunedEmptyDirs.length > 0, "Should have pruned some empty directories");
 });

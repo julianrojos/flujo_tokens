@@ -13,6 +13,7 @@ import {
   collectRemovableSystemPaths,
   decodeSystemRouteId,
   removeExistingPaths,
+  pruneEmptyAncestorDirs,
 } from "../lib/system-route-handler-service.mjs";
 
 export function handleLegacyHealthRoute(c, deps) {
@@ -152,6 +153,9 @@ export function handleDeleteDesignSystemRoute(c, deps) {
     fsSync,
   );
 
+  // Prune empty ancestor directories after removing system paths
+  const prunedEmptyDirs = pruneEmptyAncestorDirs(removedPaths, { repoRoot, fsSync });
+
   if (nextSystems.length === 0) {
     try {
       resetGlobalArtifactsForNoSystems({
@@ -174,6 +178,7 @@ export function handleDeleteDesignSystemRoute(c, deps) {
   return c.json(
     buildDeleteDesignSystemSuccessPayload({
       removedPaths,
+      prunedEmptyDirs,
       nextConfig,
       summarizeDesignSystemsConfigFn: summarizeDesignSystemsConfig,
     }),
