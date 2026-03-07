@@ -1034,6 +1034,7 @@ export interface TokensBootstrapResult {
   reason?: string;
   files_written?: number;
   tokens_written?: number;
+  tokens_total?: number;
   files?: string[];
   error?: string;
 }

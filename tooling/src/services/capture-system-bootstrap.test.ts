@@ -40,6 +40,7 @@ describe('capture-system-bootstrap', () => {
             reason: 'bootstrapped',
             files_written: 1,
             tokens_written: 7,
+            tokens_total: 9,
             files: ['input/demo/primitives.json'],
           };
         },
@@ -51,6 +52,7 @@ describe('capture-system-bootstrap', () => {
       assert.equal(result.reason, 'bootstrapped');
       assert.equal(result.files_written, 1);
       assert.equal(result.tokens_written, 7);
+      assert.equal(result.tokens_total, 9);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
@@ -88,6 +90,7 @@ describe('capture-system-bootstrap', () => {
       assert.equal(result.reason, 'bootstrapped');
       assert.equal(result.files_written, 2);
       assert.equal(result.tokens_written, 42);
+      assert.equal(result.tokens_total, 42);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }

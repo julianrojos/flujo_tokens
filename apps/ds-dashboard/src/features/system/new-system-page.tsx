@@ -6,6 +6,11 @@ import { Input } from "@/components/ui/input";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 import {
+  buildImportSuccessSummary,
+  type ImportSuccessSummary,
+} from "@/features/system/new-system-import-summary";
+import { ImportSuccessNotice } from "@/features/system/import-success-notice";
+import {
   buildPhaseAwareError,
   extractCaptureFigmaErrorDetail,
   extractCapturePipelinePhase,
@@ -398,6 +403,7 @@ export function NewSystemPage() {
   const [importControlNotice, setImportControlNotice] = useState("");
   const [importTokensBootstrap, setImportTokensBootstrap] = useState<TokensBootstrapResult | null>(null);
   const [importTokensCompile, setImportTokensCompile] = useState<TokensCompileResult | null>(null);
+  const [importSuccessSummary, setImportSuccessSummary] = useState<ImportSuccessSummary | null>(null);
   const [pingResult, setPingResult] = useState<FigmaPingResult | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
   const pingRequestSeqRef = useRef(0);
@@ -539,6 +545,7 @@ export function NewSystemPage() {
     setImportControlNotice("");
     setImportTokensBootstrap(null);
     setImportTokensCompile(null);
+    setImportSuccessSummary(null);
     try {
       const response = await createDesignSystem({
         id: generatedSystemId,
@@ -655,6 +662,7 @@ export function NewSystemPage() {
               figmaError: captureResult.figma_error || null,
             });
           }
+          setImportSuccessSummary(buildImportSuccessSummary(captureResult));
           captureFinishedOk = true;
         } catch (error) {
           const queueStatus = toNonEmptyString(
@@ -1105,6 +1113,10 @@ export function NewSystemPage() {
                   {compileReasonMessage}
                 </p>
               )
+            ) : null}
+
+            {importCompleted && !importError && importSuccessSummary ? (
+              <ImportSuccessNotice summary={importSuccessSummary} />
             ) : null}
 
             {importCompleted && !importError ? (

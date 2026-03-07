@@ -396,6 +396,7 @@ export interface SyncFigmaTokensToInputResult {
   collections?: string[];
   files_written?: number;
   tokens_written?: number;
+  tokens_total?: number;
   backed_up?: string[];
 }
 
@@ -449,7 +450,7 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
   const { filesMap, tokenCount } = buildFilesMapFromVariables(meta);
 
   if (filesMap.size === 0 || tokenCount === 0) {
-    return { attempted: true, reason: 'variables-empty' };
+    return { attempted: true, reason: 'variables-empty', tokens_total: 0 };
   }
 
   const inputDirPath = path.resolve(repoRoot, inputDir);
@@ -467,6 +468,7 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
       merge,
       files_planned: plannedFiles.length,
       tokens_planned: tokenCount,
+      tokens_total: tokenCount,
       files: plannedFiles,
       collections: Array.from(filesMap.values()).map((f) => f.description),
     };
@@ -515,6 +517,7 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     merge,
     files_written: writtenFiles.length,
     tokens_written: tokenCount,
+    tokens_total: tokenCount,
     files: writtenFiles,
     backed_up: backedUpFiles,
   };
