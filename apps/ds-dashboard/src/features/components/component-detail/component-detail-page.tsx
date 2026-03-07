@@ -6,7 +6,6 @@ import {
   fetchComponentRegistry,
   fetchComponentSpec,
   fetchComponentUsageIndex,
-  regenerateComponentMarkdown,
   fetchTokenRegistry,
   fetchTokenUsageIndex,
 } from "@/lib/api";
@@ -259,8 +258,6 @@ export function ComponentDetailPage() {
   const [specEditorOpen, setSpecEditorOpen] = useState(false);
   const [editorialEditorOpen, setEditorialEditorOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
-  const [showRegenerateMarkdownCta, setShowRegenerateMarkdownCta] = useState(false);
-  const [isRegeneratingMarkdown, setIsRegeneratingMarkdown] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -268,7 +265,7 @@ export function ComponentDetailPage() {
   // Reset transient UI state when navigating to a different component
   useEffect(() => {
     setCaptureSummary(null);
-    setShowRegenerateMarkdownCta(false);
+    setEditorialEditorOpen(false);
   }, [slug]);
 
   useEffect(() => {
@@ -304,7 +301,6 @@ export function ComponentDetailPage() {
         setTokenRegistry(tokenRegistryPayload);
         setTokenUsageIndex(tokenUsagePayload);
         setDocsModalOpen(false);
-        setEditorialEditorOpen(false);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       } finally {
@@ -440,25 +436,6 @@ export function ComponentDetailPage() {
     };
   }, [item]);
 
-  const handleRegenerateMarkdown = async () => {
-    if (!item || isRegeneratingMarkdown) return;
-    setIsRegeneratingMarkdown(true);
-    setError(null);
-    try {
-      const result = await regenerateComponentMarkdown({ slug: item.slug });
-      if (result.ok === false) {
-        throw new Error(result.stderr || "Markdown regeneration failed.");
-      }
-      setCaptureSummary("Markdown regenerated successfully.");
-      setShowRegenerateMarkdownCta(false);
-      setReloadNonce((prev) => prev + 1);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setIsRegeneratingMarkdown(false);
-    }
-  };
-
   return (
     <div className="space-y-5 animate-fade-slide-in">
       <div className="flex flex-wrap items-center gap-2">
@@ -504,19 +481,7 @@ export function ComponentDetailPage() {
 
       {captureSummary ? (
         <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-700">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>{captureSummary}</span>
-            {showRegenerateMarkdownCta ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRegenerateMarkdown}
-                disabled={isRegeneratingMarkdown}
-              >
-                {isRegeneratingMarkdown ? "Regenerating..." : "Regenerate markdown"}
-              </Button>
-            ) : null}
-          </div>
+          <span>{captureSummary}</span>
         </div>
       ) : null}
 
@@ -896,14 +861,9 @@ export function ComponentDetailPage() {
             spec={spec}
             expectedHash={specRawHash}
             onCancel={() => setEditorialEditorOpen(false)}
-            onSaved={({ message, rawHash }) => {
-              setCaptureSummary(
-                `${message} Docs may be outdated until markdown is regenerated.`,
-              );
-              setShowRegenerateMarkdownCta(true);
+            onSaved={({ rawHash }) => {
               setSpecRawHash(rawHash);
               setReloadNonce((prev) => prev + 1);
-              setEditorialEditorOpen(false);
             }}
           />
         </Suspense>
@@ -932,7 +892,6 @@ export function ComponentDetailPage() {
           onClose={() => setSpecEditorOpen(false)}
           onSaved={({ message }) => {
             setCaptureSummary(message);
-            setShowRegenerateMarkdownCta(false);
             setReloadNonce((prev) => prev + 1);
           }}
         />
@@ -948,7 +907,6 @@ export function ComponentDetailPage() {
             setCaptureSummary(
               `Capture completed: ${summary.capturedCount} captured, ${summary.failedCount} failed, ${summary.skippedCount} skipped.`,
             );
-            setShowRegenerateMarkdownCta(false);
             setReloadNonce((prev) => prev + 1);
           }}
         />

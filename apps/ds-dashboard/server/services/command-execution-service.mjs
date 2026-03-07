@@ -1,3 +1,5 @@
+import { detectKnownNonZeroFailure, buildNonZeroExitSummary } from "./command-execution-shared.mjs";
+
 export function createCommandExecutionService(config) {
   const { runSpawnWithCapture, maxOutputBytes, summarizePayloadFailure } = config;
 
@@ -106,16 +108,28 @@ export function createCommandExecutionService(config) {
     }
 
     if (exitCode !== 0) {
+      const knownFailure = detectKnownNonZeroFailure(args, result);
       return {
         ok: false,
         code: exitCode,
-        summary: `Failed with code ${exitCode}`,
+        summary: buildNonZeroExitSummary({
+          knownFailure,
+          exitCode,
+          stderr: result.stderr,
+        }),
         payload: {
           ok: false,
           command: args.commandLabel,
           code: exitCode,
           stdout: result.stdout,
           stderr: result.stderr,
+          ...(knownFailure
+            ? {
+                error_code: knownFailure.errorCode,
+                error: knownFailure.summary,
+                error_context: knownFailure.context || undefined,
+              }
+            : {}),
         },
       };
     }

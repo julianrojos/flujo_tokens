@@ -8,6 +8,7 @@
 import type { ChildProcess } from 'node:child_process';
 
 import { runSpawnWithCapture, type RunSpawnWithCaptureResult } from './spawn-runner.ts';
+import { detectKnownNonZeroFailure, buildNonZeroExitSummary } from './command-execution-shared.ts';
 
 export interface CommandExecutionOptions {
   cwd: string;
@@ -154,16 +155,36 @@ export function createCommandExecutionService(options: CreateCommandExecutionSer
 
     // Non-zero exit code (plain command, no JSON parsing)
     if (result.exitCode !== 0) {
+      const knownFailure = detectKnownNonZeroFailure(
+        {
+          command,
+          commandArgs,
+        },
+        {
+          stderr: result.stderr,
+        },
+      );
       return {
         ok: false,
         code: result.exitCode,
-        summary: result.stderr || `Exit code ${result.exitCode}`,
+        summary: buildNonZeroExitSummary({
+          knownFailure,
+          exitCode: result.exitCode,
+          stderr: result.stderr,
+        }),
         payload: {
           ok: false,
           command: commandLabel,
           exit_code: result.exitCode,
           stdout: result.stdout,
           stderr: result.stderr,
+          ...(knownFailure
+            ? {
+                error_code: knownFailure.errorCode,
+                error: knownFailure.summary,
+                error_context: knownFailure.context || undefined,
+              }
+            : {}),
         },
       };
     }

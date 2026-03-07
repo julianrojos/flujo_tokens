@@ -65,6 +65,8 @@ test("component-spec-route-handler-service: patch editorial args normalize paylo
     slug: "button",
     specRelPath: "docs/_spec/components/button.yml",
     specAbsPath: "/repo/docs/_spec/components/button.yml",
+    markdownAbsPath: "/repo/docs/components/button.md",
+    markdownRelPath: "docs/components/button.md",
     specBackupsDirPath: "/repo/docs/_generated/spec-backups",
     repoRoot: "/repo",
     body: {
@@ -74,6 +76,8 @@ test("component-spec-route-handler-service: patch editorial args normalize paylo
   });
   assert.equal(args.slug, "button");
   assert.equal(args.path, "docs/_spec/components/button.yml");
+  assert.equal(args.markdownAbsPath, "/repo/docs/components/button.md");
+  assert.equal(args.markdownRelPath, "docs/components/button.md");
   assert.equal(args.body.expectedHash, null);
   assert.deepEqual(args.body.fields, { summary: { purpose: "x" } });
 });

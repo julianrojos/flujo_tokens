@@ -602,3 +602,256 @@ test("component-spec-service: saveEditorialSpecFields rejects partial replacemen
     (error) => Number(error?.statusCode) === 400,
   );
 });
+
+test("component-spec-service: saveEditorialSpecFields syncs markdown summary and normalizes multiline purpose", async () => {
+  const writes = [];
+  const specAbsPath = "/repo/docs/_spec/components/button.yml";
+  const markdownAbsPath = "/repo/docs/components/button.md";
+
+  const payload = await saveEditorialSpecFields(
+    {
+      slug: "button",
+      path: "docs/_spec/components/button.yml",
+      body: {
+        expectedHash: null,
+        fields: {
+          summary: {
+            purpose: "New purpose",
+            when_to_use: "- New use",
+            when_not_to_use: "- New dont",
+          },
+        },
+      },
+      specAbsPath,
+      markdownAbsPath,
+      markdownRelPath: "docs/components/button.md",
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      repoRoot: "/repo",
+    },
+    {
+      sha256TextFn: (value) => `hash:${value.length}`,
+      readTextFileIfExistsFn: async (filePath) => {
+        if (filePath === specAbsPath) {
+          return {
+            exists: true,
+            raw: "name: Button\nstatus: draft\nsummary:\n  purpose: old\n",
+          };
+        }
+        if (filePath === markdownAbsPath) {
+          return {
+            exists: true,
+            raw: [
+              "# Button",
+              "",
+              "## Overview",
+              "",
+              "- Purpose:",
+              "  Old multiline purpose line 1",
+              "  Old multiline purpose line 2",
+              "",
+              "## Usage Guidelines",
+              "",
+              "### When to use",
+              "",
+              "- Old use",
+              "",
+              "### When not to use",
+              "",
+              "- Old dont",
+              "",
+            ].join("\n"),
+          };
+        }
+        return { exists: false, raw: "" };
+      },
+      parseYamlSafelyFn: () => ({
+        parsed: {
+          name: "Button",
+          status: "draft",
+          summary: { purpose: "old", when_to_use: "old", when_not_to_use: "old" },
+        },
+        parseError: null,
+      }),
+      persistSpecWithBackupFn: async () => ({
+        backupLatestPath: "/repo/docs/_spec/.backups/button.last.yml",
+      }),
+      writeFileFn: async (filePath, content) => {
+        writes.push({ filePath, content });
+      },
+    },
+  );
+
+  assert.equal(payload.ok, true);
+  assert.equal(payload.markdownSynced, true);
+  assert.equal(payload.markdownSyncError, null);
+  assert.deepEqual(payload.markdownSectionsFound, {
+    purpose: true,
+    whenToUse: true,
+    whenNotToUse: true,
+  });
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].filePath, markdownAbsPath);
+  assert.match(writes[0].content, /- Purpose: New purpose/);
+  assert.doesNotMatch(writes[0].content, /Old multiline purpose line 1/);
+  assert.match(writes[0].content, /### When to use[\s\S]*- New use/);
+  assert.match(writes[0].content, /### When not to use[\s\S]*- New dont/);
+  assert.match(writes[0].content, /\n$/);
+  assert.doesNotMatch(writes[0].content, /\n\n$/);
+});
+
+test("component-spec-service: saveEditorialSpecFields reports markdown summary sections missing", async () => {
+  const writes = [];
+  const specAbsPath = "/repo/docs/_spec/components/button.yml";
+  const markdownAbsPath = "/repo/docs/components/button.md";
+
+  const payload = await saveEditorialSpecFields(
+    {
+      slug: "button",
+      path: "docs/_spec/components/button.yml",
+      body: {
+        expectedHash: null,
+        fields: {
+          summary: {
+            purpose: "New purpose",
+            when_to_use: "- New use",
+            when_not_to_use: "- New dont",
+          },
+        },
+      },
+      specAbsPath,
+      markdownAbsPath,
+      markdownRelPath: "docs/components/button.md",
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      repoRoot: "/repo",
+    },
+    {
+      sha256TextFn: (value) => `hash:${value.length}`,
+      readTextFileIfExistsFn: async (filePath) => {
+        if (filePath === specAbsPath) {
+          return {
+            exists: true,
+            raw: "name: Button\nstatus: draft\nsummary:\n  purpose: old\n",
+          };
+        }
+        if (filePath === markdownAbsPath) {
+          return {
+            exists: true,
+            raw: ["# Button", "", "No summary sections in this markdown."].join("\n"),
+          };
+        }
+        return { exists: false, raw: "" };
+      },
+      parseYamlSafelyFn: () => ({
+        parsed: {
+          name: "Button",
+          status: "draft",
+          summary: { purpose: "old", when_to_use: "old", when_not_to_use: "old" },
+        },
+        parseError: null,
+      }),
+      persistSpecWithBackupFn: async () => ({
+        backupLatestPath: "/repo/docs/_spec/.backups/button.last.yml",
+      }),
+      writeFileFn: async (filePath, content) => {
+        writes.push({ filePath, content });
+      },
+    },
+  );
+
+  assert.equal(payload.ok, true);
+  assert.equal(payload.markdownSynced, false);
+  assert.match(
+    String(payload.markdownSyncError || ""),
+    /summary sync incomplete/i,
+  );
+  assert.deepEqual(payload.markdownSectionsFound, {
+    purpose: false,
+    whenToUse: false,
+    whenNotToUse: false,
+  });
+  assert.equal(writes.length, 0);
+});
+
+test("component-spec-service: saveEditorialSpecFields reports markdown summary sync incomplete when one section is missing", async () => {
+  const writes = [];
+  const specAbsPath = "/repo/docs/_spec/components/button.yml";
+  const markdownAbsPath = "/repo/docs/components/button.md";
+
+  const payload = await saveEditorialSpecFields(
+    {
+      slug: "button",
+      path: "docs/_spec/components/button.yml",
+      body: {
+        expectedHash: null,
+        fields: {
+          summary: {
+            purpose: "New purpose",
+            when_to_use: "- New use",
+            when_not_to_use: "- New dont",
+          },
+        },
+      },
+      specAbsPath,
+      markdownAbsPath,
+      markdownRelPath: "docs/components/button.md",
+      specBackupsDirPath: "/repo/docs/_spec/.backups",
+      repoRoot: "/repo",
+    },
+    {
+      sha256TextFn: (value) => `hash:${value.length}`,
+      readTextFileIfExistsFn: async (filePath) => {
+        if (filePath === specAbsPath) {
+          return {
+            exists: true,
+            raw: "name: Button\nstatus: draft\nsummary:\n  purpose: old\n",
+          };
+        }
+        if (filePath === markdownAbsPath) {
+          return {
+            exists: true,
+            raw: [
+              "# Button",
+              "",
+              "## Overview",
+              "",
+              "- Purpose: Old purpose",
+              "",
+              "## Usage Guidelines",
+              "",
+              "### When to use",
+              "",
+              "- Old use",
+              "",
+            ].join("\n"),
+          };
+        }
+        return { exists: false, raw: "" };
+      },
+      parseYamlSafelyFn: () => ({
+        parsed: {
+          name: "Button",
+          status: "draft",
+          summary: { purpose: "old", when_to_use: "old", when_not_to_use: "old" },
+        },
+        parseError: null,
+      }),
+      persistSpecWithBackupFn: async () => ({
+        backupLatestPath: "/repo/docs/_spec/.backups/button.last.yml",
+      }),
+      writeFileFn: async (filePath, content) => {
+        writes.push({ filePath, content });
+      },
+    },
+  );
+
+  assert.equal(payload.ok, true);
+  assert.equal(payload.markdownSynced, false);
+  assert.match(String(payload.markdownSyncError || ""), /missing sections/i);
+  assert.match(String(payload.markdownSyncError || ""), /when_not_to_use/i);
+  assert.deepEqual(payload.markdownSectionsFound, {
+    purpose: true,
+    whenToUse: true,
+    whenNotToUse: false,
+  });
+  assert.equal(writes.length, 0);
+});

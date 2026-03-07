@@ -117,7 +117,7 @@ describe('spec-orchestrator', () => {
             errors: [],
           }),
           syncDocumentationIndicesFn: () => ({
-            changed: false,
+            changed: [],
             written: [],
             registry: {
               registryPath: '/tmp/docs/_generated/component-registry.json',

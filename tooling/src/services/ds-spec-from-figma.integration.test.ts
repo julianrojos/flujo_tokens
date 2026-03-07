@@ -175,7 +175,7 @@ describe('ds-spec-from-figma integration', () => {
           errors: [],
         }),
         syncDocumentationIndicesFn: () => ({
-          changed: false,
+          changed: [],
           written: [],
           registry: {
             registryPath: registryIndexPath,
@@ -202,7 +202,7 @@ describe('ds-spec-from-figma integration', () => {
         warnings: 0,
       },
       documentationIndices: {
-        changed: false,
+        changed: [],
         written: [],
         registryPath: registryIndexPath,
         registryFingerprint: 'test-fingerprint',

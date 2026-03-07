@@ -11,15 +11,23 @@ import { Hono } from 'hono';
 import { registerCommandRoutes } from './command-routes.js';
 
 function createFailJson() {
-  return (c: any, statusCode: number, args: Record<string, unknown>) =>
-    c.json(
+  return (c: any, statusCode: number, args: Record<string, unknown>) => {
+    const code = String((args as any).code || 'internal.unknown_error');
+    const userMessage = String((args as any).userMessage || 'Request failed.');
+    return c.json(
       {
         ok: false,
-        code: (args as any).code,
-        message: (args as any).userMessage,
+        message: userMessage,
+        code,
+        error: {
+          code,
+          userMessage,
+          recoverable: (args as any).recoverable === true,
+        },
       },
       statusCode
     );
+  };
 }
 
 function createBaseDeps(overrides: Record<string, unknown> = {}) {
@@ -51,6 +59,14 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
       return String(Math.floor(n));
     },
     validateGitRef: (value: string) => String(value || ''),
+    processEnv: {},
+    processCwd: '/repo/apps/ds-dashboard',
+    spawnProcessFn: () => ({ unref() { } }),
+    setTimeoutFn: (callback: (...args: unknown[]) => void) => {
+      callback();
+      return 0;
+    },
+    exitProcessFn: () => { },
     ...overrides,
   };
 }
@@ -70,6 +86,97 @@ describe('command-routes', () => {
       const payload = await res.json();
       assert.equal((payload as any).ok, false);
       assert.equal((payload as any).code, 'validation.missing_script_name');
+    });
+
+    it('accepts component args from query when body is empty', async () => {
+      const captured: any[] = [];
+      const app = createTestApp({
+        readJsonBody: async () => ({}),
+        enqueueQueueJob: (args: any) => {
+          captured.push(args);
+          return { id: 'queued_component_doc' };
+        },
+      });
+
+      const res = await app.request(
+        '/api/run/ds:component-doc?component=button&specFile=docs/caca-01/_spec/components/button.yml',
+        { method: 'POST' },
+      );
+      assert.equal(res.status, 202);
+      assert.equal(captured.length, 1);
+      assert.match(String(captured[0]?.label || ''), /--spec-file docs\/caca-01\/_spec\/components\/button\.yml/);
+    });
+
+    it('accepts legacy query aliases when body is empty', async () => {
+      const captured: any[] = [];
+      const app = createTestApp({
+        readJsonBody: async () => ({}),
+        enqueueQueueJob: (args: any) => {
+          captured.push(args);
+          return { id: 'queued_component_doc_legacy' };
+        },
+      });
+
+      const res = await app.request(
+        '/api/run/ds:component-doc?componentName=button&spec_file=docs/caca-01/_spec/components/button.yml',
+        { method: 'POST' },
+      );
+      assert.equal(res.status, 202);
+      assert.equal(captured.length, 1);
+      assert.match(String(captured[0]?.label || ''), /--spec-file docs\/caca-01\/_spec\/components\/button\.yml/);
+    });
+
+    it('returns typed error when ds:component-doc args are missing', async () => {
+      const app = createTestApp({
+        readJsonBody: async () => ({}),
+      });
+
+      const res = await app.request('/api/run/ds:component-doc', { method: 'POST' });
+      assert.equal(res.status, 400);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, false);
+      assert.equal((payload as any).code, 'validation.component_doc_args_required');
+      assert.match(String((payload as any).message || ''), /componentName|specFile/i);
+    });
+  });
+
+  describe('/api/admin/restart-api', () => {
+    it('requests standalone restart when allowed', async () => {
+      const spawnCalls: any[] = [];
+      let exitCalled = false;
+      const app = createTestApp({
+        processEnv: { NODE_ENV: 'development' },
+        spawnProcessFn: (...args: unknown[]) => {
+          spawnCalls.push(args);
+          return { unref() { } };
+        },
+        setTimeoutFn: (callback: (...args: unknown[]) => void) => {
+          callback();
+          return 0;
+        },
+        exitProcessFn: () => {
+          exitCalled = true;
+        },
+      });
+
+      const res = await app.request('/api/admin/restart-api', { method: 'POST' });
+      assert.equal(res.status, 202);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, true);
+      assert.equal(spawnCalls.length, 1);
+      assert.equal(exitCalled, true);
+    });
+
+    it('blocks restart when API runs under supervisor', async () => {
+      const app = createTestApp({
+        processEnv: { NODE_ENV: 'development', DS_DASHBOARD_SUPERVISED: '1' },
+      });
+
+      const res = await app.request('/api/admin/restart-api', { method: 'POST' });
+      assert.equal(res.status, 409);
+      const payload = await res.json();
+      assert.equal((payload as any).ok, false);
+      assert.equal((payload as any).code, 'server.restart_requires_supervisor');
     });
   });
 

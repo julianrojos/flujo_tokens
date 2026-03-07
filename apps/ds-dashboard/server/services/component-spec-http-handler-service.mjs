@@ -46,18 +46,14 @@ async function withResolvedComponentSpecContext(c, deps, requireDevEdit, run) {
   return run(resolved);
 }
 
-async function withStatusCodeErrorMapping(c, run) {
+async function withStatusCodeErrorMapping(c, failJson, run) {
   try {
     return await run();
   } catch (error) {
     const statusCode = Number(error?.statusCode) || 500;
-    return c.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      },
-      statusCode,
-    );
+    const code = String(error?.code || (statusCode >= 500 ? "internal.error" : "request.error"));
+    const userMessage = error instanceof Error ? error.message : String(error);
+    return failJson(c, statusCode, { code, userMessage, recoverable: statusCode < 500 });
   }
 }
 
@@ -79,9 +75,9 @@ export async function handleGetComponentSpecRoute(c, deps) {
 }
 
 export async function handleValidateComponentSpecRoute(c, deps) {
-  const { readJsonBody, sha256Text } = deps;
+  const { readJsonBody, sha256Text, failJson } = deps;
   return withResolvedComponentSpecContext(c, deps, true, async ({ sysCtx, slug, target }) => {
-    return withStatusCodeErrorMapping(c, async () => {
+    return withStatusCodeErrorMapping(c, failJson, async () => {
       const body = await readJsonBody(c);
       const validationArgs = buildValidateComponentSpecRouteArgs({
         slug,
@@ -107,9 +103,9 @@ export async function handleValidateComponentSpecRoute(c, deps) {
 }
 
 export async function handleSaveComponentSpecRoute(c, deps) {
-  const { readJsonBody, sha256Text } = deps;
+  const { readJsonBody, sha256Text, failJson } = deps;
   return withResolvedComponentSpecContext(c, deps, true, async ({ sysCtx, slug, target }) => {
-    return withStatusCodeErrorMapping(c, async () => {
+    return withStatusCodeErrorMapping(c, failJson, async () => {
       const body = await readJsonBody(c);
       const saveArgs = buildSaveComponentSpecRouteArgs({
         slug,
@@ -140,16 +136,23 @@ export async function handleSaveComponentSpecRoute(c, deps) {
 }
 
 export async function handlePatchEditorialSpecRoute(c, deps) {
-  const { readJsonBody, sha256Text } = deps;
+  const { readJsonBody, sha256Text, failJson } = deps;
   return withResolvedComponentSpecContext(c, deps, true, async ({ sysCtx, slug, target }) => {
-    return withStatusCodeErrorMapping(c, async () => {
+    return withStatusCodeErrorMapping(c, failJson, async () => {
       const body = await readJsonBody(c);
+      const markdownRelPath = String(target?.component?.paths?.doc || "").trim() || null;
+      const markdownAbsPath =
+        markdownRelPath && typeof deps.resolveRepoFilePath === "function"
+          ? deps.resolveRepoFilePath(sysCtx.repoRoot, markdownRelPath)
+          : null;
       const patchArgs = buildPatchEditorialSpecRouteArgs({
         slug,
         specRelPath: target.specRelPath,
         specAbsPath: target.specAbsPath,
         specBackupsDirPath: sysCtx.specBackupsDirPath,
         repoRoot: sysCtx.repoRoot,
+        markdownAbsPath,
+        markdownRelPath,
         body,
       });
       const payload = await saveEditorialSpecFields(
@@ -167,9 +170,9 @@ export async function handlePatchEditorialSpecRoute(c, deps) {
 }
 
 export async function handleRestoreComponentSpecRoute(c, deps) {
-  const { readJsonBody, sha256Text } = deps;
+  const { readJsonBody, sha256Text, failJson } = deps;
   return withResolvedComponentSpecContext(c, deps, true, async ({ sysCtx, slug, target }) => {
-    return withStatusCodeErrorMapping(c, async () => {
+    return withStatusCodeErrorMapping(c, failJson, async () => {
       const body = await readJsonBody(c);
       const restoreArgs = buildRestoreComponentSpecRouteArgs({
         slug,

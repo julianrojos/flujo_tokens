@@ -71,6 +71,8 @@ export function buildPatchEditorialSpecRouteArgs({
   slug,
   specRelPath,
   specAbsPath,
+  markdownAbsPath,
+  markdownRelPath,
   specBackupsDirPath,
   repoRoot,
   body,
@@ -79,6 +81,8 @@ export function buildPatchEditorialSpecRouteArgs({
     slug,
     path: specRelPath,
     specAbsPath,
+    markdownAbsPath: markdownAbsPath || null,
+    markdownRelPath: markdownRelPath || null,
     specBackupsDirPath,
     repoRoot,
     body: {

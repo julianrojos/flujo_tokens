@@ -21,7 +21,7 @@ import type {
   ComponentSpecSaveResponse,
   ComponentSpecValidateResponse,
 } from "@/types/spec-editor";
-import type { ApiErrorCode } from "@/lib/api-errors";
+import { API_ERROR_CODES, type ApiErrorCode } from "@/lib/api-errors";
 import { normalizeEnvRef } from "@/lib/env-ref";
 
 let activeSystemId: string | null = null;
@@ -580,10 +580,15 @@ export function patchEditorialSpec(args: {
   expectedHash?: string | null;
   fields: Record<string, unknown>;
 }) {
+  const timeoutMs = 15_000;
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+
   return getJson<ComponentSpecPatchEditorialResponse>(
     `/api/component-spec/${encodeURIComponent(args.slug)}/editorial`,
     {
       method: "PATCH",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
       },
@@ -592,11 +597,35 @@ export function patchEditorialSpec(args: {
         fields: args.fields,
       }),
     },
-  );
+  )
+    .catch((error) => {
+      const isAbortError =
+        (typeof DOMException !== "undefined" &&
+          error instanceof DOMException &&
+          error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError");
+      if (!isAbortError) throw error;
+      throw new ApiError({
+        status: 408,
+        statusText: "Request Timeout",
+        code: "http.408" as ApiErrorCode,
+        userMessage:
+          "Saving summary timed out. The API may be busy; retry in a few seconds.",
+        recoverable: true,
+        context: {
+          timeoutMs,
+          endpoint: "/api/component-spec/:slug/editorial",
+        },
+      });
+    })
+    .finally(() => {
+      globalThis.clearTimeout(timeoutId);
+    });
 }
 
 const DEFAULT_QUEUE_POLL_INTERVAL_MS = 900;
 const DEFAULT_QUEUE_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
+const QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT = "script.missing_npm_script";
 
 type QueuedRefreshAcceptedPayload = {
   ok?: boolean;
@@ -705,6 +734,14 @@ function toQueuedStatusUrl(payload: QueuedRefreshAcceptedPayload): string {
   if (statusUrl) return statusUrl;
   if (jobId) return `/api/jobs/${encodeURIComponent(jobId)}`;
   return "";
+}
+
+function hasQueuePayloadErrorCode(error: ApiError, code: string): boolean {
+  const payload = toRecord(error.payload);
+  const job = toRecord(payload?.job);
+  const result = toRecord(job?.result);
+  const resultPayload = toRecord(result?.payload);
+  return toNonEmptyString(resultPayload?.error_code) === code;
 }
 
 export interface CancelQueueJobResult {
@@ -874,22 +911,64 @@ export async function refreshComponentsHealth(options?: QueueWaitOptions) {
 }
 
 export async function regenerateComponentMarkdown(
-  args: { slug: string },
+  args: { slug: string; specFile?: string | null },
   options?: QueueWaitOptions,
 ) {
-  return runQueuedRefresh(
-    "/api/run/ds:pipeline",
-    options,
-    {
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        component: args.slug,
-        onlyStep: "markdown",
-      }),
+  const endpoint = "/api/run/ds:component-doc";
+  const requestInit = {
+    headers: {
+      "Content-Type": "application/json",
     },
-  );
+    body: JSON.stringify({
+      component: args.slug,
+      componentName: args.slug,
+      componentSlug: args.slug,
+      specFile: args.specFile ?? null,
+      spec_file: args.specFile ?? null,
+    }),
+  } as const;
+
+  try {
+    return await runQueuedRefresh(endpoint, options, requestInit);
+  } catch (error) {
+    const argsRequiredError =
+      error instanceof ApiError &&
+      error.code === API_ERROR_CODES.VALIDATION_COMPONENT_DOC_ARGS_REQUIRED;
+    const missingScriptError =
+      error instanceof ApiError &&
+      error.code === API_ERROR_CODES.QUEUE_JOB_FAILED_OR_CANCELLED &&
+      hasQueuePayloadErrorCode(error, QUEUE_ERROR_CODE_MISSING_NPM_SCRIPT);
+    if (!argsRequiredError && !missingScriptError) {
+      throw error;
+    }
+    const pipelineEndpoint = "/api/run/ds:pipeline";
+    return runQueuedRefresh(
+      pipelineEndpoint,
+      options,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          component: args.slug,
+          onlyStep: "markdown",
+          fromStep: "markdown",
+        }),
+      },
+    );
+  }
+}
+
+export function restartApiServer() {
+  return getJson<{
+    ok: boolean;
+    mode?: string;
+    restartCommand?: string;
+    message?: string;
+    requestId?: string;
+  }>("/api/admin/restart-api", {
+    method: "POST",
+  });
 }
 
 export async function refreshNamingDebt() {

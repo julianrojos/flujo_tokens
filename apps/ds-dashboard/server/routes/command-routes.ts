@@ -12,6 +12,7 @@ import {
   handleCaptureFigmaScreenshotRoute,
   handleCaptureHealthSnapshotRoute,
   handleRefreshNamingDebtRoute,
+  handleRestartApiRoute,
   handleRunScriptRoute,
   handleSyncFigmaTokensRoute,
 } from '../services/command-route-handler-service.mjs';
@@ -37,6 +38,12 @@ export interface CommandRoutesDeps {
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
+  processEnv?: Record<string, string | undefined>;
+  processCwd?: string;
+  spawnProcessFn?: (...args: unknown[]) => { unref?: () => void };
+  setTimeoutFn?: (callback: (...args: unknown[]) => void, delayMs?: number) => unknown;
+  exitProcessFn?: (code?: number) => void;
+  exitDelayMs?: number;
 }
 
 /**
@@ -44,6 +51,7 @@ export interface CommandRoutesDeps {
  */
 export function registerCommandRoutes(app: { post: (path: string, handler: (c: Context) => any) => void }, deps: CommandRoutesDeps): void {
   app.post('/api/run/:script', (c: Context) => handleRunScriptRoute(c, deps));
+  app.post('/api/admin/restart-api', (c: Context) => handleRestartApiRoute(c, deps));
   app.post('/api/refresh-registry', (c: Context) => enqueueRefreshScriptJob(c, 'ds:registry:refresh', deps));
   app.post('/api/refresh-token-usage-index', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-usage-index', deps));
   app.post('/api/refresh-token-graph', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-graph', deps));

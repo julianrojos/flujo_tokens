@@ -52,6 +52,176 @@ interface CandidateCommand {
   args: string[];
 }
 
+function hasPathSeparator(value: string): boolean {
+  return value.includes("/") || value.includes("\\");
+}
+
+function commandPathExists(command: string): boolean {
+  const candidate = String(command || "").trim();
+  if (!candidate) return false;
+  if (path.isAbsolute(candidate) || hasPathSeparator(candidate)) {
+    try {
+      return fs.existsSync(candidate);
+    } catch {
+      return false;
+    }
+  }
+  return commandExists(candidate);
+}
+
+const AGENT_COMMAND_ALIASES: Record<AgentType, string[]> = {
+  codex: ["codex"],
+  claude: ["claude", "claude-code"],
+  gemini: ["gemini", "gemini-cli"],
+  "": [],
+};
+
+const AGENT_ENV_PATHS: Record<AgentType, string[]> = {
+  codex: ["CODEX_BIN", "DS_CODEX_PATH"],
+  claude: ["CLAUDE_BIN", "DS_CLAUDE_PATH"],
+  gemini: ["GEMINI_BIN", "DS_GEMINI_PATH"],
+  "": [],
+};
+
+const CODEX_EXTENSION_FALLBACK_ENV = "DS_ENABLE_CODEX_EXTENSION_FALLBACK";
+
+interface ResolveEnvAgentCommandDeps {
+  env?: NodeJS.ProcessEnv;
+  commandPathExistsFn?: (command: string) => boolean;
+}
+
+interface CodexFallbackLookupDeps extends ResolveEnvAgentCommandDeps {
+  homeDir?: string;
+  platform?: NodeJS.Platform;
+  arch?: string;
+  extensionRoots?: string[];
+  readDirFn?: (root: string) => Array<{ name: string; isDirectory: () => boolean }>;
+  logInfoFn?: (message: string) => void;
+}
+
+function resolveEnvAgentCommand(agent: AgentType, deps: ResolveEnvAgentCommandDeps = {}): string {
+  const env = deps.env || process.env;
+  const commandPathExistsFn = deps.commandPathExistsFn || commandPathExists;
+  for (const envKey of AGENT_ENV_PATHS[agent] || []) {
+    const fromEnv = String(env[envKey] || "").trim();
+    if (fromEnv && commandPathExistsFn(fromEnv)) return fromEnv;
+  }
+  return "";
+}
+
+function envFlagEnabled(value: unknown): boolean {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return (
+    normalized === "1" ||
+    normalized === "true" ||
+    normalized === "yes" ||
+    normalized === "on"
+  );
+}
+
+function codexExtensionTargets(platformName: NodeJS.Platform, archName: string): string[] {
+  if (platformName === "darwin") {
+    return archName === "arm64"
+      ? ["macos-aarch64", "darwin-arm64"]
+      : ["macos-x64", "darwin-x64"];
+  }
+  if (platformName === "linux") {
+    return archName === "arm64"
+      ? ["linux-aarch64", "linux-arm64"]
+      : ["linux-x64"];
+  }
+  if (platformName === "win32") {
+    return archName === "arm64"
+      ? ["windows-arm64", "win32-arm64"]
+      : ["windows-x64", "win32-x64"];
+  }
+  return [];
+}
+
+function codexBinaryNames(platformName: NodeJS.Platform): string[] {
+  return platformName === "win32" ? ["codex.exe", "codex"] : ["codex"];
+}
+
+function findCodexFallbackCommand(deps: CodexFallbackLookupDeps = {}): string {
+  const env = deps.env || process.env;
+  const commandPathExistsFn = deps.commandPathExistsFn || commandPathExists;
+  const readDirFn =
+    deps.readDirFn ||
+    ((root: string) => fs.readdirSync(root, { withFileTypes: true }));
+  const logInfoFn = deps.logInfoFn || ((message: string) => logger.info(message));
+
+  const fromEnv = resolveEnvAgentCommand("codex", { env, commandPathExistsFn });
+  if (fromEnv) return fromEnv;
+
+  if (!envFlagEnabled(env[CODEX_EXTENSION_FALLBACK_ENV])) {
+    return "";
+  }
+
+  const home = String(deps.homeDir || env.HOME || "").trim();
+  if (!home) return "";
+
+  const extensionRoots = deps.extensionRoots || [
+    path.join(home, ".antigravity", "extensions"),
+    path.join(home, ".vscode", "extensions"),
+    path.join(home, ".cursor", "extensions"),
+  ];
+  const platformName = deps.platform || process.platform;
+  const archName = deps.arch || process.arch;
+  const platformTargets = codexExtensionTargets(platformName, archName);
+  const binaryNames = codexBinaryNames(platformName);
+
+  for (const extensionRoot of extensionRoots) {
+    try {
+      const entries = readDirFn(extensionRoot);
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (!entry.name.startsWith("openai.chatgpt-")) continue;
+        for (const target of platformTargets) {
+          for (const binary of binaryNames) {
+            const candidate = path.join(
+              extensionRoot,
+              entry.name,
+              "bin",
+              target,
+              binary,
+            );
+            if (commandPathExistsFn(candidate)) {
+              logInfoFn(
+                `agent-runner: using Codex extension fallback (${CODEX_EXTENSION_FALLBACK_ENV}=1): ${candidate}`,
+              );
+              return candidate;
+            }
+          }
+        }
+      }
+    } catch {
+      // ignore fallback lookup errors per extension root
+    }
+  }
+
+  return "";
+}
+
+export const __agentRunnerTestUtils = Object.freeze({
+  envFlagEnabled,
+  codexExtensionTargets,
+  findCodexFallbackCommand,
+});
+
+function resolveAgentCommand(agent: AgentType): string {
+  if (!agent) return "";
+  for (const alias of AGENT_COMMAND_ALIASES[agent] || []) {
+    if (commandExists(alias)) return alias;
+  }
+  const envCommand = resolveEnvAgentCommand(agent);
+  if (envCommand) return envCommand;
+  if (agent === "codex") {
+    const fallback = findCodexFallbackCommand();
+    if (fallback) return fallback;
+  }
+  return "";
+}
+
 /**
  * Run command with spawnSync.
  */
@@ -95,20 +265,26 @@ function pickAgent(explicitAgent: AgentType | "auto" | undefined): AgentType {
     return requested as AgentType;
   }
 
-  if (commandExists("codex")) return "codex";
-  if (commandExists("claude")) return "claude";
-  if (commandExists("gemini")) return "gemini";
+  if (resolveAgentCommand("codex")) return "codex";
+  if (resolveAgentCommand("claude")) return "claude";
+  if (resolveAgentCommand("gemini")) return "gemini";
   return "";
 }
 
 /**
  * Generate candidate commands for agent execution.
  */
-function candidateCommands(agent: AgentType, prompt: string, cwd: string): CandidateCommand[] {
+function candidateCommands(
+  agent: AgentType,
+  prompt: string,
+  cwd: string,
+  preferredCommand: string,
+): CandidateCommand[] {
   if (agent === "codex") {
+    const command = preferredCommand || "codex";
     return [
       {
-        command: "codex",
+        command,
         args: [
           "exec",
           "--full-auto",
@@ -124,18 +300,20 @@ function candidateCommands(agent: AgentType, prompt: string, cwd: string): Candi
   }
 
   if (agent === "claude") {
+    const command = preferredCommand || "claude";
     return [
-      { command: "claude", args: ["-p", prompt] },
-      { command: "claude", args: ["--print", prompt] },
-      { command: "claude", args: ["code", "-p", prompt] },
+      { command, args: ["-p", prompt] },
+      { command, args: ["--print", prompt] },
+      { command, args: ["code", "-p", prompt] },
     ];
   }
 
   if (agent === "gemini") {
+    const command = preferredCommand || "gemini";
     return [
-      { command: "gemini", args: ["-p", prompt] },
-      { command: "gemini", args: ["--prompt", prompt] },
-      { command: "gemini", args: ["chat", "-p", prompt] },
+      { command, args: ["-p", prompt] },
+      { command, args: ["--prompt", prompt] },
+      { command, args: ["chat", "-p", prompt] },
     ];
   }
 
@@ -168,19 +346,25 @@ export function runAgentPrompt(options: AgentPromptOptions): AgentPromptResult {
   const { prompt, agent, label, passthrough = true } = options;
   const cwd = process.cwd();
   const selectedAgent = pickAgent(agent || "auto");
+  const selectedAgentCommand = selectedAgent ? resolveAgentCommand(selectedAgent) : "";
   
   logger.debug(
     `runAgentPrompt: selected agent="${selectedAgent || "none"}" (requested="${String(agent || "auto")}").`,
   );
   
-  if (!selectedAgent) {
+  if (!selectedAgent || !selectedAgentCommand) {
     const promptPath = writePromptFallback(prompt, label);
     throw new Error(
       `No compatible agent CLI found (codex/claude/gemini). Prompt saved at ${promptPath}`,
     );
   }
 
-  const candidates = candidateCommands(selectedAgent, prompt, cwd);
+  const candidates = candidateCommands(
+    selectedAgent,
+    prompt,
+    cwd,
+    selectedAgentCommand,
+  );
   if (!candidates.length) {
     const promptPath = writePromptFallback(prompt, label);
     throw new Error(
@@ -189,7 +373,7 @@ export function runAgentPrompt(options: AgentPromptOptions): AgentPromptResult {
   }
 
   const installedCandidates = candidates.filter((candidate) =>
-    commandExists(candidate.command),
+    commandPathExists(candidate.command),
   );
   logger.debug(
     `runAgentPrompt: ${installedCandidates.length}/${candidates.length} candidate command variants available for "${selectedAgent}".`,

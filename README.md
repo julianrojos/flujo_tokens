@@ -351,6 +351,12 @@ Run:
 npm run dashboard:dev
 ```
 
+API-only mode:
+
+```bash
+npm --prefix apps/ds-dashboard run dev:api
+```
+
 Before opening the Tokens view, ensure token usage data is generated at least once:
 
 ```bash
@@ -358,6 +364,32 @@ npm run ds:token-usage-index
 ```
 
 The dashboard also exposes a `Sync Usage Index` action in the Tokens page that runs this command locally.
+
+Markdown regeneration from the dashboard (`Edit summary (markdown)` -> save) runs `ds:component-doc` under the API process.
+That specific action requires an AI CLI available to the API runtime (`codex`, `claude`, or `gemini`).
+
+Agent configuration for dashboard API:
+
+- Select agent explicitly: `DS_AGENT=codex|claude|gemini`
+- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CODEX_BIN=/abs/path/to/codex`
+- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CLAUDE_BIN=/abs/path/to/claude`
+- Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `GEMINI_BIN=/abs/path/to/gemini`
+- Optional Codex extension fallback (disabled by default): `DS_ENABLE_CODEX_EXTENSION_FALLBACK=1`
+  - When enabled, tooling can try to discover Codex from local editor extension folders (`~/.antigravity/extensions`, `~/.vscode/extensions`, `~/.cursor/extensions`) using your current OS/arch.
+  - This fallback is best-effort for local development only; for CI or stable setups, use `CODEX_BIN`.
+- `auto` mode is still supported (`DS_AGENT` unset): tries `codex`, then `claude`, then `gemini`.
+
+Examples:
+
+```bash
+# Force Claude for dashboard markdown regeneration
+DS_AGENT=claude CLAUDE_BIN="/abs/path/to/claude" npm --prefix apps/ds-dashboard run dev:api
+
+# Force Gemini
+DS_AGENT=gemini GEMINI_BIN="/abs/path/to/gemini" npm --prefix apps/ds-dashboard run dev:api
+```
+
+If the editor shows `No compatible agent CLI found (codex/claude/gemini)`, restart the API with one of the commands above.
 
 Build/preview:
 

@@ -83,6 +83,7 @@ describe("component-spec-editor behavior helpers", () => {
             rawHash: "new-hash",
             backupPath: "docs/_generated/spec-backups/button.last.yml",
             savedKeys: ["summary"],
+            markdownSynced: true,
             message: "Saved",
           };
         },
@@ -104,6 +105,7 @@ describe("component-spec-editor behavior helpers", () => {
     assert.deepEqual(saved, {
       message: "Saved",
       rawHash: "new-hash",
+      markdownSynced: true,
     });
   });
 

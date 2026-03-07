@@ -55,6 +55,7 @@ export interface CreateServerRouteDepsConfig {
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max?: number) => string;
   validateGitRef: (...args: unknown[]) => unknown;
+  exitDelayMs?: number;
 }
 
 export type CreateServerRouteDeps = CreateServerRouteDepsConfig;
@@ -113,5 +114,6 @@ export function buildCreateServerRouteDeps(deps: CreateServerRouteDepsConfig): C
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,
     validateGitRef: deps.validateGitRef,
+    exitDelayMs: deps.exitDelayMs,
   };
 }

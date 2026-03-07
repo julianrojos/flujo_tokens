@@ -21,6 +21,140 @@ const EDITORIAL_OBJECT_REQUIRED_KEYS = Object.freeze({
   best_practices: ["do", "dont"],
 });
 
+function escapeRegex(rawValue) {
+  return String(rawValue || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function toInlineMarkdown(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeBlockMarkdown(value, fallback = "- TBD") {
+  const normalized = String(value || "").trim();
+  return normalized || fallback;
+}
+
+function replaceMarkdownPurposeBullet(markdown, replacementValue) {
+  const purposeLineRegex = /^([ \t]*)-\s*Purpose:\s*(.*)$/im;
+  const match = purposeLineRegex.exec(markdown);
+  if (!match) {
+    return {
+      found: false,
+      changed: false,
+      content: markdown,
+    };
+  }
+
+  const lineStart = match.index;
+  const indentSpaces = String(match[1] || "").length;
+  let lineEnd = markdown.indexOf("\n", lineStart);
+  if (lineEnd === -1) lineEnd = markdown.length;
+
+  // Consume indented continuation lines (`- Purpose:` block-style markdown list item).
+  let blockEnd = lineEnd;
+  let cursor = lineEnd < markdown.length ? lineEnd + 1 : markdown.length;
+  while (cursor < markdown.length) {
+    let nextLineEnd = markdown.indexOf("\n", cursor);
+    if (nextLineEnd === -1) nextLineEnd = markdown.length;
+    const line = markdown.slice(cursor, nextLineEnd);
+    const trimmed = line.trim();
+    const leadingSpaces = (line.match(/^\s*/) || [""])[0].length;
+    const isContinuationLine = trimmed.length > 0 && leadingSpaces > indentSpaces;
+    if (!isContinuationLine) break;
+    blockEnd = nextLineEnd;
+    cursor = nextLineEnd < markdown.length ? nextLineEnd + 1 : markdown.length;
+  }
+
+  const purpose = toInlineMarkdown(replacementValue) || "TBD";
+  const replacementLine = `${match[1] || ""}- Purpose: ${purpose}`;
+  const before = markdown.slice(0, lineStart);
+  const after = markdown.slice(blockEnd);
+  const nextContent = `${before}${replacementLine}${after}`;
+
+  return {
+    found: true,
+    changed: nextContent !== markdown,
+    content: nextContent,
+  };
+}
+
+function replaceMarkdownH3Section(markdown, heading, replacementBody) {
+  const headingRegex = new RegExp(`^###\\s+${escapeRegex(heading)}\\s*$`, "im");
+  const match = headingRegex.exec(markdown);
+  if (!match) return { found: false, changed: false, content: markdown };
+
+  const headingStart = match.index;
+  const headingLineEnd = markdown.indexOf("\n", headingStart);
+  const hasTrailingNewline = headingLineEnd >= 0;
+  const headingLine = hasTrailingNewline
+    ? markdown.slice(headingStart, headingLineEnd + 1)
+    : `${markdown.slice(headingStart)}\n`;
+  const bodyStart = hasTrailingNewline ? headingLineEnd + 1 : markdown.length;
+  const tail = markdown.slice(bodyStart);
+  const nextHeadingMatch = /^(###|##)\s+[^\n]+\s*$/m.exec(tail);
+  const sectionEnd =
+    nextHeadingMatch && Number.isFinite(nextHeadingMatch.index)
+      ? bodyStart + nextHeadingMatch.index
+      : markdown.length;
+
+  const before = markdown.slice(0, headingStart);
+  const after = markdown.slice(sectionEnd).replace(/^\n*/, "\n");
+  const replacement = `${headingLine}\n${normalizeBlockMarkdown(replacementBody)}\n\n`;
+  const nextContent = `${before}${replacement}${after}`;
+
+  return { found: true, changed: nextContent !== markdown, content: nextContent };
+}
+
+function syncSummaryIntoMarkdown(rawMarkdown, summary) {
+  let next = String(rawMarkdown || "");
+  let changed = false;
+  const sections = {
+    purpose: false,
+    whenToUse: false,
+    whenNotToUse: false,
+  };
+
+  const purpose = replaceMarkdownPurposeBullet(next, summary?.purpose);
+  if (purpose.found) sections.purpose = true;
+  if (purpose.changed) {
+    changed = true;
+  }
+  next = purpose.content;
+
+  const whenToUse = replaceMarkdownH3Section(
+    next,
+    "When to use",
+    normalizeBlockMarkdown(summary?.when_to_use),
+  );
+  if (whenToUse.found) sections.whenToUse = true;
+  if (whenToUse.changed) {
+    changed = true;
+  }
+  next = whenToUse.content;
+
+  const whenNotToUse = replaceMarkdownH3Section(
+    next,
+    "When not to use",
+    normalizeBlockMarkdown(summary?.when_not_to_use),
+  );
+  if (whenNotToUse.found) sections.whenNotToUse = true;
+  if (whenNotToUse.changed) {
+    changed = true;
+  }
+  next = whenNotToUse.content;
+  const normalizedNext = `${next.trimEnd()}\n`;
+  if (normalizedNext !== next) {
+    changed = true;
+  }
+  next = normalizedNext;
+
+  return {
+    changed,
+    content: next,
+    sections,
+  };
+}
+
 function assertEditorialReplacementContract(fields) {
   for (const [key, value] of Object.entries(fields)) {
     const requiredKeys = EDITORIAL_OBJECT_REQUIRED_KEYS[key];
@@ -639,6 +773,8 @@ export async function saveEditorialSpecFields(args, deps = {}) {
     path: specRelPath,
     body,
     specAbsPath,
+    markdownAbsPath = null,
+    markdownRelPath = null,
     specBackupsDirPath,
     repoRoot,
   } = args;
@@ -647,6 +783,7 @@ export async function saveEditorialSpecFields(args, deps = {}) {
     readTextFileIfExistsFn = readTextFileIfExists,
     parseYamlSafelyFn = parseYamlSafely,
     persistSpecWithBackupFn = persistSpecWithBackup,
+    writeFileFn = fs.writeFile,
   } = deps;
 
   if (typeof sha256TextFn !== "function") {
@@ -720,6 +857,59 @@ export async function saveEditorialSpecFields(args, deps = {}) {
     nextRaw,
   });
 
+  let markdownSynced = false;
+  let markdownSyncError = null;
+  let markdownSectionsFound = null;
+  if (incomingKeys.includes("summary")) {
+    try {
+      if (!markdownAbsPath) {
+        markdownSynced = false;
+        markdownSyncError = "No markdown path configured for this component.";
+      } else {
+        const markdownLoaded = await readTextFileIfExistsFn(markdownAbsPath);
+        if (!markdownLoaded.exists) {
+          markdownSynced = false;
+          markdownSyncError = "Markdown file does not exist yet.";
+        } else {
+          const summaryValue = isPlainObject(nextSpec.summary) ? nextSpec.summary : {};
+          const syncResult = syncSummaryIntoMarkdown(markdownLoaded.raw, summaryValue);
+          const sections = syncResult.sections;
+          const requiredSectionFlags = [
+            ["purpose", Boolean(sections.purpose)],
+            ["when_to_use", Boolean(sections.whenToUse)],
+            ["when_not_to_use", Boolean(sections.whenNotToUse)],
+          ];
+          const missingSections = requiredSectionFlags
+            .filter(([, found]) => !found)
+            .map(([key]) => key);
+          if (missingSections.length > 0) {
+            markdownSynced = false;
+            markdownSyncError = `Markdown summary sync incomplete. Missing sections: ${missingSections.join(", ")}.`;
+            markdownSectionsFound = sections;
+          } else {
+            if (syncResult.changed) {
+              await writeFileFn(markdownAbsPath, syncResult.content, "utf8");
+            }
+            markdownSynced = true;
+            markdownSyncError = null;
+            markdownSectionsFound = sections;
+          }
+        }
+      }
+    } catch (error) {
+      markdownSyncError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  let message = "Editorial fields saved successfully.";
+  if (incomingKeys.includes("summary")) {
+    if (markdownSynced) {
+      message = "Editorial fields and markdown updated successfully.";
+    } else if (markdownSyncError) {
+      message = `Editorial fields saved successfully, but markdown sync failed: ${markdownSyncError}`;
+    }
+  }
+
   return {
     ok: true,
     slug,
@@ -727,6 +917,10 @@ export async function saveEditorialSpecFields(args, deps = {}) {
     rawHash: sha256TextFn(nextRaw),
     backupPath: path.relative(repoRoot, persisted.backupLatestPath),
     savedKeys: incomingKeys,
-    message: "Editorial fields saved successfully.",
+    markdownPath: markdownRelPath,
+    markdownSynced,
+    markdownSyncError,
+    markdownSectionsFound,
+    message,
   };
 }

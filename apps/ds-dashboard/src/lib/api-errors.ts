@@ -20,6 +20,7 @@ export const API_ERROR_CODES = {
   SYSTEM_INVALID_OR_MISSING: "system.invalid_or_missing",
   TOKEN_GRAPH_TOKEN_NOT_FOUND: "token_graph.token_not_found",
   VALIDATION_FIGMA_URL_REQUIRED: "validation.figma_url_required",
+  VALIDATION_COMPONENT_DOC_ARGS_REQUIRED: "validation.component_doc_args_required",
   VALIDATION_INVALID_COMPONENT_SLUG: "validation.invalid_component_slug",
   VALIDATION_INVALID_DATE_FORMAT: "validation.invalid_date_format",
   VALIDATION_INVALID_DATE_RANGE: "validation.invalid_date_range",
@@ -192,6 +193,13 @@ export const API_ERROR_CATALOG: Record<ApiErrorCatalogCode, ApiErrorCodeMeta> = 
     recoverable: true,
     description: "Missing Figma URL in request body.",
     fix: "Provide a `figmaUrl` value.",
+  },
+  [API_ERROR_CODES.VALIDATION_COMPONENT_DOC_ARGS_REQUIRED]: {
+    code: API_ERROR_CODES.VALIDATION_COMPONENT_DOC_ARGS_REQUIRED,
+    httpStatus: 400,
+    recoverable: true,
+    description: "Component doc command requires component name or spec file.",
+    fix: "Provide `componentName` or `specFile` when triggering markdown generation.",
   },
   [API_ERROR_CODES.VALIDATION_INVALID_COMPONENT_SLUG]: {
     code: API_ERROR_CODES.VALIDATION_INVALID_COMPONENT_SLUG,

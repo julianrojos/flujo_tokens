@@ -49,5 +49,6 @@ export function buildCreateServerRouteDeps(deps) {
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,
     validateGitRef: deps.validateGitRef,
+    exitDelayMs: deps.exitDelayMs,
   };
 }

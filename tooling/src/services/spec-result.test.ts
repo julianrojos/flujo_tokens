@@ -26,7 +26,7 @@ describe('spec-result', () => {
           },
         },
         indicesSync: {
-          changed: true,
+          changed: ['/repo/docs/components/overview.md'],
           written: ['/repo/docs/components/overview.md'],
           registry: {
             registryPath: '/repo/docs/_generated/component-registry.json',
@@ -51,7 +51,7 @@ describe('spec-result', () => {
           warnings: 1,
         },
         documentationIndices: {
-          changed: true,
+          changed: ['/repo/docs/components/overview.md'],
           written: ['/repo/docs/components/overview.md'],
           registryPath: '/repo/docs/_generated/component-registry.json',
           registryFingerprint: 'abc123',
@@ -70,7 +70,7 @@ describe('spec-result', () => {
         unresolvedTbdCount: 0,
         validationReport: null,
         indicesSync: {
-          changed: false,
+          changed: [],
           written: [],
           registry: {
             registryPath: '/repo/docs/_generated/component-registry.json',

@@ -36,6 +36,7 @@ function startScript(name) {
       ...process.env,
       NODE_ENV: process.env.NODE_ENV || "development",
       DS_DASHBOARD_API_URL: API_BASE_URL,
+      ...(name === "dev:api" ? { DS_DASHBOARD_SUPERVISED: "1" } : {}),
     },
   });
   processes.push(child);

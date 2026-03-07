@@ -41,13 +41,14 @@ interface PersistSummaryEditorialDeps {
     ok: boolean;
     rawHash: string | null;
     message?: string;
+    markdownSynced?: boolean;
   }>;
 }
 
 export async function persistSummaryEditorial(
   args: PersistSummaryEditorialArgs,
   deps: PersistSummaryEditorialDeps,
-): Promise<{ message: string; rawHash: string | null }> {
+): Promise<{ message: string; rawHash: string | null; markdownSynced: boolean }> {
   const { patchEditorialSpecFn } = deps;
   const payload = await patchEditorialSpecFn({
     slug: args.slug,
@@ -60,5 +61,6 @@ export async function persistSummaryEditorial(
   return {
     message: payload.message || "Editorial fields saved successfully.",
     rawHash: payload.rawHash,
+    markdownSynced: payload.markdownSynced === true,
   };
 }

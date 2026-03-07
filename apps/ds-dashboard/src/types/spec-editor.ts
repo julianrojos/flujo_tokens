@@ -82,5 +82,13 @@ export interface ComponentSpecPatchEditorialResponse {
   rawHash: string | null;
   backupPath: string | null;
   savedKeys: string[];
+  markdownPath?: string | null;
+  markdownSynced?: boolean;
+  markdownSyncError?: string | null;
+  markdownSectionsFound?: {
+    purpose: boolean;
+    whenToUse: boolean;
+    whenNotToUse: boolean;
+  } | null;
   message?: string;
 }

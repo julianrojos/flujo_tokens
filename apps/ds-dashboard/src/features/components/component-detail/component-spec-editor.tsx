@@ -36,6 +36,9 @@ export function ComponentSpecEditor({
   const [summary, setSummary] = useState<SummaryFields>(() => toSummary(spec));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
+  const [savedWithMarkdownSync, setSavedWithMarkdownSync] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const isDirty = isSummaryDirty(summary, baselineSummary);
 
@@ -45,34 +48,65 @@ export function ComponentSpecEditor({
 
   useEffect(() => {
     if (!open) return;
-    setSummary(toSummary(spec));
     setError(null);
+    setSuccessMessage(null);
+    setWarningMessage(null);
+    setSavedWithMarkdownSync(false);
     setConfirmDiscardOpen(false);
-  }, [open, spec]);
+  }, [open, slug]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSummary(toSummary(spec));
+  }, [open, slug, spec]);
 
   const handleSave = async () => {
     setIsSaving(true);
     setError(null);
+    setSuccessMessage(null);
+    setWarningMessage(null);
+    setSavedWithMarkdownSync(false);
     try {
-      const saved = await persistSummaryEditorial({
-        slug,
-        expectedHash,
-        summary,
-      }, {
-        patchEditorialSpecFn: patchEditorialSpec,
-      });
+      const saved = await persistSummaryEditorial(
+        {
+          slug,
+          expectedHash,
+          summary,
+        },
+        {
+          patchEditorialSpecFn: patchEditorialSpec,
+        },
+      );
       onSaved({
         message: saved.message,
         rawHash: saved.rawHash,
       });
+      
+      // Check if markdown sync was successful
+      if (saved.markdownSynced !== true) {
+        // Partial save - editorial fields saved but markdown sync failed/pending
+        setWarningMessage(saved.message || "Editorial fields saved, but markdown regeneration is pending.");
+      } else {
+        // Full success - both editorial fields and markdown sync completed
+        setSuccessMessage(saved.message || "Editorial fields saved successfully.");
+      }
+      setSavedWithMarkdownSync(saved.markdownSynced === true);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      const message = cause instanceof Error ? cause.message : String(cause);
+      setError(message);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleCancel = () => {
+    // If a save was just completed successfully, skip the confirm-discard dialog.
+    // The baseline (spec from parent) hasn't been refetched yet, so isDirty may
+    // incorrectly be true during that async window.
+    if (savedWithMarkdownSync) {
+      onCancel();
+      return;
+    }
     if (resolveCancelIntent(isDirty) === "confirm") {
       setConfirmDiscardOpen(true);
       return;
@@ -143,9 +177,10 @@ export function ComponentSpecEditor({
               <span className="mb-1 block text-xs font-medium text-muted-foreground">Purpose</span>
               <SummaryMarkdownEditor
                 value={summary.purpose}
-                onChange={(markdown) =>
-                  setSummary((current) => ({ ...current, purpose: markdown }))
-                }
+                onChange={(markdown) => {
+                  setSavedWithMarkdownSync(false);
+                  setSummary((current) => ({ ...current, purpose: markdown }));
+                }}
                 placeholder="Enter purpose..."
               />
             </div>
@@ -156,9 +191,10 @@ export function ComponentSpecEditor({
               </span>
               <SummaryMarkdownEditor
                 value={summary.when_to_use}
-                onChange={(markdown) =>
-                  setSummary((current) => ({ ...current, when_to_use: markdown }))
-                }
+                onChange={(markdown) => {
+                  setSavedWithMarkdownSync(false);
+                  setSummary((current) => ({ ...current, when_to_use: markdown }));
+                }}
                 placeholder="Enter when to use..."
               />
             </div>
@@ -169,18 +205,14 @@ export function ComponentSpecEditor({
               </span>
               <SummaryMarkdownEditor
                 value={summary.when_not_to_use}
-                onChange={(markdown) =>
-                  setSummary((current) => ({ ...current, when_not_to_use: markdown }))
-                }
+                onChange={(markdown) => {
+                  setSavedWithMarkdownSync(false);
+                  setSummary((current) => ({ ...current, when_not_to_use: markdown }));
+                }}
                 placeholder="Enter when not to use..."
               />
             </div>
 
-            {error ? (
-              <p className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-700">
-                {error}
-              </p>
-            ) : null}
             {isDirty ? (
               <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
                 You have unsaved changes.
@@ -207,9 +239,25 @@ export function ComponentSpecEditor({
               </div>
             ) : null}
 
+            {successMessage ? (
+              <p className="mt-3 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2 text-sm text-emerald-700">
+                {successMessage}
+              </p>
+            ) : null}
+            {warningMessage ? (
+              <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-700">
+                {warningMessage}
+              </p>
+            ) : null}
+            {error ? (
+              <div className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-700">
+                <p>{error}</p>
+              </div>
+            ) : null}
+
             <div className="mt-4 flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-                Cancel
+                {savedWithMarkdownSync ? "Ok, close" : "Cancel"}
               </Button>
               <Button size="sm" onClick={handleSave} disabled={isSaving || !isDirty}>
                 {isSaving ? "Saving..." : "Save summary (markdown)"}

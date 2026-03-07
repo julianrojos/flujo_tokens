@@ -43,6 +43,65 @@ describe('command-route-service', () => {
         '--status-only',
       ]);
     });
+
+    it('adds component-name for ds:component-doc', () => {
+      const payload = buildRunScriptCommandArgs({
+        scriptName: 'ds:component-doc',
+        systemId: 'core',
+        body: {
+          component: 'button',
+        },
+      });
+      assert.deepEqual(payload.args, [
+        'run',
+        'ds:component-doc',
+        '--',
+        '--system',
+        'core',
+        '--component-name',
+        'button',
+      ]);
+    });
+
+    it('prefers spec-file for ds:component-doc', () => {
+      const payload = buildRunScriptCommandArgs({
+        scriptName: 'ds:component-doc',
+        systemId: 'core',
+        body: {
+          component: 'button',
+          specFile: 'docs/caca-01/_spec/components/button.yml',
+        },
+      });
+      assert.deepEqual(payload.args, [
+        'run',
+        'ds:component-doc',
+        '--',
+        '--system',
+        'core',
+        '--spec-file',
+        'docs/caca-01/_spec/components/button.yml',
+      ]);
+    });
+
+    it('accepts legacy aliases for ds:component-doc', () => {
+      const payload = buildRunScriptCommandArgs({
+        scriptName: 'ds:component-doc',
+        systemId: 'core',
+        body: {
+          componentName: 'button',
+          spec_file: 'docs/caca-01/_spec/components/button.yml',
+        },
+      });
+      assert.deepEqual(payload.args, [
+        'run',
+        'ds:component-doc',
+        '--',
+        '--system',
+        'core',
+        '--spec-file',
+        'docs/caca-01/_spec/components/button.yml',
+      ]);
+    });
   });
 
   describe('buildHealthSnapshotCommandConfig()', () => {

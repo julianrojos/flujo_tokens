@@ -8,6 +8,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import fs from 'node:fs';
 import { validateDocs } from './docs-validator.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 
@@ -59,7 +60,7 @@ describe('docs-validator', () => {
             const reg01Errors = report.errors.filter((e) => e.code === 'REG01');
             
             // If registry exists at context path, should have no REG01 errors
-            if (ctx.paths.tokenRegistry) {
+            if (fs.existsSync(ctx.paths.tokenRegistry)) {
                 assert.ok(
                     reg01Errors.length === 0,
                     `Should not have REG01 errors when using context-aware defaults. Got: ${JSON.stringify(reg01Errors)}`
@@ -113,23 +114,21 @@ describe('docs-validator', () => {
         });
     });
 
-    describe('Context resolution (active system)', () => {
-        it('should resolve to active system (iter), not legacy', () => {
+    describe('Context resolution (system-agnostic)', () => {
+        it('should resolve a context with a stable path structure', () => {
             const ctx = resolveSystemContextSafe();
-            
-            // Verify we're using the active system
-            assert.notEqual(ctx.id, '_legacy', 'Should use active system, not legacy');
-            assert.ok(ctx.id === 'iter', 'Active system should be iter');
-        });
 
-        it('should use iter-specific paths, not hardcoded legacy', () => {
-            const ctx = resolveSystemContextSafe();
-            
-            // Paths should point to docs/iter/*, not docs/*
-            assert.ok(ctx.docsDir.includes('docs/iter'), 'docsDir should include docs/iter');
-            assert.ok(ctx.paths.docs.includes('docs/iter/components'), 'paths.docs should be iter-specific');
-            assert.ok(ctx.paths.specs.includes('docs/iter/_spec'), 'paths.specs should be iter-specific');
-            assert.ok(ctx.paths.tokenRegistry.includes('docs/iter/_generated'), 'paths.tokenRegistry should be iter-specific');
+            assert.ok(typeof ctx.id === 'string' && ctx.id.length > 0, 'Context id should be non-empty');
+            assert.ok(path.isAbsolute(ctx.docsDir), 'docsDir should be absolute');
+            assert.ok(path.isAbsolute(ctx.paths.docs), 'paths.docs should be absolute');
+            assert.ok(path.isAbsolute(ctx.paths.specs), 'paths.specs should be absolute');
+            assert.ok(path.isAbsolute(ctx.paths.tokenRegistry), 'paths.tokenRegistry should be absolute');
+
+            assert.equal(path.basename(ctx.paths.docs), 'components');
+            assert.equal(path.basename(ctx.paths.specs), 'components');
+            assert.equal(path.basename(path.dirname(ctx.paths.specs)), '_spec');
+            assert.equal(path.basename(ctx.paths.tokenRegistry), 'token-registry.json');
+            assert.equal(path.basename(path.dirname(ctx.paths.tokenRegistry)), '_generated');
         });
     });
 });

@@ -156,5 +156,31 @@ describe('command-execution-service', () => {
       assert.equal(result.summary, 'failed nicely');
       assert.equal((result.payload as any).exit_code, 2);
     });
+
+    it('classifies missing npm script as typed payload error', async () => {
+      const service = createService({
+        runSpawnWithCapture: async () => ({
+          spawnError: null,
+          exitCode: 1,
+          stdout: '',
+          stderr: 'npm ERR! Missing script: "ds:component-doc"',
+          jsonParseError: null,
+          parsedJson: null,
+        }),
+      });
+
+      const result = await service.runQueuedSpawnCommand({
+        cwd: '/repo',
+        command: 'npm',
+        commandArgs: ['run', 'ds:component-doc'],
+        emitChunk() {},
+        commandLabel: 'npm run ds:component-doc',
+      });
+
+      assert.equal(result.ok, false);
+      assert.equal(result.code, 1);
+      assert.equal((result.payload as any).error_code, 'script.missing_npm_script');
+      assert.match(String(result.summary || ''), /Missing npm script/i);
+    });
   });
 });

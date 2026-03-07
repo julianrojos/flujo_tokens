@@ -128,16 +128,19 @@ test("component-spec-routes: patch editorial updates allowed fields", async () =
   await withTempDir(async (dir) => {
     const componentRegistryPath = path.join(dir, "docs/_generated/component-registry.json");
     const specRelPath = "docs/_spec/components/button.yml";
+    const docRelPath = "docs/components/button.md";
     const specAbsPath = path.join(dir, specRelPath);
+    const docAbsPath = path.join(dir, docRelPath);
     await fs.mkdir(path.dirname(componentRegistryPath), { recursive: true });
     await fs.mkdir(path.dirname(specAbsPath), { recursive: true });
+    await fs.mkdir(path.dirname(docAbsPath), { recursive: true });
     await fs.writeFile(
       componentRegistryPath,
       JSON.stringify({
         components: [
           {
             slug: "button",
-            paths: { spec: specRelPath },
+            paths: { spec: specRelPath, doc: docRelPath },
           },
         ],
       }),
@@ -152,6 +155,28 @@ test("component-spec-routes: patch editorial updates allowed fields", async () =
         "  purpose: old",
         "  when_to_use: old",
         "  when_not_to_use: old",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    await fs.writeFile(
+      docAbsPath,
+      [
+        "# Button",
+        "",
+        "## Overview",
+        "",
+        "- Purpose: old purpose",
+        "",
+        "## Usage Guidelines",
+        "",
+        "### When to use",
+        "",
+        "- old use",
+        "",
+        "### When not to use",
+        "",
+        "- old dont",
         "",
       ].join("\n"),
       "utf8",
@@ -181,7 +206,12 @@ test("component-spec-routes: patch editorial updates allowed fields", async () =
     const payload = await res.json();
     assert.equal(payload.ok, true);
     assert.deepEqual(payload.savedKeys, ["summary"]);
+    assert.equal(payload.markdownSynced, true);
     const updated = await fs.readFile(specAbsPath, "utf8");
     assert.match(updated, /purpose: new/);
+    const updatedDoc = await fs.readFile(docAbsPath, "utf8");
+    assert.match(updatedDoc, /- Purpose: new/);
+    assert.match(updatedDoc, /### When to use[\s\S]*new/);
+    assert.match(updatedDoc, /### When not to use[\s\S]*new/);
   });
 });
