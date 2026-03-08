@@ -1,6 +1,7 @@
 import {
   buildCaptureFigmaScreenshotCommandConfig,
   buildHealthSnapshotCommandConfig,
+  isInvalidTokensSourceError,
   buildRunScriptCommandArgs,
   buildSyncFigmaTokensCommandConfig,
 } from "../lib/command-route-service.mjs";
@@ -58,6 +59,19 @@ function normalizeComponentDocArgs(body, queryFn) {
     ...SPEC_FILE_ALIASES.map((k) => queryFn(k)),
   );
   return { component, specFile };
+}
+
+function failBuildCommandConfig(c, deps, requestId, error) {
+  const { failJson } = deps;
+  const message = error instanceof Error ? error.message : String(error);
+  const isTokensSourceError = isInvalidTokensSourceError(error);
+  return failJson(c, isTokensSourceError ? 400 : 500, {
+    code: isTokensSourceError ? 'validation.invalid_tokens_source' : 'internal.command_build_failed',
+    userMessage: message,
+    recoverable: isTokensSourceError,
+    context: { field: isTokensSourceError ? 'tokensSource' : undefined },
+    requestId,
+  });
 }
 
 export function enqueueRefreshScriptJob(c, script, deps) {
@@ -272,15 +286,28 @@ export async function handleSyncFigmaTokensRoute(c, deps) {
     toBooleanString,
     queueNodeJsonCommand,
     queueJobAcceptedPayload,
+    failJson,
   } = deps;
 
   const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const body = await readJsonBody(c);
-  const parsed = buildSyncFigmaTokensCommandConfig({
-    body,
-    toBooleanString,
-  });
+  
+  let parsed;
+  try {
+    parsed = buildSyncFigmaTokensCommandConfig({
+      body,
+      toBooleanString,
+    });
+  } catch (error) {
+    return failBuildCommandConfig(c, deps, requestId, error);
+  }
+  if (!parsed.ok) {
+    return failJson(c, 400, {
+      ...parsed.errorArgs,
+      requestId,
+    });
+  }
 
   const job = queueNodeJsonCommand(buildSyncFigmaTokensQueueArgs({ sysCtx, requestId, parsed }));
   return c.json(queueJobAcceptedPayload(job), 202);
@@ -301,11 +328,17 @@ export async function handleCaptureFigmaScreenshotRoute(c, deps) {
   const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const body = await readJsonBody(c);
-  const parsed = buildCaptureFigmaScreenshotCommandConfig({
-    body,
-    toBooleanString,
-    toNumberString,
-  });
+  
+  let parsed;
+  try {
+    parsed = buildCaptureFigmaScreenshotCommandConfig({
+      body,
+      toBooleanString,
+      toNumberString,
+    });
+  } catch (error) {
+    return failBuildCommandConfig(c, deps, requestId, error);
+  }
   if (!parsed.ok) {
     return failJson(c, 400, {
       ...parsed.errorArgs,

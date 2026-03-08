@@ -7,18 +7,26 @@
  * and optionally compiles them to CSS custom properties.
  */
 
-import * as path from 'node:path';
-
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import { resolveEnvRef } from '../utils/env-ref.js';
+import dsTypes from 'ds-types';
+import type { FigmaVariableSource } from 'ds-types';
 
-// Import from existing lib during migration period
 import {
   syncFigmaTokensToInput,
   runTokensCompile,
+  isFatalSyncReason,
 } from '../services/figma-token-sync.js';
+
+// NOTE: Under the current tsx runtime this package is exposed through a default export object.
+const { parseFigmaVariableSource } = dsTypes as {
+  parseFigmaVariableSource: (
+    rawValue: unknown,
+    options?: { defaultValue?: FigmaVariableSource; optionName?: string },
+  ) => FigmaVariableSource;
+};
 
 const CLI_CONFIG = {
   command: 'ds:tokens-from-figma [options]',
@@ -41,6 +49,11 @@ const CLI_CONFIG = {
     {
       name: '--figma-token',
       description: 'Figma personal access token (fallback: FIGMA_TOKEN env var).',
+    },
+    {
+      name: '--source',
+      description: 'Variables source: auto, mcp or rest.',
+      defaultValue: 'auto',
     },
     {
       name: '--force',
@@ -93,6 +106,20 @@ function extractFileKeyFromUrl(rawUrl: unknown): string | null {
   return null;
 }
 
+/**
+ * Resolve the effective source used for reporting.
+ * `auto` is a selection mode, not an actual data source, so we emit `unknown`
+ * when the sync layer cannot determine the concrete source.
+ */
+export function resolveReportedSourceUsed(
+  sourceRequested: FigmaVariableSource,
+  sourceUsed?: Exclude<FigmaVariableSource, 'auto'>,
+): Exclude<FigmaVariableSource, 'auto'> | 'unknown' {
+  if (sourceUsed) return sourceUsed;
+  if (sourceRequested === 'auto') return 'unknown';
+  return sourceRequested;
+}
+
 export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   const parsed = parseArgs(args);
 
@@ -135,9 +162,15 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   const figmaTokenEnv = String(process.env.FIGMA_TOKEN || '').trim();
   const figmaToken = resolveEnvRef(figmaTokenArg || figmaTokenEnv);
 
-  if (!figmaToken) {
+  // ── Resolve source mode ──────────────────────────────────────────────────
+  const source = parseFigmaVariableSource(parsed.source, {
+    defaultValue: 'auto',
+    optionName: '--source',
+  });
+
+  if (source === 'rest' && !figmaToken) {
     console.error(
-      '[ds:tokens-from-figma] Figma token is required. Provide --figma-token or set FIGMA_TOKEN env var.',
+      '[ds:tokens-from-figma] Figma token is required for --source rest. Provide --figma-token or set FIGMA_TOKEN env var.',
     );
     process.exit(1);
   }
@@ -165,7 +198,17 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
       force,
       merge,
       dryRun,
+      source,
+      mcpFileUrl: String(parsed.url || '').trim() || undefined,
     });
+
+    if (syncResult.reason) {
+      if (isFatalSyncReason(syncResult.reason)) {
+        logger.error(`Sync failed: ${syncResult.reason}${syncResult.error ? ` - ${syncResult.error}` : ''}`);
+        process.exit(1);
+      }
+      // Non-fatal reasons (like 'input-json-exists') are just informational
+    }
 
     if (dryRun) {
       console.log('[dry-run] Sync preview:', JSON.stringify(syncResult, null, 2));
@@ -186,6 +229,8 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
         // Note: variablesImported is deprecated, use tokensImported instead
         variablesImported: syncResult.tokens_written || 0,  // Deprecated but kept for backward compatibility
         tokensImported: syncResult.tokens_written || 0,
+        sourceRequested: source,
+        sourceUsed: resolveReportedSourceUsed(source, syncResult.source_used),
         compiled: compile,
       },
       null,

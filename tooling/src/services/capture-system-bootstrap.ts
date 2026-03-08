@@ -14,6 +14,7 @@ import {
   runTokensCompile,
   syncFigmaTokensToInput,
 } from './figma-token-sync.js';
+import type { FigmaVariableSource } from './figma-token-sync.js';
 import type { DesignSystemConfigEntry } from '../../scripts/lib/system-repository.mjs';
 
 /**
@@ -123,7 +124,9 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   repoRoot: string;
   system?: Record<string, unknown> | null;
   fileKey?: string;
+  figmaFileUrl?: string;
   figmaToken: string;
+  tokensSource?: FigmaVariableSource;
   syncFigmaTokensToInputFn?: typeof syncFigmaTokensToInput;
 }): Promise<{
   attempted: boolean;
@@ -139,7 +142,9 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     repoRoot,
     system,
     fileKey,
+    figmaFileUrl,
     figmaToken,
+    tokensSource = 'auto',
     syncFigmaTokensToInputFn = syncFigmaTokensToInput,
   } = params;
   
@@ -166,6 +171,8 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     force: false,
     merge: false,
     dryRun: false,
+    source: tokensSource,
+    mcpFileUrl: figmaFileUrl,
   });
 
   return {

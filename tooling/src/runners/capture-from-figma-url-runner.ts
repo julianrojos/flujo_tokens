@@ -88,6 +88,11 @@ const CLI_CONFIG = {
       defaultValue: 'rest',
     },
     {
+      name: '--tokens-source <auto|mcp|rest>',
+      description: 'Source used for variable bootstrap before capture.',
+      defaultValue: 'auto',
+    },
+    {
       name: '--agent <codex|claude|gemini|auto>',
       description: 'Agent backend for agent-based capture mode.',
       defaultValue: 'auto',

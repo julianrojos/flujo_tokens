@@ -28,7 +28,7 @@ npm install
 - **`npm run generate:registry`**: Executes the same token pipeline and also exports `docs/_generated/token-registry.json` for documentation validation.
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 - **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
-- **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--force`, `--merge`, `--compile`, and `--dry-run`.
+- **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
 - **`npm run ds:token-diff`**: Compares current token registry with a previous version (file or git ref), groups changes (`Added`, `Modified`, `Removed`), and classifies breaking vs non-breaking diffs.
 - **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
 - **`npm run ds:token-usage-index`**: Builds `docs/_generated/token-usage-index.json` from component specs (`docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
@@ -117,6 +117,43 @@ Registry example:
 ```bash
 npm run generate:registry
 ```
+
+Sync variables directly from Figma:
+
+```bash
+# Default source mode: auto (tries MCP first, then REST fallback)
+npm run ds:tokens-from-figma -- --system my-system --url "https://www.figma.com/design/<fileKey>/<name>"
+```
+
+```bash
+# Force MCP-only mode (no FIGMA_TOKEN required)
+npm run ds:tokens-from-figma -- --system my-system --url "https://www.figma.com/design/<fileKey>/<name>" --source mcp
+```
+
+```bash
+# Force REST-only mode (requires FIGMA_TOKEN or --figma-token)
+npm run ds:tokens-from-figma -- --system my-system --url "https://www.figma.com/design/<fileKey>/<name>" --source rest
+```
+
+MCP command resolution for token sync:
+
+- Default: `npx -y figma-console-mcp`
+- Override full command: `FIGMA_MCP_COMMAND` (treated as literal command path; pass args in `FIGMA_MCP_COMMAND_ARGS`)
+- Override binary + args: `FIGMA_MCP_BIN` + `FIGMA_MCP_ARGS`
+
+Migration note:
+- Legacy setups that used `FIGMA_MCP_COMMAND="node /path/to/server.js"` must be split into:
+  - `FIGMA_MCP_COMMAND=node`
+  - `FIGMA_MCP_COMMAND_ARGS="/path/to/server.js"`
+
+### Troubleshooting: MCP token sync
+
+| Síntoma | Causa probable | Solución |
+|---------|----------------|----------|
+| `MCP server reports no Figma connection` | Figma Desktop no está abierto o el plugin Desktop Bridge no está corriendo | Abre Figma Desktop → Plugins → Development → Desktop Bridge |
+| Timeout tras 15s sin respuesta | El servidor MCP no arrancó correctamente | Verifica que `npx figma-console-mcp` funciona en tu terminal. Si usas un binario custom, comprueba `FIGMA_MCP_BIN` |
+| `Missing Figma token for REST variables fetch` | Modo `--source rest` sin `FIGMA_TOKEN` configurado | Exporta `FIGMA_TOKEN` en tu shell o usa `--source mcp` |
+| `Both sources failed` | Ni MCP ni REST funcionan | Comprueba Desktop Bridge (para MCP) y `FIGMA_TOKEN` (para REST) |
 
 Plugin example:
 
@@ -293,7 +330,7 @@ npm run ds:pipeline -- --component Alert --render-figma
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata JSON + local image) by default. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
 - **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, stores a local proof image under `docs/_generated/visual-proofs/images/`, and upserts `### Visual Proof` inside `## Overview` (including local image preview, screenshot URL, node id, and artifact link).
-- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`.
+- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
 - **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec/render/proof status.
 - **`npm run ds:registry:refresh`**: Atomically refreshes `docs/_generated/component-registry.json` and `docs/components/overview.md` together (rollback on failure).

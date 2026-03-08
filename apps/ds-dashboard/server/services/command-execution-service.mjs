@@ -93,6 +93,7 @@ export function createCommandExecutionService(config) {
       }
 
       const payload = parsed && typeof parsed === "object" ? parsed : {};
+      // All fields from runner stdout JSON are passed through (including source_used, source_attempts, etc.)
       const ok = payload.ok !== false;
       return {
         ok,

@@ -4,6 +4,20 @@
  * Builds command configurations for route handlers.
  * Migrated from apps/ds-dashboard/server/lib/command-route-service.mjs
  */
+import dsTypes from 'ds-types';
+
+// NOTE: Under the current tsx runtime this package is exposed through a default export object.
+// Keep this destructuring pattern unless ds-types packaging is switched to stable named ESM exports.
+const {
+  InvalidFigmaVariableSourceError,
+  parseFigmaVariableSource,
+} = dsTypes as {
+  InvalidFigmaVariableSourceError: new (...args: any[]) => Error;
+  parseFigmaVariableSource: (
+    rawValue: unknown,
+    options?: { defaultValue?: 'auto' | 'mcp' | 'rest'; optionName?: string },
+  ) => 'auto' | 'mcp' | 'rest';
+};
 
 export interface RunScriptCommandArgsOptions {
   scriptName: string;
@@ -59,14 +73,24 @@ export interface SyncFigmaTokensCommandConfigOptions {
     merge?: boolean;
     compile?: boolean;
     dryRun?: boolean;
+    tokensSource?: string;
+    tokens_source?: string;
+    ['tokens-source']?: string;
     [key: string]: unknown;
   };
   toBooleanString: (value: unknown, fallback: boolean) => string;
 }
 
 export interface SyncFigmaTokensCommandConfigResult {
-  commandArgs: string[];
-  commandDisplayArgs: string[];
+  ok: boolean;
+  errorArgs?: {
+    code: string;
+    userMessage: string;
+    recoverable: boolean;
+    context?: Record<string, unknown>;
+  };
+  commandArgs?: string[];
+  commandDisplayArgs?: string[];
   commandEnv?: Record<string, string>;
 }
 
@@ -87,6 +111,9 @@ export interface CaptureFigmaScreenshotCommandConfigOptions {
     format?: string;
     mainCaptureMode?: string;
     componentKind?: string;
+    tokensSource?: string;
+    tokens_source?: string;
+    ['tokens-source']?: string;
     [key: string]: unknown;
   };
   toBooleanString: (value: unknown, fallback: boolean) => string;
@@ -112,6 +139,17 @@ function toTrimmed(value: unknown): string {
 
 function toLowerTrimmed(value: unknown): string {
   return toTrimmed(value).toLowerCase();
+}
+
+export function isInvalidTokensSourceError(error: unknown): boolean {
+  return error instanceof InvalidFigmaVariableSourceError;
+}
+
+function normalizeTokensSource(rawValue: unknown): 'auto' | 'mcp' | 'rest' {
+  return parseFigmaVariableSource(rawValue, {
+    defaultValue: 'auto',
+    optionName: 'tokens-source',
+  });
 }
 
 function redactFigmaToken(args: string[]): string[] {
@@ -207,6 +245,25 @@ export function buildSyncFigmaTokensCommandConfig(
   const merge = toBooleanString(body.merge, false);
   const compile = toBooleanString(body.compile, true);
   const dryRun = toBooleanString(body.dryRun, true);
+  let tokensSource: 'auto' | 'mcp' | 'rest';
+  try {
+    tokensSource = normalizeTokensSource(
+      body.tokensSource ?? body.tokens_source ?? body['tokens-source'],
+    );
+  } catch (error) {
+    if (isInvalidTokensSourceError(error)) {
+      return {
+        ok: false,
+        errorArgs: {
+          code: 'validation.invalid_tokens_source',
+          userMessage: error instanceof Error ? error.message : String(error),
+          recoverable: true,
+          context: { field: 'tokensSource' },
+        },
+      };
+    }
+    throw error;
+  }
 
   const commandArgs = [
     '--force',
@@ -217,11 +274,15 @@ export function buildSyncFigmaTokensCommandConfig(
     compile,
     '--dry-run',
     dryRun,
+    // Note: tokens-from-figma-runner.ts expects --source (not --tokens-source)
+    '--source',
+    tokensSource,
   ];
   if (figmaUrl) commandArgs.push('--url', figmaUrl);
   const commandEnv = figmaToken ? { FIGMA_TOKEN: figmaToken } : undefined;
 
   return {
+    ok: true,
     commandArgs,
     commandDisplayArgs: redactFigmaToken(commandArgs),
     commandEnv,
@@ -290,6 +351,25 @@ export function buildCaptureFigmaScreenshotCommandConfig(
   const format = toLowerTrimmed(body.format ?? 'png') || 'png';
   const mainCaptureMode = toLowerTrimmed(body.mainCaptureMode ?? 'rest') || 'rest';
   const componentKind = toLowerTrimmed(body.componentKind ?? 'component_set') || 'component_set';
+  let tokensSource: 'auto' | 'mcp' | 'rest';
+  try {
+    tokensSource = normalizeTokensSource(
+      body.tokensSource ?? body.tokens_source ?? body['tokens-source'],
+    );
+  } catch (error) {
+    if (isInvalidTokensSourceError(error)) {
+      return {
+        ok: false,
+        errorArgs: {
+          code: 'validation.invalid_tokens_source',
+          userMessage: error instanceof Error ? error.message : String(error),
+          recoverable: true,
+          context: { field: 'tokensSource' },
+        },
+      };
+    }
+    throw error;
+  }
 
   const commandArgs = [
     '--url',
@@ -314,6 +394,8 @@ export function buildCaptureFigmaScreenshotCommandConfig(
     format,
     '--main-capture-mode',
     mainCaptureMode,
+    '--tokens-source',
+    tokensSource,
     '--component-kind',
     componentKind,
   ];
