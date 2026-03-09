@@ -1033,6 +1033,7 @@ export interface TokensBootstrapResult {
   created?: boolean;
   reason?: string;
   files_written?: number;
+  collections?: string[];
   tokens_written?: number;
   tokens_total?: number;
   files?: string[];
@@ -1150,6 +1151,118 @@ export async function pingFigmaFile(args: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(args),
   });
+}
+
+export interface FigmaMcpPingResult {
+  ok: boolean;
+  connected: boolean;
+  code?: string;
+  message?: string;
+  collectionsDetected?: number;
+  variablesDetected?: number;
+  /** True if Desktop Bridge connected successfully at any point this session. */
+  everConnected?: boolean;
+}
+
+export interface FigmaMcpResetResult {
+  ok: boolean;
+  restarting?: boolean;
+  code?: string;
+  message?: string;
+}
+
+export async function resetFigmaMcp(args?: {
+  confirmGlobalReset?: boolean;
+}): Promise<FigmaMcpResetResult> {
+  const timeoutMs = 20_000;
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const confirmGlobalReset = args?.confirmGlobalReset === true;
+
+  return requestJson<FigmaMcpResetResult>("/api/figma-mcp/reset", {
+    method: "POST",
+    signal: controller.signal,
+    headers: {
+      "Content-Type": "application/json",
+      "x-ds-mcp-reset-confirm": confirmGlobalReset ? "true" : "false",
+    },
+    body: JSON.stringify({
+      confirmGlobalReset,
+    }),
+  })
+    .catch((error) => {
+      const isAbortError =
+        (typeof DOMException !== "undefined" &&
+          error instanceof DOMException &&
+          error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError");
+      if (!isAbortError) throw error;
+      throw new ApiError({
+        status: 408,
+        statusText: "Request Timeout",
+        code: "http.408" as ApiErrorCode,
+        userMessage:
+          "MCP reset timed out. Try resolving the connection again, or restart the dashboard server.",
+        recoverable: true,
+        context: {
+          timeoutMs,
+          endpoint: "/api/figma-mcp/reset",
+        },
+      });
+    })
+    .finally(() => {
+      globalThis.clearTimeout(timeoutId);
+    });
+}
+
+export async function pingFigmaMcp(
+  args?: {
+    figmaUrl?: string;
+    figmaToken?: string;
+  },
+  options?: {
+    timeoutMs?: number;
+  },
+): Promise<FigmaMcpPingResult> {
+  const requestedTimeoutMs = Number(options?.timeoutMs);
+  const timeoutMs =
+    Number.isFinite(requestedTimeoutMs) && requestedTimeoutMs > 0
+      ? Math.floor(requestedTimeoutMs)
+      : 35_000;
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+
+  return requestJson<FigmaMcpPingResult>("/api/figma-mcp-ping", {
+    method: "POST",
+    signal: controller.signal,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(args || {}),
+  })
+    .catch((error) => {
+      const isAbortError =
+        (typeof DOMException !== "undefined" &&
+          error instanceof DOMException &&
+          error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError");
+      if (!isAbortError) throw error;
+      throw new ApiError({
+        status: 408,
+        statusText: "Request Timeout",
+        code: "http.408" as ApiErrorCode,
+        userMessage:
+          "MCP connectivity test timed out. Check that Figma Desktop + Desktop Bridge are running and retry.",
+        recoverable: true,
+        context: {
+          timeoutMs,
+          endpoint: "/api/figma-mcp-ping",
+        },
+      });
+    })
+    .finally(() => {
+      globalThis.clearTimeout(timeoutId);
+    });
 }
 
 type CaptureProgressSnapshot = {

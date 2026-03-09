@@ -4,6 +4,7 @@ import { Camera, Loader2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import {
   captureFigmaScreenshot,
   type CaptureFigmaScreenshotResult,
@@ -215,6 +216,7 @@ export function FigmaCaptureModal({
                 With <code>node-id</code>: captures that component. Without
                 node id: scans the document and resolves all affected components.
               </p>
+              <FigmaMcpConnectionTestButton figmaUrl={figmaUrl} className="pt-1" />
             </div>
 
             <div className="grid gap-3 md:grid-cols-3">

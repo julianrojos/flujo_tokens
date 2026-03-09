@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 import {
@@ -886,6 +887,11 @@ export function NewSystemPage() {
                   </p>
                 )
               ) : null}
+              <FigmaMcpConnectionTestButton
+                figmaUrl={figmaFileUrl}
+                figmaToken={figmaAccessToken}
+                className="mt-2"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
