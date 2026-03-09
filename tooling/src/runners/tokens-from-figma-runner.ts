@@ -17,84 +17,12 @@ import { logger } from '../utils/logger.js';
 import { resolveEnvRef } from '../utils/env-ref.js';
 import dsTypes from 'ds-types';
 import type { FigmaVariableSource } from 'ds-types';
-import type { FigmaVariablesResponse } from '../utils/figma.js';
 
 import {
   syncFigmaTokensToInput,
   runTokensCompile,
   isFatalSyncReason,
 } from '../services/figma-token-sync.js';
-
-const DASHBOARD_MCP_PROXY_TIMEOUT_MS = 15_000;
-
-/**
- * Build a custom MCP fetch function that proxies variable requests through
- * the dashboard server's internal endpoint.
- *
- * When the runner is spawned by the dashboard server, DS_DASHBOARD_INTERNAL_URL
- * is set.  Using the server's endpoint means the fetch goes through the shared
- * figma-console-mcp process that the Desktop Bridge plugin is already
- * connected to — no new process is spawned, no port mismatch occurs.
- */
-function buildDashboardMcpFetchFn(
-  baseUrl: string,
-): (options?: { fileUrl?: string }) => Promise<FigmaVariablesResponse> {
-  const internalToken = String(process.env.DS_DASHBOARD_INTERNAL_TOKEN || '').trim();
-  return async (options) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, DASHBOARD_MCP_PROXY_TIMEOUT_MS);
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (internalToken) {
-      headers['x-ds-dashboard-internal-token'] = internalToken;
-    }
-
-    const body = JSON.stringify({ figmaUrl: options?.fileUrl || '' });
-    let response: Response;
-    try {
-      response = await fetch(`${baseUrl}/api/figma-mcp-variables`, {
-        method: 'POST',
-        headers,
-        body,
-        signal: controller.signal,
-      });
-    } catch (error) {
-      const aborted =
-        error instanceof Error &&
-        String(error.name || '').trim().toLowerCase() === 'aborterror';
-      if (aborted) {
-        throw new Error(
-          `Dashboard MCP proxy timed out after ${DASHBOARD_MCP_PROXY_TIMEOUT_MS}ms`,
-        );
-      }
-      throw error;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        `Dashboard MCP proxy request failed (${response.status} ${response.statusText})`,
-      );
-    }
-
-    const json = (await response.json()) as {
-      ok: boolean;
-      meta?: FigmaVariablesResponse['meta'];
-      message?: string;
-      code?: string;
-    };
-    if (!json.ok || !json.meta) {
-      throw new Error(
-        json.message ||
-          `Dashboard MCP proxy returned ok=false (code: ${json.code || 'unknown'})`,
-      );
-    }
-    return { meta: json.meta } as FigmaVariablesResponse;
-  };
-}
 
 // NOTE: Under the current tsx runtime this package is exposed through a default export object.
 const { parseFigmaVariableSource } = dsTypes as {
@@ -269,16 +197,6 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
     process.exit(1);
   }
 
-  // ── Build optional dashboard-proxy MCP fetch fn ──────────────────────────
-  // When spawned by the dashboard server, DS_DASHBOARD_INTERNAL_URL is set.
-  // Route MCP variable fetches through the server's shared MCP client so
-  // Desktop Bridge is always on the right figma-console-mcp instance.
-  const dashboardInternalUrl = String(process.env.DS_DASHBOARD_INTERNAL_URL || '').trim();
-  const fetchMcpVariablesFn =
-    dashboardInternalUrl && (source === 'mcp' || source === 'auto')
-      ? buildDashboardMcpFetchFn(dashboardInternalUrl)
-      : undefined;
-
   // ── Sync tokens from Figma ───────────────────────────────────────────────
   try {
     const syncResult = await syncFigmaTokensToInput({
@@ -291,7 +209,6 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
       dryRun,
       source,
       mcpFileUrl: String(parsed.url || '').trim() || undefined,
-      fetchMcpVariablesFn,
     });
 
     if (syncResult.reason) {

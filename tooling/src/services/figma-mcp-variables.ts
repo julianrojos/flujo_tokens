@@ -5,7 +5,15 @@
  * without relying on agent prompting.
  */
 
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import {
+  execFileSync,
+  spawn,
+  type ChildProcessWithoutNullStreams,
+} from 'node:child_process';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import type {
   FigmaVariable,
@@ -18,6 +26,208 @@ import type {
 const DEFAULT_MCP_TIMEOUT_MS = 60_000;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGES = 200;
+
+/**
+ * Timeout for dashboard MCP proxy requests.
+ *
+ * Generous budget (90 s) because the downstream `figma_get_variables` call
+ * may page through hundreds of variables while waiting for the Desktop
+ * Bridge plugin to respond.
+ */
+const DASHBOARD_MCP_PROXY_TIMEOUT_MS = 90_000;
+
+/**
+ * Temp-file path used to persist the PID of the last spawned shared MCP
+ * child process.  On startup we read this file and SIGTERM the stale PID
+ * so orphaned processes from crashed/killed server runs are cleaned up.
+ * The file is scoped per workspace to avoid cross-repo PID collisions.
+ */
+function resolveWorkspacePidScope(): string {
+  try {
+    return fs.realpathSync(process.cwd());
+  } catch {
+    return process.cwd();
+  }
+}
+
+function hashPidScope(input: string): string {
+  return createHash('sha1').update(input).digest('hex').slice(0, 12);
+}
+
+const MCP_CHILD_PID_FILE = path.join(
+  os.tmpdir(),
+  `ds-dashboard-mcp-child-${hashPidScope(resolveWorkspacePidScope())}.pid`,
+);
+const PROCESS_PROBE_TIMEOUT_MS = 2_000;
+
+interface McpChildPidRecordV1 {
+  version: 1;
+  ownerPid: number;
+  childPid: number;
+  timestamp: number;
+}
+
+interface McpChildPidLegacyRecord {
+  version: 0;
+  childPid: number;
+}
+
+type McpChildPidState = McpChildPidRecordV1 | McpChildPidLegacyRecord;
+
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  const integer = Math.floor(parsed);
+  if (integer <= 0) return null;
+  return integer;
+}
+
+function parseMcpChildPidState(raw: string): McpChildPidState | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+
+  // Backward compatibility: previous format stored only the child PID as plain text.
+  if (!trimmed.startsWith('{')) {
+    const childPid = parsePositiveInteger(Number.parseInt(trimmed, 10));
+    if (childPid == null) return null;
+    return { version: 0, childPid };
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const asRecord = parsed as Record<string, unknown>;
+    const version = Number(asRecord.version ?? 1);
+    if (version !== 1) return null;
+
+    const ownerPid = parsePositiveInteger(asRecord.ownerPid);
+    const childPid = parsePositiveInteger(asRecord.childPid);
+    if (ownerPid == null || childPid == null) return null;
+
+    const timestampRaw = Number(asRecord.timestamp);
+    const timestamp = Number.isFinite(timestampRaw) && timestampRaw > 0
+      ? Math.floor(timestampRaw)
+      : Date.now();
+
+    return {
+      version: 1,
+      ownerPid,
+      childPid,
+      timestamp,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readMcpChildPidFile(): McpChildPidState | null {
+  try {
+    const raw = fs.readFileSync(MCP_CHILD_PID_FILE, 'utf8').trim();
+    return parseMcpChildPidState(raw);
+  } catch {
+    return null;
+  }
+}
+
+function writeMcpChildPidFile(record: McpChildPidRecordV1): void {
+  const payload = JSON.stringify(record);
+  const tmpPath = `${MCP_CHILD_PID_FILE}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    fs.writeFileSync(tmpPath, payload, 'utf8');
+    try {
+      fs.renameSync(tmpPath, MCP_CHILD_PID_FILE);
+    } catch {
+      // On some platforms rename-overwrite can fail; fallback to replace.
+      fs.rmSync(MCP_CHILD_PID_FILE, { force: true });
+      fs.renameSync(tmpPath, MCP_CHILD_PID_FILE);
+    }
+  } catch {
+    // no-op
+  } finally {
+    try {
+      fs.rmSync(tmpPath, { force: true });
+    } catch {
+      // no-op
+    }
+  }
+}
+
+function clearMcpChildPidFile(expected?: { ownerPid?: number; childPid?: number }): void {
+  try {
+    if (!expected) {
+      fs.unlinkSync(MCP_CHILD_PID_FILE);
+      return;
+    }
+
+    const currentState = readMcpChildPidFile();
+    if (!currentState) return;
+    if (expected.childPid != null && currentState.childPid !== expected.childPid) return;
+    if (expected.ownerPid != null) {
+      if (currentState.version !== 1 || currentState.ownerPid !== expected.ownerPid) {
+        return;
+      }
+    }
+    fs.unlinkSync(MCP_CHILD_PID_FILE);
+  } catch {
+    // no-op
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  if (!Number.isFinite(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    return code === 'EPERM';
+  }
+}
+
+function isFigmaMcpProcessPid(pid: number): boolean {
+  if (!Number.isFinite(pid) || pid <= 0 || pid === process.pid) {
+    return false;
+  }
+  const probeTimeoutMs = PROCESS_PROBE_TIMEOUT_MS;
+
+  if (process.platform === 'win32') {
+    // On Windows, read full command line via CIM so we can validate identity.
+    const pidQuery = String(pid);
+    const commandLineQuery =
+      `(Get-CimInstance Win32_Process -Filter "ProcessId = ${pidQuery}" ` +
+      '| Select-Object -ExpandProperty CommandLine)';
+    try {
+      const command = String(
+        execFileSync(
+          'powershell.exe',
+          ['-NoProfile', '-Command', commandLineQuery],
+          {
+            encoding: 'utf8',
+            timeout: probeTimeoutMs,
+          },
+        ),
+      ).trim();
+      if (!command) return false;
+      return /figma-console-mcp/i.test(command);
+    } catch {
+      // Conservative fallback: never kill if identity cannot be verified.
+      return false;
+    }
+  }
+
+  try {
+    const command = String(
+      execFileSync('ps', ['-p', String(pid), '-o', 'command='], {
+        encoding: 'utf8',
+        timeout: probeTimeoutMs,
+      }),
+    ).trim();
+    if (!command) return false;
+    return /figma-console-mcp/i.test(command);
+  } catch {
+    return false;
+  }
+}
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -429,13 +639,31 @@ class McpStdioClient {
         ),
       );
     });
+
+    // Persist child PID for orphan cleanup on next server restart.
+    if (this.child.pid != null) {
+      try {
+        writeMcpChildPidFile({
+          version: 1,
+          ownerPid: process.pid,
+          childPid: this.child.pid,
+          timestamp: Date.now(),
+        });
+      } catch {
+        // Best-effort: the file may be in a read-only tmpdir on some systems.
+      }
+    }
   }
 
   close(): void {
+    const childPid = this.child.pid ?? undefined;
     try {
       this.child.kill('SIGTERM');
     } catch {
       // no-op
+    } finally {
+      // Clear only when this client still owns the persisted PID.
+      clearMcpChildPidFile({ ownerPid: process.pid, childPid });
     }
   }
 
@@ -701,9 +929,94 @@ async function ensureMcpConnectivity(
   }
 }
 
+/**
+ * Fetch variables by proxying through the dashboard server's shared MCP
+ * client.  This avoids spawning a new `figma-console-mcp` child process
+ * when the runner is a subprocess of the dashboard.
+ *
+ * Called automatically when `DS_DASHBOARD_INTERNAL_URL` is set in the env.
+ */
+async function fetchVariablesViaDashboardProxy(
+  baseUrl: string,
+  env: NodeJS.ProcessEnv,
+  options: FetchFigmaVariablesViaMcpOptions,
+): Promise<FigmaVariablesResponse> {
+  const internalToken = String(env.DS_DASHBOARD_INTERNAL_TOKEN || '').trim();
+  const effectiveTimeoutMs = Math.min(
+    resolveTimeoutMs(options),
+    DASHBOARD_MCP_PROXY_TIMEOUT_MS,
+  );
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, effectiveTimeoutMs);
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (internalToken) {
+    headers['x-ds-dashboard-internal-token'] = internalToken;
+  }
+
+  const body = JSON.stringify({ figmaUrl: options.fileUrl || '' });
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/api/figma-mcp-variables`, {
+      method: 'POST',
+      headers,
+      body,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    const isAbort =
+      error instanceof Error &&
+      error.name.trim().toLowerCase() === 'aborterror';
+    if (isAbort) {
+      throw new Error(
+        `Dashboard MCP proxy timed out after ${effectiveTimeoutMs}ms`,
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Dashboard MCP proxy request failed (${response.status} ${response.statusText})`,
+    );
+  }
+
+  const json = (await response.json()) as {
+    ok: boolean;
+    meta?: FigmaVariablesResponse['meta'];
+    message?: string;
+    code?: string;
+  };
+
+  if (!json.ok || !json.meta) {
+    throw new Error(
+      json.message ||
+        `Dashboard MCP proxy returned ok=false (code: ${json.code || 'unknown'})`,
+    );
+  }
+
+  return { meta: json.meta } as FigmaVariablesResponse;
+}
+
 export async function fetchFigmaLocalVariablesViaMcp(
   options: FetchFigmaVariablesViaMcpOptions = {},
 ): Promise<FigmaVariablesResponse> {
+  // ── Dashboard proxy shortcut ──────────────────────────────────────────
+  // When this process was spawned by the dashboard server,
+  // DS_DASHBOARD_INTERNAL_URL is set.  Route the request through the
+  // server's shared MCP client instead of spawning a new child process.
+  const env = options.env ?? process.env;
+  const dashboardUrl = String(env.DS_DASHBOARD_INTERNAL_URL || '').trim();
+  if (dashboardUrl) {
+    return fetchVariablesViaDashboardProxy(dashboardUrl, env, options);
+  }
+
   const timeoutMs = resolveTimeoutMs(options);
   const connectWaitMs = resolveConnectWaitMs(options);
   const command = resolveFigmaMcpCommand({
@@ -837,6 +1150,48 @@ async function getOrCreateSharedMcpClient(
 
   if (sharedMcpClientState && sharedMcpClientState.signature === signature) {
     return sharedMcpClientState.client;
+  }
+
+  // Kill any orphaned MCP child process from a previous server run.
+  // This handles the case where the server crashed or was killed before
+  // the shared client state was set (e.g., during warmup).
+  const staleState = readMcpChildPidFile();
+  if (staleState?.version === 1) {
+    const staleOwnerPid = staleState.ownerPid;
+    const staleChildPid = staleState.childPid;
+    const ownedByCurrentProcess = staleOwnerPid === process.pid;
+    const ownerAlive = ownedByCurrentProcess ? true : isProcessAlive(staleOwnerPid);
+    const shouldCleanup = ownedByCurrentProcess || !ownerAlive;
+
+    if (shouldCleanup) {
+      try {
+        if (isFigmaMcpProcessPid(staleChildPid)) {
+          process.kill(staleChildPid, 'SIGTERM');
+        }
+      } catch {
+        // PID already dead or permission error — both are safe to ignore.
+      } finally {
+        // Don't keep stale data around for subsequent startups.
+        clearMcpChildPidFile({
+          ownerPid: staleOwnerPid,
+          childPid: staleChildPid,
+        });
+      }
+    }
+  } else if (staleState?.version === 0) {
+    // Legacy migration path: previous versions persisted only child PID.
+    // Best-effort cleanup on first run after upgrade, with identity check
+    // to avoid killing unrelated recycled PIDs.
+    const legacyChildPid = staleState.childPid;
+    try {
+      if (isFigmaMcpProcessPid(legacyChildPid)) {
+        process.kill(legacyChildPid, 'SIGTERM');
+      }
+    } catch {
+      // PID already dead or permission error — both are safe to ignore.
+    } finally {
+      clearMcpChildPidFile({ childPid: legacyChildPid });
+    }
   }
 
   disposeSharedClientState();
