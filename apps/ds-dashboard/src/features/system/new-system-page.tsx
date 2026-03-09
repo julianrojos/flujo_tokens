@@ -10,6 +10,7 @@ import {
   buildImportSuccessSummary,
   type ImportSuccessSummary,
 } from "@/features/system/new-system-import-summary";
+import { findSystemNameCollision } from "@/features/system/new-system-page-logic";
 import { ImportSuccessNotice } from "@/features/system/import-success-notice";
 import {
   buildPhaseAwareError,
@@ -419,6 +420,15 @@ export function NewSystemPage() {
 
   const hasFigmaUrl = !!figmaFileUrl.trim();
   const hasToken = !!figmaAccessToken.trim();
+  const collidingSystem = useMemo(
+    () =>
+      findSystemNameCollision({
+        candidateName: systemName,
+        systems,
+      }),
+    [systemName, systems],
+  );
+  const hasNameCollision = collidingSystem !== null;
   const figmaUrlValid = !hasFigmaUrl || (() => {
     try {
       const parsed = new URL(figmaFileUrl.trim());
@@ -429,6 +439,7 @@ export function NewSystemPage() {
     }
   })();
   const canSave = !!systemName.trim() && !!generatedSystemId && !saving
+    && !hasNameCollision
     && (!hasFigmaUrl || hasToken) && figmaUrlValid;
   const pingValidationPending =
     hasFigmaUrl && hasToken && figmaUrlValid && !pingLoading && !pingResult;
@@ -849,6 +860,11 @@ export function NewSystemPage() {
                 value={systemName}
                 onChange={(e) => setSystemName(e.target.value)}
               />
+              {hasNameCollision ? (
+                <p className="text-[11px] text-red-600 dark:text-red-400">
+                  A system named "{collidingSystem?.name}" already exists. Choose a different name.
+                </p>
+              ) : null}
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
