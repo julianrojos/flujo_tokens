@@ -7,6 +7,7 @@
 
 export interface ServerConfig {
   PORT: number;
+  HOST: string;
   MAX_OUTPUT_BYTES: number;
   MAX_FILE_BYTES: number;
   MAX_SNIPPET_LINES: number;
@@ -38,11 +39,19 @@ function readPositiveInt(env: Record<string, string | undefined>, key: string, f
 
 export const SERVER_PORT = Number(process.env.DS_DASHBOARD_API_PORT || 8787);
 
+function readHost(env: Record<string, string | undefined>, key: string, fallback: string): string {
+  const raw = String(env?.[key] || "").trim();
+  return raw || fallback;
+}
+
 /**
  * Create server configuration with optional environment overrides.
  */
 export function createServerConfig(env: Record<string, string | undefined> = process.env): ServerConfig {
   const port = readPositiveInt(env, 'DS_DASHBOARD_API_PORT', SERVER_PORT);
+  // Secure default: loopback-only unless explicitly exposed with
+  // DS_DASHBOARD_API_HOST=0.0.0.0 (or another host).
+  const host = readHost(env, 'DS_DASHBOARD_API_HOST', '127.0.0.1');
   const jobTimeoutMs = readPositiveInt(env, 'DS_DASHBOARD_JOB_TIMEOUT_MS', 600000);
   const opsLogMaxFileBytes = readPositiveInt(env, 'DS_DASHBOARD_OPS_LOG_MAX_FILE_BYTES', 1_048_576);
   const opsLogRetentionDays = readPositiveInt(env, 'DS_DASHBOARD_OPS_LOG_RETENTION_DAYS', 30);
@@ -57,6 +66,7 @@ export function createServerConfig(env: Record<string, string | undefined> = pro
 
   return {
     PORT: port,
+    HOST: host,
     MAX_OUTPUT_BYTES: 2 * 1024 * 1024,
     MAX_FILE_BYTES: 450_000,
     MAX_SNIPPET_LINES: 15,

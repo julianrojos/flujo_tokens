@@ -1,6 +1,15 @@
-import fsSync from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+/**
+ * Create Server App
+ *
+ * Creates and configures the dashboard server application.
+ */
+
+import fsSync from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import type { Hono } from 'hono';
 
 import {
   createDesignSystemRepository,
@@ -10,29 +19,29 @@ import {
   normalizeSystemId,
   resolveSafeSystemPathsForDeletion,
   summarizeDesignSystemsConfig,
-} from "./system-repository.ts";
+} from './system-repository.ts';
 import {
   computeNamingDebtReport,
   validateGitRef,
-} from "./lib/analysis-artifacts-service.mjs";
+} from './lib/analysis-artifacts-service.mjs';
 import {
   isQueueJobFinalStatus,
   listQueueJobEvents,
   queueJobAcceptedPayload,
   queueJobSnapshot,
   toQueueTerminalEvent,
-} from "./lib/queue-utils.ts";
-import { buildCreateServerAppRouteDeps } from "./lib/create-server-app-route-deps.mjs";
-import { createServerHttpApp } from "./lib/create-server-http-app.mjs";
-import { createServerRuntimeServices } from "./lib/create-server-runtime-services.mjs";
+} from './lib/queue-utils.ts';
+import { buildCreateServerAppRouteDeps } from './lib/create-server-app-route-deps.mjs';
+import { createServerHttpApp } from './lib/create-server-http-app.ts';
+import { createServerRuntimeServices } from './lib/create-server-runtime-services.mjs';
 import {
   buildApiErrorPayload,
   createApiRequestId,
   createOperationEventId,
   nowIso,
   writeStructuredLog,
-} from "./lib/api-response-service.ts";
-import { createServerConfig } from "./lib/server-config.ts";
+} from './lib/api-response-service.ts';
+import { createServerConfig } from './lib/server-config.ts';
 import {
   findLineForQuery,
   guessContentType,
@@ -41,30 +50,72 @@ import {
   resolveRepoFilePath,
   toBooleanString,
   toNumberString,
-} from "./lib/request-file-helpers.ts";
+} from './lib/request-file-helpers.ts';
+import {
+  disposeFigmaMcpPingService,
+  warmupFigmaMcpPingService,
+} from './services/figma-mcp-ping-service.ts';
 
-function defaultRepoRoot() {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  return path.resolve(__dirname, "../../..");
+export interface CreateServerAppOptions {
+  env?: NodeJS.ProcessEnv;
+  repoRoot?: string;
+  watch?: boolean;
 }
 
-export function createServerApp({
-  env = process.env,
-  repoRoot = defaultRepoRoot(),
-  watch = true,
-} = {}) {
+export interface ServerApp {
+  app: Hono;
+  port: number;
+  host: string;
+  repoRoot: string;
+  disposeDesignSystemRepository: () => void;
+}
+
+function defaultRepoRoot(): string {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  return path.resolve(__dirname, '../../..');
+}
+
+function formatHostForHttpUrl(host: string): string {
+  const normalized = String(host || '').trim();
+  if (!normalized) return 'localhost';
+  if (normalized.startsWith('[') && normalized.endsWith(']')) return normalized;
+  return normalized.includes(':') ? `[${normalized}]` : normalized;
+}
+
+function ensureDashboardInternalToken(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnvArg = String(env?.DS_DASHBOARD_INTERNAL_TOKEN || '').trim();
+  if (fromEnvArg) {
+    process.env.DS_DASHBOARD_INTERNAL_TOKEN = fromEnvArg;
+    return fromEnvArg;
+  }
+  const existing = String(process.env.DS_DASHBOARD_INTERNAL_TOKEN || '').trim();
+  if (existing) return existing;
+  const generated = randomUUID();
+  process.env.DS_DASHBOARD_INTERNAL_TOKEN = generated;
+  return generated;
+}
+
+export function createServerApp(options: CreateServerAppOptions = {}): ServerApp {
+  const {
+    env = process.env,
+    repoRoot = defaultRepoRoot(),
+    watch = true,
+  } = options;
+
   const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
   let designSystemRepositoryDisposed = false;
 
-  function disposeDesignSystemRepository() {
+  function disposeDesignSystemRepository(): void {
     if (designSystemRepositoryDisposed) return;
     designSystemRepositoryDisposed = true;
     designSystemRepository.dispose();
+    disposeFigmaMcpPingService();
   }
 
   const {
     PORT,
+    HOST,
     MAX_OUTPUT_BYTES,
     MAX_FILE_BYTES,
     MAX_SNIPPET_LINES,
@@ -184,9 +235,24 @@ export function createServerApp({
     }),
   });
 
+  warmupFigmaMcpPingService({ env });
+
+  // Advertise the server's internal URL to child processes spawned from this
+  // server (e.g., the tokens-from-figma sync subprocess).  When this variable
+  // is present, subprocesses can proxy their MCP variable fetches through the
+  // server's /api/figma-mcp-variables endpoint, which uses the shared MCP
+  // client that the Desktop Bridge plugin is already connected to — avoiding
+  // the port-mismatch problem that occurs when subprocesses spawn their own
+  // fresh figma-console-mcp instances.
+  const internalHostRaw = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;
+  const internalHost = formatHostForHttpUrl(internalHostRaw);
+  process.env.DS_DASHBOARD_INTERNAL_URL = `http://${internalHost}:${PORT}`;
+  ensureDashboardInternalToken(env);
+
   return {
     app,
     port: PORT,
+    host: HOST,
     repoRoot,
     disposeDesignSystemRepository,
   };

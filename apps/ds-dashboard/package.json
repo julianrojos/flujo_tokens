@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node scripts/dev-with-api.mjs",
     "dev:vite": "vite",
-    "dev:api": "node --import tsx server/index.mjs",
+    "dev:api": "node --env-file-if-exists=.env --import tsx server/index.ts",
+    "test": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test tests/*.test.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

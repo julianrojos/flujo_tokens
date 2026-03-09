@@ -1,22 +1,26 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+/**
+ * Tests for Register All Routes Service
+ */
 
-import { buildAllRouteDeps, buildSharedSystemContextDeps } from "./register-all-routes-service.mjs";
+import assert from 'node:assert/strict';
+import test from 'node:test';
 
-function createDeps() {
+import { buildAllRouteDeps, buildSharedSystemContextDeps, type ServerDeps } from './register-all-routes-service.ts';
+
+function createDeps(): ServerDeps {
   return {
-    failJson: () => {},
-    getSystemContext: () => ({ systemId: "core" }),
+    failJson: () => ({}),
+    getSystemContext: () => ({ systemId: 'core' }),
     buildHealthPayload: () => ({ ok: true }),
     readJsonBody: async () => ({}),
     designSystemRepository: {},
-    normalizeSystemId: (value) => String(value || ""),
+    normalizeSystemId: (value) => String(value || ''),
     ensureRelativeDir: (value) => value,
     normalizeFigmaApiTokenRef: (value) => value,
     normalizeCollectionList: (value) => value,
     summarizeDesignSystemsConfig: (value) => value,
     resolveSafeSystemPathsForDeletion: () => [],
-    repoRoot: "/repo",
+    repoRoot: '/repo',
     fsSync: {},
     toFiniteTimestamp: () => 0,
     OPS_HISTORY_MAX_LIMIT: 1000,
@@ -26,17 +30,17 @@ function createDeps() {
     OPS_REGRESSION_DEFAULT_MIN_SAMPLES: 3,
     readOperationHistory: () => ({}),
     buildOperationRegressionsReport: () => ({}),
-    createApiRequestId: () => "req_1",
+    createApiRequestId: () => 'req_1',
     findOperationEventById: () => ({}),
     enqueueReplayJobFromOperation: () => ({}),
     queueJobAcceptedPayload: () => ({}),
-    isDevRuntime: () => true,
-    resolveRepoFilePath: () => "/repo/file",
-    sha256Text: () => "hash",
-    readTextFileLimited: async () => ({ content: "", truncated: false }),
+    isDevRuntime: true,
+    resolveRepoFilePath: () => '/repo/file',
+    sha256Text: () => 'hash',
+    readTextFileLimited: () => '',
     findLineForQuery: () => 1,
     buildSnippet: () => ({}),
-    guessContentType: () => "text/plain",
+    guessContentType: () => 'text/plain',
     MAX_FILE_BYTES: 1_000_000,
     queueJobs: new Map(),
     listQueueJobEvents: () => [],
@@ -51,20 +55,20 @@ function createDeps() {
     queueNpmScript: () => ({}),
     enqueueRefreshNamingDebtJob: () => ({}),
     queueNodeJsonCommand: () => ({}),
-    toBooleanString: () => "false",
-    toNumberString: () => "0",
-    validateGitRef: () => "HEAD~1",
+    toBooleanString: () => 'false',
+    toNumberString: () => '0',
+    validateGitRef: () => 'HEAD~1',
   };
 }
 
-test("register-all-routes-service: shared deps keep failJson/getSystemContext", () => {
+test('register-all-routes-service: shared deps keep failJson/getSystemContext', () => {
   const deps = createDeps();
   const shared = buildSharedSystemContextDeps(deps);
   assert.equal(shared.failJson, deps.failJson);
   assert.equal(shared.getSystemContext, deps.getSystemContext);
 });
 
-test("register-all-routes-service: buildAllRouteDeps returns grouped route contracts", () => {
+test('register-all-routes-service: buildAllRouteDeps returns grouped route contracts', () => {
   const deps = createDeps();
   const grouped = buildAllRouteDeps(deps);
 
@@ -75,4 +79,6 @@ test("register-all-routes-service: buildAllRouteDeps returns grouped route contr
   assert.equal(grouped.commandDeps.validateGitRef, deps.validateGitRef);
   assert.equal(grouped.figmaPingDeps.failJson, deps.failJson);
   assert.equal(grouped.figmaPingDeps.readJsonBody, deps.readJsonBody);
+  assert.equal(grouped.figmaMcpPingDeps.failJson, deps.failJson);
+  assert.equal(grouped.figmaMcpPingDeps.readJsonBody, deps.readJsonBody);
 });

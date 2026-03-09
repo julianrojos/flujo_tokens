@@ -1,11 +1,19 @@
+/**
+ * Command Route Handler Service
+ *
+ * Handles command-related route logic.
+ */
+
+import { spawn, type ChildProcess } from 'node:child_process';
+import type { Context } from 'hono';
+
 import {
   buildCaptureFigmaScreenshotCommandConfig,
   buildHealthSnapshotCommandConfig,
   isInvalidTokensSourceError,
   buildRunScriptCommandArgs,
   buildSyncFigmaTokensCommandConfig,
-} from "../lib/command-route-service.mjs";
-import { spawn } from "node:child_process";
+} from '../lib/command-route-service.ts';
 import {
   buildCaptureFigmaScreenshotQueueArgs,
   buildHealthSnapshotQueueArgs,
@@ -13,55 +21,53 @@ import {
   buildRunScriptQueueConfig,
   buildSyncFigmaTokensQueueArgs,
   parseScriptNameFromRoute,
-} from "../lib/command-route-enqueue-service.mjs";
+} from '../lib/command-route-enqueue-service.ts';
 
 // ---------------------------------------------------------------------------
 // Alias resolution helpers
 // ---------------------------------------------------------------------------
 
+const COMPONENT_ALIASES = ['component', 'componentName', 'componentSlug'] as const;
+const SPEC_FILE_ALIASES = ['specFile', 'spec_file', 'spec-file'] as const;
+
 /**
  * Return the first value that, once stringified and trimmed, is non-empty.
  * Returns `undefined` when no candidate qualifies.
- *
- * @param {...unknown} values - Candidate values to inspect.
- * @returns {string | undefined}
  */
-function pickFirstNonEmpty(...values) {
+function pickFirstNonEmpty(...values: unknown[]): string | undefined {
   for (const value of values) {
-    const normalized = String(value || "").trim();
+    const normalized = String(value || '').trim();
     if (normalized) return normalized;
   }
   return undefined;
 }
 
-/** @type {readonly string[]} */
-const COMPONENT_ALIASES = /** @type {const} */ (["component", "componentName", "componentSlug"]);
-
-/** @type {readonly string[]} */
-const SPEC_FILE_ALIASES = /** @type {const} */ (["specFile", "spec_file", "spec-file"]);
-
 /**
  * Resolve component and specFile from an incoming request body + query string,
  * collapsing all known alias variants (camelCase, snake_case, kebab-case) into
  * a single canonical pair.
- *
- * @param {Record<string, unknown>} body    - Parsed JSON body.
- * @param {(key: string) => string | undefined} queryFn - Accessor for query-string values.
- * @returns {{ component: string | undefined; specFile: string | undefined }}
  */
-function normalizeComponentDocArgs(body, queryFn) {
+function normalizeComponentDocArgs(
+  body: Record<string, unknown>,
+  queryFn: (key: string) => string | undefined
+): { component: string | undefined; specFile: string | undefined } {
   const component = pickFirstNonEmpty(
     ...COMPONENT_ALIASES.map((k) => body[k]),
-    ...COMPONENT_ALIASES.map((k) => queryFn(k)),
+    ...COMPONENT_ALIASES.map((k) => queryFn(k))
   );
   const specFile = pickFirstNonEmpty(
     ...SPEC_FILE_ALIASES.map((k) => body[k]),
-    ...SPEC_FILE_ALIASES.map((k) => queryFn(k)),
+    ...SPEC_FILE_ALIASES.map((k) => queryFn(k))
   );
   return { component, specFile };
 }
 
-function failBuildCommandConfig(c, deps, requestId, error) {
+function failBuildCommandConfig(
+  c: Context,
+  deps: { failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response },
+  requestId: string,
+  error: unknown
+): Response {
   const { failJson } = deps;
   const message = error instanceof Error ? error.message : String(error);
   const isTokensSourceError = isInvalidTokensSourceError(error);
@@ -74,68 +80,112 @@ function failBuildCommandConfig(c, deps, requestId, error) {
   });
 }
 
-export function enqueueRefreshScriptJob(c, script, deps) {
+export interface CommandRouteHandlerDeps {
+  failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response;
+  createApiRequestId: () => string;
+  getSystemContext: (systemHeader: string) => {
+    repoRoot: string;
+    systemId: string;
+    healthSnapshotScriptPath: string;
+    tokensFromFigmaScriptPath: string;
+    captureFromFigmaUrlScriptPath: string;
+  };
+  queueNpmScript: (args: unknown) => { id: string };
+  queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
+  processEnv?: Record<string, string | undefined>;
+  spawnProcessFn?: typeof spawn;
+  setTimeoutFn?: typeof setTimeout;
+  exitProcessFn?: (code?: number) => void;
+  processCwd?: string;
+  exitDelayMs?: number;
+  readJsonBody: (c: Context) => Promise<Record<string, unknown>>;
+  enqueueQueueJob: (args: unknown) => { id: string };
+  sha256Text: (value: string) => string;
+  runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
+  enqueueRefreshNamingDebtJob: (args: unknown) => { id: string };
+  queueNodeJsonCommand: (args: unknown) => { id: string };
+  validateGitRef: (value: string) => string | null;
+  toBooleanString: (value: unknown, fallback: boolean) => string;
+  toNumberString: (value: unknown, fallback: number, max: number) => string;
+}
+
+export function enqueueRefreshScriptJob(
+  c: Context,
+  script: string,
+  deps: Pick<CommandRouteHandlerDeps, 'createApiRequestId' | 'getSystemContext' | 'queueNpmScript' | 'queueJobAcceptedPayload'>
+): Response {
   const { createApiRequestId, getSystemContext, queueNpmScript, queueJobAcceptedPayload } = deps;
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
   const job = queueNpmScript(buildRefreshScriptQueueArgs({ sysCtx, requestId, script }));
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
-export function handleRestartApiRoute(c, deps) {
+export interface HandleRestartApiDeps {
+  failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response;
+  createApiRequestId: () => string;
+  processEnv?: Record<string, string | undefined>;
+  spawnProcessFn?: typeof spawn;
+  setTimeoutFn?: typeof setTimeout;
+  exitProcessFn?: (code?: number) => void;
+  processCwd?: string;
+  exitDelayMs?: number;
+}
+
+export function handleRestartApiRoute(c: Context, deps: HandleRestartApiDeps): Response {
   const { failJson, createApiRequestId } = deps;
   const requestId = createApiRequestId();
-  const env = deps.processEnv || process.env;
-  const isSupervised = String(env.DS_DASHBOARD_SUPERVISED || "") === "1";
-  const isProduction = String(env.NODE_ENV || "").toLowerCase() === "production";
-  const selfRestartDisabled = String(env.DS_DASHBOARD_DISABLE_SELF_RESTART || "") === "1";
+  const env = deps.processEnv ?? process.env;
+  const isSupervised = String(env.DS_DASHBOARD_SUPERVISED ?? '') === '1';
+  const isProduction = String(env.NODE_ENV ?? '').toLowerCase() === 'production';
+  const selfRestartDisabled = String(env.DS_DASHBOARD_DISABLE_SELF_RESTART ?? '') === '1';
 
   if (isSupervised) {
     return failJson(c, 409, {
-      code: "server.restart_requires_supervisor",
+      code: 'server.restart_requires_supervisor',
       userMessage:
-        "API is running under the combined dev supervisor. Restart `npm --prefix apps/ds-dashboard run dev` from your terminal.",
+        'API is running under the combined dev supervisor. Restart `npm --prefix apps/ds-dashboard run dev` from your terminal.',
       recoverable: true,
       requestId,
       context: {
-        restartCommand: "npm --prefix apps/ds-dashboard run dev",
+        restartCommand: 'npm --prefix apps/ds-dashboard run dev',
       },
     });
   }
 
   if (isProduction || selfRestartDisabled) {
     return failJson(c, 403, {
-      code: "server.restart_forbidden",
-      userMessage: "Automatic API restart is disabled in this runtime.",
+      code: 'server.restart_forbidden',
+      userMessage: 'Automatic API restart is disabled in this runtime.',
       recoverable: false,
       requestId,
     });
   }
 
-  const spawnFn = deps.spawnProcessFn || spawn;
-  const setTimeoutFn = deps.setTimeoutFn || setTimeout;
-  const exitProcessFn = deps.exitProcessFn || ((code) => process.exit(code));
-  const cwd = deps.processCwd || process.cwd();
-  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+  const spawnFn = deps.spawnProcessFn ?? spawn;
+  const setTimeoutFn = deps.setTimeoutFn ?? setTimeout;
+  const exitProcessFn = deps.exitProcessFn ?? ((code?: number) => process.exit(code));
+  const cwd = deps.processCwd ?? process.cwd();
+  const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
   // Configurable exit delay with minimum safe threshold
-  const exitDelayMs = Math.max(Number(deps.exitDelayMs) || 400, 300);
+  const exitDelayMs = Math.max(deps.exitDelayMs ?? 400, 300);
 
   try {
-    const child = spawnFn(npmCommand, ["run", "dev:api"], {
+    const child = spawnFn(npmCommand, ['run', 'dev:api'], {
       cwd,
       detached: true,
-      stdio: "ignore",
+      stdio: 'ignore',
       shell: false,
       env: {
         ...env,
-        NODE_ENV: env.NODE_ENV || "development",
+        NODE_ENV: env.NODE_ENV ?? 'development',
       },
     });
-    if (typeof child?.unref === "function") child.unref();
+    if (typeof child?.unref === 'function') child.unref();
   } catch (error) {
     return failJson(c, 500, {
-      code: "server.restart_spawn_failed",
+      code: 'server.restart_spawn_failed',
       userMessage: error instanceof Error ? error.message : String(error),
       recoverable: true,
       requestId,
@@ -153,23 +203,23 @@ export function handleRestartApiRoute(c, deps) {
   }, exitDelayMs);
 
   // Prevent timer from keeping process alive if other cleanup is needed
-  if (typeof exitTimer.unref === "function") {
+  if (typeof exitTimer.unref === 'function') {
     exitTimer.unref();
   }
 
   return c.json(
     {
       ok: true,
-      mode: "standalone",
-      restartCommand: "npm --prefix apps/ds-dashboard run dev:api",
-      message: "API restart requested.",
+      mode: 'standalone',
+      restartCommand: 'npm --prefix apps/ds-dashboard run dev:api',
+      message: 'API restart requested.',
       requestId,
     },
-    202,
+    202
   );
 }
 
-export async function handleRunScriptRoute(c, deps) {
+export async function handleRunScriptRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
   const {
     failJson,
     createApiRequestId,
@@ -182,7 +232,7 @@ export async function handleRunScriptRoute(c, deps) {
   } = deps;
 
   const requestId = createApiRequestId();
-  const parsedScript = parseScriptNameFromRoute(c.req.param("script"), requestId);
+  const parsedScript = parseScriptNameFromRoute(c.req.param('script'), requestId);
   if (!parsedScript.ok) {
     return failJson(c, parsedScript.statusCode, parsedScript.errorArgs);
   }
@@ -196,17 +246,17 @@ export async function handleRunScriptRoute(c, deps) {
     componentSlug: component,
     specFile,
     spec_file: specFile,
-    "spec-file": specFile,
-    fromStep: pickFirstNonEmpty(body.fromStep, c.req.query("fromStep")),
-    onlyStep: pickFirstNonEmpty(body.onlyStep, c.req.query("onlyStep")),
+    'spec-file': specFile,
+    fromStep: pickFirstNonEmpty(body.fromStep, c.req.query('fromStep')),
+    onlyStep: pickFirstNonEmpty(body.onlyStep, c.req.query('onlyStep')),
   };
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
 
-  if (parsedScript.scriptName === "ds:component-doc") {
+  if (parsedScript.scriptName === 'ds:component-doc') {
     if (!specFile && !component) {
       return failJson(c, 400, {
-        code: "validation.component_doc_args_required",
-        userMessage: "Either componentName or specFile is required.",
+        code: 'validation.component_doc_args_required',
+        userMessage: 'Either componentName or specFile is required.',
         recoverable: true,
         requestId,
       });
@@ -224,7 +274,7 @@ export async function handleRunScriptRoute(c, deps) {
 
   const job = enqueueQueueJob({
     ...runConfig.queueArgs,
-    execute: async ({ emitChunk, setProcess }) =>
+    execute: async ({ emitChunk, setProcess }: { emitChunk: unknown; setProcess: unknown }) =>
       await runQueuedSpawnCommand({
         ...runConfig.runCommand,
         emitChunk,
@@ -235,10 +285,13 @@ export async function handleRunScriptRoute(c, deps) {
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
-export function handleRefreshNamingDebtRoute(c, deps) {
+export function handleRefreshNamingDebtRoute(
+  c: Context,
+  deps: Pick<CommandRouteHandlerDeps, 'createApiRequestId' | 'getSystemContext' | 'enqueueRefreshNamingDebtJob' | 'queueJobAcceptedPayload'>
+): Response {
   const { createApiRequestId, getSystemContext, enqueueRefreshNamingDebtJob, queueJobAcceptedPayload } = deps;
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
   const job = enqueueRefreshNamingDebtJob({
     sysCtx,
     requestId,
@@ -246,7 +299,7 @@ export function handleRefreshNamingDebtRoute(c, deps) {
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
-export async function handleCaptureHealthSnapshotRoute(c, deps) {
+export async function handleCaptureHealthSnapshotRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
   const {
     failJson,
     createApiRequestId,
@@ -259,7 +312,7 @@ export async function handleCaptureHealthSnapshotRoute(c, deps) {
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
   const body = await readJsonBody(c);
 
   const parsed = buildHealthSnapshotCommandConfig({
@@ -278,7 +331,7 @@ export async function handleCaptureHealthSnapshotRoute(c, deps) {
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
-export async function handleSyncFigmaTokensRoute(c, deps) {
+export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
   const {
     createApiRequestId,
     getSystemContext,
@@ -290,9 +343,9 @@ export async function handleSyncFigmaTokensRoute(c, deps) {
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
   const body = await readJsonBody(c);
-  
+
   let parsed;
   try {
     parsed = buildSyncFigmaTokensCommandConfig({
@@ -313,7 +366,7 @@ export async function handleSyncFigmaTokensRoute(c, deps) {
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
-export async function handleCaptureFigmaScreenshotRoute(c, deps) {
+export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
   const {
     failJson,
     createApiRequestId,
@@ -326,9 +379,9 @@ export async function handleCaptureFigmaScreenshotRoute(c, deps) {
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
   const body = await readJsonBody(c);
-  
+
   let parsed;
   try {
     parsed = buildCaptureFigmaScreenshotCommandConfig({
