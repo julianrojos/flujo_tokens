@@ -38,6 +38,7 @@ export interface OrchestrateTokenSyncResult {
     created: boolean;
     reason: string;
     files_written?: number;
+    collections?: string[];
     tokens_written?: number;
     tokens_total?: number;
     files?: string[];

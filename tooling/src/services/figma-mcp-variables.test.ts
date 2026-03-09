@@ -5,7 +5,9 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 
 import {
+  disposeSharedFigmaMcpClient,
   fetchFigmaLocalVariablesViaMcp,
+  pingSharedFigmaMcp,
   resolveFigmaMcpCommand,
 } from './figma-mcp-variables.js';
 
@@ -94,12 +96,9 @@ describe('figma-mcp-variables', () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-'));
     const scriptPath = path.join(tempRoot, 'mock-mcp.js');
     const script = `
-let buffer = Buffer.alloc(0);
-let expectedLength = null;
+let buffer = '';
 function send(payload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8');
-  process.stdout.write('Content-Length: ' + body.length + '\\r\\n\\r\\n');
-  process.stdout.write(body);
+  process.stdout.write(JSON.stringify(payload) + '\\n');
 }
 function handleMessage(message) {
   if (message.method === 'initialize') {
@@ -137,23 +136,16 @@ function handleMessage(message) {
     });
   }
 }
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
+  buffer += chunk;
   while (true) {
-    if (expectedLength === null) {
-      const idx = buffer.indexOf('\\r\\n\\r\\n');
-      if (idx < 0) return;
-      const header = buffer.slice(0, idx).toString('utf8');
-      const match = /content-length:\\s*(\\d+)/i.exec(header);
-      if (!match) throw new Error('Missing content-length');
-      expectedLength = Number(match[1]);
-      buffer = buffer.slice(idx + 4);
-    }
-    if (buffer.length < expectedLength) return;
-    const body = buffer.slice(0, expectedLength).toString('utf8');
-    buffer = buffer.slice(expectedLength);
-    expectedLength = null;
-    const parsed = JSON.parse(body);
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     handleMessage(parsed);
   }
 });
@@ -176,16 +168,67 @@ process.stdin.on('data', (chunk) => {
     }
   });
 
+  it('reads timeout override from FIGMA_MCP_TIMEOUT_MS', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-timeout-'));
+    const scriptPath = path.join(tempRoot, 'mock-mcp-timeout.js');
+    const script = `
+let buffer = '';
+function send(payload) {
+  process.stdout.write(JSON.stringify(payload) + '\\n');
+}
+function handleMessage(message) {
+  if (message.method === 'initialize') {
+    setTimeout(() => {
+      send({
+        jsonrpc: '2.0',
+        id: message.id,
+        result: {
+          protocolVersion: '2024-11-05',
+          capabilities: {},
+          serverInfo: { name: 'mock', version: '1.0.0' },
+        },
+      });
+    }, 250);
+    return;
+  }
+}
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
+    handleMessage(parsed);
+  }
+});
+`;
+    fs.writeFileSync(scriptPath, script, 'utf8');
+
+    try {
+      await assert.rejects(
+        fetchFigmaLocalVariablesViaMcp({
+          command: process.execPath,
+          args: [scriptPath],
+          env: { FIGMA_MCP_TIMEOUT_MS: '100' },
+        }),
+        /timed out \(initialize\)/i,
+      );
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('does not fail connectivity check when transport.connected is missing', async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-status-'));
     const scriptPath = path.join(tempRoot, 'mock-mcp-status.js');
     const script = `
-let buffer = Buffer.alloc(0);
-let expectedLength = null;
+let buffer = '';
 function send(payload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8');
-  process.stdout.write('Content-Length: ' + body.length + '\\r\\n\\r\\n');
-  process.stdout.write(body);
+  process.stdout.write(JSON.stringify(payload) + '\\n');
 }
 function handleMessage(message) {
   if (message.method === 'initialize') {
@@ -240,23 +283,16 @@ function handleMessage(message) {
     });
   }
 }
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
+  buffer += chunk;
   while (true) {
-    if (expectedLength === null) {
-      const idx = buffer.indexOf('\\r\\n\\r\\n');
-      if (idx < 0) return;
-      const header = buffer.slice(0, idx).toString('utf8');
-      const match = /content-length:\\s*(\\d+)/i.exec(header);
-      if (!match) throw new Error('Missing content-length');
-      expectedLength = Number(match[1]);
-      buffer = buffer.slice(idx + 4);
-    }
-    if (buffer.length < expectedLength) return;
-    const body = buffer.slice(0, expectedLength).toString('utf8');
-    buffer = buffer.slice(expectedLength);
-    expectedLength = null;
-    const parsed = JSON.parse(body);
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     handleMessage(parsed);
   }
 });
@@ -280,12 +316,9 @@ process.stdin.on('data', (chunk) => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-status-json-ok-'));
     const scriptPath = path.join(tempRoot, 'mock-mcp-status-json-ok.js');
     const script = `
-let buffer = Buffer.alloc(0);
-let expectedLength = null;
+let buffer = '';
 function send(payload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8');
-  process.stdout.write('Content-Length: ' + body.length + '\\r\\n\\r\\n');
-  process.stdout.write(body);
+  process.stdout.write(JSON.stringify(payload) + '\\n');
 }
 function handleMessage(message) {
   if (message.method === 'initialize') {
@@ -335,23 +368,16 @@ function handleMessage(message) {
     }
   }
 }
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
+  buffer += chunk;
   while (true) {
-    if (expectedLength === null) {
-      const idx = buffer.indexOf('\\r\\n\\r\\n');
-      if (idx < 0) return;
-      const header = buffer.slice(0, idx).toString('utf8');
-      const match = /content-length:\\s*(\\d+)/i.exec(header);
-      if (!match) throw new Error('Missing content-length');
-      expectedLength = Number(match[1]);
-      buffer = buffer.slice(idx + 4);
-    }
-    if (buffer.length < expectedLength) return;
-    const body = buffer.slice(0, expectedLength).toString('utf8');
-    buffer = buffer.slice(expectedLength);
-    expectedLength = null;
-    const parsed = JSON.parse(body);
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     handleMessage(parsed);
   }
 });
@@ -375,12 +401,9 @@ process.stdin.on('data', (chunk) => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-status-mixed-'));
     const scriptPath = path.join(tempRoot, 'mock-mcp-status-mixed.js');
     const script = `
-let buffer = Buffer.alloc(0);
-let expectedLength = null;
+let buffer = '';
 function send(payload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8');
-  process.stdout.write('Content-Length: ' + body.length + '\\r\\n\\r\\n');
-  process.stdout.write(body);
+  process.stdout.write(JSON.stringify(payload) + '\\n');
 }
 function handleMessage(message) {
   if (message.method === 'initialize') {
@@ -434,23 +457,16 @@ function handleMessage(message) {
     });
   }
 }
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
+  buffer += chunk;
   while (true) {
-    if (expectedLength === null) {
-      const idx = buffer.indexOf('\\r\\n\\r\\n');
-      if (idx < 0) return;
-      const header = buffer.slice(0, idx).toString('utf8');
-      const match = /content-length:\\s*(\\d+)/i.exec(header);
-      if (!match) throw new Error('Missing content-length');
-      expectedLength = Number(match[1]);
-      buffer = buffer.slice(idx + 4);
-    }
-    if (buffer.length < expectedLength) return;
-    const body = buffer.slice(0, expectedLength).toString('utf8');
-    buffer = buffer.slice(expectedLength);
-    expectedLength = null;
-    const parsed = JSON.parse(body);
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     handleMessage(parsed);
   }
 });
@@ -474,12 +490,9 @@ process.stdin.on('data', (chunk) => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-disconnected-'));
     const scriptPath = path.join(tempRoot, 'mock-mcp-disconnected.js');
     const script = `
-let buffer = Buffer.alloc(0);
-let expectedLength = null;
+let buffer = '';
 function send(payload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8');
-  process.stdout.write('Content-Length: ' + body.length + '\\r\\n\\r\\n');
-  process.stdout.write(body);
+  process.stdout.write(JSON.stringify(payload) + '\\n');
 }
 function handleMessage(message) {
   if (message.method === 'initialize') {
@@ -514,23 +527,16 @@ function handleMessage(message) {
     });
   }
 }
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
+  buffer += chunk;
   while (true) {
-    if (expectedLength === null) {
-      const idx = buffer.indexOf('\\r\\n\\r\\n');
-      if (idx < 0) return;
-      const header = buffer.slice(0, idx).toString('utf8');
-      const match = /content-length:\\s*(\\d+)/i.exec(header);
-      if (!match) throw new Error('Missing content-length');
-      expectedLength = Number(match[1]);
-      buffer = buffer.slice(idx + 4);
-    }
-    if (buffer.length < expectedLength) return;
-    const body = buffer.slice(0, expectedLength).toString('utf8');
-    buffer = buffer.slice(expectedLength);
-    expectedLength = null;
-    const parsed = JSON.parse(body);
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     handleMessage(parsed);
   }
 });
@@ -553,16 +559,114 @@ process.stdin.on('data', (chunk) => {
     }
   });
 
+  it('retries MCP status during connect wait window and succeeds once connected', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-connect-wait-'));
+    const scriptPath = path.join(tempRoot, 'mock-mcp-connect-wait.js');
+    const script = `
+let buffer = '';
+let statusCalls = 0;
+function send(payload) {
+  process.stdout.write(JSON.stringify(payload) + '\\n');
+}
+function handleMessage(message) {
+  if (message.method === 'initialize') {
+    send({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        serverInfo: { name: 'mock', version: '1.0.0' },
+      },
+    });
+    return;
+  }
+  if (message.method === 'tools/call') {
+    const tool = String(message.params?.name || '');
+    if (tool === 'figma_get_status') {
+      statusCalls += 1;
+      if (statusCalls < 2) {
+        send({
+          jsonrpc: '2.0',
+          id: message.id,
+          result: {
+            connected: false,
+            content: [{ type: 'text', text: 'disconnected' }],
+          },
+        });
+        return;
+      }
+      send({
+        jsonrpc: '2.0',
+        id: message.id,
+        result: {
+          connected: true,
+          content: [{ type: 'text', text: 'connected' }],
+        },
+      });
+      return;
+    }
+    if (tool === 'figma_get_variables') {
+      const payload = {
+        data: {
+          variableCollections: [{ id: 'Collection:1', name: 'Primitives', modes: [{ modeId: '1:0', name: 'Mode 1' }] }],
+          variables: [{ id: 'VariableID:1', name: 'size/md', resolvedType: 'FLOAT', variableCollectionId: 'Collection:1', valuesByMode: { '1:0': 16 } }],
+        },
+        pagination: { hasNextPage: false },
+      };
+      send({
+        jsonrpc: '2.0',
+        id: message.id,
+        result: {
+          content: [{ type: 'text', text: JSON.stringify(payload) }],
+        },
+      });
+      return;
+    }
+    send({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: { content: [{ type: 'text', text: '{}' }] },
+    });
+  }
+}
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
+    handleMessage(parsed);
+  }
+});
+`;
+    fs.writeFileSync(scriptPath, script, 'utf8');
+
+    try {
+      const result = await fetchFigmaLocalVariablesViaMcp({
+        command: process.execPath,
+        args: [scriptPath],
+        timeoutMs: 2_000,
+        connectWaitMs: 1_000,
+      });
+      assert.equal(Object.keys(result.meta.variables).length, 1);
+      assert.equal(result.meta.variables['VariableID:1']?.name, 'size/md');
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
   it('throws when MCP status text block contains JSON with connected=false', async () => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-disconnected-json-'));
     const scriptPath = path.join(tempRoot, 'mock-mcp-disconnected-json.js');
     const script = `
-let buffer = Buffer.alloc(0);
-let expectedLength = null;
+let buffer = '';
 function send(payload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8');
-  process.stdout.write('Content-Length: ' + body.length + '\\r\\n\\r\\n');
-  process.stdout.write(body);
+  process.stdout.write(JSON.stringify(payload) + '\\n');
 }
 function handleMessage(message) {
   if (message.method === 'initialize') {
@@ -596,23 +700,16 @@ function handleMessage(message) {
     });
   }
 }
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
+  buffer += chunk;
   while (true) {
-    if (expectedLength === null) {
-      const idx = buffer.indexOf('\\r\\n\\r\\n');
-      if (idx < 0) return;
-      const header = buffer.slice(0, idx).toString('utf8');
-      const match = /content-length:\\s*(\\d+)/i.exec(header);
-      if (!match) throw new Error('Missing content-length');
-      expectedLength = Number(match[1]);
-      buffer = buffer.slice(idx + 4);
-    }
-    if (buffer.length < expectedLength) return;
-    const body = buffer.slice(0, expectedLength).toString('utf8');
-    buffer = buffer.slice(expectedLength);
-    expectedLength = null;
-    const parsed = JSON.parse(body);
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     handleMessage(parsed);
   }
 });
@@ -639,12 +736,9 @@ process.stdin.on('data', (chunk) => {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-vars-iserror-string-'));
     const scriptPath = path.join(tempRoot, 'mock-mcp-iserror-string.js');
     const script = `
-let buffer = Buffer.alloc(0);
-let expectedLength = null;
+let buffer = '';
 function send(payload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8');
-  process.stdout.write('Content-Length: ' + body.length + '\\r\\n\\r\\n');
-  process.stdout.write(body);
+  process.stdout.write(JSON.stringify(payload) + '\\n');
 }
 function handleMessage(message) {
   if (message.method === 'initialize') {
@@ -692,23 +786,16 @@ function handleMessage(message) {
     }
   }
 }
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
+  buffer += chunk;
   while (true) {
-    if (expectedLength === null) {
-      const idx = buffer.indexOf('\\r\\n\\r\\n');
-      if (idx < 0) return;
-      const header = buffer.slice(0, idx).toString('utf8');
-      const match = /content-length:\\s*(\\d+)/i.exec(header);
-      if (!match) throw new Error('Missing content-length');
-      expectedLength = Number(match[1]);
-      buffer = buffer.slice(idx + 4);
-    }
-    if (buffer.length < expectedLength) return;
-    const body = buffer.slice(0, expectedLength).toString('utf8');
-    buffer = buffer.slice(expectedLength);
-    expectedLength = null;
-    const parsed = JSON.parse(body);
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     handleMessage(parsed);
   }
 });
@@ -733,12 +820,9 @@ process.stdin.on('data', (chunk) => {
     const scriptPath = path.join(tempRoot, 'mock-mcp-limit.js');
     // Mock server that always returns hasNextPage: true
     const script = `
-let buffer = Buffer.alloc(0);
-let expectedLength = null;
+let buffer = '';
 function send(payload) {
-  const body = Buffer.from(JSON.stringify(payload), 'utf8');
-  process.stdout.write('Content-Length: ' + body.length + '\\r\\n\\r\\n');
-  process.stdout.write(body);
+  process.stdout.write(JSON.stringify(payload) + '\\n');
 }
 function handleMessage(message) {
   if (message.method === 'initialize') {
@@ -771,23 +855,16 @@ function handleMessage(message) {
     });
   }
 }
+process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
+  buffer += chunk;
   while (true) {
-    if (expectedLength === null) {
-      const idx = buffer.indexOf('\\r\\n\\r\\n');
-      if (idx < 0) return;
-      const header = buffer.slice(0, idx).toString('utf8');
-      const match = /content-length:\\s*(\\d+)/i.exec(header);
-      if (!match) throw new Error('Missing content-length');
-      expectedLength = Number(match[1]);
-      buffer = buffer.slice(idx + 4);
-    }
-    if (buffer.length < expectedLength) return;
-    const body = buffer.slice(0, expectedLength).toString('utf8');
-    buffer = buffer.slice(expectedLength);
-    expectedLength = null;
-    const parsed = JSON.parse(body);
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
     handleMessage(parsed);
   }
 });
@@ -806,6 +883,115 @@ process.stdin.on('data', (chunk) => {
         /MCP pagination exceeded maximum pages/,
       );
     } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('reuses shared client across timeout overrides and applies per-request timeout budgets', async () => {
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-mcp-shared-timeout-'));
+    const scriptPath = path.join(tempRoot, 'mock-mcp-shared-timeout.js');
+    const spawnCountPath = path.join(tempRoot, 'spawn-count.txt');
+    const script = `
+const fs = require('node:fs');
+const countFile = process.env.MOCK_MCP_COUNT_FILE;
+if (countFile) {
+  fs.appendFileSync(countFile, '1\\n', 'utf8');
+}
+let buffer = '';
+let statusCalls = 0;
+function send(payload) {
+  process.stdout.write(JSON.stringify(payload) + '\\n');
+}
+function handleMessage(message) {
+  if (message.method === 'initialize') {
+    send({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        serverInfo: { name: 'mock', version: '1.0.0' },
+      },
+    });
+    return;
+  }
+  if (message.method === 'tools/call') {
+    const tool = String(message.params?.name || '');
+    if (tool === 'figma_get_status') {
+      statusCalls += 1;
+      const reply = () => {
+        send({
+          jsonrpc: '2.0',
+          id: message.id,
+          result: {
+            connected: true,
+            content: [{ type: 'text', text: 'connected' }],
+          },
+        });
+      };
+      if (statusCalls === 1) {
+        reply();
+        return;
+      }
+      setTimeout(reply, 300);
+      return;
+    }
+    send({
+      jsonrpc: '2.0',
+      id: message.id,
+      result: {
+        content: [{ type: 'text', text: '{}' }],
+      },
+    });
+  }
+}
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  while (true) {
+    const idx = buffer.indexOf('\\n');
+    if (idx < 0) return;
+    const line = buffer.slice(0, idx).trim();
+    buffer = buffer.slice(idx + 1);
+    if (!line) continue;
+    const parsed = JSON.parse(line);
+    handleMessage(parsed);
+  }
+});
+`;
+    fs.writeFileSync(scriptPath, script, 'utf8');
+
+    try {
+      const firstPing = await pingSharedFigmaMcp({
+        command: process.execPath,
+        args: [scriptPath],
+        timeoutMs: 1_000,
+        env: { ...process.env, MOCK_MCP_COUNT_FILE: spawnCountPath },
+      });
+      assert.equal(firstPing.ok, true);
+      assert.equal(firstPing.connected, true);
+
+      const startedAt = Date.now();
+      const secondPing = await pingSharedFigmaMcp({
+        command: process.execPath,
+        args: [scriptPath],
+        timeoutMs: 100,
+        env: { ...process.env, MOCK_MCP_COUNT_FILE: spawnCountPath },
+      });
+      const elapsedMs = Date.now() - startedAt;
+
+      assert.equal(secondPing.ok, false);
+      assert.equal(secondPing.connected, false);
+      assert.equal(secondPing.code, 'mcp.timeout');
+      assert.equal(elapsedMs < 500, true);
+
+      const spawnCount = fs
+        .readFileSync(spawnCountPath, 'utf8')
+        .split(/\r?\n/)
+        .filter(Boolean).length;
+      assert.equal(spawnCount, 1);
+    } finally {
+      disposeSharedFigmaMcpClient();
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
   });

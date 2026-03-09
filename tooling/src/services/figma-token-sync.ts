@@ -682,6 +682,7 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     tokens_written: tokenCount,
     tokens_total: tokenCount,
     files: writtenFiles,
+    collections: Array.from(filesMap.values()).map((f) => f.description),
     backed_up: backedUpFiles,
     source_requested: sourceRequested,
     source_used: variablesFetchResult.sourceUsed,

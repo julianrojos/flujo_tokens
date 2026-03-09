@@ -133,6 +133,7 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   created: boolean;
   reason: string;
   files_written?: number;
+  collections?: string[];
   tokens_written?: number;
   tokens_total?: number;
   files?: string[];
@@ -180,6 +181,7 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     created: (syncResult.files_written ?? 0) > 0,
     reason: syncResult.reason ?? 'bootstrapped',
     files_written: syncResult.files_written ?? 0,
+    collections: syncResult.collections ?? [],
     tokens_written: syncResult.tokens_written ?? 0,
     tokens_total: syncResult.tokens_total ?? syncResult.tokens_written ?? 0,
     files: syncResult.files ?? [],
