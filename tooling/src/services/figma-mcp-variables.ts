@@ -814,7 +814,7 @@ async function checkMcpConnectivity(
       hasStructuredSignal = true;
       if (result.connected === false) {
         throw new Error(
-          'MCP server reports no Figma connection. Ensure Figma Desktop is open with the Desktop Bridge plugin running.',
+          'MCP server reports no Figma connection. Ensure Figma Desktop is open with the bridge plugin running.',
         );
       }
     }
@@ -824,7 +824,7 @@ async function checkMcpConnectivity(
         hasStructuredSignal = true;
         if (transportConnected === false) {
           throw new Error(
-            'MCP server transport reports disconnected. Ensure Figma Desktop is open with the Desktop Bridge plugin running.',
+            'MCP server transport reports disconnected. Ensure Figma Desktop is open with the bridge plugin running.',
           );
         }
       }
@@ -863,7 +863,7 @@ async function checkMcpConnectivity(
         blockHasStructuredSignal = true;
         if (parsedFromText.connected === false) {
           throw new Error(
-            'MCP server reports no Figma connection. Ensure Figma Desktop is open with the Desktop Bridge plugin running.',
+            'MCP server reports no Figma connection. Ensure Figma Desktop is open with the bridge plugin running.',
           );
         }
       }
@@ -873,7 +873,7 @@ async function checkMcpConnectivity(
           blockHasStructuredSignal = true;
           if (transportConnected === false) {
             throw new Error(
-              'MCP server transport reports disconnected. Ensure Figma Desktop is open with the Desktop Bridge plugin running.',
+              'MCP server transport reports disconnected. Ensure Figma Desktop is open with the bridge plugin running.',
             );
           }
         }
@@ -890,7 +890,7 @@ async function checkMcpConnectivity(
   for (const text of textBlocks) {
     if (/not connected|no connection|disconnected/i.test(text)) {
       throw new Error(
-        `MCP server reports no Figma connection. Ensure Figma Desktop is open with the Desktop Bridge plugin running. Details: ${text}`,
+        `MCP server reports no Figma connection. Ensure Figma Desktop is open with the bridge plugin running. Details: ${text}`,
       );
     }
   }
@@ -1097,7 +1097,7 @@ export interface PingSharedFigmaMcpResult {
   collectionsDetected?: number;
   variablesDetected?: number;
   /**
-   * True if Desktop Bridge has successfully connected at least once during
+   * True if the bridge plugin has successfully connected at least once during
    * this server session. Used by the UI to distinguish "never connected" from
    * "was connected, now lost" and show context-appropriate guidance.
    */
@@ -1122,9 +1122,9 @@ let sharedMcpClientFactoryForTesting: SharedMcpClientFactoryForTesting | null = 
 /**
  * Set to true the first time a ping returns connected=true in this server
  * session. Intentionally NOT reset when the shared client is disposed/restarted
- * so it reflects "Desktop Bridge connected at some point", not "connected now".
+ * so it reflects "bridge plugin connected at some point", not "connected now".
  */
-let everConnectedToDesktopBridge = false;
+let everConnectedToBridgePlugin = false;
 
 export function setSharedMcpClientFactoryForTesting(
   factory: SharedMcpClientFactoryForTesting | null,
@@ -1361,13 +1361,13 @@ export function classifyMcpPingError(message: string): { code: string; message: 
         code: 'mcp.instance_mismatch',
         message:
           `MCP server started on fallback port ${currentPortLabel}, while other MCP instances are active (${otherPortsLabel}). ` +
-          'Desktop Bridge is likely connected to another instance. Close duplicate MCP sessions or restart Desktop Bridge after starting this dashboard.',
+          'The bridge plugin is likely connected to another instance. Close duplicate MCP sessions or restart the bridge plugin after starting this dashboard.',
       };
     }
     return {
       code: 'mcp.not_connected',
       message:
-        'MCP server is running, but it is not connected to Figma Desktop (Desktop Bridge/CDP unavailable).',
+        'MCP server is running, but it is not connected to Figma Desktop (bridge plugin/CDP unavailable).',
     };
   }
   if (lower.includes('timed out')) {
@@ -1396,7 +1396,7 @@ export async function pingSharedFigmaMcp(
     const client = await getOrCreateSharedMcpClient(options);
     await ensureMcpConnectivity(client, connectWaitMs, timeoutMs);
     const currentPort = options.detectPort !== false ? await detectCurrentMcpPort(client, timeoutMs) : undefined;
-    everConnectedToDesktopBridge = true;
+    everConnectedToBridgePlugin = true;
     return {
       ok: true,
       connected: true,
@@ -1421,7 +1421,7 @@ export async function pingSharedFigmaMcp(
         return {
           ok: false,
           connected: false,
-          everConnected: everConnectedToDesktopBridge,
+          everConnected: everConnectedToBridgePlugin,
           code: classified.code,
           message: classified.message,
           currentPort: parseMcpDisconnectedDiagnostics(retryMessage)?.currentPort,
@@ -1432,7 +1432,7 @@ export async function pingSharedFigmaMcp(
     return {
       ok: false,
       connected: false,
-      everConnected: everConnectedToDesktopBridge,
+      everConnected: everConnectedToBridgePlugin,
       code: classified.code,
       message: classified.message,
       currentPort: parseMcpDisconnectedDiagnostics(message)?.currentPort,
@@ -1448,7 +1448,7 @@ export function disposeSharedFigmaMcpClient(): void {
  * Pre-warm the shared MCP client by creating it eagerly in the background.
  *
  * Call this at server startup so the `figma-console-mcp` process is already
- * running (and the Desktop Bridge plugin can discover and connect to it) by
+ * running (and the bridge plugin can discover and connect to it) by
  * the time the user interacts with the UI.  Without pre-warming the client is
  * created lazily on the first ping request, which can cause a cold-start
  * timeout if npx needs to download a new version of figma-console-mcp.
@@ -1484,7 +1484,7 @@ export function warmupSharedFigmaMcpClient(options: PingSharedFigmaMcpOptions = 
  *
  * Unlike `fetchFigmaLocalVariablesViaMcp`, this function does NOT spawn a
  * fresh `figma-console-mcp` process — it reuses the one that the server
- * already manages (and that the Desktop Bridge plugin is connected to).
+ * already manages (and that the bridge plugin is connected to).
  * This is the preferred path when running inside the dashboard server.
  */
 export async function fetchVariablesFromSharedMcpClient(

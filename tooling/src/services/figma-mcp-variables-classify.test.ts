@@ -13,7 +13,7 @@ describe('classifyMcpPingError', () => {
 
   it('returns mcp.instance_mismatch when fallback port has other active instances', () => {
     const message = [
-      'MCP server reports no Figma connection. Ensure Figma Desktop is open with the Desktop Bridge plugin running.',
+      'MCP server reports no Figma connection. Ensure Figma Desktop is open with the bridge plugin running.',
       'Details: {"transport":{"websocket":{"port":"9229","preferredPort":"9223","portFallbackUsed":true,"otherInstances":[{"port":9223},{"port":9225}]}}}',
     ].join(' ');
 

@@ -327,7 +327,7 @@ export async function searchFigmaNodesViaMcp(
       return {
         ok: false,
         code: 'search.not_connected',
-        message: 'MCP client not connected. Reconnect Desktop Bridge.',
+        message: 'MCP client not connected. Reconnect the bridge plugin.',
       };
     }
     

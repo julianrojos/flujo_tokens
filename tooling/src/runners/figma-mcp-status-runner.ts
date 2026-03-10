@@ -35,7 +35,7 @@ const CLI_CONFIG = {
     {
       name: '--wait-for-connection-ms <number>',
       description:
-        'Max wait budget for Desktop Bridge attach before failing as disconnected (default: 0).',
+        'Max wait budget for bridge-plugin attach before failing as disconnected (default: 0).',
     },
     {
       name: '--help',
