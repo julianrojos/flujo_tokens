@@ -456,7 +456,7 @@ function parseToolContentPayload(rawToolResult: unknown): Record<string, unknown
   }
 
   if (isRecord(rawToolResult.data)) {
-    return rawToolResult as Record<string, unknown>;
+    return rawToolResult.data as Record<string, unknown>;
   }
 
   const content = Array.isArray(rawToolResult.content) ? rawToolResult.content : [];
@@ -701,6 +701,14 @@ class McpStdioClient {
       params,
     };
     this.child.stdin.write(encodeMcpMessage(notification));
+  }
+
+  /**
+   * List available MCP tools.
+   * Public wrapper around sendRequest for tools/list.
+   */
+  public listTools(timeoutMs?: number): Promise<unknown> {
+    return this.sendRequest('tools/list', {}, timeoutMs);
   }
 
   private sendRequest(
@@ -1077,7 +1085,9 @@ export async function fetchFigmaLocalVariablesViaMcp(
   }
 }
 
-export interface PingSharedFigmaMcpOptions extends FetchFigmaVariablesViaMcpOptions {}
+export interface PingSharedFigmaMcpOptions extends FetchFigmaVariablesViaMcpOptions {
+  detectPort?: boolean;
+}
 
 export interface PingSharedFigmaMcpResult {
   ok: boolean;
@@ -1092,6 +1102,10 @@ export interface PingSharedFigmaMcpResult {
    * "was connected, now lost" and show context-appropriate guidance.
    */
   everConnected: boolean;
+  /**
+   * The current MCP WebSocket port. Useful for UI to display active connection.
+   */
+  currentPort?: number;
 }
 
 interface SharedMcpClientState {
@@ -1100,6 +1114,10 @@ interface SharedMcpClientState {
 }
 
 let sharedMcpClientState: SharedMcpClientState | null = null;
+type SharedMcpClientFactoryForTesting = (
+  options: PingSharedFigmaMcpOptions,
+) => Promise<McpStdioClient>;
+let sharedMcpClientFactoryForTesting: SharedMcpClientFactoryForTesting | null = null;
 
 /**
  * Set to true the first time a ping returns connected=true in this server
@@ -1107,6 +1125,15 @@ let sharedMcpClientState: SharedMcpClientState | null = null;
  * so it reflects "Desktop Bridge connected at some point", not "connected now".
  */
 let everConnectedToDesktopBridge = false;
+
+export function setSharedMcpClientFactoryForTesting(
+  factory: SharedMcpClientFactoryForTesting | null,
+): void {
+  sharedMcpClientFactoryForTesting = factory;
+  if (factory) {
+    disposeSharedClientState();
+  }
+}
 
 function buildSharedClientSignature(args: {
   command: McpCommand;
@@ -1137,9 +1164,13 @@ function disposeSharedClientState(): void {
   }
 }
 
-async function getOrCreateSharedMcpClient(
+export async function getOrCreateSharedMcpClient(
   options: PingSharedFigmaMcpOptions,
 ): Promise<McpStdioClient> {
+  if (sharedMcpClientFactoryForTesting) {
+    return await sharedMcpClientFactoryForTesting(options);
+  }
+
   const timeoutMs = resolveTimeoutMs(options);
   const command = resolveFigmaMcpCommand({
     command: options.command,
@@ -1259,6 +1290,56 @@ function parseMcpDisconnectedDiagnostics(message: string): McpDisconnectedDiagno
   };
 }
 
+function parseCurrentPortFromStatusPayload(payload: unknown): number | undefined {
+  if (!isRecord(payload)) return undefined;
+
+  const transport = isRecord(payload.transport) ? payload.transport : null;
+  const websocket =
+    transport && isRecord(transport.websocket) ? transport.websocket : null;
+  const directPort = websocket ? toFiniteNumber(websocket.port) : undefined;
+  if (typeof directPort === 'number') {
+    return directPort;
+  }
+
+  if (payload.structuredContent != null) {
+    const nested = parseCurrentPortFromStatusPayload(payload.structuredContent);
+    if (typeof nested === 'number') return nested;
+  }
+
+  if (payload.data != null) {
+    const nested = parseCurrentPortFromStatusPayload(payload.data);
+    if (typeof nested === 'number') return nested;
+  }
+
+  const content = Array.isArray(payload.content) ? payload.content : [];
+  for (const block of content) {
+    if (!isRecord(block)) continue;
+    const text = String(block.text || '').trim();
+    if (!text) continue;
+    try {
+      const parsed = JSON.parse(stripMarkdownCodeFence(text));
+      const nested = parseCurrentPortFromStatusPayload(parsed);
+      if (typeof nested === 'number') return nested;
+    } catch {
+      // Ignore invalid JSON blocks.
+    }
+  }
+
+  return undefined;
+}
+
+async function detectCurrentMcpPort(
+  client: McpStdioClient,
+  timeoutMs?: number,
+): Promise<number | undefined> {
+  try {
+    const statusResult = await client.callTool('figma_get_status', {}, timeoutMs);
+    return parseCurrentPortFromStatusPayload(statusResult);
+  } catch {
+    return undefined;
+  }
+}
+
 export function classifyMcpPingError(message: string): { code: string; message: string } {
   const normalized = String(message || '').trim();
   const lower = normalized.toLowerCase();
@@ -1314,12 +1395,14 @@ export async function pingSharedFigmaMcp(
   const executePing = async (): Promise<PingSharedFigmaMcpResult> => {
     const client = await getOrCreateSharedMcpClient(options);
     await ensureMcpConnectivity(client, connectWaitMs, timeoutMs);
+    const currentPort = options.detectPort !== false ? await detectCurrentMcpPort(client, timeoutMs) : undefined;
     everConnectedToDesktopBridge = true;
     return {
       ok: true,
       connected: true,
       everConnected: true,
       message: 'MCP connection is healthy.',
+      currentPort,
     };
   };
 
@@ -1341,6 +1424,7 @@ export async function pingSharedFigmaMcp(
           everConnected: everConnectedToDesktopBridge,
           code: classified.code,
           message: classified.message,
+          currentPort: parseMcpDisconnectedDiagnostics(retryMessage)?.currentPort,
         };
       }
     }
@@ -1351,6 +1435,7 @@ export async function pingSharedFigmaMcp(
       everConnected: everConnectedToDesktopBridge,
       code: classified.code,
       message: classified.message,
+      currentPort: parseMcpDisconnectedDiagnostics(message)?.currentPort,
     };
   }
 }
@@ -1447,5 +1532,299 @@ export async function fetchVariablesFromSharedMcpClient(
       return await doFetch();
     }
     throw error;
+  }
+}
+
+// ============================================================================
+// MCP Tools Discovery
+// ============================================================================
+
+export interface McpToolInfo {
+  name: string;
+  description?: string;
+}
+
+export interface McpListToolsResult {
+  ok: true;
+  tools: McpToolInfo[];
+  elapsedMs: number;
+}
+
+export interface McpListToolsError {
+  ok: false;
+  code: string;
+  message: string;
+  retryable?: boolean;
+  elapsedMs?: number;
+}
+
+/**
+ * List available MCP tools from the shared client.
+ */
+export async function listMcpTools(
+  options: PingSharedFigmaMcpOptions = {},
+): Promise<McpListToolsResult | McpListToolsError> {
+  const startedAt = Date.now();
+  const timeoutMs = resolveTimeoutMs(options);
+
+  try {
+    const client = await getOrCreateSharedMcpClient(options);
+
+    // Use public listTools method (wraps sendRequest)
+    const result = await client.listTools(timeoutMs);
+
+    // Parse tools from response
+    const tools = parseToolsFromContent(result);
+    const elapsedMs = Date.now() - startedAt;
+
+    // Validate: empty tools list indicates malformed payload
+    if (tools.length === 0) {
+      return {
+        ok: false,
+        code: 'mcp.list_tools_failed',
+        message: 'MCP tools/list returned empty or malformed payload.',
+        retryable: false,
+        elapsedMs,
+      };
+    }
+
+    return {
+      ok: true,
+      tools,
+      elapsedMs,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const elapsedMs = Date.now() - startedAt;
+
+    // Classify error
+    if (message.toLowerCase().includes('timeout')) {
+      return {
+        ok: false,
+        code: 'mcp.timeout',
+        message: `MCP list tools timed out after ${timeoutMs}ms.`,
+        retryable: true,
+        elapsedMs,
+      };
+    }
+
+    if (message.toLowerCase().includes('not connected') || message.toLowerCase().includes('disconnected')) {
+      return {
+        ok: false,
+        code: 'mcp.not_connected',
+        message,
+        retryable: true,
+        elapsedMs,
+      };
+    }
+
+    if (message.toLowerCase().includes('method not found') || message.toLowerCase().includes('unknown method')) {
+      return {
+        ok: false,
+        code: 'mcp.method_not_found',
+        message: 'MCP tools/list method not available.',
+        retryable: false,
+        elapsedMs,
+      };
+    }
+
+    return {
+      ok: false,
+      code: 'mcp.list_tools_failed',
+      message: `MCP list tools failed: ${message}`,
+      retryable: false,
+      elapsedMs,
+    };
+  }
+}
+
+/**
+ * Parse tools list from MCP response.
+ * Handles both direct response from sendRequest and content from callTool.
+ */
+function parseToolsFromContent(response: unknown): McpToolInfo[] {
+  if (!response) return [];
+
+  // Direct response from sendRequest('tools/list'): { tools: [...] }
+  if (typeof response === 'object' && !Array.isArray(response)) {
+    const responseObj = response as Record<string, unknown>;
+    const toolsData = responseObj.tools ?? responseObj.data ?? responseObj.result;
+    
+    if (Array.isArray(toolsData)) {
+      return extractToolsFromParsed(toolsData);
+    }
+  }
+
+  // Content array from callTool: [{ type: 'text', text: '...' }]
+  if (Array.isArray(response)) {
+    for (const entry of response) {
+      if (!entry || typeof entry !== 'object') continue;
+      const entryObj = entry as Record<string, unknown>;
+      const text = String(entryObj.text || '').trim();
+      if (!text) continue;
+
+      // Try to parse JSON from text
+      const normalized = stripMarkdownCodeFence(text);
+      try {
+        const parsed = JSON.parse(normalized);
+        return extractToolsFromParsed(parsed);
+      } catch {
+        // keep scanning
+      }
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Extract tools from parsed JSON response.
+ */
+function extractToolsFromParsed(data: unknown): McpToolInfo[] {
+  // Handle array directly
+  if (Array.isArray(data)) {
+    return data
+      .filter(item => item && typeof item === 'object')
+      .map(item => {
+        const obj = item as Record<string, unknown>;
+        return {
+          name: String(obj.name || ''),
+          description: obj.description ? String(obj.description) : undefined,
+        };
+      })
+      .filter(tool => tool.name);
+  }
+
+  // Handle object with tools/data/result property
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    const toolsData = obj.tools ?? obj.data ?? obj.result;
+    if (Array.isArray(toolsData)) {
+      return extractToolsFromParsed(toolsData);
+    }
+  }
+
+  return [];
+}
+
+// ============================================================================
+// MCP Design System Kit
+// ============================================================================
+
+export interface FetchDesignSystemKitOptions {
+  fileUrl?: string;
+  format?: 'compact' | 'summary' | 'full';
+  include?: Array<'tokens' | 'styles' | 'components'>;
+  timeoutMs?: number;
+  connectWaitMs?: number;
+}
+
+export interface KitStyle {
+  id: string;
+  name: string;
+  styleType: string;
+  key?: string;
+  description?: string;
+}
+
+export interface DesignSystemKitResult {
+  ok: true;
+  tokens?: { variables: Record<string, FigmaVariable>; variableCollections: Record<string, FigmaVariableCollection> };
+  styles?: KitStyle[];
+  components?: unknown[];
+  elapsedMs: number;
+}
+
+export interface DesignSystemKitError {
+  ok: false;
+  code: string;
+  message: string;
+  retryable?: boolean;
+  elapsedMs?: number;
+}
+
+function parseDesignSystemKitPayload(raw: unknown): Record<string, unknown> {
+  return parseToolContentPayload(raw);
+}
+
+function normalizeKitTokens(raw: unknown): DesignSystemKitResult['tokens'] | undefined {
+  if (!isRecord(raw)) return undefined;
+  const variables = normalizeVariables(raw.variables ?? []);
+  const variableCollections = normalizeCollections(raw.variableCollections ?? []);
+  if (Object.keys(variables).length === 0 && Object.keys(variableCollections).length === 0) return undefined;
+  return { variables, variableCollections };
+}
+
+function normalizeKitStyles(raw: unknown): KitStyle[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item): KitStyle[] => {
+    if (!isRecord(item)) return [];
+    const id = String(item.id ?? '').trim();
+    const name = String(item.name ?? '').trim();
+    const styleType = String(item.styleType ?? item.type ?? '').trim();
+    if (!id || !name) return [];
+    return [{ id, name, styleType, key: item.key != null ? String(item.key) : undefined, description: item.description != null ? String(item.description) : undefined }];
+  });
+}
+
+function classifyKitError(message: string, timeoutMs: number, startedAt: number): DesignSystemKitError {
+  const elapsedMs = Date.now() - startedAt;
+  const lower = message.toLowerCase();
+  if (lower.includes('timeout') || lower.includes('timed out') || lower.includes('timedout')) {
+    return {
+      ok: false,
+      code: 'kit.timeout',
+      message: `figma_get_design_system_kit timed out after ${timeoutMs}ms.`,
+      retryable: true,
+      elapsedMs,
+    };
+  }
+  if (lower.includes('not connected') || lower.includes('disconnected')) return { ok: false, code: 'kit.not_connected', message, retryable: true, elapsedMs };
+  if (lower.includes('method not found') || lower.includes('unknown method')) return { ok: false, code: 'kit.method_not_found', message: 'figma_get_design_system_kit not available in this MCP version.', retryable: false, elapsedMs };
+  return { ok: false, code: 'kit.failed', message, retryable: false, elapsedMs };
+}
+
+export async function fetchDesignSystemKitFromSharedMcpClient(options: FetchDesignSystemKitOptions = {}): Promise<DesignSystemKitResult | DesignSystemKitError> {
+  const timeoutMs = resolveTimeoutMs(options);
+  const connectWaitMs = resolveConnectWaitMs(options);
+  const startedAt = Date.now();
+  const params: Record<string, unknown> = { format: options.format ?? 'summary', include: options.include ?? ['tokens', 'styles'] };
+  if (options.fileUrl) params.fileUrl = options.fileUrl;
+
+  const doFetch = async (): Promise<DesignSystemKitResult | DesignSystemKitError> => {
+    const client = await getOrCreateSharedMcpClient(options);
+    await ensureMcpConnectivity(client, connectWaitMs, timeoutMs);
+    const toolResult = await client.callTool('figma_get_design_system_kit', params, timeoutMs);
+    if (toolResult.isError === true) {
+      return {
+        ok: false,
+        code: 'kit.tool_error',
+        message: 'figma_get_design_system_kit returned isError=true.',
+        retryable: false,
+        elapsedMs: Date.now() - startedAt,
+      };
+    }
+    const payload = parseDesignSystemKitPayload(toolResult);
+    const tokens = normalizeKitTokens(payload.tokens ?? payload.meta);
+    const styles = normalizeKitStyles(payload.styles);
+    return {
+      ok: true,
+      tokens,
+      styles,
+      components: Array.isArray(payload.components) ? payload.components : undefined,
+      elapsedMs: Date.now() - startedAt,
+    };
+  };
+
+  try {
+    return await doFetch();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (shouldRestartSharedClient(message)) {
+      disposeSharedClientState();
+      try { return await doFetch(); }
+      catch (retryError) { return classifyKitError(retryError instanceof Error ? retryError.message : String(retryError), timeoutMs, startedAt); }
+    }
+    return classifyKitError(message, timeoutMs, startedAt);
   }
 }
