@@ -1,0 +1,14 @@
+{
+  "name": "MCP Management",
+  "id": "mcp-management-plugin",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "permissions": [],
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:8787"],
+    "reasoning": "Connects to local dashboard API for MCP management"
+  }
+}
