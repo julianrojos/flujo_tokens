@@ -13,6 +13,7 @@ export function ImportSuccessNotice({ summary }: { summary: ImportSuccessSummary
       <p className="mt-1">{notice.elementsLine}</p>
       <p className="mt-1">{notice.collectionsLine}</p>
       <p className="mt-1">{notice.variablesLine}</p>
+      <p className="mt-1">{notice.customPropertiesLine}</p>
     </div>
   );
 }
