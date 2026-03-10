@@ -4,10 +4,12 @@
  * Allows users to switch MCP port and see real-time status.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getPluginMcpClient, type ConnectionState } from '../../services/mcp-client';
 
 const ALLOWED_PORTS = [9223, 9224, 9225, 9226, 9227];
+const MIN_ALLOWED_PORT = ALLOWED_PORTS.reduce((min, port) => (port < min ? port : min), ALLOWED_PORTS[0]);
+const MAX_ALLOWED_PORT = ALLOWED_PORTS.reduce((max, port) => (port > max ? port : max), ALLOWED_PORTS[0]);
 
 interface PortSwitcherProps {
   onPortChanged?: (newPort: number) => void;
@@ -26,24 +28,39 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
   const [statusMessage, setStatusMessage] = useState<string>('');
   const [countdown, setCountdown] = useState<number>(0);
 
+  // Track component mount status to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
   const mcpClient = getPluginMcpClient();
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Fetch initial connection state
   const fetchConnectionState = useCallback(async () => {
     try {
       const capabilities = await mcpClient.getCapabilities();
       const state = mcpClient.computeConnectionState(capabilities);
-      setConnectionState(state);
-      if (capabilities.ok) {
-        setSelectedPort(state.configuredPort);
+      if (isMountedRef.current) {
+        setConnectionState(state);
+        if (capabilities.ok) {
+          setSelectedPort(state.configuredPort);
+        }
       }
     } catch (error) {
-      setConnectionState({
-        configuredPort: mcpClient.getLastKnownConfiguredPort(),
-        connectedPort: null,
-        state: 'disconnected',
-        cause: error instanceof Error ? error.message : 'Unknown error',
-      });
+      if (isMountedRef.current) {
+        setConnectionState({
+          configuredPort: mcpClient.getLastKnownConfiguredPort(),
+          connectedPort: null,
+          state: 'disconnected',
+          cause: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
     }
   }, [mcpClient]);
 
@@ -64,7 +81,10 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
     try {
       // Step 1: Request port switch
       const switchResult = await mcpClient.switchPort(selectedPort);
-      
+
+      // Check if component is still mounted after async operation
+      if (!isMountedRef.current) return;
+
       if (!switchResult.ok) {
         setSwitchState('error');
         setStatusMessage(`Switch failed: ${switchResult.message}`);
@@ -79,10 +99,10 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
       // Step 3: Poll until stable (with countdown)
       setSwitchState('reconnecting');
       setStatusMessage('Waiting for reconnection...');
-      
+
       const maxWait = 30; // 30 seconds
       setCountdown(maxWait);
-      
+
       // Setup countdown interval
       intervalId = setInterval(() => {
         setCountdown((prev) => {
@@ -92,19 +112,29 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
           return prev - 1;
         });
       }, 1000);
-      
+
       const pollResult = await mcpClient.pollUntilStable(selectedPort, 30_000, 2_000);
+
+      // Check if component is still mounted after long polling operation
+      if (!isMountedRef.current) {
+        if (intervalId !== null) {
+          clearInterval(intervalId);
+        }
+        return;
+      }
 
       if (pollResult.success) {
         setSwitchState('done');
         setStatusMessage(`Successfully switched to port ${selectedPort}`);
         onPortChanged?.(selectedPort);
-        
+
         // Reset to idle after 3 seconds
         setTimeout(() => {
-          setSwitchState('idle');
-          setStatusMessage('');
-          fetchConnectionState();
+          if (isMountedRef.current) {
+            setSwitchState('idle');
+            setStatusMessage('');
+            fetchConnectionState();
+          }
         }, 3000);
       } else {
         setSwitchState('error');
@@ -112,6 +142,9 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
         onError?.('Reconnection timeout');
       }
     } catch (error) {
+      // Check if component is still mounted before setting error state
+      if (!isMountedRef.current) return;
+      
       setSwitchState('error');
       setStatusMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       onError?.(error instanceof Error ? error.message : 'Unknown error');
@@ -207,7 +240,7 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
           ))}
         </select>
         <p style={{ fontSize: '11px', color: '#999', margin: '4px 0 0 0' }}>
-          Allowed range: {Math.min(...ALLOWED_PORTS)} - {Math.max(...ALLOWED_PORTS)}
+          Allowed range: {MIN_ALLOWED_PORT} - {MAX_ALLOWED_PORT}
         </p>
       </div>
 
@@ -264,7 +297,7 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
           color: '#4CAF50',
           textAlign: 'center',
         }}>
-          ✓ Port switched successfully. Desktop Bridge may need to reconnect.
+          ✓ Port switched successfully. The plugin bridge may need to reconnect.
         </p>
       )}
 
@@ -275,7 +308,7 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
           color: '#FF9800',
           textAlign: 'center',
         }}>
-          Tip: Make sure Desktop Bridge is running and try again.
+          Tip: Make sure the plugin bridge is running and try again.
         </p>
       )}
     </div>

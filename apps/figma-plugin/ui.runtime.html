@@ -15,6 +15,17 @@
 <body>
   <div id="root"></div>
   <script>
+    // React CJS bundles may read process.env.NODE_ENV in embedded environments.
+    // Figma plugin iframes do not provide process by default.
+    if (!window.process) {
+      window.process = { env: { NODE_ENV: 'production' } };
+    } else if (!window.process.env) {
+      window.process.env = { NODE_ENV: 'production' };
+    } else if (!window.process.env.NODE_ENV) {
+      window.process.env.NODE_ENV = 'production';
+    }
+  </script>
+  <script>
 __INLINE_UI_JS__
   </script>
 </body>

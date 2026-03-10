@@ -23,8 +23,8 @@ function getStatusConfig(state: ConnectionState['state'] | undefined): {
   sublabel: string;
 } {
   switch (state) {
-    case 'connected':    return { color: COLOR.connected,    label: 'Connected',     sublabel: 'Desktop Bridge is active' };
-    case 'disconnected': return { color: COLOR.disconnected, label: 'Disconnected',  sublabel: 'Open Desktop Bridge in Figma' };
+    case 'connected':    return { color: COLOR.connected,    label: 'Connected',     sublabel: 'Plugin bridge is active' };
+    case 'disconnected': return { color: COLOR.disconnected, label: 'Disconnected',  sublabel: 'Use Resolve connection to start the bridge' };
     case 'mismatch':     return { color: COLOR.mismatch,     label: 'Port Mismatch', sublabel: 'Check Advanced settings' };
     case 'fallback':     return { color: COLOR.fallback,     label: 'Fallback Mode', sublabel: 'Connected on secondary port' };
     default:             return { color: COLOR.unknown,      label: 'Checking…',     sublabel: '' };

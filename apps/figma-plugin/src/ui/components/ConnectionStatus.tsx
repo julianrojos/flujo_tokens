@@ -13,6 +13,10 @@ interface ConnectionStatusProps {
   onRefresh?: () => void;
 }
 
+const RECONCILE_POLL_INTERVAL_MS = 2_000;
+const RECONCILE_POLL_TIMEOUT_MS = 30_000;
+type ResolveTone = 'neutral' | 'success' | 'warning' | 'error';
+
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   autoRefresh = true,
   refreshIntervalMs = 10_000,
@@ -22,19 +26,28 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   const [capabilities, setCapabilities] = useState<McpCapabilities | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
+  const [resolveMessage, setResolveMessage] = useState<string | null>(null);
+  const [resolveTone, setResolveTone] = useState<ResolveTone>('neutral');
+  const [resolveCountdown, setResolveCountdown] = useState<number | null>(null);
 
   const mcpClient = getPluginMcpClient();
+
+  const applyCapabilities = useCallback((caps: McpCapabilities) => {
+    setCapabilities(caps);
+    const state = mcpClient.computeConnectionState(caps);
+    setConnectionState(state);
+    setLastUpdated(new Date());
+    onRefresh?.();
+    return state;
+  }, [mcpClient, onRefresh]);
 
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
     try {
       const caps = await mcpClient.getCapabilities();
       if (caps.ok) {
-        setCapabilities(caps);
-        const state = mcpClient.computeConnectionState(caps);
-        setConnectionState(state);
-        setLastUpdated(new Date());
-        onRefresh?.();
+        applyCapabilities(caps);
       } else {
         setCapabilities(null);
         setLastUpdated(null);
@@ -57,7 +70,75 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [mcpClient, onRefresh]);
+  }, [applyCapabilities, mcpClient]);
+
+  const handleResolveConnection = useCallback(async () => {
+    if (isResolving) return;
+    setIsResolving(true);
+    setResolveTone('warning');
+    setResolveMessage('Reconciling MCP session…');
+    setResolveCountdown(null);
+
+    try {
+      const reconcile = await mcpClient.reconcileConnection({ confirmReconcile: true });
+      if (reconcile.connected) {
+        setResolveTone('success');
+        setResolveMessage('Connection restored.');
+        setResolveCountdown(null);
+        await fetchStatus();
+        return;
+      }
+
+      setResolveTone('warning');
+      setResolveMessage(
+        reconcile.message || 'Waiting for plugin bridge reconnection after reconcile.',
+      );
+      const deadline = Date.now() + RECONCILE_POLL_TIMEOUT_MS;
+
+      while (Date.now() < deadline) {
+        const secondsLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+        setResolveCountdown(secondsLeft);
+
+        const caps = await mcpClient.getCapabilities({ forceRefresh: true });
+        if (caps.ok) {
+          const state = applyCapabilities(caps);
+          if (state.state === 'connected') {
+            setResolveTone('success');
+            setResolveMessage('Connection restored.');
+            setResolveCountdown(null);
+            return;
+          }
+        } else {
+          setCapabilities(null);
+          setLastUpdated(null);
+          setConnectionState({
+            configuredPort: mcpClient.getLastKnownConfiguredPort(),
+            connectedPort: null,
+            state: 'disconnected',
+            cause: caps.message,
+          });
+        }
+
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, RECONCILE_POLL_INTERVAL_MS);
+        });
+      }
+
+      setResolveTone('error');
+      setResolveCountdown(null);
+      setResolveMessage(
+        'Connection is still disconnected. Keep this plugin open in Figma and retry.',
+      );
+    } catch (error) {
+      setResolveTone('error');
+      setResolveCountdown(null);
+      setResolveMessage(
+        error instanceof Error ? error.message : 'Failed to reconcile connection.',
+      );
+    } finally {
+      setIsResolving(false);
+    }
+  }, [applyCapabilities, fetchStatus, isResolving, mcpClient]);
 
   useEffect(() => {
     fetchStatus();
@@ -107,14 +188,14 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         return {
           title: 'MCP disconnected',
           message: connectionState.cause || 'Unable to connect to MCP server.',
-          action: 'Make sure the dashboard server is running and Desktop Bridge is open in Figma.',
+          action: 'Use "Resolve connection", then keep this plugin open in Figma and retry.',
         };
       
       case 'mismatch':
         return {
           title: 'Port mismatch detected',
           message: connectionState.cause,
-          action: 'Use the Port Switcher to align dashboard port with Bridge connection, or restart Desktop Bridge.',
+          action: 'Run "Resolve connection" first, then use Port Switcher if mismatch persists.',
         };
       
       case 'fallback':
@@ -151,22 +232,78 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>
           MCP Connection Status
         </h3>
-        <button
-          onClick={fetchStatus}
-          disabled={isLoading}
-          style={{
-            padding: '4px 8px',
-            fontSize: '11px',
-            borderRadius: '4px',
-            border: '1px solid #ddd',
-            backgroundColor: 'white',
-            cursor: isLoading ? 'not-allowed' : 'pointer',
-            opacity: isLoading ? 0.5 : 1,
-          }}
-        >
-          {isLoading ? 'Refreshing...' : 'Refresh'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={fetchStatus}
+            disabled={isLoading || isResolving}
+            style={{
+              padding: '4px 8px',
+              fontSize: '11px',
+              borderRadius: '4px',
+              border: '1px solid #ddd',
+              backgroundColor: 'white',
+              cursor: isLoading || isResolving ? 'not-allowed' : 'pointer',
+              opacity: isLoading || isResolving ? 0.5 : 1,
+            }}
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </button>
+          <button
+            onClick={handleResolveConnection}
+            disabled={isResolving || isLoading || connectionState?.state === 'connected'}
+            style={{
+              padding: '4px 8px',
+              fontSize: '11px',
+              borderRadius: '4px',
+              border: '1px solid #f0b24b',
+              backgroundColor: connectionState?.state === 'connected' ? '#f5f5f5' : '#fff8ea',
+              color: connectionState?.state === 'connected' ? '#999' : '#a05a00',
+              cursor:
+                isResolving || isLoading || connectionState?.state === 'connected'
+                  ? 'not-allowed'
+                  : 'pointer',
+              opacity: isResolving || isLoading ? 0.65 : 1,
+            }}
+          >
+            {isResolving
+              ? `Resolving${resolveCountdown !== null ? ` (${resolveCountdown}s)` : '…'}`
+              : 'Resolve connection'}
+          </button>
+        </div>
       </div>
+
+      {resolveMessage && (
+        <div style={{
+          padding: '10px 12px',
+          borderRadius: '8px',
+          border:
+            resolveTone === 'success'
+              ? '1px solid #A5D6A7'
+              : resolveTone === 'error'
+                ? '1px solid #FFCDD2'
+                : '1px solid #FFE0B2',
+          backgroundColor:
+            resolveTone === 'success'
+              ? '#E8F5E9'
+              : resolveTone === 'error'
+                ? '#FFEBEE'
+                : '#FFF8E1',
+          marginBottom: '16px',
+        }}>
+          <p style={{
+            margin: 0,
+            fontSize: '12px',
+            color:
+              resolveTone === 'success'
+                ? '#1B5E20'
+                : resolveTone === 'error'
+                  ? '#B71C1C'
+                  : '#8A5A00',
+          }}>
+            {resolveMessage}
+          </p>
+        </div>
+      )}
 
       {/* Status Indicator */}
       <div style={{

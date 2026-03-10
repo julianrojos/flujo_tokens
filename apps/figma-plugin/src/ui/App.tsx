@@ -6,6 +6,10 @@
  *   KitSummary       — token/style counts
  *   SyncButton       — CTA to sync tokens
  *   AdvancedSection  — collapsible: ConnectionStatus + PortSwitcher
+ *
+ * Bridge integration:
+ *   - useBridgeStatus hook starts WebSocket bridge on mount
+ *   - Bridge status shown in header for debugging
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,6 +18,7 @@ import { KitSummary } from './components/KitSummary';
 import { SyncButton } from './components/SyncButton';
 import { AdvancedSection } from './components/AdvancedSection';
 import { getPluginMcpClient, type ConnectionState } from '../services/mcp-client';
+import { useBridgeStatus, getBridgeStateLabel, getBridgeStateColor } from './hooks/useBridgeStatus';
 import { COLOR, FONT, SPACE, UI_WIDTH } from './styles/tokens';
 
 interface InitMessage { type: 'INIT'; docName: string }
@@ -23,6 +28,9 @@ const App: React.FC = () => {
   const [connectionState, setConnState] = useState<ConnectionState | null>(null);
   const [isConnLoading, setLoading] = useState(true);
   const [kitRefreshSignal, setKitReset] = useState(0);
+
+  // Initialize bridge WebSocket connection
+  const bridge = useBridgeStatus();
 
   const client = getPluginMcpClient();
 
@@ -67,11 +75,26 @@ const App: React.FC = () => {
   return (
     <div style={{ width: UI_WIDTH, backgroundColor: COLOR.bg, fontFamily: FONT.family, display: 'flex', flexDirection: 'column' }}>
 
-      {/* Header */}
+      {/* Header with bridge status indicator */}
       <header style={{ padding: `${SPACE.md}px ${SPACE.lg}px`, backgroundColor: COLOR.surface, borderBottom: `1px solid ${COLOR.border}` }}>
-        <h1 style={{ margin: 0, fontSize: FONT.size.xl, fontWeight: FONT.weight.semibold, color: COLOR.textPrimary, fontFamily: FONT.family, letterSpacing: '-0.01em' }}>
-          Design System
-        </h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ margin: 0, fontSize: FONT.size.xl, fontWeight: FONT.weight.semibold, color: COLOR.textPrimary, fontFamily: FONT.family, letterSpacing: '-0.01em' }}>
+            Design System
+          </h1>
+          {/* Bridge status mini-indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
+            <span style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: getBridgeStateColor(bridge.state),
+              boxShadow: `0 0 4px ${getBridgeStateColor(bridge.state)}66`,
+            }} />
+            <span style={{ fontSize: FONT.size.xs, color: COLOR.textSecondary }}>
+              {getBridgeStateLabel(bridge.state)}
+            </span>
+          </div>
+        </div>
       </header>
 
       {/* Large status dot */}

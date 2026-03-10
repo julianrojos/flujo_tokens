@@ -52,10 +52,28 @@ export interface ConnectionState {
   cause?: string;
 }
 
+export interface ReconcileConnectionResponse {
+  ok: boolean;
+  connected: boolean;
+  code?: string;
+  message?: string;
+  everConnected?: boolean;
+  attemptedReset?: boolean;
+  restarting?: boolean;
+  phase?:
+    | 'already_connected'
+    | 'connected_after_reset'
+    | 'waiting_for_bridge'
+    | 'not_recoverable'
+    | 'input_error';
+}
+
 const DEFAULT_API_BASE = 'http://localhost:8787';
+const LOCAL_API_BASES = ['http://localhost:8787'] as const;
 
 export class McpClientService {
   private apiBase: string;
+  private apiBaseCandidates: string[];
   private internalToken?: string;
   private capabilitiesCache: { data: McpCapabilities; expiresAt: number } | null = null;
   private lastKnownConfiguredPort = 9223;
@@ -63,7 +81,47 @@ export class McpClientService {
 
   constructor(apiBase: string = DEFAULT_API_BASE, internalToken?: string) {
     this.apiBase = apiBase.replace(/\/$/, '');
+    this.apiBaseCandidates = this.buildApiBaseCandidates(this.apiBase);
     this.internalToken = internalToken;
+  }
+
+  private buildApiBaseCandidates(apiBase: string): string[] {
+    const normalized = apiBase.replace(/\/$/, '');
+    if (LOCAL_API_BASES.includes(normalized as (typeof LOCAL_API_BASES)[number])) {
+      return [normalized, ...LOCAL_API_BASES.filter((base) => base !== normalized)];
+    }
+    return [normalized];
+  }
+
+  private markApiBaseAsHealthy(apiBase: string): void {
+    if (this.apiBaseCandidates[0] === apiBase) {
+      this.apiBase = apiBase;
+      return;
+    }
+    this.apiBase = apiBase;
+    this.apiBaseCandidates = [
+      apiBase,
+      ...this.apiBaseCandidates.filter((candidate) => candidate !== apiBase),
+    ];
+  }
+
+  private async fetchFromDashboard(path: string, init: RequestInit): Promise<Response> {
+    let lastError: unknown = null;
+
+    for (const base of this.apiBaseCandidates) {
+      try {
+        const response = await fetch(`${base}${path}`, init);
+        this.markApiBaseAsHealthy(base);
+        return response;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError instanceof Error) {
+      throw lastError;
+    }
+    throw new Error('Failed to reach dashboard API.');
   }
 
   private getHeaders(): Record<string, string> {
@@ -88,7 +146,7 @@ export class McpClientService {
     }
 
     try {
-      const response = await fetch(`${this.apiBase}/api/figma-mcp/capabilities`, {
+      const response = await this.fetchFromDashboard('/api/figma-mcp/capabilities', {
         method: 'GET',
         headers: this.getHeaders(),
       });
@@ -126,7 +184,7 @@ export class McpClientService {
    */
   async getPortState(): Promise<PortState | McpError> {
     try {
-      const response = await fetch(`${this.apiBase}/api/figma-mcp/port`, {
+      const response = await this.fetchFromDashboard('/api/figma-mcp/port', {
         method: 'GET',
         headers: this.getHeaders(),
       });
@@ -149,7 +207,7 @@ export class McpClientService {
    */
   async switchPort(port: number): Promise<PortSwitchResult | McpError> {
     try {
-      const response = await fetch(`${this.apiBase}/api/figma-mcp/port`, {
+      const response = await this.fetchFromDashboard('/api/figma-mcp/port', {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ port }),
@@ -264,8 +322,8 @@ export class McpClientService {
    */
   async getDesignSystemKit(): Promise<DesignSystemKitResponse | McpError> {
     try {
-      const response = await fetch(
-        `${this.apiBase}/api/figma-mcp/design-system-kit?format=compact&include=tokens,styles`,
+      const response = await this.fetchFromDashboard(
+        '/api/figma-mcp/design-system-kit?format=compact&include=tokens,styles',
         { method: 'GET', headers: this.getHeaders() },
       );
       return await response.json() as DesignSystemKitResponse | McpError;
@@ -303,12 +361,12 @@ export class McpClientService {
    * Route: POST /api/figma-mcp-variables
    * Body:  { figmaUrl?: string }
    *
-   * The dashboard reuses the figma-console-mcp process that Desktop Bridge
+   * The dashboard reuses the figma-console-mcp process that the bridge plugin
    * is already connected to, so no new child process is spawned.
    */
   async syncTokens(figmaUrl?: string): Promise<SyncTokensResponse> {
     try {
-      const response = await fetch(`${this.apiBase}/api/figma-mcp-variables`, {
+      const response = await this.fetchFromDashboard('/api/figma-mcp-variables', {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ figmaUrl: figmaUrl ?? '' }),
@@ -319,6 +377,40 @@ export class McpClientService {
         ok: false,
         code: 'sync.fetch_failed',
         message: error instanceof Error ? error.message : 'Failed to sync tokens',
+      };
+    }
+  }
+
+  /**
+   * Attempt automatic MCP connection reconciliation on the dashboard side.
+   * This performs a local shared-session restart and returns the resulting state.
+   */
+  async reconcileConnection(args?: {
+    figmaUrl?: string;
+    figmaToken?: string;
+    confirmReconcile?: boolean;
+  }): Promise<ReconcileConnectionResponse> {
+    const confirmReconcile = args?.confirmReconcile === true;
+    try {
+      const response = await this.fetchFromDashboard('/api/figma-mcp/reconcile', {
+        method: 'POST',
+        headers: {
+          ...this.getHeaders(),
+          'x-ds-mcp-reconcile-confirm': confirmReconcile ? 'true' : 'false',
+        },
+        body: JSON.stringify({
+          figmaUrl: args?.figmaUrl ?? '',
+          figmaToken: args?.figmaToken ?? '',
+          confirmReconcile,
+        }),
+      });
+      return await response.json() as ReconcileConnectionResponse;
+    } catch (error) {
+      return {
+        ok: false,
+        connected: false,
+        code: 'reconcile.fetch_failed',
+        message: error instanceof Error ? error.message : 'Failed to reconcile MCP connection',
       };
     }
   }
