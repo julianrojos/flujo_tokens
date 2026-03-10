@@ -6,17 +6,16 @@ import { buildUpdateActionsProps } from "../src/features/system/design-systems-a
 describe("design-systems-admin-page logic", () => {
   it("builds update actions props without reload callbacks", () => {
     const props = buildUpdateActionsProps({
-      systemId: "cuqui-02",
+      systemId: "demo-02",
       figmaFileId: "abc123",
       disabled: true,
     });
 
     assert.deepEqual(props, {
-      systemId: "cuqui-02",
+      systemId: "demo-02",
       figmaFileId: "abc123",
       disabled: true,
     });
     assert.equal("onRunSuccess" in (props as Record<string, unknown>), false);
   });
 });
-

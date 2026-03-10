@@ -150,10 +150,10 @@ Migration note:
 
 | Síntoma | Causa probable | Solución |
 |---------|----------------|----------|
-| `MCP server reports no Figma connection` | Figma Desktop no está abierto o el plugin Desktop Bridge no está corriendo | Abre Figma Desktop → Plugins → Development → Desktop Bridge |
+| `MCP server reports no Figma connection` | Figma Desktop no está abierto o el bridge plugin no está corriendo | Abre Figma Desktop → Plugins → Development → Bridge plugin |
 | Timeout tras 15s sin respuesta | El servidor MCP no arrancó correctamente | Verifica que `npx figma-console-mcp` funciona en tu terminal. Si usas un binario custom, comprueba `FIGMA_MCP_BIN` |
 | `Missing Figma token for REST variables fetch` | Modo `--source rest` sin `FIGMA_TOKEN` configurado | Exporta `FIGMA_TOKEN` en tu shell o usa `--source mcp` |
-| `Both sources failed` | Ni MCP ni REST funcionan | Comprueba Desktop Bridge (para MCP) y `FIGMA_TOKEN` (para REST) |
+| `Both sources failed` | Ni MCP ni REST funcionan | Comprueba el bridge plugin (para MCP) y `FIGMA_TOKEN` (para REST) |
 
 Plugin example:
 
@@ -503,7 +503,7 @@ For markdown rendered to Figma, prefer the supported subset:
 
 - A compatible agent CLI installed: `codex`, `claude`, or `gemini`
 - Figma MCP configured for the selected agent
-- For Figma write operations, Figma Desktop + Desktop Bridge plugin running
+- For Figma write operations, Figma Desktop + bridge plugin running
 
 Agent selection options:
 

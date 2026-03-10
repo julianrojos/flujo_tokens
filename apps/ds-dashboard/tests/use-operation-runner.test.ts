@@ -9,10 +9,10 @@ import {
 describe("use-operation-runner helpers", () => {
   it("prefers explicit override system id", () => {
     const resolved = resolveOperationSystemId({
-      overrideSystemId: "cuqui-02",
+      overrideSystemId: "demo-02",
       activeSystemId: "iter",
     });
-    assert.equal(resolved, "cuqui-02");
+    assert.equal(resolved, "demo-02");
   });
 
   it("falls back to active system id when override is missing", () => {

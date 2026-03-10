@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import {
   ApiError,
   pingFigmaMcp,
-  resetFigmaMcp,
+  reconcileFigmaMcp,
+  type FigmaMcpReconcileResult,
   type FigmaMcpPingResult,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -20,15 +21,15 @@ interface FigmaMcpConnectionTestButtonProps {
 }
 
 const RESET_POLL_INTERVAL_MS = 2_000;
-const RESET_POLL_TIMEOUT_MS = 15_000;
+const RESET_POLL_TIMEOUT_MS = 25_000;
 // Longer budget for auto-wait: user needs time to switch to Figma and reopen
-// the Desktop Bridge plugin before we give up.
+// the bridge plugin before we give up.
 const WAIT_POLL_TIMEOUT_MS = 30_000;
 const MAX_POLL_REQUEST_TIMEOUT_MS = 10_000;
 const RECOVERY_STEPS = [
   "Reset MCP",
-  "Esperando reconexión",
-  "Vuelve a abrir Desktop Bridge",
+  "Wait for reconnection",
+  "Reopen bridge plugin",
 ] as const;
 
 function remainingSeconds(deadlineMs: number | null, nowMs: number): number {
@@ -95,7 +96,7 @@ export function FigmaMcpConnectionTestButton({
   });
 
   /**
-   * Poll MCP ping while waiting for Desktop Bridge reconnection.
+   * Poll MCP ping while waiting for bridge plugin reconnection.
    *
    * Polls every RESET_POLL_INTERVAL_MS until:
    *   - connected  → stop waiting + setResult(connected payload)
@@ -221,9 +222,11 @@ export function FigmaMcpConnectionTestButton({
     setResult(null);
 
     let resetFailure: FigmaMcpPingResult | null = null;
+    let reconcileResult: FigmaMcpReconcileResult | null = null;
     try {
-      await resetFigmaMcp({
-        confirmGlobalReset: true,
+      reconcileResult = await reconcileFigmaMcp({
+        ...buildPingArgs(),
+        confirmReconcile: true,
       });
     } catch (error) {
       if (error instanceof ApiError) {
@@ -250,6 +253,17 @@ export function FigmaMcpConnectionTestButton({
       setResult(resetFailure);
       return;
     }
+    if (reconcileResult?.connected) {
+      setResult(reconcileResult);
+      return;
+    }
+    if (
+      reconcileResult?.phase === "input_error" ||
+      reconcileResult?.phase === "not_recoverable"
+    ) {
+      setResult(reconcileResult);
+      return;
+    }
 
     startReconnectPoll({
       deadlineMs: Date.now() + WAIT_POLL_TIMEOUT_MS,
@@ -258,7 +272,7 @@ export function FigmaMcpConnectionTestButton({
         connected: false,
         code: "mcp.reset_timeout",
         message:
-          "No reconnection detected yet. Reopen Desktop Bridge in Figma, then run Resolver conexión again.",
+          "No reconnection detected yet. Reopen the bridge plugin in Figma, then run Resolve connection again.",
       },
     });
   };
@@ -297,7 +311,7 @@ export function FigmaMcpConnectionTestButton({
             }}
             disabled={disabled || isLoading}
           >
-            Resolver conexión
+            Resolve connection
           </Button>
         ) : null}
       </div>
@@ -340,17 +354,17 @@ export function FigmaMcpConnectionTestButton({
 
           {isResetting ? (
             <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
-              ↺ Cerrando sesiones MCP… Reintentando en {resetSecondsLeft}s.
+              ↺ Closing MCP sessions… retrying in {resetSecondsLeft}s.
             </p>
           ) : isWaiting ? (
             <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
-              ⏳ Reintentando conexión… {waitSecondsLeft}s restantes. Reabre Desktop Bridge en
-              Figma ahora.
+              ⏳ Retrying connection… {waitSecondsLeft}s left. Reopen the bridge plugin in
+              Figma now.
             </p>
           ) : (
             <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
-              ⚠ No reconexión detectada. Reabre Desktop Bridge en Figma y pulsa
-              &nbsp;&ldquo;Resolver conexión&rdquo; otra vez.
+              ⚠ No reconnection detected. Reopen the bridge plugin in Figma and click
+              &nbsp;&ldquo;Resolve connection&rdquo; again.
             </p>
           )}
         </div>
@@ -373,8 +387,8 @@ export function FigmaMcpConnectionTestButton({
         ) : isNotConnected ? (
           <p className="break-words text-[11px] text-amber-600 dark:text-amber-400">
             {result.everConnected
-              ? "⚠ Connection lost — reopen Desktop Bridge in Figma to reconnect."
-              : "⚠ Not yet connected — open the Desktop Bridge plugin in Figma to get started."}
+              ? "⚠ Connection lost — reopen the bridge plugin in Figma to reconnect."
+              : "⚠ Not connected yet — open the bridge plugin in Figma to get started."}
           </p>
         ) : (
           <p className="break-words text-[11px] text-red-600 dark:text-red-400">
@@ -393,11 +407,11 @@ export function FigmaMcpConnectionTestButton({
         >
           <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
             <h2 id="figma-mcp-reset-confirm-title" className="mb-2 text-lg font-semibold">
-              Resolver conexión MCP
+              Resolve MCP connection
             </h2>
             <p className="mb-4 text-sm text-muted-foreground">
-              Esta acción reiniciará la sesión de <code>figma-console-mcp</code> gestionada por
-              este dashboard para forzar una reconexión limpia.
+              This will restart the <code>figma-console-mcp</code> session managed by this
+              dashboard to force a clean reconnect.
             </p>
 
             <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
@@ -407,7 +421,7 @@ export function FigmaMcpConnectionTestButton({
                 onChange={(event) => setResolveConfirmed(event.target.checked)}
                 className="h-4 w-4"
               />
-              <span>Entiendo el impacto y quiero continuar</span>
+              <span>I understand the impact and want to continue</span>
             </label>
 
             <div className="flex items-center justify-end gap-2">
@@ -424,7 +438,7 @@ export function FigmaMcpConnectionTestButton({
                 onClick={() => void handleResolveConnection()}
                 disabled={!resolveConfirmed || disabled}
               >
-                Resolver conexión
+                Resolve connection
               </Button>
             </div>
           </div>

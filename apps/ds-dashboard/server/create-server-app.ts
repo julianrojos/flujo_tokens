@@ -241,7 +241,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   // server (e.g., the tokens-from-figma sync subprocess).  When this variable
   // is present, subprocesses can proxy their MCP variable fetches through the
   // server's /api/figma-mcp-variables endpoint, which uses the shared MCP
-  // client that the Desktop Bridge plugin is already connected to — avoiding
+  // client that the bridge plugin is already connected to — avoiding
   // the port-mismatch problem that occurs when subprocesses spawn their own
   // fresh figma-console-mcp instances.
   const internalHostRaw = HOST === '0.0.0.0' || HOST === '::' ? 'localhost' : HOST;

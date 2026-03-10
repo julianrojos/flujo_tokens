@@ -1160,7 +1160,7 @@ export interface FigmaMcpPingResult {
   message?: string;
   collectionsDetected?: number;
   variablesDetected?: number;
-  /** True if Desktop Bridge connected successfully at any point this session. */
+  /** True if the bridge plugin connected successfully at any point this session. */
   everConnected?: boolean;
 }
 
@@ -1169,6 +1169,17 @@ export interface FigmaMcpResetResult {
   restarting?: boolean;
   code?: string;
   message?: string;
+}
+
+export interface FigmaMcpReconcileResult extends FigmaMcpPingResult {
+  attemptedReset?: boolean;
+  restarting?: boolean;
+  phase?:
+    | "already_connected"
+    | "connected_after_reset"
+    | "waiting_for_bridge"
+    | "not_recoverable"
+    | "input_error";
 }
 
 export async function resetFigmaMcp(args?: {
@@ -1215,6 +1226,54 @@ export async function resetFigmaMcp(args?: {
     });
 }
 
+export async function reconcileFigmaMcp(args?: {
+  figmaUrl?: string;
+  figmaToken?: string;
+  confirmReconcile?: boolean;
+}): Promise<FigmaMcpReconcileResult> {
+  const timeoutMs = 25_000;
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const confirmReconcile = args?.confirmReconcile === true;
+
+  return requestJson<FigmaMcpReconcileResult>("/api/figma-mcp/reconcile", {
+    method: "POST",
+    signal: controller.signal,
+    headers: {
+      "Content-Type": "application/json",
+      "x-ds-mcp-reconcile-confirm": confirmReconcile ? "true" : "false",
+    },
+    body: JSON.stringify({
+      figmaUrl: args?.figmaUrl,
+      figmaToken: args?.figmaToken,
+      confirmReconcile,
+    }),
+  })
+    .catch((error) => {
+      const isAbortError =
+        (typeof DOMException !== "undefined" &&
+          error instanceof DOMException &&
+          error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError");
+      if (!isAbortError) throw error;
+      throw new ApiError({
+        status: 408,
+        statusText: "Request Timeout",
+        code: "http.408" as ApiErrorCode,
+        userMessage:
+          "MCP reconcile timed out. Reopen the bridge plugin in Figma and retry.",
+        recoverable: true,
+        context: {
+          timeoutMs,
+          endpoint: "/api/figma-mcp/reconcile",
+        },
+      });
+    })
+    .finally(() => {
+      globalThis.clearTimeout(timeoutId);
+    });
+}
+
 export async function pingFigmaMcp(
   args?: {
     figmaUrl?: string;
@@ -1252,7 +1311,7 @@ export async function pingFigmaMcp(
         statusText: "Request Timeout",
         code: "http.408" as ApiErrorCode,
         userMessage:
-          "MCP connectivity test timed out. Check that Figma Desktop + Desktop Bridge are running and retry.",
+          "MCP connectivity test timed out. Check that Figma Desktop and the bridge plugin are running, then retry.",
         recoverable: true,
         context: {
           timeoutMs,

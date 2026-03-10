@@ -34,13 +34,13 @@ function isTrustedInternalRequest(c: Context, deps: FigmaMcpVariablesRouteDeps):
  * POST /api/figma-mcp-variables
  *
  * Fetches Figma local variables using the shared (long-lived) MCP client —
- * the one the Desktop Bridge plugin is already connected to.
+ * the one the bridge plugin is already connected to.
  *
  * This endpoint is called by the tokens-from-figma sync subprocess when it
  * detects it is running inside the dashboard server context (via the
  * DS_DASHBOARD_INTERNAL_URL env var). It avoids the subprocess-port-mismatch
  * problem: subprocesses that spawn their own figma-console-mcp land on
- * fallback ports that Desktop Bridge has never seen.
+ * fallback ports that the bridge plugin has never seen.
  *
  * Body (JSON):
  *   figmaUrl?: string  – Figma file URL (used to scope the variable fetch)

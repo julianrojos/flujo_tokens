@@ -19,6 +19,7 @@ import { registerCommandRoutes } from './command-routes.mjs';
 import { registerFigmaPingRoute } from './figma-ping-route.mjs';
 import { registerFigmaMcpPingRoute } from './figma-mcp-ping-route.ts';
 import { registerFigmaMcpResetRoute } from './figma-mcp-reset-route.ts';
+import { registerFigmaMcpReconcileRoute } from './figma-mcp-reconcile-route.ts';
 import { registerFigmaMcpVariablesRoute } from './figma-mcp-variables-route.ts';
 import { registerFigmaMcpPortRoute } from './figma-mcp-port-route.ts';
 import { registerFigmaMcpSearchNodesRoute } from './figma-mcp-search-nodes-route.ts';
@@ -44,6 +45,7 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerFigmaPingRoute(app, routeDeps.figmaPingDeps);
   registerFigmaMcpPingRoute(app, routeDeps.figmaMcpPingDeps);
   registerFigmaMcpResetRoute(app);
+  registerFigmaMcpReconcileRoute(app);
   registerFigmaMcpVariablesRoute(app, routeDeps.figmaMcpPingDeps);
   registerFigmaMcpPortRoute(app, {
     ...routeDeps.figmaMcpPingDeps,

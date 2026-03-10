@@ -65,7 +65,7 @@ export function disposeFigmaMcpPingService(): void {
  *
  * Call this once at server startup.  By the time the user interacts with the
  * "Test MCP connection" button the process will already be running, its port
- * will be advertised in /tmp, and the Desktop Bridge plugin will have had a
+ * will be advertised in /tmp, and the bridge plugin will have had a
  * chance to discover and connect to it — avoiding the cold-start timeout that
  * occurs when the client is created lazily on the first ping request.
  */
@@ -86,10 +86,10 @@ export type FigmaMcpVariablesServiceResult = FigmaVariablesResponse;
 /**
  * Fetch Figma local variables using the shared MCP client.
  *
- * This reuses the long-lived figma-console-mcp process that the Desktop
- * Bridge plugin is already connected to, avoiding the subprocess port-
+ * This reuses the long-lived figma-console-mcp process that the bridge
+ * plugin is already connected to, avoiding the subprocess port-
  * mismatch problem where sync subprocesses spawn their own fresh instances
- * that the Desktop Bridge has never seen.
+ * that the bridge plugin has never seen.
  */
 export async function fetchFigmaMcpVariablesService(
   args: FigmaMcpVariablesServiceArgs = {},
