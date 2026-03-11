@@ -3,7 +3,7 @@
  *
  * This plugin provides:
  * 1. MCP management UI for designers
- * 2. WebSocket bridge to figma-console-mcp server
+ * 2. WebSocket bridge to MCP Management server
  *
  * Bridge data flow: code.ts <-> postMessage <-> UI (ws-runtime) <-> WebSocket <-> Server
  */
@@ -32,6 +32,7 @@ figma.showUI(__html__, {
 figma.ui.postMessage({
   type: 'INIT',
   docName: figma.root.name,
+  fileKey: figma.fileKey || null,
 });
 
 // ============================================================================

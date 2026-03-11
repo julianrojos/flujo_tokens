@@ -2,6 +2,7 @@ import {
   disposeSharedFigmaMcpClient,
   fetchVariablesFromSharedMcpClient,
   pingSharedFigmaMcp,
+  terminateCompetingFigmaMcpProcesses,
   warmupSharedFigmaMcpClient,
   listMcpTools,
   fetchDesignSystemKitFromSharedMcpClient,
@@ -23,11 +24,11 @@ export interface FigmaMcpPingServiceArgs {
 
 export type FigmaMcpPingServiceResult = PingSharedFigmaMcpResult;
 
-const MCP_STATUS_TIMEOUT_MS = 20_000;
-const MCP_CONNECT_WAIT_MS = 5_000;
+const MCP_STATUS_TIMEOUT_MS = 60_000;
+const MCP_CONNECT_WAIT_MS = 20_000;
 
 // A more generous timeout for the initial warmup: first-time npx downloads
-// of figma-console-mcp can take longer than the regular per-request timeout.
+// of MCP Management can take longer than the regular per-request timeout.
 const MCP_WARMUP_TIMEOUT_MS = 90_000;
 
 export async function pingFigmaMcpService(
@@ -61,16 +62,34 @@ export function disposeFigmaMcpPingService(): void {
 }
 
 /**
- * Eagerly spawn the shared figma-console-mcp process in the background.
+ * Terminate competing MCP Management processes from previous sessions.
+ *
+ * This is used by reconcile flows when MCP gets stuck on fallback ports due to
+ * stale sibling instances.
+ */
+export async function terminateCompetingFigmaMcpProcessesService(): Promise<void> {
+  await terminateCompetingFigmaMcpProcesses({
+    excludePids: [process.pid],
+  });
+}
+
+/**
+ * Eagerly spawn the shared MCP Management process in the background.
  *
  * Call this once at server startup.  By the time the user interacts with the
  * "Test MCP connection" button the process will already be running, its port
- * will be advertised in /tmp, and the bridge plugin will have had a
+ * will be advertised in /tmp, and the MCP Management will have had a
  * chance to discover and connect to it — avoiding the cold-start timeout that
  * occurs when the client is created lazily on the first ping request.
  */
 export function warmupFigmaMcpPingService(args: { env?: NodeJS.ProcessEnv } = {}): void {
   const env = args.env ?? process.env;
+  // Clean up competing MCP processes before warmup to prevent instance mismatch
+  terminateCompetingFigmaMcpProcesses({
+    excludePids: [process.pid],
+  }).catch((error) => {
+    console.warn('Failed to terminate competing MCP processes during warmup:', error);
+  });
   warmupSharedFigmaMcpClient({
     timeoutMs: MCP_WARMUP_TIMEOUT_MS,
     env,
@@ -86,10 +105,10 @@ export type FigmaMcpVariablesServiceResult = FigmaVariablesResponse;
 /**
  * Fetch Figma local variables using the shared MCP client.
  *
- * This reuses the long-lived figma-console-mcp process that the bridge
+ * This reuses the long-lived MCP Management process that the bridge
  * plugin is already connected to, avoiding the subprocess port-
  * mismatch problem where sync subprocesses spawn their own fresh instances
- * that the bridge plugin has never seen.
+ * that the MCP Management has never seen.
  */
 export async function fetchFigmaMcpVariablesService(
   args: FigmaMcpVariablesServiceArgs = {},

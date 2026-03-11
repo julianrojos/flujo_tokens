@@ -238,6 +238,18 @@ function mapTokensBootstrapReason(reason: string): string {
   return reason ? `Unknown reason: ${reason}` : "No bootstrap reason was provided.";
 }
 
+function getTokensBootstrapErrorHint(errorMessage: string): string | null {
+  const normalized = String(errorMessage || "").toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes("file_variables:read")) {
+    return "REST variables scope is not available. Keep tokens source on MCP Management and verify plugin connection before retrying.";
+  }
+  if (normalized.includes("mcp server reports no figma connection")) {
+    return "MCP fallback could not connect to Figma Desktop. Open MCP Management and run 'Test MCP connection' before retrying.";
+  }
+  return null;
+}
+
 function isCriticalTokensBootstrapFailure(result: TokensBootstrapResult | null): boolean {
   if (!result) return false;
   if (result.error) return true;
@@ -479,6 +491,7 @@ export function NewSystemPage() {
   const importCurrentSlug = captureProgress?.currentSlug?.trim() || "";
   const bootstrapReason = importTokensBootstrap?.reason ?? "";
   const bootstrapReasonMessage = mapTokensBootstrapReason(bootstrapReason);
+  const bootstrapErrorHint = getTokensBootstrapErrorHint(importTokensBootstrap?.error ?? "");
   const bootstrapHasCriticalFailure = isCriticalTokensBootstrapFailure(importTokensBootstrap);
   const compileReason = importTokensCompile?.reason ?? "";
   const compileReasonMessage = mapTokensCompileReason(compileReason);
@@ -586,6 +599,7 @@ export function NewSystemPage() {
             {
               figmaUrl: trimmedUrl,
               figmaToken: runtimeToken || undefined,
+              tokensSource: "mcp",
               includeVariants: true,
               requireExistingDoc: false,
               continueOnError: true,
@@ -894,9 +908,16 @@ export function NewSystemPage() {
                 <p className="text-[11px] text-muted-foreground">Checking access…</p>
               ) : pingResult && hasFigmaUrl && hasToken ? (
                 pingResult.ok ? (
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                    ✓ Access confirmed — {pingResult.fileName}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                      ✓ Access confirmed — {pingResult.fileName}
+                    </p>
+                    {pingResult.code === "figma.variables_scope_missing" ? (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                        Variables will sync through MCP Management (REST variables scope is not available).
+                      </p>
+                    ) : null}
+                  </div>
                 ) : (
                   <p className="text-[11px] text-red-600 dark:text-red-400">
                     ✗ {pingResult.message}
@@ -1095,6 +1116,11 @@ export function NewSystemPage() {
                     Figma variables could not be initialized into the system input directory.
                   </p>
                   <p className="mt-1 text-xs">{bootstrapReasonMessage}</p>
+                  {bootstrapErrorHint ? (
+                    <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                      {bootstrapErrorHint}
+                    </p>
+                  ) : null}
                   {importTokensBootstrap.error ? (
                     <pre className="mt-2 max-h-32 overflow-auto rounded-md border border-amber-500/30 bg-black/10 p-2 text-xs text-amber-900 dark:text-amber-200">
                       {importTokensBootstrap.error}

@@ -9,9 +9,11 @@ import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import {
   fetchFigmaMcpVariablesService,
+  disposeFigmaMcpPingService,
   type FigmaMcpVariablesServiceArgs,
   type FigmaMcpVariablesServiceResult,
 } from '../services/figma-mcp-ping-service.ts';
+import { getFigmaMcpHeartbeatStatus } from '../services/figma-mcp-heartbeat-state.ts';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
 
 export interface FigmaMcpVariablesRouteDeps {
@@ -19,6 +21,8 @@ export interface FigmaMcpVariablesRouteDeps {
   fetchFigmaMcpVariablesFn?: (
     args: FigmaMcpVariablesServiceArgs
   ) => Promise<FigmaMcpVariablesServiceResult>;
+  disposeFigmaMcpPingServiceFn?: () => void;
+  getFigmaMcpHeartbeatStatusFn?: () => { alive: boolean };
   getConnInfoFn?: (c: Context) => ConnInfo;
   internalToken?: string;
 }
@@ -30,17 +34,32 @@ function isTrustedInternalRequest(c: Context, deps: FigmaMcpVariablesRouteDeps):
   return Boolean(receivedToken) && receivedToken === expectedToken;
 }
 
+function isRecoverableMcpVariablesFailure(message: string): boolean {
+  const text = String(message || '').toLowerCase();
+  return (
+    text.includes('not connected') ||
+    text.includes('no connection') ||
+    text.includes('disconnected') ||
+    text.includes('mcp.not_connected') ||
+    text.includes('stdin stream is closed') ||
+    text.includes('write after end') ||
+    text.includes('epipe') ||
+    text.includes('econnreset') ||
+    text.includes('timed out')
+  );
+}
+
 /**
  * POST /api/figma-mcp-variables
  *
  * Fetches Figma local variables using the shared (long-lived) MCP client —
- * the one the bridge plugin is already connected to.
+ * the one the MCP Management is already connected to.
  *
  * This endpoint is called by the tokens-from-figma sync subprocess when it
  * detects it is running inside the dashboard server context (via the
  * DS_DASHBOARD_INTERNAL_URL env var). It avoids the subprocess-port-mismatch
- * problem: subprocesses that spawn their own figma-console-mcp land on
- * fallback ports that the bridge plugin has never seen.
+ * problem: subprocesses that spawn their own MCP Management process land on
+ * fallback ports that the MCP Management has never seen.
  *
  * Body (JSON):
  *   figmaUrl?: string  – Figma file URL (used to scope the variable fetch)
@@ -55,6 +74,9 @@ export async function handleFigmaMcpVariablesRoute(
 ): Promise<Response> {
   const readJsonBody = deps.readJsonBody ?? (async (ctx: Context) => await ctx.req.json());
   const fetchFigmaMcpVariablesFn = deps.fetchFigmaMcpVariablesFn ?? fetchFigmaMcpVariablesService;
+  const disposePingFn = deps.disposeFigmaMcpPingServiceFn ?? disposeFigmaMcpPingService;
+  const getHeartbeatStatusFn =
+    deps.getFigmaMcpHeartbeatStatusFn ?? (() => getFigmaMcpHeartbeatStatus());
   const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
 
   const connInfo = getConnInfoFn(c);
@@ -77,7 +99,19 @@ export async function handleFigmaMcpVariablesRoute(
   const figmaUrl = String(body.figmaUrl || '').trim() || undefined;
 
   try {
-    const result = await fetchFigmaMcpVariablesFn({ figmaUrl });
+    let result: FigmaMcpVariablesServiceResult;
+    try {
+      result = await fetchFigmaMcpVariablesFn({ figmaUrl });
+    } catch (firstError) {
+      const firstMessage = firstError instanceof Error ? firstError.message : String(firstError);
+      const heartbeatAlive = getHeartbeatStatusFn().alive;
+      const disconnected = isRecoverableMcpVariablesFailure(firstMessage);
+      if (!heartbeatAlive || !disconnected) {
+        throw firstError;
+      }
+      disposePingFn();
+      result = await fetchFigmaMcpVariablesFn({ figmaUrl });
+    }
     return c.json({ ok: true, meta: result.meta }, 200);
   } catch (error) {
     return c.json(

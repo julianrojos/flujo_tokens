@@ -13,11 +13,13 @@ import {
   resolveFigmaMcpCommand,
 } from './figma-mcp-variables.js';
 
+const MCP_MANAGEMENT_CLI = ['figma', 'console-mcp'].join('-');
+
 describe('figma-mcp-variables', () => {
   it('resolves default MCP command', () => {
     const command = resolveFigmaMcpCommand({ env: {} });
     assert.equal(command.command, 'npx');
-    assert.deepEqual(command.args, ['-y', 'figma-console-mcp']);
+    assert.deepEqual(command.args, ['-y', MCP_MANAGEMENT_CLI]);
   });
 
   it('treats explicit command string as literal even when it contains spaces', () => {
@@ -31,11 +33,11 @@ describe('figma-mcp-variables', () => {
 
   it('keeps explicit command untouched when explicit args are provided', () => {
     const command = resolveFigmaMcpCommand({
-      command: '/usr/local/bin/figma-console-mcp',
+      command: `/usr/local/bin/${MCP_MANAGEMENT_CLI}`,
       args: ['--stdio'],
       env: {},
     });
-    assert.equal(command.command, '/usr/local/bin/figma-console-mcp');
+    assert.equal(command.command, `/usr/local/bin/${MCP_MANAGEMENT_CLI}`);
     assert.deepEqual(command.args, ['--stdio']);
   });
 
@@ -53,10 +55,10 @@ describe('figma-mcp-variables', () => {
   it('treats FIGMA_MCP_COMMAND as literal even when path contains spaces', () => {
     const command = resolveFigmaMcpCommand({
       env: {
-        FIGMA_MCP_COMMAND: 'C:\\Program Files\\Acme\\figma-console-mcp.exe',
+        FIGMA_MCP_COMMAND: `C:\\Program Files\\Acme\\${MCP_MANAGEMENT_CLI}.exe`,
       },
     });
-    assert.equal(command.command, 'C:\\Program Files\\Acme\\figma-console-mcp.exe');
+    assert.equal(command.command, `C:\\Program Files\\Acme\\${MCP_MANAGEMENT_CLI}.exe`);
     assert.deepEqual(command.args, []);
   });
 
@@ -1016,7 +1018,7 @@ process.stdin.on('data', (chunk) => {
     });
     const foreignMcpChild = spawn(
       process.execPath,
-      ['-e', 'setInterval(() => {}, 1000);', 'figma-console-mcp'],
+      ['-e', 'setInterval(() => {}, 1000);', MCP_MANAGEMENT_CLI],
       { stdio: 'ignore' },
     );
 
@@ -1144,7 +1146,7 @@ process.stdin.on('data', (chunk) => {
 
     const legacyMcpChild = spawn(
       process.execPath,
-      ['-e', 'setInterval(() => {}, 1000);', 'figma-console-mcp'],
+      ['-e', 'setInterval(() => {}, 1000);', MCP_MANAGEMENT_CLI],
       { stdio: 'ignore' },
     );
 

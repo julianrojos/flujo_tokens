@@ -1160,8 +1160,19 @@ export interface FigmaMcpPingResult {
   message?: string;
   collectionsDetected?: number;
   variablesDetected?: number;
-  /** True if the bridge plugin connected successfully at any point this session. */
+  /** True if the MCP Management connected successfully at any point this session. */
   everConnected?: boolean;
+}
+
+export interface FigmaMcpHeartbeatResult {
+  ok: boolean;
+  alive?: boolean;
+  ageMs?: number | null;
+  lastSeenAt?: number | null;
+  sourceFileKey?: string | null;
+  sourceDocName?: string | null;
+  pluginVersion?: string | null;
+  pluginBuild?: string | null;
 }
 
 export interface FigmaMcpResetResult {
@@ -1230,11 +1241,13 @@ export async function reconcileFigmaMcp(args?: {
   figmaUrl?: string;
   figmaToken?: string;
   confirmReconcile?: boolean;
+  confirmGlobalReset?: boolean;
 }): Promise<FigmaMcpReconcileResult> {
   const timeoutMs = 25_000;
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   const confirmReconcile = args?.confirmReconcile === true;
+  const confirmGlobalReset = args?.confirmGlobalReset === true;
 
   return requestJson<FigmaMcpReconcileResult>("/api/figma-mcp/reconcile", {
     method: "POST",
@@ -1242,11 +1255,13 @@ export async function reconcileFigmaMcp(args?: {
     headers: {
       "Content-Type": "application/json",
       "x-ds-mcp-reconcile-confirm": confirmReconcile ? "true" : "false",
+      "x-ds-mcp-reset-confirm": confirmGlobalReset ? "true" : "false",
     },
     body: JSON.stringify({
       figmaUrl: args?.figmaUrl,
       figmaToken: args?.figmaToken,
       confirmReconcile,
+      confirmGlobalReset,
     }),
   })
     .catch((error) => {
@@ -1261,7 +1276,7 @@ export async function reconcileFigmaMcp(args?: {
         statusText: "Request Timeout",
         code: "http.408" as ApiErrorCode,
         userMessage:
-          "MCP reconcile timed out. Reopen the bridge plugin in Figma and retry.",
+          "MCP reconcile timed out. Reopen the MCP Management in Figma and retry.",
         recoverable: true,
         context: {
           timeoutMs,
@@ -1311,7 +1326,7 @@ export async function pingFigmaMcp(
         statusText: "Request Timeout",
         code: "http.408" as ApiErrorCode,
         userMessage:
-          "MCP connectivity test timed out. Check that Figma Desktop and the bridge plugin are running, then retry.",
+          "MCP connectivity test timed out. Check that Figma Desktop and the MCP Management are running, then retry.",
         recoverable: true,
         context: {
           timeoutMs,
@@ -1322,6 +1337,12 @@ export async function pingFigmaMcp(
     .finally(() => {
       globalThis.clearTimeout(timeoutId);
     });
+}
+
+export async function getFigmaMcpHeartbeat(): Promise<FigmaMcpHeartbeatResult> {
+  return requestJson<FigmaMcpHeartbeatResult>("/api/figma-mcp/heartbeat", {
+    method: "GET",
+  });
 }
 
 type CaptureProgressSnapshot = {

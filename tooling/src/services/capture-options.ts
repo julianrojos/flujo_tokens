@@ -84,7 +84,7 @@ export function parseMainCaptureMode(rawValue: unknown): 'auto' | 'agent' | 'res
  */
 export function parseTokensSource(rawValue: unknown): FigmaVariableSource {
   return parseFigmaVariableSource(rawValue, {
-    defaultValue: 'auto',
+    defaultValue: 'mcp',
     optionName: '--tokens-source',
   });
 }

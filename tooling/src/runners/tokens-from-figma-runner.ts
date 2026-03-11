@@ -57,7 +57,7 @@ const CLI_CONFIG = {
     {
       name: '--source',
       description: 'Variables source: auto, mcp or rest.',
-      defaultValue: 'auto',
+      defaultValue: 'mcp',
     },
     {
       name: '--force',
@@ -173,7 +173,7 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
 
   // ── Resolve source mode ──────────────────────────────────────────────────
   const source = parseFigmaVariableSource(parsed.source, {
-    defaultValue: 'auto',
+    defaultValue: 'mcp',
     optionName: '--source',
   });
 

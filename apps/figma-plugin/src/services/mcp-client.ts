@@ -7,6 +7,7 @@
 export interface McpCapabilities {
   ok: true;
   tools: string[];
+  toolsDiscoveryError?: string;
   supports: {
     searchNodes: boolean;
     getChildren: boolean;
@@ -68,8 +69,37 @@ export interface ReconcileConnectionResponse {
     | 'input_error';
 }
 
+export interface HeartbeatResponse {
+  ok: boolean;
+  alive?: boolean;
+  ageMs?: number | null;
+  lastSeenAt?: number | null;
+  sourceFileKey?: string | null;
+  sourceDocName?: string | null;
+  pluginVersion?: string | null;
+  pluginBuild?: string | null;
+}
+
 const DEFAULT_API_BASE = 'http://localhost:8787';
 const LOCAL_API_BASES = ['http://localhost:8787'] as const;
+const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 60_000;
+
+function isTimeoutLikeError(error: unknown): boolean {
+  if (!error) return false;
+  const name =
+    typeof error === 'object' && error !== null && 'name' in error
+      ? String((error as { name?: unknown }).name || '').toLowerCase()
+      : '';
+  const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    name.includes('abort') ||
+    name.includes('timeout') ||
+    message.includes('signal timed out') ||
+    message.includes('timed out') ||
+    message.includes('aborterror') ||
+    message.includes('timeouterror')
+  );
+}
 
 export class McpClientService {
   private apiBase: string;
@@ -107,10 +137,18 @@ export class McpClientService {
 
   private async fetchFromDashboard(path: string, init: RequestInit): Promise<Response> {
     let lastError: unknown = null;
+    const normalizedInit: RequestInit = { ...init };
+    const method = String(normalizedInit.method || 'GET').toUpperCase();
+    const headers = new Headers(normalizedInit.headers || {});
+    // Avoid unnecessary CORS preflights for simple GET/HEAD requests.
+    if (method === 'GET' || method === 'HEAD') {
+      headers.delete('Content-Type');
+    }
+    normalizedInit.headers = headers;
 
     for (const base of this.apiBaseCandidates) {
       try {
-        const response = await fetch(`${base}${path}`, init);
+        const response = await fetch(`${base}${path}`, normalizedInit);
         this.markApiBaseAsHealthy(base);
         return response;
       } catch (error) {
@@ -149,21 +187,58 @@ export class McpClientService {
       const response = await this.fetchFromDashboard('/api/figma-mcp/capabilities', {
         method: 'GET',
         headers: this.getHeaders(),
+        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        return {
+          ok: false,
+          code: 'capabilities.http_error',
+          message: `Dashboard API responded with HTTP ${response.status} on /api/figma-mcp/capabilities`,
+        };
+      }
+
+      let data: unknown;
+      try {
+        data = await response.json();
+      } catch {
+        return {
+          ok: false,
+          code: 'capabilities.invalid_response',
+          message:
+            'Dashboard API is reachable, but /api/figma-mcp/capabilities returned an invalid response.',
+        };
+      }
+
+      if (!data || typeof data !== 'object') {
+        return {
+          ok: false,
+          code: 'capabilities.invalid_response',
+          message:
+            'Dashboard API is reachable, but /api/figma-mcp/capabilities returned an unexpected payload.',
+        };
+      }
+      const parsed = data as Partial<McpCapabilities & McpError>;
       
       // Cache successful capabilities response
-      if (data.ok === true) {
-        this.lastKnownConfiguredPort = Number(data.mcp.activePort) || this.lastKnownConfiguredPort;
+      if (parsed.ok === true && parsed.mcp) {
+        this.lastKnownConfiguredPort = Number(parsed.mcp.activePort) || this.lastKnownConfiguredPort;
         this.capabilitiesCache = {
-          data: data as McpCapabilities,
+          data: parsed as McpCapabilities,
           expiresAt: Date.now() + this.CACHE_TTL_MS,
         };
       }
 
-      return data;
+      return parsed as McpCapabilities | McpError;
     } catch (error) {
+      if (isTimeoutLikeError(error)) {
+        return {
+          ok: false,
+          code: 'capabilities.timeout',
+          message:
+            'MCP status request timed out. Dashboard API may be reachable, but MCP is slow or reconnecting.',
+        };
+      }
       return {
         ok: false,
         code: 'capabilities.fetch_failed',
@@ -187,6 +262,7 @@ export class McpClientService {
       const response = await this.fetchFromDashboard('/api/figma-mcp/port', {
         method: 'GET',
         headers: this.getHeaders(),
+        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
       });
       const payload = await response.json();
       if (payload?.ok === true && Number.isFinite(Number(payload.activePort))) {
@@ -211,6 +287,7 @@ export class McpClientService {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ port }),
+        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
       });
       const result = await response.json();
       
@@ -257,6 +334,14 @@ export class McpClientService {
     }
 
     if (configuredPort === connectedPort) {
+      if (capabilities.mcp.portFallbackUsed) {
+        return {
+          configuredPort,
+          connectedPort,
+          state: 'fallback',
+          cause: `Connected on fallback port ${connectedPort}`,
+        };
+      }
       return {
         configuredPort,
         connectedPort,
@@ -288,8 +373,11 @@ export class McpClientService {
       const capabilities = await this.getCapabilities({ forceRefresh: true });
       const state = this.computeConnectionState(capabilities);
       
-      // Success: connected and port matches
-      if (state.state === 'connected' && state.connectedPort === targetPort) {
+      // Success: connected (or fallback) and port matches
+      if (
+        (state.state === 'connected' || state.state === 'fallback') &&
+        state.connectedPort === targetPort
+      ) {
         return {
           success: true,
           finalState: state,
@@ -302,7 +390,7 @@ export class McpClientService {
     }
     
     // Timeout reached
-    const finalCapabilities = await this.getCapabilities();
+    const finalCapabilities = await this.getCapabilities({ forceRefresh: true });
     const finalState = this.computeConnectionState(finalCapabilities);
     
     return {
@@ -317,14 +405,18 @@ export class McpClientService {
   }
 
   /**
-   * Fetch a compact design system kit summary (tokens + styles counts).
-   * Uses format=compact to minimize payload — we only need counts.
+   * Fetch a design system kit summary (tokens + styles counts).
+   * Uses format=summary to get accurate variable counts — compact may return false zeros.
    */
   async getDesignSystemKit(): Promise<DesignSystemKitResponse | McpError> {
     try {
       const response = await this.fetchFromDashboard(
-        '/api/figma-mcp/design-system-kit?format=compact&include=tokens,styles',
-        { method: 'GET', headers: this.getHeaders() },
+        '/api/figma-mcp/design-system-kit?format=summary&include=tokens,styles',
+        {
+          method: 'GET',
+          headers: this.getHeaders(),
+          signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
+        },
       );
       return await response.json() as DesignSystemKitResponse | McpError;
     } catch (error) {
@@ -361,7 +453,7 @@ export class McpClientService {
    * Route: POST /api/figma-mcp-variables
    * Body:  { figmaUrl?: string }
    *
-   * The dashboard reuses the figma-console-mcp process that the bridge plugin
+   * The dashboard reuses the shared MCP process that MCP Management
    * is already connected to, so no new child process is spawned.
    */
   async syncTokens(figmaUrl?: string): Promise<SyncTokensResponse> {
@@ -370,6 +462,7 @@ export class McpClientService {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ figmaUrl: figmaUrl ?? '' }),
+        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
       });
       return await response.json() as SyncTokensResponse;
     } catch (error) {
@@ -382,6 +475,46 @@ export class McpClientService {
   }
 
   /**
+   * Send plugin heartbeat so dashboard can show live plugin presence.
+   */
+  async sendHeartbeat(args?: {
+    fileKey?: string | null;
+    docName?: string | null;
+    timestamp?: number;
+    pluginVersion?: string | null;
+    pluginBuild?: string | null;
+  }): Promise<HeartbeatResponse> {
+    try {
+      const response = await this.fetchFromDashboard('/api/figma-mcp/heartbeat', {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          fileKey: args?.fileKey ?? null,
+          docName: args?.docName ?? null,
+          pluginVersion: args?.pluginVersion ?? null,
+          pluginBuild: args?.pluginBuild ?? null,
+          timestamp: Number.isFinite(Number(args?.timestamp))
+            ? Math.floor(Number(args?.timestamp))
+            : Date.now(),
+        }),
+        signal: AbortSignal.timeout(12_000),
+      });
+      return await response.json() as HeartbeatResponse;
+    } catch (error) {
+      return {
+        ok: false,
+        alive: false,
+        ageMs: null,
+        lastSeenAt: null,
+        sourceFileKey: null,
+        sourceDocName: null,
+        pluginVersion: null,
+        pluginBuild: null,
+      };
+    }
+  }
+
+  /**
    * Attempt automatic MCP connection reconciliation on the dashboard side.
    * This performs a local shared-session restart and returns the resulting state.
    */
@@ -389,20 +522,25 @@ export class McpClientService {
     figmaUrl?: string;
     figmaToken?: string;
     confirmReconcile?: boolean;
+    confirmGlobalReset?: boolean;
   }): Promise<ReconcileConnectionResponse> {
     const confirmReconcile = args?.confirmReconcile === true;
+    const confirmGlobalReset = args?.confirmGlobalReset === true;
     try {
       const response = await this.fetchFromDashboard('/api/figma-mcp/reconcile', {
         method: 'POST',
         headers: {
           ...this.getHeaders(),
           'x-ds-mcp-reconcile-confirm': confirmReconcile ? 'true' : 'false',
+          'x-ds-mcp-reset-confirm': confirmGlobalReset ? 'true' : 'false',
         },
         body: JSON.stringify({
           figmaUrl: args?.figmaUrl ?? '',
           figmaToken: args?.figmaToken ?? '',
           confirmReconcile,
+          confirmGlobalReset,
         }),
+        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
       });
       return await response.json() as ReconcileConnectionResponse;
     } catch (error) {

@@ -97,10 +97,13 @@ export const KitSummary: React.FC<KitSummaryProps> = ({ refreshSignal }) => {
   // ── Error ─────────────────────────────────────────────────────────────────
   if (error && !summary) {
     return (
-      <div style={{ ...card, backgroundColor: COLOR.dangerBg, borderColor: `${COLOR.danger}33` }}>
-        <span style={{ fontSize: FONT.size.sm, color: COLOR.dangerText, fontFamily: FONT.family }}>
-          Kit unavailable — check connection
+      <div style={{ ...card, backgroundColor: COLOR.bg, borderColor: COLOR.border }}>
+        <span style={{ fontSize: FONT.size.sm, color: COLOR.textSecondary, fontFamily: FONT.family }}>
+          Items to export: none yet
         </span>
+        <p style={{ margin: `${SPACE.xs}px 0 0 0`, fontSize: FONT.size.xs, color: COLOR.textMuted, fontFamily: FONT.family }}>
+          Connect MCP and run token sync to generate export data.
+        </p>
       </div>
     );
   }

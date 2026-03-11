@@ -66,7 +66,7 @@ export async function orchestrateTokenSync(
     fileKey,
     figmaToken,
     figmaUrl,
-    tokensSource = 'auto',
+    tokensSource = 'mcp',
     getSystemConfigFn = getSystemConfig,
     bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
     ensureCollectionsConfiguredFn = ensureCollectionsConfigured,

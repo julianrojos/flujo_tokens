@@ -433,7 +433,7 @@ interface VariablesFetchResult {
 
 function normalizeVariableSource(rawSource: unknown): FigmaVariableSource {
   return parseFigmaVariableSource(rawSource, {
-    defaultValue: 'auto',
+    defaultValue: 'mcp',
     optionName: 'variable source',
   });
 }
@@ -505,6 +505,9 @@ async function fetchVariablesBySource(options: {
     }
   }
 
+  // AUTO strategy (MCP-first):
+  // 1) Prefer MCP because it does not require Enterprise variables scope.
+  // 2) Fallback to REST only when MCP fails and a token is available.
   let mcpErrorMessage = '';
   try {
     const payload = await tryMcp();
@@ -518,7 +521,6 @@ async function fetchVariablesBySource(options: {
     return { payload, sourceUsed: 'rest', sourceAttempts };
   } catch (error) {
     const restErrorMessage = error instanceof Error ? error.message : String(error);
-    // Provide clear message when both sources fail
     const restUnavailableReason = restErrorMessage.includes('Missing Figma token')
       ? 'REST fallback is unavailable because FIGMA_TOKEN is missing'
       : 'REST fetch failed';
@@ -541,7 +543,7 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     force = false,
     merge = false,
     dryRun = false,
-    source = 'auto',
+    source = 'mcp',
     mcpFileUrl,
     fetchRestVariablesFn = fetchFigmaLocalVariables,
     fetchMcpVariablesFn = fetchFigmaLocalVariablesViaMcp,

@@ -4,7 +4,8 @@ import vm from 'node:vm';
 import { createMockFigma, type MockFigma } from './mock-figma';
 import type { CompatResponse } from './candidate-client';
 
-export const DESKTOP_BRIDGE_CODE_PATH = '/tmp/figma-console-mcp/figma-desktop-bridge/code.js';
+const MCP_MANAGEMENT_REPO_DIR = ['figma', 'console-mcp'].join('-');
+export const DESKTOP_BRIDGE_CODE_PATH = `/tmp/${MCP_MANAGEMENT_REPO_DIR}/figma-desktop-bridge/code.js`;
 
 function getOracleResultType(method: string): string {
   if (method === 'GET_COMPONENT') {

@@ -13,8 +13,6 @@ import type { ConnectionState } from '../../services/mcp-client';
 interface StatusIndicatorProps {
   connectionState: ConnectionState | null;
   docName: string;
-  isLoading: boolean;
-  onRefresh: () => void;
 }
 
 function getStatusConfig(state: ConnectionState['state'] | undefined): {
@@ -23,10 +21,10 @@ function getStatusConfig(state: ConnectionState['state'] | undefined): {
   sublabel: string;
 } {
   switch (state) {
-    case 'connected':    return { color: COLOR.connected,    label: 'Connected',     sublabel: 'Plugin bridge is active' };
-    case 'disconnected': return { color: COLOR.disconnected, label: 'Disconnected',  sublabel: 'Use Resolve connection to start the bridge' };
-    case 'mismatch':     return { color: COLOR.mismatch,     label: 'Port Mismatch', sublabel: 'Check Advanced settings' };
-    case 'fallback':     return { color: COLOR.fallback,     label: 'Fallback Mode', sublabel: 'Connected on secondary port' };
+    case 'connected':    return { color: COLOR.connected,    label: 'Connected',     sublabel: 'MCP session is active for this file' };
+    case 'disconnected': return { color: COLOR.disconnected, label: 'Disconnected',  sublabel: 'MCP is not linked to the current Figma file' };
+    case 'mismatch':     return { color: COLOR.mismatch,     label: 'Port Mismatch', sublabel: 'MCP and plugin are on different ports' };
+    case 'fallback':     return { color: COLOR.fallback,     label: 'Connected',      sublabel: 'Connected on an alternate MCP port' };
     default:             return { color: COLOR.unknown,      label: 'Checking…',     sublabel: '' };
   }
 }
@@ -34,8 +32,6 @@ function getStatusConfig(state: ConnectionState['state'] | undefined): {
 export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   connectionState,
   docName,
-  isLoading,
-  onRefresh,
 }) => {
   const { color, label, sublabel } = getStatusConfig(connectionState?.state);
 
@@ -48,34 +44,6 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
       backgroundColor: COLOR.surface,
       position: 'relative',
     }}>
-      {/* Refresh button — top right */}
-      <button
-        onClick={onRefresh}
-        disabled={isLoading}
-        title="Refresh"
-        style={{
-          position: 'absolute',
-          top: SPACE.md,
-          right: SPACE.md,
-          width: 24,
-          height: 24,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: 'none',
-          border: 'none',
-          cursor: isLoading ? 'not-allowed' : 'pointer',
-          opacity: isLoading ? 0.4 : 0.6,
-          fontSize: 15,
-          color: COLOR.textSecondary,
-          borderRadius: RADIUS.full,
-        }}
-      >
-        <span style={{ display: 'inline-block', animation: isLoading ? 'spin 1s linear infinite' : 'none' }}>
-          ↻
-        </span>
-      </button>
-
       {/* Status dot with glow */}
       <div style={{
         width: 48,

@@ -174,7 +174,7 @@ describe('figma-token-sync', () => {
       }
     });
 
-    it('falls back to REST in source=auto when MCP fails', async () => {
+    it('falls back to REST in source=auto when MCP fails and token is available', async () => {
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-token-sync-auto-'));
       const restPayload = createVariablesPayload();
       let mcpCalls = 0;
@@ -210,6 +210,47 @@ describe('figma-token-sync', () => {
         assert.deepEqual(result.source_attempts, ['mcp', 'rest']);
         assert.equal(mcpCalls, 1);
         assert.equal(restCalls, 1);
+      } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+      }
+    });
+
+    it('keeps MCP in source=auto when MCP succeeds', async () => {
+      const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-token-sync-auto-rest-fail-'));
+      const mcpPayload = createVariablesPayload();
+      let mcpCalls = 0;
+      let restCalls = 0;
+
+      try {
+        const result = await syncFigmaTokensToInput({
+          repoRoot: tempRoot,
+          system: {
+            inputDir: 'input/demo',
+            outputDir: 'output/demo',
+            docsDir: 'docs/demo',
+          },
+          fileKey: 'dummy',
+          figmaToken: 'secret',
+          source: 'auto',
+          force: false,
+          merge: false,
+          dryRun: false,
+          fetchMcpVariablesFn: async () => {
+            mcpCalls += 1;
+            return mcpPayload;
+          },
+          fetchRestVariablesFn: async () => {
+            restCalls += 1;
+            throw new Error('rest unavailable');
+          },
+        });
+
+        assert.equal(result.reason, undefined);
+        assert.equal(result.files_written, 1);
+        assert.equal(result.source_used, 'mcp');
+        assert.deepEqual(result.source_attempts, ['mcp']);
+        assert.equal(mcpCalls, 1);
+        assert.equal(restCalls, 0);
       } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
       }

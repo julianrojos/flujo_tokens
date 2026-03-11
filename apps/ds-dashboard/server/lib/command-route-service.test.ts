@@ -139,7 +139,7 @@ describe('command-route-service', () => {
       assert.ok(!payload.commandArgs.includes('secret'));
       assert.deepEqual(payload.commandEnv, { FIGMA_TOKEN: 'secret' });
       assert.ok(payload.commandArgs.includes('--source'));
-      assert.ok(payload.commandArgs.includes('auto'));
+      assert.ok(payload.commandArgs.includes('mcp'));
     });
 
     it('supports explicit MCP source', () => {
@@ -201,7 +201,7 @@ describe('command-route-service', () => {
       assert.ok((valid as any).commandArgs.includes('--url'));
       assert.ok(!(valid as any).commandArgs.includes('secret'));
       assert.ok((valid as any).commandArgs.includes('--tokens-source'));
-      assert.ok((valid as any).commandArgs.includes('auto'));
+      assert.ok((valid as any).commandArgs.includes('mcp'));
       assert.deepEqual((valid as any).commandEnv, { FIGMA_TOKEN: 'secret' });
     });
 

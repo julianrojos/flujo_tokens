@@ -1,7 +1,7 @@
 /**
- * Legacy Desktop Bridge UI compatibility layer.
+ * Legacy MCP Management UI compatibility layer.
  *
- * Exposes the same window.* API used by figma-console-mcp's CDP connector:
+ * Exposes the same window.* API used by MCP Management's CDP connector:
  * - window.executeCode(...)
  * - window.requestComponentData(...)
  * - window.updateVariable(...), etc.
@@ -354,4 +354,3 @@ function setupMessageListener(): void {
 
 setupLegacyFunctions();
 setupMessageListener();
-

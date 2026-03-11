@@ -137,7 +137,7 @@ npm run ds:tokens-from-figma -- --system my-system --url "https://www.figma.com/
 
 MCP command resolution for token sync:
 
-- Default: `npx -y figma-console-mcp`
+- Default: `npx -y MCP Management`
 - Override full command: `FIGMA_MCP_COMMAND` (treated as literal command path; pass args in `FIGMA_MCP_COMMAND_ARGS`)
 - Override binary + args: `FIGMA_MCP_BIN` + `FIGMA_MCP_ARGS`
 
@@ -150,10 +150,10 @@ Migration note:
 
 | Síntoma | Causa probable | Solución |
 |---------|----------------|----------|
-| `MCP server reports no Figma connection` | Figma Desktop no está abierto o el bridge plugin no está corriendo | Abre Figma Desktop → Plugins → Development → Bridge plugin |
-| Timeout tras 15s sin respuesta | El servidor MCP no arrancó correctamente | Verifica que `npx figma-console-mcp` funciona en tu terminal. Si usas un binario custom, comprueba `FIGMA_MCP_BIN` |
+| `MCP server reports no Figma connection` | Figma Desktop no está abierto o el MCP Management no está corriendo | Abre Figma Desktop → Plugins → Development → MCP Management |
+| Timeout tras 15s sin respuesta | El servidor MCP no arrancó correctamente | Verifica que `npx MCP Management` funciona en tu terminal. Si usas un binario custom, comprueba `FIGMA_MCP_BIN` |
 | `Missing Figma token for REST variables fetch` | Modo `--source rest` sin `FIGMA_TOKEN` configurado | Exporta `FIGMA_TOKEN` en tu shell o usa `--source mcp` |
-| `Both sources failed` | Ni MCP ni REST funcionan | Comprueba el bridge plugin (para MCP) y `FIGMA_TOKEN` (para REST) |
+| `Both sources failed` | Ni MCP ni REST funcionan | Comprueba el MCP Management (para MCP) y `FIGMA_TOKEN` (para REST) |
 
 Plugin example:
 
@@ -503,7 +503,7 @@ For markdown rendered to Figma, prefer the supported subset:
 
 - A compatible agent CLI installed: `codex`, `claude`, or `gemini`
 - Figma MCP configured for the selected agent
-- For Figma write operations, Figma Desktop + bridge plugin running
+- For Figma write operations, Figma Desktop + MCP Management running
 
 Agent selection options:
 

@@ -8,41 +8,68 @@
  *   AdvancedSection  — collapsible: ConnectionStatus + PortSwitcher
  *
  * Bridge integration:
- *   - useBridgeStatus hook starts WebSocket bridge on mount
- *   - Bridge status shown in header for debugging
+ *   - MCP status is fetched from dashboard capabilities
+ *   - Header and detailed panels share the same source of truth
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { StatusIndicator } from './components/StatusIndicator';
 import { KitSummary } from './components/KitSummary';
 import { SyncButton } from './components/SyncButton';
 import { AdvancedSection } from './components/AdvancedSection';
 import { getPluginMcpClient, type ConnectionState } from '../services/mcp-client';
-import { useBridgeStatus, getBridgeStateLabel, getBridgeStateColor } from './hooks/useBridgeStatus';
+import { getWSRuntime } from '../bridge/ws-runtime';
 import { COLOR, FONT, SPACE, UI_WIDTH } from './styles/tokens';
 
-interface InitMessage { type: 'INIT'; docName: string }
+interface InitMessage { type: 'INIT'; docName: string; fileKey?: string | null }
+const PLUGIN_VERSION = '1.0.0';
+const PLUGIN_BUILD = 'heartbeat-v3-ws';
 
 const App: React.FC = () => {
   const [docName, setDocName] = useState('');
+  const [fileKey, setFileKey] = useState<string | null>(null);
   const [connectionState, setConnState] = useState<ConnectionState | null>(null);
-  const [isConnLoading, setLoading] = useState(true);
   const [kitRefreshSignal, setKitReset] = useState(0);
 
-  // Initialize bridge WebSocket connection
-  const bridge = useBridgeStatus();
-
   const client = getPluginMcpClient();
+  // Guards against concurrent capabilities requests stacking up when MCP
+  // takes longer than the 10 s polling interval to respond.
+  const fetchingRef = useRef(false);
+  // Mutex to prevent concurrent heartbeat requests.
+  const heartbeatInFlightRef = useRef(false);
+
+  const getHeaderStatus = (state: ConnectionState | null) => {
+    switch (state?.state) {
+      case 'connected':
+        return { label: 'MCP Connected', color: '#18a957' };
+      case 'fallback':
+        return { label: 'MCP Fallback Port', color: '#2196f3' };
+      case 'mismatch':
+        return { label: 'MCP Port Mismatch', color: '#ff9800' };
+      case 'disconnected':
+        return { label: 'MCP Disconnected', color: '#f24822' };
+      default:
+        return { label: 'Checking MCP...', color: '#9e9e9e' };
+    }
+  };
+
+  const headerStatus = getHeaderStatus(connectionState);
 
   const fetchStatus = useCallback(async () => {
-    setLoading(true);
+    // Prevent multiple in-flight capabilities requests from stacking up.
+    // Capabilities can take up to 60 s when the MCP is reconnecting; without
+    // this guard a new request would start every 10 s, flooding the stdio client.
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
-      const caps = await client.getCapabilities({ forceRefresh: true });
+      // Use cache during auto-refresh to reduce pressure on MCP stdio.
+      // Force refresh only on initial load or explicit user actions.
+      const caps = await client.getCapabilities({ forceRefresh: false });
       setConnState(client.computeConnectionState(caps));
     } catch {
-      setConnState({ configuredPort: 9223, connectedPort: null, state: 'disconnected' });
+      setConnState({ configuredPort: client.getLastKnownConfiguredPort(), connectedPort: null, state: 'disconnected' });
     } finally {
-      setLoading(false);
+      fetchingRef.current = false;
     }
   }, [client]);
 
@@ -57,10 +84,66 @@ const App: React.FC = () => {
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const msg = event.data?.pluginMessage as InitMessage | undefined;
-      if (msg?.type === 'INIT') setDocName(msg.docName);
+      if (msg?.type === 'INIT') {
+        setDocName(msg.docName);
+        setFileKey(msg.fileKey ?? null);
+      }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
+  }, []);
+
+  // Plugin heartbeat: lets dashboard know this plugin session is alive.
+  useEffect(() => {
+    let disposed = false;
+
+    const sendHeartbeat = async () => {
+      if (disposed || heartbeatInFlightRef.current) return;
+      heartbeatInFlightRef.current = true;
+      try {
+        await client.sendHeartbeat({
+          fileKey,
+          docName,
+          pluginVersion: PLUGIN_VERSION,
+          pluginBuild: PLUGIN_BUILD,
+          timestamp: Date.now(),
+        });
+      } finally {
+        heartbeatInFlightRef.current = false;
+      }
+    };
+
+    void sendHeartbeat();
+    const id = setInterval(() => {
+      void sendHeartbeat();
+    }, 8_000);
+
+    return () => {
+      disposed = true;
+      clearInterval(id);
+    };
+  }, [client, docName, fileKey]);
+
+  // Start the WebSocket bridge runtime so MCP can detect this open plugin session.
+  useEffect(() => {
+    const runtime = getWSRuntime();
+    let disposed = false;
+
+    runtime
+      .start()
+      .then(async () => {
+        if (disposed) return;
+        await runtime.initiateHandshake();
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        parent.postMessage({ pluginMessage: { type: 'ERROR', error: `Bridge runtime: ${message}` } }, '*');
+      });
+
+    return () => {
+      disposed = true;
+      runtime.stop();
+    };
   }, []);
 
   const handlePortChanged = (port: number) => {
@@ -87,11 +170,11 @@ const App: React.FC = () => {
               width: 8,
               height: 8,
               borderRadius: '50%',
-              backgroundColor: getBridgeStateColor(bridge.state),
-              boxShadow: `0 0 4px ${getBridgeStateColor(bridge.state)}66`,
+              backgroundColor: headerStatus.color,
+              boxShadow: `0 0 4px ${headerStatus.color}66`,
             }} />
             <span style={{ fontSize: FONT.size.xs, color: COLOR.textSecondary }}>
-              {getBridgeStateLabel(bridge.state)}
+              {headerStatus.label}
             </span>
           </div>
         </div>
@@ -101,8 +184,6 @@ const App: React.FC = () => {
       <StatusIndicator
         connectionState={connectionState}
         docName={docName}
-        isLoading={isConnLoading}
-        onRefresh={fetchStatus}
       />
 
       <div style={{ height: 1, backgroundColor: COLOR.border, margin: `0 ${SPACE.lg}px` }} />

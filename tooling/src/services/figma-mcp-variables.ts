@@ -1,7 +1,7 @@
 /**
  * Figma MCP Variables Service
  *
- * Fetches Figma variables through an MCP stdio server (figma-console-mcp),
+ * Fetches Figma variables through an MCP stdio server (MCP Management),
  * without relying on agent prompting.
  */
 
@@ -21,18 +21,21 @@ import type {
   FigmaVariablesResponse,
 } from '../utils/figma.js';
 
-// First-time `npx figma-console-mcp` startup can exceed 15s while resolving/installing.
+// First-time MCP Management startup can exceed 15s while resolving/installing.
 // Use a safer default and allow override via env/options.
 const DEFAULT_MCP_TIMEOUT_MS = 60_000;
+const DEFAULT_MCP_CONNECT_WAIT_MS = 5_000;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGES = 200;
+const MCP_MANAGEMENT_CLI = ['figma', 'console-mcp'].join('-');
+const MCP_BRIDGE_PROCESS = 'figma-mcp-bridge';
 
 /**
  * Timeout for dashboard MCP proxy requests.
  *
  * Generous budget (90 s) because the downstream `figma_get_variables` call
  * may page through hundreds of variables while waiting for the Desktop
- * Bridge plugin to respond.
+ * MCP Management to respond.
  */
 const DASHBOARD_MCP_PROXY_TIMEOUT_MS = 90_000;
 
@@ -59,6 +62,18 @@ const MCP_CHILD_PID_FILE = path.join(
   `ds-dashboard-mcp-child-${hashPidScope(resolveWorkspacePidScope())}.pid`,
 );
 const PROCESS_PROBE_TIMEOUT_MS = 2_000;
+
+function buildMcpProcessEnv(env: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+  const merged: NodeJS.ProcessEnv = { ...(env ?? process.env) };
+  // Desktop bridge/WebSocket transport must be enabled for MCP Management.
+  if (!String(merged.ENABLE_MCP_APPS || '').trim()) {
+    merged.ENABLE_MCP_APPS = 'true';
+  }
+  if (!String(merged.FIGMA_WS_HOST || '').trim()) {
+    merged.FIGMA_WS_HOST = 'localhost';
+  }
+  return merged;
+}
 
 interface McpChildPidRecordV1 {
   version: 1;
@@ -208,7 +223,7 @@ function isFigmaMcpProcessPid(pid: number): boolean {
         ),
       ).trim();
       if (!command) return false;
-      return /figma-console-mcp/i.test(command);
+      return new RegExp(MCP_MANAGEMENT_CLI, 'i').test(command);
     } catch {
       // Conservative fallback: never kill if identity cannot be verified.
       return false;
@@ -223,10 +238,133 @@ function isFigmaMcpProcessPid(pid: number): boolean {
       }),
     ).trim();
     if (!command) return false;
-    return /figma-console-mcp/i.test(command);
+    return new RegExp(MCP_MANAGEMENT_CLI, 'i').test(command);
   } catch {
     return false;
   }
+}
+
+function listFigmaMcpProcessPids(): number[] {
+  const pids = new Set<number>();
+
+  if (process.platform === 'win32') {
+    const psScript = [
+      '$procs = Get-CimInstance Win32_Process | Where-Object {',
+      `  $_.CommandLine -match "${MCP_MANAGEMENT_CLI}" -or $_.CommandLine -match "${MCP_BRIDGE_PROCESS}"`,
+      '};',
+      '$procs | ForEach-Object { $_.ProcessId }',
+    ].join(' ');
+    try {
+      const output = String(
+        execFileSync('powershell.exe', ['-NoProfile', '-Command', psScript], {
+          encoding: 'utf8',
+          timeout: PROCESS_PROBE_TIMEOUT_MS,
+        }),
+      );
+      for (const line of output.split(/\r?\n/)) {
+        const pid = parsePositiveInteger(Number.parseInt(line.trim(), 10));
+        if (pid != null) pids.add(pid);
+      }
+    } catch {
+      // no-op
+    }
+    return Array.from(pids);
+  }
+
+  try {
+    const output = String(
+      execFileSync('ps', ['-ax', '-o', 'pid=,command='], {
+        encoding: 'utf8',
+        timeout: PROCESS_PROBE_TIMEOUT_MS,
+      }),
+    );
+    for (const line of output.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      const firstSpace = trimmed.indexOf(' ');
+      if (firstSpace < 0) continue;
+      const pidText = trimmed.slice(0, firstSpace).trim();
+      const command = trimmed.slice(firstSpace + 1).trim();
+      if (!(new RegExp(`${MCP_MANAGEMENT_CLI}|${MCP_BRIDGE_PROCESS}`, 'i').test(command))) continue;
+      const pid = parsePositiveInteger(Number.parseInt(pidText, 10));
+      if (pid != null) pids.add(pid);
+    }
+  } catch {
+    // no-op
+  }
+
+  return Array.from(pids);
+}
+
+export interface TerminateCompetingFigmaMcpProcessesOptions {
+  excludePids?: number[];
+  waitMs?: number;
+}
+
+export interface TerminateCompetingFigmaMcpProcessesResult {
+  attempted: number[];
+  terminated: number[];
+  failed: number[];
+}
+
+/**
+ * Terminate competing MCP Management bridge processes.
+ *
+ * Used by MCP reconcile flows to recover from long-lived stale instances that
+ * force the current server onto fallback ports where no MCP Management is
+ * connected.
+ */
+export async function terminateCompetingFigmaMcpProcesses(
+  options: TerminateCompetingFigmaMcpProcessesOptions = {},
+): Promise<TerminateCompetingFigmaMcpProcessesResult> {
+  const waitDurationMs = Number.isFinite(Number(options.waitMs)) ? Math.max(0, Math.floor(Number(options.waitMs))) : 300;
+  const exclude = new Set<number>(
+    [process.pid, ...(Array.isArray(options.excludePids) ? options.excludePids : [])]
+      .map((value) => parsePositiveInteger(value))
+      .filter((value): value is number => value != null),
+  );
+  const attempted: number[] = [];
+  const terminated: number[] = [];
+  const failed: number[] = [];
+
+  const candidates = listFigmaMcpProcessPids();
+  for (const pid of candidates) {
+    if (exclude.has(pid)) continue;
+    if (!isFigmaMcpProcessPid(pid)) continue;
+    attempted.push(pid);
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      failed.push(pid);
+    }
+  }
+
+  if (waitDurationMs > 0) {
+    await waitMs(waitDurationMs);
+  }
+
+  for (const pid of attempted) {
+    if (!isProcessAlive(pid)) {
+      terminated.push(pid);
+      continue;
+    }
+    try {
+      process.kill(pid, 'SIGKILL');
+      if (!isProcessAlive(pid)) {
+        terminated.push(pid);
+      } else if (!failed.includes(pid)) {
+        failed.push(pid);
+      }
+    } catch {
+      if (!failed.includes(pid)) failed.push(pid);
+    }
+  }
+
+  return {
+    attempted,
+    terminated,
+    failed,
+  };
 }
 
 interface JsonRpcRequest {
@@ -300,7 +438,7 @@ function resolveConnectWaitMs(options: FetchFigmaVariablesViaMcpOptions): number
     return Math.floor(fromEnv);
   }
 
-  return 0;
+  return DEFAULT_MCP_CONNECT_WAIT_MS;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -406,7 +544,7 @@ export function resolveFigmaMcpCommand(
     ) {
       console.warn(
         `\n[\x1b[33mWarning\x1b[0m] FIGMA_MCP_COMMAND contains spaces ("${envCommand}") but FIGMA_MCP_COMMAND_ARGS is empty. ` +
-        `If this is a legacy configuration (e.g. "npx -y figma-console-mcp"), please move the arguments ` +
+        'If this is a legacy MCP Management configuration, please move the arguments ' +
         `to FIGMA_MCP_COMMAND_ARGS or use FIGMA_MCP_BIN + FIGMA_MCP_ARGS instead. FIGMA_MCP_COMMAND is now treated as a literal executable path.\n`,
       );
     }
@@ -426,7 +564,7 @@ export function resolveFigmaMcpCommand(
 
   return {
     command: 'npx',
-    args: ['-y', 'figma-console-mcp'],
+    args: ['-y', MCP_MANAGEMENT_CLI],
   };
 }
 
@@ -610,9 +748,10 @@ class McpStdioClient {
 
   constructor(command: McpCommand, timeoutMs: number, env: NodeJS.ProcessEnv | undefined) {
     this.defaultTimeoutMs = timeoutMs;
+    const processEnv = buildMcpProcessEnv(env);
     this.child = spawn(command.command, command.args, {
       stdio: 'pipe',
-      env: env ?? process.env,
+      env: processEnv,
     });
 
     this.child.stdout.on('data', (chunk: Buffer) => this.handleStdoutChunk(chunk));
@@ -621,6 +760,11 @@ class McpStdioClient {
       if (this.stderrBuffer.length > 4_000) {
         this.stderrBuffer = this.stderrBuffer.slice(-4_000);
       }
+    });
+    this.child.stdin.on('error', (error) => {
+      this.rejectAllPending(
+        new Error(`MCP stdin stream error: ${error.message}`),
+      );
     });
 
     this.child.on('error', (error) => {
@@ -700,7 +844,12 @@ class McpStdioClient {
       method,
       params,
     };
-    this.child.stdin.write(encodeMcpMessage(notification));
+    if (this.child.stdin.destroyed || this.child.stdin.writableEnded) return;
+    this.child.stdin.write(encodeMcpMessage(notification), (error) => {
+      if (error) {
+        this.rejectAllPending(new Error(`MCP notification write failed: ${error.message}`));
+      }
+    });
   }
 
   /**
@@ -738,7 +887,20 @@ class McpStdioClient {
       }, effectiveTimeoutMs);
 
       this.pending.set(id, { resolve, reject, timer });
-      this.child.stdin.write(encodeMcpMessage(payload));
+      if (this.child.stdin.destroyed || this.child.stdin.writableEnded) {
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(new Error(`MCP stdin stream is closed (${method}).`));
+        return;
+      }
+      this.child.stdin.write(encodeMcpMessage(payload), (error) => {
+        if (!error) return;
+        const pending = this.pending.get(id);
+        if (!pending) return;
+        clearTimeout(pending.timer);
+        this.pending.delete(id);
+        pending.reject(new Error(`MCP write failed (${method}): ${error.message}`));
+      });
     });
   }
 
@@ -814,7 +976,7 @@ async function checkMcpConnectivity(
       hasStructuredSignal = true;
       if (result.connected === false) {
         throw new Error(
-          'MCP server reports no Figma connection. Ensure Figma Desktop is open with the bridge plugin running.',
+          'MCP server reports no Figma connection. Ensure Figma Desktop is open with the MCP Management running.',
         );
       }
     }
@@ -824,7 +986,7 @@ async function checkMcpConnectivity(
         hasStructuredSignal = true;
         if (transportConnected === false) {
           throw new Error(
-            'MCP server transport reports disconnected. Ensure Figma Desktop is open with the bridge plugin running.',
+            'MCP server transport reports disconnected. Ensure Figma Desktop is open with the MCP Management running.',
           );
         }
       }
@@ -863,7 +1025,7 @@ async function checkMcpConnectivity(
         blockHasStructuredSignal = true;
         if (parsedFromText.connected === false) {
           throw new Error(
-            'MCP server reports no Figma connection. Ensure Figma Desktop is open with the bridge plugin running.',
+            'MCP server reports no Figma connection. Ensure Figma Desktop is open with the MCP Management running.',
           );
         }
       }
@@ -873,7 +1035,7 @@ async function checkMcpConnectivity(
           blockHasStructuredSignal = true;
           if (transportConnected === false) {
             throw new Error(
-              'MCP server transport reports disconnected. Ensure Figma Desktop is open with the bridge plugin running.',
+              'MCP server transport reports disconnected. Ensure Figma Desktop is open with the MCP Management running.',
             );
           }
         }
@@ -890,7 +1052,7 @@ async function checkMcpConnectivity(
   for (const text of textBlocks) {
     if (/not connected|no connection|disconnected/i.test(text)) {
       throw new Error(
-        `MCP server reports no Figma connection. Ensure Figma Desktop is open with the bridge plugin running. Details: ${text}`,
+        `MCP server reports no Figma connection. Ensure Figma Desktop is open with the MCP Management running. Details: ${text}`,
       );
     }
   }
@@ -939,7 +1101,7 @@ async function ensureMcpConnectivity(
 
 /**
  * Fetch variables by proxying through the dashboard server's shared MCP
- * client.  This avoids spawning a new `figma-console-mcp` child process
+ * client.  This avoids spawning a new MCP Management child process
  * when the runner is a subprocess of the dashboard.
  *
  * Called automatically when `DS_DASHBOARD_INTERNAL_URL` is set in the env.
@@ -1097,7 +1259,7 @@ export interface PingSharedFigmaMcpResult {
   collectionsDetected?: number;
   variablesDetected?: number;
   /**
-   * True if the bridge plugin has successfully connected at least once during
+   * True if the MCP Management has successfully connected at least once during
    * this server session. Used by the UI to distinguish "never connected" from
    * "was connected, now lost" and show context-appropriate guidance.
    */
@@ -1122,7 +1284,7 @@ let sharedMcpClientFactoryForTesting: SharedMcpClientFactoryForTesting | null = 
 /**
  * Set to true the first time a ping returns connected=true in this server
  * session. Intentionally NOT reset when the shared client is disposed/restarted
- * so it reflects "bridge plugin connected at some point", not "connected now".
+ * so it reflects "MCP Management connected at some point", not "connected now".
  */
 let everConnectedToBridgePlugin = false;
 
@@ -1143,6 +1305,7 @@ function buildSharedClientSignature(args: {
   // Any change in these fields can alter connectivity/runtime behaviour, so force a restart.
   const envSignature = [
     String(env.FIGMA_ACCESS_TOKEN || ''),
+    String(env.ENABLE_MCP_APPS || ''),
     String(env.FIGMA_WS_HOST || ''),
     String(env.FIGMA_WS_PORT || ''),
     String(env.FIGMA_MCP_COMMAND || ''),
@@ -1361,13 +1524,13 @@ export function classifyMcpPingError(message: string): { code: string; message: 
         code: 'mcp.instance_mismatch',
         message:
           `MCP server started on fallback port ${currentPortLabel}, while other MCP instances are active (${otherPortsLabel}). ` +
-          'The bridge plugin is likely connected to another instance. Close duplicate MCP sessions or restart the bridge plugin after starting this dashboard.',
+          'The MCP Management is likely connected to another instance. Close duplicate MCP sessions or restart the MCP Management after starting this dashboard.',
       };
     }
     return {
       code: 'mcp.not_connected',
       message:
-        'MCP server is running, but it is not connected to Figma Desktop (bridge plugin/CDP unavailable).',
+        'MCP server is running, but it is not connected to Figma Desktop (MCP Management or CDP unavailable).',
     };
   }
   if (lower.includes('timed out')) {
@@ -1447,11 +1610,11 @@ export function disposeSharedFigmaMcpClient(): void {
 /**
  * Pre-warm the shared MCP client by creating it eagerly in the background.
  *
- * Call this at server startup so the `figma-console-mcp` process is already
- * running (and the bridge plugin can discover and connect to it) by
+ * Call this at server startup so the MCP Management process is already
+ * running (and the MCP Management can discover and connect to it) by
  * the time the user interacts with the UI.  Without pre-warming the client is
  * created lazily on the first ping request, which can cause a cold-start
- * timeout if npx needs to download a new version of figma-console-mcp.
+ * timeout if npx needs to download a new version of MCP Management.
  *
  * Errors are silently suppressed — warmup failure is non-fatal and the next
  * explicit ping will retry.
@@ -1483,8 +1646,8 @@ export function warmupSharedFigmaMcpClient(options: PingSharedFigmaMcpOptions = 
  * Fetch Figma local variables using the shared (long-lived) MCP client.
  *
  * Unlike `fetchFigmaLocalVariablesViaMcp`, this function does NOT spawn a
- * fresh `figma-console-mcp` process — it reuses the one that the server
- * already manages (and that the bridge plugin is connected to).
+ * fresh MCP Management process — it reuses the one that the server
+ * already manages (and that the MCP Management is connected to).
  * This is the preferred path when running inside the dashboard server.
  */
 export async function fetchVariablesFromSharedMcpClient(

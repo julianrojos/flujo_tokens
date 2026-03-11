@@ -166,3 +166,73 @@ test('figma-mcp-variables-route: maps fetch errors to fetch_failed payload', asy
   assert.equal(payload.code, 'mcp_variables.fetch_failed');
   assert.match(String(payload.message || ''), /synthetic variables failure/i);
 });
+
+test('figma-mcp-variables-route: retries once after resetting shared MCP client when heartbeat is alive', async () => {
+  let attempts = 0;
+  let disposeCalls = 0;
+  const app = createTestApp({
+    fetchFigmaMcpVariablesFn: async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error('MCP server is running, but it is not connected to Figma Desktop.');
+      }
+      return {
+        meta: {
+          variableCollections: { 'Collection:1': { id: 'Collection:1', name: 'Primitives' } },
+          variables: { 'VariableID:1': { id: 'VariableID:1', name: 'color/primary' } },
+        },
+      };
+    },
+    disposeFigmaMcpPingServiceFn: () => {
+      disposeCalls += 1;
+    },
+    getFigmaMcpHeartbeatStatusFn: () => ({ alive: true }),
+  });
+
+  const response = await app.request('/api/figma-mcp-variables', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ok, true);
+  assert.equal(attempts, 2);
+  assert.equal(disposeCalls, 1);
+});
+
+test('figma-mcp-variables-route: retries once on broken MCP stdio stream error', async () => {
+  let attempts = 0;
+  let disposeCalls = 0;
+  const app = createTestApp({
+    fetchFigmaMcpVariablesFn: async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error('MCP stdin stream is closed (tools/call).');
+      }
+      return {
+        meta: {
+          variableCollections: { 'Collection:1': { id: 'Collection:1', name: 'Primitives' } },
+          variables: { 'VariableID:1': { id: 'VariableID:1', name: 'color/primary' } },
+        },
+      };
+    },
+    disposeFigmaMcpPingServiceFn: () => {
+      disposeCalls += 1;
+    },
+    getFigmaMcpHeartbeatStatusFn: () => ({ alive: true }),
+  });
+
+  const response = await app.request('/api/figma-mcp-variables', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({}),
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ok, true);
+  assert.equal(attempts, 2);
+  assert.equal(disposeCalls, 1);
+});

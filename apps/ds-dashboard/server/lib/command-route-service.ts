@@ -147,7 +147,7 @@ export function isInvalidTokensSourceError(error: unknown): boolean {
 
 function normalizeTokensSource(rawValue: unknown): 'auto' | 'mcp' | 'rest' {
   return parseFigmaVariableSource(rawValue, {
-    defaultValue: 'auto',
+    defaultValue: 'mcp',
     optionName: 'tokens-source',
   });
 }

@@ -14,6 +14,7 @@ import { isLoopbackAddress } from '../lib/loopback-utils.ts';
 import {
   disposeFigmaMcpPingService,
   pingFigmaMcpService,
+  terminateCompetingFigmaMcpProcessesService,
   warmupFigmaMcpPingService,
   type FigmaMcpPingServiceResult,
 } from '../services/figma-mcp-ping-service.ts';
@@ -72,6 +73,7 @@ export interface FigmaMcpReconcileRouteDeps {
   }) => Promise<FigmaMcpPingServiceResult>;
   disposeFigmaMcpPingServiceFn?: () => void;
   warmupFigmaMcpPingServiceFn?: (args?: { env?: NodeJS.ProcessEnv }) => void;
+  terminateCompetingFigmaMcpProcessesFn?: () => Promise<void> | void;
   sleepMs?: number;
 }
 
@@ -188,6 +190,8 @@ export async function handleFigmaMcpReconcileRoute(
   const pingFn = deps.pingFigmaMcpServiceFn ?? pingFigmaMcpService;
   const disposeFn = deps.disposeFigmaMcpPingServiceFn ?? disposeFigmaMcpPingService;
   const warmupFn = deps.warmupFigmaMcpPingServiceFn ?? warmupFigmaMcpPingService;
+  const terminateCompetingFn =
+    deps.terminateCompetingFigmaMcpProcessesFn ?? terminateCompetingFigmaMcpProcessesService;
   const sleepMs = deps.sleepMs ?? DEFAULT_RECONCILE_SLEEP_MS;
 
   if (!isAuthorized(c, internalToken, getConnInfoFn)) {
@@ -307,6 +311,16 @@ export async function handleFigmaMcpReconcileRoute(
       }),
       200,
     );
+  }
+
+  const aggressiveCleanupRequested =
+    body.confirmGlobalReset === true || initialPing.code === 'mcp.instance_mismatch';
+  if (aggressiveCleanupRequested) {
+    try {
+      await terminateCompetingFn();
+    } catch {
+      // Best-effort cleanup only; keep reconcile flow moving.
+    }
   }
 
   const warmupEnv = resolvedFigmaToken

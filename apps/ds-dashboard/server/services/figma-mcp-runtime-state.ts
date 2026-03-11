@@ -22,7 +22,7 @@ export interface FigmaMcpRuntimeState {
   };
 }
 
-const DEFAULT_PORT_RANGE: McpPortRange = { start: 9223, end: 9227 };
+const DEFAULT_PORT_RANGE: McpPortRange = { start: 9223, end: 9232 };
 
 let runtimeState: FigmaMcpRuntimeState | null = null;
 

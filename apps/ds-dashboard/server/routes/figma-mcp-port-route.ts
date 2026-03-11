@@ -251,7 +251,7 @@ export async function handlePostFigmaMcpPort(c: Context, deps: FigmaMcpPortRoute
         ok: true,
         activePort: requestedPort,
         previousPort,
-        message: 'MCP port switched successfully. Reconnect the bridge plugin if needed.',
+        message: 'MCP port switched successfully. Reconnect the MCP Management if needed.',
       },
       200
     );

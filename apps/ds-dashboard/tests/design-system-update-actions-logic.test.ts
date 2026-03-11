@@ -36,7 +36,7 @@ describe("design-system update actions logic", () => {
       injectDocSpecs: false,
       mainCaptureMode: "rest",
       componentKind: "component_set",
-      tokensSource: "auto",
+      tokensSource: "mcp",
       figmaToken: "figd_secret",
     });
   });
@@ -73,4 +73,3 @@ describe("design-system update actions logic", () => {
     );
   });
 });
-

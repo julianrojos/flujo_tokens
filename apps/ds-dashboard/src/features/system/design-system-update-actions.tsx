@@ -47,7 +47,7 @@ export function DesignSystemUpdateActions({
   const [sharedToken, setSharedToken] = useState("");
   const [componentsValidationError, setComponentsValidationError] = useState<string | null>(null);
 
-  const [tokensSource, setTokensSource] = useState<TokensSource>("auto");
+  const [tokensSource, setTokensSource] = useState<TokensSource>("mcp");
 
   const [componentsState, componentsActions] = useOperationRunner(
     `ds-admin-components-${systemId}`,

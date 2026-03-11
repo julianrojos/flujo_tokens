@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getPluginMcpClient, type ConnectionState } from '../../services/mcp-client';
 
-const ALLOWED_PORTS = [9223, 9224, 9225, 9226, 9227];
+const ALLOWED_PORTS = [9223, 9224, 9225, 9226, 9227, 9228, 9229, 9230, 9231, 9232];
 const MIN_ALLOWED_PORT = ALLOWED_PORTS.reduce((min, port) => (port < min ? port : min), ALLOWED_PORTS[0]);
 const MAX_ALLOWED_PORT = ALLOWED_PORTS.reduce((max, port) => (port > max ? port : max), ALLOWED_PORTS[0]);
 
@@ -44,7 +44,7 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
   // Fetch initial connection state
   const fetchConnectionState = useCallback(async () => {
     try {
-      const capabilities = await mcpClient.getCapabilities();
+      const capabilities = await mcpClient.getCapabilities({ forceRefresh: true });
       const state = mcpClient.computeConnectionState(capabilities);
       if (isMountedRef.current) {
         setConnectionState(state);
@@ -297,7 +297,7 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
           color: '#4CAF50',
           textAlign: 'center',
         }}>
-          ✓ Port switched successfully. The plugin bridge may need to reconnect.
+          ✓ Port switched successfully. MCP may need a few seconds to relink.
         </p>
       )}
 
@@ -308,7 +308,7 @@ export const PortSwitcher: React.FC<PortSwitcherProps> = ({
           color: '#FF9800',
           textAlign: 'center',
         }}>
-          Tip: Make sure the plugin bridge is running and try again.
+          Tip: Keep this plugin open in Figma, then retry.
         </p>
       )}
     </div>

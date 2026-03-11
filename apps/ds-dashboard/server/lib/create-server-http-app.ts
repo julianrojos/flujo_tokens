@@ -6,6 +6,7 @@
  */
 
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 
 import { registerAllRoutes } from '../routes/register-all-routes.ts';
 import { createFailJson, createHealthPayloadBuilder } from './api-response-service.ts';
@@ -48,6 +49,22 @@ export function createServerHttpApp(config: CreateServerHttpAppConfig): CreateSe
   } = config;
 
   const app = new Hono();
+  app.use(
+    '*',
+    cors({
+      origin: '*',
+      allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowHeaders: [
+        'Content-Type',
+        'Authorization',
+        'x-ds-dashboard-internal-token',
+        'x-ds-mcp-reset-confirm',
+        'x-ds-mcp-reconcile-confirm',
+      ],
+      exposeHeaders: ['Content-Type'],
+      maxAge: 600,
+    }),
+  );
   const failJson = createFailJsonFn({
     createRequestId: createApiRequestId,
     buildApiErrorPayloadFn: buildApiErrorPayload,

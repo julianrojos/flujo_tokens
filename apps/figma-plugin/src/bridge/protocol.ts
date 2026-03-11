@@ -2,7 +2,7 @@
  * WebSocket Bridge Protocol
  *
  * Defines the typed contract for communication between the Figma plugin
- * and the figma-console-mcp server via WebSocket.
+ * and the MCP Management server via WebSocket.
  *
  * Data flow: Plugin (code.ts) <-> UI (ws-runtime.ts) <-> WebSocket Server
  */
@@ -562,7 +562,7 @@ export const DEFAULT_WS_CONFIG: WSRuntimeConfig = {
   requestTimeout: 15000,
   reconnectDelay: 500,
   reconnectMaxDelay: 5000,
-  maxReconnectAttempts: 50,
+  maxReconnectAttempts: 500,
   handshakeTimeout: 30000,
 };
 
@@ -612,7 +612,7 @@ export interface BridgePluginResponseMessage {
 }
 
 /**
- * Union of all bridge plugin message types.
+ * Union of all MCP Management message types.
  */
 export type BridgePluginMessage = BridgePluginRequestMessage | BridgePluginResponseMessage;
 

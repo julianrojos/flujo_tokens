@@ -61,7 +61,8 @@
     "test:server:tsx": "tsx --test apps/ds-dashboard/server/lib/*.test.ts apps/ds-dashboard/server/routes/*.test.ts apps/ds-dashboard/server/create-server-app.test.ts apps/ds-dashboard/server/create-server-http-app.test.ts apps/ds-dashboard/server/routes/analysis-routes.test.ts apps/ds-dashboard/server/routes/component-spec-routes.test.ts",
     "test:server": "npm run test:server:node && npm run test:server:tsx",
     "test:dashboard": "npm --prefix apps/ds-dashboard run test",
-    "dashboard:dev": "npm --prefix apps/ds-dashboard run dev",
+    "dashboard:dev": "HOST=localhost npm --prefix apps/ds-dashboard run dev",
+    "dashboard:dev:host": "npm --prefix apps/ds-dashboard run dev",
     "dashboard:build": "npm --prefix apps/ds-dashboard run build",
     "dashboard:preview": "npm --prefix apps/ds-dashboard run preview"
   },

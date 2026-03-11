@@ -68,7 +68,7 @@ export function buildUpdateComponentsPayload(
     injectDocSpecs: false,
     mainCaptureMode: "rest",
     componentKind: "component_set",
-    tokensSource: "auto",
+    tokensSource: "mcp",
   };
 
   const token = String(args.figmaToken || "").trim();
@@ -104,4 +104,3 @@ export function resolveUpdateButtonLabel(args: {
   if (args.isRunning) return "Updating...";
   return args.type === "components" ? "Update components" : "Update variables";
 }
-

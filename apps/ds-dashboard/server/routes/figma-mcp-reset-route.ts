@@ -87,7 +87,7 @@ export async function handleFigmaMcpResetRoute(
   return c.json({
     ok: true,
     restarting: true,
-    message: 'Local MCP session restarted. Reopen the bridge plugin in Figma, then test the connection.',
+    message: 'Local MCP session restarted. Reopen the MCP Management in Figma, then test the connection.',
   });
 }
 

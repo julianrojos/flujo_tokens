@@ -14,9 +14,9 @@ import {
 
 function createTestApp(
   overrides: Partial<FigmaMcpReconcileRouteDeps> = {},
-): { app: Hono; calls: { dispose: number; warmup: number; ping: number } } {
+): { app: Hono; calls: { dispose: number; warmup: number; ping: number; terminateCompeting: number } } {
   const app = new Hono();
-  const calls = { dispose: 0, warmup: 0, ping: 0 };
+  const calls = { dispose: 0, warmup: 0, ping: 0, terminateCompeting: 0 };
 
   const deps: FigmaMcpReconcileRouteDeps = {
     getConnInfoFn: () => ({ remote: { address: '127.0.0.1' } }),
@@ -37,6 +37,9 @@ function createTestApp(
     warmupFigmaMcpPingServiceFn: () => {
       calls.warmup += 1;
     },
+    terminateCompetingFigmaMcpProcessesFn: async () => {
+      calls.terminateCompeting += 1;
+    },
     sleepMs: 0,
   };
 
@@ -48,6 +51,9 @@ function createTestApp(
   }
   if (overrides.warmupFigmaMcpPingServiceFn) {
     deps.warmupFigmaMcpPingServiceFn = overrides.warmupFigmaMcpPingServiceFn;
+  }
+  if (overrides.terminateCompetingFigmaMcpProcessesFn) {
+    deps.terminateCompetingFigmaMcpProcessesFn = overrides.terminateCompetingFigmaMcpProcessesFn;
   }
   if (typeof overrides.sleepMs === 'number') deps.sleepMs = overrides.sleepMs;
 
@@ -132,6 +138,7 @@ test('figma-mcp-reconcile-route: returns immediately when already connected', as
   assert.equal(pingCount, 1);
   assert.equal(calls.dispose, 0);
   assert.equal(calls.warmup, 0);
+  assert.equal(calls.terminateCompeting, 0);
 });
 
 test('figma-mcp-reconcile-route: resets and retries when disconnected', async () => {
@@ -176,10 +183,11 @@ test('figma-mcp-reconcile-route: resets and retries when disconnected', async ()
   assert.equal(pingCount, 2);
   assert.equal(calls.dispose, 1);
   assert.equal(calls.warmup, 1);
+  assert.equal(calls.terminateCompeting, 1);
 });
 
 test('figma-mcp-reconcile-route: accepts legacy reset confirmation fields', async () => {
-  const { app } = createTestApp();
+  const { app, calls } = createTestApp();
 
   const response = await app.request('/api/figma-mcp/reconcile', {
     method: 'POST',
@@ -193,4 +201,5 @@ test('figma-mcp-reconcile-route: accepts legacy reset confirmation fields', asyn
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.equal(payload.attemptedReset, true);
+  assert.equal(calls.terminateCompeting, 1);
 });
