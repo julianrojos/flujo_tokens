@@ -18,6 +18,7 @@ interface FigmaMcpConnectionTestButtonProps {
   disabled?: boolean;
   size?: "default" | "sm";
   showDetectedCounts?: boolean;
+  suggestResolve?: boolean;
 }
 
 const RESET_POLL_INTERVAL_MS = 2_000;
@@ -45,6 +46,7 @@ export function FigmaMcpConnectionTestButton({
   disabled = false,
   size = "sm",
   showDetectedCounts = true,
+  suggestResolve = false,
 }: FigmaMcpConnectionTestButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
@@ -280,7 +282,7 @@ export function FigmaMcpConnectionTestButton({
   const isMismatch = result?.code === "mcp.instance_mismatch";
   const isNotConnected = result?.code === "mcp.not_connected";
   const isResetTimeout = result?.code === "mcp.reset_timeout";
-  const canResolve = isMismatch || isNotConnected || isResetTimeout;
+  const canResolve = (!result?.connected && suggestResolve) || isMismatch || isNotConnected || isResetTimeout;
   const isRecoveryActive = isResetting || isWaiting;
   const showRecoveryStepper = isRecoveryActive || isResetTimeout;
   const activeRecoveryStep = isResetting ? 0 : isWaiting ? 1 : isResetTimeout ? 2 : -1;

@@ -1,4 +1,39 @@
+import type { LogLine } from "@/features/ops/hooks/use-operation-runner";
+
 export type TokensSource = "auto" | "mcp" | "rest";
+
+/**
+ * Checks if a failed operation was caused by an MCP instance mismatch.
+ * This decoupled helper prevents the UI from relying on hardcoded backend error strings.
+ *
+ * @param status - The current status of the operation ("idle", "running", "success", "error")
+ * @param summary - The short summary string of the result
+ * @param logLines - The array of log lines emitted during the operation
+ * @returns boolean - True if the error is an MCP mismatch, false otherwise
+ */
+export function isMcpMismatchError(
+  status: string,
+  summary: string,
+  logLines: LogLine[]
+): boolean {
+  if (status !== "error") return false;
+
+  const searchText = String(summary || "").toLowerCase();
+
+  // Condition 1: The error explicitly says so in the summary
+  if (searchText.includes("mcp.instance_mismatch")) {
+    return true;
+  }
+
+  // Condition 2: Search in logs if something failed due to desynchronized instance
+  const hasMismatchInLogs = logLines.some(
+    (line) =>
+      line.kind === "stderr" &&
+      String(line.text || "").toLowerCase().includes("mcp.instance_mismatch")
+  );
+
+  return hasMismatchInLogs;
+}
 
 export interface BuildUpdateComponentsPayloadArgs {
   figmaUrl: string;
