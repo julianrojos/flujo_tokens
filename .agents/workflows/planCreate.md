@@ -113,7 +113,7 @@ For each risk:
 - Mitigation
 - Detection (how we’ll notice it broke)
 
-#### 8) Handoff instructions for the other AI (MUST)
+#### 8) Handoff instructions for you (MUST)
 - No branches.
 - No stage/commit/push without explicit user instruction.
 - Implement step-by-step; after each step, run the “Verify” commands.
