@@ -67,6 +67,13 @@ interface ParentPostMessageLike {
 
 const WS_HOST_CANDIDATES = ['localhost'] as const;
 
+/**
+ * Virtual port identifier for direct mode connections.
+ * In direct mode, the port is not scanned but derived from the WebSocket URL.
+ * This constant serves as a semantic identifier rather than a network port.
+ */
+const DIRECT_MODE_VIRTUAL_PORT = 8787;
+
 export class WebSocketRuntime {
   private config: WSRuntimeConfig;
   private connections: Map<number, ClientConnection> = new Map();
@@ -97,12 +104,68 @@ export class WebSocketRuntime {
   }
 
   // ============================================================================
+  // Direct Mode Helpers
+  // ============================================================================
+
+  /**
+   * Extract port number from WebSocket URL.
+   * Derives port by protocol (ws→80, wss→443) when not explicitly specified.
+   * Returns DIRECT_MODE_VIRTUAL_PORT (8787) only as a semantic identifier when
+   * URL parsing fails completely.
+   */
+  private extractPortFromWsUrl(wsUrl: string): number {
+    try {
+      const url = new URL(wsUrl);
+      // If port is explicitly specified, use it
+      if (url.port) {
+        return parseInt(url.port, 10);
+      }
+      // Derive default port from protocol
+      if (url.protocol === 'wss:') {
+        return 443;
+      }
+      // Default to 80 for ws://
+      return 80;
+    } catch {
+      // URL parsing failed - use virtual port as semantic identifier
+      // This indicates the port is not derived from a valid URL
+      return DIRECT_MODE_VIRTUAL_PORT;
+    }
+  }
+
+  /**
+    * Validate direct WebSocket URL configuration.
+    * Returns the validated URL or null if invalid.
+    */
+  private validateDirectWsUrl(): string | null {
+    const url = this.config.directWsUrl;
+    if (!url) {
+      return null;
+    }
+
+    try {
+      const parsedUrl = new URL(url);
+      if (!['ws:', 'wss:'].includes(parsedUrl.protocol)) {
+        return null;
+      }
+      if (!parsedUrl.hostname) {
+        return null;
+      }
+      return url;
+    } catch {
+      return null;
+    }
+  }
+
+  // ============================================================================
   // Connection Management
   // ============================================================================
 
   /**
    * Start scanning for available servers and connect to all of them.
    * Multi-connection support allows multiple MCP server instances.
+   *
+   * In direct mode, connects to a single WebSocket endpoint.
    */
   async start(): Promise<void> {
     this.isStopping = false;
@@ -112,11 +175,142 @@ export class WebSocketRuntime {
     }
 
     this.ensurePluginMessageListener();
-    console.log(
-      `[WS Runtime] Scanning ports ${this.config.portRangeStart}-${this.config.portRangeEnd} for MCP servers...`
-    );
-    this.updateStatus('connecting', this.config.portRangeStart, null);
-    await this.scanAndConnect();
+
+    if (this.config.transportMode === 'direct' || this.config.transportMode === 'shadow') {
+      // Validate direct WebSocket URL before connecting
+      const directWsUrl = this.validateDirectWsUrl();
+      if (!directWsUrl) {
+        console.error(`[DirectWS] Invalid or missing directWsUrl: ${this.config.directWsUrl}`);
+        this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'invalid_direct_ws_url');
+        // Do NOT fall back to legacy mode — this would hide configuration errors
+        // and mix transport modes unexpectedly. Stay disconnected with explicit error.
+        console.log('[DirectWS] Staying disconnected due to invalid directWsUrl. Fix config to restore connection.');
+        this.isScanning = false;
+        return;
+      }
+
+      // Direct mode: connect to single WebSocket endpoint
+      console.log(`[DirectWS] Starting direct mode connection to ${directWsUrl}`);
+      this.updateStatus('connecting', DIRECT_MODE_VIRTUAL_PORT, null);
+      await this.connectToDirect(directWsUrl);
+    } else {
+      // Legacy mode: scan ports
+      console.log(
+        `[WS Runtime] Scanning ports ${this.config.portRangeStart}-${this.config.portRangeEnd} for MCP servers...`
+      );
+      this.updateStatus('connecting', this.config.portRangeStart, null);
+      await this.scanAndConnect();
+    }
+  }
+
+  /**
+   * Connect to direct WebSocket endpoint (direct mode)
+   * Includes connection timeout to prevent hanging indefinitely.
+   */
+  private async connectToDirect(wsUrl: string): Promise<void> {
+    return new Promise((resolve) => {
+      this.isScanning = true;
+      console.log(`[DirectWS] Connecting to ${wsUrl}`);
+
+      const ws = new WebSocket(wsUrl);
+      const actualPort = this.extractPortFromWsUrl(wsUrl);
+
+      // Connection timeout to prevent hanging indefinitely
+      const connectionTimer = setTimeout(() => {
+        console.warn(`[DirectWS] Connection timeout after ${this.config.connectionTimeout}ms`);
+        ws.removeEventListener('open', onOpen);
+        ws.removeEventListener('error', onError);
+        ws.close();
+
+        this.isScanning = false;
+        this.updateStatus('disconnected', actualPort, null, 'connection_timeout');
+
+        // Schedule reconnect in direct mode too
+        if (!this.isStopping) {
+          this.scheduleReconnect();
+        }
+
+        resolve();
+      }, this.config.connectionTimeout);
+
+      const onOpen = (): void => {
+        clearTimeout(connectionTimer);
+        console.log(`[DirectWS] Connected to ${wsUrl}`);
+        ws.removeEventListener('open', onOpen);
+        ws.removeEventListener('error', onError);
+
+        // Store connection and attach standard handlers.
+        this.addConnection(actualPort, 'localhost', ws);
+
+        // Don't mark as 'connected' yet - wait for handshake/bootstrap to complete
+        // addConnection already marks as 'connecting' if handshakeComplete is false
+        this.isScanning = false;
+
+        // Send session info in direct mode (this triggers handshake)
+        void this.sendSessionInfo(ws);
+
+        resolve();
+      };
+
+      const onError = (): void => {
+        clearTimeout(connectionTimer);
+        console.error(`[DirectWS] Failed to connect to ${wsUrl}`);
+        ws.removeEventListener('open', onOpen);
+        ws.removeEventListener('error', onError);
+        ws.close();
+
+        this.isScanning = false;
+        this.updateStatus('disconnected', actualPort, null, 'connection_failed');
+
+        // Schedule reconnect in direct mode too
+        if (!this.isStopping) {
+          this.scheduleReconnect();
+        }
+
+        resolve();
+      };
+
+      ws.addEventListener('open', onOpen);
+      ws.addEventListener('error', onError);
+    });
+  }
+
+  /**
+   * Send session info to server in direct mode
+   */
+  private async sendSessionInfo(ws: WebSocket): Promise<void> {
+    let fileKey: string | null = this.fileKey;
+    let docName = 'Unknown Document';
+    try {
+      const fileInfo = await this.requestFromCode('GET_FILE_INFO', {});
+      const info = fileInfo as Record<string, unknown>;
+      if (typeof info.fileKey === 'string' || info.fileKey === null) {
+        fileKey = (info.fileKey as string | null) ?? null;
+      }
+      if (typeof info.fileName === 'string' && info.fileName.trim()) {
+        docName = info.fileName;
+      }
+    } catch {
+      // Keep fallback metadata.
+    }
+
+    const sessionInfo = {
+      type: 'SESSION_INFO',
+      sessionInfo: {
+        fileKey: fileKey ?? null,
+        docName,
+        pluginVersion: this.config.pluginVersion ?? '0.0.0',
+        pluginBuild: this.config.pluginBuild ?? 'unknown',
+        timestamp: Date.now(),
+      },
+    };
+
+    try {
+      ws.send(JSON.stringify(sessionInfo));
+      console.log(`[DirectWS] Sent session info: fileKey=${fileKey}, docName=${docName}`);
+    } catch (error) {
+      console.warn('[DirectWS] Failed to send session info:', error);
+    }
   }
 
   /**
@@ -395,7 +589,18 @@ export class WebSocketRuntime {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.scanAndConnect();
+      if (this.config.transportMode === 'direct' || this.config.transportMode === 'shadow') {
+        // Use centralized validation
+        const directWsUrl = this.validateDirectWsUrl();
+        if (!directWsUrl) {
+          console.error(`[DirectWS] Invalid or missing directWsUrl during reconnect: ${this.config.directWsUrl}`);
+          this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'invalid_direct_ws_url');
+          return;
+        }
+        void this.connectToDirect(directWsUrl);
+      } else {
+        void this.scanAndConnect();
+      }
     }, delay);
 
     this.reconnectDelay = delay;
@@ -536,9 +741,9 @@ export class WebSocketRuntime {
           error && typeof error === 'object' && 'code' in error && 'message' in error
             ? (error as BridgeError)
             : createBridgeError(
-                ERROR_CODES.INTERNAL_ERROR,
-                error instanceof Error ? error.message : String(error)
-              );
+              ERROR_CODES.INTERNAL_ERROR,
+              error instanceof Error ? error.message : String(error)
+            );
         this.sendErrorResponse(request.id, bridgeError, originatingPort);
       });
   }
@@ -975,14 +1180,51 @@ export class WebSocketRuntime {
 // ============================================================================
 
 let _wsRuntime: WebSocketRuntime | null = null;
+let _wsRuntimeConfigSignature: string | null = null;
+
+function getRuntimeConfigSignature(config?: Partial<WSRuntimeConfig>): string {
+  const resolvedConfig: WSRuntimeConfig = {
+    ...DEFAULT_WS_CONFIG,
+    ...(config ?? {}),
+  };
+  return JSON.stringify({
+    transportMode: resolvedConfig.transportMode,
+    directWsUrl: resolvedConfig.directWsUrl ?? null,
+    pluginVersion: resolvedConfig.pluginVersion ?? null,
+    pluginBuild: resolvedConfig.pluginBuild ?? null,
+    portRangeStart: resolvedConfig.portRangeStart,
+    portRangeEnd: resolvedConfig.portRangeEnd,
+    connectionTimeout: resolvedConfig.connectionTimeout,
+    requestTimeout: resolvedConfig.requestTimeout,
+    reconnectDelay: resolvedConfig.reconnectDelay,
+    reconnectMaxDelay: resolvedConfig.reconnectMaxDelay,
+    maxReconnectAttempts: resolvedConfig.maxReconnectAttempts,
+    handshakeTimeout: resolvedConfig.handshakeTimeout,
+  });
+}
 
 export function getWSRuntime(config?: Partial<WSRuntimeConfig>): WebSocketRuntime {
+  const nextSignature = getRuntimeConfigSignature(config);
   if (!_wsRuntime) {
     _wsRuntime = new WebSocketRuntime(config);
+    _wsRuntimeConfigSignature = nextSignature;
+    return _wsRuntime;
   }
+
+  if (config && _wsRuntimeConfigSignature && _wsRuntimeConfigSignature !== nextSignature) {
+    const message =
+      '[WS Runtime] Singleton already initialized with different config. ' +
+      'Initialize getWSRuntime(config) once at app bootstrap, then call getWSRuntime() without args.';
+    if (process.env.NODE_ENV !== 'production') {
+      throw new Error(message);
+    }
+    console.warn(message);
+  }
+
   return _wsRuntime;
 }
 
 export function resetWSRuntime(): void {
   _wsRuntime = null;
+  _wsRuntimeConfigSignature = null;
 }
