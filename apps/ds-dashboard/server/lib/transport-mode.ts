@@ -15,7 +15,7 @@ const VALID_TRANSPORT_MODES: readonly TransportMode[] = ['legacy', 'direct', 'sh
 /**
  * Default transport mode
  */
-const DEFAULT_TRANSPORT_MODE: TransportMode = 'legacy';
+const DEFAULT_TRANSPORT_MODE: TransportMode = 'direct';
 
 /**
  * Environment variable name for transport mode

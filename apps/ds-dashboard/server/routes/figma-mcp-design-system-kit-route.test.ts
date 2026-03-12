@@ -11,6 +11,15 @@ import { registerFigmaMcpDesignSystemKitRoute, type FigmaMcpDesignSystemKitRoute
 import type { DesignSystemKitResult } from '../../../../tooling/src/services/figma-mcp-variables.js';
 import { getPluginConnectionManager, resetPluginConnectionManager, type PluginWebSocket } from '../services/plugin-connection-manager.ts';
 
+const ORIGINAL_MCP_TRANSPORT = process.env.MCP_TRANSPORT;
+test.beforeEach(() => {
+  process.env.MCP_TRANSPORT = 'legacy';
+});
+test.after(() => {
+  if (ORIGINAL_MCP_TRANSPORT === undefined) delete process.env.MCP_TRANSPORT;
+  else process.env.MCP_TRANSPORT = ORIGINAL_MCP_TRANSPORT;
+});
+
 function createTestApp(overrides: Partial<FigmaMcpDesignSystemKitRouteDeps> = {}): Hono {
   const app = new Hono();
   registerFigmaMcpDesignSystemKitRoute(app, {

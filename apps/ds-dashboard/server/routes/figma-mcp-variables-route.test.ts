@@ -11,6 +11,15 @@ import { Hono } from 'hono';
 import { registerFigmaMcpVariablesRoute, type FigmaMcpVariablesRouteDeps } from './figma-mcp-variables-route.ts';
 import { getPluginConnectionManager, resetPluginConnectionManager, type PluginWebSocket } from '../services/plugin-connection-manager.ts';
 
+const ORIGINAL_MCP_TRANSPORT = process.env.MCP_TRANSPORT;
+test.beforeEach(() => {
+  process.env.MCP_TRANSPORT = 'legacy';
+});
+test.after(() => {
+  if (ORIGINAL_MCP_TRANSPORT === undefined) delete process.env.MCP_TRANSPORT;
+  else process.env.MCP_TRANSPORT = ORIGINAL_MCP_TRANSPORT;
+});
+
 function createTestApp(overrides: Partial<FigmaMcpVariablesRouteDeps> = {}): Hono {
   const app = new Hono();
   registerFigmaMcpVariablesRoute(app, {
