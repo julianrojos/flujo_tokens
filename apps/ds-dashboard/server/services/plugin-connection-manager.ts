@@ -141,11 +141,15 @@ export class PluginConnectionManager {
     }
 
     /**
-     * Get all active fileKeys
+     * Get all active fileKeys from OPEN connections only.
      */
     getActiveFileKeys(): string[] {
         const fileKeys = new Set<string>();
         for (const connection of this.connections.values()) {
+            // Only count OPEN connections to avoid zombie fileKeys
+            if (connection.socket.readyState !== WS_OPEN_STATE) {
+                continue;
+            }
             if (connection.sessionInfo.fileKey) {
                 fileKeys.add(connection.sessionInfo.fileKey);
             }
@@ -155,9 +159,14 @@ export class PluginConnectionManager {
 
     /**
      * Get count of active connections
+     * Only counts sockets with readyState === OPEN (1) to avoid zombie connections.
      */
     getConnectionCount(): number {
-        return this.connections.size;
+        let count = 0;
+        for (const connection of this.connections.values()) {
+            if (connection.socket.readyState === WS_OPEN_STATE) count++;
+        }
+        return count;
     }
 
     /**

@@ -140,7 +140,23 @@ export async function fetchStylesDirect(fileKey?: string | null): Promise<GetSty
  */
 const DESIGN_SYSTEM_KIT_TIMEOUT_MS = 90_000; // 90 seconds
 
-export async function fetchDesignSystemKitDirect(fileKey?: string | null): Promise<DesignSystemKitResult> {
+export interface DesignSystemKitQueryOptions {
+  /**
+   * Legacy compatibility alias from previous MCP contract.
+   * Accepted values (e.g. summary/full/compact) are currently treated as no-op in direct mode.
+   */
+  format?: string;
+  /**
+   * Optional section filter for compatibility and payload control.
+   * Supported values: tokens, styles.
+   */
+  include?: string[];
+}
+
+export async function fetchDesignSystemKitDirect(
+  fileKey?: string | null,
+  options: DesignSystemKitQueryOptions = {}
+): Promise<DesignSystemKitResult> {
   const startedAt = Date.now();
 
   // Use Promise.allSettled for fault tolerance - styles may fail on older plugins
@@ -174,13 +190,21 @@ export async function fetchDesignSystemKitDirect(fileKey?: string | null): Promi
     styles = stylesResult.value.styles ?? [];
   }
 
+  const include = new Set((options.include ?? []).map((part) => part.trim().toLowerCase()).filter(Boolean));
+  const includeTokens = include.size === 0 || include.has('tokens');
+  const includeStyles = include.size === 0 || include.has('styles');
+
   return {
     ok: true,
-    tokens: {
-      variables: variablesResult.value.meta.variables,
-      variableCollections: variablesResult.value.meta.variableCollections,
-    },
-    styles: normalizeKitStyles({ styles }),
+    ...(includeTokens
+      ? {
+          tokens: {
+            variables: variablesResult.value.meta.variables,
+            variableCollections: variablesResult.value.meta.variableCollections,
+          },
+        }
+      : {}),
+    ...(includeStyles ? { styles: normalizeKitStyles({ styles }) } : {}),
     elapsedMs: Date.now() - startedAt,
   };
 }
@@ -218,4 +242,44 @@ function normalizeKitStyles(result: GetStylesResult): DesignSystemKitResult['sty
     description: style.description,
     key: style.key,
   }));
+}
+
+export interface BridgeCapabilitiesDirectResult {
+  ok: true;
+  supportedMethods: string[];
+  pluginVersion: string;
+  pluginBuild: string;
+  timestamp: number;
+  elapsedMs: number;
+}
+
+/**
+ * Fetch bridge capabilities directly via WebSocket.
+ * Returns list of supported methods and plugin metadata.
+ */
+export async function fetchBridgeCapabilitiesDirect(): Promise<BridgeCapabilitiesDirectResult> {
+  const startedAt = Date.now();
+  const manager = getPluginConnectionManager();
+
+  // Get capabilities from any active connection (doesn't require fileKey)
+  const result = await manager.requestForFileKey<{
+    supportedMethods: string[];
+    pluginVersion: string;
+    pluginBuild: string;
+    timestamp: number;
+  }>(
+    null, // fileKey not needed for capabilities
+    'GET_BRIDGE_CAPABILITIES',
+    {},
+    DIRECT_REQUEST_TIMEOUT_MS
+  );
+
+  return {
+    ok: true,
+    supportedMethods: result.supportedMethods,
+    pluginVersion: result.pluginVersion,
+    pluginBuild: result.pluginBuild,
+    timestamp: result.timestamp,
+    elapsedMs: Date.now() - startedAt,
+  };
 }

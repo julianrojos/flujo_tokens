@@ -1,31 +1,26 @@
 /**
  * Figma MCP Port Route
  *
- * Handles hot port switching for MCP connections.
+ * DEPRECATED: Legacy MCP port management endpoint.
+ * In direct-only mode, port switching is not applicable.
+ * Returns current runtime state for compatibility.
  */
 
 import type { Context } from 'hono';
 import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import {
-  disposeFigmaMcpPingService,
-} from '../services/figma-mcp-ping-service.ts';
-import {
-  getFigmaMcpRuntimeState,
-  isPortAllowed,
-  beginPortSwitch,
-  completePortSwitch,
-  rollbackPortSwitch,
-} from '../services/figma-mcp-runtime-state.ts';
+import { getActiveMcpPort } from '../services/figma-mcp-runtime-state.ts';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
-import { verifyMcpPort } from '../services/figma-mcp-port-verify.ts';
+
+const ALLOWED_PORTS = [9223, 9224, 9225, 9226, 9227, 9228, 9229, 9230, 9231, 9232];
+
+export interface FigmaMcpPortRouteDeps {
+  getConnInfoFn?: (c: Context) => ConnInfo;
+  internalToken?: string;
+}
 
 /**
  * Check if a request is authorized for MCP management endpoints.
- * Returns true if:
- * - Request is from loopback address, OR
- * - Request has valid internal token
- * Fail-closed: empty remoteAddress requires valid token.
  */
 function isAuthorized(
   c: Context,
@@ -34,36 +29,25 @@ function isAuthorized(
 ): boolean {
   const connInfo = getConnInfoFn(c);
   const remoteAddress = String(connInfo?.remote?.address || '').trim();
-  
+
   // Loopback is always allowed
   if (remoteAddress && isLoopbackAddress(remoteAddress)) {
     return true;
   }
-  
+
   // Non-loopback or empty remoteAddress requires valid token
   if (!internalToken) {
     return false;
   }
-  
+
   const receivedToken = String(c.req.header('x-ds-dashboard-internal-token') || '').trim();
   return receivedToken === internalToken;
 }
 
-export interface FigmaMcpPortRouteDeps {
-  getConnInfoFn?: (c: Context) => ConnInfo;
-  internalToken?: string;
-  disposeFigmaMcpPingServiceFn?: () => void;
-  verifyMcpPortFn?: (port: number, timeoutMs?: number) => Promise<boolean>;
-}
-
-interface PortSwitchRequest {
-  port?: unknown;
-}
-
 /**
  * GET /api/figma-mcp/port
- * 
- * Returns current MCP runtime state.
+ *
+ * Returns current MCP runtime state (read-only in direct-only mode).
  */
 export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteDeps): Promise<Response> {
   const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
@@ -81,40 +65,28 @@ export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteD
     );
   }
 
-  try {
-    const state = getFigmaMcpRuntimeState();
-    return c.json(
-      {
-        ok: true,
-        activePort: state.activePort,
-        allowedRange: state.allowedRange,
-        lastChangeAt: state.lastChangeAt,
-        isSwitching: state.isSwitching,
-      },
-      200
-    );
-  } catch {
-    return c.json(
-      {
-        ok: false,
-        code: 'port.state_read_failed',
-        message: 'Failed to read MCP runtime state.',
-      },
-      500
-    );
-  }
+  const activePort = getActiveMcpPort();
+
+  return c.json({
+    ok: true,
+    activePort,
+    allowedRange: { start: ALLOWED_PORTS[0], end: ALLOWED_PORTS[ALLOWED_PORTS.length - 1] },
+    lastChangeAt: 0,
+    isSwitching: false,
+    note: 'Port switching is deprecated in direct-only mode. This endpoint returns read-only state.',
+  });
 }
 
 /**
  * POST /api/figma-mcp/port
- * 
- * Switches MCP port at runtime.
+ *
+ * DEPRECATED: Port switching is not supported in direct-only mode.
  */
 export async function handlePostFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteDeps): Promise<Response> {
   const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
   const internalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
 
-  // Authorization check: fail-closed
+  // Authorization check
   if (!isAuthorized(c, internalToken, getConnInfoFn)) {
     return c.json(
       {
@@ -126,162 +98,19 @@ export async function handlePostFigmaMcpPort(c: Context, deps: FigmaMcpPortRoute
     );
   }
 
-  // Parse request body
-  let body: PortSwitchRequest;
-  try {
-    body = (await c.req.json()) as PortSwitchRequest;
-  } catch {
-    return c.json(
-      {
-        ok: false,
-        code: 'port.invalid_body',
-        message: 'Invalid JSON body.',
-      },
-      400
-    );
-  }
-
-  // Validate port type
-  if (body.port === undefined || body.port === null) {
-    return c.json(
-      {
-        ok: false,
-        code: 'port.missing',
-        message: 'Port is required.',
-      },
-      400
-    );
-  }
-
-  const requestedPort = Number(body.port);
-  if (!Number.isInteger(requestedPort)) {
-    return c.json(
-      {
-        ok: false,
-        code: 'port.invalid_type',
-        message: 'Port must be an integer.',
-      },
-      400
-    );
-  }
-
-  const state = getFigmaMcpRuntimeState();
-
-  // Validate port range
-  if (!isPortAllowed(requestedPort, state.allowedRange)) {
-    return c.json(
-      {
-        ok: false,
-        code: 'port.out_of_range',
-        message: `Port must be between ${state.allowedRange.start} and ${state.allowedRange.end}.`,
-      },
-      400
-    );
-  }
-
-  // Check if same as active
-  if (requestedPort === state.activePort) {
-    return c.json(
-      {
-        ok: false,
-        code: 'port.same_as_active',
-        message: 'Port is already active.',
-      },
-      400
-    );
-  }
-
-  // Begin atomic switch
-  const beginResult = beginPortSwitch(requestedPort);
-  if (!beginResult.ok) {
-    return c.json(
-      {
-        ok: false,
-        code: 'port.switch_in_progress',
-        message: 'Port switch already in progress. Wait and retry.',
-      },
-      409
-    );
-  }
-
-  const previousPort = beginResult.previousPort;
-
-  // Execute switch: dispose → update env → verify
-  try {
-    const disposeFn = deps.disposeFigmaMcpPingServiceFn ?? disposeFigmaMcpPingService;
-    const verifyFn = deps.verifyMcpPortFn ?? verifyMcpPort;
-    const switchStartedAt = Date.now();
-
-    disposeFn();
-
-    // Update runtime env for future spawns
-    process.env.FIGMA_WS_PORT = String(requestedPort);
-
-    // Verify port is actually active (with timeout)
-    const verified = await verifyFn(requestedPort, 5000);
-    const elapsedMs = Date.now() - switchStartedAt;
-    
-    if (!verified) {
-      // Structured error logging
-      console.error(JSON.stringify({
-        event: 'mcp_port_switch_failed',
-        code: 'port.verify_failed',
-        requestedPort,
-        previousPort,
-        elapsedMs,
-        message: 'Port verification failed: MCP not responding on new port.',
-      }));
-      
-      throw new Error('Port verification failed: MCP not responding on new port.');
-    }
-
-    // Complete switch
-    completePortSwitch(requestedPort);
-
-    // Success logging
-    console.log(JSON.stringify({
-      event: 'mcp_port_switch_success',
-      requestedPort,
-      previousPort,
-      elapsedMs,
-    }));
-
-    return c.json(
-      {
-        ok: true,
-        activePort: requestedPort,
-        previousPort,
-        message: 'MCP port switched successfully. Reconnect the MCP Management if needed.',
-      },
-      200
-    );
-  } catch (error) {
-    // Rollback on failure
-    rollbackPortSwitch(previousPort);
-    process.env.FIGMA_WS_PORT = String(previousPort);
-    
-    // Structured error logging
-    console.error(JSON.stringify({
-      event: 'mcp_port_switch_rolled_back',
-      code: 'port.switch_failed',
-      requestedPort,
-      previousPort,
-      error: error instanceof Error ? error.message : String(error),
-    }));
-
-    return c.json(
-      {
-        ok: false,
-        code: 'port.switch_failed',
-        message: `Port switch failed: ${error instanceof Error ? error.message : String(error)}. Rolled back to ${previousPort}.`,
-      },
-      500
-    );
-  }
+  return c.json(
+    {
+      ok: false,
+      code: 'legacy_endpoint_removed',
+      message: 'Port switching is deprecated in direct-only mode. Direct WebSocket connections use the port configured in the plugin.',
+      deprecated: true,
+    },
+    410 // Gone
+  );
 }
 
 export function registerFigmaMcpPortRoute(
-  app: {
+  app: { 
     get: (path: string, handler: (c: Context) => Response | Promise<Response>) => void;
     post: (path: string, handler: (c: Context) => Response | Promise<Response>) => void;
   },

@@ -53,7 +53,6 @@ import {
 } from './lib/request-file-helpers.ts';
 import {
   disposeFigmaMcpPingService,
-  warmupFigmaMcpPingService,
 } from './services/figma-mcp-ping-service.ts';
 
 export interface CreateServerAppOptions {
@@ -234,8 +233,6 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       validateGitRef,
     }),
   });
-
-  warmupFigmaMcpPingService({ env });
 
   // Advertise the server's internal URL to child processes spawned from this
   // server (e.g., the tokens-from-figma sync subprocess).  When this variable

@@ -11,19 +11,13 @@ import {
   registerFigmaMcpPortRoute,
   type FigmaMcpPortRouteDeps,
 } from './figma-mcp-port-route.ts';
-import {
-  getFigmaMcpRuntimeState,
-  resetFigmaMcpRuntimeState,
-  isPortAllowed,
-} from '../services/figma-mcp-runtime-state.ts';
+import { resetFigmaMcpRuntimeState, isPortAllowed } from '../services/figma-mcp-runtime-state.ts';
 
 function createTestApp(overrides: Partial<FigmaMcpPortRouteDeps> = {}): Hono {
   const app = new Hono();
   registerFigmaMcpPortRoute(app, {
     getConnInfoFn: () => ({ remote: { address: '127.0.0.1' } }),
     internalToken: 'test-token',
-    disposeFigmaMcpPingServiceFn: () => { /* mock */ },
-    verifyMcpPortFn: async () => true, // Mock successful verification
     ...overrides,
   });
   return app;
@@ -91,7 +85,7 @@ test('figma-mcp-port-route: GET allows non-loopback with valid token', async () 
   assert.equal(payload.ok, true);
 });
 
-test('figma-mcp-port-route: POST switches port successfully', async () => {
+test('figma-mcp-port-route (deprecated): POST returns 410 Gone from loopback', async () => {
   const app = createTestApp();
 
   const response = await app.request('/api/figma-mcp/port', {
@@ -100,85 +94,11 @@ test('figma-mcp-port-route: POST switches port successfully', async () => {
     body: JSON.stringify({ port: 9224 }),
   });
 
-  assert.equal(response.status, 200);
-  const payload = await response.json();
-  assert.equal(payload.ok, true);
-  assert.equal(payload.activePort, 9224);
-  assert.equal(payload.previousPort, 9223);
-
-  // Verify state was updated
-  const state = getFigmaMcpRuntimeState();
-  assert.equal(state.activePort, 9224);
-  assert.equal(state.isSwitching, false);
-});
-
-test('figma-mcp-port-route: POST rejects port out of range', async () => {
-  const app = createTestApp();
-
-  const response = await app.request('/api/figma-mcp/port', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ port: 9999 }),
-  });
-
-  assert.equal(response.status, 400);
+  assert.equal(response.status, 410);
   const payload = await response.json();
   assert.equal(payload.ok, false);
-  assert.equal(payload.code, 'port.out_of_range');
-});
-
-test('figma-mcp-port-route: POST rejects non-integer port', async () => {
-  const app = createTestApp();
-
-  const response = await app.request('/api/figma-mcp/port', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ port: 'not-a-number' }),
-  });
-
-  assert.equal(response.status, 400);
-  const payload = await response.json();
-  assert.equal(payload.ok, false);
-  assert.equal(payload.code, 'port.invalid_type');
-});
-
-test('figma-mcp-port-route: POST rejects same port', async () => {
-  const app = createTestApp();
-
-  const response = await app.request('/api/figma-mcp/port', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ port: 9223 }),
-  });
-
-  assert.equal(response.status, 400);
-  const payload = await response.json();
-  assert.equal(payload.ok, false);
-  assert.equal(payload.code, 'port.same_as_active');
-});
-
-test('figma-mcp-port-route: POST allows sequential switches (200, 200)', async () => {
-  const app = createTestApp({
-    internalToken: 'test-token',
-  });
-
-  // First switch
-  const response1 = await app.request('/api/figma-mcp/port', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ port: 9224 }),
-  });
-
-  assert.equal(response1.status, 200);
-
-  // Second switch after first completed (should succeed)
-  const response2 = await app.request('/api/figma-mcp/port', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ port: 9225 }),
-  });
-
-  assert.equal(response2.status, 200);
+  assert.equal(payload.code, 'legacy_endpoint_removed');
+  assert.equal(payload.deprecated, true);
 });
 
 test('figma-mcp-port-route: POST blocks non-loopback without token', async () => {
@@ -212,9 +132,10 @@ test('figma-mcp-port-route: POST allows non-loopback with valid token', async ()
     body: JSON.stringify({ port: 9224 }),
   });
 
-  assert.equal(response.status, 200);
+  assert.equal(response.status, 410);
   const payload = await response.json();
-  assert.equal(payload.ok, true);
+  assert.equal(payload.ok, false);
+  assert.equal(payload.code, 'legacy_endpoint_removed');
 });
 
 test('figma-mcp-port-route: POST blocks empty remoteAddress without token (fail-closed)', async () => {
@@ -245,70 +166,4 @@ test('figma-mcp-port-route: isPortAllowed validates range correctly', () => {
   assert.equal(isPortAllowed(9999, range), false);
   assert.equal(isPortAllowed(NaN, range), false);
   assert.equal(isPortAllowed(9223.5, range), false);
-});
-
-test('figma-mcp-port-route: concurrent POST requests result in one 409', async () => {
-  let verifyBlocker: (() => void) | null = null;
-  const verifyPromise = new Promise<void>((resolve) => {
-    verifyBlocker = resolve;
-  });
-
-  const app = createTestApp({
-    verifyMcpPortFn: async () => {
-      await verifyPromise;
-      return true;
-    },
-  });
-
-  // Launch first request and keep it in-flight during verify.
-  const response1Promise = app.request('/api/figma-mcp/port', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ port: 9224 }),
-  });
-
-  // Allow request 1 to acquire the switch lock before request 2 starts.
-  await new Promise((resolve) => setTimeout(resolve, 0));
-
-  const response2 = await app.request('/api/figma-mcp/port', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ port: 9225 }),
-  });
-
-  // Release request 1 and collect response.
-  verifyBlocker!();
-  const response1 = await response1Promise;
-
-  // One should succeed (200), one should be blocked (409)
-  const statuses = [response1.status, response2.status].sort();
-  assert.deepEqual(statuses, [200, 409]);
-
-  // Verify the 409 has correct code
-  const blockedResponse = response1.status === 409 ? response1 : response2;
-  const payload = await blockedResponse.json();
-  assert.equal(payload.code, 'port.switch_in_progress');
-});
-
-test('figma-mcp-port-route: rollback on verify failure', async () => {
-  const app = createTestApp({
-    verifyMcpPortFn: async () => false, // Always fail verification
-  });
-
-  const response = await app.request('/api/figma-mcp/port', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ port: 9224 }),
-  });
-
-  assert.equal(response.status, 500);
-  const payload = await response.json();
-  assert.equal(payload.ok, false);
-  assert.equal(payload.code, 'port.switch_failed');
-  assert.match(payload.message, /Rolled back to 9223/);
-
-  // Verify state was rolled back
-  const state = getFigmaMcpRuntimeState();
-  assert.equal(state.activePort, 9223);
-  assert.equal(state.isSwitching, false);
 });

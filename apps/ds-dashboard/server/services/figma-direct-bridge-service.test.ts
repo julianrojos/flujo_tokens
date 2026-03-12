@@ -118,6 +118,98 @@ test('figma-direct-bridge-service: fetchDesignSystemKitDirect aggregates variabl
   assert.equal(result.styles?.[0]?.name, 'Heading');
 });
 
+test('figma-direct-bridge-service: fetchDesignSystemKitDirect respects include filter', async () => {
+  resetPluginConnectionManager();
+  const manager = getPluginConnectionManager();
+  let socketId = '';
+
+  const socket = makeSocket((data) => {
+    const request = JSON.parse(data) as { id: string; method: string };
+
+    if (request.method === 'GET_VARIABLES_DATA') {
+      const variablesResult: GetVariablesDataResult = {
+        success: true,
+        timestamp: Date.now(),
+        fileKey: 'FILE_3',
+        variables: [],
+        variableCollections: [],
+      };
+      manager.handleMessage(socketId, JSON.stringify({ id: request.id, result: variablesResult }));
+      return;
+    }
+
+    const stylesResult: GetStylesResult = {
+      success: true,
+      timestamp: Date.now(),
+      fileKey: 'FILE_3',
+      styles: [{ id: 's2', name: 'Body', styleType: 'TEXT', description: 'body text' }],
+    };
+    manager.handleMessage(socketId, JSON.stringify({ id: request.id, result: stylesResult }));
+  });
+
+  socketId = manager.register(socket, {
+    fileKey: 'FILE_3',
+    docName: 'Doc',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  const stylesOnlyResult = await fetchDesignSystemKitDirect('FILE_3', {
+    include: ['styles'],
+  });
+  assert.equal(stylesOnlyResult.ok, true);
+  assert.equal('tokens' in stylesOnlyResult, false);
+  assert.equal(stylesOnlyResult.styles?.[0]?.name, 'Body');
+});
+
+test('figma-direct-bridge-service: fetchDesignSystemKitDirect treats format as compatibility no-op', async () => {
+  resetPluginConnectionManager();
+  const manager = getPluginConnectionManager();
+  let socketId = '';
+
+  const socket = makeSocket((data) => {
+    const request = JSON.parse(data) as { id: string; method: string };
+
+    if (request.method === 'GET_VARIABLES_DATA') {
+      const variablesResult: GetVariablesDataResult = {
+        success: true,
+        timestamp: Date.now(),
+        fileKey: 'FILE_4',
+        variables: [],
+        variableCollections: [],
+      };
+      manager.handleMessage(socketId, JSON.stringify({ id: request.id, result: variablesResult }));
+      return;
+    }
+
+    const stylesResult: GetStylesResult = {
+      success: true,
+      timestamp: Date.now(),
+      fileKey: 'FILE_4',
+      styles: [{ id: 's3', name: 'Caption', styleType: 'TEXT', description: 'caption' }],
+    };
+    manager.handleMessage(socketId, JSON.stringify({ id: request.id, result: stylesResult }));
+  });
+
+  socketId = manager.register(socket, {
+    fileKey: 'FILE_4',
+    docName: 'Doc',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  const result = await fetchDesignSystemKitDirect('FILE_4', {
+    format: 'summary',
+    include: ['tokens', 'styles'],
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(typeof result.tokens, 'object');
+  assert.equal(result.styles?.[0]?.name, 'Caption');
+});
+
 test('figma-direct-bridge-service: fetchVariablesDirect falls back to single unkeyed socket when requested fileKey is unavailable', async () => {
   resetPluginConnectionManager();
   const manager = getPluginConnectionManager();

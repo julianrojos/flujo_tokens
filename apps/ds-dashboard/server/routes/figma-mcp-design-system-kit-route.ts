@@ -1,23 +1,20 @@
 /**
  * Figma MCP Design System Kit Route
  *
- * Returns tokens + styles from figma_get_design_system_kit in a single MCP call.
+ * Returns tokens + styles from direct plugin WebSocket bridge.
+ * Direct-only mode: no legacy MCP stdio fallback.
  */
 
 import type { Context } from 'hono';
 import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import { fetchDesignSystemKitService, type FetchDesignSystemKitServiceResult } from '../services/figma-mcp-ping-service.ts';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
-import { getTransportMode } from '../lib/transport-mode.ts';
 import { fetchDesignSystemKitDirect } from '../services/figma-direct-bridge-service.ts';
-import { getShadowModeExecutor } from '../services/shadow-parity.ts';
-import type { FetchDesignSystemKitOptions } from '../../../../tooling/src/services/figma-mcp-variables.js';
+import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
 
 export interface FigmaMcpDesignSystemKitRouteDeps {
   getConnInfoFn?: (c: Context) => ConnInfo;
   internalToken?: string;
-  fetchDesignSystemKitFn?: (args: FetchDesignSystemKitOptions) => Promise<FetchDesignSystemKitServiceResult>;
 }
 
 function isAuthorized(c: Context, internalToken: string | undefined, getConnInfoFn: (c: Context) => ConnInfo): boolean {
@@ -29,78 +26,6 @@ function isAuthorized(c: Context, internalToken: string | undefined, getConnInfo
   return Boolean(received) && received === internalToken;
 }
 
-export async function handleGetDesignSystemKit(c: Context, deps: FigmaMcpDesignSystemKitRouteDeps): Promise<Response> {
-  const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
-  const internalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
-
-  if (!isAuthorized(c, internalToken, getConnInfoFn)) {
-    return c.json({ ok: false, code: 'kit.forbidden_remote', message: 'Endpoint only accessible from loopback or with internal token.' }, 403);
-  }
-
-  const rawFormat = String(c.req.query('format') ?? 'summary');
-  const format: FetchDesignSystemKitOptions['format'] = rawFormat === 'full' || rawFormat === 'compact' || rawFormat === 'summary' ? rawFormat : 'summary';
-
-  const rawInclude = String(c.req.query('include') ?? 'tokens,styles');
-  const include = rawInclude.split(',').map((s) => s.trim()).filter((s): s is 'tokens' | 'styles' | 'components' => s === 'tokens' || s === 'styles' || s === 'components');
-  if (include.length === 0) include.push('tokens', 'styles');
-
-  const fileUrl = c.req.query('fileUrl') ?? undefined;
-
-  // Get transport mode
-  const transportMode = getTransportMode();
-
-  const fileKey = fileUrl ? extractFileKey(fileUrl) : null;
-
-  // In direct/shadow mode, fileKey is required to avoid ambiguous routing
-  if ((transportMode === 'direct' || transportMode === 'shadow') && !fileKey) {
-    return c.json(
-      {
-        ok: false,
-        code: 'kit.missing_file_key',
-        message: 'fileKey is required in direct/shadow mode. Provide a valid fileUrl.',
-        _transport: transportMode,
-      },
-      400
-    );
-  }
-
-  if (transportMode === 'direct' || transportMode === 'shadow') {
-    try {
-      const directResult = await fetchDesignSystemKitDirect(fileKey!);
-      if (transportMode === 'shadow') {
-        const shadow = getShadowModeExecutor();
-        shadow.runShadow(
-          'design-system-kit',
-          fileKey,
-          async () => directResult,
-          async () => await (deps.fetchDesignSystemKitFn ?? fetchDesignSystemKitService)({ format, include, fileUrl })
-        );
-      }
-      return c.json(directResult, 200);
-    } catch (error) {
-      // In direct mode, return explicit error - do NOT fall back to legacy silently
-      if (transportMode === 'direct') {
-        return c.json(
-          {
-            ok: false,
-            code: 'kit.direct_failed',
-            message: error instanceof Error ? error.message : String(error),
-            _transport: 'direct',
-          },
-          200
-        );
-      }
-      // Shadow mode: fall back to legacy, shadow comparison will detect diff
-      console.warn('[figma-mcp-kit] Direct mode failed, falling back to legacy:', error);
-    }
-  }
-
-  const fetchFn = deps.fetchDesignSystemKitFn ?? fetchDesignSystemKitService;
-  const result = await fetchFn({ format, include, fileUrl });
-
-  return c.json(result, 200);
-}
-
 /**
  * Extract fileKey from Figma URL
  */
@@ -110,6 +35,112 @@ function extractFileKey(url: string): string | null {
     return match ? match[1] : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * GET /api/figma-mcp/design-system-kit
+ *
+ * Direct-only: uses WebSocket bridge to plugin. No legacy fallback.
+ * Query compatibility:
+ * - format: accepted for backward compatibility (currently no-op in direct mode)
+ * - include: optional comma-separated sections (tokens,styles)
+ */
+export async function handleGetDesignSystemKit(c: Context, deps: FigmaMcpDesignSystemKitRouteDeps): Promise<Response> {
+  const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
+  const internalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+
+  if (!isAuthorized(c, internalToken, getConnInfoFn)) {
+    return c.json({ ok: false, code: 'kit.forbidden_remote', message: 'Endpoint only accessible from loopback or with internal token.' }, 403);
+  }
+
+  const fileUrl = c.req.query('fileUrl') ?? undefined;
+  const format = c.req.query('format') ?? undefined;
+  const includeQuery = c.req.query('include') ?? undefined;
+  const include = includeQuery
+    ? includeQuery
+        .split(',')
+        .map((part) => part.trim().toLowerCase())
+        .filter((part) => part === 'tokens' || part === 'styles')
+    : [];
+  let fileKey = fileUrl ? extractFileKey(fileUrl) : null;
+
+  // Direct-only mode: use direct WebSocket bridge
+  // Ambiguity guard: when fileKey is not provided, check for multiple files
+  if (!fileKey) {
+    const manager = getPluginConnectionManager();
+    const connectionCount = manager.getConnectionCount();
+    const activeFileKeys = manager.getActiveFileKeys();
+
+    if (connectionCount === 0) {
+      return c.json(
+        {
+          ok: false,
+          code: 'kit.no_socket',
+          message: 'No plugin connection available. Open the Figma plugin and provide a fileUrl.',
+        },
+        200
+      );
+    }
+
+    // True ambiguity: multiple different files connected
+    if (activeFileKeys.length > 1) {
+      return c.json(
+        {
+          ok: false,
+          code: 'kit.ambiguous_file_key',
+          message: 'Multiple plugin connections for different files detected. Provide a fileUrl to specify which file to fetch the design system kit from.',
+        },
+        200
+      );
+    }
+
+    // Auto-resolve: single fileKey from active connections
+    if (activeFileKeys.length === 1) {
+      fileKey = activeFileKeys[0];
+    }
+    // If activeFileKeys.length === 0 but connectionCount > 0:
+    // - If connectionCount === 1: allow draft/unkeyed file (fileKey remains null)
+    // - If connectionCount > 1: multiple unkeyed connections is ambiguous
+    else if (connectionCount > 1) {
+      return c.json(
+        {
+          ok: false,
+          code: 'kit.ambiguous_file_key',
+          message: 'Multiple plugin connections without fileKey detected. Provide a fileUrl to specify which file to fetch the design system kit from.',
+        },
+        200
+      );
+    }
+    // else: connectionCount === 1 && activeFileKeys.length === 0 → draft file, allow with fileKey = null
+  }
+
+  try {
+    const directResult = await fetchDesignSystemKitDirect(fileKey, { format, include });
+    return c.json(directResult, 200);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    
+    // Check for specific error conditions
+    if (message.includes('ws.request.no_socket_for_file')) {
+      return c.json(
+        {
+          ok: false,
+          code: 'kit.no_socket',
+          message: 'No plugin connection available. Open the Figma plugin and ensure it is connected.',
+        },
+        200
+      );
+    }
+    
+    return c.json(
+      {
+        ok: false,
+        code: 'kit.direct_failed',
+        message,
+      },
+      200
+    );
   }
 }
 
