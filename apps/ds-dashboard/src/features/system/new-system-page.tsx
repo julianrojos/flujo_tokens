@@ -389,7 +389,7 @@ function makeInlineErrorDisplay(args: {
 
 export function NewSystemPage() {
   const navigate = useNavigate();
-  const { replaceSystems, systems } = useDesignSystem();
+  const { replaceSystems, setActiveSystem, systems } = useDesignSystem();
 
   const [systemName, setSystemName] = useState("");
   const [systemIdOverride, setSystemIdOverride] = useState("");
@@ -754,7 +754,13 @@ export function NewSystemPage() {
         }
       }
 
-      replaceSystems(response.config.systems, { activeSystemId: response.system.id });
+      if (trimmedUrl) {
+        // Keep current active system during import to avoid remounting this page,
+        // which closes the progress/error modal before details are visible.
+        replaceSystems(response.config.systems);
+      } else {
+        replaceSystems(response.config.systems, { activeSystemId: response.system.id });
+      }
       setSavedSystemId(response.system.id);
       if (trimmedUrl && captureFinishedOk) {
         setImportCompleted(true);
@@ -870,7 +876,7 @@ export function NewSystemPage() {
                 System name
               </label>
               <Input
-                placeholder="e.g. PatternFly Community"
+                placeholder="e.g. My Design System"
                 value={systemName}
                 onChange={(e) => setSystemName(e.target.value)}
               />
@@ -1199,7 +1205,12 @@ export function NewSystemPage() {
               ) : null}
               <Button
                 variant="outline"
-                onClick={() => setShowImportProgressModal(false)}
+                onClick={() => {
+                  setShowImportProgressModal(false);
+                  if (savedSystemId) {
+                    setActiveSystem(savedSystemId);
+                  }
+                }}
                 disabled={saving && !importError && !importCompleted}
               >
                 Close
