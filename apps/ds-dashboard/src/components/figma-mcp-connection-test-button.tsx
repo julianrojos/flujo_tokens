@@ -26,13 +26,13 @@ interface FigmaMcpConnectionTestButtonProps {
 const RESET_POLL_INTERVAL_MS = 2_000;
 const RESET_POLL_TIMEOUT_MS = 25_000;
 // Longer budget for auto-wait: user needs time to switch to Figma and reopen
-// the MCP Management before we give up.
+// the plugin before we give up.
 const WAIT_POLL_TIMEOUT_MS = 30_000;
 const MAX_POLL_REQUEST_TIMEOUT_MS = 10_000;
 const RECOVERY_STEPS = [
-  "Reset MCP",
+  "Refresh MCP Management status",
   "Wait for reconnection",
-  "Reopen MCP Management",
+  "Reopen MCP Management plugin in Figma",
 ] as const;
 const EXPECTED_MCP_PLUGIN_VERSION = "1.0.0";
 
@@ -45,7 +45,7 @@ export function FigmaMcpConnectionTestButton({
   figmaUrl,
   figmaToken,
   className,
-  buttonLabel = "Test MCP connection",
+  buttonLabel = "Test connection",
   disabled = false,
   size = "sm",
   showDetectedCounts = true,
@@ -135,7 +135,7 @@ export function FigmaMcpConnectionTestButton({
   });
 
   /**
-   * Poll MCP ping while waiting for MCP Management reconnection.
+   * Poll connection while waiting for plugin reconnection.
    *
    * Polls every RESET_POLL_INTERVAL_MS until:
    *   - connected  → stop waiting + setResult(connected payload)
@@ -183,7 +183,6 @@ export function FigmaMcpConnectionTestButton({
         // Keep polling for transient not-connected states; bail on hard errors.
         if (
           payload.code !== "mcp.not_connected" &&
-          payload.code !== "mcp.instance_mismatch" &&
           payload.code !== "mcp.timeout"
         ) {
           setIsWaiting(false);
@@ -231,14 +230,14 @@ export function FigmaMcpConnectionTestButton({
           ok: false,
           connected: false,
           code: error.code,
-          message: error.message || "MCP connectivity test failed.",
+          message: error.message || "MCP Management connectivity test failed.",
         });
       } else {
         setResult({
           ok: false,
           connected: false,
           code: "mcp_ping.client_error",
-          message: "Could not reach the server to test MCP connectivity.",
+          message: "Could not reach the server to test MCP Management connectivity.",
         });
       }
     } finally {
@@ -260,66 +259,23 @@ export function FigmaMcpConnectionTestButton({
     setResetDeadlineMs(Date.now() + RESET_POLL_TIMEOUT_MS);
     setResult(null);
 
-    let resetFailure: FigmaMcpPingResult | null = null;
-    let reconcileResult: FigmaMcpReconcileResult | null = null;
-    try {
-      reconcileResult = await reconcileFigmaMcp({
-        ...buildPingArgs(),
-        confirmReconcile: true,
-        confirmGlobalReset: true,
-      });
-    } catch (error) {
-      if (error instanceof ApiError) {
-        resetFailure = {
-          ok: false,
-          connected: false,
-          code: error.code,
-          message: error.message || "MCP reset failed.",
-        };
-      } else {
-        resetFailure = {
-          ok: false,
-          connected: false,
-          code: "mcp.reset_failed",
-          message: "Could not reset MCP sessions. Try again.",
-        };
-      }
-    }
-
+    // Direct mode: skip reconcile (legacy endpoint returns 410) and go straight to polling
     if (generation !== pollGenerationRef.current) return;
     setIsResetting(false);
     setResetDeadlineMs(null);
-    if (resetFailure) {
-      setResult(resetFailure);
-      return;
-    }
-    if (reconcileResult?.connected) {
-      setResult(reconcileResult);
-      return;
-    }
-    if (
-      reconcileResult?.phase === "input_error" ||
-      reconcileResult?.phase === "not_recoverable"
-    ) {
-      setResult(reconcileResult);
-      return;
-    }
 
     startReconnectPoll({
       deadlineMs: Date.now() + WAIT_POLL_TIMEOUT_MS,
       timeoutResult: {
         ok: false,
         connected: false,
-        code: "mcp.reset_timeout",
-        message:
-          "No reconnection detected yet. Reopen the MCP Management in Figma, then run Resolve connection again.",
+        code: "mcp.not_connected",
+        message: "No reconnection detected yet. Open the Figma plugin and retry.",
       },
     });
   };
 
-  const isMismatch = result?.code === "mcp.instance_mismatch";
   const isNotConnected = result?.code === "mcp.not_connected";
-  const isResetTimeout = result?.code === "mcp.reset_timeout";
   const heartbeatAlive = heartbeat?.alive === true;
   const detectedPluginVersion = String(heartbeat?.pluginVersion || "").trim() || null;
   const isPluginVersionMismatch =
@@ -331,32 +287,32 @@ export function FigmaMcpConnectionTestButton({
     if (isPluginVersionMismatch) {
       return {
         tone: "amber" as const,
-        text: `Version mismatch: plugin ${detectedPluginVersion} vs expected ${EXPECTED_MCP_PLUGIN_VERSION}. Reimport MCP Management plugin.`,
+        text: `Version mismatch: plugin ${detectedPluginVersion} vs expected ${EXPECTED_MCP_PLUGIN_VERSION}. Reimport the Figma plugin.`,
       };
     }
     if (result?.connected && !heartbeatAlive) {
       return {
         tone: "amber" as const,
-        text: "MCP transport is connected, but plugin heartbeat is missing. Reload MCP Management in Figma.",
+        text: "Transport is connected, but plugin heartbeat is missing. Reload the Figma plugin.",
       };
     }
     if (result?.connected && heartbeatAlive) {
-      return { tone: "green" as const, text: "Healthy: plugin heartbeat + MCP transport are active." };
+      return { tone: "green" as const, text: "Healthy: plugin heartbeat + transport are active." };
     }
     if (heartbeatAlive && !result?.connected) {
-      return { tone: "amber" as const, text: "Plugin is alive, but MCP transport is not connected yet." };
+      return { tone: "amber" as const, text: "Plugin is alive, but transport is not connected yet." };
     }
     if (!heartbeatAlive) {
       return { tone: "amber" as const, text: "No live plugin heartbeat detected from Figma." };
     }
-    return { tone: "muted" as const, text: "Run Test MCP connection to refresh status." };
+    return { tone: "muted" as const, text: "Run Test connection to refresh status." };
   })();
   const canResolve =
     result?.connected !== true &&
-    (suggestResolve || !result || isMismatch || isNotConnected || isResetTimeout);
+    (suggestResolve || !result || isNotConnected);
   const isRecoveryActive = isResetting || isWaiting;
-  const showRecoveryStepper = isRecoveryActive || isResetTimeout;
-  const activeRecoveryStep = isResetting ? 0 : isWaiting ? 1 : isResetTimeout ? 2 : -1;
+  const showRecoveryStepper = isRecoveryActive;
+  const activeRecoveryStep = isResetting ? 0 : isWaiting ? 1 : -1;
   const resetSecondsLeft = remainingSeconds(resetDeadlineMs, clockMs);
   const waitSecondsLeft = remainingSeconds(waitDeadlineMs, clockMs);
 
@@ -427,16 +383,15 @@ export function FigmaMcpConnectionTestButton({
 
           {isResetting ? (
             <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
-              ↺ Closing MCP sessions… retrying in {resetSecondsLeft}s.
+              ↺ Refreshing MCP Management status… retrying in {resetSecondsLeft}s.
             </p>
           ) : isWaiting ? (
             <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
-              ⏳ Retrying connection… {waitSecondsLeft}s left. Reopen the MCP Management in
-              Figma now.
+              ⏳ Retrying connection… {waitSecondsLeft}s left. Open the MCP Management plugin now.
             </p>
           ) : (
             <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
-              ⚠ No reconnection detected. Reopen the MCP Management in Figma and click
+              ⚠ No reconnection detected. Open the MCP Management plugin and click
               &nbsp;&ldquo;Resolve connection&rdquo; again.
             </p>
           )}
@@ -459,28 +414,24 @@ export function FigmaMcpConnectionTestButton({
       {result && !showRecoveryStepper ? (
         result.ok && result.connected ? (
           <p className="break-words text-[11px] text-emerald-600 dark:text-emerald-400">
-            ✓ MCP connected
+            ✓ Connection successful
             {showDetectedCounts &&
             typeof result.collectionsDetected === "number" &&
             typeof result.variablesDetected === "number"
               ? ` — ${result.collectionsDetected} collections, ${result.variablesDetected} variables detected`
               : ""}
           </p>
-        ) : isMismatch ? (
-          <p className="break-words text-[11px] text-amber-600 dark:text-amber-400">
-            ⚠ {result.message}
-          </p>
         ) : isPluginVersionMismatch ? (
           <p className="break-words text-[11px] text-amber-600 dark:text-amber-400">
-            ⚠ Plugin build mismatch. Reimport MCP Management in Figma so dashboard and plugin use the same protocol.
+            ⚠ Plugin build mismatch. Reimport the MCP Management plugin so dashboard and plugin use the same protocol.
           </p>
         ) : isNotConnected ? (
           <p className="break-words text-[11px] text-amber-600 dark:text-amber-400">
             {result.everConnected
-              ? "⚠ Connection lost — reopen MCP Management in Figma to reconnect."
+              ? "⚠ Connection lost — reopen the MCP Management plugin to reconnect."
               : (
                 <>
-                  ⚠ No plugin heartbeat received yet. If MCP Management is already open in Figma,
+                  ⚠ No plugin heartbeat received yet. If the MCP Management plugin is already open,
                   reload it, wait 5 seconds, and then verify the API at{" "}
                   <a
                     href="http://localhost:8787/api/health"
@@ -496,7 +447,7 @@ export function FigmaMcpConnectionTestButton({
           </p>
         ) : (
           <p className="break-words text-[11px] text-red-600 dark:text-red-400">
-            ✗ MCP not connected
+            ✗ Connection failed
             {result.message ? ` — ${result.message}` : ""}
           </p>
         )
@@ -523,10 +474,10 @@ export function FigmaMcpConnectionTestButton({
         >
           <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
             <h2 id="figma-mcp-reset-confirm-title" className="mb-2 text-lg font-semibold">
-              Resolve MCP connection
+              Resolve connection
             </h2>
             <p className="mb-4 text-sm text-muted-foreground">
-              This will restart the <code>MCP Management</code> session managed by this
+              This will refresh the plugin session state managed by this
               dashboard to force a clean reconnect.
             </p>
 

@@ -9,7 +9,6 @@ import {
   buildUpdateComponentsPayload,
   buildUpdateVariablesPayload,
   resolveUpdateButtonLabel,
-  isMcpMismatchError,
   type TokensSource,
 } from "@/features/system/design-system-update-actions-logic";
 
@@ -17,15 +16,6 @@ function toSuggestedFigmaUrl(figmaFileId: string | null | undefined): string {
   const trimmed = String(figmaFileId || "").trim();
   if (!trimmed) return "";
   return `https://www.figma.com/design/${encodeURIComponent(trimmed)}`;
-}
-
-function McpMismatchAlert() {
-  return (
-    <div className="mt-3 rounded border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[13px] text-amber-700 dark:text-amber-400">
-      <strong className="font-semibold">⚠️ Figma sync mismatch.</strong>{" "}
-      Resolve the MCP connection using the &quot;Resolve connection&quot; button in the top section to continue.
-    </div>
-  );
 }
 
 interface DesignSystemUpdateActionsProps {
@@ -89,18 +79,6 @@ export function DesignSystemUpdateActions({
     await variablesActions.run(payload);
   }, [tokensSource, variablesActions, sharedFigmaUrl, sharedToken]);
 
-  const isVariablesMcpMismatch = isMcpMismatchError(
-    variablesState.status,
-    variablesState.summary,
-    variablesState.logLines
-  );
-
-  const isComponentsMcpMismatch = isMcpMismatchError(
-    componentsState.status,
-    componentsState.summary,
-    componentsState.logLines
-  );
-
   return (
     <div className="mt-4 rounded-lg border border-border/70 bg-muted/20 p-3">
       <div className="mb-3">
@@ -145,7 +123,6 @@ export function DesignSystemUpdateActions({
               figmaToken={sharedToken}
               className="min-w-0"
               disabled={disabled || componentsState.isRunning || variablesState.isRunning}
-              suggestResolve={isVariablesMcpMismatch || isComponentsMcpMismatch}
             />
           </div>
         </div>
@@ -175,8 +152,6 @@ export function DesignSystemUpdateActions({
               </Button>
             </div>
           </div>
-
-          {isComponentsMcpMismatch ? <McpMismatchAlert /> : null}
 
           <LogTerminal
             className="mt-3 rounded-md border border-border/70"
@@ -223,8 +198,6 @@ export function DesignSystemUpdateActions({
               </Button>
             </div>
           </div>
-
-          {isVariablesMcpMismatch ? <McpMismatchAlert /> : null}
 
           <LogTerminal
             className="mt-3 rounded-md border border-border/70"

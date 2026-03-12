@@ -242,10 +242,10 @@ function getTokensBootstrapErrorHint(errorMessage: string): string | null {
   const normalized = String(errorMessage || "").toLowerCase();
   if (!normalized) return null;
   if (normalized.includes("file_variables:read")) {
-    return "REST variables scope is not available. Keep tokens source on MCP Management and verify plugin connection before retrying.";
+    return "REST variables scope is not available. Keep tokens source on direct plugin connection and verify plugin connection before retrying.";
   }
   if (normalized.includes("mcp server reports no figma connection")) {
-    return "MCP fallback could not connect to Figma Desktop. Open MCP Management and run 'Test MCP connection' before retrying.";
+    return "Direct plugin connection could not connect to Figma. Open the Figma plugin and run 'Test connection' before retrying.";
   }
   return null;
 }
@@ -920,7 +920,7 @@ export function NewSystemPage() {
                     </p>
                     {pingResult.code === "figma.variables_scope_missing" ? (
                       <p className="text-[11px] text-amber-700 dark:text-amber-400">
-                        Variables will sync through MCP Management (REST variables scope is not available).
+                        Variables will sync through direct plugin connection (REST variables scope is not available).
                       </p>
                     ) : null}
                   </div>
