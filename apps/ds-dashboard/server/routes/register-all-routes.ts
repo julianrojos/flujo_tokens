@@ -4,7 +4,7 @@
  * Registers all API routes on the Hono application.
  */
 
-import type { Hono } from 'hono';
+import type { Hono, Context } from 'hono';
 
 import { registerSystemRoutes } from './system-routes.mjs';
 import { registerOperationsRoutes } from './operations-routes.mjs';
@@ -27,8 +27,10 @@ import { registerFigmaMcpCapabilitiesRoute } from './figma-mcp-capabilities-rout
 import { registerFigmaMcpSurgicalQueriesRoutes } from './figma-mcp-surgical-queries-route.ts';
 import { registerFigmaMcpDesignSystemKitRoute } from './figma-mcp-design-system-kit-route.ts';
 import { registerFigmaMcpHeartbeatRoute } from './figma-mcp-heartbeat-route.ts';
+import { registerFigmaPluginDebugRoute } from './figma-plugin-debug-route.ts';
 import { buildAllRouteDeps, type ServerDeps } from '../lib/register-all-routes-service.ts';
 import { verifyMcpPort } from '../services/figma-mcp-port-verify.ts';
+import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
 
 export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   const routeDeps = buildAllRouteDeps(deps);
@@ -57,4 +59,7 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerFigmaMcpHeartbeatRoute(app);
   registerFigmaMcpSurgicalQueriesRoutes(app, routeDeps.figmaMcpPingDeps);
   registerFigmaMcpDesignSystemKitRoute(app, routeDeps.figmaMcpPingDeps);
+  registerFigmaPluginDebugRoute(app, {
+    internalToken: process.env.DS_DASHBOARD_INTERNAL_TOKEN,
+  });
 }
