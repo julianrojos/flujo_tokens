@@ -14,7 +14,7 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
-    "types": ["@figma/plugin-typings"],
+    "types": ["@figma/plugin-typings", "node"],
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
