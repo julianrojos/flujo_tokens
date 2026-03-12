@@ -31,6 +31,7 @@ import {
   handleRenameVariable,
   handleSetVariableDescription,
 } from './handlers/variables';
+import { handleGetLocalStyles } from './handlers/styles';
 import {
   handleAddMode,
   handleRenameMode,
@@ -75,6 +76,7 @@ const HANDLERS: Record<BridgeMethod, HandlerFunction> = {
   [BRIDGE_METHODS.GET_FILE_INFO]: handleGetFileInfo as unknown as HandlerFunction,
   [BRIDGE_METHODS.EXECUTE_CODE]: handleExecuteCode as unknown as HandlerFunction,
   [BRIDGE_METHODS.GET_VARIABLES_DATA]: handleGetVariablesData as unknown as HandlerFunction,
+  [BRIDGE_METHODS.GET_LOCAL_STYLES]: handleGetLocalStyles as unknown as HandlerFunction,
   [BRIDGE_METHODS.REFRESH_VARIABLES]: handleRefreshVariables as unknown as HandlerFunction,
   [BRIDGE_METHODS.UPDATE_VARIABLE]: handleUpdateVariable as unknown as HandlerFunction,
   [BRIDGE_METHODS.CREATE_VARIABLE]: handleCreateVariable as unknown as HandlerFunction,

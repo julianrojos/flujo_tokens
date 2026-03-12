@@ -19,6 +19,7 @@ import { SyncButton } from './components/SyncButton';
 import { AdvancedSection } from './components/AdvancedSection';
 import { getPluginMcpClient, type ConnectionState } from '../services/mcp-client';
 import { getWSRuntime } from '../bridge/ws-runtime';
+import { DEFAULT_DIRECT_WS_URL, DEFAULT_TRANSPORT_MODE } from '../bridge/constants';
 import { COLOR, FONT, SPACE, UI_WIDTH } from './styles/tokens';
 
 interface InitMessage { type: 'INIT'; docName: string; fileKey?: string | null }
@@ -126,7 +127,16 @@ const App: React.FC = () => {
 
   // Start the WebSocket bridge runtime so MCP can detect this open plugin session.
   useEffect(() => {
-    const runtime = getWSRuntime();
+    // Allow directWsUrl to be configured via global config (for multi-instance deployments)
+    // Falls back to default from constants if not configured
+    const directWsUrl = (window as any).FIGMA_PLUGIN_CONFIG?.directWsUrl || DEFAULT_DIRECT_WS_URL;
+
+    const runtime = getWSRuntime({
+      transportMode: DEFAULT_TRANSPORT_MODE,
+      directWsUrl,
+      pluginVersion: PLUGIN_VERSION,
+      pluginBuild: PLUGIN_BUILD,
+    });
     let disposed = false;
 
     runtime

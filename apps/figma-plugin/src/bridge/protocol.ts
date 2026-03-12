@@ -52,6 +52,7 @@ export const BRIDGE_METHODS = {
   EXECUTE_CODE: 'EXECUTE_CODE',
   // Variables - read
   GET_VARIABLES_DATA: 'GET_VARIABLES_DATA',
+  GET_LOCAL_STYLES: 'GET_LOCAL_STYLES',
   REFRESH_VARIABLES: 'REFRESH_VARIABLES',
   // Variables - CRUD
   UPDATE_VARIABLE: 'UPDATE_VARIABLE',
@@ -216,6 +217,26 @@ export interface GetVariablesDataResult {
   fileKey: string | null;
   variables: VariableData[];
   variableCollections: VariableCollectionData[];
+}
+
+// --- GET_LOCAL_STYLES ---
+export interface GetLocalStylesParams {
+  // No params required
+}
+
+export interface LocalStyleData {
+  id: string;
+  name: string;
+  styleType: string;
+  description: string;
+  key?: string;
+}
+
+export interface GetLocalStylesResult {
+  success: boolean;
+  timestamp: number;
+  fileKey: string | null;
+  styles: LocalStyleData[];
 }
 
 // --- REFRESH_VARIABLES ---
@@ -545,6 +566,15 @@ const BRIDGE_EVENTS_VALUES = Object.values(BRIDGE_EVENTS);
 // ============================================================================
 
 export interface WSRuntimeConfig {
+  /** Transport mode: legacy (WS→MCP), direct (WS→Dashboard), or shadow (both) */
+  transportMode: TransportMode;
+  /** Direct mode: WebSocket URL for direct connection */
+  directWsUrl?: string;
+  /** Plugin version sent in session info (default: '0.0.0' if not provided) */
+  pluginVersion?: string;
+  /** Plugin build identifier sent in session info (default: 'unknown' if not provided) */
+  pluginBuild?: string;
+  /** Port range for legacy MCP discovery */
   portRangeStart: number;
   portRangeEnd: number;
   connectionTimeout: number;
@@ -556,6 +586,8 @@ export interface WSRuntimeConfig {
 }
 
 export const DEFAULT_WS_CONFIG: WSRuntimeConfig = {
+  transportMode: 'legacy',
+  directWsUrl: 'ws://localhost:8787/ws/figma-plugin',
   portRangeStart: 9223,
   portRangeEnd: 9232,
   connectionTimeout: 3000,
@@ -577,6 +609,14 @@ export type BridgeConnectionState =
   | 'mismatch'
   | 'fallback'
   | 'handshaking';
+
+/**
+ * Transport mode for MCP communication
+ * - legacy: Current architecture (WS → MCP process → stdio → Dashboard)
+ * - direct: New direct WS connection to Dashboard
+ * - shadow: Direct mode + parallel legacy execution for parity checking
+ */
+export type TransportMode = 'legacy' | 'direct' | 'shadow';
 
 export interface BridgeStatus {
   state: BridgeConnectionState;

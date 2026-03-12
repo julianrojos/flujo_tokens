@@ -7,6 +7,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { BridgeStatus, BridgeConnectionState } from '../../bridge/protocol';
 import { getWSRuntime } from '../../bridge/ws-runtime';
+import { DEFAULT_DIRECT_WS_URL, DEFAULT_TRANSPORT_MODE } from '../../bridge/constants';
+
+// Plugin version constants for session info
+const PLUGIN_VERSION = '1.0.0';
+const PLUGIN_BUILD = 'heartbeat-v3-ws';
 
 export interface BridgeUIState {
   state: BridgeConnectionState;
@@ -40,7 +45,20 @@ function toBridgeUiState(status: BridgeStatus, handshakeComplete: boolean): Brid
 }
 
 export function useBridgeStatus(): BridgeUIState {
-  const runtime = useMemo(() => getWSRuntime(), []);
+  const runtime = useMemo(
+    () => {
+      // Allow directWsUrl to be configured via global config (for multi-instance deployments)
+      // Falls back to default from constants if not configured
+      const directWsUrl = (window as any).FIGMA_PLUGIN_CONFIG?.directWsUrl || DEFAULT_DIRECT_WS_URL;
+      return getWSRuntime({
+        transportMode: DEFAULT_TRANSPORT_MODE,
+        directWsUrl,
+        pluginVersion: PLUGIN_VERSION,
+        pluginBuild: PLUGIN_BUILD,
+      });
+    },
+    [],
+  );
   const [bridgeState, setBridgeState] = useState<BridgeUIState>(DEFAULT_BRIDGE_STATE);
 
   useEffect(() => {
