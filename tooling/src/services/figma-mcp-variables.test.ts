@@ -13,13 +13,22 @@ import {
   resolveFigmaMcpCommand,
 } from './figma-mcp-variables.js';
 
-const MCP_MANAGEMENT_CLI = ['figma', 'console-mcp'].join('-');
+const LEGACY_STDIO_MCP_CLI = ['figma', 'console-mcp'].join('-');
 
 describe('figma-mcp-variables', () => {
-  it('resolves default MCP command', () => {
-    const command = resolveFigmaMcpCommand({ env: {} });
+  it('throws direct-only error by default (legacy spawn disabled)', () => {
+    assert.throws(
+      () => resolveFigmaMcpCommand({ env: {} }),
+      /Direct-only mode: Legacy MCP stdio spawn is disabled/
+    );
+  });
+
+  it('resolves MCP command when DS_ALLOW_LEGACY_MCP_STDIO=true', () => {
+    const command = resolveFigmaMcpCommand({
+      env: { DS_ALLOW_LEGACY_MCP_STDIO: 'true' },
+    });
     assert.equal(command.command, 'npx');
-    assert.deepEqual(command.args, ['-y', MCP_MANAGEMENT_CLI]);
+    assert.deepEqual(command.args, ['-y', LEGACY_STDIO_MCP_CLI]);
   });
 
   it('treats explicit command string as literal even when it contains spaces', () => {
@@ -33,11 +42,11 @@ describe('figma-mcp-variables', () => {
 
   it('keeps explicit command untouched when explicit args are provided', () => {
     const command = resolveFigmaMcpCommand({
-      command: `/usr/local/bin/${MCP_MANAGEMENT_CLI}`,
+      command: `/usr/local/bin/${LEGACY_STDIO_MCP_CLI}`,
       args: ['--stdio'],
       env: {},
     });
-    assert.equal(command.command, `/usr/local/bin/${MCP_MANAGEMENT_CLI}`);
+    assert.equal(command.command, `/usr/local/bin/${LEGACY_STDIO_MCP_CLI}`);
     assert.deepEqual(command.args, ['--stdio']);
   });
 
@@ -55,10 +64,10 @@ describe('figma-mcp-variables', () => {
   it('treats FIGMA_MCP_COMMAND as literal even when path contains spaces', () => {
     const command = resolveFigmaMcpCommand({
       env: {
-        FIGMA_MCP_COMMAND: `C:\\Program Files\\Acme\\${MCP_MANAGEMENT_CLI}.exe`,
+        FIGMA_MCP_COMMAND: `C:\\Program Files\\Acme\\${LEGACY_STDIO_MCP_CLI}.exe`,
       },
     });
-    assert.equal(command.command, `C:\\Program Files\\Acme\\${MCP_MANAGEMENT_CLI}.exe`);
+    assert.equal(command.command, `C:\\Program Files\\Acme\\${LEGACY_STDIO_MCP_CLI}.exe`);
     assert.deepEqual(command.args, []);
   });
 
@@ -1018,7 +1027,7 @@ process.stdin.on('data', (chunk) => {
     });
     const foreignMcpChild = spawn(
       process.execPath,
-      ['-e', 'setInterval(() => {}, 1000);', MCP_MANAGEMENT_CLI],
+      ['-e', 'setInterval(() => {}, 1000);', LEGACY_STDIO_MCP_CLI],
       { stdio: 'ignore' },
     );
 
@@ -1146,7 +1155,7 @@ process.stdin.on('data', (chunk) => {
 
     const legacyMcpChild = spawn(
       process.execPath,
-      ['-e', 'setInterval(() => {}, 1000);', MCP_MANAGEMENT_CLI],
+      ['-e', 'setInterval(() => {}, 1000);', LEGACY_STDIO_MCP_CLI],
       { stdio: 'ignore' },
     );
 
@@ -1324,5 +1333,27 @@ process.stdin.on('data', (chunk) => {
     } finally {
       server.close();
     }
+  });
+
+  it('throws direct-only error when legacy spawn attempted without DS_ALLOW_LEGACY_MCP_STDIO flag', () => {
+    assert.throws(
+      () => resolveFigmaMcpCommand({ env: {} }),
+      /Direct-only mode: Legacy MCP stdio spawn is disabled/
+    );
+  });
+
+  it('allows legacy spawn when DS_ALLOW_LEGACY_MCP_STDIO=true', () => {
+    const command = resolveFigmaMcpCommand({
+      env: { DS_ALLOW_LEGACY_MCP_STDIO: 'true' },
+    });
+    assert.equal(command.command, 'npx');
+    assert.deepEqual(command.args, ['-y', LEGACY_STDIO_MCP_CLI]);
+  });
+
+  it('rejects DS_ALLOW_LEGACY_MCP_STDIO with non-true value', () => {
+    assert.throws(
+      () => resolveFigmaMcpCommand({ env: { DS_ALLOW_LEGACY_MCP_STDIO: 'false' } }),
+      /Direct-only mode: Legacy MCP stdio spawn is disabled/
+    );
   });
 });

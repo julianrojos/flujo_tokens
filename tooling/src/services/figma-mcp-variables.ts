@@ -1,7 +1,7 @@
 /**
  * Figma MCP Variables Service
  *
- * Fetches Figma variables through an MCP stdio server (MCP Management),
+ * Fetches Figma variables through an MCP stdio server (legacy stdio bridge),
  * without relying on agent prompting.
  */
 
@@ -21,13 +21,13 @@ import type {
   FigmaVariablesResponse,
 } from '../utils/figma.js';
 
-// First-time MCP Management startup can exceed 15s while resolving/installing.
+// First-time legacy stdio bridge startup can exceed 15s while resolving/installing.
 // Use a safer default and allow override via env/options.
 const DEFAULT_MCP_TIMEOUT_MS = 60_000;
 const DEFAULT_MCP_CONNECT_WAIT_MS = 5_000;
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGES = 200;
-const MCP_MANAGEMENT_CLI = ['figma', 'console-mcp'].join('-');
+const LEGACY_STDIO_MCP_CLI = ['figma', 'console-mcp'].join('-');
 const MCP_BRIDGE_PROCESS = 'figma-mcp-bridge';
 
 /**
@@ -35,7 +35,7 @@ const MCP_BRIDGE_PROCESS = 'figma-mcp-bridge';
  *
  * Generous budget (90 s) because the downstream `figma_get_variables` call
  * may page through hundreds of variables while waiting for the Desktop
- * MCP Management to respond.
+ * legacy stdio bridge to respond.
  */
 const DASHBOARD_MCP_PROXY_TIMEOUT_MS = 90_000;
 
@@ -65,7 +65,7 @@ const PROCESS_PROBE_TIMEOUT_MS = 2_000;
 
 function buildMcpProcessEnv(env: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
   const merged: NodeJS.ProcessEnv = { ...(env ?? process.env) };
-  // Desktop bridge/WebSocket transport must be enabled for MCP Management.
+  // Desktop bridge/WebSocket transport must be enabled for legacy stdio bridge.
   if (!String(merged.ENABLE_MCP_APPS || '').trim()) {
     merged.ENABLE_MCP_APPS = 'true';
   }
@@ -223,7 +223,7 @@ function isFigmaMcpProcessPid(pid: number): boolean {
         ),
       ).trim();
       if (!command) return false;
-      return new RegExp(MCP_MANAGEMENT_CLI, 'i').test(command);
+      return new RegExp(LEGACY_STDIO_MCP_CLI, 'i').test(command);
     } catch {
       // Conservative fallback: never kill if identity cannot be verified.
       return false;
@@ -238,7 +238,7 @@ function isFigmaMcpProcessPid(pid: number): boolean {
       }),
     ).trim();
     if (!command) return false;
-    return new RegExp(MCP_MANAGEMENT_CLI, 'i').test(command);
+    return new RegExp(LEGACY_STDIO_MCP_CLI, 'i').test(command);
   } catch {
     return false;
   }
@@ -250,7 +250,7 @@ function listFigmaMcpProcessPids(): number[] {
   if (process.platform === 'win32') {
     const psScript = [
       '$procs = Get-CimInstance Win32_Process | Where-Object {',
-      `  $_.CommandLine -match "${MCP_MANAGEMENT_CLI}" -or $_.CommandLine -match "${MCP_BRIDGE_PROCESS}"`,
+      `  $_.CommandLine -match "${LEGACY_STDIO_MCP_CLI}" -or $_.CommandLine -match "${MCP_BRIDGE_PROCESS}"`,
       '};',
       '$procs | ForEach-Object { $_.ProcessId }',
     ].join(' ');
@@ -285,7 +285,7 @@ function listFigmaMcpProcessPids(): number[] {
       if (firstSpace < 0) continue;
       const pidText = trimmed.slice(0, firstSpace).trim();
       const command = trimmed.slice(firstSpace + 1).trim();
-      if (!(new RegExp(`${MCP_MANAGEMENT_CLI}|${MCP_BRIDGE_PROCESS}`, 'i').test(command))) continue;
+      if (!(new RegExp(`${LEGACY_STDIO_MCP_CLI}|${MCP_BRIDGE_PROCESS}`, 'i').test(command))) continue;
       const pid = parsePositiveInteger(Number.parseInt(pidText, 10));
       if (pid != null) pids.add(pid);
     }
@@ -308,10 +308,10 @@ export interface TerminateCompetingFigmaMcpProcessesResult {
 }
 
 /**
- * Terminate competing MCP Management bridge processes.
+ * Terminate competing legacy stdio bridge processes.
  *
  * Used by MCP reconcile flows to recover from long-lived stale instances that
- * force the current server onto fallback ports where no MCP Management is
+ * force the current server onto fallback ports where no legacy stdio bridge is
  * connected.
  */
 export async function terminateCompetingFigmaMcpProcesses(
@@ -544,7 +544,7 @@ export function resolveFigmaMcpCommand(
     ) {
       console.warn(
         `\n[\x1b[33mWarning\x1b[0m] FIGMA_MCP_COMMAND contains spaces ("${envCommand}") but FIGMA_MCP_COMMAND_ARGS is empty. ` +
-        'If this is a legacy MCP Management configuration, please move the arguments ' +
+        'If this is a legacy stdio bridge configuration, please move the arguments ' +
         `to FIGMA_MCP_COMMAND_ARGS or use FIGMA_MCP_BIN + FIGMA_MCP_ARGS instead. FIGMA_MCP_COMMAND is now treated as a literal executable path.\n`,
       );
     }
@@ -562,9 +562,20 @@ export function resolveFigmaMcpCommand(
     };
   }
 
+  // Legacy MCP stdio spawn is deprecated and disabled by default.
+  // Set DS_ALLOW_LEGACY_MCP_STDIO=true to temporarily re-enable it.
+  const allowLegacyStdio = String(env.DS_ALLOW_LEGACY_MCP_STDIO || '').toLowerCase() === 'true';
+  if (!allowLegacyStdio) {
+    throw new Error(
+      'Direct-only mode: Legacy MCP stdio spawn is disabled by default. ' +
+      'Use the dashboard API endpoint /api/figma-mcp-variables instead, ' +
+      'or set DS_ALLOW_LEGACY_MCP_STDIO=true to temporarily re-enable legacy mode.'
+    );
+  }
+
   return {
     command: 'npx',
-    args: ['-y', MCP_MANAGEMENT_CLI],
+    args: ['-y', LEGACY_STDIO_MCP_CLI],
   };
 }
 
@@ -976,7 +987,7 @@ async function checkMcpConnectivity(
       hasStructuredSignal = true;
       if (result.connected === false) {
         throw new Error(
-          'MCP server reports no Figma connection. Ensure Figma Desktop is open with the MCP Management running.',
+          'MCP server reports no Figma connection. Ensure Figma Desktop is open with the legacy stdio bridge running.',
         );
       }
     }
@@ -986,7 +997,7 @@ async function checkMcpConnectivity(
         hasStructuredSignal = true;
         if (transportConnected === false) {
           throw new Error(
-            'MCP server transport reports disconnected. Ensure Figma Desktop is open with the MCP Management running.',
+            'MCP server transport reports disconnected. Ensure Figma Desktop is open with the legacy stdio bridge running.',
           );
         }
       }
@@ -1025,7 +1036,7 @@ async function checkMcpConnectivity(
         blockHasStructuredSignal = true;
         if (parsedFromText.connected === false) {
           throw new Error(
-            'MCP server reports no Figma connection. Ensure Figma Desktop is open with the MCP Management running.',
+            'MCP server reports no Figma connection. Ensure Figma Desktop is open with the legacy stdio bridge running.',
           );
         }
       }
@@ -1035,7 +1046,7 @@ async function checkMcpConnectivity(
           blockHasStructuredSignal = true;
           if (transportConnected === false) {
             throw new Error(
-              'MCP server transport reports disconnected. Ensure Figma Desktop is open with the MCP Management running.',
+              'MCP server transport reports disconnected. Ensure Figma Desktop is open with the legacy stdio bridge running.',
             );
           }
         }
@@ -1052,7 +1063,7 @@ async function checkMcpConnectivity(
   for (const text of textBlocks) {
     if (/not connected|no connection|disconnected/i.test(text)) {
       throw new Error(
-        `MCP server reports no Figma connection. Ensure Figma Desktop is open with the MCP Management running. Details: ${text}`,
+        `MCP server reports no Figma connection. Ensure Figma Desktop is open with the legacy stdio bridge running. Details: ${text}`,
       );
     }
   }
@@ -1101,7 +1112,7 @@ async function ensureMcpConnectivity(
 
 /**
  * Fetch variables by proxying through the dashboard server's shared MCP
- * client.  This avoids spawning a new MCP Management child process
+ * client.  This avoids spawning a new legacy stdio bridge child process
  * when the runner is a subprocess of the dashboard.
  *
  * Called automatically when `DS_DASHBOARD_INTERNAL_URL` is set in the env.
@@ -1259,7 +1270,7 @@ export interface PingSharedFigmaMcpResult {
   collectionsDetected?: number;
   variablesDetected?: number;
   /**
-   * True if the MCP Management has successfully connected at least once during
+   * True if the legacy stdio bridge has successfully connected at least once during
    * this server session. Used by the UI to distinguish "never connected" from
    * "was connected, now lost" and show context-appropriate guidance.
    */
@@ -1284,7 +1295,7 @@ let sharedMcpClientFactoryForTesting: SharedMcpClientFactoryForTesting | null = 
 /**
  * Set to true the first time a ping returns connected=true in this server
  * session. Intentionally NOT reset when the shared client is disposed/restarted
- * so it reflects "MCP Management connected at some point", not "connected now".
+ * so it reflects "legacy stdio bridge connected at some point", not "connected now".
  */
 let everConnectedToBridgePlugin = false;
 
@@ -1524,13 +1535,13 @@ export function classifyMcpPingError(message: string): { code: string; message: 
         code: 'mcp.instance_mismatch',
         message:
           `MCP server started on fallback port ${currentPortLabel}, while other MCP instances are active (${otherPortsLabel}). ` +
-          'The MCP Management is likely connected to another instance. Close duplicate MCP sessions or restart the MCP Management after starting this dashboard.',
+          'The legacy stdio bridge is likely connected to another instance. Close duplicate MCP sessions or restart the legacy stdio bridge after starting this dashboard.',
       };
     }
     return {
       code: 'mcp.not_connected',
       message:
-        'MCP server is running, but it is not connected to Figma Desktop (MCP Management or CDP unavailable).',
+        'MCP server is running, but it is not connected to Figma Desktop (legacy stdio bridge or CDP unavailable).',
     };
   }
   if (lower.includes('timed out')) {
@@ -1610,11 +1621,11 @@ export function disposeSharedFigmaMcpClient(): void {
 /**
  * Pre-warm the shared MCP client by creating it eagerly in the background.
  *
- * Call this at server startup so the MCP Management process is already
- * running (and the MCP Management can discover and connect to it) by
+ * Call this at server startup so the legacy stdio bridge process is already
+ * running (and the legacy stdio bridge can discover and connect to it) by
  * the time the user interacts with the UI.  Without pre-warming the client is
  * created lazily on the first ping request, which can cause a cold-start
- * timeout if npx needs to download a new version of MCP Management.
+ * timeout if npx needs to download a new version of legacy stdio bridge.
  *
  * Errors are silently suppressed — warmup failure is non-fatal and the next
  * explicit ping will retry.
@@ -1646,8 +1657,8 @@ export function warmupSharedFigmaMcpClient(options: PingSharedFigmaMcpOptions = 
  * Fetch Figma local variables using the shared (long-lived) MCP client.
  *
  * Unlike `fetchFigmaLocalVariablesViaMcp`, this function does NOT spawn a
- * fresh MCP Management process — it reuses the one that the server
- * already manages (and that the MCP Management is connected to).
+ * fresh legacy stdio bridge process — it reuses the one that the server
+ * already manages (and that the legacy stdio bridge is connected to).
  * This is the preferred path when running inside the dashboard server.
  */
 export async function fetchVariablesFromSharedMcpClient(
