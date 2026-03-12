@@ -1,9 +1,9 @@
 /**
- * Figma Plugin Code - MCP Management with WebSocket Bridge
+ * Figma plugin main entrypoint with WebSocket bridge integration.
  *
  * This plugin provides:
- * 1. MCP management UI for designers
- * 2. WebSocket bridge to MCP Management server
+ * 1. MCP UI for designers
+ * 2. WebSocket bridge to the dashboard server
  *
  * Bridge data flow: code.ts <-> postMessage <-> UI (ws-runtime) <-> WebSocket <-> Server
  */

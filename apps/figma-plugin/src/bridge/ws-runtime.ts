@@ -1,7 +1,7 @@
 /**
  * WebSocket Runtime for Figma Plugin UI
  *
- * Manages WebSocket connections to MCP Management server with:
+ * Manages WebSocket connections to the dashboard server with:
  * - Port scanning and multi-connection support
  * - Request/response correlation with timeouts
  * - Robust reconnection with backoff

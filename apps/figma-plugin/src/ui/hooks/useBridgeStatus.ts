@@ -8,10 +8,7 @@ import { useState, useEffect, useMemo } from 'react';
 import type { BridgeStatus, BridgeConnectionState } from '../../bridge/protocol';
 import { getWSRuntime } from '../../bridge/ws-runtime';
 import { DEFAULT_DIRECT_WS_URL, DEFAULT_TRANSPORT_MODE } from '../../bridge/constants';
-
-// Plugin version constants for session info
-const PLUGIN_VERSION = '1.0.0';
-const PLUGIN_BUILD = 'heartbeat-v3-ws';
+import { PLUGIN_VERSION, PLUGIN_BUILD } from '../../version';
 
 export interface BridgeUIState {
   state: BridgeConnectionState;

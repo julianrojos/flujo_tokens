@@ -8,12 +8,21 @@ export interface McpCapabilities {
   ok: true;
   tools: string[];
   toolsDiscoveryError?: string;
+  /** @deprecated Legacy flags maintained for backward compatibility. Use supportsV2 for clearer semantics. */
   supports: {
     searchNodes: boolean;
     getChildren: boolean;
     searchStyles: boolean;
     searchVariables: boolean;
     portSwitch: boolean;
+  };
+  /** V2 semantic capability flags (canonical, always present in direct-only mode) */
+  supportsV2: {
+    hasFileInfo: boolean;
+    hasComponent: boolean;
+    hasLocalStyles: boolean;
+    hasVariablesData: boolean;
+    hasPortSwitch: boolean;
   };
   mcp: {
     connected: boolean;
@@ -62,11 +71,11 @@ export interface ReconcileConnectionResponse {
   attemptedReset?: boolean;
   restarting?: boolean;
   phase?:
-    | 'already_connected'
-    | 'connected_after_reset'
-    | 'waiting_for_bridge'
-    | 'not_recoverable'
-    | 'input_error';
+  | 'already_connected'
+  | 'connected_after_reset'
+  | 'waiting_for_bridge'
+  | 'not_recoverable'
+  | 'input_error';
 }
 
 export interface HeartbeatResponse {
@@ -99,6 +108,14 @@ function isTimeoutLikeError(error: unknown): boolean {
     message.includes('aborterror') ||
     message.includes('timeouterror')
   );
+}
+
+function isMcpCapabilitiesPayload(
+  value: Partial<McpCapabilities> | Partial<McpError>
+): value is McpCapabilities {
+  if (value.ok !== true) return false;
+  if (!value.mcp || typeof value.mcp !== 'object') return false;
+  return Number.isFinite(Number(value.mcp.activePort));
 }
 
 export class McpClientService {
@@ -177,7 +194,7 @@ export class McpClientService {
    */
   async getCapabilities(options?: { forceRefresh?: boolean }): Promise<McpCapabilities | McpError> {
     const forceRefresh = options?.forceRefresh ?? false;
-    
+
     // Check cache first (unless force refresh)
     if (!forceRefresh && this.capabilitiesCache && Date.now() < this.capabilitiesCache.expiresAt) {
       return this.capabilitiesCache.data;
@@ -218,13 +235,14 @@ export class McpClientService {
             'Dashboard API is reachable, but /api/figma-mcp/capabilities returned an unexpected payload.',
         };
       }
-      const parsed = data as Partial<McpCapabilities & McpError>;
-      
+      const parsed = data as Partial<McpCapabilities> | Partial<McpError>;
+
       // Cache successful capabilities response
-      if (parsed.ok === true && parsed.mcp) {
-        this.lastKnownConfiguredPort = Number(parsed.mcp.activePort) || this.lastKnownConfiguredPort;
+      if (isMcpCapabilitiesPayload(parsed)) {
+        const capabilities = parsed;
+        this.lastKnownConfiguredPort = Number(capabilities.mcp.activePort) || this.lastKnownConfiguredPort;
         this.capabilitiesCache = {
-          data: parsed as McpCapabilities,
+          data: capabilities,
           expiresAt: Date.now() + this.CACHE_TTL_MS,
         };
       }
@@ -290,13 +308,13 @@ export class McpClientService {
         signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
       });
       const result = await response.json();
-      
+
       // Invalidate cache on successful switch
       if (result.ok === true) {
         this.lastKnownConfiguredPort = Number(result.activePort) || this.lastKnownConfiguredPort;
         this.invalidateCapabilitiesCache();
       }
-      
+
       return result;
     } catch (error) {
       return {
@@ -367,12 +385,12 @@ export class McpClientService {
     intervalMs: number = 2_000
   ): Promise<{ success: boolean; finalState: ConnectionState; elapsedMs: number }> {
     const startedAt = Date.now();
-    
+
     while (Date.now() - startedAt < timeoutMs) {
       // Force refresh during polling to avoid stale cache
       const capabilities = await this.getCapabilities({ forceRefresh: true });
       const state = this.computeConnectionState(capabilities);
-      
+
       // Success: connected (or fallback) and port matches
       if (
         (state.state === 'connected' || state.state === 'fallback') &&
@@ -384,15 +402,15 @@ export class McpClientService {
           elapsedMs: Date.now() - startedAt,
         };
       }
-      
+
       // Wait before next poll
       await new Promise(resolve => setTimeout(resolve, intervalMs));
     }
-    
+
     // Timeout reached
     const finalCapabilities = await this.getCapabilities({ forceRefresh: true });
     const finalState = this.computeConnectionState(finalCapabilities);
-    
+
     return {
       success: false,
       finalState,
@@ -453,7 +471,7 @@ export class McpClientService {
    * Route: POST /api/figma-mcp-variables
    * Body:  { figmaUrl?: string }
    *
-   * The dashboard reuses the shared MCP process that MCP Management
+   * The dashboard reuses the shared MCP process that the plugin
    * is already connected to, so no new child process is spawned.
    */
   async syncTokens(figmaUrl?: string): Promise<SyncTokensResponse> {
@@ -517,6 +535,9 @@ export class McpClientService {
   /**
    * Attempt automatic MCP connection reconciliation on the dashboard side.
    * This performs a local shared-session restart and returns the resulting state.
+   * 
+   * Note: In direct-only mode, the legacy /api/figma-mcp/reconcile endpoint
+   * returns 410 Gone. This method translates that to a clear migration message.
    */
   async reconcileConnection(args?: {
     figmaUrl?: string;
@@ -542,6 +563,30 @@ export class McpClientService {
         }),
         signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
       });
+
+      // Handle 410 Gone (legacy endpoint deprecated in direct-only mode)
+      if (response.status === 410) {
+        const payload = await response.json() as { code?: string; message?: string };
+        if (payload.code === 'legacy_endpoint_removed') {
+          // Translate to clear migration message
+          return {
+            ok: false,
+            connected: false,
+            code: 'mcp.legacy_deprecated',
+            message: 'Legacy reconcile endpoint is deprecated. Use direct plugin reconnection instead.',
+            phase: 'waiting_for_bridge',
+          };
+        }
+        // Normalize other 410 payloads to a stable response shape.
+        return {
+          ok: false,
+          connected: false,
+          code: payload.code ?? 'reconcile.legacy_410',
+          message: payload.message ?? 'Legacy reconcile endpoint returned 410 Gone.',
+          phase: 'waiting_for_bridge',
+        };
+      }
+
       return await response.json() as ReconcileConnectionResponse;
     } catch (error) {
       return {

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { dispatchRequest } from '../dispatcher';
+import { dispatchRequest, getSupportedMethods } from '../dispatcher';
 import { ERROR_CODES, BRIDGE_METHODS } from '../protocol';
 
 function setMockFigma(figma: unknown): void {
@@ -112,6 +112,26 @@ describe('Dispatcher', () => {
       }
 
       clearMockFigma();
+    });
+
+    it('should only report methods that are dispatchable (no UNKNOWN_METHOD)', async () => {
+      clearMockFigma();
+      const supportedMethods = getSupportedMethods();
+
+      expect(supportedMethods.length).toBeGreaterThan(0);
+      expect(supportedMethods).toContain(BRIDGE_METHODS.GET_BRIDGE_CAPABILITIES);
+
+      for (const method of supportedMethods) {
+        const response = await dispatchRequest({
+          id: `dispatchable_${method}`,
+          method,
+          params: {},
+        });
+
+        if ('error' in response) {
+          expect(response.error.code).not.toBe(ERROR_CODES.UNKNOWN_METHOD);
+        }
+      }
     });
   });
 });

@@ -39,6 +39,7 @@ import {
   handleDeleteVariableCollection,
 } from './handlers/modes-collections';
 import { handleClearConsole, handleReloadUI } from './handlers/control';
+import { handleGetBridgeCapabilities } from './handlers/capabilities';
 import {
   handleGetLocalComponents,
   handleGetComponent,
@@ -115,7 +116,17 @@ const HANDLERS: Record<BridgeMethod, HandlerFunction> = {
   // Control
   [BRIDGE_METHODS.CLEAR_CONSOLE]: handleClearConsole as unknown as HandlerFunction,
   [BRIDGE_METHODS.RELOAD_UI]: handleReloadUI as unknown as HandlerFunction,
+  // Bridge capabilities (direct mode)
+  [BRIDGE_METHODS.GET_BRIDGE_CAPABILITIES]: handleGetBridgeCapabilities as unknown as HandlerFunction,
 };
+
+/**
+ * Get list of supported bridge methods.
+ * Returns only methods that have handlers actually registered.
+ */
+export function getSupportedMethods(): BridgeMethod[] {
+  return Object.keys(HANDLERS) as BridgeMethod[];
+}
 
 /**
  * Dispatch a WebSocket request to the appropriate handler.
@@ -126,8 +137,11 @@ const HANDLERS: Record<BridgeMethod, HandlerFunction> = {
 export async function dispatchRequest(request: WSRequest): Promise<WSResponseSuccess | WSResponseError> {
   const { id, method, params } = request;
 
-  // Check if method is supported
-  if (!isSupportedMethod(method)) {
+  // Get the handler for this method
+  const handler = HANDLERS[method as BridgeMethod];
+
+  // Check if handler exists (method may be in enum but not registered)
+  if (!handler) {
     return {
       id,
       error: createBridgeError(
@@ -136,8 +150,6 @@ export async function dispatchRequest(request: WSRequest): Promise<WSResponseSuc
       ),
     };
   }
-
-  const handler = HANDLERS[method];
 
   try {
     // Execute the handler
@@ -172,11 +184,4 @@ export async function dispatchRequest(request: WSRequest): Promise<WSResponseSuc
       error: bridgeError,
     };
   }
-}
-
-/**
- * Check if a method string is a supported bridge method.
- */
-function isSupportedMethod(method: string): method is BridgeMethod {
-  return Object.values(BRIDGE_METHODS).includes(method as BridgeMethod);
 }

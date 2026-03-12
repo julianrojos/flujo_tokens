@@ -1,7 +1,5 @@
 /**
- * MCP Management Components for Figma Plugin
- *
- * Export all MCP-related UI components.
+ * MCP components for the Figma plugin UI.
  */
 
 export { PortSwitcher } from '../components/PortSwitcher';

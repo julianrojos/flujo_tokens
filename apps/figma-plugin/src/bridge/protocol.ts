@@ -2,7 +2,7 @@
  * WebSocket Bridge Protocol
  *
  * Defines the typed contract for communication between the Figma plugin
- * and the MCP Management server via WebSocket.
+ * and the dashboard server via WebSocket.
  *
  * Data flow: Plugin (code.ts) <-> UI (ws-runtime.ts) <-> WebSocket Server
  */
@@ -92,6 +92,8 @@ export const BRIDGE_METHODS = {
   // Control
   CLEAR_CONSOLE: 'CLEAR_CONSOLE',
   RELOAD_UI: 'RELOAD_UI',
+  // Bridge capabilities (direct mode)
+  GET_BRIDGE_CAPABILITIES: 'GET_BRIDGE_CAPABILITIES',
 } as const;
 
 export type BridgeMethod = (typeof BRIDGE_METHODS)[keyof typeof BRIDGE_METHODS];
@@ -652,7 +654,7 @@ export interface BridgePluginResponseMessage {
 }
 
 /**
- * Union of all MCP Management message types.
+ * Union of all bridge message types.
  */
 export type BridgePluginMessage = BridgePluginRequestMessage | BridgePluginResponseMessage;
 

@@ -115,36 +115,21 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         if (initialCaps.code === 'capabilities.fetch_failed') {
           setResolveTone('error');
           setResolveMessage(
-            'Dashboard API is unreachable. Verify http://localhost:8787/api/health and reload MCP Management.',
+            'Dashboard API is unreachable. Verify http://localhost:8787/api/health and reload the plugin.',
           );
           return;
         }
         if (initialCaps.code === 'capabilities.timeout') {
           setResolveTone('warning');
           setResolveMessage(
-            'MCP status request timed out. Keep MCP Management open and retry in a few seconds.',
+            'MCP status request timed out. Keep the plugin open and retry in a few seconds.',
           );
           return;
         }
       }
 
-      setResolveMessage('Step 1/2: reconciling MCP session…');
-      const reconcile = await mcpClient.reconcileConnection({
-        confirmReconcile: true,
-        confirmGlobalReset: true,
-      });
-      if (reconcile.connected) {
-        setResolveTone('success');
-        setResolveMessage('Connection restored after reconcile.');
-        setResolveCountdown(null);
-        await fetchStatus();
-        return;
-      }
-
-      setResolveTone('warning');
-      setResolveMessage(
-        reconcile.message || 'Waiting for MCP to detect the Figma session after reconcile.',
-      );
+      // Direct mode: skip reconcile (legacy endpoint returns 410) and go straight to polling
+      setResolveMessage('Retrying for plugin connection…');
       const deadline = Date.now() + RECONCILE_POLL_TIMEOUT_MS;
 
       while (Date.now() < deadline) {
@@ -187,7 +172,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         setResolveTone('warning');
         setResolveCountdown(null);
         setResolveMessage(
-          'Session is not linked to this Figma file yet. Keep MCP Management open in Figma and retry. Port scan skipped.',
+          'Session is not linked to this Figma file yet. Keep the plugin open in Figma and retry. Port scan skipped.',
         );
         return;
       }
@@ -196,7 +181,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         setResolveTone('warning');
         setResolveCountdown(null);
         setResolveMessage(
-          'No port mismatch detected. Port scan skipped to avoid unnecessary resets. Retry after reopening MCP Management in Figma.',
+          'No port mismatch detected. Port scan skipped to avoid unnecessary resets. Retry after reopening the plugin in Figma.',
         );
         return;
       }

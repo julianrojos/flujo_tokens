@@ -20,11 +20,10 @@ import { AdvancedSection } from './components/AdvancedSection';
 import { getPluginMcpClient, type ConnectionState } from '../services/mcp-client';
 import { getWSRuntime } from '../bridge/ws-runtime';
 import { DEFAULT_DIRECT_WS_URL, DEFAULT_TRANSPORT_MODE } from '../bridge/constants';
+import { PLUGIN_VERSION, PLUGIN_BUILD } from '../version';
 import { COLOR, FONT, SPACE, UI_WIDTH } from './styles/tokens';
 
 interface InitMessage { type: 'INIT'; docName: string; fileKey?: string | null }
-const PLUGIN_VERSION = '1.0.0';
-const PLUGIN_BUILD = 'heartbeat-v3-ws';
 
 const App: React.FC = () => {
   const [docName, setDocName] = useState('');

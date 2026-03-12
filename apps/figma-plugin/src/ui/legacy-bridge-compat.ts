@@ -1,14 +1,14 @@
 /**
- * Legacy MCP Management UI compatibility layer.
+ * Legacy MCP UI compatibility layer.
  *
- * Exposes the same window.* API used by MCP Management's CDP connector:
+ * Exposes the same window.* API used by the historical CDP connector:
  * - window.executeCode(...)
  * - window.requestComponentData(...)
  * - window.updateVariable(...), etc.
  * - window.__figmaVariablesData / window.__figmaVariablesReady
  *
  * This allows our plugin UI to be used as a drop-in replacement for the
- * original /figma-desktop-bridge/ui.html contract.
+ * original dashboard bridge UI contract.
  */
 
 type PendingRequest = {
