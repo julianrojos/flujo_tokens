@@ -9,6 +9,9 @@ import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { fetchDesignSystemKitService, type FetchDesignSystemKitServiceResult } from '../services/figma-mcp-ping-service.ts';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
+import { getTransportMode } from '../lib/transport-mode.ts';
+import { fetchDesignSystemKitDirect } from '../services/figma-direct-bridge-service.ts';
+import { getShadowModeExecutor } from '../services/shadow-parity.ts';
 import type { FetchDesignSystemKitOptions } from '../../../../tooling/src/services/figma-mcp-variables.js';
 
 export interface FigmaMcpDesignSystemKitRouteDeps {
@@ -43,10 +46,71 @@ export async function handleGetDesignSystemKit(c: Context, deps: FigmaMcpDesignS
 
   const fileUrl = c.req.query('fileUrl') ?? undefined;
 
+  // Get transport mode
+  const transportMode = getTransportMode();
+
+  const fileKey = fileUrl ? extractFileKey(fileUrl) : null;
+
+  // In direct/shadow mode, fileKey is required to avoid ambiguous routing
+  if ((transportMode === 'direct' || transportMode === 'shadow') && !fileKey) {
+    return c.json(
+      {
+        ok: false,
+        code: 'kit.missing_file_key',
+        message: 'fileKey is required in direct/shadow mode. Provide a valid fileUrl.',
+        _transport: transportMode,
+      },
+      400
+    );
+  }
+
+  if (transportMode === 'direct' || transportMode === 'shadow') {
+    try {
+      const directResult = await fetchDesignSystemKitDirect(fileKey!);
+      if (transportMode === 'shadow') {
+        const shadow = getShadowModeExecutor();
+        shadow.runShadow(
+          'design-system-kit',
+          fileKey,
+          async () => directResult,
+          async () => await (deps.fetchDesignSystemKitFn ?? fetchDesignSystemKitService)({ format, include, fileUrl })
+        );
+      }
+      return c.json(directResult, 200);
+    } catch (error) {
+      // In direct mode, return explicit error - do NOT fall back to legacy silently
+      if (transportMode === 'direct') {
+        return c.json(
+          {
+            ok: false,
+            code: 'kit.direct_failed',
+            message: error instanceof Error ? error.message : String(error),
+            _transport: 'direct',
+          },
+          200
+        );
+      }
+      // Shadow mode: fall back to legacy, shadow comparison will detect diff
+      console.warn('[figma-mcp-kit] Direct mode failed, falling back to legacy:', error);
+    }
+  }
+
   const fetchFn = deps.fetchDesignSystemKitFn ?? fetchDesignSystemKitService;
   const result = await fetchFn({ format, include, fileUrl });
 
   return c.json(result, 200);
+}
+
+/**
+ * Extract fileKey from Figma URL
+ */
+function extractFileKey(url: string): string | null {
+  try {
+    const match = url.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 export function registerFigmaMcpDesignSystemKitRoute(

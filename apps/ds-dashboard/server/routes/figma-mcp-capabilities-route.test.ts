@@ -11,6 +11,7 @@ import {
   registerFigmaMcpCapabilitiesRoute,
   type FigmaMcpCapabilitiesRouteDeps,
 } from './figma-mcp-capabilities-route.ts';
+import { getPluginConnectionManager, resetPluginConnectionManager, type PluginWebSocket } from '../services/plugin-connection-manager.ts';
 
 function createTestApp(overrides?: Partial<FigmaMcpCapabilitiesRouteDeps>): Hono {
   const app = new Hono();
@@ -43,6 +44,21 @@ function createTestApp(overrides?: Partial<FigmaMcpCapabilitiesRouteDeps>): Hono
   }
   registerFigmaMcpCapabilitiesRoute(app, deps);
   return app;
+}
+
+function createMockSocket(onSend: (data: string) => void): PluginWebSocket {
+  return {
+    readyState: 1,
+    protocol: '',
+    send(data: string) {
+      onSend(data);
+    },
+    close() {},
+    onopen: null,
+    onclose: null,
+    onerror: null,
+    onmessage: null,
+  };
 }
 
 test('figma-mcp-capabilities-route: GET blocks unauthenticated request', async () => {
@@ -521,4 +537,95 @@ test('figma-mcp-capabilities-route: GET continues after terminateCompeting fails
   assert.equal(terminateCalls, 1);
   // Should have retried ping despite the terminate failure
   assert.equal(pingCalls, 2);
+});
+
+test('figma-mcp-capabilities-route: direct mode reports connected when ws session is alive even if legacy ping is down', async () => {
+  const prevMode = process.env.MCP_TRANSPORT;
+  process.env.MCP_TRANSPORT = 'direct';
+  resetPluginConnectionManager();
+
+  try {
+    const manager = getPluginConnectionManager();
+    const socket = createMockSocket(() => {
+      // no-op
+    });
+    manager.register(socket, {
+      fileKey: 'abc',
+      docName: 'Doc',
+      pluginVersion: '1.0.0',
+      pluginBuild: 'test',
+      timestamp: Date.now(),
+    });
+
+    const app = createTestApp({
+      pingFigmaMcpServiceFn: async () => ({
+        connected: false,
+        code: 'mcp.not_connected',
+        message: 'legacy down',
+      }),
+    });
+
+    const response = await app.request('/api/figma-mcp/capabilities', {
+      method: 'GET',
+      headers: { 'x-ds-dashboard-internal-token': 'test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.transport.mode, 'direct');
+    assert.equal(payload.transport.wsAlive, true);
+    assert.equal(payload.mcp.connected, true);
+    assert.equal(payload.mcp.code, 'ws.connected');
+  } finally {
+    resetPluginConnectionManager();
+    if (prevMode === undefined) delete process.env.MCP_TRANSPORT;
+    else process.env.MCP_TRANSPORT = prevMode;
+  }
+});
+
+test('figma-mcp-capabilities-route: direct mode stays ok when listTools throws and ws session is alive', async () => {
+  const prevMode = process.env.MCP_TRANSPORT;
+  process.env.MCP_TRANSPORT = 'direct';
+  resetPluginConnectionManager();
+
+  try {
+    const manager = getPluginConnectionManager();
+    const socket = createMockSocket(() => {
+      // no-op
+    });
+    manager.register(socket, {
+      fileKey: 'abc',
+      docName: 'Doc',
+      pluginVersion: '1.0.0',
+      pluginBuild: 'test',
+      timestamp: Date.now(),
+    });
+
+    const app = createTestApp({
+      pingFigmaMcpServiceFn: async () => ({
+        connected: false,
+        code: 'mcp.not_connected',
+        message: 'legacy down',
+      }),
+      listMcpToolsServiceFn: async () => {
+        throw new Error('tools list unavailable');
+      },
+    });
+
+    const response = await app.request('/api/figma-mcp/capabilities', {
+      method: 'GET',
+      headers: { 'x-ds-dashboard-internal-token': 'test-token' },
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.mcp.connected, true);
+    assert.equal(payload.mcp.code, 'ws.connected');
+  } finally {
+    resetPluginConnectionManager();
+    if (prevMode === undefined) delete process.env.MCP_TRANSPORT;
+    else process.env.MCP_TRANSPORT = prevMode;
+  }
 });
