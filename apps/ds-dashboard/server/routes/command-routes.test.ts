@@ -226,5 +226,59 @@ describe('command-routes', () => {
       const payload = await res.json();
       assert.equal((payload as any).code, 'validation.figma_url_required');
     });
+
+    it('returns 400 for invalid tokensSource', async () => {
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/file/abc',
+          tokensSource: 'ftp',
+        }),
+      });
+      const res = await app.request('/api/capture-figma-screenshot', { method: 'POST' });
+      assert.equal(res.status, 400);
+      const payload = await res.json();
+      assert.equal((payload as any).code, 'validation.invalid_tokens_source');
+    });
+
+    it('returns 500 for unexpected builder failure', async () => {
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/file/abc',
+        }),
+        toBooleanString: () => {
+          throw new Error('unexpected builder failure');
+        },
+      });
+      const res = await app.request('/api/capture-figma-screenshot', { method: 'POST' });
+      assert.equal(res.status, 500);
+      const payload = await res.json();
+      assert.equal((payload as any).code, 'internal.command_build_failed');
+    });
+  });
+
+  describe('/api/sync-figma-tokens', () => {
+    it('returns 400 for invalid tokensSource', async () => {
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          tokensSource: 'invalid',
+        }),
+      });
+      const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+      assert.equal(res.status, 400);
+      const payload = await res.json();
+      assert.equal((payload as any).code, 'validation.invalid_tokens_source');
+    });
+
+    it('returns 500 for unexpected builder failure', async () => {
+      const app = createTestApp({
+        toBooleanString: () => {
+          throw new Error('unexpected builder failure');
+        },
+      });
+      const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+      assert.equal(res.status, 500);
+      const payload = await res.json();
+      assert.equal((payload as any).code, 'internal.command_build_failed');
+    });
   });
 });

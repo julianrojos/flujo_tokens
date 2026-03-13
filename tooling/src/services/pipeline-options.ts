@@ -3,10 +3,13 @@
  *
  * Parse pipeline CLI options into structured flags.
  */
+import type { FigmaVariableSource } from './figma-token-sync.js';
+
 import {
   parseBooleanOption,
   parseComponentKind,
   parseMainCaptureMode,
+  parseTokensSource,
   parsePositiveNumber,
 } from './capture-options.js';
 
@@ -25,6 +28,7 @@ export interface PipelineFlags {
   format: string;
   agent: string;
   mainCaptureMode: string;
+  tokensSource: FigmaVariableSource;
   force: boolean;
   skipValidation: boolean;
   allowNonEvidenceUpdates: boolean;
@@ -45,6 +49,7 @@ export interface PipelineOptionsArgs {
   format?: string;
   agent?: string;
   'main-capture-mode'?: string;
+  'tokens-source'?: string;
   force?: string | boolean;
   'skip-validation'?: string | boolean;
   'allow-non-evidence-updates'?: string | boolean;
@@ -73,6 +78,7 @@ export function parsePipelineOptions(args: PipelineOptionsArgs): PipelineFlags {
     format: String(args.format || 'png').trim().toLowerCase(),
     agent: String(args.agent || 'auto').trim(),
     mainCaptureMode: parseMainCaptureMode(args['main-capture-mode']),
+    tokensSource: parseTokensSource(args['tokens-source']),
     force: String(args.force || 'false') === 'true',
     skipValidation: String(args['skip-validation'] || 'false') === 'true',
     allowNonEvidenceUpdates: String(args['allow-non-evidence-updates'] || 'false') === 'true',

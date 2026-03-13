@@ -9,6 +9,7 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useOperationRunner, formatRelativeTime } from "../hooks/use-operation-runner";
 import { LogTerminal } from "./log-terminal";
 
@@ -143,6 +144,7 @@ export function CaptureForm({
               <Info className="h-3 w-3 shrink-0" />
               URL del nodo en Figma (incluye node-id en la query string).
             </p>
+            <FigmaMcpConnectionTestButton figmaUrl={figmaUrl} className="mt-2" />
           </div>
 
           {/* ── Grid: slug + options ── */}

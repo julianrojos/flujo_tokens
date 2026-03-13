@@ -186,3 +186,84 @@ test("figma-ping-route: resolves plain env-var token name when it exists", async
     }
   }
 });
+
+test("figma-ping-route: allows creation when variables REST scope is missing and signals MCP fallback", async () => {
+  const app = createTestApp();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const href = String(url || "");
+    if (href.includes("/variables/local")) {
+      return new Response(
+        JSON.stringify({
+          err: true,
+          message:
+            "Invalid scope(s): file_content:read. This endpoint requires the file_variables:read scope.",
+        }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+    }
+    return new Response(JSON.stringify({ name: "Simple DS" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const response = await app.request("/api/figma-ping", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        figmaUrl: "https://www.figma.com/design/abc123/Test",
+        figmaToken: "figd_test",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.code, "figma.variables_scope_missing");
+    assert.equal(payload.fileName, "Simple DS");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("figma-ping-route: reports variables endpoint failures even when file read succeeds", async () => {
+  const app = createTestApp();
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const href = String(url || "");
+    if (href.includes("/variables/local")) {
+      return new Response(JSON.stringify({ err: "forbidden", message: "Denied" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ name: "Simple DS" }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const response = await app.request("/api/figma-ping", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        figmaUrl: "https://www.figma.com/design/abc123/Test",
+        figmaToken: "figd_test",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, "figma.variables.403");
+    assert.match(String(payload.message || ""), /variables endpoint returned HTTP 403/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

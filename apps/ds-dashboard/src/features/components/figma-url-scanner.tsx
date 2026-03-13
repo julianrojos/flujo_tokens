@@ -3,6 +3,7 @@ import { Figma, Loader2, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } f
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useDesignSystem } from "@/lib/design-system-context";
 import {
   captureFigmaScreenshot,
@@ -416,6 +417,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         {!!url.trim() && urlValidationError ? (
           <p className="text-xs text-amber-700 dark:text-amber-400">{urlValidationError}</p>
         ) : null}
+        <FigmaMcpConnectionTestButton figmaUrl={url} />
         {loading && progress ? (
           <p className="text-xs text-muted-foreground">
             {progress.total > 0

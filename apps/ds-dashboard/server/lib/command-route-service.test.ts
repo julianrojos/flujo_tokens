@@ -135,8 +135,37 @@ describe('command-route-service', () => {
         toBooleanString: (value: unknown, fallback: boolean) =>
           value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
       });
+      assert.equal(payload.ok, true);
       assert.ok(!payload.commandArgs.includes('secret'));
       assert.deepEqual(payload.commandEnv, { FIGMA_TOKEN: 'secret' });
+      assert.ok(payload.commandArgs.includes('--source'));
+      assert.ok(payload.commandArgs.includes('mcp'));
+    });
+
+    it('supports explicit MCP source', () => {
+      const payload = buildSyncFigmaTokensCommandConfig({
+        body: {
+          tokensSource: 'mcp',
+        },
+        toBooleanString: (value: unknown, fallback: boolean) =>
+          value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
+      });
+      assert.equal(payload.ok, true);
+      const sourceIdx = payload.commandArgs.indexOf('--source');
+      assert.ok(sourceIdx >= 0);
+      assert.equal(payload.commandArgs[sourceIdx + 1], 'mcp');
+    });
+
+    it('returns typed error on invalid tokensSource value', () => {
+      const payload = buildSyncFigmaTokensCommandConfig({
+        body: {
+          tokensSource: 'ftp',
+        },
+        toBooleanString: (value: unknown, fallback: boolean) =>
+          value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
+      });
+      assert.equal(payload.ok, false);
+      assert.equal(payload.errorArgs?.code, 'validation.invalid_tokens_source');
     });
   });
 
@@ -171,7 +200,23 @@ describe('command-route-service', () => {
       assert.equal(valid.ok, true);
       assert.ok((valid as any).commandArgs.includes('--url'));
       assert.ok(!(valid as any).commandArgs.includes('secret'));
+      assert.ok((valid as any).commandArgs.includes('--tokens-source'));
+      assert.ok((valid as any).commandArgs.includes('mcp'));
       assert.deepEqual((valid as any).commandEnv, { FIGMA_TOKEN: 'secret' });
+    });
+
+    it('returns typed error on invalid tokensSource value', () => {
+      const payload = buildCaptureFigmaScreenshotCommandConfig({
+        body: {
+          figmaUrl: 'https://www.figma.com/file/abc',
+          tokensSource: 'ftp',
+        },
+        toBooleanString: (value: unknown, fallback: boolean) =>
+          value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
+        toNumberString: (value: unknown, fallback: number) => String(value ?? fallback),
+      });
+      assert.equal(payload.ok, false);
+      assert.equal(payload.errorArgs?.code, 'validation.invalid_tokens_source');
     });
   });
 });

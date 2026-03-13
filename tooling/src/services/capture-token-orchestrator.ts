@@ -10,6 +10,7 @@ import {
   getSystemConfig,
   runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
+import type { FigmaVariableSource } from './figma-token-sync.js';
 
 /**
  * Options for orchestrating token sync.
@@ -20,6 +21,8 @@ export interface OrchestrateTokenSyncOptions {
   systemId?: string;
   fileKey: string;
   figmaToken: string;
+  figmaUrl?: string;
+  tokensSource?: FigmaVariableSource;
   getSystemConfigFn?: typeof getSystemConfig;
   bootstrapInputJsonFromFigmaVariablesFn?: typeof bootstrapInputJsonFromFigmaVariables;
   ensureCollectionsConfiguredFn?: typeof ensureCollectionsConfigured;
@@ -35,6 +38,7 @@ export interface OrchestrateTokenSyncResult {
     created: boolean;
     reason: string;
     files_written?: number;
+    collections?: string[];
     tokens_written?: number;
     tokens_total?: number;
     files?: string[];
@@ -61,6 +65,8 @@ export async function orchestrateTokenSync(
     systemId,
     fileKey,
     figmaToken,
+    figmaUrl,
+    tokensSource = 'mcp',
     getSystemConfigFn = getSystemConfig,
     bootstrapInputJsonFromFigmaVariablesFn = bootstrapInputJsonFromFigmaVariables,
     ensureCollectionsConfiguredFn = ensureCollectionsConfigured,
@@ -86,6 +92,8 @@ export async function orchestrateTokenSync(
       system: systemConfig,
       fileKey,
       figmaToken,
+      figmaFileUrl: figmaUrl,
+      tokensSource,
     });
     
     ensureCollectionsConfiguredFn({ repoRoot: projectRoot, systemId });

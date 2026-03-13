@@ -9,6 +9,16 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fetchFigmaLocalVariables, type FigmaVariablesResponse } from '../utils/figma-api.js';
+import { fetchFigmaLocalVariablesViaMcp } from './figma-mcp-variables.js';
+import dsTypes from 'ds-types';
+import type { FigmaVariableSource as SharedFigmaVariableSource } from 'ds-types';
+
+const { parseFigmaVariableSource } = dsTypes as {
+  parseFigmaVariableSource: (
+    rawValue: unknown,
+    options?: { defaultValue?: SharedFigmaVariableSource; optionName?: string },
+  ) => SharedFigmaVariableSource;
+};
 
 // ─── File helpers ─────────────────────────────────────────────────────────────
 
@@ -376,11 +386,17 @@ export interface SyncFigmaTokensToInputOptions {
   repoRoot: string;
   system: Record<string, unknown> | null;
   fileKey: string;
-  figmaToken: string;
+  figmaToken?: string;
   force?: boolean;
   merge?: boolean;
   dryRun?: boolean;
+  source?: FigmaVariableSource;
+  mcpFileUrl?: string;
+  fetchRestVariablesFn?: typeof fetchFigmaLocalVariables;
+  fetchMcpVariablesFn?: typeof fetchFigmaLocalVariablesViaMcp;
 }
+
+export type FigmaVariableSource = SharedFigmaVariableSource;
 
 export interface SyncFigmaTokensToInputResult {
   attempted: boolean;
@@ -398,6 +414,121 @@ export interface SyncFigmaTokensToInputResult {
   tokens_written?: number;
   tokens_total?: number;
   backed_up?: string[];
+  source_requested?: FigmaVariableSource;
+  source_used?: Exclude<FigmaVariableSource, 'auto'>;
+  source_attempts?: Array<Exclude<FigmaVariableSource, 'auto'>>;
+}
+
+export function isFatalSyncReason(reason: string): boolean {
+  const fatalReasons = ['fetch-failed', 'system-missing', 'figma-file-key-missing', 'system-input-dir-missing', 'invalid-source'];
+  return fatalReasons.includes(reason);
+}
+
+interface VariablesFetchResult {
+  payload?: FigmaVariablesResponse;
+  sourceUsed?: Exclude<FigmaVariableSource, 'auto'>;
+  sourceAttempts: Array<Exclude<FigmaVariableSource, 'auto'>>;
+  error?: string;
+}
+
+function normalizeVariableSource(rawSource: unknown): FigmaVariableSource {
+  return parseFigmaVariableSource(rawSource, {
+    defaultValue: 'mcp',
+    optionName: 'variable source',
+  });
+}
+
+function toMcpFileUrl(fileKey: string, explicitFileUrl?: string): string {
+  const direct = String(explicitFileUrl || '').trim();
+  if (direct) return direct;
+  return `https://www.figma.com/design/${encodeURIComponent(fileKey)}`;
+}
+
+async function fetchVariablesBySource(options: {
+  source: FigmaVariableSource;
+  fileKey: string;
+  figmaToken?: string;
+  mcpFileUrl?: string;
+  fetchRestVariablesFn: typeof fetchFigmaLocalVariables;
+  fetchMcpVariablesFn: typeof fetchFigmaLocalVariablesViaMcp;
+}): Promise<VariablesFetchResult> {
+  const {
+    source,
+    fileKey,
+    figmaToken,
+    mcpFileUrl,
+    fetchRestVariablesFn,
+    fetchMcpVariablesFn,
+  } = options;
+
+  const sourceAttempts: Array<Exclude<FigmaVariableSource, 'auto'>> = [];
+
+  const tryMcp = async (): Promise<FigmaVariablesResponse> => {
+    sourceAttempts.push('mcp');
+    return await fetchMcpVariablesFn({
+      fileUrl: toMcpFileUrl(fileKey, mcpFileUrl),
+    });
+  };
+
+  const tryRest = async (): Promise<FigmaVariablesResponse> => {
+    sourceAttempts.push('rest');
+    const token = String(figmaToken || '').trim();
+    if (!token) {
+      throw new Error(
+        'Missing Figma token for REST variables fetch. Provide --figma-token or use source=mcp.',
+      );
+    }
+    return await fetchRestVariablesFn({ fileKey, token });
+  };
+
+  if (source === 'mcp') {
+    try {
+      const payload = await tryMcp();
+      return { payload, sourceUsed: 'mcp', sourceAttempts };
+    } catch (error) {
+      return {
+        sourceAttempts,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  if (source === 'rest') {
+    try {
+      const payload = await tryRest();
+      return { payload, sourceUsed: 'rest', sourceAttempts };
+    } catch (error) {
+      return {
+        sourceAttempts,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  // AUTO strategy (MCP-first):
+  // 1) Prefer MCP because it does not require Enterprise variables scope.
+  // 2) Fallback to REST only when MCP fails and a token is available.
+  let mcpErrorMessage = '';
+  try {
+    const payload = await tryMcp();
+    return { payload, sourceUsed: 'mcp', sourceAttempts };
+  } catch (error) {
+    mcpErrorMessage = error instanceof Error ? error.message : String(error);
+  }
+
+  try {
+    const payload = await tryRest();
+    return { payload, sourceUsed: 'rest', sourceAttempts };
+  } catch (error) {
+    const restErrorMessage = error instanceof Error ? error.message : String(error);
+    const restUnavailableReason = restErrorMessage.includes('Missing Figma token')
+      ? 'REST fallback is unavailable because FIGMA_TOKEN is missing'
+      : 'REST fetch failed';
+    return {
+      sourceAttempts,
+      error: `MCP fetch failed: ${mcpErrorMessage}; ${restUnavailableReason}: ${restErrorMessage}`,
+    };
+  }
 }
 
 /**
@@ -412,7 +543,23 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     force = false,
     merge = false,
     dryRun = false,
+    source = 'mcp',
+    mcpFileUrl,
+    fetchRestVariablesFn = fetchFigmaLocalVariables,
+    fetchMcpVariablesFn = fetchFigmaLocalVariablesViaMcp,
   } = options;
+
+  // Normalize and validate source, catching invalid values
+  let sourceRequested: FigmaVariableSource;
+  try {
+    sourceRequested = normalizeVariableSource(source);
+  } catch (error) {
+    return {
+      attempted: false,
+      reason: 'invalid-source',
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
 
   if (!system) {
     return { attempted: false, reason: 'system-missing' };
@@ -432,16 +579,24 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
   }
 
   // Fetch variables from Figma
-  let variablesPayload: FigmaVariablesResponse | undefined;
-  try {
-    variablesPayload = await fetchFigmaLocalVariables({ fileKey, token: figmaToken });
-  } catch (error) {
+  const variablesFetchResult = await fetchVariablesBySource({
+    source: sourceRequested,
+    fileKey,
+    figmaToken,
+    mcpFileUrl,
+    fetchRestVariablesFn,
+    fetchMcpVariablesFn,
+  });
+  if (!variablesFetchResult.payload) {
     return {
       attempted: true,
       reason: 'fetch-failed',
-      error: error instanceof Error ? error.message : String(error),
+      error: variablesFetchResult.error || 'Unknown variables fetch error.',
+      source_requested: sourceRequested,
+      source_attempts: variablesFetchResult.sourceAttempts,
     };
   }
+  const variablesPayload = variablesFetchResult.payload;
 
   const meta: Record<string, unknown> | null = variablesPayload?.meta
     ? (variablesPayload.meta as Record<string, unknown>)
@@ -450,7 +605,14 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
   const { filesMap, tokenCount } = buildFilesMapFromVariables(meta);
 
   if (filesMap.size === 0 || tokenCount === 0) {
-    return { attempted: true, reason: 'variables-empty', tokens_total: 0 };
+    return {
+      attempted: true,
+      reason: 'variables-empty',
+      tokens_total: 0,
+      source_requested: sourceRequested,
+      source_used: variablesFetchResult.sourceUsed,
+      source_attempts: variablesFetchResult.sourceAttempts,
+    };
   }
 
   const inputDirPath = path.resolve(repoRoot, inputDir);
@@ -471,6 +633,9 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
       tokens_total: tokenCount,
       files: plannedFiles,
       collections: Array.from(filesMap.values()).map((f) => f.description),
+      source_requested: sourceRequested,
+      source_used: variablesFetchResult.sourceUsed,
+      source_attempts: variablesFetchResult.sourceAttempts,
     };
   }
 
@@ -519,7 +684,11 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     tokens_written: tokenCount,
     tokens_total: tokenCount,
     files: writtenFiles,
+    collections: Array.from(filesMap.values()).map((f) => f.description),
     backed_up: backedUpFiles,
+    source_requested: sourceRequested,
+    source_used: variablesFetchResult.sourceUsed,
+    source_attempts: variablesFetchResult.sourceAttempts,
   };
 }
 
@@ -549,7 +718,7 @@ export interface RunTokensCompileResult {
 export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCompileResult {
   const { repoRoot, system } = options;
   if (!system) return { attempted: false, reason: 'system-missing' };
-  
+
   // Validate inputDir is not empty
   const inputDir = String(system.inputDir || '').trim();
   if (!inputDir) {

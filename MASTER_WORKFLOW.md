@@ -15,7 +15,7 @@ Canonical sequence:
 - Token registry available: `docs/_generated/token-registry.json`
 - Agent CLI available (`codex`, `claude`, or `gemini`)
 - Figma MCP configured for the selected agent
-- For write operations in Figma: Desktop Bridge/plugin running
+- For write operations in Figma: MCP Management running
 
 ## Recommended commands
 

@@ -1033,6 +1033,7 @@ export interface TokensBootstrapResult {
   created?: boolean;
   reason?: string;
   files_written?: number;
+  collections?: string[];
   tokens_written?: number;
   tokens_total?: number;
   files?: string[];
@@ -1149,6 +1150,240 @@ export async function pingFigmaFile(args: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(args),
+  });
+}
+
+export interface FigmaMcpPingResult {
+  ok: boolean;
+  connected: boolean;
+  code?: string;
+  message?: string;
+  collectionsDetected?: number;
+  variablesDetected?: number;
+  /** True if the plugin connected successfully at any point this session. */
+  everConnected?: boolean;
+  /** 
+   * Diagnostic details for disconnection (additive field for better UX).
+   * Preserves backward compatibility - existing consumers ignore this field.
+   */
+  details?: {
+    /** Reason for disconnection: no_plugin_session | reachable_but_no_session */
+    reason?: 'no_plugin_session' | 'reachable_but_no_session';
+  };
+}
+
+export interface FigmaMcpHeartbeatResult {
+  ok: boolean;
+  alive?: boolean;
+  ageMs?: number | null;
+  lastSeenAt?: number | null;
+  sourceFileKey?: string | null;
+  sourceDocName?: string | null;
+  pluginVersion?: string | null;
+  pluginBuild?: string | null;
+}
+
+export interface FigmaMcpResetResult {
+  ok: boolean;
+  restarting?: boolean;
+  code?: string;
+  message?: string;
+}
+
+export interface FigmaMcpReconcileResult extends FigmaMcpPingResult {
+  attemptedReset?: boolean;
+  restarting?: boolean;
+  phase?:
+    | "already_connected"
+    | "connected_after_reset"
+    | "waiting_for_bridge"
+    | "not_recoverable"
+    | "input_error";
+}
+
+interface FigmaMcpCapabilitiesResponse extends McpCapabilitiesPayload {
+  ok?: boolean;
+  tools?: string[];
+  toolsDiscoveryError?: string;
+  mcp?: {
+    connected?: boolean;
+    code?: string;
+    message?: string;
+  };
+}
+
+async function fetchFigmaMcpCapabilities(
+  timeoutMs: number,
+): Promise<FigmaMcpCapabilitiesResponse> {
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await requestJson<FigmaMcpCapabilitiesResponse>("/api/figma-mcp/capabilities", {
+      method: "GET",
+      signal: controller.signal,
+    });
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Classify the reason for MCP disconnection based on capabilities payload.
+ * Timeout cases are handled in pingFigmaMcp() catch (ApiError 408), so this
+ * helper only classifies non-timeout disconnection states.
+ */
+function classifyPingDisconnectionReason(
+  payload: FigmaMcpCapabilitiesResponse,
+): 'no_plugin_session' | 'reachable_but_no_session' {
+  // Use mcp.code for accurate classification (payload.ok is always true for /capabilities)
+  const mcpCode = payload.mcp?.code;
+  
+  // ws.not_connected means server can't reach plugin at all
+  if (mcpCode === 'ws.not_connected') {
+    return 'no_plugin_session';
+  }
+  
+  // ws.disconnected with tools available means dashboard is reachable but plugin not connected
+  if (mcpCode === 'ws.disconnected' && payload.ok === true) {
+    return 'reachable_but_no_session';
+  }
+  
+  // Default: no plugin session detected
+  return 'no_plugin_session';
+}
+
+function toMcpPingResultFromCapabilities(
+  payload: FigmaMcpCapabilitiesResponse,
+): FigmaMcpPingResult {
+  const normalized = normalizeMcpCapabilities(payload);
+  const connected = payload.mcp?.connected === true;
+  if (connected) {
+    return {
+      ok: true,
+      connected: true,
+      code: "mcp.connected",
+      message: "MCP Management connection is active.",
+    };
+  }
+  
+  // Classify disconnection reason for better UX
+  const reason = classifyPingDisconnectionReason(payload);
+  
+  return {
+    ok: false,
+    connected: false,
+    code: "mcp.not_connected",
+    message:
+      payload.mcp?.message ||
+      (normalized.hasVariablesData
+        ? "MCP Management is reachable, but no active plugin session was found."
+        : "No MCP Management plugin session is active. Open the Figma plugin and retry."),
+    details: { reason },
+  };
+}
+
+/**
+ * @deprecated Direct mode does not use reset. This function is maintained for backward compatibility.
+ * Open the Figma plugin to reconnect instead.
+ */
+export async function resetFigmaMcp(_args?: {
+  confirmGlobalReset?: boolean;
+}): Promise<FigmaMcpResetResult> {
+  const status = await pingFigmaMcp(undefined, { timeoutMs: 20_000 });
+  if (status.connected) {
+    return {
+      ok: true,
+      restarting: false,
+      code: "mcp.connected",
+      message: "MCP Management is already connected.",
+    };
+  }
+  return {
+    ok: false,
+    restarting: false,
+    code: "mcp.not_connected",
+    message:
+      "Direct mode does not use reset. Open the Figma plugin to reconnect MCP Management.",
+  };
+}
+
+/**
+ * @deprecated Direct mode self-heals automatically. This function is maintained for backward compatibility.
+ * Open the Figma plugin to reconnect instead.
+ */
+export async function reconcileFigmaMcp(_args?: {
+  figmaUrl?: string;
+  figmaToken?: string;
+  confirmReconcile?: boolean;
+  confirmGlobalReset?: boolean;
+}): Promise<FigmaMcpReconcileResult> {
+  const ping = await pingFigmaMcp(undefined, { timeoutMs: 25_000 });
+  if (ping.connected) {
+    return {
+      ...ping,
+      attemptedReset: false,
+      restarting: false,
+      phase: "already_connected",
+    };
+  }
+  return {
+    ...ping,
+    attemptedReset: false,
+    restarting: false,
+    phase: "waiting_for_bridge",
+    message:
+      ping.message ||
+      "MCP Management is not connected. Open the Figma plugin and wait for reconnection.",
+  };
+}
+
+/**
+ * Ping MCP Management to check connectivity.
+ * Note: figmaUrl/figmaToken args are deprecated in direct-only mode.
+ * @deprecated Use direct capabilities endpoint instead. This function is maintained for backward compatibility.
+ */
+export async function pingFigmaMcp(
+  _args?: {
+    figmaUrl?: string;
+    figmaToken?: string;
+  },
+  options?: {
+    timeoutMs?: number;
+  },
+): Promise<FigmaMcpPingResult> {
+  const requestedTimeoutMs = Number(options?.timeoutMs);
+  const timeoutMs =
+    Number.isFinite(requestedTimeoutMs) && requestedTimeoutMs > 0
+      ? Math.floor(requestedTimeoutMs)
+      : 35_000;
+  void _args; // Suppress unused parameter warning
+  return fetchFigmaMcpCapabilities(timeoutMs)
+    .then((payload) => toMcpPingResultFromCapabilities(payload))
+    .catch((error) => {
+      const isAbortError =
+        (typeof DOMException !== "undefined" &&
+          error instanceof DOMException &&
+          error.name === "AbortError") ||
+        (error instanceof Error && error.name === "AbortError");
+      if (!isAbortError) throw error;
+      throw new ApiError({
+        status: 408,
+        statusText: "Request Timeout",
+        code: "http.408" as ApiErrorCode,
+        userMessage:
+          "MCP Management connectivity test timed out. Check that the Figma plugin is open and retry.",
+        recoverable: true,
+        context: {
+          timeoutMs,
+          endpoint: "/api/figma-mcp/capabilities",
+        },
+      });
+    });
+}
+
+export async function getFigmaMcpHeartbeat(): Promise<FigmaMcpHeartbeatResult> {
+  return requestJson<FigmaMcpHeartbeatResult>("/api/figma-mcp/heartbeat", {
+    method: "GET",
   });
 }
 
@@ -1341,4 +1576,67 @@ export async function captureFigmaScreenshot(
   }
 
   return accepted;
+}
+
+// ============================================================================
+// MCP Capabilities Normalizer
+// ============================================================================
+
+/**
+ * Normalized MCP capabilities support flags.
+ * Provides a stable interface for consumers regardless of payload version.
+ */
+export interface NormalizedSupportFlags {
+  /** Can retrieve file/document metadata (GET_FILE_INFO) */
+  hasFileInfo: boolean;
+  /** Can retrieve component details (GET_COMPONENT) */
+  hasComponent: boolean;
+  /** Can retrieve local styles (GET_LOCAL_STYLES) */
+  hasLocalStyles: boolean;
+  /** Can retrieve variables data (GET_VARIABLES_DATA) */
+  hasVariablesData: boolean;
+  /** Port switching capability (deprecated in direct-only mode) */
+  hasPortSwitch: boolean;
+}
+
+/**
+ * MCP Capabilities response shape (server payload).
+ * Note: supportsV2 is always present in direct-only mode.
+ * supports legacy is maintained for backward compatibility during transition.
+ */
+export interface McpCapabilitiesPayload {
+  /** @deprecated Legacy flags maintained for backward compatibility. Use supportsV2 for clearer semantics. */
+  supports?: {
+    searchNodes?: boolean;
+    getChildren?: boolean;
+    searchStyles?: boolean;
+    searchVariables?: boolean;
+    portSwitch?: boolean;
+  };
+  /** V2 semantic capability flags (canonical, always present in direct-only mode) */
+  supportsV2: {
+    hasFileInfo: boolean;
+    hasComponent: boolean;
+    hasLocalStyles: boolean;
+    hasVariablesData: boolean;
+    hasPortSwitch: boolean;
+  };
+}
+
+/**
+ * Normalize MCP capabilities payload to stable support flags.
+ * Prioritizes supportsV2 (canonical) with fallback to supports (legacy).
+ *
+ * @param payload - Raw capabilities payload from server
+ * @returns Normalized support flags with safe defaults
+ */
+export function normalizeMcpCapabilities(payload: McpCapabilitiesPayload): NormalizedSupportFlags {
+  // supportsV2 is always present in direct-only mode
+  return {
+    hasFileInfo: payload.supportsV2.hasFileInfo ?? false,
+    hasComponent: payload.supportsV2.hasComponent ?? false,
+    hasLocalStyles: payload.supportsV2.hasLocalStyles ?? false,
+    hasVariablesData: payload.supportsV2.hasVariablesData ?? false,
+    hasPortSwitch: payload.supportsV2.hasPortSwitch ?? false,
+  };
 }

@@ -258,6 +258,8 @@ export async function runCaptureFromFigmaUrl(
       systemId: ctx.id,
       fileKey: descriptor.fileKey,
       figmaToken,
+      figmaUrl: descriptor.figmaUrl,
+      tokensSource: flags.tokensSource,
       getSystemConfigFn,
       bootstrapInputJsonFromFigmaVariablesFn,
       ensureCollectionsConfiguredFn,

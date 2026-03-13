@@ -13,6 +13,8 @@ import {
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { NewSystemPage } from "@/features/system/new-system-page";
+import { DesignSystemUpdateActions } from "@/features/system/design-system-update-actions";
+import { buildUpdateActionsProps } from "@/features/system/design-systems-admin-page-logic";
 
 type RowDraft = {
   name: string;
@@ -472,6 +474,14 @@ export function DesignSystemsAdminPage() {
                     <span>Make this the default system</span>
                   </label>
                 </div>
+
+                <DesignSystemUpdateActions
+                  {...buildUpdateActionsProps({
+                    systemId: id,
+                    figmaFileId: draft.figmaFileId,
+                    disabled: isBusy,
+                  })}
+                />
               </section>
             );
           })}

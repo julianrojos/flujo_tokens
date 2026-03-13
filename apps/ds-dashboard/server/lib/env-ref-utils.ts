@@ -1,6 +1,9 @@
 /**
- * Utility for ${VAR} env-reference normalization (server-side, storage only).
- * Server persists token references as "${VAR}" and runtime resolution happens in CLI runners.
+ * Utility for ${VAR} env-reference handling (server-side).
+ * - normalizeEnvRef: canonicalizes user input to "${VAR}" for storage when the
+ *   input looks like an env identifier (UPPER_SNAKE_CASE).
+ * - resolveEnvRef: resolves "${VAR}" (and "$VAR"/"VAR") against process.env at
+ *   runtime when the concrete value is needed.
  */
 export function normalizeEnvRef(raw: unknown, fallback = ''): string {
   const value = String(raw ?? '').trim();
@@ -9,7 +12,7 @@ export function normalizeEnvRef(raw: unknown, fallback = ''): string {
   if (/^\$\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(source)) return source;
   const dollarVar = source.match(/^\$([A-Za-z_][A-Za-z0-9_]*)$/);
   if (dollarVar) return `\${${dollarVar[1]}}`;
-  if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(source)) return `\${${source}}`;
+  if (/^[A-Z_][A-Z0-9_]*$/.test(source)) return `\${${source}}`;
   return source;
 }
 

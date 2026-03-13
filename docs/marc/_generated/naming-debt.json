@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "generatedAt": "2026-03-10T18:16:19.140Z",
+  "summary": {
+    "totalTokens": 0,
+    "totalViolations": 0,
+    "issuesBySeverity": {
+      "error": 0,
+      "warning": 0,
+      "info": 0
+    },
+    "autoFixable": 0,
+    "manualReview": 0,
+    "overallScore": 100,
+    "collectionsWithDebt": 0
+  },
+  "scoreByCollection": {},
+  "violations": [],
+  "renameProposals": [],
+  "quickWins": [],
+  "requiresPlanning": [],
+  "renamePlan": []
+}

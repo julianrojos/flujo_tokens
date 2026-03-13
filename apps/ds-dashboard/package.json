@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node scripts/dev-with-api.mjs",
     "dev:vite": "vite",
-    "dev:api": "node --import tsx server/index.mjs",
+    "dev:api": "node --env-file-if-exists=.env --import tsx server/index.ts",
+    "test": "TSX_TSCONFIG_PATH=tsconfig.app.json node --import tsx --test tests/*.test.ts",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
@@ -40,12 +41,14 @@
     "react-router-dom": "^6.30.1",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.5.5",
-    "tiptap-markdown": "0.9.0"
+    "tiptap-markdown": "0.9.0",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.19",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",

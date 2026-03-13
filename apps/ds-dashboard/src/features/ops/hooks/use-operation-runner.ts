@@ -1,5 +1,9 @@
 import { useState, useRef, useCallback } from "react";
 import { getActiveSystemId } from "@/lib/api";
+import {
+  buildOperationSystemHeaders,
+  resolveOperationSystemId,
+} from "./use-operation-runner-logic";
 
 export type RunStatus = "idle" | "running" | "success" | "error";
 
@@ -20,6 +24,10 @@ export interface OperationRunnerState {
 export interface OperationRunnerActions {
   run: (params?: Record<string, unknown>) => Promise<void>;
   clearLogs: () => void;
+}
+
+export interface OperationRunnerOptions {
+  systemId?: string;
 }
 
 const STORAGE_KEY_PREFIX = "ops:lastRunAt:";
@@ -76,7 +84,8 @@ export function formatRelativeTime(isoString?: string): string {
 export function useOperationRunner(
   operationId: string,
   endpoint: string,
-  onRunSuccess?: () => void
+  onRunSuccess?: () => void,
+  options?: OperationRunnerOptions,
 ): [OperationRunnerState, OperationRunnerActions] {
   const storedKey = STORAGE_KEY_PREFIX + operationId;
 
@@ -103,8 +112,11 @@ export function useOperationRunner(
       startTimeRef.current = Date.now();
 
       try {
-        const systemId = getActiveSystemId();
-        const systemHeaders: HeadersInit = systemId ? { "x-ds-system": systemId } : {};
+        const systemId = resolveOperationSystemId({
+          overrideSystemId: options?.systemId,
+          activeSystemId: getActiveSystemId(),
+        });
+        const systemHeaders: HeadersInit = buildOperationSystemHeaders(systemId);
 
         const pushLogLines = (rawText: unknown, forcedKind?: LogLine["kind"]) => {
           const clean = stripAnsi(String(rawText ?? ""));
@@ -410,7 +422,7 @@ export function useOperationRunner(
         setElapsedMs(Date.now() - (startTimeRef.current ?? Date.now()));
       }
     },
-    [endpoint, storedKey, onRunSuccess]
+    [endpoint, options?.systemId, storedKey, onRunSuccess]
   );
 
   const clearLogs = useCallback(() => {

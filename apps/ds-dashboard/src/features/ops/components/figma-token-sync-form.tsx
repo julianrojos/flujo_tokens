@@ -10,6 +10,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useOperationRunner, formatRelativeTime } from "../hooks/use-operation-runner";
 import { LogTerminal } from "./log-terminal";
 
@@ -159,6 +160,11 @@ export function FigmaTokenSyncForm({
               <Info className="h-3 w-3 shrink-0" />
               Extrae el fileKey de la URL automáticamente.
             </p>
+            <FigmaMcpConnectionTestButton
+              figmaUrl={figmaUrl}
+              figmaToken={figmaToken}
+              className="mt-2"
+            />
           </div>
 
           {/* ── Figma Token (optional override) ── */}

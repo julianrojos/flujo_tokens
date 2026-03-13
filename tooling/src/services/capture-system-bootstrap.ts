@@ -10,10 +10,10 @@ import * as path from 'node:path';
 import { PROJECT_ROOT } from '../utils/system-context.js';
 import { createDesignSystemRepository } from '../../scripts/lib/system-repository.mjs';
 import {
-  hasInputJsonFiles,
   runTokensCompile,
   syncFigmaTokensToInput,
 } from './figma-token-sync.js';
+import type { FigmaVariableSource } from './figma-token-sync.js';
 import type { DesignSystemConfigEntry } from '../../scripts/lib/system-repository.mjs';
 
 /**
@@ -37,7 +37,7 @@ export function toCollectionLabel(rawValue: unknown): string {
 export function inferCollectionsFromInputDir(repoRoot: string, inputDir?: string): string[] {
   const resolvedDir = path.resolve(repoRoot, inputDir || '');
   if (!fs.existsSync(resolvedDir)) return [];
-  
+
   const entries = fs.readdirSync(resolvedDir, { withFileTypes: true });
   return Array.from(
     new Set(
@@ -123,13 +123,16 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   repoRoot: string;
   system?: Record<string, unknown> | null;
   fileKey?: string;
+  figmaFileUrl?: string;
   figmaToken: string;
+  tokensSource?: FigmaVariableSource;
   syncFigmaTokensToInputFn?: typeof syncFigmaTokensToInput;
 }): Promise<{
   attempted: boolean;
   created: boolean;
   reason: string;
   files_written?: number;
+  collections?: string[];
   tokens_written?: number;
   tokens_total?: number;
   files?: string[];
@@ -139,10 +142,12 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     repoRoot,
     system,
     fileKey,
+    figmaFileUrl,
     figmaToken,
+    tokensSource = 'mcp',
     syncFigmaTokensToInputFn = syncFigmaTokensToInput,
   } = params;
-  
+
   if (!system) {
     return { attempted: false, created: false, reason: 'system-missing' };
   }
@@ -151,9 +156,7 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
   if (!inputDir) {
     return { attempted: false, created: false, reason: 'system-input-dir-missing' };
   }
-  if (hasInputJsonFiles(repoRoot, inputDir)) {
-    return { attempted: false, created: false, reason: 'input-json-exists' };
-  }
+
   if (!fileKey) {
     return { attempted: false, created: false, reason: 'figma-file-key-missing' };
   }
@@ -166,6 +169,8 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     force: false,
     merge: false,
     dryRun: false,
+    source: tokensSource,
+    mcpFileUrl: figmaFileUrl,
   });
 
   return {
@@ -173,6 +178,7 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     created: (syncResult.files_written ?? 0) > 0,
     reason: syncResult.reason ?? 'bootstrapped',
     files_written: syncResult.files_written ?? 0,
+    collections: syncResult.collections ?? [],
     tokens_written: syncResult.tokens_written ?? 0,
     tokens_total: syncResult.tokens_total ?? syncResult.tokens_written ?? 0,
     files: syncResult.files ?? [],
@@ -194,9 +200,9 @@ export function runTokensCompileIfNeeded(params: {
   output?: string;
 } {
   const { repoRoot, system } = params;
-  
+
   if (!system) return { attempted: false, compiled: false, reason: 'system-missing' };
-  
+
   const enabled = system.compileVariablesOnCapture !== false;
   if (!enabled) return { attempted: false, compiled: false, reason: 'disabled-by-config' };
 

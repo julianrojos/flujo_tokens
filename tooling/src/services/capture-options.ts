@@ -3,6 +3,16 @@
  *
  * Parses and validates command-line options for capture operations.
  */
+import dsTypes from 'ds-types';
+import type { FigmaVariableSource } from 'ds-types';
+
+// NOTE: Under the current tsx runtime this package is exposed through a default export object.
+const { parseFigmaVariableSource } = dsTypes as {
+  parseFigmaVariableSource: (
+    rawValue: unknown,
+    options?: { defaultValue?: FigmaVariableSource; optionName?: string },
+  ) => FigmaVariableSource;
+};
 
 /**
  * Parse boolean option from string value.
@@ -67,4 +77,14 @@ export function parseMainCaptureMode(rawValue: unknown): 'auto' | 'agent' | 'res
   throw new Error(
     `Invalid --main-capture-mode value: ${rawValue}. Allowed: auto, agent, rest.`,
   );
+}
+
+/**
+ * Parse token variables source option.
+ */
+export function parseTokensSource(rawValue: unknown): FigmaVariableSource {
+  return parseFigmaVariableSource(rawValue, {
+    defaultValue: 'mcp',
+    optionName: '--tokens-source',
+  });
 }

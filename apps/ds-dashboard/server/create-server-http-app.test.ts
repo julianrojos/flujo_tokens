@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createServerHttpApp } from "./lib/create-server-http-app.mjs";
+import { createServerHttpApp } from "./lib/create-server-http-app.ts";
 
 test("create-server-http-app: wires routes and middleware with derived helpers", () => {
   const calls = {

@@ -56,6 +56,35 @@ function resolveTokenValue(raw) {
   return resolveEnvRef(raw);
 }
 
+async function requestFigmaWithTimeout(url, token) {
+  const timeoutController = new AbortController();
+  const timeoutHandle = setTimeout(() => {
+    timeoutController.abort();
+  }, FIGMA_API_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: { "X-Figma-Token": token },
+      signal: timeoutController.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutHandle);
+  }
+}
+
+function parseErrorDetails(rawText) {
+  try {
+    const parsed = JSON.parse(String(rawText || ""));
+    if (!parsed || typeof parsed !== "object") return "";
+    const err = String(parsed.err || parsed.error || "").trim();
+    const message = String(parsed.message || "").trim();
+    if (err && message) return `${err}: ${message}`;
+    return err || message;
+  } catch {
+    return "";
+  }
+}
+
 export async function handleFigmaPingRoute(c, deps) {
   const { failJson, readJsonBody } = deps;
   const body = await readJsonBody(c);
@@ -110,15 +139,11 @@ export async function handleFigmaPingRoute(c, deps) {
   }
 
   let figmaResponse;
-  const timeoutController = new AbortController();
-  const timeoutHandle = setTimeout(() => {
-    timeoutController.abort();
-  }, FIGMA_API_TIMEOUT_MS);
   try {
-    figmaResponse = await fetch(`https://api.figma.com/v1/files/${fileKey}?depth=1`, {
-      headers: { "X-Figma-Token": resolvedToken },
-      signal: timeoutController.signal,
-    });
+    figmaResponse = await requestFigmaWithTimeout(
+      `https://api.figma.com/v1/files/${fileKey}?depth=1`,
+      resolvedToken,
+    );
   } catch (err) {
     const isTimeout = err?.name === "TimeoutError" || err?.name === "AbortError";
     return c.json(
@@ -128,11 +153,9 @@ export async function handleFigmaPingRoute(c, deps) {
         message: isTimeout
           ? "Figma API did not respond within the timeout. Check your network."
           : "Could not reach the Figma API. Check your network connection.",
-      },
+        },
       200,
     );
-  } finally {
-    clearTimeout(timeoutHandle);
   }
 
   if (!figmaResponse.ok) {
@@ -161,6 +184,57 @@ export async function handleFigmaPingRoute(c, deps) {
   } catch {
     return c.json(
       { ok: false, code: "ping.parse_error", message: "Figma responded but the body could not be parsed." },
+      200,
+    );
+  }
+
+  let variablesResponse;
+  try {
+    variablesResponse = await requestFigmaWithTimeout(
+      `https://api.figma.com/v1/files/${fileKey}/variables/local`,
+      resolvedToken,
+    );
+  } catch (err) {
+    const isTimeout = err?.name === "TimeoutError" || err?.name === "AbortError";
+    return c.json(
+      {
+        ok: false,
+        code: isTimeout ? "ping.variables_timeout" : "ping.variables_network_error",
+        message: isTimeout
+          ? "Token can read the file, but variables check timed out. Try again."
+          : "Token can read the file, but variables check failed due to a network error.",
+        fileKey,
+      },
+      200,
+    );
+  }
+
+  if (!variablesResponse.ok) {
+    const rawError = await variablesResponse.text();
+    const details = parseErrorDetails(rawError);
+    const detailsLower = details.toLowerCase();
+    if (variablesResponse.status === 403 && detailsLower.includes("file_variables:read")) {
+      return c.json(
+        {
+          ok: true,
+          code: "figma.variables_scope_missing",
+          message:
+            "Token can read the file but cannot read variables via REST. MCP Management will be used for variables sync.",
+          fileName: String(json.name || fileKey),
+          fileKey,
+        },
+        200,
+      );
+    }
+    return c.json(
+      {
+        ok: false,
+        code: `figma.variables.${variablesResponse.status}`,
+        message:
+          `Token can read the file, but variables endpoint returned HTTP ${variablesResponse.status}.` +
+          (details ? ` ${details}` : ""),
+        fileKey,
+      },
       200,
     );
   }

@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 import {
   buildImportSuccessSummary,
   type ImportSuccessSummary,
 } from "@/features/system/new-system-import-summary";
+import { findSystemNameCollision } from "@/features/system/new-system-page-logic";
 import { ImportSuccessNotice } from "@/features/system/import-success-notice";
 import {
   buildPhaseAwareError,
@@ -236,6 +238,18 @@ function mapTokensBootstrapReason(reason: string): string {
   return reason ? `Unknown reason: ${reason}` : "No bootstrap reason was provided.";
 }
 
+function getTokensBootstrapErrorHint(errorMessage: string): string | null {
+  const normalized = String(errorMessage || "").toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes("file_variables:read")) {
+    return "REST variables scope is not available. Keep tokens source on direct plugin connection and verify plugin connection before retrying.";
+  }
+  if (normalized.includes("mcp server reports no figma connection")) {
+    return "Direct plugin connection could not connect to Figma. Open the Figma plugin and run 'Test connection' before retrying.";
+  }
+  return null;
+}
+
 function isCriticalTokensBootstrapFailure(result: TokensBootstrapResult | null): boolean {
   if (!result) return false;
   if (result.error) return true;
@@ -375,7 +389,7 @@ function makeInlineErrorDisplay(args: {
 
 export function NewSystemPage() {
   const navigate = useNavigate();
-  const { replaceSystems, systems } = useDesignSystem();
+  const { replaceSystems, setActiveSystem, systems } = useDesignSystem();
 
   const [systemName, setSystemName] = useState("");
   const [systemIdOverride, setSystemIdOverride] = useState("");
@@ -418,6 +432,15 @@ export function NewSystemPage() {
 
   const hasFigmaUrl = !!figmaFileUrl.trim();
   const hasToken = !!figmaAccessToken.trim();
+  const collidingSystem = useMemo(
+    () =>
+      findSystemNameCollision({
+        candidateName: systemName,
+        systems,
+      }),
+    [systemName, systems],
+  );
+  const hasNameCollision = collidingSystem !== null;
   const figmaUrlValid = !hasFigmaUrl || (() => {
     try {
       const parsed = new URL(figmaFileUrl.trim());
@@ -428,6 +451,7 @@ export function NewSystemPage() {
     }
   })();
   const canSave = !!systemName.trim() && !!generatedSystemId && !saving
+    && !hasNameCollision
     && (!hasFigmaUrl || hasToken) && figmaUrlValid;
   const pingValidationPending =
     hasFigmaUrl && hasToken && figmaUrlValid && !pingLoading && !pingResult;
@@ -467,6 +491,7 @@ export function NewSystemPage() {
   const importCurrentSlug = captureProgress?.currentSlug?.trim() || "";
   const bootstrapReason = importTokensBootstrap?.reason ?? "";
   const bootstrapReasonMessage = mapTokensBootstrapReason(bootstrapReason);
+  const bootstrapErrorHint = getTokensBootstrapErrorHint(importTokensBootstrap?.error ?? "");
   const bootstrapHasCriticalFailure = isCriticalTokensBootstrapFailure(importTokensBootstrap);
   const compileReason = importTokensCompile?.reason ?? "";
   const compileReasonMessage = mapTokensCompileReason(compileReason);
@@ -574,6 +599,7 @@ export function NewSystemPage() {
             {
               figmaUrl: trimmedUrl,
               figmaToken: runtimeToken || undefined,
+              tokensSource: "mcp",
               includeVariants: true,
               requireExistingDoc: false,
               continueOnError: true,
@@ -728,7 +754,13 @@ export function NewSystemPage() {
         }
       }
 
-      replaceSystems(response.config.systems, { activeSystemId: response.system.id });
+      if (trimmedUrl) {
+        // Keep current active system during import to avoid remounting this page,
+        // which closes the progress/error modal before details are visible.
+        replaceSystems(response.config.systems);
+      } else {
+        replaceSystems(response.config.systems, { activeSystemId: response.system.id });
+      }
       setSavedSystemId(response.system.id);
       if (trimmedUrl && captureFinishedOk) {
         setImportCompleted(true);
@@ -844,10 +876,15 @@ export function NewSystemPage() {
                 System name
               </label>
               <Input
-                placeholder="e.g. PatternFly Community"
+                placeholder="e.g. My Design System"
                 value={systemName}
                 onChange={(e) => setSystemName(e.target.value)}
               />
+              {hasNameCollision ? (
+                <p className="text-[11px] text-red-600 dark:text-red-400">
+                  A system named "{collidingSystem?.name}" already exists. Choose a different name.
+                </p>
+              ) : null}
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -877,15 +914,27 @@ export function NewSystemPage() {
                 <p className="text-[11px] text-muted-foreground">Checking access…</p>
               ) : pingResult && hasFigmaUrl && hasToken ? (
                 pingResult.ok ? (
-                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                    ✓ Access confirmed — {pingResult.fileName}
-                  </p>
+                  <div className="space-y-1">
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                      ✓ Access confirmed — {pingResult.fileName}
+                    </p>
+                    {pingResult.code === "figma.variables_scope_missing" ? (
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                        Variables will sync through direct plugin connection (REST variables scope is not available).
+                      </p>
+                    ) : null}
+                  </div>
                 ) : (
                   <p className="text-[11px] text-red-600 dark:text-red-400">
                     ✗ {pingResult.message}
                   </p>
                 )
               ) : null}
+              <FigmaMcpConnectionTestButton
+                figmaUrl={figmaFileUrl}
+                figmaToken={figmaAccessToken}
+                className="mt-2"
+              />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1073,6 +1122,11 @@ export function NewSystemPage() {
                     Figma variables could not be initialized into the system input directory.
                   </p>
                   <p className="mt-1 text-xs">{bootstrapReasonMessage}</p>
+                  {bootstrapErrorHint ? (
+                    <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                      {bootstrapErrorHint}
+                    </p>
+                  ) : null}
                   {importTokensBootstrap.error ? (
                     <pre className="mt-2 max-h-32 overflow-auto rounded-md border border-amber-500/30 bg-black/10 p-2 text-xs text-amber-900 dark:text-amber-200">
                       {importTokensBootstrap.error}
@@ -1151,7 +1205,12 @@ export function NewSystemPage() {
               ) : null}
               <Button
                 variant="outline"
-                onClick={() => setShowImportProgressModal(false)}
+                onClick={() => {
+                  setShowImportProgressModal(false);
+                  if (savedSystemId) {
+                    setActiveSystem(savedSystemId);
+                  }
+                }}
                 disabled={saving && !importError && !importCompleted}
               >
                 Close

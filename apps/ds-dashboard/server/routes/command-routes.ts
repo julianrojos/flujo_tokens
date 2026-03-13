@@ -15,7 +15,7 @@ import {
   handleRestartApiRoute,
   handleRunScriptRoute,
   handleSyncFigmaTokensRoute,
-} from '../services/command-route-handler-service.mjs';
+} from '../services/command-route-handler-service.ts';
 
 export interface CommandRoutesDeps {
   failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => unknown;
