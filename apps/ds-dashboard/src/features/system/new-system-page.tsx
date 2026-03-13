@@ -599,7 +599,6 @@ export function NewSystemPage() {
             {
               figmaUrl: trimmedUrl,
               figmaToken: runtimeToken || undefined,
-              tokensSource: "mcp",
               includeVariants: true,
               requireExistingDoc: false,
               continueOnError: true,
