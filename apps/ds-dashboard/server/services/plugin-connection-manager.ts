@@ -189,6 +189,8 @@ export interface PluginConnectionManagerConfig {
     onConnect?: (sessionInfo: PluginSessionInfo) => void;
     /** Callback when a plugin disconnects */
     onDisconnect?: (sessionInfo: PluginSessionInfo, reason: string) => void;
+    /** Callback when a DOCUMENT_CHANGE push event is received from the plugin */
+    onDocumentChange?: (fileKey: string) => void;
     /** TTL in ms for buffer cleanup after last socket disconnects (default: 60000ms = 1min) */
     bufferCleanupTtlMs?: number;
 }
@@ -210,6 +212,7 @@ export class PluginConnectionManager {
     private bufferCleanupTtlMs: number;
     private onConnect?: (sessionInfo: PluginSessionInfo) => void;
     private onDisconnect?: (sessionInfo: PluginSessionInfo, reason: string) => void;
+    private onDocumentChange?: (fileKey: string) => void;
     private socketCounter = 0;
 
     constructor(config: PluginConnectionManagerConfig = {}) {
@@ -218,6 +221,7 @@ export class PluginConnectionManager {
         this.bufferCleanupTtlMs = config.bufferCleanupTtlMs ?? 60000; // 60s TTL default
         this.onConnect = config.onConnect;
         this.onDisconnect = config.onDisconnect;
+        this.onDocumentChange = config.onDocumentChange;
     }
 
     /**
@@ -716,6 +720,14 @@ export class PluginConnectionManager {
             }
             case 'DOCUMENT_CHANGE': {
                 buf.documentChanges.push(payload as DocumentChangeBufferEntry);
+                // Trigger cache invalidation callback if configured
+                if (connection.sessionInfo.fileKey && this.onDocumentChange) {
+                    try {
+                        this.onDocumentChange(connection.sessionInfo.fileKey);
+                    } catch {
+                        // No-op - never throw from callback
+                    }
+                }
                 break;
             }
             case 'SELECTION_CHANGE': {

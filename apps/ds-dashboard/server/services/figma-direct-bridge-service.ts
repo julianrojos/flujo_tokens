@@ -8,6 +8,7 @@
 import type { FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
 import type { DesignSystemKitResult } from '../../../../tooling/src/services/figma-mcp-variables.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
+import { getSharedResponseCache } from './response-cache.ts';
 
 export interface GetVariablesDataResult {
   success: boolean;
@@ -54,6 +55,13 @@ export interface StyleData {
 }
 
 const DIRECT_REQUEST_TIMEOUT_MS = 60_000;
+
+/**
+ * Cache TTL for variables and design system kit (5 minutes).
+ * Primary invalidation is via DOCUMENT_CHANGE events.
+ */
+const VARIABLES_CACHE_TTL_MS = 5 * 60 * 1000;
+const DS_KIT_CACHE_TTL_MS = 5 * 60 * 1000;
 
 function resolveFileKey(fileKey?: string | null): string | null {
   if (typeof fileKey === 'string' && fileKey.trim()) {
@@ -114,15 +122,34 @@ async function requestDirectWithFileKeyFallback<T>(
 }
 
 export async function fetchVariablesDirect(fileKey?: string | null): Promise<FigmaVariablesResponse> {
+  const resolvedFileKey = resolveFileKey(fileKey);
+
+  // Try cache first if we have a valid fileKey
+  if (resolvedFileKey) {
+    const cache = getSharedResponseCache();
+    const cached = cache.get<FigmaVariablesResponse>(resolvedFileKey, 'variables');
+    if (cached) {
+      return cached;
+    }
+  }
+
   const result = await requestDirectWithFileKeyFallback<GetVariablesDataResult>(
     'GET_VARIABLES_DATA',
     {},
     fileKey
   );
 
-  return {
+  const response: FigmaVariablesResponse = {
     meta: normalizeVariablesMeta(result),
   };
+
+  // Store in cache if we have a valid fileKey
+  if (resolvedFileKey) {
+    const cache = getSharedResponseCache();
+    cache.set(resolvedFileKey, 'variables', response, VARIABLES_CACHE_TTL_MS);
+  }
+
+  return response;
 }
 
 export async function fetchStylesDirect(fileKey?: string | null): Promise<GetStylesResult> {
@@ -157,6 +184,17 @@ export async function fetchDesignSystemKitDirect(
   fileKey?: string | null,
   options: DesignSystemKitQueryOptions = {}
 ): Promise<DesignSystemKitResult> {
+  const resolvedFileKey = resolveFileKey(fileKey);
+
+  // Try cache first if we have a valid fileKey
+  if (resolvedFileKey) {
+    const cache = getSharedResponseCache();
+    const cached = cache.get<DesignSystemKitResult>(resolvedFileKey, 'design-system-kit');
+    if (cached) {
+      return cached;
+    }
+  }
+
   const startedAt = Date.now();
 
   // Use Promise.allSettled for fault tolerance - styles may fail on older plugins
@@ -194,19 +232,27 @@ export async function fetchDesignSystemKitDirect(
   const includeTokens = include.size === 0 || include.has('tokens');
   const includeStyles = include.size === 0 || include.has('styles');
 
-  return {
+  const result: DesignSystemKitResult = {
     ok: true,
     ...(includeTokens
       ? {
-          tokens: {
-            variables: variablesResult.value.meta.variables,
-            variableCollections: variablesResult.value.meta.variableCollections,
-          },
-        }
+        tokens: {
+          variables: variablesResult.value.meta.variables,
+          variableCollections: variablesResult.value.meta.variableCollections,
+        },
+      }
       : {}),
     ...(includeStyles ? { styles: normalizeKitStyles({ styles }) } : {}),
     elapsedMs: Date.now() - startedAt,
   };
+
+  // Store in cache if we have a valid fileKey
+  if (resolvedFileKey) {
+    const cache = getSharedResponseCache();
+    cache.set(resolvedFileKey, 'design-system-kit', result, DS_KIT_CACHE_TTL_MS);
+  }
+
+  return result;
 }
 
 export function normalizeVariablesMeta(result: GetVariablesDataResult): FigmaVariablesResponse['meta'] {

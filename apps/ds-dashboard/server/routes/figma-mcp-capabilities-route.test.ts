@@ -99,7 +99,7 @@ test('figma-mcp-capabilities-route (direct-only): GET returns supportsV2 with se
   assert.equal(response.status, 200);
   const payload = await response.json();
   assert.equal(payload.ok, true);
-  
+
   // Verify supportsV2 exists with semantic flags
   assert.ok(payload.supportsV2);
   assert.equal(typeof payload.supportsV2.hasFileInfo, 'boolean');
@@ -107,7 +107,7 @@ test('figma-mcp-capabilities-route (direct-only): GET returns supportsV2 with se
   assert.equal(typeof payload.supportsV2.hasLocalStyles, 'boolean');
   assert.equal(typeof payload.supportsV2.hasVariablesData, 'boolean');
   assert.equal(typeof payload.supportsV2.hasPortSwitch, 'boolean');
-  
+
   // Verify legacy supports still exists for compatibility
   assert.ok(payload.supports);
   assert.equal(typeof payload.supports.searchNodes, 'boolean');
@@ -126,18 +126,38 @@ test('figma-mcp-capabilities-route (direct-only): supportsV2 flags default to fa
 
   assert.equal(response.status, 200);
   const payload = await response.json();
-  
+
   // All capability flags should be false when no plugin connected
   assert.equal(payload.supportsV2.hasFileInfo, false);
   assert.equal(payload.supportsV2.hasComponent, false);
   assert.equal(payload.supportsV2.hasLocalStyles, false);
   assert.equal(payload.supportsV2.hasVariablesData, false);
   assert.equal(payload.supportsV2.hasPortSwitch, false);
-  
+
   // Legacy flags also false
   assert.equal(payload.supports.searchNodes, false);
   assert.equal(payload.supports.getChildren, false);
   assert.equal(payload.supports.searchStyles, false);
   assert.equal(payload.supports.searchVariables, false);
   assert.equal(payload.supports.portSwitch, false);
+});
+
+test('figma-mcp-capabilities-route (direct-only): GET returns meta with schemaVersion and capabilities', async () => {
+  const app = createTestApp();
+
+  const response = await app.request('/api/figma-mcp/capabilities', {
+    method: 'GET',
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ok, true);
+
+  // Verify meta exists
+  assert.ok(payload.meta);
+  assert.equal(payload.meta.schemaVersion, '1.0.0');
+  assert.ok(Array.isArray(payload.meta.capabilities));
+  assert.ok(payload.meta.capabilities.includes('pagination'));
+  assert.ok(payload.meta.capabilities.includes('cache'));
+  assert.ok(payload.meta.capabilities.includes('schema_version'));
 });

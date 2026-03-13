@@ -15,6 +15,7 @@ import { isLoopbackAddress } from '../lib/loopback-utils.ts';
 import { resolveLiveness, resolveDisconnectionCause } from '../lib/resolve-liveness.ts';
 import { fetchBridgeCapabilitiesDirect } from '../services/figma-direct-bridge-service.ts';
 import { mapBridgeMethodsToCapabilities, type BridgeCapabilities } from '../lib/map-bridge-methods-to-capabilities.ts';
+import { buildServerMeta, type ServerMeta } from '../lib/server-meta.ts';
 
 export interface FigmaMcpCapabilitiesRouteDeps {
   getConnInfoFn?: (c: Context) => ConnInfo;
@@ -76,6 +77,8 @@ interface CapabilitiesResponse {
     availablePorts: number[];
     activePort: number;
   };
+  /** Server meta with schema version and active capabilities */
+  meta?: ServerMeta;
 }
 
 /**
@@ -91,7 +94,7 @@ export async function handleGetFigmaMcpCapabilities(c: Context, deps: FigmaMcpCa
   const connInfo = getConnInfoFn(c);
   const remoteAddress = String(connInfo?.remote?.address || '').trim();
   const isLoopback = remoteAddress ? isLoopbackAddress(remoteAddress) : false;
-  
+
   // Authorization: loopback or internal token
   if (!isLoopback) {
     const receivedToken = String(c.req.header('x-ds-dashboard-internal-token') || '').trim();
@@ -198,6 +201,7 @@ export async function handleGetFigmaMcpCapabilities(c: Context, deps: FigmaMcpCa
       availablePorts: ALLOWED_PORTS,
       activePort: currentPort,
     },
+    meta: buildServerMeta(),
   };
 
   return c.json(response, 200);

@@ -8,6 +8,7 @@ import {
   type GetStylesResult,
 } from './figma-direct-bridge-service.ts';
 import { getPluginConnectionManager, resetPluginConnectionManager, type PluginWebSocket } from './plugin-connection-manager.ts';
+import { getSharedResponseCache } from './response-cache.ts';
 
 function makeSocket(onSend: (data: string) => void): PluginWebSocket {
   return {
@@ -16,7 +17,7 @@ function makeSocket(onSend: (data: string) => void): PluginWebSocket {
     send(data: string) {
       onSend(data);
     },
-    close() {},
+    close() { },
     onopen: null,
     onclose: null,
     onerror: null,
@@ -264,4 +265,73 @@ test('figma-direct-bridge-service: fetchVariablesDirect falls back to single unk
   const result = await fetchVariablesDirect('FILE_KEY_FROM_URL');
   assert.equal(result.meta.variables.var_draft_1?.name, 'color/draft-primary');
   assert.equal(requestCount, 1);
+});
+
+// Test S-06: cache-hit on second call
+test('figma-direct-bridge-service: fetchVariablesDirect uses cache on second call with same fileKey', async () => {
+  resetPluginConnectionManager();
+  // Clear cache before test
+  getSharedResponseCache().clear();
+
+  const manager = getPluginConnectionManager();
+  let socketId = '';
+  let requestCount = 0;
+
+  const socket = makeSocket((data) => {
+    const request = JSON.parse(data) as { id: string; method: string };
+    requestCount += 1;
+    assert.equal(request.method, 'GET_VARIABLES_DATA');
+
+    const variablesResult: GetVariablesDataResult = {
+      success: true,
+      timestamp: Date.now(),
+      fileKey: 'FILE_CACHE_TEST',
+      variables: [
+        {
+          id: 'var_cache_1',
+          name: 'color/cached',
+          key: 'kc1',
+          resolvedType: 'COLOR',
+          valuesByMode: { light: '#cccccc' },
+          variableCollectionId: 'col_cache_1',
+          scopes: [],
+          description: '',
+          hiddenFromPublishing: false,
+        },
+      ],
+      variableCollections: [
+        {
+          id: 'col_cache_1',
+          name: 'Cached Tokens',
+          key: 'cc1',
+          modes: [{ modeId: 'light', name: 'Light' }],
+          defaultModeId: 'light',
+          variableIds: ['var_cache_1'],
+        },
+      ],
+    };
+
+    manager.handleMessage(socketId, JSON.stringify({ id: request.id, result: variablesResult }));
+  });
+
+  socketId = manager.register(socket, {
+    fileKey: 'FILE_CACHE_TEST',
+    docName: 'Cache Test Doc',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // First call - should hit the plugin
+  const result1 = await fetchVariablesDirect('FILE_CACHE_TEST');
+  assert.equal(result1.meta.variables.var_cache_1?.name, 'color/cached');
+  assert.equal(requestCount, 1);
+
+  // Second call - should use cache, not hit the plugin again
+  const result2 = await fetchVariablesDirect('FILE_CACHE_TEST');
+  assert.equal(result2.meta.variables.var_cache_1?.name, 'color/cached');
+  assert.equal(requestCount, 1); // Should still be 1, not 2
+
+  // Cleanup
+  getSharedResponseCache().clear();
 });

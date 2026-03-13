@@ -21,6 +21,7 @@ import {
     type PluginSessionInfo,
     type PluginWebSocket,
 } from './plugin-connection-manager.ts';
+import { getSharedResponseCache } from './response-cache.ts';
 
 /**
  * Extract session info from URL search params
@@ -98,9 +99,17 @@ export function createFigmaPluginWsServer(httpServer: http.Server): WebSocketSer
         maxPendingRequests: 50,
         onConnect: (sessionInfo) => {
             console.log(`[figma-plugin-ws] Plugin connected: ${sessionInfo.docName} (fileKey: ${sessionInfo.fileKey})`);
+            // Invalidate cache on reconnect - data may have changed while disconnected
+            if (sessionInfo.fileKey) {
+                getSharedResponseCache().invalidateFile(sessionInfo.fileKey);
+            }
         },
         onDisconnect: (sessionInfo, reason) => {
             console.log(`[figma-plugin-ws] Plugin disconnected: ${sessionInfo.docName} (reason: ${reason})`);
+        },
+        onDocumentChange: (fileKey) => {
+            getSharedResponseCache().invalidateFile(fileKey);
+            console.log(`[figma-plugin-ws] Cache invalidated for fileKey: ${fileKey}`);
         },
     });
 
