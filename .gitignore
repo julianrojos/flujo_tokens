@@ -23,3 +23,5 @@ tooling/.tmp/
 apps/ds-dashboard/.env
 apps/ds-dashboard/.env.*
 !apps/ds-dashboard/.env.example
+
+PLAN_MEJORA_MCP
