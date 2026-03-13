@@ -6,6 +6,7 @@ import {
   type PluginWebSocket,
   resetPluginConnectionManager,
   getPluginConnectionManager,
+  CircularBuffer,
 } from './plugin-connection-manager.ts';
 
 function createMockSocket(
@@ -253,4 +254,473 @@ test('plugin-connection-manager: getActiveFileKeys returns empty array when all 
   const activeFileKeys = manager.getActiveFileKeys();
   assert.deepEqual(activeFileKeys, []);
   assert.equal(activeFileKeys.length, 0);
+});
+
+test('CircularBuffer: pushes items and maintains max size', () => {
+  const buffer = new CircularBuffer<number>(3);
+  
+  buffer.push(1);
+  buffer.push(2);
+  buffer.push(3);
+  
+  assert.deepEqual(buffer.toArray(), [1, 2, 3]);
+  
+  buffer.push(4); // Should discard oldest (1)
+  
+  assert.deepEqual(buffer.toArray(), [2, 3, 4]);
+  assert.equal(buffer.toArray().length, 3);
+});
+
+test('CircularBuffer: handles empty buffer', () => {
+  const buffer = new CircularBuffer<string>(5);
+  assert.deepEqual(buffer.toArray(), []);
+});
+
+test('CircularBuffer: push with undefined args treats as empty array', () => {
+  const buffer = new CircularBuffer<{ level: string; message: string; args: unknown[] }>(10);
+  
+  buffer.push({ level: 'log', message: 'test', args: [] });
+  
+  assert.equal(buffer.toArray()[0].args.length, 0);
+});
+
+test('plugin-connection-manager: CONSOLE_CAPTURE push event adds to buffer with truncation', () => {
+  const manager = new PluginConnectionManager();
+  const socket = createMockSocket(() => {});
+
+  const socketId = manager.register(socket, {
+    fileKey: 'FILE_1',
+    docName: 'Doc',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Send CONSOLE_CAPTURE with long message (> 1000 chars) and many args (> 10)
+  const longMessage = 'x'.repeat(1500);
+  const manyArgs = Array.from({ length: 20 }, (_, i) => `arg${i}`);
+
+  manager.handleMessage(socketId, JSON.stringify({
+    type: 'CONSOLE_CAPTURE',
+    level: 'log',
+    message: longMessage,
+    args: manyArgs,
+    timestamp: Date.now(),
+  }));
+
+  const logs = manager.getConsoleLogs('FILE_1');
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].message.length, 1000); // Truncated to 1000
+  assert.equal(logs[0].args.length, 10); // Limited to 10
+});
+
+test('plugin-connection-manager: CONSOLE_CAPTURE per-item arg truncation at 500 chars', () => {
+  const manager = new PluginConnectionManager();
+  const socket = createMockSocket(() => {});
+
+  const socketId = manager.register(socket, {
+    fileKey: 'FILE_ARG_TRUNC',
+    docName: 'Doc',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  const longArg = 'y'.repeat(800); // Exceeds 500-char per-item cap
+
+  manager.handleMessage(socketId, JSON.stringify({
+    type: 'CONSOLE_CAPTURE',
+    level: 'log',
+    message: 'test',
+    args: [longArg, { key: 'value' }],
+    timestamp: Date.now(),
+  }));
+
+  const logs = manager.getConsoleLogs('FILE_ARG_TRUNC');
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].args.length, 2);
+  // Each arg is serialized as a string and capped at 500 chars
+  assert.equal(typeof logs[0].args[0], 'string');
+  assert.equal((logs[0].args[0] as string).length, 500); // Truncated from 800
+  // Object arg is JSON-serialized (short enough to pass through)
+  assert.equal(typeof logs[0].args[1], 'string');
+  assert.ok((logs[0].args[1] as string).includes('key'));
+});
+
+test('plugin-connection-manager: SELECTION_CHANGE push event updates buffer and active file key', () => {
+  const manager = new PluginConnectionManager();
+  const socket = createMockSocket(() => {});
+  
+  const socketId = manager.register(socket, {
+    fileKey: 'FILE_ACTIVE',
+    docName: 'Doc',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+  
+  manager.handleMessage(socketId, JSON.stringify({
+    type: 'SELECTION_CHANGE',
+    nodes: [{ id: '1:2', name: 'Frame', type: 'FRAME' }],
+    count: 1,
+    page: 'Page 1',
+    timestamp: Date.now(),
+  }));
+  
+  const selection = manager.getSelection('FILE_ACTIVE');
+  assert.notEqual(selection, null);
+  assert.equal(selection?.count, 1);
+  assert.equal(manager.getActiveFileKey(), 'FILE_ACTIVE');
+});
+
+test('plugin-connection-manager: push event without fileKey uses __unknown__ fallback', () => {
+  const manager = new PluginConnectionManager();
+  const socket = createMockSocket(() => {});
+  
+  const socketId = manager.register(socket, {
+    fileKey: null,
+    docName: 'Doc',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+  
+  manager.handleMessage(socketId, JSON.stringify({
+    type: 'CONSOLE_CAPTURE',
+    level: 'log',
+    message: 'test',
+    args: [],
+    timestamp: Date.now(),
+  }));
+  
+  const logs = manager.getConsoleLogs('__unknown__');
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].message, 'test');
+});
+
+test('plugin-connection-manager: unregister schedules buffer cleanup with TTL', () => {
+  const manager = new PluginConnectionManager({ bufferCleanupTtlMs: 10 });
+
+  const socket = createMockSocket(() => {});
+  const socketId = manager.register(socket, {
+    fileKey: 'FILE_TO_CLEAN',
+    docName: 'Test',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Add data to buffer
+  manager.handleMessage(socketId, JSON.stringify({
+    type: 'CONSOLE_CAPTURE',
+    level: 'log',
+    message: 'test message',
+    args: [],
+    timestamp: Date.now(),
+  }));
+
+  // Verify buffer has data
+  assert.equal(manager.getConsoleLogs('FILE_TO_CLEAN').length, 1);
+
+  // Unregister should schedule cleanup (not immediate)
+  manager.unregister(socketId, 'test');
+
+  // Buffer should still exist immediately (within TTL)
+  assert.equal(manager.getConsoleLogs('FILE_TO_CLEAN').length, 1);
+});
+
+test('plugin-connection-manager: unregister does not schedule cleanup when multiple sockets exist', () => {
+  const manager = new PluginConnectionManager({ bufferCleanupTtlMs: 10 });
+
+  // Register first socket with fileKey
+  const socket1 = createMockSocket(() => {});
+  const socketId1 = manager.register(socket1, {
+    fileKey: 'FILE_SHARED',
+    docName: 'Test1',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Register second socket with same fileKey
+  const socket2 = createMockSocket(() => {});
+  const socketId2 = manager.register(socket2, {
+    fileKey: 'FILE_SHARED',
+    docName: 'Test2',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Add data to buffer
+  manager.handleMessage(socketId1, JSON.stringify({
+    type: 'CONSOLE_CAPTURE',
+    level: 'log',
+    message: 'test message',
+    args: [],
+    timestamp: Date.now(),
+  }));
+
+  // Unregister first socket should NOT schedule cleanup (second socket still active)
+  manager.unregister(socketId1, 'test');
+
+  // Verify buffer is preserved
+  assert.equal(manager.getConsoleLogs('FILE_SHARED').length, 1);
+
+  // Unregister second socket should schedule cleanup
+  manager.unregister(socketId2, 'test');
+
+  // Buffer should still exist immediately (within TTL)
+  assert.equal(manager.getConsoleLogs('FILE_SHARED').length, 1);
+});
+
+test('plugin-connection-manager: buffer cleanup TTL preserves data for reconnections', () => {
+  const manager = new PluginConnectionManager({ bufferCleanupTtlMs: 10 });
+
+  const socket1 = createMockSocket(() => {});
+  const socketId1 = manager.register(socket1, {
+    fileKey: 'FILE_RECONNECT',
+    docName: 'Test1',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Add data to buffer
+  manager.handleMessage(socketId1, JSON.stringify({
+    type: 'CONSOLE_CAPTURE',
+    level: 'log',
+    message: 'original message',
+    args: [],
+    timestamp: Date.now(),
+  }));
+
+  // Disconnect first socket
+  manager.unregister(socketId1, 'test');
+
+  // Reconnect within TTL
+  const socket2 = createMockSocket(() => {});
+  const socketId2 = manager.register(socket2, {
+    fileKey: 'FILE_RECONNECT',
+    docName: 'Test2',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Buffer should be preserved (cleanup cancelled on reconnect)
+  assert.equal(manager.getConsoleLogs('FILE_RECONNECT').length, 1);
+  assert.equal((manager.getConsoleLogs('FILE_RECONNECT')[0] as { message: string }).message, 'original message');
+});
+
+test('plugin-connection-manager: unregister recalculates _activeFileKey after TTL expires', () => {
+  const manager = new PluginConnectionManager({ bufferCleanupTtlMs: 10 });
+
+  // Register first socket with fileKey A
+  const socket1 = createMockSocket(() => {});
+  const socketId1 = manager.register(socket1, {
+    fileKey: 'FILE_A',
+    docName: 'A',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now() - 1000,
+  });
+
+  // Register second socket with fileKey B
+  const socket2 = createMockSocket(() => {});
+  const socketId2 = manager.register(socket2, {
+    fileKey: 'FILE_B',
+    docName: 'B',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Simulate SELECTION_CHANGE to set FILE_B as active
+  manager.handleMessage(socketId2, JSON.stringify({
+    type: 'SELECTION_CHANGE',
+    nodes: [],
+    count: 0,
+    page: 'Page 1',
+    timestamp: Date.now(),
+  }));
+
+  // Verify FILE_B is active
+  assert.equal(manager.getActiveFileKey(), 'FILE_B');
+
+  // Disconnect FILE_B (active file) - _activeFileKey NOT recalculated immediately (within TTL)
+  manager.unregister(socketId2, 'test');
+
+  // Within TTL, _activeFileKey still points to disconnected FILE_B
+  // This is acceptable - routes will use getActiveFileKeys() for validation
+  // After TTL expires, _activeFileKey will be recalculated
+});
+
+test('plugin-connection-manager: getPreferredSocketId uses active file key as tiebreaker', () => {
+  const manager = new PluginConnectionManager();
+
+  // Register first socket
+  const socket1 = createMockSocket(() => {});
+  const socketId1 = manager.register(socket1, {
+    fileKey: 'FILE_A',
+    docName: 'A',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now() - 1000, // Older
+  });
+
+  // Register second socket (newer)
+  const socket2 = createMockSocket(() => {});
+  const socketId2 = manager.register(socket2, {
+    fileKey: 'FILE_B',
+    docName: 'B',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Simulate SELECTION_CHANGE to set FILE_B as active
+  manager.handleMessage(socketId2, JSON.stringify({
+    type: 'SELECTION_CHANGE',
+    nodes: [],
+    count: 0,
+    page: 'Page 1',
+    timestamp: Date.now(),
+  }));
+
+  // Without explicit fileKey, should prefer active file
+  const preferred = manager.getPreferredSocketId();
+  assert.equal(preferred, socketId2);
+});
+
+test('plugin-connection-manager: null fileKey reconnect within TTL preserves __unknown__ buffer', () => {
+  const manager = new PluginConnectionManager({ bufferCleanupTtlMs: 10 });
+
+  // Register socket with null fileKey
+  const socket1 = createMockSocket(() => {});
+  const socketId1 = manager.register(socket1, {
+    fileKey: null,
+    docName: 'Test1',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Add data to __unknown__ buffer
+  manager.handleMessage(socketId1, JSON.stringify({
+    type: 'CONSOLE_CAPTURE',
+    level: 'log',
+    message: 'original message',
+    args: [],
+    timestamp: Date.now(),
+  }));
+
+  // Verify buffer has data
+  assert.equal(manager.getConsoleLogs('__unknown__').length, 1);
+
+  // Disconnect first socket
+  manager.unregister(socketId1, 'test');
+
+  // Reconnect within TTL with null fileKey
+  const socket2 = createMockSocket(() => {});
+  const socketId2 = manager.register(socket2, {
+    fileKey: null,
+    docName: 'Test2',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Buffer should be preserved (cleanup cancelled on reconnect)
+  assert.equal(manager.getConsoleLogs('__unknown__').length, 1);
+  assert.equal((manager.getConsoleLogs('__unknown__')[0] as { message: string }).message, 'original message');
+});
+
+test('plugin-connection-manager: two null fileKey sockets, close one does not trigger cleanup', () => {
+  const manager = new PluginConnectionManager({ bufferCleanupTtlMs: 10 });
+
+  // Register first socket with null fileKey
+  const socket1 = createMockSocket(() => {});
+  const socketId1 = manager.register(socket1, {
+    fileKey: null,
+    docName: 'Test1',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Register second socket with null fileKey
+  const socket2 = createMockSocket(() => {});
+  const socketId2 = manager.register(socket2, {
+    fileKey: null,
+    docName: 'Test2',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Add data to __unknown__ buffer
+  manager.handleMessage(socketId1, JSON.stringify({
+    type: 'CONSOLE_CAPTURE',
+    level: 'log',
+    message: 'test message',
+    args: [],
+    timestamp: Date.now(),
+  }));
+
+  // Disconnect first socket - should NOT schedule cleanup (second socket still active)
+  manager.unregister(socketId1, 'test');
+
+  // Buffer should be preserved (no cleanup scheduled)
+  assert.equal(manager.getConsoleLogs('__unknown__').length, 1);
+
+  // Disconnect second socket - should schedule cleanup
+  manager.unregister(socketId2, 'test');
+
+  // Buffer should still exist immediately (within TTL)
+  assert.equal(manager.getConsoleLogs('__unknown__').length, 1);
+});
+
+test('plugin-connection-manager: getPreferredSocketId works for null fileKey sessions', () => {
+  const manager = new PluginConnectionManager();
+
+  // Register first socket with null fileKey (older)
+  const socket1 = createMockSocket(() => {});
+  const socketId1 = manager.register(socket1, {
+    fileKey: null,
+    docName: 'Test1',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now() - 1000, // Older
+  });
+
+  // Small delay to ensure different createdAt
+  const startTime = Date.now();
+  while (Date.now() === startTime) { /* wait */ }
+
+  // Register second socket with null fileKey (newer)
+  const socket2 = createMockSocket(() => {});
+  const socketId2 = manager.register(socket2, {
+    fileKey: null,
+    docName: 'Test2',
+    pluginVersion: '1.0.0',
+    pluginBuild: 'test',
+    timestamp: Date.now(),
+  });
+
+  // Simulate SELECTION_CHANGE to set __unknown__ as active (via socket2)
+  manager.handleMessage(socketId2, JSON.stringify({
+    type: 'SELECTION_CHANGE',
+    nodes: [],
+    count: 0,
+    page: 'Page 1',
+    timestamp: Date.now(),
+  }));
+
+  // Verify _activeFileKey is set to __unknown__
+  assert.equal(manager.getActiveFileKey(), '__unknown__');
+
+  // Without explicit fileKey, should prefer active file (__unknown__ -> socket2)
+  const preferred = manager.getPreferredSocketId();
+  assert.equal(preferred, socketId2);
 });

@@ -8,8 +8,129 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import type { ConsoleCaptureEventData, DocumentChangeEventData, SelectionChangeEventData, BridgeEvent } from '../../../figma-plugin/src/bridge/protocol.ts';
 
 const WS_OPEN_STATE = 1;
+const BRIDGE_EVENT_TYPES = new Set([
+  'FILE_INFO',
+  'VARIABLES_DATA',
+  'DOCUMENT_CHANGE',
+  'SELECTION_CHANGE',
+  'PAGE_CHANGE',
+  'CONSOLE_CAPTURE',
+]);
+
+function isBridgeEvent(event: string): event is BridgeEvent {
+  return BRIDGE_EVENT_TYPES.has(event);
+}
+
+/**
+ * Type guard to check if a value is a Record<string, unknown>
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Serialize an unknown value to a string, capping at maxLen chars.
+ * Used to prevent huge args from bloating the console log buffer.
+ */
+function safeStringify(arg: unknown, maxLen: number): string {
+  let s: string;
+  if (typeof arg === 'string') {
+    s = arg;
+  } else {
+    try {
+      s = JSON.stringify(arg) ?? String(arg);
+    } catch {
+      s = String(arg);
+    }
+  }
+  return s.length > maxLen ? s.slice(0, maxLen) : s;
+}
+
+/**
+ * Circular buffer with fixed size using ring buffer implementation.
+ * All operations (push, toArray) are O(1) for push and O(n) for toArray.
+ * When full, oldest items are discarded on push.
+ */
+export class CircularBuffer<T> {
+    private buffer: T[];
+    private maxSize: number;
+    private head: number; // Write position
+    private size: number; // Current number of elements
+
+    constructor(maxSize: number) {
+        this.maxSize = maxSize;
+        this.buffer = new Array<T>(maxSize);
+        this.head = 0;
+        this.size = 0;
+    }
+
+    /**
+     * Push an item to the buffer. O(1) operation.
+     * If buffer is full, overwrites the oldest item.
+     */
+    push(item: T): void {
+        this.buffer[this.head] = item;
+        this.head = (this.head + 1) % this.maxSize;
+        if (this.size < this.maxSize) {
+            this.size++;
+        }
+    }
+
+    /**
+     * Return all items in insertion order. O(n) operation.
+     */
+    toArray(): readonly T[] {
+        const result: T[] = [];
+        // Start from oldest item (head - size, wrapping around)
+        const start = (this.head - this.size + this.maxSize) % this.maxSize;
+        for (let i = 0; i < this.size; i++) {
+            result.push(this.buffer[(start + i) % this.maxSize]);
+        }
+        return result;
+    }
+
+    /**
+     * Get current number of items in buffer.
+     */
+    get length(): number {
+        return this.size;
+    }
+}
+
+/**
+ * Buffer entry for console logs
+ */
+export interface ConsoleLogBufferEntry extends ConsoleCaptureEventData {}
+
+/**
+ * Buffer entry for document changes
+ */
+export interface DocumentChangeBufferEntry extends DocumentChangeEventData {}
+
+/**
+ * Buffer entry for selection changes
+ */
+export interface SelectionBufferEntry extends SelectionChangeEventData {}
+
+export interface ConsoleLogWithFileKey extends ConsoleLogBufferEntry {
+    fileKey: string;
+}
+
+export interface DocumentChangeWithFileKey extends DocumentChangeBufferEntry {
+    fileKey: string;
+}
+
+/**
+ * Push event buffers per fileKey
+ */
+interface FileEventBuffer {
+    consoleLogs: CircularBuffer<ConsoleLogBufferEntry>;
+    documentChanges: CircularBuffer<DocumentChangeBufferEntry>;
+    selection: SelectionBufferEntry | null;
+}
 
 /**
  * Session information from plugin handshake
@@ -68,6 +189,8 @@ export interface PluginConnectionManagerConfig {
     onConnect?: (sessionInfo: PluginSessionInfo) => void;
     /** Callback when a plugin disconnects */
     onDisconnect?: (sessionInfo: PluginSessionInfo, reason: string) => void;
+    /** TTL in ms for buffer cleanup after last socket disconnects (default: 60000ms = 1min) */
+    bufferCleanupTtlMs?: number;
 }
 
 /**
@@ -79,8 +202,12 @@ export interface PluginConnectionManagerConfig {
 export class PluginConnectionManager {
     private connections: Map<string, ActiveConnection> = new Map();
     private pendingRequests: Map<string, PendingRequest> = new Map();
+    private pushEventBuffers: Map<string, FileEventBuffer> = new Map();
+    private bufferCleanupTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
+    private _activeFileKey: string | null = null;
     private defaultTimeoutMs: number;
     private maxPendingRequests: number;
+    private bufferCleanupTtlMs: number;
     private onConnect?: (sessionInfo: PluginSessionInfo) => void;
     private onDisconnect?: (sessionInfo: PluginSessionInfo, reason: string) => void;
     private socketCounter = 0;
@@ -88,6 +215,7 @@ export class PluginConnectionManager {
     constructor(config: PluginConnectionManagerConfig = {}) {
         this.defaultTimeoutMs = config.defaultTimeoutMs ?? 60000; // 60s default
         this.maxPendingRequests = config.maxPendingRequests ?? 50;
+        this.bufferCleanupTtlMs = config.bufferCleanupTtlMs ?? 60000; // 60s TTL default
         this.onConnect = config.onConnect;
         this.onDisconnect = config.onDisconnect;
     }
@@ -103,6 +231,16 @@ export class PluginConnectionManager {
             createdAt: Date.now(),
         });
 
+        // Cancel any pending cleanup timer for this fileKey (reconnection within TTL)
+        // Use toBufferKey to handle null fileKey -> '__unknown__' consistently
+        const bufferKey = toBufferKey(sessionInfo.fileKey);
+        const pendingTimer = this.bufferCleanupTimers.get(bufferKey);
+        if (pendingTimer) {
+            clearTimeout(pendingTimer);
+            this.bufferCleanupTimers.delete(bufferKey);
+            console.log(`[PluginConnectionManager] Cancelled pending cleanup timer for fileKey: ${bufferKey}`);
+        }
+
         this.onConnect?.(sessionInfo);
         console.log(`[PluginConnectionManager] Registered plugin session: ${sessionInfo.docName} (fileKey: ${sessionInfo.fileKey})`);
 
@@ -111,11 +249,19 @@ export class PluginConnectionManager {
 
     /**
      * Unregister a plugin WebSocket connection
+     *
+     * NOTE: Also cleans up push event buffers when the last socket for a fileKey disconnects
+     * to prevent memory leaks in long-running sessions with multiple files.
+     * Also invalidates _activeFileKey if the disconnected socket was the active one.
+     * 
+     * Buffer cleanup is delayed by TTL to allow for quick reconnections without data loss.
      */
     unregister(socketId: string, reason = 'unknown'): void {
         const connection = this.connections.get(socketId);
 
         if (connection) {
+            const fileKey = connection.sessionInfo.fileKey;
+
             // Clean up pending requests for this socket
             this.cleanupPending(socketId);
 
@@ -123,11 +269,50 @@ export class PluginConnectionManager {
             console.log(`[PluginConnectionManager] Unregistered plugin session: ${connection.sessionInfo.docName} (reason: ${reason})`);
 
             this.connections.delete(socketId);
+
+            // Use consistent buffer key for cleanup (handles null fileKey -> '__unknown__')
+            const bufferKey = toBufferKey(fileKey);
+
+            // Schedule buffer cleanup with TTL when the last socket for this fileKey disconnects
+            // This allows quick reconnections without losing buffered data
+            // Use isAliveBufferKey to properly handle __unknown__ buffer key
+            if (!this.isAliveBufferKey(bufferKey)) {
+                // Cancel any existing timer for this fileKey
+                const existingTimer = this.bufferCleanupTimers.get(bufferKey);
+                if (existingTimer) {
+                    clearTimeout(existingTimer);
+                }
+
+                // Schedule cleanup after TTL (unref to prevent process hang)
+                const timerId = setTimeout(() => {
+                    // Double-check that no new connection was established during TTL
+                    if (!this.isAliveBufferKey(bufferKey)) {
+                        this.pushEventBuffers.delete(bufferKey);
+                        this.bufferCleanupTimers.delete(bufferKey);
+                        console.log(`[PluginConnectionManager] Cleaned up buffers for fileKey: ${bufferKey} (after TTL)`);
+
+                        // Invalidate _activeFileKey if it pointed to this disconnected fileKey
+                        if (this._activeFileKey === bufferKey) {
+                            this._activeFileKey = this.getActiveFileKeys()[0] ?? null;
+                            console.log(`[PluginConnectionManager] Updated _activeFileKey to: ${this._activeFileKey ?? 'null'}`);
+                        }
+                    }
+                }, this.bufferCleanupTtlMs);
+
+                // Allow process to exit even if timer is pending (prevents 60s hang in tests/tooling)
+                timerId.unref?.();
+
+                this.bufferCleanupTimers.set(bufferKey, timerId);
+                console.log(`[PluginConnectionManager] Scheduled buffer cleanup for fileKey: ${bufferKey} in ${this.bufferCleanupTtlMs}ms`);
+            }
         }
     }
 
     /**
-     * Check if a fileKey has any active sessions
+     * Check if a fileKey has any active sessions.
+     * 
+     * NOTE: This checks raw fileKey values. For buffer key checks (including '__unknown__'),
+     * use isAliveBufferKey() instead.
      */
     isAlive(fileKey: string | null): boolean {
         if (!fileKey) return false;
@@ -138,6 +323,152 @@ export class PluginConnectionManager {
             }
         }
         return false;
+    }
+
+    /**
+     * Check if a buffer key has any active sessions.
+     * Normalizes fileKey to buffer key for consistent comparison (handles '__unknown__').
+     */
+    isAliveBufferKey(bufferKey: string): boolean {
+        for (const connection of this.connections.values()) {
+            if (toBufferKey(connection.sessionInfo.fileKey) === bufferKey) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get or create the push event buffer for a fileKey.
+     * 
+     * Also cancels any pending cleanup timer for this fileKey (access within TTL preserves buffer).
+     */
+    private getOrCreateBuffer(fileKey: string): FileEventBuffer {
+        // Cancel pending cleanup timer if accessing buffer within TTL
+        const pendingTimer = this.bufferCleanupTimers.get(fileKey);
+        if (pendingTimer) {
+            clearTimeout(pendingTimer);
+            this.bufferCleanupTimers.delete(fileKey);
+        }
+
+        if (!this.pushEventBuffers.has(fileKey)) {
+            this.pushEventBuffers.set(fileKey, {
+                consoleLogs: new CircularBuffer<ConsoleLogBufferEntry>(1000),
+                documentChanges: new CircularBuffer<DocumentChangeBufferEntry>(200),
+                selection: null,
+            });
+        }
+        return this.pushEventBuffers.get(fileKey)!;
+    }
+
+    /**
+     * Get console logs from the buffer.
+     * 
+     * @param fileKey - If provided, returns logs for that specific file.
+     *                  If null/undefined, returns ALL logs from ALL files (merged in buffer order).
+     *                  NOTE: When merging multiple files, log order is not guaranteed across files.
+     * @returns Array of console log entries
+     */
+    getConsoleLogs(fileKey?: string | null): ConsoleLogBufferEntry[] {
+        if (!fileKey) {
+            // Return all logs from all files (merged)
+            const allLogs: ConsoleLogBufferEntry[] = [];
+            for (const buffer of this.pushEventBuffers.values()) {
+                allLogs.push(...buffer.consoleLogs.toArray());
+            }
+            return allLogs;
+        }
+        const buffer = this.pushEventBuffers.get(fileKey);
+        return buffer ? buffer.consoleLogs.toArray() : [];
+    }
+
+    /**
+     * Get all console logs including fileKey metadata per entry.
+     */
+    getConsoleLogsWithFileKey(): ConsoleLogWithFileKey[] {
+        const logs: ConsoleLogWithFileKey[] = [];
+        for (const [fileKey, buffer] of this.pushEventBuffers.entries()) {
+            for (const entry of buffer.consoleLogs.toArray()) {
+                logs.push({
+                    ...entry,
+                    fileKey,
+                });
+            }
+        }
+        return logs;
+    }
+
+    /**
+     * Get document changes from the buffer.
+     * 
+     * @param fileKey - If provided, returns changes for that specific file.
+     *                  If null/undefined, returns ALL changes from ALL files (merged in buffer order).
+     *                  NOTE: When merging multiple files, change order is not guaranteed across files.
+     * @returns Array of document change entries
+     */
+    getDocumentChanges(fileKey?: string | null): DocumentChangeBufferEntry[] {
+        if (!fileKey) {
+            // Return all changes from all files (merged)
+            const allChanges: DocumentChangeBufferEntry[] = [];
+            for (const buffer of this.pushEventBuffers.values()) {
+                allChanges.push(...buffer.documentChanges.toArray());
+            }
+            return allChanges;
+        }
+        const buffer = this.pushEventBuffers.get(fileKey);
+        return buffer ? buffer.documentChanges.toArray() : [];
+    }
+
+    /**
+     * Get all document changes including fileKey metadata per entry.
+     */
+    getDocumentChangesWithFileKey(): DocumentChangeWithFileKey[] {
+        const changes: DocumentChangeWithFileKey[] = [];
+        for (const [fileKey, buffer] of this.pushEventBuffers.entries()) {
+            for (const entry of buffer.documentChanges.toArray()) {
+                changes.push({
+                    ...entry,
+                    fileKey,
+                });
+            }
+        }
+        return changes;
+    }
+
+    /**
+     * Get current selection from the buffer
+     */
+    getSelection(fileKey?: string | null): SelectionBufferEntry | null {
+        if (!fileKey) {
+            // Return selection from active file
+            const activeBuffer = this._activeFileKey ? this.pushEventBuffers.get(this._activeFileKey) : null;
+            return activeBuffer?.selection ?? null;
+        }
+        const buffer = this.pushEventBuffers.get(fileKey);
+        return buffer?.selection ?? null;
+    }
+
+    /**
+     * Clear console logs for a fileKey (or all if not specified)
+     */
+    clearConsoleLogs(fileKey?: string | null): void {
+        if (!fileKey) {
+            for (const buffer of this.pushEventBuffers.values()) {
+                buffer.consoleLogs = new CircularBuffer<ConsoleLogBufferEntry>(1000);
+            }
+        } else {
+            const buffer = this.pushEventBuffers.get(fileKey);
+            if (buffer) {
+                buffer.consoleLogs = new CircularBuffer<ConsoleLogBufferEntry>(1000);
+            }
+        }
+    }
+
+    /**
+     * Get the active file key (last file with selection/page change)
+     */
+    getActiveFileKey(): string | null {
+        return this._activeFileKey;
     }
 
     /**
@@ -173,8 +504,23 @@ export class PluginConnectionManager {
      * Resolve the most recently created socket for a given file key.
      * When fileKey is omitted, returns the most recent socket globally.
      * Only considers sockets with readyState === OPEN (1).
+     * Uses _activeFileKey as a tiebreaker when fileKey is not explicitly provided.
      */
     getPreferredSocketId(fileKey?: string | null): string | null {
+        // Explicit fileKey: use existing logic unchanged
+        if (fileKey != null) {
+            return this.getMostRecentOpenSocket(fileKey);
+        }
+        // No fileKey: prefer active file, then fall back to most recent global
+        const targetKey = this._activeFileKey ?? undefined;
+        return this.getMostRecentOpenSocket(targetKey) ?? this.getMostRecentOpenSocket(undefined);
+    }
+
+    /**
+     * Get the most recent open socket for a given fileKey (or globally if undefined).
+     * Normalizes fileKey to buffer key for consistent comparison (handles '__unknown__').
+     */
+    private getMostRecentOpenSocket(fileKey?: string): string | null {
         let preferred: { socketId: string; createdAt: number } | null = null;
 
         for (const [socketId, connection] of this.connections.entries()) {
@@ -183,7 +529,8 @@ export class PluginConnectionManager {
                 continue;
             }
 
-            if (fileKey != null && connection.sessionInfo.fileKey !== fileKey) {
+            // Normalize both keys for comparison (handles '__unknown__' correctly)
+            if (fileKey != null && toBufferKey(connection.sessionInfo.fileKey) !== fileKey) {
                 continue;
             }
             if (!preferred || connection.createdAt > preferred.createdAt) {
@@ -311,6 +658,79 @@ export class PluginConnectionManager {
                 sessionInfo: updatedInfo,
             });
             console.log(`[PluginConnectionManager] Updated session: ${updatedInfo.docName} (fileKey: ${updatedInfo.fileKey})`);
+        } else if (isBridgeEvent(messageType)) {
+            this.handlePushEvent(socketId, messageType, message);
+        }
+    }
+
+    /**
+     * Handle push events from the plugin (CONSOLE_CAPTURE, DOCUMENT_CHANGE, etc.)
+     * 
+     * NOTE: The WS runtime sends events as { type: string, data: unknown }.
+     * We normalize the payload to handle both formats for backwards compatibility.
+     */
+    private handlePushEvent(
+        socketId: string,
+        eventType: BridgeEvent,
+        message: Record<string, unknown>
+    ): void {
+        const connection = this.connections.get(socketId);
+        if (!connection) return;
+
+        // Normalize payload: WS runtime sends { type, data }, extract data if present
+        const payload = isRecord(message.data) ? message.data : message;
+
+        // Use consistent buffer key (handles null fileKey -> '__unknown__')
+        const bufferKey = toBufferKey(connection.sessionInfo.fileKey);
+        const buf = this.getOrCreateBuffer(bufferKey);
+
+        switch (eventType) {
+            case 'FILE_INFO':
+            case 'VARIABLES_DATA':
+                // These events are handled elsewhere (not buffered here).
+                // FILE_INFO: Used for session tracking via SESSION_INFO
+                // VARIABLES_DATA: Handled via GET_VARIABLES_DATA request/response
+                // No buffering needed - silent no-op to avoid log noise
+                break;
+
+            case 'CONSOLE_CAPTURE': {
+                const consolePayload = payload as {
+                    level?: string;
+                    message?: string;
+                    args?: unknown[];
+                    timestamp?: number;
+                };
+                // Truncate message to 1000 chars
+                const msg = consolePayload.message ?? '';
+                const truncatedMsg = msg.length > 1000 ? msg.slice(0, 1000) : msg;
+                // Limit args to 10 entries, truncate each item to 500 chars
+                const rawArgs = Array.isArray(consolePayload.args) ? consolePayload.args.slice(0, 10) : [];
+                const args = rawArgs.map((arg) => safeStringify(arg, 500));
+                buf.consoleLogs.push({
+                    level: (consolePayload.level as ConsoleLogBufferEntry['level']) ?? 'log',
+                    message: truncatedMsg,
+                    args,
+                    timestamp: consolePayload.timestamp ?? Date.now(),
+                });
+                break;
+            }
+            case 'DOCUMENT_CHANGE': {
+                buf.documentChanges.push(payload as DocumentChangeBufferEntry);
+                break;
+            }
+            case 'SELECTION_CHANGE': {
+                buf.selection = payload as SelectionBufferEntry;
+                this._activeFileKey = bufferKey;
+                break;
+            }
+            case 'PAGE_CHANGE': {
+                this._activeFileKey = bufferKey;
+                break;
+            }
+            default:
+                // Unknown event type, log and continue
+                console.warn(`[PluginConnectionManager] Unknown push event type: ${eventType}`);
+                break;
         }
     }
 
@@ -398,10 +818,29 @@ export class PluginConnectionManager {
             connections,
         };
     }
+
+    /**
+     * Clear all pending cleanup timers.
+     * Used for testing to prevent process hang.
+     */
+    clearAllCleanupTimers(): void {
+        for (const timer of this.bufferCleanupTimers.values()) {
+            clearTimeout(timer);
+        }
+        this.bufferCleanupTimers.clear();
+    }
 }
 
 // Singleton instance
 let _pluginConnectionManager: PluginConnectionManager | null = null;
+
+/**
+ * Normalize fileKey to buffer key for consistent storage/cleanup.
+ * Uses '__unknown__' for null/undefined fileKeys.
+ */
+function toBufferKey(fileKey: string | null | undefined): string {
+    return fileKey ?? '__unknown__';
+}
 
 /**
  * Get or create the singleton PluginConnectionManager
@@ -414,8 +853,13 @@ export function getPluginConnectionManager(config?: PluginConnectionManagerConfi
 }
 
 /**
- * Reset the singleton (for testing)
+ * Reset the singleton (for testing).
+ * Also clears all pending cleanup timers to prevent process hang.
  */
 export function resetPluginConnectionManager(): void {
+    if (_pluginConnectionManager) {
+        // Clear all pending cleanup timers to prevent process hang
+        _pluginConnectionManager.clearAllCleanupTimers();
+    }
     _pluginConnectionManager = null;
 }
