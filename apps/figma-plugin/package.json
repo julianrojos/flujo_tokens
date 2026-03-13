@@ -9,6 +9,7 @@
     "dev": "vite",
     "lint": "eslint src --ext .ts,.tsx",
     "test": "vitest run",
+    "test:bridge": "vitest run src/bridge/__tests__/*.test.ts",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },

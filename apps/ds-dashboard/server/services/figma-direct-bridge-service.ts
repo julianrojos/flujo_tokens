@@ -7,6 +7,25 @@
 
 import type { FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
 import type { DesignSystemKitResult } from '../../../../tooling/src/services/figma-mcp-variables.ts';
+import type {
+  BatchCreateVariablesParams as BridgeBatchCreateVariablesParams,
+  BatchCreateVariablesResult as BridgeBatchCreateVariablesResult,
+  BatchUpdateVariablesParams as BridgeBatchUpdateVariablesParams,
+  BatchUpdateVariablesResult as BridgeBatchUpdateVariablesResult,
+  ExportTokensParams as BridgeExportTokensParams,
+  ExportTokensResult as BridgeExportTokensResult,
+  GetTokenUsageParams as BridgeGetTokenUsageParams,
+  GetTokenUsageResult as BridgeGetTokenUsageResult,
+  SearchVariablesParams as BridgeSearchVariablesParams,
+  SearchVariablesResult as BridgeSearchVariablesResult,
+  SyncTokensApplyParams as BridgeSyncTokensApplyParams,
+  SyncTokensApplyResult as BridgeSyncTokensApplyResult,
+  SyncTokensPlanParams as BridgeSyncTokensPlanParams,
+  SyncTokensPlanResult as BridgeSyncTokensPlanResult,
+  TokenDiff as BridgeTokenDiff,
+  TokenExportFormat as BridgeTokenExportFormat,
+  TokenUsageEntry as BridgeTokenUsageEntry,
+} from '../../../figma-plugin/src/bridge/protocol.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { getSharedResponseCache } from './response-cache.ts';
 
@@ -328,4 +347,109 @@ export async function fetchBridgeCapabilitiesDirect(): Promise<BridgeCapabilitie
     timestamp: result.timestamp,
     elapsedMs: Date.now() - startedAt,
   };
+}
+
+// ============================================================================
+// P1: Enhanced Variables (Direct Bridge)
+// ============================================================================
+
+export type SearchVariablesParams = BridgeSearchVariablesParams;
+export type SearchVariablesResult = BridgeSearchVariablesResult;
+
+export async function searchVariablesDirect(
+  fileKey: string | null,
+  params: SearchVariablesParams
+): Promise<SearchVariablesResult> {
+  return await requestDirectWithFileKeyFallback<SearchVariablesResult>(
+    'SEARCH_VARIABLES',
+    params,
+    fileKey
+  );
+}
+
+export type BatchCreateVariablesParams = BridgeBatchCreateVariablesParams;
+export type BatchCreateVariablesResult = BridgeBatchCreateVariablesResult;
+
+export async function batchCreateVariablesDirect(
+  fileKey: string | null,
+  params: BatchCreateVariablesParams
+): Promise<BatchCreateVariablesResult> {
+  return await requestDirectWithFileKeyFallback<BatchCreateVariablesResult>(
+    'BATCH_CREATE_VARIABLES',
+    params,
+    fileKey
+  );
+}
+
+export type BatchUpdateVariablesParams = BridgeBatchUpdateVariablesParams;
+export type BatchUpdateVariablesResult = BridgeBatchUpdateVariablesResult;
+
+export async function batchUpdateVariablesDirect(
+  fileKey: string | null,
+  params: BatchUpdateVariablesParams
+): Promise<BatchUpdateVariablesResult> {
+  return await requestDirectWithFileKeyFallback<BatchUpdateVariablesResult>(
+    'BATCH_UPDATE_VARIABLES',
+    params,
+    fileKey
+  );
+}
+
+export type TokenExportFormat = BridgeTokenExportFormat;
+export type ExportTokensParams = BridgeExportTokensParams;
+export type ExportTokensResult = BridgeExportTokensResult;
+
+export async function exportTokensDirect(
+  fileKey: string | null,
+  params: ExportTokensParams
+): Promise<ExportTokensResult> {
+  return await requestDirectWithFileKeyFallback<ExportTokensResult>(
+    'EXPORT_TOKENS',
+    params,
+    fileKey
+  );
+}
+
+export type SyncTokensPlanParams = BridgeSyncTokensPlanParams;
+export type TokenDiff = BridgeTokenDiff;
+export type SyncTokensPlanResult = BridgeSyncTokensPlanResult;
+
+export async function syncTokensPlanDirect(
+  fileKey: string | null,
+  params: SyncTokensPlanParams
+): Promise<SyncTokensPlanResult> {
+  return await requestDirectWithFileKeyFallback<SyncTokensPlanResult>(
+    'SYNC_TOKENS_PLAN',
+    params,
+    fileKey
+  );
+}
+
+export type SyncTokensApplyParams = BridgeSyncTokensApplyParams;
+export type SyncTokensApplyResult = BridgeSyncTokensApplyResult;
+
+export async function syncTokensApplyDirect(
+  fileKey: string | null,
+  params: SyncTokensApplyParams
+): Promise<SyncTokensApplyResult> {
+  return await requestDirectWithFileKeyFallback<SyncTokensApplyResult>(
+    'SYNC_TOKENS_APPLY',
+    params,
+    fileKey
+  );
+}
+
+export type GetTokenUsageParams = BridgeGetTokenUsageParams;
+export type TokenUsageEntry = BridgeTokenUsageEntry;
+export type GetTokenUsageResult = BridgeGetTokenUsageResult;
+
+export async function getTokenUsageDirect(
+  fileKey: string | null,
+  params: GetTokenUsageParams
+): Promise<GetTokenUsageResult> {
+  return await requestDirectWithFileKeyFallback<GetTokenUsageResult>(
+    'GET_TOKEN_USAGE',
+    params,
+    fileKey
+  );
 }

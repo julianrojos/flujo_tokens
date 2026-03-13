@@ -17,6 +17,7 @@ import {
   createBridgeError,
   ERROR_CODES,
   BRIDGE_METHODS,
+  GetTokenUsageParams,
 } from './protocol';
 
 // Import all handlers
@@ -68,6 +69,26 @@ import {
   handleSearchNodes,
   handleGetNodesById,
 } from './handlers/nodes';
+import { handleBatchCreateVariables, handleBatchUpdateVariables } from './handlers/batch-variables';
+import { handleExportTokens } from './handlers/token-export';
+import { handleSyncTokensPlan, handleSyncTokensApply } from './handlers/sync-tokens';
+import { handleGetTokenUsage } from './handlers/token-usage';
+
+/**
+ * Wrapper for handleGetTokenUsage with env gate.
+ */
+async function handleGetTokenUsageWithEnvGate(
+  params: Record<string, unknown>
+): Promise<unknown> {
+  const force = params.force === true;
+  if (!force && process.env?.DS_FEATURE_TOKEN_USAGE !== '1') {
+    throw createBridgeError(
+      ERROR_CODES.INVALID_REQUEST,
+      'GET_TOKEN_USAGE requires DS_FEATURE_TOKEN_USAGE=1 or force: true'
+    );
+  }
+  return handleGetTokenUsage(params as GetTokenUsageParams);
+}
 
 /**
  * Type for handler functions.
@@ -127,6 +148,13 @@ const HANDLERS: Record<BridgeMethod, HandlerFunction> = {
   [BRIDGE_METHODS.RELOAD_UI]: handleReloadUI as unknown as HandlerFunction,
   // Bridge capabilities (direct mode)
   [BRIDGE_METHODS.GET_BRIDGE_CAPABILITIES]: handleGetBridgeCapabilities as unknown as HandlerFunction,
+  // P1: Enhanced variables
+  [BRIDGE_METHODS.BATCH_CREATE_VARIABLES]: handleBatchCreateVariables as unknown as HandlerFunction,
+  [BRIDGE_METHODS.BATCH_UPDATE_VARIABLES]: handleBatchUpdateVariables as unknown as HandlerFunction,
+  [BRIDGE_METHODS.EXPORT_TOKENS]: handleExportTokens as unknown as HandlerFunction,
+  [BRIDGE_METHODS.SYNC_TOKENS_PLAN]: handleSyncTokensPlan as unknown as HandlerFunction,
+  [BRIDGE_METHODS.SYNC_TOKENS_APPLY]: handleSyncTokensApply as unknown as HandlerFunction,
+  [BRIDGE_METHODS.GET_TOKEN_USAGE]: handleGetTokenUsageWithEnvGate as unknown as HandlerFunction,
 };
 
 /**

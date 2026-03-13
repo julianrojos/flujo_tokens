@@ -22,7 +22,6 @@ import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
 import { fetchDesignSystemKitDirect, type FigmaVariableCollection } from '../services/figma-direct-bridge-service.ts';
-import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
 import { toDtcgTokenSet } from '../lib/dtcg-transform.ts';
 import {
   compressKitResult,
@@ -31,6 +30,7 @@ import {
   type KitFormat,
   type CompressionLevel,
 } from '../lib/response-compressor.ts';
+import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
 
 export interface FigmaMcpDesignSystemKitRouteDeps {
   getConnInfoFn?: (c: Context) => ConnInfo;
@@ -45,18 +45,6 @@ function isAuthorized(c: Context, internalToken: string | undefined, getConnInfo
   if (!internalToken) return false;
   const received = String(c.req.header('x-ds-dashboard-internal-token') ?? '').trim();
   return Boolean(received) && received === internalToken;
-}
-
-/**
- * Extract fileKey from Figma URL
- */
-function extractFileKey(url: string): string | null {
-  try {
-    const match = url.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -129,57 +117,19 @@ export async function handleGetDesignSystemKit(c: Context, deps: FigmaMcpDesignS
     format = 'auto';
   }
 
-  let fileKey = fileUrl ? extractFileKey(fileUrl) : null;
+  // Resolve fileKey with ambiguity guard using shared utility
+  const resolved = resolveFileKeyFromManager(fileUrl, {
+    ambiguous: 'kit.ambiguous_file_key',
+    noSocket: 'kit.no_socket',
+    ambiguousMessage: 'Multiple plugin connections for different files detected. Provide a fileUrl to specify which file to fetch the design system kit from.',
+    noSocketMessage: 'No plugin connection available. Open the Figma plugin and provide a fileUrl.',
+  });
 
-  // Direct-only mode: use direct WebSocket bridge
-  // Ambiguity guard: when fileKey is not provided, check for multiple files
-  if (!fileKey) {
-    const manager = getPluginConnectionManager();
-    const connectionCount = manager.getConnectionCount();
-    const activeFileKeys = manager.getActiveFileKeys();
-
-    if (connectionCount === 0) {
-      return c.json(
-        {
-          ok: false,
-          code: 'kit.no_socket',
-          message: 'No plugin connection available. Open the Figma plugin and provide a fileUrl.',
-        },
-        200
-      );
-    }
-
-    // True ambiguity: multiple different files connected
-    if (activeFileKeys.length > 1) {
-      return c.json(
-        {
-          ok: false,
-          code: 'kit.ambiguous_file_key',
-          message: 'Multiple plugin connections for different files detected. Provide a fileUrl to specify which file to fetch the design system kit from.',
-        },
-        200
-      );
-    }
-
-    // Auto-resolve: single fileKey from active connections
-    if (activeFileKeys.length === 1) {
-      fileKey = activeFileKeys[0];
-    }
-    // If activeFileKeys.length === 0 but connectionCount > 0:
-    // - If connectionCount === 1: allow draft/unkeyed file (fileKey remains null)
-    // - If connectionCount > 1: multiple unkeyed connections is ambiguous
-    else if (connectionCount > 1) {
-      return c.json(
-        {
-          ok: false,
-          code: 'kit.ambiguous_file_key',
-          message: 'Multiple plugin connections without fileKey detected. Provide a fileUrl to specify which file to fetch the design system kit from.',
-        },
-        200
-      );
-    }
-    // else: connectionCount === 1 && activeFileKeys.length === 0 → draft file, allow with fileKey = null
+  if ('ok' in resolved && !resolved.ok) {
+    return c.json(resolved, 200);
   }
+
+  const fileKey = resolved.fileKey;
 
   try {
     const directResult = await fetchKitFn(fileKey, { format: undefined, include });

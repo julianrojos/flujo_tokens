@@ -37,7 +37,7 @@ import {
 /**
  * Helper: Serialize a Figma Variable to protocol format.
  */
-function serializeVariable(v: Variable): VariableData {
+export function serializeVariable(v: Variable): VariableData {
   return {
     id: v.id,
     name: v.name,
@@ -68,7 +68,7 @@ function serializeCollection(c: VariableCollection): VariableCollectionData {
 /**
  * Helper: Convert hex color to Figma RGB format.
  */
-function hexToFigmaRGB(hex: string): RGBA {
+export function hexToFigmaRGB(hex: string): RGBA {
   hex = hex.replace(/^#/, '');
 
   // Validate hex characters
@@ -370,6 +370,79 @@ export async function handleSetVariableDescription(
 /**
  * SEARCH_VARIABLES - Search variables with filters
  */
+
+/**
+ * Type guard to check if a value is a variable alias.
+ */
+export function isVariableAlias(v: unknown): v is { type: 'VARIABLE_ALIAS'; id: string } {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    'type' in v &&
+    (v as Record<string, unknown>).type === 'VARIABLE_ALIAS'
+  );
+}
+
+/**
+ * Resolve an alias value to its final value.
+ * Uses visited set and depth limit to detect circular chains.
+ */
+async function resolveAliasValue(
+  aliasId: string,
+  modeId: string,
+  visited = new Set<string>(),
+  depth = 0
+): Promise<unknown> {
+  const MAX_DEPTH = 10;
+  if (depth > MAX_DEPTH || visited.has(aliasId)) {
+    return null;
+  }
+  visited.add(aliasId);
+
+  try {
+    const v = await figma.variables.getVariableByIdAsync(aliasId);
+    if (!v) return null;
+
+    const val = v.valuesByMode[modeId];
+    if (isVariableAlias(val)) {
+      // Extract the ID from the alias (format: "VariableID:...")
+      const aliasIdStr = typeof val.id === 'string' ? val.id : String(val.id);
+      return resolveAliasValue(aliasIdStr, modeId, visited, depth + 1);
+    }
+    return val;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve alias values in a variable's valuesByMode.
+ */
+export async function resolveVariableAliases(
+  variable: Variable,
+  targetModeId?: string
+): Promise<Record<string, unknown>> {
+  const resolvedByMode: Record<string, unknown> = {};
+  const entries = Object.entries(variable.valuesByMode);
+
+  for (const [modeId, val] of entries) {
+    // If targetModeId is specified, only resolve for that mode
+    if (targetModeId && modeId !== targetModeId) {
+      resolvedByMode[modeId] = val;
+      continue;
+    }
+
+    if (isVariableAlias(val)) {
+      const aliasIdStr = typeof val.id === 'string' ? val.id : String(val.id);
+      resolvedByMode[modeId] = await resolveAliasValue(aliasIdStr, modeId);
+    } else {
+      resolvedByMode[modeId] = val;
+    }
+  }
+
+  return resolvedByMode;
+}
+
 export async function handleSearchVariables(
   params: SearchVariablesParams
 ): Promise<unknown> {
@@ -394,10 +467,29 @@ export async function handleSearchVariables(
       }
     }
 
+    // P1: Handle collectionName filter (resolve collection name to collection IDs)
+    // This must be done BEFORE filtering variables
+    let effectiveCollectionIdSet = collectionIdSet;
+    if (params.collectionName) {
+      const collections = await figma.variables.getLocalVariableCollectionsAsync();
+      const matchingCollections = collections.filter((c) =>
+        c.name.toLowerCase().includes(params.collectionName!.toLowerCase())
+      );
+      const matchingIds = new Set(matchingCollections.map((c) => c.id));
+      // Union with existing collectionIdSet if present
+      if (effectiveCollectionIdSet) {
+        for (const id of matchingIds) {
+          effectiveCollectionIdSet.add(id);
+        }
+      } else {
+        effectiveCollectionIdSet = matchingIds;
+      }
+    }
+
     // Filter variables
     const filtered = variables.filter((v: Variable) => {
-      // Filter by collectionId
-      if (collectionIdSet && !collectionIdSet.has(v.variableCollectionId)) {
+      // Filter by collectionId (now includes collectionName matching)
+      if (effectiveCollectionIdSet && !effectiveCollectionIdSet.has(v.variableCollectionId)) {
         return false;
       }
       // Filter by resolvedType
@@ -408,34 +500,80 @@ export async function handleSearchVariables(
       if (nameRegex && !nameRegex.test(v.name)) {
         return false;
       }
+      // P1: Filter by nameContains (case-insensitive substring match)
+      if (params.nameContains && !v.name.toLowerCase().includes(params.nameContains.toLowerCase())) {
+        return false;
+      }
       return true;
     });
+
+    // P1: Get total count before pagination
+    const total = filtered.length;
+    // Clamp offset to prevent negative slice
+    const offset = Math.max(0, params.offset ?? 0);
 
     // Apply limit (default: 50, max: 200, min: 0)
     const rawLimit = params.limit ?? 50;
     const limit = rawLimit < 0 ? 0 : Math.min(rawLimit, 200);
-    const limited = filtered.slice(0, limit);
+    const limited = filtered.slice(offset, offset + limit);
+    const hasMore = (offset + limited.length) < total;
 
-    // Build result based on compact flag
-    const resultVariables = limited.map((v: Variable) => {
-      if (params.compact) {
-        return {
-          id: v.id,
-          name: v.name,
-          key: v.key,
-          resolvedType: v.resolvedType,
-          variableCollectionId: v.variableCollectionId,
-        };
-      }
-      return serializeVariable(v);
-    });
+    // P1: Build result variables, resolving aliases in the same map when requested
+    const targetModeId = params.modeId;
+    let resultVariables: Array<VariableData | { id: string; name: string; key: string; resolvedType: string; variableCollectionId: string; resolvedValuesByMode?: Record<string, unknown> }>;
 
-    console.log(`[Bridge] Found ${resultVariables.length} matching variables`);
+    if (params.resolveAliases) {
+      // Single pass: map and resolve aliases together
+      resultVariables = await Promise.all(
+        limited.map(async (v: Variable) => {
+          let base: VariableData | { id: string; name: string; key: string; resolvedType: string; variableCollectionId: string };
+          if (params.compact) {
+            base = {
+              id: v.id,
+              name: v.name,
+              key: v.key,
+              resolvedType: v.resolvedType,
+              variableCollectionId: v.variableCollectionId,
+            };
+          } else {
+            base = serializeVariable(v);
+          }
+
+          // Resolve aliases for this variable
+          if (v.valuesByMode) {
+            const resolvedValues = await resolveVariableAliases(v, targetModeId);
+            (base as any).resolvedValuesByMode = resolvedValues;
+          }
+
+          return base;
+        })
+      );
+    } else {
+      // No alias resolution needed, simple map
+      resultVariables = limited.map((v: Variable) => {
+        if (params.compact) {
+          return {
+            id: v.id,
+            name: v.name,
+            key: v.key,
+            resolvedType: v.resolvedType,
+            variableCollectionId: v.variableCollectionId,
+          };
+        }
+        return serializeVariable(v);
+      });
+    }
+
+    console.log(`[Bridge] Found ${resultVariables.length} matching variables (total: ${total})`);
 
     return {
       success: true,
       variables: resultVariables,
       count: resultVariables.length,
+      // P1: Pagination fields
+      total,
+      offset,
+      hasMore,
     } as SearchVariablesResult;
   } catch (error) {
     // Preserve BridgeError codes, only wrap unknown errors

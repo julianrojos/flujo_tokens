@@ -36,6 +36,14 @@ npm install
 - **`npm run ds:health-snapshot`**: Captures one historical KPI snapshot into `docs/_generated/health-history.json` (breaking changes, WCAG failures, coverage average, unresolved refs, etc.) for dashboard trends.
 - **`npm run ds:health:record`**: Convenience command that regenerates token/component health artifacts and immediately captures a new historical snapshot.
 
+### Team/CI Test Entry Points
+
+- **`npm run test:plugin:bridge`**: Runs bridge/unit tests for `apps/figma-plugin` via package-local `test:bridge`.
+- **`npm run test:dashboard:routes`**: Runs server route tests for `apps/ds-dashboard` via package-local `test:server:routes`.
+- **`npm run test:changed-surface`**: Runs both commands above (recommended for changes touching plugin bridge + dashboard routes).
+
+CI/external runners should call these root scripts instead of ad-hoc package commands.
+
 ### Usage
 
 1. Place your token JSON files (exported from Figma/Token Forge) in the `input/` folder.

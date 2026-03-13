@@ -54,10 +54,10 @@ import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
 import { fetchVariablesDirect } from '../services/figma-direct-bridge-service.ts';
-import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
 import { parsePaginationParams, applyPagination, toResourceLinks } from '../lib/pagination-utils.ts';
 import { buildServerMeta } from '../lib/server-meta.ts';
 import { toDtcgTokenSet } from '../lib/dtcg-transform.ts';
+import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
 
 export interface FigmaMcpVariablesRouteDeps {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
@@ -71,21 +71,6 @@ function isTrustedInternalRequest(c: Context, deps: FigmaMcpVariablesRouteDeps):
   if (!expectedToken) return false;
   const receivedToken = String(c.req.header('x-ds-dashboard-internal-token') || '').trim();
   return Boolean(receivedToken) && receivedToken === expectedToken;
-}
-
-/**
- * Extract fileKey from Figma URL
- */
-function extractFileKey(url: string): string | null {
-  try {
-    // Match Figma URL patterns:
-    // https://www.figma.com/file/FILEKEY/...
-    // https://www.figma.com/design/FILEKEY/...
-    const match = url.match(/figma\.com\/(?:file|design)\/([a-zA-Z0-9]+)/);
-    return match ? match[1] : null;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -144,7 +129,20 @@ export async function handleFigmaMcpVariablesRoute(
     }
   }
   const figmaUrl = String(body.figmaUrl || queryParams.figmaUrl || '').trim() || undefined;
-  let fileKey = figmaUrl ? extractFileKey(figmaUrl) : null;
+
+  // Resolve fileKey with ambiguity guard using shared utility
+  const resolved = resolveFileKeyFromManager(figmaUrl, {
+    ambiguous: 'mcp_variables.ambiguous_file_key',
+    noSocket: 'mcp_variables.no_socket',
+    ambiguousMessage: 'Multiple plugin connections for different files detected. Provide a figmaUrl to specify which file to fetch variables from.',
+    noSocketMessage: 'No plugin connection available. Open the Figma plugin and provide a figmaUrl.',
+  });
+
+  if ('ok' in resolved && !resolved.ok) {
+    return c.json(resolved, 200);
+  }
+
+  const fileKey = resolved.fileKey;
 
   // Parse pagination parameters from query and body (body takes precedence)
   // Build effective params: query params + body (body overrides query)
@@ -163,56 +161,6 @@ export async function handleFigmaMcpVariablesRoute(
 
   // Parse outputFormat for DTCG support
   const outputFormat = String(body.outputFormat ?? 'raw').trim().toLowerCase();
-
-  // Direct-only mode: use direct WebSocket bridge
-  // Ambiguity guard: when fileKey is not provided, check for multiple files
-  if (!fileKey) {
-    const manager = getPluginConnectionManager();
-    const connectionCount = manager.getConnectionCount();
-    const activeFileKeys = manager.getActiveFileKeys();
-
-    if (connectionCount === 0) {
-      return c.json(
-        {
-          ok: false,
-          code: 'mcp_variables.no_socket',
-          message: 'No plugin connection available. Open the Figma plugin and provide a figmaUrl.',
-        },
-        200
-      );
-    }
-
-    // True ambiguity: multiple different files connected
-    if (activeFileKeys.length > 1) {
-      return c.json(
-        {
-          ok: false,
-          code: 'mcp_variables.ambiguous_file_key',
-          message: 'Multiple plugin connections for different files detected. Provide a figmaUrl to specify which file to fetch variables from.',
-        },
-        200
-      );
-    }
-
-    // Auto-resolve: single fileKey from active connections
-    if (activeFileKeys.length === 1) {
-      fileKey = activeFileKeys[0];
-    }
-    // If activeFileKeys.length === 0 but connectionCount > 0:
-    // - If connectionCount === 1: allow draft/unkeyed file (fileKey remains null)
-    // - If connectionCount > 1: multiple unkeyed connections is ambiguous
-    else if (connectionCount > 1) {
-      return c.json(
-        {
-          ok: false,
-          code: 'mcp_variables.ambiguous_file_key',
-          message: 'Multiple plugin connections without fileKey detected. Provide a figmaUrl to specify which file to fetch variables from.',
-        },
-        200
-      );
-    }
-    // else: connectionCount === 1 && activeFileKeys.length === 0 → draft file, allow with fileKey = null
-  }
 
   try {
     const fetchVariables = deps.fetchVariablesDirect ?? fetchVariablesDirect;

@@ -99,6 +99,13 @@ export const BRIDGE_METHODS = {
   GET_CHILDREN: 'GET_CHILDREN',
   SEARCH_NODES: 'SEARCH_NODES',
   GET_NODES_BY_ID: 'GET_NODES_BY_ID',
+  // P1: Enhanced variables
+  BATCH_CREATE_VARIABLES: 'BATCH_CREATE_VARIABLES',
+  BATCH_UPDATE_VARIABLES: 'BATCH_UPDATE_VARIABLES',
+  EXPORT_TOKENS: 'EXPORT_TOKENS',
+  SYNC_TOKENS_PLAN: 'SYNC_TOKENS_PLAN',
+  SYNC_TOKENS_APPLY: 'SYNC_TOKENS_APPLY',
+  GET_TOKEN_USAGE: 'GET_TOKEN_USAGE',
 } as const;
 
 export type BridgeMethod = (typeof BRIDGE_METHODS)[keyof typeof BRIDGE_METHODS];
@@ -474,6 +481,12 @@ export interface SearchVariablesParams {
   resolvedType?: 'COLOR' | 'FLOAT' | 'STRING' | 'BOOLEAN';
   limit?: number;
   compact?: boolean;
+  // P1 extensions
+  nameContains?: string;
+  offset?: number;
+  collectionName?: string;
+  resolveAliases?: boolean;
+  modeId?: string;
 }
 
 export interface SearchVariablesResult {
@@ -486,6 +499,10 @@ export interface SearchVariablesResult {
     variableCollectionId: string;
   } | VariableData>;
   count: number;
+  // P1 extensions
+  total?: number;
+  offset?: number;
+  hasMore?: boolean;
 }
 
 // --- GET_CHILDREN ---
@@ -557,6 +574,134 @@ export interface GetNodesByIdResult {
   nodes: Record<string, NodeData | null>;
   /** Original IDs in the order they were requested, for stable client iteration. */
   requestedIds: readonly string[];
+}
+
+// ============================================================================
+// P1: Batch Variable Operations
+// ============================================================================
+
+// --- BATCH_CREATE_VARIABLES ---
+export interface BatchCreateVariableItem {
+  name: string;
+  collectionId: string;
+  resolvedType: string;
+  valuesByMode?: Record<string, unknown>;
+  description?: string;
+  scopes?: string[];
+}
+
+export interface BatchCreateVariablesParams {
+  items: BatchCreateVariableItem[];
+}
+
+export interface BatchCreateVariablesResult {
+  success: boolean;
+  created: VariableData[];
+  errors: Array<{ index: number; name: string; error: string }>;
+}
+
+// --- BATCH_UPDATE_VARIABLES ---
+export interface BatchUpdateVariableItem {
+  variableId: string;
+  modeId: string;
+  value: unknown;
+}
+
+export interface BatchUpdateVariablesParams {
+  items: BatchUpdateVariableItem[];
+}
+
+export interface BatchUpdateVariablesResult {
+  success: boolean;
+  updated: VariableData[];
+  errors: Array<{ index: number; variableId: string; error: string }>;
+}
+
+// ============================================================================
+// P1: Token Export
+// ============================================================================
+
+// --- EXPORT_TOKENS ---
+export type TokenExportFormat = 'css' | 'tailwind' | 'typescript';
+
+export interface ExportTokensParams {
+  format: TokenExportFormat;
+  collection?: string;
+  mode?: string;
+  resolveAliases?: boolean; // default: true
+}
+
+export interface ExportTokensResult {
+  success: boolean;
+  content: string;
+  format: TokenExportFormat;
+  stats: { variableCount: number; collectionCount: number };
+}
+
+// ============================================================================
+// P1: Sync Tokens
+// ============================================================================
+
+// --- SYNC_TOKENS ---
+export type DtcgTokenTree = Record<string, unknown>;
+
+export interface SyncTokensPlanParams {
+  tokens: DtcgTokenTree;
+  collection?: string;
+  pruneMode?: boolean;
+}
+
+export interface TokenDiff {
+  path: string; // e.g. "colors/primary/blue"
+  action: 'add' | 'update' | 'delete';
+  currentValue?: unknown;
+  desiredValue?: unknown;
+  variableId?: string; // for update/delete
+  tokenType?: string; // for add operations - the Figma variable type (e.g. "COLOR", "FLOAT")
+}
+
+export interface SyncTokensPlanResult {
+  success: boolean;
+  plan: TokenDiff[];
+  summary: { additions: number; updates: number; deletions: number };
+}
+
+export interface SyncTokensApplyParams {
+  plan: TokenDiff[];
+  collection?: string;
+  abortOnError?: boolean;
+}
+
+export interface SyncTokensApplyResult {
+  success: boolean;
+  applied: { added: number; updated: number; deleted: number };
+  errors: Array<{ path: string; error: string }>;
+}
+
+// ============================================================================
+// P1: Token Usage
+// ============================================================================
+
+// --- GET_TOKEN_USAGE ---
+export interface GetTokenUsageParams {
+  pageId?: string;
+  maxNodes?: number;
+  force?: boolean;
+}
+
+export interface TokenUsageEntry {
+  variableId: string;
+  variableName: string;
+  nodeCount: number;
+  nodeIds: string[];
+}
+
+export interface GetTokenUsageResult {
+  success: boolean;
+  usage: TokenUsageEntry[];
+  unusedVariableIds: string[];
+  scannedNodeCount: number;
+  truncated: boolean;
 }
 
 // ============================================================================
