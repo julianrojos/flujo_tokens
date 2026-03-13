@@ -30,6 +30,7 @@ import {
   handleDeleteVariable,
   handleRenameVariable,
   handleSetVariableDescription,
+  handleSearchVariables,
 } from './handlers/variables';
 import { handleGetLocalStyles } from './handlers/styles';
 import {
@@ -63,6 +64,9 @@ import {
   handleSetTextContent,
   handleCreateChildNode,
   handleCaptureScreenshot,
+  handleGetChildren,
+  handleSearchNodes,
+  handleGetNodesById,
 } from './handlers/nodes';
 
 /**
@@ -84,6 +88,7 @@ const HANDLERS: Record<BridgeMethod, HandlerFunction> = {
   [BRIDGE_METHODS.DELETE_VARIABLE]: handleDeleteVariable as unknown as HandlerFunction,
   [BRIDGE_METHODS.RENAME_VARIABLE]: handleRenameVariable as unknown as HandlerFunction,
   [BRIDGE_METHODS.SET_VARIABLE_DESCRIPTION]: handleSetVariableDescription as unknown as HandlerFunction,
+  [BRIDGE_METHODS.SEARCH_VARIABLES]: handleSearchVariables as unknown as HandlerFunction,
   [BRIDGE_METHODS.ADD_MODE]: handleAddMode as unknown as HandlerFunction,
   [BRIDGE_METHODS.RENAME_MODE]: handleRenameMode as unknown as HandlerFunction,
   [BRIDGE_METHODS.CREATE_VARIABLE_COLLECTION]:
@@ -113,6 +118,10 @@ const HANDLERS: Record<BridgeMethod, HandlerFunction> = {
   [BRIDGE_METHODS.CREATE_CHILD_NODE]: handleCreateChildNode as unknown as HandlerFunction,
   // Screenshot (P1)
   [BRIDGE_METHODS.CAPTURE_SCREENSHOT]: handleCaptureScreenshot as unknown as HandlerFunction,
+  // New read handlers (P2)
+  [BRIDGE_METHODS.GET_CHILDREN]: handleGetChildren as unknown as HandlerFunction,
+  [BRIDGE_METHODS.SEARCH_NODES]: handleSearchNodes as unknown as HandlerFunction,
+  [BRIDGE_METHODS.GET_NODES_BY_ID]: handleGetNodesById as unknown as HandlerFunction,
   // Control
   [BRIDGE_METHODS.CLEAR_CONSOLE]: handleClearConsole as unknown as HandlerFunction,
   [BRIDGE_METHODS.RELOAD_UI]: handleReloadUI as unknown as HandlerFunction,

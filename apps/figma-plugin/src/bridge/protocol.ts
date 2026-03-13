@@ -94,6 +94,11 @@ export const BRIDGE_METHODS = {
   RELOAD_UI: 'RELOAD_UI',
   // Bridge capabilities (direct mode)
   GET_BRIDGE_CAPABILITIES: 'GET_BRIDGE_CAPABILITIES',
+  // New read handlers (P2)
+  SEARCH_VARIABLES: 'SEARCH_VARIABLES',
+  GET_CHILDREN: 'GET_CHILDREN',
+  SEARCH_NODES: 'SEARCH_NODES',
+  GET_NODES_BY_ID: 'GET_NODES_BY_ID',
 } as const;
 
 export type BridgeMethod = (typeof BRIDGE_METHODS)[keyof typeof BRIDGE_METHODS];
@@ -460,6 +465,98 @@ export interface ReloadUIParams {
 
 export interface ReloadUIResult {
   success: boolean;
+}
+
+// --- SEARCH_VARIABLES ---
+export interface SearchVariablesParams {
+  namePattern?: string;
+  collectionId?: string;
+  resolvedType?: 'COLOR' | 'FLOAT' | 'STRING' | 'BOOLEAN';
+  limit?: number;
+  compact?: boolean;
+}
+
+export interface SearchVariablesResult {
+  success: boolean;
+  variables: Array<{
+    id: string;
+    name: string;
+    key: string;
+    resolvedType: string;
+    variableCollectionId: string;
+  } | VariableData>;
+  count: number;
+}
+
+// --- GET_CHILDREN ---
+export interface GetChildrenParams {
+  parentId: string;
+  compact?: boolean;
+  limit?: number; // Max children to return (default: 500, max: 2000)
+  offset?: number; // Offset for pagination (default: 0)
+}
+
+export interface NodeSummary {
+  id: string;
+  name: string;
+  type: string;
+  parentId: string | null;
+  childCount: number;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+}
+
+export interface NodeData extends NodeSummary {
+  fills?: unknown[];
+  strokes?: unknown[];
+  opacity?: number;
+  cornerRadius?: unknown;
+  visible?: boolean;
+  locked?: boolean;
+  effects?: unknown[];
+  styles?: Record<string, string>;
+}
+
+export interface GetChildrenResult {
+  success: boolean;
+  parentId: string;
+  children: Array<NodeSummary | NodeData>;
+  total: number;        // Total number of children (before pagination)
+  limit: number;        // Applied limit
+  offset: number;       // Applied offset
+  hasMore: boolean;     // True if there are more children beyond this page
+}
+
+// --- SEARCH_NODES ---
+export interface SearchNodesParams {
+  parentId: string;
+  nameContains?: string;
+  namePattern?: string;
+  types?: string[];
+  maxDepth?: number;
+  compact?: boolean;
+  limit?: number;
+}
+
+export interface SearchNodesResult {
+  success: boolean;
+  nodes: NodeSummary[];
+  count: number;
+}
+
+// --- GET_NODES_BY_ID ---
+export interface GetNodesByIdParams {
+  nodeIds: string[];
+  depth?: 'minimal' | 'compact' | 'full';
+}
+
+export interface GetNodesByIdResult {
+  success: boolean;
+  nodes: Record<string, NodeData | null>;
+  /** Original IDs in the order they were requested, for stable client iteration. */
+  requestedIds: readonly string[];
 }
 
 // ============================================================================

@@ -17,6 +17,8 @@ import {
   ERROR_CODES,
 } from '../protocol';
 
+const PAGE_BATCH_SIZE = 3;
+
 // ============================================================================
 // Type Helpers
 // ============================================================================
@@ -118,7 +120,7 @@ export async function handleGetLocalComponents(
           // Parse variant name (e.g., "Size=md, State=default")
           const variantProps: Record<string, string> = {};
           const parts = child.name.split(',').map(p => p.trim());
-          
+
           for (const part of parts) {
             const kv = part.split('=');
             if (kv.length === 2) {
@@ -207,10 +209,19 @@ export async function handleGetLocalComponents(
       }
     }
 
-    // Process all pages
+    // Process all pages in batches to avoid blocking UI
     await figma.loadAllPagesAsync();
-    for (const page of figma.root.children) {
-      findComponents(page);
+    const pages = figma.root.children;
+
+    for (let i = 0; i < pages.length; i += PAGE_BATCH_SIZE) {
+      const batch = pages.slice(i, i + PAGE_BATCH_SIZE);
+      for (const page of batch) {
+        findComponents(page);
+      }
+      // Yield to event loop to avoid blocking
+      if (i + PAGE_BATCH_SIZE < pages.length) {
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+      }
     }
 
     console.log(`[Bridge] Found ${components.length} components and ${componentSets.length} component sets`);
@@ -281,10 +292,10 @@ export async function handleGetComponent(
           : undefined,
         children: 'children' in node
           ? node.children.map(child => ({
-              id: child.id,
-              name: child.name,
-              type: child.type,
-            }))
+            id: child.id,
+            name: child.name,
+            type: child.type,
+          }))
           : undefined,
       },
     };
@@ -338,7 +349,7 @@ export async function handleInstantiateComponent(
         } else if (node.type === 'COMPONENT_SET') {
           // For component sets, find the right variant or use default
           const componentSet = node as ComponentSetNode;
-          
+
           if (params.variant && componentSet.children.length > 0) {
             // Build variant name from properties
             const variantParts = Object.entries(params.variant).map(
@@ -380,7 +391,7 @@ export async function handleInstantiateComponent(
 
     if (!component) {
       const errorParts = ['Component not found.'];
-      
+
       if (params.componentKey && !params.nodeId) {
         errorParts.push(`Component key "${params.componentKey}" not found.`);
       } else if (params.nodeId) {
@@ -485,7 +496,7 @@ export async function handleSetNodeDescription(
     }
 
     node.description = params.description || '';
-    
+
     if (params.descriptionMarkdown && 'descriptionMarkdown' in node) {
       node.descriptionMarkdown = params.descriptionMarkdown;
     }

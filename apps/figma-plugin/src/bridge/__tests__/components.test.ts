@@ -373,4 +373,51 @@ describe('components handlers', () => {
       code: ERROR_CODES.FIGMA_API_ERROR,
     });
   });
+
+  it('handleGetLocalComponents processes pages in batches without blocking UI', async () => {
+    // Create 10 pages with components
+    const pages = Array.from({ length: 10 }, (_, i) => ({
+      id: `page-${i}`,
+      name: `Page ${i}`,
+      type: 'PAGE' as const,
+      children: [
+        {
+          id: `comp-${i}`,
+          key: `key-${i}`,
+          name: `Component ${i}`,
+          type: 'COMPONENT' as const,
+          description: `Component ${i} description`,
+          width: 100,
+          height: 100,
+          componentPropertyDefinitions: {},
+          parent: null as unknown,
+        },
+      ],
+    }));
+
+    setMockFigma({
+      root: {
+        name: 'Test File',
+        children: pages,
+      },
+      fileKey: 'file-key',
+      loadAllPagesAsync: async () => undefined,
+    });
+
+    const result = await handleGetLocalComponents({});
+    const typed = result as {
+      success: boolean;
+      data: {
+        totalComponents: number;
+        totalComponentSets: number;
+        components: Array<{ name: string }>;
+        componentSets: Array<{ name: string }>;
+      };
+    };
+
+    expect(typed.success).toBe(true);
+    expect(typed.data.totalComponents).toBe(10);
+    expect(typed.data.totalComponentSets).toBe(0);
+    expect(typed.data.components).toHaveLength(10);
+  });
 });

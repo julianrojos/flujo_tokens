@@ -26,6 +26,8 @@ import {
   RenameVariableResult,
   SetVariableDescriptionParams,
   SetVariableDescriptionResult,
+  SearchVariablesParams,
+  SearchVariablesResult,
   VariableData,
   VariableCollectionData,
   createBridgeError,
@@ -361,6 +363,93 @@ export async function handleSetVariableDescription(
     throw createBridgeError(
       ERROR_CODES.FIGMA_API_ERROR,
       error instanceof Error ? error.message : 'Failed to set variable description'
+    );
+  }
+}
+
+/**
+ * SEARCH_VARIABLES - Search variables with filters
+ */
+export async function handleSearchVariables(
+  params: SearchVariablesParams
+): Promise<unknown> {
+  try {
+    console.log('[Bridge] Searching variables with filters:', params);
+
+    const variables = await figma.variables.getLocalVariablesAsync();
+
+    // Build collection filter set if collectionId is specified
+    const collectionIdSet = params.collectionId ? new Set([params.collectionId]) : null;
+
+    // Build regex if namePattern is specified
+    let nameRegex: RegExp | null = null;
+    if (params.namePattern) {
+      try {
+        nameRegex = new RegExp(params.namePattern, 'i');
+      } catch {
+        throw createBridgeError(
+          ERROR_CODES.INVALID_PARAMETER,
+          `Invalid namePattern regex: ${params.namePattern}`
+        );
+      }
+    }
+
+    // Filter variables
+    const filtered = variables.filter((v: Variable) => {
+      // Filter by collectionId
+      if (collectionIdSet && !collectionIdSet.has(v.variableCollectionId)) {
+        return false;
+      }
+      // Filter by resolvedType
+      if (params.resolvedType && v.resolvedType !== params.resolvedType) {
+        return false;
+      }
+      // Filter by namePattern (regex match)
+      if (nameRegex && !nameRegex.test(v.name)) {
+        return false;
+      }
+      return true;
+    });
+
+    // Apply limit (default: 50, max: 200, min: 0)
+    const rawLimit = params.limit ?? 50;
+    const limit = rawLimit < 0 ? 0 : Math.min(rawLimit, 200);
+    const limited = filtered.slice(0, limit);
+
+    // Build result based on compact flag
+    const resultVariables = limited.map((v: Variable) => {
+      if (params.compact) {
+        return {
+          id: v.id,
+          name: v.name,
+          key: v.key,
+          resolvedType: v.resolvedType,
+          variableCollectionId: v.variableCollectionId,
+        };
+      }
+      return serializeVariable(v);
+    });
+
+    console.log(`[Bridge] Found ${resultVariables.length} matching variables`);
+
+    return {
+      success: true,
+      variables: resultVariables,
+      count: resultVariables.length,
+    } as SearchVariablesResult;
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error
+    ) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to search variables'
     );
   }
 }

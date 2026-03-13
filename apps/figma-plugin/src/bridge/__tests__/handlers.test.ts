@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { handleGetFileInfo } from '../handlers/get-file-info';
 import { handleClearConsole } from '../handlers/control';
-import { handleGetVariablesData } from '../handlers/variables';
+import { handleGetVariablesData, handleSearchVariables } from '../handlers/variables';
 
 function setMockFigma(figma: unknown): void {
   (globalThis as unknown as { figma?: unknown }).figma = figma;
@@ -85,6 +85,91 @@ describe('Handlers', () => {
       expect(result.fileKey).toBe('test-file-key-123');
       expect(result.variables).toEqual([]);
       expect(result.variableCollections).toEqual([]);
+    });
+  });
+
+  describe('handleSearchVariables', () => {
+    beforeEach(() => {
+      setMockFigma({
+        ...mockFigma,
+        variables: {
+          getLocalVariablesAsync: async () => [
+            {
+              id: 'var-1',
+              name: 'blue/100',
+              key: 'key-1',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode-1': { r: 0.1, g: 0.2, b: 1, a: 1 } },
+              variableCollectionId: 'col-1',
+              scopes: ['ALL_SCOPES'],
+              description: 'Blue 100',
+              hiddenFromPublishing: false,
+            },
+            {
+              id: 'var-2',
+              name: 'blue/200',
+              key: 'key-2',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode-1': { r: 0.2, g: 0.3, b: 1, a: 1 } },
+              variableCollectionId: 'col-1',
+              scopes: ['ALL_SCOPES'],
+              description: 'Blue 200',
+              hiddenFromPublishing: false,
+            },
+            {
+              id: 'var-3',
+              name: 'red/100',
+              key: 'key-3',
+              resolvedType: 'COLOR',
+              valuesByMode: { 'mode-1': { r: 1, g: 0.2, b: 0.2, a: 1 } },
+              variableCollectionId: 'col-2',
+              scopes: ['ALL_SCOPES'],
+              description: 'Red 100',
+              hiddenFromPublishing: false,
+            },
+          ],
+        },
+      });
+    });
+
+    afterEach(() => {
+      clearMockFigma();
+    });
+
+    it('should filter by namePattern regex', async () => {
+      const result = await handleSearchVariables({ namePattern: 'blue' });
+      const typed = result as { success: boolean; variables: unknown[]; count: number };
+
+      expect(typed.success).toBe(true);
+      expect(typed.count).toBe(2);
+      expect(typed.variables.every((v) => (v as { name: string }).name.toLowerCase().includes('blue'))).toBe(true);
+    });
+
+    it('should filter by resolvedType', async () => {
+      const result = await handleSearchVariables({ resolvedType: 'COLOR' });
+      const typed = result as { success: boolean; variables: unknown[]; count: number };
+
+      expect(typed.success).toBe(true);
+      expect(typed.count).toBe(3);
+    });
+
+    it('should apply limit', async () => {
+      const result = await handleSearchVariables({ limit: 1 });
+      const typed = result as { success: boolean; variables: unknown[]; count: number };
+
+      expect(typed.success).toBe(true);
+      expect(typed.count).toBe(1);
+    });
+
+    it('should return compact format', async () => {
+      const result = await handleSearchVariables({ compact: true });
+      const typed = result as { success: boolean; variables: unknown[]; count: number };
+
+      expect(typed.success).toBe(true);
+      expect(typed.variables[0]).toHaveProperty('id');
+      expect(typed.variables[0]).toHaveProperty('name');
+      expect(typed.variables[0]).toHaveProperty('resolvedType');
+      expect(typed.variables[0]).not.toHaveProperty('valuesByMode');
     });
   });
 });

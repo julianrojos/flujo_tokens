@@ -15,14 +15,17 @@ import {
   SetNodeOpacityParams,
   SetNodeStrokesParams,
   SetTextContentParams,
+  GetChildrenParams,
+  GetChildrenResult,
+  SearchNodesParams,
+  SearchNodesResult,
+  GetNodesByIdParams,
+  GetNodesByIdResult,
+  NodeSummary,
+  NodeData,
   createBridgeError,
   ERROR_CODES,
 } from '../protocol';
-
-interface NodeSummary {
-  id: string;
-  name: string;
-}
 
 function toHexRgb(hex: string): { r: number; g: number; b: number; a: number } {
   const raw = hex.replace(/^#/, '');
@@ -60,8 +63,20 @@ function toHexRgb(hex: string): { r: number; g: number; b: number; a: number } {
   return { r, g, b, a };
 }
 
-function toNodeSummary(node: BaseNode): NodeSummary {
+function toNodeSummary(node: BaseNode): { id: string; name: string } {
   return { id: node.id, name: node.name };
+}
+
+/**
+ * Check if an error is already a BridgeError
+ */
+function isBridgeError(error: unknown): error is { code: string; message: string } {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    'message' in error
+  );
 }
 
 function toSolidPaint(paint: unknown): Paint {
@@ -510,6 +525,273 @@ export async function handleCaptureScreenshot(params: CaptureScreenshotParams): 
     throw createBridgeError(
       ERROR_CODES.FIGMA_API_ERROR,
       toSafeErrorMessage(error, 'Failed to capture screenshot')
+    );
+  }
+}
+
+/**
+ * Helper: Build NodeSummary from a node
+ */
+function buildNodeSummary(node: BaseNode, parentId: string | null): NodeSummary {
+  return {
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    parentId,
+    childCount: 'children' in node ? node.children.length : 0,
+    x: 'x' in node ? (node.x as number) : undefined,
+    y: 'y' in node ? (node.y as number) : undefined,
+    width: 'width' in node ? (node.width as number) : undefined,
+    height: 'height' in node ? (node.height as number) : undefined,
+  };
+}
+
+/**
+ * Helper: Build NodeData from a node
+ */
+function buildNodeData(node: BaseNode, parentId: string | null, depth: 'minimal' | 'compact' | 'full'): NodeData {
+  const base: NodeSummary = {
+    id: node.id,
+    name: node.name,
+    type: node.type,
+    parentId,
+    childCount: 'children' in node ? node.children.length : 0,
+  };
+
+  if (depth === 'minimal') {
+    return base;
+  }
+
+  const compact: NodeData = {
+    ...base,
+    x: 'x' in node ? (node.x as number) : undefined,
+    y: 'y' in node ? (node.y as number) : undefined,
+    width: 'width' in node ? (node.width as number) : undefined,
+    height: 'height' in node ? (node.height as number) : undefined,
+  };
+
+  if (depth === 'compact') {
+    return compact;
+  }
+
+  // Full depth
+  return {
+    ...compact,
+    fills: 'fills' in node ? (node.fills as unknown[]) : undefined,
+    strokes: 'strokes' in node ? (node.strokes as unknown[]) : undefined,
+    opacity: 'opacity' in node ? (node.opacity as number) : undefined,
+    cornerRadius: 'cornerRadius' in node ? node.cornerRadius : undefined,
+    visible: 'visible' in node ? node.visible : undefined,
+    locked: 'locked' in node ? node.locked : undefined,
+    effects: 'effects' in node ? (node.effects as unknown[]) : undefined,
+    styles: 'styles' in node && node.styles ? (node.styles as Record<string, string>) : undefined,
+  };
+}
+
+/**
+ * GET_CHILDREN - Get immediate children of a node.
+ * 
+ * Supports pagination via limit/offset to prevent blocking the main thread
+ * when nodes have thousands of children.
+ * 
+ * Defaults:
+ * - limit: 500 (max 2000)
+ * - offset: 0
+ * - compact: true
+ */
+export async function handleGetChildren(params: GetChildrenParams): Promise<unknown> {
+  try {
+    console.log('[Bridge] Getting children of:', params.parentId);
+
+    const node = await figma.getNodeByIdAsync(params.parentId);
+    if (!node) {
+      throw createBridgeError(ERROR_CODES.NODE_NOT_FOUND, `Node not found: ${params.parentId}`);
+    }
+
+    if (!('children' in node)) {
+      return {
+        success: true,
+        parentId: params.parentId,
+        children: [],
+        total: 0,
+        limit: params.limit ?? 500,
+        offset: 0,
+        hasMore: false,
+      } as GetChildrenResult;
+    }
+
+    const totalChildren = node.children.length;
+
+    // Respect compact parameter (default: true)
+    const compact = params.compact ?? true;
+
+    // Apply limit/offset for pagination (default: 500, max: 2000)
+    // Validate offset >= 0 to prevent slice() returning elements from end of array
+    const rawLimit = params.limit ?? 500;
+    const limit = rawLimit > 2000 ? 2000 : rawLimit < 0 ? totalChildren : rawLimit;
+    const rawOffset = params.offset ?? 0;
+    const offset = rawOffset < 0 ? 0 : rawOffset; // Clamp negative offsets to 0
+
+    // Slice the children array to get the requested page
+    const pageChildren = node.children.slice(offset, offset + limit);
+
+    // Process in batches to avoid blocking main thread for large pages
+    const CHILD_BATCH_SIZE = 100;
+    const children: Array<NodeSummary | NodeData> = [];
+
+    for (let i = 0; i < pageChildren.length; i += CHILD_BATCH_SIZE) {
+      const batch = pageChildren.slice(i, i + CHILD_BATCH_SIZE);
+      for (const child of batch) {
+        if (compact) {
+          children.push(buildNodeSummary(child, node.id));
+        } else {
+          children.push(buildNodeData(child, node.id, 'full'));
+        }
+      }
+      // Yield to event loop between batches to avoid blocking UI
+      if (i + CHILD_BATCH_SIZE < pageChildren.length) {
+        await new Promise<void>(resolve => setTimeout(resolve, 0));
+      }
+    }
+
+    return {
+      success: true,
+      parentId: params.parentId,
+      children,
+      total: totalChildren,
+      limit,
+      offset,
+      hasMore: offset + limit < totalChildren,
+    } as GetChildrenResult;
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (isBridgeError(error)) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to get children'
+    );
+  }
+}
+
+/**
+ * SEARCH_NODES - Search nodes by name/type within a scope
+ */
+export async function handleSearchNodes(params: SearchNodesParams): Promise<unknown> {
+  try {
+    console.log('[Bridge] Searching nodes with filters:', params);
+
+    const root = await figma.getNodeByIdAsync(params.parentId);
+    if (!root) {
+      throw createBridgeError(ERROR_CODES.NODE_NOT_FOUND, `Node not found: ${params.parentId}`);
+    }
+
+    // Build filters
+    const nameContains = params.nameContains?.toLowerCase();
+    let nameRegex: RegExp | null = null;
+    if (params.namePattern) {
+      try {
+        nameRegex = new RegExp(params.namePattern, 'i');
+      } catch {
+        throw createBridgeError(
+          ERROR_CODES.INVALID_PARAMETER,
+          `Invalid namePattern regex: ${params.namePattern}`
+        );
+      }
+    }
+
+    const types = params.types?.length ? new Set(params.types) : null;
+    // Default to 5 levels for safety; callers can pass maxDepth=-1 for unlimited.
+    const maxDepth = params.maxDepth ?? 5;
+    // Apply limit (default: 50, max: 200, min: 0)
+    const rawLimit = params.limit ?? 50;
+    const limit = rawLimit < 0 ? 0 : Math.min(rawLimit, 200);
+
+    // DFS iterative with stack
+    const stack: Array<{ node: BaseNode; depth: number }> = [{ node: root, depth: 0 }];
+    const results: NodeSummary[] = [];
+
+    while (stack.length > 0 && results.length < limit) {
+      const { node, depth } = stack.pop()!;
+
+      // Check filters (skip root)
+      if (depth > 0) {
+        const matchesType = !types || types.has(node.type);
+        const matchesNameContains = !nameContains || node.name.toLowerCase().includes(nameContains);
+        const matchesNamePattern = !nameRegex || nameRegex.test(node.name);
+
+        if (matchesType && matchesNameContains && matchesNamePattern) {
+          results.push(buildNodeSummary(node, node.parent?.id ?? null));
+        }
+      }
+
+      // Add children to stack
+      if ('children' in node && (maxDepth === -1 || depth < maxDepth)) {
+        for (let i = node.children.length - 1; i >= 0; i--) {
+          stack.push({ node: node.children[i], depth: depth + 1 });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      nodes: results,
+      count: results.length,
+    } as SearchNodesResult;
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (isBridgeError(error)) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to search nodes'
+    );
+  }
+}
+
+/**
+ * GET_NODES_BY_ID - Get detailed node data by IDs
+ */
+export async function handleGetNodesById(params: GetNodesByIdParams): Promise<unknown> {
+  try {
+    console.log('[Bridge] Getting nodes by IDs:', params.nodeIds);
+
+    // Guard: max 50 nodeIds
+    if (params.nodeIds.length > 50) {
+      throw createBridgeError(ERROR_CODES.INVALID_PARAMETER, 'Max 50 nodeIds allowed');
+    }
+
+    const depth = params.depth ?? 'full';
+    const results: Record<string, NodeData | null> = {};
+
+    const nodes = await Promise.all(params.nodeIds.map((id) => figma.getNodeByIdAsync(id)));
+
+    for (let i = 0; i < nodes.length; i++) {
+      const nodeId = params.nodeIds[i];
+      const node = nodes[i];
+
+      if (!node) {
+        results[nodeId] = null;
+      } else {
+        results[nodeId] = buildNodeData(node, node.parent?.id ?? null, depth);
+      }
+    }
+
+    return {
+      success: true,
+      nodes: results,
+      requestedIds: params.nodeIds,
+    } as GetNodesByIdResult;
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (isBridgeError(error)) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to get nodes by ID'
     );
   }
 }
