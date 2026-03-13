@@ -57,6 +57,7 @@ import { fetchVariablesDirect } from '../services/figma-direct-bridge-service.ts
 import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
 import { parsePaginationParams, applyPagination, toResourceLinks } from '../lib/pagination-utils.ts';
 import { buildServerMeta } from '../lib/server-meta.ts';
+import { toDtcgTokenSet } from '../lib/dtcg-transform.ts';
 
 export interface FigmaMcpVariablesRouteDeps {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
@@ -160,6 +161,9 @@ export async function handleFigmaMcpVariablesRoute(
   const returnAsLinksRaw = effectiveParams.returnAsLinks;
   const returnAsLinks = returnAsLinksRaw === true || returnAsLinksRaw === 'true' || returnAsLinksRaw === '1' || returnAsLinksRaw === 1;
 
+  // Parse outputFormat for DTCG support
+  const outputFormat = String(body.outputFormat ?? 'raw').trim().toLowerCase();
+
   // Direct-only mode: use direct WebSocket bridge
   // Ambiguity guard: when fileKey is not provided, check for multiple files
   if (!fileKey) {
@@ -213,6 +217,20 @@ export async function handleFigmaMcpVariablesRoute(
   try {
     const fetchVariables = deps.fetchVariablesDirect ?? fetchVariablesDirect;
     const directResult = await fetchVariables(fileKey);
+
+    // Handle DTCG output format
+    if (outputFormat === 'dtcg') {
+      const dtcg = toDtcgTokenSet(
+        directResult.meta.variables,
+        directResult.meta.variableCollections
+      );
+      return c.json({
+        ok: true,
+        dtcg,
+      }, 200);
+    }
+
+    // Standard response (backward compatible)
     const variables = Object.values(directResult.meta.variables ?? {});
 
     // Apply pagination to variables only

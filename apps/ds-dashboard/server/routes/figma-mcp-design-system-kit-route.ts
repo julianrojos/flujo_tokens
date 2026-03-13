@@ -1,20 +1,41 @@
 /**
  * Figma MCP Design System Kit Route
  *
- * Returns tokens + styles from direct plugin WebSocket bridge.
+ * Returns tokens + styles from direct plugin WebSocket bridge in various formats.
  * Direct-only mode: no legacy MCP stdio fallback.
+ *
+ * Supported query parameters:
+ * @param {string} [format] - Output format (full|summary|compact|auto|dtcg)
+ *   - full: Complete variable values across all modes
+ *   - summary: Only default mode variable values + full metadata 
+ *   - compact: Minimal metadata only (no values)
+ *   - auto: Automatically degrade format based on response size
+ *   - dtcg: W3C DTCG standard format output
+ * @returns {object} Response with design system data:
+ *   - tokens: Figma variables and collections (unless dtcg format)
+ *   - styles: Figma styles
+ *   - responseMeta: Applied compression and format metadata
  */
 
 import type { Context } from 'hono';
 import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
-import { fetchDesignSystemKitDirect } from '../services/figma-direct-bridge-service.ts';
+import { fetchDesignSystemKitDirect, type FigmaVariableCollection } from '../services/figma-direct-bridge-service.ts';
 import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
+import { toDtcgTokenSet } from '../lib/dtcg-transform.ts';
+import {
+  compressKitResult,
+  estimateJsonSize,
+  resolveCompressionLevel,
+  type KitFormat,
+  type CompressionLevel,
+} from '../lib/response-compressor.ts';
 
 export interface FigmaMcpDesignSystemKitRouteDeps {
   getConnInfoFn?: (c: Context) => ConnInfo;
   internalToken?: string;
+  fetchDesignSystemKitDirectFn?: typeof fetchDesignSystemKitDirect;
 }
 
 function isAuthorized(c: Context, internalToken: string | undefined, getConnInfoFn: (c: Context) => ConnInfo): boolean {
@@ -41,28 +62,73 @@ function extractFileKey(url: string): string | null {
 /**
  * GET /api/figma-mcp/design-system-kit
  *
- * Direct-only: uses WebSocket bridge to plugin. No legacy fallback.
- * Query compatibility:
- * - format: accepted for backward compatibility (currently no-op in direct mode)
- * - include: optional comma-separated sections (tokens,styles)
+ * Returns design system kit (tokens + styles) from direct plugin WebSocket bridge.
+ * Direct-only mode: no legacy MCP stdio fallback.
+ *
+ * @queryParam {string} fileUrl - Optional Figma file URL to scope the request
+ * @queryParam {string} format - Response format (default: 'auto')
+ *   - 'auto': Auto-select compression based on payload size
+ *     - < 500KB → 'full' (no compression)
+ *     - 500KB–1MB → 'summary' (single mode value per variable)
+ *     - > 1MB → 'compact' (id/name/type only)
+ *   - 'full': Return all data unchanged
+ *   - 'summary': Keep only default mode value per variable, drop style descriptions
+ *   - 'compact': Keep only id/name/resolvedType for variables, drop style descriptions
+ *   - 'dtcg': Return W3C DTCG token set format (no compression, transforms to DTCG spec)
+ *   - Unknown values: Treated as 'auto' with console warning
+ * @queryParam {string} include - Optional comma-separated sections to include ('tokens', 'styles'). Default: all.
+ *
+ * @returns {Object} Success response
+ *   Standard format (format=full|summary|compact|auto):
+ *   {
+ *     ok: true,
+ *     tokens?: { variables: Record<string, Variable>, variableCollections: Record<string, Collection> },
+ *     styles?: Style[],
+ *     elapsedMs: number,
+ *     responseMeta: { appliedFormat: 'full'|'summary'|'compact', estimatedBytes: number }
+ *   }
+ *
+ *   DTCG format (format=dtcg):
+ *   {
+ *     ok: true,
+ *     dtcg: DtcgTokenSet,  // W3C DTCG format with nested token structure
+ *     elapsedMs: number,
+ *     responseMeta: { appliedFormat: 'dtcg' }
+ *   }
+ *
+ * @returns {Object} Error response
+ *   { ok: false, code: string, message: string }
+ *   Codes: kit.forbidden_remote, kit.no_socket, kit.ambiguous_file_key, kit.direct_failed
  */
 export async function handleGetDesignSystemKit(c: Context, deps: FigmaMcpDesignSystemKitRouteDeps): Promise<Response> {
   const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
   const internalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+  const fetchKitFn = deps.fetchDesignSystemKitDirectFn ?? fetchDesignSystemKitDirect;
 
   if (!isAuthorized(c, internalToken, getConnInfoFn)) {
     return c.json({ ok: false, code: 'kit.forbidden_remote', message: 'Endpoint only accessible from loopback or with internal token.' }, 403);
   }
 
   const fileUrl = c.req.query('fileUrl') ?? undefined;
-  const format = c.req.query('format') ?? undefined;
+  const formatParam = c.req.query('format') ?? 'auto';
   const includeQuery = c.req.query('include') ?? undefined;
   const include = includeQuery
     ? includeQuery
-        .split(',')
-        .map((part) => part.trim().toLowerCase())
-        .filter((part) => part === 'tokens' || part === 'styles')
+      .split(',')
+      .map((part) => part.trim().toLowerCase())
+      .filter((part) => part === 'tokens' || part === 'styles')
     : [];
+
+  // Validate format parameter - unknown values treated as auto with warning
+  let format: KitFormat = 'auto';
+  const validFormats = ['auto', 'full', 'summary', 'compact', 'dtcg'];
+  if (validFormats.includes(formatParam)) {
+    format = formatParam as KitFormat;
+  } else {
+    console.warn(`[design-system-kit-route] Unknown format: ${formatParam}, treating as 'auto'`);
+    format = 'auto';
+  }
+
   let fileKey = fileUrl ? extractFileKey(fileUrl) : null;
 
   // Direct-only mode: use direct WebSocket bridge
@@ -116,11 +182,40 @@ export async function handleGetDesignSystemKit(c: Context, deps: FigmaMcpDesignS
   }
 
   try {
-    const directResult = await fetchDesignSystemKitDirect(fileKey, { format, include });
-    return c.json(directResult, 200);
+    const directResult = await fetchKitFn(fileKey, { format: undefined, include });
+
+    // Handle DTCG format separately
+    if (format === 'dtcg') {
+      const variables = directResult.tokens?.variables ?? {};
+      const collections = directResult.tokens?.variableCollections ?? {};
+      const dtcg = toDtcgTokenSet(variables, collections);
+
+      return c.json({
+        ok: true,
+        dtcg,
+        responseMeta: {
+          appliedFormat: 'dtcg',
+        },
+        elapsedMs: directResult.elapsedMs,
+      }, 200);
+    }
+
+    // Compression path
+    const estimatedBytes = estimateJsonSize(directResult);
+    const level = resolveCompressionLevel(format, estimatedBytes);
+    const collections: Record<string, FigmaVariableCollection> = directResult.tokens?.variableCollections ?? {};
+    const compressed = compressKitResult(directResult, level, collections);
+
+    return c.json({
+      ...compressed,
+      responseMeta: {
+        appliedFormat: level,
+        estimatedBytes,
+      },
+    }, 200);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    
+
     // Check for specific error conditions
     if (message.includes('ws.request.no_socket_for_file')) {
       return c.json(
@@ -132,7 +227,7 @@ export async function handleGetDesignSystemKit(c: Context, deps: FigmaMcpDesignS
         200
       );
     }
-    
+
     return c.json(
       {
         ok: false,

@@ -15,9 +15,9 @@ import { getPluginConnectionManager, resetPluginConnectionManager } from '../ser
 const mockVariablesData = {
   meta: {
     variables: {
-      'var1': { id: 'var1', name: 'Color/Primary', key: 'key1', resolvedType: 'COLOR', valuesByMode: {}, variableCollectionId: 'col1', scopes: [], description: '', hiddenFromPublishing: false, remote: false },
-      'var2': { id: 'var2', name: 'Spacing/Small', key: 'key2', resolvedType: 'FLOAT', valuesByMode: {}, variableCollectionId: 'col2', scopes: [], description: '', hiddenFromPublishing: false, remote: false },
-      'var3': { id: 'var3', name: 'Color/Secondary', key: 'key3', resolvedType: 'COLOR', valuesByMode: {}, variableCollectionId: 'col1', scopes: [], description: '', hiddenFromPublishing: false, remote: false },
+      'var1': { id: 'var1', name: 'Color/Primary', key: 'key1', resolvedType: 'COLOR', valuesByMode: { 'mode1': { r: 1, g: 0, b: 0, a: 1 } }, variableCollectionId: 'col1', scopes: [], description: '', hiddenFromPublishing: false, remote: false },
+      'var2': { id: 'var2', name: 'Spacing/Small', key: 'key2', resolvedType: 'FLOAT', valuesByMode: { 'mode1': 8 }, variableCollectionId: 'col2', scopes: [], description: '', hiddenFromPublishing: false, remote: false },
+      'var3': { id: 'var3', name: 'Color/Secondary', key: 'key3', resolvedType: 'COLOR', valuesByMode: { 'mode1': { r: 0, g: 0, b: 1, a: 1 } }, variableCollectionId: 'col1', scopes: [], description: '', hiddenFromPublishing: false, remote: false },
     },
     variableCollections: {
       'col1': { id: 'col1', name: 'Global', key: 'global-key', modes: [{ modeId: 'mode1', name: 'Default' }], defaultModeId: 'mode1', remote: false },
@@ -349,8 +349,8 @@ test('figma-mcp-variables-route: POST with invalid JSON returns 400', async () =
   const mockSocket = {
     readyState: 1,
     protocol: '',
-    send: () => {},
-    close: () => {},
+    send: () => { },
+    close: () => { },
     onopen: null,
     onclose: null,
     onerror: null,
@@ -376,4 +376,59 @@ test('figma-mcp-variables-route: POST with invalid JSON returns 400', async () =
   assert.equal(payload.ok, false);
   assert.equal(payload.code, 'mcp_variables.invalid_body');
   assert.ok(payload.message.includes('Invalid JSON'));
+});
+
+test('figma-mcp-variables-route: POST with outputFormat=dtcg returns dtcg key (not meta)', async () => {
+  const fetchVariablesDirectMock = async () => mockVariablesData;
+
+  const app = createTestApp({
+    fetchVariablesDirect: fetchVariablesDirectMock,
+  });
+
+  const response = await app.request('/api/figma-mcp-variables', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      figmaUrl: 'https://www.figma.com/design/abc/Test',
+      outputFormat: 'dtcg',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ok, true);
+  // Validate DTCG format: has dtcg key, no meta key
+  assert.ok('dtcg' in payload);
+  assert.ok(!('meta' in payload));
+  // Validate DTCG structure
+  assert.ok(payload.dtcg.Color);
+  assert.ok(payload.dtcg.Color.Primary);
+  assert.equal(payload.dtcg.Color.Primary.$type, 'color');
+  assert.equal(payload.dtcg.Color.Primary.$value, '#FF0000');
+});
+
+test('figma-mcp-variables-route: POST without outputFormat returns standard meta (regression)', async () => {
+  const fetchVariablesDirectMock = async () => mockVariablesData;
+
+  const app = createTestApp({
+    fetchVariablesDirect: fetchVariablesDirectMock,
+  });
+
+  const response = await app.request('/api/figma-mcp-variables', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      figmaUrl: 'https://www.figma.com/design/abc/Test',
+    }),
+  });
+
+  assert.equal(response.status, 200);
+  const payload = await response.json();
+  assert.equal(payload.ok, true);
+  // Regression: should have meta key (backward compatible)
+  assert.ok('meta' in payload);
+  assert.ok(payload.meta.variables);
+  assert.ok(payload.meta.variableCollections);
+  // Should NOT have dtcg key
+  assert.ok(!('dtcg' in payload));
 });
