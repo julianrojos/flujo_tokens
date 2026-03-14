@@ -168,7 +168,6 @@ export function ImpactExplorerPage() {
       newValue: newValueParam,
       depth: depthParam,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokenParam, newValueParam, depthParam]);
 
   const tokenOptions = useMemo(
