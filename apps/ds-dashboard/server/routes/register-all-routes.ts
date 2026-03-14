@@ -32,6 +32,8 @@ import { registerFigmaMcpDesignChangesRoute } from './figma-mcp-design-changes-r
 import { registerFigmaMcpSelectionRoute } from './figma-mcp-selection-route.ts';
 import { registerFigmaPluginDebugRoute } from './figma-plugin-debug-route.ts';
 import { registerFigmaMcpVariablesV2Routes } from './figma-mcp-variables-v2-route.ts';
+import { registerFigmaMcpComponentsRoutes } from './figma-mcp-components-route.ts';
+import { registerFigmaMcpTokenBindingsRoutes } from './figma-mcp-token-bindings-route.ts';
 import { buildAllRouteDeps, type ServerDeps } from '../lib/register-all-routes-service.ts';
 import { verifyMcpPort } from '../services/figma-mcp-port-verify.ts';
 import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
@@ -67,6 +69,8 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerFigmaMcpSurgicalQueriesRoutes(app, routeDeps.figmaMcpPingDeps);
   registerFigmaMcpDesignSystemKitRoute(app, routeDeps.figmaMcpPingDeps);
   registerFigmaMcpVariablesV2Routes(app, routeDeps.figmaMcpPingDeps);
+  registerFigmaMcpComponentsRoutes(app, routeDeps.figmaMcpPingDeps);
+  registerFigmaMcpTokenBindingsRoutes(app, routeDeps.figmaMcpPingDeps);
   registerFigmaPluginDebugRoute(app, {
     internalToken: process.env.DS_DASHBOARD_INTERNAL_TOKEN,
   });

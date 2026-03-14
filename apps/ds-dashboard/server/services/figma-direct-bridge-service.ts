@@ -25,6 +25,21 @@ import type {
   TokenDiff as BridgeTokenDiff,
   TokenExportFormat as BridgeTokenExportFormat,
   TokenUsageEntry as BridgeTokenUsageEntry,
+  // P2: Components & Token Bindings
+  SearchComponentsParams,
+  SearchComponentsResult,
+  GetComponentSpecParams,
+  GetComponentSpecResult,
+  GetComponentImageParams,
+  GetComponentImageResult,
+  AuditTokenCoverageParams,
+  AuditTokenCoverageResult,
+  BindVariableParams,
+  BindVariableResult,
+  UnbindVariableParams,
+  UnbindVariableResult,
+  ApplyTokensParams,
+  ApplyTokensResult,
 } from '../../../figma-plugin/src/bridge/protocol.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 import { getSharedResponseCache } from './response-cache.ts';
@@ -449,6 +464,89 @@ export async function getTokenUsageDirect(
 ): Promise<GetTokenUsageResult> {
   return await requestDirectWithFileKeyFallback<GetTokenUsageResult>(
     'GET_TOKEN_USAGE',
+    params,
+    fileKey
+  );
+}
+
+// ============================================================================
+// P2: Components & Token Bindings (Direct Bridge)
+// ============================================================================
+// Intentionally no ResponseCache for SEARCH_COMPONENTS/GET_COMPONENT_SPEC in P2.
+// Caching is deferred to the broader P0a cache pass to keep P2 scope focused.
+
+export async function searchComponentsDirect(
+  fileKey: string | null,
+  params: SearchComponentsParams
+): Promise<SearchComponentsResult> {
+  return await requestDirectWithFileKeyFallback<SearchComponentsResult>(
+    'SEARCH_COMPONENTS',
+    params,
+    fileKey
+  );
+}
+
+export async function getComponentSpecDirect(
+  fileKey: string | null,
+  params: GetComponentSpecParams
+): Promise<GetComponentSpecResult> {
+  return await requestDirectWithFileKeyFallback<GetComponentSpecResult>(
+    'GET_COMPONENT_SPEC',
+    params,
+    fileKey
+  );
+}
+
+export async function getComponentImageDirect(
+  fileKey: string | null,
+  params: GetComponentImageParams
+): Promise<GetComponentImageResult> {
+  return await requestDirectWithFileKeyFallback<GetComponentImageResult>(
+    'GET_COMPONENT_IMAGE',
+    params,
+    fileKey
+  );
+}
+
+export async function auditTokenCoverageDirect(
+  fileKey: string | null,
+  params: AuditTokenCoverageParams
+): Promise<AuditTokenCoverageResult> {
+  return await requestDirectWithFileKeyFallback<AuditTokenCoverageResult>(
+    'AUDIT_COMPONENT_TOKEN_COVERAGE',
+    params,
+    fileKey
+  );
+}
+
+export async function bindVariableDirect(
+  fileKey: string | null,
+  params: BindVariableParams
+): Promise<BindVariableResult> {
+  return await requestDirectWithFileKeyFallback<BindVariableResult>(
+    'BIND_VARIABLE',
+    params,
+    fileKey
+  );
+}
+
+export async function unbindVariableDirect(
+  fileKey: string | null,
+  params: UnbindVariableParams
+): Promise<UnbindVariableResult> {
+  return await requestDirectWithFileKeyFallback<UnbindVariableResult>(
+    'UNBIND_VARIABLE',
+    params,
+    fileKey
+  );
+}
+
+export async function applyTokensDirect(
+  fileKey: string | null,
+  params: ApplyTokensParams
+): Promise<ApplyTokensResult> {
+  return await requestDirectWithFileKeyFallback<ApplyTokensResult>(
+    'APPLY_TOKENS_TO_COMPONENT',
     params,
     fileKey
   );
