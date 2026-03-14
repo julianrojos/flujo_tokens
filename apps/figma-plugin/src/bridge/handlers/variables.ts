@@ -32,6 +32,10 @@ import {
   VariableCollectionData,
   createBridgeError,
   ERROR_CODES,
+  BindVariableParams,
+  BindVariableResult,
+  UnbindVariableParams,
+  UnbindVariableResult,
 } from '../protocol';
 
 /**
@@ -445,7 +449,7 @@ export async function resolveVariableAliases(
 
 export async function handleSearchVariables(
   params: SearchVariablesParams
-): Promise<unknown> {
+): Promise<SearchVariablesResult> {
   try {
     console.log('[Bridge] Searching variables with filters:', params);
 
@@ -574,7 +578,7 @@ export async function handleSearchVariables(
       total,
       offset,
       hasMore,
-    } as SearchVariablesResult;
+    };
   } catch (error) {
     // Preserve BridgeError codes, only wrap unknown errors
     if (
@@ -588,6 +592,199 @@ export async function handleSearchVariables(
     throw createBridgeError(
       ERROR_CODES.FIGMA_API_ERROR,
       error instanceof Error ? error.message : 'Failed to search variables'
+    );
+  }
+}
+
+// ==========================================================================
+// Helper: Validate fills/strokes support on a node
+// ==========================================================================
+function validateFillStrokesSupport(
+  node: BaseNode,
+  field: string,
+  nodeId: string
+): { valid: boolean; paints?: Paint[]; error?: string } {
+  const isFillLike = field === 'fills' || field === 'strokes';
+  if (!isFillLike) {
+    return { valid: true };
+  }
+
+  const prop = field as 'fills' | 'strokes';
+  const nodeWithProp = node as SceneNode & { [prop: string]: Paint[] | readonly Paint[] };
+  const paintsValue = nodeWithProp[prop];
+
+  if (!Array.isArray(paintsValue)) {
+    return {
+      valid: false,
+      error: `Node ${nodeId} does not support ${field}`,
+    };
+  }
+
+  return { valid: true, paints: [...paintsValue] as Paint[] };
+}
+
+// ============================================================================
+// BIND_VARIABLE (P2)
+// ============================================================================
+
+export async function handleBindVariable(
+  params: BindVariableParams
+): Promise<BindVariableResult> {
+  try {
+    const node = await figma.getNodeByIdAsync(params.nodeId);
+    if (!node) {
+      throw createBridgeError(ERROR_CODES.NODE_NOT_FOUND, `Node not found: ${params.nodeId}`);
+    }
+
+    // Validate node supports the target field
+    const fillStrokesValidation = validateFillStrokesSupport(node, params.field, params.nodeId);
+    if (!fillStrokesValidation.valid) {
+      throw createBridgeError(ERROR_CODES.INVALID_PARAMETER, fillStrokesValidation.error!);
+    }
+
+    if (!('setBoundVariable' in node)) {
+      throw createBridgeError(
+        ERROR_CODES.INVALID_PARAMETER,
+        `Node type ${node.type} does not support variable binding`
+      );
+    }
+
+    const variable = await figma.variables.getVariableByIdAsync(params.variableId);
+    if (!variable) {
+      throw createBridgeError(ERROR_CODES.VARIABLE_NOT_FOUND, `Variable not found: ${params.variableId}`);
+    }
+
+    if (params.field === 'fills' || params.field === 'strokes') {
+      const paintIndex = params.paintIndex ?? 0;
+      const paintField = params.paintField ?? 'color';
+      const prop = params.field as 'fills' | 'strokes';
+      const paints = fillStrokesValidation.paints!;
+
+      if (paintIndex >= paints.length) {
+        throw createBridgeError(
+          ERROR_CODES.INVALID_PARAMETER,
+          `paintIndex ${paintIndex} out of range (length: ${paints.length})`
+        );
+      }
+
+      // Only solid paints can be bound to variables
+      const paint = paints[paintIndex] as SolidPaint;
+      if (paint.type !== 'SOLID') {
+        throw createBridgeError(
+          ERROR_CODES.INVALID_PARAMETER,
+          `Paint at index ${paintIndex} is not a solid paint (type: ${paint.type})`
+        );
+      }
+
+      paints[paintIndex] = figma.variables.setBoundVariableForPaint(
+        paint,
+        paintField as 'color',
+        variable
+      );
+      (node as SceneNode & { [key: string]: Paint[] })[prop] = paints;
+    } else {
+      (node as SceneNode).setBoundVariable(params.field as VariableBindableNodeField, variable);
+    }
+
+    return {
+      success: true,
+      nodeId: params.nodeId,
+      field: params.field,
+      variableId: params.variableId,
+    };
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error
+    ) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to bind variable'
+    );
+  }
+}
+
+// ============================================================================
+// UNBIND_VARIABLE (P2)
+// ============================================================================
+
+export async function handleUnbindVariable(
+  params: UnbindVariableParams
+): Promise<UnbindVariableResult> {
+  try {
+    const node = await figma.getNodeByIdAsync(params.nodeId);
+    if (!node) {
+      throw createBridgeError(ERROR_CODES.NODE_NOT_FOUND, `Node not found: ${params.nodeId}`);
+    }
+
+    // Validate node supports the target field
+    const fillStrokesValidation = validateFillStrokesSupport(node, params.field, params.nodeId);
+    if (!fillStrokesValidation.valid) {
+      throw createBridgeError(ERROR_CODES.INVALID_PARAMETER, fillStrokesValidation.error!);
+    }
+
+    if (!('setBoundVariable' in node)) {
+      throw createBridgeError(
+        ERROR_CODES.INVALID_PARAMETER,
+        `Node type ${node.type} does not support variable binding`
+      );
+    }
+
+    if (params.field === 'fills' || params.field === 'strokes') {
+      const paintIndex = params.paintIndex ?? 0;
+      const paintField = params.paintField ?? 'color';
+      const prop = params.field as 'fills' | 'strokes';
+      const paints = fillStrokesValidation.paints!;
+
+      if (paintIndex >= paints.length) {
+        throw createBridgeError(
+          ERROR_CODES.INVALID_PARAMETER,
+          `paintIndex ${paintIndex} out of range (length: ${paints.length})`
+        );
+      }
+
+      // Only solid paints can be unbound
+      const paint = paints[paintIndex] as SolidPaint;
+      if (paint.type !== 'SOLID') {
+        throw createBridgeError(
+          ERROR_CODES.INVALID_PARAMETER,
+          `Paint at index ${paintIndex} is not a solid paint (type: ${paint.type})`
+        );
+      }
+
+      paints[paintIndex] = figma.variables.setBoundVariableForPaint(
+        paint,
+        paintField as 'color',
+        null
+      );
+      (node as SceneNode & { [key: string]: Paint[] })[prop] = paints;
+    } else {
+      (node as SceneNode).setBoundVariable(params.field as VariableBindableNodeField, null);
+    }
+
+    return {
+      success: true,
+      nodeId: params.nodeId,
+      field: params.field,
+    };
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error
+    ) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to unbind variable'
     );
   }
 }

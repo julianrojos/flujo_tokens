@@ -106,6 +106,14 @@ export const BRIDGE_METHODS = {
   SYNC_TOKENS_PLAN: 'SYNC_TOKENS_PLAN',
   SYNC_TOKENS_APPLY: 'SYNC_TOKENS_APPLY',
   GET_TOKEN_USAGE: 'GET_TOKEN_USAGE',
+  // P2: Components & Token Bindings
+  SEARCH_COMPONENTS: 'SEARCH_COMPONENTS',
+  GET_COMPONENT_SPEC: 'GET_COMPONENT_SPEC',
+  GET_COMPONENT_IMAGE: 'GET_COMPONENT_IMAGE',
+  AUDIT_COMPONENT_TOKEN_COVERAGE: 'AUDIT_COMPONENT_TOKEN_COVERAGE',
+  BIND_VARIABLE: 'BIND_VARIABLE',
+  UNBIND_VARIABLE: 'UNBIND_VARIABLE',
+  APPLY_TOKENS_TO_COMPONENT: 'APPLY_TOKENS_TO_COMPONENT',
 } as const;
 
 export type BridgeMethod = (typeof BRIDGE_METHODS)[keyof typeof BRIDGE_METHODS];
@@ -702,6 +710,178 @@ export interface GetTokenUsageResult {
   unusedVariableIds: string[];
   scannedNodeCount: number;
   truncated: boolean;
+}
+
+// ============================================================================
+// P2: Components & Token Bindings
+// ============================================================================
+
+// --- SEARCH_COMPONENTS ---
+export interface SearchComponentsParams {
+  nameContains?: string;
+  namePattern?: string;
+  includeVariants?: boolean; // default false
+  limit?: number;            // default 50, max 200
+  compact?: boolean;         // default true
+}
+
+export interface CompactComponentResult {
+  key: string;
+  nodeId: string;
+  name: string;
+  type: 'COMPONENT' | 'COMPONENT_SET';
+  variantCount?: number;
+}
+
+export interface SearchComponentsResult {
+  success: true;
+  components: CompactComponentResult[];
+  count: number;
+  truncated: boolean;
+}
+
+// --- GET_COMPONENT_SPEC ---
+export interface GetComponentSpecParams {
+  nodeId: string;
+  depth?: number;   // default 3, -1 = unlimited
+  compact?: boolean; // default false
+}
+
+export interface SpecLayerNode {
+  id: string;
+  name: string;
+  type: string;
+  children?: SpecLayerNode[];
+  boundVariables?: Record<string, Array<{ variableId: string }>>;
+}
+
+export interface VariantSpec {
+  key: string;
+  nodeId: string;
+  name: string;
+  variantProperties: Record<string, string>;
+  layerTokens: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
+}
+
+export interface GetComponentSpecResult {
+  success: true;
+  nodeId: string;
+  name: string;
+  type: 'COMPONENT' | 'COMPONENT_SET';
+  description: string | null;
+  anatomy: SpecLayerNode;
+  variants?: VariantSpec[];
+  variantAxes?: Array<{ name: string; values: string[] }>;
+  props: Array<{ name: string; type: string; defaultValue: unknown }>;
+  states: string[];
+  tokenBindings: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
+}
+
+// --- GET_COMPONENT_IMAGE ---
+export interface GetComponentImageParams {
+  nodeIds: string[];   // max 20
+  format?: 'PNG' | 'JPG' | 'SVG';
+  scale?: number;      // default 2
+}
+
+export interface ComponentImageResult {
+  nodeId: string;
+  base64?: string;
+  format: string;
+  byteLength?: number;
+  error?: string;
+}
+
+export interface GetComponentImageResult {
+  success: boolean;
+  images: ComponentImageResult[];
+  count: number;
+  errors: number;
+}
+
+// --- AUDIT_COMPONENT_TOKEN_COVERAGE ---
+export interface AuditTokenCoverageParams {
+  nodeId: string;
+  maxNodes?: number; // default 500
+}
+
+export interface UnboundNodeInfo {
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
+  hasFills: boolean;
+  hasStrokes: boolean;
+}
+
+export interface AuditTokenCoverageResult {
+  success: true;
+  nodeId: string;
+  totalNodes: number;
+  nodesWithBindings: number;
+  coveragePercent: number;
+  truncated: boolean;
+  unboundNodes: UnboundNodeInfo[];
+  fieldCoverage: Record<string, { total: number; bound: number }>;
+}
+
+// --- BIND_VARIABLE ---
+export interface BindVariableParams {
+  nodeId: string;
+  variableId: string;
+  field: string;
+  paintIndex?: number;
+  paintField?: 'color' | 'opacity';
+}
+
+export interface BindVariableResult {
+  success: true;
+  nodeId: string;
+  field: string;
+  variableId: string;
+}
+
+// --- UNBIND_VARIABLE ---
+export interface UnbindVariableParams {
+  nodeId: string;
+  field: string;
+  paintIndex?: number;
+  paintField?: 'color' | 'opacity';
+}
+
+export interface UnbindVariableResult {
+  success: true;
+  nodeId: string;
+  field: string;
+}
+
+// --- APPLY_TOKENS_TO_COMPONENT ---
+export interface ApplyTokenItem {
+  nodeId: string;
+  variableId: string;
+  field: string;
+  paintIndex?: number;
+  paintField?: 'color' | 'opacity';
+}
+
+export interface ApplyTokensParams {
+  items: ApplyTokenItem[];
+  dryRun?: boolean;
+}
+
+export interface ApplyTokensResultItem {
+  nodeId: string;
+  variableId: string;
+  field: string;
+  status: 'applied' | 'error';
+  reason?: string;
+}
+
+export interface ApplyTokensResult {
+  success: boolean;
+  dryRun: boolean;
+  items: ApplyTokensResultItem[];
+  appliedCount: number;
+  errorCount: number;
 }
 
 // ============================================================================

@@ -1,20 +1,41 @@
 /**
- * Components Handlers (P1)
+ * Components Handlers (P1 + P2)
  *
  * Handlers for component-related bridge methods:
- * - GET_LOCAL_COMPONENTS
- * - GET_COMPONENT
- * - INSTANTIATE_COMPONENT
- * - SET_NODE_DESCRIPTION
- * - ADD_COMPONENT_PROPERTY
- * - EDIT_COMPONENT_PROPERTY
- * - DELETE_COMPONENT_PROPERTY
- * - SET_INSTANCE_PROPERTIES
+ * - GET_LOCAL_COMPONENTS (P1)
+ * - GET_COMPONENT (P1)
+ * - INSTANTIATE_COMPONENT (P1)
+ * - SET_NODE_DESCRIPTION (P1)
+ * - ADD_COMPONENT_PROPERTY (P1)
+ * - EDIT_COMPONENT_PROPERTY (P1)
+ * - DELETE_COMPONENT_PROPERTY (P1)
+ * - SET_INSTANCE_PROPERTIES (P1)
+ * - SEARCH_COMPONENTS (P2)
+ * - GET_COMPONENT_SPEC (P2)
+ * - GET_COMPONENT_IMAGE (P2)
+ * - AUDIT_COMPONENT_TOKEN_COVERAGE (P2)
+ * - APPLY_TOKENS_TO_COMPONENT (P2)
  */
 
 import {
   createBridgeError,
   ERROR_CODES,
+  SearchComponentsParams,
+  SearchComponentsResult,
+  CompactComponentResult,
+  GetComponentSpecParams,
+  GetComponentSpecResult,
+  SpecLayerNode,
+  VariantSpec,
+  GetComponentImageParams,
+  GetComponentImageResult,
+  ComponentImageResult,
+  AuditTokenCoverageParams,
+  AuditTokenCoverageResult,
+  UnboundNodeInfo,
+  ApplyTokensParams,
+  ApplyTokensResult,
+  ApplyTokensResultItem,
 } from '../protocol';
 
 const PAGE_BATCH_SIZE = 3;
@@ -746,6 +767,778 @@ export async function handleSetInstanceProperties(
     throw createBridgeError(
       ERROR_CODES.FIGMA_API_ERROR,
       error instanceof Error ? error.message : 'Failed to set instance properties'
+    );
+  }
+}
+
+// ============================================================================
+// SEARCH_COMPONENTS (P2)
+// ============================================================================
+
+export async function handleSearchComponents(
+  params: SearchComponentsParams
+): Promise<SearchComponentsResult> {
+  try {
+    const nameContains = params.nameContains?.toLowerCase();
+    const namePattern = params.namePattern ? new RegExp(params.namePattern, 'i') : null;
+    const includeVariants = params.includeVariants ?? false;
+    const limit = Math.max(1, Math.min(params.limit ?? 50, 200));
+
+    const components: CompactComponentResult[] = [];
+    let count = 0;
+    let truncated = false;
+
+    // Helper to check name filters
+    function passesNameFilter(node: BaseNode): boolean {
+      if (nameContains && !node.name.toLowerCase().includes(nameContains)) {
+        return false;
+      }
+      if (namePattern && !namePattern.test(node.name)) {
+        return false;
+      }
+      return true;
+    }
+
+    // Helper to extract compact component data
+    function extractCompact(node: ComponentNode | ComponentSetNode): CompactComponentResult {
+      if (node.type === 'COMPONENT_SET') {
+        return {
+          key: node.key,
+          nodeId: node.id,
+          name: node.name,
+          type: 'COMPONENT_SET',
+          variantCount: node.children.length,
+        };
+      }
+      return {
+        key: node.key,
+        nodeId: node.id,
+        name: node.name,
+        type: 'COMPONENT',
+      };
+    }
+
+    // BFS traversal
+    // SC-01: loadAllPagesAsync() loads ALL pages into memory - this is a fixed cost.
+    // The Figma plugin API does not support partial page loads.
+    // Early-exit at limit only stops BFS traversal, NOT the page loading.
+    await figma.loadAllPagesAsync();
+    const queue: BaseNode[] = [...figma.root.children];
+    let didHitLimit = false;
+
+    while (queue.length > 0 && count < limit) {
+      const node = queue.shift()!;
+
+      if (node.type === 'COMPONENT_SET') {
+        const componentSet = node as ComponentSetNode;
+        if (passesNameFilter(componentSet)) {
+          components.push(extractCompact(componentSet));
+          count++;
+
+          // Include variants if requested
+          if (includeVariants && count < limit) {
+            for (const child of componentSet.children) {
+              if (child.type === 'COMPONENT' && count < limit) {
+                if (passesNameFilter(child)) {
+                  components.push({
+                    key: child.key,
+                    nodeId: child.id,
+                    name: child.name,
+                    type: 'COMPONENT',
+                  });
+                  count++;
+                }
+              } else if (child.type === 'COMPONENT' && count >= limit) {
+                // Stopped adding variants due to limit - mark as truncated
+                didHitLimit = true;
+                break;
+              }
+            }
+          }
+        }
+      } else if (node.type === 'COMPONENT') {
+        const component = node as ComponentNode;
+        // Only add standalone components (not variants inside component sets)
+        if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
+          if (passesNameFilter(component)) {
+            components.push(extractCompact(component));
+            count++;
+          }
+        }
+      }
+
+      // Add children to queue
+      if ('children' in node) {
+        for (const child of node.children) {
+          queue.push(child);
+        }
+      }
+    }
+
+    // Mark as truncated if we hit the limit anywhere (including inside variant loops)
+    if (count >= limit) {
+      didHitLimit = true;
+    }
+
+    truncated = didHitLimit;
+
+    return {
+      success: true,
+      components,
+      count: components.length,
+      truncated,
+    };
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error
+    ) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to search components'
+    );
+  }
+}
+
+// ============================================================================
+// GET_COMPONENT_SPEC (P2)
+// ============================================================================
+
+async function buildAnatomy(
+  node: BaseNode,
+  depth: number,
+  currentDepth: number
+): Promise<SpecLayerNode> {
+  const result: SpecLayerNode = {
+    id: node.id,
+    name: node.name,
+    type: node.type,
+  };
+
+  // Extract boundVariables if available
+  if ('boundVariables' in node && node.boundVariables) {
+    const bv = node.boundVariables as Record<string, unknown>;
+    const boundVarsRecord: Record<string, Array<{ variableId: string }>> = {};
+
+    for (const [field, aliasOrArray] of Object.entries(bv)) {
+      const aliases = Array.isArray(aliasOrArray) ? aliasOrArray : [aliasOrArray];
+      const validAliases: Array<{ variableId: string }> = [];
+
+      for (const alias of aliases) {
+        if (alias && typeof alias === 'object' && 'id' in alias) {
+          validAliases.push({ variableId: (alias as { id: string }).id });
+        }
+      }
+
+      if (validAliases.length > 0) {
+        boundVarsRecord[field] = validAliases;
+      }
+    }
+
+    if (Object.keys(boundVarsRecord).length > 0) {
+      result.boundVariables = boundVarsRecord;
+    }
+  }
+
+  // Recurse into children if depth allows
+  if (depth === -1 || currentDepth < depth) {
+    if ('children' in node && node.children.length > 0) {
+      result.children = [];
+      for (const child of node.children) {
+        result.children.push(await buildAnatomy(child, depth, currentDepth + 1));
+      }
+    }
+  }
+
+  return result;
+}
+
+async function buildVariantSpec(variant: ComponentNode): Promise<VariantSpec> {
+  const layerTokens: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }> = [];
+
+  // BFS to collect all boundVariables in the variant
+  const queue: BaseNode[] = [variant];
+  while (queue.length > 0) {
+    const node = queue.shift()!;
+
+    if ('boundVariables' in node && node.boundVariables) {
+      const bv = node.boundVariables as Record<string, unknown>;
+      for (const [field, aliasOrArray] of Object.entries(bv)) {
+        const aliases = Array.isArray(aliasOrArray) ? aliasOrArray : [aliasOrArray];
+        for (const alias of aliases) {
+          if (alias && typeof alias === 'object' && 'id' in alias) {
+            layerTokens.push({
+              nodeId: node.id,
+              nodeName: node.name,
+              field,
+              variableId: (alias as { id: string }).id,
+            });
+          }
+        }
+      }
+    }
+
+    if ('children' in node) {
+      for (const child of node.children) {
+        queue.push(child);
+      }
+    }
+  }
+
+  // Parse variant properties from name
+  const variantProperties: Record<string, string> = {};
+  const parts = variant.name.split(',').map(p => p.trim());
+  for (const part of parts) {
+    const kv = part.split('=');
+    if (kv.length === 2) {
+      variantProperties[kv[0].trim()] = kv[1].trim();
+    }
+  }
+
+  return {
+    key: variant.key,
+    nodeId: variant.id,
+    name: variant.name,
+    variantProperties,
+    layerTokens,
+  };
+}
+
+export async function handleGetComponentSpec(
+  params: GetComponentSpecParams
+): Promise<GetComponentSpecResult> {
+  try {
+    const node = await figma.getNodeByIdAsync(params.nodeId);
+    if (!node) {
+      throw createBridgeError(ERROR_CODES.NODE_NOT_FOUND, `Node not found: ${params.nodeId}`);
+    }
+
+    if (node.type !== 'COMPONENT' && node.type !== 'COMPONENT_SET') {
+      throw createBridgeError(
+        ERROR_CODES.INVALID_PARAMETER,
+        `Node must be COMPONENT or COMPONENT_SET. Got: ${node.type}`
+      );
+    }
+
+    const depth = params.depth ?? 3;
+    const compact = params.compact ?? false;
+
+    // Build anatomy
+    const anatomy = await buildAnatomy(node, depth, 0);
+
+    // For compact mode, remove children
+    if (compact && anatomy.children) {
+      anatomy.children = undefined;
+    }
+
+    // Extract variant axes and variants for COMPONENT_SET
+    let variants: VariantSpec[] | undefined;
+    let variantAxes: Array<{ name: string; values: string[] }> | undefined;
+
+    if (node.type === 'COMPONENT_SET') {
+      const componentSet = node as ComponentSetNode;
+      variants = [];
+      const axesMap: Record<string, Set<string>> = {};
+
+      for (const child of componentSet.children) {
+        if (child.type === 'COMPONENT') {
+          variants.push(await buildVariantSpec(child as ComponentNode));
+
+          // Parse axes from variant name
+          const parts = child.name.split(',').map(p => p.trim());
+          for (const part of parts) {
+            const kv = part.split('=');
+            if (kv.length === 2) {
+              const axisName = kv[0].trim();
+              const axisValue = kv[1].trim();
+              if (!axesMap[axisName]) {
+                axesMap[axisName] = new Set();
+              }
+              axesMap[axisName].add(axisValue);
+            }
+          }
+        }
+      }
+
+      variantAxes = Object.entries(axesMap).map(([name, values]) => ({
+        name,
+        values: Array.from(values),
+      }));
+    }
+
+    // Infer states axis (look for 'State', 'Status', or 'Interaction')
+    const states: string[] = [];
+    if (variantAxes) {
+      const stateAxis = variantAxes.find(
+        axis => ['State', 'Status', 'Interaction'].includes(axis.name)
+      );
+      if (stateAxis) {
+        states.push(...stateAxis.values);
+      }
+    }
+
+    // Extract props from componentPropertyDefinitions
+    const props: Array<{ name: string; type: string; defaultValue: unknown }> = [];
+    if ('componentPropertyDefinitions' in node) {
+      const propDefs = node.componentPropertyDefinitions;
+      for (const propName in propDefs) {
+        if (propDefs.hasOwnProperty(propName)) {
+          const propDef = propDefs[propName];
+          props.push({
+            name: propName,
+            type: propDef.type,
+            defaultValue: propDef.defaultValue,
+          });
+        }
+      }
+    }
+
+    // Collect all token bindings from anatomy BFS
+    const tokenBindings: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }> = [];
+    const bindingQueue: BaseNode[] = [node];
+    while (bindingQueue.length > 0) {
+      const n = bindingQueue.shift()!;
+      if ('boundVariables' in n && n.boundVariables) {
+        const bv = n.boundVariables as Record<string, unknown>;
+        for (const [field, aliasOrArray] of Object.entries(bv)) {
+          const aliases = Array.isArray(aliasOrArray) ? aliasOrArray : [aliasOrArray];
+          for (const alias of aliases) {
+            if (alias && typeof alias === 'object' && 'id' in alias) {
+              tokenBindings.push({
+                nodeId: n.id,
+                nodeName: n.name,
+                field,
+                variableId: (alias as { id: string }).id,
+              });
+            }
+          }
+        }
+      }
+      if ('children' in n) {
+        for (const child of n.children) {
+          bindingQueue.push(child);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      nodeId: node.id,
+      name: node.name,
+      type: node.type as 'COMPONENT' | 'COMPONENT_SET',
+      description: 'description' in node ? (node.description as string | null) : null,
+      anatomy,
+      variants,
+      variantAxes,
+      props,
+      states,
+      tokenBindings,
+    };
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error
+    ) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to get component spec'
+    );
+  }
+}
+
+// ============================================================================
+// GET_COMPONENT_IMAGE (P2)
+// ============================================================================
+
+const MAX_COMPONENT_IMAGE_BATCH = 20;
+
+export async function handleGetComponentImage(
+  params: GetComponentImageParams
+): Promise<GetComponentImageResult> {
+  try {
+    // Keep at 20 for now: no explicit WS max-payload config exists in server manager.
+    // Timeout pressure (60s) is the primary operational constraint.
+    if (params.nodeIds.length > MAX_COMPONENT_IMAGE_BATCH) {
+      throw createBridgeError(
+        ERROR_CODES.INVALID_PARAMETER,
+        `Max ${MAX_COMPONENT_IMAGE_BATCH} nodeIds allowed per batch`
+      );
+    }
+
+    const format = params.format ?? 'PNG';
+    const scale = params.scale ?? 2;
+    const images: ComponentImageResult[] = [];
+
+    // Serial loop to avoid blocking plugin main thread
+    for (const nodeId of params.nodeIds) {
+      const node = await figma.getNodeByIdAsync(nodeId);
+
+      if (!node || !('exportAsync' in node)) {
+        images.push({
+          nodeId,
+          format,
+          error: 'Node not found or not exportable',
+        });
+        continue;
+      }
+
+      try {
+        const bytes = await node.exportAsync({
+          format,
+          constraint: { type: 'SCALE', value: scale },
+        });
+        const base64 = figma.base64Encode(bytes);
+        images.push({
+          nodeId,
+          base64,
+          format,
+          byteLength: bytes.length,
+        });
+      } catch (err) {
+        images.push({
+          nodeId,
+          format,
+          error: err instanceof Error ? err.message : 'Export failed',
+        });
+      }
+    }
+
+    const errors = images.filter(i => i.error).length;
+    const success = images.length === 0 ? true : errors < images.length;
+
+    return {
+      success,
+      images,
+      count: images.length,
+      errors,
+    };
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error
+    ) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to get component images'
+    );
+  }
+}
+
+// ============================================================================
+// AUDIT_COMPONENT_TOKEN_COVERAGE (P2)
+// ============================================================================
+
+export async function handleAuditTokenCoverage(
+  params: AuditTokenCoverageParams
+): Promise<AuditTokenCoverageResult> {
+  try {
+    const node = await figma.getNodeByIdAsync(params.nodeId);
+    if (!node) {
+      throw createBridgeError(ERROR_CODES.NODE_NOT_FOUND, `Node not found: ${params.nodeId}`);
+    }
+
+    if (node.type !== 'COMPONENT' && node.type !== 'COMPONENT_SET') {
+      throw createBridgeError(
+        ERROR_CODES.INVALID_PARAMETER,
+        `Node must be COMPONENT or COMPONENT_SET. Got: ${node.type}`
+      );
+    }
+
+    const maxNodes = Math.max(1, Math.min(params.maxNodes ?? 500, 2000));
+    const fieldCoverage: Record<string, { total: number; bound: number }> = {};
+    const unboundNodes: UnboundNodeInfo[] = [];
+    let totalNodes = 0;
+    let nodesWithBindings = 0;
+    let truncated = false;
+
+    // BFS traversal
+    const queue: BaseNode[] = [node];
+
+    while (queue.length > 0) {
+      if (totalNodes >= maxNodes) {
+        truncated = true;
+        break;
+      }
+
+      const currentNode = queue.shift()!;
+      totalNodes++;
+
+      // Check boundVariables
+      const bv = ('boundVariables' in currentNode ? currentNode.boundVariables : {}) ?? {};
+      const hasAnyBinding = Object.keys(bv).length > 0;
+
+      if (hasAnyBinding) {
+        nodesWithBindings++;
+      }
+
+      // Check fills/strokes presence
+      const hasFills = 'fills' in currentNode && Array.isArray((currentNode as { fills: unknown }).fills) && (currentNode.fills as unknown[]).length > 0;
+      const hasStrokes = 'strokes' in currentNode && Array.isArray((currentNode as { strokes: unknown }).strokes) && (currentNode.strokes as unknown[]).length > 0;
+
+      // Track field coverage for bindable fields
+      if (hasFills) {
+        fieldCoverage['fills'] = fieldCoverage['fills'] ?? { total: 0, bound: 0 };
+        fieldCoverage['fills'].total++;
+        if (bv['fills']) fieldCoverage['fills'].bound++;
+      }
+
+      if (hasStrokes) {
+        fieldCoverage['strokes'] = fieldCoverage['strokes'] ?? { total: 0, bound: 0 };
+        fieldCoverage['strokes'].total++;
+        if (bv['strokes']) fieldCoverage['strokes'].bound++;
+      }
+
+      // Track opacity if not default
+      if ('opacity' in currentNode && currentNode.opacity !== 1) {
+        fieldCoverage['opacity'] = fieldCoverage['opacity'] ?? { total: 0, bound: 0 };
+        fieldCoverage['opacity'].total++;
+        if (bv['opacity']) fieldCoverage['opacity'].bound++;
+      }
+
+      // Add to unboundNodes if has visual properties but no bindings
+      if ((hasFills || hasStrokes) && !hasAnyBinding) {
+        unboundNodes.push({
+          nodeId: currentNode.id,
+          nodeName: currentNode.name,
+          nodeType: currentNode.type,
+          hasFills,
+          hasStrokes,
+        });
+      }
+
+      // Add children to queue
+      if ('children' in currentNode) {
+        for (const child of currentNode.children) {
+          queue.push(child);
+        }
+      }
+    }
+
+    const coveragePercent = totalNodes > 0 ? Math.round((nodesWithBindings / totalNodes) * 100) : 0;
+
+    return {
+      success: true,
+      nodeId: node.id,
+      totalNodes,
+      nodesWithBindings,
+      coveragePercent,
+      truncated,
+      unboundNodes,
+      fieldCoverage,
+    };
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error
+    ) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to audit token coverage'
+    );
+  }
+}
+
+// ============================================================================
+// APPLY_TOKENS_TO_COMPONENT (P2)
+// ============================================================================
+
+export async function handleApplyTokens(
+  params: ApplyTokensParams
+): Promise<ApplyTokensResult> {
+  try {
+    // Guard: max 100 items
+    if (params.items.length > 100) {
+      throw createBridgeError(
+        ERROR_CODES.INVALID_PARAMETER,
+        'Max 100 items allowed per batch'
+      );
+    }
+
+    const dryRun = params.dryRun ?? false;
+    const items: ApplyTokensResultItem[] = [];
+
+    for (const item of params.items) {
+      // Validate node existence
+      const node = await figma.getNodeByIdAsync(item.nodeId);
+      if (!node) {
+        items.push({
+          nodeId: item.nodeId,
+          variableId: item.variableId,
+          field: item.field,
+          status: 'error',
+          reason: 'Node not found',
+        });
+        continue;
+      }
+
+      // Validate variable existence
+      const variable = await figma.variables.getVariableByIdAsync(item.variableId);
+      if (!variable) {
+        items.push({
+          nodeId: item.nodeId,
+          variableId: item.variableId,
+          field: item.field,
+          status: 'error',
+          reason: 'Variable not found',
+        });
+        continue;
+      }
+
+      // Validate field support for fills/strokes
+      const isFillLike = item.field === 'fills' || item.field === 'strokes';
+      if (isFillLike) {
+        const prop = item.field as 'fills' | 'strokes';
+        if (!(prop in node)) {
+          items.push({
+            nodeId: item.nodeId,
+            variableId: item.variableId,
+            field: item.field,
+            status: 'error',
+            reason: `Node type ${node.type} does not support ${item.field}`,
+          });
+          continue;
+        }
+      } else {
+        // Validate non-fill-like fields (opacity, cornerRadius, etc.)
+        if (!(item.field in node)) {
+          items.push({
+            nodeId: item.nodeId,
+            variableId: item.variableId,
+            field: item.field,
+            status: 'error',
+            reason: `Node type ${node.type} does not support ${item.field}`,
+          });
+          continue;
+        }
+      }
+
+      if (dryRun) {
+        // dryRun: validate only, no mutations
+        items.push({
+          nodeId: item.nodeId,
+          variableId: item.variableId,
+          field: item.field,
+          status: 'applied',
+        });
+      } else {
+        // Real apply
+        try {
+          if (isFillLike) {
+            const paintIndex = item.paintIndex ?? 0;
+            const paintField = item.paintField ?? 'color';
+            const prop = item.field as 'fills' | 'strokes';
+            const nodeWithProp = node as SceneNode & { [prop: string]: Paint[] | readonly Paint[] };
+            const paintsValue = nodeWithProp[prop];
+
+            if (!Array.isArray(paintsValue)) {
+              items.push({
+                nodeId: item.nodeId,
+                variableId: item.variableId,
+                field: item.field,
+                status: 'error',
+                reason: `Node ${item.nodeId} has invalid ${prop} property`,
+              });
+              continue;
+            }
+
+            const paints = [...paintsValue] as Paint[];
+
+            if (paintIndex >= paints.length) {
+              items.push({
+                nodeId: item.nodeId,
+                variableId: item.variableId,
+                field: item.field,
+                status: 'error',
+                reason: `paintIndex ${paintIndex} out of range`,
+              });
+              continue;
+            }
+
+            // Only solid paints can be bound to variables
+            const paint = paints[paintIndex] as SolidPaint;
+            if (paint.type !== 'SOLID') {
+              items.push({
+                nodeId: item.nodeId,
+                variableId: item.variableId,
+                field: item.field,
+                status: 'error',
+                reason: `Paint at index ${paintIndex} is not a solid paint (type: ${paint.type})`,
+              });
+              continue;
+            }
+
+            paints[paintIndex] = figma.variables.setBoundVariableForPaint(
+              paint,
+              paintField as 'color',
+              variable
+            );
+            nodeWithProp[prop] = paints;
+          } else {
+            (node as SceneNode).setBoundVariable(item.field as VariableBindableNodeField, variable);
+          }
+
+          items.push({
+            nodeId: item.nodeId,
+            variableId: item.variableId,
+            field: item.field,
+            status: 'applied',
+          });
+        } catch (err) {
+          items.push({
+            nodeId: item.nodeId,
+            variableId: item.variableId,
+            field: item.field,
+            status: 'error',
+            reason: err instanceof Error ? err.message : 'Failed to bind variable',
+          });
+        }
+      }
+    }
+
+    const appliedCount = items.filter(i => i.status === 'applied').length;
+    const errorCount = items.filter(i => i.status === 'error').length;
+    const success = appliedCount > 0 || (dryRun && items.every(i => i.status !== 'error'));
+
+    return {
+      success,
+      dryRun,
+      items,
+      appliedCount,
+      errorCount,
+    };
+  } catch (error) {
+    // Preserve BridgeError codes, only wrap unknown errors
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      'message' in error
+    ) {
+      throw error;
+    }
+    throw createBridgeError(
+      ERROR_CODES.FIGMA_API_ERROR,
+      error instanceof Error ? error.message : 'Failed to apply tokens'
     );
   }
 }

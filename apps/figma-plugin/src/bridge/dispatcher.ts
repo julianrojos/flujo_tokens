@@ -32,6 +32,8 @@ import {
   handleRenameVariable,
   handleSetVariableDescription,
   handleSearchVariables,
+  handleBindVariable,
+  handleUnbindVariable,
 } from './handlers/variables';
 import { handleGetLocalStyles } from './handlers/styles';
 import {
@@ -51,6 +53,11 @@ import {
   handleEditComponentProperty,
   handleDeleteComponentProperty,
   handleSetInstanceProperties,
+  handleSearchComponents,
+  handleGetComponentSpec,
+  handleGetComponentImage,
+  handleAuditTokenCoverage,
+  handleApplyTokens,
 } from './handlers/components';
 import {
   handleResizeNode,
@@ -155,6 +162,15 @@ const HANDLERS: Record<BridgeMethod, HandlerFunction> = {
   [BRIDGE_METHODS.SYNC_TOKENS_PLAN]: handleSyncTokensPlan as unknown as HandlerFunction,
   [BRIDGE_METHODS.SYNC_TOKENS_APPLY]: handleSyncTokensApply as unknown as HandlerFunction,
   [BRIDGE_METHODS.GET_TOKEN_USAGE]: handleGetTokenUsageWithEnvGate as unknown as HandlerFunction,
+  // P2: Components & Token Bindings
+  [BRIDGE_METHODS.SEARCH_COMPONENTS]: handleSearchComponents as unknown as HandlerFunction,
+  [BRIDGE_METHODS.GET_COMPONENT_SPEC]: handleGetComponentSpec as unknown as HandlerFunction,
+  [BRIDGE_METHODS.GET_COMPONENT_IMAGE]: handleGetComponentImage as unknown as HandlerFunction,
+  [BRIDGE_METHODS.AUDIT_COMPONENT_TOKEN_COVERAGE]: handleAuditTokenCoverage as unknown as HandlerFunction,
+  [BRIDGE_METHODS.APPLY_TOKENS_TO_COMPONENT]: handleApplyTokens as unknown as HandlerFunction,
+  // Variable bindings (P2)
+  [BRIDGE_METHODS.BIND_VARIABLE]: handleBindVariable as unknown as HandlerFunction,
+  [BRIDGE_METHODS.UNBIND_VARIABLE]: handleUnbindVariable as unknown as HandlerFunction,
 };
 
 /**
