@@ -2,7 +2,7 @@
  * AI Jobs Route Tests - Comprehensive coverage for security, idempotency, and state transitions
  */
 
-import { describe, it, after } from 'node:test';
+import { describe, it, after, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { Hono } from 'hono';
 import fs from 'fs/promises';
@@ -28,8 +28,10 @@ function cleanupStore() {
     (store as any).idempotencyIndex.clear();
     (store as any).queues.get('anthropic')?.splice(0);
     (store as any).queues.get('openai')?.splice(0);
+    (store as any).queues.get('ollama')?.splice(0);
     (store as any).runningCount.set('anthropic', 0);
     (store as any).runningCount.set('openai', 0);
+    (store as any).runningCount.set('ollama', 0);
     (store as any).nextEventSeq?.clear();
     (store as any).prompts?.clear();
     store.setOnJobStarted(undefined);
@@ -200,6 +202,7 @@ describe('ai-jobs-route', () => {
 
             assert.notEqual(job1.id, job2.id, 'Failed job should allow new enqueue');
         });
+
     });
 
     describe('GET /api/ai/jobs/:id', () => {
@@ -440,7 +443,7 @@ describe('ai-jobs-route', () => {
             // Clean up any residual file from previous runs
             await fs.rm(filePath, { force: true });
             await fs.rm(`${filePath}.tmp`, { force: true });
-            
+
             await createTestFile(filePath, '# old');
 
             const job = store.enqueue({
@@ -586,6 +589,162 @@ describe('ai-jobs-route', () => {
             assert.equal(res.status, 409);
             const json = await res.json();
             assert.equal(json.code, 'ai.job.not_cancelable');
+        });
+    });
+
+    describe('POST /api/ai/jobs ollama health-check', () => {
+        let originalFetch: typeof globalThis.fetch;
+
+        beforeEach(() => {
+            originalFetch = globalThis.fetch;
+            cleanupStore();
+        });
+
+        afterEach(() => {
+            globalThis.fetch = originalFetch;
+        });
+
+        it('should return 503 when Ollama is unreachable', async () => {
+            // Mock fetch to simulate Ollama being down
+            globalThis.fetch = async () => {
+                throw new Error('Connection refused');
+            };
+
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({
+                    type: 'GENERATE_COMPONENT_DOC',
+                    provider: 'ollama',
+                    componentId: '68:4097',
+                }),
+            });
+
+            assert.equal(res.status, 503);
+            const json = await res.json();
+            assert.equal(json.ok, false);
+            assert.equal(json.code, 'ai.ollama.unavailable');
+            assert.equal(json.retryable, true);
+        });
+
+        it('should return 503 when Ollama returns non-OK status', async () => {
+            // Mock fetch to return non-OK response
+            globalThis.fetch = async () => {
+                return new Response(null, { status: 500 });
+            };
+
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({
+                    type: 'GENERATE_COMPONENT_DOC',
+                    provider: 'ollama',
+                    componentId: '68:4097',
+                }),
+            });
+
+            assert.equal(res.status, 503);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.ollama.unavailable');
+        });
+
+        it('should accept job when Ollama is healthy', async () => {
+            // Mock fetch to return OK response
+            globalThis.fetch = async () => {
+                return new Response(JSON.stringify({ models: [] }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            };
+
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({
+                    type: 'GENERATE_COMPONENT_DOC',
+                    provider: 'ollama',
+                    componentId: '68:4097',
+                }),
+            });
+
+            assert.equal(res.status, 202);
+            const json = await res.json();
+            assert.equal(json.ok, true);
+            assert.ok(json.jobId);
+        });
+
+        it('should not require API key for ollama provider', async () => {
+            // Mock fetch to return OK response
+            globalThis.fetch = async () => {
+                return new Response(JSON.stringify({ models: [] }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            };
+
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({
+                    type: 'GENERATE_COMPONENT_DOC',
+                    provider: 'ollama',
+                    componentId: '68:4097',
+                }),
+            });
+
+            // Should NOT return missing_provider_key error
+            assert.equal(res.status, 202, 'ollama should not require API key');
+            const json = await res.json();
+            assert.equal(json.ok, true);
+        });
+
+        it('should not execute Ollama health-check for cloud providers', async () => {
+            // Set up valid API key so request passes initial validation
+            const prevApiKey = process.env.ANTHROPIC_API_KEY;
+            try {
+                process.env.ANTHROPIC_API_KEY = 'fake-key-for-test';
+
+                let fetchCalled = false;
+                // Mock fetch to track if it was called
+                globalThis.fetch = async () => {
+                    fetchCalled = true;
+                    throw new Error('Should not be called');
+                };
+
+                const app = createTestApp();
+
+                const res = await app.request('/api/ai/jobs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-forwarded-for': '127.0.0.1',
+                        'x-internal-token': 'test-token', // Required for cloud providers
+                    },
+                    body: JSON.stringify({
+                        type: 'GENERATE_COMPONENT_DOC',
+                        provider: 'anthropic',
+                        componentId: '68:4097',
+                    }),
+                });
+
+                // Verify fetch was NOT called for Ollama health-check (mock throws if fetch is invoked)
+                assert.equal(fetchCalled, false, 'Ollama health-check should not be called for cloud providers');
+            } finally {
+                // Restore API key
+                if (prevApiKey === undefined) {
+                    delete process.env.ANTHROPIC_API_KEY;
+                } else {
+                    process.env.ANTHROPIC_API_KEY = prevApiKey;
+                }
+            }
         });
     });
 

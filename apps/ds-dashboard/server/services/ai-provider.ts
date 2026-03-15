@@ -8,7 +8,7 @@ import type { AiUsageMetrics } from './ai-component-doc-schema.js';
 /**
  * Supported AI provider names
  */
-export type AiProviderName = 'anthropic' | 'openai';
+export type AiProviderName = 'anthropic' | 'openai' | 'ollama';
 
 /**
  * Input for AI provider generation
@@ -59,6 +59,10 @@ export interface AiProviderConfig {
     anthropicModel: string;
     /** Default OpenAI model */
     openaiModel: string;
+    /** Default Ollama model */
+    ollamaModel: string;
+    /** Ollama base URL */
+    ollamaBaseUrl: string;
     /** Allowed Anthropic models */
     anthropicAllowlist: string[];
     /** Allowed OpenAI models */
@@ -71,6 +75,8 @@ export interface AiProviderConfig {
 const DEFAULT_CONFIG: AiProviderConfig = {
     anthropicModel: 'claude-sonnet-4-20250514',
     openaiModel: 'gpt-4o-mini-2024-07-18',
+    ollamaModel: 'qwen2.5:7b-instruct',
+    ollamaBaseUrl: 'http://127.0.0.1:11434',
     anthropicAllowlist: [
         'claude-sonnet-4-20250514',
         'claude-sonnet-4-6',
@@ -92,8 +98,13 @@ const DEFAULT_CONFIG: AiProviderConfig = {
  * @returns Provider configuration with defaults and validated models
  */
 export function resolveProviderConfig(): AiProviderConfig {
+    // Resolve models from env vars - use env var if set, otherwise default
+    // Note: Model resolution is independent of API key presence; API key validation
+    // happens separately in hasApiKey() and at the route level
     const anthropicModel = process.env.AI_ANTHROPIC_MODEL || DEFAULT_CONFIG.anthropicModel;
     const openaiModel = process.env.AI_OPENAI_MODEL || DEFAULT_CONFIG.openaiModel;
+    const ollamaModel = process.env.AI_OLLAMA_MODEL || DEFAULT_CONFIG.ollamaModel;
+    const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || DEFAULT_CONFIG.ollamaBaseUrl;
 
     // Validate models against allowlists
     const validatedAnthropicModel = DEFAULT_CONFIG.anthropicAllowlist.includes(anthropicModel)
@@ -107,6 +118,8 @@ export function resolveProviderConfig(): AiProviderConfig {
     return {
         anthropicModel: validatedAnthropicModel,
         openaiModel: validatedOpenaiModel,
+        ollamaModel,
+        ollamaBaseUrl,
         anthropicAllowlist: DEFAULT_CONFIG.anthropicAllowlist,
         openaiAllowlist: DEFAULT_CONFIG.openaiAllowlist,
     };
@@ -122,7 +135,12 @@ export function resolveModel(provider: AiProviderName, explicitModel?: string): 
     const config = resolveProviderConfig();
 
     if (explicitModel) {
-        // Validate the explicit model
+        // For Ollama, any non-empty model is valid (no allowlist)
+        if (provider === 'ollama') {
+            return explicitModel;
+        }
+
+        // Validate the explicit model for cloud providers
         const allowlist = provider === 'anthropic' ? config.anthropicAllowlist : config.openaiAllowlist;
         if (allowlist.includes(explicitModel)) {
             return explicitModel;
@@ -131,6 +149,10 @@ export function resolveModel(provider: AiProviderName, explicitModel?: string): 
         console.warn(
             `[ai-provider] Model "${explicitModel}" not in allowlist for ${provider}, using default`
         );
+    }
+
+    if (provider === 'ollama') {
+        return config.ollamaModel;
     }
 
     return provider === 'anthropic' ? config.anthropicModel : config.openaiModel;
@@ -142,6 +164,9 @@ export function resolveModel(provider: AiProviderName, explicitModel?: string): 
  * @returns true if API key is set
  */
 export function hasApiKey(provider: AiProviderName): boolean {
+    if (provider === 'ollama') {
+        return true; // Ollama doesn't require an API key
+    }
     if (provider === 'anthropic') {
         return !!process.env.ANTHROPIC_API_KEY;
     }
@@ -155,6 +180,9 @@ export function hasApiKey(provider: AiProviderName): boolean {
  * @throws Error if API key is not set
  */
 export function getApiKey(provider: AiProviderName): string {
+    if (provider === 'ollama') {
+        return ''; // Ollama doesn't require an API key
+    }
     if (provider === 'anthropic') {
         const key = process.env.ANTHROPIC_API_KEY;
         if (!key) {

@@ -126,7 +126,7 @@ export interface AiJobInput {
     /** Job type */
     type: 'GENERATE_COMPONENT_DOC';
     /** AI provider to use */
-    provider: 'anthropic' | 'openai';
+    provider: 'anthropic' | 'openai' | 'ollama';
     /** Figma component ID */
     componentId: string;
     /** Optional Figma file key */
@@ -208,6 +208,11 @@ export const AI_ERROR_CODES = {
     LLM_RATE_LIMITED: {
         code: 'ai.llm.rate_limited',
         message: 'Provider 429',
+        retryable: true,
+    },
+    AI_OLLAMA_UNAVAILABLE: {
+        code: 'ai.ollama.unavailable',
+        message: 'Ollama not reachable',
         retryable: true,
     },
     SCHEMA_INVALID: {

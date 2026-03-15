@@ -169,6 +169,106 @@ describe('ai-orchestrator pipeline', () => {
     }
   });
 
+  it('maps ollama timeout to ai.llm.timeout with AI_OLLAMA_TIMEOUT_MS', async () => {
+    const prevJobTimeout = process.env.AI_JOB_TIMEOUT_MS;
+    const prevOllamaTimeout = process.env.AI_OLLAMA_TIMEOUT_MS;
+    process.env.AI_JOB_TIMEOUT_MS = '5000'; // 5s fallback
+    process.env.AI_OLLAMA_TIMEOUT_MS = '5'; // 5ms for ollama
+
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'ollama',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+
+    const dequeued = store.tryDequeue('ollama');
+    assert.ok(dequeued);
+
+    const slowAdapter = {
+      generate: async () => new Promise(() => {
+        // intentionally unresolved
+      }),
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      slowAdapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' })
+    );
+
+    const failed = store.findById(job.id);
+    assert.ok(failed);
+    assert.equal(failed?.status, 'failed');
+    assert.equal(failed?.errorCode, AI_ERROR_CODES.LLM_TIMEOUT.code);
+    assert.equal(failed?.retryable, true);
+
+    if (prevJobTimeout === undefined) {
+      delete process.env.AI_JOB_TIMEOUT_MS;
+    } else {
+      process.env.AI_JOB_TIMEOUT_MS = prevJobTimeout;
+    }
+    if (prevOllamaTimeout === undefined) {
+      delete process.env.AI_OLLAMA_TIMEOUT_MS;
+    } else {
+      process.env.AI_OLLAMA_TIMEOUT_MS = prevOllamaTimeout;
+    }
+  });
+
+  it('ollama completes successfully within default timeout', async () => {
+    const prevOllamaTimeout = process.env.AI_OLLAMA_TIMEOUT_MS;
+    delete process.env.AI_OLLAMA_TIMEOUT_MS; // Use default 120000ms
+
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'ollama',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+
+    const dequeued = store.tryDequeue('ollama');
+    assert.ok(dequeued);
+
+    const fastAdapter = {
+      generate: async () => ({
+        rawText: '{...}',
+        parsedJson: {
+          schemaVersion: 1,
+          componentId: '68:4097',
+          title: 'Button',
+          summary: 'Summary',
+          anatomy: [],
+          variants: [],
+          tokens: [],
+          accessibilityNotes: [],
+          markdown: '',
+        },
+        usage: { promptTokens: 10, completionTokens: 20, durationMs: 100 },
+      }),
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      fastAdapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' })
+    );
+
+    const completed = store.findById(job.id);
+    assert.ok(completed);
+    assert.equal(completed?.status, 'completed');
+    assert.equal(completed?.usage?.promptTokens, 10);
+
+    if (prevOllamaTimeout === undefined) {
+      delete process.env.AI_OLLAMA_TIMEOUT_MS;
+    } else {
+      process.env.AI_OLLAMA_TIMEOUT_MS = prevOllamaTimeout;
+    }
+  });
+
   it('stores real usage metrics from provider result', async () => {
     const store = new AiJobsStore();
     const job = store.enqueue({

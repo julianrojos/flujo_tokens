@@ -7,6 +7,7 @@ import { Hono } from 'hono';
 import { getAiJobsStore } from '../services/ai-jobs-store.js';
 import { runGenerateComponentDoc } from '../services/ai-orchestrator.js';
 import { hasApiKey } from '../services/ai-provider.js';
+import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
 import { createComponentSlug } from '../services/ai-component-doc-renderer.js';
 import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
 import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
@@ -26,7 +27,7 @@ const REPO_ROOT = path.resolve(__dirname, '../../../..');
  */
 interface CreateJobRequest {
     type: 'GENERATE_COMPONENT_DOC';
-    provider: 'anthropic' | 'openai';
+    provider: 'anthropic' | 'openai' | 'ollama';
     componentId: string;
     figmaUrl?: string;
     model?: string;
@@ -105,15 +106,15 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
         if (!body.type || body.type !== 'GENERATE_COMPONENT_DOC') {
             return c.json(errorResponse('ai.input.invalid', 'type must be GENERATE_COMPONENT_DOC'), 400);
         }
-        if (!body.provider || (body.provider !== 'anthropic' && body.provider !== 'openai')) {
-            return c.json(errorResponse('ai.input.invalid', 'provider must be anthropic or openai'), 400);
+        if (!body.provider || (body.provider !== 'anthropic' && body.provider !== 'openai' && body.provider !== 'ollama')) {
+            return c.json(errorResponse('ai.input.invalid', 'provider must be anthropic, openai, or ollama'), 400);
         }
         if (!body.componentId || typeof body.componentId !== 'string') {
             return c.json(errorResponse('ai.input.invalid', 'componentId is required'), 400);
         }
 
-        // Check API key exists
-        if (!hasApiKey(body.provider)) {
+        // Check API key exists (not required for Ollama)
+        if (body.provider !== 'ollama' && !hasApiKey(body.provider)) {
             return c.json(
                 errorResponse(
                     'ai.input.missing_provider_key',
@@ -149,6 +150,18 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
         }
         const fileKey = 'fileKey' in resolved ? resolved.fileKey ?? undefined : undefined;
 
+        // Health-check for Ollama before enqueue
+        if (body.provider === 'ollama') {
+            const ollamaBaseUrl = OllamaAdapter.configuredBaseUrl;
+            const alive = await OllamaAdapter.isAvailable();
+            if (!alive) {
+                return c.json(
+                    errorResponse(AI_ERROR_CODES.AI_OLLAMA_UNAVAILABLE.code, 'Ollama is not reachable at ' + ollamaBaseUrl, true),
+                    503
+                );
+            }
+        }
+
         try {
             // Enqueue job
             const job = store.enqueue({
@@ -179,7 +192,7 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
                 const err = error as { code: string; message: string; retryable: boolean };
                 // Map error codes to appropriate HTTP status codes
                 let statusCode = 400; // Default for client errors
-                
+
                 if (err.code === 'ai.job.queue_full') {
                     // Queue full is a temporary server condition (retryable)
                     statusCode = 503; // Service Unavailable
@@ -194,7 +207,7 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
                     statusCode = 503;
                 }
                 // Non-retryable input errors remain 400
-                
+
                 return c.json(errorResponse(err.code, err.message, err.retryable), statusCode);
             }
             return c.json(errorResponse('ai.input.invalid', 'Failed to create job'), 500);

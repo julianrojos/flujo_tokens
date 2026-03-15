@@ -3,12 +3,12 @@
  * Implements the deterministic pipeline for generating component documentation
  */
 
-import type { AiProvider, AiProviderResult } from './ai-provider.js';
+import type { AiProvider, AiProviderResult, AiProviderName } from './ai-provider.js';
 import { createAnthropicAdapter } from './ai-anthropic-adapter.js';
 import { createOpenAiAdapter } from './ai-openai-adapter.js';
+import { createOllamaAdapter } from './ai-ollama-adapter.js';
 import type {
     AiJobState,
-    AiProviderName,
     ComponentDocOutput,
 } from './ai-component-doc-schema.js';
 import {
@@ -31,15 +31,35 @@ const MAX_PROMPT_CHARS = 32000;
 const DEFAULT_JOB_TIMEOUT_MS = 90000;
 
 /**
- * Get job timeout from environment
+ * Default Ollama job timeout in milliseconds (120 seconds)
  */
-function getJobTimeout(): number {
+const DEFAULT_OLLAMA_TIMEOUT_MS = 120000;
+
+/**
+ * Get job timeout from environment based on provider
+ * @param provider - Provider name
+ * @returns Timeout in milliseconds
+ */
+function getJobTimeout(provider: AiProviderName): number {
+    if (provider === 'ollama') {
+        const ollamaTimeout = process.env.AI_OLLAMA_TIMEOUT_MS;
+        if (ollamaTimeout) {
+            const parsed = parseInt(ollamaTimeout, 10);
+            if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+        // Fallback to global, then to ollama default
+        const globalTimeout = process.env.AI_JOB_TIMEOUT_MS;
+        if (globalTimeout) {
+            const parsed = parseInt(globalTimeout, 10);
+            if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+        return DEFAULT_OLLAMA_TIMEOUT_MS;
+    }
+
     const envTimeout = process.env.AI_JOB_TIMEOUT_MS;
     if (envTimeout) {
         const parsed = parseInt(envTimeout, 10);
-        if (!isNaN(parsed) && parsed > 0) {
-            return parsed;
-        }
+        if (!isNaN(parsed) && parsed > 0) return parsed;
     }
     return DEFAULT_JOB_TIMEOUT_MS;
 }
@@ -245,6 +265,9 @@ export function resolveAdapter(provider: AiProviderName): AiProvider {
     if (provider === 'anthropic') {
         return createAnthropicAdapter();
     }
+    if (provider === 'ollama') {
+        return createOllamaAdapter();
+    }
     return createOpenAiAdapter();
 }
 
@@ -285,7 +308,7 @@ export async function runGenerateComponentDoc(
     adapterOverride?: { generate: (input: any) => Promise<any> },
     getSpecOverride?: (fileKey: string | null, nodeId: string) => Promise<Record<string, unknown>>
 ): Promise<void> {
-    const jobTimeout = getJobTimeout();
+    const jobTimeout = getJobTimeout(job.input.provider);
 
     try {
         // Push initial event
