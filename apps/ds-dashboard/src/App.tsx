@@ -12,6 +12,7 @@ import {
   type LucideIcon,
   Search,
   Zap,
+  Sparkles,
 } from "lucide-react";
 
 import { ComponentsPage } from "@/features/components/components-page";
@@ -21,6 +22,7 @@ import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
 import { ImpactExplorerPage } from "@/features/impact/impact-explorer-page";
 import { FileViewerPage } from "@/features/files/file-viewer-page";
 import { OperationsPage } from "@/features/ops/operations-page";
+import { AiDocsPage } from "@/features/ai-docs/ai-docs-page";
 import { AppBreadcrumb } from "@/components/app-breadcrumb";
 import { SystemSwitcher } from "@/components/system-switcher";
 import { NewSystemPage } from "@/features/system/new-system-page";
@@ -76,6 +78,12 @@ const navSections: NavSection[] = [
         label: "Operations",
         description: "Pipeline & synchronization",
         icon: Zap,
+      },
+      {
+        to: "/ai-docs",
+        label: "AI Docs",
+        description: "Generate component docs with AI",
+        icon: Sparkles,
       },
       {
         to: "/system/admin",
@@ -294,6 +302,7 @@ export default function App() {
                 <Route path="/system/admin" element={<DesignSystemsAdminPage />} />
                 <Route path="/health" element={<HealthDashboardPage />} />
                 <Route path="/ops" element={<OperationsPage />} />
+                <Route path="/ai-docs" element={<AiDocsPage />} />
                 <Route path="/components" element={<ComponentsPage />} />
                 <Route path="/components/:slug" element={<ComponentDetailPage />} />
                 <Route path="/tokens" element={<TokensPage />} />
