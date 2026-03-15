@@ -6,7 +6,40 @@ import WebSocket from 'ws';
 import { createFigmaPluginWsServer } from './figma-plugin-ws-server.ts';
 import { getPluginConnectionManager, resetPluginConnectionManager } from './plugin-connection-manager.ts';
 
-test('figma-plugin-ws-server: accepts ws connection and forwards manager requests', async () => {
+async function listenOrSkip(
+  t: { skip: (message?: string) => void },
+  server: http.Server
+): Promise<boolean> {
+  const listenResult = await new Promise<'ok' | 'eperm' | 'error'>((resolve) => {
+    const onError = (error: NodeJS.ErrnoException) => {
+      server.off('listening', onListening);
+      if (error.code === 'EPERM') {
+        resolve('eperm');
+        return;
+      }
+      resolve('error');
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      resolve('ok');
+    };
+
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(0, '127.0.0.1');
+  });
+
+  if (listenResult === 'eperm') {
+    t.skip('Loopback listen not permitted in this environment (EPERM)');
+    return false;
+  }
+  if (listenResult === 'error') {
+    throw new Error('Failed to start test server');
+  }
+  return true;
+}
+
+test('figma-plugin-ws-server: accepts ws connection and forwards manager requests', async (t) => {
   resetPluginConnectionManager();
 
   const server = http.createServer((_req, res) => {
@@ -15,9 +48,12 @@ test('figma-plugin-ws-server: accepts ws connection and forwards manager request
   });
   const wss = createFigmaPluginWsServer(server);
 
-  await new Promise<void>((resolve) => {
-    server.listen(0, '127.0.0.1', () => resolve());
-  });
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
 
   const address = server.address();
   assert.ok(address && typeof address === 'object');
@@ -79,7 +115,7 @@ test('figma-plugin-ws-server: accepts ws connection and forwards manager request
   resetPluginConnectionManager();
 });
 
-test('figma-plugin-ws-server: rejects non-matching websocket paths', async () => {
+test('figma-plugin-ws-server: rejects non-matching websocket paths', async (t) => {
   resetPluginConnectionManager();
 
   const server = http.createServer((_req, res) => {
@@ -88,9 +124,12 @@ test('figma-plugin-ws-server: rejects non-matching websocket paths', async () =>
   });
   const wss = createFigmaPluginWsServer(server);
 
-  await new Promise<void>((resolve) => {
-    server.listen(0, '127.0.0.1', () => resolve());
-  });
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
 
   const address = server.address();
   assert.ok(address && typeof address === 'object');
