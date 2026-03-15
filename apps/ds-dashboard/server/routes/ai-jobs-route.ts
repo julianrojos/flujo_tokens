@@ -11,6 +11,8 @@ import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
 import { createComponentSlug } from '../services/ai-component-doc-renderer.js';
 import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
 import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
+import { computeDocStatuses } from '../services/ai-doc-status-service.js';
+import { computeDocDiff } from '../services/ai-diff-utils.js';
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
@@ -214,6 +216,26 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
         }
     });
 
+    // GET /api/ai/docs/status - Get documentation staleness status
+    app.get('/api/ai/docs/status', async (c) => {
+        // Auth check
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+        }
+
+        // Resolve docs directory
+        const docsDir = path.resolve(REPO_ROOT, 'docs/components');
+
+        try {
+            const result = await computeDocStatuses(docsDir);
+            return c.json(result);
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('Error computing doc statuses:', error);
+            return c.json(errorResponse('ai.status.computation_failed', 'Failed to compute doc statuses'), 500);
+        }
+    });
+
     // GET /api/ai/jobs/:id - Get job status
     app.get('/api/ai/jobs/:id', async (c) => {
         // Auth check
@@ -249,6 +271,133 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             updatedAt: job.updatedAt,
             done,
             nextCursor,
+        });
+    });
+
+    // GET /api/ai/jobs/:id/events - SSE for job events
+    //
+    // Contract:
+    // - Cursor precedence: Last-Event-ID header > query param 'cursor' > default 0
+    // - Events are emitted with id, event, data fields
+    // - Terminal event 'done' is emitted when job reaches terminal state
+    // - Keepalive ':' events sent every 15s to prevent proxy timeouts
+    // - Client can reconnect using Last-Event-ID to resume from last seen event
+    app.get('/api/ai/jobs/:id/events', async (c) => {
+        // Auth check
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.text('Unauthorized', 401);
+        }
+
+        const jobId = c.req.param('id');
+
+        // Cursor precedence: Last-Event-ID header > query cursor > default 0
+        // This follows EventSource spec for reliable reconnection
+        const lastEventId = c.req.header('Last-Event-ID');
+        const queryCursor = c.req.query('cursor');
+
+        let cursorNum = 0;
+        if (lastEventId !== undefined && lastEventId !== '') {
+            cursorNum = parseInt(lastEventId, 10) || 0;
+        } else if (queryCursor !== undefined) {
+            cursorNum = parseInt(queryCursor, 10) || 0;
+        }
+
+        const job = store.findById(jobId);
+        if (!job) {
+            return c.text('Job not found', 404);
+        }
+
+        // Create SSE stream
+        const encoder = new TextEncoder();
+        const signal = c.req.raw.signal;
+
+        // State variables shared between start and cancel
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+        let closed = false;
+        let controllerRef: ReadableStreamDefaultController | null = null;
+
+        const closeStream = () => {
+            if (closed) {
+                return;
+            }
+            closed = true;
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+            // Close the controller if available
+            if (controllerRef) {
+                try { controllerRef.close(); } catch { /* already closed */ }
+                controllerRef = null;
+            }
+        };
+
+        const stream = new ReadableStream({
+            start(controller) {
+                controllerRef = controller;
+                let lastSeq = cursorNum;
+                let lastKeepalive = Date.now();
+                const POLL_INTERVAL = 1000;
+                const KEEPALIVE_INTERVAL = 15000;
+
+                signal.addEventListener('abort', closeStream, { once: true });
+
+                // Send existing events first
+                const sendNewEvents = () => {
+                    if (closed || signal.aborted) {
+                        closeStream();
+                        return;
+                    }
+
+                    // Get fresh job reference
+                    const currentJob = store.findById(jobId);
+                    if (!currentJob) {
+                        closeStream();
+                        return;
+                    }
+
+                    const newEvents = currentJob.events.filter(e => e.seq > lastSeq);
+                    for (const evt of newEvents) {
+                        controller.enqueue(encoder.encode(
+                            `id: ${evt.seq}\ndata: ${JSON.stringify(evt)}\n\n`
+                        ));
+                        lastSeq = evt.seq;
+                    }
+
+                    // Check for terminal state
+                    if (currentJob.status === 'completed' || currentJob.status === 'failed' || currentJob.status === 'cancelled') {
+                        controller.enqueue(encoder.encode(
+                            `event: done\ndata: ${JSON.stringify({ status: currentJob.status })}\n\n`
+                        ));
+                        closeStream();
+                        return;
+                    }
+
+                    // Keepalive
+                    if (Date.now() - lastKeepalive > KEEPALIVE_INTERVAL) {
+                        controller.enqueue(encoder.encode(': keepalive\n\n'));
+                        lastKeepalive = Date.now();
+                    }
+
+                    // Continue polling
+                    timeoutId = setTimeout(sendNewEvents, POLL_INTERVAL);
+                };
+
+                // Start polling
+                sendNewEvents();
+            },
+            cancel() {
+                // Cleanup when client disconnects
+                closeStream();
+            },
+        });
+
+        return new Response(stream, {
+            headers: {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+            },
         });
     });
 
@@ -345,9 +494,8 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             throw err;
         }
 
-        // Compute checksum
-        const content = await fs.readFile(filePath, 'utf-8');
-        const checksum = crypto.createHash('sha256').update(content).digest('hex');
+        // Compute checksum from the markdown we just wrote — avoids a redundant read
+        const checksum = crypto.createHash('sha256').update(job.output!.markdown).digest('hex');
 
         return c.json({
             ok: true,
@@ -355,6 +503,38 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             overwritten,
             checksum,
         });
+    });
+
+    // GET /api/ai/jobs/:id/diff - Get diff between generated and existing doc
+    app.get('/api/ai/jobs/:id/diff', async (c) => {
+        // Auth check
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+        }
+
+        const jobId = c.req.param('id');
+        const job = store.findById(jobId);
+
+        if (!job) {
+            return c.json(errorResponse('ai.job.not_found', 'Job not found'), 404);
+        }
+
+        if (job.status !== 'completed' || !job.output) {
+            return c.json(errorResponse('ai.job.not_completed', 'Job must be completed to get diff'), 400);
+        }
+
+        // Generate slug from title
+        const slug = createComponentSlug(job.output.title);
+        const docsDir = path.resolve(REPO_ROOT, 'docs/components');
+
+        try {
+            const diffResult = await computeDocDiff(job.output.markdown, slug, docsDir);
+            return c.json(diffResult);
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error('Error computing diff:', error);
+            return c.json(errorResponse('ai.diff.computation_failed', 'Failed to compute diff'), 500);
+        }
     });
 
     // POST /api/ai/jobs/:id/cancel - Cancel a job

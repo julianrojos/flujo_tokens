@@ -376,6 +376,11 @@ export async function runGenerateComponentDoc(
             });
 
             try {
+                let timeoutId: ReturnType<typeof setTimeout> | null = null;
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    timeoutId = setTimeout(() => reject(new Error('LLM call timed out')), jobTimeout);
+                });
+
                 const result = await Promise.race([
                     adapter.generate({
                         systemPrompt,
@@ -383,10 +388,12 @@ export async function runGenerateComponentDoc(
                         jsonSchema: COMPONENT_DOC_JSON_SCHEMA as Record<string, unknown>,
                         model: job.input.model,
                     }) as Promise<AiProviderResult>,
-                    new Promise<never>((_, reject) =>
-                        setTimeout(() => reject(new Error('LLM call timed out')), jobTimeout)
-                    ),
-                ]);
+                    timeoutPromise,
+                ]).finally(() => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+                });
 
                 store.pushEvent(job.id, 'llm.completed', {
                     durationMs: result.usage.durationMs,

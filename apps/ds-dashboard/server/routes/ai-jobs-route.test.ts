@@ -748,6 +748,244 @@ describe('ai-jobs-route', () => {
         });
     });
 
+    describe('GET /api/ai/docs/status', () => {
+        it('returns doc status with connected: false when plugin not connected', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/docs/status', {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.connected, false);
+            assert.ok(Array.isArray(json.components));
+        });
+
+        it('rejects unauthorized requests from non-loopback', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            // Non-loopback IP should require token
+            const res = await app.request('/api/ai/docs/status', {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '192.168.1.1' },
+            });
+
+            assert.equal(res.status, 401);
+        });
+    });
+
+    describe('GET /api/ai/jobs/:id/events', () => {
+        it('returns 404 for non-existent job', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/jobs/non-existent-id/events', {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 404);
+        });
+
+        it('returns events stream for existing job with proper SSE format', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            // Create a completed job with events
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            // Add events to the job
+            store.pushEvent(job.id, 'job.started', { message: 'Job started' });
+            store.pushEvent(job.id, 'job.progress', { message: 'Processing...' });
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '68:4097',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/events`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            assert.equal(res.headers.get('content-type'), 'text/event-stream');
+
+            // Verify SSE body contains events with id and event: done
+            const body = await res.text();
+            const lines = body.split('\n');
+            const eventLines = lines.filter(l => l.startsWith('id:') || l.startsWith('event:') || l.startsWith('data:'));
+
+            // Should have at least one event with id
+            const hasId = eventLines.some(l => l.startsWith('id:'));
+            assert.ok(hasId, 'SSE should contain events with id field');
+
+            // Should have event: done for completed job
+            const hasDone = eventLines.some(l => l.startsWith('event:') && l.includes('done'));
+            assert.ok(hasDone, 'SSE should contain event: done for completed job');
+        });
+
+        it('respects cursor query param and filters events', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+            const cursor = 2;
+
+            // Create a completed job with multiple events
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            // Add events with known seq numbers
+            store.pushEvent(job.id, 'job.started', { message: 'Started' });
+            store.pushEvent(job.id, 'job.progress', { message: 'Processing...' });
+            store.pushEvent(job.id, 'job.completed', { message: 'Done' });
+
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '68:4097',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            });
+
+            // Derive expected seqs from the job's actual event stream (deterministic)
+            const expectedSeqs = (store.findById(job.id)?.events ?? [])
+                .filter((e) => e.seq > cursor)
+                .map((e) => e.seq);
+
+            // Request with cursor
+            const res = await app.request(`/api/ai/jobs/${job.id}/events?cursor=${cursor}`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+
+            // Verify SSE body matches expected filtered seqs exactly
+            const body = await res.text();
+            const idLines = body.split('\n').filter(l => l.startsWith('id:'));
+            assert.equal(idLines.length, expectedSeqs.length);
+
+            const actualSeqs = idLines.map((line) => parseInt(line.replace('id:', '').trim(), 10));
+            assert.deepEqual(actualSeqs, expectedSeqs);
+        });
+    });
+
+    describe('GET /api/ai/jobs/:id/diff', () => {
+        it('returns 404 for non-existent job', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/jobs/non-existent-id/diff', {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 404);
+        });
+
+        it('returns 400 when job is not completed', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            // Create a queued job (not completed)
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            // Try to get diff - should fail because job not completed
+            const res = await app.request(`/api/ai/jobs/${job.id}/diff`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 400);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.job.not_completed');
+        });
+
+        it('returns diff result with proper structure when job is completed', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            // Create and complete a job with markdown output
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '68:4097',
+                title: 'Test Component',
+                summary: 'A test component',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test Component\n\nThis is the generated documentation.',
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            });
+
+            // Get diff for completed job
+            const res = await app.request(`/api/ai/jobs/${job.id}/diff`, {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+
+            // Verify response structure
+            assert.ok('hasPrevious' in json, 'Response should have hasPrevious field');
+            assert.ok('stats' in json, 'Response should have stats field');
+            assert.ok(typeof json.hasPrevious === 'boolean', 'hasPrevious should be boolean');
+            assert.ok(typeof json.stats === 'object', 'stats should be an object');
+        });
+    });
+
     // Global cleanup after all tests
     after(async () => {
         await cleanupTestFiles();
