@@ -3,9 +3,10 @@
  * Main page for AI documentation generation
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
 import { AiJobCreateForm } from './components/ai-job-create-form';
 import { AiJobStatusCard } from './components/ai-job-status-card';
 import { AiDocDiffViewer } from './components/ai-doc-diff-viewer';
@@ -14,29 +15,54 @@ import { useAiDocStatus } from './hooks/use-ai-doc-status';
 import { useAiJobEvents } from './hooks/use-ai-job-events';
 import type { AiJobStatus, AiJobInput, AiProviderName } from '@/types/ai-jobs';
 
+function parseStatusFilter(value: string): 'all' | 'stale-missing' {
+    return value === 'stale-missing' ? 'stale-missing' : 'all';
+}
+
 export function AiDocsPage() {
     const queryClient = useQueryClient();
     const [activeJobId, setActiveJobId] = useState<string | null>(null);
+    const activeJobIdRef = useRef<string | null>(null);
     const [prefillComponentId, setPrefillComponentId] = useState<string>('');
     const [prefillProvider, setPrefillProvider] = useState<AiProviderName | undefined>(undefined);
     const [prefillModel, setPrefillModel] = useState<string | undefined>(undefined);
     const [showDiff, setShowDiff] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'all' | 'stale-missing'>('all');
+
+    // Keep ref in sync with activeJobId state
+    useEffect(() => {
+        activeJobIdRef.current = activeJobId;
+    }, [activeJobId]);
 
     // Staleness data
     const { data: docStatus, isLoading: isLoadingStatus } = useAiDocStatus();
 
     // Callback for when job reaches terminal state
     const handleJobDone = useCallback((status: AiJobStatus) => {
-        // Job completed, refresh doc status
+        // Refresh status + final job payload (output/usage) once SSE reports completion
         if (status === 'completed') {
             queryClient.invalidateQueries({ queryKey: ['ai-doc-status'] });
+        }
+        // Use ref to avoid re-creating callback when activeJobId changes
+        if (activeJobIdRef.current) {
+            queryClient.invalidateQueries({ queryKey: ['ai-job', activeJobIdRef.current] });
+            queryClient.invalidateQueries({ queryKey: ['ai-job-diff', activeJobIdRef.current] });
         }
     }, [queryClient]);
 
     // SSE events for active job
-    const { events: jobEvents, isStreaming } = useAiJobEvents({
+    const { events: jobEvents, isStreaming, connectionError } = useAiJobEvents({
         jobId: activeJobId,
         onDone: handleJobDone,
+    });
+
+    // SSE is the primary status source. Polling is enabled only as fallback on SSE error.
+    const enablePollingFallback = connectionError;
+    const filteredComponents = (docStatus?.components ?? []).filter((component) => {
+        if (statusFilter === 'stale-missing') {
+            return component.status === 'stale' || component.status === 'missing';
+        }
+        return true;
     });
 
     const handleJobCreated = useCallback((jobId: string) => {
@@ -144,6 +170,7 @@ export function AiDocsPage() {
                                 onRetry={handleRetry}
                                 isStreaming={isStreaming}
                                 externalEvents={jobEvents}
+                                enablePolling={enablePollingFallback}
                             />
                         ) : (
                             <div className="text-center py-8 text-muted-foreground">
@@ -160,7 +187,19 @@ export function AiDocsPage() {
             {/* Staleness section */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Component Documentation Status</CardTitle>
+                    <div className="flex items-center justify-between gap-3">
+                        <CardTitle>Component Documentation Status</CardTitle>
+                        <Select
+                            value={statusFilter}
+                            onChange={(event) =>
+                                setStatusFilter(parseStatusFilter(event.target.value))
+                            }
+                            className="w-auto min-w-[220px]"
+                        >
+                            <option value="all">Show all components</option>
+                            <option value="stale-missing">Only stale/missing</option>
+                        </Select>
+                    </div>
                     <CardDescription>
                         View which components have up-to-date documentation
                     </CardDescription>
@@ -178,7 +217,7 @@ export function AiDocsPage() {
                         <div className="text-center py-4 text-muted-foreground">
                             Loading...
                         </div>
-                    ) : docStatus?.components && docStatus.components.length > 0 ? (
+                    ) : filteredComponents.length > 0 ? (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
@@ -192,7 +231,7 @@ export function AiDocsPage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {docStatus.components.map((comp) => (
+                                    {filteredComponents.map((comp) => (
                                         <tr key={comp.componentId} className="border-b hover:bg-muted/50">
                                             <td className="py-2 px-2 font-mono text-xs">
                                                 {comp.componentId.slice(0, 12)}...
@@ -228,10 +267,19 @@ export function AiDocsPage() {
                         </div>
                     ) : (
                         <div className="text-center py-8 text-muted-foreground">
-                            <p>No documented components yet</p>
-                            <p className="text-sm">
-                                Use the form above to generate your first doc
-                            </p>
+                            {statusFilter === 'stale-missing' ? (
+                                <>
+                                    <p>No stale or missing components</p>
+                                    <p className="text-sm">All tracked docs are fresh.</p>
+                                </>
+                            ) : (
+                                <>
+                                    <p>No documented components yet</p>
+                                    <p className="text-sm">
+                                        Use the form above to generate your first doc
+                                    </p>
+                                </>
+                            )}
                         </div>
                     )}
                 </CardContent>

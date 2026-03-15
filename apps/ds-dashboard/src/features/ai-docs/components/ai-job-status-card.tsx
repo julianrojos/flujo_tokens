@@ -25,6 +25,8 @@ interface AiJobStatusCardProps {
     externalEvents?: AiJobResponse['events'];
     /** Callback to retry a failed job with the same parameters */
     onRetry?: (input: AiJobInput) => void;
+    /** Enable status polling (set false when SSE is healthy to keep SSE primary) */
+    enablePolling?: boolean;
 }
 
 const STATUS_CONFIG: Record<AiJobStatus, { variant: 'default' | 'success' | 'warning' | 'neutral'; label: string }> = {
@@ -43,8 +45,12 @@ export function AiJobStatusCard({
     onRetry,
     isStreaming = false,
     externalEvents = [],
+    enablePolling = true,
 }: AiJobStatusCardProps) {
-    const { job, isLoading, error, isDone } = useAiJobStatus({ jobId });
+    const { job, isLoading, error } = useAiJobStatus({
+        jobId,
+        pollingEnabled: enablePolling,
+    });
     const [showPreview, setShowPreview] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
 

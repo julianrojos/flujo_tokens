@@ -21,8 +21,10 @@ const POLLING_INTERVAL = 2000;
 export interface UseAiJobStatusOptions {
     /** Job ID to fetch */
     jobId: string | null;
-    /** Whether to enable polling (default: true when not terminal) */
+    /** Whether to enable the query at all */
     enabled?: boolean;
+    /** Whether periodic polling is enabled (SSE should be primary when false) */
+    pollingEnabled?: boolean;
 }
 
 export interface UseAiJobStatusResult {
@@ -38,7 +40,11 @@ export interface UseAiJobStatusResult {
     isPolling: boolean;
 }
 
-export function useAiJobStatus({ jobId, enabled = true }: UseAiJobStatusOptions): UseAiJobStatusResult {
+export function useAiJobStatus({
+    jobId,
+    enabled = true,
+    pollingEnabled = true,
+}: UseAiJobStatusOptions): UseAiJobStatusResult {
     const query = useQuery({
         queryKey: ['ai-job', jobId],
         queryFn: async (): Promise<AiJobResponse> => {
@@ -50,6 +56,9 @@ export function useAiJobStatus({ jobId, enabled = true }: UseAiJobStatusOptions)
         enabled: enabled && !!jobId,
         // Poll when not in terminal state
         refetchInterval: (query) => {
+            if (!pollingEnabled) {
+                return false;
+            }
             const data = query.state.data;
             if (!data || isTerminalStatus(data.status)) {
                 return false;
@@ -67,6 +76,6 @@ export function useAiJobStatus({ jobId, enabled = true }: UseAiJobStatusOptions)
         isLoading: query.isLoading,
         error: query.error as Error | null,
         isDone: query.data ? isTerminalStatus(query.data.status) : false,
-        isPolling: query.isFetching && !query.isLoading,
+        isPolling: pollingEnabled && query.isFetching && !query.isLoading,
     };
 }

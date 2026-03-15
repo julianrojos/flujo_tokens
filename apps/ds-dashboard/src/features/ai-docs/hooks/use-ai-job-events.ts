@@ -9,6 +9,7 @@ import type { AiJobEvent, AiJobStatus } from '@/types/ai-jobs';
 
 const MAX_SSE_RETRIES = 2;
 const POLLING_INTERVAL = 2000;
+const SSE_RECOVERY_INTERVAL = 15000;
 
 export interface UseAiJobEventsOptions {
     /** Job ID to stream events for */
@@ -114,18 +115,26 @@ export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJ
             const eventSource = new EventSource(url);
             eventSourceRef.current = eventSource;
 
-            setIsStreaming(true);
+            eventSource.onopen = () => {
+                setIsStreaming(true);
+                setConnectionError(false);
+                sseRetriesRef.current = 0;
+                if (reconnectTimeoutRef.current) {
+                    clearTimeout(reconnectTimeoutRef.current);
+                    reconnectTimeoutRef.current = null;
+                }
+            };
 
             eventSource.onmessage = (e) => {
                 try {
                     const data = JSON.parse(e.data) as AiJobEvent;
-                    // Deduplicate by seq — events arrive in order, so last element has the highest seq
+                    // Deduplicate by seq - maintain set of seen seq numbers and sort by seq
                     setEvents(prev => {
-                        const maxSeq = prev.length > 0 ? prev[prev.length - 1].seq : -1;
-                        if (data.seq > maxSeq) {
-                            return [...prev, data];
+                        const existingSeqs = new Set(prev.map(e => e.seq));
+                        if (existingSeqs.has(data.seq)) {
+                            return prev; // Skip duplicate
                         }
-                        return prev;
+                        return [...prev, data].sort((a, b) => a.seq - b.seq);
                     });
                     lastEventIdRef.current = data.seq;
                     setCursor(data.seq);
@@ -144,11 +153,27 @@ export function useAiJobEvents({ jobId, onDone }: UseAiJobEventsOptions): UseAiJ
                 if (sseRetriesRef.current >= MAX_SSE_RETRIES) {
                     // Max retries reached, enable polling fallback
                     setConnectionError(true);
+
+                    // Keep trying to recover SSE periodically while polling fallback is active.
+                    // Polling remains enabled because connectionError stays true until onopen.
+                    if (!reconnectTimeoutRef.current) {
+                        reconnectTimeoutRef.current = setTimeout(() => {
+                            reconnectTimeoutRef.current = null;
+                            sseRetriesRef.current = 0;
+                            connectSSE();
+                        }, SSE_RECOVERY_INTERVAL);
+                    }
                     return;
                 }
 
                 // Retry SSE connection
-                reconnectTimeoutRef.current = setTimeout(connectSSE, 1000);
+                if (reconnectTimeoutRef.current) {
+                    clearTimeout(reconnectTimeoutRef.current);
+                }
+                reconnectTimeoutRef.current = setTimeout(() => {
+                    reconnectTimeoutRef.current = null;
+                    connectSSE();
+                }, 1000);
             };
 
             eventSource.addEventListener('done', (e) => {
