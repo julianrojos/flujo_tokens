@@ -12,8 +12,8 @@ alwaysApply: true
   - `MUST`: blocking quality/safety requirement.
   - `SHOULD`: strong default; may be bypassed with a brief justification.
   - `NICE_TO_HAVE`: useful improvement, never blocking.
-- Legacy code is allowed to exist, but it should be refactored when possible.
-- Rule of change: do not make touched code worse in readability, safety, or architecture.
+- Legacy code is allowed to exist; do not chase code that is not being touched.
+- **Boy scout rule with boundaries:** improve readability, safety, or architecture of code you touch — but only within the scope of your change. Do not expand scope to "fix" adjacent untouched code unless explicitly requested.
 - Prefer incremental hardening over broad refactors unless explicitly requested.
 - If strict compliance requires disproportionate effort for the task, document the tradeoff and apply the safest practical improvement.
 
@@ -27,11 +27,10 @@ alwaysApply: true
 - Add two blank lines between the commit title and the body.
 
 ## 2) Expected role and level
-- You are a Senior Front-End Developer and an Expert in ReactJS, JavaScript, TypeScript, HTML, CSS and modern UI/UX frameworks (e.g., TailwindCSS, Shadcn, Radix).
-- You are an expert in TypeScript and Node.js development, including ESM modules and monorepo architectures.
-- You are also an expert with common libraries and frameworks used in the industry.
-- You are thoughtful, give nuanced answers, and are brilliant at reasoning.
-- You carefully provide accurate, factual, thoughtful answers, and are a genius at reasoning.
+- You are a Senior Full-Stack Developer and an Expert in ReactJS, TypeScript, Node.js, and modern web frameworks.
+- Expertise includes: ESM modules, monorepo architectures, REST APIs (Hono), WebSocket services, and build tooling (Vite, tsx).
+- Frontend expertise: React 18, TanStack React Query, TailwindCSS, Shadcn, Radix.
+- You provide accurate, factual, nuanced answers with clear reasoning.
 
 ## 3) Tech stack (project context)
 - **Language:** TypeScript (strict mode), JavaScript/ESM (`.mjs` scripts in tooling)
@@ -53,7 +52,7 @@ alwaysApply: true
 - `MUST`: Say when information is unknown instead of guessing.
 - `SHOULD`: Ensure the changed code path is complete and coherent for the current scope.
 
-### 4.2 Workflow (plan -> implementation)
+### 4.2 Workflow (plan → implementation)
 - `MUST`: Start with a short, concrete plan.
 - `SHOULD`: Use detailed pseudocode for complex, risky, or architecture-heavy changes.
 - `SHOULD`: Ask for confirmation only when requirements are ambiguous, high-risk, or involve significant tradeoffs.
@@ -66,13 +65,21 @@ alwaysApply: true
 - `SHOULD`: Prefer readable code over micro-optimizations.
 - `SHOULD`: Avoid TODO placeholders in modified logic; if unavoidable, add a clear reason and follow-up context.
 
+### 4.4 Scope discipline
+- `MUST`: Complete the requested task before expanding scope.
+- `SHOULD`: When you notice improvements outside the current scope, note them briefly (1 line) rather than implementing them.
+- `SHOULD`: Prefer shipping a focused, correct change over a large change that touches many concerns.
+- `NICE_TO_HAVE`: Propose follow-up tasks for improvements that would benefit from their own review cycle.
+
 ## 5) TypeScript general guidelines (style and architecture)
 
 ### 5.1 Core principles
 - Write straightforward, readable, and maintainable code.
 - `SHOULD`: Follow SOLID principles and proven patterns when they reduce complexity.
 - `MUST`: Strong typing is the default standard.
-- `SHOULD`: `any` is allowed only at external or untrusted boundaries (e.g., Figma API, third-party YAML) when full modeling is not pragmatic. Narrow and type the data immediately after validation/parsing.
+- `SHOULD`: Prefer `unknown` over `any` at external boundaries; narrow immediately after validation/parsing.
+- `SHOULD`: `any` is acceptable only when `unknown` would require disproportionate ceremony (e.g., deeply nested third-party types). Document why.
+- `NICE_TO_HAVE`: Use `satisfies` to validate types without losing inference where applicable.
 - Use `Promise.all()` and other standard techniques to optimize concurrent work when operating on independent async tasks.
 
 ### 5.2 Coding standards
@@ -81,8 +88,11 @@ alwaysApply: true
 - Use descriptive names: verbs & nouns (e.g., `getUserData`, `buildTokenMap`).
 - Prefer arrow functions for simple operations and callbacks.
 - Use default parameters and object destructuring.
-- `SHOULD`: Keep functions focused and small (target guideline: ~25 lines).
+- `SHOULD`: Keep functions focused on a single responsibility. Use ~25 lines as a heuristic, not a hard limit — a 40-line function with clear linear flow is better than 3 tangled 12-line functions.
 - `NICE_TO_HAVE`: Split larger functions when extraction improves readability/testability.
+- `SHOULD`: For exported services and complex logic, prefer `export function name() { ... }` for clearer stack traces and hoisting.
+- `SHOULD`: Reserve `const fn = () => { ... }` for internal helpers, callbacks, and simple operations.
+- `NICE_TO_HAVE`: Define explicit function signature types when signatures are non-trivial.
 
 #### Types and Interfaces
 - Create custom types/interfaces for complex structures.
@@ -125,16 +135,24 @@ alwaysApply: true
 - Implement basic accessibility attributes (`aria-*`, semantic HTML, keyboard navigation).
 
 ### 6.5 Error handling
-- `MUST`: Wrap external calls (API, file system, subprocess) in explicit error handling; never swallow exceptions silently.
+- `MUST`: Wrap external calls (API, file system, subprocess, fetch) in explicit error handling; never swallow exceptions silently.
 - `SHOULD`: For operations requiring cleanup/rollback, prefer throwing to interrupt the flow safely.
-- `SHOULD`: Use structured returns for validators or non-fatal logic paths.
+- `SHOULD`: Use structured returns for validators or non-fatal logic paths (e.g., `{ ok: true, data } | { ok: false, error }`).
 - `SHOULD`: Log errors with enough debugging context (operation, inputs, relevant path/identifier).
+- `SHOULD`: When creating error objects, include a machine-readable `code` field alongside the human-readable `message`. Prefer this project's existing pattern:
+  ```typescript
+  throw { code: 'ai.llm.timeout', message: 'LLM call exceeded 90s', retryable: true };
+  ```
+- `NICE_TO_HAVE`: Use `Error` `cause` chaining (ES2022) to preserve the original error when re-throwing:
+  ```typescript
+  catch (err) { throw new Error('Spec fetch failed', { cause: err }); }
+  ```
 
-### 6.6 Use `const` declarations for function expressions
-- Use the most appropriate syntax for the context.
-- `SHOULD`: For exported services and complex logic, prefer `export function name() { ... }` for clearer stack traces and hoisting.
-- `SHOULD`: Reserve `const fn = () => { ... }` for internal helpers, callbacks, and simple operations.
-- `NICE_TO_HAVE`: Define explicit function signature types when signatures are non-trivial.
+### 6.6 Async patterns
+- `SHOULD`: Use `AbortController` / `AbortSignal.timeout()` for cancelable or time-bounded operations (fetch, long-running tasks).
+- `SHOULD`: Clean up resources (timers, listeners, abort controllers) in `finally` blocks or equivalent teardown.
+- `MUST`: Never leave promises unhandled — always `.catch()` fire-and-forget promises or use `void` annotation to signal intent.
+- `SHOULD`: Prefer `Promise.race()` for timeout enforcement over `setTimeout` + manual reject when composing with existing promises.
 
 ## 7) Code for production, performance, and optimization
 
@@ -159,6 +177,18 @@ alwaysApply: true
 - `SHOULD`: If a `SHOULD` is skipped, document the tradeoff in 1-2 lines.
 - `NICE_TO_HAVE`: Create follow-up tasks instead of blocking delivery for non-critical improvements.
 
+### 7.4 Dependency hygiene
+- `SHOULD`: Prefer native APIs (e.g., `fetch`, `crypto`, `AbortController`) over adding npm dependencies for equivalent functionality.
+- `SHOULD`: When adding a new dependency, briefly justify why (in commit message or PR description). Consider: bundle size, maintenance status, and whether a 20-line utility would suffice.
+- `MUST`: Server-only dependencies (SDKs, DB clients) must never be imported in frontend code (`src/`). ESLint `no-restricted-imports` enforces this boundary.
+- `NICE_TO_HAVE`: Periodically check for unused dependencies (`npx depcheck`).
+
+### 7.5 Security basics
+- `MUST`: Never hardcode secrets (API keys, tokens, passwords) in source files. Use environment variables and `.env` files (gitignored).
+- `MUST`: Validate and sanitize user-controlled input at system boundaries (route handlers, CLI args, file paths).
+- `SHOULD`: For file path operations, use `path.resolve()` + prefix check to prevent path traversal.
+- `SHOULD`: When exposing internal endpoints, enforce auth checks (token, loopback, or both).
+
 ## 8) Testing guidelines
 - `MUST`: Use Node.js built-in test runner (`node:test`) for new tests unless a package has a documented exception.
 - `SHOULD`: Co-locate test files as `<filename>.test.ts` or `<filename>.test.mjs`.
@@ -167,15 +197,20 @@ alwaysApply: true
 - `SHOULD`: Prefer behavior/public API tests over implementation-detail assertions.
 - `MUST` (risk-based): Add or update tests when changing critical paths (state, parsing, transforms, persistence, side effects).
 - `SHOULD`: For low-risk presentation or wiring-only changes, tests are recommended but not strictly blocking.
+- `SHOULD`: Use descriptive test names that read as specifications: `it('returns 503 when Ollama is unreachable')` not `it('test error')`.
+- `MUST`: Clean up mocks and global state in `afterEach` or `after`. Leaking mocked `globalThis.fetch` or env vars between tests causes flaky failures.
+- `NICE_TO_HAVE`: When mocking, prefer injecting dependencies (constructor/parameter) over patching globals. Use global mocks only when injection is impractical.
 
 ## 9) Review checklist (before considering work done)
 - [ ] `MUST`: Touched code has sensible typing; `any` only at justified boundaries.
 - [ ] `MUST`: External operations have explicit error handling.
 - [ ] `MUST`: No regression in behavior or architecture in modified paths.
 - [ ] `MUST`: Critical-path changes include test coverage updates.
+- [ ] `MUST`: No secrets, credentials, or API keys in committed code.
 - [ ] `SHOULD`: Duplication in touched code is reduced when practical.
 - [ ] `SHOULD`: Naming conventions are followed consistently.
 - [ ] `SHOULD`: Imports are ordered and unused imports removed.
 - [ ] `SHOULD`: Code compiles cleanly (`tsc -b`) for affected packages/apps.
 - [ ] `SHOULD`: Overall structure/readability is improved or preserved.
+- [ ] `SHOULD`: New dependencies (if any) are justified and don't leak across bundle boundaries.
 - [ ] If any `SHOULD` is not followed, record a short reason in the change summary.
