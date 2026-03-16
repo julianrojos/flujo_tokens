@@ -340,7 +340,7 @@ export function buildCaptureFigmaScreenshotCommandConfig(
 
   const componentSlug = toLowerTrimmed(body.componentSlug);
   const figmaToken = toTrimmed(body.figmaToken);
-  const includeVariants = toBooleanString(body.includeVariants, true);
+  const includeVariants = toBooleanString(body.includeVariants, false);
   const requireExistingDoc = toBooleanString(body.requireExistingDoc, true);
   const continueOnError = toBooleanString(body.continueOnError, true);
   const refreshIndices = toBooleanString(body.refreshIndices, true);

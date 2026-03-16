@@ -26,7 +26,7 @@ export function buildUpdateComponentsPayload(
 
   const payload: Record<string, unknown> = {
     figmaUrl,
-    includeVariants: true,
+    includeVariants: false,
     variantLimit: 6,
     requireExistingDoc: true,
     continueOnError: true,

@@ -599,7 +599,7 @@ export function NewSystemPage() {
             {
               figmaUrl: trimmedUrl,
               figmaToken: runtimeToken || undefined,
-              includeVariants: true,
+              includeVariants: false,
               requireExistingDoc: false,
               continueOnError: true,
               refreshIndices: true,

@@ -143,7 +143,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
   const [rememberToken, setRememberToken] = useState(true);
   const [componentSlug, setComponentSlug] = useState("");
   const [requireExistingDoc, setRequireExistingDoc] = useState(false);
-  const [includeVariants, setIncludeVariants] = useState(true);
+  const [includeVariants, setIncludeVariants] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const [loading, setLoading] = useState(false);

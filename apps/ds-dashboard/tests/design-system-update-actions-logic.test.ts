@@ -27,7 +27,7 @@ describe("design-system update actions logic", () => {
 
     assert.deepEqual(result.payload, {
       figmaUrl: "https://www.figma.com/design/abc123/Test",
-      includeVariants: true,
+      includeVariants: false,
       variantLimit: 6,
       requireExistingDoc: true,
       continueOnError: true,
