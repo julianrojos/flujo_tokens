@@ -9,7 +9,7 @@ import type { Hono, Context } from 'hono';
 import { registerSystemRoutes } from './system-routes.mjs';
 import { registerOperationsRoutes } from './operations-routes.mjs';
 import { registerRegistryRoutes } from './registry-routes.mjs';
-import { registerTokenGraphRoutes } from './token-graph-routes.mjs';
+import { registerTokenGraphRoutes } from './token-graph-routes.ts';
 import { registerHealthRoutes } from './health-routes.mjs';
 import { registerAnalysisRoutes } from './analysis-routes.mjs';
 import { registerComponentSpecRoutes } from './component-spec-routes.mjs';

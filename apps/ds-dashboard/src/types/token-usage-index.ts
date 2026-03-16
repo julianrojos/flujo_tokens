@@ -1,4 +1,4 @@
-export type TokenUsageKind = "component-spec" | "css-alias";
+export type TokenUsageKind = "component-spec" | "css-alias" | "figma-alias";
 
 export interface TokenUsageOccurrence {
   kind: TokenUsageKind;
