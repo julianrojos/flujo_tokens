@@ -283,3 +283,55 @@ export interface TokenServiceOptions {
   /** Design system context */
   system?: string;
 }
+
+/**
+ * Extended token usage kinds (including figma-alias)
+ */
+export type TokenUsageKindExtended = 'component-spec' | 'css-alias' | 'figma-alias';
+
+/**
+ * Token usage occurrence with extended kinds
+ */
+export interface TokenUsageOccurrenceNew {
+  kind: TokenUsageKindExtended;
+  source: string;
+  owner: string;
+  detail: string;
+}
+
+/**
+ * Token usage entry with new shape
+ */
+export interface TokenUsageEntryNew {
+  path: string;
+  slashPath: string;
+  cssVar: string;
+  type: string;
+  collection: string;
+  usageCount: number;
+  usageByKind: Record<string, number>;
+  usedIn: TokenUsageOccurrenceNew[];
+}
+
+/**
+ * Token usage index summary with new shape
+ */
+export interface TokenUsageIndexSummaryNew {
+  generatedAt: string;
+  totalTokens: number;
+  tokensWithUsage: number;
+  usage_links_total: number;
+}
+
+/**
+ * New token usage index structure
+ */
+export interface TokenUsageIndex {
+  summary: TokenUsageIndexSummaryNew;
+  warnings: Array<{ message: string; tokenPath?: string }>;
+  unresolved: Array<{ ref: string; file: string; kind: TokenUsageKindExtended }>;
+  entries: TokenUsageEntryNew[];
+  byPath: Record<string, TokenUsageEntryNew>;
+  bySlashPath: Record<string, TokenUsageEntryNew>;
+  byCssVar: Record<string, TokenUsageEntryNew>;
+}

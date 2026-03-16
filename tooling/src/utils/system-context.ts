@@ -39,6 +39,7 @@ const LEGACY_PATHS = Object.freeze({
   docs: path.resolve(PROJECT_ROOT, "docs/components"),
   registry: path.resolve(PROJECT_ROOT, "docs/_generated/component-registry.json"),
   tokenRegistry: path.resolve(PROJECT_ROOT, "docs/_generated/token-registry.json"),
+  figmaAliasGraph: path.resolve(PROJECT_ROOT, "docs/_generated/figma-alias-graph.json"),
 });
 
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");
@@ -55,6 +56,7 @@ export interface ScriptSystemContext {
     docs: string;
     registry: string;
     tokenRegistry: string;
+    figmaAliasGraph: string;
   };
 }
 
@@ -75,6 +77,7 @@ function systemContext(system: DesignSystemConfig): ScriptSystemContext {
       docs: path.resolve(docsDir, "components"),
       registry: path.resolve(docsDir, "_generated/component-registry.json"),
       tokenRegistry: path.resolve(docsDir, "_generated/token-registry.json"),
+      figmaAliasGraph: path.resolve(docsDir, "_generated/figma-alias-graph.json"),
     },
   };
 }

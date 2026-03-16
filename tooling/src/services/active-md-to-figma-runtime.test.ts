@@ -51,6 +51,7 @@ function createMockPreparation(tempDir: string): ActiveMdToFigmaPreparationResul
         docs: path.join(tempDir, 'docs'),
         registry: path.join(tempDir, 'registry.json'),
         tokenRegistry: path.join(tempDir, 'tokens.json'),
+        figmaAliasGraph: path.join(tempDir, 'figma-alias-graph.json'),
       },
     },
   };

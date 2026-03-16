@@ -50,6 +50,7 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
           specs: '/mock/repo/docs/_spec/components',
           registry: '/mock/repo/docs/_generated/component-registry.json',
           tokenRegistry: '/mock/repo/docs/_generated/token-registry.json',
+          figmaAliasGraph: '/mock/repo/docs/_generated/figma-alias-graph.json',
         },
       },
       paths: {

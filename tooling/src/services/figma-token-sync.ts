@@ -316,6 +316,7 @@ export function mergeTokenTrees(base: unknown, incoming: unknown): unknown {
 interface FilesMapPayload {
   description: string;
   data: Record<string, unknown>;
+  modeName?: string; // Added to store explicit mode name
 }
 
 export interface BuildFilesMapResult {
@@ -323,6 +324,106 @@ export interface BuildFilesMapResult {
   tokenCount: number;
 }
  /**
+ * Extract figma alias graph from built token trees
+ */
+function extractFigmaAliasGraph(filesMap: Map<string, FilesMapPayload>): { aliases: Array<{fromPath: string; toPath: string; modes: string[]}> } {
+  const aliases: Array<{fromPath: string; toPath: string; modes: string[]}> = [];
+  const figmaIdToPath = new Map<string, string>();
+
+  // First pass: build map of figmaId -> tokenPath
+  for (const [fileKey, payload] of filesMap.entries()) {
+    function walkTokenTree(node: unknown, currentPath: string[] = []): void {
+      if (!node || typeof node !== 'object') return;
+
+      const tokenNode = node as Record<string, unknown>;
+      if (tokenNode.$id && typeof tokenNode.$id === 'string') {
+        const fullPath = currentPath.join('.');
+        figmaIdToPath.set(tokenNode.$id, fullPath);
+      }
+
+      // Walk children
+      for (const [key, value] of Object.entries(tokenNode)) {
+        if (!key.startsWith('$')) {
+          walkTokenTree(value, [...currentPath, key]);
+        }
+      }
+    }
+
+    walkTokenTree(payload.data);
+  }
+
+  // Second pass: extract VARIABLE_ALIAS references
+  for (const [fileKey, payload] of filesMap.entries()) {
+    const modeName = payload.modeName || 'default'; // Use explicit mode name from payload
+
+    function walkAliasTree(node: unknown, currentPath: string[] = []): void {
+      if (!node || typeof node !== 'object') return;
+
+      const tokenNode = node as Record<string, unknown>;
+      if (
+        tokenNode.$value &&
+        typeof tokenNode.$value === 'object' &&
+        (tokenNode.$value as Record<string, unknown>).type === 'VARIABLE_ALIAS' &&
+        typeof (tokenNode.$value as Record<string, unknown>).id === 'string'
+      ) {
+        const fromPath = currentPath.join('.');
+        const toId = (tokenNode.$value as Record<string, unknown>).id as string;
+        const toPath = figmaIdToPath.get(toId);
+
+        if (toPath && toPath !== fromPath) {
+          const existingAlias = aliases.find(a => a.fromPath === fromPath && a.toPath === toPath);
+          if (existingAlias) {
+            if (!existingAlias.modes.includes(modeName)) {
+              existingAlias.modes.push(modeName);
+            }
+          } else {
+            aliases.push({ fromPath, toPath, modes: [modeName] });
+          }
+        }
+      }
+
+      // Walk children
+      for (const [key, value] of Object.entries(tokenNode)) {
+        if (!key.startsWith('$')) {
+          walkAliasTree(value, [...currentPath, key]);
+        }
+      }
+    }
+
+    walkAliasTree(payload.data);
+  }
+
+  return { aliases };
+}
+
+/**
+ * Write figma-alias-graph.json file
+ */
+function writeFigmaAliasGraph(filesMap: Map<string, FilesMapPayload>, docsDir: string): void {
+  try {
+    const aliasGraph = extractFigmaAliasGraph(filesMap);
+
+    if (aliasGraph.aliases.length === 0) {
+      // No aliases to write
+      return;
+    }
+
+    const graphPath = path.resolve(docsDir, '_generated/figma-alias-graph.json');
+    const graphData = {
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      aliases: aliasGraph.aliases,
+    };
+
+    fs.mkdirSync(path.dirname(graphPath), { recursive: true });
+    writeTextAtomic(graphPath, `${JSON.stringify(graphData, null, 2)}\n`);
+    console.error(`✅ Figma alias graph written to ${path.relative(process.cwd(), graphPath)} (${aliasGraph.aliases.length} aliases)`);
+  } catch (error) {
+    console.warn(`⚠️  Failed to write figma-alias-graph.json: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
  * Build a map of files from Figma variables payload.
  */
 export function buildFilesMapFromVariables(meta: Record<string, unknown> | null): BuildFilesMapResult {
@@ -361,6 +462,7 @@ export function buildFilesMapFromVariables(meta: Record<string, unknown> | null)
               ? collectionName
               : `${collectionName} (${modeName})`,
           data: {},
+          modeName: modeName as string, // Store explicit mode name
         });
       }
 
@@ -680,6 +782,11 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     };
     writeTextAtomic(filePath, `${JSON.stringify(jsonPayload, null, 2)}\n`);
     writtenFiles.push(path.relative(repoRoot, filePath));
+  }
+
+  // Write figma-alias-graph.json if we have a docsDir
+  if (system.docsDir) {
+    writeFigmaAliasGraph(filesMap, path.resolve(repoRoot, system.docsDir));
   }
 
   return {

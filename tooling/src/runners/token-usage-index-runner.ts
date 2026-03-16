@@ -20,6 +20,7 @@ import {
   buildAliasChains,
   generateUsageIndex,
 } from '../services/token-usage-index.js';
+import type { TokenUsageIndex } from '../services/token-types.js';
 import { loadTokenRegistry } from '../services/token-utils.js';
 
 const CLI_CONFIG = {
@@ -41,6 +42,10 @@ const CLI_CONFIG = {
       name: '--css-files',
       description: 'Comma-separated CSS files to scan for var(--token) references.',
       defaultValue: 'output/primitives.css,output/tokens.css',
+    },
+    {
+      name: '--figma-alias-graph',
+      description: 'Path to figma-alias-graph.json file.',
     },
     {
       name: '--out',
@@ -106,12 +111,15 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
     .split(',')
     .map((f: string) => path.resolve(f.trim()));
   const outPath = path.resolve(String(parsed.out || ctx.paths.generated + '/token-usage-index.json'));
+  const figmaAliasGraphPath = path.resolve(
+    String(getStringArg(parsed, 'figma-alias-graph') || ctx.paths.figmaAliasGraph)
+  );
   const format = String(parsed.format || 'json');
   const strictUnresolved = parseBooleanOption(parsed['strict-unresolved'], '--strict-unresolved', false);
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
 
   // Generate usage index
-  const report = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
+  const report = generateUsageIndexFromFile(registryPath, specRoot, cssFiles, figmaAliasGraphPath) as TokenUsageIndex;
 
   // Output to stdout
   if (format === 'json') {
@@ -119,12 +127,11 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
   } else {
     // Text format
     console.log('\n=== Token Usage Index ===\n');
-    console.log(`Total tokens: ${report.totalTokens}`);
-    console.log(`Tokens with usage: ${report.tokensWithUsage}`);
-    console.log(`Total references: ${report.summary.totalReferences}`);
-    console.log(`  - Spec references: ${report.summary.specReferences}`);
-    console.log(`  - CSS references: ${report.summary.cssReferences}`);
-    console.log(`Unresolved references: ${report.summary.unresolvedCount}`);
+    console.log(`Total tokens: ${report.summary.totalTokens}`);
+    console.log(`Tokens with usage: ${report.summary.tokensWithUsage}`);
+    console.log(`Total references: ${report.summary.usage_links_total}`);
+    console.log(`Warnings: ${report.warnings.length}`);
+    console.log(`Unresolved references: ${report.unresolved.length}`);
 
     if (report.unresolved.length > 0) {
       console.log('\nUnresolved:');
@@ -145,7 +152,7 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
   }
 
   // Exit with error if strict mode and unresolved refs
-  if (strictUnresolved && report.summary.unresolvedCount > 0) {
+  if (strictUnresolved && report.unresolved.length > 0) {
     process.exit(1);
   }
 }

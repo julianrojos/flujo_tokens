@@ -11,6 +11,7 @@ import { describe, it } from 'node:test';
 
 import {
   buildTokenNodeFromFigmaVariable,
+  buildFilesMapFromVariables,
   mergeTokenTrees,
   sanitizeCollectionFileStem,
   syncFigmaTokensToInput,
@@ -465,6 +466,169 @@ describe('figma-token-sync', () => {
       } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
       }
+    });
+  });
+
+  describe('buildFilesMapFromVariables() with VARIABLE_ALIAS', () => {
+    it('buildFilesMapFromVariables handles variables with VARIABLE_ALIAS correctly', () => {
+      // Create payload with alias references
+      const payloadWithAliases: FigmaVariablesResponse = {
+        meta: {
+          variableCollections: {
+            'VariableCollectionId:1': {
+              id: 'VariableCollectionId:1',
+              name: 'Colors',
+              modes: [{ modeId: '1:0', name: 'Light' }],
+            },
+          },
+          variables: {
+            // Base color variable
+            'VariableID:base': {
+              id: 'VariableID:base',
+              name: 'color/primary',
+              variableCollectionId: 'VariableCollectionId:1',
+              resolvedType: 'COLOR',
+              valuesByMode: {
+                '1:0': { r: 1, g: 0, b: 0, a: 1 },
+              },
+            },
+            // Alias variable that references the base
+            'VariableID:alias': {
+              id: 'VariableID:alias',
+              name: 'color/brand',
+              variableCollectionId: 'VariableCollectionId:1',
+              resolvedType: 'COLOR',
+              valuesByMode: {
+                '1:0': {
+                  type: 'VARIABLE_ALIAS',
+                  id: 'VariableID:base',
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = buildFilesMapFromVariables(payloadWithAliases.meta);
+
+      assert.equal(result.tokenCount, 2);
+      assert.ok(result.filesMap.has('colors'));
+
+      const colorsData = result.filesMap.get('colors')?.data;
+      assert.ok(colorsData);
+
+      // Check that base color exists
+      const colorPrimary = (colorsData as Record<string, unknown>).color as Record<string, unknown>;
+      assert.ok(colorPrimary);
+      const primary = colorPrimary.primary as { $value?: string; $type?: string };
+      assert.equal(primary.$type, 'color');
+      assert.equal(primary.$value, '#FF0000');
+
+      // Check that alias exists with VARIABLE_ALIAS structure
+      const brand = colorPrimary.brand as { $value?: Record<string, unknown>; $type?: string };
+      assert.ok(brand);
+      assert.equal(brand.$type, 'color');
+      assert.ok(brand.$value);
+      assert.equal((brand.$value as Record<string, unknown>).type, 'VARIABLE_ALIAS');
+      assert.equal((brand.$value as Record<string, unknown>).id, 'VariableID:base');
+    });
+
+    it('handles multiple aliases in the same collection', () => {
+      const payloadWithMultipleAliases: FigmaVariablesResponse = {
+        meta: {
+          variableCollections: {
+            'VariableCollectionId:1': {
+              id: 'VariableCollectionId:1',
+              name: 'Spacing',
+              modes: [{ modeId: '1:0', name: 'Default' }],
+            },
+          },
+          variables: {
+            'VariableID:base1': {
+              id: 'VariableID:base1',
+              name: 'spacing/small',
+              variableCollectionId: 'VariableCollectionId:1',
+              resolvedType: 'FLOAT',
+              valuesByMode: { '1:0': 8 },
+            },
+            'VariableID:base2': {
+              id: 'VariableID:base2',
+              name: 'spacing/medium',
+              variableCollectionId: 'VariableCollectionId:1',
+              resolvedType: 'FLOAT',
+              valuesByMode: { '1:0': 16 },
+            },
+            'VariableID:alias1': {
+              id: 'VariableID:alias1',
+              name: 'spacing/gutter',
+              variableCollectionId: 'VariableCollectionId:1',
+              resolvedType: 'FLOAT',
+              valuesByMode: {
+                '1:0': { type: 'VARIABLE_ALIAS', id: 'VariableID:base1' },
+              },
+            },
+            'VariableID:alias2': {
+              id: 'VariableID:alias2',
+              name: 'spacing/gap',
+              variableCollectionId: 'VariableCollectionId:1',
+              resolvedType: 'FLOAT',
+              valuesByMode: {
+                '1:0': { type: 'VARIABLE_ALIAS', id: 'VariableID:base2' },
+              },
+            },
+          },
+        },
+      };
+
+      const result = buildFilesMapFromVariables(payloadWithMultipleAliases.meta);
+
+      assert.equal(result.tokenCount, 4);
+      const spacingData = result.filesMap.get('spacing')?.data;
+      assert.ok(spacingData);
+
+      // Check aliases exist
+      const spacing = spacingData as Record<string, unknown>;
+      const gutter = (spacing.spacing as Record<string, unknown>).gutter as { $value?: Record<string, unknown> };
+      const gap = (spacing.spacing as Record<string, unknown>).gap as { $value?: Record<string, unknown> };
+
+      assert.equal((gutter.$value as Record<string, unknown>).type, 'VARIABLE_ALIAS');
+      assert.equal((gutter.$value as Record<string, unknown>).id, 'VariableID:base1');
+      assert.equal((gap.$value as Record<string, unknown>).type, 'VARIABLE_ALIAS');
+      assert.equal((gap.$value as Record<string, unknown>).id, 'VariableID:base2');
+    });
+
+    it('handles alias pointing to non-existent variable gracefully', () => {
+      const payloadWithBrokenAlias: FigmaVariablesResponse = {
+        meta: {
+          variableCollections: {
+            'VariableCollectionId:1': {
+              id: 'VariableCollectionId:1',
+              name: 'Colors',
+              modes: [{ modeId: '1:0', name: 'Light' }],
+            },
+          },
+          variables: {
+            'VariableID:alias': {
+              id: 'VariableID:alias',
+              name: 'color/brand',
+              variableCollectionId: 'VariableCollectionId:1',
+              resolvedType: 'COLOR',
+              valuesByMode: {
+                '1:0': {
+                  type: 'VARIABLE_ALIAS',
+                  id: 'VariableID:nonexistent', // This ID doesn't exist
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = buildFilesMapFromVariables(payloadWithBrokenAlias.meta);
+
+      // Should still process the alias, but toPath will be undefined
+      // The alias graph extraction will skip this entry
+      assert.equal(result.tokenCount, 1);
     });
   });
 

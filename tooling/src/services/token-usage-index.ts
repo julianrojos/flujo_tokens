@@ -15,6 +15,10 @@ import type {
   TokenRegistryEntry,
   TokenUsage,
   TokenUsageIndexReport,
+  TokenUsageIndex,
+  TokenUsageEntryNew,
+  TokenUsageOccurrenceNew,
+  TokenUsageKindExtended,
 } from './token-types.js';
 import {
   CSS_VAR_REF_RE,
@@ -187,6 +191,46 @@ export function buildAliasChains(
 }
 
 /**
+ * Inject figma aliases into usage map
+ */
+export function injectFigmaAliases(
+  usageMap: Map<string, TokenUsageEntryNew>,
+  figmaAliasGraphPath: string,
+  warnings: Array<{ message: string; tokenPath?: string }>,
+): void {
+  if (!fs.existsSync(figmaAliasGraphPath)) {
+    return;
+  }
+
+  try {
+    const graph = JSON.parse(fs.readFileSync(figmaAliasGraphPath, 'utf8'));
+    if (!graph.aliases || !Array.isArray(graph.aliases)) {
+      return;
+    }
+
+    for (const alias of graph.aliases) {
+      // alias.toPath is the token being pointed to (the one that shows up in "Used in")
+      const entry = usageMap.get(alias.toPath);
+      if (!entry) continue;
+
+      entry.usedIn.push({
+        kind: 'figma-alias',
+        source: 'figma-variables',
+        owner: alias.fromPath,
+        detail: alias.modes ? alias.modes.join(', ') : 'unknown',
+      });
+      entry.usageCount++;
+      entry.usageByKind['figma-alias'] = (entry.usageByKind['figma-alias'] || 0) + 1;
+    }
+  } catch (error) {
+    // Add warning to array so user sees it in output JSON (not just console)
+    warnings.push({
+      message: `Failed to process figma-alias-graph.json: ${error instanceof Error ? error.message : String(error)}`,
+    });
+  }
+}
+
+/**
  * Generate token usage index
  *
  * Pure function - all I/O is passed as parameters
@@ -196,34 +240,48 @@ export function generateUsageIndex(
   specRefs: SpecReference[],
   cssRefs: CssReference[],
   aliasChains: Map<string, string[]>,
-): TokenUsageIndexReport {
-  const usageMap = new Map<string, TokenUsage>();
+  figmaAliasGraphPath?: string,
+): TokenUsageIndex {
+  const usageMap = new Map<string, TokenUsageEntryNew>();
+  const warnings: Array<{ message: string; tokenPath?: string }> = [];
   const unresolvedRefs: Array<{
     ref: string;
     file: string;
-    context: 'spec' | 'css' | 'other';
+    kind: TokenUsageKindExtended;
   }> = [];
 
   // Initialize usage entries for all tokens
   for (const entry of registry.entries) {
-    usageMap.set(entry.id, {
-      tokenId: entry.id,
-      tokenPath: entry.path,
+    const slashPath = entry.path.replace(/\./g, '/');
+    const cssVar = entry.cssVar || `--${entry.path.replace(/\./g, '-')}`;
+
+    if (!entry.cssVar) {
+      warnings.push({ message: `Missing cssVar for token ${entry.path}, generated: ${cssVar}`, tokenPath: entry.path });
+    }
+
+    usageMap.set(entry.path, {
+      path: entry.path,
+      slashPath,
+      cssVar,
+      type: entry.type,
+      collection: entry.collection,
       usageCount: 0,
+      usageByKind: {},
       usedIn: [],
-      unresolvedRefs: [],
     });
   }
 
   // Process spec references
   for (const ref of specRefs) {
-    const usage = usageMap.get(ref.tokenId);
+    const usage = usageMap.get(ref.tokenPath);
     if (usage) {
       usage.usageCount++;
+      usage.usageByKind['component-spec'] = (usage.usageByKind['component-spec'] || 0) + 1;
       usage.usedIn.push({
-        file: ref.file,
-        context: 'spec',
-        property: ref.property,
+        kind: 'component-spec',
+        source: 'component-spec',
+        owner: ref.file,
+        detail: ref.property || 'unknown',
       });
     }
   }
@@ -232,12 +290,15 @@ export function generateUsageIndex(
   for (const ref of cssRefs) {
     const token = findTokenByCssVar(registry, ref.varName);
     if (token) {
-      const usage = usageMap.get(token.id);
+      const usage = usageMap.get(token.path);
       if (usage) {
         usage.usageCount++;
+        usage.usageByKind['css-alias'] = (usage.usageByKind['css-alias'] || 0) + 1;
         usage.usedIn.push({
-          file: ref.file,
-          context: 'css',
+          kind: 'css-alias',
+          source: 'css-alias',
+          owner: ref.file,
+          detail: ref.varName,
         });
       }
     } else {
@@ -245,7 +306,7 @@ export function generateUsageIndex(
       unresolvedRefs.push({
         ref: ref.varName,
         file: ref.file,
-        context: 'css',
+        kind: 'css-alias',
       });
     }
   }
@@ -254,47 +315,48 @@ export function generateUsageIndex(
   for (const [targetVar, sourceVars] of Array.from(aliasChains.entries())) {
     const targetToken = findTokenByCssVar(registry, targetVar);
     if (targetToken) {
-      const usage = usageMap.get(targetToken.id);
+      const usage = usageMap.get(targetToken.path);
       if (usage) {
         // Add alias chain references
         for (const sourceVar of sourceVars) {
           usage.usageCount++;
+          usage.usageByKind['css-alias'] = (usage.usageByKind['css-alias'] || 0) + 1;
           usage.usedIn.push({
-            file: 'alias-chain',
-            context: 'css',
+            kind: 'css-alias',
+            source: 'alias-chain',
+            owner: sourceVar,
+            detail: `alias to ${targetVar}`,
           });
         }
       }
     }
   }
 
-  // Calculate summary
-  const tokensWithUsage = Array.from(usageMap.values()).filter(
-    (u) => u.usageCount > 0,
-  );
+  // Inject figma aliases if graph path provided
+  if (figmaAliasGraphPath) {
+    injectFigmaAliases(usageMap, figmaAliasGraphPath, warnings);
+  }
 
-  const totalReferences = Array.from(usageMap.values()).reduce(
-    (sum, u) => sum + u.usageCount,
-    0,
-  );
-
-  const specReferences = specRefs.length;
-  const cssReferences = cssRefs.length;
+  // Build final structure
+  const entries = Array.from(usageMap.values()).filter(u => u.usageCount > 0);
+  const byPath = Object.fromEntries(entries.map(e => [e.path, e]));
+  const bySlashPath = Object.fromEntries(entries.map(e => [e.slashPath, e]));
+  const byCssVar = Object.fromEntries(entries.map(e => [e.cssVar, e]));
+  const usage_links_total = entries.reduce((sum, e) => sum + e.usageCount, 0);
 
   return {
-    timestamp: new Date().toISOString(),
-    totalTokens: registry.entries.length,
-    tokensWithUsage: tokensWithUsage.length,
-    usage: Array.from(usageMap.values()).sort((a, b) =>
-      a.tokenPath.localeCompare(b.tokenPath),
-    ),
-    unresolved: unresolvedRefs,
     summary: {
-      totalReferences,
-      specReferences,
-      cssReferences,
-      unresolvedCount: unresolvedRefs.length,
+      generatedAt: new Date().toISOString(),
+      totalTokens: registry.entries.length,
+      tokensWithUsage: entries.length,
+      usage_links_total,
     },
+    warnings,
+    unresolved: unresolvedRefs,
+    entries,
+    byPath,
+    bySlashPath,
+    byCssVar,
   };
 }
 
@@ -307,7 +369,8 @@ export function generateUsageIndexFromFile(
   registryPath: string,
   specRoot: string,
   cssFiles: string[],
-): TokenUsageIndexReport {
+  figmaAliasGraphPath?: string,
+): TokenUsageIndex {
   // Load registry
   const registryContent = fs.readFileSync(registryPath, 'utf8');
   const registry = JSON.parse(registryContent) as TokenRegistry;
@@ -318,5 +381,5 @@ export function generateUsageIndexFromFile(
   const aliasChains = buildAliasChains(cssFiles, registry);
 
   // Generate index
-  return generateUsageIndex(registry, specRefs, cssRefs, aliasChains);
+  return generateUsageIndex(registry, specRefs, cssRefs, aliasChains, figmaAliasGraphPath);
 }
