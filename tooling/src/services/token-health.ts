@@ -47,6 +47,7 @@ export function findBrokenAliases(registry: TokenRegistry): TokenHealthIssue[] {
 
 /**
  * Check for broken CSS variable references
+ * Extracts ALL var(--name) references from the value, not just pure var() values.
  */
 export function findBrokenRefs(
   registry: TokenRegistry,
@@ -54,12 +55,16 @@ export function findBrokenRefs(
 ): TokenHealthIssue[] {
   const issues: TokenHealthIssue[] = [];
 
+  // Regex to match ALL var(--name) references in the value
+  // Captures: var(--name) or var(--name, fallback)
+  const VAR_REF_REGEX = /var\(\s*(--[a-z0-9-]+)(?:\s*,\s*[^)]+)?\)/gi;
+
   for (const entry of registry.entries) {
     const value = entry.$value.trim();
 
-    // Check if value is a CSS var reference
-    const match = value.match(/^var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)$/i);
-    if (match) {
+    // Find all var() references in the value
+    const matches = value.matchAll(VAR_REF_REGEX);
+    for (const match of matches) {
       const varName = match[1];
       const targetTokenId = cssVarIndex.get(varName);
 
@@ -81,6 +86,11 @@ export function findBrokenRefs(
 
 /**
  * Check WCAG contrast pairs
+ *
+ * Note: WCAG contrast calculation is not fully implemented.
+ * This function currently returns empty failures array.
+ * To enable WCAG checking, implement color parsing and contrast ratio calculation
+ * per WCAG 2.1 guidelines (luminance formula).
  */
 export function checkWcagPairs(
   registry: TokenRegistry,
@@ -100,35 +110,18 @@ export function checkWcagPairs(
     actualLevel: 'AA' | 'AAA' | 'fail';
   }> = [];
 
-  // Simplified WCAG check - in real implementation would calculate contrast ratio
-  for (const pair of wcagPairs) {
-    const fgToken = findTokenByPath(registry, pair.fg);
-    const bgToken = findTokenByPath(registry, pair.bg);
-
-    if (!fgToken || !bgToken) {
-      continue;
-    }
-
-    // Placeholder - would need color parsing and contrast calculation
-    // For now, assume all pairs pass
-    const actualLevel: 'AA' | 'AAA' | 'fail' = 'AA';
-
-    if (pair.level === 'AAA' && actualLevel === 'AA') {
-      failures.push({
-        fgToken: pair.fg,
-        bgToken: pair.bg,
-        contrastRatio: 4.5,
-        requiredLevel: pair.level,
-        actualLevel,
-      });
-    }
-  }
+  // WCAG contrast calculation not implemented yet.
+  // Returns empty array - no failures reported until implementation is complete.
+  // TODO: Implement color parsing and contrast ratio calculation per WCAG 2.1
+  // See: https://www.w3.org/WAI/GL/wiki/Relative_luminance
+  // See: https://www.w3.org/WAI/GL/wiki/Contrast_ratio
 
   return failures;
 }
 
 /**
  * Find high coupling tokens by usage count
+ * Supports both new format (entries) and legacy format (usage) for backward compatibility
  */
 export function findHighUsageTokens(
   usageIndex: any,
@@ -144,7 +137,20 @@ export function findHighUsageTokens(
     usageCount: number;
   }> = [];
 
-  if (usageIndex && usageIndex.usage) {
+  // New format: usageIndex.entries (preferred)
+  if (usageIndex && usageIndex.entries && Array.isArray(usageIndex.entries)) {
+    for (const entry of usageIndex.entries) {
+      if (entry.usageCount >= threshold) {
+        highUsage.push({
+          tokenId: entry.path, // Use path as tokenId in new format
+          tokenPath: entry.path,
+          usageCount: entry.usageCount,
+        });
+      }
+    }
+  }
+  // Legacy format: usageIndex.usage (fallback for backward compatibility)
+  else if (usageIndex && usageIndex.usage && Array.isArray(usageIndex.usage)) {
     for (const usage of usageIndex.usage) {
       if (usage.usageCount >= threshold) {
         highUsage.push({
