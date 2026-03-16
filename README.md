@@ -22,6 +22,26 @@ TypeScript CLI that converts JSON design tokens (DTCG) into CSS custom propertie
 npm install
 ```
 
+### Monorepo Execution Policy
+
+- Supported mode: full monorepo install and execution from repository root only.
+- Run commands from root (detected via `git rev-parse --show-toplevel` or equivalent), not from `apps/*` or `packages/*`.
+- Root scripts enforce this policy via `npm run assert:repo-root`.
+- Partial workspace-only installs/execution are out of support in this repository.
+- `@flujo/shared` manifest convention in this repo is intentionally mixed for npm compatibility:
+  - root `package.json`: `workspace:*`
+  - `apps/figma-plugin/package.json`: `file:../../packages/shared`
+  - enforced by `npm run assert:shared-manifest-convention`
+
+### CI Policy (Root-Only)
+
+```bash
+npm ci
+npm run ci:preflight
+```
+
+Then run the needed root test/typecheck scripts (for example `npm run typecheck:plugin`, `npm run test:tooling`, `npm run test:plugin:bridge`).
+
 ### Token Compilation Scripts
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.

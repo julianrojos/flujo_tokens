@@ -15,6 +15,7 @@ docs/_generated/token-health.json
 docs/**/_generated/agent_prompts/
 apps/ds-dashboard/dist/
 apps/figma-plugin/dist/
+packages/shared/dist/
 apps/ds-dashboard/vite.config.js
 apps/ds-dashboard/vite.config.d.ts
 .refactor-pending/
