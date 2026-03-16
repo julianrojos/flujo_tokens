@@ -24,6 +24,7 @@
     "ds:tokens-sync": "node tooling/scripts/ds-tokens-sync.mjs",
     "ds:tokens-from-figma": "node tooling/scripts/ds-tokens-from-figma.mjs",
     "ds:tokens-from-figma:mcp": "npm run ds:tokens-from-figma -- --source mcp",
+    "ds:sync-figma": "node --import tsx tooling/scripts/ds-sync-figma.ts",
     "ds:figma-mcp-status": "node --import tsx tooling/scripts/ds-figma-mcp-status.ts",
     "ds:token-diff": "node tooling/scripts/ds-token-diff.mjs",
     "ds:token-graph": "node tooling/scripts/ds-token-graph.mjs",
