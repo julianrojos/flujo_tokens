@@ -56,6 +56,7 @@ export interface CreateServerRouteDepsConfig {
   toNumberString: (value: unknown, fallback: number, max?: number) => string;
   validateGitRef: (...args: unknown[]) => unknown;
   exitDelayMs?: number;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
 }
 
 export type CreateServerRouteDeps = CreateServerRouteDepsConfig;
@@ -115,5 +116,6 @@ export function buildCreateServerRouteDeps(deps: CreateServerRouteDepsConfig): C
     toNumberString: deps.toNumberString,
     validateGitRef: deps.validateGitRef,
     exitDelayMs: deps.exitDelayMs,
+    tokenRepo: deps.tokenRepo,
   };
 }

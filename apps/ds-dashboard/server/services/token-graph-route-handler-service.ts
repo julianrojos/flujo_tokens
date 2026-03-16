@@ -134,22 +134,22 @@ export function normalizeLegacyUsageIndex(raw: unknown): TokenUsageIndexNew {
             if (newObj.summary && typeof newObj.summary === 'object') {
                 const summary = newObj.summary as unknown as Record<string, unknown>;
                 const normalizedSummary: Record<string, unknown> = {};
-                
+
                 // Bidirectional fallback: prefer snake_case if exists, otherwise use camelCase
                 normalizedSummary.tokens_total = (summary.tokens_total as number) ?? (summary.totalTokens as number) ?? 0;
                 normalizedSummary.tokens_with_usage = (summary.tokens_with_usage as number) ?? (summary.tokensWithUsage as number) ?? 0;
                 normalizedSummary.usage_links_total = (summary.usage_links_total as number) ?? 0;
                 normalizedSummary.generatedAt = (summary.generatedAt as string) ?? '';
-                
+
                 // Calculate tokens_without_usage from actual values
                 const totalTokens = normalizedSummary.tokens_total as number;
                 const tokensWithUsage = normalizedSummary.tokens_with_usage as number;
                 normalizedSummary.tokens_without_usage = (summary.tokens_without_usage as number) ?? (totalTokens - tokensWithUsage);
-                
+
                 // Preserve existing aggregations if present
                 normalizedSummary.usage_links_by_kind = (summary.usage_links_by_kind as Record<string, number>) ?? {};
                 normalizedSummary.unresolved_total = (summary.unresolved_total as number) ?? 0;
-                
+
                 return {
                     ...newObj,
                     summary: normalizedSummary as unknown as TokenUsageIndexSummaryNew,
@@ -167,14 +167,14 @@ export function normalizeLegacyUsageIndex(raw: unknown): TokenUsageIndexNew {
             const entries: TokenUsageEntryNew[] = usage.map((u: LegacyTokenUsageEntry) => {
                 const usedIn: TokenUsageOccurrenceNew[] = u.usedIn.map((x: LegacyTokenUsageEntry['usedIn'][number]) => {
                     // Map legacy context to new source enum values
-                    const sourceMap = { 
-                        spec: 'component-spec', 
-                        css: 'css-alias', 
-                        other: 'unknown' 
+                    const sourceMap = {
+                        spec: 'component-spec',
+                        css: 'css-alias',
+                        other: 'unknown'
                     };
                     const context = x.context || 'other';
                     const kind = x.kind || context;
-                    
+
                     return {
                         kind,
                         source: sourceMap[context as keyof typeof sourceMap] || 'unknown',
@@ -221,14 +221,14 @@ export function normalizeLegacyUsageIndex(raw: unknown): TokenUsageIndexNew {
                 unresolved: (input.unresolved || []).map((u) => {
                     const uref = u as { context?: string; file?: string; ref?: string };
                     const context = uref.context || 'other';
-                    
+
                     // Map legacy context to new source enum values
-                    const sourceMap = { 
-                        spec: 'component-spec', 
-                        css: 'css-alias', 
-                        other: 'unknown' 
+                    const sourceMap = {
+                        spec: 'component-spec',
+                        css: 'css-alias',
+                        other: 'unknown'
                     };
-                    
+
                     return {
                         kind: context,
                         source: sourceMap[context as keyof typeof sourceMap] || 'unknown',
@@ -253,10 +253,26 @@ export function normalizeLegacyUsageIndex(raw: unknown): TokenUsageIndexNew {
 
 export async function handleTokenUsageIndexRoute(
     c: Context,
-    deps: TokenGraphRouteHandlerDeps,
+    deps: TokenGraphRouteHandlerDeps & { tokenRepo?: import('../db/token-repository.js').TokenRepository },
 ): Promise<unknown> {
-    const { failJson, getSystemContext } = deps;
+    const { failJson, getSystemContext, tokenRepo } = deps;
     const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '') as SystemContext;
+
+    // DB-first: try to get token usage index from database
+    if (tokenRepo) {
+        try {
+            const dbResult = tokenRepo.getTokenUsageIndex();
+            if (dbResult) {
+                return c.json(dbResult);
+            }
+            // If DB returns null, fall through to JSON fallback
+        } catch (error) {
+            console.warn('[TokenUsageIndex] DB-first failed, falling back to JSON:', error instanceof Error ? error.message : String(error));
+            // Fall through to JSON fallback
+        }
+    }
+
+    // Fallback: read from JSON file
     const loaded = await loadArtifactOrFail(
         c,
         {

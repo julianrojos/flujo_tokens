@@ -360,6 +360,25 @@ export class AiJobsStore {
     }
 
     /**
+     * Find a job by ID (protected for subclass access)
+     * @param id - Job ID
+     * @returns Job state or undefined
+     */
+    protected getJobById(id: string): AiJobState | undefined {
+        return this.jobs.get(id);
+    }
+
+    /**
+     * Load a job into memory (protected for subclass access)
+     * Atomically updates both jobs map and idempotency index
+     * @param job - Job state to load
+     */
+    protected loadJobIntoMemory(job: AiJobState): void {
+        this.jobs.set(job.id, job);
+        this.idempotencyIndex.set(job.idempotencyKey, job.id);
+    }
+
+    /**
      * Get queue status for a provider
      * @param provider - Provider name
      * @returns Queue status
@@ -466,4 +485,18 @@ export function getAiJobsStore(): AiJobsStore {
         storeInstance.startCleanup();
     }
     return storeInstance;
+}
+
+/**
+ * Initialize the AI jobs store singleton with an external instance
+ * This allows wiring a persistent store (AiJobsStoreWithPersistence) to the singleton
+ * @param instance - The AiJobsStore instance to use as the singleton
+ */
+export function initializeAiJobsStore(instance: AiJobsStore): void {
+    // Stop cleanup on old instance if it exists
+    if (storeInstance) {
+        storeInstance.stopCleanup();
+    }
+    storeInstance = instance;
+    storeInstance.startCleanup();
 }

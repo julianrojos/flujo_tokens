@@ -1,0 +1,4 @@
+# SQLite database files (derived, rebuildable artifacts)
+*.db
+*.db-wal
+*.db-shm

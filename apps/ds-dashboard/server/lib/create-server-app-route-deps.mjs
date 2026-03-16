@@ -47,5 +47,6 @@ export function buildCreateServerAppRouteDeps(config) {
     toBooleanString: config.toBooleanString,
     toNumberString: config.toNumberString,
     validateGitRef: config.validateGitRef,
+    tokenRepo: config.tokenRepo,
   };
 }

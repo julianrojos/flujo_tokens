@@ -17,6 +17,7 @@ import {
 export interface TokenGraphRoutesDeps {
     failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
     getSystemContext: (systemHeader: string) => unknown;
+    tokenRepo?: import('../db/token-repository.js').TokenRepository;
 }
 
 /**

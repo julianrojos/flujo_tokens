@@ -54,6 +54,10 @@ import {
 import {
   disposeFigmaMcpPingService,
 } from './services/figma-mcp-ping-service.ts';
+import { bootstrapDatabase } from './db/db-service.js';
+import { AiJobsStoreWithPersistence } from './services/ai-jobs-store-with-persistence.js';
+import { initializeAiJobsStore } from './services/ai-jobs-store.js';
+import { TokenRepository } from './db/token-repository.js';
 
 export interface CreateServerAppOptions {
   env?: NodeJS.ProcessEnv;
@@ -102,6 +106,50 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     watch = true,
   } = options;
 
+  // Initialize SQLite database
+  const dbPath = path.join(repoRoot, 'apps/ds-dashboard/server/db/ds-dashboard.db');
+  let db: import('better-sqlite3').Database | undefined;
+  let aiJobsStore: AiJobsStoreWithPersistence | undefined;
+  let tokenRepo: TokenRepository | undefined;
+
+  try {
+    db = bootstrapDatabase({ dbPath });
+    aiJobsStore = new AiJobsStoreWithPersistence({ db });
+    tokenRepo = new TokenRepository(db);
+
+    // Wire the persistent store to the singleton so routes use it
+    initializeAiJobsStore(aiJobsStore);
+
+    // Load existing jobs from DB into memory
+    aiJobsStore.loadJobsFromDb();
+
+    // Try to rebuild token cache from JSON files only if DB is empty (cold start)
+    const generatedDir = path.join(repoRoot, 'docs/_generated');
+    const jsonPaths = {
+      tokenRegistry: path.join(generatedDir, 'token-registry.json'),
+      tokenUsageIndex: path.join(generatedDir, 'token-usage-index.json'),
+      figmaAliasGraph: path.join(generatedDir, 'figma-alias-graph.json'),
+    };
+
+    // Check if DB already has data before rebuilding
+    const existingMetadata = tokenRepo.getLastRebuildMetadata();
+    if (existingMetadata) {
+      console.log(`[Server] Token cache already populated (last rebuild: ${new Date(existingMetadata.timestamp!).toISOString()})`);
+    } else {
+      console.log('[Server] Token cache empty, rebuilding from JSON files...');
+      const rebuildResult = tokenRepo.rebuildFromJsonFiles(jsonPaths);
+      if (rebuildResult.warnings.length > 0) {
+        console.log('[Server] Token cache rebuild warnings:', rebuildResult.warnings);
+      }
+      if (rebuildResult.tokensLoaded > 0) {
+        console.log(`[Server] Token cache rebuilt: ${rebuildResult.tokensLoaded} tokens loaded`);
+      }
+    }
+  } catch (error) {
+    console.warn('[Server] Failed to initialize SQLite database:', error instanceof Error ? error.message : String(error));
+    console.warn('[Server] Running in in-memory mode only (no persistence)');
+  }
+
   const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
   let designSystemRepositoryDisposed = false;
 
@@ -110,6 +158,15 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     designSystemRepositoryDisposed = true;
     designSystemRepository.dispose();
     disposeFigmaMcpPingService();
+    // Close database connection
+    if (db) {
+      try {
+        db.close();
+        console.log('[Server] Database connection closed');
+      } catch (error) {
+        console.warn('[Server] Error closing database:', error instanceof Error ? error.message : String(error));
+      }
+    }
   }
 
   const {
@@ -231,6 +288,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       toBooleanString,
       toNumberString,
       validateGitRef,
+      tokenRepo,
     }),
   });
 

@@ -102,7 +102,7 @@ export interface AllRouteDeps {
   systemDeps: SystemDeps;
   operationsDeps: OperationsDeps;
   registryDeps: SharedSystemContextDeps;
-  tokenGraphDeps: SharedSystemContextDeps;
+  tokenGraphDeps: SharedSystemContextDeps & { tokenRepo?: import('../db/token-repository.js').TokenRepository };
   healthDeps: SharedSystemContextDeps;
   analysisDeps: SharedSystemContextDeps;
   componentSpecDeps: ComponentSpecDeps;
@@ -163,6 +163,7 @@ export interface ServerDeps {
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
 }
 
 export function buildSharedSystemContextDeps(deps: ServerDeps): SharedSystemContextDeps {
@@ -209,7 +210,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
     },
     registryDeps: sharedSystemContextDeps,
-    tokenGraphDeps: sharedSystemContextDeps,
+    tokenGraphDeps: { ...sharedSystemContextDeps, tokenRepo: deps.tokenRepo },
     healthDeps: sharedSystemContextDeps,
     analysisDeps: sharedSystemContextDeps,
     componentSpecDeps: {
