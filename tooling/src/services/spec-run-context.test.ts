@@ -38,7 +38,7 @@ describe('spec-run-context', () => {
             allowNonEvidenceUpdates: false,
             agent: 'auto',
           },
-        },
+        } as any,
       });
 
       assert.equal(result.componentName, 'Alert');
@@ -76,7 +76,7 @@ describe('spec-run-context', () => {
               allowNonEvidenceUpdates: false,
               agent: 'auto',
             },
-          },
+          } as any,
         }),
       );
     });

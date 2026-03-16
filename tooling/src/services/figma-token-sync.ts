@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fetchFigmaLocalVariables, type FigmaVariablesResponse } from '../utils/figma-api.js';
 import { fetchFigmaLocalVariablesViaMcp } from './figma-mcp-variables.js';
+import { stripDiacritics } from '../utils/strip-diacritics.js';
 import dsTypes from 'ds-types';
 import type { FigmaVariableSource as SharedFigmaVariableSource } from 'ds-types';
 
@@ -37,10 +38,10 @@ export function hasInputJsonFiles(repoRoot: string, inputDir: string): boolean {
 
 /**
  * Sanitize a collection name to a valid file stem.
+ * Normalizes diacritics (accents) to ASCII base characters.
  */
 export function sanitizeCollectionFileStem(rawName: string, fallback = 'imported'): string {
-  const normalized = String(rawName || '')
-    .trim()
+  const normalized = stripDiacritics(String(rawName || '').trim())
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/-+/g, '-')
@@ -321,8 +322,7 @@ export interface BuildFilesMapResult {
   filesMap: Map<string, FilesMapPayload>;
   tokenCount: number;
 }
-
-/**
+ /**
  * Build a map of files from Figma variables payload.
  */
 export function buildFilesMapFromVariables(meta: Record<string, unknown> | null): BuildFilesMapResult {
@@ -346,14 +346,13 @@ export function buildFilesMapFromVariables(meta: Record<string, unknown> | null)
     if (modeValues.size === 0) continue;
 
     for (const [modeName, modeValue] of modeValues) {
-      const tokenNode = buildTokenNodeFromFigmaVariable(variableRecord, modeValue);
-      if (!tokenNode) continue;
-
-      // Single mode → use collection name; multiple modes → append mode name
       const fileKey =
         modeValues.size === 1
           ? collectionFileStem
           : `${collectionFileStem}-${sanitizeCollectionFileStem(modeName as string, 'default')}`;
+
+      const tokenNode = buildTokenNodeFromFigmaVariable(variableRecord, modeValue);
+      if (!tokenNode) continue;
 
       if (!filesMap.has(fileKey)) {
         filesMap.set(fileKey, {
@@ -368,7 +367,11 @@ export function buildFilesMapFromVariables(meta: Record<string, unknown> | null)
       const target = filesMap.get(fileKey)!;
       const pathSegments = variableName
         .split('/')
-        .map((segment) => String(segment || '').trim())
+        .map((segment) => {
+          const trimmed = String(segment || '').trim();
+          // Normalize diacritics in the entire path segment
+          return stripDiacritics(trimmed);
+        })
         .filter(Boolean);
       if (pathSegments.length === 0) continue;
       const assigned = assignTokenAtPath(target.data, pathSegments, tokenNode);
@@ -384,7 +387,11 @@ export function buildFilesMapFromVariables(meta: Record<string, unknown> | null)
 
 export interface SyncFigmaTokensToInputOptions {
   repoRoot: string;
-  system: Record<string, unknown> | null;
+  system: {
+    inputDir?: string;
+    outputDir?: string;
+    docsDir?: string;
+  } | null;
   fileKey: string;
   figmaToken?: string;
   force?: boolean;
@@ -696,7 +703,11 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
 
 export interface RunTokensCompileOptions {
   repoRoot: string;
-  system: Record<string, unknown> | null;
+  system: {
+    inputDir?: string;
+    outputDir?: string;
+    docsDir?: string;
+  } | null;
 }
 
 export interface RunTokensCompileResult {

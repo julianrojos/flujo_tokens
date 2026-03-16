@@ -24,7 +24,6 @@ function createPreflight(): ActiveMdToFigmaPreparationResult {
     offsetX: 200,
     figmaUrl: 'https://figma.com/file/abc',
     agent: 'auto',
-    expectedThemeName: 'default',
     ctx: {
       id: 'test',
       name: 'Test System',

@@ -79,6 +79,7 @@ export function createCaptureContextMock(overrides: Partial<MockDeps> = {}): Moc
         format: 'png',
         agent: 'auto',
         mainCaptureMode: 'rest',
+        tokensSource: 'mcp',
         force: true,
         skipValidation: false,
         allowNonEvidenceUpdates: false,

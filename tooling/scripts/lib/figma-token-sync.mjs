@@ -14,6 +14,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { fetchFigmaLocalVariables } from "./figma-api.mjs";
+import { stripDiacritics } from "./strip-diacritics.mjs";
 
 // ─── File helpers ─────────────────────────────────────────────────────────────
 
@@ -26,8 +27,7 @@ export function hasInputJsonFiles(repoRoot, inputDir) {
 }
 
 export function sanitizeCollectionFileStem(rawName, fallback = "imported") {
-  const normalized = String(rawName || "")
-    .trim()
+  const normalized = stripDiacritics(String(rawName || "").trim())
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/-+/g, "-")
@@ -288,7 +288,11 @@ export function buildFilesMapFromVariables(meta) {
       const target = filesMap.get(fileKey);
       const pathSegments = variableName
         .split("/")
-        .map((segment) => String(segment || "").trim())
+        .map((segment) => {
+          const trimmed = String(segment || "").trim();
+          // Normalize diacritics in the entire path segment
+          return stripDiacritics(trimmed);
+        })
         .filter(Boolean);
       if (pathSegments.length === 0) continue;
       const assigned = assignTokenAtPath(target.data, pathSegments, tokenNode);

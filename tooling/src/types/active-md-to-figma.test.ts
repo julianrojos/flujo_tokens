@@ -32,6 +32,20 @@ function createMockOptions(
     offsetX: 200,
     force: false,
     skipValidation: false,
+    scripts: {
+      markdownToModelScript: '/test/scripts/markdown_to_doc_model.mjs',
+      modelToExecuteScript: '/test/scripts/build_figma_execute_code.mjs',
+    },
+    themePath: '/test/theme.yml',
+    systemPaths: {
+      docsDir: '/test/docs',
+      overviewPath: '/test/docs/overview.md',
+      specsDir: '/test/specs',
+      proofsDir: '/test/proofs',
+      renderDir: '/test/generated/figma_doc_models',
+      registryPath: '/test/registry.json',
+    },
+    captureProofStrict: false,
     ...overrides,
   };
 }
@@ -145,6 +159,20 @@ describe('active-md-to-figma types', () => {
         offsetX: 200,
         force: false,
         skipValidation: false,
+        scripts: {
+          markdownToModelScript: '/test/scripts/model.mjs',
+          modelToExecuteScript: '/test/scripts/execute.mjs',
+        },
+        themePath: '/test/theme.yml',
+        systemPaths: {
+          docsDir: '/test/docs',
+          overviewPath: '/test/docs/overview.md',
+          specsDir: '/test/specs',
+          proofsDir: '/test/proofs',
+          renderDir: '/test/render',
+          registryPath: '/test/registry.json',
+        },
+        captureProofStrict: false,
       };
 
       assert.strictEqual(context.fileBase, 'test');
@@ -168,6 +196,20 @@ describe('active-md-to-figma types', () => {
         syncStatePath: '/test/sync.json',
         figmaUrl: 'https://figma.com/file/abc',
         system: 'iter',
+        scripts: {
+          markdownToModelScript: '/test/scripts/model.mjs',
+          modelToExecuteScript: '/test/scripts/execute.mjs',
+        },
+        themePath: '/test/theme.yml',
+        systemPaths: {
+          docsDir: '/test/docs',
+          overviewPath: '/test/docs/overview.md',
+          specsDir: '/test/specs',
+          proofsDir: '/test/proofs',
+          renderDir: '/test/render',
+          registryPath: '/test/registry.json',
+        },
+        captureProofStrict: false,
       };
 
       assert.strictEqual(context.syncStatePath, '/test/sync.json');
@@ -191,6 +233,20 @@ describe('active-md-to-figma types', () => {
         offsetX: 200,
         force: false,
         skipValidation: false,
+        scripts: {
+          markdownToModelScript: '/test/scripts/model.mjs',
+          modelToExecuteScript: '/test/scripts/execute.mjs',
+        },
+        themePath: '/test/theme.yml',
+        systemPaths: {
+          docsDir: '/test/docs',
+          overviewPath: '/test/docs/overview.md',
+          specsDir: '/test/specs',
+          proofsDir: '/test/proofs',
+          renderDir: '/test/render',
+          registryPath: '/test/registry.json',
+        },
+        captureProofStrict: false,
       };
 
       assert.strictEqual(options.fileBase, 'test');
@@ -214,6 +270,20 @@ describe('active-md-to-figma types', () => {
         syncStatePath: '/test/sync.json',
         figmaUrl: 'https://figma.com/file/abc',
         system: 'iter',
+        scripts: {
+          markdownToModelScript: '/test/scripts/model.mjs',
+          modelToExecuteScript: '/test/scripts/execute.mjs',
+        },
+        themePath: '/test/theme.yml',
+        systemPaths: {
+          docsDir: '/test/docs',
+          overviewPath: '/test/docs/overview.md',
+          specsDir: '/test/specs',
+          proofsDir: '/test/proofs',
+          renderDir: '/test/render',
+          registryPath: '/test/registry.json',
+        },
+        captureProofStrict: false,
       };
 
       assert.strictEqual(options.syncStatePath, '/test/sync.json');

@@ -4,13 +4,18 @@
   "description": "CSS custom properties generator from JSON tokens",
   "type": "module",
   "dependencies": {
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "@flujo/shared": "workspace:*"
   },
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
   "scripts": {
+    "assert:repo-root": "node tooling/scripts/assert-repo-root.mjs",
+    "assert:shared-manifest-convention": "node tooling/scripts/assert-shared-manifest-convention.mjs",
+    "build:shared": "npm run assert:repo-root && npm -w @flujo/shared run build",
+    "ci:preflight": "npm run assert:repo-root && npm run assert:shared-manifest-convention && npm run build:shared",
     "generate": "tsx tooling/src/cli/index.ts",
     "generate:registry": "tsx tooling/src/cli/index.ts --registry",
     "generate:strict": "tsx tooling/src/cli/index.ts --mode-strict",
@@ -56,11 +61,12 @@
     "ds:pipeline": "node tooling/scripts/ds-pipeline.mjs",
     "test:tooling:ds-types": "tsx --test packages/ds-types/src/*.test.ts",
     "test:tooling:core": "tsx --test tooling/src/utils/*.test.ts tooling/src/services/*.test.ts tooling/src/runners/*.test.ts",
-    "test:tooling": "npm run test:tooling:ds-types && npm run test:tooling:core",
+    "test:tooling": "npm run assert:repo-root && npm run build:shared && npm run test:tooling:ds-types && npm run test:tooling:core",
     "test:server:node": "tsx --test apps/ds-dashboard/server/lib/*.test.mjs apps/ds-dashboard/server/routes/*.test.mjs",
     "test:server:tsx": "tsx --test apps/ds-dashboard/server/lib/*.test.ts apps/ds-dashboard/server/routes/*.test.ts apps/ds-dashboard/server/create-server-app.test.ts apps/ds-dashboard/server/create-server-http-app.test.ts apps/ds-dashboard/server/routes/analysis-routes.test.ts apps/ds-dashboard/server/routes/component-spec-routes.test.ts",
     "test:server": "npm run test:server:node && npm run test:server:tsx",
-    "test:plugin:bridge": "npm --prefix apps/figma-plugin run test:bridge",
+    "test:plugin:bridge": "npm run assert:repo-root && npm run build:shared && npm --prefix apps/figma-plugin run test:bridge",
+    "typecheck:plugin": "npm run assert:repo-root && npm run build:shared && npm --prefix apps/figma-plugin run typecheck",
     "test:dashboard:routes": "npm --prefix apps/ds-dashboard run test:server:routes",
     "test:changed-surface": "npm run test:plugin:bridge && npm run test:dashboard:routes",
     "test:dashboard": "npm --prefix apps/ds-dashboard run test",

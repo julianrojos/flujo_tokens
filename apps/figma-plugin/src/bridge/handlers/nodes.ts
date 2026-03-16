@@ -26,6 +26,7 @@ import {
   createBridgeError,
   ERROR_CODES,
 } from '../protocol';
+import { stripDiacritics } from '../utils/strip-diacritics.js';
 
 function toHexRgb(hex: string): { r: number; g: number; b: number; a: number } {
   const raw = hex.replace(/^#/, '');
@@ -675,6 +676,8 @@ export async function handleGetChildren(params: GetChildrenParams): Promise<unkn
   }
 }
 
+// ─── Search nodes ───────────────────────────────────────────────────────
+
 /**
  * SEARCH_NODES - Search nodes by name/type within a scope
  */
@@ -718,7 +721,13 @@ export async function handleSearchNodes(params: SearchNodesParams): Promise<unkn
       // Check filters (skip root)
       if (depth > 0) {
         const matchesType = !types || types.has(node.type);
-        const matchesNameContains = !nameContains || node.name.toLowerCase().includes(nameContains);
+        // Diacritic-insensitive nameContains filter
+        let matchesNameContains = true;
+        if (nameContains) {
+          const normalizedName = stripDiacritics(node.name.toLowerCase());
+          const normalizedQuery = stripDiacritics(nameContains.toLowerCase());
+          matchesNameContains = normalizedName.includes(normalizedQuery);
+        }
         const matchesNamePattern = !nameRegex || nameRegex.test(node.name);
 
         if (matchesType && matchesNameContains && matchesNamePattern) {

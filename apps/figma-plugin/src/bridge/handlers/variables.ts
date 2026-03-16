@@ -37,6 +37,7 @@ import {
   UnbindVariableParams,
   UnbindVariableResult,
 } from '../protocol';
+import { stripDiacritics } from '../utils/strip-diacritics.js';
 
 /**
  * Helper: Serialize a Figma Variable to protocol format.
@@ -447,6 +448,8 @@ export async function resolveVariableAliases(
   return resolvedByMode;
 }
 
+// ─── Search variables ───────────────────────────────────────────────────────
+
 export async function handleSearchVariables(
   params: SearchVariablesParams
 ): Promise<SearchVariablesResult> {
@@ -504,9 +507,13 @@ export async function handleSearchVariables(
       if (nameRegex && !nameRegex.test(v.name)) {
         return false;
       }
-      // P1: Filter by nameContains (case-insensitive substring match)
-      if (params.nameContains && !v.name.toLowerCase().includes(params.nameContains.toLowerCase())) {
-        return false;
+      // P1: Filter by nameContains (diacritic-insensitive substring match)
+      if (params.nameContains) {
+        const normalizedName = stripDiacritics(v.name.toLowerCase());
+        const normalizedQuery = stripDiacritics(params.nameContains.toLowerCase());
+        if (!normalizedName.includes(normalizedQuery)) {
+          return false;
+        }
       }
       return true;
     });

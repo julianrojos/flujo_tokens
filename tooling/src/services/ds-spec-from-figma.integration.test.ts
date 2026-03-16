@@ -12,6 +12,19 @@ import { describe, it } from 'node:test';
 import yaml from 'js-yaml';
 
 import { runSpecFromFigma } from '../services/spec-orchestrator.js';
+import type { AgentPromptResult } from '../utils/index.js';
+
+function createAgentPromptResult(): AgentPromptResult {
+  return {
+    ok: true,
+    agent: 'codex',
+    command: 'codex',
+    args: [],
+    status: 0,
+    stdout: '',
+    stderr: '',
+  };
+}
 
 /**
  * Create a temporary directory for testing.
@@ -113,12 +126,13 @@ describe('ds-spec-from-figma integration', () => {
             format: 'png',
             agent: 'auto',
             mainCaptureMode: 'rest',
+            tokensSource: 'mcp',
             force: false,
             skipValidation: false,
             allowNonEvidenceUpdates: false,
           },
           argsRaw: {},
-        }),
+        } as any),
         loadRegistryOrThrowFn: () => ({
           token_a: {
             path: 'components.alert.icon.color',
@@ -157,12 +171,8 @@ describe('ds-spec-from-figma integration', () => {
             );
           }
         },
-        runSpecGenerationPromptFn: async () => ({
-          message: 'Here is your spec',
-        }),
-        runSpecRepairPromptFn: async () => ({
-          message: 'Here is your repaired spec',
-        }),
+        runSpecGenerationPromptFn: () => createAgentPromptResult(),
+        runSpecRepairPromptFn: () => createAgentPromptResult(),
         validateGeneratedSpecFn: () => ({
           ok: true,
           report: {
@@ -173,7 +183,7 @@ describe('ds-spec-from-figma integration', () => {
             },
           },
           errors: [],
-        }),
+        }) as any,
         syncDocumentationIndicesFn: () => ({
           changed: [],
           written: [],
@@ -184,7 +194,7 @@ describe('ds-spec-from-figma integration', () => {
           overview: {
             overviewPath: path.join(docsComponentsDir, 'overview.md'),
           },
-        }),
+        }) as any,
       }
     );
 

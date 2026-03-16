@@ -8,6 +8,19 @@ import { describe, it } from 'node:test';
 
 import { runSpecFromFigma } from './spec-orchestrator.js';
 import type { MaterializeSpecOptions } from './spec-write-adapter.js';
+import type { AgentPromptResult } from '../utils/index.js';
+
+function createAgentPromptResult(): AgentPromptResult {
+  return {
+    ok: true,
+    agent: 'codex',
+    command: 'codex',
+    args: [],
+    status: 0,
+    stdout: '',
+    stderr: '',
+  };
+}
 
 describe('spec-orchestrator', () => {
   describe('runSpecFromFigma()', () => {
@@ -70,12 +83,13 @@ describe('spec-orchestrator', () => {
               format: 'png',
               agent: 'auto',
               mainCaptureMode: 'rest',
+              tokensSource: 'mcp',
               force: true,
               skipValidation: false,
               allowNonEvidenceUpdates: false,
             },
             argsRaw: {},
-          }),
+          } as any),
           loadRegistryOrThrowFn: () => ({
             token_a: {
               path: 'components.alert.icon.color',
@@ -99,12 +113,8 @@ describe('spec-orchestrator', () => {
           writeSpecWithSnapshotGuardFn: ({ normalizedSpec, applyWriteFn }: any) => {
             if (applyWriteFn) applyWriteFn({ outputPath: '/tmp/_out.yml', normalizedSpec });
           },
-          runSpecGenerationPromptFn: async () => ({
-            message: 'Here is your spec',
-          }),
-          runSpecRepairPromptFn: async () => ({
-            message: 'Here is your repaired spec',
-          }),
+          runSpecGenerationPromptFn: () => createAgentPromptResult(),
+          runSpecRepairPromptFn: () => createAgentPromptResult(),
           validateGeneratedSpecFn: () => ({
             ok: true,
             report: {
@@ -115,7 +125,7 @@ describe('spec-orchestrator', () => {
               },
             },
             errors: [],
-          }),
+          }) as any,
           syncDocumentationIndicesFn: () => ({
             changed: [],
             written: [],
@@ -126,20 +136,21 @@ describe('spec-orchestrator', () => {
             overview: {
               overviewPath: '/tmp/docs/overview.md',
             },
-          }),
+          }) as any,
         }
       );
 
       assert.equal(result.ok, true);
       assert.equal(result.componentName, 'Alert');
       assert.equal(result.componentSetNodeId, '123:456');
-      assert.ok(Array.isArray(capturedMaterializeOptions?.evidenceBackedPrefixes));
+      const materializeOptions = capturedMaterializeOptions as unknown as MaterializeSpecOptions;
+      assert.ok(Array.isArray(materializeOptions.evidenceBackedPrefixes));
       assert.equal(
-        capturedMaterializeOptions.evidenceBackedPrefixes.includes('variants'),
+        materializeOptions.evidenceBackedPrefixes.includes('variants'),
         true,
       );
       assert.equal(
-        capturedMaterializeOptions.evidenceBackedPrefixes.includes('layout'),
+        materializeOptions.evidenceBackedPrefixes.includes('layout'),
         true,
       );
     });

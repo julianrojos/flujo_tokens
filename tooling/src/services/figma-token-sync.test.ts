@@ -12,6 +12,7 @@ import { describe, it } from 'node:test';
 import {
   buildTokenNodeFromFigmaVariable,
   mergeTokenTrees,
+  sanitizeCollectionFileStem,
   syncFigmaTokensToInput,
 } from './figma-token-sync.js';
 import type { FigmaVariablesResponse } from '../utils/figma.js';
@@ -256,6 +257,115 @@ describe('figma-token-sync', () => {
       }
     });
 
+    it('normalizes diacritics for collection names and token path segments when writing files', async () => {
+      const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-token-sync-diacritics-'));
+      const payloadWithDiacritics: FigmaVariablesResponse = {
+        meta: {
+          variableCollections: {
+            'VariableCollectionId:9': {
+              id: 'VariableCollectionId:9',
+              name: 'Tipografía Base',
+              modes: [{ modeId: '9:0', name: 'Modo Único' }],
+            },
+          },
+          variables: {
+            'VariableID:9': {
+              id: 'VariableID:9',
+              name: 'colór/acción/primário',
+              variableCollectionId: 'VariableCollectionId:9',
+              resolvedType: 'COLOR',
+              valuesByMode: {
+                '9:0': { r: 1, g: 0, b: 0, a: 1 },
+              },
+            },
+          },
+        },
+      };
+
+      try {
+        const result = await syncFigmaTokensToInput({
+          repoRoot: tempRoot,
+          system: {
+            inputDir: 'input/demo',
+            outputDir: 'output/demo',
+            docsDir: 'docs/demo',
+          },
+          fileKey: 'dummy',
+          source: 'mcp',
+          fetchMcpVariablesFn: async () => payloadWithDiacritics,
+        });
+
+        assert.equal(result.reason, undefined);
+        const outputPath = path.join(tempRoot, 'input', 'demo', 'tipografia-base.json');
+        assert.equal(fs.existsSync(outputPath), true);
+
+        const written = JSON.parse(fs.readFileSync(outputPath, 'utf8')) as Record<string, unknown>;
+        const colorBranch = written.color as Record<string, unknown>;
+        assert.ok(colorBranch, 'Expected "color" branch to exist');
+        const accionBranch = colorBranch.accion as Record<string, unknown>;
+        assert.ok(accionBranch, 'Expected "accion" branch to exist');
+        const primaryNode = accionBranch.primario as { $value?: string; $type?: string };
+        assert.equal(primaryNode.$type, 'color');
+        assert.equal(primaryNode.$value, '#FF0000');
+      } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+      }
+    });
+
+    it('handles NFD decomposed diacritics correctly', async () => {
+      const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-token-sync-nfd-'));
+      // Create payload with NFD decomposed characters (base + combining mark)
+      const payloadWithNFD: FigmaVariablesResponse = {
+        meta: {
+          variableCollections: {
+            'VariableCollectionId:9': {
+              id: 'VariableCollectionId:9',
+              name: 'Cafe\u0301 Base', // "Café" decomposed: "Cafe" + COMBINING ACUTE ACCENT
+              modes: [{ modeId: '9:0', name: 'Modo U\u0301nico' }], // "Único" decomposed: "U" + COMBINING ACUTE ACCENT
+            },
+          },
+          variables: {
+            'VariableId:1': {
+              id: 'VariableId:1',
+              variableCollectionId: 'VariableCollectionId:9',
+              name: 'Color/Taman\u0303o/Grande', // "Tamaño" decomposed: "Taman" + COMBINING TILDE
+              resolvedType: 'COLOR',
+              valuesByMode: { '9:0': { r: 0, g: 1, b: 0, a: 1 } }, // Green color object
+            },
+          },
+        },
+      };
+
+      try {
+        const result = await syncFigmaTokensToInput({
+          repoRoot: tempRoot,
+          system: {
+            inputDir: 'input/demo',
+            outputDir: 'output/demo',
+            docsDir: 'docs/demo',
+          },
+          fileKey: 'dummy',
+          source: 'mcp',
+          fetchMcpVariablesFn: async () => payloadWithNFD,
+        });
+
+        assert.equal(result.reason, undefined);
+        const outputPath = path.join(tempRoot, 'input', 'demo', 'cafe-base.json');
+        assert.equal(fs.existsSync(outputPath), true);
+
+        const written = JSON.parse(fs.readFileSync(outputPath, 'utf8')) as Record<string, unknown>;
+        const colorBranch = written.Color as Record<string, unknown>;
+        assert.ok(colorBranch, 'Expected "Color" branch to exist');
+        const tamanoBranch = colorBranch.Tamano as Record<string, unknown>;
+        assert.ok(tamanoBranch, 'Expected "Tamano" branch to exist');
+        const grandeNode = tamanoBranch.Grande as { $value?: string; $type?: string };
+        assert.equal(grandeNode.$type, 'color');
+        assert.equal(grandeNode.$value, '#00FF00');
+      } finally {
+        fs.rmSync(tempRoot, { recursive: true, force: true });
+      }
+    });
+
     it('supports source=rest without invoking MCP', async () => {
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-token-sync-rest-'));
       const restPayload = createVariablesPayload();
@@ -355,6 +465,35 @@ describe('figma-token-sync', () => {
       } finally {
         fs.rmSync(tempRoot, { recursive: true, force: true });
       }
+    });
+  });
+
+  describe('sanitizeCollectionFileStem', () => {
+    it('normalizes diacritics in collection names', () => {
+      // Spanish accents
+      assert.equal(sanitizeCollectionFileStem('Tipografía'), 'tipografia');
+      assert.equal(sanitizeCollectionFileStem('Acción'), 'accion');
+      assert.equal(sanitizeCollectionFileStem('España'), 'espana');
+
+      // French accents
+      assert.equal(sanitizeCollectionFileStem('Café'), 'cafe');
+      assert.equal(sanitizeCollectionFileStem('Société'), 'societe');
+
+      // German umlauts
+      assert.equal(sanitizeCollectionFileStem('für'), 'fur');
+      // Note: ß (sharp s) is not a diacritic - it normalizes to empty string after removing combining marks
+      assert.equal(sanitizeCollectionFileStem('Größe'), 'gro-e');
+
+      // Multiple diacritics in one word
+      assert.equal(sanitizeCollectionFileStem('Niño'), 'nino');
+
+      // Preserves alphanumeric characters
+      assert.equal(sanitizeCollectionFileStem('Colors2024'), 'colors2024');
+      assert.equal(sanitizeCollectionFileStem('Token-Base'), 'token-base');
+
+      // Handles empty/edge cases
+      assert.equal(sanitizeCollectionFileStem(''), 'imported');
+      assert.equal(sanitizeCollectionFileStem('   '), 'imported');
     });
   });
 });

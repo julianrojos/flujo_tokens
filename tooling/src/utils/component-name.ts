@@ -1,8 +1,11 @@
 import path from "node:path";
 
+import { stripDiacritics } from "./strip-diacritics.js";
+
 /**
  * Split a component name into individual words.
  * Handles camelCase, PascalCase, snake-case, kebab-case, and dot notation.
+ * Also normalizes diacritics (accents) to ASCII base characters.
  */
 function splitComponentWords(raw: unknown): string[] {
   const input =
@@ -13,7 +16,10 @@ function splitComponentWords(raw: unknown): string[] {
         : "";
   if (!input) return [];
 
-  return input
+  // First normalize diacritics (áéíóú -> aeioou, ñ -> n, etc.)
+  const normalized = stripDiacritics(input);
+
+  return normalized
     .replace(/\.[^.]+$/, "") // Remove file extension
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2") // camelCase → camel Case
     .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2") // XMLParser → XML Parser

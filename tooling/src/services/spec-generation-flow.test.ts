@@ -26,7 +26,7 @@ describe('spec-generation-flow', () => {
     it('success path without repair', () => {
       const result = runSpecGenerationFlow({
         prompt: 'prompt',
-        agent: 'auto' as const,
+        agent: 'codex',
         componentName: 'Alert',
         nodeId: '1:1',
         skipValidation: false,
@@ -46,7 +46,7 @@ describe('spec-generation-flow', () => {
       let validationCalls = 0;
       const result = runSpecGenerationFlow({
         prompt: 'prompt',
-        agent: 'auto' as const,
+        agent: 'codex',
         componentName: 'Alert',
         nodeId: '1:1',
         skipValidation: false,
@@ -73,7 +73,7 @@ describe('spec-generation-flow', () => {
       assert.throws(() =>
         runSpecGenerationFlow({
           prompt: 'prompt',
-          agent: 'auto' as const,
+          agent: 'codex',
           componentName: 'Alert',
           nodeId: '1:1',
           skipValidation: false,

@@ -116,21 +116,21 @@ function createAuditState(): AuditRenderState {
 describe('render-phase-runner', () => {
   describe('runRenderPhases', () => {
     it('executes phases in sequence and carries staged state forward', async () => {
-      const phases = [
+      const phases: Array<RenderPhase<RenderPipelineState>> = [
         {
           name: 'pipeline',
           execute: async () => phaseSuccess(createPipelineState()),
         },
         {
           name: 'agent',
-          execute: async (_ctx, state) => {
+          execute: async (_ctx: ActiveMdToFigmaRuntimeContext, state: RenderPipelineState) => {
             assert.strictEqual(state.stage, 'pipeline');
             return phaseSuccess(createAgentState());
           },
         },
         {
           name: 'audit',
-          execute: async (_ctx, state) => {
+          execute: async (_ctx: ActiveMdToFigmaRuntimeContext, state: RenderPipelineState) => {
             assert.strictEqual(state.stage, 'agent');
             return phaseSuccess(createAuditState());
           },
@@ -143,9 +143,9 @@ describe('render-phase-runner', () => {
     });
 
     it('throws a phase-named error when a phase returns ok=false', async () => {
-      const phases = [
+      const phases: Array<RenderPhase<RenderPipelineState>> = [
         { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
-        { name: 'audit', execute: async () => phaseFailure('Test error') },
+        { name: 'audit', execute: (async () => phaseFailure('Test error')) as any },
       ];
 
       await assert.rejects(
@@ -161,7 +161,7 @@ describe('render-phase-runner', () => {
     });
 
     it('stops execution when skipBehavior is exit', async () => {
-      const phases = [
+      const phases: Array<RenderPhase<RenderPipelineState>> = [
         { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
         { name: 'cache', execute: async () => phaseSkip('Cache hit', 'exit') },
         {
@@ -177,7 +177,7 @@ describe('render-phase-runner', () => {
     });
 
     it('continues execution when skipBehavior is continue', async () => {
-      const phases = [
+      const phases: Array<RenderPhase<RenderPipelineState>> = [
         { name: 'pipeline', execute: async () => phaseSuccess(createPipelineState()) },
         { name: 'proof', execute: async () => phaseSkip('Optional unavailable', 'continue') },
         { name: 'agent', execute: async () => phaseSuccess(createAgentState()) },

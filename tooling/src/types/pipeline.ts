@@ -1,4 +1,5 @@
-import { ScriptSystemContext } from '../utils/index.js';
+import type { ScriptSystemContext } from '../utils/index.js';
+import type { FigmaVariableSource } from '../services/figma-token-sync.js';
 
 export interface PipelineIdentity {
     repoRoot: string;
@@ -21,7 +22,7 @@ export interface PipelinePaths {
 
 export interface PipelineFlags {
     componentSlugOverride: string;
-    componentKind?: string;
+    componentKind: string;
     includeVariants: boolean;
     requireExistingDoc: boolean;
     continueOnError: boolean;
@@ -33,7 +34,8 @@ export interface PipelineFlags {
     scale: number;
     format: string;
     agent: string;
-    mainCaptureMode?: string;
+    mainCaptureMode: string;
+    tokensSource: FigmaVariableSource;
     force: boolean;
     skipValidation: boolean;
     allowNonEvidenceUpdates: boolean;

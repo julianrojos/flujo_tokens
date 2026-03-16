@@ -125,18 +125,18 @@ describe('components handlers', () => {
       getNodeByIdAsync: async (id: string) =>
         id === '10:1'
           ? {
-              id: '10:1',
-              name: 'Button',
-              type: 'COMPONENT',
-              description: 'Component',
-              descriptionMarkdown: null,
-              visible: true,
-              locked: false,
-              annotations: [],
-              componentPropertyDefinitions: {},
-              children: [],
-              parent: { type: 'PAGE' },
-            }
+            id: '10:1',
+            name: 'Button',
+            type: 'COMPONENT',
+            description: 'Component',
+            descriptionMarkdown: null,
+            visible: true,
+            locked: false,
+            annotations: [],
+            componentPropertyDefinitions: {},
+            children: [],
+            parent: { type: 'PAGE' },
+          }
           : null,
     });
 
@@ -488,6 +488,45 @@ describe('components handlers', () => {
       expect(typed.success).toBe(true);
       expect(typed.count).toBe(2);
       expect(typed.components.every((c) => (c as { name: string }).name.toLowerCase().includes('button'))).toBe(true);
+    });
+
+    it('filters by nameContains with diacritics (diacritic-insensitive)', async () => {
+      const page = {
+        id: 'page-1',
+        name: 'Page 1',
+        type: 'PAGE' as const,
+        children: [
+          { id: 'comp-1', key: 'k1', name: 'Botón/Primario', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+          { id: 'comp-2', key: 'k2', name: 'Botón/Secundario', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+          { id: 'comp-3', key: 'k3', name: 'Boton/Terciario', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+        ],
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      const asciiQueryResult = await handleSearchComponents({ nameContains: 'boton' });
+      const asciiTyped = asciiQueryResult as { success: boolean; components: Array<{ name: string }>; count: number };
+      expect(asciiTyped.success).toBe(true);
+      expect(asciiTyped.count).toBe(3);
+      expect(asciiTyped.components.map((c) => c.name)).toEqual([
+        'Botón/Primario',
+        'Botón/Secundario',
+        'Boton/Terciario',
+      ]);
+
+      const accentQueryResult = await handleSearchComponents({ nameContains: 'botón' });
+      const accentTyped = accentQueryResult as { success: boolean; components: Array<{ name: string }>; count: number };
+      expect(accentTyped.success).toBe(true);
+      expect(accentTyped.count).toBe(3);
+      expect(accentTyped.components.map((c) => c.name)).toEqual([
+        'Botón/Primario',
+        'Botón/Secundario',
+        'Boton/Terciario',
+      ]);
     });
 
     it('includes variants when includeVariants=true', async () => {
@@ -869,7 +908,7 @@ describe('components handlers', () => {
         name: `Button ${i}`,
         type: 'COMPONENT' as const,
         fills: [{ type: 'SOLID' as const, color: { r: 1, g: 0, b: 0, a: 1 } }],
-        setBoundVariable: () => {},
+        setBoundVariable: () => { },
       }));
 
       const variable = { id: 'var-1', name: 'color/primary' };
@@ -1022,7 +1061,7 @@ describe('components handlers', () => {
         name: 'Button',
         type: 'COMPONENT' as const,
         fills: [{ type: 'SOLID' as const }],
-        setBoundVariable: () => {},
+        setBoundVariable: () => { },
       };
 
       setMockFigma({
@@ -1048,7 +1087,7 @@ describe('components handlers', () => {
         name: 'Button',
         type: 'COMPONENT' as const,
         fills: [{ type: 'SOLID' as const }], // Only 1 paint at index 0
-        setBoundVariable: () => {},
+        setBoundVariable: () => { },
       };
 
       const variable = { id: 'var-1', name: 'color/primary' };
@@ -1104,7 +1143,7 @@ describe('components handlers', () => {
         name: 'Button',
         type: 'COMPONENT' as const,
         fills: [], // Empty fills array
-        setBoundVariable: () => {},
+        setBoundVariable: () => { },
       };
 
       const variable = { id: 'var-1', name: 'color/primary' };
@@ -1215,7 +1254,7 @@ describe('components handlers', () => {
         name: 'Button',
         type: 'COMPONENT' as const,
         fills: [{ type: 'SOLID' as const }], // Only 1 paint at index 0
-        setBoundVariable: () => {},
+        setBoundVariable: () => { },
       };
 
       setMockFigma({

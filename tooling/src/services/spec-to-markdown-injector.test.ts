@@ -53,7 +53,7 @@ Trailing prose.
 `;
 
       const spec = {
-        anatomy: [{ index: 1, name: 'Container', type: 'FRAME' }],
+        anatomy: [{ id: '1', index: 1, name: 'Container', type: 'FRAME' }],
         properties: [{ name: 'state', type: 'variant', default: 'info', required: true }],
         variants: [],
         layout: [{ node: 'Container', direction: 'Horizontal', hSizing: 'Fill', vSizing: 'Hug', alignment: 'Top left', itemSpacing: 8 }],

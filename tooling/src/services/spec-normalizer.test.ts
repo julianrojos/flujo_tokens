@@ -115,7 +115,7 @@ describe('spec-normalizer', () => {
       };
 
       const normalized = normalizeSpecOrder(input);
-      const names = normalized.properties.map((item) => item.name);
+      const names = normalized.properties.map((item: { name: string }) => item.name);
       assert.deepEqual(names, ['size', 'label', 'enabled']);
 
       assert.deepEqual(Object.keys(normalized.properties[0]), [

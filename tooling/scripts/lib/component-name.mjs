@@ -1,4 +1,5 @@
 import path from "node:path";
+import { stripDiacritics } from "./strip-diacritics.mjs";
 
 function splitComponentWords(raw) {
   const input =
@@ -9,7 +10,10 @@ function splitComponentWords(raw) {
         : "";
   if (!input) return [];
 
-  return input
+  // First normalize diacritics (áéíóú -> aeioou, ñ -> n, etc.)
+  const normalized = stripDiacritics(input);
+
+  return normalized
     .replace(/\.[^.]+$/, "")
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")

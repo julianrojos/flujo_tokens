@@ -108,6 +108,115 @@ describe('handleSearchVariables - P1 Enhancements', () => {
       expect(typed.success).toBe(true);
       expect(typed.count).toBe(2);
     });
+
+    it('should filter by nameContains with diacritics (diacritic-insensitive)', async () => {
+      const mockVarsWithDiacritics = [
+        {
+          id: 'var-1',
+          name: 'color/primário',
+          key: 'key-1',
+          resolvedType: 'COLOR' as const,
+          valuesByMode: { 'mode-1': { r: 1, g: 0, b: 0, a: 1 } },
+          variableCollectionId: 'col-1',
+          scopes: [],
+          description: '',
+          hiddenFromPublishing: false,
+          remote: false,
+        },
+        {
+          id: 'var-2',
+          name: 'color/primario',
+          key: 'key-2',
+          resolvedType: 'COLOR' as const,
+          valuesByMode: { 'mode-1': { r: 0, g: 1, b: 0, a: 1 } },
+          variableCollectionId: 'col-1',
+          scopes: [],
+          description: '',
+          hiddenFromPublishing: false,
+          remote: false,
+        },
+        {
+          id: 'var-3',
+          name: 'tamaño/caja',
+          key: 'key-3',
+          resolvedType: 'FLOAT' as const,
+          valuesByMode: { 'mode-1': 16 },
+          variableCollectionId: 'col-1',
+          scopes: [],
+          description: '',
+          hiddenFromPublishing: false,
+          remote: false,
+        },
+        {
+          id: 'var-4',
+          name: 'tamano/caja',
+          key: 'key-4',
+          resolvedType: 'FLOAT' as const,
+          valuesByMode: { 'mode-1': 24 },
+          variableCollectionId: 'col-1',
+          scopes: [],
+          description: '',
+          hiddenFromPublishing: false,
+          remote: false,
+        },
+      ];
+
+      setMockFigma({
+        variables: {
+          getLocalVariablesAsync: async () => mockVarsWithDiacritics,
+          getLocalVariableCollectionsAsync: async () => [
+            {
+              id: 'col-1',
+              name: 'Test',
+              key: 'col-1',
+              modes: [{ modeId: 'mode-1', name: 'Default' }],
+              defaultModeId: 'mode-1',
+              variableIds: mockVarsWithDiacritics.map((v) => v.id),
+            },
+          ],
+        },
+      });
+
+      // Test ASCII query finds both ASCII and diacritic variables
+      const asciiQueryResult = await handleSearchVariables({ nameContains: 'primario' });
+      const asciiTyped = asciiQueryResult as { success: boolean; variables: unknown[]; count: number };
+      expect(asciiTyped.success).toBe(true);
+      expect(asciiTyped.count).toBe(2);
+      expect((asciiTyped.variables as Array<{ name: string }>).map((v) => v.name)).toEqual([
+        'color/primário',
+        'color/primario',
+      ]);
+
+      // Test diacritic query finds both ASCII and diacritic variables
+      const accentQueryResult = await handleSearchVariables({ nameContains: 'primário' });
+      const accentTyped = accentQueryResult as { success: boolean; variables: unknown[]; count: number };
+      expect(accentTyped.success).toBe(true);
+      expect(accentTyped.count).toBe(2);
+      expect((accentTyped.variables as Array<{ name: string }>).map((v) => v.name)).toEqual([
+        'color/primário',
+        'color/primario',
+      ]);
+
+      // Test with ñ/niño pair (using tamaño/tamano)
+      const tamanoQueryResult = await handleSearchVariables({ nameContains: 'tamaño' });
+      const tamanoTyped = tamanoQueryResult as { success: boolean; variables: unknown[]; count: number };
+      expect(tamanoTyped.success).toBe(true);
+      expect(tamanoTyped.count).toBe(2);
+      expect((tamanoTyped.variables as Array<{ name: string }>).map((v) => v.name)).toEqual([
+        'tamaño/caja',
+        'tamano/caja',
+      ]);
+
+      // Test with ASCII query for ñ/niño pair
+      const tamanoAsciiQueryResult = await handleSearchVariables({ nameContains: 'tamano' });
+      const tamanoAsciiTyped = tamanoAsciiQueryResult as { success: boolean; variables: unknown[]; count: number };
+      expect(tamanoAsciiTyped.success).toBe(true);
+      expect(tamanoAsciiTyped.count).toBe(2);
+      expect((tamanoAsciiTyped.variables as Array<{ name: string }>).map((v) => v.name)).toEqual([
+        'tamaño/caja',
+        'tamano/caja',
+      ]);
+    });
   });
 
   describe('offset pagination', () => {

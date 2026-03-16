@@ -33,14 +33,14 @@ describe('spec-runner', () => {
           calls.captureFile += 1;
           return { exists: true, content: 'name: Alert' };
         },
-        parseExistingSpecFromSnapshotFn: () => {
-          calls.parseExisting += 1;
-          return { name: 'Alert' };
-        },
-        captureScopedWriteSnapshotFn: () => {
-          calls.captureScope += 1;
-          return { entries: [] };
-        },
+            parseExistingSpecFromSnapshotFn: () => {
+              calls.parseExisting += 1;
+              return { name: 'Alert' };
+            },
+            captureScopedWriteSnapshotFn: () => {
+              calls.captureScope += 1;
+              return { directories: [], files: [], extensions: [], entries: new Map() };
+            },
         assertScopedWritePolicyFn: () => {
           calls.assertScope += 1;
         },
@@ -68,7 +68,7 @@ describe('spec-runner', () => {
             },
             captureFileSnapshotFn: () => ({ exists: true, content: 'x' }),
             parseExistingSpecFromSnapshotFn: () => ({}),
-            captureScopedWriteSnapshotFn: () => ({ entries: [] }),
+            captureScopedWriteSnapshotFn: () => ({ directories: [], files: [], extensions: [], entries: new Map() }),
             assertScopedWritePolicyFn: () => {
               throw new Error('scope failed');
             },

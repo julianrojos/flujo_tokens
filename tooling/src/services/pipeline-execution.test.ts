@@ -286,6 +286,7 @@ describe('pipeline-execution', () => {
 
       // Verify directory and file were created
       assert.ok(fs.existsSync(nestedReportDir));
+      assert.ok(result);
       assert.ok(fs.existsSync(result));
     });
 

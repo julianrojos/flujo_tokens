@@ -332,6 +332,59 @@ describe('nodes handlers', () => {
     expect(typed.nodes.every((n) => n.name !== 'GrandChild')).toBe(true);
   });
 
+  it('handleSearchNodes with nameContains is diacritic-insensitive', async () => {
+    const child1 = {
+      id: 'child-1',
+      name: 'Botón',
+      type: 'FRAME',
+      parent: null as unknown,
+    };
+    const child2 = {
+      id: 'child-2',
+      name: 'Boton',
+      type: 'FRAME',
+      parent: null as unknown,
+    };
+    const child3 = {
+      id: 'child-3',
+      name: 'Niño',
+      type: 'RECTANGLE',
+      parent: null as unknown,
+    };
+    const root = {
+      id: 'root-1',
+      name: 'Root',
+      type: 'PAGE',
+      children: [child1, child2, child3],
+    };
+    child1.parent = root;
+    child2.parent = root;
+    child3.parent = root;
+
+    setMockFigma({ getNodeByIdAsync: async (id: string) => (id === 'root-1' ? root : null) });
+
+    // ASCII query should match both accented and non-accented
+    const asciiResult = await handleSearchNodes({ parentId: 'root-1', nameContains: 'boton' });
+    const asciiTyped = asciiResult as { success: boolean; nodes: Array<{ name: string }>; count: number };
+    expect(asciiTyped.success).toBe(true);
+    expect(asciiTyped.count).toBe(2);
+    expect(asciiTyped.nodes.map((n) => n.name)).toEqual(['Botón', 'Boton']);
+
+    // Accented query should also match both
+    const accentResult = await handleSearchNodes({ parentId: 'root-1', nameContains: 'botón' });
+    const accentTyped = accentResult as { success: boolean; nodes: Array<{ name: string }>; count: number };
+    expect(accentTyped.success).toBe(true);
+    expect(accentTyped.count).toBe(2);
+    expect(accentTyped.nodes.map((n) => n.name)).toEqual(['Botón', 'Boton']);
+
+    // Test with ñ
+    const ninoResult = await handleSearchNodes({ parentId: 'root-1', nameContains: 'nino' });
+    const ninoTyped = ninoResult as { success: boolean; nodes: Array<{ name: string }>; count: number };
+    expect(ninoTyped.success).toBe(true);
+    expect(ninoTyped.count).toBe(1);
+    expect(ninoTyped.nodes[0]?.name).toBe('Niño');
+  });
+
   it('handleGetNodesById returns null for non-existent IDs', async () => {
     const existingNode = {
       id: 'exists-1',

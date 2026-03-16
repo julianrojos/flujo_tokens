@@ -39,7 +39,6 @@ function createMockPreparation(tempDir: string): ActiveMdToFigmaPreparationResul
     offsetX: 200,
     figmaUrl: 'https://figma.com/file/abc',
     agent: 'auto',
-    expectedThemeName: 'test-theme',
     ctx: {
       id: 'test',
       name: 'Test System',

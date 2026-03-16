@@ -50,6 +50,15 @@ describe("component-name utils", () => {
       assert.equal(componentNameToSnakeCase(undefined), "");
       assert.equal(componentNameToSnakeCase({}), "");
     });
+
+    it("normalizes diacritics to ASCII", () => {
+      assert.equal(componentNameToSnakeCase("Botón"), "boton");
+      assert.equal(componentNameToSnakeCase("Botón Primário"), "boton_primario");
+      assert.equal(componentNameToSnakeCase("niño"), "nino");
+      assert.equal(componentNameToSnakeCase("Español"), "espanol");
+      assert.equal(componentNameToSnakeCase("pingüino"), "pinguino");
+      assert.equal(componentNameToSnakeCase("Acción"), "accion");
+    });
   });
 
   describe("componentNameToDisplayName", () => {
@@ -85,6 +94,14 @@ describe("component-name utils", () => {
     it("returns empty string for invalid input", () => {
       assert.equal(componentNameToDisplayName(""), "");
       assert.equal(componentNameToDisplayName(null), "");
+    });
+
+    it("normalizes diacritics to ASCII", () => {
+      assert.equal(componentNameToDisplayName("botón"), "Boton");
+      assert.equal(componentNameToDisplayName("Botón Primário"), "BotonPrimario");
+      assert.equal(componentNameToDisplayName("niño"), "Nino");
+      assert.equal(componentNameToDisplayName("Español"), "Espanol");
+      assert.equal(componentNameToDisplayName("pingüino"), "Pinguino");
     });
   });
 

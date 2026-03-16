@@ -37,6 +37,7 @@ import {
   ApplyTokensResult,
   ApplyTokensResultItem,
 } from '../protocol';
+import { stripDiacritics } from '../utils/strip-diacritics.js';
 
 const PAGE_BATCH_SIZE = 3;
 
@@ -790,9 +791,15 @@ export async function handleSearchComponents(
 
     // Helper to check name filters
     function passesNameFilter(node: BaseNode): boolean {
-      if (nameContains && !node.name.toLowerCase().includes(nameContains)) {
-        return false;
+      // nameContains: diacritic-insensitive substring match
+      if (nameContains) {
+        const normalizedName = stripDiacritics(node.name.toLowerCase());
+        const normalizedQuery = stripDiacritics(nameContains.toLowerCase());
+        if (!normalizedName.includes(normalizedQuery)) {
+          return false;
+        }
       }
+      // namePattern: preserve regex semantics (user's explicit pattern)
       if (namePattern && !namePattern.test(node.name)) {
         return false;
       }

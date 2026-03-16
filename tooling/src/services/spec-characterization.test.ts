@@ -53,15 +53,15 @@ describe('spec-characterization', () => {
       assertEvidenceGatedScalarChangesFn: () => {},
       runSpecGenerationPromptFn: async () => ({
         message: `Here is your spec:\n\`\`\`yaml\n${goldenSpecRaw}\n\`\`\``,
-      }),
+      }) as any,
       runSpecRepairPromptFn: async () => ({
         message: `\`\`\`yaml\n${goldenSpecRaw}\n\`\`\``,
-      }),
+      }) as any,
       validateGeneratedSpecFn: () => ({
         ok: true,
         report: { ok: true, summary: { errors: 0, warnings: 0 } },
         errors: [],
-      }),
+      }) as any,
       syncDocumentationIndicesFn: () => ({
         changed: ['/mock/repo/docs/_generated/component-registry.json'],
         written: ['/mock/repo/docs/_generated/component-registry.json'],
@@ -72,7 +72,7 @@ describe('spec-characterization', () => {
         overview: {
           overviewPath: '/mock/repo/docs/overview.md',
         },
-      }),
+      }) as any,
       runSpecWithGuardsFn: ({ run }: { run: ({ existingSpec }: { existingSpec: null }) => unknown }) =>
         run({ existingSpec: null }),
     });
