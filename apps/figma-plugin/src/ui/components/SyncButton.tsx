@@ -19,10 +19,10 @@ interface SyncButtonProps {
 }
 
 const STATE_CONFIG: Record<SyncState, { label: string; bg: string; fg: string; border: string; icon: string }> = {
-  idle: { label: 'Sync Tokens', bg: COLOR.accent, fg: COLOR.accentText, border: COLOR.accent, icon: '↻' },
-  syncing: { label: 'Syncing…', bg: COLOR.accentHover, fg: COLOR.accentText, border: COLOR.accentHover, icon: '↻' },
-  success: { label: 'Tokens synced', bg: COLOR.successBg, fg: COLOR.successText, border: COLOR.success, icon: '✓' },
-  error: { label: 'Retry sync', bg: COLOR.dangerBg, fg: COLOR.dangerText, border: COLOR.danger, icon: '↻' },
+  idle: { label: 'Update variables', bg: COLOR.accent, fg: COLOR.accentText, border: COLOR.accent, icon: '↻' },
+  syncing: { label: 'Updating…', bg: COLOR.accentHover, fg: COLOR.accentText, border: COLOR.accentHover, icon: '↻' },
+  success: { label: 'Variables updated', bg: COLOR.successBg, fg: COLOR.successText, border: COLOR.success, icon: '✓' },
+  error: { label: 'Retry update', bg: COLOR.dangerBg, fg: COLOR.dangerText, border: COLOR.danger, icon: '↻' },
 };
 
 export const SyncButton: React.FC<SyncButtonProps> = ({ onSyncComplete, onSyncError, figmaUrl }) => {
