@@ -69,7 +69,7 @@ describe('command-route-service', () => {
         systemId: 'core',
         body: {
           component: 'button',
-          specFile: 'docs/caca-01/_spec/components/button.yml',
+          specFile: 'docs/test-system/_spec/components/button.yml',
         },
       });
       assert.deepEqual(payload.args, [
@@ -79,7 +79,7 @@ describe('command-route-service', () => {
         '--system',
         'core',
         '--spec-file',
-        'docs/caca-01/_spec/components/button.yml',
+        'docs/test-system/_spec/components/button.yml',
       ]);
     });
 
@@ -89,7 +89,7 @@ describe('command-route-service', () => {
         systemId: 'core',
         body: {
           componentName: 'button',
-          spec_file: 'docs/caca-01/_spec/components/button.yml',
+          spec_file: 'docs/test-system/_spec/components/button.yml',
         },
       });
       assert.deepEqual(payload.args, [
@@ -99,7 +99,7 @@ describe('command-route-service', () => {
         '--system',
         'core',
         '--spec-file',
-        'docs/caca-01/_spec/components/button.yml',
+        'docs/test-system/_spec/components/button.yml',
       ]);
     });
   });

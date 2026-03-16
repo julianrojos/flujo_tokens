@@ -99,12 +99,12 @@ describe('command-routes', () => {
       });
 
       const res = await app.request(
-        '/api/run/ds:component-doc?component=button&specFile=docs/caca-01/_spec/components/button.yml',
+        '/api/run/ds:component-doc?component=button&specFile=docs/test-system/_spec/components/button.yml',
         { method: 'POST' },
       );
       assert.equal(res.status, 202);
       assert.equal(captured.length, 1);
-      assert.match(String(captured[0]?.label || ''), /--spec-file docs\/caca-01\/_spec\/components\/button\.yml/);
+      assert.match(String(captured[0]?.label || ''), /--spec-file docs\/test-system\/_spec\/components\/button\.yml/);
     });
 
     it('accepts legacy query aliases when body is empty', async () => {
@@ -118,12 +118,12 @@ describe('command-routes', () => {
       });
 
       const res = await app.request(
-        '/api/run/ds:component-doc?componentName=button&spec_file=docs/caca-01/_spec/components/button.yml',
+        '/api/run/ds:component-doc?componentName=button&spec_file=docs/test-system/_spec/components/button.yml',
         { method: 'POST' },
       );
       assert.equal(res.status, 202);
       assert.equal(captured.length, 1);
-      assert.match(String(captured[0]?.label || ''), /--spec-file docs\/caca-01\/_spec\/components\/button\.yml/);
+      assert.match(String(captured[0]?.label || ''), /--spec-file docs\/test-system\/_spec\/components\/button\.yml/);
     });
 
     it('returns typed error when ds:component-doc args are missing', async () => {
