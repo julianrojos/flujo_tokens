@@ -1,0 +1,95 @@
+---
+description: Typed input/output slot contract for SKILL.md files — canonical parameter interface for agent-agnostic skill execution.
+globs:
+  - ".agents/skills/**/SKILL.md"
+---
+
+# Skill input/output slot contract
+
+Slots declare typed inputs and outputs in SKILL.md frontmatter. This eliminates prose-interpretation variance across agents — any agent reads the same machine-readable contract and knows exactly what to ask for and what to produce.
+
+## When slots are required
+
+- **New skills**: include `inputs` and `outputs` from day one (blocking).
+- **Modified skills**: add slots before the change is merged (blocking).
+- **Legacy untouched skills**: may remain without slots temporarily (known gap).
+
+## Frontmatter schema
+
+```yaml
+inputs:
+  - name: <slot_name>       # snake_case identifier
+    type: <slot_type>       # see canonical types below
+    required: true|false
+    default: <value>        # omit when required: true and no default applies
+    description: "..."
+
+outputs:
+  - name: <slot_name>
+    type: <slot_type>
+    value: <expression>     # path expression for file outputs; omit for report type
+    conditional: true|false # omit or set false for always-produced outputs
+    condition: "..."        # required when conditional: true — human-readable condition
+    description: "..."
+```
+
+### `conditional` and `condition` fields
+
+- `conditional: true` marks an output that is **not always produced**.
+- `condition` (required when `conditional: true`) describes the circumstance under which the output is produced (e.g. `"Only when spec stage runs (spec missing or outdated)."`).
+- When `conditional` is omitted or `false`, the agent MUST produce the output or explicitly report a failure.
+- When `conditional: true`, the agent MUST either produce the output or include a one-line note in the report confirming the condition did not apply — no error is raised.
+
+## Canonical slot types
+
+| Type | Description | `default`/`value` format |
+| ---- | ----------- | ------------------------- |
+| `string` | Plain text value | Any string |
+| `component_name` | Display name subject to normalization (see `component-name-normalization.mdc`) | Display-name string, e.g. `"Status Bar"` |
+| `path` | File or directory path; supports `${var}` interpolation | Path string |
+| `path[]` | Array of paths | YAML sequence of strings |
+| `boolean` | Boolean flag | `true` or `false` (unquoted) |
+| `enum(v1,v2,…)` | One of a fixed set of string values | One of the declared values |
+| `report` | Structured summary output — not a file artifact | — (no `value` field) |
+
+No other types are valid. An unknown type emits `SLOT01`; semantics and blocking policy are defined in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`checks`).
+
+## Interpolation in `default` and `value` fields
+
+`path` and `path[]` slots support `${var}` substitution, where `var` is:
+
+- The `name` of another input slot (e.g. `${docs_root}`).
+- A **derived variable**: any input of type `component_name` automatically exposes `${<name>_snake_case}` (e.g. `component_name` → `${component_name_snake_case}`).
+
+Example: `"${docs_root}/_spec/components/${component_name_snake_case}.yml"`
+
+`string`, `boolean`, `enum`, and `report` slots do not support interpolation.
+
+## Agent behavior contract
+
+When executing a skill, an agent MUST:
+
+1. Read `inputs` from frontmatter — this is the authoritative parameter list.
+2. For each input where `required: true` and no `default` is declared: prompt the user before proceeding. Never invent a value.
+3. For each input where `required: false` and no value is provided: apply `default` if declared; skip the slot if absent.
+4. For each output where `conditional` is absent or `false`: produce the output, or explicitly report a failure if it was not generated.
+5. For each output where `conditional: true`: produce the output when its `condition` is met; otherwise note in the report that the condition did not apply. This is not an error.
+6. Never derive parameter values from prose sections alone; slots are the source of truth.
+
+## Orchestration contract
+
+Skills that orchestrate other skills MUST:
+
+- Treat slot declarations as the authoritative interface when composing sub-skills.
+- Pass values from one skill's `outputs` to matching `inputs` of the next skill by slot `name`.
+- Document which sub-skills they invoke in prose (e.g. `## Orchestration flow`).
+
+## Conflict resolution
+
+When slots and prose sections (e.g. `## Inputs`, `## Output`) conflict, **slots win**. Prose sections remain for human readability but are not authoritative.
+
+## Validation
+
+- Emit `SLOT01` for slot-contract violations (unknown type, or missing required input resolution). See `error-codes.mdc` for canonical semantics.
+- Slot validation runs at skill-load time before execution begins.
+- The validator must check all SKILL.md files in `.agents/skills/**/SKILL.md` that declare `inputs` or `outputs`.

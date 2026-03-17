@@ -1,0 +1,47 @@
+---
+description: Canonical format and strict alphabetical ordering for docs/components/overview.md entries.
+globs:
+  - "docs/components/overview.md"
+  - "docs/components/*.md"
+---
+
+# Components overview canonical list
+
+This rule defines the mandatory canonical format for the component list in `docs/components/overview.md`.
+
+## Required entry format
+
+Each component entry MUST use exactly this markdown bullet format:
+
+`- [Display Name](snake_case.md)`
+
+Rules:
+
+- `Display Name`: human-readable component name.
+- Link target: local file name only, in `snake_case.md`.
+- No absolute URLs, no nested paths, no query params.
+
+## Mandatory ordering
+
+The list MUST be sorted alphabetically by normalized `Display Name`:
+
+- trim leading/trailing spaces
+- collapse internal whitespace to one space
+- compare case-insensitively
+
+Tie-breaker:
+
+- sort by link target (`snake_case.md`) ascending, case-insensitive.
+
+## Synchronization guarantees
+
+`docs/components/overview.md` MUST be synchronized with `docs/components/*.md` (excluding `overview.md`):
+
+- No orphan docs (component file exists but is not listed).
+- No dead links (listed file does not exist).
+- No duplicate entries by display name.
+- No duplicate entries by link target.
+
+## Determinism requirement
+
+On repeated runs with unchanged component docs, `overview.md` MUST remain byte-stable (no list churn, no non-deterministic reordering).

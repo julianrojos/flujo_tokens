@@ -11,8 +11,9 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "noEmit": true
+    "noEmit": true,
+    "downlevelIteration": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["tooling/src/**/*.ts"],
   "exclude": ["node_modules"]
 }

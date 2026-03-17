@@ -1,0 +1,54 @@
+{
+  "component": "step",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/step.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/step.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2282-1793",
+  "node_id": "2282:1793",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/4b1aa5e8-54eb-404c-bb6b-e6ad75badf37",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/4b1aa5e8-54eb-404c-bb6b-e6ad75badf37",
+  "image_path": "_generated/visual-proofs/images/step.png",
+  "image_sha256": "f52f4bef69c48dc916c46a2452bf1f3419083b47b15ca09116f083e92c3e2266",
+  "image_bytes": 13267,
+  "image_content_type": "image/png",
+  "image_width": 218,
+  "image_height": 504,
+  "captured_at": "2026-02-21T11:59:33.483Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/step.png",
+    "sha256": "f52f4bef69c48dc916c46a2452bf1f3419083b47b15ca09116f083e92c3e2266",
+    "bytes": 13267,
+    "content_type": "image/png",
+    "width": 218,
+    "height": 504
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "State=Active",
+      "node_id": "2282:1794",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/eb8f7a93-6a11-457f-9072-b11b5fce63cd",
+      "image_path": "_generated/visual-proofs/images/variants/step__01__state_active.png",
+      "image_sha256": "36ecec50767e05e577aa21975b5d4061eaf1f6f2d8ef84d733f5469a1367719f",
+      "image_bytes": 8390,
+      "image_content_type": "image/png",
+      "image_width": 156,
+      "image_height": 196,
+      "captured_at": "2026-02-21T11:59:33.483Z"
+    },
+    {
+      "name": "State=Default",
+      "node_id": "2282:1792",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/6ec916f5-2519-4668-adde-b11d450f5b96",
+      "image_path": "_generated/visual-proofs/images/variants/step__02__state_default.png",
+      "image_sha256": "b33544a6420af146e4d11027036eb47d8ef624a4a60e3c5beb9afe7375f18f73",
+      "image_bytes": 4364,
+      "image_content_type": "image/png",
+      "image_width": 144,
+      "image_height": 196,
+      "captured_at": "2026-02-21T11:59:33.483Z"
+    }
+  ]
+}

@@ -1,0 +1,294 @@
+{
+  "timestamp": "2026-02-23T10:44:13.643Z",
+  "success": false,
+  "options": {
+    "all": true,
+    "render-figma": false,
+    "dry-run": false,
+    "status-only": false,
+    "strict": false,
+    "system": "iter",
+    "dsContext": {
+      "id": "iter",
+      "name": "Iter",
+      "appName": "Karmap",
+      "figmaFileId": "3hGC1ju0d5AKzaoI9pKIyu",
+      "figmaApiToken": "${FIGMA_TOKEN_ITER}",
+      "inputDir": "input/iter",
+      "outputDir": "output/iter",
+      "docsDir": "docs/iter",
+      "collections": [
+        "Primitives",
+        "Typography",
+        "Semantic",
+        "Components",
+        "A11y"
+      ],
+      "paths": {
+        "input": "/Users/julian/Documents/flujo_tokens/input/iter",
+        "output": "/Users/julian/Documents/flujo_tokens/output/iter",
+        "generated": "/Users/julian/Documents/flujo_tokens/docs/iter/_generated",
+        "specs": "/Users/julian/Documents/flujo_tokens/docs/iter/_spec/components",
+        "docs": "/Users/julian/Documents/flujo_tokens/docs/iter/components",
+        "registry": "/Users/julian/Documents/flujo_tokens/docs/iter/_generated/component-registry.json",
+        "tokenRegistry": "/Users/julian/Documents/flujo_tokens/docs/iter/_generated/token-registry.json"
+      }
+    },
+    "json": false
+  },
+  "orphans": {
+    "figma_only": [],
+    "doc_only": [
+      "bottom_bar",
+      "checkbox_label",
+      "checkbox_label_list",
+      "radio_button_label",
+      "radio_button_list",
+      "stepper",
+      "topbar"
+    ],
+    "spec_only": []
+  },
+  "failedComponents": [
+    "alert",
+    "avatar",
+    "button",
+    "percentage_pie_graph"
+  ],
+  "executionSummary": {
+    "global": {
+      "tokensSync": "Success",
+      "finalGate": "Validation Failed"
+    },
+    "components": {
+      "alert": {
+        "success": false,
+        "logs": [
+          "[alert] ⚙️ Executing step 'spec'...",
+          "[alert] Running: node tooling/scripts/ds-spec-from-figma.mjs --component-name alert --component-set-node-id 2304:1892 --system iter",
+          "[alert] ❌ Error: Command failed with status 1: node tooling/scripts/ds-spec-from-figma.mjs --component-name alert --component-set-node-id 2304:1892 --system iter",
+          "[alert] 🛑 Stopping pipeline for alert due to failure at step spec"
+        ]
+      },
+      "avatar": {
+        "success": false,
+        "logs": [
+          "[avatar] ⚙️ Executing step 'spec'...",
+          "[avatar] Running: node tooling/scripts/ds-spec-from-figma.mjs --component-name avatar --component-set-node-id 146:474 --system iter",
+          "[avatar] ❌ Error: Command failed with status 1: node tooling/scripts/ds-spec-from-figma.mjs --component-name avatar --component-set-node-id 146:474 --system iter",
+          "[avatar] 🛑 Stopping pipeline for avatar due to failure at step spec"
+        ]
+      },
+      "bottom_bar_button": {
+        "success": true,
+        "logs": [
+          "[bottom_bar_button] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[bottom_bar_button] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[bottom_bar_button] ⏭️ Skipping step 'render': render-figma not requested",
+          "[bottom_bar_button] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "button": {
+        "success": false,
+        "logs": [
+          "[button] ⚙️ Executing step 'spec'...",
+          "[button] Running: node tooling/scripts/ds-spec-from-figma.mjs --component-name button --component-set-node-id 68:4097 --system iter",
+          "[button] ❌ Error: Command failed with status 1: node tooling/scripts/ds-spec-from-figma.mjs --component-name button --component-set-node-id 68:4097 --system iter",
+          "[button] 🛑 Stopping pipeline for button due to failure at step spec"
+        ]
+      },
+      "card_icon_container": {
+        "success": true,
+        "logs": [
+          "[card_icon_container] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[card_icon_container] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[card_icon_container] ⏭️ Skipping step 'render': render-figma not requested",
+          "[card_icon_container] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "checkbox": {
+        "success": true,
+        "logs": [
+          "[checkbox] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[checkbox] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[checkbox] ⏭️ Skipping step 'render': render-figma not requested",
+          "[checkbox] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "focus_outline": {
+        "success": true,
+        "logs": [
+          "[focus_outline] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[focus_outline] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[focus_outline] ⏭️ Skipping step 'render': render-figma not requested",
+          "[focus_outline] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "icon_card_horizontal": {
+        "success": true,
+        "logs": [
+          "[icon_card_horizontal] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[icon_card_horizontal] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[icon_card_horizontal] ⏭️ Skipping step 'render': render-figma not requested",
+          "[icon_card_horizontal] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "icon_card_vertical": {
+        "success": true,
+        "logs": [
+          "[icon_card_vertical] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[icon_card_vertical] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[icon_card_vertical] ⏭️ Skipping step 'render': render-figma not requested",
+          "[icon_card_vertical] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "illustration_block": {
+        "success": true,
+        "logs": [
+          "[illustration_block] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[illustration_block] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[illustration_block] ⏭️ Skipping step 'render': render-figma not requested",
+          "[illustration_block] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "image": {
+        "success": true,
+        "logs": [
+          "[image] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[image] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[image] ⏭️ Skipping step 'render': render-figma not requested",
+          "[image] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "image_card": {
+        "success": true,
+        "logs": [
+          "[image_card] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[image_card] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[image_card] ⏭️ Skipping step 'render': render-figma not requested",
+          "[image_card] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "overlay": {
+        "success": true,
+        "logs": [
+          "[overlay] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[overlay] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[overlay] ⏭️ Skipping step 'render': render-figma not requested",
+          "[overlay] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "percentage_pie_graph": {
+        "success": false,
+        "logs": [
+          "[percentage_pie_graph] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[percentage_pie_graph] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[percentage_pie_graph] ⏭️ Skipping step 'render': render-figma not requested",
+          "[percentage_pie_graph] ⚙️ Executing step 'proof'...",
+          "[percentage_pie_graph] Running: npm run ds:capture-visual-proof -- --system iter --component-name percentage_pie_graph",
+          "[percentage_pie_graph] ❌ Error: Command failed with status 1: npm run ds:capture-visual-proof -- --system iter --component-name percentage_pie_graph",
+          "[percentage_pie_graph] 🛑 Stopping pipeline for percentage_pie_graph due to failure at step proof"
+        ]
+      },
+      "radio_button": {
+        "success": true,
+        "logs": [
+          "[radio_button] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[radio_button] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[radio_button] ⏭️ Skipping step 'render': render-figma not requested",
+          "[radio_button] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "rating_stars": {
+        "success": true,
+        "logs": [
+          "[rating_stars] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[rating_stars] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[rating_stars] ⏭️ Skipping step 'render': render-figma not requested",
+          "[rating_stars] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "star": {
+        "success": true,
+        "logs": [
+          "[star] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[star] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[star] ⏭️ Skipping step 'render': render-figma not requested",
+          "[star] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "status_bar": {
+        "success": true,
+        "logs": [
+          "[status_bar] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[status_bar] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[status_bar] ⏭️ Skipping step 'render': render-figma not requested",
+          "[status_bar] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "step": {
+        "success": true,
+        "logs": [
+          "[step] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[step] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[step] ⏭️ Skipping step 'render': render-figma not requested",
+          "[step] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "tab": {
+        "success": true,
+        "logs": [
+          "[tab] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[tab] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[tab] ⏭️ Skipping step 'render': render-figma not requested",
+          "[tab] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "tag": {
+        "success": true,
+        "logs": [
+          "[tag] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[tag] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[tag] ⏭️ Skipping step 'render': render-figma not requested",
+          "[tag] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "tags_list": {
+        "success": true,
+        "logs": [
+          "[tags_list] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[tags_list] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[tags_list] ⏭️ Skipping step 'render': render-figma not requested",
+          "[tags_list] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "text_area": {
+        "success": true,
+        "logs": [
+          "[text_area] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[text_area] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[text_area] ⏭️ Skipping step 'render': render-figma not requested",
+          "[text_area] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "text_input": {
+        "success": true,
+        "logs": [
+          "[text_input] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[text_input] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[text_input] ⏭️ Skipping step 'render': render-figma not requested",
+          "[text_input] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      },
+      "user_card": {
+        "success": true,
+        "logs": [
+          "[user_card] ⏭️ Skipping step 'spec': Up to date or skipped",
+          "[user_card] ⏭️ Skipping step 'markdown': Up to date or skipped",
+          "[user_card] ⏭️ Skipping step 'render': render-figma not requested",
+          "[user_card] ⏭️ Skipping step 'proof': Up to date or skipped"
+        ]
+      }
+    }
+  }
+}

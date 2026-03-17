@@ -1,0 +1,54 @@
+{
+  "component": "focus_outline",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/focus_outline.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/focus_outline.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=4562-6483",
+  "node_id": "4562:6483",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/c3779572-337e-40c8-b2f8-9fe287e5dc63",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/c3779572-337e-40c8-b2f8-9fe287e5dc63",
+  "image_path": "_generated/visual-proofs/images/focus_outline.png",
+  "image_sha256": "477abcbdcffaa4192a6cb0625dd1a7d46fb0fcbbebf27d697e7b27e4235ea6a0",
+  "image_bytes": 3802,
+  "image_content_type": "image/png",
+  "image_width": 290,
+  "image_height": 320,
+  "captured_at": "2026-02-21T11:58:42.269Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/focus_outline.png",
+    "sha256": "477abcbdcffaa4192a6cb0625dd1a7d46fb0fcbbebf27d697e7b27e4235ea6a0",
+    "bytes": 3802,
+    "content_type": "image/png",
+    "width": 290,
+    "height": 320
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "Radius=rounded",
+      "node_id": "4562:6484",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/aee77df9-d3a4-482d-b7e9-85ccd26bdc89",
+      "image_path": "_generated/visual-proofs/images/variants/focus_outline__01__radius_rounded.png",
+      "image_sha256": "67402520aa3afea5f9e67784818dccf165b83296c6e10790297bb3c34c09d50d",
+      "image_bytes": 2146,
+      "image_content_type": "image/png",
+      "image_width": 226,
+      "image_height": 112,
+      "captured_at": "2026-02-21T11:58:42.269Z"
+    },
+    {
+      "name": "Radius=square",
+      "node_id": "4562:6462",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/1d213c46-8a31-460c-b1b8-e91327a3bb1c",
+      "image_path": "_generated/visual-proofs/images/variants/focus_outline__02__radius_square.png",
+      "image_sha256": "97cb2f10cb214185fcae5847d4f6ed60eebdfd48000938d17bdf05dd36f78588",
+      "image_bytes": 503,
+      "image_content_type": "image/png",
+      "image_width": 226,
+      "image_height": 112,
+      "captured_at": "2026-02-21T11:58:42.269Z"
+    }
+  ]
+}

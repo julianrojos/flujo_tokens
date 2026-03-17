@@ -1,0 +1,25 @@
+---
+description: Unified frontmatter contract for documentation markdown pages.
+globs:
+  - "docs/**/*.md"
+---
+
+# Frontmatter Contract
+
+Canonical source: `tooling/schemas/frontmatter.schema.json` (JSON Schema draft-07).
+
+Validate with:
+
+```bash
+npm run validate:docs
+```
+
+Key discriminators:
+
+- `doc_type`: `component | overview | foundation | workflow`
+- `doc_status`: `draft | ready | needs-review` (markdown only)
+- Component pages require `figma:` metadata.
+- `doc_status: ready` requires concrete `figma.last_verified`.
+- `pipeline.ds_component_doc.*` is script-generated traceability metadata; do not hand-edit.
+
+See schema `$defs` for patterns and conditionals: `figma_node_id`, `sha256_hex`, `date_or_tbd`, `url_or_tbd`, `pipeline_block`, and per-page discriminators.

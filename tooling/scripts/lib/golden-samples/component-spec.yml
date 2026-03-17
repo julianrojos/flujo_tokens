@@ -1,0 +1,98 @@
+name: Example Button
+status: ready
+
+figma:
+  file: example-file-key
+  page: Components
+  component_set: Example Button
+  component_set_node_id: "100:200"
+
+summary:
+  purpose: "Primary action trigger."
+  behavior: "Activates a user-defined callback."
+  anatomy_notes: "Container + label + optional icon."
+
+anatomy:
+  - part: container
+    description: "Outer frame with background and border radius."
+    required: true
+    dimensions:
+      width: 320
+      height: auto
+      border_weight: 0
+      border_radius: 8
+  - part: label
+    description: "Action text."
+    required: true
+    text_style: "Body/Strong"
+    instance_dependency: null
+
+properties:
+  - name: Type
+    type: VARIANT
+    values: [Primary, Secondary]
+    default: Primary
+    required: true
+    description: "Visual emphasis level."
+  - name: Label
+    type: TEXT
+    default: Button
+    required: true
+    description: "Visible action text."
+  # Boolean properties include associated_layers to indicate which anatomy parts
+  # they toggle. Instance-swap properties include associated_layers similarly.
+  # Example:
+  # - name: Has Icon
+  #   type: BOOLEAN
+  #   default: true
+  #   required: false
+  #   description: "Shows or hides the leading icon."
+  #   associated_layers: [icon]
+
+content_guidelines:
+  tone: "Action-oriented and concise."
+  max_length: "24 characters"
+
+best_practices:
+  do:
+    - "Use one primary button per context."
+  dont:
+    - "Do not use vague labels."
+
+accessibility:
+  role: "button"
+  keyboard: "Enter and Space trigger action."
+  notes:
+    - "Maintain visible focus state."
+
+token_mapping:
+  container:
+    background:
+      Primary: Components/Button/Background/Primary/Default
+      Secondary: Components/Button/Background/Secondary/Default
+    border_radius:
+      default: Semantic/Dimension/Border/Radius/200
+  label:
+    color:
+      Primary: Semantic/Color/Text/On-Primary
+      Secondary: Semantic/Color/Text/Neutral/Default
+
+layout:
+  - node: container
+    direction: HORIZONTAL
+    alignment: MIN
+    counter_alignment: CENTER
+    h_sizing: FIXED
+    v_sizing: HUG
+    item_spacing: 8
+    padding: { top: 12, right: 16, bottom: 12, left: 16 }
+    children:
+      - node: label
+        h_sizing: FILL
+        v_sizing: HUG
+
+qa:
+  visual_regression: true
+  a11y_review: true
+  notes:
+    - "Validate disabled contrast."

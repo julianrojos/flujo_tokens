@@ -1,0 +1,75 @@
+name: BottomBar
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Bars
+  component_set: Bottom_Bar
+
+summary:
+  purpose: Provides fixed bottom navigation with five action slots.
+  when_to_use: Use as primary mobile bottom navigation with persistent destinations.
+  when_not_to_use: Do not use as a contextual action toolbar or transient feedback area.
+
+anatomy:
+  - id: container
+    description: Root horizontal container for navigation items.
+  - id: item_slot
+    description: Repeated button item slot (`Bottom_Bar_Button` instance).
+  - id: item_icon
+    description: Per-item icon area.
+  - id: item_label
+    description: Per-item text label.
+
+properties: []
+
+content_guidelines:
+  rules:
+    - Use concise labels (short word or short phrase).
+    - Keep item labels semantically distinct.
+
+best_practices:
+  do:
+    - Keep stable action count and order.
+    - Keep exactly one selected item for the current destination.
+  dont:
+    - Use long labels that wrap or clip.
+    - Mix unrelated action types in the same bar.
+
+accessibility:
+  role: navigation
+  focus:
+    tokens:
+      inner: "Semantic.Color.Focus-Outline.Inner"
+      outer: "Semantic.Color.Focus-Outline.Outer"
+  hit_area:
+    desktop_token: "A11y.A11y.Dimension.Min-Hit-Area"
+    mobile_token: "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA"
+  labeling:
+    rules:
+      - Each item label should be unique and meaningful.
+      - Icon-only item behavior is TBD.
+
+token_mapping:
+  item_slot.padding:
+    "default": "Dimension/Spacing/400"
+  item_slot.radius:
+    "default": "Dimension/Border/Radius/200"
+  item_icon.color:
+    "default": "Color/Icon/Neutral/Default"
+  item_label.color:
+    "default": "Color/Text/Neutral/Default"
+  item_label.font-family:
+    "default": "Font/Family/Body"
+  item_label.font-size:
+    "default": "Font/Size/100"
+  item_label.font-weight:
+    "default": "Font/Weight/Regular"
+  item_label.line-height:
+    "default": "Font/Line-Height/100"
+  container.background:
+    "default": "TBD"
+
+qa:
+  - "Root component set has no exposed root properties."
+  - "Token mapping uses real token keys where available."
+  - "Container background token mapping remains TBD because the fill is currently hardcoded."

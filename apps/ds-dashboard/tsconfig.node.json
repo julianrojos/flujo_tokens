@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": [
+    "vite.config.ts",
+    "types/**/*.d.ts",
+    "src/lib/impact.ts",
+    "src/lib/naming-debt.ts",
+    "src/lib/spec-diff.ts",
+    "src/lib/spec-validator.ts",
+    "server/system-repository.ts",
+    "server/lib/env-ref-utils.ts",
+    "src/features/tokens/accessibility/color-utils.ts",
+    "src/types/**/*.ts"
+  ]
+}

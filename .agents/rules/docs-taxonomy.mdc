@@ -1,0 +1,34 @@
+---
+description: Documentation taxonomy for Design System pages. Classifies docs by page type to avoid mixed intents and inconsistent structures.
+globs:
+  - "docs/**/*.md"
+---
+
+# Documentation taxonomy (Diataxis-adapted)
+
+All docs under `docs/` must be classified into one of these page types:
+
+- `component`: canonical reference for one Figma component (`docs/components/*.md`, excluding `overview.md`)
+- `overview`: navigation/index page for a section (`**/overview.md`)
+- `foundation`: token-driven foundations page (`docs/foundations/*.md`, excluding `overview.md`) when the foundations section exists in the repo
+- `workflow`: process/runbook page under explicit workflow sections (for example `docs/workflows/**/*.md` or project-specific onboarding paths)
+  - pattern docs are treated as a workflow subtype (recommended path: `docs/workflows/patterns/*.md`)
+
+## Metadata contract
+
+Use `frontmatter-contract.mdc` for required frontmatter fields and allowed values.
+This rule defines taxonomy scope and page intent boundaries, not field validation details.
+
+## Scope discipline
+
+- A `component` page must not include runbook/process instructions.
+- A `workflow` page must not duplicate full component reference tables.
+- A workflow pattern page should describe decisions, composition, and governance metadata instead of component API detail.
+- An `overview` page must summarize and link; it should not duplicate deep specs from component pages.
+- A `foundation` page should describe token families and links to generated inventories, not component-specific API details.
+- If a section folder (for example `docs/foundations/`) does not exist yet, do not force-create pages unless explicitly requested by the task.
+
+## Cross-rule references
+
+- Component pages must also follow `component-doc.mdc`.
+- Global integrity and no-invention behavior is defined in `ds-docs-guardrails.mdc`.

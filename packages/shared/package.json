@@ -1,0 +1,27 @@
+{
+  "name": "@flujo/shared",
+  "version": "1.0.0",
+  "description": "Shared utilities for Flujo Design System",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "design-system",
+    "utilities",
+    "shared"
+  ],
+  "author": "Flujo Design System",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

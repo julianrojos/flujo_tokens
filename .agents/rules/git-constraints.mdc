@@ -1,0 +1,36 @@
+---
+trigger: always_on
+alwaysApply: true
+globs: ["**/*"]
+priority: 100
+---
+
+# NO STAGE NI COMMIT SIN AUTORIZACIÓN PREVIA
+
+## Regla Absoluta
+
+**NUNCA** ejecutes comandos que modifiquen el historial de git sin autorización explícita del usuario:
+
+- ❌ `git commit` (a menos que se pida explícitamente)
+- ❌ `git add` (a menos que se pida explícitamente)
+- ❌ `git push`
+- ❌ `git reset --hard`
+- ❌ `git rebase`
+
+## Excepción
+
+Únicamente si el usuario dice explícitamente:
+- "haz commit"
+- "commitea esto"
+- "git commit -m '...'"
+
+## Consecuencia
+
+Si esta regla se viola, el usuario puede:
+1. Revertir el commit
+2. Reportar el incidente
+3. Solicitar que el agente no opere en este repositorio
+
+## Referencia
+
+Esta regla tiene prioridad sobre cualquier workflow o skill que sugiera commits automáticos.

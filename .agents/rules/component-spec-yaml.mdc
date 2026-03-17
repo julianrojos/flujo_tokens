@@ -1,0 +1,32 @@
+---
+description: Structure and validation rules for component spec YAML files - the source of truth before Markdown generation.
+globs:
+  - "docs/_spec/components/*.yml"
+---
+
+# Component spec YAML conventions
+
+Canonical source: `tooling/schemas/component-spec.schema.json` (JSON Schema draft-07).
+
+Validate with:
+
+```bash
+npm run validate:docs
+```
+
+Additional machine-readable contracts:
+
+- Type mapping and ordering groups: `tooling/lib/property-type-map.json`
+- Deterministic property ordering: `tooling/scripts/ds-sort-spec.mjs`
+- Name/slug normalization: `tooling/scripts/lib/name.mjs`
+
+Key constraints (see schema for full detail):
+
+- Required top-level fields are enforced by schema; unknown values use explicit `TBD`.
+- `status` in spec YAML is only `draft | ready`.
+- `figma.component_set_node_id` is required for `ready` and is the deterministic traceability key.
+- `properties` must use canonical types (`enum`, `text`, `boolean`, `instance_swap`) and deterministic ordering.
+- For `ready`, defaults must be concrete (no `TBD`) and enum values must be concrete.
+- File naming and slug consistency follow `component-name-normalization.mdc`.
+
+Error semantics (`SPEC01`, `REL01`, `NAME02`, `READY01`, `TRACE01`) are centralized in `error-codes.mdc` and `.agents/rules/_manifest.yml` (`checks`).

@@ -1,0 +1,107 @@
+import { Fragment, useMemo } from "react";
+import { Link, matchPath, useLocation } from "react-router-dom";
+import { ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+type Crumb = {
+  label: string;
+  to?: string;
+};
+
+function decodeSafe(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function buildCrumbs(pathname: string): Crumb[] {
+  if (pathname === "/health") {
+    return [{ label: "Health" }];
+  }
+
+  if (pathname === "/tokens") {
+    return [{ label: "Tokens" }];
+  }
+
+  if (pathname === "/tokens/diff") {
+    return [{ label: "Tokens", to: "/tokens" }, { label: "Compare" }];
+  }
+
+  if (pathname === "/token-graph") {
+    return [{ label: "Tokens", to: "/tokens" }, { label: "Graph" }];
+  }
+
+  if (pathname === "/impact") {
+    return [{ label: "Tokens", to: "/tokens" }, { label: "Impact" }];
+  }
+
+  const tokenMatch = matchPath("/tokens/:tokenPath", pathname);
+  if (tokenMatch?.params.tokenPath) {
+    return [
+      { label: "Tokens", to: "/tokens" },
+      { label: decodeSafe(tokenMatch.params.tokenPath) },
+    ];
+  }
+
+  if (pathname === "/components") {
+    return [{ label: "Components" }];
+  }
+
+  const componentMatch = matchPath("/components/:slug", pathname);
+  if (componentMatch?.params.slug) {
+    return [
+      { label: "Components", to: "/components" },
+      { label: decodeSafe(componentMatch.params.slug) },
+    ];
+  }
+
+  if (pathname === "/file") {
+    return [{ label: "File Viewer" }];
+  }
+
+  return [];
+}
+
+export function AppBreadcrumb({ className }: { className?: string }) {
+  const location = useLocation();
+  const crumbs = useMemo(() => buildCrumbs(location.pathname), [location.pathname]);
+
+  if (crumbs.length === 0) return null;
+
+  return (
+    <div className={cn("rounded-lg border border-border/70 bg-card/70 px-3 py-2", className)}>
+      <nav aria-label="Breadcrumb">
+        <ol className="flex flex-wrap items-center gap-1.5 text-xs">
+          {crumbs.map((crumb, index) => {
+            const isLast = index === crumbs.length - 1;
+            return (
+              <Fragment key={`${crumb.label}:${index}`}>
+                {index > 0 ? (
+                  <li className="text-muted-foreground">
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </li>
+                ) : null}
+                <li>
+                  {crumb.to && !isLast ? (
+                    <Link
+                      to={crumb.to}
+                      className="font-medium text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      {crumb.label}
+                    </Link>
+                  ) : (
+                    <span className={isLast ? "font-semibold text-foreground" : "font-medium"}>
+                      {crumb.label}
+                    </span>
+                  )}
+                </li>
+              </Fragment>
+            );
+          })}
+        </ol>
+      </nav>
+    </div>
+  );
+}

@@ -1,0 +1,63 @@
+name: CheckboxLabel
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Checkbox
+  component_set: Checkbox-Label
+
+summary:
+  purpose: Combines a checkbox control with adjacent label text.
+  when_to_use: Use for single labeled options in forms and settings rows.
+  when_not_to_use: Do not use for mutually exclusive option groups.
+
+anatomy:
+  - id: checkbox_instance
+    description: Nested Checkbox instance used as the interactive control.
+  - id: label_text
+    description: Text node that describes the option meaning.
+  - id: row_container
+    description: Horizontal Auto Layout wrapper with 8px spacing.
+
+properties:
+  - name: Change_Text
+    type: text
+    default: Label
+    required: false
+    description: Overrides visible label text content.
+
+content_guidelines:
+  rules:
+    - Keep label copy concise and explicit.
+    - Avoid ambiguous labels such as Option 1.
+
+best_practices:
+  do:
+    - Keep label semantics clear and action-oriented.
+    - Keep spacing between checkbox and label consistent.
+  dont:
+    - Do not rely on color-only cues to convey state.
+    - Do not truncate critical label meaning without fallback behavior.
+
+accessibility:
+  role: checkbox
+  focus:
+    tokens:
+      inner: Semantic.Color.Focus-Outline.Inner
+      outer: Semantic.Color.Focus-Outline.Outer
+  hit_area:
+    desktop_token: A11y.A11y.Dimension.Min-Hit-Area
+    mobile_token: Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA
+  labeling:
+    rules:
+      - Label text should be programmatically associated with the checkbox control.
+      - Additional wrapper semantics are TBD.
+
+token_mapping:
+  label.text_color:
+    default: TBD
+  row.spacing:
+    default: TBD
+
+qa:
+  - Properties match the Figma component definition.
+  - Accessibility behavior for wrapper interactions remains TBD.

@@ -1,0 +1,70 @@
+---
+description: Version and compatibility contract for local skills.
+globs:
+  - ".agents/skills/**/SKILL.md"
+---
+
+# Skill Versioning
+
+This rule defines a safe migration path for versioned skills.
+
+## Adoption policy
+
+- For new skills: include versioning metadata from day one (blocking).
+- For existing skills modified in the same change: add versioning metadata before merging (blocking).
+- Legacy skills that are not touched may remain unmigrated temporarily.
+
+## Required frontmatter fields for new or modified skills
+
+```yaml
+name: ds-component-doc
+version: "1.2.0" # SemVer
+context:
+  doc_type: component
+  stage: markdown
+compatible_agents:
+  - codex
+  - claude
+  - gemini
+inputs:                        # Required — see skill-input-output-contract.mdc for type definitions
+  - name: component_name
+    type: component_name
+    required: true
+    description: "..."
+  - name: docs_root
+    type: path
+    required: false
+    default: "docs/"
+    description: "..."
+outputs:                       # Required — declare all file artifacts and report outputs
+  - name: markdown_file
+    type: path
+    value: "${docs_root}/components/${component_name_snake_case}.md"
+    description: "..."
+  - name: report
+    type: report
+    description: "..."
+```
+
+`inputs` and `outputs` are required for all new or modified skills. Slot type definitions and agent behavior contract are in `skill-input-output-contract.mdc`.
+
+`context` is required for all new or modified skills:
+
+- `doc_type` must align with manifest doc domains (`component`, `overview`, `foundation`, `workflow`, `spec`, `skills`).
+- `stage` must align with manifest stage routing (`spec`, `markdown`, `figma`, `visual-proof`, `pipeline`, `skills`).
+
+## Optional changelog block
+
+```yaml
+changelog:
+  - version: "1.2.0"
+    date: "2026-02-19"
+    changes:
+      - "Updated deterministic prompt contract."
+```
+
+## SemVer guidance
+
+- `MAJOR`: breaking changes in expected input/output structure.
+- `MINOR`: additive behavior or new optional inputs.
+- `PATCH`: bug fixes and non-breaking prompt/rule refinements.

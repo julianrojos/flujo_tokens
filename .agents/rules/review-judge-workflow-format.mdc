@@ -1,0 +1,19 @@
+---
+description: Enforce exact workflow output format for /review and /judge commands.
+alwaysApply: true
+globs: ["**/*"]
+---
+
+# /review y /judge: formato obligatorio
+
+Cuando el usuario invoque `/review` o `/judge` (incluyendo frases como "Te digo /review" o "Te digo /judge"):
+
+- `MUST`: Cargar y seguir el workflow correspondiente en `.agents/workflows/review.md` o `.agents/workflows/judge.md`.
+- `MUST`: Respetar la plantilla de salida exacta definida en cada workflow.
+- `MUST`: Incluir cabeceras de archivo con el formato `### 📁 [Ruta del archivo]` cuando el workflow lo requiera.
+- `MUST NOT`: Responder con formatos alternativos "compactos", "resumidos" o personalizados si difieren de la plantilla del workflow.
+- `MUST`: Mantener el orden y la estructura exigidos por el workflow (campos, etiquetas, orden de secciones y reglas de impresion).
+
+Si falta contexto minimo para aplicar el workflow:
+
+- `MUST`: Indicar brevemente que falta (por ejemplo, informe base para `/judge` o cambios a revisar para `/review`) y pedir solo lo necesario.

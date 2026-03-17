@@ -1,0 +1,76 @@
+name: Topbar
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Bars
+  component_set: Topbar
+
+summary:
+  purpose: Provides top application header chrome with optional back affordance and title text.
+  when_to_use: Use at the top of mobile screens to show screen title and contextual actions.
+  when_not_to_use: Do not use as a generic content container.
+
+anatomy:
+  - id: container
+    description: Root topbar container.
+  - id: back_section
+    description: Optional back affordance section controlled by Show_Back.
+  - id: title
+    description: Header title text controlled by Change_Text.
+  - id: icons
+    description: Right-side icon/action area.
+  - id: secondary_navigation
+    description: Secondary navigation area below/inside topbar structure.
+
+properties:
+  - name: Change_Text
+    type: text
+    default: "View header"
+    required: false
+    description: Overrides the title text.
+  - name: Show_Back
+    type: boolean
+    default: false
+    required: false
+    description: Toggles visibility of back affordance section.
+
+content_guidelines:
+  rules:
+    - Keep title concise and clear.
+    - Avoid redundant wording in titles.
+
+best_practices:
+  do:
+    - Show back affordance only when navigation hierarchy requires it.
+    - Keep right-side actions limited and scannable.
+  dont:
+    - Overload topbar with too many controls.
+    - Use very long title strings without truncation strategy.
+
+accessibility:
+  role: TBD
+  focus:
+    tokens:
+      inner: "Semantic.Color.Focus-Outline.Inner"
+      outer: "Semantic.Color.Focus-Outline.Outer"
+  hit_area:
+    desktop_token: "A11y.A11y.Dimension.Min-Hit-Area"
+    mobile_token: "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA"
+  labeling:
+    rules:
+      - Interactive controls in topbar need explicit accessible names.
+      - Back affordance labeling must describe navigation intent.
+
+token_mapping:
+  container.background:
+    default: TBD
+  title.color:
+    default: TBD
+  icons.color:
+    default: TBD
+  back_section.color:
+    show_back_true: TBD
+
+qa:
+  - "Properties match current Figma component definitions."
+  - "Token mapping requires follow-up with validated registry mappings."

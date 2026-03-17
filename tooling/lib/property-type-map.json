@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "property-type-map",
+  "description": "Canonical bidirectional mapping between spec YAML property types and Figma display types. This is the single source of truth — all rules, scripts, and agents must reference this file instead of duplicating the table. Mirrors the type mapping decision table in component-spec-yaml.mdc.",
+  "version": "1.0.0",
+  "source_of_truth_for": [
+    "component-spec-yaml.mdc (type mapping decision table)",
+    "component-spec-properties-order.mdc (ordering group column)",
+    "tooling/scripts/lib/spec-property-types.mjs (JS runtime mirror)",
+    "tooling/scripts/lib/node-id.mjs (FIGMA_NODE_ID_RE — figma_node_id.pattern)"
+  ],
+  "normalization": {
+    "case_insensitive": true,
+    "note": "Type comparison is case-insensitive. 'Enum', 'ENUM', and 'enum' are all equivalent. Normalize to lowercase before lookup.",
+    "aliases": {
+      "variant": "enum",
+      "note": "Figma sometimes surfaces 'variant' as the axis type. Coerce to 'enum' before spec storage."
+    }
+  },
+  "spec_to_figma": {
+    "enum":          "VARIANT",
+    "text":          "TEXT",
+    "boolean":       "BOOLEAN",
+    "instance_swap": "INSTANCE_SWAP"
+  },
+  "figma_to_spec": {
+    "VARIANT":       "enum",
+    "TEXT":          "text",
+    "BOOLEAN":       "boolean",
+    "INSTANCE_SWAP": "instance_swap"
+  },
+  "type_metadata": {
+    "enum": {
+      "ordering_group":   1,
+      "requires_values":  true,
+      "default_format":   "One of the values[] entries, or \"TBD\" if unknown",
+      "values_field":     "required",
+      "figma_display":    "VARIANT"
+    },
+    "text": {
+      "ordering_group":   2,
+      "requires_values":  false,
+      "default_format":   "Any string, or \"TBD\" if unknown",
+      "values_field":     "omit",
+      "figma_display":    "TEXT"
+    },
+    "boolean": {
+      "ordering_group":   3,
+      "requires_values":  false,
+      "default_format":   "true or false (unquoted YAML boolean), or \"TBD\" if unknown",
+      "values_field":     "omit",
+      "figma_display":    "BOOLEAN"
+    },
+    "instance_swap": {
+      "ordering_group":   4,
+      "requires_values":  false,
+      "default_format":   "Component name string, or \"TBD\" if unknown",
+      "values_field":     "omit",
+      "figma_display":    "INSTANCE_SWAP"
+    }
+  },
+  "invalid_type_behavior": {
+    "ordering_group":  5,
+    "error_code":      "SPEC01",
+    "action":          "Stop; report error SPEC01 with the invalid type value; do not render the property.",
+    "applies_to":      ["generating skills", "validate:docs", "ds:spec-from-figma", "ds:component-doc"],
+    "invalid_examples": [null, "", "variant_group", "color", "number"]
+  },
+  "ready_spec_constraints": {
+    "description": "Additional constraints that apply when status is 'ready'. All must pass before a spec may be promoted.",
+    "rules": [
+      {
+        "id":          "no_tbd_defaults",
+        "description": "All property defaults must be concrete (not the string 'TBD').",
+        "applies_to":  "all types"
+      },
+      {
+        "id":          "enum_default_in_values",
+        "description": "For enum properties, default must match one of the values[] entries.",
+        "applies_to":  "enum"
+      },
+      {
+        "id":          "no_tbd_in_values",
+        "description": "values[] must not contain 'TBD' as an entry. A values:[\"TBD\"] array does not satisfy the concrete-default requirement regardless of whether the default technically matches.",
+        "applies_to":  "enum",
+        "error_code":  "SPEC02"
+      }
+    ]
+  },
+  "figma_node_id": {
+    "pattern":        "^\\d+:\\d+$",
+    "description":    "Figma node ID format: two integers separated by a colon (e.g. 123:456).",
+    "examples":       ["1:234", "68:4097", "2304:1892"],
+    "source_of_truth_for": [
+      "tooling/scripts/lib/node-id.mjs (FIGMA_NODE_ID_RE)",
+      "tooling/schemas/component-spec.schema.json ($defs.figma_node_id)",
+      "component-figma-traceability.mdc (Node ID format contract)"
+    ]
+  }
+}
