@@ -3,6 +3,12 @@
  *
  * SQLite-backed persistence for AI jobs (AiJobState).
  * Provides CRUD operations for ai_jobs and job_events tables.
+ *
+ * PERSISTENCE CONTRACT:
+ * - Job snapshot MUST be persisted BEFORE appending events (FK order)
+ * - Events are appended with monotonic seq per job_id
+ * - INSERT OR REPLACE is dangerous - use ON CONFLICT DO UPDATE instead
+ * - Recovery must rehydrate nextEventSeq = max(seq)+1 to avoid UNIQUE violations
  */
 
 import Database from 'better-sqlite3';
@@ -40,16 +46,28 @@ export class JobsRepository {
     }
 
     /**
-     * Insert or replace a job (upsert)
+     * Insert or update a job (upsert)
+     * Uses ON CONFLICT DO UPDATE to preserve related job_events (unlike INSERT OR REPLACE)
      */
     upsertJob(job: AiJobState): void {
         const stmt = this.db.prepare(`
-            INSERT OR REPLACE INTO ai_jobs (
+            INSERT INTO ai_jobs (
                 id, idempotency_key, status, provider,
                 input_json, output_json, usage_json,
                 error, error_code, retryable,
                 created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                idempotency_key = excluded.idempotency_key,
+                status = excluded.status,
+                provider = excluded.provider,
+                input_json = excluded.input_json,
+                output_json = excluded.output_json,
+                usage_json = excluded.usage_json,
+                error = excluded.error,
+                error_code = excluded.error_code,
+                retryable = excluded.retryable,
+                updated_at = excluded.updated_at
         `);
 
         stmt.run(
@@ -66,6 +84,20 @@ export class JobsRepository {
             job.createdAt,
             job.updatedAt
         );
+    }
+
+    /**
+     * Get max event sequence number for a job
+     * Returns 0 if job has no events (first event will be seq=1)
+     */
+    getMaxEventSeq(jobId: string): number {
+        const stmt = this.db.prepare(`
+            SELECT COALESCE(MAX(seq), 0) as maxSeq
+            FROM job_events
+            WHERE job_id = ?
+        `);
+        const result = stmt.get(jobId) as { maxSeq: number };
+        return result.maxSeq;
     }
 
     /**
@@ -180,6 +212,18 @@ export class JobsRepository {
             event: row.event,
             data: row.data ? JSON.parse(row.data) : undefined,
         }));
+    }
+
+    /**
+     * Atomically persist job snapshot + event in correct order
+     * Uses transaction to ensure both succeed or both fail
+     */
+    persistTransition(job: AiJobState, event: AiJobEvent): void {
+        const tx = this.db.transaction(() => {
+            this.upsertJob(job);
+            this.appendJobEvent(job.id, event);
+        });
+        tx();
     }
 
     /**

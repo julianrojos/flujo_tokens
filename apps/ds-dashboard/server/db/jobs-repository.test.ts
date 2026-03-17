@@ -247,4 +247,66 @@ describe('jobs-repository', () => {
             assert.strictEqual(events.length, 0);
         });
     });
+
+    describe('persistTransition()', () => {
+        it('persists job and event atomically', () => {
+            const job = createTestJob();
+            const event = { seq: 1, ts: Date.now(), event: 'test', data: { foo: 'bar' } };
+
+            repo.persistTransition(job, event);
+
+            const persistedJob = repo.getJob(job.id);
+            assert.ok(persistedJob);
+            assert.strictEqual(persistedJob.id, job.id);
+
+            const persistedEvents = repo.getJobEvents(job.id);
+            assert.strictEqual(persistedEvents.length, 1);
+            assert.strictEqual(persistedEvents[0].event, 'test');
+            assert.deepStrictEqual(persistedEvents[0].data, { foo: 'bar' });
+        });
+
+        it('rolls back completely on appendJobEvent failure', () => {
+            const job = createTestJob();
+            const event = { seq: 1, ts: Date.now(), event: 'test' };
+
+            // Simulate failure in appendJobEvent
+            const originalAppend = repo.appendJobEvent;
+            repo.appendJobEvent = () => {
+                throw new Error('Simulated DB constraint violation');
+            };
+
+            assert.throws(() => repo.persistTransition(job, event), {
+                message: 'Simulated DB constraint violation'
+            });
+
+            // Verify no partial state - job should not exist
+            const persistedJob = repo.getJob(job.id);
+            assert.strictEqual(persistedJob, null);
+
+            // Restore original method
+            repo.appendJobEvent = originalAppend;
+        });
+
+        it('rolls back completely on upsertJob failure', () => {
+            const job = createTestJob();
+            const event = { seq: 1, ts: Date.now(), event: 'test' };
+
+            // Simulate failure in upsertJob
+            const originalUpsert = repo.upsertJob;
+            repo.upsertJob = () => {
+                throw new Error('Simulated DB constraint violation');
+            };
+
+            assert.throws(() => repo.persistTransition(job, event), {
+                message: 'Simulated DB constraint violation'
+            });
+
+            // Verify no events were written
+            const persistedEvents = repo.getJobEvents(job.id);
+            assert.strictEqual(persistedEvents.length, 0);
+
+            // Restore original method
+            repo.upsertJob = originalUpsert;
+        });
+    });
 });
