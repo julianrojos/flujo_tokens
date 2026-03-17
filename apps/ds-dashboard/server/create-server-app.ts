@@ -11,6 +11,9 @@ import { fileURLToPath } from 'node:url';
 
 import type { Hono } from 'hono';
 
+import type { StructuredLogPayload } from './lib/api-response-service.js';
+import type { BuildApiErrorPayloadOptions } from './lib/api-response-service.js';
+
 import {
   createDesignSystemRepository,
   ensureRelativeDir,
@@ -23,7 +26,7 @@ import {
 import {
   computeNamingDebtReport,
   validateGitRef,
-} from './lib/analysis-artifacts-service.mjs';
+} from './services/analysis-artifacts-service.ts';
 import {
   isQueueJobFinalStatus,
   listQueueJobEvents,
@@ -31,9 +34,9 @@ import {
   queueJobSnapshot,
   toQueueTerminalEvent,
 } from './lib/queue-utils.ts';
-import { buildCreateServerAppRouteDeps } from './lib/create-server-app-route-deps.mjs';
+import { buildCreateServerAppRouteDeps } from './lib/create-server-app-route-deps.ts';
 import { createServerHttpApp } from './lib/create-server-http-app.ts';
-import { createServerRuntimeServices } from './lib/create-server-runtime-services.mjs';
+import { createServerRuntimeServices } from './lib/create-server-runtime-services.ts';
 import {
   buildApiErrorPayload,
   createApiRequestId,
@@ -234,12 +237,21 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     computeNamingDebtReportFn: computeNamingDebtReport,
   });
 
+  // Type adapters for createServerHttpApp compatibility
+  const buildApiErrorPayloadAdapter = (...args: unknown[]): Record<string, unknown> => {
+    return buildApiErrorPayload(args[0] as BuildApiErrorPayloadOptions, createApiRequestId);
+  };
+
+  const writeStructuredLogAdapter = (level: string, payload: Record<string, unknown>): void => {
+    writeStructuredLog(level, payload as StructuredLogPayload);
+  };
+
   const { app } = createServerHttpApp({
     queueMetrics,
     nowIso,
     createApiRequestId,
-    buildApiErrorPayload,
-    writeStructuredLog,
+    buildApiErrorPayload: buildApiErrorPayloadAdapter,
+    writeStructuredLog: writeStructuredLogAdapter,
     routeDeps: buildCreateServerAppRouteDeps({
       readJsonBody,
       designSystemRepository,

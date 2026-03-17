@@ -3,6 +3,7 @@
  * HTTP endpoints for AI-powered component documentation generation
  */
 
+import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { getAiJobsStore } from '../services/ai-jobs-store.js';
 import { runGenerateComponentDoc } from '../services/ai-orchestrator.js';
@@ -193,7 +194,7 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             if (error && typeof error === 'object' && 'code' in error) {
                 const err = error as { code: string; message: string; retryable: boolean };
                 // Map error codes to appropriate HTTP status codes
-                let statusCode = 400; // Default for client errors
+                let statusCode: 400 | 429 | 503 = 400; // Default for client errors
 
                 if (err.code === 'ai.job.queue_full') {
                     // Queue full is a temporary server condition (retryable)

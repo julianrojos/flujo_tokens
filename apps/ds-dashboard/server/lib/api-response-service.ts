@@ -129,10 +129,10 @@ export function buildApiErrorPayload(
       code: safeCode,
       userMessage: safeMessage,
       recoverable: recoverable === true,
-    },
+    } as { code: string; userMessage: string; recoverable: boolean; context?: Record<string, unknown> },
   };
   if (context && typeof context === 'object' && !Array.isArray(context)) {
-    payload.error.context = context;
+    (payload.error as { code: string; userMessage: string; recoverable: boolean; context?: Record<string, unknown> }).context = context;
   }
   return payload;
 }
@@ -161,16 +161,26 @@ export function createFailJson({
       ...args,
       requestId,
     });
+    const rawError = payload.error;
+    const error = rawError && typeof rawError === 'object' && !Array.isArray(rawError)
+      ? rawError as Partial<{ code: string; recoverable: boolean; context: Record<string, unknown> }>
+      : {};
+    const errorCode = typeof error.code === 'string' ? error.code : 'internal.unknown_error';
+    const errorContext = error.context && typeof error.context === 'object' && !Array.isArray(error.context)
+      ? error.context
+      : null;
+
     if (args?.suppressLog !== true) {
       writeStructuredLogFn(statusCode >= 500 ? 'error' : 'warn', {
+        level: statusCode >= 500 ? 'error' : 'warn',
         event: 'api.error',
         requestId,
-        code: payload?.error?.code || 'internal.unknown_error',
+        code: errorCode,
         statusCode,
-        recoverable: payload?.error?.recoverable === true,
+        recoverable: error.recoverable === true,
         path: c?.req?.path,
         method: c?.req?.method,
-        context: payload?.error?.context || null,
+        context: errorContext,
       });
     }
     return c.json(payload, statusCode);

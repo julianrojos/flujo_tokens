@@ -4,14 +4,16 @@
  * Builds command configurations for route handlers.
  * Migrated from apps/ds-dashboard/server/lib/command-route-service.mjs
  */
-import dsTypes from 'ds-types';
+import * as dsTypes from 'ds-types';
 
 // NOTE: Under the current tsx runtime this package is exposed through a default export object.
-// Keep this destructuring pattern unless ds-types packaging is switched to stable named ESM exports.
+// We use (dsTypes as any).default ?? dsTypes as fallback to handle both:
+// - TypeScript compilation (named exports from source)
+// - Runtime execution (default export object from tsx bundling)
 const {
   InvalidFigmaVariableSourceError,
   parseFigmaVariableSource,
-} = dsTypes as {
+} = (dsTypes as any).default ?? dsTypes as {
   InvalidFigmaVariableSourceError: new (...args: any[]) => Error;
   parseFigmaVariableSource: (
     rawValue: unknown,

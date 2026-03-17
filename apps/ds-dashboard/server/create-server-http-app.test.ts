@@ -2,14 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createServerHttpApp } from "./lib/create-server-http-app.ts";
+import { createHealthPayloadBuilder, type HealthPayloadBuilderDeps } from "./lib/api-response-service.js";
+import { buildCreateServerRouteDeps, type CreateServerRouteDepsConfig } from "./lib/create-server-route-deps.js";
 
 test("create-server-http-app: wires routes and middleware with derived helpers", () => {
-  const calls = {
-    createFailJson: null as Record<string, unknown> | null,
-    createHealthPayloadBuilder: null as Record<string, unknown> | null,
-    buildCreateServerRouteDeps: null as Record<string, unknown> | null,
-    registerAllRoutes: null as { app: unknown; deps: unknown } | null,
-    registerUnhandledErrorMiddleware: null as { app: unknown; deps: unknown } | null,
+  const calls: any = {
+    createFailJson: null,
+    createHealthPayloadBuilder: null,
+    buildCreateServerRouteDeps: null,
+    buildCreateServerRouteDepsReturn: null,
+    registerAllRoutes: null,
+    registerUnhandledErrorMiddleware: null,
   };
 
   const failJson = () => {};
@@ -27,14 +30,15 @@ test("create-server-http-app: wires routes and middleware with derived helpers",
       calls.createFailJson = args as Record<string, unknown>;
       return failJson;
     },
-    createHealthPayloadBuilderFn(args) {
-      calls.createHealthPayloadBuilder = args as Record<string, unknown>;
+    createHealthPayloadBuilderFn: ((args: HealthPayloadBuilderDeps) => {
+      calls.createHealthPayloadBuilder = args as unknown;
       return buildHealthPayload;
-    },
-    buildCreateServerRouteDepsFn(args) {
-      calls.buildCreateServerRouteDeps = args as Record<string, unknown>;
-      return { wired: true };
-    },
+    }) as typeof createHealthPayloadBuilder,
+    buildCreateServerRouteDepsFn: ((args: CreateServerRouteDepsConfig) => {
+      calls.buildCreateServerRouteDeps = args as unknown;
+      calls.buildCreateServerRouteDepsReturn = { wired: true };
+      return { wired: true } as unknown;
+    }) as typeof buildCreateServerRouteDeps,
     registerAllRoutesFn(app, deps) {
       calls.registerAllRoutes = { app, deps };
     },
@@ -43,6 +47,7 @@ test("create-server-http-app: wires routes and middleware with derived helpers",
     },
   });
 
+  assert.deepEqual(calls.buildCreateServerRouteDepsReturn, { wired: true });
   assert.equal(typeof result.app.fetch, "function");
   assert.equal(result.failJson, failJson);
   assert.equal(result.buildHealthPayload, buildHealthPayload);
