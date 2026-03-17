@@ -12,6 +12,38 @@ import {
   type FigmaMcpCapabilitiesRouteDeps,
 } from './figma-mcp-capabilities-route.ts';
 
+// Helper for creating test app with mock getConnInfo
+function createTestAppWithMockIp(mockIp: string, overrides?: Partial<FigmaMcpCapabilitiesRouteDeps>): Hono {
+  const app = new Hono();
+  const deps: FigmaMcpCapabilitiesRouteDeps = {
+    getConnInfoFn: () => ({ remote: { address: mockIp } }),
+    internalToken: 'test-token',
+    getFigmaMcpHeartbeatStatusFn: () => ({ alive: false }),
+  };
+  if (overrides?.internalToken) deps.internalToken = overrides.internalToken;
+  if (overrides?.getFigmaMcpHeartbeatStatusFn) {
+    deps.getFigmaMcpHeartbeatStatusFn = overrides.getFigmaMcpHeartbeatStatusFn;
+  }
+  registerFigmaMcpCapabilitiesRoute(app, deps);
+  return app;
+}
+
+// Helper for creating test app with headers (for DS_TRUST_PROXY=1 scenarios)
+function createTestAppWithHeaders(overrides?: Partial<FigmaMcpCapabilitiesRouteDeps>): Hono {
+  const app = new Hono();
+  const deps: FigmaMcpCapabilitiesRouteDeps = {
+    getConnInfoFn: () => ({ remote: { address: '127.0.0.1' } }),
+    internalToken: 'test-token',
+    getFigmaMcpHeartbeatStatusFn: () => ({ alive: false }),
+  };
+  if (overrides?.internalToken) deps.internalToken = overrides.internalToken;
+  if (overrides?.getFigmaMcpHeartbeatStatusFn) {
+    deps.getFigmaMcpHeartbeatStatusFn = overrides.getFigmaMcpHeartbeatStatusFn;
+  }
+  registerFigmaMcpCapabilitiesRoute(app, deps);
+  return app;
+}
+
 function createTestApp(overrides?: Partial<FigmaMcpCapabilitiesRouteDeps>): Hono {
   const app = new Hono();
   const deps: FigmaMcpCapabilitiesRouteDeps = {
@@ -44,7 +76,7 @@ test('figma-mcp-capabilities-route (direct-only): GET blocks unauthenticated req
 });
 
 test('figma-mcp-capabilities-route (direct-only): GET allows loopback without token', async () => {
-  const app = createTestApp();
+  const app = createTestAppWithMockIp('127.0.0.1');
 
   const response = await app.request('/api/figma-mcp/capabilities', {
     method: 'GET',
@@ -56,8 +88,32 @@ test('figma-mcp-capabilities-route (direct-only): GET allows loopback without to
   assert.equal(payload.transport.mode, 'direct');
 });
 
+test('figma-mcp-capabilities-route (direct-only): GET allows loopback with headers when DS_TRUST_PROXY=1', async () => {
+  const originalEnv = process.env.DS_TRUST_PROXY;
+  process.env.DS_TRUST_PROXY = '1';
+  
+  try {
+    const app = createTestAppWithHeaders({
+      getConnInfoFn: () => ({ remote: { address: '10.20.30.40' } }),
+    });
+
+    const response = await app.request('/api/figma-mcp/capabilities', {
+      method: 'GET',
+      headers: { 'x-forwarded-for': '127.0.0.1' },
+    });
+
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.transport.mode, 'direct');
+  } finally {
+    process.env.DS_TRUST_PROXY = originalEnv;
+  }
+});
+
 test('figma-mcp-capabilities-route (direct-only): GET allows with valid internal token', async () => {
   const app = createTestApp({
+    internalToken: 'test-token',
     getConnInfoFn: () => ({ remote: { address: '10.20.30.40' } }),
   });
 

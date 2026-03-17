@@ -6,12 +6,18 @@
  */
 
 import type { Context } from 'hono';
-import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
+
+// Define ConnInfo interface locally to avoid import issues
+interface ConnInfo {
+  remote?: {
+    address?: string;
+  };
+}
 import { getActiveMcpPort } from '../services/figma-mcp-runtime-state.ts';
 import { getFigmaMcpHeartbeatStatus } from '../services/figma-mcp-heartbeat-state.ts';
 import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
-import { isLoopbackAddress } from '../lib/loopback-utils.ts';
+import { isLoopbackRequest } from '../lib/loopback-utils.ts';
 import { resolveLiveness, resolveDisconnectionCause } from '../lib/resolve-liveness.ts';
 import { fetchBridgeCapabilitiesDirect } from '../services/figma-direct-bridge-service.ts';
 import { mapBridgeMethodsToCapabilities, type BridgeCapabilities } from '../lib/map-bridge-methods-to-capabilities.ts';
@@ -30,13 +36,13 @@ interface CapabilitiesResponse {
   tools: string[];
   toolsDiscoveryError?: string;
   transport: {
-    mode: 'direct';
+    mode: 'direct' | 'ws' | 'none';
     /** Active direct WS connections */
     wsAlive: boolean;
     /** Legacy HTTP heartbeat alive (always false in direct-only) */
     heartbeatAlive: boolean;
     /** Source of liveness determination */
-    livenessSource?: 'ws' | 'none';
+    livenessSource?: 'ws' | 'legacy' | 'hybrid' | 'none';
   };
   disconnectionCause?: {
     code: string;
@@ -92,8 +98,8 @@ export async function handleGetFigmaMcpCapabilities(c: Context, deps: FigmaMcpCa
   const getHeartbeatStatusFn = deps.getFigmaMcpHeartbeatStatusFn ?? (() => getFigmaMcpHeartbeatStatus());
 
   const connInfo = getConnInfoFn(c);
-  const remoteAddress = String(connInfo?.remote?.address || '').trim();
-  const isLoopback = remoteAddress ? isLoopbackAddress(remoteAddress) : false;
+  // Unified loopback detection using helper with resolved connInfo
+  const isLoopback = isLoopbackRequest(c, connInfo);
 
   // Authorization: loopback or internal token
   if (!isLoopback) {
@@ -184,7 +190,7 @@ export async function handleGetFigmaMcpCapabilities(c: Context, deps: FigmaMcpCa
     tools,
     ...(toolsDiscoveryError ? { toolsDiscoveryError } : {}),
     transport: {
-      mode: transportMode,
+      mode: transportMode as 'direct' | 'ws' | 'none',
       wsAlive,
       heartbeatAlive,
       livenessSource: liveness.source,

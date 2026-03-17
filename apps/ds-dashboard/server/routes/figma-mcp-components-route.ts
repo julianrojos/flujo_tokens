@@ -15,9 +15,7 @@
  */
 
 import type { Context } from 'hono';
-import type { ConnInfo } from '@hono/node-server/conninfo';
-import { getConnInfo } from '@hono/node-server/conninfo';
-import { isLoopbackAddress } from '../lib/loopback-utils.ts';
+import { isLoopbackRequest } from '../lib/loopback-utils.ts';
 import {
   searchComponentsDirect,
   getComponentSpecDirect,
@@ -28,7 +26,6 @@ import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
 
 export interface FigmaMcpComponentsRouteDeps {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
-  getConnInfoFn?: (c: Context) => ConnInfo;
   internalToken?: string;
 }
 
@@ -88,7 +85,7 @@ async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteD
     return c.json(resolved, 200);
   }
 
-  const fileKey = resolved.fileKey;
+  const fileKey = (resolved as { fileKey: string | null }).fileKey;
 
   try {
     const result = await searchComponentsDirect(fileKey, {
@@ -167,7 +164,7 @@ async function handleGetComponentSpec(c: Context, deps: FigmaMcpComponentsRouteD
     return c.json(resolved, 200);
   }
 
-  const fileKey = resolved.fileKey;
+  const fileKey = (resolved as { fileKey: string | null }).fileKey;
 
   if (!body.nodeId || typeof body.nodeId !== 'string') {
     return c.json(
@@ -256,7 +253,7 @@ async function handleGetComponentImages(c: Context, deps: FigmaMcpComponentsRout
     return c.json(resolved, 200);
   }
 
-  const fileKey = resolved.fileKey;
+  const fileKey = (resolved as { fileKey: string | null }).fileKey;
 
   if (!Array.isArray(body.nodeIds)) {
     return c.json(
@@ -346,7 +343,7 @@ async function handleAuditTokenCoverage(c: Context, deps: FigmaMcpComponentsRout
     return c.json(resolved, 200);
   }
 
-  const fileKey = resolved.fileKey;
+  const fileKey = (resolved as { fileKey: string | null }).fileKey;
 
   if (!body.nodeId || typeof body.nodeId !== 'string') {
     return c.json(
@@ -395,15 +392,11 @@ export function registerFigmaMcpComponentsRoutes(
   app: { post: (path: string, handler: (c: Context) => Response | Promise<Response>) => void },
   deps: FigmaMcpComponentsRouteDeps
 ): void {
-  // Use injected dependency or default
-  const getConnInfoResolved = deps.getConnInfoFn ?? getConnInfo;
-
   // Validate auth for all routes
   const authGuard = (c: Context) => {
-    const connInfo = getConnInfoResolved(c);
-    const remoteAddress = String(connInfo?.remote?.address || '').trim();
+    // Unified loopback detection using helper
+    const isLoopback = isLoopbackRequest(c);
     const trustedInternal = isTrustedInternalRequest(c, deps);
-    const isLoopback = remoteAddress ? isLoopbackAddress(remoteAddress) : false;
 
     if (!isLoopback && !trustedInternal) {
       return c.json(
