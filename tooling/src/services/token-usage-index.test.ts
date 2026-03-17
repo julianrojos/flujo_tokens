@@ -12,6 +12,7 @@ import {
   generateUsageIndex,
   injectFigmaAliases,
   generateUsageIndexFromFile,
+  extractSpecReferences,
 } from './token-usage-index.js';
 import type { TokenRegistry, TokenUsageEntryNew } from './token-types.js';
 
@@ -340,6 +341,46 @@ describe('token-usage-index', () => {
       const entry = result.byPath['color.primary'];
       assert.ok(entry);
       assert.strictEqual(entry.usageByKind['figma-alias'], 1);
+    });
+
+    it('extracts nested token_mapping references and stores component slug owner', () => {
+      const specPath = path.join(specRoot, 'button.yml');
+      fs.writeFileSync(
+        specPath,
+        [
+          'name: button',
+          'token_mapping:',
+          '  container.background:',
+          '    default: color.primary',
+          '    hover: color.primary',
+        ].join('\n'),
+      );
+
+      const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8')) as TokenRegistry;
+      const refs = extractSpecReferences(specRoot, registry);
+      assert.ok(refs.length >= 1);
+      assert.ok(refs.some((ref) => ref.owner === 'button'));
+      assert.ok(refs.some((ref) => String(ref.property || '').startsWith('token_mapping.container.background')));
+    });
+
+    it('infers anatomy color usage when token_mapping is missing', () => {
+      const specPath = path.join(specRoot, 'badge.yml');
+      fs.writeFileSync(
+        specPath,
+        [
+          'name: badge',
+          'anatomy:',
+          '  - id: "1:1"',
+          '    name: Variant=Default',
+          '    fill: "#ff0000"',
+        ].join('\n'),
+      );
+
+      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
+      const entry = result.byPath['color.primary'];
+      assert.ok(entry);
+      assert.ok(entry.usedIn.some((occ) => occ.kind === 'component-spec' && occ.owner === 'badge'));
+      assert.ok(entry.usedIn.some((occ) => String(occ.detail).includes('anatomy')));
     });
   });
 });

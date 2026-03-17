@@ -78,6 +78,52 @@ function listSpecSlugs(specsDir: string): string[] {
 }
 
 /**
+ * Collect node IDs that correspond to variant components within component sets.
+ */
+function collectVariantComponentNodeIds(specsDir: string): Set<string> {
+  const nodeIds = new Set<string>();
+  const specSlugs = listSpecSlugs(specsDir);
+
+  for (const slug of specSlugs) {
+    const specPath = path.join(specsDir, `${slug}.yml`);
+    if (!fileExists(specPath)) continue;
+
+    let spec: Record<string, unknown>;
+    try {
+      spec = parseYamlDocument(
+        fs.readFileSync(specPath, 'utf8'),
+        `component spec (${path.basename(specPath)})`,
+      ) as unknown as Record<string, unknown>;
+    } catch {
+      continue;
+    }
+
+    const properties = Array.isArray(spec.properties) ? spec.properties : [];
+    const hasVariantAxis = properties.some((property) => {
+      if (!isPlainObject(property)) return false;
+      const type = String((property as Record<string, unknown>).type || '')
+        .trim()
+        .toUpperCase();
+      return type === 'VARIANT';
+    });
+    if (!hasVariantAxis) continue;
+
+    const anatomy = Array.isArray(spec.anatomy) ? spec.anatomy : [];
+    for (const node of anatomy) {
+      if (!isPlainObject(node)) continue;
+      const nodeObj = node as Record<string, unknown>;
+      const nodeType = String(nodeObj.type || '').trim().toUpperCase();
+      if (nodeType !== 'COMPONENT') continue;
+      const normalized = normalizeNodeId(String(nodeObj.id || '').trim());
+      if (!isValidNodeId(normalized)) continue;
+      nodeIds.add(normalized);
+    }
+  }
+
+  return nodeIds;
+}
+
+/**
  * List doc slugs from directory.
  */
 function listDocSlugs(docsDir: string): string[] {
@@ -630,10 +676,21 @@ export function buildComponentRegistry(
       );
     });
 
+  const variantComponentNodeIds = collectVariantComponentNodeIds(
+    path.resolve(specsDir),
+  );
+  const canonicalComponents = components.filter((component) => {
+    const nodeId = normalizeNodeId(
+      String(component.figma.component_set_node_id || '').trim(),
+    );
+    if (!isValidNodeId(nodeId)) return true;
+    return !variantComponentNodeIds.has(nodeId);
+  });
+
   const registryCore: Omit<ComponentRegistry, 'fingerprint_sha256'> = {
     schema_version: COMPONENT_REGISTRY_SCHEMA_VERSION,
-    components,
-    summary: buildSummary(components),
+    components: canonicalComponents,
+    summary: buildSummary(canonicalComponents),
   };
 
   return {

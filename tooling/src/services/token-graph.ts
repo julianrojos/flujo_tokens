@@ -52,7 +52,7 @@ export function buildTokenGraph(registry: TokenRegistry): TokenGraph {
 
   // Create edges
   for (const entry of registry.entries) {
-    const value = entry.$value.trim();
+    const value = String(entry.$value ?? '').trim();
 
     // Check for CSS var() references
     if (CSS_VAR_REF_RE.test(value)) {

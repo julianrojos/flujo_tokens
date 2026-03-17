@@ -27,6 +27,7 @@ import {
   captureFigmaScreenshot,
   createDesignSystem,
   pingFigmaFile,
+  refreshTokenGraph,
   type CaptureFigmaErrorDetail,
   type CaptureFigmaProgress,
   type FigmaPingResult,
@@ -87,6 +88,18 @@ function toRecord(value: unknown): Record<string, unknown> | null {
 
 function toNonEmptyString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function hasNoCaptureTargets(result: {
+  ok?: boolean;
+  targets_total?: number;
+  targets?: unknown[];
+  captured?: unknown[];
+}): boolean {
+  if (result.ok === false) return false;
+  const targetsCount = result.targets_total ?? result.targets?.length ?? 0;
+  const capturedCount = result.captured?.length ?? 0;
+  return targetsCount === 0 && capturedCount === 0;
 }
 
 function isLowSignalCaptureMessage(rawValue: unknown): boolean {
@@ -489,6 +502,40 @@ export function NewSystemPage() {
     progressTotal,
   ]);
   const importCurrentSlug = captureProgress?.currentSlug?.trim() || "";
+  const importProgressSummary = useMemo(() => {
+    const componentsImported = Math.max(
+      0,
+      captureProgress?.completed ??
+        importSuccessSummary?.elementsImported ??
+        0,
+    );
+    const componentsDetected = Math.max(
+      componentsImported,
+      captureProgress?.total ??
+        importSuccessSummary?.elementsTotal ??
+        0,
+    );
+
+    const variablesImported = Math.max(
+      0,
+      importTokensBootstrap?.tokens_written ??
+        importSuccessSummary?.variablesImported ??
+        0,
+    );
+    const variablesDetected = Math.max(
+      variablesImported,
+      importTokensBootstrap?.tokens_total ??
+        importSuccessSummary?.variablesTotal ??
+        0,
+    );
+
+    return {
+      componentsImported,
+      componentsDetected,
+      variablesImported,
+      variablesDetected,
+    };
+  }, [captureProgress, importSuccessSummary, importTokensBootstrap]);
   const bootstrapReason = importTokensBootstrap?.reason ?? "";
   const bootstrapReasonMessage = mapTokensBootstrapReason(bootstrapReason);
   const bootstrapErrorHint = getTokensBootstrapErrorHint(importTokensBootstrap?.error ?? "");
@@ -595,26 +642,42 @@ export function NewSystemPage() {
         setShowImportProgressModal(true);
         const runtimeToken = figmaAccessToken.trim();
         try {
-          const captureResult = await captureFigmaScreenshot(
-            {
-              figmaUrl: trimmedUrl,
-              figmaToken: runtimeToken || undefined,
-              includeVariants: false,
-              requireExistingDoc: false,
-              continueOnError: true,
-              refreshIndices: true,
-              componentKind: "all",
+          const captureRequestBase = {
+            figmaUrl: trimmedUrl,
+            figmaToken: runtimeToken || undefined,
+            includeVariants: false,
+            requireExistingDoc: false,
+            continueOnError: true,
+            refreshIndices: true,
+          } as const;
+          const captureOptions = {
+            systemId: response.system.id,
+            onProgress: (progress: CaptureFigmaProgress) => {
+              setCaptureProgress(progress);
+              if (progress.jobId) {
+                setImportJobId(progress.jobId);
+              }
             },
+          } as const;
+          let captureResult = await captureFigmaScreenshot(
             {
-              systemId: response.system.id,
-              onProgress: (progress) => {
-                setCaptureProgress(progress);
-                if (progress.jobId) {
-                  setImportJobId(progress.jobId);
-                }
-              },
+              ...captureRequestBase,
+              componentKind: "component_set",
             },
+            captureOptions,
           );
+          if (hasNoCaptureTargets(captureResult)) {
+            setImportControlNotice(
+              "No component sets detected; retrying import with single components.",
+            );
+            captureResult = await captureFigmaScreenshot(
+              {
+                ...captureRequestBase,
+                componentKind: "component",
+              },
+              captureOptions,
+            );
+          }
           if (captureResult.jobId) {
             setImportJobId(captureResult.jobId);
           }
@@ -762,6 +825,22 @@ export function NewSystemPage() {
       }
       setSavedSystemId(response.system.id);
       if (trimmedUrl && captureFinishedOk) {
+        try {
+          await refreshTokenGraph();
+          window.dispatchEvent(
+            new CustomEvent("ds:token-graph-refreshed", {
+              detail: { systemId: response.system.id, source: "new-system-import" },
+            }),
+          );
+        } catch (error) {
+          const details =
+            error instanceof ApiError
+              ? error.message || "Token graph refresh failed."
+              : "Token graph refresh failed.";
+          setImportControlNotice(
+            `Import finished, but token graph could not be generated automatically: ${details}`,
+          );
+        }
         setImportCompleted(true);
       }
       if (!trimmedUrl) {
@@ -1035,6 +1114,12 @@ export function NewSystemPage() {
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
               {importStatusText}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {`Components: ${importProgressSummary.componentsImported} of ${importProgressSummary.componentsDetected} imported.`}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {`Variables: ${importProgressSummary.variablesImported} of ${importProgressSummary.variablesDetected} imported.`}
             </p>
             {importControlNotice ? (
               <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">

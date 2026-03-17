@@ -42,6 +42,7 @@ interface SpecReference {
   tokenId: string;
   tokenPath: string;
   file: string;
+  owner: string;
   property?: string;
 }
 
@@ -54,6 +55,150 @@ interface CssReference {
   value: string;
 }
 
+function normalizeHexColor(value: string): string | null {
+  const raw = String(value || '').trim().toUpperCase();
+  if (!raw.startsWith('#')) return null;
+  const hex = raw.slice(1);
+  if (!/^[0-9A-F]+$/.test(hex)) return null;
+
+  if (hex.length === 3) {
+    return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}`;
+  }
+  if (hex.length === 4) {
+    return `#${hex[0]}${hex[0]}${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`;
+  }
+  if (hex.length === 6 || hex.length === 8) {
+    return `#${hex}`;
+  }
+  return null;
+}
+
+function normalizeTokenResolvedValue(value: string): string | null {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return null;
+  const hex = normalizeHexColor(trimmed);
+  if (hex) return hex;
+  return trimmed.toLowerCase();
+}
+
+function buildPathLookup(registry: TokenRegistry): Map<string, TokenRegistryEntry> {
+  const map = new Map<string, TokenRegistryEntry>();
+  for (const entry of registry.entries) {
+    map.set(String(entry.path || '').trim(), entry);
+    map.set(String(entry.path || '').trim().replace(/\./g, '/'), entry);
+    if (entry.cssVar) map.set(String(entry.cssVar || '').trim(), entry);
+    const normalizedPath = String(entry.path || '').trim().replace(/^_+/, '');
+    if (normalizedPath) {
+      map.set(normalizedPath, entry);
+      map.set(normalizedPath.replace(/\./g, '/'), entry);
+    }
+  }
+  return map;
+}
+
+function buildResolvedValueLookup(registry: TokenRegistry): Map<string, TokenRegistryEntry[]> {
+  const map = new Map<string, TokenRegistryEntry[]>();
+  for (const entry of registry.entries) {
+    const rawValue =
+      (entry as TokenRegistryEntry & { resolvedValue?: unknown }).resolvedValue ?? entry.$value;
+    const normalized = normalizeTokenResolvedValue(String(rawValue || ''));
+    if (!normalized) continue;
+    const current = map.get(normalized) || [];
+    current.push(entry);
+    map.set(normalized, current);
+  }
+  return map;
+}
+
+function resolveTokenFromRef(
+  registry: TokenRegistry,
+  pathLookup: Map<string, TokenRegistryEntry>,
+  resolvedValueLookup: Map<string, TokenRegistryEntry[]>,
+  rawRef: unknown,
+): TokenRegistryEntry | null {
+  const ref = String(rawRef ?? '').trim();
+  if (!ref || isTbdMarker(ref)) return null;
+
+  const exact = pathLookup.get(ref);
+  if (exact) return exact;
+
+  const varMatch = ref.match(/^var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)$/i);
+  if (varMatch) {
+    const cssToken = findTokenByCssVar(registry, varMatch[1]);
+    if (cssToken) return cssToken;
+  }
+
+  const normalizedValue = normalizeTokenResolvedValue(ref);
+  if (!normalizedValue) return null;
+  const candidates = resolvedValueLookup.get(normalizedValue) || [];
+  if (candidates.length === 1) return candidates[0];
+
+  const preferred = candidates.find((entry) => String(entry.collection || '').toLowerCase() !== 'primitivos');
+  return preferred || candidates[0] || null;
+}
+
+function collectTokenMappingReferences(
+  node: unknown,
+  keyPath: string,
+  refs: Array<{ tokenRef: string; keyPath: string }>,
+): void {
+  if (typeof node === 'string') {
+    refs.push({ tokenRef: node, keyPath });
+    return;
+  }
+  if (!node || typeof node !== 'object') return;
+
+  const entries = Object.entries(node as Record<string, unknown>);
+  if (entries.length === 0) return;
+  const allStringValues = entries.every(([, value]) => typeof value === 'string');
+
+  if (allStringValues && keyPath) {
+    for (const [condition, value] of entries) {
+      refs.push({ tokenRef: String(value), keyPath: `${keyPath}:${condition}` });
+    }
+    return;
+  }
+
+  for (const [key, value] of entries) {
+    const nextKeyPath = keyPath ? `${keyPath}.${key}` : key;
+    collectTokenMappingReferences(value, nextKeyPath, refs);
+  }
+}
+
+function collectHeuristicScalarReferences(
+  node: unknown,
+  keyPath: string,
+  variantContext: string | null,
+  refs: Array<{ tokenRef: string; keyPath: string }>,
+): void {
+  if (typeof node === 'string' || typeof node === 'number') {
+    const detail = variantContext ? `${keyPath}:${variantContext}` : keyPath;
+    refs.push({ tokenRef: String(node), keyPath: detail });
+    return;
+  }
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      collectHeuristicScalarReferences(item, keyPath, variantContext, refs);
+    }
+    return;
+  }
+
+  if (!node || typeof node !== 'object') return;
+
+  const objectNode = node as Record<string, unknown>;
+  const rawName = typeof objectNode.name === 'string' ? String(objectNode.name).trim() : '';
+  const nextVariantContext = /[A-Za-z0-9_-]+\s*=/.test(rawName)
+    ? rawName
+    : variantContext;
+
+  for (const [key, value] of Object.entries(objectNode)) {
+    if (key === 'name') continue;
+    const nextPath = keyPath ? `${keyPath}.${key}` : key;
+    collectHeuristicScalarReferences(value, nextPath, nextVariantContext, refs);
+  }
+}
+
 /**
  * Extract token references from spec YAML files
  */
@@ -62,6 +207,9 @@ export function extractSpecReferences(
   registry: TokenRegistry,
 ): SpecReference[] {
   const refs: SpecReference[] = [];
+  const seen = new Set<string>();
+  const pathLookup = buildPathLookup(registry);
+  const resolvedValueLookup = buildResolvedValueLookup(registry);
 
   if (!fs.existsSync(specRoot)) {
     return refs;
@@ -75,26 +223,39 @@ export function extractSpecReferences(
   for (const file of specFiles) {
     const filePath = `${specRoot}/${file}`;
     const content = fs.readFileSync(filePath, 'utf8');
+    const owner = file.replace(/\.yml$/i, '').trim();
 
     try {
       const spec = yaml.load(content) as Record<string, unknown>;
 
-      // Extract token_mapping references
-      const tokenMapping = spec.token_mapping as Record<string, string> | undefined;
-      if (tokenMapping) {
-        for (const [property, tokenPath] of Object.entries(tokenMapping)) {
-          if (typeof tokenPath === 'string' && !isTbdMarker(tokenPath)) {
-            const token = findTokenByPath(registry, tokenPath);
-            if (token) {
-              refs.push({
-                tokenId: token.id,
-                tokenPath,
-                file: filePath,
-                property,
-              });
-            }
-          }
-        }
+      const registerRef = (tokenRef: string, property: string) => {
+        const token = resolveTokenFromRef(registry, pathLookup, resolvedValueLookup, tokenRef);
+        if (!token) return;
+        const signature = `${owner}|${token.path}|${property}`;
+        if (seen.has(signature)) return;
+        seen.add(signature);
+        refs.push({
+          tokenId: token.id,
+          tokenPath: token.path,
+          file: filePath,
+          owner,
+          property,
+        });
+      };
+
+      // Extract token_mapping references (flat + nested condition maps)
+      const tokenMappingRefs: Array<{ tokenRef: string; keyPath: string }> = [];
+      collectTokenMappingReferences(spec.token_mapping, 'token_mapping', tokenMappingRefs);
+      for (const ref of tokenMappingRefs) {
+        registerRef(ref.tokenRef, ref.keyPath);
+      }
+
+      // Heuristic extraction for imported specs lacking token_mapping.
+      // Reads scalar values under anatomy and tries to resolve them by path/cssVar/value.
+      const anatomyRefs: Array<{ tokenRef: string; keyPath: string }> = [];
+      collectHeuristicScalarReferences(spec.anatomy, 'anatomy', null, anatomyRefs);
+      for (const ref of anatomyRefs) {
+        registerRef(ref.tokenRef, ref.keyPath);
       }
 
       // Extract var() references in other fields
@@ -103,11 +264,16 @@ export function extractSpecReferences(
       for (const varName of varRefs) {
         const token = findTokenByCssVar(registry, varName);
         if (token) {
+          const property = 'inline';
+          const signature = `${owner}|${token.path}|${property}|${varName}`;
+          if (seen.has(signature)) continue;
+          seen.add(signature);
           refs.push({
             tokenId: token.id,
             tokenPath: token.path,
             file: filePath,
-            property: 'inline',
+            owner,
+            property,
           });
         }
       }
@@ -279,8 +445,8 @@ export function generateUsageIndex(
       usage.usageByKind['component-spec'] = (usage.usageByKind['component-spec'] || 0) + 1;
       usage.usedIn.push({
         kind: 'component-spec',
-        source: 'component-spec',
-        owner: ref.file,
+        source: ref.file,
+        owner: ref.owner,
         detail: ref.property || 'unknown',
       });
     }

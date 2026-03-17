@@ -80,4 +80,85 @@ describe('component-registry-build', () => {
       fs.rmSync(tempRoot, { recursive: true, force: true });
     }
   });
+
+  it('excludes component variants from registry when they belong to a VARIANT component set', () => {
+    const tmpBaseDir = path.join(PROJECT_ROOT, 'tooling', '.tmp');
+    fs.mkdirSync(tmpBaseDir, { recursive: true });
+    const tempRoot = fs.mkdtempSync(
+      path.join(tmpBaseDir, 'component-registry-build-'),
+    );
+    try {
+      const docsRoot = path.join(tempRoot, 'docs', 'sample-system');
+      const specsDir = path.join(docsRoot, '_spec', 'components');
+      const docsDir = path.join(docsRoot, 'components');
+      const proofsDir = path.join(docsRoot, '_generated', 'visual-proofs');
+      const renderDir = path.join(docsRoot, '_generated', 'figma_doc_models');
+      fs.mkdirSync(specsDir, { recursive: true });
+      fs.mkdirSync(docsDir, { recursive: true });
+      fs.mkdirSync(proofsDir, { recursive: true });
+      fs.mkdirSync(renderDir, { recursive: true });
+
+      fs.writeFileSync(
+        path.join(specsDir, 'boton.yml'),
+        [
+          'name: boton',
+          'figma:',
+          "  component_set_node_id: '1:23'",
+          'properties:',
+          '  - name: Variant',
+          '    type: VARIANT',
+          'anatomy:',
+          "  - id: '1:22'",
+          '    type: COMPONENT',
+          "  - id: '1:24'",
+          '    type: COMPONENT',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(specsDir, 'variant_default.yml'),
+        [
+          'name: variant_default',
+          'figma:',
+          "  component_set_node_id: '1:22'",
+          'properties: []',
+          'anatomy: []',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      fs.writeFileSync(
+        path.join(specsDir, 'variant_accent.yml'),
+        [
+          'name: variant_accent',
+          'figma:',
+          "  component_set_node_id: '1:24'",
+          'properties: []',
+          'anatomy: []',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      fs.writeFileSync(path.join(docsDir, 'boton.md'), '# Boton\n', 'utf8');
+      fs.writeFileSync(path.join(docsDir, 'variant_default.md'), '# VariantDefault\n', 'utf8');
+      fs.writeFileSync(path.join(docsDir, 'variant_accent.md'), '# VariantAccent\n', 'utf8');
+
+      const registry = buildComponentRegistry({
+        specsDir,
+        docsDir,
+        proofsDir,
+        renderDir,
+      });
+
+      assert.deepEqual(
+        registry.components.map((item) => item.slug),
+        ['boton'],
+      );
+      assert.equal(registry.summary.total_components, 1);
+    } finally {
+      fs.rmSync(tempRoot, { recursive: true, force: true });
+    }
+  });
 });

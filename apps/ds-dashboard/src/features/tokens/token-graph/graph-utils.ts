@@ -14,8 +14,19 @@ export type PositionedGraph = {
   nodeById: Map<string, PositionedNode>;
 };
 
+export function getNodeDisplayKey(node: TokenGraphVizNode): string {
+  return (
+    String(node.displayKey || "").trim() ||
+    String(node.path || "").trim() ||
+    String(node.cssVar || "").trim() ||
+    String(node.id || "").trim()
+  );
+}
+
 function stableSortByDisplayKey(a: TokenGraphVizNode, b: TokenGraphVizNode) {
-  return a.displayKey.localeCompare(b.displayKey, "en", { sensitivity: "base" });
+  return getNodeDisplayKey(a).localeCompare(getNodeDisplayKey(b), "en", {
+    sensitivity: "base",
+  });
 }
 
 export function buildGraphIndexes(graph: TokenGraphViz) {
@@ -223,4 +234,3 @@ export function truncateLabel(value: string, max = 34) {
   if (text.length <= max) return text;
   return `${text.slice(0, Math.max(0, max - 1))}…`;
 }
-

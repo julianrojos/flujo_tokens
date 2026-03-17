@@ -19,7 +19,7 @@ import { bootstrapDatabase } from '../db/db-service.js';
 import { TokenRepository } from '../db/token-repository.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '../../..');
+const projectRoot = path.resolve(__dirname, '../../../..');
 
 interface RebuildOptions {
     system?: string;

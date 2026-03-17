@@ -106,16 +106,16 @@ export function extractCssDeclarations(cssText: string): Array<{
 /**
  * Check if a value is a CSS variable reference
  */
-export function isCssVarRef(value: string): boolean {
-  const trimmed = value.trim();
+export function isCssVarRef(value: unknown): boolean {
+  const trimmed = String(value ?? '').trim();
   return CSS_VAR_REF_RE.test(trimmed);
 }
 
 /**
  * Extract the CSS variable name from a var() reference
  */
-export function extractVarName(value: string): string | null {
-  const trimmed = value.trim();
+export function extractVarName(value: unknown): string | null {
+  const trimmed = String(value ?? '').trim();
   const match = trimmed.match(/^var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)$/i);
   return match ? match[1] : null;
 }
@@ -185,8 +185,8 @@ export function getTokenAliases(
 /**
  * Check if token value is a primitive (not a reference)
  */
-export function isPrimitiveValue(value: string): boolean {
-  const trimmed = value.trim();
+export function isPrimitiveValue(value: unknown): boolean {
+  const trimmed = String(value ?? '').trim();
   return !CSS_VAR_REF_RE.test(trimmed);
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createSearchParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, RefreshCcw } from "lucide-react";
 
@@ -15,11 +15,104 @@ import { cn } from "@/lib/utils";
 import {
   buildGraphIndexes,
   buildSubgraph,
+  getNodeDisplayKey,
   GraphDirection,
   layoutSubgraph,
   resolveNodeIdFromQuery,
 } from "./graph-utils";
 import { TokenGraphViewer } from "./token-graph-viewer";
+
+function toSafeNumber(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeTokenGraphPayload(rawPayload: TokenGraphViz): TokenGraphViz {
+  const raw = rawPayload as unknown as Record<string, unknown>;
+  const rawNodes = Array.isArray(raw.nodes) ? raw.nodes : [];
+  const rawEdges = Array.isArray(raw.edges) ? raw.edges : [];
+  const rawCycles = Array.isArray(raw.cycles) ? raw.cycles : [];
+  const rawCycleNodeIds = Array.isArray(raw.cycle_node_ids) ? raw.cycle_node_ids : [];
+  const rawSource =
+    raw.source && typeof raw.source === "object"
+      ? (raw.source as Record<string, unknown>)
+      : {};
+  const rawSummary =
+    raw.summary && typeof raw.summary === "object"
+      ? (raw.summary as Record<string, unknown>)
+      : {};
+
+  const nodes = rawNodes
+    .map((node) => {
+      if (!node || typeof node !== "object") return null;
+      const entry = node as Record<string, unknown>;
+      const nodeId = String(entry.id ?? "").trim();
+      const path = String(
+        entry.path ?? entry.displayKey ?? entry.cssVar ?? nodeId,
+      ).trim();
+      const slashPath = String(entry.slashPath ?? path.replace(/\./g, "/")).trim();
+      const cssVar = String(entry.cssVar ?? "").trim();
+      const displayKey = String(
+        entry.displayKey ?? (path || cssVar || nodeId),
+      ).trim();
+      if (!nodeId) return null;
+      return {
+        id: nodeId,
+        path,
+        slashPath,
+        cssVar,
+        type: String(entry.type ?? "").trim(),
+        collection: String(entry.collection ?? "").trim(),
+        resolvedValue: String(entry.resolvedValue ?? "").trim(),
+        displayKey: displayKey || nodeId,
+        inDegree: toSafeNumber(entry.inDegree, 0),
+        outDegree: toSafeNumber(entry.outDegree, 0),
+        isCycleMember: Boolean(entry.isCycleMember),
+      };
+    })
+    .filter((node): node is TokenGraphViz["nodes"][number] => node !== null);
+
+  const edges = rawEdges
+    .map((edge) => {
+      if (!edge || typeof edge !== "object") return null;
+      const entry = edge as Record<string, unknown>;
+      const source = String(entry.source ?? "").trim();
+      const target = String(entry.target ?? "").trim();
+      if (!source || !target) return null;
+      return { source, target };
+    })
+    .filter((edge): edge is TokenGraphViz["edges"][number] => edge !== null);
+
+  const cycles = rawCycles.filter(Boolean) as TokenGraphViz["cycles"];
+  const cycleNodeIds = rawCycleNodeIds.map((id) => String(id || "").trim()).filter(Boolean);
+
+  return {
+    ok: raw.ok !== false,
+    source: {
+      registry_path: String(rawSource.registry_path ?? "").trim(),
+      graph_viz_path: rawSource.graph_viz_path
+        ? String(rawSource.graph_viz_path).trim()
+        : undefined,
+    },
+    summary: {
+      nodes: toSafeNumber(rawSummary.nodes, nodes.length),
+      edges: toSafeNumber(rawSummary.edges, edges.length),
+      cycles: toSafeNumber(rawSummary.cycles, cycles.length),
+      cycle_nodes: toSafeNumber(rawSummary.cycle_nodes, cycleNodeIds.length),
+      unresolved_css_var_refs_total: toSafeNumber(
+        rawSummary.unresolved_css_var_refs_total,
+        0,
+      ),
+      ambiguous_css_vars_total: toSafeNumber(rawSummary.ambiguous_css_vars_total, 0),
+      graph_collisions: toSafeNumber(rawSummary.graph_collisions, 0),
+    },
+    nodes,
+    edges,
+    cycles,
+    cycle_node_ids: cycleNodeIds,
+    fingerprint: String(raw.fingerprint ?? "").trim(),
+  };
+}
 
 function normalizeDirection(raw: string | null): GraphDirection {
   const value = String(raw || "").trim();
@@ -45,6 +138,7 @@ export function TokenGraphPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
 
   const [tokenInput, setTokenInput] = useState(tokenQuery);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -53,12 +147,12 @@ export function TokenGraphPage() {
     setTokenInput(tokenQuery);
   }, [tokenQuery]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const payload = await fetchTokenGraph();
-      setGraph(payload);
+      setGraph(normalizeTokenGraphPayload(payload));
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -70,11 +164,32 @@ export function TokenGraphPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    const onGraphRefreshed = () => {
+      setRefreshNotice("Token graph actualizado automáticamente.");
+      void load();
+    };
+    window.addEventListener("ds:token-graph-refreshed", onGraphRefreshed);
+    return () => {
+      window.removeEventListener("ds:token-graph-refreshed", onGraphRefreshed);
+    };
+  }, [load]);
+
+  useEffect(() => {
+    if (!refreshNotice) return;
+    const timeoutId = window.setTimeout(() => {
+      setRefreshNotice(null);
+    }, 3200);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [refreshNotice]);
 
   useEffect(() => {
     if (!graph) return;
@@ -92,7 +207,11 @@ export function TokenGraphPage() {
     if (!graph) return [];
     return graph.nodes
       .slice()
-      .sort((a, b) => a.displayKey.localeCompare(b.displayKey, "en", { sensitivity: "base" }))
+      .sort((a, b) =>
+        getNodeDisplayKey(a).localeCompare(getNodeDisplayKey(b), "en", {
+          sensitivity: "base",
+        }),
+      )
       .slice(0, 2500);
   }, [graph]);
 
@@ -168,6 +287,11 @@ export function TokenGraphPage() {
             <CardDescription>
               Visualiza dependencias (referencias <span className="font-mono">var(--…)</span>) entre tokens.
             </CardDescription>
+            {refreshNotice ? (
+              <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
+                {refreshNotice}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row md:items-end">
@@ -200,7 +324,7 @@ export function TokenGraphPage() {
                     />
                     <datalist id="token-graph-options">
                       {tokenOptions.map((node) => (
-                        <option key={node.id} value={node.path || node.displayKey} />
+                        <option key={node.id} value={node.path || getNodeDisplayKey(node)} />
                       ))}
                     </datalist>
                   </div>

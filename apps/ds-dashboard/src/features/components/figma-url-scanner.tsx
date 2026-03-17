@@ -135,6 +135,13 @@ function getFigmaUrlValidationError(rawUrl: string): string | null {
   return null;
 }
 
+function hasNoCaptureTargets(result: CaptureFigmaScreenshotResult): boolean {
+  if (result.ok === false) return false;
+  const targetsCount = result.targets_total ?? result.targets?.length ?? 0;
+  const capturedCount = result.captured?.length ?? 0;
+  return targetsCount === 0 && capturedCount === 0;
+}
+
 export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
   const { activeSystem, isLoading: isSystemLoading } = useDesignSystem();
 
@@ -233,6 +240,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
     figmaUrl: url.trim(),
     figmaToken: figmaToken.trim() || undefined,
     componentSlug: componentSlug.trim() || undefined,
+    componentKind: "component_set",
     requireExistingDoc,
     includeVariants,
     injectDocSpecs: true,
@@ -306,11 +314,20 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         }
       }
 
-      const preview = await captureFigmaScreenshot({
-        ...request,
+      let requestWithKind = { ...request, componentKind: "component_set" as const };
+      let preview = await captureFigmaScreenshot({
+        ...requestWithKind,
         dryRun: true,
         refreshIndices: false,
       });
+      if (hasNoCaptureTargets(preview)) {
+        requestWithKind = { ...request, componentKind: "component" as const };
+        preview = await captureFigmaScreenshot({
+          ...requestWithKind,
+          dryRun: true,
+          refreshIndices: false,
+        });
+      }
 
       const { existing, totalTargets } = extractExistingTargets(
         preview,
@@ -321,12 +338,12 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         setConfirmModal({
           existingSlugs: existing,
           totalTargets,
-          request,
+          request: requestWithKind,
         });
         return;
       }
 
-      await runScanRequest(request);
+      await runScanRequest(requestWithKind);
     } catch (error) {
       setResult({
         ok: false,

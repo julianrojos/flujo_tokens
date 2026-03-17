@@ -116,7 +116,7 @@ function parseBooleanOption(
 }
 
 function parsePositiveInteger(
-  rawValue: string | undefined | null,
+  rawValue: unknown,
   optionName: string,
   fallback: number = 0,
 ): number {
@@ -148,14 +148,14 @@ export async function runTokenGraph(args: string[] = []): Promise<void> {
   const outMd = path.resolve(String(getStringArg(parsed, 'out-md') || ctx.paths.generated + '/token-graph.md'));
   const outMermaid = path.resolve(String(parsed['out-mermaid'] || ctx.paths.generated + '/token-graph.mmd'));
   const format = String(parsed.format || 'json');
-  const indirectionThreshold = parsePositiveInteger(String(parsed['indirection-threshold']), '--indirection-threshold', 3);
-  const maxItems = parsePositiveInteger(String(parsed['max-items']), '--max-items', 100);
+  const indirectionThreshold = parsePositiveInteger(parsed['indirection-threshold'], '--indirection-threshold', 3);
+  const maxItems = parsePositiveInteger(parsed['max-items'], '--max-items', 100);
   const strictCycles = parseBooleanOption(parsed['strict-cycles'], '--strict-cycles', false);
   const strictHighIndirection = parseBooleanOption(parsed['strict-high-indirection'], '--strict-high-indirection', false);
   const strictUnresolved = parseBooleanOption(parsed['strict-unresolved'], '--strict-unresolved', false);
   const strictCollisions = parseBooleanOption(parsed['strict-collisions'], '--strict-collisions', false);
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
-  const mermaidMaxEdges = parsePositiveInteger(String(parsed['mermaid-max-edges']), '--mermaid-max-edges', 2000);
+  const mermaidMaxEdges = parsePositiveInteger(parsed['mermaid-max-edges'], '--mermaid-max-edges', 2000);
 
   // Load registry
   const registry = loadTokenRegistry(registryPath);
