@@ -15,7 +15,7 @@ import {
 } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import { resolveEnvRef } from '../utils/env-ref.js';
-import dsTypes from 'ds-types';
+import * as dsTypes from 'ds-types';
 import type { FigmaVariableSource } from 'ds-types';
 
 import {

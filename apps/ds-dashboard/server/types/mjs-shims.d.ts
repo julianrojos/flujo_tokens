@@ -8,6 +8,26 @@ declare module 'analysis-artifacts-service' {
   export function validateGitRef(...args: unknown[]): unknown;
 }
 
+declare module 'command-execution-service' {
+  export function createCommandExecutionService(args: unknown): unknown;
+}
+
+declare module 'operation-history-service' {
+  export function createOperationHistoryService(args: unknown): unknown;
+}
+
+declare module 'queue-engine-service' {
+  export function createQueueEngineService(args: unknown): unknown;
+}
+
+declare module 'queue-job-factory-service' {
+  export function createQueueJobFactoryService(args: unknown): unknown;
+}
+
+declare module 'spawn-runner' {
+  export function runSpawnWithCapture(options: unknown): Promise<unknown>;
+}
+
 declare module 'create-server-app-route-deps' {
   export function buildCreateServerAppRouteDeps(config: unknown): unknown;
 }

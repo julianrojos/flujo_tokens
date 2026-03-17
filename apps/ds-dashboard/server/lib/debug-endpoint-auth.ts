@@ -6,9 +6,14 @@
  */
 
 import type { Context } from 'hono';
-import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { isLoopbackAddress } from './loopback-utils.ts';
+
+// Define ConnInfo locally since it's not exported properly
+interface ConnInfo {
+    remote: { address: string; family: string };
+    [key: string]: unknown;
+}
 
 /**
  * Check if a request is authorized for debug endpoints.
@@ -17,7 +22,7 @@ import { isLoopbackAddress } from './loopback-utils.ts';
 export function checkDebugEndpointAuth(
     c: Context,
     internalToken: string | undefined,
-    getConnInfoFn: (c: Context) => ConnInfo = getConnInfo
+    getConnInfoFn: (c: Context) => ReturnType<typeof getConnInfo> = getConnInfo
 ): { allowed: boolean; code?: string } {
     const isDev = process.env.NODE_ENV === 'development';
 

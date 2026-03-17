@@ -67,7 +67,7 @@ describe('create-server-route-deps', () => {
   describe('buildCreateServerRouteDeps()', () => {
     it('preserves route wiring contract values', () => {
       const deps = createDeps();
-      const wired = buildCreateServerRouteDeps(deps);
+      const wired = buildCreateServerRouteDeps(deps as any);
 
       assert.equal(wired.buildHealthPayload, deps.buildHealthPayload);
       assert.equal(wired.designSystemRepository, deps.designSystemRepository);

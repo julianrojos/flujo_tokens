@@ -67,7 +67,8 @@ describe('token-usage-index', () => {
       };
 
       const specRefs = [
-        { tokenId: '1', tokenPath: 'color.primary', file: 'test.yml', property: 'color' },
+        // R-020: Verificar estructura specRefs - owner es requerido, property es opcional
+        { tokenId: '1', tokenPath: 'color.primary', file: 'test.yml', owner: 'test', property: 'color' },
       ];
 
       const cssRefs = [

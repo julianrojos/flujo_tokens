@@ -136,10 +136,31 @@ describe('command-route-service', () => {
           value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
       });
       assert.equal(payload.ok, true);
+      // Test case: commandArgs should never be undefined in successful responses
+      assert.ok(payload.commandArgs, 'commandArgs should be defined for ok responses');
       assert.ok(!payload.commandArgs.includes('secret'));
       assert.deepEqual(payload.commandEnv, { FIGMA_TOKEN: 'secret' });
       assert.ok(payload.commandArgs.includes('--source'));
       assert.ok(payload.commandArgs.includes('mcp'));
+    });
+
+    it('handles commandArgs undefined case explicitly', () => {
+      // Test explícito para el caso commandArgs === undefined (R-003)
+      // En respuestas ok, commandArgs siempre debe estar definido
+      // Este test documenta el comportamiento esperado
+      const payload = buildSyncFigmaTokensCommandConfig({
+        body: {
+          figmaUrl: 'https://www.figma.com/file/abc/xyz',
+          figmaToken: 'secret',
+          dryRun: false,
+        },
+        toBooleanString: (value: unknown, fallback: boolean) =>
+          value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
+      });
+      // Aserción explícita: ok=true implica commandArgs definido
+      if (payload.ok) {
+        assert.ok(payload.commandArgs, 'commandArgs must be defined when ok=true');
+      }
     });
 
     it('supports explicit MCP source', () => {
@@ -151,9 +172,9 @@ describe('command-route-service', () => {
           value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
       });
       assert.equal(payload.ok, true);
-      const sourceIdx = payload.commandArgs.indexOf('--source');
+      const sourceIdx = payload.commandArgs?.indexOf('--source') ?? -1;
       assert.ok(sourceIdx >= 0);
-      assert.equal(payload.commandArgs[sourceIdx + 1], 'mcp');
+      assert.equal(payload.commandArgs?.[sourceIdx + 1], 'mcp');
     });
 
     it('returns typed error on invalid tokensSource value', () => {

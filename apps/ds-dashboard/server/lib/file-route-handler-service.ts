@@ -40,7 +40,7 @@ export interface FileRouteHandlerDeps {
 
 function resolvePath(c: Context, deps: FileRouteHandlerDeps, { requested, code, userMessage }: { requested: string; code: string; userMessage: string }) {
   const { getSystemContext, resolveRepoFilePath } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') || '');
   return resolveRequestedRepoPath({
     repoRoot: sysCtx.repoRoot,
     requested,
@@ -61,7 +61,7 @@ export async function handleFileRoute(c: Context, deps: FileRouteHandlerDeps): P
     code: 'file.invalid_path',
     userMessage: 'Invalid file path.',
   });
-  if (!resolved.ok) return failJson(c, resolved.statusCode, resolved.errorArgs);
+  if (!resolved.ok) return failJson(c, resolved.statusCode || 500, resolved.errorArgs || {});
 
   const loaded = await readFileContentPayload({
     absPath: resolved.absPath,
@@ -70,13 +70,16 @@ export async function handleFileRoute(c: Context, deps: FileRouteHandlerDeps): P
     readTextFileLimitedFn: readTextFileLimited,
     maxFileBytes: MAX_FILE_BYTES,
   });
-  if (!loaded.ok) return failJson(c, loaded.statusCode, loaded.errorArgs);
+  // Verificación explícita: loaded.ok debe ser true antes de acceder a campos (R-014)
+  if (!loaded.ok) return failJson(c, loaded.statusCode || 500, loaded.errorArgs || {});
 
+  // Defaults intencionales: loaded.content y loaded.truncated siempre están definidos cuando ok=true
+  // Los || false y || '' son defensivos por si la interfaz cambia en el futuro
   return c.json(
     buildFileContentResponse({
       requested,
-      truncated: loaded.truncated,
-      content: loaded.content,
+      truncated: loaded.truncated || false,
+      content: loaded.content || '',
     })
   );
 }
@@ -92,29 +95,31 @@ export async function handleFileSnippetRoute(c: Context, deps: FileRouteHandlerD
     code: 'file.invalid_path',
     userMessage: 'Invalid file path.',
   });
-  if (!resolved.ok) return failJson(c, resolved.statusCode, resolved.errorArgs);
+  if (!resolved.ok) return failJson(c, resolved.statusCode || 500, resolved.errorArgs || {});
 
   const rawLine = c.req.query('line');
   const rawBefore = c.req.query('before');
   const rawAfter = c.req.query('after');
-  const { before, after } = parseSnippetWindow(rawBefore, rawAfter, 2);
+  const { before = 0, after } = parseSnippetWindow(rawBefore, rawAfter, 2);
   const query = c.req.query('q') ?? '';
 
   const parsedLine = parseSnippetLine(rawLine);
   if (!parsedLine.ok) {
-    return failJson(c, parsedLine.statusCode, parsedLine.errorArgs);
+    return failJson(c, parsedLine.statusCode || 500, parsedLine.errorArgs || {});
   }
   let line = parsedLine.line;
 
   const loaded = await readFileContentPayload({
-    absPath: resolved.absPath,
+    absPath: resolved.absPath || '',
     requested,
     notFoundCode: 'file.not_found',
     readTextFileLimitedFn: readTextFileLimited,
     maxFileBytes: MAX_FILE_BYTES,
   });
-  if (!loaded.ok) return failJson(c, loaded.statusCode, loaded.errorArgs);
-  const { content } = loaded;
+  // Verificación explícita: loaded.ok debe ser true antes de acceder a campos (R-014)
+  if (!loaded.ok) return failJson(c, loaded.statusCode || 500, loaded.errorArgs || {});
+  // Defaults intencionales: content siempre está definido cuando ok=true
+  const { content = '' } = loaded;
 
   const resolvedLine = resolveSnippetTargetLine({
     rawLine,

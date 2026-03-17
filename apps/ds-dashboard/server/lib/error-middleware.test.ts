@@ -21,8 +21,8 @@ describe('error-middleware', () => {
         writeStructuredLog: (level, payload) => {
           logged.push({ level, payload });
         },
-        failJson: (c, statusCode, args) =>
-          c.json(
+        failJson: (c, statusCode, args) => {
+          return (c as any).json(
             {
               ok: false,
               statusCode,
@@ -30,7 +30,8 @@ describe('error-middleware', () => {
               requestId: (args as any).requestId,
             },
             statusCode
-          ),
+          );
+        },
       });
 
       app.get('/boom', () => {

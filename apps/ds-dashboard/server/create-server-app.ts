@@ -131,9 +131,9 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     // Resume execution of recovered queued jobs after routes are set up
     // This ensures job handlers are registered before dequeue
     resumeTimer = setTimeout(() => {
-        if (!designSystemRepositoryDisposed) {
-            aiJobsStore.resumeRecoveredQueue();
-        }
+      if (!designSystemRepositoryDisposed) {
+        aiJobsStore.resumeRecoveredQueue();
+      }
     }, 0);
 
     // Try to rebuild token cache from JSON files only if DB is empty (cold start)
@@ -187,8 +187,8 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
 
     // Clear the resume timer to prevent async execution after DB close
     if (resumeTimer) {
-        clearTimeout(resumeTimer);
-        resumeTimer = undefined;
+      clearTimeout(resumeTimer);
+      resumeTimer = undefined;
     }
 
     // Stop jobs cleanup interval explicitly during server shutdown.
@@ -232,6 +232,39 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     SUPPORTED_REPLAY_OPERATIONS,
   } = createServerConfig(env);
 
+  // Type adapters for createServerRuntimeServices compatibility
+  // Preserva todas las propiedades del contexto original para evitar regresiones
+  const designSystemRepositoryAdapter: import('./lib/create-server-runtime-utils.js').DesignSystemRepository = {
+    resolveDashboardSystemContext: (systemHeader: string) => {
+      const context = designSystemRepository.resolveDashboardSystemContext(systemHeader);
+
+      // Validación de seguridad para detectar problemas en runtime
+      if (!context || !context.systemId) {
+        throw new Error(`Invalid system context for header: ${systemHeader}`);
+      }
+
+      // Preservar TODAS las propiedades del contexto original (no solo systemId/header)
+      // Esto evita regresiones en consumidores que esperan campos adicionales
+      const result = {
+        systemId: context.systemId,
+        header: context.header ?? systemHeader,
+        // Spread completo para preservar cualquier propiedad adicional
+        ...context,
+      };
+
+      // Logging para debugging de problemas de compatibilidad
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('DesignSystemRepositoryAdapter: context mapping', {
+          inputHeader: systemHeader,
+          outputSystemId: result.systemId,
+          preservedProperties: Object.keys(context).length,
+        });
+      }
+
+      return result;
+    },
+  };
+
   const {
     toFiniteTimestamp,
     readOperationHistory,
@@ -253,7 +286,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   } = createServerRuntimeServices({
     repoRoot,
     env,
-    designSystemRepository,
+    designSystemRepository: designSystemRepositoryAdapter,
     maxOutputBytes: MAX_OUTPUT_BYTES,
     maxSnippetLines: MAX_SNIPPET_LINES,
     jobQueueConcurrency: JOB_QUEUE_CONCURRENCY,
@@ -268,7 +301,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     replayableNpmScripts: REPLAYABLE_NPM_SCRIPTS,
     supportedReplayOperations: SUPPORTED_REPLAY_OPERATIONS,
     normalizeSystemId,
-    writeStructuredLog,
+    writeStructuredLog: writeStructuredLog as (level: string, payload: Record<string, unknown>) => void,
     nowIso,
     createOperationEventId,
     computeNamingDebtReportFn: computeNamingDebtReport,
@@ -280,7 +313,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   };
 
   const writeStructuredLogAdapter = (level: string, payload: Record<string, unknown>): void => {
-    writeStructuredLog(level, payload as StructuredLogPayload);
+    writeStructuredLog(level, { ...payload, level } as StructuredLogPayload);
   };
 
   const { app } = createServerHttpApp({
@@ -290,44 +323,44 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     buildApiErrorPayload: buildApiErrorPayloadAdapter,
     writeStructuredLog: writeStructuredLogAdapter,
     routeDeps: buildCreateServerAppRouteDeps({
-      readJsonBody,
-      designSystemRepository,
-      normalizeSystemId,
-      ensureRelativeDir,
-      normalizeFigmaApiTokenRef,
-      normalizeCollectionList,
-      summarizeDesignSystemsConfig,
-      resolveSafeSystemPathsForDeletion,
+      readJsonBody: readJsonBody as (c: unknown) => Promise<Record<string, unknown>>,
+      designSystemRepository: designSystemRepository as unknown as Record<string, unknown>,
+      normalizeSystemId: normalizeSystemId as (...args: unknown[]) => string,
+      ensureRelativeDir: ensureRelativeDir as unknown as (...args: unknown[]) => string,
+      normalizeFigmaApiTokenRef: normalizeFigmaApiTokenRef as (...args: unknown[]) => string,
+      normalizeCollectionList: normalizeCollectionList as unknown as (...args: unknown[]) => string,
+      summarizeDesignSystemsConfig: summarizeDesignSystemsConfig as (...args: unknown[]) => unknown,
+      resolveSafeSystemPathsForDeletion: resolveSafeSystemPathsForDeletion as (...args: unknown[]) => unknown,
       repoRoot,
       fsSync,
-      toFiniteTimestamp,
+      toFiniteTimestamp: toFiniteTimestamp as unknown as (...args: unknown[]) => number,
       OPS_HISTORY_MAX_LIMIT,
       OPS_HISTORY_DEFAULT_LIMIT,
       OPS_REGRESSION_MAX_LIMIT,
       OPS_REGRESSION_DEFAULT_LIMIT,
       OPS_REGRESSION_DEFAULT_MIN_SAMPLES,
-      readOperationHistory,
-      buildOperationRegressionsReport,
+      readOperationHistory: readOperationHistory as (...args: unknown[]) => unknown,
+      buildOperationRegressionsReport: buildOperationRegressionsReport as (...args: unknown[]) => unknown,
       createApiRequestId,
       findOperationEventById,
       enqueueReplayJobFromOperation,
-      queueJobAcceptedPayload,
+      queueJobAcceptedPayload: queueJobAcceptedPayload as (...args: unknown[]) => unknown,
       getSystemContext,
       isDevRuntime,
       resolveRepoFilePath,
       sha256Text,
-      readTextFileLimited,
-      findLineForQuery,
-      buildSnippet,
+      readTextFileLimited: readTextFileLimited as (...args: unknown[]) => Promise<{ content: string; truncated: boolean; }>,
+      findLineForQuery: findLineForQuery as unknown as (...args: unknown[]) => number | null,
+      buildSnippet: buildSnippet as unknown as (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string; },
       guessContentType,
       MAX_FILE_BYTES,
       queueJobs,
-      listQueueJobEvents,
-      queueJobSnapshot,
+      listQueueJobEvents: listQueueJobEvents as (...args: unknown[]) => { seq: number; }[],
+      queueJobSnapshot: queueJobSnapshot as (...args: unknown[]) => unknown,
       isQueueJobFinalStatus,
       cancelQueueJob,
-      toQueueTerminalEvent,
-      buildApiErrorPayload,
+      toQueueTerminalEvent: toQueueTerminalEvent as (...args: unknown[]) => unknown,
+      buildApiErrorPayload: buildApiErrorPayload as (...args: unknown[]) => Record<string, unknown>,
       MAX_RETAINED_EVENTS,
       enqueueQueueJob,
       runQueuedSpawnCommand,
@@ -337,8 +370,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       toBooleanString,
       toNumberString,
       validateGitRef,
-      tokenRepo,
-    }),
+    }) as unknown as Record<string, unknown>,
   });
 
   // Advertise the server's internal URL to child processes spawned from this

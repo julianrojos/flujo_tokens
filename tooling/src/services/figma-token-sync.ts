@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { fetchFigmaLocalVariables, type FigmaVariablesResponse } from '../utils/figma-api.js';
 import { fetchFigmaLocalVariablesViaMcp } from './figma-mcp-variables.js';
 import { stripDiacritics } from '../utils/strip-diacritics.js';
-import dsTypes from 'ds-types';
+import * as dsTypes from 'ds-types';
 import type { FigmaVariableSource as SharedFigmaVariableSource } from 'ds-types';
 
 const { parseFigmaVariableSource } = dsTypes as {

@@ -314,7 +314,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         }
       }
 
-      let requestWithKind = { ...request, componentKind: "component_set" as const };
+      let requestWithKind = { ...request, componentKind: "component_set" as "component_set" | "component" };
       let preview = await captureFigmaScreenshot({
         ...requestWithKind,
         dryRun: true,

@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 
 describe('AiJobStatusCard Logic', () => {
     // Mock job data for testing
-    const createMockJob = (overrides: Record<string, unknown> = {}) => ({
+    // Tipo genérico para incluir campos opcionales completos (R-016)
+    const createMockJob = <T extends Record<string, unknown> = {}>(overrides: T = {} as T) => ({
         id: 'job-123',
         status: 'completed' as const,
         input: {
@@ -34,8 +35,15 @@ describe('AiJobStatusCard Logic', () => {
         ],
         createdAt: Date.now() - 10000,
         updatedAt: Date.now(),
+        retryable: false,
+        error: undefined,
+        usage: {
+            promptTokens: 1000,
+            completionTokens: 500,
+            durationMs: 15000,
+        },
         ...overrides,
-    });
+    }) as typeof createMockJob<{}> & T;
 
     describe('STATUS_CONFIG', () => {
         it('should have correct variant for pending status', () => {
@@ -64,43 +72,43 @@ describe('AiJobStatusCard Logic', () => {
 
     describe('Button state logic', () => {
         it('should allow cancel for queued job', () => {
-            const job = createMockJob({ status: 'queued' });
+            const job = createMockJob({ status: 'queued' as const });
             const canCancel = job.status === 'queued' || job.status === 'running';
             assert.equal(canCancel, true);
         });
 
         it('should allow cancel for running job', () => {
-            const job = createMockJob({ status: 'running' });
+            const job = createMockJob({ status: 'running' as const });
             const canCancel = job.status === 'queued' || job.status === 'running';
             assert.equal(canCancel, true);
         });
 
         it('should not allow cancel for completed job', () => {
-            const job = createMockJob({ status: 'completed' });
+            const job = createMockJob({ status: 'completed' as const });
             const canCancel = job.status === 'queued' || job.status === 'running';
             assert.equal(canCancel, false);
         });
 
         it('should allow apply for completed job with output', () => {
-            const job = createMockJob({ status: 'completed' });
+            const job = createMockJob({ status: 'completed' as const });
             const canApply = job.status === 'completed' && !!job.output;
             assert.equal(canApply, true);
         });
 
         it('should not allow apply for running job', () => {
-            const job = createMockJob({ status: 'running' });
-            const canApply = job.status === 'completed' && job.output;
+            const job = createMockJob({ status: 'running' as const });
+            const canApply = job.status === 'completed' && !!job.output;
             assert.equal(canApply, false);
         });
 
         it('should allow retry for failed job with retryable flag', () => {
-            const job = createMockJob({ status: 'failed', retryable: true });
+            const job = createMockJob({ status: 'failed' as const, retryable: true });
             const canRetry = job.status === 'failed' && job.retryable;
             assert.equal(canRetry, true);
         });
 
         it('should not allow retry for failed job without retryable flag', () => {
-            const job = createMockJob({ status: 'failed', retryable: false });
+            const job = createMockJob({ status: 'failed' as const, retryable: false });
             const canRetry = job.status === 'failed' && job.retryable;
             assert.equal(canRetry, false);
         });
@@ -170,7 +178,7 @@ describe('AiJobStatusCard Logic', () => {
     describe('Error display logic', () => {
         it('should show error info for failed job', () => {
             const job = createMockJob({
-                status: 'failed',
+                status: 'failed' as const,
                 error: 'API Error: Rate limited',
                 errorCode: 'ai.api.rate_limit',
                 retryable: true,
@@ -179,19 +187,20 @@ describe('AiJobStatusCard Logic', () => {
             assert.equal(job.status, 'failed');
             assert.ok(job.error);
             assert.ok(job.retryable);
+            assert.equal(job.error, 'API Error: Rate limited');
         });
 
         it('should not show error for completed job', () => {
-            const job = createMockJob({ status: 'completed' });
+            const job = createMockJob({ status: 'completed' as const });
             assert.equal(job.status, 'completed');
             assert.equal(job.error, undefined);
         });
     });
 
     describe('Usage metrics display', () => {
-        it('should show usage for completed job', () => {
+        it('should show usage metrics for completed job', () => {
             const job = createMockJob({
-                status: 'completed',
+                status: 'completed' as const,
                 usage: {
                     promptTokens: 1000,
                     completionTokens: 500,

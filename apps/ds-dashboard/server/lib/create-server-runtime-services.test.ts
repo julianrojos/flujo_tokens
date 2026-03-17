@@ -19,20 +19,35 @@ describe('create-server-runtime-services', () => {
       };
 
       const operationHistoryService = {
-        appendOperationEventSafe: () => {},
+        appendOperationEventSafe: () => { },
         toFiniteTimestamp: () => 0,
-        readOperationHistory: () => [],
-        findOperationEventById: () => null,
-        buildOperationRegressionsReport: () => ({ items: [] }),
+        readOperationHistory: () => ({ events: [], scannedRows: 0, scannedFiles: 0 }),
+        findOperationEventById: () => ({ event: null, scannedRows: 0, scannedFiles: 0 }),
+        buildOperationRegressionsReport: () => ({ items: [], generatedAt: new Date().toISOString(), regressions: [], summary: { totalOperations: 0, healthyOperations: 0, unhealthyOperations: 0, systems: [] } }),
       };
       const queueEngineService = {
         queueJobs: new Map(),
-        queueMetrics: () => ({ active: 0 }),
-        enqueueQueueJob: () => ({ id: 'job_1' }),
+        queueMetrics: () => ({ active: 0, pending: 0, total: 0 }),
+        // Mock completo de QueueJob interface (R-007)
+        enqueueQueueJob: () => ({
+          id: 'job_1',
+          label: 'test',
+          systemId: 'core',
+          operationName: 'test',
+          requestId: 'req_1',
+          sourceEventId: null,
+          inputHash: 'hash',
+          status: 'queued' as const,
+          createdAt: Date.now(),
+          startedAt: undefined,
+          finishedAt: undefined,
+          execute: () => Promise.resolve({ ok: true as const })
+        }),
         cancelQueueJob: () => ({ ok: true }),
+        cleanupQueueJobs: () => { },
       };
       const commandExecutionService = {
-        runQueuedSpawnCommand: () => Promise.resolve({ ok: true }),
+        runQueuedSpawnCommand: () => Promise.resolve({ ok: true, code: 0, summary: 'test', payload: {} }),
       };
       const queueJobFactoryService = {
         queueNpmScript: () => ({ id: 'job_2' }),
@@ -59,29 +74,30 @@ describe('create-server-runtime-services', () => {
         replayableNpmScripts: new Set(['ds:registry:refresh']),
         supportedReplayOperations: new Set(['refresh:naming-debt']),
         normalizeSystemId: (value: string) => String(value || ''),
-        writeStructuredLog: () => {},
+        writeStructuredLog: () => { },
         nowIso: () => '2026-01-01T00:00:00.000Z',
         createOperationEventId: () => 'op_1',
-        createOperationHistoryServiceFn(args) {
+        // Tipos explícitos para parámetros de factory functions (R-008)
+        createOperationHistoryServiceFn: (args: Parameters<typeof createOperationHistoryService>[0]) => {
           calls.operationHistory = args;
-          return operationHistoryService;
+          return operationHistoryService as any;
         },
-        createQueueEngineServiceFn(args) {
+        createQueueEngineServiceFn: (args: Parameters<typeof createQueueEngineService>[0]) => {
           calls.queueEngine = args;
-          return queueEngineService;
+          return queueEngineService as any;
         },
-        createCommandExecutionServiceFn(args) {
-          calls.commandExecution = args;
-          return commandExecutionService;
-        },
-        createQueueJobFactoryServiceFn(args) {
+        createQueueJobFactoryServiceFn: (args: Parameters<typeof createQueueJobFactoryService>[0]) => {
           calls.queueJobFactory = args;
-          return queueJobFactoryService;
+          return queueJobFactoryService as any;
         },
-        runSpawnWithCaptureFn: () => Promise.resolve({ ok: true }),
+        createCommandExecutionServiceFn: (args: Parameters<typeof createCommandExecutionService>[0]) => {
+          calls.commandExecution = args;
+          return commandExecutionService as any;
+        },
+        runSpawnWithCaptureFn: () => Promise.resolve({ ok: true, exitCode: 0, stdout: '', stderr: '', parsedJson: null, summary: 'test', jsonParseError: null, spawnError: null }),
         toQueueSummaryFromPayloadFn: () => 'summary',
         createSnippetBuilderFn: () => () => ({ targetLine: 1, startLine: 1, endLine: 1, snippet: '' }),
-        computeNamingDebtReportFn: async () => ({}),
+        computeNamingDebtReportFn: async () => ({ tokenRegistry: {}, tokenUsageIndex: {}, tokenGraph: {}, config: {} }),
         createDevRuntimeCheckerFn: () => () => true,
         createSha256TextHasherFn: () => () => 'hash',
         createSystemContextResolverFn: () => () => ({ systemId: 'core', header: 'core' }),

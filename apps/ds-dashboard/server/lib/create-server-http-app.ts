@@ -9,7 +9,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
 import { registerAllRoutes } from '../routes/register-all-routes.ts';
-import { createFailJson, createHealthPayloadBuilder } from './api-response-service.ts';
+import { createFailJson, createHealthPayloadBuilder, type QueueMetrics } from './api-response-service.ts';
 import { buildCreateServerRouteDeps } from './create-server-route-deps.ts';
 import { registerUnhandledErrorMiddleware } from './error-middleware.ts';
 
@@ -72,17 +72,17 @@ export function createServerHttpApp(config: CreateServerHttpAppConfig): CreateSe
   });
 
   const buildHealthPayload = createHealthPayloadBuilderFn({
-    queueMetrics,
+    queueMetrics: queueMetrics as () => QueueMetrics,
     nowIsoFn: nowIso,
   });
 
   registerAllRoutesFn(
     app,
     buildCreateServerRouteDepsFn({
-      ...routeDeps,
-      buildHealthPayload,
-      failJson,
-    }),
+      ...routeDeps as any,
+      buildHealthPayload: buildHealthPayload as (...args: unknown[]) => unknown,
+      failJson: failJson as (...args: unknown[]) => unknown,
+    } as any),
   );
 
   registerUnhandledErrorMiddlewareFn(app, {

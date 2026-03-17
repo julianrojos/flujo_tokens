@@ -1,5 +1,13 @@
 import type { VariableData as FigmaVariable, VariableCollectionData as FigmaVariableCollection } from '../services/figma-direct-bridge-service.ts';
 
+/**
+ * Helper function para reemplazar caracteres compatible con lib antiguas
+ * Soluciona issue con replaceAll() no disponible en configuraciones TypeScript antiguas
+ */
+function replaceAllChars(str: string, search: string, replace: string): string {
+  return str.split(search).join(replace);
+}
+
 // DTCG Token types
 export type DtcgToken = {
   $value: unknown;
@@ -94,7 +102,8 @@ function resolveVariableAliasPath(
   const aliasedVar = variables[aliasId];
   if (aliasedVar) {
     // Replace / with . per DTCG reference spec: {colors.primary.blue}
-    return `{${aliasedVar.name.replaceAll('/', '.')}}`;
+    // Usar split/join en vez de replaceAll para compatibilidad con Node 14
+    return `{${aliasedVar.name.split('/').join('.')}}`;
   }
   // Fallback: keep reference opaque but valid
   return `{unknown.${aliasId}}`;

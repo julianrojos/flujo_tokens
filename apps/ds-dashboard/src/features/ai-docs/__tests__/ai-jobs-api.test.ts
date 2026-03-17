@@ -15,7 +15,7 @@ const originalFetch = globalThis.fetch;
 beforeEach(() => {
     mockFetchResponse = null;
     mockFetchOptions = undefined;
-    globalThis.fetch = async (url: string | URL, options?: RequestInit) => {
+    globalThis.fetch = async (url: RequestInfo | URL, options?: RequestInit) => {
         mockFetchOptions = options;
         if (typeof url === 'string' && url.includes('/api/ai/jobs')) {
             return mockFetchResponse as Response;

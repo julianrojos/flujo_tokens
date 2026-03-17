@@ -22,7 +22,7 @@ export function registerUnhandledErrorMiddleware(
 ): void {
   const { createApiRequestId, writeStructuredLog, failJson } = deps;
 
-  app.onError((error, c) => {
+  app.onError((error: any, c: any) => {
     const requestId = createApiRequestId();
     const message = error instanceof Error ? error.message : String(error);
     writeStructuredLog('error', {
@@ -47,6 +47,6 @@ export function registerUnhandledErrorMiddleware(
         method: c.req.method,
       },
       suppressLog: true,
-    });
+    }) as Response; // Cast necesario: failJson retorna unknown pero onError espera Response
   });
 }

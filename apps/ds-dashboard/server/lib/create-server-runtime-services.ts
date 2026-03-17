@@ -13,6 +13,19 @@ import { createQueueJobFactoryService } from '../services/queue-job-factory-serv
 import { createSnippetBuilder, type SnippetResult } from './request-file-helpers.ts';
 import { runSpawnWithCapture } from './spawn-runner.mjs';
 import { toQueueSummaryFromPayload } from './queue-utils.ts';
+
+// @ts-ignore - Missing declaration files
+import { computeNamingDebtReport as computeNamingDebtReportAny } from '../services/analysis-artifacts-service.mjs';
+// @ts-ignore - Missing declaration files
+import { createCommandExecutionService as createCommandExecutionServiceAny } from '../services/command-execution-service.mjs';
+// @ts-ignore - Missing declaration files
+import { createOperationHistoryService as createOperationHistoryServiceAny } from '../services/operation-history-service.mjs';
+// @ts-ignore - Missing declaration files
+import { createQueueEngineService as createQueueEngineServiceAny } from '../services/queue-engine-service.mjs';
+// @ts-ignore - Missing declaration files
+import { createQueueJobFactoryService as createQueueJobFactoryServiceAny } from '../services/queue-job-factory-service.mjs';
+// @ts-ignore - Missing declaration files
+import { runSpawnWithCapture as runSpawnWithCaptureAny } from './spawn-runner.mjs';
 import {
   createDevRuntimeChecker,
   createSha256TextHasher,

@@ -3,7 +3,7 @@
  *
  * Parses and validates command-line options for capture operations.
  */
-import dsTypes from 'ds-types';
+import * as dsTypes from 'ds-types';
 import type { FigmaVariableSource } from 'ds-types';
 
 // NOTE: Under the current tsx runtime this package is exposed through a default export object.
