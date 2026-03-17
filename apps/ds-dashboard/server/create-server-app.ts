@@ -114,6 +114,8 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   let db: import('better-sqlite3').Database | undefined;
   let aiJobsStore: AiJobsStoreWithPersistence | undefined;
   let tokenRepo: TokenRepository | undefined;
+  let resumeTimer: NodeJS.Timeout | undefined;
+  let designSystemRepositoryDisposed = false;
 
   try {
     db = bootstrapDatabase({ dbPath });
@@ -123,8 +125,18 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     // Wire the persistent store to the singleton so routes use it
     initializeAiJobsStore(aiJobsStore);
 
-    // Load existing jobs from DB into memory
-    aiJobsStore.loadJobsFromDb();
+    // Load existing jobs from DB into memory (without auto-resume)
+    aiJobsStore?.loadJobsFromDb(100, { autoResume: false });
+
+    // Resume execution of recovered queued jobs after routes are set up
+    // This ensures job handlers are registered before dequeue
+    if (aiJobsStore) {
+        resumeTimer = setTimeout(() => {
+            if (!designSystemRepositoryDisposed) {
+                aiJobsStore.resumeRecoveredQueue();
+            }
+        }, 0);
+    }
 
     // Try to rebuild token cache from JSON files only if DB is empty (cold start)
     const generatedDir = path.join(repoRoot, 'docs/_generated');
@@ -154,11 +166,17 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   }
 
   const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
-  let designSystemRepositoryDisposed = false;
 
   function disposeDesignSystemRepository(): void {
     if (designSystemRepositoryDisposed) return;
     designSystemRepositoryDisposed = true;
+
+    // Clear the resume timer to prevent async execution after DB close
+    if (resumeTimer) {
+        clearTimeout(resumeTimer);
+        resumeTimer = undefined;
+    }
+
     designSystemRepository.dispose();
     disposeFigmaMcpPingService();
     // Close database connection

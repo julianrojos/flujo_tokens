@@ -59,80 +59,70 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     }
 
     /**
-     * Override enqueue to persist job
-     */
-    override enqueue(input: AiJobInput): AiJobState {
-        const job = super.enqueue(input);
-
-        // Persist to DB (only job state, events are in-memory)
-        if (this.jobsRepo) {
-            this.jobsRepo.upsertJob(job);
-        }
-
-        return job;
-    }
-
-    /**
-     * Override pushEvent - persist events to DB
+     * Override pushEvent - persist job snapshot + event atomically
+     * PERSISTENCE CONTRACT: job snapshot MUST be persisted BEFORE appending event (FK order)
      */
     override pushEvent(jobId: string, event: string, data?: unknown): void {
-        // Call parent to update in-memory state
+        // Call parent to update in-memory state first
         super.pushEvent(jobId, event, data);
 
-        // Persist event to DB
+        // Persist to DB using selective snapshot strategy:
+        // - keep snapshot freshness for queued/running jobs (stale recovery safety)
+        // - always persist snapshot on terminal job.* events
+        // - append-only for non-critical events after terminal states
         if (this.jobsRepo) {
-            // Access job via protected method from parent class
             const job = this.getJobById(jobId);
             if (job && job.events.length > 0) {
                 const lastEvent = job.events[job.events.length - 1];
+                if (this.shouldPersistSnapshot(job, lastEvent.event)) {
+                    // Atomic transaction: job + event or nothing
+                    this.jobsRepo.persistTransition(job, lastEvent);
+                    return;
+                }
+
                 this.jobsRepo.appendJobEvent(jobId, lastEvent);
             }
         }
     }
 
+    private shouldPersistSnapshot(job: AiJobState, eventName: string): boolean {
+        if (job.status === 'queued' || job.status === 'running') {
+            return true;
+        }
+
+        return (
+            eventName === 'job.completed' ||
+            eventName === 'job.failed' ||
+            eventName === 'job.cancelled'
+        );
+    }
+
     /**
-     * Override complete to persist job state
+     * Override enqueue - delegates to parent (pushEvent handles persistence)
+     */
+    override enqueue(input: AiJobInput): AiJobState {
+        return super.enqueue(input);
+    }
+
+    /**
+     * Override complete - delegates to parent (pushEvent handles persistence)
      */
     override complete(jobId: string, output: ComponentDocOutput, usage: AiUsageMetrics): void {
         super.complete(jobId, output, usage);
-
-        // Persist to DB
-        if (this.jobsRepo) {
-            const job = this.getJobById(jobId);
-            if (job) {
-                this.jobsRepo.upsertJob(job);
-            }
-        }
     }
 
     /**
-     * Override fail to persist job state
+     * Override fail - delegates to parent (pushEvent handles persistence)
      */
     override fail(jobId: string, error: string, code: string, retryable: boolean): void {
         super.fail(jobId, error, code, retryable);
-
-        // Persist to DB
-        if (this.jobsRepo) {
-            const job = this.getJobById(jobId);
-            if (job) {
-                this.jobsRepo.upsertJob(job);
-            }
-        }
     }
 
     /**
-     * Override cancel to persist job state
+     * Override cancel - delegates to parent (pushEvent handles persistence)
      */
     override cancel(jobId: string): void {
         super.cancel(jobId);
-
-        // Persist to DB
-        if (this.jobsRepo) {
-            const job = this.getJobById(jobId);
-            if (job) {
-                this.jobsRepo.upsertJob(job);
-            }
-        }
     }
 
     /**
@@ -168,27 +158,78 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     }
 
     /**
-     * Load historical jobs from DB into memory
-     * Useful for recovering jobs after server restart
+     * Load jobs from database and rehydrate in-memory state
+     * @param limit Maximum number of jobs to load (default: 100)
+     * @param options Loading options
      */
-    loadJobsFromDb(limit: number = 100): void {
+    loadJobsFromDb(limit: number = 100, options: { autoResume?: boolean } = {}): void {
         if (!this.jobsRepo) {
             return;
         }
 
         // Load recent jobs that are not in terminal states
         const jobs = this.jobsRepo.listJobs();
-        const loaded = Math.min(jobs.length, limit);
+        let rehydratedCount = 0;
 
-        for (let i = 0; i < loaded; i++) {
+        for (let i = 0; i < jobs.length && rehydratedCount < limit; i++) {
             const job = jobs[i];
             // Only load non-terminal or recently completed jobs
             if (job.status === 'queued' || job.status === 'running' ||
                 (job.status === 'completed' && Date.now() - job.updatedAt < 3600000)) {
+                const existingJob = this.getJobById(job.id);
+                // Load job into memory
                 this.loadJobIntoMemory(job);
+                // Rehydrate nextEventSeq = max(seq)+1 to avoid UNIQUE violations
+                const maxSeq = this.jobsRepo.getMaxEventSeq(job.id);
+                this.setNextEventSeq(job.id, maxSeq + 1);
+                // Rehydrate queues for queued jobs (no cast needed - input.provider is AiProviderName)
+                if (job.status === 'queued') {
+                    this.addToQueue(job.input.provider, job.id);
+                }
+                // Rehydrate runningCount for running jobs (avoid double-counting)
+                if (job.status === 'running') {
+                    // Use pre-load state to avoid suppressing first count after loadJobIntoMemory.
+                    if (!existingJob || existingJob.status !== 'running') {
+                        this.incrementRunningCount(job.input.provider);
+                    }
+                }
+                rehydratedCount++;
             }
         }
 
-        console.log(`[AiJobsStore] Loaded ${loaded} job(s) from database`);
+        console.log(`[AiJobsStore] Rehydrated ${rehydratedCount} job(s) from database`);
+
+        // Auto-resume queued jobs by default for backward compatibility
+        if (options.autoResume !== false) {
+            this.triggerRecoveryDequeue();
+        }
+    }
+
+    /**
+     * Resume execution of recovered queued jobs
+     * Call this after setting up job execution handlers
+     */
+    resumeRecoveredQueue(): void {
+        this.triggerRecoveryDequeue();
+    }
+
+    /**
+     * Trigger tryDequeue for recovered queued jobs after restart
+     * This ensures jobs queued before restart resume execution
+     * Drains queue until concurrency limit reached per provider
+     */
+    private triggerRecoveryDequeue(): void {
+        const providers: AiProviderName[] = ['anthropic', 'openai', 'ollama'];
+        const maxConcurrent = this.getMaxConcurrentPerProvider();
+
+        for (const provider of providers) {
+            // Drain queue until concurrency limit reached
+            // This ensures all recovered queued jobs get a chance to run
+            let status = this.getQueueStatus(provider);
+            while (status.queued > 0 && status.running < maxConcurrent) {
+                this.tryDequeue(provider);
+                status = this.getQueueStatus(provider);
+            }
+        }
     }
 }

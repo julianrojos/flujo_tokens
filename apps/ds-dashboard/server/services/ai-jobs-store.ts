@@ -379,6 +379,43 @@ export class AiJobsStore {
     }
 
     /**
+     * Set next event sequence for a job (protected for subclass rehydration)
+     * @param jobId - Job ID
+     * @param nextSeq - Next sequence number
+     */
+    protected setNextEventSeq(jobId: string, nextSeq: number): void {
+        this.nextEventSeq.set(jobId, nextSeq);
+    }
+
+    /**
+     * Add job to provider queue (protected for subclass rehydration)
+     * @param provider - Provider name
+     * @param jobId - Job ID
+     */
+    protected addToQueue(provider: AiProviderName, jobId: string): void {
+        const queue = this.queues.get(provider);
+        if (queue && !queue.includes(jobId)) {
+            queue.push(jobId);
+        }
+    }
+
+    /**
+     * Increment running count for provider (protected for subclass rehydration)
+     * @param provider - Provider name
+     */
+    protected incrementRunningCount(provider: AiProviderName): void {
+        const current = this.runningCount.get(provider) || 0;
+        this.runningCount.set(provider, current + 1);
+    }
+
+    /**
+     * Get max concurrent jobs per provider (protected for subclass access)
+     */
+    protected getMaxConcurrentPerProvider(): number {
+        return MAX_CONCURRENT_PER_PROVIDER;
+    }
+
+    /**
      * Get queue status for a provider
      * @param provider - Provider name
      * @returns Queue status
