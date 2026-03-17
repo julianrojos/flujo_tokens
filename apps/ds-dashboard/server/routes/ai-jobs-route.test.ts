@@ -9,7 +9,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { registerAiJobsRoutes } from './ai-jobs-route.js';
-import { getAiJobsStore } from '../services/ai-jobs-store.js';
+import { getAiJobsStore, initializeAiJobsStore, AiJobsStore } from '../services/ai-jobs-store.js';
 
 // Helper to create test app
 function createTestApp() {
@@ -23,18 +23,7 @@ const testFilesCreated: string[] = [];
 
 // Helper to cleanup store between tests
 function cleanupStore() {
-    const store = getAiJobsStore();
-    (store as any).jobs.clear();
-    (store as any).idempotencyIndex.clear();
-    (store as any).queues.get('anthropic')?.splice(0);
-    (store as any).queues.get('openai')?.splice(0);
-    (store as any).queues.get('ollama')?.splice(0);
-    (store as any).runningCount.set('anthropic', 0);
-    (store as any).runningCount.set('openai', 0);
-    (store as any).runningCount.set('ollama', 0);
-    (store as any).nextEventSeq?.clear();
-    (store as any).prompts?.clear();
-    store.setOnJobStarted(undefined);
+    initializeAiJobsStore(new AiJobsStore());
 }
 
 // Helper to track and cleanup test files

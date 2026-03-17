@@ -24,11 +24,6 @@ const MAX_CONCURRENT_PER_PROVIDER = 3;
 const MAX_JOBS = 200;
 
 /**
- * Maximum events per job (ring buffer)
- */
-const MAX_EVENTS_PER_JOB = 100;
-
-/**
  * Job TTL in milliseconds (24 hours)
  */
 const JOB_TTL_MS = 24 * 60 * 60 * 1000;
@@ -234,11 +229,6 @@ export class AiJobsStore {
             data,
         };
         this.nextEventSeq.set(jobId, seq);
-
-        // Ring buffer: remove oldest if at capacity
-        if (job.events.length >= MAX_EVENTS_PER_JOB) {
-            job.events.shift();
-        }
 
         job.events.push(jobEvent);
         job.updatedAt = Date.now();
@@ -518,8 +508,7 @@ let storeInstance: AiJobsStore | null = null;
  */
 export function getAiJobsStore(): AiJobsStore {
     if (!storeInstance) {
-        storeInstance = new AiJobsStore();
-        storeInstance.startCleanup();
+        throw new Error('[AiJobsStore] Store not initialized. Call initializeAiJobsStore() before use.');
     }
     return storeInstance;
 }

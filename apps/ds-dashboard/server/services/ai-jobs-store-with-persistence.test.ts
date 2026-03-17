@@ -194,22 +194,6 @@ describe('ai-jobs-store-with-persistence', () => {
         });
     });
 
-    describe('fallback to in-memory when no DB', () => {
-        it('works without DB (pure in-memory)', () => {
-            const storeNoDb = new AiJobsStoreWithPersistence();
-            const input = createTestInput();
-
-            const job = storeNoDb.enqueue(input);
-            assert.ok(job);
-            assert.strictEqual(job.status, 'queued');
-
-            // getJobPersistent falls back to in-memory without DB
-            const persisted = storeNoDb.getJobPersistent(job.id);
-            assert.ok(persisted);
-            assert.strictEqual(persisted.id, job.id);
-        });
-    });
-
     describe('recovery post-restart (S-06)', () => {
         it('rehydrates nextEventSeq to avoid UNIQUE violations', () => {
             const input = createTestInput();

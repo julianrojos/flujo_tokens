@@ -2,7 +2,7 @@
  * AI Jobs Store with SQLite Persistence
  *
  * Extends AiJobsStore with database persistence.
- * DB is optional - falls back to in-memory only if not provided.
+ * DB is required for all operations.
  */
 
 import Database from 'better-sqlite3';
@@ -10,9 +10,6 @@ import Database from 'better-sqlite3';
 import { AiJobsStore } from './ai-jobs-store.js';
 import type {
     AiJobState,
-    AiJobInput,
-    ComponentDocOutput,
-    AiUsageMetrics,
 } from './ai-component-doc-schema.js';
 import type { AiProviderName } from './ai-provider.js';
 import { JobsRepository } from '../db/jobs-repository.js';
@@ -21,40 +18,32 @@ import { JobsRepository } from '../db/jobs-repository.js';
  * Options for AiJobsStoreWithPersistence
  */
 export interface AiJobsStoreWithPersistenceOptions {
-    /** Optional database for persistence */
-    db?: Database.Database;
+    /** Database for persistence */
+    db: Database.Database;
     /** Stale threshold in ms (default: 5 minutes) */
     staleThresholdMs?: number;
 }
 
 /**
- * AI Jobs Store with optional SQLite persistence
+ * AI Jobs Store with SQLite persistence
  *
- * When DB is provided:
+ * DB is required:
  * - Jobs are persisted on enqueue/complete/fail/cancel
  * - Events are appended to DB on pushEvent
  * - Stale running jobs are marked as failed on startup
- *
- * When DB is not provided:
- * - Falls back to pure in-memory behavior (existing AiJobsStore)
  */
 export class AiJobsStoreWithPersistence extends AiJobsStore {
-    private db: Database.Database | undefined;
-    private jobsRepo: JobsRepository | undefined;
-    private staleThresholdMs: number;
+    private jobsRepo: JobsRepository;
 
-    constructor(options: AiJobsStoreWithPersistenceOptions = {}) {
+    constructor(options: AiJobsStoreWithPersistenceOptions) {
         super();
-        this.db = options.db;
-        this.staleThresholdMs = options.staleThresholdMs ?? 300000; // 5 minutes
+        const staleThresholdMs = options.staleThresholdMs ?? 300000; // 5 minutes
+        this.jobsRepo = new JobsRepository(options.db);
 
-        if (this.db) {
-            this.jobsRepo = new JobsRepository(this.db);
-            // Mark stale running jobs as failed on startup
-            const marked = this.jobsRepo.markStaleRunningJobsAsFailed(this.staleThresholdMs);
-            if (marked > 0) {
-                console.log(`[AiJobsStore] Marked ${marked} stale running job(s) as failed`);
-            }
+        // Mark stale running jobs as failed on startup
+        const marked = this.jobsRepo.markStaleRunningJobsAsFailed(staleThresholdMs);
+        if (marked > 0) {
+            console.log(`[AiJobsStore] Marked ${marked} stale running job(s) as failed`);
         }
     }
 
@@ -70,18 +59,16 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
         // - keep snapshot freshness for queued/running jobs (stale recovery safety)
         // - always persist snapshot on terminal job.* events
         // - append-only for non-critical events after terminal states
-        if (this.jobsRepo) {
-            const job = this.getJobById(jobId);
-            if (job && job.events.length > 0) {
-                const lastEvent = job.events[job.events.length - 1];
-                if (this.shouldPersistSnapshot(job, lastEvent.event)) {
-                    // Atomic transaction: job + event or nothing
-                    this.jobsRepo.persistTransition(job, lastEvent);
-                    return;
-                }
-
-                this.jobsRepo.appendJobEvent(jobId, lastEvent);
+        const job = this.getJobById(jobId);
+        if (job && job.events.length > 0) {
+            const lastEvent = job.events[job.events.length - 1];
+            if (this.shouldPersistSnapshot(job, lastEvent.event)) {
+                // Atomic transaction: job + event or nothing
+                this.jobsRepo.persistTransition(job, lastEvent);
+                return;
             }
+
+            this.jobsRepo.appendJobEvent(jobId, lastEvent);
         }
     }
 
@@ -98,63 +85,24 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
     }
 
     /**
-     * Override enqueue - delegates to parent (pushEvent handles persistence)
-     */
-    override enqueue(input: AiJobInput): AiJobState {
-        return super.enqueue(input);
-    }
-
-    /**
-     * Override complete - delegates to parent (pushEvent handles persistence)
-     */
-    override complete(jobId: string, output: ComponentDocOutput, usage: AiUsageMetrics): void {
-        super.complete(jobId, output, usage);
-    }
-
-    /**
-     * Override fail - delegates to parent (pushEvent handles persistence)
-     */
-    override fail(jobId: string, error: string, code: string, retryable: boolean): void {
-        super.fail(jobId, error, code, retryable);
-    }
-
-    /**
-     * Override cancel - delegates to parent (pushEvent handles persistence)
-     */
-    override cancel(jobId: string): void {
-        super.cancel(jobId);
-    }
-
-    /**
-     * Get a job by ID (from DB if available, otherwise from memory)
+     * Get a job by ID (from DB)
      */
     getJobPersistent(jobId: string): AiJobState | null {
-        if (this.jobsRepo) {
-            return this.jobsRepo.getJob(jobId);
-        }
-        // Fallback to in-memory
-        const job = this.getJobById(jobId);
-        return job || null;
+        return this.jobsRepo.getJob(jobId);
     }
 
     /**
      * Get a job by idempotency key (from DB)
      */
     getJobByIdempotencyKeyPersistent(idempotencyKey: string): AiJobState | null {
-        if (this.jobsRepo) {
-            return this.jobsRepo.getJobByIdempotencyKey(idempotencyKey);
-        }
-        return null;
+        return this.jobsRepo.getJobByIdempotencyKey(idempotencyKey);
     }
 
     /**
      * List jobs with optional filters (from DB)
      */
     listJobsPersistent(provider?: AiProviderName, status?: string): AiJobState[] {
-        if (this.jobsRepo) {
-            return this.jobsRepo.listJobs(provider, status);
-        }
-        return [];
+        return this.jobsRepo.listJobs(provider, status);
     }
 
     /**
@@ -163,10 +111,6 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
      * @param options Loading options
      */
     loadJobsFromDb(limit: number = 100, options: { autoResume?: boolean } = {}): void {
-        if (!this.jobsRepo) {
-            return;
-        }
-
         // Load recent jobs that are not in terminal states
         const jobs = this.jobsRepo.listJobs();
         let rehydratedCount = 0;

@@ -112,8 +112,8 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   // Initialize SQLite database
   const dbPath = path.join(repoRoot, 'apps/ds-dashboard/server/db/ds-dashboard.db');
   let db: import('better-sqlite3').Database | undefined;
-  let aiJobsStore: AiJobsStoreWithPersistence | undefined;
-  let tokenRepo: TokenRepository | undefined;
+  let aiJobsStore!: AiJobsStoreWithPersistence;
+  let tokenRepo!: TokenRepository;
   let resumeTimer: NodeJS.Timeout | undefined;
   let designSystemRepositoryDisposed = false;
 
@@ -126,17 +126,15 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     initializeAiJobsStore(aiJobsStore);
 
     // Load existing jobs from DB into memory (without auto-resume)
-    aiJobsStore?.loadJobsFromDb(100, { autoResume: false });
+    aiJobsStore.loadJobsFromDb(100, { autoResume: false });
 
     // Resume execution of recovered queued jobs after routes are set up
     // This ensures job handlers are registered before dequeue
-    if (aiJobsStore) {
-        resumeTimer = setTimeout(() => {
-            if (!designSystemRepositoryDisposed) {
-                aiJobsStore.resumeRecoveredQueue();
-            }
-        }, 0);
-    }
+    resumeTimer = setTimeout(() => {
+        if (!designSystemRepositoryDisposed) {
+            aiJobsStore.resumeRecoveredQueue();
+        }
+    }, 0);
 
     // Try to rebuild token cache from JSON files only if DB is empty (cold start)
     const generatedDir = path.join(repoRoot, 'docs/_generated');
@@ -161,8 +159,24 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       }
     }
   } catch (error) {
-    console.warn('[Server] Failed to initialize SQLite database:', error instanceof Error ? error.message : String(error));
-    console.warn('[Server] Running in in-memory mode only (no persistence)');
+    console.error('[Server] Failed to initialize SQLite database:', error instanceof Error ? error.message : String(error));
+
+    // Stop in-memory cleanup timer if store was initialized before failure.
+    if (aiJobsStore) {
+      aiJobsStore.stopCleanup();
+    }
+
+    // Close DB if it was partially initialized before re-throwing
+    if (db) {
+      try {
+        db.close();
+        console.log('[Server] Database connection closed due to initialization failure');
+      } catch (closeError) {
+        console.warn('[Server] Error closing database during cleanup:', closeError instanceof Error ? closeError.message : String(closeError));
+      }
+    }
+
+    throw error;
   }
 
   const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
@@ -177,16 +191,21 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
         resumeTimer = undefined;
     }
 
+    // Stop jobs cleanup interval explicitly during server shutdown.
+    if (aiJobsStore) {
+      aiJobsStore.stopCleanup();
+    }
+
     designSystemRepository.dispose();
     disposeFigmaMcpPingService();
     // Close database connection
-    if (db) {
-      try {
+    try {
+      if (db) {
         db.close();
         console.log('[Server] Database connection closed');
-      } catch (error) {
-        console.warn('[Server] Error closing database:', error instanceof Error ? error.message : String(error));
       }
+    } catch (error) {
+      console.warn('[Server] Error closing database:', error instanceof Error ? error.message : String(error));
     }
   }
 
