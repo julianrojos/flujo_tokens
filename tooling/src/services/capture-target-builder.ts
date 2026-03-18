@@ -186,6 +186,113 @@ function normalizeSlugLookup(
   return normalized;
 }
 
+interface VariableTraceEntry {
+  path: string;
+  aliasTargetId: string | null;
+  rawValue: string | null;
+}
+
+function toRawValueString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return null;
+}
+
+async function buildVariableTraceMap(inputDir: string): Promise<Map<string, VariableTraceEntry>> {
+  const result = new Map<string, VariableTraceEntry>();
+  if (!inputDir) return result;
+
+  let entries: Array<{ name: string; isFile: () => boolean }>;
+  try {
+    entries = await fs.readdir(inputDir, { withFileTypes: true }) as Array<{ name: string; isFile: () => boolean }>;
+  } catch {
+    return result;
+  }
+
+  const jsonFiles = entries
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.json'))
+    .map((entry) => path.join(inputDir, entry.name));
+
+  const visit = (node: unknown, segments: string[]): void => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        visit(item, segments);
+      }
+      return;
+    }
+
+    const record = node as Record<string, unknown>;
+    const variableId = String(record.$id || '').trim();
+    if (variableId && segments.length > 0 && !result.has(variableId)) {
+      const rawValue = record.$value;
+      const aliasTargetId =
+        rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)
+          ? String((rawValue as Record<string, unknown>).type || '').trim().toUpperCase() === 'VARIABLE_ALIAS'
+            ? String((rawValue as Record<string, unknown>).id || '').trim() || null
+            : null
+          : null;
+      result.set(variableId, {
+        path: segments.join('.'),
+        aliasTargetId,
+        rawValue: toRawValueString(rawValue),
+      });
+    }
+
+    for (const [key, value] of Object.entries(record)) {
+      if (key.startsWith('$')) continue;
+      visit(value, [...segments, key]);
+    }
+  };
+
+  for (const filePath of jsonFiles) {
+    try {
+      const raw = await fs.readFile(filePath, 'utf8');
+      const parsed = JSON.parse(raw) as unknown;
+      visit(parsed, []);
+    } catch {
+      // Ignore malformed token files during capture.
+    }
+  }
+
+  return result;
+}
+
+function resolveTokenTrace(
+  variableTraceById: Map<string, VariableTraceEntry>,
+  variableIdRaw: string,
+): { path: string | null; aliasChain: string[]; resolved: string | null } {
+  const variableId = String(variableIdRaw || '').trim();
+  if (!variableId) return { path: null, aliasChain: [], resolved: null };
+
+  const visited = new Set<string>();
+  const aliasChain: string[] = [];
+  let currentId: string | null = variableId;
+  let resolved: string | null = null;
+
+  while (currentId && !visited.has(currentId)) {
+    visited.add(currentId);
+    const entry = variableTraceById.get(currentId);
+    if (!entry) break;
+    aliasChain.push(entry.path);
+    if (entry.aliasTargetId) {
+      currentId = entry.aliasTargetId;
+      continue;
+    }
+    resolved = entry.rawValue;
+    break;
+  }
+
+  if (aliasChain.length === 0) return { path: null, aliasChain: [], resolved: null };
+  return {
+    path: aliasChain[0] || null,
+    aliasChain,
+    resolved,
+  };
+}
+
 /**
  * Build capture targets from source candidates.
  */
@@ -226,6 +333,8 @@ export async function buildCaptureTargets(
   const skipped: SkippedTarget[] = [];
   const slugByNodeFromRegistryMap = normalizeSlugLookup(slugByNodeFromRegistry);
   const slugByNodeFromSpecsMap = normalizeSlugLookup(slugByNodeFromSpecs);
+  const inputDir = String((ctx as { paths?: { input?: unknown } })?.paths?.input || '').trim();
+  const variableTraceById = await buildVariableTraceMap(inputDir);
 
   for (const candidate of sourceCandidates) {
     const nodeId = String(candidate.node_id || '').trim();
@@ -270,7 +379,10 @@ export async function buildCaptureTargets(
         });
         const nodeEntry = fullNodePayload?.nodes?.[nodeId]?.document ?? null;
         if (nodeEntry) {
-          extractedNodeSpec = extractComponentSpec(nodeEntry);
+          extractedNodeSpec = extractComponentSpec(nodeEntry, {
+            resolveTokenTraceByVariableId: (variableId) =>
+              resolveTokenTrace(variableTraceById, variableId),
+          });
         }
       } catch (error) {
         stderrWrite(buildNodeErrorMessage('Node extraction failed', nodeId, error));

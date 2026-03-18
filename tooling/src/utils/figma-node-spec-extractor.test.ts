@@ -64,6 +64,74 @@ describe("figma-node-spec-extractor utils", () => {
       // Alpha 0.5 = 128 = 0x80, so #FF000080
       assert.ok(spec.anatomy[0]?.fill?.includes("80"));
     });
+
+    it("prefers semantic token path when fill is bound to variable alias", () => {
+      const nodeWithBoundVariable = createMockFigmaNode({
+        children: [{
+          id: "2",
+          name: "Child",
+          type: "RECTANGLE",
+          boundVariables: {
+            fills: [
+              {
+                type: "VARIABLE_ALIAS",
+                id: "VariableID:semantic-bg-default",
+              },
+            ],
+          },
+          fills: [{ type: "SOLID", color: { r: 1, g: 1, b: 1, a: 1 }, visible: true }],
+        }],
+      });
+      const spec = extractComponentSpec(nodeWithBoundVariable, {
+        resolveTokenTraceByVariableId: (variableId) =>
+          variableId === "VariableID:semantic-bg-default"
+            ? {
+                path: "semanticos.color.background.default",
+                aliasChain: [
+                  "component.button.background.default",
+                  "semanticos.color.background.default",
+                  "primitivos.color.blanco",
+                ],
+                resolved: "#FFFFFF",
+              }
+            : { path: null, aliasChain: [], resolved: null },
+      });
+      assert.equal(spec.anatomy[0]?.fill, "semanticos.color.background.default");
+      assert.deepEqual(spec.anatomy[0]?.fill_alias_chain, [
+        "component.button.background.default",
+        "semanticos.color.background.default",
+        "primitivos.color.blanco",
+      ]);
+      assert.equal(spec.anatomy[0]?.fill_resolved, "#FFFFFF");
+    });
+
+    it("does not use non-fill bound variables as fill token source", () => {
+      const nodeWithStrokeAliasOnly = createMockFigmaNode({
+        children: [{
+          id: "3",
+          name: "Child",
+          type: "RECTANGLE",
+          boundVariables: {
+            strokes: [
+              {
+                type: "VARIABLE_ALIAS",
+                id: "VariableID:stroke-token",
+              },
+            ],
+          },
+        }],
+      });
+      const spec = extractComponentSpec(nodeWithStrokeAliasOnly, {
+        resolveTokenTraceByVariableId: () => ({
+          path: "semanticos.color.border.default",
+          aliasChain: ["semanticos.color.border.default"],
+          resolved: "#000000",
+        }),
+      });
+      assert.equal(spec.anatomy[0]?.fill, undefined);
+      assert.equal(spec.anatomy[0]?.fill_alias_chain, undefined);
+      assert.equal(spec.anatomy[0]?.fill_resolved, undefined);
+    });
   });
 
   describe("extractComponentSpec", () => {

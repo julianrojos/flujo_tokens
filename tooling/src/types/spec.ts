@@ -62,6 +62,8 @@ export interface SpecAnatomyItem {
   width?: number;
   height?: number;
   fill?: string;
+  fill_alias_chain?: string[];
+  fill_resolved?: string;
   stroke?: string;
   cornerRadius?: number;
   effects?: string[];

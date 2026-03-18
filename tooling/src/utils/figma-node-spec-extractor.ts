@@ -46,6 +46,7 @@ export interface FigmaNode {
   layoutAlign?: string;
   componentId?: string;
   componentPropertyDefinitions?: Record<string, unknown>;
+  boundVariables?: Record<string, unknown>;
 }
 
 interface FigmaComponentPropertyDefinition {
@@ -84,7 +85,75 @@ function figmaColorToHex(colorValue: any): string | null {
   return a === "ff" ? `#${r}${g}${b}`.toUpperCase() : `#${r}${g}${b}${a}`.toUpperCase();
 }
 
-function extractFill(node: FigmaNode): string | null {
+export interface ExtractComponentSpecOptions {
+  resolveTokenTraceByVariableId?: (variableId: string) => {
+    path: string | null;
+    aliasChain: string[];
+    resolved: string | null;
+  };
+}
+
+function findAliasVariableId(value: unknown, depth = 0): string | null {
+  if (depth > 8 || value === null || value === undefined) return null;
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const fromItem = findAliasVariableId(item, depth + 1);
+      if (fromItem) return fromItem;
+    }
+    return null;
+  }
+
+  if (typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const type = String(record.type || "").trim().toUpperCase();
+  const id = String(record.id || record.variableId || "").trim();
+  if (type === "VARIABLE_ALIAS" && id) return id;
+
+  for (const nested of Object.values(record)) {
+    const fromNested = findAliasVariableId(nested, depth + 1);
+    if (fromNested) return fromNested;
+  }
+
+  return null;
+}
+
+function resolveFillTokenRef(
+  node: FigmaNode,
+  options?: ExtractComponentSpecOptions,
+): { fill: string; chain: string[]; resolved: string | null } | null {
+  const resolver = options?.resolveTokenTraceByVariableId;
+  if (!resolver) return null;
+
+  const boundVariables = node.boundVariables;
+  if (!boundVariables || typeof boundVariables !== "object") return null;
+
+  const candidates: unknown[] = [
+    (boundVariables as Record<string, unknown>).fills,
+    (boundVariables as Record<string, unknown>).fill,
+    (boundVariables as Record<string, unknown>).color,
+  ];
+
+  for (const candidate of candidates) {
+    const variableId = findAliasVariableId(candidate);
+    if (!variableId) continue;
+    const trace = resolver(variableId);
+    if (trace.path) {
+      return {
+        fill: trace.path,
+        chain: Array.isArray(trace.aliasChain) ? trace.aliasChain : [trace.path],
+        resolved: trace.resolved ?? null,
+      };
+    }
+  }
+
+  return null;
+}
+
+function extractFill(node: FigmaNode, options?: ExtractComponentSpecOptions): string | null {
+  const tokenRef = resolveFillTokenRef(node, options);
+  if (tokenRef) return tokenRef.fill;
+
   const fills = Array.isArray(node.fills) ? node.fills : [];
   const solidFill = fills.find(
     (f) => f.type === "SOLID" && f.visible !== false,
@@ -164,7 +233,10 @@ function extractLayoutInfo(node: FigmaNode): LayoutInfo {
   return layout;
 }
 
-function extractAnatomyItem(node: FigmaNode): SpecAnatomyItem {
+function extractAnatomyItem(
+  node: FigmaNode,
+  options?: ExtractComponentSpecOptions,
+): SpecAnatomyItem {
   const nodeId = String(node.id || "").trim();
   if (!nodeId) {
     throw new Error(
@@ -182,8 +254,15 @@ function extractAnatomyItem(node: FigmaNode): SpecAnatomyItem {
   if (dims.width) item.width = dims.width;
   if (dims.height) item.height = dims.height;
 
-  const fill = extractFill(node);
+  const fillTrace = resolveFillTokenRef(node, options);
+  const fill = fillTrace?.fill ?? extractFill(node, options);
   if (fill) item.fill = fill;
+  if (fillTrace && fillTrace.chain.length > 0) {
+    item.fill_alias_chain = fillTrace.chain;
+  }
+  if (fillTrace?.resolved) {
+    item.fill_resolved = fillTrace.resolved;
+  }
 
   const stroke = extractStroke(node);
   if (stroke) item.stroke = stroke;
@@ -197,7 +276,7 @@ function extractAnatomyItem(node: FigmaNode): SpecAnatomyItem {
   if (textStyle) item.textStyle = textStyle;
 
   if (node.children && node.children.length > 0) {
-    item.children = node.children.map(extractAnatomyItem);
+    item.children = node.children.map((child) => extractAnatomyItem(child, options));
   }
 
   return item;
@@ -322,8 +401,11 @@ function buildVariantSpecs(properties: SpecProperty[]): SpecVariant[] {
 /**
  * Extract a complete component spec from a Figma node tree.
  */
-export function extractComponentSpec(node: FigmaNode): ExtractedComponentSpec {
-  const anatomy = node.children ? node.children.map(extractAnatomyItem) : [];
+export function extractComponentSpec(
+  node: FigmaNode,
+  options?: ExtractComponentSpecOptions,
+): ExtractedComponentSpec {
+  const anatomy = node.children ? node.children.map((child) => extractAnatomyItem(child, options)) : [];
   const properties = extractProperties(node);
   const layoutTree = buildLayoutTree(node);
   const variantProperties = extractVariantProperties(node);

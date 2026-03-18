@@ -21,6 +21,8 @@ export interface SpecAnatomyItem {
   textAlign?: string;
   textStyle?: string;
   fill?: string;
+  fill_alias_chain?: string[];
+  fill_resolved?: string;
   stroke?: string;
   instanceOf?: string;
   effects?: string[];
