@@ -9,51 +9,91 @@ import assert from 'node:assert/strict';
 describe('AiJobStatusCard Logic', () => {
     // Mock job data for testing
     // Tipo genérico para incluir campos opcionales completos (R-016)
-    const createMockJob = <T extends Record<string, unknown> = {}>(overrides: T = {} as T) => ({
-        id: 'job-123',
-        status: 'completed' as const,
+    interface MockJob {
+        id: string;
+        status: 'pending' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
         input: {
-            type: 'GENERATE_COMPONENT_DOC',
-            provider: 'anthropic',
-            componentId: '123:456',
-        },
-        output: {
-            schemaVersion: 1,
-            componentId: '123:456',
-            title: 'Test Component',
-            summary: 'Test summary',
-            anatomy: [],
-            variants: [],
-            tokens: [],
-            accessibilityNotes: [],
-            markdown: '# Test Component\n\nContent',
-        },
-        events: [
-            { seq: 1, ts: Date.now() - 10000, event: 'job.queued', data: {} },
-            { seq: 2, ts: Date.now() - 5000, event: 'job.started', data: {} },
-            { seq: 3, ts: Date.now(), event: 'job.completed', data: {} },
-        ],
-        createdAt: Date.now() - 10000,
-        updatedAt: Date.now(),
-        retryable: false,
-        error: undefined,
-        usage: {
-            promptTokens: 1000,
-            completionTokens: 500,
-            durationMs: 15000,
-        },
-        ...overrides,
-    }) as typeof createMockJob<{}> & T;
+            type: string;
+            provider: string;
+            componentId: string;
+        };
+        output?: {
+            schemaVersion: number;
+            componentId: string;
+            title: string;
+            summary: string;
+            anatomy: never[];
+            variants: never[];
+            tokens: never[];
+            accessibilityNotes: never[];
+            markdown: string;
+        };
+        events: Array<{
+            seq: number;
+            ts: number;
+            event: string;
+            data: Record<string, unknown>;
+        }>;
+        createdAt: number;
+        updatedAt: number;
+        retryable: boolean;
+        error?: string;
+        usage?: {
+            promptTokens: number;
+            completionTokens: number;
+            durationMs: number;
+        };
+    }
+
+    function createMockJob(): MockJob;
+    function createMockJob<T extends Partial<MockJob>>(overrides: T): MockJob & T;
+    function createMockJob(overrides: Partial<MockJob> = {}): MockJob {
+        return {
+            id: 'job-123',
+            status: 'completed',
+            input: {
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '123:456',
+            },
+            output: {
+                schemaVersion: 1,
+                componentId: '123:456',
+                title: 'Test Component',
+                summary: 'Test summary',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test Component\n\nContent',
+            },
+            events: [
+                { seq: 1, ts: Date.now() - 10000, event: 'job.queued', data: {} },
+                { seq: 2, ts: Date.now() - 5000, event: 'job.started', data: {} },
+                { seq: 3, ts: Date.now(), event: 'job.completed', data: {} },
+            ],
+            createdAt: Date.now() - 10000,
+            updatedAt: Date.now(),
+            retryable: false,
+            error: undefined,
+            usage: {
+                promptTokens: 1000,
+                completionTokens: 500,
+                durationMs: 15000,
+            },
+            ...overrides,
+        };
+    }
 
     describe('STATUS_CONFIG', () => {
         it('should have correct variant for pending status', () => {
             const config = {
-                pending: { variant: 'neutral' as const, label: 'Pending' },
-                queued: { variant: 'neutral' as const, label: 'Queued' },
-                running: { variant: 'default' as const, label: 'Running' },
-                completed: { variant: 'success' as const, label: 'Completed' },
-                failed: { variant: 'warning' as const, label: 'Failed' },
-                cancelled: { variant: 'neutral' as const, label: 'Cancelled' },
+                pending: { variant: 'neutral', label: 'Pending' },
+                queued: { variant: 'neutral', label: 'Queued' },
+                running: { variant: 'default', label: 'Running' },
+                completed: { variant: 'success', label: 'Completed' },
+                failed: { variant: 'warning', label: 'Failed' },
+                cancelled: { variant: 'neutral', label: 'Cancelled' },
             };
 
             assert.equal(config.pending.variant, 'neutral');
@@ -72,43 +112,46 @@ describe('AiJobStatusCard Logic', () => {
 
     describe('Button state logic', () => {
         it('should allow cancel for queued job', () => {
-            const job = createMockJob({ status: 'queued' as const });
+            const job = createMockJob({ status: 'queued' });
             const canCancel = job.status === 'queued' || job.status === 'running';
             assert.equal(canCancel, true);
         });
 
         it('should allow cancel for running job', () => {
-            const job = createMockJob({ status: 'running' as const });
+            const job = createMockJob({ status: 'running' });
+            // @ts-expect-error - Intentional comparison with different statuses
             const canCancel = job.status === 'queued' || job.status === 'running';
             assert.equal(canCancel, true);
         });
 
         it('should not allow cancel for completed job', () => {
-            const job = createMockJob({ status: 'completed' as const });
+            const job = createMockJob({ status: 'completed' });
+            // @ts-expect-error - Intentional comparison with different statuses
             const canCancel = job.status === 'queued' || job.status === 'running';
             assert.equal(canCancel, false);
         });
 
         it('should allow apply for completed job with output', () => {
-            const job = createMockJob({ status: 'completed' as const });
+            const job = createMockJob({ status: 'completed' });
             const canApply = job.status === 'completed' && !!job.output;
             assert.equal(canApply, true);
         });
 
         it('should not allow apply for running job', () => {
-            const job = createMockJob({ status: 'running' as const });
+            const job = createMockJob({ status: 'running' });
+            // @ts-expect-error - Intentional comparison with different statuses
             const canApply = job.status === 'completed' && !!job.output;
             assert.equal(canApply, false);
         });
 
         it('should allow retry for failed job with retryable flag', () => {
-            const job = createMockJob({ status: 'failed' as const, retryable: true });
+            const job = createMockJob({ status: 'failed', retryable: true });
             const canRetry = job.status === 'failed' && job.retryable;
             assert.equal(canRetry, true);
         });
 
         it('should not allow retry for failed job without retryable flag', () => {
-            const job = createMockJob({ status: 'failed' as const, retryable: false });
+            const job = createMockJob({ status: 'failed', retryable: false });
             const canRetry = job.status === 'failed' && job.retryable;
             assert.equal(canRetry, false);
         });
@@ -178,7 +221,7 @@ describe('AiJobStatusCard Logic', () => {
     describe('Error display logic', () => {
         it('should show error info for failed job', () => {
             const job = createMockJob({
-                status: 'failed' as const,
+                status: 'failed',
                 error: 'API Error: Rate limited',
                 errorCode: 'ai.api.rate_limit',
                 retryable: true,
@@ -191,7 +234,7 @@ describe('AiJobStatusCard Logic', () => {
         });
 
         it('should not show error for completed job', () => {
-            const job = createMockJob({ status: 'completed' as const });
+            const job = createMockJob({ status: 'completed' });
             assert.equal(job.status, 'completed');
             assert.equal(job.error, undefined);
         });
@@ -200,7 +243,7 @@ describe('AiJobStatusCard Logic', () => {
     describe('Usage metrics display', () => {
         it('should show usage metrics for completed job', () => {
             const job = createMockJob({
-                status: 'completed' as const,
+                status: 'completed',
                 usage: {
                     promptTokens: 1000,
                     completionTokens: 500,
