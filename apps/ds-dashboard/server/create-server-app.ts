@@ -232,26 +232,26 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     SUPPORTED_REPLAY_OPERATIONS,
   } = createServerConfig(env);
 
-  // Type adapters for createServerRuntimeServices compatibility
-  // Preserva todas las propiedades del contexto original para evitar regresiones
+  // Adapter for createServerRuntimeServices compatibility.
+  // Preserve all original context properties to avoid regressions.
   const designSystemRepositoryAdapter: import('./lib/create-server-runtime-utils.js').DesignSystemRepository = {
     resolveDashboardSystemContext: (systemHeader: string) => {
       const context = designSystemRepository.resolveDashboardSystemContext(systemHeader);
 
-      // Validación de seguridad para detectar problemas en runtime
+      // Runtime guardrail to catch invalid context early.
       if (!context || !context.systemId) {
         throw new Error(`Invalid system context for header: ${systemHeader}`);
       }
 
-      // Preservar TODAS las propiedades del contexto original (no solo systemId/header)
-      // Esto evita regresiones en consumidores que esperan campos adicionales
+      // Preserve all context properties (not just systemId/header)
+      // to avoid breaking consumers that rely on additional fields.
       const result = {
         header: systemHeader,
-        // Spread completo para preservar cualquier propiedad adicional (incluye systemId)
+        // Full spread preserves additional properties (including systemId).
         ...context,
       };
 
-      // Logging para debugging de problemas de compatibilidad
+      // Debug logging for adapter compatibility checks.
       if (process.env.NODE_ENV === 'development') {
         console.debug('DesignSystemRepositoryAdapter: context mapping', {
           inputHeader: systemHeader,

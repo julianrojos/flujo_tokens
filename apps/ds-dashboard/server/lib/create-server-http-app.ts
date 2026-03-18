@@ -10,7 +10,7 @@ import { cors } from 'hono/cors';
 
 import { registerAllRoutes } from '../routes/register-all-routes.ts';
 import { createFailJson, createHealthPayloadBuilder, type QueueMetrics } from './api-response-service.ts';
-import { buildCreateServerRouteDeps } from './create-server-route-deps.ts';
+import { buildCreateServerRouteDeps, type CreateServerRouteDepsConfig } from './create-server-route-deps.ts';
 import { registerUnhandledErrorMiddleware } from './error-middleware.ts';
 import type { ErrorMiddlewareDeps } from './error-middleware.ts';
 
@@ -77,14 +77,18 @@ export function createServerHttpApp(config: CreateServerHttpAppConfig): CreateSe
     nowIsoFn: nowIso,
   });
 
+  const failJsonForRoutes = failJson as unknown as CreateServerRouteDepsConfig['failJson'];
+
+  const routeDepsBase = routeDeps as Omit<CreateServerRouteDepsConfig, 'buildHealthPayload' | 'failJson'>;
+  const routeDepsConfig: CreateServerRouteDepsConfig = {
+    ...routeDepsBase,
+    buildHealthPayload,
+    failJson: failJsonForRoutes,
+  };
+
   registerAllRoutesFn(
     app,
-    buildCreateServerRouteDepsFn({
-      ...routeDeps as any,
-      buildHealthPayload: buildHealthPayload as (...args: unknown[]) => unknown,
-      failJson: failJson as ErrorMiddlewareDeps['failJson'],
-      normalizeFigmaApiTokenRef: routeDeps.normalizeFigmaApiTokenRef as any,
-    } as any),
+    buildCreateServerRouteDepsFn(routeDepsConfig),
   );
 
   registerUnhandledErrorMiddlewareFn(app, {

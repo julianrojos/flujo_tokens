@@ -117,7 +117,7 @@ export async function handleFileSnippetRoute(c: Context, deps: FileRouteHandlerD
 
   const parsedLine = parseSnippetLine(rawLine);
   if (!parsedLine.ok) {
-    return failJson(c, parsedLine.statusCode || 500, parsedLine.errorArgs || {});
+    return failJson(c, parsedLine.statusCode ?? 500, parsedLine.errorArgs ?? {});
   }
   let line = parsedLine.line;
 

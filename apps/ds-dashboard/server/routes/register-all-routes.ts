@@ -47,9 +47,14 @@ function ensureString(value: unknown, source: string): string {
   throw new TypeError(`${source} must be a string`);
 }
 
+function ensureResponse(value: unknown, source: string): Response {
+  if (value instanceof Response) return value;
+  throw new TypeError(`${source} must return a Response instance`);
+}
+
 function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['commandDeps']): CommandRoutesDeps {
   return {
-    failJson: (c, statusCode, args) => deps.failJson(c, statusCode, args),
+    failJson: (c, statusCode, args) => ensureResponse(deps.failJson(c, statusCode, args), 'commandDeps.failJson'),
     createApiRequestId: deps.createApiRequestId,
     readJsonBody: deps.readJsonBody,
     getSystemContext: (systemHeader) => {

@@ -20,7 +20,7 @@ import {
 } from '../services/command-route-handler-service.ts';
 
 export interface CommandRoutesDeps {
-  failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => unknown;
+  failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response;
   createApiRequestId: () => string;
   readJsonBody: (c: Context) => Promise<Record<string, unknown>>;
   getSystemContext: (systemHeader: string) => {
@@ -52,11 +52,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-function assertResponse(value: unknown, source: string): Response {
-  if (value instanceof Response) return value;
-  throw new TypeError(`CommandRoutesDeps.${source} must return a Response instance.`);
-}
-
 function assertJobWithId(value: unknown, source: string): { id: string } {
   if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0) {
     throw new TypeError(`CommandRoutesDeps.${source} must return an object with a non-empty string id.`);
@@ -81,7 +76,7 @@ async function assertQueuedSpawnResult(value: Promise<unknown>, source: string):
 
 function toCommandRouteHandlerDeps(deps: CommandRoutesDeps): CommandRouteHandlerDeps {
   return {
-    failJson: (c, statusCode, args) => assertResponse(deps.failJson(c, statusCode, args), 'failJson'),
+    failJson: deps.failJson,
     createApiRequestId: deps.createApiRequestId,
     readJsonBody: deps.readJsonBody,
     getSystemContext: deps.getSystemContext,
@@ -106,7 +101,7 @@ function toCommandRouteHandlerDeps(deps: CommandRoutesDeps): CommandRouteHandler
 
 function toHandleRestartApiDeps(deps: CommandRoutesDeps): HandleRestartApiDeps {
   return {
-    failJson: (c, statusCode, args) => assertResponse(deps.failJson(c, statusCode, args), 'failJson'),
+    failJson: deps.failJson,
     createApiRequestId: deps.createApiRequestId,
     processEnv: deps.processEnv ?? process.env,
     processCwd: deps.processCwd,
