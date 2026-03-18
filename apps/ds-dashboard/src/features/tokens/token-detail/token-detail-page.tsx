@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Copy } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Copy, ExternalLink } from "lucide-react";
 
 import { fetchFileSnippet } from "@/lib/api";
 import type {
@@ -61,6 +61,8 @@ interface ComponentTokenUsage {
   slug: string;
   displayName: string;
   pipelineStage: PipelineStage | null;
+  figmaUrl: string | null;
+  figmaNodeId: string | null;
   mode: ComponentUsageMode;
   occurrences: number;
   slots: string[];
@@ -103,6 +105,21 @@ function compactPathLabel(filePath: string) {
   const parts = value.split("/");
   if (parts.length <= 3) return value;
   return `…/${parts.slice(-3).join("/")}`;
+}
+
+function buildComponentFigmaUrl(fileUrl: string | null, nodeId: string | null): string | null {
+  const base = String(fileUrl || "").trim();
+  if (!base) return null;
+  try {
+    const parsed = new URL(base);
+    const normalizedNodeId = String(nodeId || "").trim().replace(/:/g, "-");
+    if (normalizedNodeId) {
+      parsed.searchParams.set("node-id", normalizedNodeId);
+    }
+    return parsed.toString();
+  } catch {
+    return base;
+  }
 }
 
 function buildOccurrenceKey(kind: string, occ: TokenUsageOccurrence, index: number) {
@@ -536,6 +553,8 @@ export function TokenDetailPage() {
         slug: string;
         displayName: string;
         pipelineStage: PipelineStage | null;
+        figmaUrl: string | null;
+        figmaNodeId: string | null;
         mode: ComponentUsageMode;
         occurrences: number;
         slotSet: Set<string>;
@@ -554,6 +573,8 @@ export function TokenDetailPage() {
         slug: trimmed,
         displayName: component?.display_name ?? trimmed,
         pipelineStage: component?.pipeline_stage ?? null,
+        figmaUrl: component?.figma?.file_url ?? null,
+        figmaNodeId: component?.figma?.component_set_node_id ?? null,
         mode: "via_alias" as ComponentUsageMode,
         occurrences: 0,
         slotSet: new Set<string>(),
@@ -608,6 +629,8 @@ export function TokenDetailPage() {
         slug: row.slug,
         displayName: row.displayName,
         pipelineStage: row.pipelineStage,
+        figmaUrl: row.figmaUrl,
+        figmaNodeId: row.figmaNodeId,
         mode: row.mode,
         occurrences: row.occurrences,
         slots: Array.from(row.slotSet).sort((a, b) => a.localeCompare(b)),
@@ -1155,7 +1178,9 @@ export function TokenDetailPage() {
 
                   {filteredComponentUsages.length > 0 ? (
                     <ul className="space-y-2">
-                      {filteredComponentUsages.map((entry) => (
+                      {filteredComponentUsages.map((entry) => {
+                        const figmaComponentUrl = buildComponentFigmaUrl(entry.figmaUrl, entry.figmaNodeId);
+                        return (
                         <li key={entry.slug} className="rounded-lg border border-border/70 p-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <span
@@ -1182,6 +1207,23 @@ export function TokenDetailPage() {
                               {entry.mode === "direct" ? "Direct" : "Via alias"}
                             </Badge>
                             <Badge variant="neutral">{entry.occurrences} refs</Badge>
+                            {figmaComponentUrl ? (
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="ml-auto"
+                              >
+                                <a
+                                  href={figmaComponentUrl}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                  Figma
+                                </a>
+                              </Button>
+                            ) : null}
                           </div>
 
                           <div className="mt-1 text-xs text-muted-foreground">
@@ -1223,7 +1265,7 @@ export function TokenDetailPage() {
                             </div>
                           ) : null}
                         </li>
-                      ))}
+                      )})}
                     </ul>
                   ) : (
                     <p className="text-sm text-muted-foreground">
