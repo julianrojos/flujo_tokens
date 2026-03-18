@@ -26,3 +26,9 @@ apps/ds-dashboard/.env.*
 !apps/ds-dashboard/.env.example
 
 PLAN_MEJORA_MCP
+
+# Local/ephemeral DS work artifacts
+/input/
+/output/
+/docs/sys-*/
+/tooling/config/design-systems.json
