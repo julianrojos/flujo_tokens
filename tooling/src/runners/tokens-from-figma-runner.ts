@@ -15,8 +15,8 @@ import {
 } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import { resolveEnvRef } from '../utils/env-ref.js';
-import * as dsTypes from 'ds-types';
 import type { FigmaVariableSource } from 'ds-types';
+import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
 
 import {
   syncFigmaTokensToInput,
@@ -24,13 +24,10 @@ import {
   isFatalSyncReason,
 } from '../services/figma-token-sync.js';
 
-// NOTE: Under the current tsx runtime this package is exposed through a default export object.
-const { parseFigmaVariableSource } = dsTypes as {
-  parseFigmaVariableSource: (
-    rawValue: unknown,
-    options?: { defaultValue?: FigmaVariableSource; optionName?: string },
-  ) => FigmaVariableSource;
-};
+const parseFigmaVariableSource = resolveParseFigmaVariableSource() as (
+  rawValue: unknown,
+  options?: { defaultValue?: FigmaVariableSource; optionName?: string },
+) => FigmaVariableSource;
 
 const CLI_CONFIG = {
   command: 'ds:tokens-from-figma [options]',

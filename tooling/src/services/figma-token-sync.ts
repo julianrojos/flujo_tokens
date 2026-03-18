@@ -11,15 +11,13 @@ import { spawnSync } from 'node:child_process';
 import { fetchFigmaLocalVariables, type FigmaVariablesResponse } from '../utils/figma-api.js';
 import { fetchFigmaLocalVariablesViaMcp } from './figma-mcp-variables.js';
 import { stripDiacritics } from '../utils/strip-diacritics.js';
-import * as dsTypes from 'ds-types';
 import type { FigmaVariableSource as SharedFigmaVariableSource } from 'ds-types';
+import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
 
-const { parseFigmaVariableSource } = dsTypes as {
-  parseFigmaVariableSource: (
-    rawValue: unknown,
-    options?: { defaultValue?: SharedFigmaVariableSource; optionName?: string },
-  ) => SharedFigmaVariableSource;
-};
+const parseFigmaVariableSource = resolveParseFigmaVariableSource() as (
+  rawValue: unknown,
+  options?: { defaultValue?: SharedFigmaVariableSource; optionName?: string },
+) => SharedFigmaVariableSource;
 
 // ─── File helpers ─────────────────────────────────────────────────────────────
 

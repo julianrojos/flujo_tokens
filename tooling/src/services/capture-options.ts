@@ -3,16 +3,10 @@
  *
  * Parses and validates command-line options for capture operations.
  */
-import * as dsTypes from 'ds-types';
 import type { FigmaVariableSource } from 'ds-types';
+import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
 
-// NOTE: Under the current tsx runtime this package is exposed through a default export object.
-const { parseFigmaVariableSource } = dsTypes as {
-  parseFigmaVariableSource: (
-    rawValue: unknown,
-    options?: { defaultValue?: FigmaVariableSource; optionName?: string },
-  ) => FigmaVariableSource;
-};
+const parseFigmaVariableSource = resolveParseFigmaVariableSource();
 
 /**
  * Parse boolean option from string value.
