@@ -3,17 +3,24 @@ import test from 'node:test';
 import { Hono } from 'hono';
 import { registerFigmaMcpConsoleLogsRoute } from './figma-mcp-console-logs-route.ts';
 import { getPluginConnectionManager, resetPluginConnectionManager } from '../services/plugin-connection-manager.ts';
+import { createMockConnInfo, createMockPluginSocket, readJson } from './figma-mcp-test-helpers.ts';
+
+interface ConsoleLogEntry {
+  fileKey: string;
+  message: string;
+}
+
+interface ConsoleLogsResponse {
+  ok: boolean;
+  data: ConsoleLogEntry[];
+  fileKey: string | null;
+  count: number;
+}
 
 function createTestApp(): Hono {
   const app = new Hono();
   registerFigmaMcpConsoleLogsRoute(app, {
-    getConnInfoFn: () => ({
-      remote: {
-        address: '127.0.0.1',
-        port: 3000,
-        addressType: 'IPv4',
-      },
-    }),
+    getConnInfoFn: createMockConnInfo,
     internalToken: 'test-token',
   });
   return app;
@@ -35,12 +42,7 @@ test('figma-mcp-console-logs-route: returns empty array when no logs', async () 
   const response = await app.request(buildConsoleLogsPath(), { method: 'GET' });
 
   assert.equal(response.status, 200);
-  const data: {
-    ok: boolean;
-    data: Array<{ fileKey: string; message: string }>;
-    fileKey: string | null;
-    count: number;
-  } = await response.json();
+  const data = await readJson<ConsoleLogsResponse>(response);
   assert.equal(data.ok, true);
   assert.deepEqual(data.data, []);
   assert.equal(data.fileKey, null);
@@ -53,16 +55,7 @@ test('figma-mcp-console-logs-route: returns logs from buffer', async () => {
 
   // Add a log to the buffer
   const manager = getPluginConnectionManager();
-  const mockSocket = {
-    readyState: 1,
-    protocol: '',
-    send: () => {},
-    close: () => {},
-    onopen: null,
-    onclose: null,
-    onerror: null,
-    onmessage: null,
-  };
+  const mockSocket = createMockPluginSocket();
 
   const socketId = manager.register(mockSocket, {
     fileKey: 'FILE_TEST',
@@ -84,11 +77,11 @@ test('figma-mcp-console-logs-route: returns logs from buffer', async () => {
   const response = await app.request(buildConsoleLogsPath({ fileKey: 'FILE_TEST' }), { method: 'GET' });
 
   assert.equal(response.status, 200);
-  const data = await response.json();
+  const data = await readJson<ConsoleLogsResponse>(response);
   assert.equal(data.ok, true);
   assert.equal(data.data.length, 1);
   assert.equal(data.count, 1);
-  assert.equal((data.data[0] as { message: string }).message, 'Test log message');
+  assert.equal(data.data[0].message, 'Test log message');
 });
 
 test('figma-mcp-console-logs-route: falls back to activeFileKey when no fileKey param', async () => {
@@ -96,16 +89,7 @@ test('figma-mcp-console-logs-route: falls back to activeFileKey when no fileKey 
   const app = createTestApp();
 
   const manager = getPluginConnectionManager();
-  const mockSocket = {
-    readyState: 1,
-    protocol: '',
-    send: () => {},
-    close: () => {},
-    onopen: null,
-    onclose: null,
-    onerror: null,
-    onmessage: null,
-  };
+  const mockSocket = createMockPluginSocket();
 
   const socketId = manager.register(mockSocket, {
     fileKey: 'FILE_FALLBACK',
@@ -136,11 +120,11 @@ test('figma-mcp-console-logs-route: falls back to activeFileKey when no fileKey 
   const response = await app.request(buildConsoleLogsPath(), { method: 'GET' });
 
   assert.equal(response.status, 200);
-  const data = await response.json();
+  const data = await readJson<ConsoleLogsResponse>(response);
   assert.equal(data.ok, true);
   assert.equal(data.fileKey, 'FILE_FALLBACK');
   assert.equal(data.data.length, 1); // but resolves data from active file
-  assert.equal((data.data[0] as { message: string }).message, 'Active file log');
+  assert.equal(data.data[0].message, 'Active file log');
 });
 
 test('figma-mcp-console-logs-route: scope=all returns entries with fileKey metadata', async () => {
@@ -148,16 +132,7 @@ test('figma-mcp-console-logs-route: scope=all returns entries with fileKey metad
   const app = createTestApp();
 
   const manager = getPluginConnectionManager();
-  const mockSocket = {
-    readyState: 1,
-    protocol: '',
-    send: () => {},
-    close: () => {},
-    onopen: null,
-    onclose: null,
-    onerror: null,
-    onmessage: null,
-  };
+  const mockSocket = createMockPluginSocket();
 
   const socketA = manager.register(mockSocket, {
     fileKey: 'FILE_A',
@@ -196,7 +171,7 @@ test('figma-mcp-console-logs-route: scope=all returns entries with fileKey metad
   const response = await app.request(buildConsoleLogsPath({ scope: 'all' }), { method: 'GET' });
 
   assert.equal(response.status, 200);
-  const data = await response.json();
+  const data = await readJson<ConsoleLogsResponse>(response);
   assert.equal(data.ok, true);
   assert.equal(data.fileKey, null);
   assert.equal(data.count, 2);
@@ -211,16 +186,7 @@ test('figma-mcp-console-logs-route: clear=true clears logs after reading', async
 
   // Add logs to the buffer
   const manager = getPluginConnectionManager();
-  const mockSocket = {
-    readyState: 1,
-    protocol: '',
-    send: () => {},
-    close: () => {},
-    onopen: null,
-    onclose: null,
-    onerror: null,
-    onmessage: null,
-  };
+  const mockSocket = createMockPluginSocket();
 
   const socketId = manager.register(mockSocket, {
     fileKey: 'FILE_CLEAR',
@@ -243,13 +209,13 @@ test('figma-mcp-console-logs-route: clear=true clears logs after reading', async
     method: 'GET',
   });
 
-  const data1 = await response1.json();
+  const data1 = await readJson<ConsoleLogsResponse>(response1);
   assert.equal(data1.data.length, 1);
 
   // Second read should return empty array
   const response2 = await app.request(buildConsoleLogsPath({ fileKey: 'FILE_CLEAR' }), { method: 'GET' });
 
-  const data2 = await response2.json();
+  const data2 = await readJson<ConsoleLogsResponse>(response2);
   assert.equal(data2.data.length, 0);
   assert.equal(data2.count, 0);
 });

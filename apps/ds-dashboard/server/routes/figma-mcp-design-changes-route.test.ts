@@ -3,17 +3,24 @@ import test from 'node:test';
 import { Hono } from 'hono';
 import { registerFigmaMcpDesignChangesRoute } from './figma-mcp-design-changes-route.ts';
 import { getPluginConnectionManager, resetPluginConnectionManager } from '../services/plugin-connection-manager.ts';
+import { createMockConnInfo, createMockPluginSocket, readJson } from './figma-mcp-test-helpers.ts';
+
+interface DesignChangeEntry {
+  fileKey: string;
+  changeCount: number;
+}
+
+interface DesignChangesResponse {
+  ok: boolean;
+  data: DesignChangeEntry[];
+  fileKey: string | null;
+  count: number;
+}
 
 function createTestApp(): Hono {
   const app = new Hono();
   registerFigmaMcpDesignChangesRoute(app, {
-    getConnInfoFn: () => ({
-      remote: {
-        address: '127.0.0.1',
-        port: 3000,
-        addressType: 'IPv4',
-      },
-    }),
+    getConnInfoFn: createMockConnInfo,
     internalToken: 'test-token',
   });
   return app;
@@ -34,7 +41,7 @@ test('figma-mcp-design-changes-route: returns empty array when no changes', asyn
   const response = await app.request(buildDesignChangesPath(), { method: 'GET' });
 
   assert.equal(response.status, 200);
-  const responseData = await response.json();
+  const responseData = await readJson<DesignChangesResponse>(response);
   assert.equal(responseData.ok, true);
   assert.deepEqual(responseData.data, []);
   assert.equal(responseData.fileKey, null);
@@ -46,16 +53,7 @@ test('figma-mcp-design-changes-route: falls back to activeFileKey when no fileKe
   const app = createTestApp();
 
   const manager = getPluginConnectionManager();
-  const mockSocket = {
-    readyState: 1,
-    protocol: '',
-    send: () => {},
-    close: () => {},
-    onopen: null,
-    onclose: null,
-    onerror: null,
-    onmessage: null,
-  };
+  const mockSocket = createMockPluginSocket();
 
   const socketId = manager.register(mockSocket, {
     fileKey: 'FILE_FALLBACK_CHANGES',
@@ -87,12 +85,7 @@ test('figma-mcp-design-changes-route: falls back to activeFileKey when no fileKe
   const response = await app.request(buildDesignChangesPath(), { method: 'GET' });
 
   assert.equal(response.status, 200);
-  const data: {
-    ok: boolean;
-    data: Array<{ fileKey: string; changeCount: number }>;
-    fileKey: string | null;
-    count: number;
-  } = await response.json();
+  const data = await readJson<DesignChangesResponse>(response);
   assert.equal(data.ok, true);
   assert.equal(data.fileKey, 'FILE_FALLBACK_CHANGES');
   assert.equal(data.data.length, 1); // but resolves data from active file
@@ -104,16 +97,7 @@ test('figma-mcp-design-changes-route: scope=all returns entries with fileKey met
   const app = createTestApp();
 
   const manager = getPluginConnectionManager();
-  const mockSocket = {
-    readyState: 1,
-    protocol: '',
-    send: () => {},
-    close: () => {},
-    onopen: null,
-    onclose: null,
-    onerror: null,
-    onmessage: null,
-  };
+  const mockSocket = createMockPluginSocket();
 
   const socketA = manager.register(mockSocket, {
     fileKey: 'FILE_A',
@@ -154,7 +138,7 @@ test('figma-mcp-design-changes-route: scope=all returns entries with fileKey met
   const response = await app.request(buildDesignChangesPath({ scope: 'all' }), { method: 'GET' });
 
   assert.equal(response.status, 200);
-  const data = await response.json();
+  const data = await readJson<DesignChangesResponse>(response);
   assert.equal(data.ok, true);
   assert.equal(data.fileKey, null);
   assert.equal(data.count, 2);
@@ -168,16 +152,7 @@ test('figma-mcp-design-changes-route: returns buffered document changes for file
   const app = createTestApp();
 
   const manager = getPluginConnectionManager();
-  const mockSocket = {
-    readyState: 1,
-    protocol: '',
-    send: () => {},
-    close: () => {},
-    onopen: null,
-    onclose: null,
-    onerror: null,
-    onmessage: null,
-  };
+  const mockSocket = createMockPluginSocket();
 
   const socketId = manager.register(mockSocket, {
     fileKey: 'FILE_CHANGES',
@@ -199,7 +174,7 @@ test('figma-mcp-design-changes-route: returns buffered document changes for file
   const response = await app.request(buildDesignChangesPath({ fileKey: 'FILE_CHANGES' }), { method: 'GET' });
 
   assert.equal(response.status, 200);
-  const data = await response.json();
+  const data = await readJson<DesignChangesResponse>(response);
   assert.equal(data.ok, true);
   assert.equal(data.fileKey, 'FILE_CHANGES');
   assert.equal(data.count, 1);

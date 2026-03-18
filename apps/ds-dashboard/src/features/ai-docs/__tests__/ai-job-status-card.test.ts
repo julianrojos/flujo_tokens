@@ -85,6 +85,14 @@ describe('AiJobStatusCard Logic', () => {
         };
     }
 
+    function canCancel(status: MockJob['status']): boolean {
+        return status === 'queued' || status === 'running';
+    }
+
+    function canApply(status: MockJob['status'], hasOutput: boolean): boolean {
+        return status === 'completed' && hasOutput;
+    }
+
     describe('STATUS_CONFIG', () => {
         it('should have correct variant for pending status', () => {
             const config = {
@@ -113,35 +121,27 @@ describe('AiJobStatusCard Logic', () => {
     describe('Button state logic', () => {
         it('should allow cancel for queued job', () => {
             const job = createMockJob({ status: 'queued' });
-            const canCancel = job.status === 'queued' || job.status === 'running';
-            assert.equal(canCancel, true);
+            assert.equal(canCancel(job.status), true);
         });
 
         it('should allow cancel for running job', () => {
             const job = createMockJob({ status: 'running' });
-            // @ts-expect-error - Intentional comparison with different statuses
-            const canCancel = job.status === 'queued' || job.status === 'running';
-            assert.equal(canCancel, true);
+            assert.equal(canCancel(job.status), true);
         });
 
         it('should not allow cancel for completed job', () => {
             const job = createMockJob({ status: 'completed' });
-            // @ts-expect-error - Intentional comparison with different statuses
-            const canCancel = job.status === 'queued' || job.status === 'running';
-            assert.equal(canCancel, false);
+            assert.equal(canCancel(job.status), false);
         });
 
         it('should allow apply for completed job with output', () => {
             const job = createMockJob({ status: 'completed' });
-            const canApply = job.status === 'completed' && !!job.output;
-            assert.equal(canApply, true);
+            assert.equal(canApply(job.status, !!job.output), true);
         });
 
         it('should not allow apply for running job', () => {
             const job = createMockJob({ status: 'running' });
-            // @ts-expect-error - Intentional comparison with different statuses
-            const canApply = job.status === 'completed' && !!job.output;
-            assert.equal(canApply, false);
+            assert.equal(canApply(job.status, !!job.output), false);
         });
 
         it('should allow retry for failed job with retryable flag', () => {
