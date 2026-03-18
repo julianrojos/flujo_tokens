@@ -383,5 +383,32 @@ describe('token-usage-index', () => {
       assert.ok(entry.usedIn.some((occ) => occ.kind === 'component-spec' && occ.owner === 'badge'));
       assert.ok(entry.usedIn.some((occ) => String(occ.detail).includes('anatomy')));
     });
+
+    it('ignores fill_alias_chain and fill_resolved helper fields during heuristic extraction', () => {
+      const specPath = path.join(specRoot, 'chip.yml');
+      fs.writeFileSync(
+        specPath,
+        [
+          'name: chip',
+          'anatomy:',
+          '  - id: "1:2"',
+          '    name: Variant=Default',
+          '    fill: color.primary',
+          '    fill_alias_chain:',
+          '      - color.primary',
+          '      - color.secondary',
+          '    fill_resolved: "#ff0000"',
+        ].join('\n'),
+      );
+
+      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
+      const entry = result.byPath['color.primary'];
+      assert.ok(entry);
+      const componentSpecRefs = entry.usedIn.filter(
+        (occ) => occ.kind === 'component-spec' && occ.owner === 'chip',
+      );
+      assert.equal(componentSpecRefs.length, 1);
+      assert.ok(String(componentSpecRefs[0]?.detail || '').includes('.fill'));
+    });
   });
 });

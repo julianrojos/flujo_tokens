@@ -191,9 +191,10 @@ function collectHeuristicScalarReferences(
   const nextVariantContext = /[A-Za-z0-9_-]+\s*=/.test(rawName)
     ? rawName
     : variantContext;
+  const ignoredScalarKeys = new Set(['name', 'fill_alias_chain', 'fill_resolved']);
 
   for (const [key, value] of Object.entries(objectNode)) {
-    if (key === 'name') continue;
+    if (ignoredScalarKeys.has(key)) continue;
     const nextPath = keyPath ? `${keyPath}.${key}` : key;
     collectHeuristicScalarReferences(value, nextPath, nextVariantContext, refs);
   }
