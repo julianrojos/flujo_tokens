@@ -13,17 +13,23 @@ export interface SystemContext {
   captureFromFigmaUrlScriptPath: string;
 }
 
-export interface ParseScriptNameResult {
-  ok: boolean;
-  scriptName?: string;
-  statusCode?: number;
-  errorArgs?: {
+type ParseScriptNameSuccess = {
+  ok: true;
+  scriptName: string;
+};
+
+type ParseScriptNameFailure = {
+  ok: false;
+  statusCode: number;
+  errorArgs: {
     code: string;
     userMessage: string;
     recoverable: boolean;
     requestId: string;
   };
-}
+};
+
+export type ParseScriptNameResult = ParseScriptNameSuccess | ParseScriptNameFailure;
 
 export interface RefreshScriptQueueArgs {
   repoRoot: string;
@@ -90,9 +96,13 @@ export interface CaptureFigmaScreenshotQueueArgs {
   allowNonZeroJson: boolean;
 }
 
-export interface ParsedCommandConfig {
+export interface ParsedHealthCommandConfig {
   commandLabel: string;
   scriptArgs: string[];
+  commandEnv?: Record<string, string>;
+}
+
+export interface ParsedNodeJsonCommandConfig {
   commandDisplayArgs: string[];
   commandArgs: string[];
   commandEnv?: Record<string, string>;
@@ -178,7 +188,7 @@ export function buildRunScriptQueueConfig(options: BuildRunScriptQueueConfigOpti
 export function buildHealthSnapshotQueueArgs(options: {
   sysCtx: SystemContext;
   requestId: string;
-  parsed: ParsedCommandConfig;
+  parsed: ParsedHealthCommandConfig;
 }): HealthSnapshotQueueArgs {
   const { sysCtx, requestId, parsed } = options;
   return {
@@ -198,7 +208,7 @@ export function buildHealthSnapshotQueueArgs(options: {
 export function buildSyncFigmaTokensQueueArgs(options: {
   sysCtx: SystemContext;
   requestId: string;
-  parsed: ParsedCommandConfig;
+  parsed: ParsedNodeJsonCommandConfig;
 }): SyncFigmaTokensQueueArgs {
   const { sysCtx, requestId, parsed } = options;
   return {
@@ -219,7 +229,7 @@ export function buildSyncFigmaTokensQueueArgs(options: {
 export function buildCaptureFigmaScreenshotQueueArgs(options: {
   sysCtx: SystemContext;
   requestId: string;
-  parsed: ParsedCommandConfig;
+  parsed: ParsedNodeJsonCommandConfig;
 }): CaptureFigmaScreenshotQueueArgs {
   const { sysCtx, requestId, parsed } = options;
   return {

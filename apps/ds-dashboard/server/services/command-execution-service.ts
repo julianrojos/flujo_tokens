@@ -7,7 +7,7 @@
 
 import type { ChildProcess } from 'node:child_process';
 
-import { runSpawnWithCapture, type RunSpawnWithCaptureResult } from './spawn-runner.ts';
+import { runSpawnWithCapture, type RunSpawnWithCaptureResult } from '../lib/spawn-runner.ts';
 import { detectKnownNonZeroFailure, buildNonZeroExitSummary } from './command-execution-shared.ts';
 
 export interface CommandExecutionOptions {

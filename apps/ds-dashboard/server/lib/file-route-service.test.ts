@@ -40,7 +40,7 @@ describe('file-route-service', () => {
       });
       assert.equal(invalid.ok, false);
       assert.equal(invalid.statusCode, 400);
-      assert.equal(invalid.errorArgs.code, 'file.invalid_path');
+      assert.equal(invalid.errorArgs?.code, 'file.invalid_path');
     });
   });
 
@@ -52,7 +52,7 @@ describe('file-route-service', () => {
 
       const invalid = parseSnippetLine('abc');
       assert.equal(invalid.ok, false);
-      assert.equal(invalid.errorArgs.code, 'validation.invalid_line_parameter');
+      assert.equal(invalid.errorArgs?.code, 'validation.invalid_line_parameter');
     });
   });
 
@@ -87,7 +87,7 @@ describe('file-route-service', () => {
       });
       assert.equal(fail.ok, false);
       assert.equal(fail.statusCode, 404);
-      assert.equal(fail.errorArgs.code, 'file.not_found');
+      assert.equal(fail.errorArgs?.code, 'file.not_found');
     });
   });
 
@@ -123,7 +123,7 @@ describe('file-route-service', () => {
       });
       assert.equal(missing.ok, false);
       assert.equal(missing.statusCode, 404);
-      assert.equal(missing.errorArgs.code, 'file.query_not_found');
+      assert.equal(missing.errorArgs?.code, 'file.query_not_found');
     });
   });
 

@@ -15,6 +15,8 @@ import {
   handleRestartApiRoute,
   handleRunScriptRoute,
   handleSyncFigmaTokensRoute,
+  type CommandRouteHandlerDeps,
+  type HandleRestartApiDeps,
 } from '../services/command-route-handler-service.ts';
 
 export interface CommandRoutesDeps {
@@ -29,36 +31,108 @@ export interface CommandRoutesDeps {
     captureFromFigmaUrlScriptPath: string;
   };
   queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
-  enqueueQueueJob: (args: any) => { id: string };
+  enqueueQueueJob: (args: unknown) => { id: string };
   sha256Text: (value: string) => string;
-  runQueuedSpawnCommand: (options: any) => Promise<{ ok: boolean }>;
-  queueNpmScript: (args: any) => { id: string };
-  enqueueRefreshNamingDebtJob: (args: any) => { id: string };
-  queueNodeJsonCommand: (args: any) => { id: string };
+  runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
+  queueNpmScript: (args: unknown) => { id: string };
+  enqueueRefreshNamingDebtJob: (args: unknown) => { id: string };
+  queueNodeJsonCommand: (args: unknown) => { id: string };
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
   processEnv?: Record<string, string | undefined>;
   processCwd?: string;
-  spawnProcessFn?: (...args: unknown[]) => { unref?: () => void };
-  setTimeoutFn?: (callback: (...args: unknown[]) => void, delayMs?: number) => unknown;
+  spawnProcessFn?: HandleRestartApiDeps['spawnProcessFn'];
+  setTimeoutFn?: HandleRestartApiDeps['setTimeoutFn'];
   exitProcessFn?: (code?: number) => void;
   exitDelayMs?: number;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function assertResponse(value: unknown, source: string): Response {
+  if (value instanceof Response) return value;
+  throw new TypeError(`CommandRoutesDeps.${source} must return a Response instance.`);
+}
+
+function assertJobWithId(value: unknown, source: string): { id: string } {
+  if (!isRecord(value) || typeof value.id !== 'string' || value.id.length === 0) {
+    throw new TypeError(`CommandRoutesDeps.${source} must return an object with a non-empty string id.`);
+  }
+  return { id: value.id };
+}
+
+function assertQueueJobAcceptedPayload(value: unknown, source: string): { ok: boolean; jobId: string } {
+  if (!isRecord(value) || typeof value.ok !== 'boolean' || typeof value.jobId !== 'string' || value.jobId.length === 0) {
+    throw new TypeError(`CommandRoutesDeps.${source} must return { ok: boolean; jobId: string }.`);
+  }
+  return { ok: value.ok, jobId: value.jobId };
+}
+
+async function assertQueuedSpawnResult(value: Promise<unknown>, source: string): Promise<{ ok: boolean }> {
+  const resolved = await value;
+  if (!isRecord(resolved) || typeof resolved.ok !== 'boolean') {
+    throw new TypeError(`CommandRoutesDeps.${source} must resolve to an object with boolean ok.`);
+  }
+  return { ok: resolved.ok };
+}
+
+function toCommandRouteHandlerDeps(deps: CommandRoutesDeps): CommandRouteHandlerDeps {
+  return {
+    failJson: (c, statusCode, args) => assertResponse(deps.failJson(c, statusCode, args), 'failJson'),
+    createApiRequestId: deps.createApiRequestId,
+    readJsonBody: deps.readJsonBody,
+    getSystemContext: deps.getSystemContext,
+    queueJobAcceptedPayload: (job) => assertQueueJobAcceptedPayload(deps.queueJobAcceptedPayload(job), 'queueJobAcceptedPayload'),
+    enqueueQueueJob: (args) => assertJobWithId(deps.enqueueQueueJob(args), 'enqueueQueueJob'),
+    sha256Text: deps.sha256Text,
+    runQueuedSpawnCommand: (options) => assertQueuedSpawnResult(deps.runQueuedSpawnCommand(options), 'runQueuedSpawnCommand'),
+    queueNpmScript: (args) => assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
+    enqueueRefreshNamingDebtJob: (args) => assertJobWithId(deps.enqueueRefreshNamingDebtJob(args), 'enqueueRefreshNamingDebtJob'),
+    queueNodeJsonCommand: (args) => assertJobWithId(deps.queueNodeJsonCommand(args), 'queueNodeJsonCommand'),
+    toBooleanString: deps.toBooleanString,
+    toNumberString: deps.toNumberString,
+    validateGitRef: deps.validateGitRef,
+    processEnv: deps.processEnv ?? process.env,
+    processCwd: deps.processCwd,
+    spawnProcessFn: deps.spawnProcessFn,
+    setTimeoutFn: deps.setTimeoutFn,
+    exitProcessFn: deps.exitProcessFn,
+    exitDelayMs: deps.exitDelayMs,
+  };
+}
+
+function toHandleRestartApiDeps(deps: CommandRoutesDeps): HandleRestartApiDeps {
+  return {
+    failJson: (c, statusCode, args) => assertResponse(deps.failJson(c, statusCode, args), 'failJson'),
+    createApiRequestId: deps.createApiRequestId,
+    processEnv: deps.processEnv ?? process.env,
+    processCwd: deps.processCwd,
+    spawnProcessFn: deps.spawnProcessFn,
+    setTimeoutFn: deps.setTimeoutFn,
+    exitProcessFn: deps.exitProcessFn,
+    exitDelayMs: deps.exitDelayMs,
+  };
 }
 
 /**
  * Register command routes on the Hono app.
  */
-export function registerCommandRoutes(app: { post: (path: string, handler: (c: Context) => any) => void }, deps: CommandRoutesDeps): void {
-  app.post('/api/run/:script', (c: Context) => handleRunScriptRoute(c, deps));
-  app.post('/api/admin/restart-api', (c: Context) => handleRestartApiRoute(c, deps));
-  app.post('/api/refresh-registry', (c: Context) => enqueueRefreshScriptJob(c, 'ds:registry:refresh', deps));
-  app.post('/api/refresh-token-usage-index', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-usage-index', deps));
-  app.post('/api/refresh-token-graph', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-graph', deps));
-  app.post('/api/refresh-token-health', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-health', deps));
-  app.post('/api/refresh-components-health', (c: Context) => enqueueRefreshScriptJob(c, 'ds:registry:report', deps));
-  app.post('/api/refresh-naming-debt', (c: Context) => handleRefreshNamingDebtRoute(c, deps));
-  app.post('/api/capture-health-snapshot', (c: Context) => handleCaptureHealthSnapshotRoute(c, deps));
-  app.post('/api/sync-figma-tokens', (c: Context) => handleSyncFigmaTokensRoute(c, deps));
-  app.post('/api/capture-figma-screenshot', (c: Context) => handleCaptureFigmaScreenshotRoute(c, deps));
+export function registerCommandRoutes(app: { post: (path: string, handler: (c: Context) => unknown) => void }, deps: CommandRoutesDeps): void {
+  const commandDeps = toCommandRouteHandlerDeps(deps);
+  const restartDeps = toHandleRestartApiDeps(deps);
+
+  app.post('/api/run/:script', (c: Context) => handleRunScriptRoute(c, commandDeps));
+  app.post('/api/admin/restart-api', (c: Context) => handleRestartApiRoute(c, restartDeps));
+  app.post('/api/refresh-registry', (c: Context) => enqueueRefreshScriptJob(c, 'ds:registry:refresh', commandDeps));
+  app.post('/api/refresh-token-usage-index', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-usage-index', commandDeps));
+  app.post('/api/refresh-token-graph', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-graph', commandDeps));
+  app.post('/api/refresh-token-health', (c: Context) => enqueueRefreshScriptJob(c, 'ds:token-health', commandDeps));
+  app.post('/api/refresh-components-health', (c: Context) => enqueueRefreshScriptJob(c, 'ds:registry:report', commandDeps));
+  app.post('/api/refresh-naming-debt', (c: Context) => handleRefreshNamingDebtRoute(c, commandDeps));
+  app.post('/api/capture-health-snapshot', (c: Context) => handleCaptureHealthSnapshotRoute(c, commandDeps));
+  app.post('/api/sync-figma-tokens', (c: Context) => handleSyncFigmaTokensRoute(c, commandDeps));
+  app.post('/api/capture-figma-screenshot', (c: Context) => handleCaptureFigmaScreenshotRoute(c, commandDeps));
 }

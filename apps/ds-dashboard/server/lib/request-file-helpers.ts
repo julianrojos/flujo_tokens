@@ -139,7 +139,7 @@ export async function readJsonBody(c: RequestWithJson): Promise<Record<string, u
   try {
     const parsed = await c.req.json();
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-    return parsed;
+    return parsed as Record<string, unknown>;
   } catch {
     return {};
   }

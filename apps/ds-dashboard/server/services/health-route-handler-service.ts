@@ -48,7 +48,7 @@ async function loadArtifactOrFail(c: Context, args: any, failJson: any) {
  */
 export async function handleTokenHealthRoute(c: Context, deps: HealthRouteHandlerDeps): Promise<any> {
   const { failJson, getSystemContext } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const loaded = await loadArtifactOrFail(
     c,
     {
@@ -77,7 +77,7 @@ export async function handleTokenHealthRoute(c: Context, deps: HealthRouteHandle
  */
 export async function handleComponentsHealthRoute(c: Context, deps: HealthRouteHandlerDeps): Promise<any> {
   const { failJson, getSystemContext } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const loaded = await loadArtifactOrFail(
     c,
     {
@@ -102,7 +102,7 @@ export async function handleComponentsHealthRoute(c: Context, deps: HealthRouteH
  */
 export async function handleHealthHistoryRoute(c: Context, deps: HealthRouteHandlerDeps): Promise<any> {
   const { failJson, getSystemContext } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const range = normalizeHealthHistoryRange(c.req.query('range'));
   const loaded = await loadArtifactOrFail(
     c,

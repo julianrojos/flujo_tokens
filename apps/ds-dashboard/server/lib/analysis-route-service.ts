@@ -7,33 +7,37 @@
 
 import fs from 'node:fs/promises';
 
-export interface GitRefValidationResult {
-  ok: boolean;
-  beforeRef?: string;
-  statusCode?: number;
-  errorArgs?: {
+type RouteValidationError = {
+  statusCode: number;
+  errorArgs: {
     code: string;
     userMessage: string;
     recoverable: boolean;
     context?: Record<string, unknown>;
   };
-}
+};
 
-export interface ImpactRequestResult {
-  ok: boolean;
-  payload?: {
-    tokenPath: string;
-    newValue: string | null;
-    depth?: number;
-  };
-  statusCode?: number;
-  errorArgs?: {
-    code: string;
-    userMessage: string;
-    recoverable: boolean;
-    context?: Record<string, unknown>;
-  };
-}
+export type GitRefValidationResult =
+  | {
+      ok: true;
+      beforeRef: string;
+    }
+  | ({
+      ok: false;
+    } & RouteValidationError);
+
+export type ImpactRequestResult =
+  | {
+      ok: true;
+      payload: {
+        tokenPath: string;
+        newValue: string | null;
+        depth?: number;
+      };
+    }
+  | ({
+      ok: false;
+    } & RouteValidationError);
 
 export interface ImpactArtifacts {
   tokenRegistry: Record<string, unknown>;
@@ -45,8 +49,8 @@ export interface ImpactArtifacts {
 }
 
 export interface LoadImpactArtifactsDeps {
-  readFileFn?: (filePath: string, encoding: string) => Promise<string>;
-  normalizeImpactWcagPairsFn: (value: Record<string, unknown>) => Record<string, unknown>;
+  readFileFn?: (filePath: string, encoding: BufferEncoding) => Promise<string>;
+  normalizeImpactWcagPairsFn: (value: Record<string, unknown>) => unknown;
 }
 
 export interface SystemContext {
@@ -140,7 +144,11 @@ export async function loadImpactArtifacts(
   sysCtx: SystemContext,
   deps: LoadImpactArtifactsDeps
 ): Promise<ImpactArtifacts> {
-  const readFileFn = deps.readFileFn || fs.readFile;
+  const readFileFn =
+    deps.readFileFn ??
+    (async (filePath: string, encoding: BufferEncoding): Promise<string> => {
+      return await fs.readFile(filePath, encoding);
+    });
   const normalizeImpactWcagPairsFn = deps.normalizeImpactWcagPairsFn;
   if (typeof normalizeImpactWcagPairsFn !== 'function') {
     throw new Error('normalizeImpactWcagPairsFn is required');
@@ -168,7 +176,9 @@ export async function loadImpactArtifacts(
     tokenUsageIndex: JSON.parse(tokenUsageRaw),
     tokenHealth: JSON.parse(tokenHealthRaw),
     componentRegistry: JSON.parse(componentRegistryRaw),
-    wcagPairs: normalizeImpactWcagPairsFn(JSON.parse(wcagPairsRaw)),
+    wcagPairs: normalizeImpactWcagPairsFn(
+      JSON.parse(wcagPairsRaw) as Record<string, unknown>
+    ) as Record<string, unknown>,
   };
 }
 

@@ -61,7 +61,13 @@ export async function handleFileRoute(c: Context, deps: FileRouteHandlerDeps): P
     code: 'file.invalid_path',
     userMessage: 'Invalid file path.',
   });
-  if (!resolved.ok) return failJson(c, resolved.statusCode || 500, resolved.errorArgs || {});
+  if (!resolved.ok) return failJson(c, resolved.statusCode ?? 500, resolved.errorArgs ?? {});
+  if (!resolved.absPath) {
+    return failJson(c, 500, {
+      code: 'file.path_resolution_failed',
+      userMessage: 'Unable to resolve file path.',
+    });
+  }
 
   const loaded = await readFileContentPayload({
     absPath: resolved.absPath,
@@ -71,7 +77,7 @@ export async function handleFileRoute(c: Context, deps: FileRouteHandlerDeps): P
     maxFileBytes: MAX_FILE_BYTES,
   });
   // Verificación explícita: loaded.ok debe ser true antes de acceder a campos (R-014)
-  if (!loaded.ok) return failJson(c, loaded.statusCode || 500, loaded.errorArgs || {});
+  if (!loaded.ok) return failJson(c, loaded.statusCode ?? 500, loaded.errorArgs ?? {});
 
   // Defaults intencionales: loaded.content y loaded.truncated siempre están definidos cuando ok=true
   // Los || false y || '' son defensivos por si la interfaz cambia en el futuro
@@ -95,7 +101,13 @@ export async function handleFileSnippetRoute(c: Context, deps: FileRouteHandlerD
     code: 'file.invalid_path',
     userMessage: 'Invalid file path.',
   });
-  if (!resolved.ok) return failJson(c, resolved.statusCode || 500, resolved.errorArgs || {});
+  if (!resolved.ok) return failJson(c, resolved.statusCode ?? 500, resolved.errorArgs ?? {});
+  if (!resolved.absPath) {
+    return failJson(c, 500, {
+      code: 'file.path_resolution_failed',
+      userMessage: 'Unable to resolve file path.',
+    });
+  }
 
   const rawLine = c.req.query('line');
   const rawBefore = c.req.query('before');
@@ -110,16 +122,16 @@ export async function handleFileSnippetRoute(c: Context, deps: FileRouteHandlerD
   let line = parsedLine.line;
 
   const loaded = await readFileContentPayload({
-    absPath: resolved.absPath || '',
+    absPath: resolved.absPath,
     requested,
     notFoundCode: 'file.not_found',
     readTextFileLimitedFn: readTextFileLimited,
     maxFileBytes: MAX_FILE_BYTES,
   });
   // Verificación explícita: loaded.ok debe ser true antes de acceder a campos (R-014)
-  if (!loaded.ok) return failJson(c, loaded.statusCode || 500, loaded.errorArgs || {});
+  if (!loaded.ok) return failJson(c, loaded.statusCode ?? 500, loaded.errorArgs ?? {});
   // Defaults intencionales: content siempre está definido cuando ok=true
-  const { content = '' } = loaded;
+  const { content = '' } = loaded; // content siempre está definido cuando ok=true
 
   const resolvedLine = resolveSnippetTargetLine({
     rawLine,
@@ -129,12 +141,13 @@ export async function handleFileSnippetRoute(c: Context, deps: FileRouteHandlerD
     requested,
   });
   if (!resolvedLine.ok) {
-    return failJson(c, resolvedLine.statusCode, resolvedLine.errorArgs);
+    return failJson(c, resolvedLine.statusCode ?? 500, resolvedLine.errorArgs ?? {});
   }
   if (Number.isFinite(resolvedLine.line as number)) line = resolvedLine.line as number;
   const matchedBy = resolvedLine.matchedBy;
 
-  const snippet = buildSnippet(content, line, before, after);
+  const targetLine = typeof line === 'number' && Number.isFinite(line) ? line : 1;
+  const snippet = buildSnippet(content, targetLine, before, after);
   return c.json(buildFileSnippetResponse({ requested, snippet, matchedBy }));
 }
 
@@ -149,13 +162,19 @@ export async function handleAssetRoute(c: Context, deps: FileRouteHandlerDeps): 
     code: 'asset.invalid_path',
     userMessage: 'Invalid asset path.',
   });
-  if (!resolved.ok) return failJson(c, resolved.statusCode, resolved.errorArgs);
-  const { absPath } = resolved;
+  if (!resolved.ok) return failJson(c, resolved.statusCode ?? 500, resolved.errorArgs ?? {});
+  if (!resolved.absPath) {
+    return failJson(c, 500, {
+      code: 'asset.path_resolution_failed',
+      userMessage: 'Unable to resolve asset path.',
+    });
+  }
+  const absPath = resolved.absPath;
 
   try {
     const stat = await fs.stat(absPath);
     if (!stat.isFile()) {
-      return failJson(c, 404, buildMissingAssetErrorArgs(requested));
+      return failJson(c, 404, buildMissingAssetErrorArgs(requested) as unknown as Record<string, unknown>);
     }
     const buffer = await fs.readFile(absPath);
     return c.body(buffer, 200, {

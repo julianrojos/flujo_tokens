@@ -5,14 +5,13 @@
  */
 
 import type { Context } from 'hono';
-import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
 import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
 import type { ConsoleLogBufferEntry, ConsoleLogWithFileKey } from '../services/plugin-connection-manager.ts';
 
 export interface FigmaMcpConsoleLogsRouteDeps {
-    getConnInfoFn?: (c: Context) => ConnInfo;
+    getConnInfoFn?: (c: Context) => ReturnType<typeof getConnInfo>;
     internalToken?: string;
 }
 
@@ -26,7 +25,7 @@ interface ConsoleLogsResponse {
 function isAuthorized(
     c: Context,
     internalToken: string | undefined,
-    getConnInfoFn: (c: Context) => ConnInfo,
+    getConnInfoFn: (c: Context) => ReturnType<typeof getConnInfo>,
 ): boolean {
     const connInfo = getConnInfoFn(c);
     const remoteAddress = String(connInfo?.remote?.address || '').trim();

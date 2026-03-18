@@ -13,15 +13,12 @@ function createMockContext(options: { fileKey?: string | null } = {}) {
       header: (_name?: string) => undefined,
       json: async () => ({}),
     },
-    json: (data: unknown, status?: number) => ({ data, status }),
-  } as unknown as {
-    req: {
-      query: (key?: string) => string | null;
-      header: (name?: string) => string | undefined;
-      json: () => Promise<Record<string, unknown>>;
-    };
-    json: (data: unknown, status?: number) => { data: unknown; status?: number };
-  };
+    json: (data: unknown, status?: number) =>
+      new Response(JSON.stringify(data), {
+        status: status ?? 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+  } as any;
 }
 
 test('figma-mcp-selection-route: returns null when no selection is buffered', async () => {
@@ -32,7 +29,7 @@ test('figma-mcp-selection-route: returns null when no selection is buffered', as
   });
 
   assert.equal(response.status, 200);
-  const data = response.data as { ok: boolean; data: unknown | null; fileKey: string | null };
+  const data = (await response.json()) as { ok: boolean; data: unknown | null; fileKey: string | null };
   assert.equal(data.ok, true);
   assert.equal(data.fileKey, null);
   assert.equal(data.data, null);
@@ -74,7 +71,7 @@ test('figma-mcp-selection-route: returns latest selection for provided fileKey',
   });
 
   assert.equal(response.status, 200);
-  const data = response.data as {
+  const data = (await response.json()) as {
     ok: boolean;
     data: { count: number; nodes: Array<{ id: string }> } | null;
     fileKey: string | null;
@@ -124,7 +121,7 @@ test('figma-mcp-selection-route: falls back to activeFileKey when no fileKey par
   });
 
   assert.equal(response.status, 200);
-  const data = response.data as {
+  const data = (await response.json()) as {
     ok: boolean;
     data: { count: number; nodes: Array<{ id: string }> } | null;
     fileKey: string | null;

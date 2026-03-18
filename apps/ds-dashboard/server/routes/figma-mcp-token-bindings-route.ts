@@ -23,7 +23,7 @@ import {
   unbindVariableDirect,
   applyTokensDirect,
 } from '../services/figma-direct-bridge-service.ts';
-import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
+import { resolveFileKeyFromManager, isFileKeySuccess } from '../lib/filekey-utils.ts';
 
 export interface FigmaMcpTokenBindingsRouteDeps {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
@@ -83,7 +83,7 @@ async function handleBindVariable(c: Context, deps: FigmaMcpTokenBindingsRouteDe
     noSocketMessage: 'No plugin connection available.',
   });
 
-  if ('ok' in resolved && !resolved.ok) {
+  if (!isFileKeySuccess(resolved)) {
     return c.json(resolved, 200);
   }
 
@@ -197,7 +197,7 @@ async function handleUnbindVariable(c: Context, deps: FigmaMcpTokenBindingsRoute
     noSocketMessage: 'No plugin connection available.',
   });
 
-  if ('ok' in resolved && !resolved.ok) {
+  if (!isFileKeySuccess(resolved)) {
     return c.json(resolved, 200);
   }
 
@@ -304,7 +304,7 @@ async function handleApplyTokens(c: Context, deps: FigmaMcpTokenBindingsRouteDep
     noSocketMessage: 'No plugin connection available.',
   });
 
-  if ('ok' in resolved && !resolved.ok) {
+  if (!isFileKeySuccess(resolved)) {
     return c.json(resolved, 200);
   }
 

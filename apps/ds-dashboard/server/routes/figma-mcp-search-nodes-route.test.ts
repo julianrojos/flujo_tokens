@@ -211,5 +211,5 @@ test('figma-mcp-search-nodes-route: POST respects exactMatch parameter', async (
 
   assert.equal(response.status, 200);
   assert.ok(capturedOptions);
-  assert.equal(capturedOptions?.exactMatch, true);
+  assert.equal((capturedOptions as SearchFigmaNodesOptions).exactMatch, true);
 });

@@ -91,7 +91,7 @@ describe('ai-jobs-store-with-persistence', () => {
             const events = jobsRepo.getJobEvents(job.id);
             assert.strictEqual(events.length, 3);
             assert.deepStrictEqual(
-                events.map((event) => event.seq),
+                events.map((event: { seq: number }) => event.seq),
                 [1, 2, 3]
             );
         });

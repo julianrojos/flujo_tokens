@@ -115,7 +115,7 @@ function isNoSocketForFileError(error: unknown): boolean {
  */
 async function requestDirectWithFileKeyFallback<T>(
   method: string,
-  params: Record<string, unknown>,
+  params: unknown,
   fileKey?: string | null
 ): Promise<T> {
   const manager = getPluginConnectionManager();
@@ -125,7 +125,7 @@ async function requestDirectWithFileKeyFallback<T>(
     return await manager.requestForFileKey<T>(
       requestedFileKey,
       method,
-      params,
+      params as Record<string, unknown>,
       DIRECT_REQUEST_TIMEOUT_MS
     );
   } catch (error) {
@@ -149,7 +149,7 @@ async function requestDirectWithFileKeyFallback<T>(
     return await manager.requestForFileKey<T>(
       null,
       method,
-      params,
+      params as Record<string, unknown>,
       DIRECT_REQUEST_TIMEOUT_MS
     );
   }
@@ -314,7 +314,7 @@ export function normalizeVariablesMeta(result: GetVariablesDataResult): FigmaVar
   return { variables, variableCollections };
 }
 
-function normalizeKitStyles(result: GetStylesResult): DesignSystemKitResult['styles'] {
+function normalizeKitStyles(result: { styles?: StyleData[] }): DesignSystemKitResult['styles'] {
   return (result.styles ?? []).map((style) => ({
     id: style.id,
     name: style.name,

@@ -9,6 +9,17 @@ import type { AiProvider, AiProviderInput, AiProviderResult } from './ai-provide
 import type { AiUsageMetrics } from './ai-component-doc-schema.js';
 import { getApiKey, resolveModel } from './ai-provider.js';
 import { AI_ERROR_CODES } from './ai-component-doc-schema.js';
+import type { Tool } from '@anthropic-ai/sdk/resources/messages/messages';
+
+function toAnthropicInputSchema(schema: Record<string, unknown>): Tool.InputSchema {
+    if (schema.type === 'object') {
+        return schema as Tool.InputSchema;
+    }
+    return {
+        ...schema,
+        type: 'object',
+    };
+}
 
 /**
  * Anthropic Adapter implementing the AiProvider interface
@@ -61,7 +72,7 @@ export class AnthropicAdapter implements AiProvider {
                     {
                         name: 'submit_component_doc',
                         description: 'Submit the generated component documentation as structured JSON',
-                        input_schema: input.jsonSchema,
+                        input_schema: toAnthropicInputSchema(input.jsonSchema),
                     },
                 ],
                 // Force tool use to ensure structured output

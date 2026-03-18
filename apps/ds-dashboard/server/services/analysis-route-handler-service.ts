@@ -53,7 +53,7 @@ async function loadArtifactOrFail(c: any, args: any, failJson: any) {
  */
 export async function handleTokenDiffRoute(c: any, deps: AnalysisRouteHandlerDeps): Promise<any> {
   const { failJson, getSystemContext } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const parsedBeforeRef = parseTokenDiffBeforeRef(c.req.query('beforeRef'), validateGitRef);
   if (!parsedBeforeRef.ok) {
     return failJson(c, parsedBeforeRef.statusCode, parsedBeforeRef.errorArgs);
@@ -82,7 +82,7 @@ export async function handleTokenDiffRoute(c: any, deps: AnalysisRouteHandlerDep
  */
 export async function handleNamingDebtRoute(c: any, deps: AnalysisRouteHandlerDeps): Promise<any> {
   const { failJson, getSystemContext } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const refresh = parseRefreshQuery(c.req.query('refresh'));
   if (!refresh) {
     const loaded = await loadArtifactOrFail(
@@ -117,7 +117,7 @@ export async function handleNamingDebtRoute(c: any, deps: AnalysisRouteHandlerDe
  */
 export async function handleImpactRoute(c: any, deps: AnalysisRouteHandlerDeps): Promise<any> {
   const { failJson, getSystemContext } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const parsedRequest = parseImpactRequest({
     tokenPathRaw: c.req.query('tokenPath'),
     newValueRaw: c.req.query('newValue'),
@@ -130,15 +130,15 @@ export async function handleImpactRoute(c: any, deps: AnalysisRouteHandlerDeps):
 
   try {
     const impactArtifacts = await loadImpactArtifacts(sysCtx, {
-      readFileFn: fs.readFile,
+      readFileFn: async (filePath: string, encoding: BufferEncoding) => await fs.readFile(filePath, encoding),
       normalizeImpactWcagPairsFn: normalizeImpactWcagPairs,
     });
     const report = computeImpactReport({
       tokenPath,
       newValue,
       depth,
-      ...impactArtifacts,
-    });
+      ...(impactArtifacts as unknown as Record<string, unknown>),
+    } as Parameters<typeof computeImpactReport>[0]);
     return c.json(report);
   } catch (error) {
     const failure = buildImpactFailure(tokenPath, error);

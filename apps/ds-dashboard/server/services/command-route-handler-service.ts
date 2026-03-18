@@ -4,7 +4,7 @@
  * Handles command-related route logic.
  */
 
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, type SpawnOptions } from 'node:child_process';
 import type { Context } from 'hono';
 
 import {
@@ -93,8 +93,8 @@ export interface CommandRouteHandlerDeps {
   queueNpmScript: (args: unknown) => { id: string };
   queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
   processEnv?: Record<string, string | undefined>;
-  spawnProcessFn?: typeof spawn;
-  setTimeoutFn?: typeof setTimeout;
+  spawnProcessFn?: RestartSpawnFn;
+  setTimeoutFn?: RestartSetTimeoutFn;
   exitProcessFn?: (code?: number) => void;
   processCwd?: string;
   exitDelayMs?: number;
@@ -116,7 +116,7 @@ export function enqueueRefreshScriptJob(
 ): Response {
   const { createApiRequestId, getSystemContext, queueNpmScript, queueJobAcceptedPayload } = deps;
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const job = queueNpmScript(buildRefreshScriptQueueArgs({ sysCtx, requestId, script }));
   return c.json(queueJobAcceptedPayload(job), 202);
 }
@@ -125,8 +125,8 @@ export interface HandleRestartApiDeps {
   failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => Response;
   createApiRequestId: () => string;
   processEnv?: Record<string, string | undefined>;
-  spawnProcessFn?: typeof spawn;
-  setTimeoutFn?: typeof setTimeout;
+  spawnProcessFn?: RestartSpawnFn;
+  setTimeoutFn?: RestartSetTimeoutFn;
   exitProcessFn?: (code?: number) => void;
   processCwd?: string;
   exitDelayMs?: number;
@@ -162,8 +162,12 @@ export function handleRestartApiRoute(c: Context, deps: HandleRestartApiDeps): R
     });
   }
 
-  const spawnFn = deps.spawnProcessFn ?? spawn;
-  const setTimeoutFn = deps.setTimeoutFn ?? setTimeout;
+  const spawnFn: RestartSpawnFn =
+    deps.spawnProcessFn ??
+    ((command, args, options) => spawn(command, [...args], (options ?? {}) as SpawnOptions));
+  const setTimeoutFn: RestartSetTimeoutFn =
+    deps.setTimeoutFn ??
+    ((callback, delayMs) => setTimeout(callback, delayMs));
   const exitProcessFn = deps.exitProcessFn ?? ((code?: number) => process.exit(code));
   const cwd = deps.processCwd ?? process.cwd();
   const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -203,7 +207,7 @@ export function handleRestartApiRoute(c: Context, deps: HandleRestartApiDeps): R
   }, exitDelayMs);
 
   // Prevent timer from keeping process alive if other cleanup is needed
-  if (typeof exitTimer.unref === 'function') {
+  if (typeof exitTimer === 'object' && exitTimer !== null && typeof exitTimer.unref === 'function') {
     exitTimer.unref();
   }
 
@@ -218,6 +222,31 @@ export function handleRestartApiRoute(c: Context, deps: HandleRestartApiDeps): R
     202
   );
 }
+
+interface RestartSpawnOptions {
+  cwd?: string;
+  detached?: boolean;
+  stdio?: 'ignore';
+  shell?: boolean;
+  env?: NodeJS.ProcessEnv;
+}
+
+type RestartSpawnFn = (
+  command: string,
+  args: readonly string[],
+  options?: RestartSpawnOptions
+) => {
+  unref?: () => void;
+};
+
+type RestartSetTimeoutHandle = {
+  unref?: () => void;
+} | number;
+
+type RestartSetTimeoutFn = (
+  callback: (...args: unknown[]) => void,
+  delayMs?: number
+) => RestartSetTimeoutHandle;
 
 export async function handleRunScriptRoute(c: Context, deps: CommandRouteHandlerDeps): Promise<Response> {
   const {
@@ -250,7 +279,7 @@ export async function handleRunScriptRoute(c: Context, deps: CommandRouteHandler
     fromStep: pickFirstNonEmpty(body.fromStep, c.req.query('fromStep')),
     onlyStep: pickFirstNonEmpty(body.onlyStep, c.req.query('onlyStep')),
   };
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
 
   if (parsedScript.scriptName === 'ds:component-doc') {
     if (!specFile && !component) {
@@ -291,7 +320,7 @@ export function handleRefreshNamingDebtRoute(
 ): Response {
   const { createApiRequestId, getSystemContext, enqueueRefreshNamingDebtJob, queueJobAcceptedPayload } = deps;
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const job = enqueueRefreshNamingDebtJob({
     sysCtx,
     requestId,
@@ -312,7 +341,7 @@ export async function handleCaptureHealthSnapshotRoute(c: Context, deps: Command
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
 
   const parsed = buildHealthSnapshotCommandConfig({
@@ -343,7 +372,7 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
 
   let parsed;
@@ -379,7 +408,7 @@ export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: Comman
   } = deps;
 
   const requestId = createApiRequestId();
-  const sysCtx = getSystemContext(c.req.header('x-ds-system'));
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
 
   let parsed;

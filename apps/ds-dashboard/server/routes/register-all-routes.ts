@@ -4,7 +4,7 @@
  * Registers all API routes on the Hono application.
  */
 
-import type { Hono, Context } from 'hono';
+import type { Hono } from 'hono';
 
 import { registerSystemRoutes } from './system-routes.mjs';
 import { registerOperationsRoutes } from './operations-routes.mjs';
@@ -35,9 +35,93 @@ import { registerFigmaMcpVariablesV2Routes } from './figma-mcp-variables-v2-rout
 import { registerFigmaMcpComponentsRoutes } from './figma-mcp-components-route.ts';
 import { registerFigmaMcpTokenBindingsRoutes } from './figma-mcp-token-bindings-route.ts';
 import { registerAiJobsRoutes } from './ai-jobs-route.ts';
+import type { CommandRoutesDeps } from './command-routes.ts';
 import { buildAllRouteDeps, type ServerDeps } from '../lib/register-all-routes-service.ts';
-import { verifyMcpPort } from '../services/figma-mcp-port-verify.ts';
-import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function ensureString(value: unknown, source: string): string {
+  if (typeof value === 'string') return value;
+  throw new TypeError(`${source} must be a string`);
+}
+
+function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['commandDeps']): CommandRoutesDeps {
+  return {
+    failJson: (c, statusCode, args) => deps.failJson(c, statusCode, args),
+    createApiRequestId: deps.createApiRequestId,
+    readJsonBody: deps.readJsonBody,
+    getSystemContext: (systemHeader) => {
+      const context = deps.getSystemContext(systemHeader);
+      if (!isRecord(context)) {
+        throw new TypeError('commandDeps.getSystemContext must return an object');
+      }
+      return {
+        repoRoot: ensureString(context.repoRoot, 'commandDeps.getSystemContext.repoRoot'),
+        systemId: ensureString(context.systemId, 'commandDeps.getSystemContext.systemId'),
+        healthSnapshotScriptPath: ensureString(
+          context.healthSnapshotScriptPath,
+          'commandDeps.getSystemContext.healthSnapshotScriptPath',
+        ),
+        tokensFromFigmaScriptPath: ensureString(
+          context.tokensFromFigmaScriptPath,
+          'commandDeps.getSystemContext.tokensFromFigmaScriptPath',
+        ),
+        captureFromFigmaUrlScriptPath: ensureString(
+          context.captureFromFigmaUrlScriptPath,
+          'commandDeps.getSystemContext.captureFromFigmaUrlScriptPath',
+        ),
+      };
+    },
+    queueJobAcceptedPayload: (job) => {
+      const payload = deps.queueJobAcceptedPayload(job);
+      if (!isRecord(payload) || typeof payload.ok !== 'boolean' || typeof payload.jobId !== 'string') {
+        throw new TypeError('commandDeps.queueJobAcceptedPayload must return { ok: boolean; jobId: string }');
+      }
+      return { ok: payload.ok, jobId: payload.jobId };
+    },
+    enqueueQueueJob: (args) => {
+      const job = deps.enqueueQueueJob(args);
+      if (!isRecord(job) || typeof job.id !== 'string') {
+        throw new TypeError('commandDeps.enqueueQueueJob must return { id: string }');
+      }
+      return { id: job.id };
+    },
+    sha256Text: deps.sha256Text,
+    runQueuedSpawnCommand: async (options) => {
+      const result = await deps.runQueuedSpawnCommand(options);
+      if (!isRecord(result) || typeof result.ok !== 'boolean') {
+        throw new TypeError('commandDeps.runQueuedSpawnCommand must resolve to { ok: boolean }');
+      }
+      return { ok: result.ok };
+    },
+    queueNpmScript: (args) => {
+      const job = deps.queueNpmScript(args);
+      if (!isRecord(job) || typeof job.id !== 'string') {
+        throw new TypeError('commandDeps.queueNpmScript must return { id: string }');
+      }
+      return { id: job.id };
+    },
+    enqueueRefreshNamingDebtJob: (args) => {
+      const job = deps.enqueueRefreshNamingDebtJob(args);
+      if (!isRecord(job) || typeof job.id !== 'string') {
+        throw new TypeError('commandDeps.enqueueRefreshNamingDebtJob must return { id: string }');
+      }
+      return { id: job.id };
+    },
+    queueNodeJsonCommand: (args) => {
+      const job = deps.queueNodeJsonCommand(args);
+      if (!isRecord(job) || typeof job.id !== 'string') {
+        throw new TypeError('commandDeps.queueNodeJsonCommand must return { id: string }');
+      }
+      return { id: job.id };
+    },
+    toBooleanString: deps.toBooleanString,
+    toNumberString: deps.toNumberString,
+    validateGitRef: deps.validateGitRef,
+  };
+}
 
 export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   const routeDeps = buildAllRouteDeps(deps);
@@ -51,27 +135,32 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerComponentSpecRoutes(app, routeDeps.componentSpecDeps);
   registerFileRoutes(app, routeDeps.fileDeps);
   registerJobRoutes(app, routeDeps.jobDeps);
-  registerCommandRoutes(app, routeDeps.commandDeps);
+  registerCommandRoutes(app, ensureCommandRoutesDeps(routeDeps.commandDeps));
   registerFigmaPingRoute(app, routeDeps.figmaPingDeps);
-  registerFigmaMcpPingRoute(app, routeDeps.figmaMcpPingDeps);
+  registerFigmaMcpPingRoute(app);
   registerFigmaMcpResetRoute(app);
   registerFigmaMcpReconcileRoute(app);
-  registerFigmaMcpVariablesRoute(app, routeDeps.figmaMcpPingDeps);
-  registerFigmaMcpPortRoute(app, {
-    ...routeDeps.figmaMcpPingDeps,
-    verifyMcpPortFn: verifyMcpPort,
+  registerFigmaMcpVariablesRoute(app, {
+    readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
   });
-  registerFigmaMcpSearchNodesRoute(app, routeDeps.figmaMcpPingDeps);
-  registerFigmaMcpCapabilitiesRoute(app, routeDeps.figmaMcpPingDeps);
+  registerFigmaMcpPortRoute(app);
+  registerFigmaMcpSearchNodesRoute(app);
+  registerFigmaMcpCapabilitiesRoute(app);
   registerFigmaMcpHeartbeatRoute(app);
   registerFigmaMcpConsoleLogsRoute(app);
   registerFigmaMcpDesignChangesRoute(app);
   registerFigmaMcpSelectionRoute(app);
-  registerFigmaMcpSurgicalQueriesRoutes(app, routeDeps.figmaMcpPingDeps);
-  registerFigmaMcpDesignSystemKitRoute(app, routeDeps.figmaMcpPingDeps);
-  registerFigmaMcpVariablesV2Routes(app, routeDeps.figmaMcpPingDeps);
-  registerFigmaMcpComponentsRoutes(app, routeDeps.figmaMcpPingDeps);
-  registerFigmaMcpTokenBindingsRoutes(app, routeDeps.figmaMcpPingDeps);
+  registerFigmaMcpSurgicalQueriesRoutes(app);
+  registerFigmaMcpDesignSystemKitRoute(app);
+  registerFigmaMcpVariablesV2Routes(app, {
+    readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
+  });
+  registerFigmaMcpComponentsRoutes(app, {
+    readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
+  });
+  registerFigmaMcpTokenBindingsRoutes(app, {
+    readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
+  });
   registerFigmaPluginDebugRoute(app, {
     internalToken: process.env.DS_DASHBOARD_INTERNAL_TOKEN,
   });

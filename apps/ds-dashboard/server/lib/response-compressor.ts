@@ -1,5 +1,6 @@
 import type { DesignSystemKitResult, KitStyle } from '../../../../tooling/src/services/figma-mcp-variables.ts';
-import type { VariableData as FigmaVariable, VariableCollectionData } from '../services/figma-direct-bridge-service.ts';
+import type { FigmaVariableCollection } from '../../../../tooling/src/utils/figma.ts';
+import type { VariableData as FigmaVariable } from '../services/figma-direct-bridge-service.ts';
 
 // Compression levels
 export type CompressionLevel = 'full' | 'summary' | 'compact';
@@ -16,7 +17,7 @@ export type CompressedVariable = CompactVariable | SummaryVariable | FigmaVariab
 // Type for compressed tokens - uses CompressedVariable union instead of FigmaVariable
 type CompressedTokens = {
   variables: Record<string, CompressedVariable>;
-  variableCollections: Record<string, VariableCollectionData>;
+  variableCollections: Record<string, FigmaVariableCollection>;
 };
 
 // Result type that properly types compressed variables
@@ -38,7 +39,7 @@ export function estimateJsonSize(data: unknown): number {
 export function compressVariables(
   vars: Record<string, FigmaVariable>,
   level: CompressionLevel,
-  collections: Record<string, VariableCollectionData>
+  collections: Record<string, FigmaVariableCollection>
 ): Record<string, CompressedVariable> {
   if (level === 'full') {
     return { ...vars };
@@ -143,7 +144,7 @@ export function resolveCompressionLevel(
 export function compressKitResult(
   result: DesignSystemKitResult,
   level: CompressionLevel,
-  collections: Record<string, VariableCollectionData>
+  collections: Record<string, FigmaVariableCollection>
 ): CompressedKitResult {
   // Only compress tokens if they exist in the original result
   const hasTokens = result.tokens !== undefined;

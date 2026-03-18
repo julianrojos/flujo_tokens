@@ -54,17 +54,25 @@ export interface HealthSnapshotCommandConfigOptions {
   toBooleanString: (value: unknown, fallback: boolean) => string;
 }
 
-export interface HealthSnapshotCommandConfigResult {
-  ok: boolean;
-  errorArgs?: {
+type CommandConfigError = {
+  ok: false;
+  errorArgs: {
     code: string;
     userMessage: string;
     recoverable: boolean;
     context?: Record<string, unknown>;
   };
-  commandLabel?: string;
-  scriptArgs?: string[];
-}
+};
+
+type HealthSnapshotCommandConfigSuccess = {
+  ok: true;
+  commandLabel: string;
+  scriptArgs: string[];
+};
+
+export type HealthSnapshotCommandConfigResult =
+  | HealthSnapshotCommandConfigSuccess
+  | CommandConfigError;
 
 export interface SyncFigmaTokensCommandConfigOptions {
   body: {
@@ -83,18 +91,16 @@ export interface SyncFigmaTokensCommandConfigOptions {
   toBooleanString: (value: unknown, fallback: boolean) => string;
 }
 
-export interface SyncFigmaTokensCommandConfigResult {
-  ok: boolean;
-  errorArgs?: {
-    code: string;
-    userMessage: string;
-    recoverable: boolean;
-    context?: Record<string, unknown>;
-  };
-  commandArgs?: string[];
-  commandDisplayArgs?: string[];
+type SyncFigmaTokensCommandConfigSuccess = {
+  ok: true;
+  commandArgs: string[];
+  commandDisplayArgs: string[];
   commandEnv?: Record<string, string>;
-}
+};
+
+export type SyncFigmaTokensCommandConfigResult =
+  | SyncFigmaTokensCommandConfigSuccess
+  | CommandConfigError;
 
 export interface CaptureFigmaScreenshotCommandConfigOptions {
   body: {
@@ -122,18 +128,16 @@ export interface CaptureFigmaScreenshotCommandConfigOptions {
   toNumberString: (value: unknown, fallback: number, max: number) => string;
 }
 
-export interface CaptureFigmaScreenshotCommandConfigResult {
-  ok: boolean;
-  errorArgs?: {
-    code: string;
-    userMessage: string;
-    recoverable: boolean;
-    context?: Record<string, unknown>;
-  };
-  commandArgs?: string[];
-  commandDisplayArgs?: string[];
+type CaptureFigmaScreenshotCommandConfigSuccess = {
+  ok: true;
+  commandArgs: string[];
+  commandDisplayArgs: string[];
   commandEnv?: Record<string, string>;
-}
+};
+
+export type CaptureFigmaScreenshotCommandConfigResult =
+  | CaptureFigmaScreenshotCommandConfigSuccess
+  | CommandConfigError;
 
 function toTrimmed(value: unknown): string {
   return String(value || '').trim();

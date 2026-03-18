@@ -15,7 +15,7 @@ import { type ServerDeps } from '../lib/register-all-routes-service.ts';
 import { registerAllRoutes } from './register-all-routes.ts';
 import { registerFigmaPluginDebugRoute } from './figma-plugin-debug-route.ts';
 import type { Context } from 'hono';
-import type { ConnInfo } from '@hono/node-server/conninfo';
+import { getConnInfo, type ConnInfo } from '@hono/node-server/conninfo';
 
 // ============================================================================
 // Unit Tests for checkDebugEndpointAuth helper
@@ -28,14 +28,14 @@ interface MockContext {
   isDev?: boolean;
 }
 
-function createMockConnInfo(remoteAddress?: string): ConnInfo {
+function createMockConnInfo(remoteAddress?: string): ReturnType<typeof getConnInfo> {
   return {
     remote: {
       address: remoteAddress ?? '',
       port: 8080,
       addressType: remoteAddress?.includes(':') ? 'IPv6' : 'IPv4',
     },
-  } as ConnInfo;
+  } as ReturnType<typeof getConnInfo>;
 }
 
 function createMockContext(ctx: MockContext) {
@@ -45,7 +45,7 @@ function createMockContext(ctx: MockContext) {
     },
   } as unknown as Context;
 
-  const mockGetConnInfo = (): ConnInfo => createMockConnInfo(ctx.remoteAddress);
+  const mockGetConnInfo = (): ReturnType<typeof getConnInfo> => createMockConnInfo(ctx.remoteAddress);
 
   // Mock process.env.NODE_ENV
   const originalNodeEnv = process.env.NODE_ENV;
@@ -95,12 +95,12 @@ function createServerDepsForRouteWiring(): ServerDeps {
     findOperationEventById: () => ({}),
     enqueueReplayJobFromOperation: () => ({}),
     queueJobAcceptedPayload: () => ({}),
-    isDevRuntime: true,
+    isDevRuntime: () => true,
     resolveRepoFilePath: () => '/repo/file',
     sha256Text: () => 'hash',
-    readTextFileLimited: () => '',
+    readTextFileLimited: async () => ({ content: '', truncated: false }),
     findLineForQuery: () => 1,
-    buildSnippet: () => ({}),
+    buildSnippet: () => ({ targetLine: 1, startLine: 1, endLine: 1, snippet: '' }),
     guessContentType: () => 'text/plain',
     MAX_FILE_BYTES: 1_000_000,
     queueJobs: new Map(),

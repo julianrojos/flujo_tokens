@@ -57,7 +57,7 @@ import { fetchVariablesDirect } from '../services/figma-direct-bridge-service.ts
 import { parsePaginationParams, applyPagination, toResourceLinks } from '../lib/pagination-utils.ts';
 import { buildServerMeta } from '../lib/server-meta.ts';
 import { toDtcgTokenSet } from '../lib/dtcg-transform.ts';
-import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
+import { resolveFileKeyFromManager, isFileKeySuccess } from '../lib/filekey-utils.ts';
 
 export interface FigmaMcpVariablesRouteDeps {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
@@ -138,7 +138,7 @@ export async function handleFigmaMcpVariablesRoute(
     noSocketMessage: 'No plugin connection available. Open the Figma plugin and provide a figmaUrl.',
   });
 
-  if ('ok' in resolved && !resolved.ok) {
+  if (!isFileKeySuccess(resolved)) {
     return c.json(resolved, 200);
   }
 

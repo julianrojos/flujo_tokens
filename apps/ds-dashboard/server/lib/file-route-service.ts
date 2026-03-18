@@ -65,7 +65,7 @@ export interface ReadFileContentPayloadResult {
 }
 
 export interface ResolveSnippetTargetLineOptions {
-  rawLine: string;
+  rawLine?: string;
   content: string;
   query: string;
   findLineForQueryFn: (content: string, query: string) => number | null;
@@ -109,7 +109,7 @@ export interface BuildFileSnippetResponseOptions {
     endLine: number;
     snippet: string;
   };
-  matchedBy: string;
+  matchedBy?: 'line' | 'query';
 }
 
 export interface BuildFileSnippetResponseResult {
@@ -118,7 +118,7 @@ export interface BuildFileSnippetResponseResult {
   line: number;
   startLine: number;
   endLine: number;
-  matchedBy: string;
+  matchedBy: 'line' | 'query' | '';
   snippet: string;
 }
 
@@ -275,7 +275,7 @@ export function buildFileContentResponse(options: BuildFileContentResponseOption
  * Build file snippet response.
  */
 export function buildFileSnippetResponse(options: BuildFileSnippetResponseOptions): BuildFileSnippetResponseResult {
-  const { requested, snippet, matchedBy } = options;
+  const { requested, snippet, matchedBy = '' } = options;
   return {
     ok: true,
     file: requested,

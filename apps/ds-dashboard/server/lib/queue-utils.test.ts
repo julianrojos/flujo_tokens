@@ -127,7 +127,7 @@ describe('queue-utils', () => {
         payload: { ok: true },
       });
 
-      const unknown = toQueueTerminalEvent({ status: 'running', result: null });
+      const unknown = toQueueTerminalEvent({ status: 'running', result: undefined });
       assert.equal(unknown.status, 'error');
       assert.equal(unknown.code, 1);
     });

@@ -248,15 +248,15 @@ describe('compressKitResult', () => {
   };
 
   it('should compress variables and styles at full level', () => {
-    const result = compressKitResult(kitResult, 'full', collections);
+    const result = compressKitResult(kitResult as any, 'full', collections);
     assert.deepStrictEqual(result.tokens?.variables, kitResult.tokens?.variables);
     assert.deepStrictEqual(result.styles, kitResult.styles);
   });
 
   it('should compress variables and styles at summary level', () => {
-    const result = compressKitResult(kitResult, 'summary', collections);
-    assert.deepStrictEqual(result.tokens?.variables.var1.valuesByMode, { mode1: { r: 0.1, g: 0.2, b: 0.3, a: 1 } });
-    assert.deepStrictEqual(result.tokens?.variables.var2.valuesByMode, { mode1: 10 });
+    const result = compressKitResult(kitResult as any, 'summary', collections);
+    assert.deepStrictEqual((result.tokens?.variables as any).var1.valuesByMode, { mode1: { r: 0.1, g: 0.2, b: 0.3, a: 1 } });
+    assert.deepStrictEqual((result.tokens?.variables as any).var2.valuesByMode, { mode1: 10 });
     // Summary: styles without description
     assert.deepStrictEqual(result.styles?.[0], {
       id: 'style1',
@@ -267,7 +267,7 @@ describe('compressKitResult', () => {
   });
 
   it('should compress variables and styles at compact level', () => {
-    const result = compressKitResult(kitResult, 'compact', collections);
+    const result = compressKitResult(kitResult as any, 'compact', collections);
     // Compact: only id, name, resolvedType (no valuesByMode at all)
     assert.deepStrictEqual(result.tokens?.variables.var1, {
       id: 'var1',

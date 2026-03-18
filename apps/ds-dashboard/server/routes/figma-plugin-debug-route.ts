@@ -6,14 +6,13 @@
  */
 
 import type { Context } from 'hono';
-import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { checkDebugEndpointAuth } from '../lib/debug-endpoint-auth.ts';
 import { getPluginConnectionManager } from '../services/plugin-connection-manager.ts';
 
 export interface FigmaPluginDebugRouteDeps {
   internalToken?: string;
-  getConnInfoFn?: (c: Context) => ConnInfo;
+  getConnInfoFn?: (c: Context) => ReturnType<typeof getConnInfo>;
 }
 
 /**

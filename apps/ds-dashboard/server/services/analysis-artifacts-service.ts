@@ -35,7 +35,7 @@ export interface ComputeNamingDebtReportDeps {
     tokenUsageIndex: unknown | null;
     tokenGraph: unknown | null;
     config: unknown | null;
-  }) => Promise<NamingDebtReport>;
+  }) => Promise<unknown>;
 }
 
 export interface RunNodeJsonCommandOnceOptions {
@@ -123,12 +123,12 @@ export async function computeNamingDebtReport(
   const tokenGraph = tokenGraphRaw ? JSON.parse(tokenGraphRaw) : null;
   const config = namingConfigRaw ? JSON.parse(namingConfigRaw) : null;
 
-  return analyzeNamingDebtFn({
+  return (await analyzeNamingDebtFn({
     tokenRegistry,
     tokenUsageIndex,
     tokenGraph,
-    config: config || undefined,
-  });
+    config,
+  })) as NamingDebtReport;
 }
 
 /**
@@ -140,8 +140,10 @@ export async function runNodeJsonCommandOnce(
 ): Promise<RunNodeJsonCommandOnceResult> {
   const runSpawnWithCaptureFn = deps.runSpawnWithCaptureFn || runSpawnWithCapture;
   const maxOutputBytes =
-    Number.isFinite(args.maxOutputBytes) && args.maxOutputBytes > 0
-      ? Number(args.maxOutputBytes)
+    typeof args.maxOutputBytes === 'number' &&
+    Number.isFinite(args.maxOutputBytes) &&
+    args.maxOutputBytes > 0
+      ? Math.floor(args.maxOutputBytes)
       : DEFAULT_MAX_OUTPUT_BYTES;
 
   const result = await runSpawnWithCaptureFn({

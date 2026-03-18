@@ -6,12 +6,11 @@
  */
 
 import type { Context } from 'hono';
-import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
 
 export interface FigmaMcpResetRouteDeps {
-  getConnInfoFn?: (c: Context) => ConnInfo;
+  getConnInfoFn?: (c: Context) => ReturnType<typeof getConnInfo>;
 }
 
 /**

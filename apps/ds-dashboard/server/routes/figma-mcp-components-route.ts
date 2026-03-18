@@ -22,7 +22,7 @@ import {
   getComponentImageDirect,
   auditTokenCoverageDirect,
 } from '../services/figma-direct-bridge-service.ts';
-import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
+import { resolveFileKeyFromManager, isFileKeySuccess } from '../lib/filekey-utils.ts';
 
 export interface FigmaMcpComponentsRouteDeps {
   readJsonBody?: (c: Context) => Promise<Record<string, unknown>>;
@@ -81,11 +81,11 @@ async function handleSearchComponents(c: Context, deps: FigmaMcpComponentsRouteD
     noSocketMessage: 'No plugin connection available. Open the Figma plugin and ensure it is connected.',
   });
 
-  if ('ok' in resolved && !resolved.ok) {
+  if (!isFileKeySuccess(resolved)) {
     return c.json(resolved, 200);
   }
 
-  const fileKey = (resolved as { fileKey: string | null }).fileKey;
+  const fileKey = resolved.fileKey;
 
   try {
     const result = await searchComponentsDirect(fileKey, {
@@ -160,11 +160,11 @@ async function handleGetComponentSpec(c: Context, deps: FigmaMcpComponentsRouteD
     noSocketMessage: 'No plugin connection available. Open the Figma plugin.',
   });
 
-  if ('ok' in resolved && !resolved.ok) {
+  if (!isFileKeySuccess(resolved)) {
     return c.json(resolved, 200);
   }
 
-  const fileKey = (resolved as { fileKey: string | null }).fileKey;
+  const fileKey = resolved.fileKey;
 
   if (!body.nodeId || typeof body.nodeId !== 'string') {
     return c.json(
@@ -249,11 +249,11 @@ async function handleGetComponentImages(c: Context, deps: FigmaMcpComponentsRout
     noSocketMessage: 'No plugin connection available.',
   });
 
-  if ('ok' in resolved && !resolved.ok) {
+  if (!isFileKeySuccess(resolved)) {
     return c.json(resolved, 200);
   }
 
-  const fileKey = (resolved as { fileKey: string | null }).fileKey;
+  const fileKey = resolved.fileKey;
 
   if (!Array.isArray(body.nodeIds)) {
     return c.json(

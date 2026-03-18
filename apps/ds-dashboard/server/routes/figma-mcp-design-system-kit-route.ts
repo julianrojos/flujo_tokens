@@ -18,10 +18,10 @@
  */
 
 import type { Context } from 'hono';
-import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
-import { fetchDesignSystemKitDirect, type FigmaVariableCollection } from '../services/figma-direct-bridge-service.ts';
+import { fetchDesignSystemKitDirect } from '../services/figma-direct-bridge-service.ts';
+import type { FigmaVariableCollection } from '../../../../tooling/src/utils/figma.ts';
 import { toDtcgTokenSet } from '../lib/dtcg-transform.ts';
 import {
   compressKitResult,
@@ -30,15 +30,15 @@ import {
   type KitFormat,
   type CompressionLevel,
 } from '../lib/response-compressor.ts';
-import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
+import { resolveFileKeyFromManager, isFileKeySuccess } from '../lib/filekey-utils.ts';
 
 export interface FigmaMcpDesignSystemKitRouteDeps {
-  getConnInfoFn?: (c: Context) => ConnInfo;
+  getConnInfoFn?: (c: Context) => ReturnType<typeof getConnInfo>;
   internalToken?: string;
   fetchDesignSystemKitDirectFn?: typeof fetchDesignSystemKitDirect;
 }
 
-function isAuthorized(c: Context, internalToken: string | undefined, getConnInfoFn: (c: Context) => ConnInfo): boolean {
+function isAuthorized(c: Context, internalToken: string | undefined, getConnInfoFn: (c: Context) => ReturnType<typeof getConnInfo>): boolean {
   const connInfo = getConnInfoFn(c);
   const remoteAddress = String(connInfo?.remote?.address ?? '').trim();
   if (remoteAddress && isLoopbackAddress(remoteAddress)) return true;
@@ -125,7 +125,7 @@ export async function handleGetDesignSystemKit(c: Context, deps: FigmaMcpDesignS
     noSocketMessage: 'No plugin connection available. Open the Figma plugin and provide a fileUrl.',
   });
 
-  if ('ok' in resolved && !resolved.ok) {
+  if (!isFileKeySuccess(resolved)) {
     return c.json(resolved, 200);
   }
 

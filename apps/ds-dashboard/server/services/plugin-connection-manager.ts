@@ -383,7 +383,7 @@ export class PluginConnectionManager {
             return allLogs;
         }
         const buffer = this.pushEventBuffers.get(fileKey);
-        return buffer ? buffer.consoleLogs.toArray() : [];
+        return buffer ? [...buffer.consoleLogs.toArray()] : [];
     }
 
     /**
@@ -420,7 +420,7 @@ export class PluginConnectionManager {
             return allChanges;
         }
         const buffer = this.pushEventBuffers.get(fileKey);
-        return buffer ? buffer.documentChanges.toArray() : [];
+        return buffer ? [...buffer.documentChanges.toArray()] : [];
     }
 
     /**
@@ -719,7 +719,7 @@ export class PluginConnectionManager {
                 break;
             }
             case 'DOCUMENT_CHANGE': {
-                buf.documentChanges.push(payload as DocumentChangeBufferEntry);
+                buf.documentChanges.push(payload as unknown as DocumentChangeBufferEntry);
                 // Trigger cache invalidation callback if configured
                 if (connection.sessionInfo.fileKey && this.onDocumentChange) {
                     try {
@@ -731,7 +731,7 @@ export class PluginConnectionManager {
                 break;
             }
             case 'SELECTION_CHANGE': {
-                buf.selection = payload as SelectionBufferEntry;
+                buf.selection = payload as unknown as SelectionBufferEntry;
                 this._activeFileKey = bufferKey;
                 break;
             }

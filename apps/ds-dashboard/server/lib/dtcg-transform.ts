@@ -1,4 +1,14 @@
-import type { VariableData as FigmaVariable, VariableCollectionData as FigmaVariableCollection } from '../services/figma-direct-bridge-service.ts';
+type DtcgVariableInput = {
+  id: string;
+  name: string;
+  resolvedType: string;
+  valuesByMode: Record<string, unknown>;
+  variableCollectionId: string;
+};
+
+type DtcgCollectionInput = {
+  modes: Array<{ modeId: string }>;
+};
 
 /**
  * Helper function para reemplazar caracteres compatible con lib antiguas
@@ -85,7 +95,7 @@ function resolvedTypeToDtcgType(type: string): string {
 // Resolve variable alias path
 function resolveVariableAliasPath(
   aliasId: string,
-  variables: Record<string, FigmaVariable>,
+  variables: Record<string, DtcgVariableInput>,
   visitedAliasIds: Set<string> = new Set(),
   depth = 0,
   maxDepth = 10
@@ -151,8 +161,8 @@ function setNestedValue(
 
 // Convert Figma variables to DTCG token set
 export function toDtcgTokenSet(
-  variables: Record<string, FigmaVariable>,
-  collections: Record<string, FigmaVariableCollection>,
+  variables: Record<string, DtcgVariableInput>,
+  collections: Record<string, DtcgCollectionInput>,
   modeId?: string
 ): DtcgTokenSet {
   const result: DtcgTokenGroup = {};
