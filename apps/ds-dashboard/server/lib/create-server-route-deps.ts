@@ -12,7 +12,7 @@ export interface CreateServerRouteDepsConfig {
   designSystemRepository: Record<string, unknown>;
   normalizeSystemId: (value: string) => string;
   ensureRelativeDir: (...args: unknown[]) => string;
-  normalizeFigmaApiTokenRef: (...args: unknown[]) => unknown;
+  normalizeFigmaApiTokenRef: (token: string) => string;
   normalizeCollectionList: (...args: unknown[]) => unknown;
   summarizeDesignSystemsConfig: (...args: unknown[]) => unknown;
   resolveSafeSystemPathsForDeletion: (...args: unknown[]) => unknown;
@@ -54,7 +54,7 @@ export interface CreateServerRouteDepsConfig {
   queueNodeJsonCommand: (...args: unknown[]) => unknown;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max?: number) => string;
-  validateGitRef: (...args: unknown[]) => unknown;
+  validateGitRef: (...args: unknown[]) => string | null;
   exitDelayMs?: number;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
 }

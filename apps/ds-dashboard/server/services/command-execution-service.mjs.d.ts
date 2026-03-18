@@ -1,1 +1,1 @@
-export declare function createCommandExecutionService(...args: unknown[]): unknown;
+export function createCommandExecutionService(args: unknown): unknown;

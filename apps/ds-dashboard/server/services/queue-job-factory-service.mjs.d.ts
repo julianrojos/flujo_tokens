@@ -1,1 +1,1 @@
-export declare function createQueueJobFactoryService(...args: unknown[]): unknown;
+export function createQueueJobFactoryService(args: unknown): unknown;

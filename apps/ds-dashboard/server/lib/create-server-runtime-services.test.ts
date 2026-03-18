@@ -10,6 +10,44 @@ import { createServerRuntimeServices } from './create-server-runtime-services.js
 
 describe('create-server-runtime-services', () => {
   describe('createServerRuntimeServices()', () => {
+    // Interfaces mock tipadas para mejor type safety
+    interface MockOperationHistoryServiceParams {
+      getSystemContext: () => any;
+      opsLogRetentionDays: number;
+      opsHistoryMaxLimit: number;
+      opsLogFileRegex: RegExp;
+      normalizeSystemId: (value: string) => string;
+      writeStructuredLog: (level: string, payload: any) => void;
+      nowIso: () => string;
+      createOperationEventId: () => string;
+    }
+
+    interface MockQueueEngineParams {
+      getSystemContext: () => any;
+      enqueueQueueJob: (...args: any[]) => any;
+      runQueuedSpawnCommand: (...args: any[]) => any;
+      sha256Text: (...args: any[]) => any;
+      nowIso: () => string;
+      createOperationEventId: () => string;
+    }
+
+    interface MockCommandExecutionServiceParams {
+      getSystemContext: () => any;
+      runQueuedSpawnCommand: (...args: any[]) => any;
+      writeStructuredLog: (level: string, payload: any) => void;
+      nowIso: () => string;
+      createOperationEventId: () => string;
+    }
+
+    interface MockQueueJobFactoryServiceParams {
+      getSystemContext: () => any;
+      replayableNpmScripts: Set<string>;
+      supportedReplayOperations: Set<string>;
+      sha256Text: (...args: any[]) => any;
+      nowIso: () => string;
+      createOperationEventId: () => string;
+    }
+
     it('wires factories and returns runtime contract', () => {
       const calls: Record<string, unknown> = {
         operationHistory: null,
@@ -78,21 +116,21 @@ describe('create-server-runtime-services', () => {
         nowIso: () => '2026-01-01T00:00:00.000Z',
         createOperationEventId: () => 'op_1',
         // Tipos explícitos para parámetros de factory functions (R-008)
-        createOperationHistoryServiceFn: (args: Parameters<typeof createOperationHistoryService>[0]) => {
+        createOperationHistoryServiceFn: (args: MockOperationHistoryServiceParams) => {
           calls.operationHistory = args;
           return operationHistoryService as any;
         },
-        createQueueEngineServiceFn: (args: Parameters<typeof createQueueEngineService>[0]) => {
+        createQueueEngineServiceFn: (args: MockQueueEngineParams) => {
           calls.queueEngine = args;
           return queueEngineService as any;
         },
-        createQueueJobFactoryServiceFn: (args: Parameters<typeof createQueueJobFactoryService>[0]) => {
-          calls.queueJobFactory = args;
-          return queueJobFactoryService as any;
-        },
-        createCommandExecutionServiceFn: (args: Parameters<typeof createCommandExecutionService>[0]) => {
+        createCommandExecutionServiceFn: (args: MockCommandExecutionServiceParams) => {
           calls.commandExecution = args;
           return commandExecutionService as any;
+        },
+        createQueueJobFactoryServiceFn: (args: MockQueueJobFactoryServiceParams) => {
+          calls.queueJobFactory = args;
+          return queueJobFactoryService as any;
         },
         runSpawnWithCaptureFn: () => Promise.resolve({ ok: true, exitCode: 0, stdout: '', stderr: '', parsedJson: null, summary: 'test', jsonParseError: null, spawnError: null }),
         toQueueSummaryFromPayloadFn: () => 'summary',

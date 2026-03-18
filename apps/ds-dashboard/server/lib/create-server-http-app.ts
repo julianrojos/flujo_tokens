@@ -12,6 +12,7 @@ import { registerAllRoutes } from '../routes/register-all-routes.ts';
 import { createFailJson, createHealthPayloadBuilder, type QueueMetrics } from './api-response-service.ts';
 import { buildCreateServerRouteDeps } from './create-server-route-deps.ts';
 import { registerUnhandledErrorMiddleware } from './error-middleware.ts';
+import type { ErrorMiddlewareDeps } from './error-middleware.ts';
 
 export interface CreateServerHttpAppConfig {
   queueMetrics: () => unknown;
@@ -81,14 +82,15 @@ export function createServerHttpApp(config: CreateServerHttpAppConfig): CreateSe
     buildCreateServerRouteDepsFn({
       ...routeDeps as any,
       buildHealthPayload: buildHealthPayload as (...args: unknown[]) => unknown,
-      failJson: failJson as (...args: unknown[]) => unknown,
+      failJson: failJson as ErrorMiddlewareDeps['failJson'],
+      normalizeFigmaApiTokenRef: routeDeps.normalizeFigmaApiTokenRef as any,
     } as any),
   );
 
   registerUnhandledErrorMiddlewareFn(app, {
     createApiRequestId,
     writeStructuredLog,
-    failJson,
+    failJson: failJson as ErrorMiddlewareDeps['failJson'],
   });
 
   return {

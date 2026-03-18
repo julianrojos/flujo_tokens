@@ -1,2 +1,2 @@
-export declare function computeNamingDebtReport(...args: unknown[]): unknown;
-export declare function validateGitRef(...args: unknown[]): unknown;
+export function computeNamingDebtReport(args: unknown): unknown;
+export function validateGitRef(...args: unknown[]): unknown;

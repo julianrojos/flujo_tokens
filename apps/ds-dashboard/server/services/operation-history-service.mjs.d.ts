@@ -1,1 +1,1 @@
-export declare function createOperationHistoryService(...args: unknown[]): unknown;
+export function createOperationHistoryService(args: unknown): unknown;

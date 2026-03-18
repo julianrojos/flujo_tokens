@@ -44,25 +44,25 @@ export interface OperationsDeps {
 }
 
 export interface ComponentSpecDeps extends SharedSystemContextDeps {
-  isDevRuntime: boolean;
+  isDevRuntime: () => boolean;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
-  resolveRepoFilePath: (path: string) => string;
+  resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
 }
 
 export interface FileDeps extends SharedSystemContextDeps {
-  resolveRepoFilePath: (path: string) => string;
-  readTextFileLimited: (path: string, limit: number) => string;
-  findLineForQuery: (args: unknown) => unknown;
-  buildSnippet: (args: unknown) => unknown;
-  guessContentType: (path: string) => string;
+  resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
+  readTextFileLimited: (...args: unknown[]) => Promise<{ content: string; truncated: boolean }>;
+  findLineForQuery: (content: string, query: string) => number | null;
+  buildSnippet: (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string };
+  guessContentType: (filePath: string) => string;
   MAX_FILE_BYTES: number;
 }
 
 export interface JobDeps {
   failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
-  queueJobs: (args: unknown) => unknown;
-  listQueueJobEvents: (args: unknown) => unknown;
+  queueJobs: Map<string, unknown>;
+  listQueueJobEvents: (...args: unknown[]) => Array<{ seq: number }>;
   queueJobSnapshot: (job: unknown) => unknown;
   isQueueJobFinalStatus: (status: string) => boolean;
   cancelQueueJob: (id: string) => unknown;
@@ -139,16 +139,16 @@ export interface ServerDeps {
   findOperationEventById: (id: string) => unknown;
   enqueueReplayJobFromOperation: (args: unknown) => unknown;
   queueJobAcceptedPayload: (job: unknown) => unknown;
-  isDevRuntime: boolean;
-  resolveRepoFilePath: (path: string) => string;
+  isDevRuntime: () => boolean;
+  resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
-  readTextFileLimited: (path: string, limit: number) => string;
-  findLineForQuery: (args: unknown) => unknown;
-  buildSnippet: (args: unknown) => unknown;
-  guessContentType: (path: string) => string;
+  readTextFileLimited: (...args: unknown[]) => Promise<{ content: string; truncated: boolean }>;
+  findLineForQuery: (content: string, query: string) => number | null;
+  buildSnippet: (...args: unknown[]) => { targetLine: number; startLine: number; endLine: number; snippet: string };
+  guessContentType: (filePath: string) => string;
   MAX_FILE_BYTES: number;
-  queueJobs: (args: unknown) => unknown;
-  listQueueJobEvents: (args: unknown) => unknown;
+  queueJobs: Map<string, unknown>;
+  listQueueJobEvents: (...args: unknown[]) => Array<{ seq: number }>;
   queueJobSnapshot: (job: unknown) => unknown;
   isQueueJobFinalStatus: (status: string) => boolean;
   cancelQueueJob: (id: string) => unknown;

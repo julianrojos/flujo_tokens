@@ -1,1 +1,1 @@
-export declare function createQueueEngineService(...args: unknown[]): unknown;
+export function createQueueEngineService(args: unknown): unknown;

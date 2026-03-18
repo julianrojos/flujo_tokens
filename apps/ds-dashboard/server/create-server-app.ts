@@ -246,9 +246,8 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       // Preservar TODAS las propiedades del contexto original (no solo systemId/header)
       // Esto evita regresiones en consumidores que esperan campos adicionales
       const result = {
-        systemId: context.systemId,
-        header: context.header ?? systemHeader,
-        // Spread completo para preservar cualquier propiedad adicional
+        header: systemHeader,
+        // Spread completo para preservar cualquier propiedad adicional (incluye systemId)
         ...context,
       };
 
