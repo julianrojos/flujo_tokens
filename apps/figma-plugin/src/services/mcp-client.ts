@@ -33,6 +33,16 @@ export interface McpCapabilities {
     availablePorts: number[];
     activePort: number;
   };
+  transport?: {
+    mode?: 'direct' | 'ws' | 'none';
+    wsAlive?: boolean;
+    heartbeatAlive?: boolean;
+    livenessSource?: 'ws' | 'legacy' | 'hybrid' | 'none';
+  };
+  disconnectionCause?: {
+    code: string;
+    message: string;
+  };
 }
 
 export interface McpError {
@@ -62,7 +72,7 @@ export interface HeartbeatResponse {
 }
 
 const DEFAULT_API_BASE = 'http://localhost:8787';
-const LOCAL_API_BASES = ['http://localhost:8787'] as const;
+const LOCAL_API_BASES = ['http://localhost:8787', 'http://127.0.0.1:8787'] as const;
 const DEFAULT_MCP_REQUEST_TIMEOUT_MS = 60_000;
 
 function isTimeoutLikeError(error: unknown): boolean {

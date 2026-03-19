@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useOperationRunner, formatRelativeTime } from "../hooks/use-operation-runner";
 import { LogTerminal } from "./log-terminal";
+import type { FigmaMcpDesignContextCompactResponse } from "@/lib/api";
 
 interface FigmaTokenSyncFormProps {
   id: string;
@@ -38,6 +39,8 @@ export function FigmaTokenSyncForm({
   const [merge, setMerge] = useState(false);
   const [compile, setCompile] = useState(true);
   const [dryRun, setDryRun] = useState(true); // Safe default: dry-run ON
+  const [designContext, setDesignContext] = useState<FigmaMcpDesignContextCompactResponse | null>(null);
+  const [acknowledgeContextRisk, setAcknowledgeContextRisk] = useState(false);
 
   const [{ status, isRunning, logLines, summary, lastRunAt, elapsedMs }, { run, clearLogs }] =
     useOperationRunner(id, endpoint, onRunSuccess);
@@ -55,8 +58,18 @@ export function FigmaTokenSyncForm({
   }, [run, figmaUrl, figmaToken, dryRun, force, merge, compile]);
 
   const handleClear = useCallback(() => clearLogs(), [clearLogs]);
+  const handleContextChange = useCallback((payload: FigmaMcpDesignContextCompactResponse | null) => {
+    setDesignContext(payload);
+    setAcknowledgeContextRisk(false);
+  }, []);
 
   const canRun = !isRunning;
+  const contextMissingCount =
+    designContext?.ok === true ? Number(designContext.tokens?.missingCount || 0) : 0;
+  const contextModeFallbackCount =
+    designContext?.ok === true ? Number(designContext.tokens?.modeFallbackCount || 0) : 0;
+  const hasBlockingContextIssue = contextMissingCount > 0;
+  const canRunWithContextGuard = canRun && (!hasBlockingContextIssue || acknowledgeContextRisk);
   const hasLogs = logLines.length > 0 || !!summary;
 
   const elapsedLabel =
@@ -164,6 +177,8 @@ export function FigmaTokenSyncForm({
               figmaUrl={figmaUrl}
               figmaToken={figmaToken}
               className="mt-2"
+              showDesignContextCompact
+              onDesignContextCompactChange={handleContextChange}
             />
           </div>
 
@@ -275,23 +290,46 @@ export function FigmaTokenSyncForm({
             ) : (
               <div />
             )}
-            <button
-              onClick={handleRun}
-              disabled={!canRun}
-              className="flex items-center gap-2 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2 text-sm font-medium transition disabled:opacity-50"
-            >
-              {isRunning ? (
+            <div className="flex flex-col items-end gap-1.5">
+              {hasBlockingContextIssue ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {dryRun ? "Previsualizando…" : "Sincronizando…"}
+                  <p className="max-w-[340px] text-right text-[11px] text-red-600 dark:text-red-400">
+                    Current selection has {contextMissingCount} token bindings without a resolved variable.
+                  </p>
+                  <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={acknowledgeContextRisk}
+                      onChange={(event) => setAcknowledgeContextRisk(event.target.checked)}
+                      disabled={isRunning}
+                      className="h-3.5 w-3.5"
+                    />
+                    Continue anyway
+                  </label>
                 </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4" />
-                  {dryRun ? "Preview" : "Sincronizar Variables"}
-                </>
-              )}
-            </button>
+              ) : contextModeFallbackCount > 0 ? (
+                <p className="max-w-[340px] text-right text-[11px] text-amber-600 dark:text-amber-400">
+                  Current selection includes {contextModeFallbackCount} variables using mode fallback.
+                </p>
+              ) : null}
+              <button
+                onClick={handleRun}
+                disabled={!canRunWithContextGuard}
+                className="flex items-center gap-2 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground px-5 py-2 text-sm font-medium transition disabled:opacity-50"
+              >
+                {isRunning ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {dryRun ? "Previsualizando…" : "Sincronizando…"}
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    {dryRun ? "Preview" : "Sincronizar Variables"}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* ── Log output ── */}

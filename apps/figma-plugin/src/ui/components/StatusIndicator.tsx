@@ -23,8 +23,8 @@ function getStatusConfig(state: ConnectionState['state'] | undefined): {
   switch (state) {
     case 'connected':    return { color: COLOR.connected,    label: 'Connected',     sublabel: 'MCP session is active for this file' };
     case 'disconnected': return { color: COLOR.disconnected, label: 'Disconnected',  sublabel: 'MCP is not linked to the current Figma file' };
-    case 'mismatch':     return { color: COLOR.mismatch,     label: 'Port Mismatch', sublabel: 'MCP and plugin are on different ports' };
-    case 'fallback':     return { color: COLOR.fallback,     label: 'Connected',      sublabel: 'Connected on an alternate MCP port' };
+    case 'mismatch':     return { color: COLOR.connected,    label: 'Connected',      sublabel: 'Direct MCP session is active' };
+    case 'fallback':     return { color: COLOR.connected,    label: 'Connected',      sublabel: 'Direct MCP session is active' };
     default:             return { color: COLOR.unknown,      label: 'Checking…',     sublabel: '' };
   }
 }

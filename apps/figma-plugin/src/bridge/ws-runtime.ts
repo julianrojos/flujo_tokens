@@ -94,6 +94,7 @@ export class WebSocketRuntime {
   private pendingCodeRequests: Map<string, PendingCodeRequest> = new Map();
   private pluginMessageListener: ((event: MessageEvent) => void) | null = null;
   private pluginMessageTarget: MessageTargetLike | null = null;
+  private preferredLoopbackHost: 'localhost' | '127.0.0.1' = 'localhost';
 
   constructor(config?: Partial<WSRuntimeConfig>) {
     this.config = { ...DEFAULT_WS_CONFIG, ...config };
@@ -155,6 +156,35 @@ export class WebSocketRuntime {
     }
   }
 
+  /**
+   * Build direct WebSocket candidates for loopback hosts.
+   * Keeps direct-only behavior while tolerating localhost/127.0.0.1 mismatches.
+   */
+  private getDirectWsCandidateUrls(): string[] {
+    const directWsUrl = this.validateDirectWsUrl();
+    if (!directWsUrl) return [];
+
+    try {
+      const parsed = new URL(directWsUrl);
+      if (parsed.hostname !== 'localhost' && parsed.hostname !== '127.0.0.1') {
+        return [directWsUrl];
+      }
+
+      const fallbackHost = this.preferredLoopbackHost === 'localhost' ? '127.0.0.1' : 'localhost';
+      const preferred = new URL(directWsUrl);
+      preferred.hostname = this.preferredLoopbackHost;
+      const fallback = new URL(directWsUrl);
+      fallback.hostname = fallbackHost;
+      const candidates = [preferred.toString()];
+      if (fallback.toString() !== preferred.toString()) {
+        candidates.push(fallback.toString());
+      }
+      return candidates;
+    } catch {
+      return [directWsUrl];
+    }
+  }
+
   // ============================================================================
   // Connection Management
   // ============================================================================
@@ -172,9 +202,9 @@ export class WebSocketRuntime {
 
     this.ensurePluginMessageListener();
 
-    // Direct mode: connect to single WebSocket endpoint
-    const directWsUrl = this.validateDirectWsUrl();
-    if (!directWsUrl) {
+    // Direct mode with loopback fallback candidates.
+    const directWsCandidates = this.getDirectWsCandidateUrls();
+    if (directWsCandidates.length === 0) {
       console.error(`[DirectWS] Invalid or missing directWsUrl: ${this.config.directWsUrl}`);
       this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'invalid_direct_ws_url');
       console.log('[DirectWS] Staying disconnected due to invalid directWsUrl. Fix config to restore connection.');
@@ -182,22 +212,37 @@ export class WebSocketRuntime {
       return;
     }
 
-    console.log(`[DirectWS] Starting direct mode connection to ${directWsUrl}`);
+    console.log(`[DirectWS] Starting direct mode connection. Candidates: ${directWsCandidates.join(', ')}`);
     this.updateStatus('connecting', DIRECT_MODE_VIRTUAL_PORT, null);
-    await this.connectToDirect(directWsUrl);
+    for (const wsUrl of directWsCandidates) {
+      const connected = await this.connectToDirect(wsUrl);
+      if (connected) {
+        return;
+      }
+    }
+    this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'connection_failed_all_candidates');
+    if (!this.isStopping) {
+      this.scheduleReconnect();
+    }
   }
 
   /**
    * Connect to direct WebSocket endpoint (direct mode)
    * Includes connection timeout to prevent hanging indefinitely.
    */
-  private async connectToDirect(wsUrl: string): Promise<void> {
+  private async connectToDirect(wsUrl: string): Promise<boolean> {
     return new Promise((resolve) => {
       this.isConnecting = true;
       console.log(`[DirectWS] Connecting to ${wsUrl}`);
 
       const ws = new WebSocket(wsUrl);
       const actualPort = this.extractPortFromWsUrl(wsUrl);
+      let actualHost = 'localhost';
+      try {
+        actualHost = new URL(wsUrl).hostname || actualHost;
+      } catch {
+        // Keep default host label when URL parsing fails.
+      }
 
       // Connection timeout to prevent hanging indefinitely
       const connectionTimer = setTimeout(() => {
@@ -209,12 +254,7 @@ export class WebSocketRuntime {
         this.isConnecting = false;
         this.updateStatus('disconnected', actualPort, null, 'connection_timeout');
 
-        // Schedule reconnect in direct mode too
-        if (!this.isStopping) {
-          this.scheduleReconnect();
-        }
-
-        resolve();
+        resolve(false);
       }, this.config.connectionTimeout);
 
       const onOpen = (): void => {
@@ -224,16 +264,19 @@ export class WebSocketRuntime {
         ws.removeEventListener('error', onError);
 
         // Store connection and attach standard handlers.
-        this.addConnection(actualPort, 'localhost', ws);
+        this.addConnection(actualPort, actualHost, ws);
 
         // Don't mark as 'connected' yet - wait for handshake/bootstrap to complete
         // addConnection already marks as 'connecting' if handshakeComplete is false
         this.isConnecting = false;
+        if (actualHost === 'localhost' || actualHost === '127.0.0.1') {
+          this.preferredLoopbackHost = actualHost;
+        }
 
         // Send session info in direct mode (this triggers handshake)
         void this.sendSessionInfo(ws);
 
-        resolve();
+        resolve(true);
       };
 
       const onError = (): void => {
@@ -246,12 +289,7 @@ export class WebSocketRuntime {
         this.isConnecting = false;
         this.updateStatus('disconnected', actualPort, null, 'connection_failed');
 
-        // Schedule reconnect in direct mode too
-        if (!this.isStopping) {
-          this.scheduleReconnect();
-        }
-
-        resolve();
+        resolve(false);
       };
 
       ws.addEventListener('open', onOpen);
@@ -486,13 +524,24 @@ export class WebSocketRuntime {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       // Direct mode: reconnect to single WebSocket endpoint
-      const directWsUrl = this.validateDirectWsUrl();
-      if (!directWsUrl) {
+      const directWsCandidates = this.getDirectWsCandidateUrls();
+      if (directWsCandidates.length === 0) {
         console.error(`[DirectWS] Invalid or missing directWsUrl during reconnect: ${this.config.directWsUrl}`);
         this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'invalid_direct_ws_url');
         return;
       }
-      void this.connectToDirect(directWsUrl);
+      void (async () => {
+        for (const wsUrl of directWsCandidates) {
+          const connected = await this.connectToDirect(wsUrl);
+          if (connected) {
+            return;
+          }
+        }
+        this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'connection_failed_all_candidates');
+        if (!this.isStopping) {
+          this.scheduleReconnect();
+        }
+      })();
     }, delay);
 
     this.reconnectDelay = delay;

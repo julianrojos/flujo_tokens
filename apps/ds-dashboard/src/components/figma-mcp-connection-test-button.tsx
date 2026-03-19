@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
   ApiError,
+  getFigmaMcpDesignContextCompact,
   getFigmaMcpHeartbeat,
   pingFigmaMcp,
+  type FigmaMcpDesignContextCompactResponse,
   type FigmaMcpHeartbeatResult,
   type FigmaMcpPingResult,
 } from "@/lib/api";
@@ -19,6 +21,8 @@ interface FigmaMcpConnectionTestButtonProps {
   size?: "default" | "sm";
   showDetectedCounts?: boolean;
   suggestResolve?: boolean;
+  showDesignContextCompact?: boolean;
+  onDesignContextCompactChange?: (result: FigmaMcpDesignContextCompactResponse | null) => void;
 }
 
 const RESET_POLL_INTERVAL_MS = 2_000;
@@ -48,6 +52,8 @@ export function FigmaMcpConnectionTestButton({
   size = "sm",
   showDetectedCounts = true,
   suggestResolve = false,
+  showDesignContextCompact = false,
+  onDesignContextCompactChange,
 }: FigmaMcpConnectionTestButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isResolveModalOpen, setIsResolveModalOpen] = useState(false);
@@ -59,16 +65,27 @@ export function FigmaMcpConnectionTestButton({
   const [clockMs, setClockMs] = useState(() => Date.now());
   const [result, setResult] = useState<FigmaMcpPingResult | null>(null);
   const [heartbeat, setHeartbeat] = useState<FigmaMcpHeartbeatResult | null>(null);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
+  const [contextResult, setContextResult] = useState<FigmaMcpDesignContextCompactResponse | null>(null);
   const pollingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contextGenerationRef = useRef(0);
   const pollGenerationRef = useRef(0);
   const normalizedUrl = useMemo(() => String(figmaUrl || "").trim(), [figmaUrl]);
   const normalizedToken = useMemo(
     () => String(figmaToken || "").trim() || undefined,
     [figmaToken],
   );
+  const setDesignContextResult = useCallback(
+    (payload: FigmaMcpDesignContextCompactResponse | null) => {
+      setContextResult(payload);
+      onDesignContextCompactChange?.(payload);
+    },
+    [onDesignContextCompactChange],
+  );
 
   useEffect(() => {
     stopPolling();
+    contextGenerationRef.current += 1;
     setIsLoading(false);
     setResult(null);
     setIsResetting(false);
@@ -76,7 +93,9 @@ export function FigmaMcpConnectionTestButton({
     setResetDeadlineMs(null);
     setWaitDeadlineMs(null);
     setHeartbeat(null);
-  }, [normalizedUrl, normalizedToken]);
+    setIsLoadingContext(false);
+    setDesignContextResult(null);
+  }, [normalizedUrl, normalizedToken, setDesignContextResult]);
 
   useEffect(() => {
     let disposed = false;
@@ -113,6 +132,7 @@ export function FigmaMcpConnectionTestButton({
   useEffect(() => {
     return () => {
       stopPolling();
+      contextGenerationRef.current += 1;
     };
   }, []);
 
@@ -131,6 +151,41 @@ export function FigmaMcpConnectionTestButton({
     figmaUrl: normalizedUrl || undefined,
     figmaToken: normalizedToken,
   });
+
+  const fetchDesignContextCompact = async () => {
+    if (!showDesignContextCompact) return;
+    const generation = contextGenerationRef.current + 1;
+    contextGenerationRef.current = generation;
+    setIsLoadingContext(true);
+    try {
+      const payload = await getFigmaMcpDesignContextCompact(
+        {
+          fileUrl: normalizedUrl || undefined,
+        },
+      );
+      if (generation !== contextGenerationRef.current) return;
+      setDesignContextResult(payload);
+    } catch (error) {
+      if (generation !== contextGenerationRef.current) return;
+      if (error instanceof ApiError) {
+        setDesignContextResult({
+          ok: false,
+          code: error.code,
+          message: error.message || "Could not load compact design context.",
+        });
+      } else {
+        setDesignContextResult({
+          ok: false,
+          code: "context_compact.client_error",
+          message: "Could not load compact design context.",
+        });
+      }
+    } finally {
+      if (generation === contextGenerationRef.current) {
+        setIsLoadingContext(false);
+      }
+    }
+  };
 
   /**
    * Poll connection while waiting for plugin reconnection.
@@ -221,6 +276,13 @@ export function FigmaMcpConnectionTestButton({
       const payload = await pingFigmaMcp(buildPingArgs());
       if (generation !== pollGenerationRef.current) return;
       setResult(payload);
+      if (payload.connected && showDesignContextCompact) {
+        void fetchDesignContextCompact();
+      } else if (!payload.connected && showDesignContextCompact) {
+        contextGenerationRef.current += 1;
+        setIsLoadingContext(false);
+        setDesignContextResult(null);
+      }
     } catch (error) {
       if (generation !== pollGenerationRef.current) return;
       if (error instanceof ApiError) {
@@ -247,6 +309,7 @@ export function FigmaMcpConnectionTestButton({
 
   const handleResolveConnection = async () => {
     stopPolling();
+    contextGenerationRef.current += 1;
     const generation = pollGenerationRef.current;
     setIsResolveModalOpen(false);
     setResolveConfirmed(false);
@@ -256,6 +319,8 @@ export function FigmaMcpConnectionTestButton({
     setIsResetting(true);
     setResetDeadlineMs(Date.now() + RESET_POLL_TIMEOUT_MS);
     setResult(null);
+    setIsLoadingContext(false);
+    setDesignContextResult(null);
 
     // Direct mode: skip reconcile (legacy endpoint returns 410) and go straight to polling
     if (generation !== pollGenerationRef.current) return;
@@ -313,6 +378,11 @@ export function FigmaMcpConnectionTestButton({
   const activeRecoveryStep = isResetting ? 0 : isWaiting ? 1 : -1;
   const resetSecondsLeft = remainingSeconds(resetDeadlineMs, clockMs);
   const waitSecondsLeft = remainingSeconds(waitDeadlineMs, clockMs);
+  const contextTokens = contextResult?.tokens?.items ?? [];
+  const aliasCount = useMemo(
+    () => contextTokens.filter((item) => item.isAlias).length,
+    [contextTokens],
+  );
 
   return (
     <div className={cn("min-w-0 space-y-1.5", className)}>
@@ -339,6 +409,25 @@ export function FigmaMcpConnectionTestButton({
             disabled={disabled || isLoading}
           >
             Resolve connection
+          </Button>
+        ) : null}
+
+        {showDesignContextCompact ? (
+          <Button
+            type="button"
+            variant="outline"
+            size={size}
+            onClick={() => void fetchDesignContextCompact()}
+            disabled={
+              disabled ||
+              isLoading ||
+              isResetting ||
+              isWaiting ||
+              isLoadingContext ||
+              result?.connected !== true
+            }
+          >
+            {isLoadingContext ? "Inspecting selection…" : "Inspect selection"}
           </Button>
         ) : null}
       </div>
@@ -449,6 +538,72 @@ export function FigmaMcpConnectionTestButton({
             {result.message ? ` — ${result.message}` : ""}
           </p>
         )
+      ) : null}
+
+      {showDesignContextCompact && (isLoadingContext || contextResult) ? (
+        <div className="space-y-1.5 rounded-md border border-border/70 bg-muted/25 p-2.5 text-[11px]">
+          {isLoadingContext ? (
+            <p className="text-muted-foreground">Inspecting current Figma selection…</p>
+          ) : contextResult?.ok === true ? (
+            <>
+              <p className="font-medium text-foreground/90">
+                Selection context
+                {contextResult.targetNodeId ? ` · ${contextResult.targetNodeId}` : ""}
+              </p>
+              <p className="text-muted-foreground">
+                {contextResult.selection?.count ?? 0} selected
+                {contextResult.selection?.page ? ` · ${contextResult.selection.page}` : ""}
+                {contextResult.component
+                  ? ` · ${contextResult.component.type} ${contextResult.component.name}`
+                  : contextResult.node
+                    ? ` · ${contextResult.node.type} ${contextResult.node.name}`
+                    : ""}
+              </p>
+              <p className="text-muted-foreground">
+                Token bindings: {contextResult.tokens?.count ?? 0}
+                {aliasCount > 0 ? ` · aliases ${aliasCount}` : ""}
+                {(contextResult.tokens?.missingCount ?? 0) > 0
+                  ? ` · missing ${contextResult.tokens?.missingCount ?? 0}`
+                  : ""}
+                {(contextResult.tokens?.modeFallbackCount ?? 0) > 0
+                  ? ` · mode fallback ${contextResult.tokens?.modeFallbackCount ?? 0}`
+                  : ""}
+              </p>
+              {contextTokens.length > 0 ? (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {contextTokens.slice(0, 6).map((token) => (
+                    <span
+                      key={`${token.id}:${token.modeId ?? "none"}`}
+                      className={cn(
+                        "rounded border px-1.5 py-0.5 font-mono",
+                        token.isAlias
+                          ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
+                          : "border-border text-muted-foreground",
+                      )}
+                    >
+                      {token.name}
+                    </span>
+                  ))}
+                  {contextTokens.length > 6 ? (
+                    <span className="rounded border border-border px-1.5 py-0.5 text-muted-foreground">
+                      +{contextTokens.length - 6} more
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+              {Array.isArray(contextResult.warnings) && contextResult.warnings.length > 0 ? (
+                <p className="text-amber-700 dark:text-amber-400">
+                  {contextResult.warnings[0]}
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-red-600 dark:text-red-400">
+              Could not inspect selection
+              {contextResult?.message ? ` — ${contextResult.message}` : ""}
+            </p>
+          )}
+        </div>
       ) : null}
 
       {heartbeat ? (

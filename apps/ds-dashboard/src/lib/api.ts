@@ -1183,6 +1183,66 @@ export interface FigmaMcpHeartbeatResult {
   pluginBuild?: string | null;
 }
 
+export interface FigmaMcpDesignContextCompactSelectionNode {
+  id: string;
+  name: string;
+  type: string;
+  width: number | null;
+  height: number | null;
+}
+
+export interface FigmaMcpDesignContextCompactResponse {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  fileKey?: string | null;
+  targetNodeId?: string | null;
+  selection?: {
+    count: number;
+    page: string | null;
+    nodes: FigmaMcpDesignContextCompactSelectionNode[];
+  };
+  node?: {
+    id: string;
+    name: string;
+    type: string;
+    parentId: string | null;
+    x: number | null;
+    y: number | null;
+    width: number | null;
+    height: number | null;
+  } | null;
+  component?: {
+    nodeId: string;
+    name: string;
+    type: "COMPONENT" | "COMPONENT_SET";
+    description: string | null;
+    props: Array<{ name: string; type: string }>;
+    states: string[];
+    variantAxes: Array<{ name: string; values: string[] }>;
+    tokenBindingCount: number;
+  } | null;
+  tokens?: {
+    requestedModeId: string | null;
+    count: number;
+    missingCount: number;
+    modeFallbackCount: number;
+    items: Array<{
+      id: string;
+      name: string;
+      resolvedType: string;
+      collectionId: string;
+      collectionName: string | null;
+      modeId: string | null;
+      modeName: string | null;
+      value: unknown;
+      isAlias: boolean;
+      aliasToVariableId: string | null;
+    }>;
+  };
+  warnings?: string[];
+}
+
 
 interface FigmaMcpCapabilitiesResponse extends McpCapabilitiesPayload {
   ok?: boolean;
@@ -1314,6 +1374,47 @@ export async function getFigmaMcpHeartbeat(): Promise<FigmaMcpHeartbeatResult> {
   return requestJson<FigmaMcpHeartbeatResult>("/api/figma-mcp/heartbeat", {
     method: "GET",
   });
+}
+
+const DEFAULT_DESIGN_CONTEXT_TIMEOUT_MS = 20_000;
+
+export async function getFigmaMcpDesignContextCompact(
+  args?: {
+    fileUrl?: string;
+    nodeId?: string;
+    modeId?: string;
+  },
+  options?: { timeoutMs?: number },
+): Promise<FigmaMcpDesignContextCompactResponse> {
+  const params = new URLSearchParams();
+  const fileUrl = toNonEmptyString(args?.fileUrl);
+  const nodeId = toNonEmptyString(args?.nodeId);
+  const modeId = toNonEmptyString(args?.modeId);
+  if (fileUrl) params.set("fileUrl", fileUrl);
+  if (nodeId) params.set("nodeId", nodeId);
+  if (modeId) params.set("modeId", modeId);
+
+  const query = params.size > 0 ? `?${params.toString()}` : "";
+  const timeoutMsRaw = Number(options?.timeoutMs);
+  const timeoutMs =
+    Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0
+      ? Math.floor(timeoutMsRaw)
+      : DEFAULT_DESIGN_CONTEXT_TIMEOUT_MS;
+
+  const controller = new AbortController();
+  const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await requestJson<FigmaMcpDesignContextCompactResponse>(
+      `/api/figma-mcp/design-context-compact${query}`,
+      {
+        method: "GET",
+        signal: controller.signal,
+      },
+    );
+  } finally {
+    globalThis.clearTimeout(timeoutId);
+  }
 }
 
 type CaptureProgressSnapshot = {
