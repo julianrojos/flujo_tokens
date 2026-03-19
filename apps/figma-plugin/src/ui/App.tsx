@@ -4,7 +4,7 @@
  * Main layout, designer-first:
  *   StatusIndicator  — large connection semaphore
  *   KitSummary       — token/style counts
- *   SyncButton       — CTA to sync tokens
+ *   SyncButton       — CTA to update variables
  *   AdvancedSection  — collapsible: ConnectionStatus
  *
  * Bridge integration:
@@ -24,12 +24,16 @@ import { PLUGIN_VERSION, PLUGIN_BUILD } from '../version';
 import { COLOR, FONT, SPACE, UI_WIDTH } from './styles/tokens';
 
 interface InitMessage { type: 'INIT'; docName: string; fileKey?: string | null }
+interface DocumentChangeMessage { type: 'DOCUMENT_CHANGE' }
+type PluginUiMessage = InitMessage | DocumentChangeMessage;
 
 const App: React.FC = () => {
   const [docName, setDocName] = useState('');
   const [fileKey, setFileKey] = useState<string | null>(null);
   const [connectionState, setConnState] = useState<ConnectionState | null>(null);
   const [kitRefreshSignal, setKitReset] = useState(0);
+  const [variablesUpToDate, setVariablesUpToDate] = useState(false);
+  const [variablesUpdatedAtMs, setVariablesUpdatedAtMs] = useState<number | null>(null);
 
   const client = getPluginMcpClient();
   // Guards against concurrent capabilities requests stacking up when MCP
@@ -37,23 +41,6 @@ const App: React.FC = () => {
   const fetchingRef = useRef(false);
   // Mutex to prevent concurrent heartbeat requests.
   const heartbeatInFlightRef = useRef(false);
-
-  const getHeaderStatus = (state: ConnectionState | null) => {
-    switch (state?.state) {
-      case 'connected':
-        return { label: 'MCP Connected', color: '#18a957' };
-      case 'fallback':
-        return { label: 'MCP Fallback Port', color: '#2196f3' };
-      case 'mismatch':
-        return { label: 'MCP Port Mismatch', color: '#ff9800' };
-      case 'disconnected':
-        return { label: 'MCP Disconnected', color: '#f24822' };
-      default:
-        return { label: 'Checking MCP...', color: '#9e9e9e' };
-    }
-  };
-
-  const headerStatus = getHeaderStatus(connectionState);
 
   const fetchStatus = useCallback(async () => {
     // Prevent multiple in-flight capabilities requests from stacking up.
@@ -83,10 +70,19 @@ const App: React.FC = () => {
   // Receive INIT from code.ts with document name
   useEffect(() => {
     const handler = (event: MessageEvent) => {
-      const msg = event.data?.pluginMessage as InitMessage | undefined;
+      const msg = event.data?.pluginMessage as PluginUiMessage | undefined;
       if (msg?.type === 'INIT') {
         setDocName(msg.docName);
         setFileKey(msg.fileKey ?? null);
+        // New/renewed plugin session should always require a fresh variables pull.
+        setVariablesUpToDate(false);
+        setVariablesUpdatedAtMs(null);
+        return;
+      }
+      if (msg?.type === 'DOCUMENT_CHANGE') {
+        // Any document mutation means exported variables may be stale.
+        setVariablesUpToDate(false);
+        setVariablesUpdatedAtMs(null);
       }
     };
     window.addEventListener('message', handler);
@@ -161,29 +157,6 @@ const App: React.FC = () => {
 
   return (
     <div style={{ width: UI_WIDTH, backgroundColor: COLOR.bg, fontFamily: FONT.family, display: 'flex', flexDirection: 'column' }}>
-
-      {/* Header with bridge status indicator */}
-      <header style={{ padding: `${SPACE.md}px ${SPACE.lg}px`, backgroundColor: COLOR.surface, borderBottom: `1px solid ${COLOR.border}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ margin: 0, fontSize: FONT.size.xl, fontWeight: FONT.weight.semibold, color: COLOR.textPrimary, fontFamily: FONT.family, letterSpacing: '-0.01em' }}>
-            Design System
-          </h1>
-          {/* Bridge status mini-indicator */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
-            <span style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              backgroundColor: headerStatus.color,
-              boxShadow: `0 0 4px ${headerStatus.color}66`,
-            }} />
-            <span style={{ fontSize: FONT.size.xs, color: COLOR.textSecondary }}>
-              {headerStatus.label}
-            </span>
-          </div>
-        </div>
-      </header>
-
       {/* Large status dot */}
       <StatusIndicator
         connectionState={connectionState}
@@ -199,8 +172,14 @@ const App: React.FC = () => {
 
       {/* Sync CTA */}
       <SyncButton
-        onSyncComplete={() => setKitReset((n) => n + 1)}
+        onSyncComplete={() => {
+          setKitReset((n) => n + 1);
+          setVariablesUpToDate(true);
+          setVariablesUpdatedAtMs(Date.now());
+        }}
         onSyncError={handleError}
+        isUpToDate={variablesUpToDate}
+        upToDateAtMs={variablesUpdatedAtMs}
       />
 
       {/* Advanced (collapsible) */}

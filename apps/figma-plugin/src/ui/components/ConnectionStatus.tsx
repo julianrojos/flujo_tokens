@@ -15,6 +15,11 @@ interface ConnectionStatusProps {
 
 const RECONCILE_POLL_INTERVAL_MS = 2_000;
 const RECONCILE_POLL_TIMEOUT_MS = 30_000;
+const DASHBOARD_HEALTH_ENDPOINTS = [
+  'http://localhost:8787/api/health',
+  'http://127.0.0.1:8787/api/health',
+] as const;
+const DASHBOARD_HEALTH_HINT = DASHBOARD_HEALTH_ENDPOINTS.join(' or ');
 type ResolveTone = 'neutral' | 'success' | 'warning' | 'error';
 
 function isSessionUnlinkedIssue(code: string | null, message: string | null | undefined): boolean {
@@ -40,12 +45,14 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   const [resolveTone, setResolveTone] = useState<ResolveTone>('neutral');
   const [resolveCountdown, setResolveCountdown] = useState<number | null>(null);
   const [lastErrorCode, setLastErrorCode] = useState<string | null>(null);
+  const [lastServerCode, setLastServerCode] = useState<string | null>(null);
 
   const mcpClient = getPluginMcpClient();
 
   const applyCapabilities = useCallback((caps: McpCapabilities) => {
     setCapabilities(caps);
     setLastErrorCode(null);
+    setLastServerCode(typeof caps.disconnectionCause?.code === 'string' ? caps.disconnectionCause.code : null);
     const state = mcpClient.computeConnectionState(caps);
     setConnectionState(state);
     setLastUpdated(new Date());
@@ -61,6 +68,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         applyCapabilities(caps);
       } else {
         setLastErrorCode(caps.code);
+        setLastServerCode(null);
         setCapabilities(null);
         setLastUpdated(null);
         setConnectionState({
@@ -72,6 +80,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       }
     } catch (error) {
       setLastErrorCode('capabilities.fetch_failed');
+      setLastServerCode(null);
       setCapabilities(null);
       setLastUpdated(null);
       setConnectionState({
@@ -89,7 +98,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     if (isResolving) return;
     setIsResolving(true);
     setResolveTone('warning');
-    setResolveMessage('Running MCP auto-repair…');
+    setResolveMessage('Retrying MCP connection…');
     setResolveCountdown(null);
 
     try {
@@ -104,13 +113,14 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         }
       } else {
         setLastErrorCode(initialCaps.code);
+        setLastServerCode(null);
         if (isSessionUnlinkedIssue(initialCaps.code, initialCaps.message)) {
           sawSessionUnlinked = true;
         }
         if (initialCaps.code === 'capabilities.fetch_failed') {
           setResolveTone('error');
           setResolveMessage(
-            'Dashboard API is unreachable. Verify http://localhost:8787/api/health and reload the plugin.',
+            `Dashboard API is unreachable. Verify ${DASHBOARD_HEALTH_HINT} and reload the plugin.`,
           );
           return;
         }
@@ -123,7 +133,6 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         }
       }
 
-      // Direct mode: skip reconcile (legacy endpoint returns 410) and go straight to polling
       setResolveMessage('Retrying for plugin connection…');
       const deadline = Date.now() + RECONCILE_POLL_TIMEOUT_MS;
 
@@ -142,6 +151,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           }
         } else {
           setLastErrorCode(caps.code);
+          setLastServerCode(null);
           if (isSessionUnlinkedIssue(caps.code, caps.message)) {
             sawSessionUnlinked = true;
           }
@@ -168,12 +178,12 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       }
 
       setResolveTone('error');
-      setResolveMessage('Auto-repair could not restore the connection. Keep the plugin open and retry.');
+      setResolveMessage('Retry could not restore the connection. Keep the plugin open and retry.');
     } catch (error) {
       setResolveTone('error');
       setResolveCountdown(null);
       setResolveMessage(
-        error instanceof Error ? error.message : 'Failed to run connection auto-repair.',
+        error instanceof Error ? error.message : 'Failed to retry connection.',
       );
     } finally {
       setIsResolving(false);
@@ -196,8 +206,8 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     switch (connectionState?.state) {
       case 'connected': return '✓';
       case 'disconnected': return '✗';
-      case 'mismatch': return '⚠';
-      case 'fallback': return '⟳';
+      case 'mismatch': return '✓';
+      case 'fallback': return '✓';
       default: return '?';
     }
   };
@@ -207,67 +217,29 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     switch (connectionState?.state) {
       case 'connected': return '#4CAF50';
       case 'disconnected': return '#F44336';
-      case 'mismatch': return '#FF9800';
-      case 'fallback': return '#2196F3';
+      case 'mismatch': return '#4CAF50';
+      case 'fallback': return '#4CAF50';
       default: return '#9E9E9E';
     }
   };
 
-  const getActionableGuidance = () => {
-    if (!connectionState) return null;
-
-    switch (connectionState.state) {
-      case 'connected':
-        return {
-          title: 'All systems operational',
-          message: `MCP is connected on port ${connectionState.connectedPort}.`,
-          action: null,
-        };
-      
-      case 'disconnected':
-        return {
-          title: 'MCP disconnected',
-          message: connectionState.cause || 'Unable to connect to MCP server.',
-          action: 'Use "Fix connection", then keep this plugin open in Figma and retry.',
-        };
-      
-      case 'mismatch':
-        return {
-          title: 'Port mismatch detected',
-          message: connectionState.cause,
-          action: 'Run "Fix connection" to attempt automatic repair.',
-        };
-      
-      case 'fallback':
-        return {
-          title: 'Using fallback port',
-          message: `Connected on port ${connectionState.connectedPort} (fallback).`,
-          action: 'If this persists, reload the plugin and verify dashboard/plugin connectivity.',
-        };
-      
-      default:
-        return {
-          title: 'Unknown state',
-          message: 'Connection state could not be determined.',
-          action: 'Try refreshing or check server logs.',
-        };
-    }
-  };
-
-  const guidance = getActionableGuidance();
+  const technicalCode =
+    lastErrorCode ||
+    lastServerCode ||
+    (connectionState?.state === 'disconnected' ? 'mcp.not_connected' : null);
+  const technicalMessage = connectionState?.cause ?? null;
   const dashboardReachable = lastErrorCode !== 'capabilities.fetch_failed';
-  const bridgeConnected =
+  const mcpSessionVisible =
     connectionState?.state === 'connected' ||
     connectionState?.state === 'fallback' ||
     connectionState?.state === 'mismatch';
-  const portsAligned =
-    connectionState?.state === 'connected' || connectionState?.state === 'fallback';
+  const wsSessionActive = capabilities?.transport?.wsAlive === true;
   const step1Ready = dashboardReachable;
   const step1Summary = !dashboardReachable
-    ? 'Dashboard API is unreachable from the plugin.'
+    ? `Dashboard API is unreachable from the plugin. Check ${DASHBOARD_HEALTH_HINT}.`
     : lastErrorCode === 'capabilities.timeout'
       ? 'Dashboard is reachable, but MCP status timed out while reconnecting.'
-    : bridgeConnected
+    : mcpSessionVisible
       ? 'Transport is reachable and an MCP session is visible.'
       : 'Dashboard is reachable, but no MCP session is detected yet.';
 
@@ -359,10 +331,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         </span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '14px', fontWeight: 500, color: '#333' }}>
-            {connectionState?.state === 'connected' ? 'Connected' : 
-             connectionState?.state === 'disconnected' ? 'Disconnected' :
-             connectionState?.state === 'mismatch' ? 'Port Mismatch' :
-             connectionState?.state === 'fallback' ? 'Fallback Mode' : 'Unknown'}
+            {connectionState?.state === 'disconnected' ? 'Disconnected' : 'Connected'}
           </div>
           <div style={{ fontSize: '12px', color: '#666' }}>
             {connectionState?.connectedPort 
@@ -386,8 +355,8 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           </h4>
           <div style={{ fontSize: '12px', color: '#4b5563', display: 'grid', gap: '6px' }}>
             <div>{dashboardReachable ? '✓' : '✗'} Dashboard API reachable</div>
-            <div>{bridgeConnected ? '✓' : '✗'} Figma session detected by MCP</div>
-            <div>{portsAligned ? '✓' : '✗'} Port alignment (dashboard vs plugin)</div>
+            <div>{mcpSessionVisible ? '✓' : '✗'} Figma session detected by MCP</div>
+            <div>{wsSessionActive ? '✓' : '✗'} WebSocket session active</div>
           </div>
           <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#6b7280' }}>
             {step1Summary}
@@ -401,11 +370,11 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           borderRadius: '8px',
         }}>
           <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#374151' }}>
-            Step 2: Repair connection
+            Step 2: Retry connection
           </h4>
           <button
             onClick={handleFixConnection}
-            disabled={isResolving || isLoading || connectionState?.state === 'connected'}
+            disabled={isResolving || isLoading || connectionState?.state !== 'disconnected'}
             style={{
               width: '100%',
               padding: '8px 10px',
@@ -413,32 +382,55 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
               borderRadius: '6px',
               border: '1px solid #f0b24b',
               backgroundColor:
-                isResolving || isLoading || connectionState?.state === 'connected'
+                isResolving || isLoading || connectionState?.state !== 'disconnected'
                   ? '#f5f5f5'
                   : '#fff8ea',
               color:
-                isResolving || isLoading || connectionState?.state === 'connected'
+                isResolving || isLoading || connectionState?.state !== 'disconnected'
                   ? '#999'
                   : '#a05a00',
               cursor:
-                isResolving || isLoading || connectionState?.state === 'connected'
+                isResolving || isLoading || connectionState?.state !== 'disconnected'
                   ? 'not-allowed'
                   : 'pointer',
             }}
           >
             {isResolving
-              ? `Fixing${resolveCountdown !== null ? ` (${resolveCountdown}s)` : '…'}`
-              : 'Fix connection'}
+              ? `Retrying${resolveCountdown !== null ? ` (${resolveCountdown}s)` : '…'}`
+              : 'Retry connection'}
           </button>
           <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#6b7280' }}>
             {!step1Ready
               ? 'Will run diagnostics and stop quickly with a concrete API error if unreachable.'
-              : connectionState?.state === 'mismatch'
-                ? 'Auto-repair will attempt to reconcile the MCP session.'
-                : 'Auto-repair reconciles MCP session state.'}
+              : 'Retries direct MCP session checks and reconnection.'}
           </p>
         </div>
       </div>
+
+      {/* Technical diagnosis */}
+      {(technicalCode || technicalMessage) && (
+        <div style={{
+          padding: '12px',
+          backgroundColor: '#fff',
+          border: '1px solid #e5e7eb',
+          borderRadius: '8px',
+          marginBottom: '16px',
+        }}>
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#374151' }}>
+            Diagnostic
+          </h4>
+          {technicalCode && (
+            <div style={{ fontSize: '12px', color: '#374151', marginBottom: '4px' }}>
+              code: <code style={{ fontSize: '11px' }}>{technicalCode}</code>
+            </div>
+          )}
+          {technicalMessage && (
+            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+              {technicalMessage}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Detailed Info */}
       {capabilities && (
@@ -495,42 +487,6 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         </div>
       )}
 
-      {/* Actionable Guidance */}
-      {guidance && (
-        <div style={{
-          padding: '12px',
-          backgroundColor: guidance.action ? '#FFF3E0' : '#E8F5E9',
-          borderRadius: '8px',
-          border: `1px solid ${guidance.action ? '#FFB74D' : '#A5D6A7'}`,
-        }}>
-          <h4 style={{
-            margin: '0 0 8px 0',
-            fontSize: '12px',
-            fontWeight: 600,
-            color: guidance.action ? '#E65100' : '#1B5E20',
-          }}>
-            {guidance.title}
-          </h4>
-          <p style={{
-            margin: '0 0 8px 0',
-            fontSize: '12px',
-            color: '#333',
-          }}>
-            {guidance.message}
-          </p>
-          {guidance.action && (
-            <p style={{
-              margin: 0,
-              fontSize: '11px',
-              color: '#666',
-              fontStyle: 'italic',
-            }}>
-              💡 {guidance.action}
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Available Features */}
       {capabilities && (
         <div style={{
@@ -543,7 +499,9 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             Available Features
           </h4>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {Object.entries(capabilities.supports).map(([feature, supported]) => (
+            {Object.entries(capabilities.supports)
+              .filter(([feature]) => feature !== 'portSwitch')
+              .map(([feature, supported]) => (
               <span
                 key={feature}
                 style={{

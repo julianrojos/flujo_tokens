@@ -102,7 +102,7 @@ export const KitSummary: React.FC<KitSummaryProps> = ({ refreshSignal }) => {
           Items to export: none yet
         </span>
         <p style={{ margin: `${SPACE.xs}px 0 0 0`, fontSize: FONT.size.xs, color: COLOR.textMuted, fontFamily: FONT.family }}>
-          Connect MCP and run token sync to generate export data.
+          Keep this plugin open and click "Update variables" to generate export data.
         </p>
       </div>
     );
