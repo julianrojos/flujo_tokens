@@ -4,6 +4,8 @@
  * Read-only endpoint for current MCP port state.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import type { Context } from 'hono';
 import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
@@ -17,6 +19,11 @@ export interface FigmaMcpPortRouteDeps {
   getConnInfoFn?: (c: Context) => ConnInfo;
   getRuntimeStateFn?: () => FigmaMcpRuntimeState;
   internalToken?: string;
+}
+
+function normalizeInternalToken(value: string | undefined): string | undefined {
+  const normalized = String(value ?? '').trim();
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 /**
@@ -52,7 +59,8 @@ function isAuthorized(
 export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteDeps): Promise<Response> {
   const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
   const getRuntimeStateFn = deps.getRuntimeStateFn ?? getFigmaMcpRuntimeState;
-  const internalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+  const configuredInternalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+  const internalToken = normalizeInternalToken(configuredInternalToken);
 
   // Authorization check: fail-closed
   if (!isAuthorized(c, internalToken, getConnInfoFn)) {
@@ -70,13 +78,17 @@ export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteD
   try {
     state = getRuntimeStateFn();
   } catch (error) {
+    const errorId = randomUUID();
+    const timestamp = new Date().toISOString();
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[figma-mcp-port-route] Failed to retrieve runtime state:', errorMessage);
+    console.error(`[figma-mcp-port-route][${errorId}] Failed to retrieve runtime state:`, errorMessage);
     return c.json(
       {
         ok: false,
         code: 'port.runtime_state_unavailable',
         message: 'Unable to retrieve MCP runtime state.',
+        errorId,
+        timestamp,
       },
       500
     );

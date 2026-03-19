@@ -1,4 +1,14 @@
-import { Component, useCallback, useEffect, useRef, useState, lazy, Suspense, type ReactNode } from "react";
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  lazy,
+  Suspense,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
 import { NavLink, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import {
   Activity,
@@ -135,8 +145,9 @@ class RouteErrorBoundary extends Component<{ children: ReactNode }, { hasError: 
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error) {
-    console.error("[RouteErrorBoundary] Lazy route failed to load:", error);
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    const errorId = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
+    console.error(`[RouteErrorBoundary][${errorId}] Lazy route failed to load:`, error, info.componentStack);
   }
 
   render() {
@@ -164,8 +175,9 @@ class PaletteErrorBoundary extends Component<{ children: ReactNode }, { hasError
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error) {
-    console.error("[PaletteErrorBoundary] Command palette failed to load:", error);
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    const errorId = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
+    console.error(`[PaletteErrorBoundary][${errorId}] Command palette failed to load:`, error, info.componentStack);
   }
 
   render() {
@@ -270,34 +282,60 @@ const navSections: NavSection[] = [
   },
 ];
 
+const DEFAULT_PREFETCH_RETRY_COOLDOWN_MS = 5_000;
+const PREFETCH_RETRY_COOLDOWN_MS = (() => {
+  const configured = Number(import.meta.env.VITE_PREFETCH_RETRY_COOLDOWN_MS);
+  if (Number.isFinite(configured) && configured > 0) {
+    return Math.floor(configured);
+  }
+  return DEFAULT_PREFETCH_RETRY_COOLDOWN_MS;
+})();
+
 export default function App() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const componentsPrefetchedRef = useRef(false);
   const tokenGraphPrefetchedRef = useRef(false);
   const tokenDiffPrefetchedRef = useRef(false);
+  const componentsPrefetchRetryAfterRef = useRef(0);
+  const tokenGraphPrefetchRetryAfterRef = useRef(0);
+  const tokenDiffPrefetchRetryAfterRef = useRef(0);
   const location = useLocation();
   const { systems } = useDesignSystem();
   const hasSystems = systems.length > 0;
   const shouldLockSidebar = !hasSystems;
 
   const prefetchComponentsRoutes = useCallback(() => {
+    if (Date.now() < componentsPrefetchRetryAfterRef.current) return;
     if (componentsPrefetchedRef.current) return;
     componentsPrefetchedRef.current = true;
-    void import("@/features/components/components-page");
-    void import("@/features/components/component-detail/component-detail-page");
+    void Promise.all([
+      import("@/features/components/components-page"),
+      import("@/features/components/component-detail/component-detail-page"),
+    ]).catch(() => {
+      componentsPrefetchedRef.current = false;
+      componentsPrefetchRetryAfterRef.current = Date.now() + PREFETCH_RETRY_COOLDOWN_MS;
+    });
   }, []);
 
   const prefetchTokenGraphRoute = useCallback(() => {
+    if (Date.now() < tokenGraphPrefetchRetryAfterRef.current) return;
     if (tokenGraphPrefetchedRef.current) return;
     tokenGraphPrefetchedRef.current = true;
-    void import("@/features/tokens/token-graph/token-graph-page");
+    void import("@/features/tokens/token-graph/token-graph-page").catch(() => {
+      tokenGraphPrefetchedRef.current = false;
+      tokenGraphPrefetchRetryAfterRef.current = Date.now() + PREFETCH_RETRY_COOLDOWN_MS;
+    });
   }, []);
 
   const prefetchTokenDiffRoute = useCallback(() => {
+    if (Date.now() < tokenDiffPrefetchRetryAfterRef.current) return;
     if (tokenDiffPrefetchedRef.current) return;
     tokenDiffPrefetchedRef.current = true;
-    void import("@/features/tokens/token-diff/token-diff-page");
+    void import("@/features/tokens/token-diff/token-diff-page").catch(() => {
+      tokenDiffPrefetchedRef.current = false;
+      tokenDiffPrefetchRetryAfterRef.current = Date.now() + PREFETCH_RETRY_COOLDOWN_MS;
+    });
   }, []);
 
   const prefetchRoute = useCallback(

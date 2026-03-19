@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useOperationRunner } from "@/features/ops/hooks/use-operation-runner";
 import { LogTerminal } from "@/features/ops/components/log-terminal";
+import type { FigmaMcpDesignContextCompactResponse } from "@/lib/api";
 import {
   buildUpdateComponentsPayload,
   buildUpdateVariablesPayload,
@@ -36,6 +37,8 @@ export function DesignSystemUpdateActions({
   const [sharedFigmaUrl, setSharedFigmaUrl] = useState(suggestedUrl);
   const [sharedToken, setSharedToken] = useState("");
   const [componentsValidationError, setComponentsValidationError] = useState<string | null>(null);
+  const [designContext, setDesignContext] = useState<FigmaMcpDesignContextCompactResponse | null>(null);
+  const [allowVariablesWithContextIssues, setAllowVariablesWithContextIssues] = useState(false);
 
   const [tokensSource, setTokensSource] = useState<TokensSource>("mcp");
 
@@ -56,6 +59,11 @@ export function DesignSystemUpdateActions({
     if (!suggestedUrl) return;
     setSharedFigmaUrl((current) => (String(current || "").trim() ? current : suggestedUrl));
   }, [suggestedUrl]);
+
+  const handleDesignContextChange = useCallback((payload: FigmaMcpDesignContextCompactResponse | null) => {
+    setDesignContext(payload);
+    setAllowVariablesWithContextIssues(false);
+  }, []);
 
   const handleUpdateComponents = useCallback(async () => {
     const built = buildUpdateComponentsPayload({
@@ -78,6 +86,16 @@ export function DesignSystemUpdateActions({
     });
     await variablesActions.run(payload);
   }, [tokensSource, variablesActions, sharedFigmaUrl, sharedToken]);
+
+  const variablesContextMissingCount =
+    designContext?.ok === true ? Number(designContext.tokens?.missingCount || 0) : 0;
+  const variablesContextModeFallbackCount =
+    designContext?.ok === true ? Number(designContext.tokens?.modeFallbackCount || 0) : 0;
+  const hasBlockingVariablesContextIssue = variablesContextMissingCount > 0;
+  const canRunVariablesUpdate =
+    !disabled &&
+    !variablesState.isRunning &&
+    (!hasBlockingVariablesContextIssue || allowVariablesWithContextIssues);
 
   return (
     <div className="mt-4 rounded-lg border border-border/70 bg-muted/20 p-3">
@@ -123,6 +141,8 @@ export function DesignSystemUpdateActions({
               figmaToken={sharedToken}
               className="min-w-0"
               disabled={disabled || componentsState.isRunning || variablesState.isRunning}
+              showDesignContextCompact
+              onDesignContextCompactChange={handleDesignContextChange}
             />
           </div>
         </div>
@@ -189,7 +209,7 @@ export function DesignSystemUpdateActions({
               <Button
                 size="sm"
                 onClick={() => void handleUpdateVariables()}
-                disabled={disabled || variablesState.isRunning}
+                disabled={!canRunVariablesUpdate}
               >
                 {resolveUpdateButtonLabel({
                   type: "variables",
@@ -197,6 +217,27 @@ export function DesignSystemUpdateActions({
                 })}
               </Button>
             </div>
+            {hasBlockingVariablesContextIssue ? (
+              <div className="rounded-md border border-red-500/30 bg-red-500/[0.08] p-2 text-[11px] text-red-700 dark:text-red-400">
+                <p>
+                  Current selection has {variablesContextMissingCount} token bindings without a resolved variable.
+                </p>
+                <label className="mt-1 inline-flex items-center gap-1.5 text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={allowVariablesWithContextIssues}
+                    onChange={(event) => setAllowVariablesWithContextIssues(event.target.checked)}
+                    disabled={disabled || variablesState.isRunning}
+                    className="h-3.5 w-3.5"
+                  />
+                  Continue anyway
+                </label>
+              </div>
+            ) : variablesContextModeFallbackCount > 0 ? (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                Current selection includes {variablesContextModeFallbackCount} variables using mode fallback.
+              </p>
+            ) : null}
           </div>
 
           <LogTerminal

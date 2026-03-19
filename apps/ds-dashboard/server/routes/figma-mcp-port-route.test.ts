@@ -84,21 +84,65 @@ test('figma-mcp-port-route: GET allows non-loopback with valid token', async () 
   assert.equal(payload.ok, true);
 });
 
+test('figma-mcp-port-route: GET blocks empty remote address without token', async () => {
+  const previousToken = process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+  delete process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+
+  try {
+    const app = createTestApp({
+      getConnInfoFn: () => ({ remote: { address: '' } }),
+      internalToken: '',
+    });
+
+    const response = await app.request('/api/figma-mcp/port', {
+      method: 'GET',
+    });
+
+    assert.equal(response.status, 403);
+    const payload = await response.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'port.forbidden_remote');
+  } finally {
+    if (previousToken == null) {
+      delete process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+    } else {
+      process.env.DS_DASHBOARD_INTERNAL_TOKEN = previousToken;
+    }
+  }
+});
+
 test('figma-mcp-port-route: GET returns 500 when runtime state retrieval fails', async () => {
   const app = createTestApp({
     getRuntimeStateFn: () => {
       throw new Error('state unavailable');
     },
   });
+  const originalConsoleError = console.error;
+  const consoleCalls: unknown[][] = [];
+  console.error = (...args: unknown[]) => {
+    consoleCalls.push(args);
+  };
 
-  const response = await app.request('/api/figma-mcp/port', {
-    method: 'GET',
-  });
+  try {
+    const response = await app.request('/api/figma-mcp/port', {
+      method: 'GET',
+    });
 
-  assert.equal(response.status, 500);
-  const payload = await response.json();
-  assert.equal(payload.ok, false);
-  assert.equal(payload.code, 'port.runtime_state_unavailable');
+    assert.equal(response.status, 500);
+    const payload = await response.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, 'port.runtime_state_unavailable');
+    assert.equal(typeof payload.errorId, 'string');
+    assert.equal(payload.errorId.length > 0, true);
+    assert.equal(typeof payload.timestamp, 'string');
+    assert.equal(consoleCalls.length, 1);
+    assert.equal(
+      String(consoleCalls[0]?.[0] ?? '').includes(`[figma-mcp-port-route][${payload.errorId}]`),
+      true
+    );
+  } finally {
+    console.error = originalConsoleError;
+  }
 });
 
 test('figma-mcp-port-route: isPortAllowed validates range correctly', () => {

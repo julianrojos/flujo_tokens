@@ -18,6 +18,8 @@ import type {
   GetTokenUsageResult as BridgeGetTokenUsageResult,
   SearchVariablesParams as BridgeSearchVariablesParams,
   SearchVariablesResult as BridgeSearchVariablesResult,
+  GetNodesByIdParams as BridgeGetNodesByIdParams,
+  GetNodesByIdResult as BridgeGetNodesByIdResult,
   SyncTokensApplyParams as BridgeSyncTokensApplyParams,
   SyncTokensApplyResult as BridgeSyncTokensApplyResult,
   SyncTokensPlanParams as BridgeSyncTokensPlanParams,
@@ -377,6 +379,20 @@ export async function searchVariablesDirect(
 ): Promise<SearchVariablesResult> {
   return await requestDirectWithFileKeyFallback<SearchVariablesResult>(
     'SEARCH_VARIABLES',
+    params,
+    fileKey
+  );
+}
+
+export type GetNodesByIdParams = BridgeGetNodesByIdParams;
+export type GetNodesByIdResult = BridgeGetNodesByIdResult;
+
+export async function getNodesByIdDirect(
+  fileKey: string | null,
+  params: GetNodesByIdParams
+): Promise<GetNodesByIdResult> {
+  return await requestDirectWithFileKeyFallback<GetNodesByIdResult>(
+    'GET_NODES_BY_ID',
     params,
     fileKey
   );
