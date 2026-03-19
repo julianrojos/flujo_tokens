@@ -353,10 +353,8 @@ Migration notes (legacy cleanup):
 
 - Pipeline steps `render/proof` were removed from `ds:pipeline` (canonical flow is now `spec -> markdown`).
 - Visual proof capture remains available as a standalone command: `npm run ds:capture-visual-proof`.
-- **Deprecated compatibility wrappers** (graceful exit):
-  - `npm run ds:active-md-to-figma` — deprecated wrapper (exit 0 + warning). Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
-  - `npm run ds:render-figma:all` — deprecated wrapper (exit 0 + warning). Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
-  - These wrappers emit deprecation warnings to stderr and exit cleanly to prevent breaking CI/CD pipelines during migration.
+- Removed scripts: `npm run ds:active-md-to-figma` and `npm run ds:render-figma:all`.
+  - Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
 - Plugin bridge default transport is now `direct` (`DEFAULT_WS_CONFIG.transportMode = 'direct'`).
 
 ### Documentation Scripts

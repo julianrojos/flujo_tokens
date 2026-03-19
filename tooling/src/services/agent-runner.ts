@@ -83,9 +83,6 @@ const AGENT_ENV_PATHS: Record<AgentType, string[]> = {
   "": [],
 };
 
-const CODEX_EXTENSION_FALLBACK_ENV = "DS_ENABLE_CODEX_EXTENSION_FALLBACK";
-let codexFallbackDeprecationWarned = false;
-
 interface ResolveEnvAgentCommandDeps {
   env?: NodeJS.ProcessEnv;
   commandPathExistsFn?: (command: string) => boolean;
@@ -101,18 +98,7 @@ function resolveEnvAgentCommand(agent: AgentType, deps: ResolveEnvAgentCommandDe
   return "";
 }
 
-function envFlagEnabled(value: unknown): boolean {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  return (
-    normalized === "1" ||
-    normalized === "true" ||
-    normalized === "yes" ||
-    normalized === "on"
-  );
-}
-
 export const __agentRunnerTestUtils = Object.freeze({
-  envFlagEnabled,
   resolveEnvAgentCommand,
 });
 
@@ -162,17 +148,6 @@ function isLikelyCliShapeError(result: ReturnType<typeof spawnSync>): boolean {
  * Pick agent based on explicit choice or auto-detection.
  */
 function pickAgent(explicitAgent: AgentType | "auto" | undefined): AgentType {
-  if (
-    !codexFallbackDeprecationWarned &&
-    envFlagEnabled(process.env[CODEX_EXTENSION_FALLBACK_ENV])
-  ) {
-    codexFallbackDeprecationWarned = true;
-    logger.warn(
-      `${CODEX_EXTENSION_FALLBACK_ENV}=1 is no longer supported. ` +
-      `Set CODEX_BIN (or DS_CODEX_PATH) to an explicit Codex CLI path instead.`,
-    );
-  }
-
   const fromEnv = process.env.DS_AGENT as AgentType | undefined;
   const requested = ((explicitAgent || fromEnv || "auto") as string).toLowerCase();
 
