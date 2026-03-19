@@ -6,16 +6,11 @@ Canonical sequence:
 
 1. `spec` -> create/update `docs/_spec/components/<snake_case>.yml`
 2. `markdown` -> generate/update `docs/components/<snake_case>.md`
-3. `figma` -> render markdown to Figma section (optional)
-4. `visual-proof` -> capture screenshot evidence and update `### Visual Proof`
-5. `lifecycle` -> auto-mark stale docs as `needs-review`
 
 ## Prerequisites
 
 - Token registry available: `docs/_generated/token-registry.json`
 - Agent CLI available (`codex`, `claude`, or `gemini`)
-- Figma MCP configured for the selected agent
-- For write operations in Figma: MCP Management running
 
 ## Recommended commands
 
@@ -36,15 +31,7 @@ npm run ds:component-doc -- \
   --agent codex
 ```
 
-### 3) Render markdown back to Figma
-
-```bash
-npm run ds:active-md-to-figma -- \
-  --markdown docs/components/alert.md \
-  --agent codex
-```
-
-### 4) Capture/update visual proof
+### 3) Capture/update visual proof (standalone)
 
 ```bash
 npm run ds:capture-visual-proof -- \
@@ -52,13 +39,13 @@ npm run ds:capture-visual-proof -- \
   --agent codex
 ```
 
-### 5) Auto-mark stale docs as `needs-review`
+### 4) Auto-mark stale docs as `needs-review`
 
 ```bash
 npm run ds:mark-needs-review
 ```
 
-### 6) Validate and audit
+### 5) Validate and audit
 
 ```bash
 npm run validate:docs
@@ -68,7 +55,7 @@ npm run ds:doctor
 
 ## Guardrails
 
-- Never skip stage order (`spec` -> `markdown` -> `figma` -> `visual-proof`).
+- Never skip stage order (`spec` -> `markdown`).
 - Keep one spec and one markdown file per component slug.
-- Keep `### Visual Proof` inside `## Overview` (not as a new H2).
+- Visual proof capture (`ds:capture-visual-proof`) is a standalone operation, not part of the canonical pipeline.
 - For `doc_status: ready`, visual proof must contain a concrete screenshot URL.

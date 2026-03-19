@@ -11,18 +11,42 @@ import { DEFAULT_WS_CONFIG, ERROR_CODES } from '../protocol';
 
 // Mock WebSocket for testing
 class MockWebSocket {
-  public readyState: number = WebSocket.CONNECTING;
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
+
+  public readyState: number = MockWebSocket.CONNECTING;
   public onopen: (() => void) | null = null;
   public onclose: ((event: { code: number; reason: string }) => void) | null = null;
   public onerror: (() => void) | null = null;
   public onmessage: ((event: { data: string }) => void) | null = null;
+  private listeners: Record<string, Array<(event: unknown) => void>> = {
+    open: [],
+    close: [],
+    error: [],
+    message: [],
+  };
 
   constructor(public url: string) {
     // Simulate connection delay
     setTimeout(() => {
-      this.readyState = WebSocket.OPEN;
-      this.onopen?.();
+      this.readyState = MockWebSocket.OPEN;
+      this.emit('open', {});
     }, 10);
+  }
+
+  addEventListener(type: string, listener: (event: unknown) => void): void {
+    if (!this.listeners[type]) {
+      this.listeners[type] = [];
+    }
+    this.listeners[type].push(listener);
+  }
+
+  removeEventListener(type: string, listener: (event: unknown) => void): void {
+    const group = this.listeners[type];
+    if (!group) return;
+    this.listeners[type] = group.filter((item) => item !== listener);
   }
 
   send(_data: string): void {
@@ -30,10 +54,21 @@ class MockWebSocket {
   }
 
   close(code: number = 1000, reason: string = ''): void {
-    this.readyState = WebSocket.CLOSED;
+    this.readyState = MockWebSocket.CLOSED;
     setTimeout(() => {
-      this.onclose?.({ code, reason });
+      this.emit('close', { code, reason });
     }, 0);
+  }
+
+  private emit(type: string, event: unknown): void {
+    for (const listener of this.listeners[type] ?? []) {
+      listener(event);
+    }
+
+    if (type === 'open') this.onopen?.();
+    if (type === 'close') this.onclose?.(event as { code: number; reason: string });
+    if (type === 'error') this.onerror?.();
+    if (type === 'message') this.onmessage?.(event as { data: string });
   }
 }
 
@@ -59,8 +94,6 @@ describe('WebSocketRuntime', () => {
   beforeEach(() => {
     runtime = new WebSocketRuntime({
       ...DEFAULT_WS_CONFIG,
-      portRangeStart: 9223,
-      portRangeEnd: 9225,
       connectionTimeout: 100,
       requestTimeout: 500,
       reconnectDelay: 50,

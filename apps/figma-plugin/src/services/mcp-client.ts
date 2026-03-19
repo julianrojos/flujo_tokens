@@ -41,19 +41,6 @@ export interface McpError {
   message: string;
 }
 
-export interface PortState {
-  activePort: number;
-  allowedRange: { start: number; end: number };
-  lastChangeAt: number;
-  isSwitching: boolean;
-}
-
-export interface PortSwitchResult {
-  ok: true;
-  activePort: number;
-  previousPort: number;
-  message: string;
-}
 
 export interface ConnectionState {
   configuredPort: number;
@@ -62,21 +49,6 @@ export interface ConnectionState {
   cause?: string;
 }
 
-export interface ReconcileConnectionResponse {
-  ok: boolean;
-  connected: boolean;
-  code?: string;
-  message?: string;
-  everConnected?: boolean;
-  attemptedReset?: boolean;
-  restarting?: boolean;
-  phase?:
-  | 'already_connected'
-  | 'connected_after_reset'
-  | 'waiting_for_bridge'
-  | 'not_recoverable'
-  | 'input_error';
-}
 
 export interface HeartbeatResponse {
   ok: boolean;
@@ -154,6 +126,7 @@ export class McpClientService {
 
   private async fetchFromDashboard(path: string, init: RequestInit): Promise<Response> {
     let lastError: unknown = null;
+    const attemptedBases: string[] = [];
     const normalizedInit: RequestInit = { ...init };
     const method = String(normalizedInit.method || 'GET').toUpperCase();
     const headers = new Headers(normalizedInit.headers || {});
@@ -164,6 +137,7 @@ export class McpClientService {
     normalizedInit.headers = headers;
 
     for (const base of this.apiBaseCandidates) {
+      attemptedBases.push(base);
       try {
         const response = await fetch(`${base}${path}`, normalizedInit);
         this.markApiBaseAsHealthy(base);
@@ -173,10 +147,13 @@ export class McpClientService {
       }
     }
 
+    const attempted = attemptedBases.join(', ');
     if (lastError instanceof Error) {
-      throw lastError;
+      throw new Error(
+        `Failed to reach dashboard API (${path}) after trying: ${attempted}. Last error: ${lastError.message}`
+      );
     }
-    throw new Error('Failed to reach dashboard API.');
+    throw new Error(`Failed to reach dashboard API (${path}) after trying: ${attempted}.`);
   }
 
   private getHeaders(): Record<string, string> {
@@ -266,64 +243,12 @@ export class McpClientService {
   }
 
   /**
-   * Invalidate capabilities cache (call after port switch).
+   * Invalidate capabilities cache after any operation that may change MCP state.
    */
   invalidateCapabilitiesCache(): void {
     this.capabilitiesCache = null;
   }
 
-  /**
-   * Get current port state.
-   */
-  async getPortState(): Promise<PortState | McpError> {
-    try {
-      const response = await this.fetchFromDashboard('/api/figma-mcp/port', {
-        method: 'GET',
-        headers: this.getHeaders(),
-        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
-      });
-      const payload = await response.json();
-      if (payload?.ok === true && Number.isFinite(Number(payload.activePort))) {
-        this.lastKnownConfiguredPort = Number(payload.activePort);
-      }
-      return payload;
-    } catch (error) {
-      return {
-        ok: false,
-        code: 'port.fetch_failed',
-        message: error instanceof Error ? error.message : 'Failed to fetch port state',
-      };
-    }
-  }
-
-  /**
-   * Switch MCP port.
-   */
-  async switchPort(port: number): Promise<PortSwitchResult | McpError> {
-    try {
-      const response = await this.fetchFromDashboard('/api/figma-mcp/port', {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ port }),
-        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
-      });
-      const result = await response.json();
-
-      // Invalidate cache on successful switch
-      if (result.ok === true) {
-        this.lastKnownConfiguredPort = Number(result.activePort) || this.lastKnownConfiguredPort;
-        this.invalidateCapabilitiesCache();
-      }
-
-      return result;
-    } catch (error) {
-      return {
-        ok: false,
-        code: 'port.switch_failed',
-        message: error instanceof Error ? error.message : 'Failed to switch port',
-      };
-    }
-  }
 
   /**
    * Compute connection state from capabilities.
@@ -373,48 +298,6 @@ export class McpClientService {
       connectedPort,
       state: 'mismatch',
       cause: `Bridge connected to ${connectedPort}, dashboard configured for ${configuredPort}`,
-    };
-  }
-
-  /**
-   * Poll connection state until stable or timeout.
-   */
-  async pollUntilStable(
-    targetPort: number,
-    timeoutMs: number = 30_000,
-    intervalMs: number = 2_000
-  ): Promise<{ success: boolean; finalState: ConnectionState; elapsedMs: number }> {
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < timeoutMs) {
-      // Force refresh during polling to avoid stale cache
-      const capabilities = await this.getCapabilities({ forceRefresh: true });
-      const state = this.computeConnectionState(capabilities);
-
-      // Success: connected (or fallback) and port matches
-      if (
-        (state.state === 'connected' || state.state === 'fallback') &&
-        state.connectedPort === targetPort
-      ) {
-        return {
-          success: true,
-          finalState: state,
-          elapsedMs: Date.now() - startedAt,
-        };
-      }
-
-      // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
-    }
-
-    // Timeout reached
-    const finalCapabilities = await this.getCapabilities({ forceRefresh: true });
-    const finalState = this.computeConnectionState(finalCapabilities);
-
-    return {
-      success: false,
-      finalState,
-      elapsedMs: Date.now() - startedAt,
     };
   }
 
@@ -532,71 +415,6 @@ export class McpClientService {
     }
   }
 
-  /**
-   * Attempt automatic MCP connection reconciliation on the dashboard side.
-   * This performs a local shared-session restart and returns the resulting state.
-   * 
-   * Note: In direct-only mode, the legacy /api/figma-mcp/reconcile endpoint
-   * returns 410 Gone. This method translates that to a clear migration message.
-   */
-  async reconcileConnection(args?: {
-    figmaUrl?: string;
-    figmaToken?: string;
-    confirmReconcile?: boolean;
-    confirmGlobalReset?: boolean;
-  }): Promise<ReconcileConnectionResponse> {
-    const confirmReconcile = args?.confirmReconcile === true;
-    const confirmGlobalReset = args?.confirmGlobalReset === true;
-    try {
-      const response = await this.fetchFromDashboard('/api/figma-mcp/reconcile', {
-        method: 'POST',
-        headers: {
-          ...this.getHeaders(),
-          'x-ds-mcp-reconcile-confirm': confirmReconcile ? 'true' : 'false',
-          'x-ds-mcp-reset-confirm': confirmGlobalReset ? 'true' : 'false',
-        },
-        body: JSON.stringify({
-          figmaUrl: args?.figmaUrl ?? '',
-          figmaToken: args?.figmaToken ?? '',
-          confirmReconcile,
-          confirmGlobalReset,
-        }),
-        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
-      });
-
-      // Handle 410 Gone (legacy endpoint deprecated in direct-only mode)
-      if (response.status === 410) {
-        const payload = await response.json() as { code?: string; message?: string };
-        if (payload.code === 'legacy_endpoint_removed') {
-          // Translate to clear migration message
-          return {
-            ok: false,
-            connected: false,
-            code: 'mcp.legacy_deprecated',
-            message: 'Legacy reconcile endpoint is deprecated. Use direct plugin reconnection instead.',
-            phase: 'waiting_for_bridge',
-          };
-        }
-        // Normalize other 410 payloads to a stable response shape.
-        return {
-          ok: false,
-          connected: false,
-          code: payload.code ?? 'reconcile.legacy_410',
-          message: payload.message ?? 'Legacy reconcile endpoint returned 410 Gone.',
-          phase: 'waiting_for_bridge',
-        };
-      }
-
-      return await response.json() as ReconcileConnectionResponse;
-    } catch (error) {
-      return {
-        ok: false,
-        connected: false,
-        code: 'reconcile.fetch_failed',
-        message: error instanceof Error ? error.message : 'Failed to reconcile MCP connection',
-      };
-    }
-  }
 }
 
 /** Shape returned by GET /api/figma-mcp/design-system-kit */
@@ -634,8 +452,4 @@ export function getPluginMcpClient(apiBase?: string, internalToken?: string): Mc
     _pluginMcpClient = new McpClientService(apiBase, internalToken);
   }
   return _pluginMcpClient;
-}
-
-export function resetPluginMcpClient(): void {
-  _pluginMcpClient = null;
 }

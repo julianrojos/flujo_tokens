@@ -3,61 +3,26 @@ import { describe, it } from "node:test";
 
 import { __agentRunnerTestUtils } from "./agent-runner.js";
 
-describe("agent-runner codex extension fallback", () => {
-  it("does not resolve extension fallback when DS_ENABLE_CODEX_EXTENSION_FALLBACK is disabled", () => {
-    const result = __agentRunnerTestUtils.findCodexFallbackCommand({
+describe("agent-runner resolveEnvAgentCommand", () => {
+  it("resolves codex command from CODEX_BIN when path exists", () => {
+    const result = __agentRunnerTestUtils.resolveEnvAgentCommand("codex", {
       env: {
-        HOME: "/home/tester",
-        DS_ENABLE_CODEX_EXTENSION_FALLBACK: "0",
-      },
-      platform: "darwin",
-      arch: "arm64",
-      extensionRoots: ["/home/tester/.vscode/extensions"],
-      readDirFn: () => [{ name: "openai.chatgpt-1.2.3", isDirectory: () => true }],
-      commandPathExistsFn: () => true,
-      logInfoFn: () => {},
+        CODEX_BIN: "/opt/codex/bin/codex",
+      } as NodeJS.ProcessEnv,
+      commandPathExistsFn: (candidate) => candidate === "/opt/codex/bin/codex",
     });
 
-    assert.equal(result, "");
+    assert.equal(result, "/opt/codex/bin/codex");
   });
 
-  it("resolves a codex fallback path when fallback flag is enabled", () => {
-    const checked: string[] = [];
-    const result = __agentRunnerTestUtils.findCodexFallbackCommand({
+  it("falls back to DS_CODEX_PATH when CODEX_BIN is missing", () => {
+    const result = __agentRunnerTestUtils.resolveEnvAgentCommand("codex", {
       env: {
-        HOME: "/home/tester",
-        DS_ENABLE_CODEX_EXTENSION_FALLBACK: "1",
-      },
-      platform: "darwin",
-      arch: "arm64",
-      extensionRoots: ["/home/tester/.vscode/extensions"],
-      readDirFn: () => [{ name: "openai.chatgpt-1.2.3", isDirectory: () => true }],
-      commandPathExistsFn: (candidate) => {
-        checked.push(candidate);
-        return candidate.endsWith("/bin/macos-aarch64/codex");
-      },
-      logInfoFn: () => {},
+        DS_CODEX_PATH: "/usr/local/bin/codex",
+      } as NodeJS.ProcessEnv,
+      commandPathExistsFn: (candidate) => candidate === "/usr/local/bin/codex",
     });
 
-    assert.equal(result, "/home/tester/.vscode/extensions/openai.chatgpt-1.2.3/bin/macos-aarch64/codex");
-    assert.ok(
-      checked.some((candidate) => candidate.endsWith("/bin/macos-aarch64/codex")),
-      "expected lookup to include macOS arm64 codex candidate",
-    );
-  });
-
-  it("maps platform/arch targets deterministically", () => {
-    assert.deepEqual(
-      __agentRunnerTestUtils.codexExtensionTargets("darwin", "arm64"),
-      ["macos-aarch64", "darwin-arm64"],
-    );
-    assert.deepEqual(
-      __agentRunnerTestUtils.codexExtensionTargets("linux", "x64"),
-      ["linux-x64"],
-    );
-    assert.deepEqual(
-      __agentRunnerTestUtils.codexExtensionTargets("win32", "x64"),
-      ["windows-x64", "win32-x64"],
-    );
+    assert.equal(result, "/usr/local/bin/codex");
   });
 });

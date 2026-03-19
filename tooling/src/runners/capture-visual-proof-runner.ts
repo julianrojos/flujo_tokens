@@ -290,6 +290,10 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
 if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   const parsed = parseArgs(args) as CaptureVisualProofArgs;
+  if (parsed.help === true || parsed.help === 'true') {
+    printUsage(USAGE, { exitCode: 0 });
+    process.exit(0);
+  }
   runCaptureVisualProof(parsed).catch((error) => {
     if (error instanceof CaptureError) {
       logger.error(`[${error.code}] ${error.message}`);

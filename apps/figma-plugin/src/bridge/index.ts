@@ -8,7 +8,7 @@
 export * from './protocol';
 
 // WebSocket runtime
-export { WebSocketRuntime, getWSRuntime, resetWSRuntime } from './ws-runtime';
+export { WebSocketRuntime, getWSRuntime } from './ws-runtime';
 
 // Dispatcher
 export { dispatchRequest } from './dispatcher';

@@ -14,6 +14,40 @@ const OPS_API_PROXY_TARGET =
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalizedId = id.replace(/\\/g, "/");
+          if (!normalizedId.includes("/node_modules/")) return undefined;
+          if (
+            normalizedId.includes("/node_modules/react/") ||
+            normalizedId.includes("/node_modules/react-dom/") ||
+            normalizedId.includes("/node_modules/react-router-dom/")
+          ) {
+            return "vendor-react";
+          }
+          if (
+            normalizedId.includes("/@tiptap/") ||
+            normalizedId.includes("/tiptap-markdown/")
+          ) {
+            return "vendor-tiptap";
+          }
+          if (
+            normalizedId.includes("/react-markdown/") ||
+            normalizedId.includes("/remark-gfm/")
+          ) {
+            return "vendor-markdown";
+          }
+          if (normalizedId.includes("/@tanstack/react-query/")) {
+            return "vendor-query";
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

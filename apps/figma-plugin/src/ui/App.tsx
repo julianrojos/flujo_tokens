@@ -5,7 +5,7 @@
  *   StatusIndicator  — large connection semaphore
  *   KitSummary       — token/style counts
  *   SyncButton       — CTA to sync tokens
- *   AdvancedSection  — collapsible: ConnectionStatus + PortSwitcher
+ *   AdvancedSection  — collapsible: ConnectionStatus
  *
  * Bridge integration:
  *   - MCP status is fetched from dashboard capabilities
@@ -155,11 +155,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const handlePortChanged = (port: number) => {
-    parent.postMessage({ pluginMessage: { type: 'PORT_CHANGED', port } }, '*');
-    fetchStatus();
-  };
-
   const handleError = (error: string) => {
     parent.postMessage({ pluginMessage: { type: 'ERROR', error } }, '*');
   };
@@ -209,7 +204,7 @@ const App: React.FC = () => {
       />
 
       {/* Advanced (collapsible) */}
-      <AdvancedSection onPortChanged={handlePortChanged} onError={handleError} />
+      <AdvancedSection />
 
     </div>
   );

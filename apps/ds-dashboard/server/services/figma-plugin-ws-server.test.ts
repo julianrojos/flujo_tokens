@@ -149,3 +149,331 @@ test('figma-plugin-ws-server: rejects non-matching websocket paths', async (t) =
   server.close();
   resetPluginConnectionManager();
 });
+
+test('figma-plugin-ws-server: rejects websocket upgrades from disallowed origin', async (t) => {
+  resetPluginConnectionManager();
+
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  });
+  const wss = createFigmaPluginWsServer(server);
+
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
+
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const port = address.port;
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/figma-plugin`, {
+    origin: 'https://evil.example',
+  });
+
+  const outcome = await new Promise<'error' | 'open'>((resolve) => {
+    ws.on('error', () => resolve('error'));
+    ws.on('open', () => resolve('open'));
+  });
+
+  assert.equal(outcome, 'error');
+  assert.equal(getPluginConnectionManager().getConnectionCount(), 0);
+
+  ws.close();
+  wss.close();
+  server.close();
+  resetPluginConnectionManager();
+});
+
+test('figma-plugin-ws-server: accepts websocket upgrades from figma origin', async (t) => {
+  resetPluginConnectionManager();
+
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  });
+  const wss = createFigmaPluginWsServer(server);
+
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
+
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const port = address.port;
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/figma-plugin`, {
+    origin: 'https://www.figma.com',
+  });
+
+  const outcome = await new Promise<'error' | 'open'>((resolve) => {
+    ws.on('error', () => resolve('error'));
+    ws.on('open', () => resolve('open'));
+  });
+
+  assert.equal(outcome, 'open');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(getPluginConnectionManager().getConnectionCount(), 1);
+
+  ws.close();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  wss.close();
+  server.close();
+  resetPluginConnectionManager();
+});
+
+test('figma-plugin-ws-server: accepts websocket upgrades from null origin', async (t) => {
+  resetPluginConnectionManager();
+
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  });
+  const wss = createFigmaPluginWsServer(server);
+
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
+
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const port = address.port;
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/figma-plugin`, {
+    origin: 'null',
+  });
+
+  const outcome = await new Promise<'error' | 'open'>((resolve) => {
+    ws.on('error', () => resolve('error'));
+    ws.on('open', () => resolve('open'));
+  });
+
+  assert.equal(outcome, 'open');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(getPluginConnectionManager().getConnectionCount(), 1);
+
+  ws.close();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  wss.close();
+  server.close();
+  resetPluginConnectionManager();
+});
+
+test('figma-plugin-ws-server: accepts websocket upgrades from figma.com (no www)', async (t) => {
+  resetPluginConnectionManager();
+
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  });
+  const wss = createFigmaPluginWsServer(server);
+
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
+
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const port = address.port;
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/figma-plugin`, {
+    origin: 'https://figma.com',
+  });
+
+  const outcome = await new Promise<'error' | 'open'>((resolve) => {
+    ws.on('error', () => resolve('error'));
+    ws.on('open', () => resolve('open'));
+  });
+
+  assert.equal(outcome, 'open');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(getPluginConnectionManager().getConnectionCount(), 1);
+
+  ws.close();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  wss.close();
+  server.close();
+  resetPluginConnectionManager();
+});
+
+test('figma-plugin-ws-server: accepts websocket upgrades from localhost with port', async (t) => {
+  resetPluginConnectionManager();
+
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  });
+  const wss = createFigmaPluginWsServer(server);
+
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
+
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const port = address.port;
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/figma-plugin`, {
+    origin: 'http://localhost:8787',
+  });
+
+  const outcome = await new Promise<'error' | 'open'>((resolve) => {
+    ws.on('error', () => resolve('error'));
+    ws.on('open', () => resolve('open'));
+  });
+
+  assert.equal(outcome, 'open');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(getPluginConnectionManager().getConnectionCount(), 1);
+
+  ws.close();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  wss.close();
+  server.close();
+  resetPluginConnectionManager();
+});
+
+test('figma-plugin-ws-server: accepts websocket upgrades from enterprise figma tenant', async (t) => {
+  resetPluginConnectionManager();
+
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  });
+  const wss = createFigmaPluginWsServer(server);
+
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
+
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const port = address.port;
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/figma-plugin`, {
+    origin: 'https://company.figma.com',
+  });
+
+  const outcome = await new Promise<'error' | 'open'>((resolve) => {
+    ws.on('error', () => resolve('error'));
+    ws.on('open', () => resolve('open'));
+  });
+
+  assert.equal(outcome, 'open');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(getPluginConnectionManager().getConnectionCount(), 1);
+
+  ws.close();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  wss.close();
+  server.close();
+  resetPluginConnectionManager();
+});
+
+test('figma-plugin-ws-server: accepts websocket upgrades from IPv6 loopback origin', async (t) => {
+  resetPluginConnectionManager();
+
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  });
+  const wss = createFigmaPluginWsServer(server);
+
+  if (!(await listenOrSkip(t, server))) {
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+    return;
+  }
+
+  const address = server.address();
+  assert.ok(address && typeof address === 'object');
+  const port = address.port;
+
+  const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/figma-plugin`, {
+    origin: 'http://[::1]:8787',
+  });
+
+  const outcome = await new Promise<'error' | 'open'>((resolve) => {
+    ws.on('error', () => resolve('error'));
+    ws.on('open', () => resolve('open'));
+  });
+
+  assert.equal(outcome, 'open');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.equal(getPluginConnectionManager().getConnectionCount(), 1);
+
+  ws.close();
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  wss.close();
+  server.close();
+  resetPluginConnectionManager();
+});
+
+test('figma-plugin-ws-server: accepts configured custom origin via DS_WS_ALLOWED_ORIGINS', async (t) => {
+  resetPluginConnectionManager();
+  const previous = process.env.DS_WS_ALLOWED_ORIGINS;
+  process.env.DS_WS_ALLOWED_ORIGINS = 'https://custom.example';
+
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 200;
+    res.end('ok');
+  });
+  const wss = createFigmaPluginWsServer(server);
+
+  try {
+    if (!(await listenOrSkip(t, server))) {
+      wss.close();
+      server.close();
+      resetPluginConnectionManager();
+      return;
+    }
+
+    const address = server.address();
+    assert.ok(address && typeof address === 'object');
+    const port = address.port;
+
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws/figma-plugin`, {
+      origin: 'https://custom.example',
+    });
+
+    const outcome = await new Promise<'error' | 'open'>((resolve) => {
+      ws.on('error', () => resolve('error'));
+      ws.on('open', () => resolve('open'));
+    });
+
+    assert.equal(outcome, 'open');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(getPluginConnectionManager().getConnectionCount(), 1);
+
+    ws.close();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    wss.close();
+    server.close();
+    resetPluginConnectionManager();
+  } finally {
+    if (previous === undefined) {
+      delete process.env.DS_WS_ALLOWED_ORIGINS;
+    } else {
+      process.env.DS_WS_ALLOWED_ORIGINS = previous;
+    }
+  }
+});

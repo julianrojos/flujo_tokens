@@ -14,10 +14,8 @@ import { LogTerminal } from "./log-terminal";
 
 // Pipeline steps in order — used for labels and tooltips
 const PIPELINE_STEPS = [
-  { value: "",         label: "Full pipeline",   hint: "Spec → Markdown → Figma → Visual Proof" },
-  { value: "markdown", label: "desde Markdown",  hint: "Markdown → Figma → Visual Proof (salta Spec)" },
-  { value: "render",   label: "desde Render",    hint: "Figma → Visual Proof (salta Spec + MD)" },
-  { value: "proof",    label: "desde Proof",     hint: "Solo Visual Proof (capturas de pantalla)" },
+  { value: "",         label: "Pipeline completo", hint: "Spec → Markdown" },
+  { value: "markdown", label: "Desde Markdown",    hint: "Solo Markdown (omite Spec)" },
 ] as const;
 
 interface PipelineFormProps {
@@ -40,7 +38,7 @@ export function PipelineForm({
   // Form state
   const [targetComponent, setTargetComponent] = useState<"all" | "single">("all");
   const [targetSlug, setTargetSlug] = useState("");
-  const [fromStep, setFromStep] = useState<"" | "markdown" | "render" | "proof">("");
+  const [fromStep, setFromStep] = useState<"" | "markdown">("");
   const [isDryRun, setIsDryRun] = useState(false);
 
   const [{ status, isRunning, logLines, summary, lastRunAt, elapsedMs }, { run, clearLogs }] =

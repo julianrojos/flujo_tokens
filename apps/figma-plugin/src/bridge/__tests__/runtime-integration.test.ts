@@ -14,20 +14,43 @@ import { WebSocketRuntime } from '../ws-runtime';
 
 class MockWebSocket {
   static instances: MockWebSocket[] = [];
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSING = 2;
+  static readonly CLOSED = 3;
 
-  public readyState = WebSocket.CONNECTING;
+  public readyState = MockWebSocket.CONNECTING;
   public onopen: (() => void) | null = null;
   public onclose: ((event: { code: number; reason: string }) => void) | null = null;
   public onerror: (() => void) | null = null;
   public onmessage: ((event: { data: string }) => void) | null = null;
   public sentMessages: string[] = [];
+  private listeners: Record<string, Array<(event: unknown) => void>> = {
+    open: [],
+    close: [],
+    error: [],
+    message: [],
+  };
 
   constructor(public url: string) {
     MockWebSocket.instances.push(this);
     setTimeout(() => {
-      this.readyState = WebSocket.OPEN;
-      this.onopen?.();
+      this.readyState = MockWebSocket.OPEN;
+      this.emit('open', {});
     }, 10);
+  }
+
+  addEventListener(type: string, listener: (event: unknown) => void): void {
+    if (!this.listeners[type]) {
+      this.listeners[type] = [];
+    }
+    this.listeners[type].push(listener);
+  }
+
+  removeEventListener(type: string, listener: (event: unknown) => void): void {
+    const group = this.listeners[type];
+    if (!group) return;
+    this.listeners[type] = group.filter((item) => item !== listener);
   }
 
   send(data: string): void {
@@ -35,10 +58,21 @@ class MockWebSocket {
   }
 
   close(code = 1000, reason = ''): void {
-    this.readyState = WebSocket.CLOSED;
+    this.readyState = MockWebSocket.CLOSED;
     setTimeout(() => {
-      this.onclose?.({ code, reason });
+      this.emit('close', { code, reason });
     }, 0);
+  }
+
+  private emit(type: string, event: unknown): void {
+    for (const listener of this.listeners[type] ?? []) {
+      listener(event);
+    }
+
+    if (type === 'open') this.onopen?.();
+    if (type === 'close') this.onclose?.(event as { code: number; reason: string });
+    if (type === 'error') this.onerror?.();
+    if (type === 'message') this.onmessage?.(event as { data: string });
   }
 }
 
@@ -59,7 +93,7 @@ function clearMockWebSocketCtor(): void {
 }
 
 function getConnectedSocket(): MockWebSocket {
-  const connected = MockWebSocket.instances.find((ws) => ws.readyState === WebSocket.OPEN);
+  const connected = MockWebSocket.instances.find((ws) => ws.readyState === MockWebSocket.OPEN);
   if (!connected) {
     throw new Error('No open WebSocket instance found');
   }
@@ -85,8 +119,6 @@ describe('Runtime Integration', () => {
 
     runtime = new WebSocketRuntime({
       ...DEFAULT_WS_CONFIG,
-      portRangeStart: 9223,
-      portRangeEnd: 9223,
       connectionTimeout: 100,
       requestTimeout: 500,
       reconnectDelay: 50,

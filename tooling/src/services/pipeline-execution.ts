@@ -116,14 +116,6 @@ export function executeComponentTasks(
         cmd = 'npm';
         stepArgs = ['run', 'ds:component-doc', ...sysArgs, '--', '--component-name', slug];
         break;
-      case 'render':
-        cmd = 'npm';
-        stepArgs = ['run', 'ds:active-md-to-figma', ...sysArgs, '--', '--component-name', slug];
-        break;
-      case 'proof':
-        cmd = 'npm';
-        stepArgs = ['run', 'ds:capture-visual-proof', ...sysArgs, '--', '--component-name', slug];
-        break;
       default:
         continue;
     }

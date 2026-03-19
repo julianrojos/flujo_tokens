@@ -790,7 +790,7 @@ export function OperationsPage() {
         <PipelineForm
           id="ds-pipeline"
           label="Run Component Pipeline"
-          description="Orquesta el pipeline completo: Spec → Markdown → Figma → Visual Proof."
+          description="Orquesta el pipeline completo: Spec → Markdown."
           endpoint="/api/run/ds:pipeline"
           onRunSuccess={refreshStatuses}
         />

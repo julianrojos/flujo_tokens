@@ -23,6 +23,81 @@ import {
 } from './plugin-connection-manager.ts';
 import { getSharedResponseCache } from './response-cache.ts';
 
+function parseConfiguredOriginPatterns(raw: string | undefined): string[] {
+    if (!raw) return [];
+    return raw
+        .split(',')
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function matchesConfiguredOriginPattern(origin: URL, pattern: string): boolean {
+    const normalizedPattern = pattern.trim().toLowerCase();
+    if (!normalizedPattern) return false;
+
+    if (origin.origin.toLowerCase() === normalizedPattern) {
+        return true;
+    }
+
+    const wildcardWithSchemeMatch = normalizedPattern.match(/^(https?):\/\/\*\.(.+)$/);
+    if (wildcardWithSchemeMatch) {
+        const [, scheme, suffix] = wildcardWithSchemeMatch;
+        return (
+            origin.protocol === `${scheme}:` &&
+            (origin.hostname === suffix || origin.hostname.endsWith(`.${suffix}`))
+        );
+    }
+
+    const wildcardAnySchemeMatch = normalizedPattern.match(/^\*\.(.+)$/);
+    if (wildcardAnySchemeMatch) {
+        const [, suffix] = wildcardAnySchemeMatch;
+        return origin.hostname === suffix || origin.hostname.endsWith(`.${suffix}`);
+    }
+
+    return false;
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]';
+}
+
+function isAllowedOrigin(originHeader: string | undefined): boolean {
+    if (!originHeader) return true;
+    const origin = originHeader.trim().toLowerCase();
+    if (!origin || origin === 'null') return true;
+
+    let parsedOrigin: URL;
+    try {
+        parsedOrigin = new URL(origin);
+    } catch {
+        return false;
+    }
+
+    if (parsedOrigin.protocol !== 'http:' && parsedOrigin.protocol !== 'https:') {
+        return false;
+    }
+
+    const hostname = parsedOrigin.hostname.toLowerCase();
+
+    // Canonical Figma origins + enterprise tenants (*.figma.com)
+    if (hostname === 'figma.com' || hostname.endsWith('.figma.com')) {
+        return true;
+    }
+
+    // Local loopback for development
+    if (isLoopbackHostname(hostname)) {
+        return true;
+    }
+
+    // Operator override for emergency allowlist updates without code changes.
+    const configuredPatterns = parseConfiguredOriginPatterns(process.env.DS_WS_ALLOWED_ORIGINS);
+    if (configuredPatterns.some((pattern) => matchesConfiguredOriginPattern(parsedOrigin, pattern))) {
+        return true;
+    }
+
+    return false;
+}
+
 /**
  * Extract session info from URL search params
  */
@@ -137,6 +212,23 @@ export function createFigmaPluginWsServer(httpServer: http.Server): WebSocketSer
             console.warn(`[figma-plugin-ws] Rejected WebSocket upgrade for path: ${normalizedPath}`);
             socket.destroy();
             return;
+        }
+
+        const rawOrigin = request.headers.origin;
+        const origin = Array.isArray(rawOrigin) ? rawOrigin[0] : rawOrigin;
+        const requestHost = String(request.headers.host || '').trim() || 'unknown-host';
+        const remoteAddress = String(request.socket.remoteAddress || '').trim() || 'unknown-remote';
+        if (!isAllowedOrigin(origin)) {
+            console.warn(
+                `[figma-plugin-ws] Rejected WebSocket upgrade for origin: ${String(origin || '<empty>')} (host: ${requestHost}, remote: ${remoteAddress})`
+            );
+            socket.destroy();
+            return;
+        }
+        if (process.env.DS_WS_ORIGIN_AUDIT === '1') {
+            console.log(
+                `[figma-plugin-ws] Accepted WebSocket origin: ${String(origin || '<empty>')} (host: ${requestHost}, remote: ${remoteAddress})`
+            );
         }
 
         // Extract session info

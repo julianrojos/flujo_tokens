@@ -990,7 +990,7 @@ const BRIDGE_EVENTS_VALUES = Object.values(BRIDGE_EVENTS);
 // ============================================================================
 
 export interface WSRuntimeConfig {
-  /** Transport mode: legacy (WS→MCP), direct (WS→Dashboard), or shadow (both) */
+  /** Transport mode: direct WebSocket connection to Dashboard */
   transportMode: TransportMode;
   /** Direct mode: WebSocket URL for direct connection */
   directWsUrl?: string;
@@ -998,9 +998,6 @@ export interface WSRuntimeConfig {
   pluginVersion?: string;
   /** Plugin build identifier sent in session info (default: 'unknown' if not provided) */
   pluginBuild?: string;
-  /** Port range for legacy MCP discovery */
-  portRangeStart: number;
-  portRangeEnd: number;
   connectionTimeout: number;
   requestTimeout: number;
   reconnectDelay: number;
@@ -1010,10 +1007,8 @@ export interface WSRuntimeConfig {
 }
 
 export const DEFAULT_WS_CONFIG: WSRuntimeConfig = {
-  transportMode: 'legacy',
+  transportMode: 'direct',
   directWsUrl: 'ws://localhost:8787/ws/figma-plugin',
-  portRangeStart: 9223,
-  portRangeEnd: 9232,
   connectionTimeout: 3000,
   requestTimeout: 15000,
   reconnectDelay: 500,
@@ -1036,11 +1031,9 @@ export type BridgeConnectionState =
 
 /**
  * Transport mode for MCP communication
- * - legacy: Current architecture (WS → MCP process → stdio → Dashboard)
- * - direct: New direct WS connection to Dashboard
- * - shadow: Direct mode + parallel legacy execution for parity checking
+ * Direct mode: WebSocket connection directly to Dashboard server.
  */
-export type TransportMode = 'legacy' | 'direct' | 'shadow';
+export type TransportMode = 'direct';
 
 export interface BridgeStatus {
   state: BridgeConnectionState;

@@ -15,7 +15,6 @@ interface ConnectionStatusProps {
 
 const RECONCILE_POLL_INTERVAL_MS = 2_000;
 const RECONCILE_POLL_TIMEOUT_MS = 30_000;
-const PORT_SCAN_ORDER = [9223, 9224, 9225, 9226, 9227, 9228, 9229, 9230, 9231, 9232];
 type ResolveTone = 'neutral' | 'success' | 'warning' | 'error';
 
 function isSessionUnlinkedIssue(code: string | null, message: string | null | undefined): boolean {
@@ -94,14 +93,10 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     setResolveCountdown(null);
 
     try {
-      let sawPortMismatch = connectionState?.state === 'mismatch';
       let sawSessionUnlinked = false;
       const initialCaps = await mcpClient.getCapabilities({ forceRefresh: true });
       if (initialCaps.ok) {
         const initialState = applyCapabilities(initialCaps);
-        if (initialState.state === 'mismatch') {
-          sawPortMismatch = true;
-        }
         if (initialState.state === 'connected' || initialState.state === 'fallback') {
           setResolveTone('success');
           setResolveMessage('Connection is already healthy.');
@@ -139,12 +134,9 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         const caps = await mcpClient.getCapabilities({ forceRefresh: true });
         if (caps.ok) {
           const state = applyCapabilities(caps);
-          if (state.state === 'mismatch') {
-            sawPortMismatch = true;
-          }
           if (state.state === 'connected' || state.state === 'fallback') {
             setResolveTone('success');
-            setResolveMessage('Connection restored after reconcile.');
+            setResolveMessage('Connection restored.');
             setResolveCountdown(null);
             return;
           }
@@ -171,43 +163,12 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       if (sawSessionUnlinked) {
         setResolveTone('warning');
         setResolveCountdown(null);
-        setResolveMessage(
-          'Session is not linked to this Figma file yet. Keep the plugin open in Figma and retry. Port scan skipped.',
-        );
+        setResolveMessage('Session is not linked to this Figma file yet. Keep the plugin open in Figma and retry.');
         return;
-      }
-
-      if (!sawPortMismatch) {
-        setResolveTone('warning');
-        setResolveCountdown(null);
-        setResolveMessage(
-          'No port mismatch detected. Port scan skipped to avoid unnecessary resets. Retry after reopening the plugin in Figma.',
-        );
-        return;
-      }
-
-      setResolveMessage('Step 2/2: scanning MCP ports automatically…');
-      setResolveCountdown(null);
-
-      for (const port of PORT_SCAN_ORDER) {
-        const switchResult = await mcpClient.switchPort(port);
-        if (!switchResult.ok) continue;
-
-        const poll = await mcpClient.pollUntilStable(port, 8_000, 1_500);
-        if (
-          poll.success ||
-          ((poll.finalState.state === 'connected' || poll.finalState.state === 'fallback') &&
-            poll.finalState.connectedPort === port)
-        ) {
-          setResolveTone('success');
-          setResolveMessage(`Connection restored on port ${port}.`);
-          await fetchStatus();
-          return;
-        }
       }
 
       setResolveTone('error');
-      setResolveMessage('Auto-repair could not restore the connection.');
+      setResolveMessage('Auto-repair could not restore the connection. Keep the plugin open and retry.');
     } catch (error) {
       setResolveTone('error');
       setResolveCountdown(null);
@@ -274,14 +235,14 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         return {
           title: 'Port mismatch detected',
           message: connectionState.cause,
-          action: 'Run "Fix connection" first, then use Port Switcher if mismatch persists.',
+          action: 'Run "Fix connection" to attempt automatic repair.',
         };
       
       case 'fallback':
         return {
           title: 'Using fallback port',
           message: `Connected on port ${connectionState.connectedPort} (fallback).`,
-          action: 'Consider switching to the primary port for optimal performance.',
+          action: 'If this persists, reload the plugin and verify dashboard/plugin connectivity.',
         };
       
       default:
@@ -440,7 +401,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
           borderRadius: '8px',
         }}>
           <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#374151' }}>
-            Step 2: Repair session
+            Step 2: Repair connection
           </h4>
           <button
             onClick={handleFixConnection}
@@ -473,8 +434,8 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             {!step1Ready
               ? 'Will run diagnostics and stop quickly with a concrete API error if unreachable.'
               : connectionState?.state === 'mismatch'
-                ? 'Auto-repair will reconcile first, then scan ports if needed.'
-                : 'Auto-repair reconciles MCP state and scans ports only when needed.'}
+                ? 'Auto-repair will attempt to reconcile the MCP session.'
+                : 'Auto-repair reconciles MCP session state.'}
           </p>
         </div>
       </div>

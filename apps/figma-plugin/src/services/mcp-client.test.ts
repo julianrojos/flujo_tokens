@@ -94,29 +94,3 @@ describe('McpClientService.computeKitSummary', () => {
         expect(summary!.stylesByType).toEqual({});
     });
 });
-
-describe('McpClientService.reconcileConnection', () => {
-    it('translates 410 legacy_endpoint_removed to clear migration message', async () => {
-        const client = new McpClientService('http://localhost:3000');
-        
-        // Mock fetch to return 410 with legacy_endpoint_removed
-        const originalFetch = global.fetch;
-        global.fetch = vi.fn(() => Promise.resolve({
-            status: 410,
-            json: () => Promise.resolve({
-                code: 'legacy_endpoint_removed',
-                message: 'Legacy endpoint removed',
-            }),
-        } as Response)) as any;
-        
-        const result = await client.reconcileConnection({ confirmReconcile: true });
-        
-        expect(result.ok).toBe(false);
-        expect(result.connected).toBe(false);
-        expect(result.code).toBe('mcp.legacy_deprecated');
-        expect(result.message).toContain('deprecated');
-        expect(result.phase).toBe('waiting_for_bridge');
-        
-        global.fetch = originalFetch;
-    });
-});

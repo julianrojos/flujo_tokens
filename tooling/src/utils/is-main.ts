@@ -12,8 +12,8 @@ export function isMain(metaUrl: string): boolean {
     if (!metaUrl || !process.argv[1]) return false;
 
     try {
-        const mainPath = resolve(process.argv[1]);
         const modulePath = fileURLToPath(metaUrl);
+        const mainPath = resolve(process.argv[1]);
         return mainPath === modulePath;
     } catch {
         return false;
