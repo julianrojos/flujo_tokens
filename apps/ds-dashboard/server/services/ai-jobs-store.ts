@@ -34,6 +34,11 @@ const JOB_TTL_MS = 24 * 60 * 60 * 1000;
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
+ * Maximum number of events retained per job (ring-buffer behavior)
+ */
+const MAX_EVENTS_PER_JOB = 100;
+
+/**
  * AI Jobs Store class
  */
 export class AiJobsStore {
@@ -231,6 +236,10 @@ export class AiJobsStore {
         this.nextEventSeq.set(jobId, seq);
 
         job.events.push(jobEvent);
+        // Maintain a fixed-size ring buffer while preserving monotonic seq values.
+        if (job.events.length > MAX_EVENTS_PER_JOB) {
+            job.events.splice(0, job.events.length - MAX_EVENTS_PER_JOB);
+        }
         job.updatedAt = Date.now();
     }
 
