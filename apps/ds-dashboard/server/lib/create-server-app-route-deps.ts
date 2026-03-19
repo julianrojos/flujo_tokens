@@ -51,8 +51,10 @@ export interface CreateServerAppRouteDepsConfig {
   enqueueRefreshNamingDebtJob: (...args: unknown[]) => unknown;
   queueNodeJsonCommand: (...args: unknown[]) => unknown;
   toBooleanString: (value: unknown, fallback: boolean) => string;
-  toNumberString: (value: unknown, fallback: number, max?: number) => string;
-  validateGitRef: (...args: unknown[]) => unknown;
+  toNumberString: (value: unknown, fallback: number, max: number) => string;
+  validateGitRef: (value: string) => string | null;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  db?: import('better-sqlite3').Database;
 }
 
 export type CreateServerAppRouteDeps = CreateServerAppRouteDepsConfig;
@@ -109,5 +111,7 @@ export function buildCreateServerAppRouteDeps(config: CreateServerAppRouteDepsCo
     toBooleanString: config.toBooleanString,
     toNumberString: config.toNumberString,
     validateGitRef: config.validateGitRef,
+    tokenRepo: config.tokenRepo,
+    db: config.db,
   };
 }

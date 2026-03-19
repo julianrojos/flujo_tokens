@@ -164,6 +164,7 @@ export interface ServerDeps {
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  db?: import('better-sqlite3').Database;
 }
 
 export function buildSharedSystemContextDeps(deps: ServerDeps): SharedSystemContextDeps {

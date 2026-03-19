@@ -75,6 +75,13 @@ describe('db-service', () => {
             assert.strictEqual(result[0].synchronous, 1, 'synchronous should be NORMAL (1)');
         });
 
+        it('enables foreign key enforcement pragma', () => {
+            db = openDatabase({ dbPath: ':memory:' });
+
+            const result = db.pragma('foreign_keys') as Array<{ foreign_keys: number }>;
+            assert.strictEqual(result[0].foreign_keys, 1, 'foreign_keys should be ON (1)');
+        });
+
         it('throws if parent directory does not exist', () => {
             assert.throws(
                 () => openDatabase({ dbPath: '/nonexistent/path/test.db' }),
