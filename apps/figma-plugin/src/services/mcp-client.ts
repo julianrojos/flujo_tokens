@@ -42,13 +42,6 @@ export interface McpError {
 }
 
 
-export interface PortSwitchResult {
-  ok: true;
-  activePort: number;
-  previousPort: number;
-  message: string;
-}
-
 export interface ConnectionState {
   configuredPort: number;
   connectedPort: number | null;
@@ -133,6 +126,7 @@ export class McpClientService {
 
   private async fetchFromDashboard(path: string, init: RequestInit): Promise<Response> {
     let lastError: unknown = null;
+    const attemptedBases: string[] = [];
     const normalizedInit: RequestInit = { ...init };
     const method = String(normalizedInit.method || 'GET').toUpperCase();
     const headers = new Headers(normalizedInit.headers || {});
@@ -143,6 +137,7 @@ export class McpClientService {
     normalizedInit.headers = headers;
 
     for (const base of this.apiBaseCandidates) {
+      attemptedBases.push(base);
       try {
         const response = await fetch(`${base}${path}`, normalizedInit);
         this.markApiBaseAsHealthy(base);
@@ -152,10 +147,13 @@ export class McpClientService {
       }
     }
 
+    const attempted = attemptedBases.join(', ');
     if (lastError instanceof Error) {
-      throw lastError;
+      throw new Error(
+        `Failed to reach dashboard API (${path}) after trying: ${attempted}. Last error: ${lastError.message}`
+      );
     }
-    throw new Error('Failed to reach dashboard API.');
+    throw new Error(`Failed to reach dashboard API (${path}) after trying: ${attempted}.`);
   }
 
   private getHeaders(): Record<string, string> {
@@ -245,41 +243,12 @@ export class McpClientService {
   }
 
   /**
-   * Invalidate capabilities cache (call after port switch).
+   * Invalidate capabilities cache after any operation that may change MCP state.
    */
   invalidateCapabilitiesCache(): void {
     this.capabilitiesCache = null;
   }
 
-
-  /**
-   * Switch MCP port.
-   */
-  async switchPort(port: number): Promise<PortSwitchResult | McpError> {
-    try {
-      const response = await this.fetchFromDashboard('/api/figma-mcp/port', {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ port }),
-        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
-      });
-      const result = await response.json();
-
-      // Invalidate cache on successful switch
-      if (result.ok === true) {
-        this.lastKnownConfiguredPort = Number(result.activePort) || this.lastKnownConfiguredPort;
-        this.invalidateCapabilitiesCache();
-      }
-
-      return result;
-    } catch (error) {
-      return {
-        ok: false,
-        code: 'port.switch_failed',
-        message: error instanceof Error ? error.message : 'Failed to switch port',
-      };
-    }
-  }
 
   /**
    * Compute connection state from capabilities.
@@ -329,48 +298,6 @@ export class McpClientService {
       connectedPort,
       state: 'mismatch',
       cause: `Bridge connected to ${connectedPort}, dashboard configured for ${configuredPort}`,
-    };
-  }
-
-  /**
-   * Poll connection state until stable or timeout.
-   */
-  async pollUntilStable(
-    targetPort: number,
-    timeoutMs: number = 30_000,
-    intervalMs: number = 2_000
-  ): Promise<{ success: boolean; finalState: ConnectionState; elapsedMs: number }> {
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < timeoutMs) {
-      // Force refresh during polling to avoid stale cache
-      const capabilities = await this.getCapabilities({ forceRefresh: true });
-      const state = this.computeConnectionState(capabilities);
-
-      // Success: connected (or fallback) and port matches
-      if (
-        (state.state === 'connected' || state.state === 'fallback') &&
-        state.connectedPort === targetPort
-      ) {
-        return {
-          success: true,
-          finalState: state,
-          elapsedMs: Date.now() - startedAt,
-        };
-      }
-
-      // Wait before next poll
-      await new Promise(resolve => setTimeout(resolve, intervalMs));
-    }
-
-    // Timeout reached
-    const finalCapabilities = await this.getCapabilities({ forceRefresh: true });
-    const finalState = this.computeConnectionState(finalCapabilities);
-
-    return {
-      success: false,
-      finalState,
-      elapsedMs: Date.now() - startedAt,
     };
   }
 
@@ -525,8 +452,4 @@ export function getPluginMcpClient(apiBase?: string, internalToken?: string): Mc
     _pluginMcpClient = new McpClientService(apiBase, internalToken);
   }
   return _pluginMcpClient;
-}
-
-export function resetPluginMcpClient(): void {
-  _pluginMcpClient = null;
 }

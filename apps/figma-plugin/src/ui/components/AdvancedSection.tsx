@@ -7,15 +7,9 @@
 
 import React, { useState } from 'react';
 import { ConnectionStatus } from './ConnectionStatus';
-import { PortSwitcher } from './PortSwitcher';
 import { COLOR, FONT, SPACE, UI_HEIGHT_COLLAPSED, UI_HEIGHT_EXPANDED } from '../styles/tokens';
 
-interface AdvancedSectionProps {
-  onPortChanged: (port: number) => void;
-  onError: (error: string) => void;
-}
-
-export const AdvancedSection: React.FC<AdvancedSectionProps> = ({ onPortChanged, onError }) => {
+export const AdvancedSection: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
 
   const toggle = () => {
@@ -65,9 +59,6 @@ export const AdvancedSection: React.FC<AdvancedSectionProps> = ({ onPortChanged,
       {isOpen && (
         <div>
           <ConnectionStatus autoRefresh refreshIntervalMs={10_000} />
-          <div style={{ borderTop: `1px solid ${COLOR.border}` }}>
-            <PortSwitcher onPortChanged={onPortChanged} onError={onError} />
-          </div>
         </div>
       )}
     </div>

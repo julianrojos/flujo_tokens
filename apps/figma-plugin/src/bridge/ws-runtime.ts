@@ -65,8 +65,6 @@ interface ParentPostMessageLike {
   postMessage: (message: unknown, targetOrigin: string) => void;
 }
 
-const WS_HOST_CANDIDATES = ['localhost'] as const;
-
 /**
  * Virtual port identifier for direct mode connections.
  * In direct mode, the port is not scanned but derived from the WebSocket URL.
@@ -82,11 +80,11 @@ export class WebSocketRuntime {
   private reconnectDelay: number;
   private reconnectAttempts: number;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private isScanning: boolean = false;
+  private isConnecting: boolean = false;
   private isStopping = false;
   private status: BridgeStatus = {
     state: 'disconnected',
-    configuredPort: DEFAULT_WS_CONFIG.portRangeStart,
+    configuredPort: DIRECT_MODE_VIRTUAL_PORT,
     connectedPort: null,
   };
   private messageHandlers: Map<BridgeEvent, Set<MessageHandler>> = new Map();
@@ -162,45 +160,31 @@ export class WebSocketRuntime {
   // ============================================================================
 
   /**
-   * Start scanning for available servers and connect to all of them.
-   * Multi-connection support allows multiple MCP server instances.
-   *
-   * In direct mode, connects to a single WebSocket endpoint.
+   * Start the direct WebSocket connection to the configured dashboard endpoint.
+   * Guards against concurrent invocations via `isConnecting`.
    */
   async start(): Promise<void> {
     this.isStopping = false;
-    if (this.isScanning) {
-      console.log('[WS Runtime] Scan already in progress');
+    if (this.isConnecting) {
+      console.log('[WS Runtime] Connection already in progress');
       return;
     }
 
     this.ensurePluginMessageListener();
 
-    if (this.config.transportMode === 'direct' || this.config.transportMode === 'shadow') {
-      // Validate direct WebSocket URL before connecting
-      const directWsUrl = this.validateDirectWsUrl();
-      if (!directWsUrl) {
-        console.error(`[DirectWS] Invalid or missing directWsUrl: ${this.config.directWsUrl}`);
-        this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'invalid_direct_ws_url');
-        // Do NOT fall back to legacy mode — this would hide configuration errors
-        // and mix transport modes unexpectedly. Stay disconnected with explicit error.
-        console.log('[DirectWS] Staying disconnected due to invalid directWsUrl. Fix config to restore connection.');
-        this.isScanning = false;
-        return;
-      }
-
-      // Direct mode: connect to single WebSocket endpoint
-      console.log(`[DirectWS] Starting direct mode connection to ${directWsUrl}`);
-      this.updateStatus('connecting', DIRECT_MODE_VIRTUAL_PORT, null);
-      await this.connectToDirect(directWsUrl);
-    } else {
-      // Legacy mode: scan ports
-      console.log(
-        `[WS Runtime] Scanning ports ${this.config.portRangeStart}-${this.config.portRangeEnd} for MCP servers...`
-      );
-      this.updateStatus('connecting', this.config.portRangeStart, null);
-      await this.scanAndConnect();
+    // Direct mode: connect to single WebSocket endpoint
+    const directWsUrl = this.validateDirectWsUrl();
+    if (!directWsUrl) {
+      console.error(`[DirectWS] Invalid or missing directWsUrl: ${this.config.directWsUrl}`);
+      this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'invalid_direct_ws_url');
+      console.log('[DirectWS] Staying disconnected due to invalid directWsUrl. Fix config to restore connection.');
+      this.isConnecting = false;
+      return;
     }
+
+    console.log(`[DirectWS] Starting direct mode connection to ${directWsUrl}`);
+    this.updateStatus('connecting', DIRECT_MODE_VIRTUAL_PORT, null);
+    await this.connectToDirect(directWsUrl);
   }
 
   /**
@@ -209,7 +193,7 @@ export class WebSocketRuntime {
    */
   private async connectToDirect(wsUrl: string): Promise<void> {
     return new Promise((resolve) => {
-      this.isScanning = true;
+      this.isConnecting = true;
       console.log(`[DirectWS] Connecting to ${wsUrl}`);
 
       const ws = new WebSocket(wsUrl);
@@ -222,7 +206,7 @@ export class WebSocketRuntime {
         ws.removeEventListener('error', onError);
         ws.close();
 
-        this.isScanning = false;
+        this.isConnecting = false;
         this.updateStatus('disconnected', actualPort, null, 'connection_timeout');
 
         // Schedule reconnect in direct mode too
@@ -244,7 +228,7 @@ export class WebSocketRuntime {
 
         // Don't mark as 'connected' yet - wait for handshake/bootstrap to complete
         // addConnection already marks as 'connecting' if handshakeComplete is false
-        this.isScanning = false;
+        this.isConnecting = false;
 
         // Send session info in direct mode (this triggers handshake)
         void this.sendSessionInfo(ws);
@@ -259,7 +243,7 @@ export class WebSocketRuntime {
         ws.removeEventListener('error', onError);
         ws.close();
 
-        this.isScanning = false;
+        this.isConnecting = false;
         this.updateStatus('disconnected', actualPort, null, 'connection_failed');
 
         // Schedule reconnect in direct mode too
@@ -352,97 +336,9 @@ export class WebSocketRuntime {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.isScanning = false;
+    this.isConnecting = false;
     this.reconnectAttempts = 0;
     this.reconnectDelay = this.config.reconnectDelay;
-  }
-
-  /**
-   * Scan port range and connect to all active servers.
-   */
-  private async scanAndConnect(): Promise<void> {
-    if (this.isScanning) return;
-    this.isScanning = true;
-
-    const portsToTry: number[] = [];
-    for (let port = this.config.portRangeStart; port <= this.config.portRangeEnd; port++) {
-      if (!this.isPortConnected(port)) {
-        portsToTry.push(port);
-      }
-    }
-
-    if (portsToTry.length === 0) {
-      this.isScanning = false;
-      return;
-    }
-
-    let foundAny = false;
-    const pendingConnections: Promise<void>[] = [];
-
-    for (const port of portsToTry) {
-      pendingConnections.push(
-        new Promise<void>((resolve) => {
-          let hostIndex = 0;
-
-          const tryNextHost = (): void => {
-            if (hostIndex >= WS_HOST_CANDIDATES.length) {
-              resolve();
-              return;
-            }
-
-            const host = WS_HOST_CANDIDATES[hostIndex];
-            hostIndex += 1;
-
-            const testWs = new WebSocket(`ws://${host}:${port}`);
-            let advanced = false;
-            const timeout = setTimeout(() => {
-              if (testWs.readyState !== WebSocket.OPEN) {
-                testWs.close();
-              }
-            }, this.config.connectionTimeout);
-
-            testWs.onopen = () => {
-              clearTimeout(timeout);
-              foundAny = true;
-              this.addConnection(port, host, testWs);
-              console.log(
-                `[WS Runtime] Connected to ${host}:${port} (${this.connections.size} server(s) total)`
-              );
-              resolve();
-            };
-
-            testWs.onerror = () => {
-              if (advanced) return;
-              advanced = true;
-              clearTimeout(timeout);
-              tryNextHost();
-            };
-
-            testWs.onclose = () => {
-              if (advanced) return;
-              advanced = true;
-              clearTimeout(timeout);
-              tryNextHost();
-            };
-          };
-
-          tryNextHost();
-        })
-      );
-    }
-
-    await Promise.all(pendingConnections);
-
-    this.isScanning = false;
-
-    if (foundAny) {
-      this.reconnectDelay = this.config.reconnectDelay;
-      this.reconnectAttempts = 0;
-      console.log(`[WS Runtime] Found ${this.connections.size} server(s)`);
-    } else {
-      // No servers found - retry with backoff
-      this.scheduleReconnect();
-    }
   }
 
   /**
@@ -589,29 +485,17 @@ export class WebSocketRuntime {
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      if (this.config.transportMode === 'direct' || this.config.transportMode === 'shadow') {
-        // Use centralized validation
-        const directWsUrl = this.validateDirectWsUrl();
-        if (!directWsUrl) {
-          console.error(`[DirectWS] Invalid or missing directWsUrl during reconnect: ${this.config.directWsUrl}`);
-          this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'invalid_direct_ws_url');
-          return;
-        }
-        void this.connectToDirect(directWsUrl);
-      } else {
-        void this.scanAndConnect();
+      // Direct mode: reconnect to single WebSocket endpoint
+      const directWsUrl = this.validateDirectWsUrl();
+      if (!directWsUrl) {
+        console.error(`[DirectWS] Invalid or missing directWsUrl during reconnect: ${this.config.directWsUrl}`);
+        this.updateStatus('disconnected', DIRECT_MODE_VIRTUAL_PORT, null, 'invalid_direct_ws_url');
+        return;
       }
+      void this.connectToDirect(directWsUrl);
     }, delay);
 
     this.reconnectDelay = delay;
-  }
-
-  /**
-   * Check if a specific port is already connected.
-   */
-  private isPortConnected(port: number): boolean {
-    const conn = this.connections.get(port);
-    return conn !== undefined && conn.ws.readyState === WebSocket.OPEN;
   }
 
   /**
@@ -1192,8 +1076,6 @@ function getRuntimeConfigSignature(config?: Partial<WSRuntimeConfig>): string {
     directWsUrl: resolvedConfig.directWsUrl ?? null,
     pluginVersion: resolvedConfig.pluginVersion ?? null,
     pluginBuild: resolvedConfig.pluginBuild ?? null,
-    portRangeStart: resolvedConfig.portRangeStart,
-    portRangeEnd: resolvedConfig.portRangeEnd,
     connectionTimeout: resolvedConfig.connectionTimeout,
     requestTimeout: resolvedConfig.requestTimeout,
     reconnectDelay: resolvedConfig.reconnectDelay,

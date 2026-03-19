@@ -1,18 +1,14 @@
 /**
  * Figma MCP Port Route
  *
- * DEPRECATED: Legacy MCP port management endpoint.
- * In direct-only mode, port switching is not applicable.
- * Returns current runtime state for compatibility.
+ * Read-only endpoint for current MCP port state.
  */
 
 import type { Context } from 'hono';
 import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import { getActiveMcpPort } from '../services/figma-mcp-runtime-state.ts';
+import { getFigmaMcpRuntimeState } from '../services/figma-mcp-runtime-state.ts';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
-
-const ALLOWED_PORTS = [9223, 9224, 9225, 9226, 9227, 9228, 9229, 9230, 9231, 9232];
 
 export interface FigmaMcpPortRouteDeps {
   getConnInfoFn?: (c: Context) => ConnInfo;
@@ -47,7 +43,7 @@ function isAuthorized(
 /**
  * GET /api/figma-mcp/port
  *
- * Returns current MCP runtime state (read-only in direct-only mode).
+ * Returns current MCP runtime state (read-only).
  */
 export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteDeps): Promise<Response> {
   const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
@@ -65,57 +61,21 @@ export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteD
     );
   }
 
-  const activePort = getActiveMcpPort();
+  const state = getFigmaMcpRuntimeState();
 
   return c.json({
     ok: true,
-    activePort,
-    allowedRange: { start: ALLOWED_PORTS[0], end: ALLOWED_PORTS[ALLOWED_PORTS.length - 1] },
-    lastChangeAt: 0,
-    isSwitching: false,
-    note: 'Port switching is deprecated in direct-only mode. This endpoint returns read-only state.',
+    activePort: state.activePort,
+    allowedRange: state.allowedRange,
+    lastChangeAt: state.lastChangeAt,
   });
 }
 
-/**
- * POST /api/figma-mcp/port
- *
- * DEPRECATED: Port switching is not supported in direct-only mode.
- */
-export async function handlePostFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteDeps): Promise<Response> {
-  const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
-  const internalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
-
-  // Authorization check
-  if (!isAuthorized(c, internalToken, getConnInfoFn)) {
-    return c.json(
-      {
-        ok: false,
-        code: 'port.forbidden_remote',
-        message: 'Endpoint allowed only from loopback or with internal token.',
-      },
-      403
-    );
-  }
-
-  return c.json(
-    {
-      ok: false,
-      code: 'legacy_endpoint_removed',
-      message: 'Port switching is deprecated in direct-only mode. Direct WebSocket connections use the port configured in the plugin.',
-      deprecated: true,
-    },
-    410 // Gone
-  );
-}
-
 export function registerFigmaMcpPortRoute(
-  app: { 
+  app: {
     get: (path: string, handler: (c: Context) => Response | Promise<Response>) => void;
-    post: (path: string, handler: (c: Context) => Response | Promise<Response>) => void;
   },
   deps: FigmaMcpPortRouteDeps = {}
 ): void {
   app.get('/api/figma-mcp/port', (c) => handleGetFigmaMcpPort(c, deps));
-  app.post('/api/figma-mcp/port', (c) => handlePostFigmaMcpPort(c, deps));
 }

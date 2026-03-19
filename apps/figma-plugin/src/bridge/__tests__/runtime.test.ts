@@ -94,8 +94,6 @@ describe('WebSocketRuntime', () => {
   beforeEach(() => {
     runtime = new WebSocketRuntime({
       ...DEFAULT_WS_CONFIG,
-      portRangeStart: 9223,
-      portRangeEnd: 9225,
       connectionTimeout: 100,
       requestTimeout: 500,
       reconnectDelay: 50,

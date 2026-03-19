@@ -119,8 +119,6 @@ describe('Runtime Integration', () => {
 
     runtime = new WebSocketRuntime({
       ...DEFAULT_WS_CONFIG,
-      portRangeStart: 9223,
-      portRangeEnd: 9223,
       connectionTimeout: 100,
       requestTimeout: 500,
       reconnectDelay: 50,

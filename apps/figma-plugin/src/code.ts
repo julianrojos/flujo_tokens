@@ -315,13 +315,6 @@ figma.ui.onmessage = async (
 
   // Handle standard UI messages
   switch (messageType) {
-    case 'PORT_CHANGED':
-      if (typeof msg.port === 'number') {
-        console.log(`[Plugin] Port changed to ${msg.port}`);
-        figma.notify(`MCP port switched to ${msg.port}`, { timeout: 3000 });
-      }
-      break;
-
     case 'ERROR':
       console.error(`[Plugin] UI error: ${msg.error}`);
       figma.notify(
