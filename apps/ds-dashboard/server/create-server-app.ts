@@ -369,6 +369,8 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       toBooleanString,
       toNumberString,
       validateGitRef,
+      tokenRepo: db ? tokenRepo : undefined,
+      db,
     }) as unknown as Record<string, unknown>,
   });
 

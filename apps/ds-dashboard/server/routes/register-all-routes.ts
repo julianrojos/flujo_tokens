@@ -32,6 +32,7 @@ import { registerFigmaPluginDebugRoute } from './figma-plugin-debug-route.ts';
 import { registerFigmaMcpVariablesV2Routes } from './figma-mcp-variables-v2-route.ts';
 import { registerFigmaMcpComponentsRoutes } from './figma-mcp-components-route.ts';
 import { registerFigmaMcpTokenBindingsRoutes } from './figma-mcp-token-bindings-route.ts';
+import { registerFigmaMcpDependenciesRoutes } from './figma-mcp-dependencies-route.ts';
 import { registerAiJobsRoutes } from './ai-jobs-route.ts';
 import type { CommandRoutesDeps } from './command-routes.ts';
 import { buildAllRouteDeps, type ServerDeps } from '../lib/register-all-routes-service.ts';
@@ -162,6 +163,18 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerFigmaMcpTokenBindingsRoutes(app, {
     readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
   });
+  if (deps.db) {
+    registerFigmaMcpDependenciesRoutes(app, {
+      readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
+      db: deps.db,
+      getSystemConfig: (c) => {
+        const systemHeader = String(c.req.header('x-ds-system') || '');
+        const context = deps.getSystemContext(systemHeader) as Record<string, unknown>;
+        const rawRef = String(context?.figmaApiToken || process.env.FIGMA_API_TOKEN || '');
+        return { figmaApiToken: rawRef };
+      },
+    });
+  }
   registerFigmaPluginDebugRoute(app, {
     internalToken: process.env.DS_DASHBOARD_INTERNAL_TOKEN,
   });
