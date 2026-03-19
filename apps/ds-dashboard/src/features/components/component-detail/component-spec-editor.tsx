@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import type { PartialComponentSpec } from "ds-types";
 import { patchEditorialSpec } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { SummaryMarkdownEditor } from "@/components/rich-text-editor/summary-markdown-editor";
 import {
   isSummaryDirty,
   persistSummaryEditorial,
@@ -13,6 +12,16 @@ import {
   toSummary,
   type SummaryFields,
 } from "./component-spec-editor-logic";
+
+const SummaryMarkdownEditor = lazy(() =>
+  import("@/components/rich-text-editor/summary-markdown-editor").then((module) => ({
+    default: module.SummaryMarkdownEditor,
+  })),
+);
+
+function SummaryEditorLoadingFallback() {
+  return <div className="min-h-[80px] animate-pulse rounded-md border border-border bg-muted/30" />;
+}
 
 interface ComponentSpecEditorProps {
   open: boolean;
@@ -173,45 +182,55 @@ export function ComponentSpecEditor({
           </div>
 
           <div className="space-y-3 p-5">
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">Purpose</span>
-              <SummaryMarkdownEditor
-                value={summary.purpose}
-                onChange={(markdown) => {
-                  setSavedWithMarkdownSync(false);
-                  setSummary((current) => ({ ...current, purpose: markdown }));
-                }}
-                placeholder="Enter purpose..."
-              />
-            </div>
+            <Suspense
+              fallback={
+                <div className="space-y-3">
+                  <SummaryEditorLoadingFallback />
+                  <SummaryEditorLoadingFallback />
+                  <SummaryEditorLoadingFallback />
+                </div>
+              }
+            >
+              <div>
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">Purpose</span>
+                <SummaryMarkdownEditor
+                  value={summary.purpose}
+                  onChange={(markdown) => {
+                    setSavedWithMarkdownSync(false);
+                    setSummary((current) => ({ ...current, purpose: markdown }));
+                  }}
+                  placeholder="Enter purpose..."
+                />
+              </div>
 
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                When to use
-              </span>
-              <SummaryMarkdownEditor
-                value={summary.when_to_use}
-                onChange={(markdown) => {
-                  setSavedWithMarkdownSync(false);
-                  setSummary((current) => ({ ...current, when_to_use: markdown }));
-                }}
-                placeholder="Enter when to use..."
-              />
-            </div>
+              <div>
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                  When to use
+                </span>
+                <SummaryMarkdownEditor
+                  value={summary.when_to_use}
+                  onChange={(markdown) => {
+                    setSavedWithMarkdownSync(false);
+                    setSummary((current) => ({ ...current, when_to_use: markdown }));
+                  }}
+                  placeholder="Enter when to use..."
+                />
+              </div>
 
-            <div>
-              <span className="mb-1 block text-xs font-medium text-muted-foreground">
-                When not to use
-              </span>
-              <SummaryMarkdownEditor
-                value={summary.when_not_to_use}
-                onChange={(markdown) => {
-                  setSavedWithMarkdownSync(false);
-                  setSummary((current) => ({ ...current, when_not_to_use: markdown }));
-                }}
-                placeholder="Enter when not to use..."
-              />
-            </div>
+              <div>
+                <span className="mb-1 block text-xs font-medium text-muted-foreground">
+                  When not to use
+                </span>
+                <SummaryMarkdownEditor
+                  value={summary.when_not_to_use}
+                  onChange={(markdown) => {
+                    setSavedWithMarkdownSync(false);
+                    setSummary((current) => ({ ...current, when_not_to_use: markdown }));
+                  }}
+                  placeholder="Enter when not to use..."
+                />
+              </div>
+            </Suspense>
 
             {isDirty ? (
               <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
