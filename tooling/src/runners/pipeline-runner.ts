@@ -55,14 +55,13 @@ const CLI_CONFIG = {
     {
       name: '--from-step',
       description:
-        'Start from specific step. Canonical: spec|markdown|render|proof. Legacy aliases: figma=render, visual-proof=proof',
+        'Start from specific step. Canonical: spec|markdown.',
     },
     {
       name: '--only-step',
       description:
-        'Execute only a specific step. Canonical: spec|markdown|render|proof. Legacy aliases: figma=render, visual-proof=proof',
+        'Execute only a specific step. Canonical: spec|markdown.',
     },
-    { name: '--render-figma', description: 'Render docs back to Figma' },
     { name: '--dry-run', description: 'Plan but do not execute' },
     { name: '--status-only', description: 'Only show plan and orphan status' },
     { name: '--strict', description: 'Fail on first error' },
@@ -83,12 +82,12 @@ const CLI_CONFIG = {
  */
 async function runPreflight(options: PipelineOptions): Promise<boolean> {
   const { json, system } = options;
-  const FATAL_PREFLIGHT_CHECKS = new Set([
-    'PATH_DOCS',
-    'PATH_SPECS',
-    'TOKEN_REGISTRY',
-    'COMPONENT_REGISTRY',
-  ]);
+  const isPlanningOnly = options['dry-run'] || options['status-only'];
+  const FATAL_PREFLIGHT_CHECKS = new Set(
+    isPlanningOnly
+      ? ['PATH_DOCS', 'PATH_SPECS']
+      : ['PATH_DOCS', 'PATH_SPECS', 'TOKEN_REGISTRY', 'COMPONENT_REGISTRY'],
+  );
 
   const registryExists = fs.existsSync(
     path.join(PROJECT_ROOT, 'docs', '_generated', 'component-registry.json'),
@@ -190,7 +189,6 @@ export async function runPipeline(args: string[] = []): Promise<PipelineReport> 
     all: parsed.all === 'true' || !!parsed.all,
     'from-step': parsed['from-step'] ? String(parsed['from-step']) : undefined,
     'only-step': parsed['only-step'] ? String(parsed['only-step']) : undefined,
-    'render-figma': parsed['render-figma'] === 'true' || !!parsed['render-figma'],
     'dry-run': parsed['dry-run'] === 'true' || !!parsed['dry-run'],
     'status-only': parsed['status-only'] === 'true' || !!parsed['status-only'],
     strict: parsed.strict === 'true' || !!parsed.strict,
@@ -218,8 +216,8 @@ export async function runPipeline(args: string[] = []): Promise<PipelineReport> 
   const plan = createPlan({
     'from-step': options['from-step'],
     'only-step': options['only-step'],
-    'render-figma': options['render-figma'],
     component: options.component,
+    allowMissingRegistry: Boolean(options['dry-run'] || options['status-only']),
   });
 
   // Status-only mode

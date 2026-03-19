@@ -41,12 +41,6 @@ export interface McpError {
   message: string;
 }
 
-export interface PortState {
-  activePort: number;
-  allowedRange: { start: number; end: number };
-  lastChangeAt: number;
-  isSwitching: boolean;
-}
 
 export interface PortSwitchResult {
   ok: true;
@@ -62,21 +56,6 @@ export interface ConnectionState {
   cause?: string;
 }
 
-export interface ReconcileConnectionResponse {
-  ok: boolean;
-  connected: boolean;
-  code?: string;
-  message?: string;
-  everConnected?: boolean;
-  attemptedReset?: boolean;
-  restarting?: boolean;
-  phase?:
-  | 'already_connected'
-  | 'connected_after_reset'
-  | 'waiting_for_bridge'
-  | 'not_recoverable'
-  | 'input_error';
-}
 
 export interface HeartbeatResponse {
   ok: boolean;
@@ -272,29 +251,6 @@ export class McpClientService {
     this.capabilitiesCache = null;
   }
 
-  /**
-   * Get current port state.
-   */
-  async getPortState(): Promise<PortState | McpError> {
-    try {
-      const response = await this.fetchFromDashboard('/api/figma-mcp/port', {
-        method: 'GET',
-        headers: this.getHeaders(),
-        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
-      });
-      const payload = await response.json();
-      if (payload?.ok === true && Number.isFinite(Number(payload.activePort))) {
-        this.lastKnownConfiguredPort = Number(payload.activePort);
-      }
-      return payload;
-    } catch (error) {
-      return {
-        ok: false,
-        code: 'port.fetch_failed',
-        message: error instanceof Error ? error.message : 'Failed to fetch port state',
-      };
-    }
-  }
 
   /**
    * Switch MCP port.
@@ -532,71 +488,6 @@ export class McpClientService {
     }
   }
 
-  /**
-   * Attempt automatic MCP connection reconciliation on the dashboard side.
-   * This performs a local shared-session restart and returns the resulting state.
-   * 
-   * Note: In direct-only mode, the legacy /api/figma-mcp/reconcile endpoint
-   * returns 410 Gone. This method translates that to a clear migration message.
-   */
-  async reconcileConnection(args?: {
-    figmaUrl?: string;
-    figmaToken?: string;
-    confirmReconcile?: boolean;
-    confirmGlobalReset?: boolean;
-  }): Promise<ReconcileConnectionResponse> {
-    const confirmReconcile = args?.confirmReconcile === true;
-    const confirmGlobalReset = args?.confirmGlobalReset === true;
-    try {
-      const response = await this.fetchFromDashboard('/api/figma-mcp/reconcile', {
-        method: 'POST',
-        headers: {
-          ...this.getHeaders(),
-          'x-ds-mcp-reconcile-confirm': confirmReconcile ? 'true' : 'false',
-          'x-ds-mcp-reset-confirm': confirmGlobalReset ? 'true' : 'false',
-        },
-        body: JSON.stringify({
-          figmaUrl: args?.figmaUrl ?? '',
-          figmaToken: args?.figmaToken ?? '',
-          confirmReconcile,
-          confirmGlobalReset,
-        }),
-        signal: AbortSignal.timeout(DEFAULT_MCP_REQUEST_TIMEOUT_MS),
-      });
-
-      // Handle 410 Gone (legacy endpoint deprecated in direct-only mode)
-      if (response.status === 410) {
-        const payload = await response.json() as { code?: string; message?: string };
-        if (payload.code === 'legacy_endpoint_removed') {
-          // Translate to clear migration message
-          return {
-            ok: false,
-            connected: false,
-            code: 'mcp.legacy_deprecated',
-            message: 'Legacy reconcile endpoint is deprecated. Use direct plugin reconnection instead.',
-            phase: 'waiting_for_bridge',
-          };
-        }
-        // Normalize other 410 payloads to a stable response shape.
-        return {
-          ok: false,
-          connected: false,
-          code: payload.code ?? 'reconcile.legacy_410',
-          message: payload.message ?? 'Legacy reconcile endpoint returned 410 Gone.',
-          phase: 'waiting_for_bridge',
-        };
-      }
-
-      return await response.json() as ReconcileConnectionResponse;
-    } catch (error) {
-      return {
-        ok: false,
-        connected: false,
-        code: 'reconcile.fetch_failed',
-        message: error instanceof Error ? error.message : 'Failed to reconcile MCP connection',
-      };
-    }
-  }
 }
 
 /** Shape returned by GET /api/figma-mcp/design-system-kit */

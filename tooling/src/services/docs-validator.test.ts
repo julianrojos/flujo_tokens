@@ -12,6 +12,37 @@ import fs from 'node:fs';
 import { validateDocs } from './docs-validator.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
 
+function resolveValidationRoots(): {
+    docsRoot: string;
+    specRoot: string;
+    registryPath: string;
+} {
+    const ctx = resolveSystemContextSafe();
+    const cwd = process.cwd();
+    const fallback = {
+        docsRoot: path.join(cwd, 'docs', 'components'),
+        specRoot: path.join(cwd, 'docs', '_spec', 'components'),
+        registryPath: path.join(cwd, 'docs', '_generated', 'token-registry.json'),
+    };
+
+    const hasMarkdownFiles = (dirPath: string): boolean => {
+        if (!fs.existsSync(dirPath)) return false;
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        for (const entry of entries) {
+            const absolutePath = path.join(dirPath, entry.name);
+            if (entry.isDirectory() && hasMarkdownFiles(absolutePath)) return true;
+            if (entry.isFile() && entry.name.endsWith('.md')) return true;
+        }
+        return false;
+    };
+
+    const docsRoot = hasMarkdownFiles(ctx.paths.docs) ? ctx.paths.docs : fallback.docsRoot;
+    const specRoot = fs.existsSync(ctx.paths.specs) ? ctx.paths.specs : fallback.specRoot;
+    const registryPath = fs.existsSync(ctx.paths.tokenRegistry) ? ctx.paths.tokenRegistry : fallback.registryPath;
+
+    return { docsRoot, specRoot, registryPath };
+}
+
 describe('docs-validator', () => {
     describe('validateDocs()', () => {
         it('should return a stable report shape', () => {
@@ -69,12 +100,12 @@ describe('docs-validator', () => {
         });
 
         it('should return a valid report structure', () => {
-            const ctx = resolveSystemContextSafe();
+            const roots = resolveValidationRoots();
             
             const report = validateDocs({
-                docsRoot: ctx.paths.docs,
-                specRoot: ctx.paths.specs,
-                registryPath: ctx.paths.tokenRegistry,
+                docsRoot: roots.docsRoot,
+                specRoot: roots.specRoot,
+                registryPath: roots.registryPath,
                 checkPairing: false,
                 checkSpecs: false,
             });

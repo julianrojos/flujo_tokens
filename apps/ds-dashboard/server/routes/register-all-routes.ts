@@ -17,9 +17,6 @@ import { registerFileRoutes } from './file-routes.mjs';
 import { registerJobRoutes } from './job-routes.mjs';
 import { registerCommandRoutes } from './command-routes.mjs';
 import { registerFigmaPingRoute } from './figma-ping-route.mjs';
-import { registerFigmaMcpPingRoute } from './figma-legacy-ping-route.ts';
-import { registerFigmaMcpResetRoute } from './figma-legacy-reset-route.ts';
-import { registerFigmaMcpReconcileRoute } from './figma-legacy-reconcile-route.ts';
 import { registerFigmaMcpVariablesRoute } from './figma-mcp-variables-route.ts';
 import { registerFigmaMcpPortRoute } from './figma-mcp-port-route.ts';
 import { registerFigmaMcpSearchNodesRoute } from './figma-mcp-search-nodes-route.ts';
@@ -142,9 +139,6 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerJobRoutes(app, routeDeps.jobDeps);
   registerCommandRoutes(app, ensureCommandRoutesDeps(routeDeps.commandDeps));
   registerFigmaPingRoute(app, routeDeps.figmaPingDeps);
-  registerFigmaMcpPingRoute(app);
-  registerFigmaMcpResetRoute(app);
-  registerFigmaMcpReconcileRoute(app);
   registerFigmaMcpVariablesRoute(app, {
     readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
   });

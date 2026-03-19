@@ -2,23 +2,18 @@
  * Type definitions for the Design System Pipeline Service
  *
  * This module defines the core types used by the pipeline orchestration service.
- * The pipeline manages the sequence: spec → markdown → figma render → visual proof
+ * The pipeline manages the sequence: spec → markdown
  */
 
 /**
  * Canonical pipeline step identifiers
  */
-export type PipelineStepId = 'spec' | 'markdown' | 'render' | 'proof';
+export type PipelineStepId = 'spec' | 'markdown';
 
 /**
- * Legacy step aliases (render→figma, proof→visual-proof)
+ * Any valid step identifier
  */
-export type LegacyStepId = 'figma' | 'visual-proof';
-
-/**
- * Any valid step identifier (canonical or legacy)
- */
-export type StepId = PipelineStepId | LegacyStepId;
+export type StepId = PipelineStepId;
 
 /**
  * Pipeline step definition
@@ -114,8 +109,6 @@ export interface PipelineOptions {
   'from-step'?: string;
   /** Execute only a specific step */
   'only-step'?: string;
-  /** Render docs back to Figma */
-  'render-figma'?: boolean;
   /** Plan but do not execute */
   'dry-run'?: boolean;
   /** Only show plan and orphan status */

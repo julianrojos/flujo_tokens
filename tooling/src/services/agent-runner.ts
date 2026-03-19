@@ -84,19 +84,11 @@ const AGENT_ENV_PATHS: Record<AgentType, string[]> = {
 };
 
 const CODEX_EXTENSION_FALLBACK_ENV = "DS_ENABLE_CODEX_EXTENSION_FALLBACK";
+let codexFallbackDeprecationWarned = false;
 
 interface ResolveEnvAgentCommandDeps {
   env?: NodeJS.ProcessEnv;
   commandPathExistsFn?: (command: string) => boolean;
-}
-
-interface CodexFallbackLookupDeps extends ResolveEnvAgentCommandDeps {
-  homeDir?: string;
-  platform?: NodeJS.Platform;
-  arch?: string;
-  extensionRoots?: string[];
-  readDirFn?: (root: string) => Array<{ name: string; isDirectory: () => boolean }>;
-  logInfoFn?: (message: string) => void;
 }
 
 function resolveEnvAgentCommand(agent: AgentType, deps: ResolveEnvAgentCommandDeps = {}): string {
@@ -119,93 +111,9 @@ function envFlagEnabled(value: unknown): boolean {
   );
 }
 
-function codexExtensionTargets(platformName: NodeJS.Platform, archName: string): string[] {
-  if (platformName === "darwin") {
-    return archName === "arm64"
-      ? ["macos-aarch64", "darwin-arm64"]
-      : ["macos-x64", "darwin-x64"];
-  }
-  if (platformName === "linux") {
-    return archName === "arm64"
-      ? ["linux-aarch64", "linux-arm64"]
-      : ["linux-x64"];
-  }
-  if (platformName === "win32") {
-    return archName === "arm64"
-      ? ["windows-arm64", "win32-arm64"]
-      : ["windows-x64", "win32-x64"];
-  }
-  return [];
-}
-
-function codexBinaryNames(platformName: NodeJS.Platform): string[] {
-  return platformName === "win32" ? ["codex.exe", "codex"] : ["codex"];
-}
-
-function findCodexFallbackCommand(deps: CodexFallbackLookupDeps = {}): string {
-  const env = deps.env || process.env;
-  const commandPathExistsFn = deps.commandPathExistsFn || commandPathExists;
-  const readDirFn =
-    deps.readDirFn ||
-    ((root: string) => fs.readdirSync(root, { withFileTypes: true }));
-  const logInfoFn = deps.logInfoFn || ((message: string) => logger.info(message));
-
-  const fromEnv = resolveEnvAgentCommand("codex", { env, commandPathExistsFn });
-  if (fromEnv) return fromEnv;
-
-  if (!envFlagEnabled(env[CODEX_EXTENSION_FALLBACK_ENV])) {
-    return "";
-  }
-
-  const home = String(deps.homeDir || env.HOME || "").trim();
-  if (!home) return "";
-
-  const extensionRoots = deps.extensionRoots || [
-    path.join(home, ".antigravity", "extensions"),
-    path.join(home, ".vscode", "extensions"),
-    path.join(home, ".cursor", "extensions"),
-  ];
-  const platformName = deps.platform || process.platform;
-  const archName = deps.arch || process.arch;
-  const platformTargets = codexExtensionTargets(platformName, archName);
-  const binaryNames = codexBinaryNames(platformName);
-
-  for (const extensionRoot of extensionRoots) {
-    try {
-      const entries = readDirFn(extensionRoot);
-      for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
-        if (!entry.name.startsWith("openai.chatgpt-")) continue;
-        for (const target of platformTargets) {
-          for (const binary of binaryNames) {
-            const candidate = path.join(
-              extensionRoot,
-              entry.name,
-              "bin",
-              target,
-              binary,
-            );
-            if (commandPathExistsFn(candidate)) {
-              logInfoFn(
-                `agent-runner: using Codex extension fallback (${CODEX_EXTENSION_FALLBACK_ENV}=1): ${candidate}`,
-              );
-              return candidate;
-            }
-          }
-        }
-      }
-    } catch {
-      // ignore fallback lookup errors per extension root
-    }
-  }
-
-  return "";
-}
-
 export const __agentRunnerTestUtils = Object.freeze({
   envFlagEnabled,
-  codexExtensionTargets,
-  findCodexFallbackCommand,
+  resolveEnvAgentCommand,
 });
 
 function resolveAgentCommand(agent: AgentType): string {
@@ -215,10 +123,6 @@ function resolveAgentCommand(agent: AgentType): string {
   }
   const envCommand = resolveEnvAgentCommand(agent);
   if (envCommand) return envCommand;
-  if (agent === "codex") {
-    const fallback = findCodexFallbackCommand();
-    if (fallback) return fallback;
-  }
   return "";
 }
 
@@ -258,6 +162,17 @@ function isLikelyCliShapeError(result: ReturnType<typeof spawnSync>): boolean {
  * Pick agent based on explicit choice or auto-detection.
  */
 function pickAgent(explicitAgent: AgentType | "auto" | undefined): AgentType {
+  if (
+    !codexFallbackDeprecationWarned &&
+    envFlagEnabled(process.env[CODEX_EXTENSION_FALLBACK_ENV])
+  ) {
+    codexFallbackDeprecationWarned = true;
+    logger.warn(
+      `${CODEX_EXTENSION_FALLBACK_ENV}=1 is no longer supported. ` +
+      `Set CODEX_BIN (or DS_CODEX_PATH) to an explicit Codex CLI path instead.`,
+    );
+  }
+
   const fromEnv = process.env.DS_AGENT as AgentType | undefined;
   const requested = ((explicitAgent || fromEnv || "auto") as string).toLowerCase();
 

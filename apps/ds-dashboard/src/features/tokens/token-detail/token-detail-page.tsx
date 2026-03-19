@@ -14,7 +14,7 @@ import type {
 } from "@/types/token-usage-index";
 import { useTokenDetailData } from "./use-token-detail-data";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -1208,21 +1208,19 @@ export function TokenDetailPage() {
                             </Badge>
                             <Badge variant="neutral">{entry.occurrences} refs</Badge>
                             {figmaComponentUrl ? (
-                              <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="ml-auto"
+                              <a
+                                href={figmaComponentUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className={buttonVariants({
+                                  variant: "outline",
+                                  size: "sm",
+                                  className: "ml-auto",
+                                })}
                               >
-                                <a
-                                  href={figmaComponentUrl}
-                                  target="_blank"
-                                  rel="noreferrer noopener"
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                  Figma
-                                </a>
-                              </Button>
+                                <ExternalLink className="h-4 w-4" />
+                                Figma
+                              </a>
                             ) : null}
                           </div>
 

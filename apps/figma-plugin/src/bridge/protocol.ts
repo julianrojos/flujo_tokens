@@ -1010,7 +1010,7 @@ export interface WSRuntimeConfig {
 }
 
 export const DEFAULT_WS_CONFIG: WSRuntimeConfig = {
-  transportMode: 'legacy',
+  transportMode: 'direct',
   directWsUrl: 'ws://localhost:8787/ws/figma-plugin',
   portRangeStart: 9223,
   portRangeEnd: 9232,

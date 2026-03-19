@@ -58,8 +58,8 @@ export interface PipelinePlan {
 export interface PipelinePlanOptions {
   'from-step'?: string;
   'only-step'?: string;
-  'render-figma'?: boolean;
   component?: string;
+  allowMissingRegistry?: boolean;
   dsContext?: ReturnType<typeof resolveSystemContextSafe>;
   [key: string]: unknown;
 }
@@ -67,17 +67,11 @@ export interface PipelinePlanOptions {
 const PIPELINE_STEPS: Array<{ id: string; role: string; desc: string }> = [
   { id: 'spec', role: 'metadata', desc: 'Generate/Update Spec YAML' },
   { id: 'markdown', role: 'documentation', desc: 'Generate component Markdown' },
-  { id: 'render', role: 'sync', desc: 'Render Markdown to Figma' },
-  { id: 'proof', role: 'visual', desc: 'Capture Visual Proof' },
 ];
 
 const STEP_ALIASES: Record<string, string> = Object.freeze({
   spec: 'spec',
   markdown: 'markdown',
-  figma: 'render',
-  'visual-proof': 'proof',
-  render: 'render',
-  proof: 'proof',
 });
 
 /**
@@ -103,13 +97,13 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
   if (rawFromStep && !fromStep) {
     throw new Error(
       `Invalid --from-step value: "${options['from-step']}". ` +
-      'Must be one of: spec, markdown, figma, visual-proof (legacy aliases: render, proof).'
+      'Must be one of: spec, markdown.'
     );
   }
   if (rawOnlyStep && !onlyStep) {
     throw new Error(
       `Invalid --only-step value: "${options['only-step']}". ` +
-      'Must be one of: spec, markdown, figma, visual-proof (legacy aliases: render, proof).'
+      'Must be one of: spec, markdown.'
     );
   }
 
@@ -130,6 +124,15 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
   try {
     registryContents = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
   } catch (err) {
+    if (options.allowMissingRegistry) {
+      plan.summary = {
+        warning:
+          `Component registry unavailable at ${registryPath}. ` +
+          'Returning empty plan (dry-run/status-only fallback).',
+      };
+      return plan;
+    }
+
     const reason = err instanceof Error ? err.message : String(err);
     throw new Error(
       `[Plan] Fatal: Cannot read component-registry at ${registryPath}: ${reason}`
@@ -198,28 +201,6 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
             stepPlan.reason = needsReview ? 'Markdown drifted (needs-review)' : 'Markdown missing';
           }
           break;
-        case 'render':
-          stepPlan.preconditions = ['markdown exists'];
-          if (!options['render-figma']) {
-            stepPlan.needed = false;
-            stepPlan.reason = 'render-figma not requested';
-          } else {
-            stepPlan.needed = true;
-            stepPlan.reason = 'Figma render requested';
-          }
-          break;
-        case 'proof':
-          stepPlan.preconditions = ['figma.component_set_node_id set'];
-          if (!(comp.visual_proof as { exists?: boolean })?.exists) {
-            stepPlan.needed = true;
-            stepPlan.reason = 'Visual proof missing';
-          }
-          if (!inFigma) {
-            stepPlan.needed = false;
-            stepPlan.blocked = true;
-            stepPlan.reason = 'Missing figma.component_set_node_id';
-          }
-          break;
       }
 
       if (fromStep) {
@@ -237,10 +218,7 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
           stepPlan.reason = `Filtered by --only-step=${rawOnlyStep}`;
         } else if (!stepPlan.blocked) {
           stepPlan.needed = true;
-          if (
-            stepPlan.reason === 'Up to date or skipped' ||
-            stepPlan.reason.startsWith('render-figma not requested')
-          ) {
+          if (stepPlan.reason === 'Up to date or skipped') {
             stepPlan.reason = `Forced by --only-step=${rawOnlyStep}`;
           }
         }

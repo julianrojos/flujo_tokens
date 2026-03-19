@@ -1,22 +1,12 @@
 #!/usr/bin/env node
 
-/**
- * @deprecated This script is a thin wrapper for the TypeScript runner.
- * Use `npx tsx tooling/src/runners/active-md-to-figma-runner.ts` directly.
- * This wrapper will be removed in a future version.
- */
+process.stderr.write(
+  [
+    '[DEPRECATED] `npm run ds:active-md-to-figma` is a deprecated compatibility wrapper.',
+    'Use `npm run ds:pipeline` (spec -> markdown) and',
+    '`npm run ds:capture-visual-proof` as a standalone operation instead.',
+    'See README.md migration notes for details.',
+  ].join('\n') + '\n',
+);
 
-import { spawnSync } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const runnerPath = path.resolve(__dirname, '../src/runners/active-md-to-figma-runner.ts');
-
-const result = spawnSync('npx', ['tsx', runnerPath, ...process.argv.slice(2)], {
-  stdio: 'inherit',
-  cwd: process.cwd(),
-});
-
-process.exit(result.status ?? 1);
+process.exit(0);

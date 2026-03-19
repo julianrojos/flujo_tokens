@@ -5,8 +5,6 @@ import {
   ApiError,
   getFigmaMcpHeartbeat,
   pingFigmaMcp,
-  reconcileFigmaMcp,
-  type FigmaMcpReconcileResult,
   type FigmaMcpHeartbeatResult,
   type FigmaMcpPingResult,
 } from "@/lib/api";

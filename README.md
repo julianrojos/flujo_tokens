@@ -3,7 +3,7 @@
 This repository has two independent workflows:
 
 1. Token compilation from JSON (DTCG) to CSS custom properties.
-2. Component documentation from Figma to Markdown and back to Figma sections.
+2. Component documentation from Figma to Markdown.
 
 For the end-to-end docs pipeline entry point, see `MASTER_WORKFLOW.md`.
 
@@ -170,18 +170,19 @@ MCP command resolution for token sync:
 - Override binary + args: `FIGMA_MCP_BIN` + `FIGMA_MCP_ARGS`
 
 Migration note:
+
 - Legacy setups that used `FIGMA_MCP_COMMAND="node /path/to/server.js"` must be split into:
   - `FIGMA_MCP_COMMAND=node`
   - `FIGMA_MCP_COMMAND_ARGS="/path/to/server.js"`
 
 ### Troubleshooting: MCP token sync
 
-| Síntoma | Causa probable | Solución |
-|---------|----------------|----------|
-| `MCP server reports no Figma connection` | Figma Desktop no está abierto o el MCP Management no está corriendo | Abre Figma Desktop → Plugins → Development → MCP Management |
-| Timeout tras 15s sin respuesta | El servidor MCP no arrancó correctamente | Verifica que `npx MCP Management` funciona en tu terminal. Si usas un binario custom, comprueba `FIGMA_MCP_BIN` |
-| `Missing Figma token for REST variables fetch` | Modo `--source rest` sin `FIGMA_TOKEN` configurado | Exporta `FIGMA_TOKEN` en tu shell o usa `--source mcp` |
-| `Both sources failed` | Ni MCP ni REST funcionan | Comprueba el MCP Management (para MCP) y `FIGMA_TOKEN` (para REST) |
+| Síntoma                                        | Causa probable                                                      | Solución                                                                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `MCP server reports no Figma connection`       | Figma Desktop no está abierto o el MCP Management no está corriendo | Abre Figma Desktop → Plugins → Development → MCP Management                                                     |
+| Timeout tras 15s sin respuesta                 | El servidor MCP no arrancó correctamente                            | Verifica que `npx MCP Management` funciona en tu terminal. Si usas un binario custom, comprueba `FIGMA_MCP_BIN` |
+| `Missing Figma token for REST variables fetch` | Modo `--source rest` sin `FIGMA_TOKEN` configurado                  | Exporta `FIGMA_TOKEN` en tu shell o usa `--source mcp`                                                          |
+| `Both sources failed`                          | Ni MCP ni REST funcionan                                            | Comprueba el MCP Management (para MCP) y `FIGMA_TOKEN` (para REST)                                              |
 
 Plugin example:
 
@@ -200,11 +201,12 @@ export default {
   async transform(ctx) {
     const { state } = ctx;
     console.log(`Analyzed scopes: ${state.analyzedScopes.length}`);
-  }
+  },
 };
 ```
 
 Placement notes:
+
 - `before-core`: runs before the built-in phase plugin.
 - `after-core`: runs after the built-in phase plugin (default).
 - Core plugins are owned by the generator runtime; external plugins are for phase extensions.
@@ -326,11 +328,11 @@ npm run ds:health:record
 
 ## 2) Figma Component Documentation
 
-This workflow documents Design System components from Figma and can also render those markdown docs back into Figma sections.
+This workflow documents Design System components from Figma.
 
 ### Master Pipeline (Orchestrator)
 
-The recommended way to run the component documentation workflow is via the **`ds:pipeline`** orchestrator. It automatically plans and executes the entire sequence deterministically (Token sync -> Spec -> Markdown -> Figma Render -> Visual Proof -> Gate) by reading the component registry.
+The recommended way to run the component documentation workflow is via the **`ds:pipeline`** orchestrator. It automatically plans and executes the entire sequence deterministically (Token sync -> Spec -> Markdown) by reading the component registry.
 
 ```bash
 # Run the pipeline for all components
@@ -342,12 +344,20 @@ npm run ds:pipeline -- --component Alert
 # Plan and preview what needs to be run (identifies orphans)
 npm run ds:pipeline -- --status-only
 
-# Run from a specific step (spec | markdown | render | proof)
+# Run from a specific step (spec | markdown)
 npm run ds:pipeline -- --component Alert --from-step markdown
 
-# Include Figma rendering in the execution
-npm run ds:pipeline -- --component Alert --render-figma
 ```
+
+Migration notes (legacy cleanup):
+
+- Pipeline steps `render/proof` were removed from `ds:pipeline` (canonical flow is now `spec -> markdown`).
+- Visual proof capture remains available as a standalone command: `npm run ds:capture-visual-proof`.
+- **Deprecated compatibility wrappers** (graceful exit):
+  - `npm run ds:active-md-to-figma` — deprecated wrapper (exit 0 + warning). Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
+  - `npm run ds:render-figma:all` — deprecated wrapper (exit 0 + warning). Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
+  - These wrappers emit deprecation warnings to stderr and exit cleanly to prevent breaking CI/CD pipelines during migration.
+- Plugin bridge default transport is now `direct` (`DEFAULT_WS_CONFIG.transportMode = 'direct'`).
 
 ### Documentation Scripts
 
@@ -356,11 +366,10 @@ npm run ds:pipeline -- --component Alert --render-figma
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
 - **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata JSON + local image) by default. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
-- **`npm run ds:active-md-to-figma`**: Converts a component markdown document into a Figma documentation section (placed to the right of the component section), using the shared theme contract. Uses incremental change detection and skips if unchanged (use `--force true` to re-render).
-- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence (`figma_take_screenshot`) for a component node, stores proof metadata under `docs/_generated/visual-proofs/`, stores a local proof image under `docs/_generated/visual-proofs/images/`, and upserts `### Visual Proof` inside `## Overview` (including local image preview, screenshot URL, node id, and artifact link).
+- **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation (outside `ds:pipeline`).
 - **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
-- **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec/render/proof status.
+- **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec status.
 - **`npm run ds:registry:refresh`**: Atomically refreshes `docs/_generated/component-registry.json` and `docs/components/overview.md` together (rollback on failure).
 - **`npm run ds:registry:validate`**: Validates component registry schema and checks drift between registry content and current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from the component registry in canonical sorted format.
@@ -380,10 +389,7 @@ npm run ds:pipeline -- --component Alert --render-figma
 
 - `docs/components/`: component documentation pages (e.g. `alert.md`)
 - `docs/_spec/`: documentation specs and visual theme contract
-- `docs/_generated/figma_doc_models/`: generated intermediate artifacts for markdown -> Figma rendering
 - `docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
-- `docs/_generated/visual-proofs/`: proof metadata (`<slug>.json`)
-- `docs/_generated/visual-proofs/images/`: local screenshot assets (`<slug>.png`, etc.)
 - `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
 - `docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
 - `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
@@ -439,10 +445,8 @@ Agent configuration for dashboard API:
 - Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CODEX_BIN=/abs/path/to/codex`
 - Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `CLAUDE_BIN=/abs/path/to/claude`
 - Optional explicit binary path (recommended when the API process does not inherit your shell PATH): `GEMINI_BIN=/abs/path/to/gemini`
-- Optional Codex extension fallback (disabled by default): `DS_ENABLE_CODEX_EXTENSION_FALLBACK=1`
-  - When enabled, tooling can try to discover Codex from local editor extension folders (`~/.antigravity/extensions`, `~/.vscode/extensions`, `~/.cursor/extensions`) using your current OS/arch.
-  - This fallback is best-effort for local development only; for CI or stable setups, use `CODEX_BIN`.
 - `auto` mode is still supported (`DS_AGENT` unset): tries `codex`, then `claude`, then `gemini`.
+- Migration note: IDE extension discovery fallback for Codex was removed. If `codex` is not in PATH, set `CODEX_BIN` (or `DS_CODEX_PATH`) explicitly.
 
 Examples:
 
@@ -484,9 +488,8 @@ Component pages are governed by rules in `.agents/rules/` and must include:
   - infer default file paths with `snake_case` (`status_bar`)
   - explicit path flags (`--output`, `--spec-file`) always take precedence
 - Canonical pipeline order is enforced:
-  - `(1) spec` -> `(2) markdown` -> `(3) Figma render (optional)` -> `(4) visual proof capture`
+  - `(1) spec` -> `(2) markdown`
   - do not run markdown generation without a valid spec
-  - do not render to Figma without an existing component markdown
   - spec and markdown must keep a strict 1:1 mapping by slug (`<snake_case>.yml` <-> `<snake_case>.md`)
   - optional spec `related_components` is validated:
     - values must be `snake_case` slugs, unique, and must not self-reference
@@ -678,37 +681,7 @@ Useful flags:
 - `--timeout-ms <number>` (default: `30000`)
 - `--dry-run true`
 
-### 4) Active markdown -> Figma section
-
-Render markdown to a Figma documentation section:
-
-```bash
-npm run ds:active-md-to-figma -- \
-  --markdown docs/components/alert.md \
-  --component-name Alert \
-  --component-set-id 2304:1892 \
-  --url "https://www.figma.com/design/<file>?node-id=<node>" \
-  --agent codex
-```
-
-If your editor exposes the active file via environment variable, you can omit `--markdown`:
-
-```bash
-ANTIGRAVITY_ACTIVE_FILE=docs/components/alert.md npm run ds:active-md-to-figma -- --agent codex
-```
-
-This command runs a validation preflight first. If the markdown references tokens missing from `docs/_generated/token-registry.json`, rendering is blocked.
-For exceptional cases only, you can bypass preflight with `--skip-validation true`.
-It also enforces pipeline freshness: if the source spec is newer than the markdown (or changed since last markdown generation), rendering is blocked until markdown is regenerated. Use `--force true` only for explicit bypass.
-For node resolution, it uses: `--component-set-id` first, then `spec.figma.component_set_node_id`, then name lookup for `draft` specs only.
-If a `ready` spec has no valid `figma.component_set_node_id`, rendering is blocked.
-Validation bypass requires `--force true` when `--skip-validation true` is used.
-By default, this command also attempts visual proof capture after rendering.
-Use `--capture-proof false` to skip it, or `--capture-proof-strict true` to fail when capture cannot be completed.
-The render step now validates agent output strictly: it must include `target_section_id`, `target_section_name`, `offset_x_applied`, and `theme_name`.
-If `theme_name` does not match the loaded theme file (`docs/_spec/figma_doc_theme.yml` by default), the command fails (unless `--force true` is explicitly provided).
-
-### 4b) Capture visual proof (standalone)
+### 4) Capture visual proof (standalone)
 
 ```bash
 npm run ds:capture-visual-proof -- \

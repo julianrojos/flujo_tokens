@@ -10,7 +10,6 @@
 
 import {
   dispatchRequest,
-  FileInfoEventData,
   VariablesDataEventData,
   DocumentChangeEventData,
   SelectionChangeEventData,
@@ -18,8 +17,6 @@ import {
   ConsoleCaptureEventData,
   BridgePluginResponseMessage,
   BridgeError,
-  isBridgeMethod,
-  BridgeMethod,
 } from './bridge';
 
 // Show the plugin UI
@@ -38,28 +35,6 @@ figma.ui.postMessage({
 // ============================================================================
 // Bridge Event Forwarding - Figma Events -> WebSocket
 // ============================================================================
-
-/**
- * Forward file info to UI (for handshake).
- */
-function forwardFileInfo(requestId: string): void {
-  const selection = figma.currentPage.selection;
-  const fileInfo: FileInfoEventData = {
-    fileName: figma.root.name,
-    fileKey: figma.fileKey || null,
-    currentPage: figma.currentPage.name,
-    currentPageId: figma.currentPage.id,
-    selectionCount: selection ? selection.length : 0,
-  };
-
-  // Send to UI for bridge forwarding
-  figma.ui.postMessage({
-    type: 'BRIDGE_RESPONSE',
-    requestId,
-    success: true,
-    result: fileInfo,
-  } as BridgePluginResponseMessage);
-}
 
 /**
  * Forward variables data to UI.
@@ -154,83 +129,6 @@ function asRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function extractLegacyParams(msg: Record<string, unknown>): Record<string, unknown> {
-  if (typeof msg.params === 'object' && msg.params !== null) {
-    return { ...(msg.params as Record<string, unknown>) };
-  }
-
-  const params: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(msg)) {
-    if (key === 'type' || key === 'requestId') {
-      continue;
-    }
-    params[key] = value;
-  }
-  return params;
-}
-
-function buildLegacySuccessMessage(
-  method: BridgeMethod,
-  requestId: string,
-  result: unknown
-): Record<string, unknown> {
-  if (method === 'GET_COMPONENT') {
-    return {
-      type: 'COMPONENT_DATA',
-      requestId,
-      data: result,
-    };
-  }
-
-  if (method === 'GET_FILE_INFO') {
-    return {
-      type: 'GET_FILE_INFO_RESULT',
-      requestId,
-      success: true,
-      fileInfo: result,
-    };
-  }
-
-  if (method === 'REFRESH_VARIABLES' || method === 'GET_VARIABLES_DATA') {
-    return {
-      type: `${method}_RESULT`,
-      requestId,
-      success: true,
-      data: result,
-    };
-  }
-
-  const payload = asRecord(result);
-  const response: Record<string, unknown> = {
-    type: `${method}_RESULT`,
-    requestId,
-    ...(payload.success === undefined ? { success: true } : {}),
-    ...payload,
-  };
-
-  return response;
-}
-
-function buildLegacyErrorMessage(
-  method: BridgeMethod,
-  requestId: string,
-  message: string
-): Record<string, unknown> {
-  if (method === 'GET_COMPONENT') {
-    return {
-      type: 'COMPONENT_ERROR',
-      requestId,
-      error: message,
-    };
-  }
-
-  return {
-    type: `${method}_RESULT`,
-    requestId,
-    success: false,
-    error: message,
-  };
-}
 
 // ============================================================================
 // Figma Event Listeners
@@ -415,53 +313,6 @@ figma.ui.onmessage = async (
     return;
   }
 
-  // Legacy command compatibility: direct method messages with requestId.
-  if (messageType && isBridgeMethod(messageType)) {
-    const requestId =
-      typeof msg.requestId === 'string'
-        ? msg.requestId
-        : `legacy_${messageType.toLowerCase()}_${Date.now()}`;
-
-    try {
-      const response = await dispatchRequest({
-        id: requestId,
-        method: messageType,
-        params: extractLegacyParams(msg),
-      });
-
-      if ('error' in response) {
-        figma.ui.postMessage(
-          buildLegacyErrorMessage(
-            messageType,
-            requestId,
-            response.error.message
-          )
-        );
-        return;
-      }
-
-      if (messageType === 'REFRESH_VARIABLES') {
-        figma.ui.postMessage({
-          type: 'VARIABLES_DATA',
-          data: response.result,
-        });
-      }
-
-      figma.ui.postMessage(
-        buildLegacySuccessMessage(messageType, requestId, response.result)
-      );
-    } catch (error) {
-      figma.ui.postMessage(
-        buildLegacyErrorMessage(
-          messageType,
-          requestId,
-          error instanceof Error ? error.message : String(error)
-        )
-      );
-    }
-    return;
-  }
-
   // Handle standard UI messages
   switch (messageType) {
     case 'PORT_CHANGED':
@@ -496,29 +347,6 @@ figma.ui.onmessage = async (
       );
       break;
 
-    case 'START_BRIDGE':
-      // Bridge runtime now lives in UI (ws-runtime.ts via useBridgeStatus).
-      console.log('[Plugin] START_BRIDGE ignored (runtime managed by UI)');
-      break;
-
-    case 'STOP_BRIDGE':
-      // Bridge runtime now lives in UI (ws-runtime.ts via useBridgeStatus).
-      console.log('[Plugin] STOP_BRIDGE ignored (runtime managed by UI)');
-      break;
-
-    case 'GET_FILE_INFO':
-      // UI requests file info for handshake (legacy, use BRIDGE_REQUEST instead)
-      const requestId =
-        typeof msg.requestId === 'string'
-          ? msg.requestId
-          : `fileinfo_${Date.now()}`;
-      forwardFileInfo(requestId);
-      break;
-
-    case 'REFRESH_VARIABLES_REQUEST':
-      // UI requests variables refresh
-      forwardVariablesData();
-      break;
 
     default:
       console.warn('[Plugin] Unknown message type:', messageType);

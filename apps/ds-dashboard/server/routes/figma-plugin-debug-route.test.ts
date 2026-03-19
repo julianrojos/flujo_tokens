@@ -12,6 +12,7 @@ import { Hono } from 'hono';
 
 import { checkDebugEndpointAuth } from '../lib/debug-endpoint-auth.ts';
 import { type ServerDeps } from '../lib/register-all-routes-service.ts';
+import { AiJobsStore, initializeAiJobsStore } from '../services/ai-jobs-store.js';
 import { registerAllRoutes } from './register-all-routes.ts';
 import { registerFigmaPluginDebugRoute } from './figma-plugin-debug-route.ts';
 import type { Context } from 'hono';
@@ -345,6 +346,7 @@ test('figma-plugin-debug route wiring: registerAllRoutes exposes debug endpoint'
   process.env.NODE_ENV = 'development';
 
   try {
+    initializeAiJobsStore(new AiJobsStore());
     registerAllRoutes(app, createServerDepsForRouteWiring());
     const allowedResponse = await app.request('/api/figma-plugin/debug', {
       method: 'GET',

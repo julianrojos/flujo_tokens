@@ -1183,23 +1183,6 @@ export interface FigmaMcpHeartbeatResult {
   pluginBuild?: string | null;
 }
 
-export interface FigmaMcpResetResult {
-  ok: boolean;
-  restarting?: boolean;
-  code?: string;
-  message?: string;
-}
-
-export interface FigmaMcpReconcileResult extends FigmaMcpPingResult {
-  attemptedReset?: boolean;
-  restarting?: boolean;
-  phase?:
-    | "already_connected"
-    | "connected_after_reset"
-    | "waiting_for_bridge"
-    | "not_recoverable"
-    | "input_error";
-}
 
 interface FigmaMcpCapabilitiesResponse extends McpCapabilitiesPayload {
   ok?: boolean;
@@ -1282,60 +1265,6 @@ function toMcpPingResultFromCapabilities(
   };
 }
 
-/**
- * @deprecated Direct mode does not use reset. This function is maintained for backward compatibility.
- * Open the Figma plugin to reconnect instead.
- */
-export async function resetFigmaMcp(_args?: {
-  confirmGlobalReset?: boolean;
-}): Promise<FigmaMcpResetResult> {
-  const status = await pingFigmaMcp(undefined, { timeoutMs: 20_000 });
-  if (status.connected) {
-    return {
-      ok: true,
-      restarting: false,
-      code: "mcp.connected",
-      message: "MCP Management is already connected.",
-    };
-  }
-  return {
-    ok: false,
-    restarting: false,
-    code: "mcp.not_connected",
-    message:
-      "Direct mode does not use reset. Open the Figma plugin to reconnect MCP Management.",
-  };
-}
-
-/**
- * @deprecated Direct mode self-heals automatically. This function is maintained for backward compatibility.
- * Open the Figma plugin to reconnect instead.
- */
-export async function reconcileFigmaMcp(_args?: {
-  figmaUrl?: string;
-  figmaToken?: string;
-  confirmReconcile?: boolean;
-  confirmGlobalReset?: boolean;
-}): Promise<FigmaMcpReconcileResult> {
-  const ping = await pingFigmaMcp(undefined, { timeoutMs: 25_000 });
-  if (ping.connected) {
-    return {
-      ...ping,
-      attemptedReset: false,
-      restarting: false,
-      phase: "already_connected",
-    };
-  }
-  return {
-    ...ping,
-    attemptedReset: false,
-    restarting: false,
-    phase: "waiting_for_bridge",
-    message:
-      ping.message ||
-      "MCP Management is not connected. Open the Figma plugin and wait for reconnection.",
-  };
-}
 
 /**
  * Ping MCP Management to check connectivity.

@@ -113,7 +113,6 @@ describe('pipeline-execution', () => {
         slug: 'test-component',
         steps: [
           { id: 'markdown', needed: false, blocked: false },
-          { id: 'render', needed: false, blocked: false },
         ],
       };
 
@@ -129,7 +128,6 @@ describe('pipeline-execution', () => {
         slug: 'test-component',
         steps: [
           { id: 'markdown', needed: true, blocked: true },
-          { id: 'render', needed: true, blocked: true },
         ],
       };
 
@@ -177,8 +175,6 @@ describe('pipeline-execution', () => {
         slug: 'test-component',
         steps: [
           { id: 'markdown', needed: true, blocked: false },
-          { id: 'render', needed: true, blocked: false },
-          { id: 'proof', needed: true, blocked: false },
         ],
       };
 
@@ -189,7 +185,7 @@ describe('pipeline-execution', () => {
 
       // Should attempt all steps
       const totalSteps = metrics.executedSteps.length + metrics.failedSteps.length;
-      assert.strictEqual(totalSteps, 3);
+      assert.strictEqual(totalSteps, 1);
     });
 
     it('respects strict mode on failure', () => {
@@ -197,7 +193,6 @@ describe('pipeline-execution', () => {
         slug: 'test-component',
         steps: [
           { id: 'markdown', needed: true, blocked: false },
-          { id: 'render', needed: true, blocked: false },
         ],
       };
 
