@@ -84,6 +84,23 @@ test('figma-mcp-port-route: GET allows non-loopback with valid token', async () 
   assert.equal(payload.ok, true);
 });
 
+test('figma-mcp-port-route: GET returns 500 when runtime state retrieval fails', async () => {
+  const app = createTestApp({
+    getRuntimeStateFn: () => {
+      throw new Error('state unavailable');
+    },
+  });
+
+  const response = await app.request('/api/figma-mcp/port', {
+    method: 'GET',
+  });
+
+  assert.equal(response.status, 500);
+  const payload = await response.json();
+  assert.equal(payload.ok, false);
+  assert.equal(payload.code, 'port.runtime_state_unavailable');
+});
+
 test('figma-mcp-port-route: isPortAllowed validates range correctly', () => {
   const range = { start: 9223, end: 9227 };
 

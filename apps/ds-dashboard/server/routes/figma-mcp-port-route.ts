@@ -7,11 +7,15 @@
 import type { Context } from 'hono';
 import type { ConnInfo } from '@hono/node-server/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
-import { getFigmaMcpRuntimeState } from '../services/figma-mcp-runtime-state.ts';
+import {
+  getFigmaMcpRuntimeState,
+  type FigmaMcpRuntimeState,
+} from '../services/figma-mcp-runtime-state.ts';
 import { isLoopbackAddress } from '../lib/loopback-utils.ts';
 
 export interface FigmaMcpPortRouteDeps {
   getConnInfoFn?: (c: Context) => ConnInfo;
+  getRuntimeStateFn?: () => FigmaMcpRuntimeState;
   internalToken?: string;
 }
 
@@ -47,6 +51,7 @@ function isAuthorized(
  */
 export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteDeps): Promise<Response> {
   const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
+  const getRuntimeStateFn = deps.getRuntimeStateFn ?? getFigmaMcpRuntimeState;
   const internalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
 
   // Authorization check: fail-closed
@@ -61,7 +66,21 @@ export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteD
     );
   }
 
-  const state = getFigmaMcpRuntimeState();
+  let state: FigmaMcpRuntimeState;
+  try {
+    state = getRuntimeStateFn();
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[figma-mcp-port-route] Failed to retrieve runtime state:', errorMessage);
+    return c.json(
+      {
+        ok: false,
+        code: 'port.runtime_state_unavailable',
+        message: 'Unable to retrieve MCP runtime state.',
+      },
+      500
+    );
+  }
 
   return c.json({
     ok: true,
