@@ -87,11 +87,39 @@ describe('docs-validator', () => {
             const ctx = resolveSystemContextSafe();
             const report = validateDocs();
 
-            // Should not fail with REG01 if context provides valid paths
+            // Context-aware defaults should report REG01 only when registry is unusable
+            // (missing/unreadable OR empty), and otherwise remain clean.
             const reg01Errors = report.errors.filter((e) => e.code === 'REG01');
-            
-            // If registry exists at context path, should have no REG01 errors
-            if (fs.existsSync(ctx.paths.tokenRegistry)) {
+
+            if (!fs.existsSync(ctx.paths.tokenRegistry)) {
+                assert.ok(
+                    reg01Errors.length > 0,
+                    'Should report REG01 when context registry path does not exist.'
+                );
+                return;
+            }
+
+            let registryEmpty = false;
+            try {
+                const raw = fs.readFileSync(ctx.paths.tokenRegistry, 'utf8');
+                const parsed = JSON.parse(raw);
+                const byPath =
+                    parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+                        ? (parsed.byPath && typeof parsed.byPath === 'object'
+                            ? parsed.byPath
+                            : parsed)
+                        : {};
+                registryEmpty = Object.keys(byPath).length === 0;
+            } catch {
+                registryEmpty = true;
+            }
+
+            if (registryEmpty) {
+                assert.ok(
+                    reg01Errors.length > 0,
+                    'Should report REG01 when context registry is empty.'
+                );
+            } else {
                 assert.ok(
                     reg01Errors.length === 0,
                     `Should not have REG01 errors when using context-aware defaults. Got: ${JSON.stringify(reg01Errors)}`
@@ -110,8 +138,15 @@ describe('docs-validator', () => {
                 checkSpecs: false,
             });
 
-            // Should have checked files
-            assert.ok(report.summary.filesChecked > 0, 'Should check at least 1 file');
+            const hasReg01 = report.errors.some((e) => e.code === 'REG01');
+            if (hasReg01) {
+                assert.ok(
+                    report.summary.filesChecked === 0,
+                    'When registry precondition fails (REG01), validator should exit before scanning files.'
+                );
+            } else {
+                assert.ok(report.summary.filesChecked > 0, 'Should check at least 1 file');
+            }
         });
     });
 
