@@ -24,6 +24,7 @@ import { registerFigmaMcpCapabilitiesRoute } from './figma-mcp-capabilities-rout
 import { registerFigmaMcpSurgicalQueriesRoutes } from './figma-mcp-surgical-queries-route.ts';
 import { registerFigmaMcpDesignSystemKitRoute } from './figma-mcp-design-system-kit-route.ts';
 import { registerFigmaMcpHeartbeatRoute } from './figma-mcp-heartbeat-route.ts';
+import { registerFigmaMcpReconnectRoute } from './figma-mcp-reconnect-route.ts';
 import { registerFigmaMcpConsoleLogsRoute } from './figma-mcp-console-logs-route.ts';
 import { registerFigmaMcpDesignChangesRoute } from './figma-mcp-design-changes-route.ts';
 import { registerFigmaMcpSelectionRoute } from './figma-mcp-selection-route.ts';
@@ -148,6 +149,7 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerFigmaMcpSearchNodesRoute(app);
   registerFigmaMcpCapabilitiesRoute(app);
   registerFigmaMcpHeartbeatRoute(app);
+  registerFigmaMcpReconnectRoute(app);
   registerFigmaMcpConsoleLogsRoute(app);
   registerFigmaMcpDesignChangesRoute(app);
   registerFigmaMcpSelectionRoute(app);

@@ -505,6 +505,27 @@ export class PluginConnectionManager {
     }
 
     /**
+     * Force-close all active plugin sockets to trigger client-side reconnect.
+     * Returns number of sockets that were asked to reconnect.
+     */
+    forceReconnectAll(reason = 'server_reconnect'): number {
+        const socketIds = Array.from(this.connections.keys());
+        let reconnectedCount = 0;
+        for (const socketId of socketIds) {
+            const connection = this.connections.get(socketId);
+            if (!connection) continue;
+            try {
+                connection.socket.close(1012, 'Server requested reconnect');
+            } catch {
+                // Best effort.
+            }
+            this.unregister(socketId, reason);
+            reconnectedCount += 1;
+        }
+        return reconnectedCount;
+    }
+
+    /**
      * Resolve the most recently created socket for a given file key.
      * When fileKey is omitted, returns the most recent socket globally.
      * Only considers sockets with readyState === OPEN (1).

@@ -1183,6 +1183,15 @@ export interface FigmaMcpHeartbeatResult {
   pluginBuild?: string | null;
 }
 
+export interface FigmaMcpReconnectResult {
+  ok: boolean;
+  reconnected?: boolean;
+  closedConnections?: number;
+  siblingCleanup?: string;
+  message?: string;
+  code?: string;
+}
+
 export interface FigmaMcpDesignContextCompactSelectionNode {
   id: string;
   name: string;
@@ -1373,6 +1382,15 @@ export async function pingFigmaMcp(
 export async function getFigmaMcpHeartbeat(): Promise<FigmaMcpHeartbeatResult> {
   return requestJson<FigmaMcpHeartbeatResult>("/api/figma-mcp/heartbeat", {
     method: "GET",
+  });
+}
+
+export async function reconnectFigmaMcp(): Promise<FigmaMcpReconnectResult> {
+  return requestJson<FigmaMcpReconnectResult>("/api/figma-mcp/reconnect", {
+    method: "POST",
+    headers: {
+      "x-ds-mcp-reconcile-confirm": "true",
+    },
   });
 }
 

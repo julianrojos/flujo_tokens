@@ -6,6 +6,7 @@ import {
   getFigmaMcpDesignContextCompact,
   getFigmaMcpHeartbeat,
   pingFigmaMcp,
+  reconnectFigmaMcp,
   type FigmaMcpDesignContextCompactResponse,
   type FigmaMcpHeartbeatResult,
   type FigmaMcpPingResult,
@@ -322,7 +323,13 @@ export function FigmaMcpConnectionTestButton({
     setIsLoadingContext(false);
     setDesignContextResult(null);
 
-    // Direct mode: skip reconcile (legacy endpoint returns 410) and go straight to polling
+    // Active reconcile step: ask dashboard to force WS session reconnect.
+    try {
+      await reconnectFigmaMcp();
+    } catch {
+      // Best effort: continue with polling even if backend reconcile call fails.
+    }
+
     if (generation !== pollGenerationRef.current) return;
     setIsResetting(false);
     setResetDeadlineMs(null);
