@@ -393,14 +393,24 @@ export class TokenRepository {
             // Load token usage index
             if (paths.tokenUsageIndex && fs.existsSync(paths.tokenUsageIndex)) {
                 const usageContent = fs.readFileSync(paths.tokenUsageIndex, 'utf8');
-                const usageIndex = JSON.parse(usageContent) as { entries?: Array<{ path?: string; usedIn?: Array<{ kind?: string; source?: string; owner?: string; detail?: string }> }> };
+                const usageIndex = JSON.parse(usageContent) as {
+                    entries?: Array<{
+                        path?: string;
+                        usedIn?: Array<{ kind?: string; source?: string; owner?: string; detail?: string }>;
+                    }>;
+                    usage?: Array<{
+                        tokenPath?: string;
+                        usedIn?: Array<{ kind?: string; context?: string; file?: string; property?: string }>;
+                    }>;
+                };
 
+                const insertStmt = this.db.prepare(`
+                    INSERT OR IGNORE INTO token_usage (token_path, kind, source, owner, detail)
+                    VALUES (?, ?, ?, ?, ?)
+                `);
+
+                // New format (entries/usedIn)
                 if (usageIndex.entries) {
-                    const insertStmt = this.db.prepare(`
-                        INSERT OR IGNORE INTO token_usage (token_path, kind, source, owner, detail)
-                        VALUES (?, ?, ?, ?, ?)
-                    `);
-
                     for (const entry of usageIndex.entries) {
                         if (!entry.path) continue;
                         for (const occ of entry.usedIn || []) {
@@ -410,6 +420,47 @@ export class TokenRepository {
                                 occ.source || 'unknown',
                                 occ.owner || 'unknown',
                                 occ.detail || ''
+                            );
+                            usageLoaded++;
+                        }
+                    }
+                }
+
+                // Legacy format (usage/usedIn)
+                if (usageIndex.usage) {
+                    for (const entry of usageIndex.usage) {
+                        if (!entry.tokenPath) continue;
+                        for (const occ of entry.usedIn || []) {
+                            const context = String(occ.context || 'other').trim().toLowerCase();
+                            const rawKind = String(occ.kind || '').trim().toLowerCase();
+                            const sourceMap = {
+                                spec: 'component-spec',
+                                css: 'css-alias',
+                                other: 'unknown',
+                            };
+                            const kindMap = {
+                                spec: 'component-spec',
+                                css: 'css-alias',
+                                'component-spec': 'component-spec',
+                                'css-alias': 'css-alias',
+                            };
+                            const normalizedKind =
+                                kindMap[rawKind as keyof typeof kindMap] ||
+                                kindMap[context as keyof typeof kindMap] ||
+                                (rawKind || 'unknown');
+                            const normalizedSource =
+                                sourceMap[context as keyof typeof sourceMap] ||
+                                (normalizedKind === 'component-spec'
+                                    ? 'component-spec'
+                                    : normalizedKind === 'css-alias'
+                                        ? 'css-alias'
+                                        : 'unknown');
+                            insertStmt.run(
+                                entry.tokenPath,
+                                normalizedKind,
+                                normalizedSource,
+                                occ.file || 'unknown',
+                                occ.property || 'unknown'
                             );
                             usageLoaded++;
                         }
