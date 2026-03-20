@@ -188,6 +188,46 @@ describe('figma-mcp-dependencies-route', () => {
     assert.strictEqual(body.data.consumerId, consumer.id);
   });
 
+  test('PATCH /api/figma-mcp/dependencies/consumers/:consumerId - update enabled state', async () => {
+    const consumer = repository.addConsumer({
+      ds_file_key: 'ds123',
+      consumer_file_key: 'consumer-enable',
+      consumer_name: 'Enable Toggle',
+      enabled: true,
+    });
+
+    const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: false }),
+    });
+
+    assert.strictEqual(response.status, 200);
+    const body = await response.json();
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.data.enabled, false);
+  });
+
+  test('PATCH /api/figma-mcp/dependencies/consumers/:consumerId - invalid JSON', async () => {
+    const consumer = repository.addConsumer({
+      ds_file_key: 'ds123',
+      consumer_file_key: 'consumer-invalid-json',
+      consumer_name: 'Invalid JSON',
+      enabled: true,
+    });
+
+    const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: 'invalid json',
+    });
+
+    assert.strictEqual(response.status, 400);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.validation.invalid_json');
+  });
+
   test('POST /api/figma-mcp/dependencies/sync - trigger sync', async () => {
     const response = await app.request('/api/figma-mcp/dependencies/sync', {
       method: 'POST',
@@ -237,6 +277,62 @@ describe('figma-mcp-dependencies-route', () => {
     const body = await response.json();
     assert.strictEqual(body.ok, true);
     assert.ok(Array.isArray(body.data));
+  });
+
+  test('GET /api/figma-mcp/dependencies/report/by-file - supports stale filter', async () => {
+    const staleConsumer = repository.addConsumer({
+      ds_file_key: 'ds-stale',
+      consumer_file_key: 'consumer-stale',
+      consumer_name: 'Stale Consumer',
+      enabled: true,
+    });
+    const freshConsumer = repository.addConsumer({
+      ds_file_key: 'ds-stale',
+      consumer_file_key: 'consumer-fresh',
+      consumer_name: 'Fresh Consumer',
+      enabled: true,
+    });
+
+    const staleRun = repository.saveSyncRun({
+      consumer_id: staleConsumer.id,
+      duration_ms: 1000,
+      status: 'ok',
+      component_usage: [],
+      variable_usage: [],
+      warnings: [],
+    });
+    repository.saveSyncRun({
+      consumer_id: freshConsumer.id,
+      duration_ms: 900,
+      status: 'ok',
+      component_usage: [],
+      variable_usage: [],
+      warnings: [],
+    });
+
+    // Force first consumer to be stale (>72h)
+    db.prepare('UPDATE ds_sync_runs SET synced_at = ? WHERE id = ?').run(
+      new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
+      staleRun.id,
+    );
+
+    const response = await app.request('/api/figma-mcp/dependencies/report/by-file?dsFileKey=ds-stale&stale=true');
+
+    assert.strictEqual(response.status, 200);
+    const body = await response.json();
+    assert.strictEqual(body.ok, true);
+    assert.ok(Array.isArray(body.data));
+    assert.strictEqual(body.data.length, 1);
+    assert.strictEqual(body.data[0].consumerId, staleConsumer.id);
+  });
+
+  test('GET /api/figma-mcp/dependencies/report/by-file - rejects invalid staleHours', async () => {
+    const response = await app.request('/api/figma-mcp/dependencies/report/by-file?dsFileKey=ds123&stale=true&staleHours=12abc');
+
+    assert.strictEqual(response.status, 400);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.validation.invalid_stale_hours');
   });
 
   test('GET /api/figma-mcp/dependencies/report/by-component - component report', async () => {
@@ -298,5 +394,106 @@ describe('figma-mcp-dependencies-route', () => {
     assert.strictEqual(body.ok, false);
     assert.ok(body.errors);
     assert.ok(body.errors.some((e: string) => e.includes('DS file key')));
+  });
+
+  test('GET /api/figma-mcp/dependencies/consumers/:id/runs - list sync runs', async () => {
+    // Add a consumer first
+    const consumer = repository.addConsumer({
+      ds_file_key: 'ds123',
+      consumer_file_key: 'consumer456',
+      consumer_name: 'Test Consumer',
+      enabled: true,
+    });
+
+    // Add some sync runs
+    repository.saveSyncRun({
+      consumer_id: consumer.id,
+      duration_ms: 1000,
+      status: 'ok',
+      component_usage: [],
+      variable_usage: [],
+      warnings: [],
+    });
+
+    // Small delay to ensure different timestamps
+    const start = Date.now();
+    while (Date.now() - start < 2) { /* wait */ }
+
+    repository.saveSyncRun({
+      consumer_id: consumer.id,
+      duration_ms: 1500,
+      status: 'partial',
+      component_usage: [],
+      variable_usage: [],
+      warnings: [],
+    });
+
+    const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}/runs`);
+
+    assert.strictEqual(response.status, 200);
+    const body = await response.json();
+    assert.strictEqual(body.ok, true);
+    assert.ok(Array.isArray(body.data));
+    assert.strictEqual(body.data.length, 2);
+    // Should be ordered by synced_at DESC
+    assert.strictEqual(body.data[0].duration_ms, 1500);
+    assert.strictEqual(body.data[0].status, 'partial');
+  });
+
+  test('GET /api/figma-mcp/dependencies/consumers/:id/runs - with limit', async () => {
+    const consumer = repository.addConsumer({
+      ds_file_key: 'ds123',
+      consumer_file_key: 'consumer456',
+      consumer_name: 'Test Consumer',
+      enabled: true,
+    });
+
+    // Add 5 sync runs
+    for (let i = 0; i < 5; i++) {
+      repository.saveSyncRun({
+        consumer_id: consumer.id,
+        duration_ms: 1000 + i * 100,
+        status: 'ok',
+        component_usage: [],
+        variable_usage: [],
+        warnings: [],
+      });
+      if (i < 4) {
+        const start = Date.now();
+        while (Date.now() - start < 1) { /* wait */ }
+      }
+    }
+
+    const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}/runs?limit=3`);
+
+    assert.strictEqual(response.status, 200);
+    const body = await response.json();
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.data.length, 3);
+  });
+
+  test('GET /api/figma-mcp/dependencies/consumers/:id/runs - consumer not found', async () => {
+    const response = await app.request('/api/figma-mcp/dependencies/consumers/non-existent-id/runs');
+
+    assert.strictEqual(response.status, 404);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.consumer.not_found');
+  });
+
+  test('GET /api/figma-mcp/dependencies/consumers/:id/runs - invalid limit', async () => {
+    const consumer = repository.addConsumer({
+      ds_file_key: 'ds123',
+      consumer_file_key: 'consumer456',
+      consumer_name: 'Test Consumer',
+      enabled: true,
+    });
+
+    const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}/runs?limit=0`);
+
+    assert.strictEqual(response.status, 400);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.validation.invalid_limit');
   });
 });

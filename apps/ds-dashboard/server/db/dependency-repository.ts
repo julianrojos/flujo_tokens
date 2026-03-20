@@ -205,6 +205,21 @@ export class DependencyRepository {
     }
   }
 
+  updateConsumerEnabled(consumerId: string, enabled: boolean): DsConsumer | null {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE ds_consumers
+        SET enabled = ?
+        WHERE id = ?
+      `);
+      stmt.run(enabled ? 1 : 0, consumerId);
+      return this.getConsumer(consumerId);
+    } catch (error) {
+      console.error(`[DependencyRepository] Failed to update consumer enabled state: ${consumerId}`, error);
+      throw error;
+    }
+  }
+
   getConsumerByFileKeys(dsFileKey: string, consumerFileKey: string): DsConsumer | null {
     try {
       const stmt = this.db.prepare(`
@@ -390,9 +405,9 @@ export class DependencyRepository {
     }
 
     const stmt = this.db.prepare(`
-      SELECT id FROM ds_sync_runs 
-      WHERE consumer_id = ? 
-      ORDER BY synced_at DESC, id DESC 
+      SELECT id FROM ds_sync_runs
+      WHERE consumer_id = ?
+      ORDER BY synced_at DESC, id DESC
       LIMIT -1 OFFSET ?
     `);
     const oldRuns = stmt.all(consumerId, keepCount) as { id: string }[];
@@ -419,5 +434,24 @@ export class DependencyRepository {
     transaction();
 
     return oldRuns.length;
+  }
+
+  listSyncRuns(consumerId: string, limit = 20): DsSyncRun[] {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error('limit must be a positive integer');
+    }
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM ds_sync_runs
+      WHERE consumer_id = ?
+      ORDER BY synced_at DESC, id DESC
+      LIMIT ?
+    `);
+
+    const rows = stmt.all(consumerId, limit) as DsSyncRun[];
+    return rows.map(row => ({
+      ...row,
+      status: row.status as DsSyncRun['status'],
+    }));
   }
 }

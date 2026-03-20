@@ -136,6 +136,22 @@ describe('DependencyRepository', () => {
     assert.deepStrictEqual(retrieved, created);
   });
 
+  test('updateConsumerEnabled updates enabled flag', () => {
+    const created = repo.addConsumer({
+      ds_file_key: 'ds-update-enabled',
+      consumer_file_key: 'consumer-update-enabled',
+      consumer_name: 'Toggle App',
+      enabled: true,
+    });
+
+    const updated = repo.updateConsumerEnabled(created.id, false);
+    assert.ok(updated);
+    assert.strictEqual(updated?.enabled, false);
+
+    const fetched = repo.getConsumer(created.id);
+    assert.strictEqual(fetched?.enabled, false);
+  });
+
   test('getConsumerByFileKeys returns existing consumer', () => {
     const created = repo.addConsumer({
       ds_file_key: 'ds-by-key',
@@ -454,6 +470,63 @@ describe('DependencyRepository', () => {
     assert.throws(
       () => repo.pruneOldRuns(consumer.id, -1),
       /keepCount must be a non-negative integer/
+    );
+  });
+
+  test('listSyncRuns returns sync runs ordered by synced_at DESC', () => {
+    const consumer = repo.addConsumer({
+      ds_file_key: 'ds-list-runs',
+      consumer_file_key: 'consumer-list-runs',
+      consumer_name: 'List Runs App',
+    });
+
+    // Create 5 sync runs
+    const runIds = [];
+    for (let i = 0; i < 5; i++) {
+      const run = repo.saveSyncRun({
+        consumer_id: consumer.id,
+        duration_ms: 1000 + i * 100,
+        status: i % 2 === 0 ? 'ok' : 'partial',
+        component_usage: [],
+        variable_usage: [],
+        warnings: [],
+      });
+      runIds.push(run.id);
+      if (i < 4) {
+        const start = Date.now();
+        while (Date.now() - start < 1) { /* wait */ }
+      }
+    }
+
+    // List all runs
+    const runs = repo.listSyncRuns(consumer.id, 10);
+    assert.strictEqual(runs.length, 5);
+    // Should be ordered by synced_at DESC (most recent first)
+    assert.strictEqual(runs[0].duration_ms, 1400);
+    assert.strictEqual(runs[4].duration_ms, 1000);
+
+    // Test limit
+    const limitedRuns = repo.listSyncRuns(consumer.id, 3);
+    assert.strictEqual(limitedRuns.length, 3);
+    assert.strictEqual(limitedRuns[0].duration_ms, 1400);
+    assert.strictEqual(limitedRuns[2].duration_ms, 1200);
+  });
+
+  test('listSyncRuns rejects invalid limit', () => {
+    const consumer = repo.addConsumer({
+      ds_file_key: 'ds-invalid-limit',
+      consumer_file_key: 'consumer-invalid-limit',
+      consumer_name: 'Invalid Limit App',
+    });
+
+    assert.throws(
+      () => repo.listSyncRuns(consumer.id, 0),
+      /limit must be a positive integer/
+    );
+
+    assert.throws(
+      () => repo.listSyncRuns(consumer.id, -5),
+      /limit must be a positive integer/
     );
   });
 

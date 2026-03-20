@@ -16,41 +16,41 @@ function validateAddConsumerBody(body: Record<string, unknown>) {
   const errors: string[] = [];
   const hasNonEmptyString = (value: unknown): value is string =>
     typeof value === 'string' && value.trim().length > 0;
-  
+
   if (!hasNonEmptyString(body.dsFileKey) && !hasNonEmptyString(body.dsFileUrl)) {
     errors.push('Either dsFileKey or dsFileUrl is required');
   }
-  
+
   if (!hasNonEmptyString(body.consumerFileKey) && !hasNonEmptyString(body.consumerFileUrl)) {
     errors.push('Either consumerFileKey or consumerFileUrl is required');
   }
-  
+
   if (!hasNonEmptyString(body.consumerName)) {
     errors.push('Consumer name is required and must be a non-empty string');
   }
-  
+
   if (body.syncIntervalHours !== undefined && (typeof body.syncIntervalHours !== 'number' || body.syncIntervalHours < 1 || body.syncIntervalHours > 168)) {
     errors.push('syncIntervalHours must be a number between 1 and 168');
   }
-  
+
   if (body.maxStaleHours !== undefined && (typeof body.maxStaleHours !== 'number' || body.maxStaleHours < 1 || body.maxStaleHours > 168)) {
     errors.push('maxStaleHours must be a number between 1 and 168');
   }
-  
+
   if (body.enabled !== undefined && typeof body.enabled !== 'boolean') {
     errors.push('enabled must be a boolean');
   }
-  
+
   return errors;
 }
 
 function validateSyncConsumersBody(body: Record<string, unknown>) {
   const errors: string[] = [];
-  
+
   if (!body.dsFileKey || typeof body.dsFileKey !== 'string' || body.dsFileKey.trim().length === 0) {
     errors.push('DS file key is required and must be a non-empty string');
   }
-  
+
   if (
     body.consumerIds !== undefined &&
     (!Array.isArray(body.consumerIds) ||
@@ -58,43 +58,43 @@ function validateSyncConsumersBody(body: Record<string, unknown>) {
   ) {
     errors.push('consumerIds must be an array of strings');
   }
-  
+
   if (body.force !== undefined && typeof body.force !== 'boolean') {
     errors.push('force must be a boolean');
   }
-  
+
   return errors;
 }
 
 function validateSimulateChangeBody(body: Record<string, unknown>) {
   const errors: string[] = [];
-  
+
   if (!body.dsFileKey || typeof body.dsFileKey !== 'string' || body.dsFileKey.trim().length === 0) {
     errors.push('DS file key is required and must be a non-empty string');
   }
-  
+
   if (!body.variableKey || typeof body.variableKey !== 'string' || body.variableKey.trim().length === 0) {
     errors.push('Variable key is required and must be a non-empty string');
   }
-  
+
   return errors;
 }
 
 function validateReportQuery(query: Record<string, unknown>) {
   const errors: string[] = [];
-  
+
   if (!query.dsFileKey || typeof query.dsFileKey !== 'string' || query.dsFileKey.trim().length === 0) {
     errors.push('DS file key is required and must be a non-empty string');
   }
-  
+
   if (query.componentKey !== undefined && typeof query.componentKey !== 'string') {
     errors.push('componentKey must be a string');
   }
-  
+
   if (query.variableKey !== undefined && typeof query.variableKey !== 'string') {
     errors.push('variableKey must be a string');
   }
-  
+
   return errors;
 }
 
@@ -110,12 +110,12 @@ function isAuthorized(c: Context, deps: RouteDeps): boolean {
   const getConnInfoFn = deps.getConnInfoFn || getConnInfo;
   const connInfo = getConnInfoFn(c);
   const remoteAddr = connInfo.remote.address;
-  
+
   // Allow loopback connections
   if (remoteAddr && isLoopbackAddress(remoteAddr)) {
     return true;
   }
-  
+
   // Check internal token if provided
   if (deps.internalToken) {
     const authHeader = c.req.header('Authorization');
@@ -123,7 +123,7 @@ function isAuthorized(c: Context, deps: RouteDeps): boolean {
       return true;
     }
   }
-  
+
   return false;
 }
 
@@ -239,7 +239,7 @@ export function registerFigmaMcpDependenciesRoutes(
 
     const query = c.req.query();
     const validationErrors = validateReportQuery(query);
-    
+
     if (validationErrors.length > 0) {
       return c.json({
         ok: false,
@@ -278,7 +278,7 @@ export function registerFigmaMcpDependenciesRoutes(
 
     try {
       const consumerId = c.req.param('consumerId');
-      
+
       if (!consumerId) {
         return c.json({
           ok: false,
@@ -308,6 +308,77 @@ export function registerFigmaMcpDependenciesRoutes(
         ok: false,
         code: 'deps.consumer.remove_failed',
         message: 'Failed to remove consumer',
+      }, 500);
+    }
+  });
+
+  // PATCH /api/figma-mcp/dependencies/consumers/:consumerId - Update consumer (archive via enabled)
+  app.patch('/api/figma-mcp/dependencies/consumers/:consumerId', async (c: Context) => {
+    if (!isAuthorized(c, deps)) {
+      return c.json({
+        ok: false,
+        code: 'deps.unauthorized',
+        message: 'Unauthorized access',
+      }, 401);
+    }
+
+    const readJsonBody = deps.readJsonBody ?? (async (ctx: Context) => await ctx.req.json());
+
+    let body: Record<string, unknown>;
+    try {
+      body = await readJsonBody(c);
+    } catch {
+      return c.json({
+        ok: false,
+        code: 'deps.validation.invalid_json',
+        message: 'Invalid JSON in request body',
+      }, 400);
+    }
+
+    try {
+      const consumerId = c.req.param('consumerId');
+
+      if (!consumerId) {
+        return c.json({
+          ok: false,
+          code: 'deps.validation.missing_consumer_id',
+          message: 'Consumer ID is required',
+        }, 400);
+      }
+
+      const consumer = repository.getConsumer(consumerId);
+      if (!consumer) {
+        return c.json({
+          ok: false,
+          code: 'deps.consumer.not_found',
+          message: 'Consumer not found',
+        }, 404);
+      }
+
+      // Update only the enabled field for now (archive functionality)
+      if (body.enabled !== undefined && typeof body.enabled !== 'boolean') {
+        return c.json({
+          ok: false,
+          code: 'deps.validation.invalid_enabled',
+          message: 'enabled must be a boolean',
+        }, 400);
+      }
+
+      const updatedConsumer = repository.updateConsumerEnabled(
+        consumerId,
+        body.enabled !== undefined ? Boolean(body.enabled) : Boolean(consumer.enabled),
+      );
+
+      return c.json({
+        ok: true,
+        data: updatedConsumer,
+      });
+    } catch (error) {
+      console.error('Error updating consumer:', error);
+      return c.json({
+        ok: false,
+        code: 'deps.consumer.update_failed',
+        message: 'Failed to update consumer',
       }, 500);
     }
   });
@@ -372,7 +443,7 @@ export function registerFigmaMcpDependenciesRoutes(
       });
     } catch (error) {
       console.error('Error during sync:', error);
-      
+
       if (error && typeof error === 'object' && 'code' in error) {
         const err = error as any;
         return c.json({
@@ -402,7 +473,7 @@ export function registerFigmaMcpDependenciesRoutes(
 
     const query = c.req.query();
     const validationErrors = validateReportQuery(query);
-    
+
     if (validationErrors.length > 0) {
       return c.json({
         ok: false,
@@ -413,7 +484,30 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const reports = analysisService.reportByFile(query.dsFileKey);
+      const staleOnly = query.stale === 'true';
+      const staleHoursRaw = query.staleHours;
+      const staleHours = staleHoursRaw ? Number(staleHoursRaw) : 72;
+      const hasValidStaleHours = staleHoursRaw
+        ? /^\d+$/.test(staleHoursRaw) && Number.isInteger(staleHours) && staleHours > 0
+        : true;
+
+      if (!hasValidStaleHours) {
+        return c.json({
+          ok: false,
+          code: 'deps.validation.invalid_stale_hours',
+          message: 'staleHours must be a positive integer',
+        }, 400);
+      }
+
+      const reports = analysisService
+        .reportByFile(query.dsFileKey)
+        .filter((report) => {
+          if (!staleOnly) return true;
+          const syncedMs = Date.parse(report.lastSyncedAt);
+          if (!Number.isFinite(syncedMs)) return true;
+          const ageHours = (Date.now() - syncedMs) / (1000 * 60 * 60);
+          return ageHours > staleHours;
+        });
 
       return c.json({
         ok: true,
@@ -441,7 +535,7 @@ export function registerFigmaMcpDependenciesRoutes(
 
     const query = c.req.query();
     const validationErrors = validateReportQuery(query);
-    
+
     if (validationErrors.length > 0) {
       return c.json({
         ok: false,
@@ -480,7 +574,7 @@ export function registerFigmaMcpDependenciesRoutes(
 
     const query = c.req.query();
     const validationErrors = validateReportQuery(query);
-    
+
     if (validationErrors.length > 0) {
       return c.json({
         ok: false,
@@ -557,6 +651,62 @@ export function registerFigmaMcpDependenciesRoutes(
         ok: false,
         code: 'deps.simulate.failed',
         message: 'Failed to simulate change',
+      }, 500);
+    }
+  });
+
+  // GET /api/figma-mcp/dependencies/consumers/:consumerId/runs - List sync runs
+  app.get('/api/figma-mcp/dependencies/consumers/:consumerId/runs', async (c: Context) => {
+    if (!isAuthorized(c, deps)) {
+      return c.json({
+        ok: false,
+        code: 'deps.unauthorized',
+        message: 'Unauthorized access',
+      }, 401);
+    }
+
+    try {
+      const consumerId = c.req.param('consumerId');
+      const limitParam = c.req.query('limit');
+      const limit = limitParam ? parseInt(limitParam, 10) : 20;
+
+      if (!consumerId) {
+        return c.json({
+          ok: false,
+          code: 'deps.validation.missing_consumer_id',
+          message: 'Consumer ID is required',
+        }, 400);
+      }
+
+      if (!Number.isFinite(limit) || limit < 1 || limit > 100) {
+        return c.json({
+          ok: false,
+          code: 'deps.validation.invalid_limit',
+          message: 'Limit must be between 1 and 100',
+        }, 400);
+      }
+
+      const consumer = repository.getConsumer(consumerId);
+      if (!consumer) {
+        return c.json({
+          ok: false,
+          code: 'deps.consumer.not_found',
+          message: 'Consumer not found',
+        }, 404);
+      }
+
+      const runs = repository.listSyncRuns(consumerId, limit);
+
+      return c.json({
+        ok: true,
+        data: runs,
+      });
+    } catch (error) {
+      console.error('Error listing sync runs:', error);
+      return c.json({
+        ok: false,
+        code: 'deps.sync_runs.list_failed',
+        message: 'Failed to list sync runs',
       }, 500);
     }
   });
