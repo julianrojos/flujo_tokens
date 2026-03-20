@@ -39,11 +39,15 @@ async function withTempDir(run: (dir: string) => Promise<void>): Promise<void> {
     }
 }
 
-function createTestApp(sysCtx: SystemContext): Hono {
+function createTestApp(
+    sysCtx: SystemContext,
+    overrides?: { tokenRepo?: import('../db/token-repository.js').TokenRepository },
+): Hono {
     const app = new Hono();
     registerTokenGraphRoutes(app, {
         failJson: createFailJson(),
         getSystemContext: () => sysCtx,
+        tokenRepo: overrides?.tokenRepo,
     });
     return app;
 }
@@ -160,5 +164,200 @@ test('token-graph-routes: /api/token-graph-query returns resolved graph payload'
         assert.equal(payload.root.id, 'n1');
         assert.equal(payload.query.resolved_id, 'n1');
         assert.equal(payload.summary.direct_dependencies, 1);
+    });
+});
+
+test('token-graph-routes: /api/token-usage-index bypasses DB cache for multi-system paths', async () => {
+    await withTempDir(async (dir) => {
+        const usageIndexPath = path.join(dir, 'docs', 'sys-01', '_generated', 'token-usage-index.json');
+        await fs.mkdir(path.dirname(usageIndexPath), { recursive: true });
+        await fs.writeFile(
+            usageIndexPath,
+            JSON.stringify({
+                ok: true,
+                summary: {
+                    generatedAt: '2026-03-20T00:00:00.000Z',
+                    tokens_total: 1,
+                    tokens_with_usage: 1,
+                    tokens_without_usage: 0,
+                    usage_links_total: 1,
+                    usage_links_by_kind: { 'component-spec': 1 },
+                    unresolved_total: 0,
+                },
+                warnings: [],
+                unresolved: [],
+                entries: [
+                    {
+                        path: 'color.primary',
+                        slashPath: 'color/primary',
+                        cssVar: '--color-primary',
+                        type: 'color',
+                        collection: 'semantic',
+                        usageCount: 1,
+                        usageByKind: { 'component-spec': 1 },
+                        usedIn: [
+                            {
+                                kind: 'component-spec',
+                                source: 'docs/sys-01/_spec/components/button.yml',
+                                owner: 'button',
+                                detail: 'token_mapping.container.fill',
+                            },
+                        ],
+                    },
+                ],
+                byPath: {},
+                bySlashPath: {},
+                byCssVar: {},
+            }),
+            'utf8',
+        );
+
+        const tokenRepoStub = {
+            getTokenUsageIndex: () => ({
+                ok: true,
+                summary: {
+                    generatedAt: '2026-03-20T00:00:00.000Z',
+                    tokens_total: 0,
+                    tokens_with_usage: 0,
+                    tokens_without_usage: 0,
+                    usage_links_total: 0,
+                    usage_links_by_kind: {},
+                    unresolved_total: 0,
+                },
+                warnings: [],
+                unresolved: [],
+                entries: [],
+                byPath: {},
+                bySlashPath: {},
+                byCssVar: {},
+            }),
+        } as unknown as import('../db/token-repository.js').TokenRepository;
+
+        const app = createTestApp(
+            {
+                tokenUsageIndexPath: usageIndexPath,
+                tokenGraphVizPath: path.join(dir, 'token-graph-viz.json'),
+                tokenRegistryPath: '',
+                tokenHealthPath: '',
+                componentRegistryPath: '',
+                wcagPairsPath: '',
+            },
+            { tokenRepo: tokenRepoStub },
+        );
+
+        const res = await app.request('/api/token-usage-index');
+        assert.equal(res.status, 200);
+        const payload = await res.json() as { summary: { tokens_with_usage: number } };
+        assert.equal(payload.summary.tokens_with_usage, 1);
+    });
+});
+
+test('token-graph-routes: /api/token-usage-index prefers JSON over DB for docs/_generated paths', async () => {
+    await withTempDir(async (dir) => {
+        const usageIndexPath = path.join(dir, 'docs', '_generated', 'token-usage-index.json');
+        await fs.mkdir(path.dirname(usageIndexPath), { recursive: true });
+        await fs.writeFile(
+            usageIndexPath,
+            JSON.stringify({
+                ok: true,
+                summary: {
+                    generatedAt: '2026-03-20T00:00:00.000Z',
+                    tokens_total: 2,
+                    tokens_with_usage: 1,
+                    tokens_without_usage: 1,
+                    usage_links_total: 3,
+                    usage_links_by_kind: { 'component-spec': 3 },
+                    unresolved_total: 0,
+                },
+                warnings: [],
+                unresolved: [],
+                entries: [
+                    {
+                        path: 'color.primary',
+                        slashPath: 'color/primary',
+                        cssVar: '--color-primary',
+                        type: 'color',
+                        collection: 'semantic',
+                        usageCount: 3,
+                        usageByKind: { 'component-spec': 3 },
+                        usedIn: [],
+                    },
+                    {
+                        path: 'color.secondary',
+                        slashPath: 'color/secondary',
+                        cssVar: '--color-secondary',
+                        type: 'color',
+                        collection: 'semantic',
+                        usageCount: 0,
+                        usageByKind: {},
+                        usedIn: [],
+                    },
+                ],
+                byPath: {},
+                bySlashPath: {},
+                byCssVar: {},
+            }),
+            'utf8',
+        );
+
+        const tokenRepoStub = {
+            getTokenUsageIndex: () => ({
+                ok: true,
+                summary: {
+                    generatedAt: '2026-03-20T00:00:00.000Z',
+                    tokens_total: 2,
+                    tokens_with_usage: 0,
+                    tokens_without_usage: 2,
+                    usage_links_total: 0,
+                    usage_links_by_kind: {},
+                    unresolved_total: 0,
+                },
+                warnings: [],
+                unresolved: [],
+                entries: [
+                    {
+                        path: 'color.primary',
+                        slashPath: 'color/primary',
+                        cssVar: '--color-primary',
+                        type: 'color',
+                        collection: 'semantic',
+                        usageCount: 0,
+                        usageByKind: {},
+                        usedIn: [],
+                    },
+                    {
+                        path: 'color.secondary',
+                        slashPath: 'color/secondary',
+                        cssVar: '--color-secondary',
+                        type: 'color',
+                        collection: 'semantic',
+                        usageCount: 0,
+                        usageByKind: {},
+                        usedIn: [],
+                    },
+                ],
+                byPath: {},
+                bySlashPath: {},
+                byCssVar: {},
+            }),
+        } as unknown as import('../db/token-repository.js').TokenRepository;
+
+        const app = createTestApp(
+            {
+                tokenUsageIndexPath: usageIndexPath,
+                tokenGraphVizPath: path.join(dir, 'token-graph-viz.json'),
+                tokenRegistryPath: '',
+                tokenHealthPath: '',
+                componentRegistryPath: '',
+                wcagPairsPath: '',
+            },
+            { tokenRepo: tokenRepoStub },
+        );
+
+        const res = await app.request('/api/token-usage-index');
+        assert.equal(res.status, 200);
+        const payload = await res.json() as { summary: { tokens_with_usage: number; usage_links_total: number } };
+        assert.equal(payload.summary.tokens_with_usage, 1);
+        assert.equal(payload.summary.usage_links_total, 3);
     });
 });

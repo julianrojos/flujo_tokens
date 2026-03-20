@@ -258,22 +258,36 @@ export async function handleTokenUsageIndexRoute(
     const { failJson, getSystemContext, tokenRepo } = deps;
     const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '') as SystemContext;
 
-    // DB-first: try to get token usage index from database
+    // JSON-first: usage index is system-scoped; DB cache is global and can be stale across systems/imports.
+    const loaded = await loadArtifactOrFail(
+        c,
+        {
+            filePath: sysCtx.tokenUsageIndexPath,
+            artifactName: 'token usage index',
+            allowMissing: true,
+            missingValue: null,
+        },
+        failJson,
+    );
+    if (loaded.ok && loaded.value) {
+        const normalized = normalizeLegacyUsageIndex(loaded.value);
+        return c.json(normalized);
+    }
+
+    // Fallback: best-effort DB read for compatibility when artifact is missing/unavailable.
     if (tokenRepo) {
         try {
             const dbResult = tokenRepo.getTokenUsageIndex();
             if (dbResult) {
                 return c.json(dbResult);
             }
-            // If DB returns null, fall through to JSON fallback
         } catch (error) {
-            console.warn('[TokenUsageIndex] DB-first failed, falling back to JSON:', error instanceof Error ? error.message : String(error));
-            // Fall through to JSON fallback
+            console.warn('[TokenUsageIndex] JSON-first fallback to DB failed:', error instanceof Error ? error.message : String(error));
         }
     }
 
-    // Fallback: read from JSON file
-    const loaded = await loadArtifactOrFail(
+    // Keep prior 404 behavior when no source is available.
+    const strictLoaded = await loadArtifactOrFail(
         c,
         {
             filePath: sysCtx.tokenUsageIndexPath,
@@ -281,8 +295,8 @@ export async function handleTokenUsageIndexRoute(
         },
         failJson,
     );
-    if (!loaded.ok) return loaded.response;
-    const normalized = normalizeLegacyUsageIndex(loaded.value);
+    if (!strictLoaded.ok) return strictLoaded.response;
+    const normalized = normalizeLegacyUsageIndex(strictLoaded.value);
     return c.json(normalized);
 }
 
