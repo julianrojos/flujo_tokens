@@ -5,12 +5,12 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2075-295
   page: Tag
   component: Tags-List
-  component_set_node_id: 2075:295
-  last_verified: "2026-02-20"
+  component_set_node_id: '2075:295'
+  last_verified: '2026-02-20'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: b33adff4e4836fa5a53ba35358117086ffb02089fbfd53a88e69cc0fb5beed9d
+    contract_version: '1'
+    spec_sha256: 79fb165c56a845fa7c150d59023ae8f6906f7d4c10652e28879f41eddc57f82e
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: a1c709db54049eacb6f51b020134df6110fbfed9fcae5ba506df40502d85e7fc
 ---

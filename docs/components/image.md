@@ -5,12 +5,12 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=668-57
   page: Image
   component: Image
-  component_set_node_id: 668:57
-  last_verified: "2026-02-19"
+  component_set_node_id: '668:57'
+  last_verified: '2026-02-19'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: 6f21284cd79370864a7b2c19058f329c9e64935119d84a7a87f43c0a1f844366
+    contract_version: '1'
+    spec_sha256: 0ea96cf4c66abbde7874d2718a553a94f14d96febc757c8da2ed52a9142da53b
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: a1c709db54049eacb6f51b020134df6110fbfed9fcae5ba506df40502d85e7fc
 ---

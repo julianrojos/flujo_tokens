@@ -5,12 +5,12 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=713-202
   page: Bars
   component: Status-Bar
-  component_set_node_id: 713:202
-  last_verified: "2026-02-19"
+  component_set_node_id: '713:202'
+  last_verified: '2026-02-19'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: d3ce2216dfe71e0f98c632a935ae2e72b342363caa958e34961d7711b2c5ebcc
+    contract_version: '1'
+    spec_sha256: 810615e6ad5b6b2aa490352fc54959ece1a0abe233b7b83c441cf5a2be4c7ab9
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: d1a7b2a3735f7e1e853c3a53811b9edec4b68c51b73d75b1ed818033f2baba15
 ---

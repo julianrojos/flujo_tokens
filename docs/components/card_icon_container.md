@@ -13,7 +13,7 @@ figma:
 pipeline:
   ds_component_doc:
     contract_version: '1'
-    spec_sha256: 47b9face298d0c1246ea34a26d9855e0f1a5776e0522ba2925a4d35dc1abbfd5
+    spec_sha256: 88ca15df3e5dd43b2dab1c9498dae6bc1516ba774647ba31bfa688d00ba7c321
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: 58f557ac1ccb13d42ebfed358e645442256abb548e5aad6635c2672f31d7dfca
 ---

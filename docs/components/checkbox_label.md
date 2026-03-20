@@ -5,11 +5,11 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=487-267&t=Ct0aRp93us7M1VzZ-4
   page: Checkbox
   component: Checkbox-Label
-  last_verified: "2026-02-20"
+  last_verified: '2026-02-20'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: 54dd15cc882f8ef9becb6551a906a1b31f3ff35fa3498aca93614cb0be7d8b23
+    contract_version: '1'
+    spec_sha256: 422d562188c28ef87212b44535e3f3a551c1edb29e21ce8de94f9e08e2c91935
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
 ---
 

@@ -5,12 +5,12 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu?node-id=524-494
   page: Checkbox
   component: Checkbox
-  component_set_node_id: 524:494
+  component_set_node_id: '524:494'
   last_verified: TBD
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: 0f1eb24e53fc343f5e9d646074314bc998e2d3fb5d2e33790aa0bb7bf614cf37
+    contract_version: '1'
+    spec_sha256: a6aa1a89b22ba492900f8bdbd398ec92b389fdfa850b8888aad8dd7bd1965fee
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
 ---
 

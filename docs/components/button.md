@@ -5,12 +5,12 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097
   page: Button
   component: Button
-  component_set_node_id: 68:4097
-  last_verified: "2026-02-19"
+  component_set_node_id: '68:4097'
+  last_verified: '2026-02-19'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: 8bf5d1c6914100273851da1035f5d0abebf80c643c8d16b2a8aa57bec58cfa44
+    contract_version: '1'
+    spec_sha256: 6a4ac45f4663533fee5bf1c7b691edaed450aacdc08f0fbcb4f3d35a6796a970
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: 0a97e706c998422920cda46896d72747026c04af88cea96d91e2bff2fe14bf97
 ---
@@ -92,7 +92,7 @@ Current variant dimensions in Figma:
 - **Corner radius**: `8px` via `Dimension/Border/Radius/200` (`8`)
 - **Border width**: `1px` via `Dimension/Border/Width/100` (`1`)
 - **Border color**: `Color/Border/Neutral/Alpha-10` (`#0000001A`)
-- **Minimum height token**: `A11y/Dimension/Min-Hit-Area` (`24`)
+- **Minimum height token**: A11y/Dimension/Min-Hit-Area (`24`)
 - **Minimum width token**: `TBD` (binding exists but token name is unresolved in current file metadata)
 
 ### Typography
