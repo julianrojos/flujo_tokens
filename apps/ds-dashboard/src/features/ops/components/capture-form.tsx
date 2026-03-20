@@ -9,6 +9,8 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useOperationRunner, formatRelativeTime } from "../hooks/use-operation-runner";
 import { LogTerminal } from "./log-terminal";
@@ -132,10 +134,10 @@ export function CaptureForm({
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
               URL de Figma <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               type="url"
               placeholder="https://www.figma.com/design/…?node-id=…"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 font-mono text-xs"
+              className="font-mono text-xs"
               value={figmaUrl}
               onChange={(e) => setFigmaUrl(e.target.value)}
               disabled={isRunning}
@@ -155,10 +157,9 @@ export function CaptureForm({
                 Slug del componente
                 <span className="ml-1 font-normal text-muted-foreground/60">(opcional)</span>
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="ej. button, card, alert"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
                 value={componentSlug}
                 onChange={(e) => setComponentSlug(e.target.value)}
                 disabled={isRunning}
@@ -175,29 +176,29 @@ export function CaptureForm({
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
                     Formato
                   </label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                  <Select
+                    className="w-full"
                     value={format}
                     onChange={(e) => setFormat(e.target.value as "png" | "svg")}
                     disabled={isRunning}
                   >
                     <option value="png">PNG</option>
                     <option value="svg">SVG</option>
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-1.5">
                     Escala
                   </label>
-                  <select
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                  <Select
+                    className="w-full"
                     value={scale}
                     onChange={(e) => setScale(e.target.value as "1" | "2")}
                     disabled={isRunning}
                   >
                     <option value="1">1× (72 dpi)</option>
                     <option value="2">2× (144 dpi)</option>
-                  </select>
+                  </Select>
                 </div>
               </div>
 

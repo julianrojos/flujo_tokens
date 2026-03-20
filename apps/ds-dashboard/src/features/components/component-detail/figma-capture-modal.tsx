@@ -3,6 +3,7 @@ import { Camera, Loader2, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { StatusAlert } from "@/components/ui/status-alert";
 import {
   Modal,
@@ -216,9 +217,9 @@ export function FigmaCaptureModal({
               <label htmlFor="figma-capture-kind" className="text-sm font-medium">
                 Document scope
               </label>
-              <select
+              <Select
                 id="figma-capture-kind"
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                className="w-full"
                 value={componentKind}
                 onChange={(event) =>
                   setComponentKind(
@@ -229,7 +230,7 @@ export function FigmaCaptureModal({
                 <option value="component_set">Component sets only</option>
                 <option value="component">Components only</option>
                 <option value="all">All component nodes</option>
-              </select>
+              </Select>
             </div>
           </div>
 

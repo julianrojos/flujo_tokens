@@ -9,6 +9,8 @@ import {
   Info,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useOperationRunner, formatRelativeTime } from "../hooks/use-operation-runner";
 import { LogTerminal } from "./log-terminal";
 
@@ -136,23 +138,23 @@ export function PipelineForm({
             {/* Left col: target */}
             <div className="space-y-3">
               <FormLabel>Componente objetivo</FormLabel>
-              <select
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+              <Select
+                className="w-full"
                 value={targetComponent}
                 onChange={(e) => setTargetComponent(e.target.value as "all" | "single")}
                 disabled={isRunning}
               >
                 <option value="all">Todos los componentes</option>
                 <option value="single">Componente específico…</option>
-              </select>
+              </Select>
 
               {targetComponent === "single" && (
                 <div>
                   <FormLabel>Slug del componente</FormLabel>
-                  <input
+                  <Input
                     type="text"
                     placeholder="ej. alert, button, card"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 mt-1.5"
+                    className="mt-1.5"
                     value={targetSlug}
                     onChange={(e) => setTargetSlug(e.target.value)}
                     disabled={isRunning}
@@ -166,8 +168,8 @@ export function PipelineForm({
             <div className="space-y-3">
               <div>
                 <FormLabel>Iniciar desde paso</FormLabel>
-                <select
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 mt-1.5"
+                <Select
+                  className="w-full mt-1.5"
                   value={fromStep}
                   onChange={(e) => setFromStep(e.target.value as typeof fromStep)}
                   disabled={isRunning}
@@ -177,7 +179,7 @@ export function PipelineForm({
                       {s.label}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {/* Step hint */}
                 <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground/70">
                   <Info className="h-3 w-3 shrink-0" />

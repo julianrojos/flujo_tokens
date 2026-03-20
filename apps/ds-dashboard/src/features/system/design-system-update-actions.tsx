@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { Button } from "@/components/ui/button";
-import { StatusAlert } from "@/components/ui/status-alert";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { useOperationRunner } from "@/features/ops/hooks/use-operation-runner";
 import { LogTerminal } from "@/features/ops/components/log-terminal";
 import type { FigmaMcpDesignContextCompactResponse } from "@/lib/api";
@@ -193,18 +194,18 @@ export function DesignSystemUpdateActions({
           <div className="mt-3 space-y-2">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Token source</label>
-              <select
+              <Select
+                className="w-full"
                 value={tokensSource}
                 onChange={(event) =>
                   setTokensSource(event.target.value as "auto" | "mcp" | "rest")
                 }
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
                 disabled={disabled || variablesState.isRunning}
               >
                 <option value="auto">auto</option>
                 <option value="mcp">mcp</option>
                 <option value="rest">rest</option>
-              </select>
+              </Select>
             </div>
             <div className="flex items-center justify-end">
               <Button

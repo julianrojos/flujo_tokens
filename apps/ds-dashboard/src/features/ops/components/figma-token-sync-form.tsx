@@ -10,6 +10,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useOperationRunner, formatRelativeTime } from "../hooks/use-operation-runner";
 import { LogTerminal } from "./log-terminal";
@@ -161,10 +162,10 @@ export function FigmaTokenSyncForm({
               URL de Figma{" "}
               <span className="font-normal text-muted-foreground/60">(opcional — usa figmaFileId del sistema si se omite)</span>
             </label>
-            <input
+            <Input
               type="url"
               placeholder="https://www.figma.com/design/ABC123/…"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 font-mono text-xs"
+              className="font-mono text-xs"
               value={figmaUrl}
               onChange={(e) => setFigmaUrl(e.target.value)}
               disabled={isRunning}
@@ -188,10 +189,10 @@ export function FigmaTokenSyncForm({
               Figma Token{" "}
               <span className="font-normal text-muted-foreground/60">(opcional — usa FIGMA_TOKEN del entorno si se omite)</span>
             </label>
-            <input
+            <Input
               type="password"
               placeholder="figd_…"
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50 font-mono text-xs"
+              className="font-mono text-xs"
               value={figmaToken}
               onChange={(e) => setFigmaToken(e.target.value)}
               disabled={isRunning}
