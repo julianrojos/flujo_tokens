@@ -384,6 +384,108 @@ describe('token-usage-index', () => {
       assert.ok(entry.usedIn.some((occ) => String(occ.detail).includes('anatomy')));
     });
 
+    it('resolves imported shorthand refs against canonical semantic token paths', () => {
+      fs.writeFileSync(
+        registryPath,
+        JSON.stringify({
+          entries: [
+            {
+              id: 'p-black',
+              path: 'primitivos.color.negro',
+              slashPath: 'color/negro',
+              $value: '#000000',
+              type: 'color',
+              collection: 'primitivos',
+              cssVar: '--color-negro',
+            },
+            {
+              id: 's-bg-default',
+              path: 'semanticos.color.background.default',
+              slashPath: 'color/background/default',
+              $value: '#FFFFFF',
+              type: 'color',
+              collection: 'semanticos',
+              cssVar: '--color-background-default',
+            },
+          ],
+          meta: {
+            generatedAt: '2024-01-01T00:00:00Z',
+            version: '1.0.0',
+          },
+        }),
+      );
+
+      const specPath = path.join(specRoot, 'boton.yml');
+      fs.writeFileSync(
+        specPath,
+        [
+          'name: boton',
+          'anatomy:',
+          '  - id: "1:1"',
+          '    name: Variant=Default',
+          '    fill: color.background.default',
+        ].join('\n'),
+      );
+
+      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
+      const entry = result.byPath['semanticos.color.background.default'];
+      assert.ok(entry);
+      assert.equal(entry.usageCount, 1);
+      assert.ok(entry.usedIn.some((occ) => occ.kind === 'component-spec' && occ.owner === 'boton'));
+    });
+
+    it('resolves ambiguous value refs using context without collection hardcoding', () => {
+      fs.writeFileSync(
+        registryPath,
+        JSON.stringify({
+          entries: [
+            {
+              id: 'base-black',
+              path: 'base.color.black',
+              slashPath: 'color/black',
+              $value: '#000000',
+              type: 'color',
+              collection: 'base',
+              cssVar: '--color-black',
+            },
+            {
+              id: 'theme-bg-accent',
+              path: 'theme.color.background.accent',
+              slashPath: 'color/background/accent',
+              $value: '#000000',
+              type: 'color',
+              collection: 'theme',
+              cssVar: '--color-background-accent',
+            },
+          ],
+          meta: {
+            generatedAt: '2024-01-01T00:00:00Z',
+            version: '1.0.0',
+          },
+        }),
+      );
+
+      const specPath = path.join(specRoot, 'badge.yml');
+      fs.writeFileSync(
+        specPath,
+        [
+          'name: badge',
+          'anatomy:',
+          '  - id: "1:1"',
+          '    name: Variant=Accent',
+          '    fill: "#000000"',
+        ].join('\n'),
+      );
+
+      const result = generateUsageIndexFromFile(registryPath, specRoot, cssFiles);
+      const entry = result.byPath['theme.color.background.accent'];
+      assert.ok(entry);
+      assert.equal(entry.usageCount, 1);
+      assert.ok(
+        entry.usedIn.some((occ) => occ.kind === 'component-spec' && occ.owner === 'badge'),
+      );
+    });
+
     it('ignores fill_alias_chain and fill_resolved helper fields during heuristic extraction', () => {
       const specPath = path.join(specRoot, 'chip.yml');
       fs.writeFileSync(

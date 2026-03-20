@@ -81,19 +81,115 @@ function normalizeTokenResolvedValue(value: string): string | null {
   return trimmed.toLowerCase();
 }
 
-function buildPathLookup(registry: TokenRegistry): Map<string, TokenRegistryEntry> {
-  const map = new Map<string, TokenRegistryEntry>();
+function buildPathLookup(registry: TokenRegistry): Map<string, TokenRegistryEntry[]> {
+  const setLookup = (
+    map: Map<string, TokenRegistryEntry[]>,
+    rawKey: string,
+    entry: TokenRegistryEntry,
+  ) => {
+    const key = String(rawKey || '').trim();
+    if (!key) return;
+    const current = map.get(key) || [];
+    const hasEntry = current.some(
+      (existing) =>
+        String(existing.path || '') === String(entry.path || '') &&
+        String(existing.id || '') === String(entry.id || ''),
+    );
+    if (!hasEntry) {
+      current.push(entry);
+      map.set(key, current);
+    }
+  };
+
+  const map = new Map<string, TokenRegistryEntry[]>();
   for (const entry of registry.entries) {
-    map.set(String(entry.path || '').trim(), entry);
-    map.set(String(entry.path || '').trim().replace(/\./g, '/'), entry);
-    if (entry.cssVar) map.set(String(entry.cssVar || '').trim(), entry);
-    const normalizedPath = String(entry.path || '').trim().replace(/^_+/, '');
+    const path = String(entry.path || '').trim();
+    const slashFromPath = path.replace(/\./g, '/');
+    const slashPath = String((entry as TokenRegistryEntry & { slashPath?: string }).slashPath || '').trim();
+    const collection = String(entry.collection || '').trim();
+
+    setLookup(map, path, entry);
+    setLookup(map, slashFromPath, entry);
+    if (entry.cssVar) setLookup(map, String(entry.cssVar || '').trim(), entry);
+    if (slashPath) {
+      setLookup(map, slashPath, entry);
+      setLookup(map, slashPath.replace(/\//g, '.'), entry);
+    }
+
+    // Support imported shorthand refs without collection prefix, e.g.
+    // color.background.default -> semanticos.color.background.default
+    if (collection && path.toLowerCase().startsWith(`${collection.toLowerCase()}.`)) {
+      const withoutCollection = path.slice(collection.length + 1);
+      setLookup(map, withoutCollection, entry);
+      setLookup(map, withoutCollection.replace(/\./g, '/'), entry);
+    }
+
+    const normalizedPath = path.replace(/^_+/, '');
     if (normalizedPath) {
-      map.set(normalizedPath, entry);
-      map.set(normalizedPath.replace(/\./g, '/'), entry);
+      setLookup(map, normalizedPath, entry);
+      setLookup(map, normalizedPath.replace(/\./g, '/'), entry);
     }
   }
   return map;
+}
+
+function extractContextKeywords(raw: string): string[] {
+  const stopWords = new Set([
+    'anatomy',
+    'children',
+    'default',
+    'fill',
+    'stroke',
+    'variant',
+    'container',
+    'text',
+  ]);
+
+  return String(raw || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 1 && !stopWords.has(part));
+}
+
+function rankTokenCandidate(entry: TokenRegistryEntry, keywords: string[]): number {
+  const haystack = [
+    String(entry.path || ''),
+    String(entry.cssVar || ''),
+    String((entry as TokenRegistryEntry & { slashPath?: string }).slashPath || ''),
+    String(entry.collection || ''),
+  ]
+    .join(' ')
+    .toLowerCase();
+
+  let score = 0;
+  for (const keyword of keywords) {
+    if (haystack.includes(keyword)) score += 1;
+  }
+  return score;
+}
+
+function pickBestTokenCandidate(
+  candidates: TokenRegistryEntry[],
+  contextHint: string,
+): TokenRegistryEntry | null {
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0];
+
+  const keywords = extractContextKeywords(contextHint);
+  const ranked = candidates
+    .map((entry) => ({
+      entry,
+      score: rankTokenCandidate(entry, keywords),
+      depth: String(entry.path || '').split('.').filter(Boolean).length,
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.depth !== a.depth) return b.depth - a.depth;
+      return String(a.entry.path || '').localeCompare(String(b.entry.path || ''));
+    });
+
+  return ranked[0]?.entry || null;
 }
 
 function buildResolvedValueLookup(registry: TokenRegistry): Map<string, TokenRegistryEntry[]> {
@@ -112,14 +208,16 @@ function buildResolvedValueLookup(registry: TokenRegistry): Map<string, TokenReg
 
 function resolveTokenFromRef(
   registry: TokenRegistry,
-  pathLookup: Map<string, TokenRegistryEntry>,
+  pathLookup: Map<string, TokenRegistryEntry[]>,
   resolvedValueLookup: Map<string, TokenRegistryEntry[]>,
   rawRef: unknown,
+  contextHint = '',
 ): TokenRegistryEntry | null {
   const ref = String(rawRef ?? '').trim();
   if (!ref || isTbdMarker(ref)) return null;
 
-  const exact = pathLookup.get(ref);
+  const exactCandidates = pathLookup.get(ref) || [];
+  const exact = pickBestTokenCandidate(exactCandidates, `${ref} ${contextHint}`);
   if (exact) return exact;
 
   const varMatch = ref.match(/^var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)$/i);
@@ -131,10 +229,7 @@ function resolveTokenFromRef(
   const normalizedValue = normalizeTokenResolvedValue(ref);
   if (!normalizedValue) return null;
   const candidates = resolvedValueLookup.get(normalizedValue) || [];
-  if (candidates.length === 1) return candidates[0];
-
-  const preferred = candidates.find((entry) => String(entry.collection || '').toLowerCase() !== 'primitivos');
-  return preferred || candidates[0] || null;
+  return pickBestTokenCandidate(candidates, contextHint);
 }
 
 function collectTokenMappingReferences(
@@ -230,7 +325,13 @@ export function extractSpecReferences(
       const spec = yaml.load(content) as Record<string, unknown>;
 
       const registerRef = (tokenRef: string, property: string) => {
-        const token = resolveTokenFromRef(registry, pathLookup, resolvedValueLookup, tokenRef);
+        const token = resolveTokenFromRef(
+          registry,
+          pathLookup,
+          resolvedValueLookup,
+          tokenRef,
+          property,
+        );
         if (!token) return;
         const signature = `${owner}|${token.path}|${property}`;
         if (seen.has(signature)) return;
