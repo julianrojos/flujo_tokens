@@ -17,6 +17,7 @@ import type { TokenUsageIndex } from "@/types/token-usage-index";
 import { ComponentSpecViewer } from "./component-spec-viewer";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
 import {
   Card,
   CardContent,
@@ -87,7 +88,7 @@ function PipelineTimeline({ current }: { current: PipelineStage }) {
                 className={[
                   "flex h-7 w-7 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors",
                   isDone
-                    ? "border-emerald-500 bg-emerald-500 text-white"
+                    ? "border-status-success-border bg-status-success text-white"
                     : isCurrent
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-muted text-muted-foreground",
@@ -108,7 +109,7 @@ function PipelineTimeline({ current }: { current: PipelineStage }) {
               <div
                 className={[
                   "mx-1 mb-4 h-0.5 w-8 md:w-12",
-                  isDone ? "bg-emerald-500" : "bg-border",
+                  isDone ? "bg-status-success" : "bg-border",
                 ].join(" ")}
               />
             ) : null}
@@ -474,21 +475,15 @@ export function ComponentDetailPage() {
       </div>
 
       {error ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-          {error}
-        </div>
+        <StatusAlert variant="error" description={error} />
       ) : null}
 
       {captureSummary ? (
-        <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-700">
-          <span>{captureSummary}</span>
-        </div>
+        <StatusAlert variant="success" description={captureSummary} />
       ) : null}
 
       {!loading && !error && !item ? (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-          Component <span className="font-mono">{slug}</span> not found in registry.
-        </div>
+        <StatusAlert variant="warning" description={`Component "${slug}" not found in registry.`} />
       ) : null}
 
       {loading ? (
@@ -736,7 +731,7 @@ export function ComponentDetailPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <CardTitle>Component Spec</CardTitle>
-                    <CardDescription className="text-amber-600">
+                    <CardDescription className="text-status-warning">
                       Spec file not available for this component.
                     </CardDescription>
                   </div>

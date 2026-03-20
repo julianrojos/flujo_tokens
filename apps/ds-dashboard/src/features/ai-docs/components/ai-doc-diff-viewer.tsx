@@ -74,9 +74,9 @@ export function AiDocDiffViewer({ jobId, onApply, onCancel }: AiDocDiffViewerPro
 
     if (applyResult) {
         return (
-            <Card className="border-green-500">
+            <Card className="border-status-success-border">
                 <CardHeader>
-                    <CardTitle className="text-green-600">Applied Successfully</CardTitle>
+                    <CardTitle className="text-status-success">Applied Successfully</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm">File: {applyResult.path}</p>
@@ -120,8 +120,8 @@ export function AiDocDiffViewer({ jobId, onApply, onCancel }: AiDocDiffViewerPro
             </CardHeader>
             <CardContent>
                 <div className="flex gap-4 mb-4 text-sm">
-                    <span className="text-green-600">+{diff.stats.added} added</span>
-                    <span className="text-red-500">-{diff.stats.removed} removed</span>
+                    <span className="text-status-success">+{diff.stats.added} added</span>
+                    <span className="text-status-error">-{diff.stats.removed} removed</span>
                 </div>
 
                 <div className="border rounded-md max-h-96 overflow-auto">

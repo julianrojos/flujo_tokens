@@ -8,6 +8,7 @@ import type { ImpactReport, ImpactSeverity } from "@/types/impact";
 import type { TokenEntry } from "@/types/token-registry";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
 import {
   Card,
   CardContent,
@@ -356,9 +357,7 @@ export function ImpactExplorerPage() {
           </div>
 
           {error ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-              {error}
-            </div>
+            <StatusAlert variant="error" description={error} />
           ) : null}
         </CardContent>
       </Card>

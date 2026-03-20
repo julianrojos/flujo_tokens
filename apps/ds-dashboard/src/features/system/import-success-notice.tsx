@@ -1,4 +1,5 @@
 import React from "react";
+import { StatusAlert } from "@/components/ui/status-alert";
 
 import {
   formatImportSuccessNotice,
@@ -8,12 +9,17 @@ import {
 export function ImportSuccessNotice({ summary }: { summary: ImportSuccessSummary }) {
   const notice = formatImportSuccessNotice(summary);
   return (
-    <div className="mt-4 rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700 dark:text-emerald-400">
-      <p>Design system successfully imported.</p>
-      <p className="mt-1">{notice.elementsLine}</p>
-      <p className="mt-1">{notice.collectionsLine}</p>
-      <p className="mt-1">{notice.variablesLine}</p>
-      <p className="mt-1">{notice.customPropertiesLine}</p>
-    </div>
+    <StatusAlert
+      variant="success"
+      title="Design system successfully imported."
+      description={
+        <>
+          <p className="mt-1">{notice.elementsLine}</p>
+          <p className="mt-1">{notice.collectionsLine}</p>
+          <p className="mt-1">{notice.variablesLine}</p>
+          <p className="mt-1">{notice.customPropertiesLine}</p>
+        </>
+      }
+    />
   );
 }

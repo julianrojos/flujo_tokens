@@ -7,6 +7,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
+import { StatusAlert } from '@/components/ui/status-alert';
 import { AiJobCreateForm } from './components/ai-job-create-form';
 import { AiJobStatusCard } from './components/ai-job-status-card';
 import { AiDocDiffViewer } from './components/ai-doc-diff-viewer';
@@ -206,11 +207,11 @@ export function AiDocsPage() {
                 </CardHeader>
                 <CardContent>
                     {!docStatus?.connected && (
-                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                            <p className="text-sm text-yellow-800">
-                                Figma plugin not connected — staleness information may be inaccurate
-                            </p>
-                        </div>
+                        <StatusAlert
+                            variant="warning"
+                            description="Figma plugin not connected — staleness information may be inaccurate"
+                            className="mb-4"
+                        />
                     )}
 
                     {isLoadingStatus ? (

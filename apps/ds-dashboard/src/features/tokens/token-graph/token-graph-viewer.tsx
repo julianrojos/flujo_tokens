@@ -164,7 +164,7 @@ export function TokenGraphViewer(props: {
                 stroke="currentColor"
                 className={cn(
                   "opacity-35",
-                  isCycleEdge ? "text-red-500 opacity-70" : "text-muted-foreground",
+                  isCycleEdge ? "text-status-error opacity-70" : "text-muted-foreground",
                 )}
                 strokeWidth={2}
                 markerEnd={`url(#${markerId})`}
@@ -207,7 +207,7 @@ export function TokenGraphViewer(props: {
         </div>
       </div>
 
-      <div className="sr-only" aria-hidden="true">
+      <div className="sr-only">
         Graph bounds {contentWidth}x{contentHeight}
       </div>
     </div>
@@ -222,12 +222,12 @@ function NodeBox(props: {
   onSelect: () => void;
 }) {
   const fill = props.node.collection?.toLowerCase() === "primitives"
-    ? "fill-sky-500/10"
+    ? "fill-primary/10"
     : props.node.collection?.toLowerCase() === "semantic"
-      ? "fill-emerald-500/10"
-      : "fill-amber-500/10";
+      ? "fill-status-success/10"
+      : "fill-status-warning/10";
 
-  const stroke = props.node.isCycleMember ? "stroke-red-500" : props.selected ? "stroke-primary" : "stroke-border";
+  const stroke = props.node.isCycleMember ? "stroke-status-error" : props.selected ? "stroke-primary" : "stroke-border";
 
   return (
     <g

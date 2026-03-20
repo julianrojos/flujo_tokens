@@ -3,6 +3,7 @@ import { Figma, Loader2, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } f
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useDesignSystem } from "@/lib/design-system-context";
 import {
@@ -432,7 +433,7 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
           </Button>
         </div>
         {!!url.trim() && urlValidationError ? (
-          <p className="text-xs text-amber-700 dark:text-amber-400">{urlValidationError}</p>
+          <p className="text-xs text-status-warning">{urlValidationError}</p>
         ) : null}
         <FigmaMcpConnectionTestButton figmaUrl={url} />
         {loading && progress ? (
@@ -516,52 +517,43 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
 
         {/* Result feedback */}
         {result && (
-          <div
-            className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm ${
+          <StatusAlert
+            variant={result.ok ? "success" : "error"}
+            title={
               result.ok
-                ? "border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400"
-                : "border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400"
-            }`}
-          >
-            {result.ok ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            ) : (
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-            )}
-            <div className="space-y-1 min-w-0">
-              <p className="font-medium">
-                {result.ok
-                  ? primarySuccessSlug
-                    ? `Component "${primarySuccessSlug}" scanned successfully`
-                    : `Scan completed — ${capturedCount} component(s) captured`
-                  : derivedError}
-              </p>
-              {result.ok ? (
-                <p className="text-xs opacity-80">
+                ? primarySuccessSlug
+                  ? `Component "${primarySuccessSlug}" scanned successfully`
+                  : `Scan completed — ${capturedCount} component(s) captured`
+                : derivedError
+            }
+            description={
+              result.ok ? (
+                <p className="text-xs">
                   Captured: {capturedCount} · Failed: {failedCount} · Skipped: {skippedCount}
                 </p>
-              ) : null}
-              {!result.ok && !result.error && !result.message && !result.stderr && failedCount === 0 && (
-                <p className="text-xs opacity-80">
+              ) : null
+            }
+          >
+            {!result.ok && !result.error && !result.message && !result.stderr && failedCount === 0 && (
+                <p className="text-xs">
                   Make sure <code>FIGMA_TOKEN</code> is set in your{" "}
                   <code>.env</code> file and the dashboard server is restarted.
                 </p>
               )}
-              {result.failed && result.failed.length > 0 && (
-                <ul className="list-inside list-disc text-xs opacity-80">
-                  {result.failed.slice(0, 3).map((item, i) => (
-                    <li key={`${item.slug}-${i}`}>
-                      {item.slug}: {item.error}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
+            {result.failed && result.failed.length > 0 && (
+              <ul className="list-inside list-disc text-xs">
+                {result.failed.slice(0, 3).map((item, i) => (
+                  <li key={`${item.slug}-${i}`}>
+                    {item.slug}: {item.error}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </StatusAlert>
         )}
 
         {!activeSystem && !isSystemLoading ? (
-          <p className="text-xs text-amber-700 dark:text-amber-400">
+          <p className="text-xs text-status-warning">
             Select a design system before scanning from Figma.
           </p>
         ) : null}

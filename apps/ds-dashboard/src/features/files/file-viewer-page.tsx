@@ -7,6 +7,7 @@ import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 function parseLineParam(raw: string | null) {
@@ -101,9 +102,7 @@ export function FileViewerPage() {
       </div>
 
       {!filePath ? (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-          Missing <span className="font-mono">path</span> query parameter.
-        </div>
+        <StatusAlert variant="warning" description="Missing path query parameter." />
       ) : null}
 
       {error ? (

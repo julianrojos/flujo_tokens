@@ -53,7 +53,7 @@ export function OperationRow({
           <div className="flex items-center gap-2 mb-0.5">
             <h3 className="text-sm font-semibold truncate">{label}</h3>
             {status === "success" && (
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-status-success shrink-0" />
             )}
             {status === "error" && (
               <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
@@ -71,7 +71,7 @@ export function OperationRow({
             <span
               className={cn(
                 "text-xs font-medium tabular-nums",
-                status === "success" && "text-emerald-600 dark:text-emerald-400",
+                status === "success" && "text-status-success",
                 status === "error" && "text-destructive"
               )}
             >
