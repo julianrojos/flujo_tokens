@@ -34,6 +34,37 @@ describe("system-repository empty config support", () => {
     }
   });
 
+  it("resolveDashboardSystemContext falls back to local docs when config has no systems", () => {
+    const repoRoot = createRepoRoot({ systems: [], defaultSystem: "" });
+    try {
+      const repository = createDesignSystemRepository({ repoRoot });
+      const context = repository.resolveDashboardSystemContext("legacy-id");
+      assert.equal(context.systemId, "local");
+      assert.equal(context.docsDir, path.join(repoRoot, "docs"));
+      assert.equal(context.rawConfig.defaultSystem, "");
+    } finally {
+      fsSync.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("resolveDashboardSystemContext falls back to configured default when header is stale", () => {
+    const repoRoot = createRepoRoot({
+      systems: [
+        { id: "core", name: "Core", docsDir: "docs/core" },
+        { id: "marketing", name: "Marketing", docsDir: "docs/marketing" },
+      ],
+      defaultSystem: "core",
+    });
+    try {
+      const repository = createDesignSystemRepository({ repoRoot });
+      const context = repository.resolveDashboardSystemContext("stale-system-id");
+      assert.equal(context.systemId, "core");
+      assert.equal(context.docsDir, path.join(repoRoot, "docs/core"));
+    } finally {
+      fsSync.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("persists empty systems config and normalizes default", () => {
     const repoRoot = createRepoRoot({
       systems: [{ id: "core", name: "Core" }],
