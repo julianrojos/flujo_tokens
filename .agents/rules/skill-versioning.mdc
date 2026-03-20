@@ -50,8 +50,8 @@ outputs:                       # Required — declare all file artifacts and rep
 
 `context` is required for all new or modified skills:
 
-- `doc_type` must align with manifest doc domains (`component`, `overview`, `foundation`, `workflow`, `spec`, `skills`).
-- `stage` must align with manifest stage routing (`spec`, `markdown`, `figma`, `visual-proof`, `pipeline`, `skills`).
+- `doc_type` must align with manifest doc domains (`component`, `overview`, `foundation`, `workflow`, `spec`, `skills`, `frontend`).
+- `stage` must align with manifest stage routing (`spec`, `markdown`, `figma`, `visual-proof`, `pipeline`, `skills`, `frontend`).
 
 ## Optional changelog block
 

@@ -1,0 +1,142 @@
+---
+description: "UI style contract: enforce token-first styling, prohibit hardcoded colors, govern typography, motion, and dark mode in the DS Dashboard."
+globs:
+  - "apps/ds-dashboard/src/**/*.tsx"
+alwaysApply: false
+---
+
+# UI Style Contract
+
+The DS Dashboard has its own visual identity — Dark SaaS, professional, decoupled from Karmap/Iter. Every visual decision flows from centralized tokens in `index.css` through `tailwind.config.ts` into components. This contract ensures that chain is never bypassed.
+
+## Token-first styling
+
+All colors, surfaces, borders, shadows, and motion values **MUST** come from the token system. Never use raw values.
+
+### DO
+
+```tsx
+<div className="bg-surface-1 text-foreground border-border shadow-md" />
+<Card variant="elevated" />
+<StatusAlert variant="error" title="Failed to sync" />
+```
+
+### DON'T
+
+```tsx
+<div className="bg-[#161618] text-[#fafafa] border-[#3a3a3f]" />
+<div className="bg-gray-900 text-gray-100 border-gray-700" />
+<div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-red-700">Error</div>
+```
+
+## Prohibited color patterns
+
+The following raw Tailwind color classes are **FORBIDDEN** in `features/**`:
+
+```
+bg-red-*    bg-emerald-*    bg-amber-*    bg-green-*    bg-yellow-*
+text-red-*  text-emerald-*  text-amber-*  text-green-*  text-yellow-*
+border-red-* border-emerald-* border-amber-* border-green-* border-yellow-*
+```
+
+**Use instead:** `status-error`, `status-success`, `status-warning` tokens — or wrap in `<StatusAlert>` / `<Badge>` with semantic variants.
+
+**Exception:** Dynamic user-provided colors rendered with `style={{ backgroundColor: swatch }}` are allowed when the color is data, not design. Document with a comment.
+
+## Inline styles
+
+### Forbidden
+
+Structural styling (layout, spacing, colors, borders) via `style={{}}`.
+
+```tsx
+// ✗ Never
+<div style={{ display: 'flex', gap: '16px', backgroundColor: '#1a1a1a' }}>
+```
+
+### Allowed (with justification)
+
+Dynamic values that cannot be expressed as Tailwind classes:
+
+```tsx
+// ✓ User-provided color swatch
+<div style={{ backgroundColor: tokenHexValue }} />
+
+// ✓ Calculated dimension
+<div style={{ width: `${percentage}%` }} />
+
+// ✓ Tree depth indentation
+<div style={{ paddingLeft: `${depth * 14 + 8}px` }} />
+```
+
+## Portals and overlays
+
+- **MUST** use `<Modal>` from `ui/overlay/modal.tsx` for all modal dialogs.
+- **MUST NOT** use `createPortal` outside of `ui/overlay/`.
+- `Modal` handles scroll lock, escape key, backdrop, and z-index stacking.
+
+### DO
+
+```tsx
+import { Modal, ModalContent } from "@/components/ui/overlay/modal";
+
+<Modal open={isOpen} onClose={() => setIsOpen(false)}>
+  <ModalContent size="lg">...</ModalContent>
+</Modal>
+```
+
+### DON'T
+
+```tsx
+import { createPortal } from "react-dom";
+
+// Manual portal with isMounted guard, scroll lock, escape listener…
+{isMounted && createPortal(<div className="fixed inset-0 z-[1000]">...</div>, document.body)}
+```
+
+## Typography
+
+| Element | Class | Font | Rationale |
+|---------|-------|------|-----------|
+| Page/section headings | `font-serif` | Bitter | Identity — distinguishes the app from generic Tailwind |
+| UI text, labels, body | `font-sans` | Geist | Clean, modern, excellent legibility in dark mode |
+| Token paths, code | `font-mono` | Geist Mono | Technical content needs monospace |
+
+- **MUST** use semantic heading levels (`<h1>` page, `<h2>` section, `<h3>` subsection).
+- **SHOULD** apply `font-serif` to `<h1>` and `<h2>` via `PageHeader` and `SectionHeader` composites.
+
+## Dark mode
+
+The app runs in permanent dark mode (`class="dark"` on `<html>`).
+
+- **MUST NOT** write light-mode-specific styles.
+- **MUST NOT** use `dark:` prefix — it is redundant and creates confusion about intent.
+- If dark mode toggle is added in the future, the token layer (`index.css`) handles the switch — components never change.
+
+## Motion
+
+| Speed | Tailwind class | Use case |
+|-------|---------------|----------|
+| Fast (150ms) | `duration-fast` | Hover states, micro-interactions |
+| Base (250ms) | `duration-base` | Panel transitions, content reveals |
+| Slow (400ms) | `duration-slow` | Page-level transitions, modals |
+
+- **SHOULD** use these duration tokens instead of arbitrary values.
+- **MUST** respect `prefers-reduced-motion` (enforced globally in `index.css`).
+- Prefer `ease-out` for entrances, `ease-in-out` for state changes.
+
+## Enforcement
+
+- Violations in new code **MUST** be fixed.
+- Existing violations: fix when touching the file (boy scout rule).
+- When unsure whether a pattern is allowed, prefer the token system — it exists to absorb these decisions centrally.
+
+### Verification
+
+```bash
+npm run ds:ui:guard
+
+# Should all return 0:
+grep -rn "text-red-[0-9]\|text-amber-[0-9]\|bg-red-[0-9]\|bg-emerald-[0-9]" apps/ds-dashboard/src/features/ --include="*.tsx" | wc -l
+grep -rn "createPortal" apps/ds-dashboard/src/ --include="*.tsx" | grep -v "overlay/modal" | wc -l
+```

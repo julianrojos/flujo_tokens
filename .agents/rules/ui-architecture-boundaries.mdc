@@ -1,0 +1,83 @@
+---
+description: "UI architecture boundaries: enforce strict layer isolation between features, pages, composites, and primitives in the DS Dashboard."
+globs:
+  - "apps/ds-dashboard/src/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# UI Architecture Boundaries
+
+The DS Dashboard UI is built on a strict layered architecture. Each layer has a single direction of dependency — downward only. Violations create hidden coupling that erodes reusability and makes changes cascade unpredictably.
+
+## Layer hierarchy
+
+```
+Tier 0   index.css / tailwind.config.ts   (tokens — no imports)
+  ↓
+Tier 1   src/components/ui/**              (primitives)
+  ↓
+Tier 1.5 src/components/composites/**      (shared compositions)
+  ↓
+Tier 2   src/features/**/components/**     (feature-specific)
+  ↓
+Tier 3   route components (pages)          (layout + composition)
+```
+
+## Import rules
+
+| Layer | Can import from | Cannot import from |
+|-------|----------------|--------------------|
+| `ui/` | `ui/` (internal), `@/lib/utils` | `features/`, `composites/`, `pages/` |
+| `composites/` | `ui/` | `features/`, other `composites/`, `pages/` |
+| `features/X/` | `ui/`, `composites/`, `@/lib/*`, `@/hooks/*` | `features/Y/` (other features) |
+| Route components | `ui/`, `composites/`, `features/` | Other route components |
+
+### DO
+
+```typescript
+// features/tokens/components/tokens-explorer.tsx
+import { Card } from "@/components/ui/card";
+import { FilterBar } from "@/components/composites/filter-bar";
+import { useTokenData } from "../hooks/use-token-data";
+```
+
+### DON'T
+
+```typescript
+// features/tokens/components/tokens-explorer.tsx
+import { ComponentSpec } from "@/features/components/component-spec"; // ← cross-feature
+import { HealthMetric } from "@/features/health/health-metric";      // ← cross-feature
+```
+
+## Shared logic between features
+
+When two features need the same utility:
+
+1. If it's a **UI pattern** (layout, display) → extract to `composites/`.
+2. If it's a **data utility** (parsing, formatting) → extract to `src/lib/`.
+3. If it's a **hook** (data fetching, state) → extract to `src/hooks/`.
+4. If it's **truly feature-specific** but shared → promote to `composites/` or `lib/` first, then import.
+
+Never solve sharing by importing across features — it creates bidirectional coupling that is invisible until it breaks.
+
+## Orphan component criteria
+
+| Consumers | Location |
+|-----------|----------|
+| 1 | Feature-local (`features/X/components/`) |
+| 2+ across features | `composites/` |
+| Generic primitive (3+ features) | `ui/` |
+
+## Enforcement
+
+- **MUST** fix boundary violations in new code before considering the task complete.
+- **SHOULD** fix violations in existing code when touching the file (boy scout rule with boundaries — per `general-programming-principles.mdc` §0).
+- Existing violations are tolerated but **MUST NOT** be expanded.
+
+### Verification
+
+```bash
+# Should return 0 results:
+grep -rn "from.*@/features/" apps/ds-dashboard/src/components/ --include="*.tsx"
+grep -rn "from.*@/features/" apps/ds-dashboard/src/components/ --include="*.ts"
+```

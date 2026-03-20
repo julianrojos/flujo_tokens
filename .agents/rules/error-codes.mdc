@@ -49,6 +49,9 @@ This file is the canonical human-readable reference for validation/governance co
 | `GOV01` | yes | Governance/manifest integrity error (for example manifest unreadable). | `docs-pipeline-contract` |
 | `EVID01` | yes | Evidence-gated mutation guardrail violated. | `evidence-gated-mutations`, `ds-docs-guardrails` |
 | `EVID02` | yes | Evidence gate/pipeline sequencing contract violated. | `evidence-gated-mutations`, `docs-pipeline-contract` |
+| `UI01` | yes | UI layer boundary/import direction violation. | `ui-architecture-boundaries` |
+| `UI02` | yes | UI token/style contract violation (hardcoded colors, portal misuse, etc.). | `ui-style-contract` |
+| `UI03` | yes | UI component governance violation (CVA/cn/forwardRef, registry discipline, or orphan policy). | `ui-component-governance` |
 
 ## Maintenance rule
 
