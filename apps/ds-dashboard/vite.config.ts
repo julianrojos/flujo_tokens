@@ -14,9 +14,14 @@ const OPS_API_PROXY_TARGET =
 
 export default defineConfig({
   plugins: [react()],
+  root: ".",
   build: {
+    outDir: "dist",
     chunkSizeWarningLimit: 700,
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, "index.html"),
+      },
       output: {
         manualChunks(id) {
           const normalizedId = id.replace(/\\/g, "/");
