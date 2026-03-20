@@ -5,10 +5,10 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2335-2158&t=Ct0aRp93us7M1VzZ-4
   page: Radio Button
   component: Radio-Button-List
-  last_verified: "2026-02-20"
+  last_verified: '2026-02-20'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
+    contract_version: '1'
     spec_sha256: 8577a31fb19bf7fc40c54a4ed3d22f19051234e4de51e868d4b472ce5d7bd58e
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
 ---

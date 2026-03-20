@@ -53,8 +53,8 @@ export function LogTerminal({
             </div>
             <div className="flex items-center gap-3">
               {status === "running" && (
-                <span className="flex items-center gap-1 text-[10px] text-amber-400">
-                  <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-amber-400 inline-block" />
+                <span className="flex items-center gap-1 text-[10px] text-status-warning">
+                  <span className="animate-pulse h-1.5 w-1.5 rounded-full bg-status-warning inline-block" />
                   Ejecutando…
                 </span>
               )}
@@ -68,7 +68,7 @@ export function LogTerminal({
                 className={cn(
                   "flex gap-3 break-all whitespace-pre-wrap",
                   line.kind === "stderr"
-                    ? "text-red-400"
+                    ? "text-status-error"
                     : line.kind === "system"
                     ? "text-blue-400 italic"
                     : "text-zinc-300"
@@ -89,10 +89,10 @@ export function LogTerminal({
       {summary && status !== "running" && (
         <div
           className={cn(
-            "flex items-center justify-between px-3 py-2 text-xs font-medium",
+            "flex items-center justify-between px-3 py-2 text-xs font-medium border-t",
             status === "success"
-              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-t border-emerald-500/20"
-              : "bg-destructive/10 text-destructive border-t border-destructive/20"
+              ? "bg-status-success-bg/10 text-status-success border-status-success-border/20"
+              : "bg-destructive/10 text-destructive border-destructive/20"
           )}
         >
           <span>{summary}</span>

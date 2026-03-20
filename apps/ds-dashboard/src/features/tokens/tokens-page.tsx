@@ -20,6 +20,7 @@ import type { TokenEntry } from "@/types/token-registry";
 import type { TokenUsageEntry, TokenUsageIndexSummary } from "@/types/token-usage-index";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FilterBar, PageHeader } from "@/components/composites";
 import {
   Card,
   CardContent,
@@ -291,6 +292,38 @@ export function TokensPage() {
 
   return (
     <div className="space-y-5 animate-fade-slide-in">
+      <PageHeader
+        title="Tokens & Custom Properties"
+        description="Inventory local de `token-registry.json` con filtros por colección y tipo."
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link to="/tokens/diff">
+              <Button variant="outline">
+                <ArrowLeftRight className="mr-2 h-4 w-4" />
+                Compare
+              </Button>
+            </Link>
+            <Link to="/tokens/naming-debt">
+              <Button variant="outline">Naming Quality</Button>
+            </Link>
+            <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              {usageSyncing ? "Syncing usage..." : "Sync Usage Index"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 px-0"
+              title="Open token collections tree"
+              aria-label="Open token collections tree"
+              onClick={() => setTreeModalOpen(true)}
+            >
+              <FolderTree className="h-4 w-4" />
+            </Button>
+          </div>
+        }
+      />
+
       <section className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
@@ -312,46 +345,13 @@ export function TokensPage() {
       </section>
 
       <Card>
-        <CardHeader className="gap-4">
-          <div className="flex items-start gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 w-9 px-0"
-              title="Open token collections tree"
-              aria-label="Open token collections tree"
-              onClick={() => setTreeModalOpen(true)}
-            >
-              <FolderTree className="h-4 w-4" />
-            </Button>
-            <div>
-              <CardTitle>Tokens & Custom Properties</CardTitle>
-              <CardDescription>
-                Inventory local de `token-registry.json` con filtros por colección
-                y tipo.
-              </CardDescription>
-            </div>
-          </div>
-          <div className="flex w-full flex-wrap gap-2">
-            <Link to="/tokens/diff">
-              <Button variant="outline">
-                <ArrowLeftRight className="mr-2 h-4 w-4" />
-                Compare
-              </Button>
-            </Link>
-            <Link to="/tokens/naming-debt">
-              <Button variant="outline">Naming Quality</Button>
-            </Link>
-            <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              {usageSyncing ? "Syncing usage..." : "Sync Usage Index"}
-            </Button>
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por token path, CSS var o valor"
-              className="w-full md:w-80"
-            />
+        <CardContent>
+          <FilterBar
+            searchValue={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar por token path, CSS var o valor"
+            count={filtered.length}
+          >
             <Select
               value={collection}
               onChange={(event) => setCollection(event.target.value)}
@@ -388,9 +388,8 @@ export function TokensPage() {
                 <Accessibility className="h-4 w-4" />
               </Button>
             ) : null}
-          </div>
-        </CardHeader>
-        <CardContent>
+          </FilterBar>
+
           {error ? (
             <ApiErrorMessage error={error} />
           ) : null}

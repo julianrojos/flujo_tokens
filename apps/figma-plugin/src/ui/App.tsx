@@ -28,6 +28,7 @@ interface DocumentChangeMessage { type: 'DOCUMENT_CHANGE' }
 type PluginUiMessage = InitMessage | DocumentChangeMessage;
 
 const App: React.FC = () => {
+  const CONNECTING_GRACE_MS = 5_000;
   const [docName, setDocName] = useState('');
   const [fileKey, setFileKey] = useState<string | null>(null);
   const [connectionState, setConnState] = useState<ConnectionState | null>(null);
@@ -39,6 +40,7 @@ const App: React.FC = () => {
   // Guards against concurrent capabilities requests stacking up when MCP
   // takes longer than the 10 s polling interval to respond.
   const fetchingRef = useRef(false);
+  const connectingSinceRef = useRef<number | null>(null);
   // Mutex to prevent concurrent heartbeat requests.
   const heartbeatInFlightRef = useRef(false);
 
@@ -48,13 +50,58 @@ const App: React.FC = () => {
     // this guard a new request would start every 10 s, flooding the stdio client.
     if (fetchingRef.current) return;
     fetchingRef.current = true;
+    setConnState((prev) => {
+      if (prev?.state === 'connected' || prev?.state === 'fallback' || prev?.state === 'mismatch') {
+        return prev;
+      }
+      if (connectingSinceRef.current === null) {
+        connectingSinceRef.current = Date.now();
+      }
+      return {
+        configuredPort: client.getLastKnownConfiguredPort(),
+        connectedPort: null,
+        state: 'connecting',
+      };
+    });
     try {
       // Use cache during auto-refresh to reduce pressure on MCP stdio.
       // Force refresh only on initial load or explicit user actions.
       const caps = await client.getCapabilities({ forceRefresh: false });
-      setConnState(client.computeConnectionState(caps));
+      const nextState = client.computeConnectionState(caps);
+      setConnState((prev) => {
+        const now = Date.now();
+        if (nextState.state === 'connecting' && connectingSinceRef.current === null) {
+          connectingSinceRef.current = now;
+        }
+        if (nextState.state !== 'connecting') {
+          const withinGrace =
+            prev?.state === 'connecting' &&
+            nextState.state === 'disconnected' &&
+            connectingSinceRef.current !== null &&
+            now - connectingSinceRef.current < CONNECTING_GRACE_MS;
+          if (withinGrace) {
+            return {
+              ...prev,
+              cause: nextState.cause,
+            };
+          }
+          connectingSinceRef.current = null;
+        }
+        return nextState;
+      });
     } catch {
-      setConnState({ configuredPort: client.getLastKnownConfiguredPort(), connectedPort: null, state: 'disconnected' });
+      setConnState((prev) => {
+        const now = Date.now();
+        const withinGrace =
+          prev?.state === 'connecting' &&
+          connectingSinceRef.current !== null &&
+          now - connectingSinceRef.current < CONNECTING_GRACE_MS;
+        if (withinGrace) {
+          return prev;
+        }
+        connectingSinceRef.current = null;
+        return { configuredPort: client.getLastKnownConfiguredPort(), connectedPort: null, state: 'disconnected' };
+      });
     } finally {
       fetchingRef.current = false;
     }

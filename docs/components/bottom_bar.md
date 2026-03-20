@@ -5,11 +5,11 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2064-65
   page: Bars
   component: Bottom_Bar
-  last_verified: "2026-02-19"
+  last_verified: '2026-02-19'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: d0879a2d4043142f9f36e25872b85477726007c1a3e4208686404b62082da85b
+    contract_version: '1'
+    spec_sha256: 7a9fdf8644079fcfd33f4cd1348bc05a2089479725a707611914fada694de898
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: b339a68ac7ef34b3cfc99b8b3afecc126fe2a21056182b8d0ffe5642a7925158
 ---

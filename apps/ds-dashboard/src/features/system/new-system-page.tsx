@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
@@ -959,7 +960,7 @@ export function NewSystemPage() {
                 onChange={(e) => setSystemName(e.target.value)}
               />
               {hasNameCollision ? (
-                <p className="text-[11px] text-red-600 dark:text-red-400">
+                <p className="text-[11px] text-status-error">
                   A system named "{collidingSystem?.name}" already exists. Choose a different name.
                 </p>
               ) : null}
@@ -984,7 +985,7 @@ export function NewSystemPage() {
                 Used only to run the first capture right after creation.
               </p>
               {hasFigmaUrl && !hasToken ? (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                <p className="text-[11px] text-status-warning">
                   A token is required when a Figma URL is provided.
                 </p>
               ) : null}
@@ -993,17 +994,17 @@ export function NewSystemPage() {
               ) : pingResult && hasFigmaUrl && hasToken ? (
                 pingResult.ok ? (
                   <div className="space-y-1">
-                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                    <p className="text-[11px] text-status-success">
                       ✓ Access confirmed — {pingResult.fileName}
                     </p>
                     {pingResult.code === "figma.variables_scope_missing" ? (
-                      <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                      <p className="text-[11px] text-status-warning">
                         Variables will sync through direct plugin connection (REST variables scope is not available).
                       </p>
                     ) : null}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-red-600 dark:text-red-400">
+                  <p className="text-[11px] text-status-error">
                     ✗ {pingResult.message}
                   </p>
                 )
@@ -1079,7 +1080,7 @@ export function NewSystemPage() {
               </span>
             ) : null}
             {savedSystemId ? (
-              <span className="text-sm text-emerald-600 dark:text-emerald-400">
+              <span className="text-sm text-status-success">
                 Saved as <code>{savedSystemId}</code>
               </span>
             ) : null}
@@ -1122,7 +1123,7 @@ export function NewSystemPage() {
               {`Variables: ${importProgressSummary.variablesImported} of ${importProgressSummary.variablesDetected} imported.`}
             </p>
             {importControlNotice ? (
-              <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+              <p className="mt-2 text-xs text-status-warning">
                 {importControlNotice}
               </p>
             ) : null}
@@ -1147,76 +1148,86 @@ export function NewSystemPage() {
             ) : null}
 
             {importError ? (
-              <div className="mt-4 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-700 dark:text-red-400">
-                <p>{importError}</p>
-                <p className="mt-2 text-xs text-red-800 dark:text-red-300">
-                  No components or design tokens were generated because the import failed.
-                </p>
-                {importPipelinePhase ? (
-                  <p className="mt-2 text-xs text-red-800 dark:text-red-300">
-                    Pipeline phase: <code>{importPipelinePhase}</code>
-                  </p>
-                ) : null}
-                {importFigmaError ? (
-                  <div className="mt-2 space-y-1 text-xs text-red-800 dark:text-red-300">
-                    {typeof importFigmaError.status === "number" ? (
-                      <p>
-                        Figma status: <code>{importFigmaError.status}</code>
+              <StatusAlert
+                variant="error"
+                description={
+                  <>
+                    <p>{importError}</p>
+                    <p className="mt-2 text-xs text-status-error">
+                      No components or design tokens were generated because the import failed.
+                    </p>
+                    {importPipelinePhase ? (
+                      <p className="mt-2 text-xs text-status-error">
+                        Pipeline phase: <code>{importPipelinePhase}</code>
                       </p>
                     ) : null}
-                    {importFigmaError.fileKey ? (
-                      <p>
-                        File key: <code>{importFigmaError.fileKey}</code>
+                    {importFigmaError ? (
+                      <div className="mt-2 space-y-1 text-xs text-status-error">
+                        {typeof importFigmaError.status === "number" ? (
+                          <p>
+                            Figma status: <code>{importFigmaError.status}</code>
+                          </p>
+                        ) : null}
+                        {importFigmaError.fileKey ? (
+                          <p>
+                            File key: <code>{importFigmaError.fileKey}</code>
+                          </p>
+                        ) : null}
+                        {importFigmaError.endpoint ? (
+                          <p className="break-all">
+                            Endpoint: <code>{importFigmaError.endpoint}</code>
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {importErrorHint ? (
+                      <p className="mt-2 text-xs text-status-error">
+                        {importErrorHint}
                       </p>
                     ) : null}
-                    {importFigmaError.endpoint ? (
-                      <p className="break-all">
-                        Endpoint: <code>{importFigmaError.endpoint}</code>
-                      </p>
+                    <div className="mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowImportErrorDetails((current) => !current)}
+                      >
+                        {showImportErrorDetails ? "Hide error details" : "View error details"}
+                      </Button>
+                    </div>
+                    {showImportErrorDetails ? (
+                      <pre className="mt-3 max-h-64 overflow-auto rounded-md border border-status-error-border/30 bg-black/10 p-3 text-xs text-status-error">
+                        {importErrorDetails || importError}
+                      </pre>
                     ) : null}
-                  </div>
-                ) : null}
-                {importErrorHint ? (
-                  <p className="mt-2 text-xs text-red-800 dark:text-red-300">
-                    {importErrorHint}
-                  </p>
-                ) : null}
-                <div className="mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowImportErrorDetails((current) => !current)}
-                  >
-                    {showImportErrorDetails ? "Hide error details" : "View error details"}
-                  </Button>
-                </div>
-                {showImportErrorDetails ? (
-                  <pre className="mt-3 max-h-64 overflow-auto rounded-md border border-red-500/30 bg-black/10 p-3 text-xs text-red-900 dark:text-red-200">
-                    {importErrorDetails || importError}
-                  </pre>
-                ) : null}
-              </div>
+                  </>
+                }
+              />
             ) : null}
 
             {importTokensBootstrap ? (
               bootstrapHasCriticalFailure ? (
-                <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
-                  <p className="font-semibold">Token bootstrap failed</p>
-                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                    Figma variables could not be initialized into the system input directory.
-                  </p>
-                  <p className="mt-1 text-xs">{bootstrapReasonMessage}</p>
-                  {bootstrapErrorHint ? (
-                    <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
-                      {bootstrapErrorHint}
-                    </p>
-                  ) : null}
-                  {importTokensBootstrap.error ? (
-                    <pre className="mt-2 max-h-32 overflow-auto rounded-md border border-amber-500/30 bg-black/10 p-2 text-xs text-amber-900 dark:text-amber-200">
-                      {importTokensBootstrap.error}
-                    </pre>
-                  ) : null}
-                </div>
+                <StatusAlert
+                  variant="warning"
+                  title="Token bootstrap failed"
+                  description={
+                    <>
+                      <p className="mt-1 text-xs text-status-warning">
+                        Figma variables could not be initialized into the system input directory.
+                      </p>
+                      <p className="mt-1 text-xs">{bootstrapReasonMessage}</p>
+                      {bootstrapErrorHint ? (
+                        <p className="mt-1 text-xs text-status-warning">
+                          {bootstrapErrorHint}
+                        </p>
+                      ) : null}
+                      {importTokensBootstrap.error ? (
+                        <pre className="mt-2 max-h-32 overflow-auto rounded-md border border-status-warning-border/30 bg-black/10 p-2 text-xs text-status-warning">
+                          {importTokensBootstrap.error}
+                        </pre>
+                      ) : null}
+                    </>
+                  }
+                />
               ) : importTokensBootstrap.created ? (
                 <p className="mt-3 text-xs text-muted-foreground">
                   Figma variables were bootstrapped into input JSON files.
@@ -1230,22 +1241,27 @@ export function NewSystemPage() {
 
             {importTokensCompile && !bootstrapHasCriticalFailure ? (
               tokensCompiled ? (
-                <p className="mt-3 text-sm text-emerald-600 dark:text-emerald-400">
+                <p className="mt-3 text-sm text-status-success">
                   ✓ Design tokens compiled successfully.
                 </p>
               ) : tokensAttempted ? (
-                <div className="mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400">
-                  <p className="font-semibold">Token compilation failed</p>
-                  <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                    The Tokens page will not be available until compilation succeeds.
-                  </p>
-                  <p className="mt-1 text-xs">{compileReasonMessage}</p>
-                  {importTokensCompile.stderr ? (
-                    <pre className="mt-2 max-h-32 overflow-auto rounded-md border border-amber-500/30 bg-black/10 p-2 text-xs text-amber-900 dark:text-amber-200">
-                      {importTokensCompile.stderr}
-                    </pre>
-                  ) : null}
-                </div>
+                <StatusAlert
+                  variant="warning"
+                  title="Token compilation failed"
+                  description={
+                    <>
+                      <p className="mt-1 text-xs text-status-warning">
+                        The Tokens page will not be available until compilation succeeds.
+                      </p>
+                      <p className="mt-1 text-xs">{compileReasonMessage}</p>
+                      {importTokensCompile.stderr ? (
+                        <pre className="mt-2 max-h-32 overflow-auto rounded-md border border-status-warning-border/30 bg-black/10 p-2 text-xs text-status-warning">
+                          {importTokensCompile.stderr}
+                        </pre>
+                      ) : null}
+                    </>
+                  }
+                />
               ) : (
                 <p className="mt-3 text-xs text-muted-foreground">
                   {compileReasonMessage}
@@ -1280,7 +1296,7 @@ export function NewSystemPage() {
               {isImportCancelable ? (
                 <Button
                   variant="outline"
-                  className="border-red-500/40 text-red-700 hover:bg-red-500/10 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                  className="border-status-error-border/40 text-status-error hover:bg-status-error-bg/10"
                   onClick={handleCancelImport}
                   disabled={isCancellingImport}
                 >

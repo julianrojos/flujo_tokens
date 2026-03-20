@@ -99,20 +99,20 @@ export function FigmaTokenSyncForm({
                 <Download className="h-4 w-4 text-primary shrink-0" />
                 {label}
               </h3>
-              {status === "success" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
+              {status === "success" && <CheckCircle2 className="h-3.5 w-3.5 text-status-success shrink-0" />}
               {status === "error"   && <XCircle       className="h-3.5 w-3.5 text-destructive shrink-0" />}
               {dryRun && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-status-warning-bg/15 text-status-warning font-medium">
                   DRY RUN
                 </span>
               )}
               {force && !merge && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 font-medium">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-status-warning-bg/15 text-status-warning font-medium">
                   FORCE
                 </span>
               )}
               {merge && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 font-medium">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/15 text-accent font-medium">
                   MERGE
                 </span>
               )}
@@ -129,7 +129,7 @@ export function FigmaTokenSyncForm({
           <span
             className={cn(
               "text-xs font-medium tabular-nums",
-              status === "success" && "text-emerald-600 dark:text-emerald-400",
+              status === "success" && "text-status-success",
               status === "error"   && "text-destructive"
             )}
           >
@@ -146,7 +146,7 @@ export function FigmaTokenSyncForm({
         <div className="border-t border-border/50 p-4 bg-background space-y-5">
           {/* ── Dry-run warning ── */}
           {!dryRun && force && !merge && (
-            <div className="flex items-start gap-2 p-3 rounded-md bg-orange-500/[0.08] border border-orange-500/30 text-orange-700 dark:text-orange-400 text-xs">
+            <div className="flex items-start gap-2 rounded-md border border-status-warning-border/30 bg-status-warning-bg/10 p-3 text-xs text-status-warning">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
                 <strong>Force sin merge:</strong> los JSON existentes en{" "}
@@ -207,7 +207,7 @@ export function FigmaTokenSyncForm({
                 checked={dryRun}
                 onChange={(e) => setDryRun(e.target.checked)}
                 disabled={isRunning}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mt-0.5"
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-ring"
               />
               <div>
                 <span className={cn("text-sm font-medium", isRunning && "opacity-50")}>
@@ -225,7 +225,7 @@ export function FigmaTokenSyncForm({
                 checked={compile}
                 onChange={(e) => setCompile(e.target.checked)}
                 disabled={isRunning || dryRun}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mt-0.5"
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-ring"
               />
               <div>
                 <span className={cn("text-sm font-medium", (isRunning || dryRun) && "opacity-50")}>
@@ -246,7 +246,7 @@ export function FigmaTokenSyncForm({
                   if (!e.target.checked) setMerge(false);
                 }}
                 disabled={isRunning}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mt-0.5"
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-ring"
               />
               <div>
                 <span className={cn("text-sm font-medium", isRunning && "opacity-50")}>
@@ -264,7 +264,7 @@ export function FigmaTokenSyncForm({
                 checked={merge}
                 onChange={(e) => setMerge(e.target.checked)}
                 disabled={isRunning || !force}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary mt-0.5"
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-ring"
               />
               <div>
                 <span className={cn("text-sm font-medium", (isRunning || !force) && "opacity-50")}>
@@ -293,7 +293,7 @@ export function FigmaTokenSyncForm({
             <div className="flex flex-col items-end gap-1.5">
               {hasBlockingContextIssue ? (
                 <>
-                  <p className="max-w-[340px] text-right text-[11px] text-red-600 dark:text-red-400">
+                  <p className="max-w-[340px] text-right text-[11px] text-status-error">
                     Current selection has {contextMissingCount} token bindings without a resolved variable.
                   </p>
                   <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
@@ -308,7 +308,7 @@ export function FigmaTokenSyncForm({
                   </label>
                 </>
               ) : contextModeFallbackCount > 0 ? (
-                <p className="max-w-[340px] text-right text-[11px] text-amber-600 dark:text-amber-400">
+                <p className="max-w-[340px] text-right text-[11px] text-status-warning">
                   Current selection includes {contextModeFallbackCount} variables using mode fallback.
                 </p>
               ) : null}

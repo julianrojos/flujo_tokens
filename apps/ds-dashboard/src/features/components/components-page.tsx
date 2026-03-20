@@ -15,6 +15,7 @@ import type { ComponentRegistryItem } from "@/types/component-registry";
 import type { ComponentUsageIndex } from "@/types/component-usage-index";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FilterBar, PageHeader } from "@/components/composites";
 import {
   Card,
   CardContent,
@@ -194,20 +195,28 @@ export function ComponentsPage() {
       </section>
 
       <Card>
-        <CardHeader className="gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
-            <CardTitle>Componentes</CardTitle>
-            <CardDescription>
-              Filtra y ordena con datos locales del registry generado.
-            </CardDescription>
-          </div>
-          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar por nombre o slug"
-              className="md:w-72"
-            />
+        <CardContent>
+          <PageHeader
+            title="Componentes"
+            description="Filtra y ordena con datos locales del registry generado."
+            actions={
+              <Button
+                variant="outline"
+                onClick={handleRefreshFromPipeline}
+                disabled={syncing}
+              >
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                {syncing ? "Refreshing..." : "Refresh Registry"}
+              </Button>
+            }
+          />
+
+          <FilterBar
+            searchValue={search}
+            onSearch={setSearch}
+            searchPlaceholder="Buscar por nombre o slug"
+            count={filtered.length}
+          >
             <Select
               value={stage}
               onChange={(event) => setStage(event.target.value)}
@@ -228,17 +237,8 @@ export function ComponentsPage() {
               <option value="needs-review">needs-review</option>
               <option value="ready">ready</option>
             </Select>
-            <Button
-              variant="outline"
-              onClick={handleRefreshFromPipeline}
-              disabled={syncing}
-            >
-              <RefreshCcw className="mr-2 h-4 w-4" />
-              {syncing ? "Refreshing..." : "Refresh Registry"}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
+          </FilterBar>
+
           {error ? (
             <ApiErrorMessage error={error} />
           ) : null}

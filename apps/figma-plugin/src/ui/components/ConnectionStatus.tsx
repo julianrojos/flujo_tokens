@@ -205,6 +205,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     if (isLoading) return '⟳';
     switch (connectionState?.state) {
       case 'connected': return '✓';
+      case 'connecting': return '⟳';
       case 'disconnected': return '✗';
       case 'mismatch': return '✓';
       case 'fallback': return '✓';
@@ -216,6 +217,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     if (isLoading) return '#9E9E9E';
     switch (connectionState?.state) {
       case 'connected': return '#4CAF50';
+      case 'connecting': return '#F59E0B';
       case 'disconnected': return '#F44336';
       case 'mismatch': return '#4CAF50';
       case 'fallback': return '#4CAF50';
@@ -233,6 +235,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     connectionState?.state === 'connected' ||
     connectionState?.state === 'fallback' ||
     connectionState?.state === 'mismatch';
+  const isConnecting = connectionState?.state === 'connecting' || isLoading || isResolving;
   const wsSessionActive = capabilities?.transport?.wsAlive === true;
   const step1Ready = dashboardReachable;
   const step1Summary = !dashboardReachable
@@ -331,12 +334,18 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         </span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '14px', fontWeight: 500, color: '#333' }}>
-            {connectionState?.state === 'disconnected' ? 'Disconnected' : 'Connected'}
+            {isConnecting
+              ? 'Connecting'
+              : connectionState?.state === 'disconnected'
+                ? 'Disconnected'
+                : 'Connected'}
           </div>
           <div style={{ fontSize: '12px', color: '#666' }}>
-            {connectionState?.connectedPort 
-              ? `Connected to port ${connectionState.connectedPort}`
-              : 'Not connected'}
+            {isConnecting
+              ? 'Attempting to connect…'
+              : connectionState?.connectedPort
+                ? `Connected to port ${connectionState.connectedPort}`
+                : 'Not connected'}
           </div>
         </div>
       </div>

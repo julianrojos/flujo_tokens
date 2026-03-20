@@ -15,6 +15,7 @@ import type {
 import { useTokenDetailData } from "./use-token-detail-data";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
 import {
   Card,
   CardContent,
@@ -392,7 +393,7 @@ function UsageGroup({
                       {state.loading ? (
                         <div className="text-sm text-muted-foreground">Loading snippet…</div>
                       ) : state.error ? (
-                        <div className="text-sm text-red-700">{state.error}</div>
+                        <div className="text-sm text-status-error">{state.error}</div>
                       ) : state.payload ? (
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -835,15 +836,11 @@ export function TokenDetailPage() {
       </div>
 
       {error ? (
-        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-          {error}
-        </div>
+        <StatusAlert variant="error" description={error} />
       ) : null}
 
       {!loading && !error && !token ? (
-        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-          Token <span className="font-mono">{decoded}</span> not found in registry.
-        </div>
+        <StatusAlert variant="warning" description={`Token "${decoded}" not found in registry.`} />
       ) : null}
 
       {loading ? (
@@ -1013,29 +1010,25 @@ export function TokenDetailPage() {
           </Card>
 
           {healthIssues.length > 0 ? (
-            <div
-              className={[
-                "rounded-lg border p-4 text-sm",
-                healthIssues.some((issue) => issue.severity === "error")
-                  ? "border-red-500/40 bg-red-500/10"
-                  : "border-amber-500/40 bg-amber-500/10",
-              ].join(" ")}
+            <StatusAlert
+              variant={healthIssues.some((issue) => issue.severity === "error") ? "error" : "warning"}
+              title="This token has health issues"
+              description={
+                <ul className="mt-2 list-inside list-disc space-y-1">
+                  {healthIssues.map((issue) => (
+                    <li key={issue.key}>
+                      <span className="font-medium">{issue.label}:</span> {issue.detail}
+                    </li>
+                  ))}
+                </ul>
+              }
             >
-              <p className="font-semibold">This token has health issues</p>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground">
-                {healthIssues.map((issue) => (
-                  <li key={issue.key}>
-                    <span className="font-medium text-foreground">{issue.label}:</span>{" "}
-                    {issue.detail}
-                  </li>
-                ))}
-              </ul>
               <div className="mt-3">
                 <Link to="/health" className="text-sm font-semibold text-primary hover:underline">
                   View health dashboard →
                 </Link>
               </div>
-            </div>
+            </StatusAlert>
           ) : null}
 
           {graphQuery ? (
@@ -1184,7 +1177,7 @@ export function TokenDetailPage() {
                         <li key={entry.slug} className="rounded-lg border border-border/70 p-3">
                           <div className="flex flex-wrap items-center gap-2">
                             <span
-                              className={entry.mode === "direct" ? "text-emerald-600" : "text-amber-600"}
+                              className={entry.mode === "direct" ? "text-status-success" : "text-status-warning"}
                               aria-hidden="true"
                             >
                               {entry.mode === "direct" ? "●" : "◎"}
@@ -1290,7 +1283,7 @@ export function TokenDetailPage() {
                     .join(", ")}
                 </CardDescription>
               ) : (
-                <CardDescription className="text-amber-600">
+                <CardDescription className="text-status-warning">
                   Usage index unavailable. Run{" "}
                   <span className="font-mono">npm run ds:token-usage-index</span>.
                 </CardDescription>
@@ -1345,11 +1338,11 @@ export function TokenDetailPage() {
             ) : null}
             {usage && usage.usageCount === 0 ? (
               <CardContent>
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-                  <p className="text-sm font-semibold">This token has no registered references.</p>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    It may be unused, or the usage index may be outdated.
-                  </p>
+                <StatusAlert
+                  variant="warning"
+                  title="This token has no registered references"
+                  description="It may be unused, or the usage index may be outdated."
+                >
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <Link
                       to={{
@@ -1364,7 +1357,7 @@ export function TokenDetailPage() {
                       View health →
                     </Link>
                   </div>
-                </div>
+                </StatusAlert>
               </CardContent>
             ) : null}
             {usage && usage.usageCount > 0 && occurrencesByKind.size === 0 ? (

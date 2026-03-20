@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Save, Undo2, X } from "lucide-react";
 
 import type { TokenRegistry } from "@/types/token-registry";
@@ -17,6 +16,11 @@ import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
+import {
+  Modal,
+  ModalContent,
+} from "@/components/ui/overlay";
 
 interface SpecEditorDrawerProps {
   open: boolean;
@@ -98,17 +102,31 @@ export function SpecEditorDrawer({
   const [isMounted, setIsMounted] = useState(false);
   const [raw, setRaw] = useState(initialRaw);
   const [baselineRaw, setBaselineRaw] = useState(initialRaw);
-  const [baselineHash, setBaselineHash] = useState<string | null>(initialHash);
-  const [validation, setValidation] = useState<ComponentSpecValidateResponse | null>(null);
   const [validating, setValidating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [restoring, setRestoring] = useState(false);
-  const [confirmRiskyChanges, setConfirmRiskyChanges] = useState(false);
+  const [validation, setValidation] = useState<ComponentSpecValidateResponse | null>(null);
+  const [validationIssues, setValidationIssues] = useState<SpecValidationIssue[]>([]);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const validationRunRef = useRef(0);
+  const [confirmRiskyChanges, setConfirmRiskyChanges] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const dirty = raw !== baselineRaw;
+  const dirty = raw.trim() !== baselineRaw.trim();
+  const confirmationRequired = useMemo(() => {
+    if (!validation || validation.diff.length === 0) return false;
+    return validation.diff.some((d) => d.risk === "high");
+  }, [validation]);
+
+  const summary = useMemo(() => {
+    if (!validation) return null;
+    return {
+      valid: validation.validation.valid,
+      blocking: validation.validation.issues.filter((i) => i.severity === "error").length,
+      warnings: validation.validation.issues.filter((i) => i.severity === "warning").length,
+      diffCount: validation.diff.length,
+    };
+  }, [validation]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -118,87 +136,49 @@ export function SpecEditorDrawer({
     if (!open) return;
     setRaw(initialRaw);
     setBaselineRaw(initialRaw);
-    setBaselineHash(initialHash);
     setValidation(null);
+    setValidationIssues([]);
     setError(null);
     setSuccess(null);
     setConfirmRiskyChanges(false);
-  }, [open, initialHash, initialRaw]);
-
-  useEffect(() => {
-    if (!open || !isMounted) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [open, isMounted]);
-
-  const runValidation = async (nextRaw: string) => {
-    if (!open) return;
-    const runId = validationRunRef.current + 1;
-    validationRunRef.current = runId;
-    setValidating(true);
-    try {
-      const result = await validateComponentSpecInput({ slug, raw: nextRaw });
-      if (validationRunRef.current !== runId) return;
-      setValidation(result);
-      setError(null);
-    } catch (cause) {
-      if (validationRunRef.current !== runId) return;
-      setError(
-        toApiErrorDisplay(cause, {
-          fallbackTitle: "Spec validation failed",
-          fallbackMessage: "Unable to validate component spec.",
-        }),
-      );
-      setValidation(null);
-    } finally {
-      if (validationRunRef.current === runId) {
-        setValidating(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const timer = window.setTimeout(() => {
-      void runValidation(raw);
-    }, 320);
-    return () => window.clearTimeout(timer);
-  }, [open, raw, slug]);
+  }, [open, initialRaw]);
 
   useEffect(() => {
     if (!open || !isMounted) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+      if ((event.metaKey || event.ctrlKey) && event.key === "s") {
         event.preventDefault();
-        if (!saving && !restoring && validation?.validation.valid && dirty) {
+        if (!saving && dirty && validation?.validation.valid && (!confirmationRequired || confirmRiskyChanges)) {
           void handleSave();
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, isMounted, saving, restoring, validation, dirty]);
+  }, [open, isMounted, saving, dirty, validation, confirmationRequired, confirmRiskyChanges]);
 
-  const validationIssues = validation?.validation.issues ?? [];
-  const confirmationRequired = validationIssues.some(
-    (issue) => issue.requiresConfirmation === true,
-  );
-
-  const summary = useMemo(() => {
-    if (!validation) return null;
-    return {
-      valid: validation.validation.valid,
-      blocking: validation.validation.blockingIssueCount,
-      warnings: validation.validation.warningCount,
-      diffCount: validation.diff.length,
-    };
-  }, [validation]);
+  const runValidation = async (value: string) => {
+    setValidating(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const result = await validateComponentSpecInput({
+        slug,
+        raw: value,
+      });
+      setValidation(result);
+      setValidationIssues(result.validation.issues);
+    } catch (cause) {
+      setError(
+        toApiErrorDisplay(cause, {
+          fallbackTitle: "Validation failed",
+          fallbackMessage: "Unable to validate spec.",
+        }),
+      );
+    } finally {
+      setValidating(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -208,48 +188,15 @@ export function SpecEditorDrawer({
       const result = await saveComponentSpec({
         slug,
         raw,
-        expectedHash: baselineHash,
-        refreshRegistry: true,
-        confirmRiskyChanges,
       });
-
-      if (!result.ok) {
-        if (result.validation) {
-          setValidation((previous) =>
-            previous
-              ? {
-                  ...previous,
-                  validation: result.validation,
-                  diff: result.diff || [],
-                  parsed: result.parsed,
-                  rawHash: result.rawHash,
-                }
-              : null,
-          );
-        }
-        if (result.requiresConfirmation) {
-          setConfirmRiskyChanges(true);
-        }
-        setError(
-          toApiErrorDisplay(result.message, {
-            fallbackTitle: "Spec save failed",
-            fallbackMessage: "Unable to save spec.",
-          }),
-        );
-        return;
-      }
-
+      setSuccess(result.message ?? null);
       setBaselineRaw(raw);
-      setBaselineHash(result.rawHash);
-      setConfirmRiskyChanges(false);
-      const message = result.message || "Spec saved successfully.";
-      setSuccess(message);
-      onSaved({ message });
-      await runValidation(raw);
+      onSaved({ message: result.message ?? '' });
+      onClose();
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
-          fallbackTitle: "Spec save failed",
+          fallbackTitle: "Save failed",
           fallbackMessage: "Unable to save spec.",
         }),
       );
@@ -263,22 +210,10 @@ export function SpecEditorDrawer({
     setError(null);
     setSuccess(null);
     try {
-      const result = await restoreComponentSpecBackup({
-        slug,
-        refreshRegistry: true,
-      });
-      if (!result.ok) {
-        setError(
-          toApiErrorDisplay(result.message, {
-            fallbackTitle: "Backup restore failed",
-            fallbackMessage: "Unable to restore backup.",
-          }),
-        );
-        return;
-      }
-      const message = result.message || "Backup restored successfully.";
-      setSuccess(message);
-      onSaved({ message });
+      const result = await restoreComponentSpecBackup({ slug });
+      // Restore doesn't return raw content, so we just reload the page state
+      setSuccess(result.message ?? null);
+      onSaved({ message: result.message ?? '' });
       onClose();
     } catch (cause) {
       setError(
@@ -300,19 +235,10 @@ export function SpecEditorDrawer({
     });
   };
 
-  if (!open || !isMounted) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[1100]">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/35"
-        onClick={onClose}
-        aria-label="Close spec editor"
-      />
-      <div className="absolute inset-0 flex items-center justify-center p-4 md:p-6">
-        <aside className="h-[90vh] w-[70vw] overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
-          <div className="flex h-full flex-col">
+  return (
+    <Modal open={open} onClose={onClose} zIndex={1100}>
+      <ModalContent className="h-[90vh] w-[70vw] overflow-hidden p-0">
+        <div className="flex h-full flex-col">
           <header className="flex items-start justify-between border-b border-border/70 px-5 py-4">
             <div>
               <h3 className="text-lg font-semibold">Inline Spec Editor</h3>
@@ -337,7 +263,11 @@ export function SpecEditorDrawer({
                   onClick={() => void runValidation(raw)}
                   disabled={validating || saving || restoring}
                 >
-                  {validating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                  {validating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
                   Validate
                 </Button>
                 {SNIPPETS.map((snippet) => (
@@ -353,6 +283,7 @@ export function SpecEditorDrawer({
                 ))}
               </div>
               <textarea
+                ref={textareaRef}
                 value={raw}
                 onChange={(event) => setRaw(event.target.value)}
                 className="min-h-[260px] flex-1 w-full resize-none rounded-md border border-border bg-background p-3 font-mono text-[12px] leading-5 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
@@ -379,17 +310,19 @@ export function SpecEditorDrawer({
             <section className="min-h-0 overflow-auto p-4 lg:p-5">
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  {summary?.valid ? (
-                    <Badge variant="success">
-                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                      Valid
-                    </Badge>
-                  ) : (
-                    <Badge variant="warning">
-                      <AlertTriangle className="mr-1 h-3.5 w-3.5" />
-                      Needs fixes
-                    </Badge>
-                  )}
+                  {summary !== null ? (
+                    summary.valid ? (
+                      <Badge variant="success">
+                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                        Valid
+                      </Badge>
+                    ) : (
+                      <Badge variant="warning">
+                        <AlertTriangle className="mr-1 h-3.5 w-3.5" />
+                        Needs fixes
+                      </Badge>
+                    )
+                  ) : null}
                   {summary ? (
                     <>
                       <Badge variant="neutral">{summary.blocking} errors</Badge>
@@ -402,9 +335,7 @@ export function SpecEditorDrawer({
                   <ApiErrorMessage error={error} className="p-2.5 text-xs" />
                 ) : null}
                 {success ? (
-                  <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 p-2.5 text-xs text-emerald-700">
-                    {success}
-                  </div>
+                  <StatusAlert variant="success" description={success} />
                 ) : null}
 
                 <div>
@@ -416,7 +347,10 @@ export function SpecEditorDrawer({
                   ) : (
                     <ul className="space-y-2">
                       {validationIssues.slice(0, 24).map((issue, index) => (
-                        <li key={`${issue.code}-${issue.path}-${index}`} className="rounded-md border border-border/70 p-2">
+                        <li
+                          key={`${issue.code}-${issue.path}-${index}`}
+                          className="rounded-md border border-border/70 p-2"
+                        >
                           <div className="mb-1 flex items-center gap-2">
                             <Badge variant={issueBadgeVariant(issue.severity)}>
                               {issue.severity}
@@ -466,7 +400,7 @@ export function SpecEditorDrawer({
                               </div>
                               {tokenPreview ? (
                                 <div>
-                                  <span className="font-medium text-emerald-700">Resolved:</span>{" "}
+                                  <span className="font-medium text-status-success">Resolved:</span>{" "}
                                   <code>{tokenPreview.path}</code> ({tokenPreview.resolvedValue})
                                 </div>
                               ) : null}
@@ -511,7 +445,11 @@ export function SpecEditorDrawer({
                 onClick={() => void handleRestore()}
                 disabled={saving || restoring}
               >
-                {restoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Undo2 className="mr-2 h-4 w-4" />}
+                {restoring ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Undo2 className="mr-2 h-4 w-4" />
+                )}
                 Restore backup
               </Button>
               <Button
@@ -525,15 +463,17 @@ export function SpecEditorDrawer({
                   (confirmationRequired && !confirmRiskyChanges)
                 }
               >
-                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
                 Save spec
               </Button>
             </div>
           </footer>
         </div>
-        </aside>
-      </div>
-    </div>,
-    document.body,
+      </ModalContent>
+    </Modal>
   );
 }

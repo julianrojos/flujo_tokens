@@ -132,9 +132,9 @@ function badgeForChange(kind: ChangeKind, changeClass: "breaking" | "non-breakin
 }
 
 function rowTone(kind: ChangeKind, changeClass: "breaking" | "non-breaking") {
-  if (kind === "removed") return "bg-red-500/5";
-  if (kind === "added") return "bg-emerald-500/5";
-  if (changeClass === "breaking") return "bg-amber-500/10";
+  if (kind === "removed") return "bg-status-error-bg/5";
+  if (kind === "added") return "bg-status-success-bg/5";
+  if (changeClass === "breaking") return "bg-status-warning-bg/10";
   return "";
 }
 
@@ -680,35 +680,35 @@ export function TokenDiffPage() {
                 </div>
                 <div className="mt-2 text-2xl font-semibold">{stats.total}</div>
               </div>
-              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+              <div className="rounded-xl border border-status-success-border/20 bg-status-success-bg/5 p-3">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Added
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-emerald-700">
+                <div className="mt-2 text-2xl font-semibold text-status-success">
                   +{stats.added}
                 </div>
               </div>
-              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-3">
+              <div className="rounded-xl border border-status-error-border/20 bg-status-error-bg/5 p-3">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Removed
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-red-700">
+                <div className="mt-2 text-2xl font-semibold text-status-error">
                   -{stats.removed}
                 </div>
               </div>
-              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
+              <div className="rounded-xl border border-status-warning-border/20 bg-status-warning-bg/5 p-3">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Modified
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-amber-700">
+                <div className="mt-2 text-2xl font-semibold text-status-warning">
                   ~{stats.modified}
                 </div>
               </div>
-              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3">
+              <div className="rounded-xl border border-status-warning-border/40 bg-status-warning-bg/10 p-3">
                 <div className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
                   Breaking
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-amber-800">
+                <div className="mt-2 text-2xl font-semibold text-status-warning">
                   {stats.breaking}
                 </div>
               </div>

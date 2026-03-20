@@ -3,8 +3,6 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const SIDEBAR_WIDTH = "18rem";
-const SIDEBAR_WIDTH_COLLAPSED = "4.5rem";
 
 export function SidebarProvider({
   className,
@@ -31,7 +29,7 @@ export const Sidebar = React.forwardRef<
         "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/70 bg-card/85 backdrop-blur-lg lg:flex",
         className,
       )}
-      style={{ width: collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH }}
+      style={{ width: collapsed ? "var(--app-sidebar-width-collapsed)" : "var(--app-sidebar-width)" }}
       {...props}
     >
       {children}

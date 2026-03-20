@@ -91,10 +91,10 @@ export function PipelineForm({
                 <PlayCircle className="h-4 w-4 text-primary shrink-0" />
                 {label}
               </h3>
-              {status === "success" && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
+              {status === "success" && <CheckCircle2 className="h-3.5 w-3.5 text-status-success shrink-0" />}
               {status === "error"   && <XCircle       className="h-3.5 w-3.5 text-destructive shrink-0" />}
               {isDryRun && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-medium">
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-status-warning-bg/15 text-status-warning font-medium">
                   DRY RUN
                 </span>
               )}
@@ -116,7 +116,7 @@ export function PipelineForm({
           <span
             className={cn(
               "text-xs font-medium tabular-nums",
-              status === "success" && "text-emerald-600 dark:text-emerald-400",
+              status === "success" && "text-status-success",
               status === "error"   && "text-destructive"
             )}
           >
@@ -192,7 +192,7 @@ export function PipelineForm({
                   checked={isDryRun}
                   onChange={(e) => setIsDryRun(e.target.checked)}
                   disabled={isRunning}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
                 />
                 <label
                   htmlFor={`dry-run-${id}`}

@@ -475,14 +475,14 @@ export function OperationsPage() {
                         !hasDate
                           ? "bg-muted-foreground/40"
                           : artifact.isStale
-                          ? "bg-amber-500"
-                          : "bg-emerald-500"
+                          ? "bg-status-warning"
+                          : "bg-status-success"
                       )}
                     />
                     <span
                       className={cn(
                         "text-xs font-medium tabular-nums",
-                        artifact.isStale ? "text-amber-500" : !hasDate ? "text-muted-foreground/60" : ""
+                        artifact.isStale ? "text-status-warning" : !hasDate ? "text-muted-foreground/60" : ""
                       )}
                     >
                       {hasDate ? formatRelativeTime(artifact.generatedAt) : "Sin datos"}
@@ -556,8 +556,8 @@ export function OperationsPage() {
                       className={cn(
                         "inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium",
                         row.severity === "high"
-                          ? "bg-red-500/15 text-red-700"
-                          : "bg-amber-500/15 text-amber-700",
+                          ? "bg-status-error-bg/15 text-status-error"
+                          : "bg-status-warning-bg/15 text-status-warning",
                       )}
                     >
                       {row.severity}
@@ -619,12 +619,12 @@ export function OperationsPage() {
                     className={cn(
                       "inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium w-fit",
                       event.status === "success"
-                        ? "bg-emerald-500/15 text-emerald-700"
+                        ? "bg-status-success-bg/15 text-status-success"
                         : event.status === "running" || event.status === "queued"
-                        ? "bg-blue-500/15 text-blue-700"
+                        ? "bg-accent/15 text-accent"
                         : event.status === "cancelled"
-                        ? "bg-amber-500/15 text-amber-700"
-                        : "bg-red-500/15 text-red-700",
+                        ? "bg-status-warning-bg/15 text-status-warning"
+                        : "bg-status-error-bg/15 text-status-error",
                     )}
                   >
                     {event.status}
@@ -673,7 +673,7 @@ export function OperationsPage() {
             </div>
 
             {replayNotice ? (
-              <div className="rounded-md border border-emerald-400/40 bg-emerald-500/10 p-2 text-[11px] text-emerald-700">
+              <div className="rounded-md border border-status-success-border/40 bg-status-success-bg/10 p-2 text-[11px] text-status-success">
                 {replayNotice}
               </div>
             ) : null}

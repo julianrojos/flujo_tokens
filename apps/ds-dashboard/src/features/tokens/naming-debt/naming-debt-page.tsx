@@ -11,6 +11,7 @@ import type {
 } from "@/types/naming-debt";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
 import {
   Card,
   CardContent,
@@ -55,7 +56,7 @@ function downloadJson(filename: string, payload: unknown) {
   link.href = url;
   link.download = filename;
   link.click();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
 
 export function NamingDebtPage() {
@@ -252,9 +253,7 @@ export function NamingDebtPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {error ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
-              {error}
-            </div>
+            <StatusAlert variant="error" description={error} />
           ) : null}
 
           <div className="grid gap-3 md:grid-cols-4">

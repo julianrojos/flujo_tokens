@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, Boxes, Command, Layers3, RefreshCcw, Search, X } from "lucide-react";
-import { createPortal } from "react-dom";
+import {
+  AlertTriangle,
+  Boxes,
+  Command,
+  Layers3,
+  RefreshCcw,
+  Search,
+  X,
+} from "lucide-react";
 
 import {
   refreshComponentsHealth,
@@ -13,6 +20,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Modal,
+  ModalContent,
+} from "@/components/ui/overlay";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { useGlobalSearch, type GlobalSearchItem } from "./use-global-search";
 
@@ -100,32 +111,10 @@ export function GlobalCommandPalette({
 }: GlobalCommandPaletteProps) {
   const navigate = useNavigate();
   const { items, loading, error, reloadIndex } = useGlobalSearch();
-  const [isMounted, setIsMounted] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [runningActionId, setRunningActionId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!open || !isMounted) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
-    };
-  }, [open, isMounted]);
 
   useEffect(() => {
     if (!open) return;
@@ -237,7 +226,11 @@ export function GlobalCommandPalette({
     const scored = actions
       .map((action) => ({
         action,
-        score: scoreMatch(query, [action.title, action.subtitle || "", ...action.keywords]),
+        score: scoreMatch(query, [
+          action.title,
+          action.subtitle || "",
+          ...action.keywords,
+        ]),
       }))
       .filter((item) => item.score !== null)
       .sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -249,7 +242,11 @@ export function GlobalCommandPalette({
     const scored = items
       .map((item) => ({
         item,
-        score: scoreMatch(query, [item.title, item.subtitle || "", ...item.keywords]),
+        score: scoreMatch(query, [
+          item.title,
+          item.subtitle || "",
+          ...item.keywords,
+        ]),
       }))
       .filter((entry) => entry.score !== null)
       .sort((a, b) => (b.score || 0) - (a.score || 0));
@@ -318,7 +315,9 @@ export function GlobalCommandPalette({
       }
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        setSelectedIndex((prev) => Math.min(prev + 1, Math.max(displayItems.length - 1, 0)));
+        setSelectedIndex((prev) =>
+          Math.min(prev + 1, Math.max(displayItems.length - 1, 0)),
+        );
         return;
       }
       if (event.key === "ArrowUp") {
@@ -341,191 +340,181 @@ export function GlobalCommandPalette({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [displayItems, open, selectedIndex]);
 
-  if (!open || !isMounted) return null;
-
   let itemIndex = -1;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[1100]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="global-command-palette-title"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/45 backdrop-blur-[1.5px]"
-        aria-label="Close command palette"
-        onClick={close}
-      />
+  return (
+    <Modal open={open} onClose={() => onOpenChange(false)} zIndex={1100}>
+      <ModalContent className="w-[min(860px,96vw)] overflow-hidden pt-0">
+        <div className="flex items-center gap-2 border-b border-border/70 px-4 py-3">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={
+              loading
+                ? "Loading search index..."
+                : "Search tokens, components, health issues, actions..."
+            }
+            className="border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
+            autoFocus
+          />
+          <Button variant="ghost" size="sm" onClick={close} aria-label="Close command palette">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
 
-      <div className="relative z-10 flex min-h-full items-start justify-center p-4 pt-[10vh] md:p-6 md:pt-[12vh]">
-        <div className="w-[min(860px,96vw)] overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
-          <div className="flex items-center gap-2 border-b border-border/70 px-4 py-3">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={
-                loading
-                  ? "Loading search index..."
-                  : "Search tokens, components, health issues, actions..."
-              }
-              className="border-0 bg-transparent p-0 text-sm focus-visible:ring-0"
-              autoFocus
-            />
-            <Button variant="ghost" size="sm" onClick={close} aria-label="Close command palette">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="max-h-[58vh] overflow-y-auto p-2">
-            {loading ? (
-              <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
-                Building search index...
-              </div>
-            ) : null}
-
-            {!loading && error ? (
-              <ApiErrorMessage error={error} />
-            ) : null}
-
-            {!loading ? (
-              <>
-                <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Actions ({filteredActions.length})
-                </div>
-                <div className="space-y-1">
-                  {filteredActions.map((action) => {
-                    itemIndex += 1;
-                    const index = itemIndex;
-                    const selected = selectedIndex === index;
-                    return (
-                      <button
-                        key={action.id}
-                        type="button"
-                        data-command-index={index}
-                        className={[
-                          "flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition",
-                          selected
-                            ? "border-primary/50 bg-primary/10"
-                            : "border-transparent hover:border-border/70 hover:bg-accent/50",
-                        ].join(" ")}
-                        onMouseEnter={() => setSelectedIndex(index)}
-                        onClick={() => {
-                          void runAction(action);
-                        }}
-                        disabled={runningActionId === action.id}
-                      >
-                        <span className="mt-0.5 rounded-md border border-border/70 bg-background p-1.5">
-                          <Command className="h-3.5 w-3.5" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">{action.title}</span>
-                          {action.subtitle ? (
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {action.subtitle}
-                            </span>
-                          ) : null}
-                        </span>
-                        {runningActionId === action.id ? (
-                          <RefreshCcw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {query.trim() ? (
-                  <>
-                    {(["token", "component", "health-issue"] as const).map((kind) => {
-                      const list = grouped[kind];
-                      if (!list.length) return null;
-                      return (
-                        <div key={kind} className="mt-4">
-                          <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                            {kindLabel(kind)} ({list.length})
-                          </div>
-                          <div className="space-y-1">
-                            {list.map((item) => {
-                              itemIndex += 1;
-                              const index = itemIndex;
-                              const selected = selectedIndex === index;
-                              return (
-                                <button
-                                  key={item.id}
-                                  type="button"
-                                  data-command-index={index}
-                                  className={[
-                                    "flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition",
-                                    selected
-                                      ? "border-primary/50 bg-primary/10"
-                                      : "border-transparent hover:border-border/70 hover:bg-accent/50",
-                                  ].join(" ")}
-                                  onMouseEnter={() => setSelectedIndex(index)}
-                                  onClick={() => openItem(item)}
-                                >
-                                  <span className="mt-0.5 rounded-md border border-border/70 bg-background p-1.5 text-muted-foreground">
-                                    {kindIcon(item.kind)}
-                                  </span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-sm font-medium">
-                                      {item.title}
-                                    </span>
-                                    {item.subtitle ? (
-                                      <span className="block truncate text-xs text-muted-foreground">
-                                        {item.subtitle}
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                  <Badge variant="neutral">{kindLabel(item.kind)}</Badge>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </>
-                ) : null}
-
-                {!query.trim() && !filteredActions.length ? (
-                  <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
-                    No actions available.
-                  </div>
-                ) : null}
-
-                {query.trim() && !filteredSearchItems.length && !filteredActions.length ? (
-                  <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
-                    No results found for "{query}".
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-
-          <div className="flex items-center justify-between border-t border-border/70 px-4 py-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-3">
-              <span>
-                <kbd className="rounded border bg-muted px-1.5 py-0.5">↑</kbd>{" "}
-                <kbd className="rounded border bg-muted px-1.5 py-0.5">↓</kbd> navigate
-              </span>
-              <span>
-                <kbd className="rounded border bg-muted px-1.5 py-0.5">Enter</kbd> open
-              </span>
-            </div>
-            <div>
-              <kbd className="rounded border bg-muted px-1.5 py-0.5">Esc</kbd> close
-            </div>
-          </div>
-          {statusMessage ? (
-            <div className="border-t border-border/70 px-4 py-2 text-xs text-muted-foreground">
-              {statusMessage}
+        <div className="max-h-[58vh] overflow-y-auto p-2">
+          {loading ? (
+            <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
+              Building search index...
             </div>
           ) : null}
+
+          {!loading && error ? (
+            <ApiErrorMessage error={error} />
+          ) : null}
+
+          {!loading ? (
+            <>
+              <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Actions ({filteredActions.length})
+              </div>
+              <div className="space-y-1">
+                {filteredActions.map((action) => {
+                  itemIndex += 1;
+                  const index = itemIndex;
+                  const selected = selectedIndex === index;
+                  return (
+                    <button
+                      key={action.id}
+                      type="button"
+                      data-command-index={index}
+                      className={[
+                        "flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition",
+                        selected
+                          ? "border-primary/50 bg-primary/10"
+                          : "border-transparent hover:border-border/70 hover:bg-accent/50",
+                      ].join(" ")}
+                      onMouseEnter={() => setSelectedIndex(index)}
+                      onClick={() => {
+                        void runAction(action);
+                      }}
+                      disabled={runningActionId === action.id}
+                    >
+                      <span className="mt-0.5 rounded-md border border-border/70 bg-background p-1.5">
+                        <Command className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {action.title}
+                        </span>
+                        {action.subtitle ? (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {action.subtitle}
+                          </span>
+                        ) : null}
+                      </span>
+                      {runningActionId === action.id ? (
+                        <RefreshCcw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {query.trim() ? (
+                <>
+                  {(["token", "component", "health-issue"] as const).map((kind) => {
+                    const list = grouped[kind];
+                    if (!list.length) return null;
+                    return (
+                      <div key={kind} className="mt-4">
+                        <div className="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                          {kindLabel(kind)} ({list.length})
+                        </div>
+                        <div className="space-y-1">
+                          {list.map((item) => {
+                            itemIndex += 1;
+                            const index = itemIndex;
+                            const selected = selectedIndex === index;
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                data-command-index={index}
+                                className={[
+                                  "flex w-full items-start gap-3 rounded-md border px-3 py-2 text-left transition",
+                                  selected
+                                    ? "border-primary/50 bg-primary/10"
+                                    : "border-transparent hover:border-border/70 hover:bg-accent/50",
+                                ].join(" ")}
+                                onMouseEnter={() => setSelectedIndex(index)}
+                                onClick={() => openItem(item)}
+                              >
+                                <span className="mt-0.5 rounded-md border border-border/70 bg-background p-1.5 text-muted-foreground">
+                                  {kindIcon(item.kind)}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-medium">
+                                    {item.title}
+                                  </span>
+                                  {item.subtitle ? (
+                                    <span className="block truncate text-xs text-muted-foreground">
+                                      {item.subtitle}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <Badge variant="neutral">{kindLabel(item.kind)}</Badge>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              ) : null}
+
+              {!query.trim() && !filteredActions.length ? (
+                <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
+                  No actions available.
+                </div>
+              ) : null}
+
+              {query.trim() &&
+              !filteredSearchItems.length &&
+              !filteredActions.length ? (
+                <div className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-muted-foreground">
+                  No results found for "{query}".
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
-      </div>
-    </div>,
-    document.body,
+
+        <div className="flex items-center justify-between border-t border-border/70 px-4 py-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span>
+              <kbd className="rounded border bg-muted px-1.5 py-0.5">↑</kbd>{" "}
+              <kbd className="rounded border bg-muted px-1.5 py-0.5">↓</kbd>{" "}
+              navigate
+            </span>
+            <span>
+              <kbd className="rounded border bg-muted px-1.5 py-0.5">Enter</kbd>{" "}
+              open
+            </span>
+          </div>
+          <div>
+            <kbd className="rounded border bg-muted px-1.5 py-0.5">Esc</kbd>{" "}
+            close
+          </div>
+        </div>
+        {statusMessage ? (
+          <div className="border-t border-border/70 px-4 py-2 text-xs text-muted-foreground">
+            {statusMessage}
+          </div>
+        ) : null}
+      </ModalContent>
+    </Modal>
   );
 }

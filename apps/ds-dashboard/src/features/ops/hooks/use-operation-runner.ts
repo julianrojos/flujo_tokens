@@ -36,7 +36,6 @@ const JOB_WAIT_TIMEOUT_MS = 20 * 60 * 1000;
 
 // Strip ANSI escape codes for clean text output
 export function stripAnsi(text: string): string {
-  // eslint-disable-next-line no-control-regex
   return text.replace(/\x1b\[[0-9;]*m/g, "").replace(/\x1b\[[0-9;]*[A-Za-z]/g, "");
 }
 
@@ -121,15 +120,13 @@ export function useOperationRunner(
         const pushLogLines = (rawText: unknown, forcedKind?: LogLine["kind"]) => {
           const clean = stripAnsi(String(rawText ?? ""));
           if (!clean.trim()) return;
+          const newLines: LogLine[] = [];
           for (const line of clean.split("\n")) {
             if (!line.trim()) continue;
-            setLogLines((prev) => [
-              ...prev,
-              {
-                text: line,
-                kind: forcedKind || detectKind(line),
-              },
-            ]);
+            newLines.push({ text: line, kind: forcedKind || detectKind(line) });
+          }
+          if (newLines.length > 0) {
+            setLogLines((prev) => [...prev, ...newLines]);
           }
         };
 
@@ -354,19 +351,23 @@ export function useOperationRunner(
             const out = stripAnsi(String(data.output ?? data.stdout ?? "")).trim();
             const err = stripAnsi(String(data.stderr ?? "")).trim();
 
+            const batchLines: LogLine[] = [];
             if (out) {
               for (const line of out.split("\n")) {
                 if (line.trim()) {
-                  setLogLines((prev) => [...prev, { text: line, kind: detectKind(line) }]);
+                  batchLines.push({ text: line, kind: detectKind(line) });
                 }
               }
             }
             if (err) {
               for (const line of err.split("\n")) {
                 if (line.trim()) {
-                  setLogLines((prev) => [...prev, { text: line, kind: "stderr" }]);
+                  batchLines.push({ text: line, kind: "stderr" });
                 }
               }
+            }
+            if (batchLines.length > 0) {
+              setLogLines((prev) => [...prev, ...batchLines]);
             }
 
             const exitCode = Number(data.code ?? data.exit_code);

@@ -5,12 +5,12 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=2479-2696
   page: Pie Graph
   component: Percentage-Pie-Graph
-  component_set_node_id: 2479:2696
-  last_verified: "2026-02-19"
+  component_set_node_id: '2479:2696'
+  last_verified: '2026-02-19'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: 283b67380c19c35c2febe521545185c6faabb85e8722a790ef854d6cdbc323fd
+    contract_version: '1'
+    spec_sha256: b2360fa3aede37a3f160d4a87462a1bd8f06513aba5823fb302d00c1701996a8
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: a1c709db54049eacb6f51b020134df6110fbfed9fcae5ba506df40502d85e7fc
 ---

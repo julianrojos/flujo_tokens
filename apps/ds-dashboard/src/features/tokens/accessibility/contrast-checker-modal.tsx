@@ -1,8 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { X } from "lucide-react";
-import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalFooter,
+} from "@/components/ui/overlay";
 import type {
   ContrastCheckResult,
   ElementType,
@@ -63,38 +68,6 @@ export function ContrastCheckerModal({
   result,
   onReset,
 }: ContrastCheckerModalProps) {
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
-
-  useEffect(() => {
-    if (!open || !isMounted) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
-    };
-  }, [open, isMounted]);
-
   const selectedBackground = useMemo(
     () => findByPath(backgroundOptions, backgroundTokenPath),
     [backgroundOptions, backgroundTokenPath],
@@ -104,114 +77,100 @@ export function ContrastCheckerModal({
     [foregroundOptions, foregroundTokenPath],
   );
 
-  if (!open || !isMounted) return null;
+  return (
+    <Modal open={open} onClose={onClose}>
+      <ModalContent size="full" className="max-h-[92vh] overflow-y-auto">
+        <ModalHeader>
+          <div>
+            <h3
+              id="color-accessibility-checker-title"
+              className="text-lg font-semibold"
+            >
+              Color Accessibility Checker
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Check color contrast between a background and a foreground.
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog">
+            <X className="h-4 w-4" />
+          </Button>
+        </ModalHeader>
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[1000]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="color-accessibility-checker-title"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
-        aria-label="Close contrast checker modal"
-        onClick={onClose}
-      />
-
-      <div className="relative z-10 flex min-h-full items-center justify-center p-4 md:p-6">
-        <div className="max-h-[92vh] w-[min(920px,96vw)] overflow-y-auto rounded-xl border border-border bg-card shadow-2xl">
-          <div className="flex items-start justify-between border-b border-border/70 p-5">
-            <div>
-              <h3 id="color-accessibility-checker-title" className="text-lg font-semibold">
-                Color Accessibility Checker
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Compruebe el contraste de colores entre un fondo y un primer plano.
-              </p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog">
-              <X className="h-4 w-4" />
-            </Button>
+        <div className="grid gap-4 p-5 md:grid-cols-2">
+          <div>
+            <ColorSelect
+              label="Background (Semantic)"
+              options={backgroundOptions}
+              value={backgroundTokenPath}
+              onChange={onBackgroundChange}
+            />
+            <label className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={includePrimitivesBackground}
+                onChange={(event) =>
+                  onIncludePrimitivesBackgroundChange(event.target.checked)
+                }
+              />
+              Include primitive colors in background options
+            </label>
+          </div>
+          <div>
+            <ColorSelect
+              label="Foreground (Text/Icon Semantic)"
+              options={foregroundOptions}
+              value={foregroundTokenPath}
+              onChange={onForegroundChange}
+            />
+            <label className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={includePrimitivesForeground}
+                onChange={(event) =>
+                  onIncludePrimitivesForegroundChange(event.target.checked)
+                }
+              />
+              Include primitive colors in foreground options
+            </label>
           </div>
 
-          <div className="grid gap-4 p-5 md:grid-cols-2">
-            <div>
-              <ColorSelect
-                label="Background (Semantic)"
-                options={backgroundOptions}
-                value={backgroundTokenPath}
-                onChange={onBackgroundChange}
-              />
-              <label className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-border"
-                  checked={includePrimitivesBackground}
-                  onChange={(event) =>
-                    onIncludePrimitivesBackgroundChange(event.target.checked)
-                  }
-                />
-                Include primitive colors in background options
-              </label>
-            </div>
-            <div>
-              <ColorSelect
-                label="Foreground (Text/Icon Semantic)"
-                options={foregroundOptions}
-                value={foregroundTokenPath}
-                onChange={onForegroundChange}
-              />
-              <label className="mt-2 inline-flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-border"
-                  checked={includePrimitivesForeground}
-                  onChange={(event) =>
-                    onIncludePrimitivesForegroundChange(event.target.checked)
-                  }
-                />
-                Include primitive colors in foreground options
-              </label>
-            </div>
-
-            <div className="md:col-span-2">
-              <ElementTypeSelector value={elementType} onChange={onElementTypeChange} />
-            </div>
-
-            <div className="md:col-span-2">
-              <TextSizeSelector
-                value={textSize}
-                onChange={onTextSizeChange}
-                disabled={elementType !== "text"}
-              />
-            </div>
+          <div className="md:col-span-2">
+            <ElementTypeSelector value={elementType} onChange={onElementTypeChange} />
           </div>
 
-          <div className="border-t border-border/70 p-5 space-y-4">
-            {selectedBackground && selectedForeground ? (
-              <ColorPreview
-                backgroundColor={selectedBackground.hexValue}
-                foregroundColor={selectedForeground.hexValue}
-                elementType={elementType}
-              />
-            ) : null}
-
-            <ContrastResult result={result} />
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={onReset}>
-                Reset
-              </Button>
-              <Button variant="default" onClick={onClose}>
-                Close
-              </Button>
-            </div>
+          <div className="md:col-span-2">
+            <TextSizeSelector
+              value={textSize}
+              onChange={onTextSizeChange}
+              disabled={elementType !== "text"}
+            />
           </div>
         </div>
-      </div>
-    </div>,
-    document.body,
+
+        <div className="border-t border-border/70 p-5 space-y-4">
+          {selectedBackground && selectedForeground ? (
+            <ColorPreview
+              backgroundColor={selectedBackground.hexValue}
+              foregroundColor={selectedForeground.hexValue}
+              elementType={elementType}
+            />
+          ) : null}
+
+          <ContrastResult result={result} />
+
+          <ModalFooter className="border-t-0 p-0">
+            <Button variant="outline" onClick={onReset}>
+              Reset
+            </Button>
+            <Button variant="default" onClick={onClose}>
+              Close
+            </Button>
+          </ModalFooter>
+        </div>
+      </ModalContent>
+    </Modal>
   );
 }

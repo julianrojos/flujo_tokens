@@ -201,6 +201,24 @@ rules:
     applies_to: [skills]
     blocking: true
     layer: domain
+  - id: ui-architecture-boundaries
+    file: ui-architecture-boundaries.mdc
+    owner: ui-governance
+    applies_to: [frontend]
+    blocking: true
+    layer: core
+  - id: ui-style-contract
+    file: ui-style-contract.mdc
+    owner: ui-governance
+    applies_to: [frontend]
+    blocking: true
+    layer: core
+  - id: ui-component-governance
+    file: ui-component-governance.mdc
+    owner: ui-governance
+    applies_to: [frontend]
+    blocking: true
+    layer: domain
   - id: token-references
     file: token-references.mdc
     owner: docs-governance
@@ -324,6 +342,15 @@ checks:
   EVID02:
     rule_ids: [evidence-gated-mutations, docs-pipeline-contract]
     blocking: true
+  UI01:
+    rule_ids: [ui-architecture-boundaries]
+    blocking: true
+  UI02:
+    rule_ids: [ui-style-contract]
+    blocking: true
+  UI03:
+    rule_ids: [ui-component-governance]
+    blocking: true
   GIT01:
     rule_ids: [git-constraints]
     blocking: true
@@ -397,6 +424,14 @@ matrix:
         prohibited-patterns,
         git-constraints,
       ]
+    frontend:
+      [
+        ui-architecture-boundaries,
+        ui-style-contract,
+        ui-component-governance,
+        general-programming-principles,
+        git-constraints,
+      ]
     skills: [skill-versioning, skill-input-output-contract, git-constraints]
   by_stage:
     spec:
@@ -424,6 +459,14 @@ matrix:
         docs-pipeline-contract,
         component-indices-sync,
         review-judge-workflow-format,
+        git-constraints,
+      ]
+    frontend:
+      [
+        ui-architecture-boundaries,
+        ui-style-contract,
+        ui-component-governance,
+        general-programming-principles,
         git-constraints,
       ]
     skills: [skill-versioning, skill-input-output-contract, git-constraints]

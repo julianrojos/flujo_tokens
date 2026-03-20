@@ -298,7 +298,7 @@ export function DesignSystemsAdminPage() {
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold">{system.name}</h2>
                     {isDefault ? (
-                      <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                      <span className="rounded bg-status-success-bg/15 px-2 py-0.5 text-[11px] font-medium text-status-success">
                         DEFAULT
                       </span>
                     ) : null}
@@ -526,7 +526,7 @@ export function DesignSystemsAdminPage() {
               </Button>
               <Button
                 variant="outline"
-                className="border-red-500/50 text-red-700 hover:bg-red-500/10 hover:text-red-700 dark:text-red-400 dark:hover:text-red-400"
+                className="border-status-error-border/50 text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
                 disabled={!deleteConfirmed || !!busyIds[deleteModalTarget.id]}
                 onClick={() =>
                   void handleDelete(deleteModalTarget.id)

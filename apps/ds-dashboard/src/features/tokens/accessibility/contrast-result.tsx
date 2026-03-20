@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { StatusAlert } from "@/components/ui/status-alert";
 
 import type { ContrastCheckResult } from "./types";
 
@@ -21,9 +22,7 @@ function contextLabel(result: ContrastCheckResult): string {
 export function ContrastResult({ result }: ContrastResultProps) {
   if (!result) {
     return (
-      <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
-        Select colors and foreground element type to evaluate contrast.
-      </div>
+      <StatusAlert variant="warning" description="Select colors and foreground element type to evaluate contrast." />
     );
   }
 

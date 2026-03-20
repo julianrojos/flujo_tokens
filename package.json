@@ -56,6 +56,7 @@
     "ds:audit-consistency": "node tooling/scripts/ds-audit-consistency.mjs",
     "ds:detect-missing-zones": "node tooling/scripts/ds-detect-missing-zones.mjs",
     "ds:doctor": "node tooling/scripts/ds-doctor.mjs",
+    "ds:ui:guard": "node tooling/scripts/ds-ui-guard.mjs",
     "ds:qa": "node tooling/scripts/ds-qa.mjs",
     "ds:pipeline": "node tooling/scripts/ds-pipeline.mjs",
     "test:tooling:ds-types": "tsx --test packages/ds-types/src/*.test.ts",

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { Button } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
 import { Input } from "@/components/ui/input";
 import { useOperationRunner } from "@/features/ops/hooks/use-operation-runner";
 import { LogTerminal } from "@/features/ops/components/log-terminal";
@@ -157,7 +158,7 @@ export function DesignSystemUpdateActions({
 
           <div className="mt-3 space-y-2">
             {componentsValidationError ? (
-              <p className="text-xs text-red-600 dark:text-red-400">{componentsValidationError}</p>
+              <p className="text-xs text-status-error">{componentsValidationError}</p>
             ) : null}
             <div className="flex items-center justify-end">
               <Button
@@ -218,23 +219,28 @@ export function DesignSystemUpdateActions({
               </Button>
             </div>
             {hasBlockingVariablesContextIssue ? (
-              <div className="rounded-md border border-red-500/30 bg-red-500/[0.08] p-2 text-[11px] text-red-700 dark:text-red-400">
-                <p>
-                  Current selection has {variablesContextMissingCount} token bindings without a resolved variable.
-                </p>
-                <label className="mt-1 inline-flex items-center gap-1.5 text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={allowVariablesWithContextIssues}
-                    onChange={(event) => setAllowVariablesWithContextIssues(event.target.checked)}
-                    disabled={disabled || variablesState.isRunning}
-                    className="h-3.5 w-3.5"
-                  />
-                  Continue anyway
-                </label>
-              </div>
+              <StatusAlert
+                variant="error"
+                description={
+                  <>
+                    <p>
+                      Current selection has {variablesContextMissingCount} token bindings without a resolved variable.
+                    </p>
+                    <label className="mt-1 inline-flex items-center gap-1.5 text-muted-foreground">
+                      <input
+                        type="checkbox"
+                        checked={allowVariablesWithContextIssues}
+                        onChange={(event) => setAllowVariablesWithContextIssues(event.target.checked)}
+                        disabled={disabled || variablesState.isRunning}
+                        className="h-3.5 w-3.5"
+                      />
+                      Continue anyway
+                    </label>
+                  </>
+                }
+              />
             ) : variablesContextModeFallbackCount > 0 ? (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+              <p className="text-[11px] text-status-warning">
                 Current selection includes {variablesContextModeFallbackCount} variables using mode fallback.
               </p>
             ) : null}

@@ -19,7 +19,8 @@
     "check:bundle-isolation": "node scripts/validate-bundle-isolation.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "lint:ui-contract": "node ../../tooling/scripts/ds-ui-guard.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

@@ -288,7 +288,7 @@ export function TokenGraphPage() {
               Visualiza dependencias (referencias <span className="font-mono">var(--…)</span>) entre tokens.
             </CardDescription>
             {refreshNotice ? (
-              <p className="mt-2 text-sm text-emerald-700 dark:text-emerald-400">
+              <p className="mt-2 text-sm text-status-success">
                 {refreshNotice}
               </p>
             ) : null}
@@ -403,7 +403,7 @@ export function TokenGraphPage() {
               </CardTitle>
               <CardDescription>
                 {direction} · depth {depth} ·{" "}
-                <span className={cn(selectedNode.isCycleMember ? "text-red-700" : "")}>
+                <span className={cn(selectedNode.isCycleMember ? "text-status-error" : "")}>
                   {selectedNode.isCycleMember ? "cycle member" : "no cycle"}
                 </span>
               </CardDescription>

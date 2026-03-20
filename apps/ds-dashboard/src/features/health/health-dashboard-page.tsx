@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, RefreshCcw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Layers3, RefreshCcw } from "lucide-react";
 
 import { type ApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
@@ -11,6 +11,8 @@ import type {
 } from "@/types/health-history";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
+import { MetricCard, PageHeader } from "@/components/composites";
 import {
   Card,
   CardContent,
@@ -156,7 +158,7 @@ export function HealthDashboardPage() {
 
   const renderErrorPanel = (error: ApiErrorDisplay, tipCommand: string) => (
     <ApiErrorMessage error={error}>
-      <div className="mt-1 text-xs text-red-700/80">
+      <div className="mt-1 text-xs text-status-error/80">
         Tip: run <code>{tipCommand}</code>
       </div>
     </ApiErrorMessage>
@@ -391,44 +393,42 @@ export function HealthDashboardPage() {
 
   return (
     <div className="space-y-6 animate-fade-slide-in">
-      <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Health</h2>
-          <p className="text-sm text-muted-foreground">
-            Operational dashboard for token and component quality.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => void captureSnapshotAndReload()}
-            disabled={snapshotting}
-          >
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            {snapshotting ? "Capturing…" : "Capture snapshot"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => void refreshTokenReport()}
-            disabled={refreshingTokens}
-          >
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            {refreshingTokens ? "Refreshing tokens…" : "Refresh tokens"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => void refreshComponentsReport()}
-            disabled={refreshingComponents}
-          >
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            {refreshingComponents ? "Refreshing components…" : "Refresh components"}
-          </Button>
-          <Button variant="outline" onClick={() => void reloadAll()} disabled={reloadingAll}>
-            <RefreshCcw className="mr-2 h-4 w-4" />
-            {reloadingAll ? "Loading…" : "Reload all"}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Health"
+        description="Operational dashboard for token and component quality."
+        actions={
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => void captureSnapshotAndReload()}
+              disabled={snapshotting}
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              {snapshotting ? "Capturing…" : "Capture snapshot"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void refreshTokenReport()}
+              disabled={refreshingTokens}
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              {refreshingTokens ? "Refreshing tokens…" : "Refresh tokens"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void refreshComponentsReport()}
+              disabled={refreshingComponents}
+            >
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              {refreshingComponents ? "Refreshing components…" : "Refresh components"}
+            </Button>
+            <Button variant="outline" onClick={() => void reloadAll()} disabled={reloadingAll}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              {reloadingAll ? "Loading…" : "Reload all"}
+            </Button>
+          </div>
+        }
+      />
 
       {tokenError ? (
         renderErrorPanel(tokenError, "npm run ds:token-health")
@@ -494,71 +494,39 @@ export function HealthDashboardPage() {
       {dashboard ? (
         <>
           <section className="grid gap-4 md:grid-cols-5">
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardDescription>System status</CardDescription>
-                <CardTitle className="flex items-center gap-3">
-                  <span>{dashboard.overallScore}/100</span>
-                  <Badge variant={dashboard.healthVariant}>{dashboard.healthStatus}</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground">
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  <span>Critical issues: {dashboard.criticalIssues}</span>
-                  <span>Warnings: {dashboard.warningIssues}</span>
-                  <span>
-                    Last token update: {formatDate(tokenHealth?.generated_at)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardDescription>Tokens score</CardDescription>
-                <CardTitle>{dashboard.tokenScore}/100</CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground">
-                {tokenHealth?.summary.tokens_with_usage ?? 0}/{tokenHealth?.summary.tokens_total ?? 0}{" "}
-                tokens used
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardDescription>Components score</CardDescription>
-                <CardTitle>{dashboard.componentsScore}/100</CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground">
-                Avg coverage {componentsHealth?.summary.average_coverage_percent ?? 0}%
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardDescription>Naming score</CardDescription>
-                <CardTitle>
-                  {dashboard.namingScore !== null ? `${dashboard.namingScore}/100` : "—"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-xs text-muted-foreground">
-                {namingDebt ? (
-                  <span>
-                    {namingDebt.summary.totalViolations} issues ·{" "}
-                    <Link
-                      to="/tokens/naming-debt"
-                      className="text-primary underline-offset-2 hover:underline"
-                    >
-                      Open report
-                    </Link>
-                  </span>
-                ) : namingError ? (
-                  <span>Naming report unavailable</span>
-                ) : (
-                  <span>Loading naming report...</span>
-                )}
-              </CardContent>
-            </Card>
+            <MetricCard
+              className="md:col-span-2"
+              label="System status"
+              value={`${dashboard.overallScore}/100`}
+              icon={
+                <Badge variant={dashboard.healthVariant}>{dashboard.healthStatus}</Badge>
+              }
+            />
+            <MetricCard
+              label="Tokens score"
+              value={`${dashboard.tokenScore}/100`}
+              change={`${tokenHealth?.summary.tokens_with_usage ?? 0}/${tokenHealth?.summary.tokens_total ?? 0} tokens used`}
+              trend="neutral"
+              icon={<Layers3 className="h-4 w-4" />}
+            />
+            <MetricCard
+              label="Components score"
+              value={`${dashboard.componentsScore}/100`}
+              change={`Avg coverage ${componentsHealth?.summary.average_coverage_percent ?? 0}%`}
+              trend="neutral"
+            />
+            <MetricCard
+              label="Naming score"
+              value={dashboard.namingScore !== null ? `${dashboard.namingScore}/100` : "—"}
+              change={
+                namingDebt
+                  ? `${namingDebt.summary.totalViolations} issues`
+                  : namingError
+                    ? "Report unavailable"
+                    : "Loading..."
+              }
+              trend="neutral"
+            />
           </section>
 
           <section className="grid gap-5 xl:grid-cols-5">
@@ -609,10 +577,10 @@ export function HealthDashboardPage() {
                     </div>
                   ))}
                 {dashboard.issues.every((issue) => issue.count === 0) ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4" />
-                    No active issues detected in current reports.
-                  </div>
+                  <StatusAlert
+                    variant="success"
+                    description="No active issues detected in current reports."
+                  />
                 ) : null}
               </CardContent>
             </Card>
@@ -653,16 +621,19 @@ export function HealthDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-5">
                 {tokenHealth?.warnings?.length ? (
-                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800">
-                    <div className="font-semibold">Warnings</div>
-                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
-                      {tokenHealth.warnings.map((warning) => (
-                        <li key={warning.id}>
-                          <code>{warning.id}</code>: {warning.message}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <StatusAlert
+                    variant="warning"
+                    title="Warnings"
+                    description={
+                      <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
+                        {tokenHealth.warnings.map((warning) => (
+                          <li key={warning.id}>
+                            <code>{warning.id}</code>: {warning.message}
+                          </li>
+                        ))}
+                      </ul>
+                    }
+                  />
                 ) : null}
 
                 <div id="issue-unused-tokens" className="scroll-mt-24">
@@ -846,7 +817,7 @@ export function HealthDashboardPage() {
                   className="scroll-mt-24 rounded-lg border border-border/70 bg-background/60 p-3"
                 >
                   <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertTriangle className="h-4 w-4 text-status-warning" />
                     Needs review
                   </div>
                   <div className="flex flex-wrap gap-2">

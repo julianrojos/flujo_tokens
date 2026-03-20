@@ -382,7 +382,7 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
           </h4>
           <div className="grid gap-4 md:grid-cols-2 text-sm">
             <div>
-              <p className="mb-1 font-semibold text-emerald-700">Do</p>
+              <p className="mb-1 font-semibold text-status-success">Do</p>
               <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
                 {(spec.best_practices.do ?? []).map((item, i) => (
                   <li key={i}>{item}</li>
@@ -390,7 +390,7 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
               </ul>
             </div>
             <div>
-              <p className="mb-1 font-semibold text-red-700">Don't</p>
+              <p className="mb-1 font-semibold text-status-error">Don't</p>
               <ul className="list-inside list-disc space-y-0.5 text-muted-foreground">
                 {(spec.best_practices.dont ?? []).map((item, i) => (
                   <li key={i}>{item}</li>

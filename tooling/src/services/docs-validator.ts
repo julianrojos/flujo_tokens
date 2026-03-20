@@ -28,18 +28,6 @@ import type {
 } from './docs-validator-types.js';
 
 // Import from newly created services
-import { extractSectionBody } from './markdown-sections.js';
-import {
-  GAP_ERROR_CODES,
-  GAP_CHECK_MESSAGES,
-  GAPS_VALIDATION,
-} from './gaps-contract.js';
-import {
-  extractGapsFromSpec,
-  buildGapsChecklistLines,
-  extractGapsSection,
-  extractNonEmptySectionLines,
-} from './gaps.js';
 
 // Import extracted validator modules (FULLY WIRED - single source of truth)
 import {
@@ -86,6 +74,7 @@ import {
 const _defaultCtx = resolveSystemContextSafe();
 const PROJECT_ROOT = process.cwd();
 const RULE_MANIFEST_PATH = path.join(PROJECT_ROOT, '.agents', 'rules', '_manifest.yml');
+const TOKEN_LIKE_CODE_SPAN_RE = /`[^`\n]*(?:[A-Za-z][A-Za-z0-9-]*(?:[./][A-Za-z0-9-]+)+)[^`\n]*`/;
 
 // ============================================================================
 // Main validateDocs Export
@@ -167,9 +156,24 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
     return report;
   }
 
+  // Guardrail: an empty registry gives false-green validations (0 token refs checked).
+  if (Object.keys(registry).length === 0) {
+    report.errors.push({
+      code: 'REG01',
+      file: registryPath,
+      message:
+        'Token registry is empty (0 token entries). Run token sync/generation before validating docs.',
+      suggested: 'npm run ds:tokens-sync',
+    });
+    report.ok = false;
+    report.summary.errors = report.errors.length;
+    return report;
+  }
+
   const registryIndexes = buildRegistryIndexes(registry);
   const markdownFiles = collectMarkdownFiles(docsRoot, explicitFilePath);
   const componentFiles: string[] = [];
+  let componentFilesWithTokenLikeSpans = 0;
 
   const specResolution: { specFilePath?: string } =
     explicitFilePath && explicitSpecFilePath ? { specFilePath: explicitSpecFilePath } : {};
@@ -214,6 +218,9 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
 
     if (treatAsComponent) {
       componentFiles.push(filePath);
+      if (TOKEN_LIKE_CODE_SPAN_RE.test(content)) {
+        componentFilesWithTokenLikeSpans += 1;
+      }
 
       // Validate component filename
       validateComponentDocFileName(filePath, report);
@@ -357,6 +364,18 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
       docsRoot,
       componentFiles,
       report,
+    });
+  }
+
+  if (
+    componentFilesWithTokenLikeSpans > 0 &&
+    report.summary.tokenRefsChecked === 0
+  ) {
+    report.errors.push({
+      code: 'TOK01',
+      file: docsRoot,
+      message:
+        'Token reference validation coverage is zero despite token-like references in component docs. Check token registry integrity and token path formats.',
     });
   }
 

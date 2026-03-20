@@ -5,12 +5,12 @@ figma:
   file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=694-170
   page: Bars
   component: Bottom_Bar_Button
-  component_set_node_id: 694:170
-  last_verified: "2026-02-19"
+  component_set_node_id: '694:170'
+  last_verified: '2026-02-19'
 pipeline:
   ds_component_doc:
-    contract_version: "1"
-    spec_sha256: 9dded29730a6f55650f1dbffaa00513446d584bbbd6ed6c514354eb9256bbfa9
+    contract_version: '1'
+    spec_sha256: 3218fc674bde733e2f1235d1d08d5671aca88eccb572f6c4e2eb7db0696b9ded
     token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
     generator_script_sha256: d1a7b2a3735f7e1e853c3a53811b9edec4b68c51b73d75b1ed818033f2baba15
 ---
