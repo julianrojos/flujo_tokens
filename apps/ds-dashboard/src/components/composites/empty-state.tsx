@@ -44,11 +44,23 @@ export function EmptyState({
   );
 }
 
+export interface EmptyStateActionProps extends ButtonProps {
+  asChild?: boolean;
+}
+
 export function EmptyStateAction({
   children,
   className,
+  asChild,
   ...props
-}: ButtonProps) {
+}: EmptyStateActionProps) {
+  if (asChild) {
+    return (
+      <span className="inline-flex">
+        {React.Children.only(children) as React.ReactElement}
+      </span>
+    );
+  }
   return (
     <Button className={cn("min-w-[140px]", className)} {...props}>
       {children}

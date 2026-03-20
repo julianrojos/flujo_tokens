@@ -69,7 +69,7 @@ export function SummaryMarkdownEditor({
       editorProps: {
         attributes: {
           class:
-            "prose prose-sm max-w-none dark:prose-invert min-h-[80px] rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+            "prose prose-sm prose-invert max-w-none min-h-[80px] rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
         },
       },
       onUpdate: ({ editor }) => {

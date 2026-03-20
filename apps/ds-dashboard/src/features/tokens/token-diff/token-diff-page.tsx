@@ -588,7 +588,7 @@ export function TokenDiffPage() {
     <div className="space-y-5 animate-fade-slide-in">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">Token Diff</h2>
+          <h2 className="text-2xl font-serif font-semibold tracking-tight">Token Diff</h2>
           <p className="text-sm text-muted-foreground">
             Comparación on-demand del token registry actual vs. un git ref anterior.
           </p>

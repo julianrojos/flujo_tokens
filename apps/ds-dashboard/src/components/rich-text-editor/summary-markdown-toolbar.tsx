@@ -195,7 +195,7 @@ export function SummaryMarkdownToolbar({ editor, onLinkPopoverOpen }: SummaryMar
             autoFocus
           />
           {linkError && (
-            <p className="text-xs text-red-500">{linkError}</p>
+            <p className="text-xs text-status-error">{linkError}</p>
           )}
           <div className="flex items-center gap-1">
             <Button

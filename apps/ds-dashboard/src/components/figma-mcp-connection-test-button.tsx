@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Modal, ModalContent, ModalHeader, ModalFooter } from "@/components/ui/overlay";
 import {
   ApiError,
   getFigmaMcpDesignContextCompact,
@@ -356,24 +357,24 @@ export function FigmaMcpConnectionTestButton({
   const connectionHealth = (() => {
     if (isPluginVersionMismatch) {
       return {
-        tone: "amber" as const,
+        tone: "warning" as const,
         text: `Version mismatch: plugin ${detectedPluginVersion} vs expected ${EXPECTED_MCP_PLUGIN_VERSION}. Reimport the Figma plugin.`,
       };
     }
     if (result?.connected && !heartbeatAlive) {
       return {
-        tone: "amber" as const,
+        tone: "warning" as const,
         text: "Transport is connected, but plugin heartbeat is missing. Reload the Figma plugin.",
       };
     }
     if (result?.connected && heartbeatAlive) {
-      return { tone: "green" as const, text: "Healthy: plugin heartbeat + transport are active." };
+      return { tone: "success" as const, text: "Healthy: plugin heartbeat + transport are active." };
     }
     if (heartbeatAlive && !result?.connected) {
-      return { tone: "amber" as const, text: "Plugin is alive, but transport is not connected yet." };
+      return { tone: "warning" as const, text: "Plugin is alive, but transport is not connected yet." };
     }
     if (!heartbeatAlive) {
-      return { tone: "amber" as const, text: "No live plugin heartbeat detected from Figma." };
+      return { tone: "warning" as const, text: "No live plugin heartbeat detected from Figma." };
     }
     return { tone: "muted" as const, text: "Run Test connection to refresh status." };
   })();
@@ -440,7 +441,7 @@ export function FigmaMcpConnectionTestButton({
       </div>
 
       {showRecoveryStepper ? (
-        <div className="space-y-1.5 rounded-md border border-amber-500/30 bg-amber-500/5 p-2.5">
+        <div className="space-y-1.5 rounded-md border border-status-warning-border/30 bg-status-warning-bg/5 p-2.5">
           <div className="space-y-1">
             {RECOVERY_STEPS.map((label, index) => {
               const isDone = activeRecoveryStep > index;
@@ -451,9 +452,9 @@ export function FigmaMcpConnectionTestButton({
                   className={cn(
                     "flex items-center gap-2 text-[11px]",
                     isDone
-                      ? "text-emerald-700 dark:text-emerald-400"
+                      ? "text-status-success"
                       : isActive
-                        ? "text-amber-700 dark:text-amber-400"
+                        ? "text-status-warning"
                         : "text-muted-foreground",
                   )}
                 >
@@ -461,9 +462,9 @@ export function FigmaMcpConnectionTestButton({
                     className={cn(
                       "inline-flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-semibold",
                       isDone
-                        ? "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500"
+                        ? "border-status-success/60 bg-status-success/20 text-status-success"
                         : isActive
-                          ? "border-amber-600 bg-amber-600 text-white dark:border-amber-500 dark:bg-amber-500"
+                          ? "border-status-warning/60 bg-status-warning/20 text-status-warning"
                           : "border-muted-foreground/50",
                     )}
                   >
@@ -476,15 +477,15 @@ export function FigmaMcpConnectionTestButton({
           </div>
 
           {isResetting ? (
-            <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
+            <p className="break-words text-[11px] text-status-warning">
               ↺ Refreshing MCP Management status… retrying in {resetSecondsLeft}s.
             </p>
           ) : isWaiting ? (
-            <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
+            <p className="break-words text-[11px] text-status-warning">
               ⏳ Retrying connection… {waitSecondsLeft}s left. Open the MCP Management plugin now.
             </p>
           ) : (
-            <p className="break-words text-[11px] text-amber-700 dark:text-amber-400">
+            <p className="break-words text-[11px] text-status-warning">
               ⚠ No reconnection detected. Open the MCP Management plugin and click
               &nbsp;&ldquo;Resolve connection&rdquo; again.
             </p>
@@ -495,10 +496,10 @@ export function FigmaMcpConnectionTestButton({
       <p
         className={cn(
           "break-words text-[11px]",
-          connectionHealth.tone === "green"
-            ? "text-emerald-600 dark:text-emerald-400"
-            : connectionHealth.tone === "amber"
-              ? "text-amber-600 dark:text-amber-400"
+          connectionHealth.tone === "success"
+            ? "text-status-success"
+            : connectionHealth.tone === "warning"
+              ? "text-status-warning"
               : "text-muted-foreground",
         )}
       >
@@ -507,7 +508,7 @@ export function FigmaMcpConnectionTestButton({
 
       {result && !showRecoveryStepper ? (
         result.ok && result.connected ? (
-          <p className="break-words text-[11px] text-emerald-600 dark:text-emerald-400">
+          <p className="break-words text-[11px] text-status-success">
             ✓ Connection successful
             {showDetectedCounts &&
             typeof result.collectionsDetected === "number" &&
@@ -516,11 +517,11 @@ export function FigmaMcpConnectionTestButton({
               : ""}
           </p>
         ) : isPluginVersionMismatch ? (
-          <p className="break-words text-[11px] text-amber-600 dark:text-amber-400">
+          <p className="break-words text-[11px] text-status-warning">
             ⚠ Plugin build mismatch. Reimport the MCP Management plugin so dashboard and plugin use the same protocol.
           </p>
         ) : isNotConnected ? (
-          <p className="break-words text-[11px] text-amber-600 dark:text-amber-400">
+          <p className="break-words text-[11px] text-status-warning">
             {result.everConnected
               ? "⚠ Connection lost — reopen the MCP Management plugin to reconnect."
               : (
@@ -540,7 +541,7 @@ export function FigmaMcpConnectionTestButton({
               )}
           </p>
         ) : (
-          <p className="break-words text-[11px] text-red-600 dark:text-red-400">
+          <p className="break-words text-[11px] text-status-error">
             ✗ Connection failed
             {result.message ? ` — ${result.message}` : ""}
           </p>
@@ -584,7 +585,7 @@ export function FigmaMcpConnectionTestButton({
                       className={cn(
                         "rounded border px-1.5 py-0.5 font-mono",
                         token.isAlias
-                          ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
+                          ? "border-status-warning/40 text-status-warning"
                           : "border-border text-muted-foreground",
                       )}
                     >
@@ -599,13 +600,13 @@ export function FigmaMcpConnectionTestButton({
                 </div>
               ) : null}
               {Array.isArray(contextResult.warnings) && contextResult.warnings.length > 0 ? (
-                <p className="text-amber-700 dark:text-amber-400">
+                <p className="text-status-warning">
                   {contextResult.warnings[0]}
                 </p>
               ) : null}
             </>
           ) : (
-            <p className="text-red-600 dark:text-red-400">
+            <p className="text-status-error">
               Could not inspect selection
               {contextResult?.message ? ` — ${contextResult.message}` : ""}
             </p>
@@ -625,17 +626,25 @@ export function FigmaMcpConnectionTestButton({
         </p>
       ) : null}
 
-      {isResolveModalOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="figma-mcp-reset-confirm-title"
-        >
-          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
-            <h2 id="figma-mcp-reset-confirm-title" className="mb-2 text-lg font-semibold">
+      {/* Resolve connection confirmation dialog */}
+      <Modal
+        open={isResolveModalOpen}
+        onClose={() => {
+          setIsResolveModalOpen(false);
+          setResolveConfirmed(false);
+        }}
+      >
+        <ModalContent size="md">
+          <ModalHeader>
+            <h2
+              id="figma-mcp-reset-confirm-title"
+              className="text-lg font-semibold"
+            >
               Resolve connection
             </h2>
+          </ModalHeader>
+
+          <div className="px-5 pb-2">
             <p className="mb-4 text-sm text-muted-foreground">
               This will refresh the plugin session state managed by this
               dashboard to force a clean reconnect.
@@ -650,27 +659,27 @@ export function FigmaMcpConnectionTestButton({
               />
               <span>I understand the impact and want to continue</span>
             </label>
-
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsResolveModalOpen(false);
-                  setResolveConfirmed(false);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => void handleResolveConnection()}
-                disabled={!resolveConfirmed || disabled}
-              >
-                Resolve connection
-              </Button>
-            </div>
           </div>
-        </div>
-      ) : null}
+
+          <ModalFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsResolveModalOpen(false);
+                setResolveConfirmed(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleResolveConnection()}
+              disabled={!resolveConfirmed || disabled}
+            >
+              Resolve connection
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
