@@ -15,6 +15,7 @@ import { useDesignSystem } from "@/lib/design-system-context";
 import { NewSystemPage } from "@/features/system/new-system-page";
 import { DesignSystemUpdateActions } from "@/features/system/design-system-update-actions";
 import { buildUpdateActionsProps } from "@/features/system/design-systems-admin-page-logic";
+import { ConsumerManagementSection } from "@/features/consumers/components/consumer-management-section";
 
 type RowDraft = {
   name: string;
@@ -268,7 +269,7 @@ export function DesignSystemsAdminPage() {
   return (
     <div className="mx-auto max-w-5xl py-8">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold tracking-tight">Design Systems Admin</h1>
+        <h1 className="text-3xl font-serif font-bold tracking-tight">Design Systems Admin</h1>
         <Link to="/system/new" className={buttonVariants({ size: "sm", variant: "outline" })}>
           Add New Design System
         </Link>
@@ -482,6 +483,8 @@ export function DesignSystemsAdminPage() {
                     disabled: isBusy,
                   })}
                 />
+
+                <ConsumerManagementSection dsFileKey={draft.figmaFileId} />
               </section>
             );
           })}

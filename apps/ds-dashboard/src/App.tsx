@@ -23,6 +23,7 @@ import {
   Search,
   Zap,
   Sparkles,
+  Network,
 } from "lucide-react";
 
 import { HealthDashboardPage } from "@/features/health/health-dashboard-page";
@@ -127,6 +128,18 @@ const ImpactExplorerPage = lazy(() =>
 const FileViewerPage = lazy(() =>
   import("@/features/files/file-viewer-page").then((module) => ({
     default: module.FileViewerPage,
+  })),
+);
+
+const ConsumersPage = lazy(() =>
+  import("@/features/consumers/consumers-page").then((module) => ({
+    default: module.ConsumersPage,
+  })),
+);
+
+const ConsumerDetailPage = lazy(() =>
+  import("@/features/consumers/consumer-detail-page").then((module) => ({
+    default: module.ConsumerDetailPage,
   })),
 );
 
@@ -265,6 +278,12 @@ const navSections: NavSection[] = [
         label: "Naming Quality",
         description: "Consistency analysis and renames",
         icon: NotebookPen,
+      },
+      {
+        to: "/consumers",
+        label: "Consumer Files",
+        description: "Cross-file usage tracking",
+        icon: Network,
       },
     ],
   },
@@ -534,6 +553,8 @@ export default function App() {
                     <Route path="/token-graph" element={<TokenGraphPage />} />
                     <Route path="/impact" element={<ImpactExplorerPage />} />
                     <Route path="/file" element={<FileViewerPage />} />
+                    <Route path="/consumers" element={<ConsumersPage />} />
+                    <Route path="/consumers/:consumerId" element={<ConsumerDetailPage />} />
                   </Routes>
                 </Suspense>
               </RouteErrorBoundary>
