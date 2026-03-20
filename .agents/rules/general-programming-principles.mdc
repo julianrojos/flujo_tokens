@@ -124,6 +124,7 @@ alwaysApply: true
 - `SHOULD`: Use Tailwind classes in components; avoid inline `style` and raw `<style>` unless clearly justified.
 - `SHOULD`: Use CVA (`class-variance-authority`) for component variant logic.
 - `SHOULD`: Compose conditional classes with `clsx()` and `tailwind-merge` (e.g., `cn()` utility); avoid complex ternaries in `className`.
+- **`apps/ds-dashboard/src/**` — escalation to `MUST`:** All colors, surfaces, and borders MUST come from the token system (`--app-*` → `tailwind.config.ts`). Raw palette classes (`bg-red-*`, `text-amber-*`, `border-emerald-*`, etc.) are prohibited in `features/**`. See `ui-style-contract.mdc` for the full contract including portal rules, typography, and motion tokens.
 
 ### 6.4 React patterns
 - Use functional components exclusively.
@@ -133,6 +134,7 @@ alwaysApply: true
 - Use `React.memo`, `useMemo`, `useCallback` only when there is a measurable performance need — avoid premature memoization.
 - Use TanStack React Query for all server-state fetching and caching; avoid `useEffect` + `useState` for data fetching.
 - Implement basic accessibility attributes (`aria-*`, semantic HTML, keyboard navigation).
+- **`apps/ds-dashboard/src/**` — escalation to `MUST`:** Follow the layer model in `ui-architecture-boundaries.mdc` — imports flow downward only; `features/X` may not import from `features/Y`. Accessibility requirements from `ui-component-governance.mdc` are non-negotiable (semantic HTML, `aria-label`, keyboard navigation, `role="alert"` for status messages).
 
 ### 6.5 Error handling
 - `MUST`: Wrap external calls (API, file system, subprocess, fetch) in explicit error handling; never swallow exceptions silently.
@@ -214,3 +216,29 @@ alwaysApply: true
 - [ ] `SHOULD`: Overall structure/readability is improved or preserved.
 - [ ] `SHOULD`: New dependencies (if any) are justified and don't leak across bundle boundaries.
 - [ ] If any `SHOULD` is not followed, record a short reason in the change summary.
+
+### When touching `apps/ds-dashboard/src/`
+
+Run `npx tsc --noEmit` from `apps/ds-dashboard/` in addition to the checks above, then verify:
+
+- [ ] `MUST`: No hardcoded palette colors in `features/**` — `grep -rn "text-red-[0-9]\|bg-red-[0-9]\|text-amber-[0-9]\|bg-emerald-[0-9]" src/features/ --include="*.tsx" | wc -l` returns 0
+- [ ] `MUST`: No `createPortal` outside `ui/overlay/` — `grep -rn "createPortal" src/ --include="*.tsx" | grep -v "overlay/modal" | wc -l` returns 0
+- [ ] `MUST`: No `dark:` prefix — app is permanently dark, the prefix is dead code
+- [ ] `MUST`: No cross-feature imports — `grep -rn "from.*@/features/" src/components/ --include="*.tsx" | wc -l` returns 0
+- [ ] `MUST`: New `ui/` or `composites/` components have an entry in `docs/ui/COMPONENT_REGISTRY.md`
+- [ ] `MUST`: New `ui/` primitives follow CVA + cn() + forwardRef pattern (see `ui-component-governance.mdc`)
+- [ ] `SHOULD`: Page-level `<h1>` and `<h2>` use `font-serif` (Bitter)
+- [ ] `SHOULD`: Status feedback uses `<StatusAlert>` or `<Badge>` — not inline markup with raw color classes
+
+## 10) Specialized rules by scope
+
+Some subsystems have dedicated rule files that **extend and override** these general principles for their scope. When a conflict arises, the more specific rule wins. When no conflict exists, both apply.
+
+| Scope | Rule file | What it governs |
+|-------|-----------|----------------|
+| `apps/ds-dashboard/src/**/*.{ts,tsx}` | `ui-architecture-boundaries.mdc` | Layer isolation — import direction, cross-feature prohibition, orphan criteria |
+| `apps/ds-dashboard/src/**/*.tsx` | `ui-style-contract.mdc` | Token-first styling, prohibited palette classes, `dark:` prefix, portals, typography, motion |
+| `apps/ds-dashboard/src/components/**/*.tsx` | `ui-component-governance.mdc` | CVA + forwardRef pattern, component registry, naming, accessibility requirements |
+| Any UI task in `apps/ds-dashboard/` | `.agents/skills/ui-curation-governor/SKILL.md` | Design identity, quality gate ("credibility test"), pre-delivery checklist |
+
+**Escalation summary:** The `SHOULD` levels in §6.3 (token styling, CVA) and §6.4 (accessibility, component size) become `MUST` within `apps/ds-dashboard/src/`. If you are unsure whether a pattern is allowed in that context, check `ui-style-contract.mdc` first — it exists precisely to absorb these decisions centrally.
