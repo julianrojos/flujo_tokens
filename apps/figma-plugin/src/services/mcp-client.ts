@@ -55,7 +55,7 @@ export interface McpError {
 export interface ConnectionState {
   configuredPort: number;
   connectedPort: number | null;
-  state: 'connected' | 'disconnected' | 'mismatch' | 'fallback';
+  state: 'connected' | 'connecting' | 'disconnected' | 'mismatch' | 'fallback';
   cause?: string;
 }
 
@@ -265,6 +265,14 @@ export class McpClientService {
    */
   computeConnectionState(capabilities: McpCapabilities | McpError): ConnectionState {
     if (!capabilities.ok) {
+      if (capabilities.code === 'capabilities.timeout') {
+        return {
+          configuredPort: this.lastKnownConfiguredPort,
+          connectedPort: null,
+          state: 'connecting',
+          cause: capabilities.message,
+        };
+      }
       return {
         configuredPort: this.lastKnownConfiguredPort,
         connectedPort: null,

@@ -22,6 +22,7 @@ function getStatusConfig(state: ConnectionState['state'] | undefined): {
 } {
   switch (state) {
     case 'connected':    return { color: COLOR.connected,    label: 'Connected',     sublabel: 'MCP session is active for this file' };
+    case 'connecting':   return { color: COLOR.warning,      label: 'Connecting…',   sublabel: 'Trying to connect to Dashboard and MCP session' };
     case 'disconnected': return { color: COLOR.disconnected, label: 'Disconnected',  sublabel: 'MCP is not linked to the current Figma file' };
     case 'mismatch':     return { color: COLOR.connected,    label: 'Connected',      sublabel: 'Direct MCP session is active' };
     case 'fallback':     return { color: COLOR.connected,    label: 'Connected',      sublabel: 'Direct MCP session is active' };
@@ -34,6 +35,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   docName,
 }) => {
   const { color, label, sublabel } = getStatusConfig(connectionState?.state);
+  const isConnecting = connectionState?.state === 'connecting';
 
   return (
     <div style={{
@@ -44,6 +46,27 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
       backgroundColor: COLOR.surface,
       position: 'relative',
     }}>
+      {isConnecting && (
+        <style>
+          {`
+            @keyframes ds-connecting-pulse {
+              0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+              }
+              70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 16px rgba(245, 158, 11, 0);
+              }
+              100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+              }
+            }
+          `}
+        </style>
+      )}
+
       {/* Status dot with glow */}
       <div style={{
         width: 48,
@@ -53,6 +76,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
         boxShadow: `0 0 0 8px ${color}22`,
         marginBottom: SPACE.md,
         transition: 'background-color 0.3s, box-shadow 0.3s',
+        animation: isConnecting ? 'ds-connecting-pulse 1.6s infinite' : undefined,
       }} />
 
       {/* Label */}
