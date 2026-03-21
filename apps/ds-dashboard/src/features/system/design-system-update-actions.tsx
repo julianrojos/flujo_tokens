@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { StatusAlert } from "@/components/ui/status-alert";
-import { useOperationRunner } from "@/features/ops/hooks/use-operation-runner";
-import { LogTerminal } from "@/features/ops/components/log-terminal";
+import { useOperationRunner } from "@/hooks/use-operation-runner";
+import { LogTerminal } from "@/components/composites/log-terminal";
 import type { FigmaMcpDesignContextCompactResponse } from "@/lib/api";
 import {
   buildUpdateComponentsPayload,

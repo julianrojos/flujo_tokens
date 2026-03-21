@@ -1,5 +1,3 @@
-import type { LogLine } from "@/features/ops/hooks/use-operation-runner";
-
 export type TokensSource = "auto" | "mcp" | "rest";
 
 export interface BuildUpdateComponentsPayloadArgs {

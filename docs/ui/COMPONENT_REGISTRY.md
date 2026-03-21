@@ -448,6 +448,65 @@ Location: `apps/ds-dashboard/src/components/composites/`
 
 ---
 
+### LogTerminal
+
+**Path:** `composites/log-terminal.tsx`
+**Import:** `import { LogTerminal } from "@/components/composites/log-terminal"`
+
+**Exported types:**
+
+```ts
+type RunStatus = "idle" | "running" | "success" | "error";
+
+interface LogLine {
+  text: string;
+  kind: "stdout" | "stderr" | "system";
+}
+```
+
+**`status` values:**
+
+| Value | Visual effect |
+|-------|---------------|
+| `"idle"` | No running indicator; summary bar shown if `summary` present |
+| `"running"` | Amber pulse dot + "Ejecutando…" label in header; spinner bar at bottom if no `summary` |
+| `"success"` | Green summary bar (`bg-status-success-bg/10 text-status-success`) |
+| `"error"` | Red summary bar (`bg-destructive/10 text-destructive`) |
+
+**`kind` values (per `LogLine`):**
+
+| Value | Color |
+|-------|-------|
+| `"stdout"` | `text-foreground` |
+| `"stderr"` | `text-status-error` |
+| `"system"` | `text-primary italic` |
+
+**Props:**
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `logLines` | `LogLine[]` | ✅ | Array of output lines |
+| `status` | `RunStatus` | ✅ | Controls visual state |
+| `summary` | `string` | — | One-line result shown in summary bar |
+| `elapsedMs` | `number` | — | Elapsed time shown in summary bar |
+| `onClear` | `() => void` | — | Shows "Limpiar" button when provided |
+| `className` | `string` | — | Applied to outer container |
+
+```tsx
+<LogTerminal
+  logLines={state.logLines}
+  summary={state.summary}
+  status={state.status}
+  elapsedMs={state.elapsedMs}
+  onClear={actions.clearLogs}
+/>
+```
+
+**When to use:** Streaming command output, long-running operation feedback, execution summaries.
+**When NOT to use:** Short inline status messages (use `StatusAlert`), static read-only text blocks.
+
+---
+
 ## Tier 2 — Feature Components
 
 Location: `apps/ds-dashboard/src/features/`
