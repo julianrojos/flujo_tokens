@@ -1,7 +1,30 @@
 import * as React from "react";
 import { ArrowUpDown } from "lucide-react";
+import { cva } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
+
+export const tableVariants = cva("w-full caption-bottom text-sm");
+export const tableHeaderVariants = cva("[&_tr]:border-b");
+export const tableBodyVariants = cva("[&_tr:last-child]:border-0");
+export const tableRowVariants = cva(
+  "border-b border-border/70 transition-colors hover:bg-muted/40",
+);
+export const tableHeadVariants = cva(
+  "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground",
+);
+export const tableHeadContentVariants = cva("flex w-full items-center gap-2", {
+  variants: {
+    alignment: {
+      end: "justify-end",
+      split: "justify-between",
+    },
+  },
+  defaultVariants: {
+    alignment: "split",
+  },
+});
+export const tableCellVariants = cva("p-3 align-middle");
 
 export const Table = React.forwardRef<
   HTMLTableElement,
@@ -10,7 +33,7 @@ export const Table = React.forwardRef<
   <div className="relative w-full overflow-auto">
     <table
       ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
+      className={cn(tableVariants(), className)}
       {...props}
     />
   </div>
@@ -21,7 +44,7 @@ export const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
+  <thead ref={ref} className={cn(tableHeaderVariants(), className)} {...props} />
 ));
 TableHeader.displayName = "TableHeader";
 
@@ -31,7 +54,7 @@ export const TableBody = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tbody
     ref={ref}
-    className={cn("[&_tr:last-child]:border-0", className)}
+    className={cn(tableBodyVariants(), className)}
     {...props}
   />
 ));
@@ -43,10 +66,7 @@ export const TableRow = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <tr
     ref={ref}
-    className={cn(
-      "border-b border-border/70 transition-colors hover:bg-muted/40",
-      className,
-    )}
+    className={cn(tableRowVariants(), className)}
     {...props}
   />
 ));
@@ -60,16 +80,12 @@ export const TableHead = React.forwardRef<
   return (
     <th
       ref={ref}
-      className={cn(
-        "h-11 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted-foreground",
-        className,
-      )}
+      className={cn(tableHeadVariants(), className)}
       {...props}
     >
       <div
         className={cn(
-          "flex w-full items-center gap-2",
-          isRightAligned ? "justify-end" : "justify-between",
+          tableHeadContentVariants({ alignment: isRightAligned ? "end" : "split" }),
         )}
       >
         <span className="inline-flex min-w-0 items-center gap-1">{children}</span>
@@ -86,6 +102,6 @@ export const TableCell = React.forwardRef<
   HTMLTableCellElement,
   React.TdHTMLAttributes<HTMLTableCellElement>
 >(({ className, ...props }, ref) => (
-  <td ref={ref} className={cn("p-3 align-middle", className)} {...props} />
+  <td ref={ref} className={cn(tableCellVariants(), className)} {...props} />
 ));
 TableCell.displayName = "TableCell";
