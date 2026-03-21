@@ -57,6 +57,7 @@ export interface CreateServerRouteDepsConfig {
   validateGitRef: (...args: unknown[]) => string | null;
   exitDelayMs?: number;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  db?: import('better-sqlite3').Database;
 }
 
 export type CreateServerRouteDeps = CreateServerRouteDepsConfig;
@@ -117,5 +118,6 @@ export function buildCreateServerRouteDeps(deps: CreateServerRouteDepsConfig): C
     validateGitRef: deps.validateGitRef,
     exitDelayMs: deps.exitDelayMs,
     tokenRepo: deps.tokenRepo,
+    db: deps.db,
   };
 }
