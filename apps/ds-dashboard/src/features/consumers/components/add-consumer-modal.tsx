@@ -83,7 +83,7 @@ export function AddConsumerModal({
       <ModalContent size="md">
         <form onSubmit={handleSubmit}>
           <ModalHeader>
-            <h2 className="text-lg font-semibold">Add Consumer File</h2>
+            <h2 className="text-lg font-serif font-semibold">Add Consumer File</h2>
           </ModalHeader>
           <div className="space-y-4 p-5">
             {error ? <ApiErrorMessage error={error} /> : null}

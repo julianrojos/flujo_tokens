@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Modal, ModalContent } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import {
   deleteDesignSystem,
@@ -12,10 +13,10 @@ import {
 } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
+import { cn } from "@/lib/utils";
 import { NewSystemPage } from "@/features/system/new-system-page";
 import { DesignSystemUpdateActions } from "@/features/system/design-system-update-actions";
 import { buildUpdateActionsProps } from "@/features/system/design-systems-admin-page-logic";
-import { ConsumerManagementSection } from "@/features/consumers/components/consumer-management-section";
 
 type RowDraft = {
   name: string;
@@ -484,63 +485,80 @@ export function DesignSystemsAdminPage() {
                   })}
                 />
 
-                <ConsumerManagementSection dsFileKey={draft.figmaFileId} />
+                <div className="mt-4 rounded-md border border-border/70 bg-muted/20 p-3">
+                  <h3 className="text-sm font-semibold">Consumer files</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Manage consumer tracking from the dedicated Consumers section.
+                  </p>
+                  <Link
+                    to="/consumers"
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "mt-3 inline-flex",
+                    )}
+                  >
+                    Open Consumers
+                  </Link>
+                </div>
               </section>
             );
           })}
         </div>
       )}
 
-      {deleteModalTarget ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="design-system-delete-modal-title"
-        >
-          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
-            <h2 id="design-system-delete-modal-title" className="mb-2 text-lg font-semibold">
-              Confirm deletion
-            </h2>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>. All its
-              data will be removed. This action cannot be undone.
-            </p>
+      <Modal
+        open={!!deleteModalTarget}
+        onClose={() => {
+          setDeleteModalTarget(null);
+          setDeleteConfirmed(false);
+        }}
+      >
+        <ModalContent size="md">
+          {deleteModalTarget ? (
+            <div className="p-5">
+              <h2 className="mb-2 text-lg font-serif font-semibold">
+                Confirm deletion
+              </h2>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>. All its
+                data will be removed. This action cannot be undone.
+              </p>
 
-            <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={deleteConfirmed}
-                onChange={(e) => setDeleteConfirmed(e.target.checked)}
-                className="h-4 w-4"
-              />
-              <span>I understand and want to continue</span>
-            </label>
+              <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={deleteConfirmed}
+                  onChange={(e) => setDeleteConfirmed(e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <span>I understand and want to continue</span>
+              </label>
 
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setDeleteModalTarget(null);
-                  setDeleteConfirmed(false);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="outline"
-                className="border-status-error-border/50 text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
-                disabled={!deleteConfirmed || !!busyIds[deleteModalTarget.id]}
-                onClick={() =>
-                  void handleDelete(deleteModalTarget.id)
-                }
-              >
-                Yes, delete
-              </Button>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteModalTarget(null);
+                    setDeleteConfirmed(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-status-error-border/50 text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
+                  disabled={!deleteConfirmed || !!busyIds[deleteModalTarget.id]}
+                  onClick={() =>
+                    void handleDelete(deleteModalTarget.id)
+                  }
+                >
+                  Yes, delete
+                </Button>
+              </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+          ) : null}
+        </ModalContent>
+      </Modal>
     </div>
   );
 }

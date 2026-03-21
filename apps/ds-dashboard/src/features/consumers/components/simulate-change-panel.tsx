@@ -51,6 +51,11 @@ export function SimulateChangePanel({
         fallbackTitle: "Simulation failed",
         fallbackMessage: "Unable to simulate variable change.",
       }));
+    } catch (cause) {
+      setError(toApiErrorDisplay(cause, {
+        fallbackTitle: "Simulation failed",
+        fallbackMessage: "Unable to simulate variable change.",
+      }));
     } finally {
       setSimulating(false);
     }
@@ -60,7 +65,7 @@ export function SimulateChangePanel({
     <Modal open={true} onClose={onClose}>
       <ModalContent size="md">
         <ModalHeader>
-          <h2 className="text-lg font-semibold">Simulate Change</h2>
+          <h2 className="text-lg font-serif font-semibold">Simulate Change</h2>
           <Button
             size="sm"
             variant="ghost"

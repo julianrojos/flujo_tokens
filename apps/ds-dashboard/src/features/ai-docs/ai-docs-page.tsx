@@ -255,7 +255,7 @@ export function AiDocsPage() {
                                                 {(comp.status === 'missing' || comp.status === 'stale') && (
                                                     <button
                                                         onClick={() => handleRegenerate(comp.componentId)}
-                                                        className="text-xs text-blue-600 hover:underline"
+                                                        className="text-xs text-accent hover:text-accent-hover hover:underline"
                                                     >
                                                         {comp.status === 'missing' ? 'Generate' : 'Re-generate'}
                                                     </button>
