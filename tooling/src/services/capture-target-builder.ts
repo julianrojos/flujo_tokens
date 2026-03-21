@@ -71,7 +71,16 @@ export interface BuildCaptureTargetsOptions {
   fetchFigmaImages: (options: { fileKey: string; nodeIds: string[]; token: string; format?: string; scale?: number }) => Promise<{
     images?: Record<string, string>;
   }>;
-  extractComponentSpec: (node: unknown) => ExtractedComponentSpec;
+  extractComponentSpec: (
+    node: unknown,
+    options?: {
+      resolveTokenTraceByVariableId?: (variableId: string) => {
+        path: string | null;
+        aliasChain: string[];
+        resolved: string | null;
+      };
+    },
+  ) => ExtractedComponentSpec;
   resolveSpecExhibitNodeIds: (options: { figmaFilePayload: unknown; targetNodeId: string }) => {
     specsNodeId?: string;
     anatomyNodeId?: string;
@@ -129,7 +138,6 @@ function buildNodeErrorMessage(prefix: string, nodeId: string, error: unknown): 
 function mapSpecExhibit(sourceNodeId: string | undefined, imagesByNodeId: Record<string, string>): SpecExhibit | null {
   const normalizedNodeId = String(sourceNodeId || '').trim();
   if (!normalizedNodeId) return null;
-  
   const imageUrl = String(imagesByNodeId[normalizedNodeId] || '').trim();
   return {
     nodeId: normalizedNodeId,
@@ -339,7 +347,6 @@ export async function buildCaptureTargets(
   for (const candidate of sourceCandidates) {
     const nodeId = String(candidate.node_id || '').trim();
     if (!nodeId) continue;
-    
     const inferredSlug = resolveInferredSlug({
       applySlugOverride,
       componentSlugOverride,
@@ -363,7 +370,6 @@ export async function buildCaptureTargets(
       docsRootOverride,
       slug: inferredSlug,
     });
-    
     const nodeUrl = buildFigmaNodeUrl(descriptor, nodeId) || descriptor.figmaUrl || descriptor.sourceUrl || '';
     const markdownExists = markdownExistsFn(resolvedPaths.markdownPath);
     let extractedNodeSpec: ExtractedComponentSpec | null = null;
@@ -402,10 +408,8 @@ export async function buildCaptureTargets(
             exhibitNodeIds.propertiesNodeId,
             exhibitNodeIds.layoutNodeId,
           ].filter((id): id is string => Boolean(id));
-          
           const uniqueNodeIds = Array.from(new Set(exhibitNodeIdsArray));
           let imagesByNodeId: Record<string, string> = {};
-          
           if (uniqueNodeIds.length > 0) {
             const imagesPayload = await fetchFigmaImages({
               fileKey: descriptor.fileKey,
@@ -573,7 +577,6 @@ function buildMarkdownSeed(params: {
   nodeId: string;
 }): string {
   const { slug, candidateName, nodeUrl, nodeId } = params;
-  
   return `---
 doc_type: component
 doc_status: draft
