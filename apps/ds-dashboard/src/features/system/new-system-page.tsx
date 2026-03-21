@@ -38,6 +38,7 @@ import {
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { cn } from "@/lib/utils";
+import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 
 function toSystemId(rawName: string) {
   return rawName
@@ -1095,15 +1096,10 @@ export function NewSystemPage() {
         <section>
           <h2 className="mb-3 text-xl font-serif font-semibold">2. Import Components from Figma</h2>
           <p className="mb-4 text-sm text-muted-foreground">
-            After creating the system, run a capture from the Components page to bootstrap docs and
-            make the system operational in the sidebar.
+            After creating the system, capture a Figma node to bootstrap docs and make the system
+            operational in the sidebar.
           </p>
-          <Link
-            to="/components"
-            className={cn(buttonVariants({ variant: "outline" }), "w-fit")}
-          >
-            Open Components Capture
-          </Link>
+          <FigmaUrlScanner />
         </section>
       </div>
 
