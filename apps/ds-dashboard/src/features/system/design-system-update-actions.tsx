@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { useOperationRunner } from "@/hooks/use-operation-runner";
 import { LogTerminal } from "@/components/composites/log-terminal";
@@ -12,7 +11,6 @@ import {
   buildUpdateComponentsPayload,
   buildUpdateVariablesPayload,
   resolveUpdateButtonLabel,
-  type TokensSource,
 } from "@/features/system/design-system-update-actions-logic";
 
 function toSuggestedFigmaUrl(figmaFileId: string | null | undefined): string {
@@ -41,8 +39,6 @@ export function DesignSystemUpdateActions({
   const [componentsValidationError, setComponentsValidationError] = useState<string | null>(null);
   const [designContext, setDesignContext] = useState<FigmaMcpDesignContextCompactResponse | null>(null);
   const [allowVariablesWithContextIssues, setAllowVariablesWithContextIssues] = useState(false);
-
-  const [tokensSource, setTokensSource] = useState<TokensSource>("mcp");
 
   const [componentsState, componentsActions] = useOperationRunner(
     `ds-admin-components-${systemId}`,
@@ -84,10 +80,9 @@ export function DesignSystemUpdateActions({
     const payload = buildUpdateVariablesPayload({
       figmaUrl: sharedFigmaUrl,
       figmaToken: sharedToken,
-      tokensSource,
     });
     await variablesActions.run(payload);
-  }, [tokensSource, variablesActions, sharedFigmaUrl, sharedToken]);
+  }, [variablesActions, sharedFigmaUrl, sharedToken]);
 
   const variablesContextMissingCount =
     designContext?.ok === true ? Number(designContext.tokens?.missingCount || 0) : 0;
@@ -192,21 +187,6 @@ export function DesignSystemUpdateActions({
           </p>
 
           <div className="mt-3 space-y-2">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Token source</label>
-              <Select
-                className="w-full"
-                value={tokensSource}
-                onChange={(event) =>
-                  setTokensSource(event.target.value as "auto" | "mcp" | "rest")
-                }
-                disabled={disabled || variablesState.isRunning}
-              >
-                <option value="auto">auto</option>
-                <option value="mcp">mcp</option>
-                <option value="rest">rest</option>
-              </Select>
-            </div>
             <div className="flex items-center justify-end">
               <Button
                 size="sm"

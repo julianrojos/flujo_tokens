@@ -41,11 +41,10 @@ describe("design-system update actions logic", () => {
     });
   });
 
-  it("builds variables payload with source and optional fields", () => {
+  it("builds variables payload with optional fields", () => {
     const payload = buildUpdateVariablesPayload({
       figmaUrl: "https://www.figma.com/design/xyz789/File",
       figmaToken: "",
-      tokensSource: "mcp",
     });
 
     assert.deepEqual(payload, {
@@ -53,7 +52,6 @@ describe("design-system update actions logic", () => {
       force: true,
       merge: true,
       compile: true,
-      tokensSource: "mcp",
       url: "https://www.figma.com/design/xyz789/File",
     });
   });

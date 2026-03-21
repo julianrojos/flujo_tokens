@@ -1,4 +1,5 @@
 import { fetchFigmaFile, fetchFigmaLocalVariables, FigmaApiError } from '../../../../tooling/src/utils/figma-api.js';
+import { fetchFigmaLocalVariablesViaMcp, type FigmaVariablesResponse } from '../../../../tooling/src/services/figma-mcp-variables.js';
 
 // Types for Figma API responses (using imported types)
 interface FigmaNode {
@@ -68,6 +69,15 @@ export interface FileMetadata {
   lastModified: string;
 }
 
+function createCodedError(
+  code: string,
+  message: string,
+  options?: { cause?: unknown },
+): Error & { code: string } {
+  const error = new Error(message, options);
+  return Object.assign(error, { code });
+}
+
 /**
  * Fetch minimal file metadata (name and lastModified) for change detection
  */
@@ -87,10 +97,11 @@ export async function fetchConsumerFileMetadata(
     if (error instanceof FigmaApiError) {
       throw error;
     }
-    throw {
-      code: 'deps.consumer.metadata_fetch_failed',
-      message: `Failed to fetch file metadata: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    };
+    throw createCodedError(
+      'deps.consumer.metadata_fetch_failed',
+      `Failed to fetch file metadata: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error },
+    );
   }
 }
 
@@ -121,13 +132,13 @@ export async function buildDsCatalog(
       }
     }
 
-    // Fetch variables
-    const variablesResponse = await fetchFigmaLocalVariables({ fileKey: dsFileKey, token });
-    
+    // Fetch variables: MCP-first with REST fallback
+    const variablesResponse = await fetchVariablesForDsFile(dsFileKey, token, signal);
+
     // Build variable catalog
     const variables = new Map<string, DsVariableCatalog>();
     const variableIdToKey = new Map<string, string>();
-    
+
     if (variablesResponse.meta?.variableCollections && variablesResponse.meta?.variables) {
       for (const variable of Object.values(variablesResponse.meta.variables)) {
         const variableKey = String((variable as Record<string, unknown>).key || '').trim();
@@ -152,10 +163,62 @@ export async function buildDsCatalog(
     if (error instanceof FigmaApiError) {
       throw error;
     }
-    throw {
-      code: 'deps.consumer.catalog_build_failed',
-      message: `Failed to build DS catalog: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    };
+    throw createCodedError(
+      'deps.consumer.catalog_build_failed',
+      `Failed to build DS catalog: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * Fetch variables for DS file: MCP-first with REST fallback
+ */
+async function fetchVariablesForDsFile(
+  dsFileKey: string,
+  token: string,
+  signal?: AbortSignal,
+): Promise<FigmaVariablesResponse> {
+  const fileUrl = `https://www.figma.com/design/${dsFileKey}`;
+  if (signal?.aborted) {
+    throw createCodedError('deps.consumer.variables_fetch_aborted', 'Operation aborted');
+  }
+
+  // Try MCP first
+  try {
+    return await fetchFigmaLocalVariablesViaMcp({ fileUrl });
+  } catch (mcpError) {
+    // MCP failed. Fallback to REST where possible.
+    const mcpErrorMsg = mcpError instanceof Error ? mcpError.message : String(mcpError);
+    console.warn(`[buildDsCatalog] MCP variables fetch failed: ${mcpErrorMsg}. Attempting REST fallback...`);
+    if (signal?.aborted) {
+      throw createCodedError('deps.consumer.variables_fetch_aborted', 'Operation aborted', {
+        cause: mcpError,
+      });
+    }
+
+    // Fallback to REST if token is available
+    if (token && String(token).trim()) {
+      try {
+        return await fetchFigmaLocalVariables({ fileKey: dsFileKey, token });
+      } catch (restError) {
+        // Both MCP and REST failed
+        const restErrorMsg = restError instanceof Error ? restError.message : String(restError);
+        console.warn(`[buildDsCatalog] REST variables fetch failed: ${restErrorMsg}`);
+        throw createCodedError(
+          'deps.consumer.variables_fetch_failed',
+          'Variables unavailable: MCP plugin not connected and REST fallback failed',
+          { cause: restError },
+        );
+      }
+    } else {
+      // No token for REST fallback
+      throw createCodedError(
+        'deps.consumer.variables_fetch_failed',
+        'Variables unavailable: MCP plugin not connected and no REST token available',
+        { cause: mcpError },
+      );
+    }
   }
 }
 
@@ -173,7 +236,6 @@ export async function scanConsumerFile(
     // Fetch full file tree
     const fileResponse = await fetchFigmaFile({ fileKey, token });
     const consumerVariablesResponse = await fetchFigmaLocalVariables({ fileKey, token });
-    
     const componentInstances = new Map<string, ComponentInstance>();
     const variableBindings = new Map<string, VariableBinding>();
     const warnings: Array<{ code: string; message: string; nodeId?: string }> = [];
@@ -213,7 +275,6 @@ export async function scanConsumerFile(
         const componentKey = fileComponentIdToKey.get(node.componentId);
         if (componentKey && dsCatalog.components.has(componentKey)) {
           const dsComponent = dsCatalog.components.get(componentKey)!;
-          
           if (!componentInstances.has(componentKey)) {
             componentInstances.set(componentKey, {
               componentKey,
@@ -221,7 +282,6 @@ export async function scanConsumerFile(
               nodeIds: [],
             });
           }
-          
           componentInstances.get(componentKey)!.nodeIds.push(node.id);
         }
         // Non-DS components are expected (local components) — no warning needed.
@@ -239,7 +299,6 @@ export async function scanConsumerFile(
 
             if (variableKey && dsCatalog.variables.has(variableKey)) {
               const dsVariable = dsCatalog.variables.get(variableKey)!;
-              
               if (!variableBindings.has(variableKey)) {
                 variableBindings.set(variableKey, {
                   variableKey,
@@ -249,7 +308,6 @@ export async function scanConsumerFile(
                   nodeIds: [],
                 });
               }
-              
               variableBindings.get(variableKey)!.nodeIds.push(node.id);
             }
             // Non-DS variables are expected (consumer-local variables) — no warning needed.
@@ -287,9 +345,10 @@ export async function scanConsumerFile(
     if (error instanceof FigmaApiError) {
       throw error;
     }
-    throw {
-      code: 'deps.consumer.scan_failed',
-      message: `Failed to scan consumer file: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    };
+    throw createCodedError(
+      'deps.consumer.scan_failed',
+      `Failed to scan consumer file: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      { cause: error },
+    );
   }
 }
