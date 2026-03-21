@@ -90,16 +90,13 @@ export function writeStructuredLog(level: string, payload?: StructuredLogPayload
   };
   const line = JSON.stringify({ ...base, ...(payload && typeof payload === 'object' ? payload : {}) });
   if (level === 'error') {
-    // eslint-disable-next-line no-console
     console.error(line);
     return;
   }
   if (level === 'warn') {
-    // eslint-disable-next-line no-console
     console.warn(line);
     return;
   }
-  // eslint-disable-next-line no-console
   console.log(line);
 }
 

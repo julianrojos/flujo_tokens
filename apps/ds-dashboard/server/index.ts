@@ -18,7 +18,6 @@ const displayHost =
 
 function handleProcessShutdown(signal: string): void {
   disposeDesignSystemRepository();
-  // eslint-disable-next-line no-console
   console.log(`[ds-dashboard-api] received ${signal}, shutting down`);
   process.exit(0);
 }
@@ -42,10 +41,8 @@ createFigmaPluginWsServer(httpServer);
 
 // Start the server
 httpServer.listen(port, host, () => {
-  // eslint-disable-next-line no-console
   console.log(`[ds-dashboard-api] listening on http://${displayHost}:${port}`);
   if (host !== '0.0.0.0' && host !== '::') {
-    // eslint-disable-next-line no-console
     console.log(
       '[ds-dashboard-api] loopback-only binding active. Set DS_DASHBOARD_API_HOST=0.0.0.0 to allow LAN access.',
     );

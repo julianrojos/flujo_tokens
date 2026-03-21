@@ -231,7 +231,6 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             const result = await computeDocStatuses(docsDir);
             return c.json(result);
         } catch (error) {
-            // eslint-disable-next-line no-console
             console.error('Error computing doc statuses:', error);
             return c.json(errorResponse('ai.status.computation_failed', 'Failed to compute doc statuses'), 500);
         }
@@ -532,7 +531,6 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             const diffResult = await computeDocDiff(job.output.markdown, slug, docsDir);
             return c.json(diffResult);
         } catch (error) {
-            // eslint-disable-next-line no-console
             console.error('Error computing diff:', error);
             return c.json(errorResponse('ai.diff.computation_failed', 'Failed to compute diff'), 500);
         }
