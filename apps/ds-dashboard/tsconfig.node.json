@@ -18,6 +18,7 @@
     "vite.config.ts",
     "types/**/*.d.ts",
     "src/lib/impact.ts",
+    "src/lib/color-utils.ts",
     "src/lib/naming-debt.ts",
     "src/lib/spec-diff.ts",
     "src/lib/spec-validator.ts",
