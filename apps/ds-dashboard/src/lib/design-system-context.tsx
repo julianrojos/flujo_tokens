@@ -6,6 +6,7 @@ import { ApiErrorMessage } from "@/components/api-error-message";
 export interface DesignSystem {
   id: string;
   name: string;
+  figmaFileId?: string;
 }
 
 export interface DesignSystemsConfig {

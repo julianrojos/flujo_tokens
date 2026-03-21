@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/composites/page-header";
 import { EmptyState, EmptyStateAction } from "@/components/composites/empty-state";
@@ -22,6 +22,7 @@ function resolveActiveTab(value: string | null): TabKey {
 }
 
 export function ConsumersPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const { dsFileKey, loading: resolvingDsFileKey } = useDsFileKey();
@@ -68,7 +69,7 @@ export function ConsumersPage() {
           title="No Figma File ID configured"
           description="Set the Figma File ID in Design Systems Admin to enable consumer file tracking."
           action={
-            <EmptyStateAction onClick={() => (window.location.href = "/system/admin")}>
+            <EmptyStateAction onClick={() => navigate("/system/admin")}>
               Go to Admin
             </EmptyStateAction>
           }
