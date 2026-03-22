@@ -6,24 +6,6 @@
 
 export interface McpCapabilities {
   ok: true;
-  tools: string[];
-  toolsDiscoveryError?: string;
-  /** @deprecated Legacy flags maintained for backward compatibility. Use supportsV2 for clearer semantics. */
-  supports: {
-    searchNodes: boolean;
-    getChildren: boolean;
-    searchStyles: boolean;
-    searchVariables: boolean;
-    portSwitch: boolean;
-  };
-  /** V2 semantic capability flags (canonical, always present in direct-only mode) */
-  supportsV2: {
-    hasFileInfo: boolean;
-    hasComponent: boolean;
-    hasLocalStyles: boolean;
-    hasVariablesData: boolean;
-    hasPortSwitch: boolean;
-  };
   mcp: {
     connected: boolean;
     code: string;
