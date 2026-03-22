@@ -31,7 +31,7 @@ interface SpecEditorDrawerProps {
   initialHash: string | null;
   tokenRegistry: TokenRegistry | null;
   onClose: () => void;
-  onSaved: (result: { message: string }) => void;
+  onSaved: (result: { message: string; raw?: string; rawHash?: string | null }) => void;
 }
 
 const SNIPPETS: Array<{ id: string; label: string; content: string }> = [
@@ -187,7 +187,7 @@ export function SpecEditorDrawer({
       });
       setSuccess(result.message ?? null);
       setBaselineRaw(raw);
-      onSaved({ message: result.message ?? '' });
+      onSaved({ message: result.message ?? '', raw, rawHash: result.rawHash });
       onClose();
     } catch (cause) {
       setError(
