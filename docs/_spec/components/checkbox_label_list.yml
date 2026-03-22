@@ -1,0 +1,106 @@
+name: CheckboxLabelList
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Checkbox
+  component_set: Checkbox-Label-List
+
+summary:
+  purpose: Groups multiple labeled checkbox rows in a vertical stack.
+  when_to_use: Use for lists of independent options in filter and preference panels.
+  when_not_to_use: Do not use for single-option selection or mutually exclusive choices.
+
+anatomy:
+  - id: list_container
+    description: Vertical Auto Layout wrapper for checkbox-label rows.
+  - id: checkbox_label_item
+    description: Repeated Checkbox-Label instance row.
+
+properties:
+  - name: Show_Checkbox__Label_1
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 1.
+  - name: Show_Checkbox__Label_2
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 2.
+  - name: Show_Checkbox__Label_3
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 3.
+  - name: Show_Checkbox__Label_4
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 4.
+  - name: Show_Checkbox__Label_6
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 6.
+  - name: Show_Checkbox__Label_7
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 7.
+  - name: Show_Checkbox__Label_8
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 8.
+  - name: Show_Checkbox__Label_9
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 9.
+  - name: Show_Checkbox__Label_10
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 10.
+  - name: Show_Checkbox__Label_11
+    type: boolean
+    default: true
+    required: false
+    description: Controls visibility of row 11.
+
+content_guidelines:
+  rules:
+    - Keep option labels concise and semantically parallel.
+    - Preserve consistent wording across list rows.
+
+best_practices:
+  do:
+    - Use this component for grouped independent selections.
+    - Keep row spacing and ordering stable.
+  dont:
+    - Do not use this component for radio-like mutually exclusive selection.
+    - Do not hide required options without alternative access.
+
+accessibility:
+  role: group
+  focus:
+    tokens:
+      inner: Semantic.Color.Focus-Outline.Inner
+      outer: Semantic.Color.Focus-Outline.Outer
+  hit_area:
+    desktop_token: A11y.A11y.Dimension.Min-Hit-Area
+    mobile_token: Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA
+  labeling:
+    rules:
+      - Group-level label semantics are TBD.
+      - Each row label must remain associated with its checkbox control.
+
+token_mapping:
+  list.spacing:
+    default: TBD
+  row.item:
+    default: TBD
+
+qa:
+  - Properties match the Figma component definition.
+  - Group accessibility semantics require implementation-side validation.

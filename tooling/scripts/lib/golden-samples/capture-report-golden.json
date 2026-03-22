@@ -1,0 +1,55 @@
+{
+  "ok": true,
+  "dryRun": false,
+  "source": {
+    "url": "https://www.figma.com/design/example-file/Components?node-id=100-200",
+    "fileKey": "example-file",
+    "nodeIdFromUrl": "100:200",
+    "slug": "example-button"
+  },
+  "requested": {
+    "component_kind": "component_set",
+    "include_variants": true,
+    "variant_limit": 6,
+    "scale": 2,
+    "format": "png",
+    "require_existing_doc": true,
+    "main_capture_mode": "rest",
+    "inject_doc_specs": false,
+    "include_spec_exhibits": true
+  },
+  "tokens_bootstrap": {
+    "attempted": true,
+    "created": false,
+    "reason": "already-exists"
+  },
+  "tokens_compile": {
+    "attempted": true,
+    "compiled": false,
+    "reason": "up-to-date"
+  },
+  "total_candidates": 1,
+  "targets_total": 1,
+  "targets": [
+    {
+      "slug": "example-button",
+      "nodeId": "100:200",
+      "kind": "component_set",
+      "pageName": "Components",
+      "markdownPath": "/mock/repo/docs/components/example-button.md",
+      "specPath": "/mock/repo/docs/_spec/components/example-button.yml",
+      "specExists": true,
+      "nodeUrl": "https://www.figma.com/design/example-file/Components?node-id=100-200",
+      "specExhibits": null
+    }
+  ],
+  "captured": [
+    {
+      "slug": "example-button",
+      "status": "success"
+    }
+  ],
+  "failed": [],
+  "skipped": [],
+  "indices_refreshed": false
+}

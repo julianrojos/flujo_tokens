@@ -1,0 +1,112 @@
+/**
+ * Figma MCP Port Route
+ *
+ * Read-only endpoint for current MCP port state.
+ */
+
+import { randomUUID } from 'node:crypto';
+
+import type { Context } from 'hono';
+import type { ConnInfo } from '@hono/node-server/conninfo';
+import { getConnInfo } from '@hono/node-server/conninfo';
+import {
+  getFigmaMcpRuntimeState,
+  type FigmaMcpRuntimeState,
+} from '../services/figma-mcp-runtime-state.ts';
+import { isLoopbackAddress } from '../lib/loopback-utils.ts';
+
+export interface FigmaMcpPortRouteDeps {
+  getConnInfoFn?: (c: Context) => ConnInfo;
+  getRuntimeStateFn?: () => FigmaMcpRuntimeState;
+  internalToken?: string;
+}
+
+function normalizeInternalToken(value: string | undefined): string | undefined {
+  const normalized = String(value ?? '').trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+/**
+ * Check if a request is authorized for MCP management endpoints.
+ */
+function isAuthorized(
+  c: Context,
+  internalToken: string | undefined,
+  getConnInfoFn: (c: Context) => ConnInfo
+): boolean {
+  const connInfo = getConnInfoFn(c);
+  const remoteAddress = String(connInfo?.remote?.address || '').trim();
+
+  // Loopback is always allowed
+  if (remoteAddress && isLoopbackAddress(remoteAddress)) {
+    return true;
+  }
+
+  // Non-loopback or empty remoteAddress requires valid token
+  if (!internalToken) {
+    return false;
+  }
+
+  const receivedToken = String(c.req.header('x-ds-dashboard-internal-token') || '').trim();
+  return receivedToken === internalToken;
+}
+
+/**
+ * GET /api/figma-mcp/port
+ *
+ * Returns current MCP runtime state (read-only).
+ */
+export async function handleGetFigmaMcpPort(c: Context, deps: FigmaMcpPortRouteDeps): Promise<Response> {
+  const getConnInfoFn = deps.getConnInfoFn ?? getConnInfo;
+  const getRuntimeStateFn = deps.getRuntimeStateFn ?? getFigmaMcpRuntimeState;
+  const configuredInternalToken = deps.internalToken ?? process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+  const internalToken = normalizeInternalToken(configuredInternalToken);
+
+  // Authorization check: fail-closed
+  if (!isAuthorized(c, internalToken, getConnInfoFn)) {
+    return c.json(
+      {
+        ok: false,
+        code: 'port.forbidden_remote',
+        message: 'Endpoint allowed only from loopback or with internal token.',
+      },
+      403
+    );
+  }
+
+  let state: FigmaMcpRuntimeState;
+  try {
+    state = getRuntimeStateFn();
+  } catch (error) {
+    const errorId = randomUUID();
+    const timestamp = new Date().toISOString();
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[figma-mcp-port-route][${errorId}] Failed to retrieve runtime state:`, errorMessage);
+    return c.json(
+      {
+        ok: false,
+        code: 'port.runtime_state_unavailable',
+        message: 'Unable to retrieve MCP runtime state.',
+        errorId,
+        timestamp,
+      },
+      500
+    );
+  }
+
+  return c.json({
+    ok: true,
+    activePort: state.activePort,
+    allowedRange: state.allowedRange,
+    lastChangeAt: state.lastChangeAt,
+  });
+}
+
+export function registerFigmaMcpPortRoute(
+  app: {
+    get: (path: string, handler: (c: Context) => Response | Promise<Response>) => void;
+  },
+  deps: FigmaMcpPortRouteDeps = {}
+): void {
+  app.get('/api/figma-mcp/port', (c) => handleGetFigmaMcpPort(c, deps));
+}

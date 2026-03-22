@@ -1,0 +1,54 @@
+{
+  "component": "tags_list",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/tags_list.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/tags_list.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=2075-295",
+  "node_id": "2075:295",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/698f362e-939e-4b4d-90bc-cf338ede5f8b",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/698f362e-939e-4b4d-90bc-cf338ede5f8b",
+  "image_path": "_generated/visual-proofs/images/tags_list.png",
+  "image_sha256": "ec14e7008802eb967a22af803ca6ef9871b84ac178b628473d3dd241184d807d",
+  "image_bytes": 13458,
+  "image_content_type": "image/png",
+  "image_width": 1780,
+  "image_height": 248,
+  "captured_at": "2026-02-21T11:59:52.890Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/tags_list.png",
+    "sha256": "ec14e7008802eb967a22af803ca6ef9871b84ac178b628473d3dd241184d807d",
+    "bytes": 13458,
+    "content_type": "image/png",
+    "width": 1780,
+    "height": 248
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "Size=Medium",
+      "node_id": "2075:526",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/dba13c5f-c041-42e7-99eb-46867069adb3",
+      "image_path": "_generated/visual-proofs/images/variants/tags_list__01__size_medium.png",
+      "image_sha256": "5780b85fdca879dd2766166ce7282db9952ee041f5158e764ac4ae4ed46c1739",
+      "image_bytes": 5733,
+      "image_content_type": "image/png",
+      "image_width": 1724,
+      "image_height": 72,
+      "captured_at": "2026-02-21T11:59:52.890Z"
+    },
+    {
+      "name": "Size=Small",
+      "node_id": "2075:294",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/51d5df18-23bf-47cc-b191-4114ef45b1f9",
+      "image_path": "_generated/visual-proofs/images/variants/tags_list__02__size_small.png",
+      "image_sha256": "21ac2088e6ece030553f69c2fafb82b4070650a01ce0fe0b7b78b941ca1e3d07",
+      "image_bytes": 4984,
+      "image_content_type": "image/png",
+      "image_width": 1432,
+      "image_height": 56,
+      "captured_at": "2026-02-21T11:59:52.890Z"
+    }
+  ]
+}

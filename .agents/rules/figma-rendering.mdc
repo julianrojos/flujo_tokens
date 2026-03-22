@@ -1,0 +1,155 @@
+---
+description: Unified contract for Markdown-to-Figma rendering: authoring subset, pipeline behavior, and implementation guidance.
+globs:
+  - "docs/components/*.md"
+  - "docs/_generated/figma_doc_models/*.json"
+  - ".agents/skills/document-design-system/ds-markdown-to-figma-section/**"
+---
+
+# Figma rendering
+
+This rule is the single source for Markdown -> Figma rendering behavior.
+
+## Authoring constraints
+
+Supported syntax (recommended):
+
+- `#`, `##`, `###` headings
+- Paragraphs
+- Flat lists (`- item` or `1. item`)
+- Markdown tables
+- Inline emphasis: `**bold**`, `*italic*`, `` `code` ``
+
+Syntax to avoid (degrades in Figma output):
+
+- Code fences (```), blockquotes (`>`), raw HTML, images
+- Task lists outside the canonical `## Gaps / TBD` section
+- Nested lists
+- Deep heading levels (`####` and deeper)
+
+If used, these blocks may be simplified or warned by the renderer.
+
+Image scope clarification:
+
+- This rendering rule applies to the Markdown -> Figma stage, not to overall Markdown quality.
+- Component docs may include images when required by documentation rules (for example `component-visual-usage.mdc`).
+- In Figma render output, image blocks are expected to degrade to warnings and/or text fallbacks.
+
+Canonical task-list exception:
+
+- `## Gaps / TBD` keeps checkbox items (`- [ ] ...`) per `component-doc.mdc`.
+- Outside `## Gaps / TBD`, avoid task lists to reduce rendering degradation in Figma.
+
+Table authoring constraints:
+
+- Prefer 3-5 columns.
+- Keep cell text concise to avoid overflow/clipping.
+- Avoid long URLs inside cells; reference links in surrounding paragraphs.
+- Keep one semantic concept per column.
+- Use explicit header labels; do not leave blank headers.
+
+Text-width hygiene:
+
+- Prefer short labels for property names and variant values.
+- Split long content into multiple rows instead of one dense row.
+- Use `TBD` placeholders rather than long speculative explanations.
+
+## Pipeline contract
+
+Required pipeline shape:
+
+1. Markdown -> deterministic doc model JSON
+2. Doc model + theme -> executable Figma rendering code
+
+Determinism:
+
+- Identical markdown input must produce identical doc model JSON output.
+- Block order in JSON must match markdown source order.
+- No random IDs, timestamps, or non-deterministic fields in doc model artifacts.
+
+Theme contract:
+
+- Visual styling must come from `docs/_spec/figma_doc_theme.yml`.
+- Do not hardcode colors, typography, spacing, radii, or effects in rendering logic.
+- Missing theme values may use explicit fallback constants, but fallbacks must be documented in the run report.
+
+Supported markdown block types:
+
+- `header` (from first `# H1`)
+- `card_title` (from `## H2`)
+- `inline_heading` (from `### H3`)
+- `paragraph`
+- `list`
+- `table`
+
+Unsupported blocks must not fail silently:
+
+- Emit warning logs with source line references.
+- Keep rendering resilient by degrading to plain text where possible.
+
+Inline formatting contract:
+
+- `***bold italic***`
+- `**bold**`
+- `_italic_` / `*italic*`
+- `` `code` ``
+
+Missing inline segment metadata must degrade gracefully to plain text.
+
+Placement and idempotency:
+
+- Logical section identity: `Doc/{ComponentName}`.
+- Re-running render must update existing documentation section instead of duplicating it.
+- Default placement offset is `200px` to the right of the component section, configurable via `--offset-x`.
+
+Prohibited content:
+
+- Follow `prohibited-patterns.mdc`.
+- `VariableID:*` must not appear in rendered visible documentation content.
+- Figma node IDs are allowed only for source traceability.
+
+## Implementation guide
+
+Script responsibilities:
+
+- Step A parser (`markdown_to_doc_model.mjs`)
+  - Input: component markdown
+  - Output: deterministic doc model JSON
+  - Must ignore YAML frontmatter and preserve source block order.
+- Step B builder (`build_figma_execute_code.mjs`)
+  - Input: doc model JSON + theme YAML
+  - Outputs: `*.figma-execute.js` and `*.render-payload.json`
+
+Theme usage guidance:
+
+- Resolve typography styles (`h1`, `h2`, `h3`, `body`) from theme keys.
+- Resolve spacing/radius/color/effect values from theme tokens before composing node definitions.
+- Keep style defaults centralized in one fallback map.
+
+Table rendering guidance:
+
+- Render markdown tables as grid layouts, not plain text paragraphs.
+- Normalize cell heights per row using tallest cell.
+- Style header row distinctly (bold + themed surface tone).
+- Keep row/column gaps explicit and deterministic.
+
+Stable node naming for deterministic updates:
+
+- `Doc Canvas`
+- `Header`
+- `Card/<H2 title>`
+- `Table/<H2 or H3 title>`
+
+Unsupported markdown fallback order:
+
+1. Preserve textual content as paragraph
+2. Preserve heading level where applicable
+3. Drop only non-text decoration
+
+Run diagnostics should include:
+
+- rendered block counts by type
+- unsupported block list
+- resolved theme name/version
+- applied `offset_x`
+- target section id/name

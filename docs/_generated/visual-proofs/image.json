@@ -1,0 +1,54 @@
+{
+  "component": "image",
+  "markdown_path": "/Users/julian/Documents/flujo_tokens/docs/components/image.md",
+  "spec_path": "/Users/julian/Documents/flujo_tokens/docs/_spec/components/image.yml",
+  "source_url": "https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-Design-System?node-id=668-57",
+  "node_id": "668:57",
+  "format": "png",
+  "scale": 2,
+  "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/01101c79-188d-4f72-9427-b7eec6d9d599",
+  "image_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/01101c79-188d-4f72-9427-b7eec6d9d599",
+  "image_path": "_generated/visual-proofs/images/image.png",
+  "image_sha256": "11447eaade151d5687d198ef3f70234b9b100620406286e5e6fafaa040d54434",
+  "image_bytes": 8821,
+  "image_content_type": "image/png",
+  "image_width": 472,
+  "image_height": 728,
+  "captured_at": "2026-02-21T11:58:58.332Z",
+  "captured_with": "figma_take_screenshot",
+  "image": {
+    "path": "_generated/visual-proofs/images/image.png",
+    "sha256": "11447eaade151d5687d198ef3f70234b9b100620406286e5e6fafaa040d54434",
+    "bytes": 8821,
+    "content_type": "image/png",
+    "width": 472,
+    "height": 728
+  },
+  "variants_count": 2,
+  "variants": [
+    {
+      "name": "Size=196x214",
+      "node_id": "668:58",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/c9b4cedd-a284-4dc2-9de1-c0670309a1e7",
+      "image_path": "_generated/visual-proofs/images/variants/image__01__size_196x214.png",
+      "image_sha256": "34c56ff124d005cde566d413d3ed2790be9e5c322b5e266ef894eda79af2e947",
+      "image_bytes": 3484,
+      "image_content_type": "image/png",
+      "image_width": 392,
+      "image_height": 428,
+      "captured_at": "2026-02-21T11:58:58.332Z"
+    },
+    {
+      "name": "Size=90x90",
+      "node_id": "663:902",
+      "screenshot_url": "https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/89f37c12-41e5-4cd8-a2af-e4d5ee7acfa9",
+      "image_path": "_generated/visual-proofs/images/variants/image__02__size_90x90.png",
+      "image_sha256": "07c4a5c8906d16bdc6a36a0ce149c0d0e45b7ec24c2bca217c4c74db8872a8e2",
+      "image_bytes": 2018,
+      "image_content_type": "image/png",
+      "image_width": 180,
+      "image_height": 180,
+      "captured_at": "2026-02-21T11:58:58.332Z"
+    }
+  ]
+}

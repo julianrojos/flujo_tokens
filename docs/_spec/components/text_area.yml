@@ -1,0 +1,115 @@
+name: TextArea
+status: draft
+figma:
+  file: 3hGC1ju0d5AKzaoI9pKIyu
+  page: Text Fields
+  component_set: Text-Area
+  component_set_node_id: 225:420
+
+summary:
+  purpose: Captures multi-line user input with validation variants.
+  when_to_use: Use for medium and long-form text entry.
+  when_not_to_use: Do not use for short single-line input.
+
+anatomy:
+  - id: field_container
+    description: Main text area frame containing icon, value/placeholder, and optional message.
+  - id: label
+    description: Optional field label text.
+  - id: support_message
+    description: Optional helper or validation message text.
+
+properties:
+  - name: Type
+    type: enum
+    values: [Default, Active, Success, Error]
+    default: Default
+    required: true
+    description: Visual and semantic state variant of the text area.
+  - name: ↳ Change_Placeholder
+    type: text
+    default: Placeholder
+    required: false
+    description: Placeholder text for empty state.
+  - name: Change_Value
+    type: text
+    default: Value
+    required: false
+    description: Current entered value text.
+  - name: ↳ Change_Label
+    type: text
+    default: Label
+    required: false
+    description: Label copy override.
+  - name: ↳ Change_Message
+    type: text
+    default: Message
+    required: false
+    description: Helper or validation message text override.
+  - name: Show_Icon
+    type: boolean
+    default: true
+    required: false
+    description: Toggles leading icon visibility.
+  - name: Show Placeholder
+    type: boolean
+    default: true
+    required: false
+    description: Toggles placeholder visibility.
+  - name: Show Message
+    type: boolean
+    default: true
+    required: false
+    description: Toggles helper/validation message visibility.
+  - name: Show_Label
+    type: boolean
+    default: true
+    required: false
+    description: Toggles label visibility.
+  - name: Show_message_layer
+    type: boolean
+    default: true
+    required: false
+    description: Toggles message layer container visibility.
+  - name: ↳ Type_Icon
+    type: instance_swap
+    default: "65:928"
+    required: false
+    description: Leading icon slot instance.
+
+content_guidelines:
+  rules:
+    - Use concise labels and helper messages.
+    - Keep placeholder text instructional and short.
+
+best_practices:
+  do:
+    - Use text area for free-form or multi-line responses.
+    - Keep validation copy specific and actionable.
+  dont:
+    - Do not use text area for short one-line inputs.
+    - Do not rely on placeholder text as the only label.
+
+accessibility:
+  role: textbox
+  focus:
+    tokens:
+      inner: Semantic.Color.Focus-Outline.Inner
+      outer: Semantic.Color.Focus-Outline.Outer
+  hit_area:
+    desktop_token: A11y.A11y.Dimension.Min-Hit-Area
+    mobile_token: Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA
+  labeling:
+    rules:
+      - Label text should be programmatically associated with the text area control.
+      - Supporting message should be associated with aria-describedby when present.
+
+token_mapping:
+  field_container.background:
+    default: TBD
+  support_message.color:
+    error: TBD
+
+qa:
+  - Properties match the Figma component set.
+  - Variant names match the Figma source values.

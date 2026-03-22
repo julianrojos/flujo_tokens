@@ -1,0 +1,55 @@
+export type TokenUsageKind = "component-spec" | "css-alias" | "figma-alias";
+
+export interface TokenUsageOccurrence {
+  kind: TokenUsageKind;
+  source: string;
+  owner: string;
+  detail: string;
+}
+
+export interface TokenUsageUnresolvedRef {
+  kind: TokenUsageKind;
+  source: string;
+  owner: string;
+  keyPath: string;
+  tokenPath: string;
+  reason: string;
+  suggested: string | null;
+}
+
+export interface TokenUsageWarning {
+  kind: string;
+  source: string;
+  message: string;
+}
+
+export interface TokenUsageEntry {
+  path: string;
+  slashPath: string;
+  cssVar: string;
+  type: string;
+  collection: string;
+  usageCount: number;
+  usageByKind: Record<string, number>;
+  usedIn: TokenUsageOccurrence[];
+}
+
+export interface TokenUsageIndexSummary {
+  tokens_total: number;
+  tokens_with_usage: number;
+  tokens_without_usage: number;
+  usage_links_total: number;
+  usage_links_by_kind: Record<string, number>;
+  unresolved_total: number;
+}
+
+export interface TokenUsageIndex {
+  ok: boolean;
+  summary: TokenUsageIndexSummary;
+  warnings: TokenUsageWarning[];
+  unresolved: TokenUsageUnresolvedRef[];
+  entries: TokenUsageEntry[];
+  byPath: Record<string, TokenUsageEntry>;
+  bySlashPath: Record<string, TokenUsageEntry>;
+  byCssVar: Record<string, TokenUsageEntry>;
+}

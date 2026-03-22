@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "markdown-sections",
+  "description": "Canonical H2 section order for component documentation pages. Single source of truth shared by scripts (docs-config.mjs), validators (validate-docs.mjs), and agents. Mirrors component-doc.mdc section list.",
+  "version": "1.0.0",
+  "source_of_truth_for": [
+    "component-doc.mdc (Required sections in order)",
+    "tooling/scripts/lib/docs-config.mjs (CANONICAL_H2_ORDER)"
+  ],
+
+  "canonical_h2_order": [
+    "Overview",
+    "Anatomy",
+    "Component API",
+    "Visual Specifications",
+    "Variants",
+    "States",
+    "Usage Guidelines",
+    "Content Guidelines",
+    "Accessibility",
+    "Related Components",
+    "Design\u2013Token Discrepancies",
+    "Gaps / TBD"
+  ],
+
+  "required_count": 10,
+  "note_on_split": "Sections 0–9 (indices) are required. Sections 10–11 are optional and conditional.",
+
+  "sections": [
+    {
+      "heading":   "Overview",
+      "index":     0,
+      "required":  true,
+      "conditional": false,
+      "notes": "Must include a ### Visual Proof subsection. Use TBD placeholder when screenshot is not yet available."
+    },
+    {
+      "heading":   "Anatomy",
+      "index":     1,
+      "required":  true,
+      "conditional": false,
+      "notes": "Numbered list with bold part names matching spec anatomy[].id."
+    },
+    {
+      "heading":   "Component API",
+      "index":     2,
+      "required":  true,
+      "conditional": false,
+      "notes": "Must include a ### Properties table: Name | Type | Default | Required | Description."
+    },
+    {
+      "heading":   "Visual Specifications",
+      "index":     3,
+      "required":  true,
+      "conditional": false,
+      "notes": "Organise by subarea (container, typography, spacing, iconography). Pair tokens with fallback values."
+    },
+    {
+      "heading":   "Variants",
+      "index":     4,
+      "required":  true,
+      "conditional": false,
+      "notes": "Prefer a table when differences are token-driven."
+    },
+    {
+      "heading":   "States",
+      "index":     5,
+      "required":  true,
+      "conditional": false,
+      "notes": "Cover default, hover, focus, active, disabled, loading. State non-interactive if not applicable."
+    },
+    {
+      "heading":   "Usage Guidelines",
+      "index":     6,
+      "required":  true,
+      "conditional": false,
+      "notes": "Must include ### Behavior and ### Examples subsections."
+    },
+    {
+      "heading":   "Content Guidelines",
+      "index":     7,
+      "required":  true,
+      "conditional": false,
+      "notes": "Component-specific writing guidance. If no user-facing text, state that explicitly."
+    },
+    {
+      "heading":   "Accessibility",
+      "index":     8,
+      "required":  true,
+      "conditional": false,
+      "notes": "Role, keyboard interaction, focus management, labeling, contrast. Follow accessibility-docs.mdc."
+    },
+    {
+      "heading":   "Related Components",
+      "index":     9,
+      "required":  true,
+      "conditional": false,
+      "notes": "Links to sibling/alternative components with one-line differentiation."
+    },
+    {
+      "heading":   "Design\u2013Token Discrepancies",
+      "index":     10,
+      "required":  false,
+      "conditional": true,
+      "include_when": "One or more verifiable mismatches exist between design and token values.",
+      "notes": "Follow design-token-discrepancies.mdc."
+    },
+    {
+      "heading":   "Gaps / TBD",
+      "index":     11,
+      "required":  false,
+      "conditional": true,
+      "include_when": "Unresolved gaps exist in the linked spec (binary contract: include or omit, never partially filled).",
+      "gap_item_prefixes": ["SCHEMA_TBD", "TOKEN_INVALID", "CONTENT_UNKNOWN", "A11Y_TBD"],
+      "notes": "Checkbox format: - [ ] [PREFIX] description. Canonical prefix order must be respected."
+    }
+  ]
+}

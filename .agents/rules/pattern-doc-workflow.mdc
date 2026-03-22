@@ -1,0 +1,85 @@
+---
+description: Structure and decision-first contract for reusable UX pattern documentation authored as workflow pages.
+globs:
+  - "docs/workflows/patterns/*.md"
+  - "docs/workflows/patterns/**/*.md"
+---
+
+# Pattern documentation (workflow pages)
+
+Pattern pages document reusable solutions to user-flow problems (not single components).
+They are authored as `workflow` pages and should remain implementation-agnostic.
+
+## Frontmatter contract
+
+- `doc_type` must be `workflow`.
+- `doc_status` must follow `frontmatter-contract.mdc`.
+- Unknown information must be explicit `TBD`.
+
+## Required sections (in order)
+
+Only these H2 headings are allowed in pattern pages in `docs/workflows/patterns/`:
+
+1. `## Overview`
+2. `## Problem`
+3. `## Decision Guide`
+4. `## Pattern Structure`
+5. `## Composition`
+6. `## Behavior`
+7. `## Accessibility`
+8. `## Internationalization`
+9. `## Implementation Links`
+10. `## Governance`
+11. `## Metrics and Feedback`
+12. `## Related Components`
+13. `## Gaps / TBD` (optional)
+
+If extra depth is required, use `###` subsections under the closest allowed H2.
+
+## Section guidance
+
+### `## Problem`
+
+- Define the user problem and context.
+- Include where the pattern should not be used.
+
+### `## Decision Guide`
+
+- Provide clear selection criteria against alternatives.
+- Include at least one explicit tradeoff.
+
+### `## Pattern Structure`
+
+- Describe the canonical flow steps in order.
+- Name the mandatory and optional blocks of the flow.
+
+### `## Composition`
+
+- List participating components and role of each one.
+- Link component docs using local markdown links.
+
+### `## Behavior`
+
+- Cover interaction, responsive behavior, overflow, and failure states.
+- If behavior is unknown, use `TBD` and track in `## Gaps / TBD`.
+
+### `## Internationalization`
+
+- Cover RTL impact, text expansion, and localized formats when relevant.
+- If not applicable, state why explicitly.
+
+### `## Governance`
+
+- Identify owner role and change-approval path for the pattern.
+- Document deprecation trigger and migration expectation.
+
+### `## Metrics and Feedback`
+
+- Define at least one adoption metric and one quality metric.
+- Define the feedback intake channel (issue tracker, form, or chat channel).
+
+## Relationship to component docs
+
+- Pattern docs must not duplicate full component API tables.
+- Component APIs remain canonical in `docs/components/*.md`.
+

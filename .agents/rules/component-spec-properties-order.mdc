@@ -1,0 +1,27 @@
+---
+description: Deterministic ordering rules for `properties` in component spec YAML files.
+globs:
+  - "docs/_spec/components/*.yml"
+---
+
+# Component spec deterministic property order
+
+Canonical implementation: `tooling/scripts/ds-sort-spec.mjs`.
+
+Run:
+
+```bash
+npm run ds:sort-spec -- --all
+npm run ds:sort-spec -- --check
+```
+
+Canonical group mapping and field order are machine-readable in:
+
+- `tooling/lib/property-type-map.json` (type -> ordering group)
+- `tooling/scripts/lib/spec-property-types.mjs` (`PROPERTY_FIELD_ORDER`)
+
+Determinism contract:
+
+- Group order, intra-group fallback order, and key order must be stable across repeated runs with unchanged inputs.
+- Duplicate property names are invalid.
+- Validation emits `DET01` on violations (see `error-codes.mdc`).

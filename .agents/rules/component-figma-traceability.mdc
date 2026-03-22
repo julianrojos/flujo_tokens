@@ -1,0 +1,47 @@
+---
+description: Enforces Figma traceability metadata in component markdown pages to reduce documentation drift.
+globs:
+  - "docs/components/*.md"
+---
+
+# Component Figma traceability
+
+This rule applies to component pages in `docs/components/` (excluding `overview.md`).
+
+## Frontmatter source of truth
+
+Use `frontmatter-contract.mdc` as the canonical schema for `doc_type`, `doc_status`, and `figma` metadata fields.
+This rule adds component-specific traceability constraints on top of that contract.
+
+## Traceability rules
+
+- `figma.component` must use a human-readable component/set name, not node IDs.
+- `figma.page` should match the page name in Figma.
+- `figma.last_verified` records the latest manual verification date.
+- Optional typed traceability fields (`component_set_node_id`, `component_hash`, `properties_count`, `variants_count`) must be omitted when unknown (`TBD` is not valid for these fields).
+- Keep a direct source link in `## Overview` (human-readable URL text is fine).
+- Include `node-id` in the source URL when available to preserve exact node traceability.
+- If `figma.component_set_node_id` is present, it must match `^\d+:\d+$` (for example `2304:1892`) and match the linked component spec value.
+- Spec YAML is the canonical source for `component_set_node_id`; markdown may mirror it for readability.
+- If `figma.component_hash` is present, it must match `^[0-9a-fA-F]{64}$` (64-char SHA-256 hex; normalize to lowercase before storing).
+- If present, `figma.properties_count` and `figma.variants_count` must be non-negative integers.
+- For deterministic maintenance, these optional fields should be regenerated from the linked component spec instead of edited manually.
+
+## Node ID format contract
+
+Figma node IDs appear in two contexts with different separators. Both are validated by regex. **This is the canonical definition**; other rules that reference node ID format must point here.
+
+| Context | Format | Regex | Example |
+| ------- | ------ | ----- | ------- |
+| YAML / frontmatter (`component_set_node_id`) | colon-separated | `^\d+:\d+$` | `2304:1892` |
+| Figma URL query parameter (`node-id=…`) | hyphen-separated | `^\d+-\d+$` | `2304-1892` |
+
+Rules:
+- **Never** mix formats: colon IDs in YAML, hyphen IDs in URLs — never the reverse.
+- A node ID that does not match its expected pattern is invalid. Skills must stop and emit `TRACE01`; `validate:docs` must also flag `TRACE01` (see `error-codes.mdc` for semantics/blocking policy).
+- `VariableID:*` strings do not match `^\d+:\d+$` and are always prohibited (see `prohibited-patterns.mdc`).
+- Validation tooling enforces `^\d+:\d+$` exactly. The regex is sourced from `tooling/lib/property-type-map.json → figma_node_id.pattern` and exported as `FIGMA_NODE_ID_RE` from `tooling/scripts/lib/node-id.mjs`. All validators must import from that module instead of hardcoding the pattern.
+
+## Prohibited values
+
+Follow `prohibited-patterns.mdc`.

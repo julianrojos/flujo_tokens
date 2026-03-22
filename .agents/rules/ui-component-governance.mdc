@@ -1,0 +1,132 @@
+---
+description: "UI component governance: enforce component patterns, registry discipline, naming conventions, and accessibility for the DS Dashboard."
+globs:
+  - "apps/ds-dashboard/src/components/**/*.tsx"
+  - "apps/ds-dashboard/src/features/**/components/**/*.tsx"
+alwaysApply: false
+---
+
+# UI Component Governance
+
+Components are the atoms of this interface. Their quality determines everything downstream. This rule enforces a closed, curated repertoire — not a minimum number of components, but the right components without orphans or frankensteins.
+
+## Tier 1: Primitives (`ui/`)
+
+### Required pattern
+
+Every primitive **MUST** follow the CVA + cn() + forwardRef pattern:
+
+```typescript
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
+
+const componentVariants = cva("base-classes", {
+  variants: {
+    variant: { default: "...", /* other variants */ },
+    size: { sm: "...", md: "...", lg: "..." },
+  },
+  defaultVariants: { variant: "default", size: "md" },
+});
+
+export interface ComponentProps
+  extends React.HTMLAttributes<HTMLElement>,
+    VariantProps<typeof componentVariants> {}
+
+const Component = React.forwardRef<HTMLElement, ComponentProps>(
+  ({ className, variant, size, ...props }, ref) => (
+    <element
+      ref={ref}
+      className={cn(componentVariants({ variant, size, className }))}
+      {...props}
+    />
+  ),
+);
+Component.displayName = "Component";
+
+export { Component, componentVariants };
+```
+
+**Why this pattern:**
+- `cva()` makes variants exhaustive and type-safe — no className ternary chains.
+- `cn()` (tailwind-merge + clsx) prevents class conflicts when consumers override.
+- `forwardRef` is required for composition — parent components and libraries need DOM access.
+- Exporting `componentVariants` allows consuming code to read variant definitions programmatically.
+
+### Exceptions
+
+- Wrapper components that render via `createPortal` (e.g., `Modal`) — `forwardRef` has no target DOM element. Still **MUST** use CVA and cn().
+- Content-only components (e.g., `MarkdownViewer`) — `forwardRef` is `SHOULD` not `MUST`. Still **MUST** use cn().
+
+## Tier 1.5: Composites (`composites/`)
+
+- **MUST** compose only Tier 1 primitives — never import from `features/`.
+- **SHOULD** use CVA when the composite has variant logic.
+- **SHOULD** use forwardRef when ref forwarding is plausible.
+- **MUST** have a clear purpose — abstract a repeated layout pattern, not wrap a single primitive.
+
+### When to create a composite
+
+| Signal | Action |
+|--------|--------|
+| Same layout pattern appears in 2+ features | Extract to `composites/` |
+| Pattern uses 2+ primitives in consistent arrangement | Good composite candidate |
+| Single primitive with one extra prop | Don't wrap — use the primitive directly |
+
+## Component registry
+
+### New component registration
+
+Every new component in `ui/` or `composites/` **MUST** have an entry in `docs/ui/COMPONENT_REGISTRY.md` before the task is considered complete.
+
+Entry must include:
+- Component name and path
+- Available variants and props
+- When to use / when NOT to use
+- One usage example
+
+### Deprecation policy
+
+1. Add `@deprecated` JSDoc with migration path and target removal date.
+2. Add deprecation notice in `COMPONENT_REGISTRY.md`.
+3. Migrate all consumers within 2 sprints.
+4. Delete only after 0 remaining consumers (verify with grep).
+
+## Naming conventions
+
+### Files
+
+- **MUST**: `kebab-case.tsx` for all component files.
+- **MUST**: `PascalCase` for component exports.
+- **MUST**: Match filename to primary export (`status-alert.tsx` → `StatusAlert`).
+
+### Props
+
+| Prop | Purpose | Convention |
+|------|---------|------------|
+| `variant` | Visual style | `"default" \| "outline" \| "ghost" \| ...` |
+| `size` | Dimensions | `"sm" \| "md" \| "lg"` |
+| `className` | Consumer override | Always composed with `cn()` |
+| `loading` | Async state | Boolean, disables interaction |
+
+- **MUST NOT** exceed ~10 props on a single component. If approaching this limit, decompose into sub-components with composition (e.g., `Card > CardHeader > CardTitle`).
+- **SHOULD** prefer composition (`children`, render slots) over configuration props.
+
+## Accessibility
+
+These are non-negotiable for a tool built for designers:
+
+- **MUST** use semantic HTML elements (`<button>`, `<nav>`, `<main>`, `<dialog>`).
+- **MUST** include `aria-label` or `aria-labelledby` on interactive elements without visible text.
+- **MUST** support keyboard navigation for all interactive components.
+- **MUST** use `role="alert"` for status messages (already in `StatusAlert`).
+- **SHOULD** announce dynamic content changes with `aria-live` regions.
+- **SHOULD** test overlay components with keyboard-only navigation (Tab, Escape, Enter).
+
+## Enforcement
+
+- New components without registry entry → **MUST** fix before task completion.
+- Primitives without CVA/cn/forwardRef → **MUST** fix or justify in writing.
+- Props exceeding 10 → **SHOULD** refactor; **MUST** justify if kept.
+- Cross-layer imports → see `ui-architecture-boundaries.mdc`.
+- Style violations → see `ui-style-contract.mdc`.

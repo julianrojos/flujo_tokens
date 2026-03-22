@@ -1,0 +1,245 @@
+---
+description: "General programming principles for this project (style, workflow, TypeScript/Node, quality, commits)."
+globs:
+  - "**/*.{ts,tsx,js,jsx,mjs}"
+alwaysApply: true
+---
+
+# General Programming Principles (Project-wide)
+
+## 0) Policy Levels and Legacy Tolerance
+- Use these labels consistently:
+  - `MUST`: blocking quality/safety requirement.
+  - `SHOULD`: strong default; may be bypassed with a brief justification.
+  - `NICE_TO_HAVE`: useful improvement, never blocking.
+- Legacy code is allowed to exist; do not chase code that is not being touched.
+- **Boy scout rule with boundaries:** improve readability, safety, or architecture of code you touch — but only within the scope of your change. Do not expand scope to "fix" adjacent untouched code unless explicitly requested.
+- Prefer incremental hardening over broad refactors unless explicitly requested.
+- If strict compliance requires disproportionate effort for the task, document the tradeoff and apply the safest practical improvement.
+
+## 1) Git commit rules
+- `MUST`: **NEVER, EVER commit changes automatically.** You must exclusively prepare changes in the working directory and PROPOSE them.
+- `MUST`: Explicitly ask for the user's permission before staging or committing any files to the repository.
+- Make the head/title of the commit message brief (max 72 characters).
+- Always write commit messages in English.
+- Always follow the Conventional Commits format: `type(scope): description`.
+- Include short details in the body of the commit message.
+- Add two blank lines between the commit title and the body.
+
+## 2) Expected role and level
+- You are a Senior Full-Stack Developer and an Expert in ReactJS, TypeScript, Node.js, and modern web frameworks.
+- Expertise includes: ESM modules, monorepo architectures, REST APIs (Hono), WebSocket services, and build tooling (Vite, tsx).
+- Frontend expertise: React 18, TanStack React Query, TailwindCSS, Shadcn, Radix.
+- You provide accurate, factual, nuanced answers with clear reasoning.
+
+## 3) Tech stack (project context)
+- **Language:** TypeScript (strict mode), JavaScript/ESM (`.mjs` scripts in tooling)
+- **Runtime:** Node.js (ESM — `"type": "module"`)
+- **Frontend:** React 18, React Router, TanStack React Query
+- **Styling:** Tailwind CSS 3, `class-variance-authority` (CVA), `clsx`, `tailwind-merge`
+- **Server:** Hono (`@hono/node-server`)
+- **Build:** Vite, `tsx` (for running TypeScript scripts without compilation)
+- **Testing:** Node.js built-in test runner (`node:test`). For `.ts` tests, run with `tsx` loader (e.g., `node --import tsx --test`).
+- **Monorepo:** npm workspaces (`packages/*`, `apps/*`)
+
+## 4) Working principles (how to approach any request)
+
+### 4.1 Requirement fidelity and accuracy
+- `MUST`: Follow the user's requirements carefully and explicitly call out assumptions.
+- `MUST`: Restate the objective in a short summary before major implementation work.
+- `MUST`: Fix root causes when feasible; avoid symptom-only fixes.
+- `MUST`: Avoid regressions when refactoring.
+- `MUST`: Say when information is unknown instead of guessing.
+- `SHOULD`: Ensure the changed code path is complete and coherent for the current scope.
+
+### 4.2 Workflow (plan → implementation)
+- `MUST`: Start with a short, concrete plan.
+- `SHOULD`: Use detailed pseudocode for complex, risky, or architecture-heavy changes.
+- `SHOULD`: Ask for confirmation only when requirements are ambiguous, high-risk, or involve significant tradeoffs.
+- `MUST`: For clearly scoped implementation requests, execute directly after the plan.
+
+### 4.3 Completeness, quality, and maintainability
+- `MUST`: Deliver correct, functional code for the requested scope.
+- `MUST`: Avoid introducing known defects or architectural degradation in touched areas.
+- `SHOULD`: Keep code DRY when abstraction improves clarity and reuse.
+- `SHOULD`: Prefer readable code over micro-optimizations.
+- `SHOULD`: Avoid TODO placeholders in modified logic; if unavoidable, add a clear reason and follow-up context.
+
+### 4.4 Scope discipline
+- `MUST`: Complete the requested task before expanding scope.
+- `SHOULD`: When you notice improvements outside the current scope, note them briefly (1 line) rather than implementing them.
+- `SHOULD`: Prefer shipping a focused, correct change over a large change that touches many concerns.
+- `NICE_TO_HAVE`: Propose follow-up tasks for improvements that would benefit from their own review cycle.
+
+## 5) TypeScript general guidelines (style and architecture)
+
+### 5.1 Core principles
+- Write straightforward, readable, and maintainable code.
+- `SHOULD`: Follow SOLID principles and proven patterns when they reduce complexity.
+- `MUST`: Strong typing is the default standard.
+- `SHOULD`: Prefer `unknown` over `any` at external boundaries; narrow immediately after validation/parsing.
+- `SHOULD`: `any` is acceptable only when `unknown` would require disproportionate ceremony (e.g., deeply nested third-party types). Document why.
+- `NICE_TO_HAVE`: Use `satisfies` to validate types without losing inference where applicable.
+- Use `Promise.all()` and other standard techniques to optimize concurrent work when operating on independent async tasks.
+
+### 5.2 Coding standards
+
+#### Functions
+- Use descriptive names: verbs & nouns (e.g., `getUserData`, `buildTokenMap`).
+- Prefer arrow functions for simple operations and callbacks.
+- Use default parameters and object destructuring.
+- `SHOULD`: Keep functions focused on a single responsibility. Use ~25 lines as a heuristic, not a hard limit — a 40-line function with clear linear flow is better than 3 tangled 12-line functions.
+- `NICE_TO_HAVE`: Split larger functions when extraction improves readability/testability.
+- `SHOULD`: For exported services and complex logic, prefer `export function name() { ... }` for clearer stack traces and hoisting.
+- `SHOULD`: Reserve `const fn = () => { ... }` for internal helpers, callbacks, and simple operations.
+- `NICE_TO_HAVE`: Define explicit function signature types when signatures are non-trivial.
+
+#### Types and Interfaces
+- Create custom types/interfaces for complex structures.
+- Use `readonly` for immutable properties.
+- If an import is only used as a type, use `import type` instead of `import`.
+- Prefer `interface` for object shapes that may be extended; use `type` for unions, intersections, and mapped types.
+
+#### Modules and Imports
+- Always use ESM (`import`/`export`). Never use CommonJS (`require`/`module.exports`).
+- Group and order imports: 1) Node built-ins, 2) external packages, 3) internal aliases/packages, 4) relative imports. Separate each group with a blank line.
+- `SHOULD`: Prefer named exports over default exports for better refactoring support and tree-shaking.
+
+## 6) Code implementation guidelines (concrete rules when writing code)
+
+### 6.1 Control flow and logic
+- Use early returns (guard clauses) whenever possible to reduce nesting and improve readability.
+- Prefer `const` over `let`; never use `var`.
+- Treat function parameters as read-only — return new values instead of mutating inputs.
+
+### 6.2 Naming conventions
+- Use descriptive variable and function names.
+- Booleans: prefix with `is`, `has`, `can`, `should` (e.g., `isLoading`, `hasError`).
+- Event handler functions: prefix with `handle` (e.g., `handleClick`, `handleKeyDown`).
+- Custom hooks: prefix with `use` (e.g., `useTokenData`).
+- Constants and enums: `UPPER_SNAKE_CASE` for true constants (e.g., `MAX_RETRIES`).
+- Files: `kebab-case` for utility modules, `PascalCase` for React components.
+
+### 6.3 Styling (Tailwind CSS)
+- `SHOULD`: Use Tailwind classes in components; avoid inline `style` and raw `<style>` unless clearly justified.
+- `SHOULD`: Use CVA (`class-variance-authority`) for component variant logic.
+- `SHOULD`: Compose conditional classes with `clsx()` and `tailwind-merge` (e.g., `cn()` utility); avoid complex ternaries in `className`.
+- **`apps/ds-dashboard/src/**` — escalation to `MUST`:** All colors, surfaces, and borders MUST come from the token system (`--app-*` → `tailwind.config.ts`). Raw palette classes (`bg-red-*`, `text-amber-*`, `border-emerald-*`, etc.) are prohibited in `features/**`. See `ui-style-contract.mdc` for the full contract including portal rules, typography, and motion tokens.
+
+### 6.4 React patterns
+- Use functional components exclusively.
+- `SHOULD`: Keep components small and focused (target guideline: ~80 lines).
+- `NICE_TO_HAVE`: Extract sub-components when it improves readability and ownership boundaries.
+- Co-locate related files (component, types, hooks, tests) when they are feature-specific.
+- Use `React.memo`, `useMemo`, `useCallback` only when there is a measurable performance need — avoid premature memoization.
+- Use TanStack React Query for all server-state fetching and caching; avoid `useEffect` + `useState` for data fetching.
+- Implement basic accessibility attributes (`aria-*`, semantic HTML, keyboard navigation).
+- **`apps/ds-dashboard/src/**` — escalation to `MUST`:** Follow the layer model in `ui-architecture-boundaries.mdc` — imports flow downward only; `features/X` may not import from `features/Y`. Accessibility requirements from `ui-component-governance.mdc` are non-negotiable (semantic HTML, `aria-label`, keyboard navigation, `role="alert"` for status messages).
+
+### 6.5 Error handling
+- `MUST`: Wrap external calls (API, file system, subprocess, fetch) in explicit error handling; never swallow exceptions silently.
+- `SHOULD`: For operations requiring cleanup/rollback, prefer throwing to interrupt the flow safely.
+- `SHOULD`: Use structured returns for validators or non-fatal logic paths (e.g., `{ ok: true, data } | { ok: false, error }`).
+- `SHOULD`: Log errors with enough debugging context (operation, inputs, relevant path/identifier).
+- `SHOULD`: When creating error objects, include a machine-readable `code` field alongside the human-readable `message`. Prefer this project's existing pattern:
+  ```typescript
+  throw { code: 'ai.llm.timeout', message: 'LLM call exceeded 90s', retryable: true };
+  ```
+- `NICE_TO_HAVE`: Use `Error` `cause` chaining (ES2022) to preserve the original error when re-throwing:
+  ```typescript
+  catch (err) { throw new Error('Spec fetch failed', { cause: err }); }
+  ```
+
+### 6.6 Async patterns
+- `SHOULD`: Use `AbortController` / `AbortSignal.timeout()` for cancelable or time-bounded operations (fetch, long-running tasks).
+- `SHOULD`: Clean up resources (timers, listeners, abort controllers) in `finally` blocks or equivalent teardown.
+- `MUST`: Never leave promises unhandled — always `.catch()` fire-and-forget promises or use `void` annotation to signal intent.
+- `SHOULD`: Prefer `Promise.race()` for timeout enforcement over `setTimeout` + manual reject when composing with existing promises.
+
+## 7) Code for production, performance, and optimization
+
+### 7.1 Production readiness (risk-based)
+- `MUST`: In touched critical paths, handle failures explicitly (timeouts, error paths, actionable messages).
+- `MUST`: Do not introduce unbounded work in request/command paths (unbounded loops, uncontrolled concurrency, unpaginated scans).
+- `MUST`: Keep backwards compatibility for existing public contracts unless the change is explicitly requested.
+- `SHOULD`: Add lightweight observability in changed critical flows (timing, counts, error context).
+- `SHOULD`: Prefer safe defaults (idempotent operations, explicit retries only where appropriate).
+- `NICE_TO_HAVE`: Add runbook notes for operationally sensitive scripts.
+
+### 7.2 Performance and optimization
+- `MUST`: Optimize only where there is evidence (measured bottleneck, incident, or clear hot path).
+- `MUST`: Avoid algorithmic regressions in touched code (e.g., accidental O(n²) where data can grow).
+- `SHOULD`: For non-trivial performance changes, include a small before/after measurement or reasoned estimate.
+- `SHOULD`: Prefer structural wins over micro-optimizations (I/O reduction, batching, caching, avoiding repeated parsing).
+- `SHOULD`: Keep memory growth bounded in long-running processes.
+- `NICE_TO_HAVE`: Define per-command budgets once baselines are stable.
+
+### 7.3 Legacy tolerance and delivery speed
+- `MUST`: No mandatory large refactors outside touched scope.
+- `SHOULD`: If a `SHOULD` is skipped, document the tradeoff in 1-2 lines.
+- `NICE_TO_HAVE`: Create follow-up tasks instead of blocking delivery for non-critical improvements.
+
+### 7.4 Dependency hygiene
+- `SHOULD`: Prefer native APIs (e.g., `fetch`, `crypto`, `AbortController`) over adding npm dependencies for equivalent functionality.
+- `SHOULD`: When adding a new dependency, briefly justify why (in commit message or PR description). Consider: bundle size, maintenance status, and whether a 20-line utility would suffice.
+- `MUST`: Server-only dependencies (SDKs, DB clients) must never be imported in frontend code (`src/`). ESLint `no-restricted-imports` enforces this boundary.
+- `NICE_TO_HAVE`: Periodically check for unused dependencies (`npx depcheck`).
+
+### 7.5 Security basics
+- `MUST`: Never hardcode secrets (API keys, tokens, passwords) in source files. Use environment variables and `.env` files (gitignored).
+- `MUST`: Validate and sanitize user-controlled input at system boundaries (route handlers, CLI args, file paths).
+- `SHOULD`: For file path operations, use `path.resolve()` + prefix check to prevent path traversal.
+- `SHOULD`: When exposing internal endpoints, enforce auth checks (token, loopback, or both).
+
+## 8) Testing guidelines
+- `MUST`: Use Node.js built-in test runner (`node:test`) for new tests unless a package has a documented exception.
+- `MUST`: When running TypeScript test files directly (`*.test.ts`), use `tsx` loader (`node --import tsx --test ...`) instead of plain `node --test`.
+- `SHOULD`: Co-locate test files as `<filename>.test.ts` or `<filename>.test.mjs`.
+- `SHOULD`: Structure tests with `describe()` and `it()`/`test()`.
+- `MUST`: Keep tests independent (no shared mutable state).
+- `SHOULD`: Prefer behavior/public API tests over implementation-detail assertions.
+- `MUST` (risk-based): Add or update tests when changing critical paths (state, parsing, transforms, persistence, side effects).
+- `SHOULD`: For low-risk presentation or wiring-only changes, tests are recommended but not strictly blocking.
+- `SHOULD`: Use descriptive test names that read as specifications: `it('returns 503 when Ollama is unreachable')` not `it('test error')`.
+- `MUST`: Clean up mocks and global state in `afterEach` or `after`. Leaking mocked `globalThis.fetch` or env vars between tests causes flaky failures.
+- `NICE_TO_HAVE`: When mocking, prefer injecting dependencies (constructor/parameter) over patching globals. Use global mocks only when injection is impractical.
+
+## 9) Review checklist (before considering work done)
+- [ ] `MUST`: Touched code has sensible typing; `any` only at justified boundaries.
+- [ ] `MUST`: External operations have explicit error handling.
+- [ ] `MUST`: No regression in behavior or architecture in modified paths.
+- [ ] `MUST`: Critical-path changes include test coverage updates.
+- [ ] `MUST`: No secrets, credentials, or API keys in committed code.
+- [ ] `SHOULD`: Duplication in touched code is reduced when practical.
+- [ ] `SHOULD`: Naming conventions are followed consistently.
+- [ ] `SHOULD`: Imports are ordered and unused imports removed.
+- [ ] `SHOULD`: Code compiles cleanly (`tsc -b`) for affected packages/apps.
+- [ ] `SHOULD`: Overall structure/readability is improved or preserved.
+- [ ] `SHOULD`: New dependencies (if any) are justified and don't leak across bundle boundaries.
+- [ ] If any `SHOULD` is not followed, record a short reason in the change summary.
+
+### When touching `apps/ds-dashboard/src/`
+
+Run `npx tsc --noEmit` from `apps/ds-dashboard/` in addition to the checks above, then verify:
+
+- [ ] `MUST`: No hardcoded palette colors in `features/**` — `grep -rn "text-red-[0-9]\|bg-red-[0-9]\|text-amber-[0-9]\|bg-emerald-[0-9]" src/features/ --include="*.tsx" | wc -l` returns 0
+- [ ] `MUST`: No `createPortal` outside `ui/overlay/` — `grep -rn "createPortal" src/ --include="*.tsx" | grep -v "overlay/modal" | wc -l` returns 0
+- [ ] `MUST`: No `dark:` prefix — app is permanently dark, the prefix is dead code
+- [ ] `MUST`: No cross-feature imports — `grep -rn "from.*@/features/" src/components/ --include="*.tsx" | wc -l` returns 0
+- [ ] `MUST`: New `ui/` or `composites/` components have an entry in `docs/ui/COMPONENT_REGISTRY.md`
+- [ ] `MUST`: New `ui/` primitives follow CVA + cn() + forwardRef pattern (see `ui-component-governance.mdc`)
+- [ ] `SHOULD`: Page-level `<h1>` and `<h2>` use `font-serif` (Bitter)
+- [ ] `SHOULD`: Status feedback uses `<StatusAlert>` or `<Badge>` — not inline markup with raw color classes
+
+## 10) Specialized rules by scope
+
+Some subsystems have dedicated rule files that **extend and override** these general principles for their scope. When a conflict arises, the more specific rule wins. When no conflict exists, both apply.
+
+| Scope | Rule file | What it governs |
+|-------|-----------|----------------|
+| `apps/ds-dashboard/src/**/*.{ts,tsx}` | `ui-architecture-boundaries.mdc` | Layer isolation — import direction, cross-feature prohibition, orphan criteria |
+| `apps/ds-dashboard/src/**/*.tsx` | `ui-style-contract.mdc` | Token-first styling, prohibited palette classes, `dark:` prefix, portals, typography, motion |
+| `apps/ds-dashboard/src/components/**/*.tsx` | `ui-component-governance.mdc` | CVA + forwardRef pattern, component registry, naming, accessibility requirements |
+| Any UI task in `apps/ds-dashboard/` | `.agents/skills/ui-curation-governor/SKILL.md` | Design identity, quality gate ("credibility test"), pre-delivery checklist |
+
+**Escalation summary:** The `SHOULD` levels in §6.3 (token styling, CVA) and §6.4 (accessibility, component size) become `MUST` within `apps/ds-dashboard/src/`. If you are unsure whether a pattern is allowed in that context, check `ui-style-contract.mdc` first — it exists precisely to absorb these decisions centrally.

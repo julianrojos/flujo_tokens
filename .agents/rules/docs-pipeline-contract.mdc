@@ -1,0 +1,64 @@
+---
+description: Canonical contract for the Design System documentation pipeline, including stage order, preconditions, validation gates, and fail-fast behavior.
+globs:
+  - "docs/components/*.md"
+  - "docs/_spec/components/*.yml"
+  - "tooling/scripts/*.mjs"
+---
+
+# Documentation pipeline contract
+
+This contract defines the only canonical order for component documentation:
+
+1. `spec` stage: create/update `docs/_spec/components/<snake_case>.yml`
+2. `markdown` stage: create/update `docs/components/<snake_case>.md` from spec
+3. `figma` stage (optional): render markdown as Figma section
+4. `visual-proof` stage: capture screenshot evidence and update `### Visual Proof` in markdown
+   - Required before promoting component docs to `doc_status: ready`
+   - Optional for `draft` / `needs-review` as long as placeholders remain explicit
+
+## Preconditions (hard fail)
+
+- `markdown` stage requires an existing spec file.
+- `figma` stage requires an existing markdown file and its matching spec file.
+- `visual-proof` stage requires an existing markdown file and a deterministic component node id (`--component-set-id` or `figma.component_set_node_id` in spec).
+- Promoting markdown to `doc_status: ready` requires a completed `visual-proof` stage with a concrete screenshot URL.
+- `ready` specs require a valid `figma.component_set_node_id`.
+- The mapping is strict and 1:1 by slug:
+  - `docs/_spec/components/<slug>.yml` <-> `docs/components/<slug>.md`
+
+## Validation gates (blocking)
+
+- After `spec` stage, run `npm run validate:docs` for the generated spec and block on errors.
+- After `markdown` stage, run `npm run validate:docs` for the generated markdown and block on errors.
+- Before promoting a component to `doc_status: ready`, run `npm run validate:token-refs -- --component-name <name>` and block if `unresolved_tokens > 0` or `wrong_format_tokens > 0`.
+- `figma` stage is blocked when validation fails or markdown is stale relative to its spec.
+- `visual-proof` stage must fail when screenshot capture cannot produce a concrete URL.
+- Generated markdown must include a deterministic traceability block in frontmatter:
+  - `pipeline.ds_component_doc.contract_version`
+  - `pipeline.ds_component_doc.spec_sha256`
+  - `pipeline.ds_component_doc.token_registry_sha256`
+  - `pipeline.ds_component_doc.generator_script_sha256` (optional diagnostic hash; not a blocking drift field)
+
+## Component index synchronization (blocking)
+
+After any stage that mutates component docs/spec/render/proof artifacts, refresh these two files together in one atomic step:
+
+- `docs/_generated/component-registry.json`
+- `docs/components/overview.md`
+
+Required behavior:
+
+- Both files are updated from the same source state.
+- If either write fails, restore both files to pre-run snapshots.
+- Prefer `npm run ds:registry:refresh` for deterministic synchronization.
+
+## Bypass policy
+
+- Validation bypass is exceptional and must be explicit.
+- If a command supports bypass (`--skip-validation`), it must require `--force true`.
+
+## Failure behavior
+
+- Fail fast on first unmet precondition.
+- Error messages must be actionable and include the next command to run.
