@@ -39,7 +39,7 @@ alwaysApply: true
 - **Styling:** Tailwind CSS 3, `class-variance-authority` (CVA), `clsx`, `tailwind-merge`
 - **Server:** Hono (`@hono/node-server`)
 - **Build:** Vite, `tsx` (for running TypeScript scripts without compilation)
-- **Testing:** Node.js built-in test runner (`node --test`)
+- **Testing:** Node.js built-in test runner (`node:test`). For `.ts` tests, run with `tsx` loader (e.g., `node --import tsx --test`).
 - **Monorepo:** npm workspaces (`packages/*`, `apps/*`)
 
 ## 4) Working principles (how to approach any request)
@@ -193,6 +193,7 @@ alwaysApply: true
 
 ## 8) Testing guidelines
 - `MUST`: Use Node.js built-in test runner (`node:test`) for new tests unless a package has a documented exception.
+- `MUST`: When running TypeScript test files directly (`*.test.ts`), use `tsx` loader (`node --import tsx --test ...`) instead of plain `node --test`.
 - `SHOULD`: Co-locate test files as `<filename>.test.ts` or `<filename>.test.mjs`.
 - `SHOULD`: Structure tests with `describe()` and `it()`/`test()`.
 - `MUST`: Keep tests independent (no shared mutable state).
