@@ -391,7 +391,7 @@ export function OperationsPage() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="flex items-start justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Operations</h1>
+          <h1 className="text-3xl font-serif font-semibold tracking-tight">Operations</h1>
           <p className="mt-1.5 text-muted-foreground text-sm">
             Centro de control: regenera artefactos, ejecuta pipelines y sincroniza el sistema de diseño.
           </p>

@@ -3,10 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Modal, ModalContent } from "@/components/ui/overlay/modal";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { ApiErrorMessage } from "@/components/api-error-message";
-import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 import {
   buildImportSuccessSummary,
   type ImportSuccessSummary,
@@ -38,6 +38,7 @@ import {
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { cn } from "@/lib/utils";
+import { FigmaUrlScanner } from "@/features/components/figma-url-scanner";
 
 function toSystemId(rawName: string) {
   return rawName
@@ -919,7 +920,7 @@ export function NewSystemPage() {
 
   return (
     <div className="mx-auto max-w-4xl py-8">
-      <h1 className="mb-4 text-3xl font-bold tracking-tight">Add New Design System</h1>
+      <h1 className="mb-4 text-3xl font-serif font-bold tracking-tight">Add New Design System</h1>
       <p className="mb-8 text-muted-foreground">
         Configure the system directly from this page. If collections are empty, they will be filled
         automatically on the first successful Figma capture.
@@ -927,7 +928,7 @@ export function NewSystemPage() {
 
       <div className="space-y-6">
         <section className="rounded-xl border border-border bg-card p-6">
-          <h2 className="mb-4 text-xl font-semibold">1. System Configuration</h2>
+          <h2 className="mb-4 text-xl font-serif font-semibold">1. System Configuration</h2>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5 md:col-span-2">
@@ -1093,7 +1094,7 @@ export function NewSystemPage() {
         </section>
 
         <section>
-          <h2 className="mb-3 text-xl font-semibold">2. Import Components from Figma</h2>
+          <h2 className="mb-3 text-xl font-serif font-semibold">2. Import Components from Figma</h2>
           <p className="mb-4 text-sm text-muted-foreground">
             After creating the system, capture a Figma node to bootstrap docs and make the system
             operational in the sidebar.
@@ -1102,15 +1103,18 @@ export function NewSystemPage() {
         </section>
       </div>
 
-      {showImportProgressModal ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="import-progress-modal-title"
-        >
-          <div className="w-full max-w-xl rounded-xl border border-border bg-card p-5 shadow-xl">
-            <h2 id="import-progress-modal-title" className="text-lg font-semibold">
+      <Modal
+        open={showImportProgressModal}
+        onClose={() => {
+          setShowImportProgressModal(false);
+          if (savedSystemId) {
+            setActiveSystem(savedSystemId);
+          }
+        }}
+      >
+        <ModalContent size="lg">
+          <div className="p-5">
+            <h2 className="text-lg font-serif font-semibold">
               Importing from Figma
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -1317,8 +1321,8 @@ export function NewSystemPage() {
               </Button>
             </div>
           </div>
-        </div>
-      ) : null}
+        </ModalContent>
+      </Modal>
 
     </div>
   );

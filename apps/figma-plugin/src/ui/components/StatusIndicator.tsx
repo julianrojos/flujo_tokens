@@ -22,7 +22,7 @@ function getStatusConfig(state: ConnectionState['state'] | undefined): {
 } {
   switch (state) {
     case 'connected':    return { color: COLOR.connected,    label: 'Connected',     sublabel: 'MCP session is active for this file' };
-    case 'connecting':   return { color: COLOR.warning,      label: 'Connecting…',   sublabel: 'Trying to connect to Dashboard and MCP session' };
+    case 'connecting':   return { color: COLOR.mismatch,     label: 'Connecting…',   sublabel: 'Trying to connect to Dashboard and MCP session' };
     case 'disconnected': return { color: COLOR.disconnected, label: 'Disconnected',  sublabel: 'MCP is not linked to the current Figma file' };
     case 'mismatch':     return { color: COLOR.connected,    label: 'Connected',      sublabel: 'Direct MCP session is active' };
     case 'fallback':     return { color: COLOR.connected,    label: 'Connected',      sublabel: 'Direct MCP session is active' };

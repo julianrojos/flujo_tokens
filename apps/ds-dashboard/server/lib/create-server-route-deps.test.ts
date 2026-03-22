@@ -60,6 +60,7 @@ function createDeps() {
     toBooleanString: fn,
     toNumberString: fn,
     validateGitRef: fn,
+    db: {} as any,
   };
 }
 
@@ -76,6 +77,7 @@ describe('create-server-route-deps', () => {
       assert.equal(wired.queueJobs, deps.queueJobs);
       assert.equal(wired.queueNpmScript, deps.queueNpmScript);
       assert.equal(wired.validateGitRef, deps.validateGitRef);
+      assert.equal(wired.db, deps.db);
       assert.equal(wired.MAX_FILE_BYTES, deps.MAX_FILE_BYTES);
       assert.equal(wired.MAX_RETAINED_EVENTS, deps.MAX_RETAINED_EVENTS);
     });

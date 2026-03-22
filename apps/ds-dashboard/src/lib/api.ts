@@ -21,8 +21,19 @@ import type {
   ComponentSpecSaveResponse,
   ComponentSpecValidateResponse,
 } from "@/types/spec-editor";
+import type {
+  DsConsumer,
+  SyncResult,
+  FileReport,
+  ComponentUsageReport,
+  VariableUsageReport,
+  SimulationResult,
+  DsSyncRun,
+  SyncRunsResponse,
+} from "@/types/consumers";
 import { API_ERROR_CODES, type ApiErrorCode } from "@/lib/api-errors";
 import { normalizeEnvRef } from "@/lib/env-ref";
+import { resolveDsFileKeyFromConfig } from "@/lib/design-system-keys";
 
 let activeSystemId: string | null = null;
 export function getActiveSystemId() {
@@ -31,6 +42,23 @@ export function getActiveSystemId() {
 export function setActiveSystemId(id: string) {
   activeSystemId = id;
   localStorage.setItem("ds-system-id", id);
+}
+
+/**
+ * Get the figmaFileId (dsFileKey) for the active design system.
+ * This is used to scope all consumer/dependency API calls.
+ * @returns The figmaFileId or null if not configured
+ */
+export async function getDsFileKey(): Promise<string | null> {
+  const systemId = getActiveSystemId();
+  if (!systemId) return null;
+
+  try {
+    const config = await fetchDesignSystemsConfig();
+    return resolveDsFileKeyFromConfig(config, systemId);
+  } catch {
+    return null;
+  }
 }
 
 export interface ApiErrorEnvelope {
@@ -1289,17 +1317,17 @@ function classifyPingDisconnectionReason(
 ): 'no_plugin_session' | 'reachable_but_no_session' {
   // Use mcp.code for accurate classification (payload.ok is always true for /capabilities)
   const mcpCode = payload.mcp?.code;
-  
+
   // ws.not_connected means server can't reach plugin at all
   if (mcpCode === 'ws.not_connected') {
     return 'no_plugin_session';
   }
-  
+
   // ws.disconnected with tools available means dashboard is reachable but plugin not connected
   if (mcpCode === 'ws.disconnected' && payload.ok === true) {
     return 'reachable_but_no_session';
   }
-  
+
   // Default: no plugin session detected
   return 'no_plugin_session';
 }
@@ -1317,10 +1345,10 @@ function toMcpPingResultFromCapabilities(
       message: "MCP Management connection is active.",
     };
   }
-  
+
   // Classify disconnection reason for better UX
   const reason = classifyPingDisconnectionReason(payload);
-  
+
   return {
     ok: false,
     connected: false,
@@ -1624,6 +1652,149 @@ export async function captureFigmaScreenshot(
   }
 
   return accepted;
+}
+
+// ============================================================================
+// Consumer File Management (Cross-file Dependency Tracking)
+// ============================================================================
+
+export interface AddConsumerPayload {
+  dsFileKey?: string;
+  dsFileUrl?: string;
+  consumerFileUrl?: string;
+  consumerName: string;
+  enabled?: boolean;
+}
+
+export interface AddConsumerResponse {
+  ok: boolean;
+  data: DsConsumer;
+}
+
+export interface ListConsumersResponse {
+  ok: boolean;
+  data: (DsConsumer & { latestSync?: DsSyncRun })[];
+}
+
+export interface RemoveConsumerResponse {
+  ok: boolean;
+  data: { consumerId: string };
+}
+
+export interface UpdateConsumerResponse {
+  ok: boolean;
+  data: DsConsumer;
+}
+
+export interface SyncConsumersPayload {
+  dsFileKey: string;
+  consumerIds?: string[];
+  force?: boolean;
+}
+
+export interface ByFileReportResponse {
+  ok: boolean;
+  data: FileReport[];
+}
+
+export interface ByComponentReportResponse {
+  ok: boolean;
+  data: ComponentUsageReport[];
+}
+
+export interface ByVariableReportResponse {
+  ok: boolean;
+  data: VariableUsageReport[];
+}
+
+export interface SimulateChangePayload {
+  dsFileKey: string;
+  variableKey: string;
+  proposedValue: unknown;
+}
+
+export interface SimulationResponse {
+  ok: boolean;
+  data: SimulationResult;
+}
+
+export function addConsumer(payload: AddConsumerPayload) {
+  return requestJson<AddConsumerResponse>("/api/figma-mcp/dependencies/consumers", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function listConsumers(dsFileKey: string) {
+  const params = new URLSearchParams({ dsFileKey });
+  return getJson<ListConsumersResponse>(`/api/figma-mcp/dependencies/consumers?${params.toString()}`);
+}
+
+export function removeConsumer(consumerId: string) {
+  return requestJson<RemoveConsumerResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function updateConsumer(consumerId: string, payload: Partial<{ enabled: boolean }>) {
+  return requestJson<UpdateConsumerResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function syncConsumers(payload: SyncConsumersPayload) {
+  return requestJson<SyncResult>("/api/figma-mcp/dependencies/sync", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchReportByFile(
+  dsFileKey: string,
+  options?: {
+    staleOnly?: boolean;
+  },
+) {
+  const params = new URLSearchParams({ dsFileKey });
+  if (options?.staleOnly) params.set("stale", "true");
+  return getJson<ByFileReportResponse>(`/api/figma-mcp/dependencies/report/by-file?${params.toString()}`);
+}
+
+export function fetchReportByComponent(dsFileKey: string, componentKey?: string) {
+  const params = new URLSearchParams({ dsFileKey });
+  if (componentKey) params.set("componentKey", componentKey);
+  return getJson<ByComponentReportResponse>(`/api/figma-mcp/dependencies/report/by-component?${params.toString()}`);
+}
+
+export function fetchReportByVariable(dsFileKey: string, variableKey?: string) {
+  const params = new URLSearchParams({ dsFileKey });
+  if (variableKey) params.set("variableKey", variableKey);
+  return getJson<ByVariableReportResponse>(`/api/figma-mcp/dependencies/report/by-variable?${params.toString()}`);
+}
+
+export function simulateVariableChange(payload: SimulateChangePayload) {
+  return requestJson<SimulationResponse>("/api/figma-mcp/dependencies/simulate-change", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchConsumerSyncRuns(consumerId: string, limit = 20) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return getJson<SyncRunsResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}/runs?${params.toString()}`);
 }
 
 // ============================================================================

@@ -99,7 +99,6 @@ export function SpecEditorDrawer({
   onClose,
   onSaved,
 }: SpecEditorDrawerProps) {
-  const [isMounted, setIsMounted] = useState(false);
   const [raw, setRaw] = useState(initialRaw);
   const [baselineRaw, setBaselineRaw] = useState(initialRaw);
   const [validating, setValidating] = useState(false);
@@ -111,6 +110,7 @@ export function SpecEditorDrawer({
   const [success, setSuccess] = useState<string | null>(null);
   const [confirmRiskyChanges, setConfirmRiskyChanges] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const handleSaveRef = useRef<() => Promise<void>>();
 
   const dirty = raw.trim() !== baselineRaw.trim();
   const confirmationRequired = useMemo(() => {
@@ -129,10 +129,6 @@ export function SpecEditorDrawer({
   }, [validation]);
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  useEffect(() => {
     if (!open) return;
     setRaw(initialRaw);
     setBaselineRaw(initialRaw);
@@ -144,18 +140,18 @@ export function SpecEditorDrawer({
   }, [open, initialRaw]);
 
   useEffect(() => {
-    if (!open || !isMounted) return;
+    if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "s") {
         event.preventDefault();
         if (!saving && dirty && validation?.validation.valid && (!confirmationRequired || confirmRiskyChanges)) {
-          void handleSave();
+          void handleSaveRef.current?.();
         }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, isMounted, saving, dirty, validation, confirmationRequired, confirmRiskyChanges]);
+  }, [open, saving, dirty, validation, confirmationRequired, confirmRiskyChanges]);
 
   const runValidation = async (value: string) => {
     setValidating(true);
@@ -204,6 +200,9 @@ export function SpecEditorDrawer({
       setSaving(false);
     }
   };
+
+  // Keep ref in sync so the keyboard shortcut always calls the latest handleSave
+  handleSaveRef.current = handleSave;
 
   const handleRestore = async () => {
     setRestoring(true);

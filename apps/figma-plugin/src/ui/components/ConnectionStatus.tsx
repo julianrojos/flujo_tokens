@@ -188,7 +188,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     } finally {
       setIsResolving(false);
     }
-  }, [applyCapabilities, fetchStatus, isResolving, mcpClient]);
+  }, [applyCapabilities, isResolving, mcpClient]);
 
   useEffect(() => {
     fetchStatus();
@@ -463,27 +463,6 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
                 {capabilities.mcp.currentPort ?? '—'}
               </dd>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <dt style={{ color: '#999' }}>Available Tools:</dt>
-              <dd style={{ margin: 0, fontWeight: 500 }}>
-                {capabilities.tools.length > 0
-                  ? capabilities.tools.join(', ')
-                  : 'None'}
-              </dd>
-            </div>
-            {capabilities.toolsDiscoveryError && (
-              <div style={{
-                marginTop: '8px',
-                padding: '8px',
-                backgroundColor: '#FFF8E1',
-                border: '1px solid #FFE0B2',
-                borderRadius: '4px',
-              }}>
-                <span style={{ color: '#8A5A00', fontSize: '11px' }}>
-                  ⚠️ Tools discovery warning: {capabilities.toolsDiscoveryError}
-                </span>
-              </div>
-            )}
             {lastUpdated && (
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #eee' }}>
                 <dt style={{ color: '#999' }}>Last Updated:</dt>
@@ -496,38 +475,6 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         </div>
       )}
 
-      {/* Available Features */}
-      {capabilities && (
-        <div style={{
-          marginTop: '16px',
-          padding: '12px',
-          backgroundColor: 'white',
-          borderRadius: '8px',
-        }}>
-          <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: '#666' }}>
-            Available Features
-          </h4>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {Object.entries(capabilities.supports)
-              .filter(([feature]) => feature !== 'portSwitch')
-              .map(([feature, supported]) => (
-              <span
-                key={feature}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '11px',
-                  borderRadius: '4px',
-                  backgroundColor: supported ? '#E8F5E9' : '#FFEBEE',
-                  color: supported ? '#2E7D32' : '#C62828',
-                  border: `1px solid ${supported ? '#A5D6A7' : '#FFCDD2'}`,
-                }}
-              >
-                {supported ? '✓' : '✗'} {feature.replace(/([A-Z])/g, ' $1').trim()}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

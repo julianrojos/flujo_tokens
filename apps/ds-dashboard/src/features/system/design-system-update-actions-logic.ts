@@ -1,7 +1,3 @@
-import type { LogLine } from "@/features/ops/hooks/use-operation-runner";
-
-export type TokensSource = "auto" | "mcp" | "rest";
-
 export interface BuildUpdateComponentsPayloadArgs {
   figmaUrl: string;
   figmaToken?: string;
@@ -10,7 +6,6 @@ export interface BuildUpdateComponentsPayloadArgs {
 export interface BuildUpdateVariablesPayloadArgs {
   figmaUrl?: string;
   figmaToken?: string;
-  tokensSource: TokensSource;
 }
 
 export function buildUpdateComponentsPayload(
@@ -52,7 +47,6 @@ export function buildUpdateVariablesPayload(
     force: true,
     merge: true,
     compile: true,
-    tokensSource: args.tokensSource,
   };
 
   const figmaUrl = String(args.figmaUrl || "").trim();

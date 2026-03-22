@@ -3,6 +3,7 @@ import { Figma, Loader2, CheckCircle2, AlertTriangle, ChevronDown, ChevronUp } f
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Modal, ModalContent } from "@/components/ui/overlay/modal";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
 import { useDesignSystem } from "@/lib/design-system-context";
@@ -559,54 +560,51 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         ) : null}
       </CardContent>
 
-      {confirmModal ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="figma-overwrite-confirm-modal-title"
-        >
-          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl">
-            <h2 id="figma-overwrite-confirm-modal-title" className="mb-2 text-lg font-semibold">
-              Overwrite existing component data?
-            </h2>
-            <p className="mb-3 text-sm text-muted-foreground">
-              This scan targets {confirmModal.totalTargets} component
-              {confirmModal.totalTargets === 1 ? "" : "s"} and will overwrite existing
-              documentation for {confirmModal.existingSlugs.length} component
-              {confirmModal.existingSlugs.length === 1 ? "" : "s"}.
-            </p>
-            <div className="mb-4 max-h-40 overflow-auto rounded-md border border-border/70 bg-muted/30 p-2">
-              <ul className="space-y-1 text-sm">
-                {confirmModal.existingSlugs.map((slug) => (
-                  <li key={slug}>
-                    <code>{slug}</code>
-                  </li>
-                ))}
-              </ul>
+      <Modal open={!!confirmModal} onClose={() => setConfirmModal(null)} aria-labelledby="figma-scanner-confirm-title">
+        <ModalContent size="md">
+          {confirmModal ? (
+            <div className="p-5">
+              <h2 id="figma-scanner-confirm-title" className="mb-2 text-lg font-serif font-semibold">
+                Overwrite existing component data?
+              </h2>
+              <p className="mb-3 text-sm text-muted-foreground">
+                This scan targets {confirmModal.totalTargets} component
+                {confirmModal.totalTargets === 1 ? "" : "s"} and will overwrite existing
+                documentation for {confirmModal.existingSlugs.length} component
+                {confirmModal.existingSlugs.length === 1 ? "" : "s"}.
+              </p>
+              <div className="mb-4 max-h-40 overflow-auto rounded-md border border-border/70 bg-muted/30 p-2">
+                <ul className="space-y-1 text-sm">
+                  {confirmModal.existingSlugs.map((slug) => (
+                    <li key={slug}>
+                      <code>{slug}</code>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmModal(null)}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={() => void handleConfirmContinue()} disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Scanning…
+                    </>
+                  ) : (
+                    "Continue"
+                  )}
+                </Button>
+              </div>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setConfirmModal(null)}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              <Button onClick={() => void handleConfirmContinue()} disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Scanning…
-                  </>
-                ) : (
-                  "Continue"
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+          ) : null}
+        </ModalContent>
+      </Modal>
     </Card>
   );
 }

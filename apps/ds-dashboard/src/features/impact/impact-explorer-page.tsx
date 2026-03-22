@@ -3,7 +3,7 @@ import { createSearchParams, Link, useSearchParams } from "react-router-dom";
 import { AlertTriangle, ShieldAlert, Target } from "lucide-react";
 
 import { fetchImpact, fetchTokenRegistry } from "@/lib/api";
-import { normalizeToHex6 } from "@/features/tokens/accessibility/color-utils";
+import { normalizeToHex6 } from "@/lib/color-utils";
 import type { ImpactReport, ImpactSeverity } from "@/types/impact";
 import type { TokenEntry } from "@/types/token-registry";
 import { Badge } from "@/components/ui/badge";

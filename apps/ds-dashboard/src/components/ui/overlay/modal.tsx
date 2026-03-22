@@ -28,6 +28,8 @@ export interface ModalProps {
   children: React.ReactNode;
   className?: string;
   zIndex?: number;
+  /** Associates a heading id with the dialog for screen readers (WCAG 4.1.2). */
+  "aria-labelledby"?: string;
 }
 
 export interface ModalContentProps
@@ -73,6 +75,7 @@ export function Modal({
   children,
   className,
   zIndex = 1000,
+  "aria-labelledby": ariaLabelledby,
 }: ModalProps) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -91,6 +94,7 @@ export function Modal({
       style={{ zIndex }}
       role="dialog"
       aria-modal="true"
+      aria-labelledby={ariaLabelledby}
     >
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"

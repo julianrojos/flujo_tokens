@@ -26,7 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { FigmaCaptureModal } from "./figma-capture-modal";
-import { SpecEditorDrawer } from "@/features/spec-editor/spec-editor-drawer";
+import { SpecEditorDrawer } from "./spec-editor-drawer";
 
 const ComponentSpecEditor = lazy(() => import("./component-spec-editor").then(module => ({
   default: module.ComponentSpecEditor,

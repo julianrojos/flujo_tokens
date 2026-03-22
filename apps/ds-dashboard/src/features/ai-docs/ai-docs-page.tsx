@@ -112,7 +112,7 @@ export function AiDocsPage() {
         return (
             <div className="container mx-auto py-6 space-y-6">
                 <div>
-                    <h1 className="text-3xl font-bold">Review Changes</h1>
+                    <h1 className="text-3xl font-serif font-bold">Review Changes</h1>
                     <p className="text-muted-foreground mt-1">
                         Review the diff before applying changes to documentation
                     </p>
@@ -130,7 +130,7 @@ export function AiDocsPage() {
     return (
         <div className="container mx-auto py-6 space-y-6">
             <div>
-                <h1 className="text-3xl font-bold">AI Documentation</h1>
+                <h1 className="text-3xl font-serif font-bold">AI Documentation</h1>
                 <p className="text-muted-foreground mt-1">
                     Generate component documentation using AI
                 </p>
@@ -255,7 +255,7 @@ export function AiDocsPage() {
                                                 {(comp.status === 'missing' || comp.status === 'stale') && (
                                                     <button
                                                         onClick={() => handleRegenerate(comp.componentId)}
-                                                        className="text-xs text-blue-600 hover:underline"
+                                                        className="text-xs text-accent hover:text-accent-hover hover:underline"
                                                     >
                                                         {comp.status === 'missing' ? 'Generate' : 'Re-generate'}
                                                     </button>

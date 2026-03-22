@@ -2,7 +2,31 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import type { DsComponentCatalog, DsVariableCatalog } from './figma-rest-consumer-service';
 
+const originalFetch = globalThis.fetch;
+const originalDashboardInternalUrl = process.env.DS_DASHBOARD_INTERNAL_URL;
+const originalDashboardInternalToken = process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+
 describe('FigmaRestConsumerService', () => {
+  beforeEach(() => {
+    (globalThis as { fetch: typeof fetch }).fetch = originalFetch;
+    delete process.env.DS_DASHBOARD_INTERNAL_URL;
+    delete process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+  });
+
+  afterEach(() => {
+    (globalThis as { fetch: typeof fetch }).fetch = originalFetch;
+    if (originalDashboardInternalUrl === undefined) {
+      delete process.env.DS_DASHBOARD_INTERNAL_URL;
+    } else {
+      process.env.DS_DASHBOARD_INTERNAL_URL = originalDashboardInternalUrl;
+    }
+    if (originalDashboardInternalToken === undefined) {
+      delete process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+    } else {
+      process.env.DS_DASHBOARD_INTERNAL_TOKEN = originalDashboardInternalToken;
+    }
+  });
+
   test('buildDsCatalog creates proper catalog structure', async () => {
     // This is a basic test to verify the service structure
     // In a real test, we would mock the Figma API calls
@@ -39,5 +63,70 @@ describe('FigmaRestConsumerService', () => {
     assert.strictEqual(variable.name, 'primary-color');
     assert.strictEqual(variable.type, 'COLOR');
     assert.strictEqual(variable.collectionId, 'collection-1');
+  });
+
+  test('buildDsCatalog uses MCP first and falls back to REST variables when MCP fails', async () => {
+    process.env.DS_DASHBOARD_INTERNAL_URL = 'http://127.0.0.1:8787';
+    const requestLog: string[] = [];
+
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      requestLog.push(url);
+
+      if (url.includes('/v1/files/ds-file-key/variables/local')) {
+        return new Response(
+          JSON.stringify({
+            meta: {
+              variableCollections: {
+                'VariableCollectionId:1:1': { id: 'VariableCollectionId:1:1', name: 'Core' },
+              },
+              variables: {
+                'VariableID:1:2': {
+                  id: 'VariableID:1:2',
+                  key: 'color.primary',
+                  name: 'Primary',
+                  resolvedType: 'COLOR',
+                  variableCollectionId: 'VariableCollectionId:1:1',
+                },
+              },
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+
+      if (url.includes('/v1/files/ds-file-key')) {
+        return new Response(
+          JSON.stringify({
+            name: 'DS File',
+            lastModified: '2026-03-21T00:00:00Z',
+            document: { id: '0:0', name: 'Root', type: 'DOCUMENT' },
+            components: {
+              '1:1': { key: 'comp.button.primary', name: 'Button/Primary' },
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503, statusText: 'Service Unavailable' });
+      }
+
+      throw new Error(`Unexpected fetch URL in test: ${url}`);
+    }) as typeof fetch;
+
+    const { buildDsCatalog } = await import('./figma-rest-consumer-service');
+    const catalog = await buildDsCatalog('ds-file-key', 'figd_test_token');
+
+    assert.equal(catalog.components.size, 1);
+    assert.equal(catalog.variables.size, 1);
+    assert.ok(catalog.variables.has('color.primary'));
+
+    const mcpAttemptIndex = requestLog.findIndex((url) => url.endsWith('/api/figma-mcp-variables'));
+    const restVariablesIndex = requestLog.findIndex((url) => url.includes('/v1/files/ds-file-key/variables/local'));
+    assert.ok(mcpAttemptIndex >= 0, 'Expected MCP variables attempt');
+    assert.ok(restVariablesIndex >= 0, 'Expected REST variables fallback');
+    assert.ok(mcpAttemptIndex < restVariablesIndex, 'Expected MCP attempt before REST fallback');
   });
 });

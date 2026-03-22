@@ -6,39 +6,29 @@ export {
   CardTitle,
   CardDescription,
   CardContent,
+  CardFooter,
   cardVariants,
 } from "./card";
-export { Input } from "./input";
+export { Input, inputVariants } from "./input";
 export { Loader, loaderVariants } from "./loader";
-export { MarkdownViewer } from "./markdown-viewer";
-export { Select } from "./select";
+export { MarkdownViewer, markdownViewerVariants } from "./markdown-viewer";
+export { Select, selectVariants } from "./select";
 export {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarGroupAction,
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarHeader,
-  SidebarInput,
   SidebarInset,
   SidebarMenu,
-  SidebarMenuAction,
-  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSkeleton,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
-  SidebarRail,
-  SidebarSeparator,
   SidebarTrigger,
-  useSidebar,
 } from "./sidebar";
-export { SortableTableHead } from "./sortable-table-head";
+export { SortableTableHead, sortableTableHeadButtonVariants } from "./sortable-table-head";
 export {
   StatusAlert,
   StatusAlertDescription,
@@ -48,9 +38,7 @@ export {
 export {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,

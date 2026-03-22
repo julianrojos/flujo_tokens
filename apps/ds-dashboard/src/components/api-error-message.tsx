@@ -13,13 +13,8 @@ interface ApiErrorMessageProps {
 }
 
 const toneClasses: Record<ApiErrorMessageTone, string> = {
-  error: "border-red-500/40 bg-red-500/10 text-red-700",
-  warning: "border-amber-500/40 bg-amber-500/10 text-amber-700",
-};
-
-const toneSubtleClasses: Record<ApiErrorMessageTone, string> = {
-  error: "text-red-700/80",
-  warning: "text-amber-700/80",
+  error: "border-status-error-border/40 bg-status-error-bg/20 text-status-error",
+  warning: "border-status-warning-border/40 bg-status-warning-bg/20 text-status-warning",
 };
 
 export function ApiErrorMessage({
@@ -33,13 +28,13 @@ export function ApiErrorMessage({
       <div className="font-medium">{error.title}</div>
       <div className="mt-1">{error.message}</div>
       {error.action ? (
-        <div className={cn("mt-2 text-xs", toneSubtleClasses[tone])}>
+        <div className="mt-2 text-xs opacity-80">
           Suggested action: {error.action}
         </div>
       ) : null}
       {children}
       {error.code ? (
-        <div className={cn("mt-2 text-[11px]", toneSubtleClasses[tone])}>
+        <div className="mt-2 text-[11px] opacity-80">
           Code: {error.code}
           {error.requestId ? ` · Request: ${error.requestId}` : ""}
         </div>

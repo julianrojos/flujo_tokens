@@ -81,7 +81,19 @@ function extractLineNumber(detail: string): number | null {
 function resolveAliasTarget(registry: TokenRegistry | null, aliasOf: string | undefined) {
   const ref = String(aliasOf || "").trim();
   if (!registry || !ref) return null;
-  return registry.byPath?.[ref] ?? registry.bySlashPath?.[ref] ?? null;
+  const directMatch = registry.byPath?.[ref] ?? registry.bySlashPath?.[ref] ?? null;
+  if (directMatch) return directMatch;
+
+  const canonicalCandidates = new Set<string>();
+  canonicalCandidates.add(ref);
+  if (ref.startsWith("_")) canonicalCandidates.add(ref.slice(1));
+  canonicalCandidates.add(ref.replace(/^_([^./]+)([./])/, "$1$2"));
+
+  for (const candidate of canonicalCandidates) {
+    const match = registry.byPath?.[candidate] ?? registry.bySlashPath?.[candidate] ?? null;
+    if (match) return match;
+  }
+  return null;
 }
 
 function parseDimensionPreview(value: string) {

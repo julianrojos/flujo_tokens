@@ -1,4 +1,4 @@
-import { computeContrastRatio, normalizeToHex6 } from "../features/tokens/accessibility/color-utils";
+import { computeContrastRatio, normalizeToHex6 } from "./color-utils";
 import type { ComponentRegistry } from "../types/component-registry";
 import type {
   ImpactComponent,

@@ -7,8 +7,6 @@ export interface DsConsumer {
   ds_file_key: string;
   consumer_file_key: string;
   consumer_name: string;
-  sync_interval_hours: number;
-  max_stale_hours: number;
   enabled: boolean;
   created_at: string;
 }
@@ -58,8 +56,6 @@ export interface AddConsumerParams {
   ds_file_key: string;
   consumer_file_key: string;
   consumer_name: string;
-  sync_interval_hours?: number;
-  max_stale_hours?: number;
   enabled?: boolean;
 }
 
@@ -85,9 +81,8 @@ export class DependencyRepository {
     const id = randomUUID();
     const stmt = this.db.prepare(`
       INSERT INTO ds_consumers (
-        id, ds_file_key, consumer_file_key, consumer_name,
-        sync_interval_hours, max_stale_hours, enabled
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        id, ds_file_key, consumer_file_key, consumer_name, enabled
+      ) VALUES (?, ?, ?, ?, ?)
     `);
 
     try {
@@ -96,8 +91,6 @@ export class DependencyRepository {
         params.ds_file_key,
         params.consumer_file_key,
         params.consumer_name,
-        params.sync_interval_hours ?? 24,
-        params.max_stale_hours ?? 72,
         params.enabled !== false ? 1 : 0  // SQLite boolean as 1/0
       );
     } catch (error) {
@@ -170,8 +163,6 @@ export class DependencyRepository {
         ds_file_key: row.ds_file_key,
         consumer_file_key: row.consumer_file_key,
         consumer_name: row.consumer_name,
-        sync_interval_hours: row.sync_interval_hours,
-        max_stale_hours: row.max_stale_hours,
         enabled: Boolean(row.enabled),
         created_at: row.created_at,
       };
@@ -201,6 +192,21 @@ export class DependencyRepository {
       return row ? { ...row, enabled: Boolean(row.enabled) } : null;
     } catch (error) {
       console.error(`[DependencyRepository] Failed to get consumer by id: ${consumerId}`, error);
+      throw error;
+    }
+  }
+
+  updateConsumerEnabled(consumerId: string, enabled: boolean): DsConsumer | null {
+    try {
+      const stmt = this.db.prepare(`
+        UPDATE ds_consumers
+        SET enabled = ?
+        WHERE id = ?
+      `);
+      stmt.run(enabled ? 1 : 0, consumerId);
+      return this.getConsumer(consumerId);
+    } catch (error) {
+      console.error(`[DependencyRepository] Failed to update consumer enabled state: ${consumerId}`, error);
       throw error;
     }
   }
@@ -390,9 +396,9 @@ export class DependencyRepository {
     }
 
     const stmt = this.db.prepare(`
-      SELECT id FROM ds_sync_runs 
-      WHERE consumer_id = ? 
-      ORDER BY synced_at DESC, id DESC 
+      SELECT id FROM ds_sync_runs
+      WHERE consumer_id = ?
+      ORDER BY synced_at DESC, id DESC
       LIMIT -1 OFFSET ?
     `);
     const oldRuns = stmt.all(consumerId, keepCount) as { id: string }[];
@@ -419,5 +425,24 @@ export class DependencyRepository {
     transaction();
 
     return oldRuns.length;
+  }
+
+  listSyncRuns(consumerId: string, limit = 20): DsSyncRun[] {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error('limit must be a positive integer');
+    }
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM ds_sync_runs
+      WHERE consumer_id = ?
+      ORDER BY synced_at DESC, id DESC
+      LIMIT ?
+    `);
+
+    const rows = stmt.all(consumerId, limit) as DsSyncRun[];
+    return rows.map(row => ({
+      ...row,
+      status: row.status as DsSyncRun['status'],
+    }));
   }
 }

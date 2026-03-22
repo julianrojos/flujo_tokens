@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 /**
  * AiDocPreview Component
  * Simple markdown preview for generated documentation
@@ -32,9 +34,9 @@ function formatRelativeTime(timestamp: number): string {
 /**
  * Parse and render simple markdown
  */
-function renderMarkdown(markdown: string): React.ReactNode[] {
+function renderMarkdown(markdown: string): ReactNode[] {
     const lines = markdown.split('\n');
-    const elements: React.ReactNode[] = [];
+    const elements: ReactNode[] = [];
 
     let inCodeBlock = false;
     let codeContent: string[] = [];
@@ -89,7 +91,7 @@ function renderMarkdown(markdown: string): React.ReactNode[] {
         }
         if (line.startsWith('# ')) {
             elements.push(
-                <h2 key={`h2-${key++}`} className="text-xl font-bold mt-4 mb-2">
+                <h2 key={`h2-${key++}`} className="text-xl font-serif font-bold mt-4 mb-2">
                     {line.slice(2)}
                 </h2>
             );
@@ -138,7 +140,7 @@ function renderMarkdown(markdown: string): React.ReactNode[] {
 /**
  * Render inline content with basic formatting
  */
-function renderInlineContent(text: string): React.ReactNode {
+function renderInlineContent(text: string): ReactNode {
     // Handle bold
     const boldParts = text.split(/(\*\*[^*]+\*\*)/);
     return boldParts.map((part, i) => {

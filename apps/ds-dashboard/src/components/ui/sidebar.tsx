@@ -1,21 +1,62 @@
 import * as React from "react";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { cva } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+export const sidebarProviderVariants = cva("group/sidebar-wrapper flex min-h-screen w-full");
+export const sidebarVariants = cva(
+  "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/70 bg-card/85 backdrop-blur-lg lg:flex",
+);
+export const sidebarInsetVariants = cva("min-w-0 flex-1");
+export const sidebarHeaderVariants = cva("p-5");
+export const sidebarContentVariants = cva("flex-1 overflow-auto px-3");
+export const sidebarFooterVariants = cva("mt-auto p-3");
+export const sidebarGroupVariants = cva("space-y-1 pb-2");
+export const sidebarGroupContentVariants = cva("space-y-1");
+export const sidebarGroupLabelVariants = cva(
+  "px-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground",
+);
+export const sidebarMenuVariants = cva("space-y-1");
+export const sidebarMenuItemVariants = cva("list-none");
+export const sidebarMenuButtonVariants = cva(
+  "group w-full rounded-xl border border-transparent px-3 py-3 text-left transition",
+  {
+    variants: {
+      state: {
+        active: "border-primary/20 bg-primary/10",
+        idle: "hover:border-border/70 hover:bg-accent/60",
+      },
+    },
+    defaultVariants: {
+      state: "idle",
+    },
+  },
+);
+export const sidebarTriggerVariants = cva(
+  "inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground transition hover:bg-accent hover:text-foreground",
+);
 
-export function SidebarProvider({
+export const SidebarProvider = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(function SidebarProvider(
+  {
   className,
   children,
-}: React.HTMLAttributes<HTMLDivElement>) {
+},
+  ref,
+) {
   return (
     <div
-      className={cn("group/sidebar-wrapper flex min-h-screen w-full", className)}
+      ref={ref}
+      className={cn(sidebarProviderVariants(), className)}
     >
       {children}
     </div>
   );
-}
+});
+SidebarProvider.displayName = "SidebarProvider";
 
 export const Sidebar = React.forwardRef<
   HTMLElement,
@@ -25,10 +66,7 @@ export const Sidebar = React.forwardRef<
     <aside
       ref={ref}
       data-collapsed={collapsed}
-      className={cn(
-        "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-border/70 bg-card/85 backdrop-blur-lg lg:flex",
-        className,
-      )}
+      className={cn(sidebarVariants(), className)}
       style={{ width: collapsed ? "var(--app-sidebar-width-collapsed)" : "var(--app-sidebar-width)" }}
       {...props}
     >
@@ -42,7 +80,7 @@ export const SidebarInset = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("min-w-0 flex-1", className)} {...props} />
+  <div ref={ref} className={cn(sidebarInsetVariants(), className)} {...props} />
 ));
 SidebarInset.displayName = "SidebarInset";
 
@@ -50,7 +88,7 @@ export const SidebarHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-5", className)} {...props} />
+  <div ref={ref} className={cn(sidebarHeaderVariants(), className)} {...props} />
 ));
 SidebarHeader.displayName = "SidebarHeader";
 
@@ -58,7 +96,7 @@ export const SidebarContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("flex-1 overflow-auto px-3", className)} {...props} />
+  <div ref={ref} className={cn(sidebarContentVariants(), className)} {...props} />
 ));
 SidebarContent.displayName = "SidebarContent";
 
@@ -66,7 +104,7 @@ export const SidebarFooter = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("mt-auto p-3", className)} {...props} />
+  <div ref={ref} className={cn(sidebarFooterVariants(), className)} {...props} />
 ));
 SidebarFooter.displayName = "SidebarFooter";
 
@@ -74,7 +112,7 @@ export const SidebarGroup = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("space-y-1 pb-2", className)} {...props} />
+  <div ref={ref} className={cn(sidebarGroupVariants(), className)} {...props} />
 ));
 SidebarGroup.displayName = "SidebarGroup";
 
@@ -82,7 +120,7 @@ export const SidebarGroupContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("space-y-1", className)} {...props} />
+  <div ref={ref} className={cn(sidebarGroupContentVariants(), className)} {...props} />
 ));
 SidebarGroupContent.displayName = "SidebarGroupContent";
 
@@ -92,10 +130,7 @@ export const SidebarGroupLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn(
-      "px-2 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground",
-      className,
-    )}
+    className={cn(sidebarGroupLabelVariants(), className)}
     {...props}
   />
 ));
@@ -105,7 +140,7 @@ export const SidebarMenu = React.forwardRef<
   HTMLUListElement,
   React.HTMLAttributes<HTMLUListElement>
 >(({ className, ...props }, ref) => (
-  <ul ref={ref} className={cn("space-y-1", className)} {...props} />
+  <ul ref={ref} className={cn(sidebarMenuVariants(), className)} {...props} />
 ));
 SidebarMenu.displayName = "SidebarMenu";
 
@@ -113,7 +148,7 @@ export const SidebarMenuItem = React.forwardRef<
   HTMLLIElement,
   React.HTMLAttributes<HTMLLIElement>
 >(({ className, ...props }, ref) => (
-  <li ref={ref} className={cn("list-none", className)} {...props} />
+  <li ref={ref} className={cn(sidebarMenuItemVariants(), className)} {...props} />
 ));
 SidebarMenuItem.displayName = "SidebarMenuItem";
 
@@ -129,10 +164,7 @@ export const SidebarMenuButton = React.forwardRef<
     ref={ref}
     data-active={isActive}
     className={cn(
-      "group w-full rounded-xl border border-transparent px-3 py-3 text-left transition",
-      isActive
-        ? "border-primary/20 bg-primary/10"
-        : "hover:border-border/70 hover:bg-accent/60",
+      sidebarMenuButtonVariants({ state: isActive ? "active" : "idle" }),
       className,
     )}
     {...props}
@@ -140,27 +172,32 @@ export const SidebarMenuButton = React.forwardRef<
 ));
 SidebarMenuButton.displayName = "SidebarMenuButton";
 
-export function SidebarTrigger({
+export const SidebarTrigger = React.forwardRef<
+  HTMLButtonElement,
+  {
+    collapsed?: boolean;
+    onClick?: () => void;
+    className?: string;
+  }
+>(function SidebarTrigger(
+  {
   collapsed,
   onClick,
   className,
-}: {
-  collapsed?: boolean;
-  onClick?: () => void;
-  className?: string;
-}) {
+},
+  ref,
+) {
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
-      className={cn(
-        "inline-flex h-8 w-8 items-center justify-center rounded-md border border-border/70 bg-background text-muted-foreground transition hover:bg-accent hover:text-foreground",
-        className,
-      )}
+      className={cn(sidebarTriggerVariants(), className)}
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
     >
       {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
     </button>
   );
-}
+});
+SidebarTrigger.displayName = "SidebarTrigger";
