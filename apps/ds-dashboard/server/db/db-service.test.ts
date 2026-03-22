@@ -178,6 +178,18 @@ describe('db-service', () => {
             assert.ok(migrations.length > 0, 'At least one migration should be recorded');
             assert.strictEqual(migrations[0].version, 1, 'First migration should be version 1');
         });
+
+        it('ds_consumers table does not have legacy sync_interval_hours and max_stale_hours columns after migrations', () => {
+            db = bootstrapDatabase({ dbPath: ':memory:' });
+
+            const tableInfo = db
+                .prepare('PRAGMA table_info(ds_consumers)')
+                .all() as Array<{ name: string }>;
+
+            const columnNames = tableInfo.map(col => col.name);
+            assert.ok(!columnNames.includes('sync_interval_hours'), 'sync_interval_hours should not exist');
+            assert.ok(!columnNames.includes('max_stale_hours'), 'max_stale_hours should not exist');
+        });
     });
 
     describe('runMigrations()', () => {

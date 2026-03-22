@@ -22,8 +22,6 @@ describe('DependencyRepository', () => {
         ds_file_key TEXT NOT NULL,
         consumer_file_key TEXT NOT NULL,
         consumer_name TEXT NOT NULL,
-        sync_interval_hours INTEGER NOT NULL DEFAULT 24,
-        max_stale_hours INTEGER NOT NULL DEFAULT 72,
         enabled BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         UNIQUE (ds_file_key, consumer_file_key)
@@ -89,8 +87,6 @@ describe('DependencyRepository', () => {
     assert.strictEqual(consumer.consumer_file_key, 'consumer456');
     assert.strictEqual(consumer.consumer_name, 'Test App');
     assert.strictEqual(consumer.enabled, true);
-    assert.strictEqual(consumer.sync_interval_hours, 24);
-    assert.strictEqual(consumer.max_stale_hours, 72);
     assert(typeof consumer.id === 'string');
     assert(typeof consumer.created_at === 'string');
   });

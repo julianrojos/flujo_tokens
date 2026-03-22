@@ -20,8 +20,6 @@ describe('DependencySimulateService', () => {
         ds_file_key TEXT NOT NULL,
         consumer_file_key TEXT NOT NULL,
         consumer_name TEXT NOT NULL,
-        sync_interval_hours INTEGER NOT NULL DEFAULT 24,
-        max_stale_hours INTEGER NOT NULL DEFAULT 72,
         enabled BOOLEAN NOT NULL DEFAULT TRUE,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
         UNIQUE (ds_file_key, consumer_file_key)
