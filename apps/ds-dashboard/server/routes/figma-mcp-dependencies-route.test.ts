@@ -122,7 +122,7 @@ describe('figma-mcp-dependencies-route', () => {
       body: JSON.stringify({
         dsFileKey: 'ds123',
         consumerName: 'Test Consumer',
-        consumerFileKey: 'consumer456',
+        consumerFileUrl: 'https://www.figma.com/design/consumer456/Test-Consumer',
       }),
     });
 
@@ -139,7 +139,7 @@ describe('figma-mcp-dependencies-route', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         consumerName: 'Test Consumer',
-        // Missing dsFileKey and consumerFileKey
+        // Missing dsFileKey and consumerFileUrl
       }),
     });
 

@@ -30,7 +30,6 @@ export function AddConsumerModal({
   onSuccess,
 }: AddConsumerModalProps) {
   const [consumerName, setConsumerName] = useState("");
-  const [consumerFileKey, setConsumerFileKey] = useState("");
   const [consumerFileUrl, setConsumerFileUrl] = useState("");
   const [syncIntervalHours, setSyncIntervalHours] = useState("24");
   const [maxStaleHours, setMaxStaleHours] = useState("72");
@@ -47,7 +46,6 @@ export function AddConsumerModal({
       const payload: AddConsumerPayload = {
         dsFileKey,
         consumerName: consumerName.trim(),
-        consumerFileKey: consumerFileKey.trim() || undefined,
         consumerFileUrl: consumerFileUrl.trim() || undefined,
         syncIntervalHours: parseInt(syncIntervalHours, 10) || 24,
         maxStaleHours: parseInt(maxStaleHours, 10) || 72,
@@ -69,7 +67,6 @@ export function AddConsumerModal({
 
   const handleClose = () => {
     setConsumerName("");
-    setConsumerFileKey("");
     setConsumerFileUrl("");
     setSyncIntervalHours("24");
     setMaxStaleHours("72");
@@ -107,26 +104,10 @@ export function AddConsumerModal({
 
             <div className="space-y-1">
               <label
-                htmlFor="consumer-file-key"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Figma file ID
-              </label>
-              <Input
-                id="consumer-file-key"
-                value={consumerFileKey}
-                onChange={(e) => setConsumerFileKey(e.target.value)}
-                placeholder="Figma file ID"
-                disabled={submitting}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label
                 htmlFor="consumer-file-url"
                 className="text-xs font-medium text-muted-foreground"
               >
-                Or Figma file URL
+                Figma file URL
               </label>
               <Input
                 id="consumer-file-url"
@@ -134,6 +115,7 @@ export function AddConsumerModal({
                 onChange={(e) => setConsumerFileUrl(e.target.value)}
                 placeholder="https://www.figma.com/file/..."
                 disabled={submitting}
+                required
               />
             </div>
 
@@ -196,7 +178,7 @@ export function AddConsumerModal({
             <Button type="button" variant="outline" onClick={handleClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || !consumerName.trim() || (!consumerFileKey.trim() && !consumerFileUrl.trim())}>
+            <Button type="submit" disabled={submitting || !consumerName.trim() || !consumerFileUrl.trim()}>
               {submitting ? "Adding..." : "Add Consumer"}
             </Button>
           </ModalFooter>

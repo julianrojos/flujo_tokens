@@ -21,8 +21,8 @@ function validateAddConsumerBody(body: Record<string, unknown>) {
     errors.push('Either dsFileKey or dsFileUrl is required');
   }
 
-  if (!hasNonEmptyString(body.consumerFileKey) && !hasNonEmptyString(body.consumerFileUrl)) {
-    errors.push('Either consumerFileKey or consumerFileUrl is required');
+  if (!hasNonEmptyString(body.consumerFileUrl)) {
+    errors.push('consumerFileUrl is required');
   }
 
   if (!hasNonEmptyString(body.consumerName)) {
@@ -173,9 +173,9 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      // Extract file keys from URLs if provided
+      // Resolve DS file key and derive consumer file key from URL
       const dsFileKey = body.dsFileKey || extractFileKey(body.dsFileUrl as string);
-      const consumerFileKey = body.consumerFileKey || extractFileKey(body.consumerFileUrl as string);
+      const consumerFileKey = extractFileKey(body.consumerFileUrl as string);
 
       if (!dsFileKey) {
         return c.json({
@@ -189,7 +189,7 @@ export function registerFigmaMcpDependenciesRoutes(
         return c.json({
           ok: false,
           code: 'deps.validation.invalid_consumer_file',
-          message: 'Invalid consumer file key or URL',
+          message: 'Invalid consumer file URL',
         }, 400);
       }
 

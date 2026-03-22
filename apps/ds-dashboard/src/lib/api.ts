@@ -1661,7 +1661,6 @@ export async function captureFigmaScreenshot(
 export interface AddConsumerPayload {
   dsFileKey?: string;
   dsFileUrl?: string;
-  consumerFileKey?: string;
   consumerFileUrl?: string;
   consumerName: string;
   syncIntervalHours?: number;
