@@ -7,8 +7,6 @@ export interface DsConsumer {
   ds_file_key: string;
   consumer_file_key: string;
   consumer_name: string;
-  sync_interval_hours: number;
-  max_stale_hours: number;
   enabled: boolean;
   created_at: string;
 }
@@ -58,8 +56,6 @@ export interface AddConsumerParams {
   ds_file_key: string;
   consumer_file_key: string;
   consumer_name: string;
-  sync_interval_hours?: number;
-  max_stale_hours?: number;
   enabled?: boolean;
 }
 
@@ -85,9 +81,8 @@ export class DependencyRepository {
     const id = randomUUID();
     const stmt = this.db.prepare(`
       INSERT INTO ds_consumers (
-        id, ds_file_key, consumer_file_key, consumer_name,
-        sync_interval_hours, max_stale_hours, enabled
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        id, ds_file_key, consumer_file_key, consumer_name, enabled
+      ) VALUES (?, ?, ?, ?, ?)
     `);
 
     try {
@@ -96,8 +91,6 @@ export class DependencyRepository {
         params.ds_file_key,
         params.consumer_file_key,
         params.consumer_name,
-        params.sync_interval_hours ?? 24,
-        params.max_stale_hours ?? 72,
         params.enabled !== false ? 1 : 0  // SQLite boolean as 1/0
       );
     } catch (error) {
@@ -170,8 +163,6 @@ export class DependencyRepository {
         ds_file_key: row.ds_file_key,
         consumer_file_key: row.consumer_file_key,
         consumer_name: row.consumer_name,
-        sync_interval_hours: row.sync_interval_hours,
-        max_stale_hours: row.max_stale_hours,
         enabled: Boolean(row.enabled),
         created_at: row.created_at,
       };

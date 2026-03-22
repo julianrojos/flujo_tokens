@@ -1663,8 +1663,6 @@ export interface AddConsumerPayload {
   dsFileUrl?: string;
   consumerFileUrl?: string;
   consumerName: string;
-  syncIntervalHours?: number;
-  maxStaleHours?: number;
   enabled?: boolean;
 }
 
@@ -1765,14 +1763,10 @@ export function fetchReportByFile(
   dsFileKey: string,
   options?: {
     staleOnly?: boolean;
-    staleHours?: number;
   },
 ) {
   const params = new URLSearchParams({ dsFileKey });
   if (options?.staleOnly) params.set("stale", "true");
-  if (typeof options?.staleHours === "number" && Number.isFinite(options.staleHours)) {
-    params.set("staleHours", String(Math.max(1, Math.floor(options.staleHours))));
-  }
   return getJson<ByFileReportResponse>(`/api/figma-mcp/dependencies/report/by-file?${params.toString()}`);
 }
 

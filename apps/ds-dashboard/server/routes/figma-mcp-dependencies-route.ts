@@ -3,6 +3,7 @@ import type { ConnInfo } from 'hono/conninfo';
 import { getConnInfo } from '@hono/node-server/conninfo';
 import type { Database as DatabaseType } from 'better-sqlite3';
 import { isLoopbackAddress } from '../lib/loopback-utils.js';
+import { DEFAULT_CONSUMER_STALE_HOURS } from '../lib/dependency-sync-constants.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
 import { DependencySyncService, type SystemConfig } from '../services/dependency-sync-service.js';
 import { DependencyAnalysisService } from '../services/dependency-analysis-service.js';
@@ -27,14 +28,6 @@ function validateAddConsumerBody(body: Record<string, unknown>) {
 
   if (!hasNonEmptyString(body.consumerName)) {
     errors.push('Consumer name is required and must be a non-empty string');
-  }
-
-  if (body.syncIntervalHours !== undefined && (typeof body.syncIntervalHours !== 'number' || body.syncIntervalHours < 1 || body.syncIntervalHours > 168)) {
-    errors.push('syncIntervalHours must be a number between 1 and 168');
-  }
-
-  if (body.maxStaleHours !== undefined && (typeof body.maxStaleHours !== 'number' || body.maxStaleHours < 1 || body.maxStaleHours > 168)) {
-    errors.push('maxStaleHours must be a number between 1 and 168');
   }
 
   if (body.enabled !== undefined && typeof body.enabled !== 'boolean') {
@@ -197,8 +190,6 @@ export function registerFigmaMcpDependenciesRoutes(
         ds_file_key: dsFileKey as string,
         consumer_file_key: consumerFileKey as string,
         consumer_name: body.consumerName as string,
-        sync_interval_hours: body.syncIntervalHours as number,
-        max_stale_hours: body.maxStaleHours as number,
         enabled: body.enabled as boolean,
       });
 
@@ -485,19 +476,6 @@ export function registerFigmaMcpDependenciesRoutes(
 
     try {
       const staleOnly = query.stale === 'true';
-      const staleHoursRaw = query.staleHours;
-      const staleHours = staleHoursRaw ? Number(staleHoursRaw) : 72;
-      const hasValidStaleHours = staleHoursRaw
-        ? /^\d+$/.test(staleHoursRaw) && Number.isInteger(staleHours) && staleHours > 0
-        : true;
-
-      if (!hasValidStaleHours) {
-        return c.json({
-          ok: false,
-          code: 'deps.validation.invalid_stale_hours',
-          message: 'staleHours must be a positive integer',
-        }, 400);
-      }
 
       const reports = analysisService
         .reportByFile(query.dsFileKey)
@@ -506,7 +484,7 @@ export function registerFigmaMcpDependenciesRoutes(
           const syncedMs = Date.parse(report.lastSyncedAt);
           if (!Number.isFinite(syncedMs)) return true;
           const ageHours = (Date.now() - syncedMs) / (1000 * 60 * 60);
-          return ageHours > staleHours;
+          return ageHours > DEFAULT_CONSUMER_STALE_HOURS;
         });
 
       return c.json({

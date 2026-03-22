@@ -31,8 +31,6 @@ export function AddConsumerModal({
 }: AddConsumerModalProps) {
   const [consumerName, setConsumerName] = useState("");
   const [consumerFileUrl, setConsumerFileUrl] = useState("");
-  const [syncIntervalHours, setSyncIntervalHours] = useState("24");
-  const [maxStaleHours, setMaxStaleHours] = useState("72");
   const [enabled, setEnabled] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
@@ -47,8 +45,6 @@ export function AddConsumerModal({
         dsFileKey,
         consumerName: consumerName.trim(),
         consumerFileUrl: consumerFileUrl.trim() || undefined,
-        syncIntervalHours: parseInt(syncIntervalHours, 10) || 24,
-        maxStaleHours: parseInt(maxStaleHours, 10) || 72,
         enabled,
       };
 
@@ -68,8 +64,6 @@ export function AddConsumerModal({
   const handleClose = () => {
     setConsumerName("");
     setConsumerFileUrl("");
-    setSyncIntervalHours("24");
-    setMaxStaleHours("72");
     setEnabled(true);
     setError(null);
     onClose();
@@ -117,44 +111,6 @@ export function AddConsumerModal({
                 disabled={submitting}
                 required
               />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <label
-                  htmlFor="sync-interval"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Sync interval (hours)
-                </label>
-                <Input
-                  id="sync-interval"
-                  type="number"
-                  min="1"
-                  max="168"
-                  value={syncIntervalHours}
-                  onChange={(e) => setSyncIntervalHours(e.target.value)}
-                  disabled={submitting}
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label
-                  htmlFor="max-stale"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Max stale hours
-                </label>
-                <Input
-                  id="max-stale"
-                  type="number"
-                  min="1"
-                  max="168"
-                  value={maxStaleHours}
-                  onChange={(e) => setMaxStaleHours(e.target.value)}
-                  disabled={submitting}
-                />
-              </div>
             </div>
 
             <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-sm">

@@ -30,7 +30,6 @@ export function ConsumerTabByFile({ dsFileKey, onAddConsumer }: ConsumerTabByFil
     try {
       const response = await fetchReportByFile(dsFileKey, {
         staleOnly: staleFilter,
-        staleHours: 72,
       });
       setReports(response.data || []);
     } catch (cause) {
@@ -126,7 +125,7 @@ export function ConsumerTabByFile({ dsFileKey, onAddConsumer }: ConsumerTabByFil
               onChange={(e) => setStaleFilter(e.target.checked)}
               className="h-4 w-4"
             />
-            <span>Show stale only (&gt;72h)</span>
+            <span>Show stale only</span>
           </label>
           <Button
             size="sm"
@@ -159,8 +158,6 @@ export function ConsumerTabByFile({ dsFileKey, onAddConsumer }: ConsumerTabByFil
               dsFileKey: "",
               consumerFileKey: report.consumerFileKey,
               consumerName: report.consumerName,
-              syncIntervalHours: 24,
-              maxStaleHours: 72,
               enabled: true,
               createdAt: report.lastSyncedAt,
               latestSync: {

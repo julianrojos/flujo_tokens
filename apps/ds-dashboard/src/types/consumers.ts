@@ -9,8 +9,6 @@ export interface DsConsumer {
   dsFileKey: string;
   consumerFileKey: string;
   consumerName: string;
-  syncIntervalHours: number;
-  maxStaleHours: number;
   enabled: boolean;
   createdAt: string;
 }
@@ -167,8 +165,6 @@ export interface AddConsumerRequest {
   consumerFileKey?: string;
   consumerFileUrl?: string;
   consumerName: string;
-  syncIntervalHours?: number;
-  maxStaleHours?: number;
   enabled?: boolean;
 }
 

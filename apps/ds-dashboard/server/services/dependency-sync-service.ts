@@ -1,6 +1,7 @@
 import { DependencyRepository, type DsConsumer, type DsSyncRun } from '../db/dependency-repository.js';
 import { buildDsCatalog, scanConsumerFile, fetchConsumerFileMetadata, type DsCatalog, type ConsumerScanResult } from './figma-rest-consumer-service.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
+import { DEFAULT_CONSUMER_STALE_HOURS } from '../lib/dependency-sync-constants.js';
 
 // Types for sync operations
 export interface SyncConsumersParams {
@@ -48,13 +49,13 @@ export class DependencySyncService {
    */
   async syncConsumers(params: SyncConsumersParams): Promise<SyncResult> {
     const { dsFileKey, consumerIds, force = false, token: tokenOverride } = params;
-    
+
     // Resolve Figma token
     const token = tokenOverride || this.resolveFigmaToken();
-    
+
     // Get consumers to sync
     const consumers = this.getConsumersToSync(dsFileKey, consumerIds);
-    
+
     if (consumers.length === 0) {
       return {
         synced: 0,
@@ -68,7 +69,7 @@ export class DependencySyncService {
     // Build DS catalog once (shared across all consumers)
     const dsCatalog = await this.buildDsCatalogWithRetry(dsFileKey, token);
     const dsMetadata = await this.fetchMetadataWithRetry(dsFileKey, token);
-    
+
     const result: SyncResult = {
       synced: 0,
       skipped: 0,
@@ -80,11 +81,11 @@ export class DependencySyncService {
     // Process consumers sequentially with rate limiting
     for (let i = 0; i < consumers.length; i++) {
       const consumer = consumers[i];
-      
+
       try {
         const summary = await this.syncConsumer(consumer, dsCatalog, token, force, dsMetadata.lastModified);
         result.runs.push(summary);
-        
+
         if (summary.status === 'ok' || summary.status === 'partial') {
           result.synced++;
         } else if (summary.status === 'skipped') {
@@ -92,7 +93,7 @@ export class DependencySyncService {
         } else {
           result.errored++;
         }
-        
+
         // Rate limiting: 1 second delay between consumers (except last one)
         if (i < consumers.length - 1) {
           await this.delay(1000);
@@ -128,7 +129,7 @@ export class DependencySyncService {
   ): Promise<SyncRunSummary> {
     const startTime = Date.now();
     let consumerMetadataLastModified: string | undefined;
-    
+
     try {
       // Check if we should skip this consumer (also returns metadata to avoid double fetch)
       if (!force) {
@@ -159,7 +160,7 @@ export class DependencySyncService {
 
       // Scan the consumer file
       const scanResult = await this.scanConsumerWithRetry(consumer, dsCatalog, token);
-      
+
       // Save the sync run
       const syncRun = this.repository.saveSyncRun({
         consumer_id: consumer.id,
@@ -243,8 +244,8 @@ export class DependencySyncService {
       return { skip: false }; // Previous sync failed, retry
     }
 
-    // Check if consumer is stale (older than max_stale_hours)
-    const staleThreshold = consumer.max_stale_hours * 60 * 60 * 1000; // Convert to ms
+    // Check if consumer is stale (older than fixed threshold)
+    const staleThreshold = DEFAULT_CONSUMER_STALE_HOURS * 60 * 60 * 1000; // Convert to ms
     const timeSinceLastSync = Date.now() - new Date(latestRun.synced_at).getTime();
 
     if (timeSinceLastSync > staleThreshold) {
@@ -272,17 +273,17 @@ export class DependencySyncService {
    */
   private getConsumersToSync(dsFileKey: string, consumerIds?: string[]): DsConsumer[] {
     const allConsumers = this.repository.listConsumers(dsFileKey);
-    
+
     // Filter by enabled status and optionally by specific IDs
     return allConsumers.filter(consumer => {
       if (!consumer.enabled) {
         return false;
       }
-      
+
       if (consumerIds && !consumerIds.includes(consumer.id)) {
         return false;
       }
-      
+
       return true;
     });
   }
@@ -292,25 +293,25 @@ export class DependencySyncService {
    */
   private async buildDsCatalogWithRetry(dsFileKey: string, token: string): Promise<DsCatalog> {
     let lastError: Error | unknown;
-    
+
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         return await buildDsCatalog(dsFileKey, token);
       } catch (error) {
         lastError = error;
-        
+
         // Check if it's a rate limit error
         if (this.isRateLimitError(error) && attempt < 3) {
           const retryAfter = this.getRetryAfterSeconds(error);
           await this.delay(retryAfter * 1000);
           continue;
         }
-        
+
         // For other errors or final attempt, throw
         throw error;
       }
     }
-    
+
     throw lastError;
   }
 
@@ -323,25 +324,25 @@ export class DependencySyncService {
     token: string
   ): Promise<ConsumerScanResult> {
     let lastError: Error | unknown;
-    
+
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         return await scanConsumerFile(consumer.consumer_file_key, token, dsCatalog);
       } catch (error) {
         lastError = error;
-        
+
         // Check if it's a rate limit error
         if (this.isRateLimitError(error) && attempt < 3) {
           const retryAfter = this.getRetryAfterSeconds(error);
           await this.delay(retryAfter * 1000);
           continue;
         }
-        
+
         // For other errors or final attempt, throw
         throw error;
       }
     }
-    
+
     throw lastError;
   }
 
@@ -374,20 +375,20 @@ export class DependencySyncService {
       const systemConfig = this.getSystemConfig();
       const rawTokenRef = systemConfig.figmaApiToken;
       const token = resolveEnvRef(rawTokenRef);
-      
+
       if (!token) {
         throw {
           code: 'deps.sync.no_token',
           message: 'Figma API token not resolved from system config',
         };
       }
-      
+
       return token;
     } catch (error) {
       if (error && typeof error === 'object' && 'code' in error) {
         throw error;
       }
-      
+
       throw {
         code: 'deps.sync.token_resolution_failed',
         message: `Failed to resolve Figma token: ${error instanceof Error ? error.message : 'Unknown error'}`,
