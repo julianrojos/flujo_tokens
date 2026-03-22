@@ -33,6 +33,13 @@ export default [
       '@typescript-eslint/no-unused-vars': 'off',
       'no-prototype-builtins': 'off',
       'react-hooks/exhaustive-deps': 'off',
+      /**
+       * max-lines: warn on large files to prevent future monolithic files.
+       * Threshold: 500 lines for pages/components (after this refactor, all 4 pages are <200 lines).
+       * skipBlankLines and skipComments to focus on actual code.
+       * Using 'warn' to avoid breaking CI on existing legacy files.
+       */
+      'max-lines': ['warn', { max: 500, skipBlankLines: true, skipComments: true }],
     },
   },
   // Frontend code: block SDK imports
