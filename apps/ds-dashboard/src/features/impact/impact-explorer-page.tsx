@@ -288,7 +288,7 @@ export function ImpactExplorerPage() {
             Impact Explorer
           </CardTitle>
           <CardDescription>
-            Qué se rompe si cambias un token: dependencias transitivas, usos en componentes y simulación WCAG.
+            What is affected if a token changes: transitive dependencies, component usage, and WCAG simulation.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
