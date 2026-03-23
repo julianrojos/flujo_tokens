@@ -294,7 +294,7 @@ export function TokensPage() {
     <div className="space-y-5 animate-fade-slide-in">
       <PageHeader
         title="Tokens & Custom Properties"
-        description="Inventory local de `token-registry.json` con filtros por colección y tipo."
+        description="Local inventory of your design tokens, with filters by collection and type."
         actions={
           <div className="flex flex-wrap gap-2">
             <Link to="/tokens/diff">
