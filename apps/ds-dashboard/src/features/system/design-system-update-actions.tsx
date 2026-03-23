@@ -108,7 +108,7 @@ export function DesignSystemUpdateActions({
         <p className="mt-1 text-xs text-muted-foreground">
           These fields are shared by both update actions below.
         </p>
-        <div className="mt-3 grid gap-2 md:grid-cols-2 md:items-end">
+        <div className="mt-3 grid gap-2 md:grid-cols-2 md:items-start">
           <div className="min-w-0 space-y-1 md:col-span-2">
             <label className="text-xs font-medium text-muted-foreground">Figma URL</label>
             <Input

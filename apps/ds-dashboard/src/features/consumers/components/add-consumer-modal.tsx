@@ -121,7 +121,7 @@ export function AddConsumerModal({
                 className="h-4 w-4"
                 disabled={submitting}
               />
-              <span>Enabled</span>
+              <span>Include this file in sync and impact analysis</span>
             </label>
 
             <StatusAlert variant="info" title="How it works">

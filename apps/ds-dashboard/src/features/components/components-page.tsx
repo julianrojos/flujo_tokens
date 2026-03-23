@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ExternalLink, RefreshCcw } from "lucide-react";
 
-import { FigmaUrlScanner } from "./figma-url-scanner";
-
 import {
   fetchComponentRegistry,
   fetchComponentUsageIndex,
@@ -165,8 +163,6 @@ export function ComponentsPage() {
 
   return (
     <div className="space-y-5 animate-fade-slide-in">
-      <FigmaUrlScanner onSuccess={loadData} />
-
       <section className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
