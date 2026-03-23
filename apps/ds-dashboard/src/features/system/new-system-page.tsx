@@ -90,7 +90,6 @@ export function NewSystemPage() {
     importCompleted,
     saving,
     saveError,
-    pingResult,
     showImportErrorDetails,
     isCancellingImport,
     setFormField,
@@ -236,7 +235,7 @@ export function NewSystemPage() {
         setImportTokensBootstrap(result.tokens_bootstrap || null);
         setImportTokensCompile(result.tokens_compile || null);
         const success = ensureImportSuccess(result);
-        completeImport(buildImportSuccessSummary(success, importState.jobId, form.makeDefault, [{ id: importState.jobId, name: form.systemName }]));
+        completeImport(buildImportSuccessSummary(success));
       } catch (error) {
         if (stopped) return;
         activeQueueJobIdRef.current = "";
@@ -286,7 +285,6 @@ export function NewSystemPage() {
             figmaFileId,
             isFormValid,
             saving,
-            pingResult,
           }}
           actions={{
             onFieldChange: setFormField,
@@ -297,9 +295,7 @@ export function NewSystemPage() {
 
       <Modal
         open={modalOpen}
-        onClose={() => {
-          if (step === "done") resetWizard();
-        }}
+        onClose={() => undefined}
       >
         <ModalContent size="md">
           <WizardStepImport
@@ -321,6 +317,7 @@ export function NewSystemPage() {
             isCancelling={effectiveIsCancelling}
             importCompleted={importCompleted}
             onCancel={handleCancelImport}
+            onClose={resetWizard}
             onReset={resetWizard}
             onToggleDetails={toggleImportErrorDetails}
           />

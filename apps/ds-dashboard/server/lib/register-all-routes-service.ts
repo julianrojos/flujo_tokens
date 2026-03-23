@@ -88,11 +88,6 @@ export interface CommandDeps {
   validateGitRef: (value: string) => string | null;
 }
 
-export interface FigmaPingDeps {
-  failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
-  readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
-}
-
 export interface FigmaMcpPingDeps {
   failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
@@ -109,7 +104,6 @@ export interface AllRouteDeps {
   fileDeps: FileDeps;
   jobDeps: JobDeps;
   commandDeps: CommandDeps;
-  figmaPingDeps: FigmaPingDeps;
   figmaMcpPingDeps: FigmaMcpPingDeps;
 }
 
@@ -256,10 +250,6 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       toBooleanString: deps.toBooleanString,
       toNumberString: deps.toNumberString,
       validateGitRef: deps.validateGitRef,
-    },
-    figmaPingDeps: {
-      failJson: deps.failJson,
-      readJsonBody: deps.readJsonBody,
     },
     figmaMcpPingDeps: {
       failJson: deps.failJson,

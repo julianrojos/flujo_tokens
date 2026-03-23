@@ -5,9 +5,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { StatusAlert } from "@/components/ui/status-alert";
 import { FigmaMcpConnectionTestButton } from "@/components/figma-mcp-connection-test-button";
-import type { FigmaPingResult } from "@/lib/api";
 
 interface WizardFormValues {
   systemName: string;
@@ -24,7 +22,6 @@ interface WizardBasicsDerived {
   figmaFileId: string;
   isFormValid: boolean;
   saving: boolean;
-  pingResult: FigmaPingResult | null;
 }
 
 interface WizardBasicsActions {
@@ -73,14 +70,6 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                 figmaToken={form.figmaAccessToken}
               />
             </div>
-            {derived.pingResult && (
-              <StatusAlert
-                variant={derived.pingResult.ok ? "success" : "error"}
-                title={derived.pingResult.ok ? "Connection successful" : "Connection failed"}
-              >
-                {derived.pingResult.ok ? "Figma file is accessible" : derived.pingResult.message || "Unknown error"}
-              </StatusAlert>
-            )}
           </div>
 
           <div>

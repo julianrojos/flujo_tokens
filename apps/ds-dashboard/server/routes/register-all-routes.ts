@@ -16,7 +16,6 @@ import { registerComponentSpecRoutes } from './component-spec-routes.mjs';
 import { registerFileRoutes } from './file-routes.mjs';
 import { registerJobRoutes } from './job-routes.mjs';
 import { registerCommandRoutes } from './command-routes.mjs';
-import { registerFigmaPingRoute } from './figma-ping-route.mjs';
 import { registerFigmaMcpVariablesRoute } from './figma-mcp-variables-route.ts';
 import { registerFigmaMcpPortRoute } from './figma-mcp-port-route.ts';
 import { registerFigmaMcpSearchNodesRoute } from './figma-mcp-search-nodes-route.ts';
@@ -141,7 +140,6 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   registerFileRoutes(app, routeDeps.fileDeps);
   registerJobRoutes(app, routeDeps.jobDeps);
   registerCommandRoutes(app, ensureCommandRoutesDeps(routeDeps.commandDeps));
-  registerFigmaPingRoute(app, routeDeps.figmaPingDeps);
   registerFigmaMcpVariablesRoute(app, {
     readJsonBody: routeDeps.figmaMcpPingDeps.readJsonBody,
   });

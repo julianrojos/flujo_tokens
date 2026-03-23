@@ -77,8 +77,6 @@ test('register-all-routes-service: buildAllRouteDeps returns grouped route contr
   assert.equal(grouped.fileDeps.MAX_FILE_BYTES, deps.MAX_FILE_BYTES);
   assert.equal(grouped.jobDeps.MAX_RETAINED_EVENTS, deps.MAX_RETAINED_EVENTS);
   assert.equal(grouped.commandDeps.validateGitRef, deps.validateGitRef);
-  assert.equal(grouped.figmaPingDeps.failJson, deps.failJson);
-  assert.equal(grouped.figmaPingDeps.readJsonBody, deps.readJsonBody);
   assert.equal(grouped.figmaMcpPingDeps.failJson, deps.failJson);
   assert.equal(grouped.figmaMcpPingDeps.readJsonBody, deps.readJsonBody);
 });

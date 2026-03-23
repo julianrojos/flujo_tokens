@@ -90,9 +90,26 @@ export function hasNoCaptureTargets(result: {
   targets_total?: number;
   targets?: unknown[];
   captured?: unknown[];
+  report?: {
+    targets_total?: number;
+    targets?: unknown[];
+  } | null;
 }): boolean {
   if (result.ok === false) return false;
-  const targetsCount = result.targets_total ?? result.targets?.length ?? 0;
+  const reportTargetsTotal =
+    result.report && typeof result.report === "object"
+      ? result.report.targets_total
+      : undefined;
+  const reportTargetsLength =
+    result.report && typeof result.report === "object" && Array.isArray(result.report.targets)
+      ? result.report.targets.length
+      : undefined;
+  const targetsCount =
+    result.targets_total ??
+    result.targets?.length ??
+    reportTargetsTotal ??
+    reportTargetsLength ??
+    0;
   const capturedCount = result.captured?.length ?? 0;
   return targetsCount === 0 && capturedCount === 0;
 }

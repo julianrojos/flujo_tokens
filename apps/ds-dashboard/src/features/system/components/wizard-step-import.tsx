@@ -35,6 +35,7 @@ interface WizardStepImportProps {
   isCancelling: boolean;
   importCompleted: boolean;
   onCancel: () => void;
+  onClose: () => void;
   onReset: () => void;
   onToggleDetails: () => void;
 }
@@ -58,11 +59,51 @@ export function WizardStepImport({
   isCancelling,
   importCompleted,
   onCancel,
+  onClose,
   onReset,
   onToggleDetails,
 }: WizardStepImportProps) {
   const bootstrapReason = String(tokensBootstrap?.reason || "").trim() || "No bootstrap reason was provided.";
   const compileReason = String(tokensCompile?.reason || "").trim() || "No compilation reason was provided.";
+  const componentsTotal = successSummary?.elementsTotal ?? progress?.total ?? null;
+  const componentsImported = successSummary?.elementsImported ?? progress?.completed ?? null;
+  const figmaVariablesTotal = successSummary?.variablesTotal ?? tokensBootstrap?.tokens_total ?? null;
+  const importedVariables = successSummary?.variablesImported ?? tokensBootstrap?.tokens_written ?? null;
+  const showComponentsStats = componentsTotal !== null || componentsImported !== null;
+  const showVariableStats = figmaVariablesTotal !== null || importedVariables !== null;
+  const hasRealProgressData =
+    (progress?.total ?? 0) > 0 ||
+    (progress?.completed ?? 0) > 0;
+  const showStatsWhileImporting =
+    (showComponentsStats || showVariableStats) && hasRealProgressData;
+
+  const renderImportStats = () => (
+    <div className="rounded-lg border border-border/70 bg-muted/30 p-3 text-sm">
+      <p className="font-medium">Import summary</p>
+      <div className="mt-1 flex flex-wrap gap-4 text-xs text-muted-foreground">
+        {showComponentsStats ? (
+          <>
+            <span>
+              Components imported: <strong className="text-foreground">{componentsImported ?? "—"}</strong>
+            </span>
+            <span>
+              Components total: <strong className="text-foreground">{componentsTotal ?? "—"}</strong>
+            </span>
+          </>
+        ) : null}
+        {showVariableStats ? (
+          <>
+            <span>
+              Variables imported: <strong className="text-foreground">{importedVariables ?? "—"}</strong>
+            </span>
+            <span>
+              Variables total: <strong className="text-foreground">{figmaVariablesTotal ?? "—"}</strong>
+            </span>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
 
   if (importCompleted) {
     return (
@@ -72,6 +113,7 @@ export function WizardStepImport({
           <CardDescription>Your design system has been created</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {(showComponentsStats || showVariableStats) ? renderImportStats() : null}
           {successSummary ? <ImportSuccessNotice summary={successSummary} /> : null}
           {tokensBootstrap ? (
             <StatusAlert
@@ -99,6 +141,9 @@ export function WizardStepImport({
             <Button variant="outline" onClick={onReset}>
               Create another system
             </Button>
+            <Button variant="secondary" onClick={onClose}>
+              Close
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -112,6 +157,7 @@ export function WizardStepImport({
         <CardDescription>{statusText || "Capturing components and tokens"}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {showStatsWhileImporting ? renderImportStats() : null}
         {sourceUrl ? (
           <p className="break-all text-xs text-muted-foreground">
             Source URL: <code>{sourceUrl}</code>

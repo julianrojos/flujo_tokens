@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useReducer, useState } from "react";
 
-import { createDesignSystem, pingFigmaFile, type FigmaPingResult } from "@/lib/api";
+import { createDesignSystem } from "@/lib/api";
 import { toApiErrorDisplay, type ApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 import type { CaptureFigmaProgress } from "@/lib/api";
@@ -25,6 +25,8 @@ interface WizardFormState {
 
 interface WizardImportState {
   jobId: string;
+  makeDefault: boolean;
+  systemsSnapshot: Array<{ id: string; name: string }>;
   progress: CaptureFigmaProgress | null;
   error: string | null;
   errorDetails: string;
@@ -42,7 +44,16 @@ interface WizardState {
 
 type WizardAction =
   | { type: "SET_FORM_FIELD"; field: keyof WizardFormState; value: string | boolean }
-  | { type: "START_IMPORT"; payload: { jobId: string; sourceUrl: string; sourceFileKey: string } }
+  | {
+    type: "START_IMPORT";
+    payload: {
+      jobId: string;
+      sourceUrl: string;
+      sourceFileKey: string;
+      makeDefault: boolean;
+      systemsSnapshot: Array<{ id: string; name: string }>;
+    };
+  }
   | { type: "IMPORT_PROGRESS"; payload: CaptureFigmaProgress }
   | { type: "IMPORT_SUCCESS"; payload: ImportSuccessSummary }
   | { type: "IMPORT_ERROR"; payload: { message: string; details: string; pipelinePhase?: string } }
@@ -62,6 +73,8 @@ const initialState: WizardState = {
   },
   import: {
     jobId: "",
+    makeDefault: false,
+    systemsSnapshot: [],
     progress: null,
     error: null,
     errorDetails: "",
@@ -86,6 +99,8 @@ function wizardReducer(state: WizardState, action: WizardAction): WizardState {
         import: {
           ...initialState.import,
           jobId: action.payload.jobId,
+          makeDefault: action.payload.makeDefault,
+          systemsSnapshot: action.payload.systemsSnapshot,
           sourceUrl: action.payload.sourceUrl,
           sourceFileKey: action.payload.sourceFileKey,
         },
@@ -128,12 +143,9 @@ interface NewSystemWizardViewModel {
   importCompleted: boolean;
   saving: boolean;
   saveError: ApiErrorDisplay | null;
-  pingResult: FigmaPingResult | null;
-  pingLoading: boolean;
   showImportErrorDetails: boolean;
   isCancellingImport: boolean;
   setFormField: (field: keyof WizardFormState, value: string | boolean) => void;
-  handlePingTest: () => Promise<void>;
   handleSubmitBasics: () => Promise<void>;
   updateImportProgress: (progress: CaptureFigmaProgress) => void;
   completeImport: (summary: ImportSuccessSummary) => void;
@@ -148,8 +160,6 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   const [state, dispatch] = useReducer(wizardReducer, initialState);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
-  const [pingResult, setPingResult] = useState<FigmaPingResult | null>(null);
-  const [pingLoading, setPingLoading] = useState(false);
   const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
   const [isCancellingImport, setIsCancellingImport] = useState(false);
 
@@ -165,23 +175,6 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   const setFormField = useCallback((field: keyof WizardFormState, value: string | boolean) => {
     dispatch({ type: "SET_FORM_FIELD", field, value });
   }, []);
-
-  const handlePingTest = useCallback(async () => {
-    if (!state.form.figmaFileUrl || !state.form.figmaAccessToken) return;
-    setPingLoading(true);
-    setPingResult(null);
-    try {
-      const result = await pingFigmaFile({
-        figmaUrl: state.form.figmaFileUrl,
-        figmaToken: state.form.figmaAccessToken,
-      });
-      setPingResult(result);
-    } catch (cause) {
-      setPingResult({ ok: false, message: cause instanceof Error ? cause.message : String(cause) });
-    } finally {
-      setPingLoading(false);
-    }
-  }, [state.form.figmaFileUrl, state.form.figmaAccessToken]);
 
   const handleSubmitBasics = useCallback(async () => {
     if (!isFormValid) return;
@@ -212,13 +205,12 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         throw new Error("Server returned an empty system ID");
       }
 
-      // Keep systems list synchronized without forcing active-system remount.
-      replaceSystems(result.config.systems);
-
       dispatch({
         type: "START_IMPORT",
         payload: {
           jobId: result.system.id,
+          makeDefault: state.form.makeDefault,
+          systemsSnapshot: result.config.systems,
           sourceUrl: documentWideUrl,
           sourceFileKey,
         },
@@ -233,7 +225,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     } finally {
       setSaving(false);
     }
-  }, [generatedSystemId, isFormValid, replaceSystems, state.form]);
+  }, [generatedSystemId, isFormValid, state.form]);
 
   const updateImportProgress = useCallback((progress: CaptureFigmaProgress) => {
     dispatch({ type: "IMPORT_PROGRESS", payload: progress });
@@ -248,15 +240,26 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   }, []);
 
   const cancelImport = useCallback(() => {
+    if (state.import.systemsSnapshot.length > 0) {
+      replaceSystems(
+        state.import.systemsSnapshot,
+        state.import.makeDefault ? { activeSystemId: state.import.jobId } : undefined,
+      );
+    }
     dispatch({ type: "CANCEL_IMPORT" });
-  }, []);
+  }, [replaceSystems, state.import.jobId, state.import.makeDefault, state.import.systemsSnapshot]);
 
   const resetWizard = useCallback(() => {
+    if (state.import.systemsSnapshot.length > 0) {
+      replaceSystems(
+        state.import.systemsSnapshot,
+        state.import.makeDefault ? { activeSystemId: state.import.jobId } : undefined,
+      );
+    }
     dispatch({ type: "RESET" });
     setSaveError(null);
-    setPingResult(null);
     setShowImportErrorDetails(false);
-  }, []);
+  }, [replaceSystems, state.import.jobId, state.import.makeDefault, state.import.systemsSnapshot]);
 
   const toggleImportErrorDetails = useCallback(() => {
     setShowImportErrorDetails((value) => !value);
@@ -273,12 +276,9 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     importCompleted,
     saving,
     saveError,
-    pingResult,
-    pingLoading,
     showImportErrorDetails,
     isCancellingImport,
     setFormField,
-    handlePingTest,
     handleSubmitBasics,
     updateImportProgress,
     completeImport,
