@@ -1,5 +1,6 @@
 import { fetchFigmaFile, fetchFigmaLocalVariables, FigmaApiError } from '../../../../tooling/src/utils/figma-api.js';
 import { fetchFigmaLocalVariablesViaMcp, type FigmaVariablesResponse } from '../../../../tooling/src/services/figma-mcp-variables.js';
+import { getTokenUsageDirect, type TokenUsageEntry } from './figma-direct-bridge-service.js';
 
 // Types for Figma API responses (using imported types)
 interface FigmaNode {
@@ -64,6 +65,22 @@ export interface ConsumerScanResult {
   }>;
 }
 
+async function fetchConsumerBoundVariableUsageViaMcp(
+  fileKey: string,
+): Promise<TokenUsageEntry[] | null> {
+  try {
+    const result = await getTokenUsageDirect(fileKey, {
+      force: true,
+      maxNodes: 15000,
+    });
+    return Array.isArray(result.usage) ? result.usage : [];
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.warn(`[scanConsumerFile] MCP token usage fallback failed: ${detail}`);
+    return null;
+  }
+}
+
 export interface FileMetadata {
   name: string;
   lastModified: string;
@@ -76,6 +93,42 @@ function createCodedError(
 ): Error & { code: string } {
   const error = new Error(message, options);
   return Object.assign(error, { code });
+}
+
+function buildConsumerVariablesWarning(error: unknown): { code: string; message: string } {
+  const detail = error instanceof Error ? error.message : String(error);
+  const normalized = detail.toLowerCase();
+
+  // Check for 403 status code first (canonical check)
+  if (error instanceof FigmaApiError && error.status === 403) {
+    return {
+      code: 'deps.consumer.variables_forbidden',
+      message:
+        'Variable usage skipped due to Figma API permissions; component sync completed.',
+    };
+  }
+
+  if (normalized.includes('file_variables:read')) {
+    return {
+      code: 'deps.consumer.variables_scope_missing',
+      message:
+        'Variable usage skipped. The current Figma token is missing the `file_variables:read` scope; component sync completed.',
+    };
+  }
+
+  // Fallback to string check for non-typed errors
+  if (normalized.includes('403')) {
+    return {
+      code: 'deps.consumer.variables_forbidden',
+      message:
+        'Variable usage skipped due to Figma API permissions; component sync completed.',
+    };
+  }
+
+  return {
+    code: 'deps.consumer.variables_unavailable',
+    message: `Variable usage skipped. Continuing with component sync (${detail})`,
+  };
 }
 
 /**
@@ -172,14 +225,16 @@ export async function buildDsCatalog(
 }
 
 /**
- * Fetch variables for DS file: MCP-first with REST fallback
+ * Fetch variables for a file: MCP-first with REST fallback.
  */
-async function fetchVariablesForDsFile(
-  dsFileKey: string,
+async function fetchVariablesForFile(
+  fileKey: string,
   token: string,
   signal?: AbortSignal,
+  options?: { contextLabel?: string },
 ): Promise<FigmaVariablesResponse> {
-  const fileUrl = `https://www.figma.com/design/${dsFileKey}`;
+  const fileUrl = `https://www.figma.com/design/${fileKey}`;
+  const contextLabel = options?.contextLabel || 'figma-file';
   if (signal?.aborted) {
     throw createCodedError('deps.consumer.variables_fetch_aborted', 'Operation aborted');
   }
@@ -190,7 +245,7 @@ async function fetchVariablesForDsFile(
   } catch (mcpError) {
     // MCP failed. Fallback to REST where possible.
     const mcpErrorMsg = mcpError instanceof Error ? mcpError.message : String(mcpError);
-    console.warn(`[buildDsCatalog] MCP variables fetch failed: ${mcpErrorMsg}. Attempting REST fallback...`);
+    console.warn(`[${contextLabel}] MCP variables fetch failed: ${mcpErrorMsg}. Attempting REST fallback...`);
     if (signal?.aborted) {
       throw createCodedError('deps.consumer.variables_fetch_aborted', 'Operation aborted', {
         cause: mcpError,
@@ -200,11 +255,11 @@ async function fetchVariablesForDsFile(
     // Fallback to REST if token is available
     if (token && String(token).trim()) {
       try {
-        return await fetchFigmaLocalVariables({ fileKey: dsFileKey, token });
+        return await fetchFigmaLocalVariables({ fileKey, token });
       } catch (restError) {
         // Both MCP and REST failed
         const restErrorMsg = restError instanceof Error ? restError.message : String(restError);
-        console.warn(`[buildDsCatalog] REST variables fetch failed: ${restErrorMsg}`);
+        console.warn(`[${contextLabel}] REST variables fetch failed: ${restErrorMsg}`);
         throw createCodedError(
           'deps.consumer.variables_fetch_failed',
           'Variables unavailable: MCP plugin not connected and REST fallback failed',
@@ -223,6 +278,17 @@ async function fetchVariablesForDsFile(
 }
 
 /**
+ * Fetch variables for DS file: MCP-first with REST fallback
+ */
+async function fetchVariablesForDsFile(
+  dsFileKey: string,
+  token: string,
+  signal?: AbortSignal,
+): Promise<FigmaVariablesResponse> {
+  return fetchVariablesForFile(dsFileKey, token, signal, { contextLabel: 'buildDsCatalog' });
+}
+
+/**
  * Scan a consumer file for DS component instances and variable bindings
  */
 export async function scanConsumerFile(
@@ -235,10 +301,19 @@ export async function scanConsumerFile(
     if (signal?.aborted) throw new Error('Operation aborted');
     // Fetch full file tree
     const fileResponse = await fetchFigmaFile({ fileKey, token });
-    const consumerVariablesResponse = await fetchFigmaLocalVariables({ fileKey, token });
+    let consumerVariablesResponse: FigmaVariablesResponse | null = null;
     const componentInstances = new Map<string, ComponentInstance>();
     const variableBindings = new Map<string, VariableBinding>();
+    let unresolvedBoundVariableCount = 0;
     const warnings: Array<{ code: string; message: string; nodeId?: string }> = [];
+
+    try {
+      consumerVariablesResponse = await fetchVariablesForFile(fileKey, token, signal, {
+        contextLabel: 'scanConsumerFile',
+      });
+    } catch (error) {
+      warnings.push(buildConsumerVariablesWarning(error));
+    }
 
     // Build component ID to key mapping for this file
     const fileComponentIdToKey = new Map<string, string>();
@@ -251,11 +326,24 @@ export async function scanConsumerFile(
 
     // Build consumer variable ID -> key mapping
     const consumerVariableIdToKey = new Map<string, string>();
-    if (consumerVariablesResponse.meta?.variables) {
+    if (consumerVariablesResponse?.meta?.variables) {
       for (const variable of Object.values(consumerVariablesResponse.meta.variables)) {
         const variableKey = String((variable as Record<string, unknown>).key || '').trim();
         if (!variableKey) continue;
         consumerVariableIdToKey.set(variable.id, variableKey);
+      }
+    }
+
+    // Build DS variable name -> key lookup for cases where IDs differ but names still match.
+    // Only keep unambiguous names to avoid accidental mis-mapping.
+    const dsVariableNameToKey = new Map<string, string>();
+    for (const [key, variable] of dsCatalog.variables.entries()) {
+      const name = String(variable.name || '').trim().toLowerCase();
+      if (!name) continue;
+      if (!dsVariableNameToKey.has(name)) {
+        dsVariableNameToKey.set(name, key);
+      } else if (dsVariableNameToKey.get(name) !== key) {
+        dsVariableNameToKey.set(name, '');
       }
     }
 
@@ -309,6 +397,8 @@ export async function scanConsumerFile(
                 });
               }
               variableBindings.get(variableKey)!.nodeIds.push(node.id);
+            } else {
+              unresolvedBoundVariableCount += 1;
             }
             // Non-DS variables are expected (consumer-local variables) — no warning needed.
           }
@@ -325,6 +415,54 @@ export async function scanConsumerFile(
 
     // Start scanning from document root
     scanNode(fileResponse.document);
+
+    // Fallback: query live MCP token usage when bindings are missing (fully or partially).
+    // This helps consumer files that consume library variables and do not expose local variables.
+    if (variableBindings.size === 0 || unresolvedBoundVariableCount > 0) {
+      const mcpUsage = await fetchConsumerBoundVariableUsageViaMcp(fileKey);
+      if (mcpUsage && mcpUsage.length > 0) {
+        let fallbackAddedCount = 0;
+        for (const entry of mcpUsage) {
+          const variableId = String(entry.variableId || '').trim();
+          const variableName = String(entry.variableName || '').trim();
+          const byIdKey =
+            consumerVariableIdToKey.get(variableId) ||
+            dsCatalog.variableIdToKey.get(variableId) ||
+            '';
+          const byNameKey = variableName ? dsVariableNameToKey.get(variableName.toLowerCase()) || '' : '';
+          const variableKey = byIdKey || byNameKey;
+          if (!variableKey || !dsCatalog.variables.has(variableKey)) continue;
+
+          const dsVariable = dsCatalog.variables.get(variableKey)!;
+          const existing = variableBindings.get(variableKey);
+          if (!existing) {
+            variableBindings.set(variableKey, {
+              variableKey,
+              variableId: variableId || dsVariable.id,
+              variableName: dsVariable.name,
+              variableType: dsVariable.type,
+              nodeIds: Array.isArray(entry.nodeIds) ? entry.nodeIds.slice(0, 200) : [],
+            });
+            fallbackAddedCount += 1;
+            continue;
+          }
+
+          const mergedNodeIds = new Set<string>(existing.nodeIds);
+          for (const nodeId of entry.nodeIds || []) {
+            const normalized = String(nodeId || '').trim();
+            if (normalized) mergedNodeIds.add(normalized);
+          }
+          existing.nodeIds = Array.from(mergedNodeIds).slice(0, 200);
+        }
+
+        if (fallbackAddedCount > 0) {
+          warnings.push({
+            code: 'deps.consumer.variables_mcp_token_usage_fallback',
+            message: 'Variable usage enriched from live MCP bound-variable scan.',
+          });
+        }
+      }
+    }
 
     // Convert Maps to arrays and limit sample node IDs
     const result: ConsumerScanResult = {

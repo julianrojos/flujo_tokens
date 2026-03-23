@@ -167,6 +167,24 @@ describe('figma-mcp-dependencies-route', () => {
     assert.strictEqual(body.data.length, 1);
   });
 
+  test('GET /api/figma-mcp/dependencies/consumers/:consumerId - get single consumer', async () => {
+    const consumer = repository.addConsumer({
+      ds_file_key: 'ds123',
+      consumer_file_key: 'consumer-single',
+      consumer_name: 'Single Consumer',
+      enabled: true,
+    });
+
+    const response = await app.request(`/api/figma-mcp/dependencies/consumers/${consumer.id}`);
+
+    assert.strictEqual(response.status, 200);
+    const body = await response.json();
+    assert.strictEqual(body.ok, true);
+    assert.ok(body.data);
+    assert.strictEqual(body.data.id, consumer.id);
+    assert.strictEqual(body.data.consumer_name, 'Single Consumer');
+  });
+
   test('DELETE /api/figma-mcp/dependencies/consumers/:consumerId - remove consumer', async () => {
     // Add a consumer first
     const consumer = repository.addConsumer({
@@ -245,6 +263,22 @@ describe('figma-mcp-dependencies-route', () => {
     assert.strictEqual(body.data.errored, 0);
   });
 
+  test('POST /api/figma-mcp/dependencies/sync - validates non-empty dsFileKey', async () => {
+    const response = await app.request('/api/figma-mcp/dependencies/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsFileKey: '   ',
+      }),
+    });
+
+    assert.strictEqual(response.status, 400);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.validation.failed');
+    assert.ok(Array.isArray(body.errors));
+  });
+
   test('POST /api/figma-mcp/dependencies/sync - returns no_token when token is unresolved', async () => {
     const appWithoutToken = new Hono();
     registerFigmaMcpDependenciesRoutes(appWithoutToken, {
@@ -255,6 +289,56 @@ describe('figma-mcp-dependencies-route', () => {
     });
 
     const response = await appWithoutToken.request('/api/figma-mcp/dependencies/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsFileKey: 'ds123',
+      }),
+    });
+
+    assert.strictEqual(response.status, 500);
+    const body = await response.json();
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.code, 'deps.sync.no_token');
+  });
+
+  test('POST /api/figma-mcp/dependencies/sync - resolves token by dsFileKey when header context token is empty', async () => {
+    const appWithDsFileResolver = new Hono();
+    registerFigmaMcpDependenciesRoutes(appWithDsFileResolver, {
+      readJsonBody: async (c: any) => await c.req.json(),
+      db,
+      getSystemConfig: (_c: any) => ({ figmaApiToken: '' }),
+      getSystemConfigByDsFileKey: (dsFileKey: string) =>
+        dsFileKey === 'ds123' ? { figmaApiToken: 'mock-token' } : null,
+      getConnInfoFn: (() => ({ remote: { address: '127.0.0.1' } })) as any,
+    });
+
+    const response = await appWithDsFileResolver.request('/api/figma-mcp/dependencies/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsFileKey: 'ds123',
+      }),
+    });
+
+    assert.strictEqual(response.status, 200);
+    const body = await response.json();
+    assert.strictEqual(body.ok, true);
+    assert.ok(body.data);
+    assert.strictEqual(body.data.dsFileKey, 'ds123');
+  });
+
+  test('POST /api/figma-mcp/dependencies/sync - returns no_token when dsFileKey resolver returns null and context token is empty', async () => {
+    const appWithNullDsFileResolver = new Hono();
+    registerFigmaMcpDependenciesRoutes(appWithNullDsFileResolver, {
+      readJsonBody: async (c: any) => await c.req.json(),
+      db,
+      getSystemConfig: (_c: any) => ({ figmaApiToken: '' }),
+      getSystemConfigByDsFileKey: () => null,
+      getConnInfoFn: (() => ({ remote: { address: '127.0.0.1' } })) as any,
+    });
+
+    const response = await appWithNullDsFileResolver.request('/api/figma-mcp/dependencies/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

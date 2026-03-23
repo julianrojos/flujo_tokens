@@ -97,6 +97,7 @@ type RouteDeps = {
   internalToken?: string;
   db: DatabaseType;
   getSystemConfig: (c: Context) => SystemConfig;
+  getSystemConfigByDsFileKey?: (dsFileKey: string) => SystemConfig | null;
 };
 
 function isAuthorized(c: Context, deps: RouteDeps): boolean {
@@ -303,6 +304,50 @@ export function registerFigmaMcpDependenciesRoutes(
     }
   });
 
+  // GET /api/figma-mcp/dependencies/consumers/:consumerId - Get single consumer
+  app.get('/api/figma-mcp/dependencies/consumers/:consumerId', async (c: Context) => {
+    if (!isAuthorized(c, deps)) {
+      return c.json({
+        ok: false,
+        code: 'deps.unauthorized',
+        message: 'Unauthorized access',
+      }, 401);
+    }
+
+    try {
+      const consumerId = c.req.param('consumerId');
+
+      if (!consumerId) {
+        return c.json({
+          ok: false,
+          code: 'deps.validation.missing_consumer_id',
+          message: 'Consumer ID is required',
+        }, 400);
+      }
+
+      const consumer = repository.getConsumer(consumerId);
+      if (!consumer) {
+        return c.json({
+          ok: false,
+          code: 'deps.consumer.not_found',
+          message: 'Consumer not found',
+        }, 404);
+      }
+
+      return c.json({
+        ok: true,
+        data: consumer,
+      });
+    } catch (error) {
+      console.error('Error getting consumer:', error);
+      return c.json({
+        ok: false,
+        code: 'deps.consumer.get_failed',
+        message: 'Failed to load consumer',
+      }, 500);
+    }
+  });
+
   // PATCH /api/figma-mcp/dependencies/consumers/:consumerId - Update consumer (archive via enabled)
   app.patch('/api/figma-mcp/dependencies/consumers/:consumerId', async (c: Context) => {
     if (!isAuthorized(c, deps)) {
@@ -408,7 +453,14 @@ export function registerFigmaMcpDependenciesRoutes(
     }
 
     try {
-      const resolvedToken = resolveEnvRef(deps.getSystemConfig(c).figmaApiToken);
+      const dsFileKey = String(body.dsFileKey || '').trim();
+      const systemByDsFile = deps.getSystemConfigByDsFileKey?.(dsFileKey);
+      const rawTokenRef = String(
+        systemByDsFile?.figmaApiToken ||
+          deps.getSystemConfig(c).figmaApiToken ||
+          '',
+      );
+      const resolvedToken = resolveEnvRef(rawTokenRef);
       if (!resolvedToken) {
         return c.json({
           ok: false,
@@ -418,7 +470,7 @@ export function registerFigmaMcpDependenciesRoutes(
       }
 
       const result = await syncService.syncConsumers({
-        dsFileKey: body.dsFileKey as string,
+        dsFileKey,
         consumerIds: body.consumerIds as string[],
         force: body.force as boolean,
         token: resolvedToken,

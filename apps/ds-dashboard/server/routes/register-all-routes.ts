@@ -127,8 +127,39 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
   };
 }
 
+type DesignSystemConfigShape = {
+  systems?: Array<{ figmaFileId?: unknown; figmaApiToken?: unknown }>;
+};
+
+type ReadConfigRepoShape = {
+  readConfig?: () => DesignSystemConfigShape;
+};
+
+function hasReadConfigRepo(value: unknown): value is ReadConfigRepoShape {
+  return typeof value === 'object' && value !== null && typeof (value as ReadConfigRepoShape).readConfig === 'function';
+}
+
 export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   const routeDeps = buildAllRouteDeps(deps);
+  const resolveFigmaTokenRefByDsFileKey = (dsFileKey: string): string => {
+    const normalizedDsFileKey = String(dsFileKey || '').trim();
+    if (!normalizedDsFileKey) return '';
+    if (!hasReadConfigRepo(deps.designSystemRepository)) return '';
+    try {
+      const config = deps.designSystemRepository.readConfig();
+      const systems = Array.isArray(config?.systems) ? config.systems : [];
+      const matchedSystem = systems.find(
+        (system) => String(system?.figmaFileId || '').trim() === normalizedDsFileKey,
+      );
+      return String(matchedSystem?.figmaApiToken || '').trim();
+    } catch (error) {
+      console.warn(
+        `[register-all-routes] Failed to resolve Figma token for dsFileKey="${normalizedDsFileKey}"`,
+        error,
+      );
+      return '';
+    }
+  };
 
   registerSystemRoutes(app, routeDeps.systemDeps);
   registerOperationsRoutes(app, routeDeps.operationsDeps);
@@ -170,7 +201,12 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
       getSystemConfig: (c) => {
         const systemHeader = String(c.req.header('x-ds-system') || '');
         const context = deps.getSystemContext(systemHeader) as Record<string, unknown>;
-        const rawRef = String(context?.figmaApiToken || process.env.FIGMA_API_TOKEN || '');
+        const rawRef = String(context?.figmaApiToken || process.env.FIGMA_TOKEN || '');
+        return { figmaApiToken: rawRef };
+      },
+      getSystemConfigByDsFileKey: (dsFileKey) => {
+        const rawRef = resolveFigmaTokenRefByDsFileKey(dsFileKey);
+        if (!rawRef) return null;
         return { figmaApiToken: rawRef };
       },
     });
