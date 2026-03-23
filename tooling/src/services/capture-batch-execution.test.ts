@@ -198,6 +198,84 @@ describe('capture-batch-execution', () => {
     }
   });
 
+  it('keeps capture report successful when token graph refresh throws', () => {
+    const tmpBaseDir = path.join(PROJECT_ROOT, 'tooling', '.tmp');
+    fs.mkdirSync(tmpBaseDir, { recursive: true });
+    const repoRoot = fs.mkdtempSync(
+      path.join(tmpBaseDir, 'capture-batch-token-graph-failure-'),
+    );
+    try {
+      const docsRootDir = path.join(repoRoot, 'docs', 'simple-design-system');
+      const docsDir = path.join(docsRootDir, 'components');
+      const generatedDir = path.join(docsRootDir, '_generated');
+      const proofsDir = path.join(generatedDir, 'visual-proofs');
+      const renderDir = path.join(generatedDir, 'figma_doc_models');
+      const specsDir = path.join(docsRootDir, '_spec', 'components');
+
+      fs.mkdirSync(docsDir, { recursive: true });
+      fs.mkdirSync(proofsDir, { recursive: true });
+      fs.mkdirSync(renderDir, { recursive: true });
+      fs.mkdirSync(specsDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(generatedDir, 'component-registry.json'),
+        JSON.stringify({ schema_version: 1, components: [], summary: {}, fingerprint_sha256: '' }, null, 2),
+        'utf8',
+      );
+
+      const report = executeCaptureBatchAndRefresh({
+        report: {
+          ok: true,
+          captured: [],
+          failed: [],
+        },
+        targets: [],
+        projectRoot: repoRoot,
+        systemId: 'simple-design-system',
+        docsRootDir,
+        runCaptureBatchFn: () => ({
+          captured: [
+            {
+              slug: 'my_component',
+              node_id: '1:1',
+              markdown_path: 'docs/simple-design-system/components/my_component.md',
+              proof_file_path: null,
+              screenshot_url: null,
+              local_image_path: null,
+              variants_count: 0,
+            },
+          ],
+          failed: [],
+        }),
+        runJsonCommandFn: (_command, args) => {
+          const scriptPath = String(args[0] || '');
+          if (scriptPath.endsWith('ds-token-graph.mjs')) {
+            throw new Error('token graph command failed');
+          }
+          return { data: { ok: true } };
+        },
+        continueOnError: true,
+        figmaToken: 'token',
+        format: 'png',
+        scale: 2,
+        proofDir: proofsDir,
+        proofImageDir: path.join(proofsDir, 'images'),
+        includeVariants: true,
+        variantLimit: 6,
+        agent: 'auto',
+        mainCaptureMode: 'rest',
+        refreshIndices: true,
+      });
+
+      assert.equal(report.ok, true);
+      assert.equal(
+        (report as { token_graph_refresh?: { ok?: boolean } }).token_graph_refresh?.ok,
+        false,
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it('falls back to PROJECT_ROOT-relative proof image path when proof dir is non-standard', () => {
     const tmpBaseDir = path.join(PROJECT_ROOT, 'tooling', '.tmp');
     fs.mkdirSync(tmpBaseDir, { recursive: true });

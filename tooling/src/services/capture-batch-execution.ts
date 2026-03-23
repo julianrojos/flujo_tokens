@@ -409,6 +409,12 @@ export function executeCaptureBatchAndRefresh(params: {
     'scripts',
     'ds-token-usage-index.mjs',
   );
+  const tokenGraphScriptPath = path.join(
+    projectRoot,
+    'tooling',
+    'scripts',
+    'ds-token-graph.mjs',
+  );
 
   const captureBatch = runCaptureBatchFn({
     targets,
@@ -518,6 +524,21 @@ export function executeCaptureBatchAndRefresh(params: {
       report.token_usage_refresh = {
         ok: false,
         error: toErrorMessage(tokenUsageError),
+      };
+    }
+
+    try {
+      const tokenGraphResult = runNodeScriptJson({
+        repoRoot: projectRoot,
+        scriptPath: tokenGraphScriptPath,
+        scriptArgs: ['--system', systemId],
+        runJsonCommandFn,
+      });
+      report.token_graph_refresh = tokenGraphResult;
+    } catch (tokenGraphError) {
+      report.token_graph_refresh = {
+        ok: false,
+        error: toErrorMessage(tokenGraphError),
       };
     }
   }
