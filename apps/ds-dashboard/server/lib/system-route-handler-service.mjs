@@ -20,6 +20,7 @@ export {
   buildNoStoreJsonResponse,
   collectRemovableSystemPaths,
   removeExistingPaths,
+  removeExistingPathsWithOptions,
   buildCreateDesignSystemSuccessPayload,
   buildUpdateDesignSystemSuccessPayload,
   buildDeleteDesignSystemSuccessPayload,

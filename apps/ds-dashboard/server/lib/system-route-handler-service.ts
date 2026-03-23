@@ -33,6 +33,11 @@ export type FsSync = Pick<
   | "rmdirSync"
 >;
 
+export interface RemoveExistingPathsOptions {
+  repoRoot?: string;
+  protectedTopLevelDirs?: string[];
+}
+
 /**
  * Design system configuration.
  */
@@ -234,8 +239,43 @@ export function collectRemovableSystemPaths({
  * @returns List of removed paths
  */
 export function removeExistingPaths(paths: string[], fs: FsSync): string[] {
+  return removeExistingPathsWithOptions(paths, fs, undefined);
+}
+
+/**
+ * Remove existing filesystem paths with optional safety guards.
+ * @param paths - List of paths to remove
+ * @param fs - Synchronous filesystem operations
+ * @param options - Optional safety options
+ * @returns List of removed paths
+ */
+export function removeExistingPathsWithOptions(
+  paths: string[],
+  fs: FsSync,
+  options?: RemoveExistingPathsOptions,
+): string[] {
+  const repoRoot = options?.repoRoot ? path.resolve(options.repoRoot) : "";
+  const protectedTopLevelDirs = new Set(
+    (options?.protectedTopLevelDirs || ["docs", "input", "output"])
+      .map((value) => String(value || "").trim())
+      .filter(Boolean),
+  );
+
+  const isProtectedPath = (targetPath: string): boolean => {
+    if (!repoRoot) return false;
+    const absolute = path.resolve(targetPath);
+    if (absolute === repoRoot) return true;
+    const relative = path.relative(repoRoot, absolute);
+    if (!relative || relative === ".") return true;
+    if (relative.startsWith("..") || path.isAbsolute(relative)) return true;
+    const segments = relative.split(path.sep).filter(Boolean);
+    if (segments.length !== 1) return false;
+    return protectedTopLevelDirs.has(segments[0]);
+  };
+
   const removed: string[] = [];
   for (const targetPath of paths) {
+    if (isProtectedPath(targetPath)) continue;
     if (!fs.existsSync(targetPath)) continue;
     fs.rmSync(targetPath, { recursive: true, force: true });
     removed.push(targetPath);

@@ -12,7 +12,7 @@ import {
   buildUpdateDesignSystemSuccessPayload,
   collectRemovableSystemPaths,
   decodeSystemRouteId,
-  removeExistingPaths,
+  removeExistingPathsWithOptions,
   pruneEmptyAncestorDirs,
 } from "../lib/system-route-handler-service.mjs";
 
@@ -143,7 +143,7 @@ export function handleDeleteDesignSystemRoute(c, deps) {
   }
   const { targetSystem, nextSystems, nextConfig } = mutation;
 
-  const removedPaths = removeExistingPaths(
+  const removedPaths = removeExistingPathsWithOptions(
     collectRemovableSystemPaths({
       targetSystem,
       repoRoot,
@@ -151,6 +151,10 @@ export function handleDeleteDesignSystemRoute(c, deps) {
       resolveSafeSystemPathsForDeletionFn: resolveSafeSystemPathsForDeletion,
     }),
     fsSync,
+    {
+      repoRoot,
+      protectedTopLevelDirs: ["docs", "input", "output"],
+    },
   );
 
   // Prune empty ancestor directories after removing system paths

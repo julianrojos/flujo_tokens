@@ -122,4 +122,41 @@ describe("system-repository empty config support", () => {
     assert.equal(removed.includes("/repo/input/legacy"), true);
     assert.equal(removed.includes("/repo/docs/legacy"), true);
   });
+
+  it("resolveSafeSystemPathsForDeletion never removes top-level protected roots", () => {
+    const removed = resolveSafeSystemPathsForDeletion(
+      {
+        id: "legacy",
+        inputDir: "input",
+        outputDir: "output",
+        docsDir: "docs",
+      },
+      "/repo",
+      [],
+    );
+
+    assert.equal(removed.includes("/repo/input"), false);
+    assert.equal(removed.includes("/repo/output"), false);
+    assert.equal(removed.includes("/repo/docs"), false);
+  });
+
+  it("resolveSafeSystemPathsForDeletion never removes ancestors of surviving system dirs", () => {
+    const removed = resolveSafeSystemPathsForDeletion(
+      {
+        id: "legacy",
+        docsDir: "docs",
+      },
+      "/repo",
+      [
+        {
+          id: "core",
+          docsDir: "docs/core",
+        },
+      ],
+    );
+
+    assert.equal(removed.includes("/repo/docs"), false);
+    assert.equal(removed.includes("/repo/input/legacy"), true);
+    assert.equal(removed.includes("/repo/output/legacy"), true);
+  });
 });

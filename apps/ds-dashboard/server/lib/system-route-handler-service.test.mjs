@@ -11,6 +11,7 @@ import {
   ensureSystemFilesystemScaffold,
   resetGlobalArtifactsForNoSystems,
   removeExistingPaths,
+  removeExistingPathsWithOptions,
   isEmptyDir,
   getProtectedRoot,
   pruneEmptyAncestorDirs,
@@ -46,6 +47,26 @@ test("system-route-handler-service: collect/remove paths are deterministic", () 
     rmSync: () => {},
   }));
   assert.deepEqual(removed, ["/repo/docs/core", "/repo/output/core"]);
+});
+
+test("system-route-handler-service: removeExistingPathsWithOptions protects top-level roots", () => {
+  const rmCalls = [];
+  const removed = removeExistingPathsWithOptions(
+    ["/repo/docs", "/repo/input", "/repo/output", "/repo/docs/core", "/repo/input/core"],
+    /** @type {FsSync} */ ({
+      existsSync: () => true,
+      rmSync: (targetPath) => {
+        rmCalls.push(targetPath);
+      },
+    }),
+    {
+      repoRoot: "/repo",
+      protectedTopLevelDirs: ["docs", "input", "output"],
+    },
+  );
+
+  assert.deepEqual(removed, ["/repo/docs/core", "/repo/input/core"]);
+  assert.deepEqual(rmCalls, ["/repo/docs/core", "/repo/input/core"]);
 });
 
 test("system-route-handler-service: success payload builders keep API shape", () => {

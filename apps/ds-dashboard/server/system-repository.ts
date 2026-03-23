@@ -169,6 +169,21 @@ export function resolveSafeSystemPathsForDeletion(
   repoRoot: string,
   survivingSystems: DesignSystemConfigEntry[],
 ) {
+  function isSameOrDescendantPath(targetPath: string, basePath: string) {
+    if (targetPath === basePath) return true;
+    const baseWithSep = basePath.endsWith(path.sep) ? basePath : `${basePath}${path.sep}`;
+    return targetPath.startsWith(baseWithSep);
+  }
+
+  function isProtectedRootCandidate(absolutePath: string) {
+    const relative = path.relative(repoRoot, absolutePath);
+    if (!relative || relative === ".") return true;
+    if (relative.startsWith("..") || path.isAbsolute(relative)) return true;
+    const segments = relative.split(path.sep).filter(Boolean);
+    // Never delete top-level repository directories (docs/, input/, output/, etc.).
+    return segments.length <= 1;
+  }
+
   function resolveSystemDirCandidates(entry: DesignSystemConfigEntry | undefined | null) {
     const systemId = String(entry?.id || "").trim();
     return [
@@ -188,13 +203,21 @@ export function resolveSafeSystemPathsForDeletion(
         .filter(Boolean),
     ),
   );
+  const survivingDirList = Array.from(survivingDirs);
 
   const safePaths: string[] = [];
   for (const candidate of candidates) {
     const absolute = path.resolve(repoRoot, candidate);
     if (absolute === repoRoot) continue;
     if (!absolute.startsWith(rootWithSep)) continue;
+    if (isProtectedRootCandidate(absolute)) continue;
     if (survivingDirs.has(absolute)) continue;
+    const overlapsSurvivingSystemPath = survivingDirList.some(
+      (survivingPath) =>
+        isSameOrDescendantPath(survivingPath, absolute) ||
+        isSameOrDescendantPath(absolute, survivingPath),
+    );
+    if (overlapsSurvivingSystemPath) continue;
     safePaths.push(absolute);
   }
 
