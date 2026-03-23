@@ -1,7 +1,13 @@
-import { Fragment, useMemo } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Link, matchPath, useLocation } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchConsumer } from "@/lib/api";
+import {
+  onCachedConsumerLabelUpdate,
+  readCachedConsumerLabel,
+  writeCachedConsumerLabel,
+} from "@/lib/consumer-label-cache";
 
 type Crumb = {
   label: string;
@@ -16,7 +22,7 @@ function decodeSafe(value: string) {
   }
 }
 
-function buildCrumbs(pathname: string): Crumb[] {
+function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string }): Crumb[] {
   if (pathname === "/health") {
     return [{ label: "Health" }];
   }
@@ -61,12 +67,78 @@ function buildCrumbs(pathname: string): Crumb[] {
     return [{ label: "File Viewer" }];
   }
 
+  if (pathname === "/consumers") {
+    return [{ label: "Consumer Files" }];
+  }
+
+  const consumerMatch = matchPath("/consumers/:consumerId", pathname);
+  if (consumerMatch?.params.consumerId) {
+    const rawConsumerId = decodeSafe(consumerMatch.params.consumerId);
+    return [
+      { label: "Consumer Files", to: "/consumers" },
+      { label: options?.consumerDetailLabel || rawConsumerId },
+    ];
+  }
+
   return [];
 }
 
 export function AppBreadcrumb({ className }: { className?: string }) {
   const location = useLocation();
-  const crumbs = useMemo(() => buildCrumbs(location.pathname), [location.pathname]);
+  const consumerMatch = matchPath("/consumers/:consumerId", location.pathname);
+  const consumerId = consumerMatch?.params.consumerId ? decodeSafe(consumerMatch.params.consumerId) : "";
+  const [consumerLabel, setConsumerLabel] = useState(() => readCachedConsumerLabel(consumerId));
+
+  useEffect(() => {
+    // Don't subscribe if no consumerId (non-consumer routes)
+    if (!consumerId) {
+      setConsumerLabel("");
+      return;
+    }
+
+    const unsubscribe = onCachedConsumerLabelUpdate(({ consumerId: updatedId, consumerName }) => {
+      if (updatedId !== consumerId) return;
+      setConsumerLabel(consumerName);
+    });
+
+    let cancelled = false;
+    const cachedLabel = readCachedConsumerLabel(consumerId);
+    if (cachedLabel) {
+      setConsumerLabel(cachedLabel);
+      return () => {
+        cancelled = true;
+        unsubscribe();
+      };
+    }
+
+    async function loadConsumerLabel() {
+      try {
+        const response = await fetchConsumer(consumerId);
+        const resolvedName = String(response?.data?.consumerName || "").trim();
+        if (!cancelled && resolvedName) {
+          setConsumerLabel(resolvedName);
+          writeCachedConsumerLabel(consumerId, resolvedName);
+          return;
+        }
+        if (!cancelled) setConsumerLabel(consumerId);
+      } catch {
+        if (!cancelled) {
+          setConsumerLabel(consumerId);
+        }
+      }
+    }
+
+    void loadConsumerLabel();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [consumerId]);
+
+  const crumbs = useMemo(
+    () => buildCrumbs(location.pathname, { consumerDetailLabel: consumerLabel }),
+    [location.pathname, consumerLabel],
+  );
 
   if (crumbs.length === 0) return null;
 

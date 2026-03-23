@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import { PageHeader } from "@/components/composites/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import {
@@ -16,7 +16,19 @@ import {
 import { ImpactLevelBadge } from "./components/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { useDsFileKey } from "./hooks/use-ds-file-key";
+import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import type { DsConsumer, DsSyncRun, ComponentUsageReport, VariableUsageReport } from "@/types/consumers";
+
+function formatSyncedAt(value: string | undefined): string {
+  const date = new Date(String(value || ""));
+  return Number.isFinite(date.getTime()) ? date.toLocaleString() : "Unknown";
+}
+
+function formatDurationMs(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const duration = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(duration) && duration >= 0 ? `${Math.round(duration)}ms` : "—";
+}
 
 export function ConsumerDetailPage() {
   const { consumerId } = useParams<{ consumerId: string }>();
@@ -25,6 +37,7 @@ export function ConsumerDetailPage() {
   const [components, setComponents] = useState<ComponentUsageReport[]>([]);
   const [variables, setVariables] = useState<VariableUsageReport[]>([]);
   const [syncRuns, setSyncRuns] = useState<DsSyncRun[]>([]);
+  const [isSyncLogOpen, setIsSyncLogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
 
@@ -76,6 +89,11 @@ export function ConsumerDetailPage() {
 
     void loadData();
   }, [consumerId, dsFileKey, dsFileKeyLoading]);
+
+  useEffect(() => {
+    if (!consumer?.id || !consumer?.consumerName) return;
+    writeCachedConsumerLabel(consumer.id, consumer.consumerName);
+  }, [consumer?.id, consumer?.consumerName]);
 
   // Filter components and variables for this consumer
   const consumerComponents = components.flatMap((c) => {
@@ -142,7 +160,7 @@ export function ConsumerDetailPage() {
           <div>
             <h3 className="text-base font-semibold">Overview</h3>
             <p className="text-sm text-muted-foreground">
-              Last synced: {consumer.latestSync ? new Date(consumer.latestSync.syncedAt).toLocaleString() : "Never"}
+              Last synced: {consumer.latestSync ? formatSyncedAt(consumer.latestSync.syncedAt) : "Never"}
             </p>
           </div>
           <ConsumerSyncStatusBadge latestSync={consumer.latestSync} />
@@ -161,46 +179,6 @@ export function ConsumerDetailPage() {
               <p className="text-2xl font-bold">{consumer.latestSync.warningCount}</p>
               <p className="text-xs text-muted-foreground">warnings</p>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Sync Run Log */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <h3 className="mb-3 text-base font-semibold">Sync Run Log</h3>
-        {syncRuns.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No sync runs yet</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Timestamp</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Components</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Variables</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground">Duration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {syncRuns.map((run) => (
-                  <tr key={run.id} className="border-b border-border/50">
-                    <td className="px-3 py-2">
-                      <ConsumerSyncStatusBadge latestSync={run} />
-                      {run.errorMessage && (
-                        <p className="mt-1 text-xs text-status-error">{run.errorMessage}</p>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground">
-                      {new Date(run.syncedAt).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-2 text-right">{run.componentCount}</td>
-                    <td className="px-3 py-2 text-right">{run.variableCount}</td>
-                    <td className="px-3 py-2 text-right">{run.durationMs}ms</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
       </div>
@@ -284,6 +262,63 @@ export function ConsumerDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Sync Run Log */}
+      <section className="rounded-xl border border-border bg-card">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-muted/20"
+          onClick={() => setIsSyncLogOpen((open) => !open)}
+          aria-expanded={isSyncLogOpen}
+          aria-controls="sync-run-log-content"
+        >
+          <h3 className="text-base font-semibold">Sync Run Log</h3>
+          {isSyncLogOpen ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+        {isSyncLogOpen ? (
+          <div id="sync-run-log-content" className="border-t border-border/50 p-4 pt-3">
+            {syncRuns.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No sync runs yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Timestamp</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Components</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Variables</th>
+                      <th className="px-3 py-2 text-right font-medium text-muted-foreground">Duration</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {syncRuns.map((run) => (
+                      <tr key={run.id} className="border-b border-border/50">
+                        <td className="px-3 py-2">
+                          <ConsumerSyncStatusBadge latestSync={run} />
+                          {run.errorMessage && (
+                            <p className="mt-1 text-xs text-status-error">{run.errorMessage}</p>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {formatSyncedAt(run.syncedAt)}
+                        </td>
+                        <td className="px-3 py-2 text-right">{run.componentCount}</td>
+                        <td className="px-3 py-2 text-right">{run.variableCount}</td>
+                        <td className="px-3 py-2 text-right">{formatDurationMs(run.durationMs)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

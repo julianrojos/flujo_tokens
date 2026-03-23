@@ -1654,6 +1654,11 @@ export interface ListConsumersResponse {
   data: (DsConsumer & { latestSync?: DsSyncRun })[];
 }
 
+export interface GetConsumerResponse {
+  ok: boolean;
+  data: DsConsumer & { latestSync?: DsSyncRun };
+}
+
 export interface RemoveConsumerResponse {
   ok: boolean;
   data: { consumerId: string };
@@ -1696,19 +1701,128 @@ export interface SimulationResponse {
   data: SimulationResult;
 }
 
+function normalizeDsSyncRunRecord(value: unknown): DsSyncRun | null {
+  const row = toRecord(value);
+  if (!row) return null;
+
+  const durationRaw = row.durationMs ?? row.duration_ms;
+  const componentCountRaw = row.componentCount ?? row.component_count;
+  const variableCountRaw = row.variableCount ?? row.variable_count;
+  const warningCountRaw = row.warningCount ?? row.warning_count;
+  const durationMs = Number(durationRaw);
+  const componentCount = Number(componentCountRaw);
+  const variableCount = Number(variableCountRaw);
+  const warningCount = Number(warningCountRaw);
+
+  return {
+    id: toNonEmptyString(row.id),
+    consumerId: toNonEmptyString(row.consumerId ?? row.consumer_id),
+    syncedAt: toNonEmptyString(row.syncedAt ?? row.synced_at),
+    durationMs: Number.isFinite(durationMs) ? durationMs : 0,
+    status: (toNonEmptyString(row.status) as DsSyncRun["status"]) || "error",
+    errorMessage: toNonEmptyString(row.errorMessage ?? row.error_message) || undefined,
+    dsLastModified: toNonEmptyString(row.dsLastModified ?? row.ds_last_modified) || undefined,
+    consumerLastModified:
+      toNonEmptyString(row.consumerLastModified ?? row.consumer_last_modified) || undefined,
+    componentCount: Number.isFinite(componentCount) ? componentCount : 0,
+    variableCount: Number.isFinite(variableCount) ? variableCount : 0,
+    warningCount: Number.isFinite(warningCount) ? warningCount : 0,
+  };
+}
+
+function normalizeDsConsumerRecord(value: unknown): (DsConsumer & { latestSync?: DsSyncRun }) | null {
+  const row = toRecord(value);
+  if (!row) return null;
+  const enabledRaw = row.enabled;
+  const enabled =
+    typeof enabledRaw === "boolean"
+      ? enabledRaw
+      : typeof enabledRaw === "number"
+        ? enabledRaw !== 0
+        : toNonEmptyString(enabledRaw) === "1" || toNonEmptyString(enabledRaw).toLowerCase() === "true";
+
+  const latestSync = normalizeDsSyncRunRecord(row.latestSync ?? row.latest_sync);
+
+  return {
+    id: toNonEmptyString(row.id),
+    dsFileKey: toNonEmptyString(row.dsFileKey ?? row.ds_file_key),
+    consumerFileKey: toNonEmptyString(row.consumerFileKey ?? row.consumer_file_key),
+    consumerName: toNonEmptyString(row.consumerName ?? row.consumer_name),
+    enabled,
+    createdAt: toNonEmptyString(row.createdAt ?? row.created_at),
+    ...(latestSync ? { latestSync } : {}),
+  };
+}
+
+function warnInvalidConsumerPayload(context: string, value: unknown): void {
+  // Keep this lightweight and only emit when server payload is structurally invalid.
+  console.warn(`[api:${context}] Invalid consumer payload shape`, value);
+}
+
 export function addConsumer(payload: AddConsumerPayload) {
-  return requestJson<AddConsumerResponse>("/api/figma-mcp/dependencies/consumers", {
+  return requestJson<{ ok: boolean; data: unknown }>("/api/figma-mcp/dependencies/consumers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  }).then((response) => {
+    const normalized = normalizeDsConsumerRecord(response.data);
+    if (!normalized) {
+      warnInvalidConsumerPayload("addConsumer", response.data);
+    }
+    return {
+      ok: response.ok,
+      data: normalized || {
+        id: "",
+        dsFileKey: "",
+        consumerFileKey: "",
+        consumerName: "",
+        enabled: true,
+        createdAt: "",
+      },
+    } satisfies AddConsumerResponse;
   });
 }
 
 export function listConsumers(dsFileKey: string) {
   const params = new URLSearchParams({ dsFileKey });
-  return getJson<ListConsumersResponse>(`/api/figma-mcp/dependencies/consumers?${params.toString()}`);
+  return getJson<{ ok: boolean; data: unknown[] }>(
+    `/api/figma-mcp/dependencies/consumers?${params.toString()}`,
+  ).then((response) => {
+    const rows = Array.isArray(response.data) ? response.data : [];
+    const data = rows.flatMap((row) => {
+      const normalized = normalizeDsConsumerRecord(row);
+      if (!normalized || !normalized.id) {
+        warnInvalidConsumerPayload("listConsumers", row);
+        return [];
+      }
+      return [normalized];
+    });
+    return { ok: response.ok, data } satisfies ListConsumersResponse;
+  });
+}
+
+export function fetchConsumer(consumerId: string) {
+  return getJson<{ ok: boolean; data: unknown }>(
+    `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`,
+  ).then((response) => {
+    const normalized = normalizeDsConsumerRecord(response.data);
+    if (!normalized) {
+      warnInvalidConsumerPayload("fetchConsumer", response.data);
+    }
+    return {
+      ok: response.ok,
+      data: normalized || {
+        id: consumerId,
+        dsFileKey: "",
+        consumerFileKey: "",
+        consumerName: "",
+        enabled: true,
+        createdAt: "",
+      },
+    } satisfies GetConsumerResponse;
+  });
 }
 
 export function removeConsumer(consumerId: string) {
@@ -1718,12 +1832,31 @@ export function removeConsumer(consumerId: string) {
 }
 
 export function updateConsumer(consumerId: string, payload: Partial<{ enabled: boolean }>) {
-  return requestJson<UpdateConsumerResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`, {
+  return requestJson<{ ok: boolean; data: unknown }>(
+    `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`,
+    {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+    },
+  ).then((response) => {
+    const normalized = normalizeDsConsumerRecord(response.data);
+    if (!normalized) {
+      warnInvalidConsumerPayload("updateConsumer", response.data);
+    }
+    return {
+      ok: response.ok,
+      data: normalized || {
+        id: consumerId,
+        dsFileKey: "",
+        consumerFileKey: "",
+        consumerName: "",
+        enabled: payload.enabled ?? true,
+        createdAt: "",
+      },
+    } satisfies UpdateConsumerResponse;
   });
 }
 
@@ -1772,7 +1905,27 @@ export function simulateVariableChange(payload: SimulateChangePayload) {
 
 export function fetchConsumerSyncRuns(consumerId: string, limit = 20) {
   const params = new URLSearchParams({ limit: String(limit) });
-  return getJson<SyncRunsResponse>(`/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}/runs?${params.toString()}`);
+  return getJson<{ ok: true; data: unknown[] }>(
+    `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}/runs?${params.toString()}`,
+  ).then((response) => {
+    const runs = Array.isArray(response.data) ? response.data : [];
+    const data = runs
+      .map((run, index) => {
+        const normalized = normalizeDsSyncRunRecord(run);
+        if (!normalized) {
+          console.warn("[api:fetchConsumerSyncRuns] Invalid sync run payload shape", run);
+          return null;
+        }
+        // Preserve fallback ID for compatibility
+        if (!normalized.id) {
+          return { ...normalized, id: `${consumerId}-${index}` };
+        }
+        return normalized;
+      })
+      .filter((run): run is DsSyncRun => run !== null && Boolean(run.id));
+
+    return { ok: true as const, data };
+  });
 }
 
 // ============================================================================
