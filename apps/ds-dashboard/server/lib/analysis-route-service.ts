@@ -75,6 +75,88 @@ export interface ImpactFailureResult {
   };
 }
 
+function isEnoentError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const maybe = error as { code?: unknown; message?: unknown };
+  if (maybe.code === 'ENOENT') return true;
+  const message = String(maybe.message ?? '');
+  return message.includes('ENOENT');
+}
+
+function buildFallbackTokenGraph(tokenRegistry: Record<string, unknown>): Record<string, unknown> {
+  const rawEntries = Array.isArray(tokenRegistry.entries) ? tokenRegistry.entries : [];
+  const nodes = rawEntries.map((rawEntry, index) => {
+    const entry =
+      rawEntry && typeof rawEntry === 'object'
+        ? (rawEntry as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
+    const pathValue = String(entry.path ?? '').trim();
+    const slashPath = String(entry.slashPath ?? pathValue).trim();
+    const cssVar = String(entry.cssVar ?? '').trim();
+    const type = String(entry.type ?? '').trim();
+    const collection = String(entry.collection ?? '').trim();
+    const resolvedValue = String(entry.resolvedValue ?? '').trim();
+    const fallbackDisplayKey = pathValue || slashPath || cssVar;
+    const displayKey = String(entry.displayKey ?? fallbackDisplayKey).trim();
+    const idRef = pathValue || slashPath || cssVar || String(index);
+    return {
+      id: `path:${idRef}`,
+      path: pathValue,
+      slashPath,
+      cssVar,
+      type,
+      collection,
+      resolvedValue,
+      displayKey,
+      inDegree: 0,
+      outDegree: 0,
+      isCycleMember: false,
+    };
+  });
+
+  return {
+    ok: true,
+    source: {
+      registry_path: '',
+      graph_viz_path: '',
+    },
+    summary: {
+      nodes: nodes.length,
+      edges: 0,
+      cycles: 0,
+      cycle_nodes: 0,
+      unresolved_css_var_refs_total: 0,
+      ambiguous_css_vars_total: 0,
+      graph_collisions: 0,
+    },
+    nodes,
+    edges: [],
+    cycles: [],
+    cycle_node_ids: [],
+    fingerprint: 'fallback:token-graph-missing',
+  };
+}
+
+function buildEmptyTokenUsageIndex(): Record<string, unknown> {
+  return {
+    ok: true,
+    summary: {
+      tokens_total: 0,
+      tokens_with_usage: 0,
+      tokens_without_usage: 0,
+      usage_links_total: 0,
+      usage_links_by_kind: {},
+      unresolved_total: 0,
+    },
+    warnings: [],
+    unresolved: [],
+    entries: [],
+    byPath: {},
+    bySlashPath: {},
+    byCssVar: {},
+  };
+}
+
 /**
  * Parse refresh query parameter.
  */
@@ -154,24 +236,30 @@ export async function loadImpactArtifacts(
     throw new Error('normalizeImpactWcagPairsFn is required');
   }
 
-  const [
-    tokenRegistryRaw,
-    tokenGraphRaw,
-    tokenUsageRaw,
-    tokenHealthRaw,
-    componentRegistryRaw,
-    wcagPairsRaw,
-  ] = await Promise.all([
-    readFileFn(sysCtx.tokenRegistryPath, 'utf8'),
-    readFileFn(sysCtx.tokenGraphVizPath, 'utf8'),
-    readFileFn(sysCtx.tokenUsageIndexPath, 'utf8'),
-    readFileFn(sysCtx.tokenHealthPath, 'utf8').catch(() => 'null'),
-    readFileFn(sysCtx.componentRegistryPath, 'utf8').catch(() => 'null'),
-    readFileFn(sysCtx.wcagPairsPath, 'utf8').catch(() => '{"pairs": []}'),
-  ]);
+  const tokenRegistryRaw = await readFileFn(sysCtx.tokenRegistryPath, 'utf8');
+  const tokenRegistry = JSON.parse(tokenRegistryRaw) as Record<string, unknown>;
+
+  const [tokenGraphRaw, tokenUsageRaw, tokenHealthRaw, componentRegistryRaw, wcagPairsRaw] =
+    await Promise.all([
+      readFileFn(sysCtx.tokenGraphVizPath, 'utf8').catch((error: unknown) => {
+        if (isEnoentError(error)) {
+          return JSON.stringify(buildFallbackTokenGraph(tokenRegistry));
+        }
+        throw error;
+      }),
+      readFileFn(sysCtx.tokenUsageIndexPath, 'utf8').catch((error: unknown) => {
+        if (isEnoentError(error)) {
+          return JSON.stringify(buildEmptyTokenUsageIndex());
+        }
+        throw error;
+      }),
+      readFileFn(sysCtx.tokenHealthPath, 'utf8').catch(() => 'null'),
+      readFileFn(sysCtx.componentRegistryPath, 'utf8').catch(() => 'null'),
+      readFileFn(sysCtx.wcagPairsPath, 'utf8').catch(() => '{"pairs": []}'),
+    ]);
 
   return {
-    tokenRegistry: JSON.parse(tokenRegistryRaw),
+    tokenRegistry,
     tokenGraph: JSON.parse(tokenGraphRaw),
     tokenUsageIndex: JSON.parse(tokenUsageRaw),
     tokenHealth: JSON.parse(tokenHealthRaw),

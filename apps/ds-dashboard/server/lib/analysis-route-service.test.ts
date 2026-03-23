@@ -90,6 +90,54 @@ describe('analysis-route-service', () => {
       assert.deepEqual(loaded.tokenGraph, { nodes: [], edges: [] });
       assert.deepEqual(loaded.wcagPairs, { pairs: [{ a: 'x', b: 'y' }] });
     });
+
+    it('falls back to generated graph and empty usage index when artifacts are missing', async () => {
+      const files: Record<string, string> = {
+        '/token-registry.json': JSON.stringify({
+          entries: [
+            {
+              path: 'primitivos.color.blanco',
+              slashPath: 'primitivos/color/blanco',
+              cssVar: '--primitivos-color-blanco',
+              type: 'color',
+              collection: 'primitivos',
+              resolvedValue: '#ffffff',
+              displayKey: 'blanco',
+            },
+          ],
+        }),
+        '/token-health.json': '{"ok":true}',
+        '/component-registry.json': '{"components":[]}',
+        '/wcag-pairs.json': '{"pairs":[]}',
+      };
+
+      const loaded = await loadImpactArtifacts(
+        {
+          tokenRegistryPath: '/token-registry.json',
+          tokenGraphVizPath: '/token-graph-viz.json',
+          tokenUsageIndexPath: '/token-usage-index.json',
+          tokenHealthPath: '/token-health.json',
+          componentRegistryPath: '/component-registry.json',
+          wcagPairsPath: '/wcag-pairs.json',
+        },
+        {
+          readFileFn: async (filePath: string) => {
+            if (!(filePath in files)) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+            return files[filePath];
+          },
+          normalizeImpactWcagPairsFn: (value: Record<string, unknown>) => value,
+        }
+      );
+
+      const graph = loaded.tokenGraph as { nodes?: Array<{ path?: string }>; edges?: unknown[] };
+      assert.equal(Array.isArray(graph.nodes), true);
+      assert.equal(graph.nodes?.[0]?.path, 'primitivos.color.blanco');
+      assert.deepEqual(graph.edges, []);
+
+      const usage = loaded.tokenUsageIndex as { entries?: unknown[]; byPath?: Record<string, unknown> };
+      assert.deepEqual(usage.entries, []);
+      assert.deepEqual(usage.byPath, {});
+    });
   });
 
   describe('buildImpactFailure()', () => {
