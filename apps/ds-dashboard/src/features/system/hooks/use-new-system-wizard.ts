@@ -144,6 +144,7 @@ interface NewSystemWizardViewModel {
 }
 
 export function useNewSystemWizard(): NewSystemWizardViewModel {
+  const { replaceSystems } = useDesignSystem();
   const [state, dispatch] = useReducer(wizardReducer, initialState);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<ApiErrorDisplay | null>(null);
@@ -151,7 +152,6 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
   const [pingLoading, setPingLoading] = useState(false);
   const [showImportErrorDetails, setShowImportErrorDetails] = useState(false);
   const [isCancellingImport, setIsCancellingImport] = useState(false);
-  const { replaceSystems, setActiveSystem } = useDesignSystem();
 
   const generatedSystemId = useMemo(() => toSystemId(state.form.systemName), [state.form.systemName]);
   const figmaFileId = useMemo(() => extractFigmaFileIdFromUrl(state.form.figmaFileUrl), [state.form.figmaFileUrl]);
@@ -212,10 +212,8 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
         throw new Error("Server returned an empty system ID");
       }
 
+      // Keep systems list synchronized without forcing active-system remount.
       replaceSystems(result.config.systems);
-      if (state.form.makeDefault) {
-        setActiveSystem(systemId);
-      }
 
       dispatch({
         type: "START_IMPORT",
@@ -235,7 +233,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
     } finally {
       setSaving(false);
     }
-  }, [generatedSystemId, isFormValid, replaceSystems, setActiveSystem, state.form]);
+  }, [generatedSystemId, isFormValid, replaceSystems, state.form]);
 
   const updateImportProgress = useCallback((progress: CaptureFigmaProgress) => {
     dispatch({ type: "IMPORT_PROGRESS", payload: progress });

@@ -9,6 +9,10 @@ export interface ImportSuccessSummary {
   variablesTotal: number | null;
   tokensCompiled: boolean | null;
   compileReason: string | null;
+  // For updating UI context after import completes
+  systemId: string;
+  makeDefault: boolean;
+  config: { systems: Array<{ id: string; name: string }> };
 }
 
 export function buildImportSuccessSummary(
@@ -16,6 +20,9 @@ export function buildImportSuccessSummary(
     CaptureFigmaScreenshotResult,
     "targets_total" | "targets" | "captured" | "tokens_bootstrap" | "tokens_compile"
   >,
+  systemId: string,
+  makeDefault: boolean,
+  systems: Array<{ id: string; name: string }>,
 ): ImportSuccessSummary {
   const elementsTotal = captureResult.targets_total ?? captureResult.targets?.length ?? 0;
   const elementsImported = captureResult.captured?.length ?? 0;
@@ -56,6 +63,9 @@ export function buildImportSuccessSummary(
     variablesTotal,
     tokensCompiled,
     compileReason,
+    systemId,
+    makeDefault,
+    config: { systems },
   };
 }
 

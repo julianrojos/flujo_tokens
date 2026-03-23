@@ -1042,6 +1042,7 @@ export interface FileSnippetPayload {
 export interface CaptureFigmaScreenshotArgs {
   figmaUrl: string;
   figmaToken?: string;
+  tokensSource?: "auto" | "mcp" | "rest";
   componentSlug?: string;
   includeVariants?: boolean;
   variantLimit?: number;

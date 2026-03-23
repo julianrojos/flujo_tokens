@@ -2,16 +2,35 @@
  * Wizard Step Import - progress, logs, errors, cancel.
  */
 
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { StatusAlert } from "@/components/ui/status-alert";
-import type { CaptureFigmaProgress } from "@/lib/api";
+import type {
+  CaptureFigmaErrorDetail,
+  CaptureFigmaProgress,
+  TokensBootstrapResult,
+  TokensCompileResult,
+} from "@/lib/api";
+import type { ImportSuccessSummary } from "../new-system-import-summary";
+import { ImportSuccessNotice } from "../import-success-notice";
+import { cn } from "@/lib/utils";
 
 interface WizardStepImportProps {
   progress: CaptureFigmaProgress | null;
   error: string | null;
   errorDetails: string;
   pipelinePhase: string;
+  sourceUrl?: string;
+  sourceFileKey?: string;
+  requestId?: string;
+  figmaError?: CaptureFigmaErrorDetail | null;
+  errorHint?: string | null;
+  tokensBootstrap?: TokensBootstrapResult | null;
+  tokensCompile?: TokensCompileResult | null;
+  successSummary?: ImportSuccessSummary | null;
+  showTokensLink?: boolean;
+  statusText?: string;
   showDetails: boolean;
   isCancelling: boolean;
   importCompleted: boolean;
@@ -25,6 +44,16 @@ export function WizardStepImport({
   error,
   errorDetails,
   pipelinePhase,
+  sourceUrl,
+  sourceFileKey,
+  requestId,
+  figmaError,
+  errorHint,
+  tokensBootstrap,
+  tokensCompile,
+  successSummary,
+  showTokensLink = true,
+  statusText,
   showDetails,
   isCancelling,
   importCompleted,
@@ -32,6 +61,9 @@ export function WizardStepImport({
   onReset,
   onToggleDetails,
 }: WizardStepImportProps) {
+  const bootstrapReason = String(tokensBootstrap?.reason || "").trim() || "No bootstrap reason was provided.";
+  const compileReason = String(tokensCompile?.reason || "").trim() || "No compilation reason was provided.";
+
   if (importCompleted) {
     return (
       <Card>
@@ -39,8 +71,35 @@ export function WizardStepImport({
           <CardTitle>Import Complete</CardTitle>
           <CardDescription>Your design system has been created</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button onClick={onReset}>Create another system</Button>
+        <CardContent className="space-y-4">
+          {successSummary ? <ImportSuccessNotice summary={successSummary} /> : null}
+          {tokensBootstrap ? (
+            <StatusAlert
+              variant={tokensBootstrap.error ? "warning" : "info"}
+              title={tokensBootstrap.error ? "Token bootstrap finished with warnings" : "Token bootstrap status"}
+              description={tokensBootstrap.error || bootstrapReason}
+            />
+          ) : null}
+          {tokensCompile ? (
+            <StatusAlert
+              variant={tokensCompile.compiled ? "success" : "warning"}
+              title={tokensCompile.compiled ? "Token compilation completed" : "Token compilation did not complete cleanly"}
+              description={tokensCompile.stderr || compileReason}
+            />
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {showTokensLink ? (
+              <Link to="/tokens" className={cn(buttonVariants({ variant: "default" }))}>
+                View Design Tokens
+              </Link>
+            ) : null}
+            <Link to="/components" className={cn(buttonVariants({ variant: "outline" }))}>
+              View components
+            </Link>
+            <Button variant="outline" onClick={onReset}>
+              Create another system
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -50,9 +109,25 @@ export function WizardStepImport({
     <Card>
       <CardHeader>
         <CardTitle>Importing from Figma</CardTitle>
-        <CardDescription>Capturing components and tokens</CardDescription>
+        <CardDescription>{statusText || "Capturing components and tokens"}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {sourceUrl ? (
+          <p className="break-all text-xs text-muted-foreground">
+            Source URL: <code>{sourceUrl}</code>
+          </p>
+        ) : null}
+        {sourceFileKey ? (
+          <p className="text-xs text-muted-foreground">
+            File key: <code>{sourceFileKey}</code>
+          </p>
+        ) : null}
+        {requestId ? (
+          <p className="text-xs text-muted-foreground">
+            Request ID: <code>{requestId}</code>
+          </p>
+        ) : null}
+
         {progress ? (
           <div className="space-y-2">
             <div className="text-sm">
@@ -72,6 +147,28 @@ export function WizardStepImport({
               {error}
               {pipelinePhase && <p className="mt-1 text-xs">Phase: {pipelinePhase}</p>}
             </StatusAlert>
+            {figmaError ? (
+              <StatusAlert
+                variant="warning"
+                title="Figma API details"
+                description={
+                  <>
+                    {typeof figmaError.status === "number" ? (
+                      <p>Status: <code>{figmaError.status}</code></p>
+                    ) : null}
+                    {figmaError.fileKey ? (
+                      <p>File key: <code>{figmaError.fileKey}</code></p>
+                    ) : null}
+                    {figmaError.endpoint ? (
+                      <p className="break-all">Endpoint: <code>{figmaError.endpoint}</code></p>
+                    ) : null}
+                  </>
+                }
+              />
+            ) : null}
+            {errorHint ? (
+              <StatusAlert variant="info" title="Suggested action" description={errorHint} />
+            ) : null}
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={onToggleDetails}>
                 {showDetails ? "Hide" : "Show"} details
@@ -87,9 +184,25 @@ export function WizardStepImport({
             )}
           </>
         ) : (
-          <Button variant="outline" onClick={onCancel} disabled={isCancelling}>
-            {isCancelling ? "Cancelling…" : "Cancel import"}
-          </Button>
+          <div className="space-y-2">
+            {tokensBootstrap ? (
+              <StatusAlert
+                variant={tokensBootstrap.error ? "warning" : "info"}
+                title={tokensBootstrap.error ? "Token bootstrap warning" : "Token bootstrap status"}
+                description={tokensBootstrap.error || bootstrapReason}
+              />
+            ) : null}
+            {tokensCompile ? (
+              <StatusAlert
+                variant={tokensCompile.compiled ? "success" : "warning"}
+                title={tokensCompile.compiled ? "Token compilation completed" : "Token compilation status"}
+                description={tokensCompile.stderr || compileReason}
+              />
+            ) : null}
+            <Button variant="outline" onClick={onCancel} disabled={isCancelling}>
+              {isCancelling ? "Cancelling…" : "Cancel import"}
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
