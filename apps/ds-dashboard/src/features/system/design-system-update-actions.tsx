@@ -36,6 +36,7 @@ export function DesignSystemUpdateActions({
 
   const [sharedFigmaUrl, setSharedFigmaUrl] = useState(suggestedUrl);
   const [sharedToken, setSharedToken] = useState("");
+  const [autoTriggerToken, setAutoTriggerToken] = useState(0);
   const [componentsValidationError, setComponentsValidationError] = useState<string | null>(null);
   const [designContext, setDesignContext] = useState<FigmaMcpDesignContextCompactResponse | null>(null);
   const [allowVariablesWithContextIssues, setAllowVariablesWithContextIssues] = useState(false);
@@ -129,6 +130,11 @@ export function DesignSystemUpdateActions({
               placeholder="Figma token (optional)"
               autoComplete="off"
               disabled={disabled || componentsState.isRunning || variablesState.isRunning}
+              onBlur={() => {
+                if (sharedFigmaUrl.trim() && sharedToken.trim()) {
+                  setAutoTriggerToken((n) => n + 1);
+                }
+              }}
             />
           </div>
           <div className="min-w-0 space-y-1">
@@ -136,6 +142,7 @@ export function DesignSystemUpdateActions({
             <FigmaMcpConnectionTestButton
               figmaUrl={sharedFigmaUrl}
               figmaToken={sharedToken}
+              autoTriggerToken={autoTriggerToken}
               className="min-w-0"
               disabled={disabled || componentsState.isRunning || variablesState.isRunning}
               showDesignContextCompact

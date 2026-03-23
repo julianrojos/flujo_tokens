@@ -2,6 +2,7 @@
  * Wizard Step Basics - form for Figma URL, token, system name, options.
  */
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ interface WizardStepBasicsProps {
 }
 
 export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsProps) {
+  const [autoTriggerToken, setAutoTriggerToken] = useState(0);
   return (
     <Card>
       <CardHeader>
@@ -64,10 +66,16 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                 onChange={(e) => actions.onFieldChange("figmaAccessToken", e.target.value)}
                 placeholder="env:FIGMA_TOKEN"
                 className="flex-1"
+                onBlur={() => {
+                  if (form.figmaFileUrl.trim() && form.figmaAccessToken.trim()) {
+                    setAutoTriggerToken((n) => n + 1);
+                  }
+                }}
               />
               <FigmaMcpConnectionTestButton
                 figmaUrl={form.figmaFileUrl}
                 figmaToken={form.figmaAccessToken}
+                autoTriggerToken={autoTriggerToken}
               />
             </div>
           </div>

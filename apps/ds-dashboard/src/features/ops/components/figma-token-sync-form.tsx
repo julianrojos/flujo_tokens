@@ -36,6 +36,7 @@ export function FigmaTokenSyncForm({
   // Form state
   const [figmaUrl, setFigmaUrl] = useState("");
   const [figmaToken, setFigmaToken] = useState("");
+  const [autoTriggerToken, setAutoTriggerToken] = useState(0);
   const [force, setForce] = useState(false);
   const [merge, setMerge] = useState(false);
   const [compile, setCompile] = useState(true);
@@ -177,6 +178,7 @@ export function FigmaTokenSyncForm({
             <FigmaMcpConnectionTestButton
               figmaUrl={figmaUrl}
               figmaToken={figmaToken}
+              autoTriggerToken={autoTriggerToken}
               className="mt-2"
               showDesignContextCompact
               onDesignContextCompactChange={handleContextChange}
@@ -196,6 +198,11 @@ export function FigmaTokenSyncForm({
               value={figmaToken}
               onChange={(e) => setFigmaToken(e.target.value)}
               disabled={isRunning}
+              onBlur={() => {
+                if (figmaUrl.trim() && figmaToken.trim()) {
+                  setAutoTriggerToken((n) => n + 1);
+                }
+              }}
               autoComplete="off"
             />
           </div>
