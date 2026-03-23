@@ -10,6 +10,7 @@ import type { DsConsumer, DsSyncRun, ImpactLevel } from "@/types/consumers";
 interface ConsumerCardBaseProps {
   consumer: DsConsumer & { latestSync?: DsSyncRun };
   syncing?: boolean;
+  removing?: boolean;
 }
 
 interface ConsumerCardManagementProps extends ConsumerCardBaseProps {
@@ -23,14 +24,16 @@ interface ConsumerCardReportProps extends ConsumerCardBaseProps {
   mode: "report";
   impactLevel: ImpactLevel;
   onSync?: (consumerId: string) => void;
+  onRemove?: (consumerId: string) => void;
 }
 
 type ConsumerCardProps = ConsumerCardManagementProps | ConsumerCardReportProps;
 
 export function ConsumerCard(props: ConsumerCardProps) {
-  const { consumer, syncing = false } = props;
+  const { consumer, syncing = false, removing = false } = props;
   const isManagement = props.mode === "management";
   const canSync = isManagement || typeof props.onSync === "function";
+  const canRemove = isManagement || typeof props.onRemove === "function";
 
   return (
     <Card className="group relative overflow-hidden">
@@ -83,7 +86,7 @@ export function ConsumerCard(props: ConsumerCardProps) {
           </p>
         )}
       </CardContent>
-      {(isManagement || canSync) && (
+      {(isManagement || canSync || canRemove) && (
         <CardFooter className="flex justify-between gap-2 border-t border-border/50 bg-muted/30 px-4 py-3">
           {isManagement ? (
             <label className="flex items-center gap-2 text-sm">
@@ -92,7 +95,7 @@ export function ConsumerCard(props: ConsumerCardProps) {
                 checked={consumer.enabled}
                 onChange={(e) => props.onToggleEnabled(consumer.id, e.target.checked)}
                 className="h-4 w-4"
-                disabled={syncing}
+                disabled={syncing || removing}
               />
               <span className="text-muted-foreground">Enabled</span>
             </label>
@@ -104,7 +107,7 @@ export function ConsumerCard(props: ConsumerCardProps) {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={syncing}
+                disabled={syncing || removing}
                 onClick={() => props.onSync?.(consumer.id)}
               >
                 {syncing ? "Syncing..." : "Sync now"}
@@ -115,10 +118,21 @@ export function ConsumerCard(props: ConsumerCardProps) {
                 size="sm"
                 variant="outline"
                 className="text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
-                disabled={syncing}
+                disabled={syncing || removing}
                 onClick={() => props.onRemove(consumer.id)}
               >
-                Remove
+                {removing ? "Removing..." : "Remove"}
+              </Button>
+            ) : null}
+            {!isManagement && props.onRemove ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
+                disabled={syncing || removing}
+                onClick={() => props.onRemove?.(consumer.id)}
+              >
+                {removing ? "Removing..." : "Remove"}
               </Button>
             ) : null}
           </div>

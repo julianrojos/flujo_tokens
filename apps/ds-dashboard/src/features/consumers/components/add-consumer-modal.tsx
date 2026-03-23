@@ -12,6 +12,7 @@ import { StatusAlert } from "@/components/ui/status-alert";
 import {
   addConsumer,
   type AddConsumerPayload,
+  syncConsumers,
 } from "@/lib/api";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { ApiErrorMessage } from "@/components/api-error-message";
@@ -48,13 +49,18 @@ export function AddConsumerModal({
         enabled,
       };
 
-      await addConsumer(payload);
+      const created = await addConsumer(payload);
+      const consumerId = String(created?.data?.id || "").trim();
+      await syncConsumers({
+        dsFileKey,
+        consumerIds: consumerId ? [consumerId] : undefined,
+      });
       onSuccess?.();
       handleClose();
     } catch (cause) {
       setError(toApiErrorDisplay(cause, {
-        fallbackTitle: "Add consumer failed",
-        fallbackMessage: "Unable to add consumer file.",
+        fallbackTitle: "Add or sync failed",
+        fallbackMessage: "Unable to add and sync consumer file.",
       }));
     } finally {
       setSubmitting(false);
@@ -135,7 +141,7 @@ export function AddConsumerModal({
               Cancel
             </Button>
             <Button type="submit" disabled={submitting || !consumerName.trim() || !consumerFileUrl.trim()}>
-              {submitting ? "Adding..." : "Add Consumer"}
+              {submitting ? "Adding and syncing..." : "Add Consumer"}
             </Button>
           </ModalFooter>
         </form>

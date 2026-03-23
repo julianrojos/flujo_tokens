@@ -25,6 +25,7 @@ export function ConsumersPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const { dsFileKey, loading: resolvingDsFileKey } = useDsFileKey();
 
   const activeTab = resolveActiveTab(searchParams.get("tab"));
@@ -106,6 +107,7 @@ export function ConsumersPage() {
       {activeTab === "by-file" && (
         <ConsumerTabByFile
           dsFileKey={dsFileKey}
+          reloadToken={reloadToken}
           onAddConsumer={() => setAddModalOpen(true)}
         />
       )}
@@ -118,7 +120,7 @@ export function ConsumersPage() {
         dsFileKey={dsFileKey}
         onSuccess={() => {
           setAddModalOpen(false);
-          // Refresh will happen in the tab component
+          setReloadToken((value) => value + 1);
         }}
       />
     </div>

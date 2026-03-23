@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { EmptyState, EmptyStateAction } from "@/components/composites/empty-state";
 import { StatusAlert } from "@/components/ui/status-alert";
+import { Modal, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
-import { fetchReportByFile, syncConsumers } from "@/lib/api";
+import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
 import { ConsumerCard } from "./consumer-card";
 import { Network } from "lucide-react";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
@@ -13,16 +14,25 @@ import type { FileReport } from "@/types/consumers";
 
 interface ConsumerTabByFileProps {
   dsFileKey: string;
+  reloadToken?: number;
   onAddConsumer?: () => void;
 }
 
-export function ConsumerTabByFile({ dsFileKey, onAddConsumer }: ConsumerTabByFileProps) {
+interface RemoveCandidate {
+  id: string;
+  name: string;
+}
+
+export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
   const { staleFilter, setStaleFilter } = useConsumerFilterParams();
   const [reports, setReports] = useState<FileReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncingConsumerId, setSyncingConsumerId] = useState<string | null>(null);
+  const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
+  const [removeCandidate, setRemoveCandidate] = useState<RemoveCandidate | null>(null);
+  const [removeConfirmed, setRemoveConfirmed] = useState(false);
 
   const loadReports = async () => {
     setLoading(true);
@@ -44,7 +54,7 @@ export function ConsumerTabByFile({ dsFileKey, onAddConsumer }: ConsumerTabByFil
 
   useEffect(() => {
     void loadReports();
-  }, [dsFileKey, staleFilter]);
+  }, [dsFileKey, staleFilter, reloadToken]);
 
   const handleSync = async (consumerId?: string, force = false) => {
     if (consumerId) {
@@ -69,6 +79,37 @@ export function ConsumerTabByFile({ dsFileKey, onAddConsumer }: ConsumerTabByFil
     } finally {
       setSyncing(false);
       setSyncingConsumerId(null);
+    }
+  };
+
+  const requestRemove = (consumerId: string, consumerName: string) => {
+    setRemoveCandidate({ id: consumerId, name: consumerName });
+    setRemoveConfirmed(false);
+  };
+
+  const closeRemoveModal = () => {
+    if (removingConsumerId) return;
+    setRemoveCandidate(null);
+    setRemoveConfirmed(false);
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!removeCandidate) return;
+
+    setRemovingConsumerId(removeCandidate.id);
+    setError(null);
+    try {
+      await removeConsumer(removeCandidate.id);
+      await loadReports();
+      setRemoveCandidate(null);
+      setRemoveConfirmed(false);
+    } catch (cause) {
+      setError(toApiErrorDisplay(cause, {
+        fallbackTitle: "Remove failed",
+        fallbackMessage: "Unable to remove this consumer file.",
+      }));
+    } finally {
+      setRemovingConsumerId(null);
     }
   };
 
@@ -174,9 +215,52 @@ export function ConsumerTabByFile({ dsFileKey, onAddConsumer }: ConsumerTabByFil
             impactLevel={report.impactLevel.level}
             syncing={syncingConsumerId === report.consumerId}
             onSync={(id) => void handleSync(id)}
+            onRemove={(id) => requestRemove(id, report.consumerName)}
+            removing={removingConsumerId === report.consumerId}
           />
         ))}
       </div>
+
+      <Modal open={!!removeCandidate} onClose={closeRemoveModal}>
+        <ModalContent size="md">
+          <ModalHeader>
+            <h2 id="consumer-remove-confirm-title" className="text-lg font-semibold">
+              Remove consumer file
+            </h2>
+          </ModalHeader>
+
+          <div className="px-5 pb-2">
+            <p className="mb-4 text-sm text-muted-foreground">
+              This will remove <strong>{removeCandidate?.name}</strong> and all its sync history.
+              This action cannot be undone.
+            </p>
+
+            <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={removeConfirmed}
+                onChange={(event) => setRemoveConfirmed(event.target.checked)}
+                className="h-4 w-4"
+                disabled={!!removingConsumerId}
+              />
+              <span>I understand and want to continue</span>
+            </label>
+          </div>
+
+          <ModalFooter>
+            <Button variant="outline" onClick={closeRemoveModal} disabled={!!removingConsumerId}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => void handleConfirmRemove()}
+              disabled={!removeConfirmed || !!removingConsumerId}
+              className="bg-status-error text-status-error-foreground hover:bg-status-error/90"
+            >
+              {removingConsumerId ? "Removing..." : "Remove consumer"}
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   );
 }
