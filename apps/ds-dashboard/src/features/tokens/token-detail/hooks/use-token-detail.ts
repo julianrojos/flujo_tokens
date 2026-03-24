@@ -328,7 +328,7 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       list.push(occ);
       map.set(occ.kind, list);
     }
-    const order = ["component-spec", "css-alias"];
+    const order = ["figma-applied", "figma-consumer-applied", "figma-alias"];
     const sorted = new Map<string, TokenUsageOccurrence[]>();
     for (const key of order) {
       if (map.has(key)) sorted.set(key, map.get(key)!);

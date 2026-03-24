@@ -80,7 +80,7 @@ export function TokenDetailPage() {
         )}
         {nextToken && (
           <Button variant="outline" size="sm" onClick={() => handleNavigate(nextToken)}>
-            Next → <ArrowRight className="ml-2 h-4 w-4" />
+            Next <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         )}
         {scopedTokens.length > 0 && (

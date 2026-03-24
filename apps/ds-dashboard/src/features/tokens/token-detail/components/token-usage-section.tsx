@@ -142,6 +142,7 @@ function UsageGroup({
             const file = String(occ.source || "").trim();
             const line = extractLineNumber(occ.detail || "");
             const fileLabel = file ? (line ? `${file}:${line}` : file) : "—";
+            const canOpenSnippet = Boolean(file);
             return (
               <Fragment key={key}>
                 <TableRow>
@@ -155,8 +156,17 @@ function UsageGroup({
                   </TableCell>
                   <TableCell className="font-mono text-xs">{line ?? "—"}</TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" onClick={() => state?.open ? setSnippets((c) => ({ ...c, [key]: { ...c[key], open: false } })) : void openSnippet(key, occ)}>
-                      {state?.open ? "Hide" : "Snippet"}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!canOpenSnippet}
+                      onClick={() =>
+                        state?.open
+                          ? setSnippets((c) => ({ ...c, [key]: { ...c[key], open: false } }))
+                          : void openSnippet(key, occ)
+                      }
+                    >
+                      {canOpenSnippet ? (state?.open ? "Hide" : "Snippet") : "—"}
                     </Button>
                   </TableCell>
                 </TableRow>
