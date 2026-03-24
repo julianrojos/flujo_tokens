@@ -7,10 +7,12 @@ import { Modal, ModalContent } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import {
   deleteDesignSystem,
+  fetchDeletePreview,
   fetchDesignSystemsConfig,
   updateDesignSystem,
   type DesignSystemConfigEntry,
 } from "@/lib/api";
+import type { DeletePreviewResponse } from "@/lib/api";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useDesignSystem } from "@/lib/design-system-context";
 import { cn } from "@/lib/utils";
@@ -124,6 +126,8 @@ export function DesignSystemsAdminPage() {
     null,
   );
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [deletePreview, setDeletePreview] = useState<DeletePreviewResponse['data'] | null>(null);
+  const [deletePreviewLoading, setDeletePreviewLoading] = useState(false);
 
   const sortedSystems = useMemo(
     () =>
@@ -251,6 +255,8 @@ export function DesignSystemsAdminPage() {
       await load();
       setDeleteModalTarget(null);
       setDeleteConfirmed(false);
+      setDeletePreview(null);
+      setDeletePreviewLoading(false);
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -315,9 +321,19 @@ export function DesignSystemsAdminPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
+                      onClick={async () => {
                         setDeleteModalTarget({ id, name: String(system.name || id) });
                         setDeleteConfirmed(false);
+                        setDeletePreview(null);
+                        setDeletePreviewLoading(true);
+                        try {
+                          const preview = await fetchDeletePreview(id);
+                          setDeletePreview(preview.data);
+                        } catch (error) {
+                          console.error('Failed to load delete preview:', error);
+                        } finally {
+                          setDeletePreviewLoading(false);
+                        }
                       }}
                       disabled={isBusy}
                     >
@@ -511,18 +527,65 @@ export function DesignSystemsAdminPage() {
         onClose={() => {
           setDeleteModalTarget(null);
           setDeleteConfirmed(false);
+          setDeletePreview(null);
+          setDeletePreviewLoading(false);
         }}
       >
-        <ModalContent size="md">
+        <ModalContent size="lg">
           {deleteModalTarget ? (
             <div className="p-5">
               <h2 className="mb-2 text-lg font-serif font-semibold">
                 Confirm deletion
               </h2>
-              <p className="mb-4 text-sm text-muted-foreground">
-                Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>. All its
-                data will be removed. This action cannot be undone.
-              </p>
+
+              {deletePreviewLoading ? (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Loading preview...
+                </p>
+              ) : deletePreview ? (
+                <div className="mb-4">
+                  <p className="mb-3 text-sm text-muted-foreground">
+                    Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>?
+                    This will permanently remove the design system and all associated consumer data.
+                  </p>
+
+                  {deletePreview && deletePreview.totalConsumerCount > 0 ? (
+                    <div className="mb-3 rounded-lg border border-border bg-muted/30 p-3">
+                      <p className="mb-2 text-sm font-medium text-foreground">
+                        This will delete {deletePreview.totalConsumerCount} consumer file(s):
+                      </p>
+                      <div className="max-h-32 space-y-1 overflow-y-auto">
+                        {deletePreview.consumers.slice(0, 20).map((consumer) => (
+                          <div key={consumer.id} className="text-xs text-muted-foreground">
+                            • {consumer.name} ({consumer.fileKey})
+                          </div>
+                        ))}
+                        {deletePreview.totalConsumerCount > 20 && (
+                          <div className="text-xs text-muted-foreground italic">
+                            ...and {deletePreview.totalConsumerCount - 20} more
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        This includes {deletePreview.counts.syncRuns} sync runs, {deletePreview.counts.componentUsage} component usage records, and {deletePreview.counts.variableUsage} variable usage records.
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mb-3 text-sm text-muted-foreground">
+                      No linked consumer files found.
+                    </p>
+                  )}
+
+                  <p className="text-xs text-status-error">
+                    ⚠️ This action cannot be undone.
+                  </p>
+                </div>
+              ) : (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>?
+                  All its data will be removed. This action cannot be undone.
+                </p>
+              )}
 
               <label className="mb-5 flex cursor-pointer items-center gap-2 text-sm">
                 <input
@@ -531,7 +594,7 @@ export function DesignSystemsAdminPage() {
                   onChange={(e) => setDeleteConfirmed(e.target.checked)}
                   className="h-4 w-4"
                 />
-                <span>I understand and want to continue</span>
+                <span>I understand this will permanently delete consumer data</span>
               </label>
 
               <div className="flex items-center justify-end gap-2">
@@ -540,6 +603,8 @@ export function DesignSystemsAdminPage() {
                   onClick={() => {
                     setDeleteModalTarget(null);
                     setDeleteConfirmed(false);
+                    setDeletePreview(null);
+                    setDeletePreviewLoading(false);
                   }}
                 >
                   Cancel
@@ -547,12 +612,15 @@ export function DesignSystemsAdminPage() {
                 <Button
                   variant="outline"
                   className="border-status-error-border/50 text-status-error hover:bg-status-error-bg/10 hover:text-status-error"
-                  disabled={!deleteConfirmed || !!busyIds[deleteModalTarget.id]}
+                  disabled={!deleteConfirmed || !!busyIds[deleteModalTarget.id] || deletePreviewLoading}
                   onClick={() =>
                     void handleDelete(deleteModalTarget.id)
                   }
                 >
-                  Yes, delete
+                  {deletePreview && deletePreview.totalConsumerCount > 0
+                    ? `Delete system and ${deletePreview.totalConsumerCount} consumers`
+                    : 'Delete system'
+                  }
                 </Button>
               </div>
             </div>

@@ -260,6 +260,8 @@ export interface MutateDesignSystemResponse {
     systems: Array<{ id: string; name: string }>;
     defaultSystem: string;
   };
+  deletedConsumersCount?: number;
+  deletedConsumerNames?: string[];
 }
 
 export function createDesignSystem(args: CreateDesignSystemPayload) {
@@ -304,6 +306,33 @@ export function deleteDesignSystem(id: string) {
   return getJson<MutateDesignSystemResponse>(`/api/design-systems/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
+}
+
+export interface DeletePreviewResponse {
+  ok: boolean;
+  data: {
+    system: {
+      id: string;
+      name: string;
+    };
+    consumers: Array<{
+      id: string;
+      name: string;
+      fileKey: string;
+      lastSyncedAt?: string;
+    }>;
+    totalConsumerCount: number;
+    counts: {
+      syncRuns: number;
+      componentUsage: number;
+      variableUsage: number;
+      parentVariableUsage: number;
+    };
+  };
+}
+
+export function fetchDeletePreview(id: string) {
+  return getJson<DeletePreviewResponse>(`/api/design-systems/${encodeURIComponent(id)}/delete-preview`);
 }
 
 export function fetchComponentUsageIndex() {
