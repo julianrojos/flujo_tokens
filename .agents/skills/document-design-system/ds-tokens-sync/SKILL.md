@@ -71,8 +71,7 @@ Use this skill when:
 2. Run the project command (`ds:tokens-sync`) with requested flags.
 3. Preserve deterministic outputs and cache behavior (`--force true` only when needed).
 4. Do not claim markdown inventory artifacts from this command.
-5. When impact visibility is needed, run token diff after sync (`ds:token-diff`).
-6. For dependency health diagnostics, run token graph analysis (`ds:token-graph`).
+5. For dependency health diagnostics, run token graph analysis (`ds:token-graph`).
 
 ## Outputs
 
@@ -103,16 +102,6 @@ npm run ds:tokens-sync -- --force true
 
 ```bash
 npm run ds:tokens-sync -- --single true
-```
-
-```bash
-# Compare current token registry against HEAD snapshot
-npm run ds:token-diff
-```
-
-```bash
-# Compare against an explicit previous registry file
-npm run ds:token-diff -- --before docs/_generated/token-registry.prev.json
 ```
 
 ```bash
