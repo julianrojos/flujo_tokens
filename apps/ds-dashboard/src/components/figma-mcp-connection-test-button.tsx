@@ -369,6 +369,8 @@ export function FigmaMcpConnectionTestButton({
 
   const isNotConnected = result?.code === "mcp.not_connected";
   const heartbeatAlive = heartbeat?.alive === true;
+  const apiHealthHref =
+    typeof window === "undefined" ? "/api/health" : `${window.location.origin}/api/health`;
   const detectedPluginVersion = String(heartbeat?.pluginVersion || "").trim() || null;
   const isPluginVersionMismatch =
     heartbeatAlive &&
@@ -547,15 +549,16 @@ export function FigmaMcpConnectionTestButton({
               ? "⚠ Connection lost — reopen the MCP Management plugin to reconnect."
               : (
                 <>
-                  ⚠ No plugin heartbeat received yet. If the MCP Management plugin is already open,
-                  reload it, wait 5 seconds, and then verify the API at{" "}
+                  ⚠ No plugin heartbeat received yet. Make sure the dashboard is running with{" "}
+                  <code>npm run dashboard:dev</code>, then reload the MCP Management plugin, wait 5 seconds, and try{" "}
+                  <strong>Test connection</strong> again. You can quickly verify backend health at{" "}
                   <a
-                    href="http://localhost:8787/api/health"
+                    href={apiHealthHref}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="underline decoration-dotted underline-offset-2"
                   >
-                    http://localhost:8787/api/health ↗
+                    /api/health ↗
                   </a>{" "}
                   (404 on / can be normal).
                 </>

@@ -236,6 +236,7 @@ export function NewSystemPage() {
         setImportTokensBootstrap(result.tokens_bootstrap || null);
         setImportTokensCompile(result.tokens_compile || null);
         const success = ensureImportSuccess(result);
+        const sourceFileKey = importState.sourceFileKey;
         // Persist parent-file variable usage snapshot in DB using the same import context.
         if (sourceFileKey) {
           await syncConsumers({
@@ -275,6 +276,7 @@ export function NewSystemPage() {
     failImport,
     form.figmaAccessToken,
     importState.jobId,
+    importState.sourceFileKey,
     importState.sourceUrl,
     step,
     updateImportProgress,
