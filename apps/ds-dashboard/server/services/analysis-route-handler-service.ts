@@ -14,14 +14,11 @@ import {
   loadImpactArtifacts,
   parseImpactRequest,
   parseRefreshQuery,
-  parseTokenDiffBeforeRef,
   type SystemContext,
 } from '../lib/analysis-route-service.ts';
 import {
   computeNamingDebtReport,
   normalizeImpactWcagPairs,
-  runNodeJsonCommandOnce,
-  validateGitRef,
 } from './analysis-artifacts-service.ts';
 import {
   artifactReadFailureToApiError,
@@ -31,7 +28,6 @@ import {
 export interface AnalysisRouteHandlerDeps {
   failJson: (c: any, statusCode: number, args: Record<string, unknown>) => any;
   getSystemContext: (systemHeader: string) => SystemContext & {
-    tokenDiffScriptPath: string;
     namingDebtCachePath: string;
     namingDebtConfigPath: string;
     systemId: string;
@@ -46,35 +42,6 @@ async function loadArtifactOrFail(c: any, args: any, failJson: any) {
     ok: false,
     response: failJson(c, failure.statusCode, failure.args),
   };
-}
-
-/**
- * Handle token diff route.
- */
-export async function handleTokenDiffRoute(c: any, deps: AnalysisRouteHandlerDeps): Promise<any> {
-  const { failJson, getSystemContext } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const parsedBeforeRef = parseTokenDiffBeforeRef(c.req.query('beforeRef'), validateGitRef);
-  if (!parsedBeforeRef.ok) {
-    return failJson(c, parsedBeforeRef.statusCode, parsedBeforeRef.errorArgs);
-  }
-  const { beforeRef } = parsedBeforeRef;
-
-  const result = await runNodeJsonCommandOnce({
-    cwd: sysCtx.repoRoot,
-    command: 'node',
-    commandArgs: [
-      sysCtx.tokenDiffScriptPath,
-      '--before-ref',
-      beforeRef,
-      '--format',
-      'json',
-      '--system',
-      sysCtx.systemId,
-    ],
-    commandLabel: `node tooling/scripts/ds-token-diff.mjs --before-ref ${beforeRef} --format json`,
-  });
-  return c.json(result.payload, result.statusCode);
 }
 
 /**

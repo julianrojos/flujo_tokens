@@ -12,7 +12,6 @@ import {
 import { NavLink, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import {
   Activity,
-  ArrowLeftRight,
   Boxes,
   GitBranch,
   Layers3,
@@ -98,12 +97,6 @@ const TokensPage = lazy(() =>
 const NamingDebtPage = lazy(() =>
   import("@/features/tokens/naming-debt/naming-debt-page").then((module) => ({
     default: module.NamingDebtPage,
-  })),
-);
-
-const TokenDiffPage = lazy(() =>
-  import("@/features/tokens/token-diff/token-diff-page").then((module) => ({
-    default: module.TokenDiffPage,
   })),
 );
 
@@ -256,12 +249,6 @@ const navSections: NavSection[] = [
         icon: Layers3,
       },
       {
-        to: "/tokens/diff",
-        label: "Compare",
-        description: "Changes and breaking risk",
-        icon: ArrowLeftRight,
-      },
-      {
         to: "/token-graph",
         label: "Graph",
         description: "Dependencies and cycles",
@@ -315,10 +302,8 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const componentsPrefetchedRef = useRef(false);
   const tokenGraphPrefetchedRef = useRef(false);
-  const tokenDiffPrefetchedRef = useRef(false);
   const componentsPrefetchRetryAfterRef = useRef(0);
   const tokenGraphPrefetchRetryAfterRef = useRef(0);
-  const tokenDiffPrefetchRetryAfterRef = useRef(0);
   const location = useLocation();
   const { systems } = useDesignSystem();
   const hasSystems = systems.length > 0;
@@ -347,16 +332,6 @@ export default function App() {
     });
   }, []);
 
-  const prefetchTokenDiffRoute = useCallback(() => {
-    if (Date.now() < tokenDiffPrefetchRetryAfterRef.current) return;
-    if (tokenDiffPrefetchedRef.current) return;
-    tokenDiffPrefetchedRef.current = true;
-    void import("@/features/tokens/token-diff/token-diff-page").catch(() => {
-      tokenDiffPrefetchedRef.current = false;
-      tokenDiffPrefetchRetryAfterRef.current = Date.now() + PREFETCH_RETRY_COOLDOWN_MS;
-    });
-  }, []);
-
   const prefetchRoute = useCallback(
     (to: string) => {
       if (to === "/components") {
@@ -367,11 +342,8 @@ export default function App() {
         prefetchTokenGraphRoute();
         return;
       }
-      if (to === "/tokens/diff") {
-        prefetchTokenDiffRoute();
-      }
     },
-    [prefetchComponentsRoutes, prefetchTokenGraphRoute, prefetchTokenDiffRoute],
+    [prefetchComponentsRoutes, prefetchTokenGraphRoute],
   );
 
   useEffect(() => {
@@ -548,7 +520,6 @@ export default function App() {
                     <Route path="/components/:slug" element={<ComponentDetailPage />} />
                     <Route path="/tokens" element={<TokensPage />} />
                     <Route path="/tokens/naming-debt" element={<NamingDebtPage />} />
-                    <Route path="/tokens/diff" element={<TokenDiffPage />} />
                     <Route path="/tokens/:tokenPath" element={<TokenDetailPage />} />
                     <Route path="/token-graph" element={<TokenGraphPage />} />
                     <Route path="/impact" element={<ImpactExplorerPage />} />

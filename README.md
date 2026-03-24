@@ -49,7 +49,6 @@ Then run the needed root test/typecheck scripts (for example `npm run typecheck:
 - **`npm run generate:strict`**: Same pipeline with `--mode-strict` enabled. Strict checks are enforced only when a preferred mode is provided via `--mode <name>`.
 - **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
 - **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
-- **`npm run ds:token-diff`**: Compares current token registry with a previous version (file or git ref), groups changes (`Added`, `Modified`, `Removed`), and classifies breaking vs non-breaking diffs.
 - **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
 - **`npm run ds:token-usage-index`**: Builds `docs/_generated/token-usage-index.json` from component specs (`docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
 - **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` by combining the token registry, usage index, and token graph, plus optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
@@ -217,22 +216,6 @@ Incremental sync example:
 
 ```bash
 npm run ds:tokens-sync
-```
-
-Token diff examples:
-
-```bash
-# Compare against HEAD registry snapshot
-npm run ds:token-diff
-
-# Compare against an explicit previous file and write artifacts
-npm run ds:token-diff -- \
-  --before docs/_generated/token-registry.prev.json \
-  --out-json docs/_generated/token-diffs/latest.json \
-  --out-md docs/_generated/token-diffs/latest.md
-
-# Fail CI when breaking changes exist
-npm run ds:token-diff -- --strict true
 ```
 
 Token graph examples:

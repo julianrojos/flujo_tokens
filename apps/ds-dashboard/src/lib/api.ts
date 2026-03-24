@@ -6,7 +6,6 @@ import type { TokenUsageIndex } from "@/types/token-usage-index";
 import type { TokenGraphQueryDirection, TokenGraphQueryResult, TokenGraphViz } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
 import type { ComponentsHealthReport } from "@/types/components-health";
-import type { TokenDiffReport } from "@/types/token-diff";
 import type { ImpactReport } from "@/types/impact";
 import type { NamingDebtReport } from "@/types/naming-debt";
 import type {
@@ -540,11 +539,6 @@ export function replayOperationEvent(eventId: string, args?: { systemId?: string
     },
     body: JSON.stringify(payload),
   });
-}
-
-export function fetchTokenDiff(beforeRef: string) {
-  const params = new URLSearchParams({ beforeRef });
-  return getJson<TokenDiffReport>(`/api/token-diff?${params.toString()}`);
 }
 
 export function fetchImpact(args: {

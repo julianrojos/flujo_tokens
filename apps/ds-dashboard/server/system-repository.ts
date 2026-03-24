@@ -38,7 +38,6 @@ export type DashboardSystemContext = {
   namingDebtConfigPath: string;
   specBackupsDirPath: string;
   wcagPairsPath: string;
-  tokenDiffScriptPath: string;
   healthSnapshotScriptPath: string;
   captureFromFigmaUrlScriptPath: string;
   tokensFromFigmaScriptPath: string;
@@ -427,7 +426,6 @@ export class DesignSystemRepository {
       namingDebtConfigPath: path.join(this.repoRoot, "tooling", "config", "naming-debt.config.json"),
       specBackupsDirPath: path.join(genDir, "spec-backups"),
       wcagPairsPath: path.join(this.repoRoot, "tooling", "config", "wcag-pairs.json"),
-      tokenDiffScriptPath: path.join(this.repoRoot, "tooling", "scripts", "ds-token-diff.mjs"),
       healthSnapshotScriptPath: path.join(this.repoRoot, "tooling", "scripts", "ds-health-snapshot.mjs"),
       captureFromFigmaUrlScriptPath: path.join(
         this.repoRoot,

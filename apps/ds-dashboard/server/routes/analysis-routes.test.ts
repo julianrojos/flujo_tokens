@@ -38,18 +38,6 @@ function createTestApp(getSystemContext: () => any) {
   return app;
 }
 
-test("analysis-routes: /api/token-diff validates beforeRef", async () => {
-  const app = createTestApp(() => ({
-    repoRoot: "/repo",
-    tokenDiffScriptPath: "tooling/scripts/ds-token-diff.mjs",
-    systemId: "core",
-  }));
-  const res = await app.request("/api/token-diff?beforeRef=bad ref");
-  assert.equal(res.status, 400);
-  const payload = await res.json();
-  assert.equal(payload.code, "validation.invalid_git_ref");
-});
-
 test("analysis-routes: /api/naming-debt returns cached payload when refresh is false", async () => {
   await withTempDir(async (dir) => {
     const namingDebtCachePath = path.join(dir, "naming-debt.json");
