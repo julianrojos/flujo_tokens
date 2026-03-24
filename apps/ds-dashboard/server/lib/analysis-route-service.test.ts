@@ -132,6 +132,10 @@ describe('analysis-route-service', () => {
       assert.equal(notFound.statusCode, 404);
       assert.equal(notFound.errorArgs.code, 'impact.token_not_found');
 
+      const notFoundMixedCase = buildImpactFailure('color.primary', new Error('Token Not Found'));
+      assert.equal(notFoundMixedCase.statusCode, 404);
+      assert.equal(notFoundMixedCase.errorArgs.code, 'impact.token_not_found');
+
       const invalid = buildImpactFailure('color.primary', new Error('invalid payload'));
       assert.equal(invalid.statusCode, 400);
       assert.equal(invalid.errorArgs.code, 'impact.invalid_request');
