@@ -72,6 +72,18 @@ describe('figma-mcp-dependencies-route', () => {
         FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE ds_parent_variable_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ds_file_key TEXT NOT NULL,
+        variable_key TEXT NOT NULL,
+        variable_name TEXT NOT NULL,
+        variable_type TEXT NOT NULL,
+        node_count INTEGER NOT NULL,
+        sample_node_ids_json TEXT,
+        captured_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        UNIQUE (ds_file_key, variable_key)
+      );
+
       CREATE TABLE ds_sync_warnings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         run_id TEXT NOT NULL,

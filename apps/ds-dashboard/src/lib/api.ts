@@ -1673,6 +1673,7 @@ export interface SyncConsumersPayload {
   dsFileKey: string;
   consumerIds?: string[];
   force?: boolean;
+  captureParentUsage?: boolean;
 }
 
 export interface ByFileReportResponse {

@@ -9,6 +9,7 @@ export interface SyncConsumersParams {
   consumerIds?: string[];
   force?: boolean;
   token?: string;  // Optional override
+  captureParentUsage?: boolean;
 }
 
 export interface SyncRunSummary {
@@ -42,13 +43,19 @@ export class DependencySyncService {
   constructor(
     private repository: DependencyRepository,
     private getSystemConfig: () => SystemConfig
-  ) {}
+  ) { }
 
   /**
    * Sync all or selected consumers for a DS
    */
   async syncConsumers(params: SyncConsumersParams): Promise<SyncResult> {
-    const { dsFileKey, consumerIds, force = false, token: tokenOverride } = params;
+    const {
+      dsFileKey,
+      consumerIds,
+      force = false,
+      token: tokenOverride,
+      captureParentUsage = false,
+    } = params;
 
     // Resolve Figma token
     const token = tokenOverride || this.resolveFigmaToken();
@@ -56,7 +63,7 @@ export class DependencySyncService {
     // Get consumers to sync
     const consumers = this.getConsumersToSync(dsFileKey, consumerIds);
 
-    if (consumers.length === 0) {
+    if (consumers.length === 0 && !captureParentUsage) {
       return {
         synced: 0,
         skipped: 0,
@@ -66,9 +73,12 @@ export class DependencySyncService {
       };
     }
 
-    // Build DS catalog once (shared across all consumers)
+    // Build DS catalog once (shared across parent snapshot + all consumers)
     const dsCatalog = await this.buildDsCatalogWithRetry(dsFileKey, token);
     const dsMetadata = await this.fetchMetadataWithRetry(dsFileKey, token);
+    if (captureParentUsage) {
+      await this.captureParentVariableUsageSnapshot(dsFileKey, dsCatalog, token);
+    }
 
     const result: SyncResult = {
       synced: 0,
@@ -115,6 +125,36 @@ export class DependencySyncService {
     }
 
     return result;
+  }
+
+  /**
+   * Capture and persist variable usage from the DS parent file itself.
+   * This keeps token-detail "Used In" data deterministic and DB-backed.
+   */
+  private async captureParentVariableUsageSnapshot(
+    dsFileKey: string,
+    dsCatalog: DsCatalog,
+    token: string,
+  ): Promise<void> {
+    try {
+      const scanResult = await this.scanFileWithRetry(dsFileKey, token, dsCatalog);
+      this.repository.replaceParentVariableUsage(
+        dsFileKey,
+        scanResult.variableBindings.map((binding) => ({
+          variable_key: binding.variableKey,
+          variable_name: binding.variableName,
+          variable_type: binding.variableType,
+          node_count: binding.totalNodeCount,
+          sample_node_ids_json: JSON.stringify(binding.nodeIds),
+        })),
+      );
+    } catch (error) {
+      // Parent snapshot is best-effort and must not block consumer sync.
+      console.warn(
+        `[DependencySyncService] Failed to capture parent usage snapshot for ${dsFileKey}:`,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
   }
 
   /**
@@ -178,7 +218,7 @@ export class DependencySyncService {
           variable_key: binding.variableKey,
           variable_name: binding.variableName,
           variable_type: binding.variableType,
-          node_count: binding.nodeIds.length,
+          node_count: binding.totalNodeCount,
           sample_node_ids_json: JSON.stringify(binding.nodeIds),
         })),
         warnings: scanResult.warnings,
@@ -343,6 +383,32 @@ export class DependencySyncService {
       }
     }
 
+    throw lastError;
+  }
+
+  /**
+   * Scan a file (DS parent or consumer) with retry logic.
+   */
+  private async scanFileWithRetry(
+    fileKey: string,
+    token: string,
+    dsCatalog: DsCatalog,
+  ): Promise<ConsumerScanResult> {
+    let lastError: Error | unknown;
+
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        return await scanConsumerFile(fileKey, token, dsCatalog);
+      } catch (error) {
+        lastError = error;
+        if (this.isRateLimitError(error) && attempt < 3) {
+          const retryAfter = this.getRetryAfterSeconds(error);
+          await this.delay(retryAfter * 1000);
+          continue;
+        }
+        throw error;
+      }
+    }
     throw lastError;
   }
 

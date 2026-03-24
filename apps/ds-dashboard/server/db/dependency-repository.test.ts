@@ -63,6 +63,18 @@ describe('DependencyRepository', () => {
         FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE ds_parent_variable_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ds_file_key TEXT NOT NULL,
+        variable_key TEXT NOT NULL,
+        variable_name TEXT NOT NULL,
+        variable_type TEXT NOT NULL,
+        node_count INTEGER NOT NULL,
+        sample_node_ids_json TEXT,
+        captured_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        UNIQUE (ds_file_key, variable_key)
+      );
+
       CREATE TABLE ds_sync_warnings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         run_id TEXT NOT NULL,
@@ -339,6 +351,82 @@ describe('DependencyRepository', () => {
     assert.strictEqual(usage[0].variable_type, 'COLOR');
     assert.strictEqual(usage[0].node_count, 8);
     assert.strictEqual(usage[0].consumer_name, 'Test App 8');
+  });
+
+  test('replaceParentVariableUsage replaces snapshot and getParentVariableUsage returns ordered rows', () => {
+    repo.replaceParentVariableUsage('ds-parent', [
+      {
+        variable_key: 'var/a',
+        variable_name: 'A',
+        variable_type: 'COLOR',
+        node_count: 2,
+        sample_node_ids_json: JSON.stringify(['1:1']),
+      },
+      {
+        variable_key: 'var/b',
+        variable_name: 'B',
+        variable_type: 'FLOAT',
+        node_count: 5,
+        sample_node_ids_json: JSON.stringify(['1:2', '1:3']),
+      },
+    ]);
+
+    // Replace snapshot for same ds_file_key; previous rows should be removed.
+    repo.replaceParentVariableUsage('ds-parent', [
+      {
+        variable_key: 'var/c',
+        variable_name: 'C',
+        variable_type: 'STRING',
+        node_count: 3,
+        sample_node_ids_json: JSON.stringify(['2:1']),
+      },
+    ]);
+
+    const rows = repo.getParentVariableUsage('ds-parent');
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].variable_key, 'var/c');
+    assert.strictEqual(rows[0].node_count, 3);
+  });
+
+  test('replaceParentVariableUsage validates required fields', () => {
+    assert.throws(
+      () =>
+        repo.replaceParentVariableUsage('', [
+          {
+            variable_key: 'var/x',
+            variable_name: 'X',
+            variable_type: 'COLOR',
+            node_count: 1,
+          },
+        ]),
+      /non-empty dsFileKey/,
+    );
+
+    assert.throws(
+      () =>
+        repo.replaceParentVariableUsage('ds-parent', [
+          {
+            variable_key: '',
+            variable_name: 'X',
+            variable_type: 'COLOR',
+            node_count: 1,
+          },
+        ]),
+      /non-empty variable_key/,
+    );
+
+    assert.throws(
+      () =>
+        repo.replaceParentVariableUsage('ds-parent', [
+          {
+            variable_key: 'var/x',
+            variable_name: 'X',
+            variable_type: 'COLOR',
+            node_count: -1,
+          },
+        ]),
+      /node_count to be a non-negative number/,
+    );
   });
 
   test('removeConsumer cascades deletes all related data', () => {

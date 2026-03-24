@@ -10,6 +10,7 @@ import {
   ApiError,
   cancelQueueJob,
   captureFigmaScreenshot,
+  syncConsumers,
   type CaptureFigmaScreenshotArgs,
   type CaptureFigmaErrorDetail,
   type CaptureFigmaScreenshotResult,
@@ -235,6 +236,17 @@ export function NewSystemPage() {
         setImportTokensBootstrap(result.tokens_bootstrap || null);
         setImportTokensCompile(result.tokens_compile || null);
         const success = ensureImportSuccess(result);
+        // Persist parent-file variable usage snapshot in DB using the same import context.
+        if (sourceFileKey) {
+          await syncConsumers({
+            dsFileKey: sourceFileKey,
+            force: true,
+            captureParentUsage: true,
+          }).catch((err) => {
+            // Log warning but don't block import success
+            console.warn('[NewSystemPage] Parent usage capture failed:', err);
+          });
+        }
         completeImport(buildImportSuccessSummary(success));
       } catch (error) {
         if (stopped) return;

@@ -10,7 +10,6 @@ import { DependencyAnalysisService } from '../services/dependency-analysis-servi
 import { DependencySimulateService } from '../services/dependency-simulate-service.js';
 import { extractFileKey } from '../lib/filekey-utils.js';
 import { resolveEnvRef } from '../lib/env-ref-utils.js';
-import { randomUUID } from 'node:crypto';
 
 // Validation helpers
 function validateAddConsumerBody(body: Record<string, unknown>) {
@@ -54,6 +53,10 @@ function validateSyncConsumersBody(body: Record<string, unknown>) {
 
   if (body.force !== undefined && typeof body.force !== 'boolean') {
     errors.push('force must be a boolean');
+  }
+
+  if (body.captureParentUsage !== undefined && typeof body.captureParentUsage !== 'boolean') {
+    errors.push('captureParentUsage must be a boolean');
   }
 
   return errors;
@@ -474,15 +477,12 @@ export function registerFigmaMcpDependenciesRoutes(
         consumerIds: body.consumerIds as string[],
         force: body.force as boolean,
         token: resolvedToken,
+        captureParentUsage: body.captureParentUsage === true,
       });
-      const jobId = randomUUID();
 
       return c.json({
         ok: true,
-        data: {
-          jobId,
-          ...result,
-        },
+        data: result,
       });
     } catch (error) {
       console.error('Error during sync:', error);

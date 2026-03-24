@@ -44,6 +44,17 @@ export interface DsVariableUsage {
   sample_node_ids_json?: string;
 }
 
+export interface DsParentVariableUsage {
+  id: number;
+  ds_file_key: string;
+  variable_key: string;
+  variable_name: string;
+  variable_type: string;
+  node_count: number;
+  sample_node_ids_json?: string;
+  captured_at: string;
+}
+
 export interface DsSyncWarning {
   id: number;
   run_id: string;
@@ -367,6 +378,99 @@ export class DependencyRepository {
       ORDER BY vu.node_count DESC
     `);
     return stmt.all(dsFileKey) as any[];
+  }
+
+  replaceParentVariableUsage(
+    dsFileKey: string,
+    usageRows: Array<{
+      variable_key: string;
+      variable_name: string;
+      variable_type: string;
+      node_count: number;
+      sample_node_ids_json?: string;
+    }>,
+  ): void {
+    const normalizedDsFileKey = String(dsFileKey || '').trim();
+    if (!normalizedDsFileKey) {
+      throw new Error('replaceParentVariableUsage requires a non-empty dsFileKey');
+    }
+    for (const row of usageRows) {
+      if (!String(row.variable_key || '').trim()) {
+        throw new Error('replaceParentVariableUsage requires non-empty variable_key');
+      }
+      if (!String(row.variable_name || '').trim()) {
+        throw new Error('replaceParentVariableUsage requires non-empty variable_name');
+      }
+      if (!String(row.variable_type || '').trim()) {
+        throw new Error('replaceParentVariableUsage requires non-empty variable_type');
+      }
+      if (!Number.isFinite(row.node_count) || row.node_count < 0) {
+        throw new Error('replaceParentVariableUsage requires node_count to be a non-negative number');
+      }
+    }
+
+    try {
+      const deleteStmt = this.db.prepare('DELETE FROM ds_parent_variable_usage WHERE ds_file_key = ?');
+      const insertStmt = this.db.prepare(`
+        INSERT INTO ds_parent_variable_usage (
+          ds_file_key,
+          variable_key,
+          variable_name,
+          variable_type,
+          node_count,
+          sample_node_ids_json,
+          captured_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      const capturedAt = new Date().toISOString();
+      const tx = this.db.transaction(() => {
+        deleteStmt.run(normalizedDsFileKey);
+        for (const row of usageRows) {
+          insertStmt.run(
+            normalizedDsFileKey,
+            row.variable_key,
+            row.variable_name,
+            row.variable_type,
+            row.node_count,
+            row.sample_node_ids_json ?? null,
+            capturedAt,
+          );
+        }
+      });
+      tx();
+    } catch (error) {
+      console.error(
+        `[DependencyRepository] Failed to replace parent variable usage: ds=${normalizedDsFileKey}`,
+        error,
+      );
+      throw error;
+    }
+  }
+
+  getParentVariableUsage(dsFileKey: string): DsParentVariableUsage[] {
+    try {
+      const stmt = this.db.prepare(`
+        SELECT
+          id,
+          ds_file_key,
+          variable_key,
+          variable_name,
+          variable_type,
+          node_count,
+          sample_node_ids_json,
+          captured_at
+        FROM ds_parent_variable_usage
+        WHERE ds_file_key = ?
+        ORDER BY node_count DESC, variable_name ASC
+      `);
+      return stmt.all(dsFileKey) as DsParentVariableUsage[];
+    } catch (error) {
+      console.error(
+        `[DependencyRepository] Failed to get parent variable usage: ds=${dsFileKey}`,
+        error,
+      );
+      throw error;
+    }
   }
 
   getLatestWarnings(dsFileKey: string): (DsSyncWarning & { consumer_name: string; consumer_file_key: string })[] {

@@ -53,6 +53,7 @@ export interface VariableBinding {
   variableName: string;
   variableType: string;
   nodeIds: string[];
+  totalNodeCount: number;
 }
 
 export interface ConsumerScanResult {
@@ -497,9 +498,11 @@ export async function scanConsumerFile(
                   variableName: dsVariable.name,
                   variableType: dsVariable.type,
                   nodeIds: [],
+                  totalNodeCount: 0,
                 });
               }
               const variableBinding = variableBindings.get(variableKey)!;
+              variableBinding.totalNodeCount += 1;
               if (variableBinding.nodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
                 variableBinding.nodeIds.push(node.id);
               }
@@ -531,6 +534,13 @@ export async function scanConsumerFile(
     })) {
       const mcpUsage = await fetchConsumerBoundVariableUsageViaMcp(fileKey);
       if (mcpUsage && mcpUsage.length > 0) {
+        const resolveEntryNodeCount = (entry: TokenUsageEntry): number => {
+          const byCount = Number(entry.nodeCount);
+          if (Number.isFinite(byCount) && byCount >= 0) {
+            return Math.floor(byCount);
+          }
+          return Array.isArray(entry.nodeIds) ? entry.nodeIds.length : 0;
+        };
         let fallbackAddedCount = 0;
         for (const entry of mcpUsage) {
           const variableId = String(entry.variableId || '').trim();
@@ -575,6 +585,7 @@ export async function scanConsumerFile(
               nodeIds: Array.isArray(entry.nodeIds)
                 ? entry.nodeIds.slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY)
                 : [],
+              totalNodeCount: resolveEntryNodeCount(entry),
             });
             fallbackAddedCount += 1;
             continue;
@@ -586,6 +597,13 @@ export async function scanConsumerFile(
             if (normalized) mergedNodeIds.add(normalized);
           }
           existing.nodeIds = Array.from(mergedNodeIds).slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY);
+          // Avoid double-counting when fallback overlaps with already scanned bindings.
+          // Keep the highest confidence count across local scan, MCP count and merged sample IDs.
+          existing.totalNodeCount = Math.max(
+            existing.totalNodeCount,
+            resolveEntryNodeCount(entry),
+            mergedNodeIds.size,
+          );
         }
 
         if (fallbackAddedCount > 0) {

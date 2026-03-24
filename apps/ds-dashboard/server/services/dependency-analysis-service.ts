@@ -89,6 +89,8 @@ const DEFAULT_THRESHOLDS = {
   maxSampleLinks: 5,
 } as const;
 
+const PARENT_CONSUMER_ID_PREFIX = 'parent:' as const;
+
 /**
  * Analysis service for dependency data
  */
@@ -228,11 +230,15 @@ export class DependencyAnalysisService {
   reportByVariable(dsFileKey: string, variableKey?: string, options: AnalysisOptions = {}): VariableUsage[] {
     const opts = this.mergeOptions(options);
     const variableUsage = this.repository.getLatestVariableUsage(dsFileKey);
+    const parentVariableUsage = this.repository.getParentVariableUsage(dsFileKey);
 
     // Filter by specific variable if provided
     const filteredUsage = variableKey
       ? variableUsage.filter(usage => usage.variable_key === variableKey)
       : variableUsage;
+    const filteredParentUsage = variableKey
+      ? parentVariableUsage.filter((usage) => usage.variable_key === variableKey)
+      : parentVariableUsage;
 
     // Group by variable
     const variableGroups = new Map<string, typeof variableUsage>();
@@ -243,6 +249,17 @@ export class DependencyAnalysisService {
       }
       variableGroups.get(usage.variable_key)!.push(usage);
     }
+
+    // Include variables that are present only in parent usage snapshot.
+    for (const parent of filteredParentUsage) {
+      if (!variableGroups.has(parent.variable_key)) {
+        variableGroups.set(parent.variable_key, []);
+      }
+    }
+
+    const parentByVariableKey = new Map(
+      filteredParentUsage.map((usage) => [usage.variable_key, usage]),
+    );
 
     // Convert to VariableUsage array
     return Array.from(variableGroups.entries()).map(([varId, usages]) => {
@@ -257,14 +274,41 @@ export class DependencyAnalysisService {
         sampleLinks: this.buildSampleLinks(usage.consumer_file_key, usage.sample_node_ids_json, opts.maxSampleLinks),
       }));
 
-      const impactLevel = this.computeImpactLevel(totalNodes, usages.length, opts);
-      const sampleLinks = this.buildSampleLinks(usages[0].consumer_file_key, usages[0].sample_node_ids_json, opts.maxSampleLinks);
+      const parentUsage = parentByVariableKey.get(varId);
+      const parentNodeCount = parentUsage?.node_count ?? 0;
+      if (parentUsage && parentNodeCount > 0) {
+        consumers.push({
+          consumerId: `${PARENT_CONSUMER_ID_PREFIX}${dsFileKey}`,
+          consumerName: 'Parent file',
+          consumerFileKey: dsFileKey,
+          nodeCount: parentNodeCount,
+          sampleNodeIds: this.parseSampleNodeIds(parentUsage.sample_node_ids_json),
+          lastSyncedAt: parentUsage.captured_at,
+          sampleLinks: this.buildSampleLinks(dsFileKey, parentUsage.sample_node_ids_json, opts.maxSampleLinks),
+        });
+      }
+
+      const totalNodesWithParent = totalNodes + parentNodeCount;
+      // Exclude the parent file from the file count: the parent IS the DS,
+      // not an adopting consumer file. Including it inflates adoption metrics.
+      const consumerFileCount = consumers.filter(
+        (c) => !c.consumerId.startsWith(PARENT_CONSUMER_ID_PREFIX),
+      ).length;
+
+      const impactLevel = this.computeImpactLevel(totalNodesWithParent, consumerFileCount, opts);
+      const sampleLinks = parentUsage
+        ? this.buildSampleLinks(dsFileKey, parentUsage.sample_node_ids_json, opts.maxSampleLinks)
+        : usages.length > 0
+          ? this.buildSampleLinks(usages[0].consumer_file_key, usages[0].sample_node_ids_json, opts.maxSampleLinks)
+          : [];
+      const fallbackName = parentUsage?.variable_name || 'Unknown variable';
+      const fallbackType = parentUsage?.variable_type || 'UNKNOWN';
 
       return {
         variableKey: varId,
-        variableName: usages[0].variable_name,
-        variableType: usages[0].variable_type,
-        totalNodes,
+        variableName: usages[0]?.variable_name || fallbackName,
+        variableType: usages[0]?.variable_type || fallbackType,
+        totalNodes: totalNodesWithParent,
         consumers,
         impactLevel,
         sampleLinks,
@@ -317,18 +361,10 @@ export class DependencyAnalysisService {
    * Build Figma links from sample node IDs
    */
   private buildSampleLinks(fileKey: string, sampleNodeIdsJson: string | undefined, maxLinks: number): string[] {
-    if (!sampleNodeIdsJson) {
-      return [];
-    }
-
-    try {
-      const nodeIds = JSON.parse(sampleNodeIdsJson) as string[];
-      return nodeIds
-        .slice(0, maxLinks)
-        .map(nodeId => this.buildFigmaLink(fileKey, nodeId));
-    } catch {
-      return [];
-    }
+    const nodeIds = this.parseSampleNodeIds(sampleNodeIdsJson);
+    return nodeIds
+      .slice(0, maxLinks)
+      .map(nodeId => this.buildFigmaLink(fileKey, nodeId));
   }
 
   /**
@@ -340,7 +376,14 @@ export class DependencyAnalysisService {
     }
 
     try {
-      return JSON.parse(sampleNodeIdsJson) as string[];
+      const parsed: unknown = JSON.parse(sampleNodeIdsJson);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
     } catch {
       return [];
     }

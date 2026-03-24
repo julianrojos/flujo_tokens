@@ -61,6 +61,18 @@ describe('DependencyAnalysisService', () => {
         FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE ds_parent_variable_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ds_file_key TEXT NOT NULL,
+        variable_key TEXT NOT NULL,
+        variable_name TEXT NOT NULL,
+        variable_type TEXT NOT NULL,
+        node_count INTEGER NOT NULL,
+        sample_node_ids_json TEXT,
+        captured_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        UNIQUE (ds_file_key, variable_key)
+      );
+
       CREATE TABLE ds_sync_warnings (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         run_id TEXT NOT NULL,
@@ -241,6 +253,36 @@ describe('DependencyAnalysisService', () => {
     assert.strictEqual(report.consumers.length, 1);
     assert.strictEqual(report.consumers[0].nodeCount, 7);
     assert.strictEqual(report.sampleLinks.length, 2);
+  });
+
+  test('reportByVariable tolerates malformed sample_node_ids_json', () => {
+    const consumer = repository.addConsumer({
+      ds_file_key: 'test-ds-malformed-json',
+      consumer_file_key: 'test-consumer-malformed-json',
+      consumer_name: 'Malformed Json Consumer',
+    });
+
+    repository.saveSyncRun({
+      consumer_id: consumer.id,
+      duration_ms: 1000,
+      status: 'ok',
+      component_usage: [],
+      variable_usage: [
+        {
+          variable_key: 'VariableID:bad:json',
+          variable_name: 'bad-json',
+          variable_type: 'COLOR',
+          node_count: 1,
+          sample_node_ids_json: '{"not":"an-array"}',
+        },
+      ],
+      warnings: [],
+    });
+
+    const reports = analysisService.reportByVariable('test-ds-malformed-json');
+    assert.strictEqual(reports.length, 1);
+    assert.deepStrictEqual(reports[0].consumers[0].sampleNodeIds, []);
+    assert.deepStrictEqual(reports[0].sampleLinks, []);
   });
 
   test('impact level computation works correctly', () => {
