@@ -161,13 +161,6 @@ export function GlobalCommandPalette({
         run: () => navigate("/impact"),
       },
       {
-        id: "go:token-diff",
-        title: "Open Token Diff",
-        subtitle: "Go to /tokens/diff",
-        keywords: ["open", "diff", "tokens", "changes"],
-        run: () => navigate("/tokens/diff"),
-      },
-      {
         id: "refresh:registry",
         title: "Refresh Registry",
         subtitle: "Run ds:registry:refresh",

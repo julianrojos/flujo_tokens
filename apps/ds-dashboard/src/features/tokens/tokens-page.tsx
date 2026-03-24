@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Accessibility,
-  ArrowLeftRight,
   FolderTree,
   RefreshCcw,
 } from "lucide-react";
@@ -297,12 +296,6 @@ export function TokensPage() {
         description="Local inventory of your design tokens, with filters by collection and type."
         actions={
           <div className="flex flex-wrap gap-2">
-            <Link to="/tokens/diff">
-              <Button variant="outline">
-                <ArrowLeftRight className="mr-2 h-4 w-4" />
-                Compare
-              </Button>
-            </Link>
             <Link to="/tokens/naming-debt">
               <Button variant="outline">Naming Quality</Button>
             </Link>

@@ -17,15 +17,6 @@ type RouteValidationError = {
   };
 };
 
-export type GitRefValidationResult =
-  | {
-      ok: true;
-      beforeRef: string;
-    }
-  | ({
-      ok: false;
-    } & RouteValidationError);
-
 export type ImpactRequestResult =
   | {
       ok: true;
@@ -162,28 +153,6 @@ function buildEmptyTokenUsageIndex(): Record<string, unknown> {
  */
 export function parseRefreshQuery(raw: unknown): boolean {
   return String(raw ?? 'false').trim() === 'true';
-}
-
-/**
- * Parse and validate token diff beforeRef parameter.
- */
-export function parseTokenDiffBeforeRef(
-  rawBeforeRef: unknown,
-  validateGitRefFn: (value: string) => string | null
-): GitRefValidationResult {
-  const beforeRefRaw = rawBeforeRef ?? 'HEAD~1';
-  const beforeRef = validateGitRefFn(String(beforeRefRaw));
-  if (beforeRef) return { ok: true, beforeRef };
-  return {
-    ok: false,
-    statusCode: 400,
-    errorArgs: {
-      code: 'validation.invalid_git_ref',
-      userMessage: 'Invalid beforeRef. Allowed characters: A-Z a-z 0-9 . _ / ~ ^ -',
-      recoverable: true,
-      context: { beforeRef: String(beforeRefRaw) },
-    },
-  };
 }
 
 /**

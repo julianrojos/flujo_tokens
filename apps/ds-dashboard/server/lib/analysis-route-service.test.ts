@@ -11,7 +11,6 @@ import {
   loadImpactArtifacts,
   parseImpactRequest,
   parseRefreshQuery,
-  parseTokenDiffBeforeRef,
 } from './analysis-route-service.js';
 
 describe('analysis-route-service', () => {
@@ -21,19 +20,6 @@ describe('analysis-route-service', () => {
       assert.equal(parseRefreshQuery(' true '), true);
       assert.equal(parseRefreshQuery('false'), false);
       assert.equal(parseRefreshQuery(undefined), false);
-    });
-  });
-
-  describe('parseTokenDiffBeforeRef()', () => {
-    it('validates and normalizes', () => {
-      const ok = parseTokenDiffBeforeRef('HEAD~2', (value: string) => String(value || '').trim());
-      assert.equal(ok.ok, true);
-      assert.equal((ok as any).beforeRef, 'HEAD~2');
-
-      const invalid = parseTokenDiffBeforeRef('bad ref', () => null);
-      assert.equal(invalid.ok, false);
-      assert.equal(invalid.statusCode, 400);
-      assert.equal((invalid as any).errorArgs.code, 'validation.invalid_git_ref');
     });
   });
 

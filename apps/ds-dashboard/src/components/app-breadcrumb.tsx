@@ -31,10 +31,6 @@ function buildCrumbs(pathname: string, options?: { consumerDetailLabel?: string 
     return [{ label: "Tokens" }];
   }
 
-  if (pathname === "/tokens/diff") {
-    return [{ label: "Tokens", to: "/tokens" }, { label: "Compare" }];
-  }
-
   if (pathname === "/token-graph") {
     return [{ label: "Tokens", to: "/tokens" }, { label: "Graph" }];
   }

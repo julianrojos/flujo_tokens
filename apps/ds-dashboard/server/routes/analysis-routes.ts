@@ -10,7 +10,6 @@ import type { Context } from 'hono';
 import {
   handleImpactRoute,
   handleNamingDebtRoute,
-  handleTokenDiffRoute,
 } from '../services/analysis-route-handler-service.ts';
 
 export interface AnalysisRoutesDeps {
@@ -25,7 +24,6 @@ export function registerAnalysisRoutes(
   app: { get: (path: string, handler: (c: Context) => any) => void },
   deps: AnalysisRoutesDeps
 ): void {
-  app.get('/api/token-diff', (c: Context) => handleTokenDiffRoute(c, deps));
   app.get('/api/naming-debt', (c: Context) => handleNamingDebtRoute(c, deps));
   app.get('/api/impact', (c: Context) => handleImpactRoute(c, deps));
 }
