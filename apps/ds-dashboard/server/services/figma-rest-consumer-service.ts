@@ -1,4 +1,4 @@
-import { fetchFigmaFile, fetchFigmaLocalVariables, FigmaApiError } from '../../../../tooling/src/utils/figma-api.js';
+import { fetchFigmaFile, fetchFigmaLocalVariables, fetchFigmaFileComponents, FigmaApiError } from '../../../../tooling/src/utils/figma-api.js';
 import { fetchFigmaLocalVariablesViaMcp, type FigmaVariablesResponse } from '../../../../tooling/src/services/figma-mcp-variables.js';
 import { getTokenUsageDirect, type TokenUsageEntry } from './figma-direct-bridge-service.js';
 
@@ -63,6 +63,54 @@ export interface ConsumerScanResult {
     message: string;
     nodeId?: string;
   }>;
+}
+
+/**
+ * Keep a bounded sample of node IDs per usage entry to avoid large payloads.
+ */
+const MAX_CAPTURED_NODE_IDS_PER_ENTRY = 200;
+/**
+ * Emit unmatched-component diagnostics only when unresolved instances are significant.
+ */
+const UNMATCHED_COMPONENT_WARNING_THRESHOLD = 5;
+/**
+ * Cap stored unmatched component IDs while still tracking full unresolved count.
+ */
+const MAX_UNMATCHED_COMPONENT_IDS_SAMPLE = 100;
+/**
+ * Avoid costly MCP scans for tiny unresolved counts in mixed resolution scenarios.
+ */
+const MCP_FALLBACK_MIN_UNRESOLVED_BINDINGS = 5;
+
+function isLikelyFigmaVariableKey(value: string): boolean {
+  return /^[0-9a-f]{40}$/i.test(value);
+}
+
+/**
+ * Decide whether live MCP token-usage fallback is worth running.
+ * We trigger it when unresolved bindings exist and static catalogs are insufficient,
+ * to avoid expensive plugin scans on every sync.
+ *
+ * Triggers when ANY of these conditions are met:
+ * - No variables bound yet (variableBindingsCount === 0)
+ * - DS catalog is empty (dsCatalogVariableCount === 0)
+ * - Unresolved bindings significantly exceed resolved ones (>50% ratio)
+ */
+function shouldAttemptMcpVariableFallback(args: {
+  unresolvedBoundVariableCount: number;
+  variableBindingsCount: number;
+  dsCatalogVariableCount: number;
+}): boolean {
+  const { unresolvedBoundVariableCount, variableBindingsCount, dsCatalogVariableCount } = args;
+  if (unresolvedBoundVariableCount <= 0) return false;
+
+  // Trigger if no bindings or empty catalog
+  if (variableBindingsCount === 0 || dsCatalogVariableCount === 0) return true;
+
+  // Trigger if unresolved bindings significantly exceed resolved ones (>50% ratio)
+  if (unresolvedBoundVariableCount < MCP_FALLBACK_MIN_UNRESOLVED_BINDINGS) return false;
+  const unresolvedRatio = unresolvedBoundVariableCount / variableBindingsCount;
+  return unresolvedRatio > 0.5;
 }
 
 async function fetchConsumerBoundVariableUsageViaMcp(
@@ -172,39 +220,58 @@ export async function buildDsCatalog(
     // depth=1 is enough — we only need the file metadata and components/componentSets
     const fileResponse = await fetchFigmaFile({ fileKey: dsFileKey, token, depth: 1 });
 
-    // Build component catalog
+    // Build component catalog via /files/:key/components (more reliable than fileResponse.components,
+    // which can be empty for library files on non-Enterprise plans).
     const components = new Map<string, DsComponentCatalog>();
-    if (fileResponse.components) {
-      for (const [componentId, component] of Object.entries(fileResponse.components)) {
-        const comp = component as { key: string; name: string };
-        components.set(comp.key, {
-          key: comp.key,
+    try {
+      const componentsResponse = await fetchFigmaFileComponents({ fileKey: dsFileKey, token });
+      for (const comp of componentsResponse.meta?.components ?? []) {
+        const key = String(comp.key || '').trim();
+        if (!key) continue;
+        components.set(key, {
+          key,
           name: comp.name,
-          id: componentId,
+          id: comp.node_id,
         });
+      }
+    } catch (componentsError) {
+      const detail = componentsError instanceof Error ? componentsError.message : String(componentsError);
+      console.warn(`[buildDsCatalog] Component fetch failed (non-fatal): ${detail}`);
+      // Fallback: use components from the file response if the dedicated endpoint fails.
+      for (const [componentId, component] of Object.entries(fileResponse.components || {})) {
+        const comp = component as { key: string; name: string };
+        const key = String(comp.key || '').trim();
+        if (!key) continue;
+        components.set(key, { key, name: comp.name, id: componentId });
       }
     }
 
-    // Fetch variables: MCP-first with REST fallback
-    const variablesResponse = await fetchVariablesForDsFile(dsFileKey, token, signal);
-
-    // Build variable catalog
+    // Fetch variables: MCP-first with REST fallback.
+    // Non-fatal: if both sources are unavailable (no Enterprise plan + no MCP),
+    // we proceed with an empty variable catalog and rely on the MCP fallback
+    // during scanConsumerFile instead.
     const variables = new Map<string, DsVariableCatalog>();
     const variableIdToKey = new Map<string, string>();
 
-    if (variablesResponse.meta?.variableCollections && variablesResponse.meta?.variables) {
-      for (const variable of Object.values(variablesResponse.meta.variables)) {
-        const variableKey = String((variable as Record<string, unknown>).key || '').trim();
-        if (!variableKey) continue;
-        variables.set(variableKey, {
-          key: variableKey,
-          id: variable.id,
-          name: variable.name,
-          type: variable.resolvedType,
-          collectionId: variable.variableCollectionId,
-        });
-        variableIdToKey.set(variable.id, variableKey);
+    try {
+      const variablesResponse = await fetchVariablesForDsFile(dsFileKey, token, signal);
+      if (variablesResponse.meta?.variableCollections && variablesResponse.meta?.variables) {
+        for (const variable of Object.values(variablesResponse.meta.variables)) {
+          const variableKey = String((variable as Record<string, unknown>).key || '').trim();
+          if (!variableKey) continue;
+          variables.set(variableKey, {
+            key: variableKey,
+            id: variable.id,
+            name: variable.name,
+            type: variable.resolvedType,
+            collectionId: variable.variableCollectionId,
+          });
+          variableIdToKey.set(variable.id, variableKey);
+        }
       }
+    } catch (varError) {
+      const detail = varError instanceof Error ? varError.message : String(varError);
+      console.warn(`[buildDsCatalog] Variable fetch failed (non-fatal): ${detail}`);
     }
 
     return {
@@ -304,6 +371,7 @@ export async function scanConsumerFile(
     let consumerVariablesResponse: FigmaVariablesResponse | null = null;
     const componentInstances = new Map<string, ComponentInstance>();
     const variableBindings = new Map<string, VariableBinding>();
+    let totalBoundVariableCount = 0;
     let unresolvedBoundVariableCount = 0;
     const warnings: Array<{ code: string; message: string; nodeId?: string }> = [];
 
@@ -315,13 +383,29 @@ export async function scanConsumerFile(
       warnings.push(buildConsumerVariablesWarning(error));
     }
 
-    // Build component ID to key mapping for this file
+    // Build component ID to key mapping for this file.
+    // fileResponse.components may be empty on non-Enterprise plans for library-only files.
+    // Consumer files typically don't publish components — they consume from DS libraries.
+    // We rely on dsComponentIdToKey (DS catalog) for matching imported component instances.
     const fileComponentIdToKey = new Map<string, string>();
-    if (fileResponse.components) {
+    if (fileResponse.components && Object.keys(fileResponse.components).length > 0) {
       for (const [componentId, component] of Object.entries(fileResponse.components)) {
         const comp = component as { key: string; name: string };
         fileComponentIdToKey.set(componentId, comp.key);
       }
+    }
+    // Note: No fallback to /files/:key/components here — that endpoint returns components
+    // published by the file itself, not imported library components. For consumer files,
+    // dsComponentIdToKey (built from DS catalog) is the primary matching mechanism.
+
+    // Build DS component ID -> key mapping.
+    // Consumer files that only consume external libraries may not expose local
+    // `fileResponse.components`, but node.componentId can still reference the DS component ID.
+    const dsComponentIdToKey = new Map<string, string>();
+    for (const [componentKey, dsComponent] of dsCatalog.components.entries()) {
+      const componentId = String(dsComponent.id || '').trim();
+      if (!componentId) continue;
+      dsComponentIdToKey.set(componentId, componentKey);
     }
 
     // Build consumer variable ID -> key mapping
@@ -357,11 +441,22 @@ export async function scanConsumerFile(
       return Array.isArray(value) ? value : [value];
     }
 
+    // Diagnostic counters (#1 observability)
+    let matchedViaFileKey = 0;
+    let matchedViaDsId = 0;
+    const unmatchedComponentIds = new Set<string>();
+    let unmatchedComponentIdsTotal = 0;
+
     function scanNode(node: FigmaNode): void {
       // Check for component instances
       if (node.componentId) {
-        const componentKey = fileComponentIdToKey.get(node.componentId);
+        const normalizedComponentId = String(node.componentId || '').trim();
+        const viaFile = fileComponentIdToKey.get(normalizedComponentId);
+        const viaDsId = viaFile ? undefined : dsComponentIdToKey.get(normalizedComponentId);
+        const componentKey = viaFile || viaDsId;
         if (componentKey && dsCatalog.components.has(componentKey)) {
+          if (viaFile) matchedViaFileKey++;
+          else matchedViaDsId++;
           const dsComponent = dsCatalog.components.get(componentKey)!;
           if (!componentInstances.has(componentKey)) {
             componentInstances.set(componentKey, {
@@ -370,15 +465,23 @@ export async function scanConsumerFile(
               nodeIds: [],
             });
           }
-          componentInstances.get(componentKey)!.nodeIds.push(node.id);
+          const instance = componentInstances.get(componentKey)!;
+          if (instance.nodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
+            instance.nodeIds.push(node.id);
+          }
+        } else if (normalizedComponentId) {
+          unmatchedComponentIdsTotal += 1;
+          if (unmatchedComponentIds.size < MAX_UNMATCHED_COMPONENT_IDS_SAMPLE) {
+            unmatchedComponentIds.add(normalizedComponentId);
+          }
         }
-        // Non-DS components are expected (local components) — no warning needed.
       }
 
       // Check for variable bindings
       if (node.boundVariables) {
         for (const [, bindings] of Object.entries(node.boundVariables)) {
           for (const binding of normalizeBindings(bindings)) {
+            totalBoundVariableCount += 1;
             const variableId = binding.id;
             const variableKey =
               consumerVariableIdToKey.get(variableId) ||
@@ -396,7 +499,10 @@ export async function scanConsumerFile(
                   nodeIds: [],
                 });
               }
-              variableBindings.get(variableKey)!.nodeIds.push(node.id);
+              const variableBinding = variableBindings.get(variableKey)!;
+              if (variableBinding.nodeIds.length < MAX_CAPTURED_NODE_IDS_PER_ENTRY) {
+                variableBinding.nodeIds.push(node.id);
+              }
             } else {
               unresolvedBoundVariableCount += 1;
             }
@@ -416,9 +522,13 @@ export async function scanConsumerFile(
     // Start scanning from document root
     scanNode(fileResponse.document);
 
-    // Fallback: query live MCP token usage when bindings are missing (fully or partially).
-    // This helps consumer files that consume library variables and do not expose local variables.
-    if (variableBindings.size === 0 || unresolvedBoundVariableCount > 0) {
+    // Fallback: query live MCP token usage when we have unresolved variable bindings and
+    // the REST/local catalogs are insufficient to resolve them.
+    if (shouldAttemptMcpVariableFallback({
+      unresolvedBoundVariableCount,
+      variableBindingsCount: variableBindings.size,
+      dsCatalogVariableCount: dsCatalog.variables.size,
+    })) {
       const mcpUsage = await fetchConsumerBoundVariableUsageViaMcp(fileKey);
       if (mcpUsage && mcpUsage.length > 0) {
         let fallbackAddedCount = 0;
@@ -430,10 +540,31 @@ export async function scanConsumerFile(
             dsCatalog.variableIdToKey.get(variableId) ||
             '';
           const byNameKey = variableName ? dsVariableNameToKey.get(variableName.toLowerCase()) || '' : '';
-          const variableKey = byIdKey || byNameKey;
-          if (!variableKey || !dsCatalog.variables.has(variableKey)) continue;
+          // When catalog is empty (token lacks file_variables:read scope), trust the
+          // plugin-resolved key directly — it comes from getVariableByIdAsync which
+          // resolves library variables that the REST API silently omits.
+          // Guardrail: only accept keys that look like valid Figma variable keys
+          // (40-char hex, the format used by Figma's global keys).
+          const rawPluginKey = dsCatalog.variables.size === 0
+            ? String(entry.variableKey || '').trim()
+            : '';
+          const byPluginKey = rawPluginKey && isLikelyFigmaVariableKey(rawPluginKey)
+            ? rawPluginKey
+            : '';
+          const variableKey = byIdKey || byNameKey || byPluginKey;
+          if (!variableKey) continue;
 
-          const dsVariable = dsCatalog.variables.get(variableKey)!;
+          const dsVariable = dsCatalog.variables.get(variableKey) ?? (
+            byPluginKey ? {
+              key: byPluginKey,
+              id: variableId,
+              name: variableName || `unknown (${variableId})`,
+              type: String(entry.variableType || 'UNKNOWN'),
+              collectionId: '',
+            } : null
+          );
+          if (!dsVariable) continue;
+
           const existing = variableBindings.get(variableKey);
           if (!existing) {
             variableBindings.set(variableKey, {
@@ -441,7 +572,9 @@ export async function scanConsumerFile(
               variableId: variableId || dsVariable.id,
               variableName: dsVariable.name,
               variableType: dsVariable.type,
-              nodeIds: Array.isArray(entry.nodeIds) ? entry.nodeIds.slice(0, 200) : [],
+              nodeIds: Array.isArray(entry.nodeIds)
+                ? entry.nodeIds.slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY)
+                : [],
             });
             fallbackAddedCount += 1;
             continue;
@@ -452,7 +585,7 @@ export async function scanConsumerFile(
             const normalized = String(nodeId || '').trim();
             if (normalized) mergedNodeIds.add(normalized);
           }
-          existing.nodeIds = Array.from(mergedNodeIds).slice(0, 200);
+          existing.nodeIds = Array.from(mergedNodeIds).slice(0, MAX_CAPTURED_NODE_IDS_PER_ENTRY);
         }
 
         if (fallbackAddedCount > 0) {
@@ -462,6 +595,30 @@ export async function scanConsumerFile(
           });
         }
       }
+    }
+
+    // (#1) Diagnostic warning: empty scan result
+    if (componentInstances.size === 0 && variableBindings.size === 0) {
+      warnings.push({
+        code: 'deps.consumer.empty_scan_result',
+        message: [
+          'Scan completed with 0 components and 0 variables.',
+          `dsCatalog: ${dsCatalog.components.size} components, ${dsCatalog.variables.size} variables.`,
+          `fileComponentIdToKey: ${fileComponentIdToKey.size} entries.`,
+          `dsComponentIdToKey: ${dsComponentIdToKey.size} entries.`,
+          `Bound variables scanned: ${totalBoundVariableCount}.`,
+          `Unresolved boundVariable count: ${unresolvedBoundVariableCount}.`,
+          unmatchedComponentIdsTotal > 0
+            ? `Unmatched componentIds (sample): ${[...unmatchedComponentIds].slice(0, 5).join(', ')}.`
+            : 'No component instances found in document tree.',
+        ].join(' '),
+      });
+    } else if (unmatchedComponentIdsTotal >= UNMATCHED_COMPONENT_WARNING_THRESHOLD) {
+      // Non-empty scan but some instances were unresolved — log for diagnostics
+      warnings.push({
+        code: 'deps.consumer.unmatched_component_ids',
+        message: `${unmatchedComponentIdsTotal} instance(s) with unresolved componentId (matched: ${matchedViaFileKey} via fileKey, ${matchedViaDsId} via dsId). Sample: ${[...unmatchedComponentIds].slice(0, 5).join(', ')}.`,
+      });
     }
 
     // Convert Maps to arrays and limit sample node IDs
