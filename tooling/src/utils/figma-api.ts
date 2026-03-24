@@ -10,8 +10,10 @@ import type {
   FetchFigmaFileOptions,
   FetchFigmaNodesOptions,
   FetchFigmaVariablesOptions,
+  FetchFigmaFileComponentsOptions,
   FetchFigmaImagesOptions,
   FigmaFileResponse,
+  FigmaFileComponentsResponse,
   FigmaNodesResponse,
   FigmaVariablesResponse,
   FigmaImagesResponse,
@@ -373,6 +375,21 @@ export async function fetchFigmaLocalVariables(options: FetchFigmaVariablesOptio
   const normalizedFileKey = normalizeFileKey(fileKey);
   return requestFigmaJson<FigmaVariablesResponse>({
     endpointPath: `/v1/files/${encodeURIComponent(normalizedFileKey)}/variables/local`,
+    token,
+    timeoutMs,
+  });
+}
+
+/**
+ * Fetch published components from a Figma file via /files/:key/components.
+ * This is distinct from the `components` field in the file response, which only
+ * includes components defined locally and can be empty for library-only files.
+ */
+export async function fetchFigmaFileComponents(options: FetchFigmaFileComponentsOptions): Promise<FigmaFileComponentsResponse> {
+  const { fileKey, token, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
+  const normalizedFileKey = normalizeFileKey(fileKey);
+  return requestFigmaJson<FigmaFileComponentsResponse>({
+    endpointPath: `/v1/files/${encodeURIComponent(normalizedFileKey)}/components`,
     token,
     timeoutMs,
   });

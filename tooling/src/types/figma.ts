@@ -97,6 +97,25 @@ export interface FetchFigmaVariablesOptions extends FigmaApiOptions {
   fileKey: string;
 }
 
+export interface FetchFigmaFileComponentsOptions extends FigmaApiOptions {
+  fileKey: string;
+}
+
+export interface FigmaFileComponentsResponse {
+  status: number;
+  error: boolean;
+  meta: {
+    components: Array<{
+      key: string;
+      name: string;
+      node_id: string;
+      description: string;
+      componentSetId?: string;
+      [key: string]: unknown;
+    }>;
+  };
+}
+
 export interface FetchFigmaImagesOptions extends FigmaApiOptions {
   fileKey: string;
   nodeIds: string[];

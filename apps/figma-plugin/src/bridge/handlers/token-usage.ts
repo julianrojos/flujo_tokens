@@ -37,28 +37,34 @@ export async function handleGetTokenUsage(
     }
 
     // Check if we should proceed (large documents)
-    const allVariables = await figma.variables.getLocalVariablesAsync();
+    // getLocalVariablesAsync only returns variables defined in this file;
+    // library variables imported from other files are NOT included.
+    const allLocalVariables = await figma.variables.getLocalVariablesAsync();
 
-    if (!force && allVariables.length > 100) {
+    if (!force && allLocalVariables.length > 100) {
         console.log(
-            `[Bridge] Warning: Large number of variables (${allVariables.length}). Use force: true to proceed.`
+            `[Bridge] Warning: Large number of variables (${allLocalVariables.length}). Use force: true to proceed.`
         );
     }
 
     // BFS configuration
     const MAX_TIME_MS = 10000; // 10 second time budget
     const CHECK_INTERVAL = 100; // Check time every N nodes
+    // Compact at most once to release memory without repeatedly paying splice() cost.
+    const QUEUE_COMPACTION_THRESHOLD = 4096;
 
-    // Usage tracking
-    const usageMap = new Map<string, string[]>();
+    // Usage tracking: keep exact nodeCount and a bounded node-id sample per variable
+    const MAX_NODE_IDS_PER_ENTRY = 50;
+    const usageMap = new Map<string, { nodeCount: number; nodeIds: string[] }>();
     let scanned = 0;
     let truncated = false;
     const start = Date.now();
 
-    // BFS queue
+    // BFS queue (index-based traversal to avoid O(n) Array.shift())
     const queue: SceneNode[] = [root as SceneNode];
-
-    while (queue.length > 0 && scanned < maxNodes) {
+    let queueIndex = 0;
+    let queueCompactions = 0;
+    while (queueIndex < queue.length && scanned < maxNodes) {
         // Check time budget periodically
         if (scanned % CHECK_INTERVAL === 0 && Date.now() - start > MAX_TIME_MS) {
             console.log(`[Bridge] Token usage scan time budget exceeded after ${scanned} nodes`);
@@ -66,7 +72,8 @@ export async function handleGetTokenUsage(
             break;
         }
 
-        const node = queue.shift()!;
+        const node = queue[queueIndex]!;
+        queueIndex += 1;
         scanned++;
 
         // Check for bound variables
@@ -79,11 +86,12 @@ export async function handleGetTokenUsage(
                 for (const binding of bindings) {
                     if (binding && typeof binding === 'object' && 'id' in binding) {
                         const varId = (binding as { id: string }).id;
-
-                        if (!usageMap.has(varId)) {
-                            usageMap.set(varId, []);
+                        const entry = usageMap.get(varId) ?? { nodeCount: 0, nodeIds: [] };
+                        entry.nodeCount += 1;
+                        if (entry.nodeIds.length < MAX_NODE_IDS_PER_ENTRY) {
+                            entry.nodeIds.push(node.id);
                         }
-                        usageMap.get(varId)!.push(node.id);
+                        usageMap.set(varId, entry);
                     }
                 }
             }
@@ -93,26 +101,66 @@ export async function handleGetTokenUsage(
         if ('children' in node) {
             queue.push(...(node as FrameNode).children);
         }
+
+        if (
+            queueCompactions === 0 &&
+            queueIndex >= QUEUE_COMPACTION_THRESHOLD &&
+            queueIndex * 2 > queue.length
+        ) {
+            queue.splice(0, queueIndex);
+            queueIndex = 0;
+            queueCompactions += 1;
+        }
     }
 
-    // Build usage entries (limit nodeIds per entry to 50)
-    const MAX_NODE_IDS_PER_ENTRY = 50;
+    // Build usage entries
     const usage: TokenUsageEntry[] = [];
 
-    for (const [variableId, nodeIds] of usageMap) {
-        const variable = allVariables.find((v) => v.id === variableId);
+    // Index local variables by ID for O(1) lookup
+    const localVariableById = new Map<string, Variable>();
+    for (const v of allLocalVariables) {
+        localVariableById.set(v.id, v);
+    }
+
+    // Collect IDs that need async resolution (library variables not in local set)
+    const unresolvedIds: string[] = [];
+    for (const variableId of usageMap.keys()) {
+        if (!localVariableById.has(variableId)) {
+            unresolvedIds.push(variableId);
+        }
+    }
+
+    // Resolve library variables in parallel with concurrency limit
+    // 10 keeps latency reasonable without hammering plugin runtime with unresolved IDs.
+    const CONCURRENCY = 10;
+    const resolvedById = new Map<string, Variable | null>();
+    for (let i = 0; i < unresolvedIds.length; i += CONCURRENCY) {
+        const batch = unresolvedIds.slice(i, i + CONCURRENCY);
+        const results = await Promise.allSettled(
+            batch.map((id) => figma.variables.getVariableByIdAsync(id))
+        );
+        for (let j = 0; j < batch.length; j++) {
+            const r = results[j];
+            resolvedById.set(batch[j], r.status === 'fulfilled' ? r.value : null);
+        }
+    }
+
+    for (const [variableId, usageEntry] of usageMap) {
+        const variable = localVariableById.get(variableId) ?? resolvedById.get(variableId) ?? null;
 
         usage.push({
             variableId,
-            variableName: variable?.name || `unknown (${variableId})`,
-            nodeCount: nodeIds.length,
-            nodeIds: nodeIds.slice(0, MAX_NODE_IDS_PER_ENTRY),
+            variableName: variable?.name ?? `unknown (${variableId})`,
+            variableKey: variable?.key,
+            variableType: variable?.resolvedType,
+            nodeCount: usageEntry.nodeCount,
+            nodeIds: usageEntry.nodeIds,
         });
     }
 
     // Find unused variables
     const usedVariableIds = new Set(usageMap.keys());
-    const unusedVariableIds = allVariables
+    const unusedVariableIds = allLocalVariables
         .filter((v) => !usedVariableIds.has(v.id))
         .map((v) => v.id);
 

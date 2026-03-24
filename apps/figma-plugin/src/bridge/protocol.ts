@@ -700,6 +700,10 @@ export interface GetTokenUsageParams {
 export interface TokenUsageEntry {
   variableId: string;
   variableName: string;
+  /** Global Figma key resolved via getVariableByIdAsync (includes library variables). */
+  variableKey?: string;
+  /** Resolved type from Figma: COLOR | FLOAT | STRING | BOOLEAN. */
+  variableType?: string;
   nodeCount: number;
   nodeIds: string[];
 }
