@@ -4,33 +4,34 @@ import {
   readConsumerFilterState,
   writeSearchQuery,
   writeSeverityFilter,
-  writeStaleFilter,
+  writeStatusFilter,
+  type SyncStatusFilter,
 } from "../lib/consumer-filter-query";
 
 export interface ConsumerFilterParams {
   searchQuery: string;
   severityFilter: ImpactLevel | "all";
-  staleFilter: boolean;
+  statusFilter: SyncStatusFilter;
   setSearchQuery: (value: string) => void;
   setSeverityFilter: (value: ImpactLevel | "all") => void;
-  setStaleFilter: (value: boolean) => void;
+  setStatusFilter: (value: SyncStatusFilter) => void;
   clearFilters: () => void;
 }
 
 export function useConsumerFilterParams(): ConsumerFilterParams {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { searchQuery, severityFilter, staleFilter } = readConsumerFilterState(searchParams);
+  const { searchQuery, severityFilter, statusFilter } = readConsumerFilterState(searchParams);
 
   const setSearchQuery = (value: string) => {
-    setSearchParams((prev) => writeSearchQuery(prev, value));
+    setSearchParams((prev) => writeSearchQuery(prev, value), { replace: true });
   };
 
   const setSeverityFilter = (value: ImpactLevel | "all") => {
-    setSearchParams((prev) => writeSeverityFilter(prev, value));
+    setSearchParams((prev) => writeSeverityFilter(prev, value), { replace: true });
   };
 
-  const setStaleFilter = (value: boolean) => {
-    setSearchParams((prev) => writeStaleFilter(prev, value));
+  const setStatusFilter = (value: SyncStatusFilter) => {
+    setSearchParams((prev) => writeStatusFilter(prev, value), { replace: true });
   };
 
   const clearFilters = () => {
@@ -38,18 +39,18 @@ export function useConsumerFilterParams(): ConsumerFilterParams {
       const next = new URLSearchParams(prev);
       next.delete("q");
       next.delete("severity");
-      next.delete("stale");
+      next.delete("status");
       return next;
-    });
+    }, { replace: true });
   };
 
   return {
     searchQuery,
     severityFilter,
-    staleFilter,
+    statusFilter,
     setSearchQuery,
     setSeverityFilter,
-    setStaleFilter,
+    setStatusFilter,
     clearFilters,
   };
 }

@@ -1,16 +1,27 @@
 import type { ImpactLevel } from "@/types/consumers";
 
+export type SyncStatusFilter = "all" | "ok" | "partial" | "error" | "skipped";
+const VALID_STATUS_FILTERS: SyncStatusFilter[] = ["all", "ok", "partial", "error", "skipped"];
+const VALID_SEVERITY_FILTERS: Array<ImpactLevel | "all"> = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"];
+
 export interface ConsumerFilterState {
   searchQuery: string;
   severityFilter: ImpactLevel | "all";
-  staleFilter: boolean;
+  statusFilter: SyncStatusFilter;
 }
 
 export function readConsumerFilterState(params: URLSearchParams): ConsumerFilterState {
+  const rawStatus = params.get("status");
+  const rawSeverity = params.get("severity");
+
   return {
     searchQuery: params.get("q") || "",
-    severityFilter: (params.get("severity") as ImpactLevel | "all") || "all",
-    staleFilter: params.get("stale") === "true",
+    severityFilter: rawSeverity && VALID_SEVERITY_FILTERS.includes(rawSeverity as ImpactLevel | "all")
+      ? (rawSeverity as ImpactLevel | "all")
+      : "all",
+    statusFilter: rawStatus && VALID_STATUS_FILTERS.includes(rawStatus as SyncStatusFilter)
+      ? (rawStatus as SyncStatusFilter)
+      : "all",
   };
 }
 
@@ -32,9 +43,12 @@ export function writeSeverityFilter(
   return next;
 }
 
-export function writeStaleFilter(params: URLSearchParams, value: boolean): URLSearchParams {
+export function writeStatusFilter(
+  params: URLSearchParams,
+  value: SyncStatusFilter,
+): URLSearchParams {
   const next = new URLSearchParams(params);
-  if (value) next.set("stale", "true");
-  else next.delete("stale");
+  if (value === "all") next.delete("status");
+  else next.set("status", value);
   return next;
 }

@@ -17,17 +17,60 @@ import { ImpactLevelBadge } from "./components/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { useDsFileKey } from "./hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
-import type { DsConsumer, DsSyncRun, ComponentUsageReport, VariableUsageReport } from "@/types/consumers";
+import { formatSyncedAt } from "./lib/format-synced-at";
+import type {
+  DsConsumer,
+  DsSyncRun,
+  ComponentUsageReport,
+  VariableUsageReport,
+  ImpactLevel,
+} from "@/types/consumers";
 
-function formatSyncedAt(value: string | undefined): string {
-  const date = new Date(String(value || ""));
-  return Number.isFinite(date.getTime()) ? date.toLocaleString() : "Unknown";
-}
+const IMPACT_SORT_ORDER: Record<ImpactLevel, number> = {
+  CRITICAL: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+};
 
 function formatDurationMs(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
   const duration = typeof value === "number" ? value : Number(value);
   return Number.isFinite(duration) && duration >= 0 ? `${Math.round(duration)}ms` : "—";
+}
+
+function sortByImpactThenCount<T extends { impactLevel: { level: ImpactLevel }; instances?: number; nodes?: number }>(
+  items: T[],
+): T[] {
+  return [...items].sort((a, b) => {
+    const impactDiff = IMPACT_SORT_ORDER[a.impactLevel.level] - IMPACT_SORT_ORDER[b.impactLevel.level];
+    if (impactDiff !== 0) return impactDiff;
+    const countA = a.instances ?? a.nodes ?? 0;
+    const countB = b.instances ?? b.nodes ?? 0;
+    return countB - countA;
+  });
+}
+
+function computeWorstImpactLevel(
+  components: Array<{ impactLevel: { level: ImpactLevel } }>,
+  variables: Array<{ impactLevel: { level: ImpactLevel } }>,
+): ImpactLevel | null {
+  const allItems = [...components, ...variables];
+  if (allItems.length === 0) return null;
+
+  // Track worst level directly to avoid redundant Object.keys().find() lookup
+  let worstLevel: ImpactLevel = allItems[0].impactLevel.level;
+  let worstScore = IMPACT_SORT_ORDER[worstLevel];
+
+  for (const item of allItems) {
+    const score = IMPACT_SORT_ORDER[item.impactLevel.level];
+    if (score < worstScore) {
+      worstScore = score;
+      worstLevel = item.impactLevel.level;
+    }
+  }
+
+  return worstLevel;
 }
 
 export function ConsumerDetailPage() {
@@ -95,20 +138,45 @@ export function ConsumerDetailPage() {
     writeCachedConsumerLabel(consumer.id, consumer.consumerName);
   }, [consumer?.id, consumer?.consumerName]);
 
-  // Filter components and variables for this consumer
+  // Filter components and variables for this consumer, extracting sampleLinks from the consumer's usage
   const consumerComponents = components.flatMap((c) => {
     const usages = c.consumers.filter((u) => u.consumerId === consumerId);
-    return usages.length > 0
-      ? [{ ...c, instances: usages.reduce((sum, u) => sum + (u.instanceCount || 0), 0) }]
-      : [];
+    if (usages.length === 0) return [];
+
+    const sampleLinks = Array.from(
+      new Set(usages.flatMap((usage) => usage.sampleLinks || [])),
+    );
+    return [
+      {
+        ...c,
+        instances: usages.reduce((sum, u) => sum + (u.instanceCount || 0), 0),
+        sampleLinks,
+      },
+    ];
   });
 
   const consumerVariables = variables.flatMap((v) => {
     const usages = v.consumers.filter((u) => u.consumerId === consumerId);
-    return usages.length > 0
-      ? [{ ...v, nodes: usages.reduce((sum, u) => sum + (u.nodeCount || 0), 0) }]
-      : [];
+    if (usages.length === 0) return [];
+
+    const sampleLinks = Array.from(
+      new Set(usages.flatMap((usage) => usage.sampleLinks || [])),
+    );
+    return [
+      {
+        ...v,
+        nodes: usages.reduce((sum, u) => sum + (u.nodeCount || 0), 0),
+        sampleLinks,
+      },
+    ];
   });
+
+  // Sort by impact level (descending) then by count (descending)
+  const sortedComponents = sortByImpactThenCount(consumerComponents);
+  const sortedVariables = sortByImpactThenCount(consumerVariables);
+
+  // Compute worst impact level for overview
+  const worstImpactLevel = computeWorstImpactLevel(consumerComponents, consumerVariables);
 
   if (loading) {
     return (
@@ -166,7 +234,7 @@ export function ConsumerDetailPage() {
           <ConsumerSyncStatusBadge latestSync={consumer.latestSync} />
         </div>
         {consumer.latestSync && (
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-4 gap-4">
             <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
               <p className="text-2xl font-bold">{consumer.latestSync.componentCount}</p>
               <p className="text-xs text-muted-foreground">components</p>
@@ -179,6 +247,13 @@ export function ConsumerDetailPage() {
               <p className="text-2xl font-bold">{consumer.latestSync.warningCount}</p>
               <p className="text-xs text-muted-foreground">warnings</p>
             </div>
+            <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+              {worstImpactLevel !== null ? (
+                <ImpactLevelBadge level={worstImpactLevel} className="justify-center" />
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -186,8 +261,12 @@ export function ConsumerDetailPage() {
       {/* Component Usage */}
       <div className="rounded-xl border border-border bg-card p-4">
         <h3 className="mb-3 text-base font-semibold">Component Usage</h3>
-        {consumerComponents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No components used</p>
+        {sortedComponents.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            {consumer.latestSync
+              ? "No DS components recorded for this consumer."
+              : "No sync data yet — use Sync now above."}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -196,10 +275,11 @@ export function ConsumerDetailPage() {
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Component</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Instances</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Impact</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sample Links</th>
                 </tr>
               </thead>
               <tbody>
-                {consumerComponents.map((comp) => (
+                {sortedComponents.map((comp) => (
                   <tr key={comp.componentKey} className="border-b border-border/50">
                     <td className="px-3 py-2">
                       <div className="space-y-0.5">
@@ -213,6 +293,25 @@ export function ConsumerDetailPage() {
                     <td className="px-3 py-2">
                       <ImpactLevelBadge level={comp.impactLevel.level} />
                     </td>
+                    <td className="px-3 py-2">
+                      {comp.sampleLinks && comp.sampleLinks.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {comp.sampleLinks.slice(0, 5).map((link) => (
+                            <a
+                              key={link}
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                            >
+                              ↗ Figma
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -224,8 +323,12 @@ export function ConsumerDetailPage() {
       {/* Variable Usage */}
       <div className="rounded-xl border border-border bg-card p-4">
         <h3 className="mb-3 text-base font-semibold">Variable Usage</h3>
-        {consumerVariables.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No variables used</p>
+        {sortedVariables.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            {consumer.latestSync
+              ? "No DS variables recorded for this consumer."
+              : "No sync data yet — use Sync now above."}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -235,10 +338,11 @@ export function ConsumerDetailPage() {
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Nodes</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Type</th>
                   <th className="px-3 py-2 text-left font-medium text-muted-foreground">Impact</th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sample Links</th>
                 </tr>
               </thead>
               <tbody>
-                {consumerVariables.map((v) => (
+                {sortedVariables.map((v) => (
                   <tr key={v.variableKey} className="border-b border-border/50">
                     <td className="px-3 py-2">
                       <div className="space-y-0.5">
@@ -254,6 +358,25 @@ export function ConsumerDetailPage() {
                     </td>
                     <td className="px-3 py-2">
                       <ImpactLevelBadge level={v.impactLevel.level} />
+                    </td>
+                    <td className="px-3 py-2">
+                      {v.sampleLinks && v.sampleLinks.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {v.sampleLinks.slice(0, 5).map((link) => (
+                            <a
+                              key={link}
+                              href={link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                            >
+                              ↗ Figma
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}

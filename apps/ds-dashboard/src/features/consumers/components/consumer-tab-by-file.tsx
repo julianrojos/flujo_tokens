@@ -1,16 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState, EmptyStateAction } from "@/components/composites/empty-state";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { Modal, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/overlay/modal";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
-import { ConsumerCard } from "./consumer-card";
+import { cn } from "@/lib/utils";
 import { Network } from "lucide-react";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
-import type { FileReport } from "@/types/consumers";
+import { formatSyncedAt } from "../lib/format-synced-at";
+import type { FileReport, DsSyncRun } from "@/types/consumers";
+import type { SyncStatusFilter } from "../lib/consumer-filter-query";
 
 interface ConsumerTabByFileProps {
   dsFileKey: string;
@@ -23,8 +27,104 @@ interface RemoveCandidate {
   name: string;
 }
 
+interface KpiData {
+  total: number;
+  syncedToday: number;
+  withWarnings: number;
+  neverSynced: number;
+}
+
+const STATUS_SORT_ORDER: Record<DsSyncRun["status"], number> = {
+  error: 0,
+  partial: 1,
+  skipped: 2,
+  ok: 3,
+};
+const STATUS_BADGE_VARIANT: Record<DsSyncRun["status"], "error" | "warning" | "neutral" | "success"> = {
+  error: "error",
+  partial: "warning",
+  skipped: "neutral",
+  ok: "success",
+};
+
+function computeKpis(reports: FileReport[]): KpiData {
+  const now = Date.now();
+  const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+  let syncedToday = 0;
+  let withWarnings = 0;
+  let neverSynced = 0;
+
+  for (const report of reports) {
+    if (!report.lastSyncedAt) {
+      neverSynced += 1;
+    } else {
+      const syncedAt = new Date(report.lastSyncedAt).getTime();
+      if (Number.isFinite(syncedAt) && now - syncedAt < twentyFourHoursMs) {
+        syncedToday += 1;
+      }
+    }
+    if (report.warningCount > 0) {
+      withWarnings += 1;
+    }
+  }
+
+  return {
+    total: reports.length,
+    syncedToday,
+    withWarnings,
+    neverSynced,
+  };
+}
+
+function sortReports(reports: FileReport[]): FileReport[] {
+  return [...reports].sort((a, b) => {
+    // Use fallback value (99) for unknown status to avoid NaN breaking sort
+    const statusA = STATUS_SORT_ORDER[a.status] ?? 99;
+    const statusB = STATUS_SORT_ORDER[b.status] ?? 99;
+    const statusDiff = statusA - statusB;
+    if (statusDiff !== 0) return statusDiff;
+    return a.consumerName.localeCompare(b.consumerName);
+  });
+}
+
+function applyFilters(
+  reports: FileReport[],
+  filters: {
+    searchQuery: string;
+    statusFilter: SyncStatusFilter;
+    highImpactOnly: boolean;
+  },
+): FileReport[] {
+  const { searchQuery, statusFilter, highImpactOnly } = filters;
+  const normalizedQuery = searchQuery.toLowerCase().trim();
+
+  return reports.filter((report) => {
+    // Search filter
+    if (normalizedQuery) {
+      const nameMatch = report.consumerName.toLowerCase().includes(normalizedQuery);
+      const keyMatch = report.consumerFileKey.toLowerCase().includes(normalizedQuery);
+      if (!nameMatch && !keyMatch) return false;
+    }
+
+    // Status filter
+    if (statusFilter !== "all" && report.status !== statusFilter) {
+      return false;
+    }
+
+    // High impact filter (CRITICAL or HIGH)
+    if (highImpactOnly) {
+      const impact = report.impactLevel.level;
+      if (impact !== "CRITICAL" && impact !== "HIGH") {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
-  const { staleFilter, setStaleFilter } = useConsumerFilterParams();
+  const { statusFilter, setStatusFilter, searchQuery, setSearchQuery } = useConsumerFilterParams();
   const [reports, setReports] = useState<FileReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
@@ -33,13 +133,15 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
   const [removingConsumerId, setRemovingConsumerId] = useState<string | null>(null);
   const [removeCandidate, setRemoveCandidate] = useState<RemoveCandidate | null>(null);
   const [removeConfirmed, setRemoveConfirmed] = useState(false);
+  const [highImpactOnly, setHighImpactOnly] = useState(false);
 
   const loadReports = async () => {
     setLoading(true);
     setError(null);
     try {
+      // Always fetch with staleOnly: false for accurate KPIs
       const response = await fetchReportByFile(dsFileKey, {
-        staleOnly: staleFilter,
+        staleOnly: false,
       });
       setReports(response.data || []);
     } catch (cause) {
@@ -54,7 +156,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
 
   useEffect(() => {
     void loadReports();
-  }, [dsFileKey, staleFilter, reloadToken]);
+  }, [dsFileKey, reloadToken]);
 
   const handleSync = async (consumerId?: string, force = false) => {
     if (consumerId) {
@@ -113,24 +215,22 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
     }
   };
 
+  // Compute KPIs from all reports (before filtering)
+  const kpis = useMemo(() => computeKpis(reports), [reports]);
+
+  // Apply filters and sorting
+  const filteredReports = useMemo(() => applyFilters(reports, {
+    searchQuery,
+    statusFilter,
+    highImpactOnly,
+  }), [reports, searchQuery, statusFilter, highImpactOnly]);
+  const sortedReports = useMemo(() => sortReports(filteredReports), [filteredReports]);
+
   if (loading) {
     return (
       <div className="rounded-xl border border-border bg-card p-6">
         <p className="text-sm text-muted-foreground">Loading consumer files...</p>
       </div>
-    );
-  }
-
-  if (reports.length === 0 && staleFilter) {
-    return (
-      <StatusAlert variant="info" title="No stale consumers">
-        No consumer files older than 72 hours were found.
-        <div className="mt-3">
-          <Button size="sm" variant="outline" onClick={() => setStaleFilter(false)}>
-            Show all consumers
-          </Button>
-        </div>
-      </StatusAlert>
     );
   }
 
@@ -151,22 +251,63 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h3 className="text-base font-semibold">Consumer Files Overview</h3>
-          <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground">
-            {reports.length} {reports.length === 1 ? "file" : "files"}
-          </span>
+      {/* KPI Bar */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
+          <p className="text-2xl font-bold">{kpis.total}</p>
+          <p className="text-xs text-muted-foreground">Total files</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
+          <p className="text-2xl font-bold">{kpis.syncedToday}</p>
+          <p className="text-xs text-muted-foreground">Synced today</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
+          <p className="text-2xl font-bold">{kpis.withWarnings}</p>
+          <p className="text-xs text-muted-foreground">With warnings</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-3 text-center">
+          <p className="text-2xl font-bold">{kpis.neverSynced}</p>
+          <p className="text-xs text-muted-foreground">Never synced</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-1 items-center gap-2">
+          <input
+            type="text"
+            placeholder="Search by name or file key..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full min-w-0 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-app-accent/50 md:w-64"
+          />
+          <div className="flex flex-shrink-0 gap-1">
+            {(["all", "ok", "partial", "error", "skipped"] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() => setStatusFilter(status)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+                  statusFilter === status
+                    ? "bg-app-accent text-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/70",
+                )}
+              >
+                {status === "all" ? "All" : status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-shrink-0 items-center gap-2">
           <label className="flex items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-1.5 text-sm">
             <input
               type="checkbox"
-              checked={staleFilter}
-              onChange={(e) => setStaleFilter(e.target.checked)}
+              checked={highImpactOnly}
+              onChange={(e) => setHighImpactOnly(e.target.checked)}
               className="h-4 w-4"
             />
-            <span>Show stale only</span>
+            <span>High impact only</span>
           </label>
           <Button
             size="sm"
@@ -189,37 +330,85 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
 
       {error ? <ApiErrorMessage error={error} /> : null}
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {reports.map((report) => (
-          <ConsumerCard
-            key={report.consumerId}
-            mode="report"
-            consumer={{
-              id: report.consumerId,
-              dsFileKey: "",
-              consumerFileKey: report.consumerFileKey,
-              consumerName: report.consumerName,
-              enabled: true,
-              createdAt: report.lastSyncedAt,
-              latestSync: {
-                id: "",
-                consumerId: report.consumerId,
-                syncedAt: report.lastSyncedAt,
-                durationMs: 0,
-                status: report.status,
-                componentCount: report.componentCount,
-                variableCount: report.variableCount,
-                warningCount: report.warningCount,
-              },
-            }}
-            impactLevel={report.impactLevel.level}
-            syncing={syncingConsumerId === report.consumerId}
-            onSync={(id) => void handleSync(id)}
-            onRemove={(id) => requestRemove(id, report.consumerName)}
-            removing={removingConsumerId === report.consumerId}
-          />
-        ))}
-      </div>
+      {sortedReports.length === 0 ? (
+        <StatusAlert variant="info" title="No results match your filters">
+          Try adjusting your search or filter criteria.
+        </StatusAlert>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Consumer</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Last sync</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Components</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Variables</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Warnings</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedReports.map((report) => (
+                <tr key={report.consumerId} className="border-b border-border/50 hover:bg-muted/20">
+                  <td className="px-3 py-3">
+                    <div className="space-y-0.5">
+                      <Link
+                        to={`/consumers/${report.consumerId}`}
+                        className="font-medium text-foreground hover:underline"
+                      >
+                        {report.consumerName}
+                      </Link>
+                      <p className="text-xs text-muted-foreground">{report.consumerFileKey}</p>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-muted-foreground">
+                    {formatSyncedAt(report.lastSyncedAt, "Never")}
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <Badge variant="neutral">{report.componentCount}</Badge>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <Badge variant="neutral">{report.variableCount}</Badge>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    {report.warningCount > 0 ? (
+                      <Badge variant="warning">{report.warningCount}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3">
+                    <Badge variant={STATUS_BADGE_VARIANT[report.status]}>
+                      {report.status}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={syncingConsumerId === report.consumerId || removingConsumerId === report.consumerId}
+                        onClick={() => void handleSync(report.consumerId)}
+                      >
+                        {syncingConsumerId === report.consumerId ? "Syncing..." : "Sync"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={removingConsumerId === report.consumerId}
+                        onClick={() => requestRemove(report.consumerId, report.consumerName)}
+                      >
+                        {removingConsumerId === report.consumerId ? "Removing..." : "Remove"}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <Modal open={!!removeCandidate} onClose={closeRemoveModal}>
         <ModalContent size="md">
