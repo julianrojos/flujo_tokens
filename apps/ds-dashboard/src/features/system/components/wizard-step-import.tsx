@@ -141,7 +141,7 @@ export function WizardStepImport({
             <Button variant="outline" onClick={onReset}>
               Create another system
             </Button>
-            <Button variant="secondary" onClick={onClose}>
+            <Button variant="ghost" onClick={onClose}>
               Close
             </Button>
           </div>
