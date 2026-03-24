@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import Database from "better-sqlite3";
 import { Hono } from "hono";
 
 import { registerSystemRoutes } from "./system-routes.mjs";
@@ -87,6 +88,81 @@ function createTestApp(depsOverrides = {}) {
   const app = new Hono();
   registerSystemRoutes(app, deps);
   return { app, repo };
+}
+
+function createDependencyTestDb() {
+  const db = new Database(":memory:");
+  db.exec(`
+    PRAGMA foreign_keys = ON;
+
+    CREATE TABLE ds_consumers (
+      id TEXT PRIMARY KEY,
+      ds_file_key TEXT NOT NULL,
+      consumer_file_key TEXT NOT NULL,
+      consumer_name TEXT NOT NULL,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      UNIQUE (ds_file_key, consumer_file_key)
+    );
+
+    CREATE TABLE ds_sync_runs (
+      id TEXT PRIMARY KEY,
+      consumer_id TEXT NOT NULL,
+      synced_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      duration_ms INTEGER NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('ok', 'error', 'partial', 'skipped')),
+      error_message TEXT,
+      ds_last_modified TEXT,
+      consumer_last_modified TEXT,
+      component_count INTEGER NOT NULL DEFAULT 0,
+      variable_count INTEGER NOT NULL DEFAULT 0,
+      warning_count INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (consumer_id) REFERENCES ds_consumers(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE ds_component_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id TEXT NOT NULL,
+      component_key TEXT NOT NULL,
+      component_name TEXT NOT NULL,
+      instance_count INTEGER NOT NULL,
+      sample_node_ids_json TEXT,
+      FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE ds_variable_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id TEXT NOT NULL,
+      variable_key TEXT NOT NULL,
+      variable_name TEXT NOT NULL,
+      variable_type TEXT NOT NULL,
+      node_count INTEGER NOT NULL,
+      sample_node_ids_json TEXT,
+      FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE ds_parent_variable_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ds_file_key TEXT NOT NULL,
+      variable_key TEXT NOT NULL,
+      variable_name TEXT NOT NULL,
+      variable_type TEXT NOT NULL,
+      node_count INTEGER NOT NULL,
+      sample_node_ids_json TEXT,
+      captured_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      UNIQUE (ds_file_key, variable_key)
+    );
+
+    CREATE TABLE ds_sync_warnings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id TEXT NOT NULL,
+      code TEXT NOT NULL,
+      message TEXT NOT NULL,
+      node_id TEXT,
+      FOREIGN KEY (run_id) REFERENCES ds_sync_runs(id) ON DELETE CASCADE
+    );
+  `);
+  return db;
 }
 
 test("system-routes: health endpoints return payload", async () => {
@@ -256,4 +332,260 @@ test("system-routes: delete prunes empty ancestor directories", async () => {
   assert.equal(payload.ok, true);
   assert.ok(Array.isArray(payload.prunedEmptyDirs));
   assert.ok(payload.prunedEmptyDirs.length > 0, "Should have pruned some empty directories");
+});
+
+test("system-routes: delete-preview returns 404 for non-existent system", async () => {
+  const app = new Hono();
+  registerSystemRoutes(app, {
+    failJson: createFailJson(),
+    designSystemRepository: createRepository({
+      systems: []
+    }),
+    db: null,
+  });
+
+  const res = await app.request("/api/design-systems/non-existent/delete-preview");
+  assert.equal(res.status, 404);
+  const payload = await res.json();
+  assert.equal(payload.ok, false);
+  assert.equal(payload.code, "design_system.not_found");
+});
+
+test("system-routes: delete-preview with empty figmaFileId returns empty", async () => {
+  const app = new Hono();
+  registerSystemRoutes(app, {
+    failJson: createFailJson(),
+    designSystemRepository: createRepository({
+      systems: [
+        { id: "empty-ds", name: "Empty DS", figmaFileId: "" }
+      ]
+    }),
+    db: null,
+  });
+
+  const res = await app.request("/api/design-systems/empty-ds/delete-preview");
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.consumers.length, 0);
+  assert.equal(payload.data.counts.syncRuns, 0);
+});
+
+test("system-routes: delete-preview without db returns empty", async () => {
+  const app = new Hono();
+  registerSystemRoutes(app, {
+    failJson: createFailJson(),
+    designSystemRepository: createRepository({
+      systems: [
+        { id: "test-ds", name: "Test DS", figmaFileId: "figma123" }
+      ]
+    }),
+    db: null,
+  });
+
+  const res = await app.request("/api/design-systems/test-ds/delete-preview");
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data.consumers.length, 0);
+  assert.equal(payload.data.counts.syncRuns, 0);
+});
+
+test("system-routes: delete-preview with real consumers returns data", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { DependencyRepository } = await import("../db/dependency-repository.ts");
+    const dependencyRepo = new DependencyRepository(db);
+    const firstConsumer = dependencyRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-file-1",
+      consumer_name: "Test Consumer",
+    });
+    const secondConsumer = dependencyRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-file-2",
+      consumer_name: "Another Consumer",
+    });
+    dependencyRepo.saveSyncRun({
+      consumer_id: firstConsumer.id,
+      duration_ms: 100,
+      status: "ok",
+      component_usage: [
+        {
+          component_key: "button",
+          component_name: "Button",
+          instance_count: 2,
+        },
+      ],
+      variable_usage: [
+        {
+          variable_key: "color.primary",
+          variable_name: "color.primary",
+          variable_type: "COLOR",
+          node_count: 1,
+        },
+      ],
+      warnings: [],
+    });
+    dependencyRepo.saveSyncRun({
+      consumer_id: secondConsumer.id,
+      duration_ms: 120,
+      status: "partial",
+      component_usage: [],
+      variable_usage: [],
+      warnings: [],
+    });
+    dependencyRepo.replaceParentVariableUsage("figma123", [
+      {
+        variable_key: "space.4",
+        variable_name: "space.4",
+        variable_type: "FLOAT",
+        node_count: 3,
+      },
+    ]);
+
+    const app = new Hono();
+    registerSystemRoutes(app, {
+      failJson: createFailJson(),
+      designSystemRepository: createRepository({
+        systems: [
+          { id: "test-ds", name: "Test DS", figmaFileId: "figma123" }
+        ]
+      }),
+      db,
+    });
+
+    const res = await app.request("/api/design-systems/test-ds/delete-preview");
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.data.system.id, "test-ds");
+    assert.equal(payload.data.system.name, "Test DS");
+    assert.equal(payload.data.totalConsumerCount, 2);
+    assert.equal(payload.data.consumers.length, 2);
+    assert.equal(payload.data.counts.syncRuns, 2);
+    assert.equal(payload.data.counts.componentUsage, 1);
+    assert.equal(payload.data.counts.variableUsage, 1);
+    assert.equal(payload.data.counts.parentVariableUsage, 1);
+  } finally {
+    db.close();
+  }
+});
+
+test("system-routes: delete cascade with real db cleans consumers", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { DependencyRepository } = await import("../db/dependency-repository.ts");
+    const dependencyRepo = new DependencyRepository(db);
+    const firstConsumer = dependencyRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-file-1",
+      consumer_name: "Consumer One",
+    });
+    const secondConsumer = dependencyRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-file-2",
+      consumer_name: "Consumer Two",
+    });
+    dependencyRepo.saveSyncRun({
+      consumer_id: firstConsumer.id,
+      duration_ms: 50,
+      status: "ok",
+      component_usage: [],
+      variable_usage: [],
+      warnings: [],
+    });
+    dependencyRepo.saveSyncRun({
+      consumer_id: secondConsumer.id,
+      duration_ms: 75,
+      status: "error",
+      component_usage: [],
+      variable_usage: [],
+      warnings: [
+        {
+          code: "sync.error",
+          message: "sync failed",
+        },
+      ],
+    });
+
+    const app = new Hono();
+    registerSystemRoutes(app, {
+      failJson: createFailJson(),
+      designSystemRepository: createRepository({
+        systems: [
+          { id: "test-ds", name: "Test DS", figmaFileId: "figma123" }
+        ],
+        defaultSystem: "test-ds",
+      }),
+      db,
+      repoRoot: "/repo",
+      fsSync: {
+        rmSync: () => {},
+        rmdirSync: () => {},
+        existsSync: () => false,
+        mkdirSync: () => {},
+        writeFileSync: () => {},
+        statSync: () => ({ isDirectory: () => true }),
+        readdirSync: () => [],
+      },
+      resolveSafeSystemPathsForDeletion: () => [],
+      summarizeDesignSystemsConfig: () => ({ systems: [], defaultSystem: "" }),
+      normalizeSystemId: (id) => id,
+      ensureRelativeDir: (path) => path,
+      normalizeFigmaApiTokenRef: (token) => token,
+      normalizeCollectionList: (collections) => collections,
+    });
+
+    const res = await app.request("/api/design-systems/test-ds", { method: "DELETE" });
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.deletedConsumersCount, 2);
+    assert.deepEqual(payload.deletedConsumerNames.sort(), ["Consumer One", "Consumer Two"]);
+
+    const remainingConsumers = db
+      .prepare("SELECT COUNT(*) AS count FROM ds_consumers WHERE ds_file_key = ?")
+      .get("figma123");
+    assert.equal(remainingConsumers.count, 0);
+  } finally {
+    db.close();
+  }
+});
+
+test("system-routes: delete without db does not fail", async () => {
+  const existing = new Set();
+  const writes = new Map();
+
+  const app = new Hono();
+  registerSystemRoutes(app, {
+    failJson: createFailJson(),
+    designSystemRepository: createRepository({
+      systems: [
+        { id: "test-ds", name: "Test DS", figmaFileId: "figma123" }
+      ]
+    }),
+    db: null,
+    repoRoot: "/repo",
+    fsSync: {
+      rmSync: () => {},
+      rmdirSync: () => {},
+      existsSync: () => false,
+      mkdirSync: () => {},
+      writeFileSync: () => {},
+    },
+    resolveSafeSystemPathsForDeletion: () => [],
+    summarizeDesignSystemsConfig: () => ({ systems: [], defaultSystem: "" }),
+    normalizeSystemId: (id) => id,
+    ensureRelativeDir: (path) => path,
+    normalizeFigmaApiTokenRef: (token) => token,
+    normalizeCollectionList: (collections) => collections,
+  });
+
+  const res = await app.request("/api/design-systems/test-ds", { method: "DELETE" });
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.deletedConsumersCount, undefined);
+  assert.equal(payload.deletedConsumerNames, undefined);
 });

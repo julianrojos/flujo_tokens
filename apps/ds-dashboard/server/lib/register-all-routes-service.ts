@@ -14,6 +14,7 @@ export interface SystemDeps {
   failJson: (c: unknown, statusCode: number, args: Record<string, unknown>) => unknown;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   designSystemRepository: unknown;
+  db?: unknown;
   normalizeSystemId: (id: string) => string;
   ensureRelativeDir: (path: string) => string;
   normalizeFigmaApiTokenRef: (token: string) => string;
@@ -177,6 +178,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       failJson: deps.failJson,
       readJsonBody: deps.readJsonBody,
       designSystemRepository: deps.designSystemRepository,
+      db: deps.db,
       normalizeSystemId: deps.normalizeSystemId,
       ensureRelativeDir: deps.ensureRelativeDir,
       normalizeFigmaApiTokenRef: deps.normalizeFigmaApiTokenRef,

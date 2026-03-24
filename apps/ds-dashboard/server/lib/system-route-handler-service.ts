@@ -341,17 +341,23 @@ export function buildDeleteDesignSystemSuccessPayload({
   prunedEmptyDirs = [],
   nextConfig,
   summarizeDesignSystemsConfigFn,
+  deletedConsumersCount,
+  deletedConsumerNames,
 }: {
   removedPaths: string[];
   prunedEmptyDirs?: string[];
   nextConfig: DesignSystemsConfig;
   summarizeDesignSystemsConfigFn: (config: DesignSystemsConfig) => Record<string, unknown>;
+  deletedConsumersCount?: number;
+  deletedConsumerNames?: string[];
 }): Record<string, unknown> {
   return {
     ok: true,
     removedPaths,
     prunedEmptyDirs,
     config: summarizeDesignSystemsConfigFn(nextConfig),
+    ...(deletedConsumersCount !== undefined && { deletedConsumersCount }),
+    ...(deletedConsumerNames !== undefined && { deletedConsumerNames }),
   };
 }
 

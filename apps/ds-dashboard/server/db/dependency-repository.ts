@@ -282,12 +282,12 @@ export class DependencyRepository {
         params.error_message,
         params.ds_last_modified,
         params.consumer_last_modified,
-        params.component_usage.length,
-        params.variable_usage.length,
-        params.warnings.length
+        params.component_usage?.length || 0,
+        params.variable_usage?.length || 0,
+        params.warnings?.length || 0
       );
 
-      for (const component of params.component_usage) {
+      for (const component of params.component_usage || []) {
         insertComponent.run(
           runId,
           component.component_key,
@@ -297,7 +297,7 @@ export class DependencyRepository {
         );
       }
 
-      for (const variable of params.variable_usage) {
+      for (const variable of params.variable_usage || []) {
         insertVariable.run(
           runId,
           variable.variable_key,
@@ -308,7 +308,7 @@ export class DependencyRepository {
         );
       }
 
-      for (const warning of params.warnings) {
+      for (const warning of params.warnings || []) {
         insertWarning.run(runId, warning.code, warning.message, warning.node_id ?? null);
       }
     });
@@ -336,7 +336,7 @@ export class DependencyRepository {
 
   getLatestComponentUsage(dsFileKey: string): (DsComponentUsage & { consumer_id: string; consumer_name: string; consumer_file_key: string; synced_at: string })[] {
     const stmt = this.db.prepare(`
-      SELECT 
+      SELECT
         cu.*,
         c.id as consumer_id,
         c.consumer_name,
@@ -359,7 +359,7 @@ export class DependencyRepository {
 
   getLatestVariableUsage(dsFileKey: string): (DsVariableUsage & { consumer_id: string; consumer_name: string; consumer_file_key: string; synced_at: string })[] {
     const stmt = this.db.prepare(`
-      SELECT 
+      SELECT
         vu.*,
         c.id as consumer_id,
         c.consumer_name,
@@ -475,7 +475,7 @@ export class DependencyRepository {
 
   getLatestWarnings(dsFileKey: string): (DsSyncWarning & { consumer_name: string; consumer_file_key: string })[] {
     const stmt = this.db.prepare(`
-      SELECT 
+      SELECT
         w.*,
         c.consumer_name,
         c.consumer_file_key
@@ -548,5 +548,204 @@ export class DependencyRepository {
       ...row,
       status: row.status as DsSyncRun['status'],
     }));
+  }
+
+  /**
+   * Remove parent variable usage for a given DS file key
+   */
+  removeParentVariableUsageByDsFileKey(dsFileKey: string): number {
+    if (!dsFileKey || !dsFileKey.trim()) {
+      throw new Error('dsFileKey is required and cannot be empty');
+    }
+
+    const stmt = this.db.prepare(`
+      DELETE FROM ds_parent_variable_usage
+      WHERE ds_file_key = ?
+    `);
+
+    const result = stmt.run(dsFileKey.trim());
+    return result.changes || 0;
+  }
+
+  /**
+   * Remove all consumers and their associated data for a given DS file key
+   * Cascades: ds_consumers → ds_sync_runs → ds_component_usage/ds_variable_usage/ds_sync_warnings
+   */
+  removeAllConsumersByDsFileKey(dsFileKey: string): { deletedConsumerIds: string[]; deletedConsumerCount: number } {
+    if (!dsFileKey || !dsFileKey.trim()) {
+      throw new Error('dsFileKey is required and cannot be empty');
+    }
+
+    const normalizedKey = dsFileKey.trim();
+
+    // Collect consumer IDs before deletion (for return value / audit).
+    const consumersStmt = this.db.prepare(`
+      SELECT id FROM ds_consumers WHERE ds_file_key = ?
+    `);
+    const consumers = consumersStmt.all(normalizedKey) as { id: string }[];
+    const consumerIds = consumers.map(c => c.id);
+
+    if (consumerIds.length === 0) {
+      return { deletedConsumerIds: [], deletedConsumerCount: 0 };
+    }
+
+    // Use subquery-based DELETEs keyed on ds_file_key to avoid SQLite's
+    // SQLITE_MAX_VARIABLE_NUMBER limit when there are many consumers.
+    const deleteSyncWarnings = this.db.prepare(`
+      DELETE FROM ds_sync_warnings
+      WHERE run_id IN (
+        SELECT r.id FROM ds_sync_runs r
+        JOIN ds_consumers c ON r.consumer_id = c.id
+        WHERE c.ds_file_key = ?
+      )
+    `);
+
+    const deleteComponentUsage = this.db.prepare(`
+      DELETE FROM ds_component_usage
+      WHERE run_id IN (
+        SELECT r.id FROM ds_sync_runs r
+        JOIN ds_consumers c ON r.consumer_id = c.id
+        WHERE c.ds_file_key = ?
+      )
+    `);
+
+    const deleteVariableUsage = this.db.prepare(`
+      DELETE FROM ds_variable_usage
+      WHERE run_id IN (
+        SELECT r.id FROM ds_sync_runs r
+        JOIN ds_consumers c ON r.consumer_id = c.id
+        WHERE c.ds_file_key = ?
+      )
+    `);
+
+    const deleteSyncRuns = this.db.prepare(`
+      DELETE FROM ds_sync_runs
+      WHERE consumer_id IN (
+        SELECT id FROM ds_consumers WHERE ds_file_key = ?
+      )
+    `);
+
+    const deleteConsumers = this.db.prepare(`
+      DELETE FROM ds_consumers WHERE ds_file_key = ?
+    `);
+
+    const transaction = this.db.transaction(() => {
+      deleteSyncWarnings.run(normalizedKey);
+      deleteComponentUsage.run(normalizedKey);
+      deleteVariableUsage.run(normalizedKey);
+      deleteSyncRuns.run(normalizedKey);
+      deleteConsumers.run(normalizedKey);
+    });
+
+    transaction();
+
+    return {
+      deletedConsumerIds: consumerIds,
+      deletedConsumerCount: consumerIds.length,
+    };
+  }
+
+  /**
+   * Remove all dependency data for a given DS file key in one call.
+   * Cascades: ds_parent_variable_usage + ds_consumers → ds_sync_runs → ds_component_usage/ds_variable_usage/ds_sync_warnings
+   */
+  removeAllByDsFileKey(dsFileKey: string): { deletedConsumerIds: string[]; deletedConsumerCount: number } {
+    this.removeParentVariableUsageByDsFileKey(dsFileKey);
+    return this.removeAllConsumersByDsFileKey(dsFileKey);
+  }
+
+  /**
+   * Get delete preview for a DS file key - returns consumers and aggregated counts
+   */
+  getDeletePreview(dsFileKey: string): {
+    consumers: Array<{
+      id: string;
+      name: string;
+      fileKey: string;
+      lastSyncedAt?: string;
+    }>;
+    totalConsumerCount: number;
+    counts: {
+      syncRuns: number;
+      componentUsage: number;
+      variableUsage: number;
+      parentVariableUsage: number;
+    };
+  } {
+    if (!dsFileKey || !dsFileKey.trim()) {
+      return {
+        consumers: [],
+        totalConsumerCount: 0,
+        counts: { syncRuns: 0, componentUsage: 0, variableUsage: 0, parentVariableUsage: 0 },
+      };
+    }
+
+    // Get consumers with latest sync info, limited to 20 for preview
+    const consumersStmt = this.db.prepare(`
+      SELECT
+        c.id,
+        c.consumer_name,
+        c.consumer_file_key,
+        MAX(sr.synced_at) as last_synced_at
+      FROM ds_consumers c
+      LEFT JOIN ds_sync_runs sr ON c.id = sr.consumer_id
+      WHERE c.ds_file_key = ?
+      GROUP BY c.id
+      ORDER BY c.consumer_name
+      LIMIT 20
+    `);
+
+    const consumers = consumersStmt.all(dsFileKey.trim()) as Array<{
+      id: string;
+      consumer_name: string;
+      consumer_file_key: string;
+      last_synced_at?: string;
+    }>;
+
+    // Get total count of consumers
+    const totalCountStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM ds_consumers WHERE ds_file_key = ?
+    `);
+    const totalCountResult = totalCountStmt.get(dsFileKey.trim()) as { count: number };
+
+    // Get aggregated counts
+    const syncRunsStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM ds_sync_runs
+      WHERE consumer_id IN (SELECT id FROM ds_consumers WHERE ds_file_key = ?)
+    `);
+    const syncRunsCount = (syncRunsStmt.get(dsFileKey.trim()) as { count: number }).count;
+
+    const componentUsageStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM ds_component_usage
+      WHERE run_id IN (SELECT id FROM ds_sync_runs WHERE consumer_id IN (SELECT id FROM ds_consumers WHERE ds_file_key = ?))
+    `);
+    const componentUsageCount = (componentUsageStmt.get(dsFileKey.trim()) as { count: number }).count;
+
+    const variableUsageStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM ds_variable_usage
+      WHERE run_id IN (SELECT id FROM ds_sync_runs WHERE consumer_id IN (SELECT id FROM ds_consumers WHERE ds_file_key = ?))
+    `);
+    const variableUsageCount = (variableUsageStmt.get(dsFileKey.trim()) as { count: number }).count;
+
+    const parentVariableUsageStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM ds_parent_variable_usage WHERE ds_file_key = ?
+    `);
+    const parentVariableUsageCount = (parentVariableUsageStmt.get(dsFileKey.trim()) as { count: number }).count;
+
+    return {
+      consumers: consumers.map(c => ({
+        id: c.id,
+        name: c.consumer_name,
+        fileKey: c.consumer_file_key,
+        lastSyncedAt: c.last_synced_at,
+      })),
+      totalConsumerCount: totalCountResult.count,
+      counts: {
+        syncRuns: syncRunsCount,
+        componentUsage: componentUsageCount,
+        variableUsage: variableUsageCount,
+        parentVariableUsage: parentVariableUsageCount,
+      },
+    };
   }
 }

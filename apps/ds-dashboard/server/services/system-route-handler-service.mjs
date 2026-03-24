@@ -126,7 +126,7 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
   );
 }
 
-export function handleDeleteDesignSystemRoute(c, deps) {
+export async function handleDeleteDesignSystemRoute(c, deps) {
   const {
     failJson,
     designSystemRepository,
@@ -134,6 +134,7 @@ export function handleDeleteDesignSystemRoute(c, deps) {
     resolveSafeSystemPathsForDeletion,
     fsSync,
     summarizeDesignSystemsConfig,
+    db,
   } = deps;
   const routeSystemId = decodeSystemRouteId(c.req.param("id"));
   const config = designSystemRepository.getConfig();
@@ -179,13 +180,107 @@ export function handleDeleteDesignSystemRoute(c, deps) {
   }
 
   designSystemRepository.saveConfig(nextConfig);
+
+  // Cascade delete consumers from DB after config/FS deletion
+  let deletedConsumersCount = undefined;
+  let deletedConsumerNames = undefined;
+  if (db && targetSystem?.figmaFileId) {
+    try {
+      const { DependencyRepository } = await import("../db/dependency-repository.js");
+      const dependencyRepo = new DependencyRepository(db);
+      const linkedConsumers = dependencyRepo.listConsumers(targetSystem.figmaFileId.trim());
+      const consumerNameById = new Map(
+        linkedConsumers.map((consumer) => [consumer.id, consumer.consumer_name]),
+      );
+      const result = dependencyRepo.removeAllByDsFileKey(targetSystem.figmaFileId.trim());
+      deletedConsumersCount = result.deletedConsumerCount;
+      deletedConsumerNames = result.deletedConsumerIds.map((id) => consumerNameById.get(id) ?? id);
+    } catch (dbError) {
+      console.warn('[handleDeleteDesignSystemRoute] DB cascade delete failed:', dbError);
+      // Continue with response but indicate partial failure
+    }
+  }
+
   return c.json(
     buildDeleteDesignSystemSuccessPayload({
       removedPaths,
       prunedEmptyDirs,
       nextConfig,
       summarizeDesignSystemsConfigFn: summarizeDesignSystemsConfig,
+      deletedConsumersCount,
+      deletedConsumerNames,
     }),
     200,
   );
+}
+
+export async function handleDeletePreviewRoute(c, deps) {
+  const { failJson, designSystemRepository, db } = deps;
+  const routeSystemId = c.req.param("id");
+  const normalizedSystemId = decodeSystemRouteId(routeSystemId);
+
+  try {
+    const config = designSystemRepository.getConfig();
+    const systems = Array.isArray(config?.systems) ? config.systems : [];
+    const targetSystem = systems.find(
+      (system) => String(system?.id || "").trim() === normalizedSystemId,
+    );
+
+    if (!targetSystem) {
+      return failJson(c, 404, {
+        code: "design_system.not_found",
+        userMessage: "Design system not found.",
+        context: { systemId: normalizedSystemId },
+      });
+    }
+
+    const figmaFileId = targetSystem.figmaFileId;
+    if (!figmaFileId || !figmaFileId.trim()) {
+      return c.json({
+        ok: true,
+        data: {
+          system: { id: targetSystem.id, name: targetSystem.name },
+          consumers: [],
+          totalConsumerCount: 0,
+          counts: { syncRuns: 0, componentUsage: 0, variableUsage: 0, parentVariableUsage: 0 },
+        },
+      });
+    }
+
+    if (!db) {
+      return c.json({
+        ok: true,
+        data: {
+          system: { id: targetSystem.id, name: targetSystem.name },
+          consumers: [],
+          totalConsumerCount: 0,
+          counts: { syncRuns: 0, componentUsage: 0, variableUsage: 0, parentVariableUsage: 0 },
+        },
+      });
+    }
+
+    // Dynamic import to avoid .mjs/.ts import issues
+    const { DependencyRepository } = await import("../db/dependency-repository.js");
+    const dependencyRepo = new DependencyRepository(db);
+    const preview = dependencyRepo.getDeletePreview(figmaFileId.trim());
+
+    return c.json({
+      ok: true,
+      data: {
+        system: { id: targetSystem.id, name: targetSystem.name },
+        consumers: preview.consumers,
+        totalConsumerCount: preview.totalConsumerCount,
+        counts: preview.counts,
+      },
+    });
+  } catch (error) {
+    return failJson(c, 500, {
+      code: "design_system.preview_failed",
+      userMessage: "Failed to generate delete preview.",
+      context: {
+        reason: error instanceof Error ? error.message : String(error),
+        systemId: normalizedSystemId,
+      },
+    });
+  }
 }

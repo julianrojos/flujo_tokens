@@ -446,7 +446,7 @@ describe('DependencyRepository', () => {
           component_key: 'comp1',
           component_name: 'Button',
           instance_count: 5,
-          sample_node_ids_json: null,
+          sample_node_ids_json: undefined,
         },
       ],
       variable_usage: [
@@ -455,14 +455,14 @@ describe('DependencyRepository', () => {
           variable_name: 'primary-color',
           variable_type: 'COLOR',
           node_count: 8,
-          sample_node_ids_json: null,
+          sample_node_ids_json: undefined,
         },
       ],
       warnings: [
         {
           code: 'test_warning',
           message: 'Test warning',
-          node_id: null,
+          node_id: undefined,
         },
       ],
     });
@@ -616,5 +616,201 @@ describe('DependencyRepository', () => {
 
   test('teardown', () => {
     db.close();
+  });
+
+  describe('removeAllByDsFileKey', () => {
+    test('removes all consumers and associated data for dsFileKey', () => {
+      // Setup: Create DS with multiple consumers and their data
+      const dsFileKey = 'test-ds-key';
+      const consumer1 = repo.addConsumer({
+        ds_file_key: dsFileKey,
+        consumer_file_key: 'consumer-1',
+        consumer_name: 'Consumer 1',
+      });
+      const consumer2 = repo.addConsumer({
+        ds_file_key: dsFileKey,
+        consumer_file_key: 'consumer-2',
+        consumer_name: 'Consumer 2',
+      });
+      const otherDsConsumer = repo.addConsumer({
+        ds_file_key: 'other-ds-key',
+        consumer_file_key: 'other-consumer',
+        consumer_name: 'Other DS Consumer',
+      });
+
+      // Add sync runs and usage data
+      repo.saveSyncRun({
+        consumer_id: consumer1.id,
+        status: 'ok',
+        duration_ms: 1000,
+        component_usage: [],
+        variable_usage: [],
+        warnings: []
+      });
+      repo.saveSyncRun({
+        consumer_id: consumer2.id,
+        status: 'error',
+        duration_ms: 2000,
+        component_usage: [],
+        variable_usage: [],
+        warnings: []
+      });
+      repo.saveSyncRun({
+        consumer_id: otherDsConsumer.id,
+        status: 'ok',
+        duration_ms: 500,
+        component_usage: [],
+        variable_usage: [],
+        warnings: []
+      });
+
+      // Add component and variable usage
+      const run1 = db.prepare('SELECT id FROM ds_sync_runs WHERE consumer_id = ?').get(consumer1.id) as { id: string };
+      const run2 = db.prepare('SELECT id FROM ds_sync_runs WHERE consumer_id = ?').get(consumer2.id) as { id: string };
+
+      db.prepare('INSERT INTO ds_component_usage (run_id, component_key, component_name, instance_count) VALUES (?, ?, ?, ?)')
+        .run(run1.id, 'comp-1', 'Component 1', 3);
+      db.prepare('INSERT INTO ds_variable_usage (run_id, variable_key, variable_name, variable_type, node_count) VALUES (?, ?, ?, ?, ?)')
+        .run(run1.id, 'var-1', 'Variable 1', 'COLOR', 5);
+
+      // Add parent variable usage
+      db.prepare('INSERT INTO ds_parent_variable_usage (ds_file_key, variable_key, variable_name, variable_type, node_count, captured_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(dsFileKey, 'parent-var-1', 'Parent Var 1', 'COLOR', 10, '2024-01-01T00:00:00.000Z');
+
+      // Execute cascade delete
+      const result = repo.removeAllByDsFileKey(dsFileKey);
+
+      // Verify results
+      assert.equal(result.deletedConsumerCount, 2);
+      assert.deepEqual(result.deletedConsumerIds.sort(), [consumer1.id, consumer2.id].sort());
+
+      // Verify all related data is deleted
+      const remainingConsumers = db.prepare('SELECT COUNT(*) as count FROM ds_consumers WHERE ds_file_key = ?').get(dsFileKey) as { count: number };
+      assert.equal(remainingConsumers.count, 0);
+
+      const remainingRuns = db.prepare('SELECT COUNT(*) as count FROM ds_sync_runs WHERE consumer_id IN (?, ?)').get(consumer1.id, consumer2.id) as { count: number };
+      assert.equal(remainingRuns.count, 0);
+
+      const remainingComponentUsage = db.prepare('SELECT COUNT(*) as count FROM ds_component_usage WHERE run_id IN (?, ?)').get(run1.id, run2.id) as { count: number };
+      assert.equal(remainingComponentUsage.count, 0);
+
+      const remainingVariableUsage = db.prepare('SELECT COUNT(*) as count FROM ds_variable_usage WHERE run_id IN (?, ?)').get(run1.id, run2.id) as { count: number };
+      assert.equal(remainingVariableUsage.count, 0);
+
+      const remainingParentUsage = db.prepare('SELECT COUNT(*) as count FROM ds_parent_variable_usage WHERE ds_file_key = ?').get(dsFileKey) as { count: number };
+      assert.equal(remainingParentUsage.count, 0);
+
+      // Verify other DS data is intact
+      const otherDsConsumers = db.prepare('SELECT COUNT(*) as count FROM ds_consumers WHERE ds_file_key = ?').get('other-ds-key') as { count: number };
+      assert.equal(otherDsConsumers.count, 1);
+    });
+
+    test('handles empty dsFileKey gracefully', () => {
+      assert.throws(
+        () => repo.removeAllByDsFileKey(''),
+        /dsFileKey is required and cannot be empty/
+      );
+
+      assert.throws(
+        () => repo.removeAllByDsFileKey('   '),
+        /dsFileKey is required and cannot be empty/
+      );
+    });
+
+    test('returns empty result for dsFileKey with no consumers', () => {
+      const result = repo.removeAllByDsFileKey('non-existent-ds');
+      assert.equal(result.deletedConsumerCount, 0);
+      assert.deepEqual(result.deletedConsumerIds, []);
+    });
+  });
+
+  describe('getDeletePreview', () => {
+    test('returns consumers and counts for dsFileKey', () => {
+      const dsFileKey = 'preview-test-ds';
+
+      // Setup consumers
+      const consumer1 = repo.addConsumer({
+        ds_file_key: dsFileKey,
+        consumer_file_key: 'preview-consumer-1',
+        consumer_name: 'Preview Consumer 1',
+      });
+      const consumer2 = repo.addConsumer({
+        ds_file_key: dsFileKey,
+        consumer_file_key: 'preview-consumer-2',
+        consumer_name: 'Preview Consumer 2',
+      });
+
+      // Add sync runs and usage data
+      repo.saveSyncRun({
+        consumer_id: consumer1.id,
+        status: 'ok',
+        duration_ms: 1000,
+        component_usage: [],
+        variable_usage: [],
+        warnings: []
+      });
+      repo.saveSyncRun({
+        consumer_id: consumer2.id,
+        status: 'error',
+        duration_ms: 2000,
+        component_usage: [],
+        variable_usage: [],
+        warnings: []
+      });
+      repo.saveSyncRun({
+        consumer_id: consumer1.id,
+        status: 'partial',
+        duration_ms: 300,
+        component_usage: [],
+        variable_usage: [],
+        warnings: []
+      });
+
+      const run1 = db.prepare('SELECT id FROM ds_sync_runs WHERE consumer_id = ?').get(consumer1.id) as { id: string };
+      const run2 = db.prepare('SELECT id FROM ds_sync_runs WHERE consumer_id = ?').get(consumer2.id) as { id: string };
+
+      db.prepare('INSERT INTO ds_component_usage (run_id, component_key, component_name, instance_count) VALUES (?, ?, ?, ?)')
+        .run(run1.id, 'comp-1', 'Component 1', 3);
+      db.prepare('INSERT INTO ds_variable_usage (run_id, variable_key, variable_name, variable_type, node_count) VALUES (?, ?, ?, ?, ?)')
+        .run(run1.id, 'var-1', 'Variable 1', 'COLOR', 5);
+      db.prepare('INSERT INTO ds_parent_variable_usage (ds_file_key, variable_key, variable_name, variable_type, node_count, captured_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(dsFileKey, 'parent-var-1', 'Parent Var 1', 'COLOR', 10, '2024-01-01T00:00:00.000Z');
+
+      const preview = repo.getDeletePreview(dsFileKey);
+
+      // Verify consumers
+      assert.equal(preview.consumers.length, 2);
+      assert.equal(preview.totalConsumerCount, 2);
+      const consumerNames = preview.consumers.map(c => c.name).sort();
+      assert.deepEqual(consumerNames, ['Preview Consumer 1', 'Preview Consumer 2']);
+
+      // Verify counts
+      assert.equal(preview.counts.syncRuns, 3);
+      assert.equal(preview.counts.componentUsage, 1);
+      assert.equal(preview.counts.variableUsage, 1);
+      assert.equal(preview.counts.parentVariableUsage, 1);
+    });
+
+    test('returns empty result for dsFileKey with no consumers', () => {
+      const preview = repo.getDeletePreview('non-existent-ds');
+
+      assert.equal(preview.consumers.length, 0);
+      assert.equal(preview.totalConsumerCount, 0);
+      assert.equal(preview.counts.syncRuns, 0);
+      assert.equal(preview.counts.componentUsage, 0);
+      assert.equal(preview.counts.variableUsage, 0);
+      assert.equal(preview.counts.parentVariableUsage, 0);
+    });
+
+    test('handles empty dsFileKey gracefully', () => {
+      const preview = repo.getDeletePreview('');
+
+      assert.equal(preview.consumers.length, 0);
+      assert.equal(preview.totalConsumerCount, 0);
+      assert.equal(preview.counts.syncRuns, 0);
+      assert.equal(preview.counts.componentUsage, 0);
+      assert.equal(preview.counts.variableUsage, 0);
+      assert.equal(preview.counts.parentVariableUsage, 0);
+    });
   });
 });

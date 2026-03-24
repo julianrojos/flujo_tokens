@@ -2,6 +2,7 @@ import {
   handleApiHealthRoute,
   handleCreateDesignSystemRoute,
   handleDeleteDesignSystemRoute,
+  handleDeletePreviewRoute,
   handleLegacyHealthRoute,
   handleListDesignSystemsRoute,
   handleUpdateDesignSystemRoute,
@@ -13,5 +14,6 @@ export function registerSystemRoutes(app, deps) {
   app.get("/api/design-systems", (c) => handleListDesignSystemsRoute(c, deps));
   app.post("/api/design-systems", (c) => handleCreateDesignSystemRoute(c, deps));
   app.put("/api/design-systems/:id", (c) => handleUpdateDesignSystemRoute(c, deps));
+  app.get("/api/design-systems/:id/delete-preview", (c) => handleDeletePreviewRoute(c, deps));
   app.delete("/api/design-systems/:id", (c) => handleDeleteDesignSystemRoute(c, deps));
 }
