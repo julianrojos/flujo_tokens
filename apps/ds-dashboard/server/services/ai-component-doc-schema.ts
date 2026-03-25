@@ -126,7 +126,7 @@ export interface AiJobInput {
     /** Job type */
     type: 'GENERATE_COMPONENT_DOC';
     /** AI provider to use */
-    provider: 'anthropic' | 'openai' | 'ollama';
+    provider: 'anthropic' | 'openai' | 'ollama' | 'gemini';
     /** Figma component ID */
     componentId: string;
     /** Optional Figma file key */

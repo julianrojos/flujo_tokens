@@ -1,6 +1,6 @@
 /**
  * AI Provider Interface and Shared Types
- * Defines the common interface for AI providers (Anthropic, OpenAI)
+ * Defines the common interface for AI providers (Anthropic, OpenAI, Ollama, Gemini)
  */
 
 import type { AiUsageMetrics } from './ai-component-doc-schema.js';
@@ -8,7 +8,7 @@ import type { AiUsageMetrics } from './ai-component-doc-schema.js';
 /**
  * Supported AI provider names
  */
-export type AiProviderName = 'anthropic' | 'openai' | 'ollama';
+export type AiProviderName = 'anthropic' | 'openai' | 'ollama' | 'gemini';
 
 /**
  * Input for AI provider generation
@@ -61,12 +61,16 @@ export interface AiProviderConfig {
     openaiModel: string;
     /** Default Ollama model */
     ollamaModel: string;
+    /** Default Gemini model */
+    geminiModel: string;
     /** Ollama base URL */
     ollamaBaseUrl: string;
     /** Allowed Anthropic models */
     anthropicAllowlist: string[];
     /** Allowed OpenAI models */
     openaiAllowlist: string[];
+    /** Allowed Gemini models */
+    geminiAllowlist: string[];
 }
 
 /**
@@ -76,6 +80,7 @@ const DEFAULT_CONFIG: AiProviderConfig = {
     anthropicModel: 'claude-sonnet-4-20250514',
     openaiModel: 'gpt-4o-mini-2024-07-18',
     ollamaModel: 'qwen2.5:7b-instruct',
+    geminiModel: 'gemini-2.0-flash',
     ollamaBaseUrl: 'http://127.0.0.1:11434',
     anthropicAllowlist: [
         'claude-sonnet-4-20250514',
@@ -91,6 +96,12 @@ const DEFAULT_CONFIG: AiProviderConfig = {
         'gpt-4-turbo-2024-04-09',
         'gpt-3.5-turbo-0125',
     ],
+    geminiAllowlist: [
+        'gemini-2.0-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-1.5-pro',
+        'gemini-1.5-flash',
+    ],
 };
 
 /**
@@ -104,6 +115,7 @@ export function resolveProviderConfig(): AiProviderConfig {
     const anthropicModel = process.env.AI_ANTHROPIC_MODEL || DEFAULT_CONFIG.anthropicModel;
     const openaiModel = process.env.AI_OPENAI_MODEL || DEFAULT_CONFIG.openaiModel;
     const ollamaModel = process.env.AI_OLLAMA_MODEL || DEFAULT_CONFIG.ollamaModel;
+    const geminiModel = process.env.AI_GEMINI_MODEL || DEFAULT_CONFIG.geminiModel;
     const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || DEFAULT_CONFIG.ollamaBaseUrl;
 
     // Validate models against allowlists
@@ -114,14 +126,19 @@ export function resolveProviderConfig(): AiProviderConfig {
     const validatedOpenaiModel = DEFAULT_CONFIG.openaiAllowlist.includes(openaiModel)
         ? openaiModel
         : DEFAULT_CONFIG.openaiModel;
+    const validatedGeminiModel = DEFAULT_CONFIG.geminiAllowlist.includes(geminiModel)
+        ? geminiModel
+        : DEFAULT_CONFIG.geminiModel;
 
     return {
         anthropicModel: validatedAnthropicModel,
         openaiModel: validatedOpenaiModel,
         ollamaModel,
+        geminiModel: validatedGeminiModel,
         ollamaBaseUrl,
         anthropicAllowlist: DEFAULT_CONFIG.anthropicAllowlist,
         openaiAllowlist: DEFAULT_CONFIG.openaiAllowlist,
+        geminiAllowlist: DEFAULT_CONFIG.geminiAllowlist,
     };
 }
 
@@ -141,7 +158,11 @@ export function resolveModel(provider: AiProviderName, explicitModel?: string): 
         }
 
         // Validate the explicit model for cloud providers
-        const allowlist = provider === 'anthropic' ? config.anthropicAllowlist : config.openaiAllowlist;
+        const allowlist = provider === 'anthropic'
+            ? config.anthropicAllowlist
+            : provider === 'gemini'
+                ? config.geminiAllowlist
+                : config.openaiAllowlist;
         if (allowlist.includes(explicitModel)) {
             return explicitModel;
         }
@@ -153,6 +174,9 @@ export function resolveModel(provider: AiProviderName, explicitModel?: string): 
 
     if (provider === 'ollama') {
         return config.ollamaModel;
+    }
+    if (provider === 'gemini') {
+        return config.geminiModel;
     }
 
     return provider === 'anthropic' ? config.anthropicModel : config.openaiModel;
@@ -169,6 +193,9 @@ export function hasApiKey(provider: AiProviderName): boolean {
     }
     if (provider === 'anthropic') {
         return !!process.env.ANTHROPIC_API_KEY;
+    }
+    if (provider === 'gemini') {
+        return !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
     }
     return !!process.env.OPENAI_API_KEY;
 }
@@ -187,6 +214,13 @@ export function getApiKey(provider: AiProviderName): string {
         const key = process.env.ANTHROPIC_API_KEY;
         if (!key) {
             throw new Error('ANTHROPIC_API_KEY environment variable is not set');
+        }
+        return key;
+    }
+    if (provider === 'gemini') {
+        const key = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        if (!key) {
+            throw new Error('GEMINI_API_KEY or GOOGLE_API_KEY environment variable is not set');
         }
         return key;
     }

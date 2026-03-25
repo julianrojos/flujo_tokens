@@ -30,7 +30,7 @@ const REPO_ROOT = path.resolve(__dirname, '../../../..');
  */
 interface CreateJobRequest {
     type: 'GENERATE_COMPONENT_DOC';
-    provider: 'anthropic' | 'openai' | 'ollama';
+    provider: 'anthropic' | 'openai' | 'ollama' | 'gemini';
     componentId: string;
     figmaUrl?: string;
     model?: string;
@@ -109,8 +109,8 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
         if (!body.type || body.type !== 'GENERATE_COMPONENT_DOC') {
             return c.json(errorResponse('ai.input.invalid', 'type must be GENERATE_COMPONENT_DOC'), 400);
         }
-        if (!body.provider || (body.provider !== 'anthropic' && body.provider !== 'openai' && body.provider !== 'ollama')) {
-            return c.json(errorResponse('ai.input.invalid', 'provider must be anthropic, openai, or ollama'), 400);
+        if (!body.provider || (body.provider !== 'anthropic' && body.provider !== 'openai' && body.provider !== 'ollama' && body.provider !== 'gemini')) {
+            return c.json(errorResponse('ai.input.invalid', 'provider must be anthropic, openai, ollama, or gemini'), 400);
         }
         if (!body.componentId || typeof body.componentId !== 'string') {
             return c.json(errorResponse('ai.input.invalid', 'componentId is required'), 400);
@@ -121,7 +121,13 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             return c.json(
                 errorResponse(
                     'ai.input.missing_provider_key',
-                    `API key not set for ${body.provider}. Set ${body.provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'} environment variable.`
+                    `API key not set for ${body.provider}. Set ${
+                        body.provider === 'anthropic'
+                            ? 'ANTHROPIC_API_KEY'
+                            : body.provider === 'gemini'
+                                ? 'GEMINI_API_KEY (or GOOGLE_API_KEY)'
+                                : 'OPENAI_API_KEY'
+                    } environment variable.`
                 ),
                 400
             );

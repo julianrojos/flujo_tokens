@@ -24,12 +24,14 @@ interface AiJobCreateFormProps {
 const PROVIDER_OPTIONS: { value: AiProviderName; label: string }[] = [
     { value: 'anthropic', label: 'Anthropic (Claude)' },
     { value: 'openai', label: 'OpenAI' },
+    { value: 'gemini', label: 'Google (Gemini)' },
     { value: 'ollama', label: 'Ollama (Local)' },
 ];
 
 const DEFAULT_MODELS: Record<AiProviderName, string> = {
-    anthropic: 'claude-3-5-sonnet-20241022',
-    openai: 'gpt-4o-mini',
+    anthropic: 'claude-sonnet-4-20250514',
+    openai: 'gpt-4o-mini-2024-07-18',
+    gemini: 'gemini-2.0-flash',
     ollama: 'llama3.2',
 };
 

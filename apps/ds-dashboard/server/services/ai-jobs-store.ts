@@ -48,12 +48,14 @@ export class AiJobsStore {
         ['anthropic', []],
         ['openai', []],
         ['ollama', []],
+        ['gemini', []],
     ]);
     private nextEventSeq: Map<string, number> = new Map();
     private runningCount: Map<AiProviderName, number> = new Map([
         ['anthropic', 0],
         ['openai', 0],
         ['ollama', 0],
+        ['gemini', 0],
     ]);
     private cleanupTimer: ReturnType<typeof setInterval> | null = null;
     private prompts: Map<string, string> = new Map();
@@ -64,9 +66,11 @@ export class AiJobsStore {
         this.queues.set('anthropic', []);
         this.queues.set('openai', []);
         this.queues.set('ollama', []);
+        this.queues.set('gemini', []);
         this.runningCount.set('anthropic', 0);
         this.runningCount.set('openai', 0);
         this.runningCount.set('ollama', 0);
+        this.runningCount.set('gemini', 0);
     }
 
     /**

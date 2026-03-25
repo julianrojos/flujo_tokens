@@ -7,6 +7,7 @@ import type { AiProvider, AiProviderResult, AiProviderName } from './ai-provider
 import { createAnthropicAdapter } from './ai-anthropic-adapter.js';
 import { createOpenAiAdapter } from './ai-openai-adapter.js';
 import { createOllamaAdapter } from './ai-ollama-adapter.js';
+import { createGeminiAdapter } from './ai-gemini-adapter.js';
 import type {
     AiJobState,
     ComponentDocOutput,
@@ -267,6 +268,9 @@ export function resolveAdapter(provider: AiProviderName): AiProvider {
     }
     if (provider === 'ollama') {
         return createOllamaAdapter();
+    }
+    if (provider === 'gemini') {
+        return createGeminiAdapter();
     }
     return createOpenAiAdapter();
 }

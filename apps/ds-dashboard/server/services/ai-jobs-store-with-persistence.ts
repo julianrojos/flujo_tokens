@@ -163,7 +163,7 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
      * Drains queue until concurrency limit reached per provider
      */
     private triggerRecoveryDequeue(): void {
-        const providers: AiProviderName[] = ['anthropic', 'openai', 'ollama'];
+        const providers: AiProviderName[] = ['anthropic', 'openai', 'ollama', 'gemini'];
         const maxConcurrent = this.getMaxConcurrentPerProvider();
 
         for (const provider of providers) {

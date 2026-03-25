@@ -119,6 +119,83 @@ describe('ai-jobs-route', () => {
             assert.equal(json.code, 'ai.input.missing_provider_key');
         });
 
+        it('should return Gemini-specific API key guidance when key is missing', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const prevGeminiKey = process.env.GEMINI_API_KEY;
+            const prevGoogleKey = process.env.GOOGLE_API_KEY;
+            delete process.env.GEMINI_API_KEY;
+            delete process.env.GOOGLE_API_KEY;
+
+            try {
+                const res = await app.request('/api/ai/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                    body: JSON.stringify({
+                        type: 'GENERATE_COMPONENT_DOC',
+                        provider: 'gemini',
+                        componentId: '68:4097',
+                    }),
+                });
+
+                assert.equal(res.status, 400);
+                const json = await res.json();
+                assert.equal(json.code, 'ai.input.missing_provider_key');
+                assert.match(json.message, /GEMINI_API_KEY \(or GOOGLE_API_KEY\)/);
+            } finally {
+                if (prevGeminiKey === undefined) {
+                    delete process.env.GEMINI_API_KEY;
+                } else {
+                    process.env.GEMINI_API_KEY = prevGeminiKey;
+                }
+                if (prevGoogleKey === undefined) {
+                    delete process.env.GOOGLE_API_KEY;
+                } else {
+                    process.env.GOOGLE_API_KEY = prevGoogleKey;
+                }
+            }
+        });
+
+        it('should accept gemini provider with GOOGLE_API_KEY fallback', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const prevGeminiKey = process.env.GEMINI_API_KEY;
+            const prevGoogleKey = process.env.GOOGLE_API_KEY;
+            delete process.env.GEMINI_API_KEY;
+            process.env.GOOGLE_API_KEY = 'fake-google-key-for-test';
+
+            try {
+                const res = await app.request('/api/ai/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                    body: JSON.stringify({
+                        type: 'GENERATE_COMPONENT_DOC',
+                        provider: 'gemini',
+                        componentId: '68:4097',
+                        dryRun: true,
+                    }),
+                });
+
+                assert.equal(res.status, 202);
+                const json = await res.json();
+                assert.equal(json.ok, true);
+                assert.ok(json.jobId);
+            } finally {
+                if (prevGeminiKey === undefined) {
+                    delete process.env.GEMINI_API_KEY;
+                } else {
+                    process.env.GEMINI_API_KEY = prevGeminiKey;
+                }
+                if (prevGoogleKey === undefined) {
+                    delete process.env.GOOGLE_API_KEY;
+                } else {
+                    process.env.GOOGLE_API_KEY = prevGoogleKey;
+                }
+            }
+        });
+
         it('should return 202 with valid request (dryRun)', async () => {
             cleanupStore();
             const app = createTestApp();

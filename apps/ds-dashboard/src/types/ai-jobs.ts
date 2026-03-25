@@ -10,7 +10,7 @@
 /**
  * Supported AI provider names
  */
-export type AiProviderName = 'anthropic' | 'openai' | 'ollama';
+export type AiProviderName = 'anthropic' | 'openai' | 'ollama' | 'gemini';
 
 /**
  * Job status types
