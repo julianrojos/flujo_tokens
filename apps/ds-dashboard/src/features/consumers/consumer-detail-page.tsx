@@ -54,7 +54,6 @@ function normalizeTokenLookupKey(value: string): string {
 
 type TokenLookupEntry = {
   path: string;
-  cssVar: string;
 };
 
 function normalizeLookupKey(value: string): string {
@@ -201,8 +200,7 @@ export function ConsumerDetailPage() {
             if (!path) return [];
             const slashPath = String(entry.slashPath || "").trim();
             const cssVar = String(entry.cssVar || "").trim();
-            const normalizedCssVar = cssVar || `--${path.replace(/\./g, "-")}`;
-            const tokenEntry: TokenLookupEntry = { path, cssVar: normalizedCssVar };
+            const tokenEntry: TokenLookupEntry = { path };
             return [
               [normalizeLookupKey(path), tokenEntry],
               [normalizeLookupKey(slashPath), tokenEntry],
@@ -217,8 +215,7 @@ export function ConsumerDetailPage() {
             if (!path) return acc;
             const slashPath = String(entry.slashPath || "").trim();
             const cssVar = String(entry.cssVar || "").trim();
-            const normalizedCssVar = cssVar || `--${path.replace(/\./g, "-")}`;
-            const tokenEntry: TokenLookupEntry = { path, cssVar: normalizedCssVar };
+            const tokenEntry: TokenLookupEntry = { path };
             const keys = [
               normalizeTokenLookupKey(path),
               normalizeTokenLookupKey(slashPath),
@@ -540,7 +537,7 @@ export function ConsumerDetailPage() {
                     tokenByLookup[normalizeTokenLookupKey(v.variableName)] ||
                     tokenByLookup[normalizeTokenLookupKey(v.variableKey)] ||
                     null;
-                  const displayTokenName = tokenEntry?.cssVar || v.variableName;
+                  const displayTokenName = tokenEntry?.path || v.variableName;
                   return (
                   <tr key={v.variableKey} className="border-b border-border/50">
                     <td className="px-3 py-2">
