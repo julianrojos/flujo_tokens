@@ -264,4 +264,65 @@ describe('scanConsumerFile local-count derivation', () => {
     const result = await scanConsumerFile('consumer-var-defined', 'figd_test_token', dsCatalog);
     assert.equal(result.localVariableDefinedCount, 5);
   });
+
+  test('prefixes DS component set name when component names are variant-only', async () => {
+    const componentKey = 'comp.button.variant.accent';
+    const dsCatalog: DsCatalog = {
+      components: new Map([
+        [
+          componentKey,
+          {
+            key: componentKey,
+            id: '1:123',
+            name: 'Variant-Accent',
+            setId: '2:200',
+            setName: 'Button',
+          },
+        ],
+      ]),
+      variables: new Map(),
+      variableIdToKey: new Map(),
+    };
+
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/consumer-variant-names/variables/local')) {
+        return new Response(
+          JSON.stringify({ meta: { variableCollections: {}, variables: {} } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/consumer-variant-names')) {
+        return new Response(
+          JSON.stringify({
+            name: 'Consumer',
+            lastModified: '2026-03-25T00:00:00Z',
+            document: {
+              id: '0:0',
+              name: 'Document',
+              type: 'DOCUMENT',
+              children: [
+                {
+                  id: '2:1',
+                  name: 'Accent button instance',
+                  type: 'INSTANCE',
+                  componentId: '1:123',
+                },
+              ],
+            },
+            components: {},
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const result = await scanConsumerFile('consumer-variant-names', 'figd_test_token', dsCatalog);
+    assert.equal(result.componentInstances.length, 1);
+    assert.equal(result.componentInstances[0].componentName, 'Button/Variant-Accent');
+  });
 });

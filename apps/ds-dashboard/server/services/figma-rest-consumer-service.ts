@@ -24,6 +24,8 @@ export interface DsComponentCatalog {
   key: string;
   name: string;
   id: string;
+  setId?: string;
+  setName?: string;
 }
 
 export interface DsVariableCatalog {
@@ -68,6 +70,15 @@ export interface ConsumerScanResult {
   localComponentUsedCount: number | null;
   localVariableDefinedCount: number | null;
   localVariableUsedCount: number | null;
+}
+
+function buildComponentDisplayName(component: DsComponentCatalog): string {
+  const componentName = String(component.name || '').trim();
+  const setName = String(component.setName || '').trim();
+  if (!componentName) return setName || '';
+  if (!setName) return componentName;
+  if (componentName.startsWith(`${setName}/`)) return componentName;
+  return `${setName}/${componentName}`;
 }
 
 /**
@@ -228,15 +239,24 @@ export async function buildDsCatalog(
     // Build component catalog via /files/:key/components (more reliable than fileResponse.components,
     // which can be empty for library files on non-Enterprise plans).
     const components = new Map<string, DsComponentCatalog>();
+    const componentSetNameById = new Map<string, string>();
+    for (const [setId, set] of Object.entries(fileResponse.componentSets || {})) {
+      const setName = String((set as Record<string, unknown>).name || '').trim();
+      if (!setName) continue;
+      componentSetNameById.set(setId, setName);
+    }
     try {
       const componentsResponse = await fetchFigmaFileComponents({ fileKey: dsFileKey, token });
       for (const comp of componentsResponse.meta?.components ?? []) {
         const key = String(comp.key || '').trim();
         if (!key) continue;
+        const setId = String(comp.componentSetId || '').trim();
         components.set(key, {
           key,
-          name: comp.name,
+          name: String(comp.name || '').trim(),
           id: comp.node_id,
+          setId: setId || undefined,
+          setName: (setId && componentSetNameById.get(setId)) || undefined,
         });
       }
     } catch (componentsError) {
@@ -244,10 +264,17 @@ export async function buildDsCatalog(
       console.warn(`[buildDsCatalog] Component fetch failed (non-fatal): ${detail}`);
       // Fallback: use components from the file response if the dedicated endpoint fails.
       for (const [componentId, component] of Object.entries(fileResponse.components || {})) {
-        const comp = component as { key: string; name: string };
+        const comp = component as { key: string; name: string; componentSetId?: string };
         const key = String(comp.key || '').trim();
         if (!key) continue;
-        components.set(key, { key, name: comp.name, id: componentId });
+        const setId = String(comp.componentSetId || '').trim();
+        components.set(key, {
+          key,
+          name: String(comp.name || '').trim(),
+          id: componentId,
+          setId: setId || undefined,
+          setName: (setId && componentSetNameById.get(setId)) || undefined,
+        });
       }
     }
 
@@ -466,7 +493,7 @@ export async function scanConsumerFile(
           if (!componentInstances.has(componentKey)) {
             componentInstances.set(componentKey, {
               componentKey,
-              componentName: dsComponent.name,
+              componentName: buildComponentDisplayName(dsComponent),
               nodeIds: [],
             });
           }
