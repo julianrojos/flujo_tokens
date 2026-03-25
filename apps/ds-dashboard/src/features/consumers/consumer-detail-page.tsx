@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { ImpactLevelBadge } from "./components/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
+import { AdoptionBar } from "./components/adoption-bar";
 import { useDsFileKey } from "./hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "./lib/format-synced-at";
@@ -234,25 +235,89 @@ export function ConsumerDetailPage() {
           <ConsumerSyncStatusBadge latestSync={consumer.latestSync} />
         </div>
         {consumer.latestSync && (
-          <div className="mt-4 grid grid-cols-4 gap-4">
-            <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
-              <p className="text-2xl font-bold">{consumer.latestSync.componentCount}</p>
-              <p className="text-xs text-muted-foreground">components</p>
+          <div className="mt-4 space-y-4">
+            {/* Row 1: 4 KPI cards (DS/Non-DS per dimension) */}
+            <div className="grid grid-cols-4 gap-4">
+              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+                <p className="text-2xl font-bold">{consumer.latestSync.componentCount}</p>
+                <p className="text-xs text-muted-foreground">DS components</p>
+              </div>
+              <div
+                className="rounded-lg border border-border bg-muted/50 p-3 text-center"
+                title="Includes local and other-library components not matched to the tracked DS during the last sync"
+              >
+                <p className="text-2xl font-bold">
+                  {consumer.latestSync.localComponentUsedCount ?? "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">Non-DS comp.</p>
+                <p className="sr-only">
+                  Includes local and other-library components not matched to the tracked DS during
+                  the last sync.
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+                <p className="text-2xl font-bold">{consumer.latestSync.variableCount}</p>
+                <p className="text-xs text-muted-foreground">DS variables</p>
+              </div>
+              <div
+                className="rounded-lg border border-border bg-muted/50 p-3 text-center"
+                title="Includes local and other-library variable bindings not matched to the tracked DS during the last sync"
+              >
+                <p className="text-2xl font-bold">
+                  {consumer.latestSync.localVariableUsedCount ?? "—"}
+                </p>
+                <p className="text-xs text-muted-foreground">Non-DS vars</p>
+                <p className="sr-only">
+                  Includes local and other-library variable bindings not matched to the tracked DS
+                  during the last sync.
+                </p>
+              </div>
             </div>
-            <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
-              <p className="text-2xl font-bold">{consumer.latestSync.variableCount}</p>
-              <p className="text-xs text-muted-foreground">variables</p>
+
+            {/* Row 2: Adoption bars (per dimension) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="w-20 shrink-0">Components</span>
+                {consumer.latestSync.localComponentUsedCount != null &&
+                consumer.latestSync.componentCount + consumer.latestSync.localComponentUsedCount > 0 ? (
+                  <AdoptionBar
+                    dsCount={consumer.latestSync.componentCount}
+                    nonDsCount={consumer.latestSync.localComponentUsedCount}
+                    className="flex-1"
+                    barClassName="h-2"
+                  />
+                ) : (
+                  <span className="flex-1 text-muted-foreground">—</span>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="w-20 shrink-0">Variables</span>
+                {consumer.latestSync.localVariableUsedCount != null &&
+                consumer.latestSync.variableCount + consumer.latestSync.localVariableUsedCount > 0 ? (
+                  <AdoptionBar
+                    dsCount={consumer.latestSync.variableCount}
+                    nonDsCount={consumer.latestSync.localVariableUsedCount}
+                    className="flex-1"
+                    barClassName="h-2"
+                  />
+                ) : (
+                  <span className="flex-1 text-muted-foreground">—</span>
+                )}
+              </div>
             </div>
-            <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
-              <p className="text-2xl font-bold">{consumer.latestSync.warningCount}</p>
-              <p className="text-xs text-muted-foreground">warnings</p>
-            </div>
-            <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
-              {worstImpactLevel !== null ? (
-                <ImpactLevelBadge level={worstImpactLevel} className="justify-center" />
-              ) : (
-                <span className="text-muted-foreground">—</span>
-              )}
+
+            {/* Row 3: Footer with defined locally + warnings/impact */}
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span title="Components and variables created in this file">
+                Defined locally: {consumer.latestSync.localComponentDefinedCount ?? "—"} comp ·{" "}
+                {consumer.latestSync.localVariableDefinedCount ?? "—"} vars
+              </span>
+              <div className="flex items-center gap-3">
+                {consumer.latestSync.warningCount > 0 && (
+                  <Badge variant="warning">{consumer.latestSync.warningCount} warnings</Badge>
+                )}
+                {worstImpactLevel && <ImpactLevelBadge level={worstImpactLevel} />}
+              </div>
             </div>
           </div>
         )}

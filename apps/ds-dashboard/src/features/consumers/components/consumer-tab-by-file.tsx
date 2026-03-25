@@ -10,11 +10,12 @@ import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { Network } from "lucide-react";
+import { Info, Network } from "lucide-react";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { formatSyncedAt } from "../lib/format-synced-at";
 import type { FileReport, DsSyncRun } from "@/types/consumers";
 import type { SyncStatusFilter } from "../lib/consumer-filter-query";
+import { AdoptionBar } from "./adoption-bar";
 
 interface ConsumerTabByFileProps {
   dsFileKey: string;
@@ -46,18 +47,6 @@ const STATUS_BADGE_VARIANT: Record<DsSyncRun["status"], "error" | "warning" | "n
   skipped: "neutral",
   ok: "success",
 };
-
-function buildAdoptionTooltip(report: FileReport): string {
-  return [
-    "Adoption = DS usage / (DS usage + Non-DS usage)",
-    `DS components used: ${report.componentCount}`,
-    `Non-DS components used: ${report.localComponentUsedCount ?? "—"}`,
-    `DS variables used: ${report.variableCount}`,
-    `Non-DS variables used: ${report.localVariableUsedCount ?? "—"}`,
-    "Non-DS includes local file usage and other library usage not resolved to the tracked DS.",
-    'Shows "—" when required local used counts are unavailable.',
-  ].join("\n");
-}
 
 function computeKpis(reports: FileReport[]): KpiData {
   const now = Date.now();
@@ -133,6 +122,80 @@ function applyFilters(
 
     return true;
   });
+}
+
+function renderAdoptionCell(report: FileReport) {
+  const hasLocalComponents = report.localComponentUsedCount != null;
+  const hasLocalVariables = report.localVariableUsedCount != null;
+  const hasSomeLocal = hasLocalComponents || hasLocalVariables;
+  const hasAllLocal = hasLocalComponents && hasLocalVariables;
+  const isPartial = hasSomeLocal && !hasAllLocal;
+
+  if (report.adoptionRate == null) {
+    // Distinguish zero-total (N/A) from unavailable data (—)
+    const isZeroTotal =
+      hasAllLocal &&
+      report.componentCount === 0 &&
+      report.variableCount === 0 &&
+      report.localComponentUsedCount === 0 &&
+      report.localVariableUsedCount === 0;
+
+    return (
+      <div className="flex items-center justify-end gap-1.5">
+        {isZeroTotal ? (
+          <span className="text-muted-foreground" title="No usage data">
+            N/A
+          </span>
+        ) : (
+          <span className="text-muted-foreground" title="Adoption data unavailable">
+            —
+          </span>
+        )}
+        {isPartial && (
+          <Badge
+            variant="neutral"
+            className="text-[10px]"
+            title="Partial: one local usage dimension is unavailable for this sync."
+          >
+            Partial
+          </Badge>
+        )}
+      </div>
+    );
+  }
+
+  // Current backend contract: non-null adoption requires both local usage counts.
+  if (!hasAllLocal) {
+    return (
+      <div className="flex items-center justify-end gap-1.5">
+        <span className="tabular-nums">{(report.adoptionRate * 100).toFixed(0)}%</span>
+        {isPartial && (
+          <Badge
+            variant="neutral"
+            className="text-[10px]"
+            title="Partial: one local usage dimension is unavailable for this sync."
+          >
+            Partial
+          </Badge>
+        )}
+      </div>
+    );
+  }
+
+  const localComponentUsedCount = report.localComponentUsedCount;
+  const localVariableUsedCount = report.localVariableUsedCount;
+  if (localComponentUsedCount == null || localVariableUsedCount == null) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const totalDsUsed = report.componentCount + report.variableCount;
+  const totalLocalUsed = localComponentUsedCount + localVariableUsedCount;
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      <AdoptionBar dsCount={totalDsUsed} nonDsCount={totalLocalUsed} />
+    </div>
+  );
 }
 
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {
@@ -353,10 +416,26 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
               <tr className="border-b border-border bg-muted/30">
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground">Consumer</th>
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground">Last sync</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Components</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Variables</th>
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground">Usage</th>
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">Warnings</th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Adoption</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">
+                  <span
+                    className="inline-flex items-center justify-end gap-1"
+                    title="Adoption = DS usage ÷ (DS + Non-DS usage). Non-DS includes local and other-library items not matched to the tracked DS during the last sync. The table shows an aggregate adoption value (components + variables)."
+                  >
+                    Adoption
+                    <Info
+                      className="h-3 w-3 text-muted-foreground/60"
+                      aria-hidden="true"
+                    />
+                    <span className="sr-only">
+                      Adoption uses DS usage divided by DS plus Non-DS usage. Non-DS includes local
+                      and other-library items not matched to the tracked design system during the
+                      last sync.
+                    </span>
+                  </span>
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Locally defined</th>
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">Actions</th>
               </tr>
@@ -378,11 +457,23 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                   <td className="px-3 py-3 text-muted-foreground">
                     {formatSyncedAt(report.lastSyncedAt, "Never")}
                   </td>
-                  <td className="px-3 py-3 text-right">
-                    <Badge variant="neutral">{report.componentCount}</Badge>
-                  </td>
-                  <td className="px-3 py-3 text-right">
-                    <Badge variant="neutral">{report.variableCount}</Badge>
+                  <td className="px-3 py-3">
+                    <div className="space-y-0.5 text-sm">
+                      <p>
+                        <span className="text-xs text-muted-foreground">Comp </span>
+                        <span className="tabular-nums">DS {report.componentCount}</span>
+                        {report.localComponentUsedCount != null && (
+                          <span className="text-muted-foreground"> · Non-DS {report.localComponentUsedCount}</span>
+                        )}
+                      </p>
+                      <p>
+                        <span className="text-xs text-muted-foreground">Vars </span>
+                        <span className="tabular-nums">DS {report.variableCount}</span>
+                        {report.localVariableUsedCount != null && (
+                          <span className="text-muted-foreground"> · Non-DS {report.localVariableUsedCount}</span>
+                        )}
+                      </p>
+                    </div>
                   </td>
                   <td className="px-3 py-3 text-right">
                     {report.warningCount > 0 ? (
@@ -392,19 +483,18 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                     )}
                   </td>
                   <td className="px-3 py-3 text-right">
-                    {report.adoptionRate == null ? (
-                      // null covers two cases: (1) local counts unavailable, (2) total usage = 0 (indeterminate)
-                      // Distinguish via raw count fields so "no usage" shows N/A, not the generic dash
-                      report.localComponentUsedCount !== null && report.localVariableUsedCount !== null &&
-                      report.componentCount === 0 && report.variableCount === 0 &&
-                      report.localComponentUsedCount === 0 && report.localVariableUsedCount === 0 ? (
-                        <span className="text-muted-foreground" title="No usage data">N/A</span>
-                      ) : (
-                        <span className="text-muted-foreground" title="Adoption data unavailable">—</span>
-                      )
+                    {renderAdoptionCell(report)}
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    {report.localComponentDefinedCount == null && report.localVariableDefinedCount == null ? (
+                      <span className="text-muted-foreground">—</span>
                     ) : (
-                      <span title={buildAdoptionTooltip(report)}>
-                        {(report.adoptionRate * 100).toFixed(0)}%
+                      <span
+                        className="text-sm text-muted-foreground tabular-nums"
+                        title="Components and variables created in this file"
+                      >
+                        {report.localComponentDefinedCount ?? "—"} comp ·{" "}
+                        {report.localVariableDefinedCount ?? "—"} vars
                       </span>
                     )}
                   </td>
