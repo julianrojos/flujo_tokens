@@ -224,6 +224,9 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
         dsFileKey,
         consumerIds: consumerId ? [consumerId] : undefined,
         force,
+        // Keep parent-file "Used In" data fresh for token detail views.
+        // Tradeoff: adds one extra parent-file scan per sync request.
+        captureParentUsage: true,
       });
       await loadReports();
     } catch (cause) {

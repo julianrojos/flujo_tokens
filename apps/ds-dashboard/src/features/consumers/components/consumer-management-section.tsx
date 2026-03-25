@@ -63,6 +63,9 @@ export function ConsumerManagementSection({ dsFileKey }: ConsumerManagementSecti
         dsFileKey,
         consumerIds: consumerId ? [consumerId] : undefined,
         force: false,
+        // Keep parent-file "Used In" data fresh for token detail views.
+        // Tradeoff: adds one extra parent-file scan per sync request.
+        captureParentUsage: true,
       });
       await loadConsumers();
     } catch (cause) {

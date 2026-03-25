@@ -54,6 +54,9 @@ export function AddConsumerModal({
       await syncConsumers({
         dsFileKey,
         consumerIds: consumerId ? [consumerId] : undefined,
+        // Keep parent-file "Used In" data fresh for token detail views.
+        // Tradeoff: adds one extra parent-file scan per sync request.
+        captureParentUsage: true,
       });
       onSuccess?.();
       handleClose();
