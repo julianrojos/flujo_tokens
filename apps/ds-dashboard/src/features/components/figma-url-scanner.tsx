@@ -436,7 +436,6 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
         {!!url.trim() && urlValidationError ? (
           <p className="text-xs text-status-warning">{urlValidationError}</p>
         ) : null}
-        <FigmaMcpConnectionTestButton figmaUrl={url} />
         {loading && progress ? (
           <p className="text-xs text-muted-foreground">
             {progress.total > 0
@@ -473,6 +472,11 @@ export function FigmaUrlScanner({ onSuccess }: FigmaUrlScannerProps) {
                 disabled={loading}
               />
             </div>
+            <FigmaMcpConnectionTestButton
+              figmaUrl={url}
+              figmaToken={figmaToken}
+              className="w-full"
+            />
             <label className="flex cursor-pointer items-center gap-2 text-xs">
               <input
                 type="checkbox"

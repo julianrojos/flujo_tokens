@@ -59,13 +59,12 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
         <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2">
           <div>
             <label htmlFor="figma-access-token" className="text-sm font-medium">Figma access token</label>
-            <div className="mt-1 flex items-start gap-2">
+            <div className="mt-1 space-y-2">
               <Input
                 id="figma-access-token"
                 value={form.figmaAccessToken}
                 onChange={(e) => actions.onFieldChange("figmaAccessToken", e.target.value)}
                 placeholder="env:FIGMA_TOKEN"
-                className="flex-1"
                 onBlur={() => {
                   if (form.figmaFileUrl.trim() && form.figmaAccessToken.trim()) {
                     setAutoTriggerToken((n) => n + 1);
@@ -76,6 +75,7 @@ export function WizardStepBasics({ form, derived, actions }: WizardStepBasicsPro
                 figmaUrl={form.figmaFileUrl}
                 figmaToken={form.figmaAccessToken}
                 autoTriggerToken={autoTriggerToken}
+                className="w-full"
               />
             </div>
           </div>

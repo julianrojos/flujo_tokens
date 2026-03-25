@@ -416,8 +416,8 @@ export function FigmaMcpConnectionTestButton({
   );
 
   return (
-    <div className={cn("min-w-0 space-y-1.5", className)}>
-      <div className="flex flex-wrap gap-2">
+    <div className={cn("min-w-0 w-full space-y-2", className)}>
+      <div className="flex w-full flex-wrap items-start justify-start gap-2">
         <Button
           type="button"
           variant="outline"

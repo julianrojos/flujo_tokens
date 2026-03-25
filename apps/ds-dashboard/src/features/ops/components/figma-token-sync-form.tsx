@@ -175,14 +175,6 @@ export function FigmaTokenSyncForm({
               <Info className="h-3 w-3 shrink-0" />
               Extrae el fileKey de la URL automáticamente.
             </p>
-            <FigmaMcpConnectionTestButton
-              figmaUrl={figmaUrl}
-              figmaToken={figmaToken}
-              autoTriggerToken={autoTriggerToken}
-              className="mt-2"
-              showDesignContextCompact
-              onDesignContextCompactChange={handleContextChange}
-            />
           </div>
 
           {/* ── Figma Token (optional override) ── */}
@@ -204,6 +196,14 @@ export function FigmaTokenSyncForm({
                 }
               }}
               autoComplete="off"
+            />
+            <FigmaMcpConnectionTestButton
+              figmaUrl={figmaUrl}
+              figmaToken={figmaToken}
+              autoTriggerToken={autoTriggerToken}
+              className="mt-2 w-full"
+              showDesignContextCompact
+              onDesignContextCompactChange={handleContextChange}
             />
           </div>
 
