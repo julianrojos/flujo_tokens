@@ -64,6 +64,10 @@ export interface ConsumerScanResult {
     message: string;
     nodeId?: string;
   }>;
+  localComponentDefinedCount: number | null;
+  localComponentUsedCount: number | null;
+  localVariableDefinedCount: number | null;
+  localVariableUsedCount: number | null;
 }
 
 /**
@@ -640,6 +644,31 @@ export async function scanConsumerFile(
     }
 
     // Convert Maps to arrays and limit sample node IDs
+    // Compute local counts for adoption tracking (SC-1, SC-2)
+    // localComponentDefinedCount:
+    // - number when components payload is available
+    // - null when components payload is unavailable
+    // Note: 0 may still occur due to Figma API limitations on some plan/file combinations.
+    const localComponentDefinedCount =
+      fileResponse.components != null ? Object.keys(fileResponse.components).length : null;
+
+    // localComponentUsedCount captures non-DS usage:
+    // unmatched component instances not resolved to the tracked DS
+    // (includes local file usage and other libraries).
+    const localComponentUsedCount = unmatchedComponentIdsTotal;
+
+    // localVariableDefinedCount: null if variables fetch failed, otherwise count of variables in consumer file
+    const localVariableDefinedCount =
+      consumerVariablesResponse?.meta?.variables != null
+        ? Object.values(consumerVariablesResponse.meta.variables).length
+        : null;
+
+    // localVariableUsedCount (post-MCP): total bound variables minus DS-resolved bindings
+    // This is more accurate than unresolvedBoundVariableCount after MCP fallback adds bindings
+    const resolvedDsNodeCount = [...variableBindings.values()]
+      .reduce((sum, b) => sum + b.totalNodeCount, 0);
+    const localVariableUsedCount = Math.max(0, totalBoundVariableCount - resolvedDsNodeCount);
+
     const result: ConsumerScanResult = {
       componentInstances: Array.from(componentInstances.values()).map(instance => ({
         ...instance,
@@ -651,6 +680,10 @@ export async function scanConsumerFile(
           nodeIds: binding.nodeIds.slice(0, 20),
         })),
       warnings,
+      localComponentDefinedCount,
+      localComponentUsedCount,
+      localVariableDefinedCount,
+      localVariableUsedCount,
     };
 
     return result;

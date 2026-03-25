@@ -47,6 +47,18 @@ const STATUS_BADGE_VARIANT: Record<DsSyncRun["status"], "error" | "warning" | "n
   ok: "success",
 };
 
+function buildAdoptionTooltip(report: FileReport): string {
+  return [
+    "Adoption = DS usage / (DS usage + Non-DS usage)",
+    `DS components used: ${report.componentCount}`,
+    `Non-DS components used: ${report.localComponentUsedCount ?? "—"}`,
+    `DS variables used: ${report.variableCount}`,
+    `Non-DS variables used: ${report.localVariableUsedCount ?? "—"}`,
+    "Non-DS includes local file usage and other library usage not resolved to the tracked DS.",
+    'Shows "—" when required local used counts are unavailable.',
+  ].join("\n");
+}
+
 function computeKpis(reports: FileReport[]): KpiData {
   const now = Date.now();
   const twentyFourHoursMs = 24 * 60 * 60 * 1000;
@@ -344,6 +356,7 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">Components</th>
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">Variables</th>
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">Warnings</th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground">Adoption</th>
                 <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
                 <th className="px-3 py-2 text-right font-medium text-muted-foreground">Actions</th>
               </tr>
@@ -376,6 +389,23 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                       <Badge variant="warning">{report.warningCount}</Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    {report.adoptionRate == null ? (
+                      // null covers two cases: (1) local counts unavailable, (2) total usage = 0 (indeterminate)
+                      // Distinguish via raw count fields so "no usage" shows N/A, not the generic dash
+                      report.localComponentUsedCount !== null && report.localVariableUsedCount !== null &&
+                      report.componentCount === 0 && report.variableCount === 0 &&
+                      report.localComponentUsedCount === 0 && report.localVariableUsedCount === 0 ? (
+                        <span className="text-muted-foreground" title="No usage data">N/A</span>
+                      ) : (
+                        <span className="text-muted-foreground" title="Adoption data unavailable">—</span>
+                      )
+                    ) : (
+                      <span title={buildAdoptionTooltip(report)}>
+                        {(report.adoptionRate * 100).toFixed(0)}%
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-3">

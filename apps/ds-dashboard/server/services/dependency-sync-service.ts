@@ -22,6 +22,10 @@ export interface SyncRunSummary {
   warningCount: number;
   errorMessage?: string;
   skippedReason?: string;
+  localComponentDefinedCount?: number | null;
+  localComponentUsedCount?: number | null;
+  localVariableDefinedCount?: number | null;
+  localVariableUsedCount?: number | null;
 }
 
 export interface SyncResult {
@@ -222,6 +226,10 @@ export class DependencySyncService {
           sample_node_ids_json: JSON.stringify(binding.nodeIds),
         })),
         warnings: scanResult.warnings,
+        local_component_defined_count: scanResult.localComponentDefinedCount,
+        local_component_used_count: scanResult.localComponentUsedCount,
+        local_variable_defined_count: scanResult.localVariableDefinedCount,
+        local_variable_used_count: scanResult.localVariableUsedCount,
       });
 
       // Prune old runs for this consumer
@@ -236,6 +244,10 @@ export class DependencySyncService {
         variableCount: syncRun.variable_count,
         warningCount: syncRun.warning_count,
         errorMessage: syncRun.error_message,
+        localComponentDefinedCount: syncRun.local_component_defined_count,
+        localComponentUsedCount: syncRun.local_component_used_count,
+        localVariableDefinedCount: syncRun.local_variable_defined_count,
+        localVariableUsedCount: syncRun.local_variable_used_count,
       };
     } catch (error) {
       // Save error run

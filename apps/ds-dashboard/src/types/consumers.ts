@@ -25,6 +25,10 @@ export interface DsSyncRun {
   componentCount: number;
   variableCount: number;
   warningCount: number;
+  localComponentDefinedCount?: number | null;
+  localComponentUsedCount?: number | null;
+  localVariableDefinedCount?: number | null;
+  localVariableUsedCount?: number | null;
 }
 
 // API response wrappers
@@ -51,6 +55,10 @@ export interface SyncRunSummary {
       componentCount: number;
       variableCount: number;
       warningCount: number;
+      localComponentDefinedCount?: number | null;
+      localComponentUsedCount?: number | null;
+      localVariableDefinedCount?: number | null;
+      localVariableUsedCount?: number | null;
     }>;
   };
 }
@@ -125,6 +133,11 @@ export interface FileReport {
     level: ImpactLevel;
     description: string;
   };
+  localComponentDefinedCount?: number | null;
+  localComponentUsedCount?: number | null;
+  localVariableDefinedCount?: number | null;
+  localVariableUsedCount?: number | null;
+  adoptionRate?: number | null;
 }
 
 // Simulation types

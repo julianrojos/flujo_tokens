@@ -23,6 +23,10 @@ export interface DsSyncRun {
   component_count: number;
   variable_count: number;
   warning_count: number;
+  local_component_defined_count?: number | null;
+  local_component_used_count?: number | null;
+  local_variable_defined_count?: number | null;
+  local_variable_used_count?: number | null;
 }
 
 export interface DsComponentUsage {
@@ -80,6 +84,10 @@ export interface SaveSyncRunParams {
   component_usage: Omit<DsComponentUsage, 'id' | 'run_id'>[];
   variable_usage: Omit<DsVariableUsage, 'id' | 'run_id'>[];
   warnings: Omit<DsSyncWarning, 'id' | 'run_id'>[];
+  local_component_defined_count?: number | null;
+  local_component_used_count?: number | null;
+  local_variable_defined_count?: number | null;
+  local_variable_used_count?: number | null;
 }
 
 export class DependencyRepository {
@@ -154,7 +162,11 @@ export class DependencyRepository {
         r.consumer_last_modified as sync_consumer_last_modified,
         r.component_count as sync_component_count,
         r.variable_count as sync_variable_count,
-        r.warning_count as sync_warning_count
+        r.warning_count as sync_warning_count,
+        r.local_component_defined_count as sync_local_component_defined_count,
+        r.local_component_used_count as sync_local_component_used_count,
+        r.local_variable_defined_count as sync_local_variable_defined_count,
+        r.local_variable_used_count as sync_local_variable_used_count
       FROM ds_consumers c
       LEFT JOIN ds_sync_runs r ON r.id = (
         SELECT r2.id
@@ -190,6 +202,10 @@ export class DependencyRepository {
           component_count: row.sync_component_count,
           variable_count: row.sync_variable_count,
           warning_count: row.sync_warning_count,
+          local_component_defined_count: row.sync_local_component_defined_count ?? null,
+          local_component_used_count: row.sync_local_component_used_count ?? null,
+          local_variable_defined_count: row.sync_local_variable_defined_count ?? null,
+          local_variable_used_count: row.sync_local_variable_used_count ?? null,
         };
       }
       return result;
@@ -251,8 +267,9 @@ export class DependencyRepository {
     const insertRun = this.db.prepare(`
       INSERT INTO ds_sync_runs (
         id, consumer_id, synced_at, duration_ms, status, error_message,
-        ds_last_modified, consumer_last_modified, component_count, variable_count, warning_count
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ds_last_modified, consumer_last_modified, component_count, variable_count, warning_count,
+        local_component_defined_count, local_component_used_count, local_variable_defined_count, local_variable_used_count
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertComponent = this.db.prepare(`
@@ -284,7 +301,11 @@ export class DependencyRepository {
         params.consumer_last_modified,
         params.component_usage?.length || 0,
         params.variable_usage?.length || 0,
-        params.warnings?.length || 0
+        params.warnings?.length || 0,
+        params.local_component_defined_count ?? null,
+        params.local_component_used_count ?? null,
+        params.local_variable_defined_count ?? null,
+        params.local_variable_used_count ?? null
       );
 
       for (const component of params.component_usage || []) {

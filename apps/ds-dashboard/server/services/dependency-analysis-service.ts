@@ -59,6 +59,11 @@ export interface FileReport {
     sampleLinks: string[];
   }>;
   impactLevel: ImpactLevel;
+  localComponentDefinedCount?: number | null;
+  localComponentUsedCount?: number | null;
+  localVariableDefinedCount?: number | null;
+  localVariableUsedCount?: number | null;
+  adoptionRate?: number | null;
 }
 
 export interface AnalysisOptions {
@@ -95,7 +100,7 @@ const PARENT_CONSUMER_ID_PREFIX = 'parent:' as const;
  * Analysis service for dependency data
  */
 export class DependencyAnalysisService {
-  constructor(private repository: DependencyRepository) {}
+  constructor(private repository: DependencyRepository) { }
 
   /**
    * Generate report by consumer file
@@ -122,6 +127,16 @@ export class DependencyAnalysisService {
       variablesByConsumer.get(key)!.push(usage);
     }
 
+    // Helper to compute adoption rate (SC-4)
+    const computeAdoptionRate = (
+      dsUsed: number,
+      localUsed: number | null | undefined,
+    ): number | null => {
+      if (localUsed == null) return null;
+      const total = dsUsed + localUsed;
+      return total === 0 ? null : dsUsed / total;
+    };
+
     return consumers.map(consumer => {
       const latestSync = this.repository.getLatestSyncRun(consumer.id);
 
@@ -138,6 +153,11 @@ export class DependencyAnalysisService {
           topComponents: [],
           topVariables: [],
           impactLevel: { level: 'LOW' as const, description: 'No usage data' },
+          localComponentDefinedCount: null,
+          localComponentUsedCount: null,
+          localVariableDefinedCount: null,
+          localVariableUsedCount: null,
+          adoptionRate: null,
         };
       }
 
@@ -147,6 +167,17 @@ export class DependencyAnalysisService {
       // Calculate impact level
       const totalUsage = latestSync.component_count + latestSync.variable_count;
       const impactLevel = this.computeImpactLevel(totalUsage, 1, opts);
+
+      // Compute adoption rate (SC-3: aggregate across components + variables)
+      const dsComponentUsed = latestSync.component_count;
+      const dsVariableUsed = latestSync.variable_count;
+      const localCompUsed = latestSync.local_component_used_count ?? null;
+      const localVarUsed = latestSync.local_variable_used_count ?? null;
+      const totalDsUsed = dsComponentUsed + dsVariableUsed;
+      const totalLocalUsed = localCompUsed !== null && localVarUsed !== null
+        ? localCompUsed + localVarUsed
+        : null;
+      const adoptionRate = computeAdoptionRate(totalDsUsed, totalLocalUsed);
 
       return {
         consumerId: consumer.id,
@@ -171,6 +202,11 @@ export class DependencyAnalysisService {
           sampleLinks: this.buildSampleLinks(variable.consumer_file_key, variable.sample_node_ids_json, opts.maxSampleLinks),
         })),
         impactLevel,
+        localComponentDefinedCount: latestSync.local_component_defined_count,
+        localComponentUsedCount: latestSync.local_component_used_count,
+        localVariableDefinedCount: latestSync.local_variable_defined_count,
+        localVariableUsedCount: latestSync.local_variable_used_count,
+        adoptionRate,
       };
     });
   }
@@ -181,15 +217,15 @@ export class DependencyAnalysisService {
   reportByComponent(dsFileKey: string, componentKey?: string, options: AnalysisOptions = {}): ComponentUsage[] {
     const opts = this.mergeOptions(options);
     const componentUsage = this.repository.getLatestComponentUsage(dsFileKey);
-    
+
     // Filter by specific component if provided
-    const filteredUsage = componentKey 
+    const filteredUsage = componentKey
       ? componentUsage.filter(usage => usage.component_key === componentKey)
       : componentUsage;
 
     // Group by component
     const componentGroups = new Map<string, typeof componentUsage>();
-    
+
     for (const usage of filteredUsage) {
       if (!componentGroups.has(usage.component_key)) {
         componentGroups.set(usage.component_key, []);
@@ -242,7 +278,7 @@ export class DependencyAnalysisService {
 
     // Group by variable
     const variableGroups = new Map<string, typeof variableUsage>();
-    
+
     for (const usage of filteredUsage) {
       if (!variableGroups.has(usage.variable_key)) {
         variableGroups.set(usage.variable_key, []);
@@ -324,8 +360,8 @@ export class DependencyAnalysisService {
     const fileThresholds = options.fileCountThresholds || DEFAULT_THRESHOLDS.fileCount;
 
     // Critical if exceeds either node or file threshold
-    if (nodeCount > (thresholds.critical ?? DEFAULT_THRESHOLDS.nodeCount.critical) || 
-        fileCount > (fileThresholds.critical ?? DEFAULT_THRESHOLDS.fileCount.critical)) {
+    if (nodeCount > (thresholds.critical ?? DEFAULT_THRESHOLDS.nodeCount.critical) ||
+      fileCount > (fileThresholds.critical ?? DEFAULT_THRESHOLDS.fileCount.critical)) {
       return {
         level: 'CRITICAL',
         description: `High impact: ${nodeCount} nodes across ${fileCount} files`,
@@ -333,8 +369,8 @@ export class DependencyAnalysisService {
     }
 
     // High if exceeds either high threshold
-    if (nodeCount > (thresholds.high ?? DEFAULT_THRESHOLDS.nodeCount.high) || 
-        fileCount > (fileThresholds.high ?? DEFAULT_THRESHOLDS.fileCount.high)) {
+    if (nodeCount > (thresholds.high ?? DEFAULT_THRESHOLDS.nodeCount.high) ||
+      fileCount > (fileThresholds.high ?? DEFAULT_THRESHOLDS.fileCount.high)) {
       return {
         level: 'HIGH',
         description: `Medium-high impact: ${nodeCount} nodes across ${fileCount} files`,
@@ -342,8 +378,8 @@ export class DependencyAnalysisService {
     }
 
     // Medium if exceeds either medium threshold
-    if (nodeCount > (thresholds.medium ?? DEFAULT_THRESHOLDS.nodeCount.medium) || 
-        fileCount > (fileThresholds.medium ?? DEFAULT_THRESHOLDS.fileCount.medium)) {
+    if (nodeCount > (thresholds.medium ?? DEFAULT_THRESHOLDS.nodeCount.medium) ||
+      fileCount > (fileThresholds.medium ?? DEFAULT_THRESHOLDS.fileCount.medium)) {
       return {
         level: 'MEDIUM',
         description: `Medium impact: ${nodeCount} nodes across ${fileCount} files`,
