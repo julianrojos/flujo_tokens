@@ -10,7 +10,7 @@ import type { ImpactLevel } from "@/types/consumers";
 /**
  * Impact severity ordering (lower = more severe)
  */
-const IMPACT_SORT_ORDER: Record<ImpactLevel, number> = {
+export const IMPACT_SORT_ORDER: Record<ImpactLevel, number> = {
   CRITICAL: 0,
   HIGH: 1,
   MEDIUM: 2,

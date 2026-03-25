@@ -19,7 +19,7 @@ import { ImpactLevelBadge } from "./components/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { AdoptionBar } from "./components/adoption-bar";
 import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
-import { groupByParentComponent } from "./lib/component-grouping";
+import { groupByParentComponent, IMPACT_SORT_ORDER } from "./lib/component-grouping";
 import { useDsFileKey } from "./hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "./lib/format-synced-at";
@@ -30,13 +30,6 @@ import type {
   VariableUsageReport,
   ImpactLevel,
 } from "@/types/consumers";
-
-const IMPACT_SORT_ORDER: Record<ImpactLevel, number> = {
-  CRITICAL: 0,
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
-};
 
 function normalizeTokenLookupKey(value: string): string {
   return String(value || "")
