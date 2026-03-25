@@ -9,6 +9,7 @@ import {
   deleteDesignSystem,
   fetchDeletePreview,
   fetchDesignSystemsConfig,
+  listConsumers,
   updateDesignSystem,
   type DesignSystemConfigEntry,
 } from "@/lib/api";
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { NewSystemPage } from "@/features/system/new-system-page";
 import { DesignSystemUpdateActions } from "@/features/system/design-system-update-actions";
 import { buildUpdateActionsProps } from "@/features/system/design-systems-admin-page-logic";
+import type { DsConsumer } from "@/types/consumers";
 
 type RowDraft = {
   name: string;
@@ -122,6 +124,7 @@ export function DesignSystemsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiErrorDisplay | null>(null);
   const [busyIds, setBusyIds] = useState<Record<string, boolean>>({});
+  const [consumersBySystemId, setConsumersBySystemId] = useState<Record<string, DsConsumer[]>>({});
   const [deleteModalTarget, setDeleteModalTarget] = useState<{ id: string; name: string } | null>(
     null,
   );
@@ -152,18 +155,37 @@ export function DesignSystemsAdminPage() {
       const config = await fetchDesignSystemsConfig();
       setSystems(config.systems || []);
       setDefaultSystem(config.defaultSystem || "");
+      const systemsList = config.systems || [];
       setDrafts(
         Object.fromEntries(
-          (config.systems || []).map((system) => [system.id, toDraft(system, config.defaultSystem)]),
+          systemsList.map((system) => [system.id, toDraft(system, config.defaultSystem)]),
         ),
       );
       replaceSystems(
-        (config.systems || []).map((system) => ({
+        systemsList.map((system) => ({
           id: String(system.id || ""),
           name: String(system.name || ""),
         })),
         { activeSystemId: config.defaultSystem || undefined },
       );
+      const consumersEntries = await Promise.all(
+        systemsList.map(async (system) => {
+          const systemId = String(system.id || "");
+          const dsFileKey = String(system.figmaFileId || "").trim();
+          if (!dsFileKey) return [systemId, []] as const;
+          try {
+            const consumersResponse = await listConsumers(dsFileKey);
+            return [systemId, consumersResponse.data] as const;
+          } catch (cause) {
+            console.warn(
+              `[design-systems-admin] Consumer list fetch failed for system "${system.name || systemId}"`,
+              cause,
+            );
+            return [systemId, []] as const;
+          }
+        }),
+      );
+      setConsumersBySystemId(Object.fromEntries(consumersEntries));
     } catch (cause) {
       setError(
         toApiErrorDisplay(cause, {
@@ -300,6 +322,11 @@ export function DesignSystemsAdminPage() {
             const isDefault = id === defaultSystem;
             const hasChanges = hasDraftChanges(system, draft, defaultSystem);
             const showSaveButton = shouldShowSaveButton(system, draft, defaultSystem);
+            const registeredConsumers = [...(consumersBySystemId[id] || [])].sort((left, right) =>
+              String(left.consumerName || "").localeCompare(String(right.consumerName || ""), "en", {
+                sensitivity: "base",
+              }),
+            );
             return (
               <section key={id} className="rounded-xl border border-border bg-card p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -503,9 +530,24 @@ export function DesignSystemsAdminPage() {
 
                 <div className="mt-4 rounded-md border border-border/70 bg-muted/20 p-3">
                   <h3 className="text-sm font-semibold">Consumer files</h3>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Manage consumer tracking from the dedicated Consumers section.
-                  </p>
+                  {registeredConsumers.length > 0 ? (
+                    <ul className="mt-2 space-y-1">
+                      {registeredConsumers.map((consumer) => (
+                        <li key={consumer.id}>
+                          <Link
+                            to={`/consumers/${consumer.id}`}
+                            className="text-sm text-app-accent hover:underline"
+                          >
+                            {consumer.consumerName || consumer.consumerFileKey || "Unnamed Consumer"}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      No consumer files registered for this design system yet.
+                    </p>
+                  )}
                   <Link
                     to="/consumers"
                     className={cn(
