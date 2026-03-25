@@ -1,16 +1,44 @@
-import { test, describe, beforeEach, afterEach } from 'node:test';
+import { afterEach, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { DsCatalog, DsComponentCatalog, DsVariableCatalog } from './figma-rest-consumer-service';
+
+import { scanConsumerFile, type DsCatalog } from './figma-rest-consumer-service.js';
 
 const originalFetch = globalThis.fetch;
 const originalDashboardInternalUrl = process.env.DS_DASHBOARD_INTERNAL_URL;
-const originalDashboardInternalToken = process.env.DS_DASHBOARD_INTERNAL_TOKEN;
 
-describe('FigmaRestConsumerService', () => {
+function makeDsCatalog(args?: {
+  componentId?: string;
+  componentKey?: string;
+  variableId?: string;
+  variableKey?: string;
+}): DsCatalog {
+  const componentId = args?.componentId ?? '1:1';
+  const componentKey = args?.componentKey ?? 'comp.button.primary';
+  const variableId = args?.variableId ?? 'VariableID:1:1';
+  const variableKey = args?.variableKey ?? 'color.primary';
+
+  return {
+    components: new Map([[componentKey, { key: componentKey, name: 'Button/Primary', id: componentId }]]),
+    variables: new Map([
+      [
+        variableKey,
+        {
+          key: variableKey,
+          id: variableId,
+          name: 'Primary',
+          type: 'COLOR',
+          collectionId: 'VariableCollectionId:1:1',
+        },
+      ],
+    ]),
+    variableIdToKey: new Map([[variableId, variableKey]]),
+  };
+}
+
+describe('scanConsumerFile local-count derivation', () => {
   beforeEach(() => {
     (globalThis as { fetch: typeof fetch }).fetch = originalFetch;
-    delete process.env.DS_DASHBOARD_INTERNAL_URL;
-    delete process.env.DS_DASHBOARD_INTERNAL_TOKEN;
+    process.env.DS_DASHBOARD_INTERNAL_URL = 'http://127.0.0.1:8787';
   });
 
   afterEach(() => {
@@ -20,86 +48,122 @@ describe('FigmaRestConsumerService', () => {
     } else {
       process.env.DS_DASHBOARD_INTERNAL_URL = originalDashboardInternalUrl;
     }
-    if (originalDashboardInternalToken === undefined) {
-      delete process.env.DS_DASHBOARD_INTERNAL_TOKEN;
-    } else {
-      process.env.DS_DASHBOARD_INTERNAL_TOKEN = originalDashboardInternalToken;
-    }
   });
 
-  test('buildDsCatalog creates proper catalog structure', async () => {
-    // This is a basic test to verify the service structure
-    // In a real test, we would mock the Figma API calls
-    
-    // For now, just verify the exports exist
-    const { buildDsCatalog, scanConsumerFile, fetchConsumerFileMetadata } = await import('./figma-rest-consumer-service');
-    
-    assert.strictEqual(typeof buildDsCatalog, 'function');
-    assert.strictEqual(typeof scanConsumerFile, 'function');
-    assert.strictEqual(typeof fetchConsumerFileMetadata, 'function');
-  });
-
-  test('DsCatalog interface is properly structured', () => {
-    // Test component catalog structure
-    const component: DsComponentCatalog = {
-      key: 'test-key',
-      name: 'Test Component',
-      id: 'test-id',
-    };
-    assert.strictEqual(component.key, 'test-key');
-    assert.strictEqual(component.name, 'Test Component');
-    assert.strictEqual(component.id, 'test-id');
-
-    // Test variable catalog structure  
-    const variable: DsVariableCatalog = {
-      key: 'key-123',
-      id: 'VariableID:123:456',
-      name: 'primary-color',
-      type: 'COLOR',
-      collectionId: 'collection-1',
-    };
-    assert.strictEqual(variable.key, 'key-123');
-    assert.strictEqual(variable.id, 'VariableID:123:456');
-    assert.strictEqual(variable.name, 'primary-color');
-    assert.strictEqual(variable.type, 'COLOR');
-    assert.strictEqual(variable.collectionId, 'collection-1');
-  });
-
-  test('buildDsCatalog uses MCP first and falls back to REST variables when MCP fails', async () => {
-    process.env.DS_DASHBOARD_INTERNAL_URL = 'http://127.0.0.1:8787';
-    const requestLog: string[] = [];
-
+  test('derives localComponentDefinedCount from fileResponse.components and localComponentUsedCount from unmatched instances', async () => {
+    const dsCatalog = makeDsCatalog({ componentId: '1:1' });
     (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
       const url = String(input);
-      requestLog.push(url);
-
-      if (url.includes('/v1/files/ds-file-key/components')) {
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/consumer-components/variables/local')) {
+        return new Response(
+          JSON.stringify({ meta: { variableCollections: {}, variables: {} } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/consumer-components')) {
         return new Response(
           JSON.stringify({
-            status: 200,
-            error: false,
-            meta: {
-              components: [
-                { key: 'comp.button.primary', name: 'Button/Primary', node_id: '1:1', description: '' },
+            name: 'Consumer',
+            lastModified: '2026-03-25T00:00:00Z',
+            document: {
+              id: '0:0',
+              name: 'Document',
+              type: 'DOCUMENT',
+              children: [
+                {
+                  id: '2:1',
+                  name: 'DS instance',
+                  type: 'INSTANCE',
+                  componentId: '1:1',
+                },
+                {
+                  id: '2:2',
+                  name: 'Non-DS instance',
+                  type: 'INSTANCE',
+                  componentId: '9:9',
+                },
               ],
+            },
+            components: {
+              '10:1': { key: 'local.one', name: 'Local/One' },
+              '10:2': { key: 'local.two', name: 'Local/Two' },
             },
           }),
           { status: 200, headers: { 'content-type': 'application/json' } },
         );
       }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
 
-      if (url.includes('/v1/files/ds-file-key/variables/local')) {
+    const result = await scanConsumerFile('consumer-components', 'figd_test_token', dsCatalog);
+    assert.equal(result.localComponentDefinedCount, 2);
+    assert.equal(result.localComponentUsedCount, 1);
+  });
+
+  test('sets localVariableDefinedCount to null when consumer variables fetch fails', async () => {
+    const dsCatalog = makeDsCatalog({ variableId: 'VariableID:1:1', variableKey: 'color.primary' });
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/consumer-var-fail/variables/local')) {
+        return new Response('forbidden', { status: 403, statusText: 'Forbidden' });
+      }
+      if (url.includes('/v1/files/consumer-var-fail')) {
+        return new Response(
+          JSON.stringify({
+            name: 'Consumer',
+            lastModified: '2026-03-25T00:00:00Z',
+            document: {
+              id: '0:0',
+              name: 'Document',
+              type: 'DOCUMENT',
+              boundVariables: {
+                fills: { id: 'VariableID:1:1', type: 'VARIABLE_ALIAS' },
+              },
+            },
+            components: {},
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const result = await scanConsumerFile('consumer-var-fail', 'figd_test_token', dsCatalog);
+    assert.equal(result.localVariableDefinedCount, null);
+  });
+
+  test('derives localVariableUsedCount from total bound variables minus resolved DS bindings', async () => {
+    const dsCatalog = makeDsCatalog({ variableId: 'VariableID:1:1', variableKey: 'color.primary' });
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/consumer-var-used/variables/local')) {
         return new Response(
           JSON.stringify({
             meta: {
               variableCollections: {
-                'VariableCollectionId:1:1': { id: 'VariableCollectionId:1:1', name: 'Core' },
+                'VariableCollectionId:1:1': { id: 'VariableCollectionId:1:1', name: 'Local' },
               },
               variables: {
-                'VariableID:1:2': {
-                  id: 'VariableID:1:2',
+                'VariableID:1:1': {
+                  id: 'VariableID:1:1',
                   key: 'color.primary',
                   name: 'Primary',
+                  resolvedType: 'COLOR',
+                  variableCollectionId: 'VariableCollectionId:1:1',
+                },
+                'VariableID:9:9': {
+                  id: 'VariableID:9:9',
+                  key: 'color.local',
+                  name: 'Local Color',
                   resolvedType: 'COLOR',
                   variableCollectionId: 'VariableCollectionId:1:1',
                 },
@@ -109,164 +173,39 @@ describe('FigmaRestConsumerService', () => {
           { status: 200, headers: { 'content-type': 'application/json' } },
         );
       }
-
-      if (url.includes('/v1/files/ds-file-key')) {
+      if (url.includes('/v1/files/consumer-var-used')) {
         return new Response(
           JSON.stringify({
-            name: 'DS File',
-            lastModified: '2026-03-21T00:00:00Z',
-            document: { id: '0:0', name: 'Root', type: 'DOCUMENT' },
-            components: {
-              '1:1': { key: 'comp.button.primary', name: 'Button/Primary' },
-            },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-
-      if (url.endsWith('/api/figma-mcp-variables')) {
-        return new Response('mcp unavailable', { status: 503, statusText: 'Service Unavailable' });
-      }
-
-      throw new Error(`Unexpected fetch URL in test: ${url}`);
-    }) as typeof fetch;
-
-    const { buildDsCatalog } = await import('./figma-rest-consumer-service');
-    const catalog = await buildDsCatalog('ds-file-key', 'figd_test_token');
-
-    assert.equal(catalog.components.size, 1);
-    assert.equal(catalog.variables.size, 1);
-    assert.ok(catalog.variables.has('color.primary'));
-
-    const mcpAttemptIndex = requestLog.findIndex((url) => url.endsWith('/api/figma-mcp-variables'));
-    const restVariablesIndex = requestLog.findIndex((url) => url.includes('/v1/files/ds-file-key/variables/local'));
-    assert.ok(mcpAttemptIndex >= 0, 'Expected MCP variables attempt');
-    assert.ok(restVariablesIndex >= 0, 'Expected REST variables fallback');
-    assert.ok(mcpAttemptIndex < restVariablesIndex, 'Expected MCP attempt before REST fallback');
-  });
-
-  test('scanConsumerFile resolves DS component instances by DS component ID when consumer components map is empty', async () => {
-    process.env.DS_DASHBOARD_INTERNAL_URL = 'http://127.0.0.1:8787';
-
-    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
-      const url = String(input);
-
-      if (url.endsWith('/api/figma-mcp-variables')) {
-        return new Response('mcp unavailable', { status: 503, statusText: 'Service Unavailable' });
-      }
-
-      if (url.includes('/v1/files/consumer-file-key/variables/local')) {
-        return new Response(
-          JSON.stringify({
-            meta: {
-              variableCollections: {},
-              variables: {},
-            },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-
-      if (url.includes('/v1/files/consumer-file-key')) {
-        return new Response(
-          JSON.stringify({
-            name: 'Consumer File',
-            lastModified: '2026-03-24T00:00:00Z',
+            name: 'Consumer',
+            lastModified: '2026-03-25T00:00:00Z',
             document: {
               id: '0:0',
               name: 'Document',
               type: 'DOCUMENT',
               children: [
                 {
-                  id: '1:0',
-                  name: 'Page 1',
-                  type: 'CANVAS',
-                  children: [
-                    {
-                      id: '2:10',
-                      name: 'Button Instance',
-                      type: 'INSTANCE',
-                      componentId: '1:1',
-                    },
-                  ],
+                  id: 'n1',
+                  name: 'Node 1',
+                  type: 'RECTANGLE',
+                  boundVariables: {
+                    fills: { id: 'VariableID:1:1', type: 'VARIABLE_ALIAS' },
+                  },
                 },
-              ],
-            },
-            // Intentionally empty: consumer may only use external library components.
-            components: {},
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-
-      throw new Error(`Unexpected fetch URL in test: ${url}`);
-    }) as typeof fetch;
-
-    const { scanConsumerFile } = await import('./figma-rest-consumer-service');
-    const dsCatalog: DsCatalog = {
-      components: new Map([
-        ['comp.button.primary', { key: 'comp.button.primary', name: 'Button/Primary', id: '1:1' }],
-      ]),
-      variables: new Map(),
-      variableIdToKey: new Map(),
-    };
-
-    const result = await scanConsumerFile('consumer-file-key', 'figd_test_token', dsCatalog);
-    assert.equal(result.componentInstances.length, 1);
-    assert.equal(result.componentInstances[0]?.componentKey, 'comp.button.primary');
-    assert.deepEqual(result.componentInstances[0]?.nodeIds, ['2:10']);
-  });
-
-  test('scanConsumerFile does not emit unmatched-component warning below threshold', async () => {
-    process.env.DS_DASHBOARD_INTERNAL_URL = 'http://127.0.0.1:8787';
-
-    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
-      const url = String(input);
-
-      if (url.endsWith('/api/figma-mcp-variables')) {
-        return new Response('mcp unavailable', { status: 503, statusText: 'Service Unavailable' });
-      }
-
-      if (url.includes('/v1/files/consumer-file-key/variables/local')) {
-        return new Response(
-          JSON.stringify({
-            meta: {
-              variableCollections: {},
-              variables: {},
-            },
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-
-      if (url.includes('/v1/files/consumer-file-key')) {
-        return new Response(
-          JSON.stringify({
-            name: 'Consumer File',
-            lastModified: '2026-03-24T00:00:00Z',
-            document: {
-              id: '0:0',
-              name: 'Document',
-              type: 'DOCUMENT',
-              children: [
                 {
-                  id: '1:0',
-                  name: 'Page 1',
-                  type: 'CANVAS',
-                  children: [
-                    {
-                      id: '2:10',
-                      name: 'Button Instance',
-                      type: 'INSTANCE',
-                      componentId: '1:1',
-                    },
-                    {
-                      id: '2:11',
-                      name: 'Unknown Instance',
-                      type: 'INSTANCE',
-                      componentId: '9:9',
-                    },
-                  ],
+                  id: 'n2',
+                  name: 'Node 2',
+                  type: 'RECTANGLE',
+                  boundVariables: {
+                    fills: { id: 'VariableID:1:1', type: 'VARIABLE_ALIAS' },
+                  },
+                },
+                {
+                  id: 'n3',
+                  name: 'Node 3',
+                  type: 'RECTANGLE',
+                  boundVariables: {
+                    fills: { id: 'VariableID:9:9', type: 'VARIABLE_ALIAS' },
+                  },
                 },
               ],
             },
@@ -275,24 +214,54 @@ describe('FigmaRestConsumerService', () => {
           { status: 200, headers: { 'content-type': 'application/json' } },
         );
       }
-
-      throw new Error(`Unexpected fetch URL in test: ${url}`);
+      throw new Error(`Unexpected URL: ${url}`);
     }) as typeof fetch;
 
-    const { scanConsumerFile } = await import('./figma-rest-consumer-service');
-    const dsCatalog: DsCatalog = {
-      components: new Map([
-        ['comp.button.primary', { key: 'comp.button.primary', name: 'Button/Primary', id: '1:1' }],
-      ]),
-      variables: new Map(),
-      variableIdToKey: new Map(),
-    };
+    const result = await scanConsumerFile('consumer-var-used', 'figd_test_token', dsCatalog);
+    assert.equal(result.localVariableUsedCount, 1);
+  });
 
-    const result = await scanConsumerFile('consumer-file-key', 'figd_test_token', dsCatalog);
-    assert.equal(result.componentInstances.length, 1);
-    assert.equal(
-      result.warnings.some((warning) => warning.code === 'deps.consumer.unmatched_component_ids'),
-      false,
-    );
+  test('derives localVariableDefinedCount from consumer variable payload size', async () => {
+    const dsCatalog = makeDsCatalog();
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/consumer-var-defined/variables/local')) {
+        return new Response(
+          JSON.stringify({
+            meta: {
+              variableCollections: {
+                'VariableCollectionId:1:1': { id: 'VariableCollectionId:1:1', name: 'Local' },
+              },
+              variables: {
+                'VariableID:1': { id: 'VariableID:1', key: 'k1', name: 'v1', resolvedType: 'COLOR', variableCollectionId: 'VariableCollectionId:1:1' },
+                'VariableID:2': { id: 'VariableID:2', key: 'k2', name: 'v2', resolvedType: 'COLOR', variableCollectionId: 'VariableCollectionId:1:1' },
+                'VariableID:3': { id: 'VariableID:3', key: 'k3', name: 'v3', resolvedType: 'COLOR', variableCollectionId: 'VariableCollectionId:1:1' },
+                'VariableID:4': { id: 'VariableID:4', key: 'k4', name: 'v4', resolvedType: 'COLOR', variableCollectionId: 'VariableCollectionId:1:1' },
+                'VariableID:5': { id: 'VariableID:5', key: 'k5', name: 'v5', resolvedType: 'COLOR', variableCollectionId: 'VariableCollectionId:1:1' },
+              },
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/consumer-var-defined')) {
+        return new Response(
+          JSON.stringify({
+            name: 'Consumer',
+            lastModified: '2026-03-25T00:00:00Z',
+            document: { id: '0:0', name: 'Document', type: 'DOCUMENT' },
+            components: {},
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const result = await scanConsumerFile('consumer-var-defined', 'figd_test_token', dsCatalog);
+    assert.equal(result.localVariableDefinedCount, 5);
   });
 });
