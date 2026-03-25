@@ -560,9 +560,6 @@ export function TokensPage() {
         summary={treeData?.summary ?? null}
         loading={treeLoading}
         error={treeError}
-        onReload={() => {
-          void loadTokenCollectionTrees(true);
-        }}
       />
     </div>
   );

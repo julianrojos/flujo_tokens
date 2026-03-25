@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCcw, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,6 @@ interface TokenTreeModalProps {
   } | null;
   loading: boolean;
   error: ApiErrorDisplay | null;
-  onReload: () => void;
 }
 
 export function TokenTreeModal({
@@ -34,7 +33,6 @@ export function TokenTreeModal({
   summary,
   loading,
   error,
-  onReload,
 }: TokenTreeModalProps) {
   const [query, setQuery] = useState("");
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(new Set());
@@ -134,15 +132,6 @@ export function TokenTreeModal({
               </Button>
               <Button variant="outline" size="sm" onClick={collapseAll} disabled={loading}>
                 Collapse all
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onReload}
-                disabled={loading}
-                aria-label="Reload tree data"
-              >
-                <RefreshCcw className="h-4 w-4" />
               </Button>
             </div>
           </div>
