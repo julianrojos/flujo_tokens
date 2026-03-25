@@ -60,6 +60,47 @@ describe("component-grouping", () => {
       assert.strictEqual(result[0].variants[0].variantLabel, "Arrow/Filled");
     });
 
+    it("extracts parent from comma-separated variant naming", () => {
+      const components = [
+        createComponent("Button, Size=Large, State=Hover", 4),
+        createComponent("Button, Size=Small, State=Default", 6),
+      ];
+      const result = groupByParentComponent(components);
+
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].parentName, "Button");
+      assert.strictEqual(result[0].variants.length, 2);
+      assert.strictEqual(result[0].variants[0].variantLabel.includes("Size="), true);
+      assert.strictEqual(result[0].totalInstances, 10);
+    });
+
+    it("does not split comma-separated names when first segment is not key=value", () => {
+      const components = [createComponent("Button, notes about=design", 2)];
+      const result = groupByParentComponent(components);
+
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].parentName, "Button, notes about=design");
+      assert.strictEqual(result[0].variants[0].variantLabel, "");
+    });
+
+    it("keeps whitespace-only names as atomic groups", () => {
+      const components = [createComponent("   ", 1)];
+      const result = groupByParentComponent(components);
+
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].parentName, "");
+      assert.strictEqual(result[0].variants[0].variantLabel, "");
+    });
+
+    it("does not split comma names without variant assignment", () => {
+      const components = [createComponent("Button, notes, copy", 3)];
+      const result = groupByParentComponent(components);
+
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].parentName, "Button, notes, copy");
+      assert.strictEqual(result[0].variants[0].variantLabel, "");
+    });
+
     it("handles name starting with slash (empty parentName)", () => {
       const components = [createComponent("/Button", 2)];
       const result = groupByParentComponent(components);

@@ -7,6 +7,9 @@
 
 import type { ImpactLevel } from "@/types/consumers";
 
+const VARIANT_ASSIGNMENT_SEQUENCE_RE =
+  /^[^,\s=]+=[^,]+(?:\s*,\s*[^,\s=]+=[^,]+)*$/;
+
 /**
  * Impact severity ordering (lower = more severe)
  */
@@ -57,14 +60,30 @@ export interface ConsumerComponent {
  * Only the first "/" is the separator
  */
 function splitVariantName(componentName: string): { parentName: string; variantLabel: string } {
-  const slashIdx = componentName.indexOf("/");
-  if (slashIdx === -1) {
-    return { parentName: componentName, variantLabel: "" };
+  const normalized = String(componentName || "").trim();
+
+  // Canonical Figma naming: "Button/Size=Large,State=Hover"
+  const slashIdx = normalized.indexOf("/");
+  if (slashIdx !== -1) {
+    return {
+      parentName: normalized.slice(0, slashIdx),
+      variantLabel: normalized.slice(slashIdx + 1),
+    };
   }
-  return {
-    parentName: componentName.slice(0, slashIdx),
-    variantLabel: componentName.slice(slashIdx + 1),
-  };
+
+  // Alternate naming seen in some exports: "Button, Size=Large, State=Hover"
+  // Only treat comma as variant separator when the first segment after comma
+  // looks like a variant assignment (key=value).
+  const commaIdx = normalized.indexOf(",");
+  const afterComma = commaIdx !== -1 ? normalized.slice(commaIdx + 1).trim() : "";
+  if (commaIdx !== -1 && VARIANT_ASSIGNMENT_SEQUENCE_RE.test(afterComma)) {
+    return {
+      parentName: normalized.slice(0, commaIdx).trim(),
+      variantLabel: afterComma,
+    };
+  }
+
+  return { parentName: normalized, variantLabel: "" };
 }
 
 /**
