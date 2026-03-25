@@ -2,7 +2,7 @@
  * EXECUTE_CODE Handler
  *
  * Executes arbitrary code in the plugin context with timeout control.
- * Uses eval with async IIFE wrapper for Figma sandbox compatibility.
+ * Uses AsyncFunction instead of eval for safer dynamic execution.
  */
 
 import {
@@ -16,16 +16,14 @@ export async function handleExecuteCode(
   params: ExecuteCodeParams
 ): Promise<ExecuteCodeResult> {
   const timeoutMs = params.timeout || 5000;
+  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
   try {
     console.log('[Bridge] Executing code, length:', params.code.length);
 
-    // Wrap user code in an async IIFE for eval
-    const wrappedCode = `(async function() {\n${params.code}\n})()`;
-
     // Execute with timeout
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+      timeoutHandle = setTimeout(() => {
         reject(
           createBridgeError(
             ERROR_CODES.TIMEOUT,
@@ -37,7 +35,11 @@ export async function handleExecuteCode(
 
     let result: unknown;
     try {
-      result = eval(wrappedCode);
+      const AsyncFunction = Object.getPrototypeOf(async function () {
+        // noop
+      }).constructor as new (...args: string[]) => (...fnArgs: unknown[]) => Promise<unknown>;
+      const executeDynamicCode = new AsyncFunction(params.code);
+      result = executeDynamicCode();
     } catch (syntaxError) {
       const syntaxErrorMsg =
         syntaxError instanceof Error ? syntaxError.message : String(syntaxError);
@@ -91,6 +93,10 @@ export async function handleExecuteCode(
         fileKey: figma.fileKey || null,
       },
     };
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
   }
 }
 
