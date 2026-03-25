@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Info, Network } from "lucide-react";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
 import { formatSyncedAt } from "../lib/format-synced-at";
+import { buildAggregateAdoptionState } from "../lib/adoption-metrics";
 import type { FileReport, DsSyncRun } from "@/types/consumers";
 import type { SyncStatusFilter } from "../lib/consumer-filter-query";
 import { AdoptionBar } from "./adoption-bar";
@@ -125,31 +126,23 @@ function applyFilters(
 }
 
 function renderAdoptionCell(report: FileReport) {
-  // Invariant: adoptionRate != null iff both localComponentUsedCount
-  // and localVariableUsedCount are non-null (see computeAdoptionRate in analysis service).
-  const hasAllLocal =
-    report.localComponentUsedCount != null && report.localVariableUsedCount != null;
-  const isPartial =
-    !hasAllLocal &&
-    (report.localComponentUsedCount != null || report.localVariableUsedCount != null);
+  const state = buildAggregateAdoptionState(report);
 
-  if (report.adoptionRate == null) {
-    const isZeroTotal =
-      hasAllLocal &&
-      report.componentCount === 0 &&
-      report.variableCount === 0 &&
-      report.localComponentUsedCount === 0 &&
-      report.localVariableUsedCount === 0;
+  if (state.showNA) {
+    return (
+      <span className="text-muted-foreground" title="No usage data">
+        N/A
+      </span>
+    );
+  }
 
+  if (state.showUnavailable) {
     return (
       <div className="flex items-center justify-end gap-1.5">
-        <span
-          className="text-muted-foreground"
-          title={isZeroTotal ? "No usage data" : "Adoption data unavailable"}
-        >
-          {isZeroTotal ? "N/A" : "—"}
+        <span className="text-muted-foreground" title="Adoption data unavailable">
+          —
         </span>
-        {isPartial && (
+        {state.showPartial && (
           <Badge
             variant="neutral"
             className="text-[10px]"
@@ -162,12 +155,25 @@ function renderAdoptionCell(report: FileReport) {
     );
   }
 
-  // hasAllLocal is guaranteed true here by the invariant above.
-  const totalDsUsed = report.componentCount + report.variableCount;
-  const totalLocalUsed =
-    (report.localComponentUsedCount ?? 0) + (report.localVariableUsedCount ?? 0);
+  // Invariant: showBar=true → adoptionRate!=null → both local counts non-null → totalLocalUsed!=null
+  if (state.showBar && state.totalLocalUsed != null) {
+    return (
+      <div className="flex items-center justify-end gap-1.5">
+        <AdoptionBar dsCount={state.totalDsUsed} nonDsCount={state.totalLocalUsed} className="flex-1" />
+        {state.showPartial && (
+          <Badge
+            variant="neutral"
+            className="text-[10px]"
+            title="Partial: one local usage dimension is unavailable for this sync."
+          >
+            Partial
+          </Badge>
+        )}
+      </div>
+    );
+  }
 
-  return <AdoptionBar dsCount={totalDsUsed} nonDsCount={totalLocalUsed} />;
+  return <span className="text-muted-foreground">—</span>;
 }
 
 export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }: ConsumerTabByFileProps) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/composites/page-header";
@@ -16,6 +16,7 @@ import {
 import { ImpactLevelBadge } from "./components/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { AdoptionBar } from "./components/adoption-bar";
+import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
 import { useDsFileKey } from "./hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "./lib/format-synced-at";
@@ -50,6 +51,35 @@ function sortByImpactThenCount<T extends { impactLevel: { level: ImpactLevel }; 
     const countB = b.instances ?? b.nodes ?? 0;
     return countB - countA;
   });
+}
+
+function renderDimensionBar(dsUsed: number, localUsed: number | null | undefined): ReactNode {
+  const state = buildDimensionAdoptionState(dsUsed, localUsed);
+
+  if (state.showNA) {
+    return (
+      <span className="flex-1 text-muted-foreground" title="No usage data">
+        N/A
+      </span>
+    );
+  }
+
+  if (state.showBar && state.totalLocalUsed != null) {
+    return (
+      <AdoptionBar
+        dsCount={state.totalDsUsed}
+        nonDsCount={state.totalLocalUsed}
+        className="flex-1"
+        barClassName="h-2"
+      />
+    );
+  }
+
+  return (
+    <span className="flex-1 text-muted-foreground" title="Adoption data unavailable">
+      —
+    </span>
+  );
 }
 
 function computeWorstImpactLevel(
@@ -278,30 +308,16 @@ export function ConsumerDetailPage() {
             <div className="space-y-1.5">
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="w-20 shrink-0">Components</span>
-                {consumer.latestSync.localComponentUsedCount != null &&
-                consumer.latestSync.componentCount + consumer.latestSync.localComponentUsedCount > 0 ? (
-                  <AdoptionBar
-                    dsCount={consumer.latestSync.componentCount}
-                    nonDsCount={consumer.latestSync.localComponentUsedCount}
-                    className="flex-1"
-                    barClassName="h-2"
-                  />
-                ) : (
-                  <span className="flex-1 text-muted-foreground">—</span>
+                {renderDimensionBar(
+                  consumer.latestSync.componentCount,
+                  consumer.latestSync.localComponentUsedCount,
                 )}
               </div>
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="w-20 shrink-0">Variables</span>
-                {consumer.latestSync.localVariableUsedCount != null &&
-                consumer.latestSync.variableCount + consumer.latestSync.localVariableUsedCount > 0 ? (
-                  <AdoptionBar
-                    dsCount={consumer.latestSync.variableCount}
-                    nonDsCount={consumer.latestSync.localVariableUsedCount}
-                    className="flex-1"
-                    barClassName="h-2"
-                  />
-                ) : (
-                  <span className="flex-1 text-muted-foreground">—</span>
+                {renderDimensionBar(
+                  consumer.latestSync.variableCount,
+                  consumer.latestSync.localVariableUsedCount,
                 )}
               </div>
             </div>
