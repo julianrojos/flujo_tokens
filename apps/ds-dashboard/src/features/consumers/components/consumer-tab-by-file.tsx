@@ -432,7 +432,6 @@ export function ConsumerTabByFile({ dsFileKey, reloadToken = 0, onAddConsumer }:
                       >
                         {report.consumerName}
                       </Link>
-                      <p className="text-xs text-muted-foreground">{report.consumerFileKey}</p>
                     </div>
                   </td>
                   <td className="px-3 py-3 text-muted-foreground">

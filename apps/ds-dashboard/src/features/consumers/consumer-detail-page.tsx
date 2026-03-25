@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/composites/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import {
@@ -19,6 +19,7 @@ import { ImpactLevelBadge } from "./components/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { AdoptionBar } from "./components/adoption-bar";
 import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
+import { groupByParentComponent } from "./lib/component-grouping";
 import { useDsFileKey } from "./hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "./lib/format-synced-at";
@@ -142,6 +143,15 @@ export function ConsumerDetailPage() {
   const [isSyncLogOpen, setIsSyncLogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  function handleToggleGroup(parentName: string) {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      next.has(parentName) ? next.delete(parentName) : next.add(parentName);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const loadData = async () => {
@@ -293,8 +303,10 @@ export function ConsumerDetailPage() {
   });
 
   // Sort by impact level (descending) then by count (descending)
-  const sortedComponents = sortByImpactThenCount(consumerComponents);
   const sortedVariables = sortByImpactThenCount(consumerVariables);
+
+  // Group component variants by parent component
+  const componentGroups = groupByParentComponent(consumerComponents);
 
   // Compute worst impact level for overview
   const worstImpactLevel = computeWorstImpactLevel(consumerComponents, consumerVariables);
@@ -432,7 +444,7 @@ export function ConsumerDetailPage() {
       {/* Component Usage */}
       <div className="rounded-xl border border-border bg-card p-4">
         <h3 className="mb-3 text-base font-semibold">Component Usage</h3>
-        {sortedComponents.length === 0 ? (
+        {componentGroups.length === 0 ? (
           <div className="text-sm text-muted-foreground">
             {consumer.latestSync
               ? "No DS components recorded for this consumer."
@@ -450,54 +462,169 @@ export function ConsumerDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedComponents.map((comp) => {
-                  const componentNameKey = normalizeLookupKey(comp.componentName);
-                  const componentKeyKey = normalizeLookupKey(comp.componentKey);
-                  const componentSlug =
-                    (componentNameKey && componentSlugByLookup[componentNameKey]) ||
-                    (componentKeyKey && componentSlugByLookup[componentKeyKey]);
+                {componentGroups.map((group) => {
+                  const isSingleVariant = group.variants.length === 1;
+                  const variant = group.variants[0];
+                  const displayParentName = group.parentName || "(unnamed component)";
+
+                  // Slug lookup uses parentName (not full variant name)
+                  const parentNameKey = normalizeLookupKey(group.parentName);
+                  const componentSlug = parentNameKey && componentSlugByLookup[parentNameKey];
+
+                  if (isSingleVariant) {
+                    // Single variant: render as flat row
+                    return (
+                      <tr key={variant.componentKey} className="border-b border-border/50">
+                        <td className="px-3 py-2">
+                          <div className="space-y-0.5">
+                            {componentSlug ? (
+                              <Link
+                                to={`/components/${encodeURIComponent(componentSlug)}`}
+                                className="font-medium text-app-accent hover:underline"
+                              >
+                                {displayParentName}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">{displayParentName}</span>
+                            )}
+                            {variant.variantLabel && (
+                              <span className="block text-xs text-muted-foreground">
+                                {variant.variantLabel}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Badge variant="neutral">{group.totalInstances}</Badge>
+                        </td>
+                        <td className="px-3 py-2">
+                          <ImpactLevelBadge level={group.worstImpactLevel.level} />
+                        </td>
+                        <td className="px-3 py-2">
+                          {group.sampleLinks.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {group.sampleLinks.slice(0, 5).map((link) => (
+                                <a
+                                  key={link}
+                                  href={link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                >
+                                  ↗ Figma
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  // Multi-variant: render as expandable group (S-05)
+                  const isExpanded = expandedGroups.has(group.parentName);
                   return (
-                  <tr key={comp.componentKey} className="border-b border-border/50">
-                    <td className="px-3 py-2">
-                      <p className="font-medium">
-                        {componentSlug ? (
-                          <Link
-                            to={`/components/${encodeURIComponent(componentSlug)}`}
-                            className="text-app-accent hover:underline"
-                          >
-                            {comp.componentName}
-                          </Link>
-                        ) : (
-                          comp.componentName
-                        )}
-                      </p>
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <Badge variant="neutral">{comp.instances}</Badge>
-                    </td>
-                    <td className="px-3 py-2">
-                      <ImpactLevelBadge level={comp.impactLevel.level} />
-                    </td>
-                    <td className="px-3 py-2">
-                      {comp.sampleLinks && comp.sampleLinks.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {comp.sampleLinks.slice(0, 5).map((link) => (
-                            <a
-                              key={link}
-                              href={link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                    <Fragment key={group.parentName}>
+                      <tr className="border-b border-border/50">
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              className="flex items-center"
+                              aria-expanded={isExpanded}
+                              aria-label={`${isExpanded ? "Collapse" : "Expand"} ${displayParentName}`}
+                              onClick={() => handleToggleGroup(group.parentName)}
                             >
-                              ↗ Figma
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
+                              {isExpanded ? (
+                                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                              )}
+                            </button>
+                            {componentSlug ? (
+                              <Link
+                                to={`/components/${encodeURIComponent(componentSlug)}`}
+                                className="font-medium text-app-accent hover:underline"
+                              >
+                                {displayParentName}
+                              </Link>
+                            ) : (
+                              <span className="font-medium">{displayParentName}</span>
+                            )}
+                            <Badge variant="neutral" className="text-[10px]">
+                              {group.variants.length} variants
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <Badge variant="neutral">{group.totalInstances}</Badge>
+                        </td>
+                        <td className="px-3 py-2">
+                          <ImpactLevelBadge level={group.worstImpactLevel.level} />
+                        </td>
+                        <td className="px-3 py-2">
+                          {group.sampleLinks.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {group.sampleLinks.slice(0, 3).map((link) => (
+                                <a
+                                  key={link}
+                                  href={link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                >
+                                  ↗ Figma
+                                </a>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                      {isExpanded &&
+                        group.variants.map((v) => (
+                          <tr
+                            key={v.componentKey}
+                            className="border-b border-border/30 bg-muted/10"
+                          >
+                            <td className="py-1.5 pl-9 pr-3">
+                              <span className="text-xs text-muted-foreground">
+                                {v.variantLabel || v.componentName}
+                              </span>
+                            </td>
+                            <td className="px-3 py-1.5 text-right">
+                              <Badge variant="neutral" className="text-[10px]">
+                                {v.instances}
+                              </Badge>
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <ImpactLevelBadge level={v.impactLevel.level} />
+                            </td>
+                            <td className="px-3 py-1.5">
+                              {v.sampleLinks.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {v.sampleLinks.slice(0, 2).map((link) => (
+                                    <a
+                                      key={link}
+                                      href={link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs text-app-accent hover:underline"
+                                    >
+                                      ↗ Figma
+                                    </a>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                    </Fragment>
                   );
                 })}
               </tbody>
