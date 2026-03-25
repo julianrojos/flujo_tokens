@@ -7,6 +7,7 @@ Design System Dashboard — UI Component Catalog
 ## Governance Check
 
 Run `npm run ds:ui:guard` after any UI change to enforce core UI contract checks:
+
 - no raw status colors in `features/**`
 - no `dark:` variants in `features/**`
 - no `createPortal` outside `ui/overlay/modal.tsx`
@@ -31,52 +32,52 @@ All UI components consume CSS custom properties defined in `apps/ds-dashboard/sr
 
 #### Color Primitives
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--color-gray-0` – `--color-gray-12` | #0c0c0d → #fafafa | Base grayscale |
-| `--color-indigo-1` – `--color-indigo-9` | Indigo scale | Accent colors |
-| `--color-red-1` – `--color-red-7` | Red scale | Error states |
-| `--color-emerald-1` – `--color-emerald-6` | Emerald scale | Success states |
-| `--color-amber-1` – `--color-amber-6` | Amber scale | Warning states |
+| Token                                     | Value             | Usage          |
+| ----------------------------------------- | ----------------- | -------------- |
+| `--color-gray-0` – `--color-gray-12`      | #0c0c0d → #fafafa | Base grayscale |
+| `--color-indigo-1` – `--color-indigo-9`   | Indigo scale      | Accent colors  |
+| `--color-red-1` – `--color-red-7`         | Red scale         | Error states   |
+| `--color-emerald-1` – `--color-emerald-6` | Emerald scale     | Success states |
+| `--color-amber-1` – `--color-amber-6`     | Amber scale       | Warning states |
 
 #### Semantic Tokens
 
-| Token | Maps To | Usage |
-|-------|---------|-------|
-| `--app-bg` | `--color-gray-0` | Page background |
-| `--app-surface-1` | `--color-gray-1` | Card/panel background |
-| `--app-surface-2` | `--color-gray-2` | Elevated surfaces |
-| `--app-surface-3` | `--color-gray-3` | Nested surfaces |
-| `--app-surface-glass` | `rgba(22,22,24,0.85)` | Glassmorphism |
-| `--app-surface-elevated` | `--color-gray-2` | Elevated cards |
-| `--app-text` | `--color-gray-12` | Primary text |
-| `--app-text-muted` | `--color-gray-9` | Secondary text |
-| `--app-text-subtle` | `--color-gray-7` | Tertiary text |
-| `--app-accent` | `--color-indigo-5` | Primary actions |
-| `--app-accent-hover` | `--color-indigo-6` | Hover states |
-| `--app-accent-fg` | `--color-gray-0` | Text on accent |
-| `--app-border` | `--color-gray-4` | Default borders |
-| `--app-border-soft` | `rgba(106,106,112,0.4)` | Subtle borders |
-| `--app-border-focus` | `--color-indigo-5` | Focus rings |
-| `--app-status-error-*` | Red scale | Error states |
-| `--app-status-success-*` | Emerald scale | Success states |
-| `--app-status-warning-*` | Amber scale | Warning states |
+| Token                    | Maps To                 | Usage                 |
+| ------------------------ | ----------------------- | --------------------- |
+| `--app-bg`               | `--color-gray-0`        | Page background       |
+| `--app-surface-1`        | `--color-gray-1`        | Card/panel background |
+| `--app-surface-2`        | `--color-gray-2`        | Elevated surfaces     |
+| `--app-surface-3`        | `--color-gray-3`        | Nested surfaces       |
+| `--app-surface-glass`    | `rgba(22,22,24,0.85)`   | Glassmorphism         |
+| `--app-surface-elevated` | `--color-gray-2`        | Elevated cards        |
+| `--app-text`             | `--color-gray-12`       | Primary text          |
+| `--app-text-muted`       | `--color-gray-9`        | Secondary text        |
+| `--app-text-subtle`      | `--color-gray-7`        | Tertiary text         |
+| `--app-accent`           | `--color-indigo-5`      | Primary actions       |
+| `--app-accent-hover`     | `--color-indigo-6`      | Hover states          |
+| `--app-accent-fg`        | `--color-gray-0`        | Text on accent        |
+| `--app-border`           | `--color-gray-4`        | Default borders       |
+| `--app-border-soft`      | `rgba(106,106,112,0.4)` | Subtle borders        |
+| `--app-border-focus`     | `--color-indigo-5`      | Focus rings           |
+| `--app-status-error-*`   | Red scale               | Error states          |
+| `--app-status-success-*` | Emerald scale           | Success states        |
+| `--app-status-warning-*` | Amber scale             | Warning states        |
 
 #### Motion Tokens
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--app-motion-fast` | 150ms | Micro-interactions |
+| Token               | Value | Usage                |
+| ------------------- | ----- | -------------------- |
+| `--app-motion-fast` | 150ms | Micro-interactions   |
 | `--app-motion-base` | 250ms | Standard transitions |
-| `--app-motion-slow` | 400ms | Complex animations |
+| `--app-motion-slow` | 400ms | Complex animations   |
 
 #### Typography Tokens
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| `--font-sans` | Geist | UI text |
-| `--font-serif` | Bitter | Headings |
-| `--font-mono` | Geist Mono | Code |
+| Token          | Value      | Usage    |
+| -------------- | ---------- | -------- |
+| `--font-sans`  | Geist      | UI text  |
+| `--font-serif` | Bitter     | Headings |
+| `--font-mono`  | Geist Mono | Code     |
 
 ---
 
@@ -92,7 +93,9 @@ Location: `apps/ds-dashboard/src/components/ui/`
 **Sizes:** `default`, `sm`
 
 ```tsx
-<Button variant="default" size="default">Click me</Button>
+<Button variant="default" size="default">
+  Click me
+</Button>
 ```
 
 **When to use:** Interactive actions, form submissions, triggers.
@@ -381,11 +384,7 @@ Location: `apps/ds-dashboard/src/components/composites/`
 **Props:** `searchValue?`, `onSearch?`, `count?`, `children`
 
 ```tsx
-<FilterBar
-  searchValue={query}
-  onSearch={setQuery}
-  count={items.length}
->
+<FilterBar searchValue={query} onSearch={setQuery} count={items.length}>
   <Select>{/* filters */}</Select>
 </FilterBar>
 ```
@@ -409,9 +408,7 @@ Location: `apps/ds-dashboard/src/components/composites/`
   title="No tokens found"
   description="Try adjusting your filters"
   action={
-    <EmptyStateAction onClick={resetFilters}>
-      Reset Filters
-    </EmptyStateAction>
+    <EmptyStateAction onClick={resetFilters}>Reset Filters</EmptyStateAction>
   }
 />
 ```
@@ -434,9 +431,7 @@ Location: `apps/ds-dashboard/src/components/composites/`
     description="Property information"
     actions={<Button>Edit</Button>}
   />
-  <DataPanelContent>
-    {/* Table or content */}
-  </DataPanelContent>
+  <DataPanelContent>{/* Table or content */}</DataPanelContent>
   <DataPanelFooter>
     <Button>Save</Button>
   </DataPanelFooter>
@@ -456,41 +451,41 @@ Location: `apps/ds-dashboard/src/components/composites/`
 **Exported types:**
 
 ```ts
-type RunStatus = "idle" | "running" | "success" | "error";
+type RunStatus = 'idle' | 'running' | 'success' | 'error';
 
 interface LogLine {
   text: string;
-  kind: "stdout" | "stderr" | "system";
+  kind: 'stdout' | 'stderr' | 'system';
 }
 ```
 
 **`status` values:**
 
-| Value | Visual effect |
-|-------|---------------|
-| `"idle"` | No running indicator; summary bar shown if `summary` present |
+| Value       | Visual effect                                                                          |
+| ----------- | -------------------------------------------------------------------------------------- |
+| `"idle"`    | No running indicator; summary bar shown if `summary` present                           |
 | `"running"` | Amber pulse dot + "Ejecutando…" label in header; spinner bar at bottom if no `summary` |
-| `"success"` | Green summary bar (`bg-status-success-bg/10 text-status-success`) |
-| `"error"` | Red summary bar (`bg-destructive/10 text-destructive`) |
+| `"success"` | Green summary bar (`bg-status-success-bg/10 text-status-success`)                      |
+| `"error"`   | Red summary bar (`bg-destructive/10 text-destructive`)                                 |
 
 **`kind` values (per `LogLine`):**
 
-| Value | Color |
-|-------|-------|
-| `"stdout"` | `text-foreground` |
-| `"stderr"` | `text-status-error` |
+| Value      | Color                 |
+| ---------- | --------------------- |
+| `"stdout"` | `text-foreground`     |
+| `"stderr"` | `text-status-error`   |
 | `"system"` | `text-primary italic` |
 
 **Props:**
 
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `logLines` | `LogLine[]` | ✅ | Array of output lines |
-| `status` | `RunStatus` | ✅ | Controls visual state |
-| `summary` | `string` | — | One-line result shown in summary bar |
-| `elapsedMs` | `number` | — | Elapsed time shown in summary bar |
-| `onClear` | `() => void` | — | Shows "Limpiar" button when provided |
-| `className` | `string` | — | Applied to outer container |
+| Prop        | Type         | Required | Description                          |
+| ----------- | ------------ | -------- | ------------------------------------ |
+| `logLines`  | `LogLine[]`  | ✅       | Array of output lines                |
+| `status`    | `RunStatus`  | ✅       | Controls visual state                |
+| `summary`   | `string`     | —        | One-line result shown in summary bar |
+| `elapsedMs` | `number`     | —        | Elapsed time shown in summary bar    |
+| `onClear`   | `() => void` | —        | Shows "Limpiar" button when provided |
+| `className` | `string`     | —        | Applied to outer container           |
 
 ```tsx
 <LogTerminal
@@ -513,33 +508,39 @@ Location: `apps/ds-dashboard/src/features/`
 
 ### Tokens Feature
 
-| Component | Path | Description |
-|-----------|------|-------------|
-| `TokensPage` | `features/tokens/tokens-page.tsx` | Main tokens list view |
-| `ContrastCheckerModal` | `features/tokens/accessibility/contrast-checker-modal.tsx` | WCAG contrast checker |
-| `ColorPreview` | `features/tokens/accessibility/color-preview.tsx` | Color contrast preview |
-| `TokenTree` | `features/tokens/token-tree/token-tree.tsx` | Token dependency tree |
+| Component              | Path                                                       | Description            |
+| ---------------------- | ---------------------------------------------------------- | ---------------------- |
+| `TokensPage`           | `features/tokens/tokens-page.tsx`                          | Main tokens list view  |
+| `ContrastCheckerModal` | `features/tokens/accessibility/contrast-checker-modal.tsx` | WCAG contrast checker  |
+| `ColorPreview`         | `features/tokens/accessibility/color-preview.tsx`          | Color contrast preview |
+| `TokenTree`            | `features/tokens/token-tree/token-tree.tsx`                | Token dependency tree  |
 
 ### Components Feature
 
-| Component | Path | Description |
-|-----------|------|-------------|
-| `ComponentsPage` | `features/components/components-page.tsx` | Components registry view |
-| `ComponentDetail` | `features/components/component-detail/component-detail.tsx` | Component detail view |
+| Component           | Path                                                           | Description              |
+| ------------------- | -------------------------------------------------------------- | ------------------------ |
+| `ComponentsPage`    | `features/components/components-page.tsx`                      | Components registry view |
+| `ComponentDetail`   | `features/components/component-detail/component-detail.tsx`    | Component detail view    |
 | `FigmaCaptureModal` | `features/components/component-detail/figma-capture-modal.tsx` | Figma screenshot capture |
 
 ### Health Feature
 
-| Component | Path | Description |
-|-----------|------|-------------|
-| `HealthPage` | `features/health/health-page.tsx` | Health dashboard |
-| `HealthIssuesList` | `features/health/health-issues-list.tsx` | Issues table |
+| Component          | Path                                     | Description      |
+| ------------------ | ---------------------------------------- | ---------------- |
+| `HealthPage`       | `features/health/health-page.tsx`        | Health dashboard |
+| `HealthIssuesList` | `features/health/health-issues-list.tsx` | Issues table     |
 
 ### Command Palette
 
-| Component | Path | Description |
-|-----------|------|-------------|
+| Component              | Path                                                  | Description           |
+| ---------------------- | ----------------------------------------------------- | --------------------- |
 | `GlobalCommandPalette` | `features/command-palette/global-command-palette.tsx` | Global search/actions |
+
+### Consumers Feature
+
+| Component     | Path                                             | Description                                                  |
+| ------------- | ------------------------------------------------ | ------------------------------------------------------------ |
+| `AdoptionBar` | `features/consumers/components/adoption-bar.tsx` | DS vs Non-DS segmented progress bar with semantic percentage |
 
 ---
 
@@ -561,6 +562,6 @@ None as of v1.
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 1.0 | 2026-03-20 | Initial registry |
+| Version | Date       | Changes          |
+| ------- | ---------- | ---------------- |
+| 1.0     | 2026-03-20 | Initial registry |
