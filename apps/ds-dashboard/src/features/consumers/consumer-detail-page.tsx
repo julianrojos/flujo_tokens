@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/composites/page-header";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import {
   fetchReportByComponent,
   fetchReportByVariable,
   fetchConsumerSyncRuns,
+  fetchComponentRegistry,
+  fetchTokenRegistry,
 } from "@/lib/api";
 import { ImpactLevelBadge } from "./components/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
@@ -34,6 +36,30 @@ const IMPACT_SORT_ORDER: Record<ImpactLevel, number> = {
   MEDIUM: 2,
   LOW: 3,
 };
+
+function normalizeTokenLookupKey(value: string): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^_+/, "")
+    .replace(/^semanticos[./]/, "")
+    .replace(/^primitivos[./]/, "")
+    .replace(/^theme[./]/, "")
+    .replace(/^tokens?[./]/, "")
+    .replace(/^--+/, "")
+    .replace(/[._]+/g, "/")
+    .replace(/\/+/g, "/")
+    .replace(/^\/+|\/+$/g, "");
+}
+
+type TokenLookupEntry = {
+  path: string;
+  cssVar: string;
+};
+
+function normalizeLookupKey(value: string): string {
+  return String(value || "").trim().toLowerCase();
+}
 
 function formatDurationMs(value: unknown): string {
   if (value === null || value === undefined || value === "") return "—";
@@ -111,6 +137,9 @@ export function ConsumerDetailPage() {
   const [components, setComponents] = useState<ComponentUsageReport[]>([]);
   const [variables, setVariables] = useState<VariableUsageReport[]>([]);
   const [syncRuns, setSyncRuns] = useState<DsSyncRun[]>([]);
+  const [componentSlugByLookup, setComponentSlugByLookup] = useState<Record<string, string>>({});
+  const [tokenByExactLookup, setTokenByExactLookup] = useState<Record<string, TokenLookupEntry>>({});
+  const [tokenByLookup, setTokenByLookup] = useState<Record<string, TokenLookupEntry | null>>({});
   const [isSyncLogOpen, setIsSyncLogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ReturnType<typeof toApiErrorDisplay> | null>(null);
@@ -141,12 +170,76 @@ export function ConsumerDetailPage() {
         }
 
         // Load component and variable reports
-        const [componentsResponse, variablesResponse] = await Promise.all([
+        const [componentsResponse, variablesResponse, componentRegistry, tokenRegistry] = await Promise.all([
           fetchReportByComponent(dsFileKey),
           fetchReportByVariable(dsFileKey),
+          fetchComponentRegistry().catch((cause) => {
+            console.warn("[consumer-detail] Component registry fetch failed", cause);
+            return { components: [] };
+          }),
+          fetchTokenRegistry().catch((cause) => {
+            console.warn("[consumer-detail] Token registry fetch failed", cause);
+            return { entries: [] };
+          }),
         ]);
         setComponents(componentsResponse.data || []);
         setVariables(variablesResponse.data || []);
+        const componentLookup = Object.fromEntries(
+          (componentRegistry.components || []).flatMap((item) => {
+            const displayNameKey = normalizeLookupKey(item.display_name);
+            const slugKey = normalizeLookupKey(item.slug);
+            return [
+              [displayNameKey, item.slug],
+              [slugKey, item.slug],
+            ].filter(([key]) => Boolean(key));
+          }),
+        );
+        setComponentSlugByLookup(componentLookup);
+        const exactTokenLookup = Object.fromEntries(
+          (tokenRegistry.entries || []).flatMap((entry) => {
+            const path = String(entry.path || "").trim();
+            if (!path) return [];
+            const slashPath = String(entry.slashPath || "").trim();
+            const cssVar = String(entry.cssVar || "").trim();
+            const normalizedCssVar = cssVar || `--${path.replace(/\./g, "-")}`;
+            const tokenEntry: TokenLookupEntry = { path, cssVar: normalizedCssVar };
+            return [
+              [normalizeLookupKey(path), tokenEntry],
+              [normalizeLookupKey(slashPath), tokenEntry],
+              [normalizeLookupKey(cssVar), tokenEntry],
+            ].filter(([key]) => Boolean(key));
+          }),
+        );
+        setTokenByExactLookup(exactTokenLookup);
+        const tokenLookup = (tokenRegistry.entries || []).reduce<Record<string, TokenLookupEntry | null>>(
+          (acc, entry) => {
+            const path = String(entry.path || "").trim();
+            if (!path) return acc;
+            const slashPath = String(entry.slashPath || "").trim();
+            const cssVar = String(entry.cssVar || "").trim();
+            const normalizedCssVar = cssVar || `--${path.replace(/\./g, "-")}`;
+            const tokenEntry: TokenLookupEntry = { path, cssVar: normalizedCssVar };
+            const keys = [
+              normalizeTokenLookupKey(path),
+              normalizeTokenLookupKey(slashPath),
+              normalizeTokenLookupKey(cssVar),
+            ].filter(Boolean);
+            for (const key of keys) {
+              if (!(key in acc)) {
+                acc[key] = tokenEntry;
+                continue;
+              }
+              const existing = acc[key];
+              if (existing && existing.path !== tokenEntry.path) {
+                // Ambiguous normalized key; disable fallback for this key.
+                acc[key] = null;
+              }
+            }
+            return acc;
+          },
+          {},
+        );
+        setTokenByLookup(tokenLookup);
 
         // Load sync runs
         const runsResponse = await fetchConsumerSyncRuns(consumerId);
@@ -360,13 +453,27 @@ export function ConsumerDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedComponents.map((comp) => (
+                {sortedComponents.map((comp) => {
+                  const componentNameKey = normalizeLookupKey(comp.componentName);
+                  const componentKeyKey = normalizeLookupKey(comp.componentKey);
+                  const componentSlug =
+                    (componentNameKey && componentSlugByLookup[componentNameKey]) ||
+                    (componentKeyKey && componentSlugByLookup[componentKeyKey]);
+                  return (
                   <tr key={comp.componentKey} className="border-b border-border/50">
                     <td className="px-3 py-2">
-                      <div className="space-y-0.5">
-                        <p className="font-medium">{comp.componentName}</p>
-                        <p className="text-xs text-muted-foreground">{comp.componentKey}</p>
-                      </div>
+                      <p className="font-medium">
+                        {componentSlug ? (
+                          <Link
+                            to={`/components/${encodeURIComponent(componentSlug)}`}
+                            className="text-app-accent hover:underline"
+                          >
+                            {comp.componentName}
+                          </Link>
+                        ) : (
+                          comp.componentName
+                        )}
+                      </p>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <Badge variant="neutral">{comp.instances}</Badge>
@@ -394,7 +501,8 @@ export function ConsumerDetailPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -423,13 +531,31 @@ export function ConsumerDetailPage() {
                 </tr>
               </thead>
               <tbody>
-                {sortedVariables.map((v) => (
+                {sortedVariables.map((v) => {
+                  const variableNameExact = normalizeLookupKey(v.variableName);
+                  const variableKeyExact = normalizeLookupKey(v.variableKey);
+                  const tokenEntry =
+                    (variableNameExact && tokenByExactLookup[variableNameExact]) ||
+                    (variableKeyExact && tokenByExactLookup[variableKeyExact]) ||
+                    tokenByLookup[normalizeTokenLookupKey(v.variableName)] ||
+                    tokenByLookup[normalizeTokenLookupKey(v.variableKey)] ||
+                    null;
+                  const displayTokenName = tokenEntry?.cssVar || v.variableName;
+                  return (
                   <tr key={v.variableKey} className="border-b border-border/50">
                     <td className="px-3 py-2">
-                      <div className="space-y-0.5">
-                        <p className="font-medium">{v.variableName}</p>
-                        <p className="text-xs text-muted-foreground">{v.variableKey}</p>
-                      </div>
+                      <p className="font-medium">
+                        {tokenEntry ? (
+                          <Link
+                            to={`/tokens/${encodeURIComponent(tokenEntry.path)}`}
+                            className="text-app-accent hover:underline"
+                          >
+                            {displayTokenName}
+                          </Link>
+                        ) : (
+                          displayTokenName
+                        )}
+                      </p>
                     </td>
                     <td className="px-3 py-2 text-right">
                       <Badge variant="neutral">{v.nodes}</Badge>
@@ -460,7 +586,8 @@ export function ConsumerDetailPage() {
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
