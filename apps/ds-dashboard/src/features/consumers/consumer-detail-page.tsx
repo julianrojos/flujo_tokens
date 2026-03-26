@@ -20,6 +20,7 @@ import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge
 import { AdoptionBar } from "./components/adoption-bar";
 import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
 import { groupByParentComponent, IMPACT_SORT_ORDER } from "./lib/component-grouping";
+import { buildComponentLookupMap, resolveKnownComponentSlug } from "./lib/component-lookup";
 import { useDsFileKey } from "./hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
 import { formatSyncedAt } from "./lib/format-synced-at";
@@ -186,17 +187,7 @@ export function ConsumerDetailPage() {
         ]);
         setComponents(componentsResponse.data || []);
         setVariables(variablesResponse.data || []);
-        const componentLookup = Object.fromEntries(
-          (componentRegistry.components || []).flatMap((item) => {
-            const displayNameKey = normalizeLookupKey(item.display_name);
-            const slugKey = normalizeLookupKey(item.slug);
-            return [
-              [displayNameKey, item.slug],
-              [slugKey, item.slug],
-            ].filter(([key]) => Boolean(key));
-          }),
-        );
-        setComponentSlugByLookup(componentLookup);
+        setComponentSlugByLookup(buildComponentLookupMap(componentRegistry.components || []));
         const exactTokenLookup = Object.fromEntries(
           (tokenRegistry.entries || []).flatMap((entry) => {
             const path = String(entry.path || "").trim();
@@ -459,8 +450,11 @@ export function ConsumerDetailPage() {
                   const isSingleVariant = group.variants.length === 1;
                   const variant = group.variants[0];
                   const displayParentName = group.parentName || "(unnamed component)";
-                  const parentNameKey = normalizeLookupKey(group.parentName);
-                  const componentSlug = parentNameKey ? componentSlugByLookup[parentNameKey] : undefined;
+                  const resolvedComponentSlug = resolveKnownComponentSlug({
+                    lookup: componentSlugByLookup,
+                    parentName: group.parentName,
+                    variantName: variant.componentName,
+                  });
 
                   if (isSingleVariant) {
                     // Single variant: render as flat row
@@ -468,9 +462,9 @@ export function ConsumerDetailPage() {
                       <tr key={variant.componentKey} className="border-b border-border/50">
                         <td className="px-3 py-2">
                           <div className="space-y-0.5">
-                            {componentSlug ? (
+                            {resolvedComponentSlug ? (
                               <Link
-                                to={`/components/${encodeURIComponent(componentSlug)}`}
+                                to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
                                 className="font-medium text-app-accent hover:underline"
                               >
                                 {displayParentName}
@@ -516,7 +510,6 @@ export function ConsumerDetailPage() {
 
                   // Multi-variant: render as expandable group (S-05)
                   const isExpanded = expandedGroups.has(group.parentName);
-                  const hasComponentSetRoute = group.parentName.trim().length > 0;
                   return (
                     <Fragment key={group.parentName}>
                       <tr className="border-b border-border/50">
@@ -535,10 +528,9 @@ export function ConsumerDetailPage() {
                                 <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                               )}
                             </button>
-                            {hasComponentSetRoute ? (
+                            {resolvedComponentSlug ? (
                               <Link
-                                to={`/component-sets/${encodeURIComponent(group.parentName)}`}
-                                state={{ fromConsumerId: consumerId }}
+                                to={`/components/${encodeURIComponent(resolvedComponentSlug)}`}
                                 className="font-medium text-app-accent hover:underline"
                               >
                                 {displayParentName}

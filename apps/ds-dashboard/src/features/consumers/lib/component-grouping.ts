@@ -56,10 +56,10 @@ export interface ConsumerComponent {
 }
 
 /**
- * Split a component name into parent and variant parts.
+ * Split Figma component name into parent and variant parts.
  * Supports both slash and comma-based variant naming conventions.
  */
-export function splitVariantName(componentName: string): { parentName: string; variantLabel: string } {
+function splitVariantName(componentName: string): { parentName: string; variantLabel: string } {
   const normalized = String(componentName || "").trim();
 
   // Canonical Figma naming: "Button/Size=Large,State=Hover"
