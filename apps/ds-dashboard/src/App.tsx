@@ -136,12 +136,6 @@ const ConsumerDetailPage = lazy(() =>
   })),
 );
 
-const ComponentSetDetailPage = lazy(() =>
-  import("@/features/consumers/component-set-detail-page").then((module) => ({
-    default: module.ComponentSetDetailPage,
-  })),
-);
-
 function RouteLoadingFallback() {
   return (
     <div className="rounded-xl border border-border/70 bg-card/60 p-4 text-sm text-muted-foreground">
@@ -532,7 +526,6 @@ export default function App() {
                     <Route path="/file" element={<FileViewerPage />} />
                     <Route path="/consumers" element={<ConsumersPage />} />
                     <Route path="/consumers/:consumerId" element={<ConsumerDetailPage />} />
-                    <Route path="/component-sets/:componentSetName" element={<ComponentSetDetailPage />} />
                   </Routes>
                 </Suspense>
               </RouteErrorBoundary>
