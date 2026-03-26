@@ -13,6 +13,7 @@ function createFailJson() {
         ok: false,
         code: args.code,
         message: args.userMessage,
+        context: args.context,
       },
       statusCode,
     );
@@ -117,6 +118,10 @@ function createDependencyTestDb() {
       component_count INTEGER NOT NULL DEFAULT 0,
       variable_count INTEGER NOT NULL DEFAULT 0,
       warning_count INTEGER NOT NULL DEFAULT 0,
+      local_component_defined_count INTEGER DEFAULT NULL,
+      local_component_used_count INTEGER DEFAULT NULL,
+      local_variable_defined_count INTEGER DEFAULT NULL,
+      local_variable_used_count INTEGER DEFAULT NULL,
       FOREIGN KEY (consumer_id) REFERENCES ds_consumers(id) ON DELETE CASCADE
     );
 
@@ -201,6 +206,82 @@ test("system-routes: create appends system and persists config", async () => {
   assert.equal(repo.getSaved().length, 1);
   assert.equal(repo.getSaved()[0].systems.length, 2);
   assert.equal(repo.getSaved()[0].defaultSystem, "marketing-ds");
+});
+
+test("system-routes: create reports pre-existing consumers for matching figmaFileId", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { DependencyRepository } = await import("../db/dependency-repository.ts");
+    const dependencyRepo = new DependencyRepository(db);
+    dependencyRepo.addConsumer({
+      ds_file_key: "figma-existing",
+      consumer_file_key: "consumer-file-1",
+      consumer_name: "Existing Consumer",
+    });
+
+    const { app } = createTestApp({
+      db,
+      readJsonBody: async () => ({
+        id: "Reimport DS",
+        name: "Reimport DS",
+        figmaFileId: "figma-existing",
+      }),
+    });
+
+    const res = await app.request("/api/design-systems", { method: "POST" });
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.existingConsumersCount, 1);
+    assert.equal(payload.existingConsumerNames, undefined);
+    assert.equal(payload.existingConsumersCheckFailed, undefined);
+  } finally {
+    db.close();
+  }
+});
+
+test("system-routes: create reports zero existing consumers when check succeeds", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { app } = createTestApp({
+      db,
+      readJsonBody: async () => ({
+        id: "Fresh DS",
+        name: "Fresh DS",
+        figmaFileId: "figma-without-consumers",
+      }),
+    });
+
+    const res = await app.request("/api/design-systems", { method: "POST" });
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.existingConsumersCount, 0);
+    assert.equal(payload.existingConsumersCheckFailed, undefined);
+  } finally {
+    db.close();
+  }
+});
+
+test("system-routes: create flags existing-consumer check failure when db read fails", async () => {
+  const db = createDependencyTestDb();
+  db.close();
+
+  const { app } = createTestApp({
+    db,
+    readJsonBody: async () => ({
+      id: "Reimport DS",
+      name: "Reimport DS",
+      figmaFileId: "figma-existing",
+    }),
+  });
+
+  const res = await app.request("/api/design-systems", { method: "POST" });
+  assert.equal(res.status, 200);
+  const payload = await res.json();
+  assert.equal(payload.ok, true);
+  assert.equal(payload.existingConsumersCount, undefined);
+  assert.equal(payload.existingConsumersCheckFailed, true);
 });
 
 test("system-routes: create bootstraps system scaffold artifacts", async () => {
@@ -553,6 +634,56 @@ test("system-routes: delete cascade with real db cleans consumers", async () => 
   }
 });
 
+test("system-routes: delete reset failure does not delete consumers before config save", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { DependencyRepository } = await import("../db/dependency-repository.ts");
+    const dependencyRepo = new DependencyRepository(db);
+    dependencyRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-file-1",
+      consumer_name: "Consumer One",
+    });
+
+    const repo = createRepository({
+      systems: [
+        { id: "test-ds", name: "Test DS", figmaFileId: "figma123" },
+      ],
+    });
+    const { app } = createTestApp({
+      designSystemRepository: repo,
+      db,
+      fsSync: {
+        rmSync: () => {},
+        rmdirSync: () => {},
+        existsSync: () => false,
+        mkdirSync: () => {},
+        writeFileSync: () => {
+          throw new Error("write failed");
+        },
+        statSync: () => ({ isDirectory: () => true }),
+        readdirSync: () => [],
+      },
+    });
+
+    const res = await app.request("/api/design-systems/test-ds", { method: "DELETE" });
+    assert.equal(res.status, 500);
+    const payload = await res.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, "design_system.cleanup_failed");
+    assert.equal(payload.context.phase, "reset_global_artifacts");
+    assert.equal(payload.context.systemId, "test-ds");
+    assert.equal(repo.getSaved().length, 0);
+
+    const remainingConsumers = db
+      .prepare("SELECT COUNT(*) AS count FROM ds_consumers WHERE ds_file_key = ?")
+      .get("figma123");
+    assert.equal(remainingConsumers.count, 1);
+  } finally {
+    db.close();
+  }
+});
+
 test("system-routes: delete without db does not fail", async () => {
   const existing = new Set();
   const writes = new Map();
@@ -588,4 +719,98 @@ test("system-routes: delete without db does not fail", async () => {
   assert.equal(payload.ok, true);
   assert.equal(payload.deletedConsumersCount, undefined);
   assert.equal(payload.deletedConsumerNames, undefined);
+});
+
+test("system-routes: delete with db and empty figmaFileId returns cleanup skipped flag", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { app } = createTestApp({
+      designSystemRepository: createRepository({
+        systems: [{ id: "empty-ds", name: "Empty DS", figmaFileId: "" }],
+      }),
+      db,
+    });
+
+    const res = await app.request("/api/design-systems/empty-ds", { method: "DELETE" });
+    assert.equal(res.status, 200);
+    const payload = await res.json();
+    assert.equal(payload.ok, true);
+    assert.equal(payload.consumerCleanupSkipped, true);
+    assert.equal(payload.deletedConsumersCount, 0);
+    assert.deepEqual(payload.deletedConsumerNames, []);
+  } finally {
+    db.close();
+  }
+});
+
+test("system-routes: delete fails when db preflight check fails", async () => {
+  const db = createDependencyTestDb();
+  db.close();
+  const repo = createRepository({
+    systems: [
+      { id: "test-ds", name: "Test DS", figmaFileId: "figma123" },
+    ],
+  });
+  const { app } = createTestApp({
+    designSystemRepository: repo,
+    db,
+  });
+
+  const res = await app.request("/api/design-systems/test-ds", { method: "DELETE" });
+  assert.equal(res.status, 500);
+  const payload = await res.json();
+  assert.equal(payload.ok, false);
+  assert.equal(payload.code, "design_system.consumer_cleanup_failed");
+  assert.equal(payload.context.phase, "consumer_cleanup_preflight");
+  assert.equal(payload.context.systemId, "test-ds");
+  assert.equal(repo.getSaved().length, 0);
+});
+
+test("system-routes: delete fails in consumer cleanup after successful preflight", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { DependencyRepository } = await import("../db/dependency-repository.ts");
+    const dependencyRepo = new DependencyRepository(db);
+    dependencyRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-file-1",
+      consumer_name: "Consumer One",
+    });
+
+    const repo = createRepository({
+      systems: [{ id: "test-ds", name: "Test DS", figmaFileId: "figma123" }],
+    });
+    const existing = new Set(["/repo/docs/test-ds"]);
+    let closed = false;
+    const { app } = createTestApp({
+      designSystemRepository: repo,
+      db,
+      resolveSafeSystemPathsForDeletion: () => ["/repo/docs/test-ds"],
+      fsSync: {
+        existsSync: (p) => existing.has(p),
+        rmSync: () => {
+          if (!closed) {
+            db.close();
+            closed = true;
+          }
+        },
+        statSync: () => ({ isDirectory: () => true }),
+        readdirSync: () => [],
+        rmdirSync: () => {},
+        mkdirSync: () => {},
+        writeFileSync: () => {},
+      },
+    });
+
+    const res = await app.request("/api/design-systems/test-ds", { method: "DELETE" });
+    assert.equal(res.status, 500);
+    const payload = await res.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, "design_system.consumer_cleanup_failed");
+    assert.equal(payload.context.phase, "consumer_cleanup");
+    assert.equal(payload.context.systemId, "test-ds");
+    assert.equal(repo.getSaved().length, 0);
+  } finally {
+    if (db.open) db.close();
+  }
 });

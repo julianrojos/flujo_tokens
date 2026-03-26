@@ -47,6 +47,7 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     summarizeDesignSystemsConfig,
     repoRoot,
     fsSync,
+    db,
   } = deps;
   const body = await readJsonBody(c);
   const config = designSystemRepository.getConfig();
@@ -78,12 +79,31 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     });
   }
 
+  let existingConsumersCount = undefined;
+  let existingConsumersCheckFailed = undefined;
+  const normalizedFigmaFileId = String(nextSystem?.figmaFileId || "").trim();
+  // Non-blocking by design: create can proceed without consumer insights.
+  // We surface check failures in the payload via existingConsumersCheckFailed.
+  if (db && normalizedFigmaFileId) {
+    try {
+      const { DependencyRepository } = await import("../db/dependency-repository.js");
+      const dependencyRepo = new DependencyRepository(db);
+      const existingConsumers = dependencyRepo.listConsumers(normalizedFigmaFileId);
+      existingConsumersCount = existingConsumers.length;
+    } catch (dbError) {
+      existingConsumersCheckFailed = true;
+      console.warn("[handleCreateDesignSystemRoute] Existing-consumer check failed:", dbError);
+    }
+  }
+
   designSystemRepository.saveConfig(nextConfig);
   return c.json(
     buildCreateDesignSystemSuccessPayload({
       nextSystem,
       nextConfig,
       summarizeDesignSystemsConfigFn: summarizeDesignSystemsConfig,
+      existingConsumersCount,
+      existingConsumersCheckFailed,
     }),
     200,
   );
@@ -143,6 +163,36 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
     return failJson(c, mutation.error.status, mutation.error.payload);
   }
   const { targetSystem, nextSystems, nextConfig } = mutation;
+  const normalizedFigmaFileId = String(targetSystem?.figmaFileId || "").trim();
+
+  let deletedConsumersCount = undefined;
+  let deletedConsumerNames = undefined;
+  let consumerCleanupSkipped = undefined;
+  let dependencyRepo = null;
+  let preflightConsumers = undefined;
+
+  // Preflight DB check: verify connectivity before touching FS.
+  // This avoids FS changes when DB is already unavailable.
+  if (db && normalizedFigmaFileId) {
+    try {
+      const { DependencyRepository } = await import("../db/dependency-repository.js");
+      dependencyRepo = new DependencyRepository(db);
+      preflightConsumers = dependencyRepo.listConsumers(normalizedFigmaFileId);
+    } catch (dbError) {
+      console.warn("[handleDeleteDesignSystemRoute] DB preflight check failed:", dbError);
+      return failJson(c, 500, {
+        code: "design_system.consumer_cleanup_failed",
+        userMessage:
+          "Failed to verify consumer cleanup in dependency tracking. Design system deletion was cancelled.",
+        recoverable: true,
+        context: {
+          phase: "consumer_cleanup_preflight",
+          systemId: routeSystemId,
+          reason: dbError instanceof Error ? dbError.message : String(dbError),
+        },
+      });
+    }
+  }
 
   const removedPaths = removeExistingPathsWithOptions(
     collectRemovableSystemPaths({
@@ -173,33 +223,54 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
         userMessage: "Failed to reset global documentation artifacts after removing the last design system.",
         recoverable: true,
         context: {
+          phase: "reset_global_artifacts",
+          systemId: routeSystemId,
           reason: error instanceof Error ? error.message : String(error),
         },
       });
     }
   }
 
-  designSystemRepository.saveConfig(nextConfig);
-
-  // Cascade delete consumers from DB after config/FS deletion
-  let deletedConsumersCount = undefined;
-  let deletedConsumerNames = undefined;
-  if (db && targetSystem?.figmaFileId) {
-    try {
-      const { DependencyRepository } = await import("../db/dependency-repository.js");
-      const dependencyRepo = new DependencyRepository(db);
-      const linkedConsumers = dependencyRepo.listConsumers(targetSystem.figmaFileId.trim());
-      const consumerNameById = new Map(
-        linkedConsumers.map((consumer) => [consumer.id, consumer.consumer_name]),
+  // Actual consumer cleanup runs after filesystem/global-reset steps.
+  // Preflight check above reduces failures from already-unavailable DB connections.
+  if (db) {
+    if (normalizedFigmaFileId) {
+      try {
+        const linkedConsumers = preflightConsumers;
+        const consumerNameById = new Map(
+          linkedConsumers.map((consumer) => [consumer.id, consumer.consumer_name]),
+        );
+        const result = dependencyRepo.removeAllByDsFileKey(normalizedFigmaFileId);
+        deletedConsumersCount = result.deletedConsumerCount;
+        // Best-effort naming: if rows changed between preflight and cleanup,
+        // unknown IDs are returned as raw IDs in the response.
+        deletedConsumerNames = result.deletedConsumerIds.map((id) => consumerNameById.get(id) ?? id);
+      } catch (dbError) {
+        console.warn("[handleDeleteDesignSystemRoute] DB cascade delete failed:", dbError);
+        return failJson(c, 500, {
+          code: "design_system.consumer_cleanup_failed",
+          userMessage:
+            "Failed to clean up consumers in dependency tracking. Design system deletion was cancelled.",
+          recoverable: true,
+          context: {
+            phase: "consumer_cleanup",
+            systemId: routeSystemId,
+            reason: dbError instanceof Error ? dbError.message : String(dbError),
+          },
+        });
+      }
+    } else {
+      consumerCleanupSkipped = true;
+      deletedConsumersCount = 0;
+      deletedConsumerNames = [];
+      console.warn(
+        "[handleDeleteDesignSystemRoute] DS %s has no figmaFileId — consumer cleanup skipped.",
+        routeSystemId,
       );
-      const result = dependencyRepo.removeAllByDsFileKey(targetSystem.figmaFileId.trim());
-      deletedConsumersCount = result.deletedConsumerCount;
-      deletedConsumerNames = result.deletedConsumerIds.map((id) => consumerNameById.get(id) ?? id);
-    } catch (dbError) {
-      console.warn('[handleDeleteDesignSystemRoute] DB cascade delete failed:', dbError);
-      // Continue with response but indicate partial failure
     }
   }
+
+  designSystemRepository.saveConfig(nextConfig);
 
   return c.json(
     buildDeleteDesignSystemSuccessPayload({
@@ -209,6 +280,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
       summarizeDesignSystemsConfigFn: summarizeDesignSystemsConfig,
       deletedConsumersCount,
       deletedConsumerNames,
+      consumerCleanupSkipped,
     }),
     200,
   );

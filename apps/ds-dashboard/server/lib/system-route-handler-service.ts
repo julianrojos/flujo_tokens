@@ -296,15 +296,21 @@ export function buildCreateDesignSystemSuccessPayload({
   nextSystem,
   nextConfig,
   summarizeDesignSystemsConfigFn,
+  existingConsumersCount,
+  existingConsumersCheckFailed,
 }: {
   nextSystem: DesignSystem;
   nextConfig: DesignSystemsConfig;
   summarizeDesignSystemsConfigFn: (config: DesignSystemsConfig) => Record<string, unknown>;
+  existingConsumersCount?: number;
+  existingConsumersCheckFailed?: boolean;
 }): Record<string, unknown> {
   return {
     ok: true,
     system: { id: nextSystem.id, name: nextSystem.name },
     config: summarizeDesignSystemsConfigFn(nextConfig),
+    ...(existingConsumersCount !== undefined && { existingConsumersCount }),
+    ...(existingConsumersCheckFailed !== undefined && { existingConsumersCheckFailed }),
   };
 }
 
@@ -343,6 +349,7 @@ export function buildDeleteDesignSystemSuccessPayload({
   summarizeDesignSystemsConfigFn,
   deletedConsumersCount,
   deletedConsumerNames,
+  consumerCleanupSkipped,
 }: {
   removedPaths: string[];
   prunedEmptyDirs?: string[];
@@ -350,6 +357,7 @@ export function buildDeleteDesignSystemSuccessPayload({
   summarizeDesignSystemsConfigFn: (config: DesignSystemsConfig) => Record<string, unknown>;
   deletedConsumersCount?: number;
   deletedConsumerNames?: string[];
+  consumerCleanupSkipped?: boolean;
 }): Record<string, unknown> {
   return {
     ok: true,
@@ -358,6 +366,7 @@ export function buildDeleteDesignSystemSuccessPayload({
     config: summarizeDesignSystemsConfigFn(nextConfig),
     ...(deletedConsumersCount !== undefined && { deletedConsumersCount }),
     ...(deletedConsumerNames !== undefined && { deletedConsumerNames }),
+    ...(consumerCleanupSkipped !== undefined && { consumerCleanupSkipped }),
   };
 }
 
