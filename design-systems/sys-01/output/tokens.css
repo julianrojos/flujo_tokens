@@ -1,0 +1,14 @@
+:root {
+
+  /* = semanticos = */
+
+  --test-borrar: cadena;
+
+
+  /* = semanticos = */
+
+  --color-background-accent: var(--color-negro);
+  --color-background-default: var(--color-blanco);
+  --color-foreground-accent: var(--color-blanco);
+  --color-foreground-default: var(--color-negro);
+}

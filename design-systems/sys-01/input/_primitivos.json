@@ -1,0 +1,22 @@
+{
+  "$description": "_primitivos",
+  "color": {
+    "blanco": {
+      "$value": "#FFFFFF",
+      "$type": "color",
+      "$id": "VariableID:1:5"
+    },
+    "negro": {
+      "$value": "#000000",
+      "$type": "color",
+      "$id": "VariableID:1:7"
+    }
+  },
+  "tamano": {
+    "14": {
+      "$value": 14,
+      "$type": "dimension",
+      "$id": "VariableID:1:9"
+    }
+  }
+}

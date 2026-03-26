@@ -1,0 +1,98 @@
+{
+  "timestamp": "2026-03-26T10:02:53.049Z",
+  "graph": {
+    "nodes": [
+      {
+        "path": "primitivos.color.blanco",
+        "type": "color",
+        "cssVar": "--color-blanco",
+        "depth": 0,
+        "inDegree": 0,
+        "outDegree": 0
+      },
+      {
+        "path": "primitivos.color.negro",
+        "type": "color",
+        "cssVar": "--color-negro",
+        "depth": 0,
+        "inDegree": 0,
+        "outDegree": 0
+      },
+      {
+        "path": "primitivos.tamano.14",
+        "type": "dimension",
+        "cssVar": "--tamano-14",
+        "depth": 0,
+        "inDegree": 0,
+        "outDegree": 0
+      },
+      {
+        "path": "semanticos.color.background.accent",
+        "type": "color",
+        "cssVar": "--color-background-accent",
+        "depth": 0,
+        "inDegree": 0,
+        "outDegree": 0
+      },
+      {
+        "path": "semanticos.color.background.default",
+        "type": "color",
+        "cssVar": "--color-background-default",
+        "depth": 0,
+        "inDegree": 0,
+        "outDegree": 0
+      },
+      {
+        "path": "semanticos.color.foreground.accent",
+        "type": "color",
+        "cssVar": "--color-foreground-accent",
+        "depth": 0,
+        "inDegree": 0,
+        "outDegree": 0
+      },
+      {
+        "path": "semanticos.color.foreground.default",
+        "type": "color",
+        "cssVar": "--color-foreground-default",
+        "depth": 0,
+        "inDegree": 0,
+        "outDegree": 0
+      },
+      {
+        "path": "semanticos.test.BORRAR",
+        "type": "string",
+        "cssVar": "--test-borrar",
+        "depth": 0,
+        "inDegree": 0,
+        "outDegree": 0
+      }
+    ],
+    "edges": [],
+    "cycles": [],
+    "collections": {},
+    "modes": {}
+  },
+  "cycles": [],
+  "highIndirection": [],
+  "unusedPrimitives": [
+    "primitivos.color.blanco",
+    "primitivos.color.negro",
+    "primitivos.tamano.14",
+    "semanticos.color.background.accent",
+    "semanticos.color.background.default",
+    "semanticos.color.foreground.accent",
+    "semanticos.color.foreground.default",
+    "semanticos.test.BORRAR"
+  ],
+  "unresolvedAliases": [],
+  "collisions": [],
+  "summary": {
+    "totalNodes": 8,
+    "totalEdges": 0,
+    "cycleCount": 0,
+    "highIndirectionCount": 0,
+    "unusedPrimitiveCount": 8,
+    "unresolvedAliasCount": 0,
+    "collisionCount": 0
+  }
+}

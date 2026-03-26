@@ -1,0 +1,19 @@
+{
+  "component": "avatar",
+  "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/avatar.md",
+  "script": "component-doc-runner",
+  "updatedAt": "2026-03-26T22:01:36.331Z",
+  "hash": "3ec85d70d7c68de6",
+  "previous_hash": "d90c220318bcf047",
+  "drift_detected": true,
+  "contract": {
+    "frontmatter_keys": [],
+    "h2_headings": [],
+    "table_count": 0,
+    "token_ref_count": 2,
+    "tbd_count": 0,
+    "has_gaps_section": false,
+    "has_code_fences": false,
+    "has_variable_ids": false
+  }
+}

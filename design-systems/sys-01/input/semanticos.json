@@ -1,0 +1,48 @@
+{
+  "$description": "semánticos",
+  "color": {
+    "background": {
+      "default": {
+        "$id": "VariableID:1:10",
+        "$value": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:1:5"
+        },
+        "$type": "color"
+      },
+      "accent": {
+        "$id": "VariableID:1:12",
+        "$value": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:1:7"
+        },
+        "$type": "color"
+      }
+    },
+    "foreground": {
+      "default": {
+        "$id": "VariableID:1:19",
+        "$value": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:1:7"
+        },
+        "$type": "color"
+      },
+      "accent": {
+        "$id": "VariableID:1:20",
+        "$value": {
+          "type": "VARIABLE_ALIAS",
+          "id": "VariableID:1:5"
+        },
+        "$type": "color"
+      }
+    }
+  },
+  "test": {
+    "BORRAR": {
+      "$value": "cadena",
+      "$type": "string",
+      "$id": "VariableID:160:2"
+    }
+  }
+}

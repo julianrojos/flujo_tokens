@@ -1,0 +1,19 @@
+{
+  "component": "alert",
+  "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/alert.md",
+  "script": "component-doc-runner",
+  "updatedAt": "2026-03-26T21:59:54.259Z",
+  "hash": "d90c220318bcf047",
+  "previous_hash": "e54c62470d472033",
+  "drift_detected": true,
+  "contract": {
+    "frontmatter_keys": [],
+    "h2_headings": [],
+    "table_count": 0,
+    "token_ref_count": 1,
+    "tbd_count": 1,
+    "has_gaps_section": true,
+    "has_code_fences": false,
+    "has_variable_ids": false
+  }
+}

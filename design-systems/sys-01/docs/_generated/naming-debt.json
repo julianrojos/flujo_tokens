@@ -1,0 +1,83 @@
+{
+  "ok": true,
+  "generatedAt": "2026-03-26T10:03:02.823Z",
+  "summary": {
+    "totalTokens": 8,
+    "totalViolations": 2,
+    "issuesBySeverity": {
+      "error": 0,
+      "warning": 0,
+      "info": 2
+    },
+    "autoFixable": 0,
+    "manualReview": 0,
+    "overallScore": 98,
+    "collectionsWithDebt": 1
+  },
+  "scoreByCollection": {
+    "primitivos": {
+      "collection": "primitivos",
+      "totalTokens": 3,
+      "score": 100,
+      "cleanPercent": 100,
+      "issuesBySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 0
+      }
+    },
+    "semanticos": {
+      "collection": "semanticos",
+      "totalTokens": 5,
+      "score": 96,
+      "cleanPercent": 60,
+      "issuesBySeverity": {
+        "error": 0,
+        "warning": 0,
+        "info": 2
+      }
+    }
+  },
+  "violations": [
+    {
+      "tokenPath": "semanticos.color.background.default",
+      "tokenSlashPath": "color/background/default",
+      "collection": "semanticos",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'default' can hide intent.",
+      "evidence": [
+        "default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    },
+    {
+      "tokenPath": "semanticos.color.foreground.default",
+      "tokenSlashPath": "color/foreground/default",
+      "collection": "semanticos",
+      "type": "color",
+      "ruleId": "generic-terminal",
+      "category": "vocabulary",
+      "severity": "info",
+      "message": "Generic terminal segment 'default' can hide intent.",
+      "evidence": [
+        "default"
+      ],
+      "fix": "manual",
+      "confidence": 0.7,
+      "suggestedPath": null,
+      "suggestedSlashPath": null,
+      "proposalIndex": null
+    }
+  ],
+  "renameProposals": [],
+  "quickWins": [],
+  "requiresPlanning": [],
+  "renamePlan": []
+}

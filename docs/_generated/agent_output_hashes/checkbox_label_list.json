@@ -1,0 +1,19 @@
+{
+  "component": "checkbox_label_list",
+  "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/checkbox_label_list.md",
+  "script": "component-doc-runner",
+  "updatedAt": "2026-03-26T22:20:22.396Z",
+  "hash": "941517499ebd9cdb",
+  "previous_hash": "941517499ebd9cdb",
+  "drift_detected": false,
+  "contract": {
+    "frontmatter_keys": [],
+    "h2_headings": [],
+    "table_count": 0,
+    "token_ref_count": 0,
+    "tbd_count": 1,
+    "has_gaps_section": true,
+    "has_code_fences": false,
+    "has_variable_ids": true
+  }
+}

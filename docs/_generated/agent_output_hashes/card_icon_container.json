@@ -1,0 +1,19 @@
+{
+  "component": "card_icon_container",
+  "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/card_icon_container.md",
+  "script": "component-doc-runner",
+  "updatedAt": "2026-03-26T22:17:33.258Z",
+  "hash": "a0647a38dd08b5f3",
+  "previous_hash": "83083c4cf94d5611",
+  "drift_detected": true,
+  "contract": {
+    "frontmatter_keys": [],
+    "h2_headings": [],
+    "table_count": 0,
+    "token_ref_count": 5,
+    "tbd_count": 4,
+    "has_gaps_section": true,
+    "has_code_fences": false,
+    "has_variable_ids": false
+  }
+}

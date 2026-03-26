@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 2,
+  "toolVersion": "css-variables-generator@1.0.0",
+  "phase": "emit",
+  "dependencyHash": "c2f03b1512fdef18191a04184d05100eef256abc96fd46a2bd06d81bfcde3c9d",
+  "payloadHash": "e4212253da6eacb1b73b4dadf3388608db399aede5d61a958e5666c691d3c8ce",
+  "createdAt": "2026-03-26T10:02:48.174Z",
+  "payload": {
+    "analyzeHash": "9d5cc3db80014d7ff92018756a3c0559fb7015cdc00247c8cbdfaecae525f49f",
+    "emitHash": "c2f03b1512fdef18191a04184d05100eef256abc96fd46a2bd06d81bfcde3c9d",
+    "outputs": [
+      {
+        "label": "primitives",
+        "filePath": "/Users/julian/Documents/flujo_tokens/output/sys-01/primitives.css",
+        "contentHash": "653f604a4ec945bf67c11090cd213737d2cbb186dd7336ff74cbf54f9dcd43bc"
+      },
+      {
+        "label": "tokens",
+        "filePath": "/Users/julian/Documents/flujo_tokens/output/sys-01/tokens.css",
+        "contentHash": "19b35c60f5903ff5b4133f664aa3ff3441ed34a1236324dfef5e28d9f0528baa"
+      }
+    ],
+    "registry": {
+      "filePath": "/Users/julian/Documents/flujo_tokens/docs/sys-01/_generated/token-registry.json",
+      "contentHash": "1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054"
+    },
+    "summary": {
+      "totalTokens": 8,
+      "successCount": 8,
+      "unresolvedRefs": [],
+      "invalidNames": [],
+      "circularDeps": 0,
+      "depthLimitHits": 0,
+      "cssVarNameCollisions": 0,
+      "cssVarNameCollisionDetails": [],
+      "invalidTokens": [],
+      "tokenTypeCounts": {
+        "color": 6,
+        "dimension": 1,
+        "string": 1
+      }
+    },
+    "detectedModes": [],
+    "emittedModes": []
+  }
+}

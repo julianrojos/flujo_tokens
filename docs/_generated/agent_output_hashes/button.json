@@ -1,0 +1,19 @@
+{
+  "component": "button",
+  "markdownPath": "/Users/julian/Documents/flujo_tokens/docs/components/button.md",
+  "script": "component-doc-runner",
+  "updatedAt": "2026-03-26T22:15:51.413Z",
+  "hash": "b9a4ec28172f17ad",
+  "previous_hash": "b9a4ec28172f17ad",
+  "drift_detected": false,
+  "contract": {
+    "frontmatter_keys": [],
+    "h2_headings": [],
+    "table_count": 0,
+    "token_ref_count": 1,
+    "tbd_count": 2,
+    "has_gaps_section": true,
+    "has_code_fences": false,
+    "has_variable_ids": false
+  }
+}
