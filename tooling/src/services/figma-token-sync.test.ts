@@ -110,16 +110,16 @@ describe('figma-token-sync', () => {
   describe('syncFigmaTokensToInput()', () => {
     it('skips when input JSON exists and force=false', async () => {
       const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'figma-token-sync-'));
-      const inputDir = path.join(tempRoot, 'input', 'demo');
+      const inputDir = path.join(tempRoot, 'design-systems', 'demo', 'input');
       fs.mkdirSync(inputDir, { recursive: true });
       fs.writeFileSync(path.join(inputDir, 'existing.json'), '{\n  "$description": "existing"\n}\n');
 
       const result = await syncFigmaTokensToInput({
         repoRoot: tempRoot,
         system: {
-          inputDir: 'input/demo',
-          outputDir: 'output/demo',
-          docsDir: 'docs/demo',
+          inputDir: 'design-systems/demo/input',
+          outputDir: 'design-systems/demo/output',
+          docsDir: 'design-systems/demo/docs',
         },
         fileKey: 'dummy',
         figmaToken: 'dummy',
@@ -145,9 +145,9 @@ describe('figma-token-sync', () => {
         const result = await syncFigmaTokensToInput({
           repoRoot: tempRoot,
           system: {
-            inputDir: 'input/demo',
-            outputDir: 'output/demo',
-            docsDir: 'docs/demo',
+            inputDir: 'design-systems/demo/input',
+            outputDir: 'design-systems/demo/output',
+            docsDir: 'design-systems/demo/docs',
           },
           fileKey: 'dummy',
           source: 'mcp',
@@ -186,9 +186,9 @@ describe('figma-token-sync', () => {
         const result = await syncFigmaTokensToInput({
           repoRoot: tempRoot,
           system: {
-            inputDir: 'input/demo',
-            outputDir: 'output/demo',
-            docsDir: 'docs/demo',
+            inputDir: 'design-systems/demo/input',
+            outputDir: 'design-systems/demo/output',
+            docsDir: 'design-systems/demo/docs',
           },
           fileKey: 'dummy',
           figmaToken: 'secret',
@@ -227,9 +227,9 @@ describe('figma-token-sync', () => {
         const result = await syncFigmaTokensToInput({
           repoRoot: tempRoot,
           system: {
-            inputDir: 'input/demo',
-            outputDir: 'output/demo',
-            docsDir: 'docs/demo',
+            inputDir: 'design-systems/demo/input',
+            outputDir: 'design-systems/demo/output',
+            docsDir: 'design-systems/demo/docs',
           },
           fileKey: 'dummy',
           figmaToken: 'secret',
@@ -287,9 +287,9 @@ describe('figma-token-sync', () => {
         const result = await syncFigmaTokensToInput({
           repoRoot: tempRoot,
           system: {
-            inputDir: 'input/demo',
-            outputDir: 'output/demo',
-            docsDir: 'docs/demo',
+            inputDir: 'design-systems/demo/input',
+            outputDir: 'design-systems/demo/output',
+            docsDir: 'design-systems/demo/docs',
           },
           fileKey: 'dummy',
           source: 'mcp',
@@ -297,7 +297,7 @@ describe('figma-token-sync', () => {
         });
 
         assert.equal(result.reason, undefined);
-        const outputPath = path.join(tempRoot, 'input', 'demo', 'tipografia-base.json');
+        const outputPath = path.join(tempRoot, 'design-systems', 'demo', 'input', 'tipografia-base.json');
         assert.equal(fs.existsSync(outputPath), true);
 
         const written = JSON.parse(fs.readFileSync(outputPath, 'utf8')) as Record<string, unknown>;
@@ -341,9 +341,9 @@ describe('figma-token-sync', () => {
         const result = await syncFigmaTokensToInput({
           repoRoot: tempRoot,
           system: {
-            inputDir: 'input/demo',
-            outputDir: 'output/demo',
-            docsDir: 'docs/demo',
+            inputDir: 'design-systems/demo/input',
+            outputDir: 'design-systems/demo/output',
+            docsDir: 'design-systems/demo/docs',
           },
           fileKey: 'dummy',
           source: 'mcp',
@@ -351,7 +351,7 @@ describe('figma-token-sync', () => {
         });
 
         assert.equal(result.reason, undefined);
-        const outputPath = path.join(tempRoot, 'input', 'demo', 'cafe-base.json');
+        const outputPath = path.join(tempRoot, 'design-systems', 'demo', 'input', 'cafe-base.json');
         assert.equal(fs.existsSync(outputPath), true);
 
         const written = JSON.parse(fs.readFileSync(outputPath, 'utf8')) as Record<string, unknown>;
@@ -377,9 +377,9 @@ describe('figma-token-sync', () => {
         const result = await syncFigmaTokensToInput({
           repoRoot: tempRoot,
           system: {
-            inputDir: 'input/demo',
-            outputDir: 'output/demo',
-            docsDir: 'docs/demo',
+            inputDir: 'design-systems/demo/input',
+            outputDir: 'design-systems/demo/output',
+            docsDir: 'design-systems/demo/docs',
           },
           fileKey: 'dummy',
           figmaToken: 'secret',
@@ -415,9 +415,9 @@ describe('figma-token-sync', () => {
         const result = await syncFigmaTokensToInput({
           repoRoot: tempRoot,
           system: {
-            inputDir: 'input/demo',
-            outputDir: 'output/demo',
-            docsDir: 'docs/demo',
+            inputDir: 'design-systems/demo/input',
+            outputDir: 'design-systems/demo/output',
+            docsDir: 'design-systems/demo/docs',
           },
           fileKey: 'dummy',
           figmaToken: 'secret',
@@ -452,9 +452,9 @@ describe('figma-token-sync', () => {
         const result = await syncFigmaTokensToInput({
           repoRoot: tempRoot,
           system: {
-            inputDir: 'input/demo',
-            outputDir: 'output/demo',
-            docsDir: 'docs/demo',
+            inputDir: 'design-systems/demo/input',
+            outputDir: 'design-systems/demo/output',
+            docsDir: 'design-systems/demo/docs',
           },
           fileKey: 'dummy',
           source: 'invalid-source' as any,

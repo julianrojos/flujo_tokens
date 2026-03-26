@@ -41,9 +41,9 @@ function createBaseDeps(overrides = {}) {
       {
         id: systemId,
         name: systemId.charAt(0).toUpperCase() + systemId.slice(1),
-        inputDir: `input/${systemId}`,
-        outputDir: `output/${systemId}`,
-        docsDir: `docs/${systemId}`,
+        inputDir: `design-systems/${systemId}/input`,
+        outputDir: `design-systems/${systemId}/output`,
+        docsDir: `design-systems/${systemId}/docs`,
       },
     ],
   });
@@ -322,9 +322,9 @@ test("system-routes: create bootstraps system scaffold artifacts", async () => {
   const res = await app.request("/api/design-systems", { method: "POST" });
   assert.equal(res.status, 200);
 
-  const componentRegistryPath = "/repo/docs/simple-design-system/_generated/component-registry.json";
-  const tokenRegistryPath = "/repo/docs/simple-design-system/_generated/token-registry.json";
-  const overviewPath = "/repo/docs/simple-design-system/components/overview.md";
+  const componentRegistryPath = "/repo/design-systems/simple-design-system/docs/_generated/component-registry.json";
+  const tokenRegistryPath = "/repo/design-systems/simple-design-system/docs/_generated/token-registry.json";
+  const overviewPath = "/repo/design-systems/simple-design-system/docs/components/overview.md";
 
   assert.ok(writes.has(componentRegistryPath));
   assert.ok(writes.has(tokenRegistryPath));
@@ -369,11 +369,11 @@ test("system-routes: delete allows removing the last remaining system", async ()
 
 test("system-routes: delete prunes empty ancestor directories", async () => {
   const existing = new Set([
-    "/repo/docs/acme",
-    "/repo/docs/acme/_spec",
-    "/repo/docs/acme/_spec/components",
-    "/repo/input/acme",
-    "/repo/output/acme",
+    "/repo/design-systems/acme/docs",
+    "/repo/design-systems/acme/docs/_spec",
+    "/repo/design-systems/acme/docs/_spec/components",
+    "/repo/design-systems/acme/input",
+    "/repo/design-systems/acme/output",
   ]);
   const removedPaths = [];
   const prunedDirs = [];
@@ -383,22 +383,21 @@ test("system-routes: delete prunes empty ancestor directories", async () => {
     systemId: "acme",
     // Return actual system directory paths (as the real implementation does)
     resolveSafeSystemPathsForDeletion: () => [
-      "/repo/docs/acme/_spec/components",
-      "/repo/input/acme",
-      "/repo/output/acme",
+      "/repo/design-systems/acme/docs/_spec/components",
+      "/repo/design-systems/acme/input",
+      "/repo/design-systems/acme/output",
     ],
     fsSync: {
       existsSync: (p) => existing.has(p),
       statSync: () => ({ isDirectory: () => true }),
       readdirSync: (p) => {
         // After deletion, these directories are empty
-        if (p === "/repo/docs/acme/_spec/components") return [];
-        if (p === "/repo/docs/acme/_spec") return [];
-        if (p === "/repo/docs/acme") return [];
+        if (p === "/repo/design-systems/acme/docs/_spec/components") return [];
+        if (p === "/repo/design-systems/acme/docs/_spec") return [];
+        if (p === "/repo/design-systems/acme/docs") return [];
         // Protected root has other content
-        if (p === "/repo/docs") return [{ name: "other-system" }];
-        if (p === "/repo/input") return [{ name: "other-system" }];
-        if (p === "/repo/output") return [{ name: "other-system" }];
+        if (p === "/repo/design-systems/acme") return [{ name: "other-system" }];
+        if (p === "/repo/design-systems") return [{ name: "other-system" }];
         return [{ name: "other" }];
       },
       rmSync: (p) => {

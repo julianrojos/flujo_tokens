@@ -183,7 +183,7 @@ export function useNewSystemWizard(): NewSystemWizardViewModel {
 
     try {
       const systemId = state.form.systemIdOverride.trim() || generatedSystemId;
-      const safeInputDir = `input/${systemId}`;
+      const safeInputDir = `design-systems/${systemId}/input`;
       const documentWideUrl = toDocumentWideFigmaUrl(state.form.figmaFileUrl);
       const sourceFileKey = extractFigmaFileIdFromUrl(state.form.figmaFileUrl);
 

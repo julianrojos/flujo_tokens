@@ -16,6 +16,28 @@ function cloneSystems(config) {
   return Array.isArray(config?.systems) ? [...config.systems] : [];
 }
 
+const CANONICAL_SYSTEMS_PREFIX = "design-systems";
+
+/**
+ * Validates that systemId contains only safe characters.
+ * Returns true if valid, false otherwise.
+ */
+function isValidSystemId(systemId) {
+  return typeof systemId === "string" && /^[a-z0-9_-]+$/.test(systemId);
+}
+
+function getDefaultSystemDirs(systemId) {
+  if (!isValidSystemId(systemId)) {
+    throw new Error(`Invalid systemId: "${systemId}". Only alphanumeric characters, hyphens, and underscores are allowed.`);
+  }
+  const canonicalBase = `${CANONICAL_SYSTEMS_PREFIX}/${systemId}`;
+  return {
+    inputDir: `${canonicalBase}/input`,
+    outputDir: `${canonicalBase}/output`,
+    docsDir: `${canonicalBase}/docs`,
+  };
+}
+
 export function buildCreateDesignSystemConfigMutation({
   config,
   body,
@@ -40,9 +62,10 @@ export function buildCreateDesignSystemConfigMutation({
     });
   }
 
-  const inputDir = ensureRelativeDir(body.inputDir, `input/${systemId}`);
-  const outputDir = ensureRelativeDir(body.outputDir, `output/${systemId}`);
-  const docsDir = ensureRelativeDir(body.docsDir, `docs/${systemId}`);
+  const defaultDirs = getDefaultSystemDirs(systemId);
+  const inputDir = ensureRelativeDir(body.inputDir, defaultDirs.inputDir);
+  const outputDir = ensureRelativeDir(body.outputDir, defaultDirs.outputDir);
+  const docsDir = ensureRelativeDir(body.docsDir, defaultDirs.docsDir);
 
   const nextSystem = {
     id: systemId,
@@ -99,6 +122,7 @@ export function buildUpdateDesignSystemConfigMutation({
     });
   }
 
+  const defaultDirs = getDefaultSystemDirs(routeSystemId);
   const updated = {
     ...current,
     id: routeSystemId,
@@ -106,9 +130,9 @@ export function buildUpdateDesignSystemConfigMutation({
     appName: String(body.appName ?? current.appName ?? normalizedName).trim() || normalizedName,
     figmaFileId: String(body.figmaFileId ?? current.figmaFileId ?? "").trim(),
     figmaApiToken: normalizeFigmaApiTokenRef(body.figmaApiToken ?? current.figmaApiToken),
-    inputDir: ensureRelativeDir(body.inputDir ?? current.inputDir, `input/${routeSystemId}`),
-    outputDir: ensureRelativeDir(body.outputDir ?? current.outputDir, `output/${routeSystemId}`),
-    docsDir: ensureRelativeDir(body.docsDir ?? current.docsDir, `docs/${routeSystemId}`),
+    inputDir: ensureRelativeDir(body.inputDir ?? current.inputDir, defaultDirs.inputDir),
+    outputDir: ensureRelativeDir(body.outputDir ?? current.outputDir, defaultDirs.outputDir),
+    docsDir: ensureRelativeDir(body.docsDir ?? current.docsDir, defaultDirs.docsDir),
     collections: normalizeCollectionList(body.collections ?? current.collections ?? []),
     compileVariablesOnCapture:
       body.compileVariablesOnCapture !== undefined

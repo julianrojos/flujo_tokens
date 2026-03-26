@@ -24,6 +24,129 @@ const __dirname = path.dirname(__filename);
 
 // Get repo root (this file is in apps/ds-dashboard/server/routes/)
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
+const REPO_ROOT_WITH_SEP = REPO_ROOT.endsWith(path.sep) ? REPO_ROOT : `${REPO_ROOT}${path.sep}`;
+const GLOBAL_DOCS_COMPONENTS_DIR = path.resolve(REPO_ROOT, 'docs/components');
+
+interface SystemContextLike {
+    systemId?: unknown;
+    docsDir?: unknown;
+}
+
+interface AiJobsRouteDeps {
+    internalToken?: string;
+    getSystemContext?: (systemHeader: string) => unknown;
+}
+const VALID_PROVIDERS = ['anthropic', 'openai', 'ollama', 'gemini'] as const;
+const SSE_POLL_INTERVAL_MS = 1000;
+const SSE_KEEPALIVE_INTERVAL_MS = 15000;
+const SSE_MAX_POLL_DURATION_MS = 30 * 60 * 1000;
+
+type ResolveDocsContextResult =
+    | {
+        ok: true;
+        docsComponentsDir: string;
+        systemId?: string;
+    }
+    | {
+        ok: false;
+        statusCode: number;
+        message: string;
+    };
+
+function normalizeHeaderValue(value: string | undefined): string {
+    return String(value || '').trim();
+}
+
+/**
+ * Resolves the documentation context used by AI job endpoints.
+ * Chooses a system-scoped docs directory when system context is available,
+ * otherwise falls back to the global docs/components directory.
+ */
+function resolveDocsContext(
+    deps: AiJobsRouteDeps,
+    options: {
+        requestSystemHeader?: string;
+        preferredSystemId?: string;
+    }
+): ResolveDocsContextResult {
+    if (!deps.getSystemContext) {
+        return { ok: true, docsComponentsDir: GLOBAL_DOCS_COMPONENTS_DIR };
+    }
+
+    const preferredSystemId = normalizeHeaderValue(options.preferredSystemId);
+    const requestSystemHeader = normalizeHeaderValue(options.requestSystemHeader);
+    const targetSystemHeader = preferredSystemId || requestSystemHeader || '';
+
+    let contextValue: unknown;
+    try {
+        contextValue = deps.getSystemContext(targetSystemHeader);
+    } catch (error) {
+        console.warn('[ai-jobs-route] Failed to resolve system context', {
+            targetSystemHeader,
+            error,
+        });
+        if (preferredSystemId) {
+            return {
+                ok: false,
+                statusCode: 409,
+                message: 'The job references a design system that is no longer available.',
+            };
+        }
+        if (requestSystemHeader) {
+            return {
+                ok: false,
+                statusCode: 400,
+                message: 'Invalid design system header.',
+            };
+        }
+        return {
+            ok: false,
+            statusCode: 500,
+            message: 'Failed to resolve default design system context.',
+        };
+    }
+
+    if (typeof contextValue !== 'object' || contextValue === null) {
+        return {
+            ok: false,
+            statusCode: 500,
+            message: 'Design system context resolver returned an invalid value.',
+        };
+    }
+
+    const context = contextValue as SystemContextLike;
+    const docsDir = normalizeHeaderValue(typeof context.docsDir === 'string' ? context.docsDir : undefined);
+    if (!docsDir) {
+        return {
+            ok: false,
+            statusCode: 500,
+            message: 'Design system context does not include docsDir.',
+        };
+    }
+
+    const systemId = normalizeHeaderValue(typeof context.systemId === 'string' ? context.systemId : undefined) || undefined;
+    const resolvedDocsDir = path.resolve(docsDir);
+    if (resolvedDocsDir !== REPO_ROOT && !resolvedDocsDir.startsWith(REPO_ROOT_WITH_SEP)) {
+        console.error('[ai-jobs-route] Rejected docsDir outside repository root', {
+            targetSystemHeader,
+            systemId,
+            docsDir,
+            resolvedDocsDir,
+            repoRoot: REPO_ROOT,
+        });
+        return {
+            ok: false,
+            statusCode: 500,
+            message: 'Design system docs directory is invalid.',
+        };
+    }
+
+    return {
+        ok: true,
+        docsComponentsDir: path.resolve(resolvedDocsDir, 'components'),
+        systemId,
+    };
+}
 
 /**
  * Request body for creating a job
@@ -58,13 +181,14 @@ function checkAuth(c: { req: { header: (name: string) => string | undefined } },
         return true;
     }
 
-    // Check internal token if set
-    if (internalToken) {
-        const provided = c.req.header('x-internal-token');
-        return provided === internalToken;
+    // If no token is configured, allow all requests (development mode)
+    if (!internalToken) {
+        return true;
     }
 
-    return false;
+    // Check internal token if set
+    const provided = c.req.header('x-internal-token');
+    return provided === internalToken;
 }
 
 /**
@@ -82,7 +206,7 @@ function errorResponse(code: string, message: string, retryable = false) {
 /**
  * Register AI jobs routes
  */
-export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }) {
+export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
     const store = getAiJobsStore();
     store.setOnJobStarted((job) => {
         runGenerateComponentDoc(job, store).catch((err) => {
@@ -109,7 +233,7 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
         if (!body.type || body.type !== 'GENERATE_COMPONENT_DOC') {
             return c.json(errorResponse('ai.input.invalid', 'type must be GENERATE_COMPONENT_DOC'), 400);
         }
-        if (!body.provider || (body.provider !== 'anthropic' && body.provider !== 'openai' && body.provider !== 'ollama' && body.provider !== 'gemini')) {
+        if (!body.provider || !VALID_PROVIDERS.includes(body.provider)) {
             return c.json(errorResponse('ai.input.invalid', 'provider must be anthropic, openai, ollama, or gemini'), 400);
         }
         if (!body.componentId || typeof body.componentId !== 'string') {
@@ -121,12 +245,11 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             return c.json(
                 errorResponse(
                     'ai.input.missing_provider_key',
-                    `API key not set for ${body.provider}. Set ${
-                        body.provider === 'anthropic'
-                            ? 'ANTHROPIC_API_KEY'
-                            : body.provider === 'gemini'
-                                ? 'GEMINI_API_KEY (or GOOGLE_API_KEY)'
-                                : 'OPENAI_API_KEY'
+                    `API key not set for ${body.provider}. Set ${body.provider === 'anthropic'
+                        ? 'ANTHROPIC_API_KEY'
+                        : body.provider === 'gemini'
+                            ? 'GEMINI_API_KEY (or GOOGLE_API_KEY)'
+                            : 'OPENAI_API_KEY'
                     } environment variable.`
                 ),
                 400
@@ -158,6 +281,12 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             }
         }
         const fileKey = 'fileKey' in resolved ? resolved.fileKey ?? undefined : undefined;
+        const docsContext = resolveDocsContext(deps, {
+            requestSystemHeader: c.req.header('x-ds-system'),
+        });
+        if (!docsContext.ok) {
+            return c.json(errorResponse('ai.input.invalid', docsContext.message), docsContext.statusCode);
+        }
 
         // Health-check for Ollama before enqueue
         if (body.provider === 'ollama') {
@@ -176,6 +305,7 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             const job = store.enqueue({
                 type: body.type,
                 provider: body.provider,
+                ...(docsContext.systemId ? { systemId: docsContext.systemId } : {}),
                 componentId: body.componentId,
                 fileKey,
                 figmaUrl,
@@ -230,11 +360,15 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
         }
 
-        // Resolve docs directory
-        const docsDir = path.resolve(REPO_ROOT, 'docs/components');
+        const docsContext = resolveDocsContext(deps, {
+            requestSystemHeader: c.req.header('x-ds-system'),
+        });
+        if (!docsContext.ok) {
+            return c.json(errorResponse('ai.input.invalid', docsContext.message), docsContext.statusCode);
+        }
 
         try {
-            const result = await computeDocStatuses(docsDir);
+            const result = await computeDocStatuses(docsContext.docsComponentsDir);
             return c.json(result);
         } catch (error) {
             console.error('Error computing doc statuses:', error);
@@ -291,7 +425,7 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
     app.get('/api/ai/jobs/:id/events', async (c) => {
         // Auth check
         if (!checkAuth(c, deps.internalToken)) {
-            return c.text('Unauthorized', 401);
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
         }
 
         const jobId = c.req.param('id');
@@ -310,7 +444,7 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
 
         const job = store.findById(jobId);
         if (!job) {
-            return c.text('Job not found', 404);
+            return c.json(errorResponse('ai.job.not_found', 'Job not found'), 404);
         }
 
         // Create SSE stream
@@ -343,14 +477,25 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
                 controllerRef = controller;
                 let lastSeq = cursorNum;
                 let lastKeepalive = Date.now();
-                const POLL_INTERVAL = 1000;
-                const KEEPALIVE_INTERVAL = 15000;
+                const startTime = Date.now();
 
                 signal.addEventListener('abort', closeStream, { once: true });
 
                 // Send existing events first
                 const sendNewEvents = () => {
                     if (closed || signal.aborted) {
+                        closeStream();
+                        return;
+                    }
+                    if (Date.now() - startTime > SSE_MAX_POLL_DURATION_MS) {
+                        controller.enqueue(
+                            encoder.encode(
+                                `event: error\ndata: ${JSON.stringify({
+                                    code: 'ai.events.timeout',
+                                    message: 'Job event stream polling timeout exceeded.',
+                                })}\n\n`,
+                            ),
+                        );
                         closeStream();
                         return;
                     }
@@ -380,13 +525,13 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
                     }
 
                     // Keepalive
-                    if (Date.now() - lastKeepalive > KEEPALIVE_INTERVAL) {
+                    if (Date.now() - lastKeepalive > SSE_KEEPALIVE_INTERVAL_MS) {
                         controller.enqueue(encoder.encode(': keepalive\n\n'));
                         lastKeepalive = Date.now();
                     }
 
                     // Continue polling
-                    timeoutId = setTimeout(sendNewEvents, POLL_INTERVAL);
+                    timeoutId = setTimeout(sendNewEvents, SSE_POLL_INTERVAL_MS);
                 };
 
                 // Start polling
@@ -437,20 +582,37 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
         }
 
         const { outputPath, overwrite } = body;
+        if (!job.output) {
+            return c.json(errorResponse('ai.job.no_output', 'Job has no output to apply'), 400);
+        }
+        const docsContext = resolveDocsContext(deps, {
+            preferredSystemId: job.input.systemId,
+            requestSystemHeader: c.req.header('x-ds-system'),
+        });
+        if (!docsContext.ok) {
+            return c.json(errorResponse('ai.input.invalid', docsContext.message), docsContext.statusCode);
+        }
+        const requestSystemHeader = normalizeHeaderValue(c.req.header('x-ds-system'));
+        if (requestSystemHeader && job.input.systemId && requestSystemHeader !== job.input.systemId) {
+            return c.json(
+                errorResponse('ai.input.conflict', 'Requested design system does not match the job design system.'),
+                409,
+            );
+        }
 
         // Generate filename from title
-        const slug = createComponentSlug(job.output!.title);
+        const slug = createComponentSlug(job.output.title);
         const filename = `${slug}.md`;
 
         // Resolve output path
         const basePath = outputPath
             ? path.resolve(REPO_ROOT, outputPath)
-            : path.resolve(REPO_ROOT, 'docs/components');
+            : docsContext.docsComponentsDir;
 
         const filePath = path.join(basePath, filename);
 
         // Security: ensure path starts with allowed base
-        const allowedBase = path.resolve(REPO_ROOT, 'docs/components');
+        const allowedBase = docsContext.docsComponentsDir;
         // Use startsWith with path separator to prevent prefix attacks (e.g., docs/components-evil)
         const resolvedPath = path.resolve(filePath);
         const allowedBaseWithSep = allowedBase + path.sep;
@@ -482,11 +644,11 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
             if (overwrite) {
                 // Use temp file for atomic write
                 const tempPath = `${filePath}.tmp`;
-                await fs.writeFile(tempPath, job.output!.markdown, 'utf-8');
+                await fs.writeFile(tempPath, job.output.markdown, 'utf-8');
                 await fs.rename(tempPath, filePath);
             } else {
                 // Use exclusive create
-                await fs.writeFile(filePath, job.output!.markdown, {
+                await fs.writeFile(filePath, job.output.markdown, {
                     flag: 'wx',
                 });
             }
@@ -501,7 +663,7 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
         }
 
         // Compute checksum from the markdown we just wrote — avoids a redundant read
-        const checksum = crypto.createHash('sha256').update(job.output!.markdown).digest('hex');
+        const checksum = crypto.createHash('sha256').update(job.output.markdown).digest('hex');
 
         return c.json({
             ok: true,
@@ -528,13 +690,19 @@ export function registerAiJobsRoutes(app: Hono, deps: { internalToken?: string }
         if (job.status !== 'completed' || !job.output) {
             return c.json(errorResponse('ai.job.not_completed', 'Job must be completed to get diff'), 400);
         }
+        const docsContext = resolveDocsContext(deps, {
+            preferredSystemId: job.input.systemId,
+            requestSystemHeader: c.req.header('x-ds-system'),
+        });
+        if (!docsContext.ok) {
+            return c.json(errorResponse('ai.input.invalid', docsContext.message), docsContext.statusCode);
+        }
 
         // Generate slug from title
         const slug = createComponentSlug(job.output.title);
-        const docsDir = path.resolve(REPO_ROOT, 'docs/components');
 
         try {
-            const diffResult = await computeDocDiff(job.output.markdown, slug, docsDir);
+            const diffResult = await computeDocDiff(job.output.markdown, slug, docsContext.docsComponentsDir);
             return c.json(diffResult);
         } catch (error) {
             console.error('Error computing diff:', error);

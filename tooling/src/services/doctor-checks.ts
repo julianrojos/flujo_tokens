@@ -49,6 +49,15 @@ export interface DoctorCheckResult {
   manifest?: ManifestDocument | null;
 }
 
+interface DesignSystemsFile {
+  systems?: Array<{
+    id?: unknown;
+    inputDir?: unknown;
+    outputDir?: unknown;
+    docsDir?: unknown;
+  }>;
+}
+
 // ============================================================================
 // Context Resolution
 // ============================================================================
@@ -243,6 +252,214 @@ export function checkPaths(ctx: DoctorContext): DoctorCheck[] {
         status: 'fail',
         message: 'Missing component spec directory.',
         details: { specRoot: ctx.specRoot },
+      }),
+    );
+  }
+
+  return checks;
+}
+
+/**
+ * Check alignment between design-systems config and filesystem directories.
+ */
+export function checkSystemPathAlignment(
+  projectRoot: string,
+  options?: { configPath?: string },
+): DoctorCheck[] {
+  const checks: DoctorCheck[] = [];
+  const configPath = path.resolve(
+    options?.configPath || path.join(projectRoot, 'tooling', 'config', 'design-systems.json'),
+  );
+
+  if (!fs.existsSync(configPath)) {
+    checks.push(
+      createCheck({
+        id: 'SYSTEM_PATH_ALIGNMENT',
+        status: 'fail',
+        message: 'Design systems config file is missing.',
+        details: { configPath },
+      }),
+    );
+    return checks;
+  }
+
+  let parsed: DesignSystemsFile;
+  try {
+    parsed = JSON.parse(fs.readFileSync(configPath, 'utf8')) as DesignSystemsFile;
+  } catch (error) {
+    checks.push(
+      createCheck({
+        id: 'SYSTEM_PATH_ALIGNMENT',
+        status: 'fail',
+        message: 'Design systems config file is invalid JSON.',
+        details: {
+          configPath,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      }),
+    );
+    return checks;
+  }
+
+  const systems = Array.isArray(parsed.systems) ? parsed.systems : [];
+  if (systems.length === 0) {
+    checks.push(
+      createCheck({
+        id: 'SYSTEM_PATH_ALIGNMENT',
+        status: 'warn',
+        message: 'No design systems configured; path alignment check skipped.',
+        details: { configPath, systems: 0 },
+      }),
+    );
+    return checks;
+  }
+
+  const missing: string[] = [];
+  const nonCanonical: string[] = [];
+
+  for (const row of systems) {
+    const id = String(row?.id || '').trim() || '(unknown)';
+    const dirs = [
+      ['inputDir', String(row?.inputDir || '').trim()],
+      ['outputDir', String(row?.outputDir || '').trim()],
+      ['docsDir', String(row?.docsDir || '').trim()],
+    ] as const;
+
+    for (const [field, relDir] of dirs) {
+      if (!relDir) continue;
+
+      // Security: reject paths with traversal patterns
+      const normalizedRelDir = path.normalize(relDir);
+      if (normalizedRelDir.includes('..')) {
+        checks.push(
+          createCheck({
+            id: 'SYSTEM_PATH_ALIGNMENT',
+            status: 'fail',
+            message: `Configured ${field} for system "${id}" contains path traversal pattern.`,
+            details: {
+              configPath,
+              systemId: id,
+              field,
+              relDir,
+              reason: 'Path traversal detected',
+            },
+          }),
+        );
+        return checks;
+      }
+
+      if (!relDir.startsWith('design-systems/')) {
+        nonCanonical.push(`${id}:${field}:${relDir}`);
+      }
+      const absoluteDir = path.resolve(projectRoot, relDir);
+      if (!fs.existsSync(absoluteDir)) {
+        missing.push(`${id}:${field}:${relDir}`);
+      }
+    }
+  }
+
+  if (missing.length > 0) {
+    checks.push(
+      createCheck({
+        id: 'SYSTEM_PATH_ALIGNMENT',
+        status: 'fail',
+        message: 'Some configured system directories do not exist.',
+        details: {
+          configPath,
+          missingCount: missing.length,
+          missing,
+          nonCanonicalCount: nonCanonical.length,
+          nonCanonical,
+        },
+      }),
+    );
+    return checks;
+  }
+
+  if (nonCanonical.length > 0) {
+    checks.push(
+      createCheck({
+        id: 'SYSTEM_PATH_ALIGNMENT',
+        status: 'fail',
+        message: 'Some systems use non-canonical layout. All paths must start with design-systems/.',
+        details: {
+          configPath,
+          nonCanonicalCount: nonCanonical.length,
+          nonCanonical,
+        },
+      }),
+    );
+    return checks;
+  }
+
+  checks.push(
+    createCheck({
+      id: 'SYSTEM_PATH_ALIGNMENT',
+      status: 'pass',
+      message: 'All configured system directories exist and use canonical layout.',
+      details: {
+        configPath,
+        systems: systems.length,
+      },
+    }),
+  );
+
+  return checks;
+}
+
+/**
+ * Check for orphaned system directories in filesystem that have no config entry.
+ */
+export function checkOrphanedSystemDirectories(
+  projectRoot: string,
+  options?: { configPath?: string },
+): DoctorCheck[] {
+  const checks: DoctorCheck[] = [];
+  const configPath = path.resolve(
+    options?.configPath || path.join(projectRoot, 'tooling', 'config', 'design-systems.json'),
+  );
+
+  // Scan for legacy root-level directories
+  const orphaned: string[] = [];
+  const legacyRoots = ['input', 'output', 'docs'];
+
+  for (const root of legacyRoots) {
+    const rootPath = path.join(projectRoot, root);
+    if (!fs.existsSync(rootPath) || !fs.statSync(rootPath).isDirectory()) continue;
+
+    const entries = fs.readdirSync(rootPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      if (entry.name.startsWith('.')) continue;
+      // docs/ is a valid global documentation root; only treat legacy system shards
+      // (docs/sys-*) as orphaned system directories.
+      if (root === 'docs' && !entry.name.startsWith('sys-')) continue;
+
+      const legacyPath = `${root}/${entry.name}`;
+      orphaned.push(legacyPath);
+    }
+  }
+
+  if (orphaned.length > 0) {
+    checks.push(
+      createCheck({
+        id: 'ORPHANED_SYSTEM_DIRECTORIES',
+        status: 'warn',
+        message: 'Found system directories without configuration entries.',
+        details: {
+          orphanedCount: orphaned.length,
+          orphaned,
+          suggested: 'Migrate to design-systems/<id>/{input,output,docs} or remove if unused.',
+        },
+      }),
+    );
+  } else {
+    checks.push(
+      createCheck({
+        id: 'ORPHANED_SYSTEM_DIRECTORIES',
+        status: 'pass',
+        message: 'No orphaned system directories detected.',
+        details: { orphanedCount: 0 },
       }),
     );
   }
@@ -566,33 +783,33 @@ export function checkComponentByName(ctx: DoctorContext): DoctorCheck[] {
     checks.push(
       fs.existsSync(markdownPath)
         ? createCheck({
-            id: 'COMPONENT_MD',
-            status: 'pass',
-            message: 'Component markdown exists.',
-            details: { markdownPath },
-          })
+          id: 'COMPONENT_MD',
+          status: 'pass',
+          message: 'Component markdown exists.',
+          details: { markdownPath },
+        })
         : createCheck({
-            id: 'COMPONENT_MD',
-            status: 'fail',
-            message: 'Component markdown is missing.',
-            details: { markdownPath },
-          }),
+          id: 'COMPONENT_MD',
+          status: 'fail',
+          message: 'Component markdown is missing.',
+          details: { markdownPath },
+        }),
     );
 
     checks.push(
       fs.existsSync(specPath)
         ? createCheck({
-            id: 'COMPONENT_SPEC',
-            status: 'pass',
-            message: 'Component spec exists.',
-            details: { specPath },
-          })
+          id: 'COMPONENT_SPEC',
+          status: 'pass',
+          message: 'Component spec exists.',
+          details: { specPath },
+        })
         : createCheck({
-            id: 'COMPONENT_SPEC',
-            status: 'fail',
-            message: 'Component spec is missing.',
-            details: { specPath },
-          }),
+          id: 'COMPONENT_SPEC',
+          status: 'fail',
+          message: 'Component spec is missing.',
+          details: { specPath },
+        }),
     );
   }
 

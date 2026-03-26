@@ -10,14 +10,13 @@ import type {
   FetchFigmaFileOptions,
   FetchFigmaNodesOptions,
   FetchFigmaVariablesOptions,
-  FetchFigmaFileComponentsOptions,
   FetchFigmaImagesOptions,
   FigmaFileResponse,
-  FigmaFileComponentsResponse,
   FigmaNodesResponse,
   FigmaVariablesResponse,
   FigmaImagesResponse,
 } from './figma.js';
+import type { FetchFigmaFileComponentsOptions, FigmaFileComponentsResponse } from '../types/figma.js';
 
 // Re-export Figma types for consumers
 export type { FigmaVariablesResponse };

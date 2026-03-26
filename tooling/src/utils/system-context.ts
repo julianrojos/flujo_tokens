@@ -29,19 +29,6 @@ export interface DesignSystemsFile {
   defaultSystem?: string;
 }
 
-/**
- * Legacy fallback paths for module-level defaults when design-systems.json
- * is missing or broken.
- */
-const LEGACY_PATHS = Object.freeze({
-  generated: path.resolve(PROJECT_ROOT, "docs/_generated"),
-  specs: path.resolve(PROJECT_ROOT, "docs/_spec/components"),
-  docs: path.resolve(PROJECT_ROOT, "docs/components"),
-  registry: path.resolve(PROJECT_ROOT, "docs/_generated/component-registry.json"),
-  tokenRegistry: path.resolve(PROJECT_ROOT, "docs/_generated/token-registry.json"),
-  figmaAliasGraph: path.resolve(PROJECT_ROOT, "docs/_generated/figma-alias-graph.json"),
-});
-
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");
 
 export interface ScriptSystemContext {
@@ -100,47 +87,27 @@ export function loadDesignSystemsConfig(): DesignSystemsFile {
 /**
  * Resolve system context from the central repository.
  * Returns the active system context based on defaultSystem or explicit system ID.
- * Falls back to legacy paths if design-systems.json is unreadable.
+ * Throws when no design systems are configured.
  */
 export function resolveSystemContextSafe(opts?: { system?: string }): ScriptSystemContext {
-  try {
-    const config = loadDesignSystemsConfig();
-    const systemId = opts?.system || config.defaultSystem;
-
-    // Try to find requested system or default
-    if (config.systems && systemId) {
-      const system = config.systems.find(s => s.id === systemId);
-      if (system) {
-        return systemContext(system);
-      }
-    }
-
-    // Fallback to first system or ultimate legacy
-    const firstSystem = config.systems?.[0];
-    return firstSystem
-      ? systemContext(firstSystem)
-      : legacyContext("_legacy");
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.warn(`[system-context] Falling back to legacy paths: ${msg}`);
-    return legacyContext("_legacy");
+  const config = loadDesignSystemsConfig();
+  const systems = Array.isArray(config.systems) ? config.systems : [];
+  if (systems.length === 0) {
+    throw new Error("No systems configured. Create one first.");
   }
-}
+  const systemId = String(opts?.system || config.defaultSystem || "").trim();
 
-/**
- * Create a legacy context object with the given id.
- */
-function legacyContext(id: string): ScriptSystemContext {
-  return {
-    id,
-    name: "Legacy",
-    docsDir: LEGACY_PATHS.docs,
-    paths: {
-      input: LEGACY_PATHS.generated,
-      output: LEGACY_PATHS.generated,
-      ...LEGACY_PATHS,
-    },
-  };
+  // Try to find requested system or default
+  if (systemId) {
+    const system = systems.find((s) => s.id === systemId);
+    if (system) {
+      return systemContext(system);
+    }
+    const available = systems.map((s) => s.id).filter(Boolean).join(", ");
+    throw new Error(`Unknown system: "${systemId}". Available: ${available || "none"}`);
+  }
+
+  return systemContext(systems[0]);
 }
 
 /**
@@ -149,8 +116,3 @@ function legacyContext(id: string): ScriptSystemContext {
 export function getDefaultSystemContext(): ScriptSystemContext {
   return resolveSystemContextSafe();
 }
-
-/**
- * Export legacy paths for backward compatibility.
- */
-export { LEGACY_PATHS };

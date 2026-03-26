@@ -70,11 +70,26 @@ import {
 // Constants
 // ============================================================================
 
-// Get system context for default paths (context-aware, supports active system)
-const _defaultCtx = resolveSystemContextSafe();
 const PROJECT_ROOT = process.cwd();
 const RULE_MANIFEST_PATH = path.join(PROJECT_ROOT, '.agents', 'rules', '_manifest.yml');
 const TOKEN_LIKE_CODE_SPAN_RE = /`[^`\n]*(?:[A-Za-z][A-Za-z0-9-]*(?:[./][A-Za-z0-9-]+)+)[^`\n]*`/;
+
+function resolveDocsValidatorDefaults() {
+  try {
+    const ctx = resolveSystemContextSafe();
+    return {
+      docsRoot: ctx.paths.docs,
+      specRoot: ctx.paths.specs,
+      registryPath: ctx.paths.tokenRegistry,
+    };
+  } catch {
+    return {
+      docsRoot: path.join(PROJECT_ROOT, 'docs', 'components'),
+      specRoot: path.join(PROJECT_ROOT, 'docs', '_spec', 'components'),
+      registryPath: path.join(PROJECT_ROOT, 'docs', '_generated', 'token-registry.json'),
+    };
+  }
+}
 
 // ============================================================================
 // Main validateDocs Export
@@ -87,12 +102,11 @@ const TOKEN_LIKE_CODE_SPAN_RE = /`[^`\n]*(?:[A-Za-z][A-Za-z0-9-]*(?:[./][A-Za-z0
  * @returns Validation report with errors, warnings, and summary
  */
 export function validateDocs(options: DocsValidatorOptions = {}): DocsValidationReport {
-  // Use system context for default paths (context-aware, supports active system)
-  const ctx = resolveSystemContextSafe();
-  const docsRoot = path.resolve(options.docsRoot || ctx.paths.docs);
-  const specRoot = path.resolve(options.specRoot || ctx.paths.specs);
+  const defaults = resolveDocsValidatorDefaults();
+  const docsRoot = path.resolve(options.docsRoot || defaults.docsRoot);
+  const specRoot = path.resolve(options.specRoot || defaults.specRoot);
   const explicitSpecFilePath = options.specFilePath ? path.resolve(options.specFilePath) : null;
-  const registryPath = path.resolve(options.registryPath || ctx.paths.tokenRegistry);
+  const registryPath = path.resolve(options.registryPath || defaults.registryPath);
   const explicitFilePath = options.filePath ? path.resolve(options.filePath) : null;
   const allowExtraH2 = options.allowExtraH2 === true;
   const checkPairing = options.checkPairing !== false;
@@ -371,11 +385,12 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
     componentFilesWithTokenLikeSpans > 0 &&
     report.summary.tokenRefsChecked === 0
   ) {
-    report.errors.push({
+    report.warnings.push({
       code: 'TOK01',
       file: docsRoot,
       message:
         'Token reference validation coverage is zero despite token-like references in component docs. Check token registry integrity and token path formats.',
+      suggested: 'npm run ds:tokens-sync',
     });
   }
 

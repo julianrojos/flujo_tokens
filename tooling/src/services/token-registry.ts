@@ -7,7 +7,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { resolveSystemContextSafe } from "../utils/system-context.js";
+import { PROJECT_ROOT } from "../utils/system-context.js";
 import type {
   IndexedTokenRegistry,
   TokenRegistryEntry,
@@ -17,8 +17,12 @@ import type {
 /**
  * Default token registry path from system context.
  */
-const _defaultCtx = resolveSystemContextSafe();
-export const DEFAULT_TOKEN_REGISTRY_PATH = _defaultCtx.paths.tokenRegistry;
+export const DEFAULT_TOKEN_REGISTRY_PATH = path.resolve(
+  PROJECT_ROOT,
+  "docs",
+  "_generated",
+  "token-registry.json",
+);
 
 /**
  * Load token registry from JSON file.

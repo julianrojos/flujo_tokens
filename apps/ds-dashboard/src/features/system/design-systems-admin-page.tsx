@@ -441,7 +441,7 @@ export function DesignSystemsAdminPage() {
                       id={buildFieldId(id, "inputDir")}
                       value={draft.inputDir}
                       onChange={(e) => handleFieldChange(id, "inputDir", e.target.value)}
-                      placeholder="input/<system>"
+                      placeholder="design-systems/<system-id>/input"
                       disabled={isBusy}
                     />
                   </div>
@@ -456,7 +456,7 @@ export function DesignSystemsAdminPage() {
                       id={buildFieldId(id, "outputDir")}
                       value={draft.outputDir}
                       onChange={(e) => handleFieldChange(id, "outputDir", e.target.value)}
-                      placeholder="output/<system>"
+                      placeholder="design-systems/<system-id>/output"
                       disabled={isBusy}
                     />
                   </div>
@@ -471,7 +471,7 @@ export function DesignSystemsAdminPage() {
                       id={buildFieldId(id, "docsDir")}
                       value={draft.docsDir}
                       onChange={(e) => handleFieldChange(id, "docsDir", e.target.value)}
-                      placeholder="docs/<system>"
+                      placeholder="design-systems/<system-id>/docs"
                       disabled={isBusy}
                     />
                   </div>

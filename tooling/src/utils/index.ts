@@ -161,7 +161,6 @@ export type {
 export {
   PROJECT_ROOT,
   DEFAULT_THEME_PATH,
-  LEGACY_PATHS,
   resolveSystemContextSafe,
   getDefaultSystemContext,
   loadDesignSystemsConfig,

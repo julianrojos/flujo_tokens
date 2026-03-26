@@ -11,7 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
-import { PROJECT_ROOT } from '../utils/system-context.js';
+import { PROJECT_ROOT, resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import {
   computeFingerprint,
@@ -29,7 +29,7 @@ const CLI_CONFIG = {
     {
       name: '--input',
       description: 'Input directory containing JSON token files.',
-      defaultValue: 'input',
+      defaultValue: '<system>/input',
     },
     {
       name: '--single',
@@ -39,17 +39,17 @@ const CLI_CONFIG = {
     {
       name: '--output',
       description: 'Output CSS file path (for --single mode).',
-      defaultValue: 'output/custom-properties.css',
+      defaultValue: '<system>/output/custom-properties.css',
     },
     {
       name: '--output-primitives',
       description: 'Output path for primitives CSS.',
-      defaultValue: 'output/primitives.css',
+      defaultValue: '<system>/output/primitives.css',
     },
     {
       name: '--output-tokens',
       description: 'Output path for semantic/component tokens CSS.',
-      defaultValue: 'output/tokens.css',
+      defaultValue: '<system>/output/tokens.css',
     },
     {
       name: '--registry-output',
@@ -116,13 +116,15 @@ export async function runTokensSync(args: string[] = []): Promise<void> {
 
   const force = parseBooleanOption(parsed.force, false);
   const syncStatePath = parsed['sync-state'] ? path.resolve(String(parsed['sync-state'])) : undefined;
+  const system = String(parsed.system || '').trim();
+  const ctx = resolveSystemContextSafe({ system: system || undefined });
 
-  const inputDir = path.resolve(String(parsed.input || path.join(PROJECT_ROOT, 'input')));
+  const inputDir = path.resolve(String(parsed.input || ctx.paths.input));
   const split = parseBooleanOption(parsed.single, false) !== true;
-  const outputFile = path.resolve(String(parsed.output || path.join(PROJECT_ROOT, 'output/custom-properties.css')));
-  const outputPrimitives = path.resolve(String(parsed['output-primitives'] || path.join(PROJECT_ROOT, 'output/primitives.css')));
-  const outputTokens = path.resolve(String(parsed['output-tokens'] || path.join(PROJECT_ROOT, 'output/tokens.css')));
-  const registryOutput = path.resolve(String(parsed['registry-output'] || 'docs/_generated/token-registry.json'));
+  const outputFile = path.resolve(String(parsed.output || path.join(ctx.paths.output, 'custom-properties.css')));
+  const outputPrimitives = path.resolve(String(parsed['output-primitives'] || path.join(ctx.paths.output, 'primitives.css')));
+  const outputTokens = path.resolve(String(parsed['output-tokens'] || path.join(ctx.paths.output, 'tokens.css')));
+  const registryOutput = path.resolve(String(parsed['registry-output'] || ctx.paths.tokenRegistry));
   const mode = String(parsed.mode || '').trim();
   const modeStrict = parseBooleanOption(parsed['mode-strict'], false);
   const modeLoose = parseBooleanOption(parsed['mode-loose'], false);

@@ -95,6 +95,7 @@ export class AiJobsStore {
         const data = {
             type: input.type,
             provider: input.provider,
+            systemId: input.systemId || '',
             componentId: input.componentId,
             figmaUrl: input.figmaUrl || '',
             model: input.model || '',

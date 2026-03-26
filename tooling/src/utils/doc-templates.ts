@@ -8,9 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { componentNameToSnakeCase } from './component-name.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from './system-context.js';
-
-const _defaultCtx = resolveSystemContextSafe();
+import { PROJECT_ROOT } from './system-context.js';
 
 export const GOLDEN_COMPONENT_DOC_SAMPLE_PATH = path.resolve(
   PROJECT_ROOT,
@@ -183,7 +181,7 @@ export function writeComponentDocSkeleton(
 
   const baseDir = path.resolve(
     destinationDir ||
-      path.join(_defaultCtx.paths.generated, 'agent_prompts', 'skeletons')
+      path.join(PROJECT_ROOT, 'docs', '_generated', 'agent_prompts', 'skeletons')
   );
   fs.mkdirSync(baseDir, { recursive: true });
 

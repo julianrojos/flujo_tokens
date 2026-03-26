@@ -29,8 +29,8 @@ describe('capture-system-bootstrap', () => {
         figmaToken: 'token',
         system: {
           id: 'demo',
-          inputDir: 'input/demo',
-          docsDir: 'docs/demo',
+          inputDir: 'design-systems/demo/input',
+          docsDir: 'design-systems/demo/docs',
           compileVariablesOnCapture: true,
         },
         syncFigmaTokensToInputFn: async (args) => {
@@ -41,7 +41,7 @@ describe('capture-system-bootstrap', () => {
             files_written: 1,
             tokens_written: 7,
             tokens_total: 9,
-            files: ['input/demo/primitives.json'],
+            files: ['design-systems/demo/input/primitives.json'],
           };
         },
       });
@@ -68,8 +68,8 @@ describe('capture-system-bootstrap', () => {
         figmaToken: 'token',
         system: {
           id: 'demo',
-          inputDir: 'input/demo',
-          docsDir: 'docs/demo',
+          inputDir: 'design-systems/demo/input',
+          docsDir: 'design-systems/demo/docs',
           compileVariablesOnCapture: false,
         },
         syncFigmaTokensToInputFn: async (args) => {
@@ -79,7 +79,7 @@ describe('capture-system-bootstrap', () => {
             reason: 'bootstrapped',
             files_written: 2,
             tokens_written: 42,
-            files: ['input/demo/primitives.json', 'input/demo/semantic.json'],
+            files: ['design-systems/demo/input/primitives.json', 'design-systems/demo/input/semantic.json'],
           };
         },
       });
@@ -110,9 +110,9 @@ describe('capture-system-bootstrap', () => {
         repoRoot,
         system: {
           id: 'demo',
-          inputDir: 'input/demo',
-          docsDir: 'docs/demo',
-          outputDir: 'output/demo',
+          inputDir: 'design-systems/demo/input',
+          docsDir: 'design-systems/demo/docs',
+          outputDir: 'design-systems/demo/output',
           compileVariablesOnCapture: true,
         },
       });
@@ -129,8 +129,8 @@ describe('capture-system-bootstrap', () => {
       repoRoot: '/tmp',
       system: {
         id: 'demo',
-        inputDir: 'input/demo',
-        docsDir: 'docs/demo',
+        inputDir: 'design-systems/demo/input',
+        docsDir: 'design-systems/demo/docs',
         compileVariablesOnCapture: false,
       },
     });
@@ -155,9 +155,9 @@ describe('capture-system-bootstrap', () => {
               {
                 id: 'demo',
                 name: 'Demo',
-                inputDir: 'input/demo',
-                outputDir: 'output/demo',
-                docsDir: 'docs/demo',
+                inputDir: 'design-systems/demo/input',
+                outputDir: 'design-systems/demo/output',
+                docsDir: 'design-systems/demo/docs',
                 collections: [],
               },
             ],
@@ -187,9 +187,9 @@ describe('capture-system-bootstrap', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-infer-'));
     try {
       fs.mkdirSync(path.join(repoRoot, 'tooling', 'config'), { recursive: true });
-      fs.mkdirSync(path.join(repoRoot, 'input', 'demo'), { recursive: true });
-      fs.writeFileSync(path.join(repoRoot, 'input', 'demo', 'primitives.json'), '{}', 'utf8');
-      fs.writeFileSync(path.join(repoRoot, 'input', 'demo', 'theme-semantic.json'), '{}', 'utf8');
+      fs.mkdirSync(path.join(repoRoot, 'design-systems', 'demo', 'input'), { recursive: true });
+      fs.writeFileSync(path.join(repoRoot, 'design-systems', 'demo', 'input', 'primitives.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(repoRoot, 'design-systems', 'demo', 'input', 'theme-semantic.json'), '{}', 'utf8');
       fs.writeFileSync(
         path.join(repoRoot, 'tooling', 'config', 'design-systems.json'),
         JSON.stringify(
@@ -198,9 +198,9 @@ describe('capture-system-bootstrap', () => {
               {
                 id: 'demo',
                 name: 'Demo',
-                inputDir: 'input/demo',
-                outputDir: 'output/demo',
-                docsDir: 'docs/demo',
+                inputDir: 'design-systems/demo/input',
+                outputDir: 'design-systems/demo/output',
+                docsDir: 'design-systems/demo/docs',
                 collections: [],
               },
             ],

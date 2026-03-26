@@ -17,6 +17,8 @@ import type { DoctorCheck, ManifestDocument } from '../services/doctor-types.js'
 import {
   resolveDoctorContext,
   checkPaths,
+  checkSystemPathAlignment,
+  checkOrphanedSystemDirectories,
   checkRuleManifest,
   checkTokenRegistry,
   checkComponentRegistry,
@@ -62,11 +64,43 @@ export async function runDoctor(args: string[] = []): Promise<DoctorRunnerResult
     return { ok: true, reason: 'help' };
   }
 
-  const systemCtx = resolveSystemContextSafe({ system: String(parsed.system ?? '') });
+  const requestedSystem = String(parsed.system ?? '').trim();
+  let systemCtx: ReturnType<typeof resolveSystemContextSafe>;
+  if (requestedSystem) {
+    systemCtx = resolveSystemContextSafe({ system: requestedSystem });
+  } else {
+    try {
+      systemCtx = resolveSystemContextSafe();
+    } catch {
+      // Doctor can run in global docs mode even when no systems are configured.
+      systemCtx = {
+        id: 'global',
+        name: 'Global Docs',
+        docsDir: path.join(PROJECT_ROOT, 'docs'),
+        paths: {
+          input: path.join(PROJECT_ROOT, 'docs', '_generated'),
+          output: path.join(PROJECT_ROOT, 'docs', '_generated'),
+          generated: path.join(PROJECT_ROOT, 'docs', '_generated'),
+          specs: path.join(PROJECT_ROOT, 'docs', '_spec', 'components'),
+          docs: path.join(PROJECT_ROOT, 'docs', 'components'),
+          registry: path.join(PROJECT_ROOT, 'docs', '_generated', 'component-registry.json'),
+          tokenRegistry: path.join(PROJECT_ROOT, 'docs', '_generated', 'token-registry.json'),
+          figmaAliasGraph: path.join(
+            PROJECT_ROOT,
+            'docs',
+            '_generated',
+            'figma-alias-graph.json',
+          ),
+        },
+      };
+    }
+  }
   const ctx = resolveDoctorContext(parsed, systemCtx, PROJECT_ROOT);
 
   const checks: DoctorCheck[] = [
     ...checkPaths(ctx),
+    ...checkSystemPathAlignment(PROJECT_ROOT),
+    ...checkOrphanedSystemDirectories(PROJECT_ROOT),
   ];
 
   // Check RULE_MANIFEST (need manifest for downstream checks)

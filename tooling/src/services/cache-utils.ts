@@ -9,7 +9,7 @@ import crypto from "node:crypto";
 import * as fs from "node:fs";
 import path from "node:path";
 import { isPlainObject } from "../utils/is-plain-object.js";
-import { resolveSystemContextSafe } from "../utils/system-context.js";
+import { PROJECT_ROOT, resolveSystemContextSafe } from "../utils/system-context.js";
 import type {
   FingerprintOptions,
   SkipTaskOptions,
@@ -24,8 +24,13 @@ const STATE_VERSION = 1;
 /**
  * Default sync state path based on system context.
  */
-const _defaultCtx = resolveSystemContextSafe();
-const DEFAULT_SYNC_STATE_PATH = path.join(_defaultCtx.paths.generated, ".sync-state.json");
+function getDefaultSyncStatePath(): string {
+  try {
+    return path.join(resolveSystemContextSafe().paths.generated, ".sync-state.json");
+  } catch {
+    return path.join(PROJECT_ROOT, "docs", "_generated", ".sync-state.json");
+  }
+}
 
 /**
  * Create an empty sync state object.
@@ -129,7 +134,7 @@ export function computeFingerprint(options: FingerprintOptions = {}): string {
  * Load sync state from disk.
  * Returns an empty state if the file doesn't exist or is invalid.
  */
-export function loadSyncState(statePath: string = DEFAULT_SYNC_STATE_PATH): SyncState {
+export function loadSyncState(statePath: string = getDefaultSyncStatePath()): SyncState {
   const resolvedPath = path.resolve(statePath);
   if (!fs.existsSync(resolvedPath)) return createEmptyState();
 
@@ -153,7 +158,7 @@ export function loadSyncState(statePath: string = DEFAULT_SYNC_STATE_PATH): Sync
 /**
  * Save sync state to disk atomically.
  */
-export function saveSyncState(state: SyncState, statePath: string = DEFAULT_SYNC_STATE_PATH): void {
+export function saveSyncState(state: SyncState, statePath: string = getDefaultSyncStatePath()): void {
   const resolvedPath = path.resolve(statePath);
   const normalized = isPlainObject(state) ? state : createEmptyState();
   writeJsonAtomic(
@@ -175,7 +180,7 @@ export function shouldSkipTask(options: SkipTaskOptions = {}): SkipTaskResult {
     fingerprint,
     outputs = [],
     force = false,
-    statePath = DEFAULT_SYNC_STATE_PATH,
+    statePath = getDefaultSyncStatePath(),
   } = options;
 
   if (!taskId) {
@@ -237,7 +242,7 @@ export function updateTaskState(options: UpdateTaskOptions = {}): void {
     fingerprint,
     outputs = [],
     metadata = {},
-    statePath = DEFAULT_SYNC_STATE_PATH,
+    statePath = getDefaultSyncStatePath(),
   } = options;
 
   if (!taskId) {

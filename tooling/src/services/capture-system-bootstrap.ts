@@ -73,7 +73,7 @@ export function ensureCollectionsConfigured(params: {
 }): void {
   const { repoRoot, systemId } = params;
 
-  if (!systemId || systemId === '_legacy') return;
+  if (!systemId) return;
 
   const repository = getSystemRepository(repoRoot);
   const config = repository.getConfig();
@@ -105,7 +105,7 @@ export function getSystemConfig(params: {
 }): Record<string, unknown> | null {
   const { repoRoot, systemId } = params;
 
-  if (!systemId || systemId === '_legacy') return null;
+  if (!systemId) return null;
 
   try {
     // Use resolveSystemContext instead of non-existent getSystem

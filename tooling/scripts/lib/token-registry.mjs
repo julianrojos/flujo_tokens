@@ -1,9 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { resolveSystemContextSafe } from "./system-context.mjs";
+import { PROJECT_ROOT } from "./system-context.mjs";
 
-const _defaultCtx = resolveSystemContextSafe();
-export const DEFAULT_TOKEN_REGISTRY_PATH = _defaultCtx.paths.tokenRegistry;
+export const DEFAULT_TOKEN_REGISTRY_PATH = path.resolve(
+  PROJECT_ROOT,
+  "docs",
+  "_generated",
+  "token-registry.json",
+);
 
 export function loadTokenRegistry(registryPath = DEFAULT_TOKEN_REGISTRY_PATH) {
   const absolutePath = path.resolve(registryPath);

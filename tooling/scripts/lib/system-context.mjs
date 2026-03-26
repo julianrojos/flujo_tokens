@@ -23,32 +23,14 @@ export function resolveSystemContext(opts) {
   return systemRepository.resolveSystemContext(opts?.system);
 }
 
-// ─── Legacy fallback ─────────────────────────────────────────────────────────
-// Provides the same paths that paths.mjs used to export, so module-level
-// defaults survive even when design-systems.json is missing or broken.
-
-const LEGACY_PATHS = Object.freeze({
-  generated: path.resolve(PROJECT_ROOT, "docs/_generated"),
-  specs:     path.resolve(PROJECT_ROOT, "docs/_spec/components"),
-  docs:      path.resolve(PROJECT_ROOT, "docs/components"),
-  registry:  path.resolve(PROJECT_ROOT, "docs/_generated/component-registry.json"),
-  tokenRegistry: path.resolve(PROJECT_ROOT, "docs/_generated/token-registry.json"),
-});
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");
 
 /**
  * Safe variant for module-level (top-of-file) usage.
- * Returns the default system context, falling back to legacy paths if
- * design-systems.json is unreadable.
+ * Returns the default system context and throws on invalid/missing config.
  * @param {Object} opts - Optional override options
  * @param {string} [opts.system] - System ID
  */
 export function resolveSystemContextSafe(opts = {}) {
-  try {
-    return resolveSystemContext(opts);
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    console.warn(`[system-context] Falling back to legacy paths: ${msg}`);
-    return { id: "_legacy", docsDir: "docs", paths: {} };
-  }
+  return resolveSystemContext(opts);
 }

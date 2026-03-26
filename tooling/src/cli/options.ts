@@ -84,7 +84,12 @@ function getSystemPaths(rootDir: string, systemId?: string) {
     const config = JSON.parse(configRaw);
     const sid = systemId || config.defaultSystem;
     const sys = config.systems.find((s: any) => s.id === sid);
-    if (!sys) throw new Error(`Unknown system: ${sid}`);
+    if (!sys) {
+        if (!sid) {
+            throw new Error('No active design system. Configure defaultSystem or pass --system <id>.');
+        }
+        throw new Error(`Unknown system: ${sid}`);
+    }
     return {
         inputDir: path.resolve(rootDir, sys.inputDir),
         outputPrimitives: path.resolve(rootDir, sys.outputDir, 'primitives.css'),
@@ -99,12 +104,12 @@ export function printUsage(): void {
 
 Options:
   -h, --help           Show this help and exit
-  -i, --input <dir>    Directory with token JSON files (default: ./input)
-  -o, --output <file>  Output CSS file (default: ./output/custom-properties.css)
+  -i, --input <dir>    Directory with token JSON files (default: system inputDir)
+  -o, --output <file>  Output CSS file (default: <system>/output/custom-properties.css)
       --split          Emit two files: primitives + tokens (default)
       --single         Emit one file (disables split)
-      --output-primitives <file>  Primitives CSS output (default: ./output/primitives.css)
-      --output-tokens <file>      Tokens CSS output (default: ./output/tokens.css)
+      --output-primitives <file>  Primitives CSS output (default: <system>/output/primitives.css)
+      --output-tokens <file>      Tokens CSS output (default: <system>/output/tokens.css)
       --registry       Also export docs token registry JSON (default: off)
       --registry-output <file>    Token registry output (default: system dependent)
       --system <id>        Set active design system (default: from config)

@@ -117,29 +117,29 @@ test("system-route-handler-service: ensureSystemFilesystemScaffold creates expec
   const result = ensureSystemFilesystemScaffold({
     nextSystem: {
       id: "simple-design-system",
-      inputDir: "input/simple-design-system",
-      outputDir: "output/simple-design-system",
-      docsDir: "docs/simple-design-system",
+      inputDir: "design-systems/simple-design-system/input",
+      outputDir: "design-systems/simple-design-system/output",
+      docsDir: "design-systems/simple-design-system/docs",
     },
     repoRoot: "/repo",
     fsSync,
   });
 
-  assert.equal(result.docsDir, "/repo/docs/simple-design-system");
-  assert.equal(result.generatedDir, "/repo/docs/simple-design-system/_generated");
+  assert.equal(result.docsDir, "/repo/design-systems/simple-design-system/docs");
+  assert.equal(result.generatedDir, "/repo/design-systems/simple-design-system/docs/_generated");
   assert.equal(
     result.componentRegistryPath,
-    "/repo/docs/simple-design-system/_generated/component-registry.json",
+    "/repo/design-systems/simple-design-system/docs/_generated/component-registry.json",
   );
   assert.equal(
     result.tokenRegistryPath,
-    "/repo/docs/simple-design-system/_generated/token-registry.json",
+    "/repo/design-systems/simple-design-system/docs/_generated/token-registry.json",
   );
   assert.equal(
     result.tokenUsageIndexPath,
-    "/repo/docs/simple-design-system/_generated/token-usage-index.json",
+    "/repo/design-systems/simple-design-system/docs/_generated/token-usage-index.json",
   );
-  assert.ok(mkdirs.includes("/repo/docs/simple-design-system/components"));
+  assert.ok(mkdirs.includes("/repo/design-systems/simple-design-system/docs/components"));
 
   const componentRegistryRaw = writes.get(result.componentRegistryPath);
   const tokenRegistryRaw = writes.get(result.tokenRegistryPath);

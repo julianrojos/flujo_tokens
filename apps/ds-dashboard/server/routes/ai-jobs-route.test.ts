@@ -12,14 +12,19 @@ import { registerAiJobsRoutes } from './ai-jobs-route.js';
 import { getAiJobsStore, initializeAiJobsStore, AiJobsStore } from '../services/ai-jobs-store.js';
 
 // Helper to create test app
-function createTestApp() {
+function createTestApp(options?: { getSystemContext?: (systemHeader: string) => unknown }) {
     const app = new Hono();
-    registerAiJobsRoutes(app, { internalToken: 'test-token' });
+    registerAiJobsRoutes(app, {
+        internalToken: 'test-token',
+        getSystemContext: options?.getSystemContext,
+    });
     return app;
 }
 
 // Track created test files for cleanup
 const testFilesCreated: string[] = [];
+const TEST_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(TEST_DIR, '../../../..');
 
 // Helper to cleanup store between tests
 function cleanupStore() {
@@ -217,6 +222,46 @@ describe('ai-jobs-route', () => {
             const json = await res.json();
             assert.equal(json.ok, true);
             assert.ok(json.jobId);
+        });
+
+        it('stores resolved systemId on the enqueued job input', async () => {
+            cleanupStore();
+            const prevApiKey = process.env.ANTHROPIC_API_KEY;
+            process.env.ANTHROPIC_API_KEY = 'fake-key-for-test';
+            const app = createTestApp({
+                getSystemContext: (systemHeader: string) => ({
+                    systemId: String(systemHeader || 'core'),
+                    docsDir: path.join(REPO_ROOT, 'tmp/ai-jobs-route/core-docs'),
+                }),
+            });
+
+            try {
+                const res = await app.request('/api/ai/jobs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-forwarded-for': '127.0.0.1',
+                        'x-ds-system': 'core',
+                    },
+                    body: JSON.stringify({
+                        type: 'GENERATE_COMPONENT_DOC',
+                        provider: 'anthropic',
+                        componentId: '68:4097',
+                        dryRun: true,
+                    }),
+                });
+
+                assert.equal(res.status, 202);
+                const json = await res.json();
+                const job = getAiJobsStore().findById(String(json.jobId));
+                assert.equal(job?.input.systemId, 'core');
+            } finally {
+                if (prevApiKey === undefined) {
+                    delete process.env.ANTHROPIC_API_KEY;
+                } else {
+                    process.env.ANTHROPIC_API_KEY = prevApiKey;
+                }
+            }
         });
 
         it('should return same job for duplicate idempotency key', async () => {
@@ -452,10 +497,6 @@ describe('ai-jobs-route', () => {
             const app = createTestApp();
             const store = getAiJobsStore();
             const title = 'Existing File Case';
-            // Use same path resolution as the route: REPO_ROOT = project root
-            // Use file URL to get directory path in ESM
-            const testDir = path.dirname(fileURLToPath(import.meta.url));
-            const REPO_ROOT = path.resolve(testDir, '../../../..');
             const filePath = path.join(REPO_ROOT, 'docs/components/existing-file-case.md');
 
             await createTestFile(filePath, '# existing');
@@ -501,9 +542,6 @@ describe('ai-jobs-route', () => {
             const app = createTestApp();
             const store = getAiJobsStore();
             const title = 'Overwrite File Case';
-            // Use same path resolution as the route: REPO_ROOT = project root
-            const testDir = path.dirname(fileURLToPath(import.meta.url));
-            const REPO_ROOT = path.resolve(testDir, '../../../..');
             const filePath = path.join(REPO_ROOT, 'docs/components/overwrite-file-case.md');
 
             // Clean up any residual file from previous runs
@@ -550,6 +588,58 @@ describe('ai-jobs-route', () => {
             assert.equal(current, '# New Overwritten Content');
 
             await fs.rm(filePath, { force: true });
+        });
+
+        it('writes docs under the resolved system docs directory by default', async () => {
+            cleanupStore();
+            const systemDocsDir = path.join(REPO_ROOT, 'tmp/ai-jobs-route/system-alpha-docs');
+            const app = createTestApp({
+                getSystemContext: () => ({
+                    systemId: 'system-alpha',
+                    docsDir: systemDocsDir,
+                }),
+            });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                systemId: 'system-alpha',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '68:4097',
+                title: 'System Scoped Doc',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# System Scoped Doc',
+            }, {
+                promptTokens: 1,
+                completionTokens: 1,
+                durationMs: 1,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({ overwrite: true }),
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.ok, true);
+            assert.match(String(json.path), /^tmp\/ai-jobs-route\/system-alpha-docs\/components\//);
+
+            const writtenPath = path.join(REPO_ROOT, String(json.path));
+            testFilesCreated.push(writtenPath);
+            const written = await fs.readFile(writtenPath, 'utf-8');
+            assert.equal(written, '# System Scoped Doc');
         });
     });
 
@@ -841,6 +931,50 @@ describe('ai-jobs-route', () => {
             });
 
             assert.equal(res.status, 401);
+        });
+
+        it('returns 400 when x-ds-system cannot be resolved', async () => {
+            cleanupStore();
+            const app = createTestApp({
+                getSystemContext: () => {
+                    throw new Error('Unknown design system: "ghost"');
+                },
+            });
+
+            const res = await app.request('/api/ai/docs/status', {
+                method: 'GET',
+                headers: {
+                    'x-forwarded-for': '127.0.0.1',
+                    'x-ds-system': 'ghost',
+                },
+            });
+
+            assert.equal(res.status, 400);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.input.invalid');
+        });
+
+        it('returns 500 when resolved docsDir is outside repo root', async () => {
+            cleanupStore();
+            const app = createTestApp({
+                getSystemContext: () => ({
+                    systemId: 'core',
+                    docsDir: '/tmp/unsafe-docs-dir',
+                }),
+            });
+
+            const res = await app.request('/api/ai/docs/status', {
+                method: 'GET',
+                headers: {
+                    'x-forwarded-for': '127.0.0.1',
+                    'x-ds-system': 'core',
+                },
+            });
+
+            assert.equal(res.status, 500);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.input.invalid');
+            assert.equal(json.message, 'Design system docs directory is invalid.');
         });
     });
 

@@ -14,9 +14,9 @@ function createConfig() {
       {
         id: "alpha",
         name: "Alpha",
-        inputDir: "input/alpha",
-        outputDir: "output/alpha",
-        docsDir: "docs/alpha",
+        inputDir: "design-systems/alpha/input",
+        outputDir: "design-systems/alpha/output",
+        docsDir: "design-systems/alpha/docs",
         collections: ["primitives"],
         compileVariablesOnCapture: true,
       },
@@ -55,7 +55,9 @@ test("system-route-service: create mutation returns normalized next system", () 
 
   assert.ok(!mutation.error);
   assert.equal(mutation.nextSystem?.id, "beta-design");
-  assert.equal(mutation.nextSystem?.inputDir, "input/beta-design");
+  assert.equal(mutation.nextSystem?.inputDir, "design-systems/beta-design/input");
+  assert.equal(mutation.nextSystem?.outputDir, "design-systems/beta-design/output");
+  assert.equal(mutation.nextSystem?.docsDir, "design-systems/beta-design/docs");
   assert.equal(mutation.nextSystem?.figmaApiToken, "FIGMA_BETA");
   assert.equal(mutation.nextConfig?.defaultSystem, "beta-design");
   assert.equal(mutation.nextConfig?.systems.length, 2);
@@ -93,7 +95,7 @@ test("system-route-service: update mutation preserves id and updates directories
     routeSystemId: "alpha",
     body: {
       name: "Alpha Two",
-      inputDir: "input/alpha2",
+      inputDir: "design-systems/alpha2/input",
       makeDefault: true,
       compileVariablesOnCapture: false,
     },
@@ -104,7 +106,7 @@ test("system-route-service: update mutation preserves id and updates directories
   assert.ok(!mutation.error);
   assert.equal(mutation.updated?.id, "alpha");
   assert.equal(mutation.updated?.name, "Alpha Two");
-  assert.equal(mutation.updated?.inputDir, "input/alpha2");
+  assert.equal(mutation.updated?.inputDir, "design-systems/alpha2/input");
   assert.equal(mutation.updated?.compileVariablesOnCapture, false);
   assert.equal(mutation.nextConfig?.defaultSystem, "alpha");
 });

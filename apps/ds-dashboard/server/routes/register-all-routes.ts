@@ -216,5 +216,6 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   });
   registerAiJobsRoutes(app, {
     internalToken: process.env.DS_DASHBOARD_INTERNAL_TOKEN,
+    getSystemContext: deps.getSystemContext,
   });
 }

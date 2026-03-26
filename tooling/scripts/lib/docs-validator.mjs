@@ -59,18 +59,34 @@ import {
 export { CANONICAL_H2_ORDER, REQUIRED_CANONICAL_H2 } from "./docs-config.mjs";
 export { OPTIONAL_CANONICAL_H2 } from "./docs-config.mjs";
 
-const _defaultCtx = resolveSystemContextSafe();
-const SPEC_COMPONENTS_DIR = _defaultCtx.paths.specs;
 const RULE_MANIFEST_PATH = path.join(PROJECT_ROOT, ".agents", "rules", "_manifest.yml");
 
+function resolveDocsValidatorDefaults() {
+  try {
+    const ctx = resolveSystemContextSafe();
+    return {
+      docsRoot: ctx.paths.docs,
+      specRoot: ctx.paths.specs,
+      registryPath: ctx.paths.tokenRegistry,
+    };
+  } catch {
+    return {
+      docsRoot: path.join(PROJECT_ROOT, "docs", "components"),
+      specRoot: path.join(PROJECT_ROOT, "docs", "_spec", "components"),
+      registryPath: path.join(PROJECT_ROOT, "docs", "_generated", "token-registry.json"),
+    };
+  }
+}
+
 export function validateDocs(options = {}) {
-  const docsRoot = path.resolve(options.docsRoot || _defaultCtx.paths.docs);
-  const specRoot = path.resolve(options.specRoot || SPEC_COMPONENTS_DIR);
+  const defaults = resolveDocsValidatorDefaults();
+  const docsRoot = path.resolve(options.docsRoot || defaults.docsRoot);
+  const specRoot = path.resolve(options.specRoot || defaults.specRoot);
   const explicitSpecFilePath = options.specFilePath
     ? path.resolve(options.specFilePath)
     : null;
   const registryPath = path.resolve(
-    options.registryPath || DEFAULT_TOKEN_REGISTRY_PATH,
+    options.registryPath || defaults.registryPath || DEFAULT_TOKEN_REGISTRY_PATH,
   );
   const explicitFilePath = options.filePath
     ? path.resolve(options.filePath)
@@ -286,7 +302,7 @@ export function validateDocs(options = {}) {
       explicitSpecFilePath,
       collectSpecFiles,
       resolveTokenCandidate,
-      specComponentsDir: SPEC_COMPONENTS_DIR,
+      specComponentsDir: defaults.specRoot,
       validateOptionalVersionBlock,
     });
   }

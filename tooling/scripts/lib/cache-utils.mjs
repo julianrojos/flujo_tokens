@@ -2,13 +2,19 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveSystemContextSafe } from "./system-context.mjs";
+import { PROJECT_ROOT, resolveSystemContextSafe } from "./system-context.mjs";
 
-const _defaultCtx = resolveSystemContextSafe();
-const DEFAULT_SYNC_STATE_PATH = path.join(_defaultCtx.paths.generated, ".sync-state.json");
 import { isPlainObject } from "./is-plain-object.mjs";
 
 const STATE_VERSION = 1;
+
+function getDefaultSyncStatePath() {
+  try {
+    return path.join(resolveSystemContextSafe().paths.generated, ".sync-state.json");
+  } catch {
+    return path.join(PROJECT_ROOT, "docs", "_generated", ".sync-state.json");
+  }
+}
 
 function createEmptyState() {
   return {
@@ -75,7 +81,7 @@ export function computeFingerprint({ files = [], values = {} } = {}) {
   return hash.digest("hex");
 }
 
-export function loadSyncState(statePath = DEFAULT_SYNC_STATE_PATH) {
+export function loadSyncState(statePath = getDefaultSyncStatePath()) {
   const resolvedPath = path.resolve(statePath);
   if (!fs.existsSync(resolvedPath)) return createEmptyState();
 
@@ -92,7 +98,7 @@ export function loadSyncState(statePath = DEFAULT_SYNC_STATE_PATH) {
   }
 }
 
-export function saveSyncState(state, statePath = DEFAULT_SYNC_STATE_PATH) {
+export function saveSyncState(state, statePath = getDefaultSyncStatePath()) {
   const resolvedPath = path.resolve(statePath);
   const normalized = isPlainObject(state) ? state : createEmptyState();
   writeJsonAtomic(
@@ -108,7 +114,7 @@ export function shouldSkipTask({
   fingerprint,
   outputs = [],
   force = false,
-  statePath = DEFAULT_SYNC_STATE_PATH,
+  statePath = getDefaultSyncStatePath(),
 } = {}) {
   if (!taskId) {
     return {
@@ -165,7 +171,7 @@ export function updateTaskState({
   fingerprint,
   outputs = [],
   metadata = {},
-  statePath = DEFAULT_SYNC_STATE_PATH,
+  statePath = getDefaultSyncStatePath(),
 } = {}) {
   if (!taskId) return;
 

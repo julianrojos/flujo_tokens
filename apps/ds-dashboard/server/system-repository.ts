@@ -56,12 +56,6 @@ export type ScriptSystemContext = DesignSystemConfigEntry & {
   };
 };
 
-const FALLBACK_SYSTEM_ID = "local";
-const FALLBACK_SYSTEM_NAME = "Local";
-const FALLBACK_INPUT_DIR = "input/local";
-const FALLBACK_OUTPUT_DIR = "output/local";
-const FALLBACK_DOCS_DIR = "docs";
-
 export type DesignSystemRepositoryOptions = {
   repoRoot: string;
   watch?: boolean;
@@ -185,10 +179,11 @@ export function resolveSafeSystemPathsForDeletion(
 
   function resolveSystemDirCandidates(entry: DesignSystemConfigEntry | undefined | null) {
     const systemId = String(entry?.id || "").trim();
+    // Prefer configured dirs; fallback to canonical layout by system ID.
     return [
-      String(entry?.inputDir || (systemId ? `input/${systemId}` : "")).trim(),
-      String(entry?.outputDir || (systemId ? `output/${systemId}` : "")).trim(),
-      String(entry?.docsDir || (systemId ? `docs/${systemId}` : "")).trim(),
+      String(entry?.inputDir || (systemId ? `design-systems/${systemId}/input` : "")).trim(),
+      String(entry?.outputDir || (systemId ? `design-systems/${systemId}/output` : "")).trim(),
+      String(entry?.docsDir || (systemId ? `design-systems/${systemId}/docs` : "")).trim(),
     ].filter(Boolean);
   }
 
@@ -327,16 +322,7 @@ export class DesignSystemRepository {
 
   private resolveSystemEntry(config: DesignSystemsConfig, requestedSystemId?: string) {
     const systems = Array.isArray(config.systems) ? config.systems : [];
-    if (systems.length === 0) {
-      return {
-        id: FALLBACK_SYSTEM_ID,
-        name: FALLBACK_SYSTEM_NAME,
-        inputDir: FALLBACK_INPUT_DIR,
-        outputDir: FALLBACK_OUTPUT_DIR,
-        docsDir: FALLBACK_DOCS_DIR,
-        compileVariablesOnCapture: true,
-      } satisfies DesignSystemConfigEntry;
-    }
+    if (systems.length === 0) return null;
 
     const requested = String(requestedSystemId || "").trim();
     if (requested) {
@@ -362,7 +348,7 @@ export class DesignSystemRepository {
         ? config.systems.map((row) => String(row?.id || "").trim()).filter(Boolean).join(", ")
         : "";
       if (!requested) {
-        throw new Error("No design systems configured.");
+        throw new Error("No systems configured. Create one first.");
       }
       throw new Error(`Unknown system: "${requested}". Available: ${available || "none"}`);
     }
@@ -401,11 +387,11 @@ export class DesignSystemRepository {
         ? config.systems.map((row) => String(row?.id || "").trim()).filter(Boolean).join(", ")
         : "";
       if (!fallbackRequested) {
-        throw new Error("No design systems configured.");
+        throw new Error("No systems configured. Create one first.");
       }
       throw new Error(`Unknown design system: "${fallbackRequested}". Available: ${available || "none"}`);
     }
-    const systemId = String(system.id || "").trim() || FALLBACK_SYSTEM_ID;
+    const systemId = String(system.id || "").trim();
 
     const docsDir = path.resolve(this.repoRoot, String(system.docsDir || ""));
     const genDir = path.join(docsDir, "_generated");

@@ -18,6 +18,8 @@ import {
   checkValidateDocs,
   checkPaths,
   checkAgents,
+  checkSystemPathAlignment,
+  checkOrphanedSystemDirectories,
 } from './doctor-checks.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -301,11 +303,11 @@ Test rule content
         skipValidate: false,
         docsRoot: __dirname,
         specRoot: __dirname,
-        registryPath: path.join(__dirname, '__fixtures__', 'empty-registry.json'),
+        registryPath: path.join(TEST_FIXTURES_DIR, 'empty-registry.json'),
       } as any;
 
       // Create empty registry for test
-      const registryPath = path.join(__dirname, '__fixtures__', 'empty-registry.json');
+      const registryPath = path.join(TEST_FIXTURES_DIR, 'empty-registry.json');
       fs.mkdirSync(path.dirname(registryPath), { recursive: true });
       fs.writeFileSync(registryPath, '{}', 'utf8');
 
@@ -336,6 +338,128 @@ Test rule content
       } else {
         assert.ok(checks[0].message?.includes('No supported'));
       }
+    });
+  });
+
+  describe('checkSystemPathAlignment', () => {
+    it('returns pass when configured canonical directories exist', () => {
+      const projectRoot = path.join(TEST_FIXTURES_DIR, 'alignment-pass');
+      const configPath = path.join(projectRoot, 'tooling', 'config', 'design-systems.json');
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+
+      const dirs = [
+        path.join(projectRoot, 'design-systems', 'sys-a', 'input'),
+        path.join(projectRoot, 'design-systems', 'sys-a', 'output'),
+        path.join(projectRoot, 'design-systems', 'sys-a', 'docs'),
+      ];
+      for (const dirPath of dirs) fs.mkdirSync(dirPath, { recursive: true });
+
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          systems: [
+            {
+              id: 'sys-a',
+              inputDir: 'design-systems/sys-a/input',
+              outputDir: 'design-systems/sys-a/output',
+              docsDir: 'design-systems/sys-a/docs',
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const checks = checkSystemPathAlignment(projectRoot, { configPath });
+      assert.strictEqual(checks.length, 1);
+      assert.strictEqual(checks[0].id, 'SYSTEM_PATH_ALIGNMENT');
+      assert.strictEqual(checks[0].status, 'pass');
+    });
+
+    it('returns fail when configured directories are missing', () => {
+      const projectRoot = path.join(TEST_FIXTURES_DIR, 'alignment-fail-missing');
+      const configPath = path.join(projectRoot, 'tooling', 'config', 'design-systems.json');
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          systems: [
+            {
+              id: 'sys-missing',
+              inputDir: 'design-systems/sys-missing/input',
+              outputDir: 'design-systems/sys-missing/output',
+              docsDir: 'design-systems/sys-missing/docs',
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const checks = checkSystemPathAlignment(projectRoot, { configPath });
+      assert.strictEqual(checks.length, 1);
+      assert.strictEqual(checks[0].id, 'SYSTEM_PATH_ALIGNMENT');
+      assert.strictEqual(checks[0].status, 'fail');
+      assert.ok(Number(checks[0].details.missingCount || 0) > 0);
+    });
+
+    it('returns fail when directories exist but system uses non-canonical paths', () => {
+      const projectRoot = path.join(TEST_FIXTURES_DIR, 'alignment-fail-non-canonical');
+      const configPath = path.join(projectRoot, 'tooling', 'config', 'design-systems.json');
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+
+      const dirs = [
+        path.join(projectRoot, 'input', 'flat-layout'),
+        path.join(projectRoot, 'output', 'flat-layout'),
+        path.join(projectRoot, 'docs', 'flat-layout'),
+      ];
+      for (const dirPath of dirs) fs.mkdirSync(dirPath, { recursive: true });
+
+      fs.writeFileSync(
+        configPath,
+        JSON.stringify({
+          systems: [
+            {
+              id: 'flat-layout',
+              inputDir: 'input/flat-layout',
+              outputDir: 'output/flat-layout',
+              docsDir: 'docs/flat-layout',
+            },
+          ],
+        }),
+        'utf8',
+      );
+
+      const checks = checkSystemPathAlignment(projectRoot, { configPath });
+      assert.strictEqual(checks.length, 1);
+      assert.strictEqual(checks[0].id, 'SYSTEM_PATH_ALIGNMENT');
+      assert.strictEqual(checks[0].status, 'fail');
+      assert.ok(Number(checks[0].details.nonCanonicalCount || 0) > 0);
+    });
+  });
+
+  describe('checkOrphanedSystemDirectories', () => {
+    it('ignores global docs subdirectories and reports only legacy system shards', () => {
+      const projectRoot = path.join(TEST_FIXTURES_DIR, 'orphaned-docs-root');
+      fs.mkdirSync(path.join(projectRoot, 'docs', 'components'), { recursive: true });
+      fs.mkdirSync(path.join(projectRoot, 'docs', '_generated'), { recursive: true });
+      fs.mkdirSync(path.join(projectRoot, 'docs', 'sys-legacy'), { recursive: true });
+
+      const checks = checkOrphanedSystemDirectories(projectRoot);
+      assert.strictEqual(checks.length, 1);
+      assert.strictEqual(checks[0].id, 'ORPHANED_SYSTEM_DIRECTORIES');
+      assert.strictEqual(checks[0].status, 'warn');
+      assert.deepStrictEqual(checks[0].details.orphaned, ['docs/sys-legacy']);
+    });
+
+    it('returns pass when only global docs subdirectories are present', () => {
+      const projectRoot = path.join(TEST_FIXTURES_DIR, 'orphaned-docs-global-only');
+      fs.mkdirSync(path.join(projectRoot, 'docs', 'components'), { recursive: true });
+      fs.mkdirSync(path.join(projectRoot, 'docs', '_generated'), { recursive: true });
+
+      const checks = checkOrphanedSystemDirectories(projectRoot);
+      assert.strictEqual(checks.length, 1);
+      assert.strictEqual(checks[0].id, 'ORPHANED_SYSTEM_DIRECTORIES');
+      assert.strictEqual(checks[0].status, 'pass');
     });
   });
 });

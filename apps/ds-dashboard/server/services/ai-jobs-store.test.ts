@@ -109,6 +109,16 @@ describe('ai-jobs-store', () => {
 
       assert.notEqual(key1, key2, 'Different input should produce different key');
     });
+
+    it('should include systemId in hash input', () => {
+      const input1 = makeInput({ componentId: '68:1', systemId: 'core' });
+      const input2 = makeInput({ componentId: '68:1', systemId: 'marketing' });
+
+      const key1 = store.computeIdempotencyKey(input1);
+      const key2 = store.computeIdempotencyKey(input2);
+
+      assert.notEqual(key1, key2, 'Different systems should not share idempotency keys');
+    });
   });
 
   describe('enqueue', () => {

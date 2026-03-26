@@ -41,7 +41,7 @@ const CLI_CONFIG = {
     {
       name: '--css-files',
       description: 'Comma-separated CSS files to scan for var(--token) references.',
-      defaultValue: 'output/primitives.css,output/tokens.css',
+      defaultValue: '<system>/output/primitives.css,<system>/output/tokens.css',
     },
     {
       name: '--figma-alias-graph',
@@ -107,7 +107,7 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
   const specRoot = path.resolve(
     String(getStringArg(parsed, 'spec-root') || ctx.paths.specs),
   );
-  const cssFiles = String(parsed['css-files'] || 'output/primitives.css,output/tokens.css')
+  const cssFiles = String(parsed['css-files'] || `${path.join(ctx.paths.output, 'primitives.css')},${path.join(ctx.paths.output, 'tokens.css')}`)
     .split(',')
     .map((f: string) => path.resolve(f.trim()));
   const outPath = path.resolve(String(parsed.out || ctx.paths.generated + '/token-usage-index.json'));

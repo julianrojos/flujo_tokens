@@ -169,7 +169,14 @@ test('token-graph-routes: /api/token-graph-query returns resolved graph payload'
 
 test('token-graph-routes: /api/token-usage-index bypasses DB cache for multi-system paths', async () => {
     await withTempDir(async (dir) => {
-        const usageIndexPath = path.join(dir, 'docs', 'sys-01', '_generated', 'token-usage-index.json');
+        const usageIndexPath = path.join(
+            dir,
+            'design-systems',
+            'sys-01',
+            'docs',
+            '_generated',
+            'token-usage-index.json',
+        );
         await fs.mkdir(path.dirname(usageIndexPath), { recursive: true });
         await fs.writeFile(
             usageIndexPath,
@@ -198,7 +205,7 @@ test('token-graph-routes: /api/token-usage-index bypasses DB cache for multi-sys
                         usedIn: [
                             {
                                 kind: 'component-spec',
-                                source: 'docs/sys-01/_spec/components/button.yml',
+                                source: 'design-systems/sys-01/docs/_spec/components/button.yml',
                                 owner: 'button',
                                 detail: 'token_mapping.container.fill',
                             },
