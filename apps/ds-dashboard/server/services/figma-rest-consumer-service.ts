@@ -237,7 +237,9 @@ export async function buildDsCatalog(
     const fileResponse = await fetchFigmaFile({ fileKey: dsFileKey, token, depth: 1 });
 
     // Build component catalog via /files/:key/components (more reliable than fileResponse.components,
-    // which can be empty for library files on non-Enterprise plans).
+    // which can be empty for library files on non-Enterprise plans, and ALWAYS empty when depth=1).
+    // The /components endpoint returns `containing_frame.containingComponentSet` with the set name
+    // and node ID — this is the source of truth for setId/setName.
     const components = new Map<string, DsComponentCatalog>();
     const componentSetNameById = new Map<string, string>();
     for (const [setId, set] of Object.entries(fileResponse.componentSets || {})) {
@@ -250,30 +252,47 @@ export async function buildDsCatalog(
       for (const comp of componentsResponse.meta?.components ?? []) {
         const key = String(comp.key || '').trim();
         if (!key) continue;
-        const setId = String(comp.componentSetId || '').trim();
+        // containingComponentSet is present when the component belongs to a component set (variant group).
+        const containingSet = (comp as Record<string, unknown>).containing_frame as
+          | { containingComponentSet?: { name?: string; nodeId?: string } }
+          | undefined;
+        const setIdFromContainingSet = String(containingSet?.containingComponentSet?.nodeId || '').trim();
+        const setIdFromComponent = String((comp as Record<string, unknown>).componentSetId || '').trim();
+        if (
+          setIdFromContainingSet &&
+          setIdFromComponent &&
+          setIdFromContainingSet !== setIdFromComponent
+        ) {
+          console.warn(
+            `[buildDsCatalog] Conflicting component set IDs for ${key}: containingComponentSet=${setIdFromContainingSet}, componentSetId=${setIdFromComponent}`,
+          );
+        }
+        const setId = setIdFromContainingSet || setIdFromComponent;
+        const setNameFromContainingSet = String(containingSet?.containingComponentSet?.name || '').trim();
+        const setName = setNameFromContainingSet || (setId ? componentSetNameById.get(setId) : undefined);
         components.set(key, {
           key,
           name: String(comp.name || '').trim(),
           id: comp.node_id,
           setId: setId || undefined,
-          setName: (setId && componentSetNameById.get(setId)) || undefined,
+          setName: setName || undefined,
         });
       }
     } catch (componentsError) {
       const detail = componentsError instanceof Error ? componentsError.message : String(componentsError);
       console.warn(`[buildDsCatalog] Component fetch failed (non-fatal): ${detail}`);
       // Fallback: use components from the file response if the dedicated endpoint fails.
+      // Note: fileResponse.components is only populated when fetched without depth restriction.
       for (const [componentId, component] of Object.entries(fileResponse.components || {})) {
         const comp = component as { key: string; name: string; componentSetId?: string };
         const key = String(comp.key || '').trim();
         if (!key) continue;
-        const setId = String(comp.componentSetId || '').trim();
         components.set(key, {
           key,
           name: String(comp.name || '').trim(),
           id: componentId,
-          setId: setId || undefined,
-          setName: (setId && componentSetNameById.get(setId)) || undefined,
+          setId: comp.componentSetId || undefined,
+          setName: comp.componentSetId ? componentSetNameById.get(comp.componentSetId) : undefined,
         });
       }
     }

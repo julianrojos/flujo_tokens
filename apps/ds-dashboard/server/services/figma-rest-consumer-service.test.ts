@@ -326,3 +326,222 @@ describe('scanConsumerFile local-count derivation', () => {
     assert.equal(result.componentInstances[0].componentName, 'Button/Variant-Accent');
   });
 });
+
+describe('buildDsCatalog', () => {
+  test('resolves setName via containing_frame.containingComponentSet in /components response', async () => {
+    // Simulates the real Figma API behaviour:
+    // - /v1/files/:key/components  → includes containing_frame.containingComponentSet (real API response)
+    // - /v1/files/:key?depth=1     → components and componentSets maps are EMPTY (depth truncates them)
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/ds-xref/variables/local')) {
+        return new Response(
+          JSON.stringify({ meta: { variableCollections: {}, variables: {} } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/ds-xref/components')) {
+        // Real Figma API response: contains containing_frame with containingComponentSet
+        return new Response(
+          JSON.stringify({
+            status: 200,
+            error: false,
+            meta: {
+              components: [
+                {
+                  key: 'comp-key-accent',
+                  name: 'Variant=Accent',
+                  node_id: '1:10',
+                  description: '',
+                  containing_frame: {
+                    name: 'Button',
+                    nodeId: '2:100',
+                    pageId: '0:1',
+                    pageName: 'Page 1',
+                    containingComponentSet: { name: 'Button', nodeId: '2:100' },
+                  },
+                },
+                {
+                  key: 'comp-key-default',
+                  name: 'Variant=Default',
+                  node_id: '1:11',
+                  description: '',
+                  containing_frame: {
+                    name: 'Button',
+                    nodeId: '2:100',
+                    pageId: '0:1',
+                    pageName: 'Page 1',
+                    containingComponentSet: { name: 'Button', nodeId: '2:100' },
+                  },
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/ds-xref')) {
+        // file?depth=1 — components and componentSets are empty (Figma omits them with depth param)
+        return new Response(
+          JSON.stringify({
+            name: 'DS File',
+            lastModified: '2026-03-26T00:00:00Z',
+            document: { id: '0:0', name: 'Document', type: 'DOCUMENT', children: [] },
+            componentSets: {},
+            components: {},
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const { buildDsCatalog } = await import('./figma-rest-consumer-service.js');
+    const catalog = await buildDsCatalog('ds-xref', 'figd_test_token');
+
+    const accent = catalog.components.get('comp-key-accent');
+    const def = catalog.components.get('comp-key-default');
+
+    assert.ok(accent, 'accent component should be in catalog');
+    assert.equal(accent!.setName, 'Button', 'setName should come from containing_frame.containingComponentSet');
+    assert.equal(accent!.name, 'Variant=Accent');
+
+    assert.ok(def, 'default component should be in catalog');
+    assert.equal(def!.setName, 'Button');
+  });
+
+  test('falls back to componentSetId and file componentSets when containingComponentSet is absent', async () => {
+    (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/figma-mcp-variables')) {
+        return new Response('mcp unavailable', { status: 503 });
+      }
+      if (url.includes('/v1/files/ds-xref-2/variables/local')) {
+        return new Response(
+          JSON.stringify({ meta: { variableCollections: {}, variables: {} } }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/ds-xref-2/components')) {
+        return new Response(
+          JSON.stringify({
+            status: 200,
+            error: false,
+            meta: {
+              components: [
+                {
+                  key: 'comp-key-plain',
+                  name: 'Variant=Default',
+                  node_id: '1:20',
+                  componentSetId: '2:200',
+                },
+              ],
+            },
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (url.includes('/v1/files/ds-xref-2')) {
+        return new Response(
+          JSON.stringify({
+            name: 'DS File',
+            lastModified: '2026-03-26T00:00:00Z',
+            document: { id: '0:0', name: 'Document', type: 'DOCUMENT', children: [] },
+            componentSets: {
+              '2:200': { name: 'Button' },
+            },
+            components: {},
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    }) as typeof fetch;
+
+    const { buildDsCatalog } = await import('./figma-rest-consumer-service.js');
+    const catalog = await buildDsCatalog('ds-xref-2', 'figd_test_token');
+
+    const comp = catalog.components.get('comp-key-plain');
+    assert.ok(comp);
+    assert.equal(comp!.setId, '2:200');
+    assert.equal(comp!.setName, 'Button');
+  });
+
+  test('prefers containingComponentSet name when both sources exist and conflict', async () => {
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map((part) => String(part)).join(' '));
+    };
+
+    try {
+      (globalThis as { fetch: typeof fetch }).fetch = (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/api/figma-mcp-variables')) {
+          return new Response('mcp unavailable', { status: 503 });
+        }
+        if (url.includes('/v1/files/ds-xref-3/variables/local')) {
+          return new Response(
+            JSON.stringify({ meta: { variableCollections: {}, variables: {} } }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          );
+        }
+        if (url.includes('/v1/files/ds-xref-3/components')) {
+          return new Response(
+            JSON.stringify({
+              status: 200,
+              error: false,
+              meta: {
+                components: [
+                  {
+                    key: 'comp-key-conflict',
+                    name: 'Variant=Ghost',
+                    node_id: '1:30',
+                    componentSetId: '2:300',
+                    containing_frame: {
+                      containingComponentSet: { name: 'Button', nodeId: '2:301' },
+                    },
+                  },
+                ],
+              },
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          );
+        }
+        if (url.includes('/v1/files/ds-xref-3')) {
+          return new Response(
+            JSON.stringify({
+              name: 'DS File',
+              lastModified: '2026-03-26T00:00:00Z',
+              document: { id: '0:0', name: 'Document', type: 'DOCUMENT', children: [] },
+              componentSets: {
+                '2:300': { name: 'Button Legacy' },
+                '2:301': { name: 'Button' },
+              },
+              components: {},
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          );
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      }) as typeof fetch;
+
+      const { buildDsCatalog } = await import('./figma-rest-consumer-service.js');
+      const catalog = await buildDsCatalog('ds-xref-3', 'figd_test_token');
+
+      const comp = catalog.components.get('comp-key-conflict');
+      assert.ok(comp);
+      assert.equal(comp!.setId, '2:301');
+      assert.equal(comp!.setName, 'Button');
+      assert.ok(
+        warnings.some((entry) => entry.includes('Conflicting component set IDs')),
+        'should warn when setId sources conflict',
+      );
+    } finally {
+      console.warn = originalWarn;
+    }
+  });
+});
