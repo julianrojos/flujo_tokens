@@ -24,7 +24,7 @@ export function SystemSwitcher({ collapsed }: { collapsed?: boolean }) {
   return (
     <div className={cn("mt-2 flex flex-col gap-2", collapsed && "sr-only")}>
       <h1 className="text-2xl font-semibold tracking-tight">
-        Flujo Tokens
+        DS Graph
       </h1>
       
       <div className="mt-1">

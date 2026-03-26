@@ -35,9 +35,9 @@ const RESET_POLL_TIMEOUT_MS = 25_000;
 const WAIT_POLL_TIMEOUT_MS = 30_000;
 const MAX_POLL_REQUEST_TIMEOUT_MS = 10_000;
 const RECOVERY_STEPS = [
-  "Refresh MCP Management status",
+  "Refresh DS Graph status",
   "Wait for reconnection",
-  "Reopen MCP Management plugin in Figma",
+  "Reopen DS Graph plugin in Figma",
 ] as const;
 const EXPECTED_MCP_PLUGIN_VERSION = "1.0.0";
 
@@ -313,14 +313,14 @@ export function FigmaMcpConnectionTestButton({
           ok: false,
           connected: false,
           code: error.code,
-          message: error.message || "MCP Management connectivity test failed.",
+          message: error.message || "DS Graph connectivity test failed.",
         });
       } else {
         setResult({
           ok: false,
           connected: false,
           code: "mcp_ping.client_error",
-          message: "Could not reach the server to test MCP Management connectivity.",
+          message: "Could not reach the server to test DS Graph connectivity.",
         });
       }
     } finally {
@@ -501,15 +501,15 @@ export function FigmaMcpConnectionTestButton({
 
           {isResetting ? (
             <p className="break-words text-[11px] text-status-warning">
-              ↺ Refreshing MCP Management status… retrying in {resetSecondsLeft}s.
+              ↺ Refreshing DS Graph status… retrying in {resetSecondsLeft}s.
             </p>
           ) : isWaiting ? (
             <p className="break-words text-[11px] text-status-warning">
-              ⏳ Retrying connection… {waitSecondsLeft}s left. Open the MCP Management plugin now.
+              ⏳ Retrying connection… {waitSecondsLeft}s left. Open the DS Graph plugin now.
             </p>
           ) : (
             <p className="break-words text-[11px] text-status-warning">
-              ⚠ No reconnection detected. Open the MCP Management plugin and click
+              ⚠ No reconnection detected. Open the DS Graph plugin and click
               &nbsp;&ldquo;Resolve connection&rdquo; again.
             </p>
           )}
@@ -541,16 +541,16 @@ export function FigmaMcpConnectionTestButton({
           </p>
         ) : isPluginVersionMismatch ? (
           <p className="break-words text-[11px] text-status-warning">
-            ⚠ Plugin build mismatch. Reimport the MCP Management plugin so dashboard and plugin use the same protocol.
+            ⚠ Plugin build mismatch. Reimport the DS Graph plugin so dashboard and plugin use the same protocol.
           </p>
         ) : isNotConnected ? (
           <p className="break-words text-[11px] text-status-warning">
             {result.everConnected
-              ? "⚠ Connection lost — reopen the MCP Management plugin to reconnect."
+              ? "⚠ Connection lost — reopen the DS Graph plugin to reconnect."
               : (
                 <>
                   ⚠ No plugin heartbeat received yet. Make sure the dashboard is running with{" "}
-                  <code>npm run dashboard:dev</code>, then reload the MCP Management plugin, wait 5 seconds, and try{" "}
+                  <code>npm run dashboard:dev</code>, then reload the DS Graph plugin, wait 5 seconds, and try{" "}
                   <strong>Test connection</strong> again. You can quickly verify backend health at{" "}
                   <a
                     href={apiHealthHref}

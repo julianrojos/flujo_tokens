@@ -1343,7 +1343,7 @@ function toMcpPingResultFromCapabilities(
       ok: true,
       connected: true,
       code: "mcp.connected",
-      message: "MCP Management connection is active.",
+      message: "DS Graph connection is active.",
     };
   }
 
@@ -1357,15 +1357,15 @@ function toMcpPingResultFromCapabilities(
     message:
       payload.mcp?.message ||
       (normalized.hasVariablesData
-        ? "MCP Management is reachable, but no active plugin session was found."
-        : "No MCP Management plugin session is active. Open the Figma plugin and retry."),
+        ? "DS Graph is reachable, but no active plugin session was found."
+        : "No DS Graph plugin session is active. Open the Figma plugin and retry."),
     details: { reason },
   };
 }
 
 
 /**
- * Ping MCP Management to check connectivity.
+ * Ping DS Graph to check connectivity.
  * Note: figmaUrl/figmaToken args are deprecated in direct-only mode.
  * @deprecated Use direct capabilities endpoint instead. This function is maintained for backward compatibility.
  */
@@ -1398,7 +1398,7 @@ export async function pingFigmaMcp(
         statusText: "Request Timeout",
         code: "http.408" as ApiErrorCode,
         userMessage:
-          "MCP Management connectivity test timed out. Check that the Figma plugin is open and retry.",
+          "DS Graph connectivity test timed out. Check that the Figma plugin is open and retry.",
         recoverable: true,
         context: {
           timeoutMs,

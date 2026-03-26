@@ -17,6 +17,6 @@ export const PLUGIN_VERSION = '1.0.0';
 /**
  * Plugin build identifier (used for tracking builds in logs).
  * Manual update required when major protocol/architecture changes occur.
- * Current: direct-ws mode (no external MCP Management dependency).
+ * Current: direct-ws mode (no external DS Graph dependency).
  */
 export const PLUGIN_BUILD = 'direct-ws-v1';

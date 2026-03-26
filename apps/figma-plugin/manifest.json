@@ -1,5 +1,5 @@
 {
-  "name": "MCP Management",
+  "name": "DS Graph",
   "id": "mcp-management-plugin",
   "api": "1.0.0",
   "main": "dist/code.js",

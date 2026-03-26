@@ -28,7 +28,7 @@ const MCP_STATUS_TIMEOUT_MS = 60_000;
 const MCP_CONNECT_WAIT_MS = 20_000;
 
 // A more generous timeout for the initial warmup: first-time npx downloads
-// of MCP Management can take longer than the regular per-request timeout.
+// of DS Graph can take longer than the regular per-request timeout.
 const MCP_WARMUP_TIMEOUT_MS = 90_000;
 
 export async function pingFigmaMcpService(
@@ -62,7 +62,7 @@ export function disposeFigmaMcpPingService(): void {
 }
 
 /**
- * Terminate competing MCP Management processes from previous sessions.
+ * Terminate competing DS Graph processes from previous sessions.
  *
  * This is used by reconcile flows when MCP gets stuck on fallback ports due to
  * stale sibling instances.
@@ -74,11 +74,11 @@ export async function terminateCompetingFigmaMcpProcessesService(): Promise<void
 }
 
 /**
- * Eagerly spawn the shared MCP Management process in the background.
+ * Eagerly spawn the shared DS Graph process in the background.
  *
  * Call this once at server startup.  By the time the user interacts with the
  * "Test MCP connection" button the process will already be running, its port
- * will be advertised in /tmp, and the MCP Management will have had a
+ * will be advertised in /tmp, and the DS Graph will have had a
  * chance to discover and connect to it — avoiding the cold-start timeout that
  * occurs when the client is created lazily on the first ping request.
  */
@@ -105,10 +105,10 @@ export type FigmaMcpVariablesServiceResult = FigmaVariablesResponse;
 /**
  * Fetch Figma local variables using the shared MCP client.
  *
- * This reuses the long-lived MCP Management process that the bridge
+ * This reuses the long-lived DS Graph process that the bridge
  * plugin is already connected to, avoiding the subprocess port-
  * mismatch problem where sync subprocesses spawn their own fresh instances
- * that the MCP Management has never seen.
+ * that the DS Graph has never seen.
  */
 export async function fetchFigmaMcpVariablesService(
   args: FigmaMcpVariablesServiceArgs = {},
