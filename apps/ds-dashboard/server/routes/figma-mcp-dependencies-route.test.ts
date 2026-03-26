@@ -48,6 +48,10 @@ describe('figma-mcp-dependencies-route', () => {
         component_count INTEGER NOT NULL DEFAULT 0,
         variable_count INTEGER NOT NULL DEFAULT 0,
         warning_count INTEGER NOT NULL DEFAULT 0,
+        local_component_defined_count INTEGER DEFAULT NULL,
+        local_component_used_count INTEGER DEFAULT NULL,
+        local_variable_defined_count INTEGER DEFAULT NULL,
+        local_variable_used_count INTEGER DEFAULT NULL,
         FOREIGN KEY (consumer_id) REFERENCES ds_consumers(id) ON DELETE CASCADE
       );
 
