@@ -588,7 +588,7 @@ export function DesignSystemsAdminPage() {
                 <div className="mb-4">
                   <p className="mb-3 text-sm text-muted-foreground">
                     Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>?
-                    This will permanently remove the design system and all associated consumer data.
+                    This will permanently remove this design system and its connected consumer files and information.
                   </p>
 
                   {deletePreview && deletePreview.totalConsumerCount > 0 ? (
@@ -609,7 +609,9 @@ export function DesignSystemsAdminPage() {
                         )}
                       </div>
                       <div className="mt-2 text-xs text-muted-foreground">
-                        This includes {deletePreview.counts.syncRuns} sync runs, {deletePreview.counts.componentUsage} component usage records, and {deletePreview.counts.variableUsage} variable usage records.
+                        This also clears {deletePreview.counts.syncRuns}
+                        related usage tracking ({deletePreview.counts.componentUsage} component records and{" "}
+                        {deletePreview.counts.variableUsage} variable records).
                       </div>
                     </div>
                   ) : (
@@ -625,7 +627,8 @@ export function DesignSystemsAdminPage() {
               ) : (
                 <p className="mb-4 text-sm text-muted-foreground">
                   Are you sure you want to delete <strong>{deleteModalTarget.name}</strong>?
-                  All its data will be removed. This action cannot be undone.
+                  This will permanently remove this design system and its connected consumer files.
+                  This action cannot be undone.
                 </p>
               )}
 
@@ -636,7 +639,9 @@ export function DesignSystemsAdminPage() {
                   onChange={(e) => setDeleteConfirmed(e.target.checked)}
                   className="h-4 w-4"
                 />
-                <span>I understand this will permanently delete consumer data</span>
+                <span>
+                  I understand this will permanently remove this design system and its connected consumer data
+                </span>
               </label>
 
               <div className="flex items-center justify-end gap-2">
