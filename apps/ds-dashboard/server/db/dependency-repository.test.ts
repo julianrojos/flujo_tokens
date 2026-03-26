@@ -726,6 +726,84 @@ describe('DependencyRepository', () => {
       assert.equal(result.deletedConsumerCount, 0);
       assert.deepEqual(result.deletedConsumerIds, []);
     });
+
+    test('rolls back consumer/sync deletions when transactional cascade fails', () => {
+      const dsFileKey = 'rollback-ds-key';
+      const consumer = repo.addConsumer({
+        ds_file_key: dsFileKey,
+        consumer_file_key: 'rollback-consumer',
+        consumer_name: 'Rollback Consumer',
+      });
+
+      repo.saveSyncRun({
+        consumer_id: consumer.id,
+        status: 'ok',
+        duration_ms: 123,
+        component_usage: [
+          {
+            component_key: 'comp-rollback',
+            component_name: 'Comp Rollback',
+            instance_count: 1,
+          },
+        ],
+        variable_usage: [
+          {
+            variable_key: 'var-rollback',
+            variable_name: 'Var Rollback',
+            variable_type: 'COLOR',
+            node_count: 1,
+          },
+        ],
+        warnings: [
+          {
+            code: 'warn-rollback',
+            message: 'warn rollback',
+          },
+        ],
+      });
+
+      db.exec(`
+        CREATE TRIGGER ds_sync_runs_force_abort
+        BEFORE DELETE ON ds_sync_runs
+        BEGIN
+          SELECT RAISE(ABORT, 'forced sync run delete failure');
+        END;
+      `);
+
+      assert.throws(
+        () => repo.removeAllByDsFileKey(dsFileKey),
+        /forced sync run delete failure/,
+      );
+
+      const remainingConsumers = db
+        .prepare('SELECT COUNT(*) as count FROM ds_consumers WHERE ds_file_key = ?')
+        .get(dsFileKey) as { count: number };
+      assert.equal(remainingConsumers.count, 1);
+
+      const remainingRuns = db
+        .prepare('SELECT COUNT(*) as count FROM ds_sync_runs WHERE consumer_id = ?')
+        .get(consumer.id) as { count: number };
+      assert.equal(remainingRuns.count, 1);
+
+      const runRow = db
+        .prepare('SELECT id FROM ds_sync_runs WHERE consumer_id = ?')
+        .get(consumer.id) as { id: string };
+
+      const remainingComponentUsage = db
+        .prepare('SELECT COUNT(*) as count FROM ds_component_usage WHERE run_id = ?')
+        .get(runRow.id) as { count: number };
+      assert.equal(remainingComponentUsage.count, 1);
+
+      const remainingVariableUsage = db
+        .prepare('SELECT COUNT(*) as count FROM ds_variable_usage WHERE run_id = ?')
+        .get(runRow.id) as { count: number };
+      assert.equal(remainingVariableUsage.count, 1);
+
+      const remainingWarnings = db
+        .prepare('SELECT COUNT(*) as count FROM ds_sync_warnings WHERE run_id = ?')
+        .get(runRow.id) as { count: number };
+      assert.equal(remainingWarnings.count, 1);
+    });
   });
 
   describe('getDeletePreview', () => {
