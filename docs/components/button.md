@@ -1,236 +1,93 @@
 ---
 doc_type: component
-doc_status: needs-review
+doc_status: draft
 figma:
-  file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097
-  page: Button
+  file_url: https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=59-391
+  page: Buttons
   component: Button
   component_set_node_id: '68:4097'
-  last_verified: '2026-02-19'
+  last_verified: '2026-03-26'
 pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: 6a4ac45f4663533fee5bf1c7b691edaed450aacdc08f0fbcb4f3d35a6796a970
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
-    generator_script_sha256: 0a97e706c998422920cda46896d72747026c04af88cea96d91e2bff2fe14bf97
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
+    generator_script_sha256: a76a99f010d13a911e723ab243f10953a604ff553b6d48faa3a1bdc584ee8a0d
 ---
 
 # Button
 
-The **Button** component triggers a user action with optional leading and trailing icons.
-
 ## Overview
 
-In Figma, this component is defined as a `COMPONENT_SET` (`Button`) with two variant properties:
-
-- `State`: `Default`, `Hover`, `Active`, `Disabled`
-- `Type`: `Primary`, `Secondary`, `Cancel`
-
-It also exposes content and visibility properties for text and icon instances:
-
-- `↳ Change txt` (`TEXT`)
-- `View txt` (`BOOLEAN`)
-- `View icn left` (`BOOLEAN`)
-- `View icn right` (`BOOLEAN`)
-- `↳ Change icn left` (`INSTANCE_SWAP`)
-- `↳ Change icn right` (`INSTANCE_SWAP`)
-
-All 12 variants share the same frame size and auto-layout structure.
-
-Source: [Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB---Design-System?node-id=68-4097)
-
-### Visual Proof
-
-![Visual proof snapshot](../_generated/visual-proofs/images/button.png)
-
-- Screenshot: [Captured (2026-02-21)](https://figma-alpha-api.s3.us-west-2.amazonaws.com/images/a00aff69-d085-4e86-b9d3-ca09707999bc)
-- Source node: `68:4097`
-- Image hash: `0c321f7cbd1b6a771b00124d1854d9b82297cf4a3671fa7ec4a06bdde6dc7c84`
-- Variants captured: `6`
-- Artifact: `../_generated/visual-proofs/button.json`
+The **Button** component triggers user actions with variant-driven style and state.
 
 ## Anatomy
 
-<!-- AUTO-GENERATED-ANATOMY:START -->
-| Part              | Type                     | Size / Values | Description                     |
-| ----------------- | ------------------------ | ------------- | ------------------------------- |
-| **Container**     | `HORIZONTAL` Auto Layout | `133 x 44`    | Main button frame with styling. |
-| **Leading icon**  | `INSTANCE`               | `24 x 24`     | Optional icon before label.     |
-| **Label**         | `TEXT`                   | `Button`      | Main action text.               |
-| **Trailing icon** | `INSTANCE`               | `24 x 24`     | Optional icon after label.      |
+1. Container
+2. Label
+3. Optional leading/trailing icon
 
-Current variant dimensions in Figma:
-
-- All variants: `133 x 44`
-
-<!-- AUTO-GENERATED-ANATOMY:END -->
 ## Component API
 
 ### Properties
 
-<!-- AUTO-GENERATED-PROPERTIES:START -->
-| Name                 | Type            | Default   | Required | Description                                                                |
-| -------------------- | --------------- | --------- | -------- | -------------------------------------------------------------------------- |
-| `State`              | `VARIANT`       | `Default` | `true`   | Interaction state axis. Options: `Default`, `Hover`, `Active`, `Disabled`. |
-| `Type`               | `VARIANT`       | `Primary` | `true`   | Semantic style axis. Options: `Primary`, `Secondary`, `Cancel`.            |
-| `↳ Change txt`       | `TEXT`          | `Button`  | `false`  | Overrides the visible label text.                                          |
-| `View txt`           | `BOOLEAN`       | `true`    | `false`  | Toggles label visibility.                                                  |
-| `View icn left`      | `BOOLEAN`       | `true`    | `false`  | Toggles leading icon visibility.                                           |
-| `View icn right`     | `BOOLEAN`       | `true`    | `false`  | Toggles trailing icon visibility.                                          |
-| `↳ Change icn left`  | `INSTANCE_SWAP` | `arrow-left-square-contained`  | `false`  | Swaps the leading icon instance from preferred icon options.               |
-| `↳ Change icn right` | `INSTANCE_SWAP` | `arrow-right-square-contained` | `false`  | Swaps the trailing icon instance from preferred icon options.              |
+- `Type`: `Primary | Secondary | Cancel`
+- `State`: `Default | Hover | Active | Disabled`
 
-<!-- AUTO-GENERATED-PROPERTIES:END -->
 ## Visual Specifications
-
-### Container
-
-- **Layout**: Auto Layout, `HORIZONTAL`, center-aligned on both axes
-- **Size**: `133 x 44`
-- **Item spacing**: `8px` via `Dimension/Spacing/400` (`8`)
-- **Padding**: `10px` all sides via `Dimension/Spacing/500` (`10`)
-- **Corner radius**: `8px` via `Dimension/Border/Radius/200` (`8`)
-- **Border width**: `1px` via `Dimension/Border/Width/100` (`1`)
-- **Border color**: `Color/Border/Neutral/Alpha-10` (`#0000001A`)
-- **Minimum height token**: A11y/Dimension/Min-Hit-Area (`24`)
-- **Minimum width token**: `TBD` (binding exists but token name is unresolved in current file metadata)
-
-### Typography
-
-- **Font family**: `Nunito Sans` via `Font/Family/Body` (`Nunito Sans`)
-- **Font style**: `Regular` via `Font/Weight/Regular` (`regular`)
-- **Font size**: `16` via `Font/Size/300` (`16`)
-- **Line height**: `24` via `Font/Line-Height/300` (`24`)
-- **Letter spacing**: `0%`
-
-### Iconography
-
-- **Leading icon**: default `arrow-left-square-contained`, `24 x 24`
-- **Trailing icon**: default `arrow-right-square-contained`, `24 x 24`
-- **Icon color token mapping**: `TBD` at this component-set level (icons are nested instances)
-
-### Elevation
-
-- **Default state shadow tokens**: `Dimension/Shadow/X/Default/100` (`0`), `Dimension/Shadow/Y/Default/100` (`4`), `Dimension/Shadow/Blur/Default/100` (`12`), `Dimension/Shadow/Spread/Default/100` (`0`), `Color/Shadow/100` (`#00000014`)
-- **Hover state shadow tokens**: `Dimension/Shadow/X/Default/200` (`0`), `Dimension/Shadow/Y/Default/200` (`4`), `Dimension/Shadow/Blur/Default/200` (`16`), `Dimension/Shadow/Spread/Default/200` (`0`), `Color/Shadow/200` (`#00000029`)
-- **Active / Disabled**: no bound effect tokens in current variants
 
 ### Token Mapping
 
-| Part                   | Condition                        | Token                                       | Fallback    |
-| ---------------------- | -------------------------------- | ------------------------------------------- | ----------- |
-| `container.background` | `type=Primary,state=Default`     | `Color/Background/Action/Primary/Default`   | `#ADD8E6`   |
-| `container.background` | `type=Primary,state=Hover`       | `Color/Background/Action/Primary/Hover`     | `#C5F0FF`   |
-| `container.background` | `type=Primary,state=Active`      | `Color/Background/Action/Primary/Active`    | `#96BFCC`   |
-| `container.background` | `type=Secondary,state=Default`   | `Color/Background/Action/Secondary/Default` | `#C9E0BE`   |
-| `container.background` | `type=Secondary,state=Hover`     | `Color/Background/Action/Secondary/Hover`   | `#E0F7D6`   |
-| `container.background` | `type=Secondary,state=Active`    | `Color/Background/Action/Secondary/Active`  | `#B2C9A7`   |
-| `container.background` | `type=Cancel,state=Default`      | `Color/Background/Action/Danger/Default`    | `#B22222`   |
-| `container.background` | `type=Cancel,state=Hover`        | `Color/Background/Action/Danger/Hover`      | `#D43636`   |
-| `container.background` | `type=Cancel,state=Active`       | `Color/Background/Action/Danger/Active`     | `#901212`   |
-| `container.background` | `state=Disabled`                 | `Color/Background/Action/Disabled/Default`  | `#ECECEC`   |
-| `container.border`     | all variants                     | `Color/Border/Neutral/Alpha-10`             | `#0000001A` |
-| `label.color`          | `type=Primary,state!=Disabled`   | `Color/Text/Action/On-Primary`              | `#483F3F`   |
-| `label.color`          | `type=Secondary,state!=Disabled` | `Color/Text/Action/On-Secondary`            | `#483F3F`   |
-| `label.color`          | `type=Cancel,state!=Disabled`    | `Color/Text/Action/On-Danger`               | `#FFFFFF`   |
-| `label.color`          | `state=Disabled`                 | `Color/Text/Action/On-Disabled`             | `#5D5252`   |
+- See token mapping in spec for variant/state combinations.
 
 ## Variants
 
-<!-- AUTO-GENERATED-VARIANTS:START -->
-| Type        | State      | Differentiating token(s)                                                                        | Fallback value(s)                 | Visual indicator                                | Node      |
-| ----------- | ---------- | ----------------------------------------------------------------------------------------------- | --------------------------------- | ----------------------------------------------- | --------- |
-| `Primary`   | `Default`  | `Color/Background/Action/Primary/Default`, `Color/Text/Action/On-Primary`, shadow `100` set     | `#ADD8E6`, `#483F3F`, `#00000014` | Blue background, dark text/icons, medium shadow | `59:391`  |
-| `Primary`   | `Hover`    | `Color/Background/Action/Primary/Hover`, `Color/Text/Action/On-Primary`, shadow `200` set       | `#C5F0FF`, `#483F3F`, `#00000029` | Lighter blue background, stronger shadow        | `68:4126` |
-| `Primary`   | `Active`   | `Color/Background/Action/Primary/Active`, `Color/Text/Action/On-Primary`                        | `#96BFCC`, `#483F3F`              | Darker blue background, no shadow               | `68:4157` |
-| `Primary`   | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled`                     | `#ECECEC`, `#5D5252`              | Neutral disabled surface and text               | `68:4185` |
-| `Secondary` | `Default`  | `Color/Background/Action/Secondary/Default`, `Color/Text/Action/On-Secondary`, shadow `100` set | `#C9E0BE`, `#483F3F`, `#00000014` | Light green background, dark text/icons         | `68:4098` |
-| `Secondary` | `Hover`    | `Color/Background/Action/Secondary/Hover`, `Color/Text/Action/On-Secondary`, shadow `200` set   | `#E0F7D6`, `#483F3F`, `#00000029` | Lighter green background, stronger shadow       | `68:4236` |
-| `Secondary` | `Active`   | `Color/Background/Action/Secondary/Active`, `Color/Text/Action/On-Secondary`                    | `#B2C9A7`, `#483F3F`              | Darker green background, no shadow              | `68:4256` |
-| `Secondary` | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled`                     | `#ECECEC`, `#5D5252`              | Neutral disabled surface and text               | `68:4276` |
-| `Cancel`    | `Default`  | `Color/Background/Action/Danger/Default`, `Color/Text/Action/On-Danger`, shadow `100` set       | `#B22222`, `#FFFFFF`, `#00000014` | Red background, white text/icons                | `68:4104` |
-| `Cancel`    | `Hover`    | `Color/Background/Action/Danger/Hover`, `Color/Text/Action/On-Danger`, shadow `200` set         | `#D43636`, `#FFFFFF`, `#00000029` | Lighter red background, stronger shadow         | `74:4294` |
-| `Cancel`    | `Active`   | `Color/Background/Action/Danger/Active`, `Color/Text/Action/On-Danger`                          | `#901212`, `#FFFFFF`              | Darker red background, no shadow                | `77:4322` |
-| `Cancel`    | `Disabled` | `Color/Background/Action/Disabled/Default`, `Color/Text/Action/On-Disabled`                     | `#ECECEC`, `#5D5252`              | Neutral disabled surface and text               | `77:4374` |
+- `Type`: `Primary`, `Secondary`, `Cancel`
+- `State`: `Default`, `Hover`, `Active`, `Disabled`
 
-<!-- AUTO-GENERATED-VARIANTS:END -->
 ## States
 
-- **Default**: Uses each type’s `/Default` background token and the shadow `100` token set.
-- **Hover**: Uses each type’s `/Hover` background token and the shadow `200` token set.
-- **Active**: Uses each type’s `/Active` background token and removes shadow tokens.
-- **Disabled**: Uses shared disabled tokens `Color/Background/Action/Disabled/Default` (`#ECECEC`) and `Color/Text/Action/On-Disabled` (`#5D5252`) across all three types.
-- **Focus**: `TBD` in this component set (no dedicated focus variant axis in Figma).
-- **Loading**: Not defined in this component set.
+- Default, Hover, Active, Disabled
 
 ## Usage Guidelines
 
-### Behavior
-
-- **When to use**: Use for explicit user-triggered actions in flows where text and optional directional icons improve clarity.
-- **When not to use**: Do not use this component as persistent navigation chrome.
-- **Do**: Keep `State` and `Type` aligned with interaction and semantic intent.
-- **Do**: Keep icon visibility and label visibility consistent with the accessible name strategy.
-- **Don't**: Use disabled styling for non-disabled actions.
-- **Don't**: Replace semantic action tokens with ad-hoc color values.
-- Responsive behavior: `TBD`
-- Overflow / truncation behavior: `TBD`
-- i18n / RTL behavior: `TBD`
-
-### Examples
-
-- Basic example: Primary action with visible text (`View txt=true`) and no icons.
-- Contextual example: Directional action using text plus trailing icon (`View icn right=true`).
+- Use for explicit user actions.
 
 ## Content Guidelines
 
-- Prefer short action labels in sentence case (for example, imperative verb phrases).
-- Keep punctuation minimal unless required by the product voice.
-- Label length limit: `TBD` (no explicit max width/content rule found on the component set).
-- Truncation behavior: `TBD` (no explicit truncation rule found on the component set).
-- If `View txt=false`, accessible labeling requirements become mandatory (`aria-label`/`aria-labelledby`).
+- Keep labels concise and action-oriented.
 
 ## Accessibility
 
-### 1. ARIA role and semantics
-
-- Expected semantic role: `button` (native `<button>` preferred).
-- Required ARIA attributes for default text buttons: none when visible label is present.
-- If label text is hidden (`View txt=false`), provide `aria-label` or `aria-labelledby`.
-
-### 2. Keyboard navigation
-
-| Key         | Action                                        |
-| ----------- | --------------------------------------------- |
-| `Tab`       | Moves focus to the button                     |
-| `Shift+Tab` | Moves focus to the previous focusable element |
-| `Enter`     | Activates the button action                   |
-| `Space`     | Activates the button action                   |
-
-### 3. Focus management
-
-- Focus behavior should follow native button behavior in tab order.
-- Focus outline token mapping is `TBD` in this component set.
-- Expected focus tokens: `Semantic.Color.Focus-Outline.Inner` (`#FFFFFF`) and `Semantic.Color.Focus-Outline.Outer` (`#567680`).
-
-### 4. Labeling
-
-- With visible text (`View txt=true`), the label text provides the accessible name.
-- For icon-only usage (`View txt=false`), set an explicit accessible name.
-- Descriptive helper text linkage (`aria-describedby`) is `TBD` for this component family.
-
-### 5. Contrast and visibility
-
-- The component uses both color and icon/text content to convey meaning.
-- Disabled variants remain visually distinct from interactive states.
-- Verified contrast ratios are `TBD (pending audit)`.
+- Use native `<button>` semantics.
 
 ## Related Components
 
-- [Bottom Bar](bottom_bar.md): Use for persistent navigation/action regions, not for standalone action controls.
-- [Alert](alert.md): Use for feedback messaging, not action triggering.
+- [Bottom Bar](bottom_bar.md)
+- [Alert](alert.md)
 
 ## Gaps / TBD
 
 - [ ] [SCHEMA_TBD] `token_mapping.container.min_width.default` is `TBD`. Specification value is unresolved.
 - [ ] [SCHEMA_TBD] `token_mapping.icon.color.default` is `TBD`. Specification value is unresolved.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.state=Disabled` references `Color/Background/Action/Disabled/Default` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Cancel,state=Active` references `Color/Background/Action/Danger/Active` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Cancel,state=Default` references `Color/Background/Action/Danger/Default` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Cancel,state=Hover` references `Color/Background/Action/Danger/Hover` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Primary,state=Active` references `Color/Background/Action/Primary/Active` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Primary,state=Default` references `Color/Background/Action/Primary/Default` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Primary,state=Hover` references `Color/Background/Action/Primary/Hover` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Secondary,state=Active` references `Color/Background/Action/Secondary/Active` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Secondary,state=Default` references `Color/Background/Action/Secondary/Default` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.type=Secondary,state=Hover` references `Color/Background/Action/Secondary/Hover` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.border.default` references `Color/Border/Neutral/Alpha-10` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.padding.default` references `Dimension/Spacing/500` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.radius.default` references `Dimension/Border/Radius/200` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.label.color.state=Disabled` references `Color/Text/Action/On-Disabled` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.label.color.type=Cancel,state!=Disabled` references `Color/Text/Action/On-Danger` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.label.color.type=Primary,state!=Disabled` references `Color/Text/Action/On-Primary` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.label.color.type=Secondary,state!=Disabled` references `Color/Text/Action/On-Secondary` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.label.typography.family.default` references `Font/Family/Body` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.label.typography.line_height.default` references `Font/Line-Height/300` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.label.typography.size.default` references `Font/Size/300` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.label.typography.weight.default` references `Font/Weight/Regular` but it is missing in token registry.

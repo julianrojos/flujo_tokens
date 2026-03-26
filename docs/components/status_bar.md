@@ -11,7 +11,7 @@ pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: 810615e6ad5b6b2aa490352fc54959ece1a0abe233b7b83c441cf5a2be4c7ab9
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
     generator_script_sha256: d1a7b2a3735f7e1e853c3a53811b9edec4b68c51b73d75b1ed818033f2baba15
 ---
 
@@ -167,4 +167,7 @@ This component is not keyboard-interactive.
 
 ## Gaps / TBD
 
+- [ ] [TOKEN_INVALID] `token_mapping.container.background.Background=Brand` references `Color/Background/Brand/Secondary` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.icons_row.color.default` references `Color/BW/Black` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.time_group.color.default` references `Color/BW/Black` but it is missing in token registry.
 - [ ] [A11Y_TBD] `accessibility.role` is `TBD`. Accessibility detail is unresolved.

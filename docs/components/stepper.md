@@ -10,7 +10,7 @@ pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: 407c3d1fc69b5dbb25e61ba34efa385ac14c2ca370f50a767a57a7f7a3400652
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
 ---
 
 # Stepper

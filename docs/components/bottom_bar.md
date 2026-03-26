@@ -10,7 +10,7 @@ pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: 7a9fdf8644079fcfd33f4cd1348bc05a2089479725a707611914fada694de898
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
     generator_script_sha256: b339a68ac7ef34b3cfc99b8b3afecc126fe2a21056182b8d0ffe5642a7925158
 ---
 
@@ -195,3 +195,11 @@ The root container has no independent interaction state. State behavior is contr
 ## Gaps / TBD
 
 - [ ] [SCHEMA_TBD] `token_mapping.container.background.default` is `TBD`. Specification value is unresolved.
+- [ ] [TOKEN_INVALID] `token_mapping.item_icon.color.default` references `Color/Icon/Neutral/Default` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.item_label.color.default` references `Color/Text/Neutral/Default` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.item_label.font-family.default` references `Font/Family/Body` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.item_label.font-size.default` references `Font/Size/100` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.item_label.font-weight.default` references `Font/Weight/Regular` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.item_label.line-height.default` references `Font/Line-Height/100` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.item_slot.padding.default` references `Dimension/Spacing/400` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.item_slot.radius.default` references `Dimension/Border/Radius/200` but it is missing in token registry.

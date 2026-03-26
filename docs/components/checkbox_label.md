@@ -10,7 +10,7 @@ pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: 422d562188c28ef87212b44535e3f3a551c1edb29e21ce8de94f9e08e2c91935
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
 ---
 
 # Checkbox Label

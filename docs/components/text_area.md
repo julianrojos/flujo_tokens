@@ -11,7 +11,7 @@ pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: 391e560fc5ed7e86a98280f32fe0f878a2ac1f6853f2678fa9faed7ab217e3d3
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
 ---
 
 # Text Area

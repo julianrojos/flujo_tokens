@@ -11,7 +11,7 @@ pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: c79984d506e6fc2fdc9bec15b07ffabe9d0080ff379e65adb80ac1237cb35e97
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
 ---
 
 # Radio Button

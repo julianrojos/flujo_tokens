@@ -14,7 +14,7 @@ pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: 29ef8a81e9e95b9931a73978f49603e7c607243db2ec1224c622344a6dbbcf11
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
     generator_script_sha256: 58f557ac1ccb13d42ebfed358e645442256abb548e5aad6635c2672f31d7dfca
 ---
 

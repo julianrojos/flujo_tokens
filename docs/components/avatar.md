@@ -11,7 +11,7 @@ pipeline:
   ds_component_doc:
     contract_version: '1'
     spec_sha256: 39693a1eb5a40dc7623b6aeacb9ba3b59d3d3d61b9193e974b8187a1458ada31
-    token_registry_sha256: 63fd456c9d17819aa952351ba1021104cbe9cb695874a3a78f4e52b35537f964
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
     generator_script_sha256: a1c709db54049eacb6f51b020134df6110fbfed9fcae5ba506df40502d85e7fc
 ---
 
@@ -142,3 +142,9 @@ This component is not keyboard-interactive by itself.
 
 - [Bottom Bar](bottom_bar.md): Use for navigation actions; avatar may appear inside destinations opened from navigation.
 - [Alert](alert.md): Use for feedback messaging; avatar should not be used as feedback status.
+
+## Gaps / TBD
+
+- [ ] [TOKEN_INVALID] `token_mapping.container.border-color.default` references `Color/Border/Neutral/Default` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.border-radius.default` references `Dimension/Border/Radius/200` but it is missing in token registry.
+- [ ] [TOKEN_INVALID] `token_mapping.container.border-width.default` references `Dimension/Border/Width/200` but it is missing in token registry.
