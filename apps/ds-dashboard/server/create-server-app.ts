@@ -58,6 +58,8 @@ import {
   disposeFigmaMcpPingService,
 } from './services/figma-mcp-ping-service.ts';
 import { bootstrapDatabase } from './db/db-service.js';
+import { PendingOperationsRepository } from './db/pending-operations-repository.js';
+import { reconcileDeleteDesignSystemOps } from './lib/pending-operations-service.js';
 import { AiJobsStoreWithPersistence } from './services/ai-jobs-store-with-persistence.js';
 import { initializeAiJobsStore } from './services/ai-jobs-store.js';
 import { TokenRepository } from './db/token-repository.js';
@@ -180,6 +182,25 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   }
 
   const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
+
+  // Reconcile incomplete delete operations from previous server runs
+  try {
+    const pendingOpsRepo = new PendingOperationsRepository(db);
+    const reconcileResult = reconcileDeleteDesignSystemOps({
+      db,
+      pendingOpsRepo,
+      designSystemRepository,
+    });
+    if (reconcileResult.errors.length > 0) {
+      console.error('[Server] Pending operation reconciliation errors:', reconcileResult.errors);
+    }
+    if (reconcileResult.completed.length > 0 || reconcileResult.abandoned.length > 0) {
+      console.warn('[Server] Reconciled incomplete delete operations:', reconcileResult);
+    }
+  } catch (error) {
+    console.error('[Server] Failed to reconcile pending operations:', error instanceof Error ? error.message : String(error));
+    throw error;
+  }
 
   function disposeDesignSystemRepository(): void {
     if (designSystemRepositoryDisposed) return;

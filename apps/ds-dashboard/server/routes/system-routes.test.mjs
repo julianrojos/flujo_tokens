@@ -158,6 +158,19 @@ function createDependencyTestDb() {
       UNIQUE (ds_file_key, variable_key)
     );
 
+    CREATE TABLE pending_operations (
+      id           TEXT PRIMARY KEY,
+      type         TEXT NOT NULL,
+      payload      TEXT NOT NULL,
+      status       TEXT NOT NULL DEFAULT 'in_progress'
+                   CHECK (status IN ('in_progress', 'completed', 'abandoned')),
+      created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      completed_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pending_operations_status_type
+      ON pending_operations(status, type);
+
     CREATE TABLE ds_sync_warnings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       run_id TEXT NOT NULL,
@@ -766,6 +779,46 @@ test("system-routes: delete fails when db preflight check fails", async () => {
   assert.equal(repo.getSaved().length, 0);
 });
 
+test("system-routes: delete fails when WAL insert fails", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { DependencyRepository } = await import("../db/dependency-repository.ts");
+    const dependencyRepo = new DependencyRepository(db);
+    dependencyRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-file-1",
+      consumer_name: "Consumer One",
+    });
+
+    // Force WAL insertion failure while keeping dependency tables available.
+    db.exec("DROP TABLE pending_operations");
+
+    const repo = createRepository({
+      systems: [{ id: "test-ds", name: "Test DS", figmaFileId: "figma123" }],
+    });
+    const { app } = createTestApp({
+      designSystemRepository: repo,
+      db,
+    });
+
+    const res = await app.request("/api/design-systems/test-ds", { method: "DELETE" });
+    assert.equal(res.status, 500);
+    const payload = await res.json();
+    assert.equal(payload.ok, false);
+    assert.equal(payload.code, "design_system.wal_insert_failed");
+    assert.equal(payload.context.phase, "wal_insert");
+    assert.equal(payload.context.systemId, "test-ds");
+    assert.equal(repo.getSaved().length, 0);
+
+    const remainingConsumers = db
+      .prepare("SELECT COUNT(*) AS count FROM ds_consumers WHERE ds_file_key = ?")
+      .get("figma123");
+    assert.equal(remainingConsumers.count, 1);
+  } finally {
+    db.close();
+  }
+});
+
 test("system-routes: delete fails in consumer cleanup after successful preflight", async () => {
   const db = createDependencyTestDb();
   try {
@@ -812,5 +865,102 @@ test("system-routes: delete fails in consumer cleanup after successful preflight
     assert.equal(repo.getSaved().length, 0);
   } finally {
     if (db.open) db.close();
+  }
+});
+
+test("system-routes: reconcile pending delete on startup (Y+N case)", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { DependencyRepository } = await import("../db/dependency-repository.js");
+    const { PendingOperationsRepository } = await import("../db/pending-operations-repository.js");
+    const { reconcileDeleteDesignSystemOps } = await import("../lib/pending-operations-service.js");
+
+    const depRepo = new DependencyRepository(db);
+    depRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-1",
+      consumer_name: "Consumer One",
+    });
+    depRepo.removeAllByDsFileKey("figma123");
+
+    const pendingOpsRepo = new PendingOperationsRepository(db);
+    pendingOpsRepo.insert({
+      id: "op-pending",
+      type: "delete_design_system",
+      payload: { systemId: "test-ds", figmaFileId: "figma123" },
+    });
+
+    const config = {
+      systems: [{ id: "test-ds", name: "Test DS", figmaFileId: "figma123" }],
+      defaultSystem: "test-ds",
+    };
+    const designSystemRepo = {
+      getConfig: () => config,
+      saveConfig: (newConfig) => {
+        config.systems = newConfig.systems;
+        config.defaultSystem = newConfig.defaultSystem;
+      },
+    };
+
+    const result = reconcileDeleteDesignSystemOps({
+      db,
+      pendingOpsRepo,
+      designSystemRepository: designSystemRepo,
+    });
+
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.completed.length, 1);
+    assert.equal(result.abandoned.length, 0);
+    assert.equal(config.systems.length, 0);
+
+    const ops = pendingOpsRepo.listIncomplete();
+    assert.equal(ops.length, 0);
+  } finally {
+    db.close();
+  }
+});
+
+test("system-routes: reconcile pending delete on startup (Y+Y case)", async () => {
+  const db = createDependencyTestDb();
+  try {
+    const { DependencyRepository } = await import("../db/dependency-repository.js");
+    const { PendingOperationsRepository } = await import("../db/pending-operations-repository.js");
+    const { reconcileDeleteDesignSystemOps } = await import("../lib/pending-operations-service.js");
+
+    const depRepo = new DependencyRepository(db);
+    depRepo.addConsumer({
+      ds_file_key: "figma123",
+      consumer_file_key: "consumer-1",
+      consumer_name: "Consumer One",
+    });
+
+    const pendingOpsRepo = new PendingOperationsRepository(db);
+    pendingOpsRepo.insert({
+      id: "op-pending",
+      type: "delete_design_system",
+      payload: { systemId: "test-ds", figmaFileId: "figma123" },
+    });
+
+    const config = {
+      systems: [{ id: "test-ds", name: "Test DS", figmaFileId: "figma123" }],
+      defaultSystem: "test-ds",
+    };
+    const designSystemRepo = {
+      getConfig: () => config,
+      saveConfig: () => {},
+    };
+
+    const result = reconcileDeleteDesignSystemOps({
+      db,
+      pendingOpsRepo,
+      designSystemRepository: designSystemRepo,
+    });
+
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.completed.length, 0);
+    assert.equal(result.abandoned.length, 1);
+    assert.equal(config.systems.length, 1);
+  } finally {
+    db.close();
   }
 });

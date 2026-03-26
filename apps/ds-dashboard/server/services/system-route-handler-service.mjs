@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   buildCreateDesignSystemConfigMutation,
   buildDeleteDesignSystemConfigMutation,
@@ -170,9 +172,34 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   let consumerCleanupSkipped = undefined;
   let dependencyRepo = null;
   let preflightConsumers = undefined;
+  let pendingOpId = undefined;
+  let pendingOpsRepo = undefined;
+  const markPendingOpAbandoned = () => {
+    if (!pendingOpId || !pendingOpsRepo) return;
+    try {
+      pendingOpsRepo.abandon(pendingOpId);
+    } catch (error) {
+      console.error("[handleDeleteDesignSystemRoute] Failed to abandon pending op:", {
+        pendingOpId,
+        systemId: routeSystemId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+  const markPendingOpCompleted = () => {
+    if (!pendingOpId || !pendingOpsRepo) return;
+    try {
+      pendingOpsRepo.complete(pendingOpId);
+    } catch (error) {
+      console.error("[handleDeleteDesignSystemRoute] Failed to complete pending op:", {
+        pendingOpId,
+        systemId: routeSystemId,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
 
-  // Preflight DB check: verify connectivity before touching FS.
-  // This avoids FS changes when DB is already unavailable.
+  // Preflight DB check and WAL insert (before FS changes).
   if (db && normalizedFigmaFileId) {
     try {
       const { DependencyRepository } = await import("../db/dependency-repository.js");
@@ -189,6 +216,29 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
           phase: "consumer_cleanup_preflight",
           systemId: routeSystemId,
           reason: dbError instanceof Error ? dbError.message : String(dbError),
+        },
+      });
+    }
+
+    try {
+      const { PendingOperationsRepository } = await import("../db/pending-operations-repository.js");
+      pendingOpsRepo = new PendingOperationsRepository(db);
+      pendingOpId = randomUUID();
+      pendingOpsRepo.insert({
+        id: pendingOpId,
+        type: 'delete_design_system',
+        payload: { systemId: routeSystemId, figmaFileId: normalizedFigmaFileId },
+      });
+    } catch (walError) {
+      console.error("[handleDeleteDesignSystemRoute] Failed to insert pending op:", walError);
+      return failJson(c, 500, {
+        code: "design_system.wal_insert_failed",
+        userMessage: "Failed to initialize crash-recovery log. Design system deletion was cancelled.",
+        recoverable: true,
+        context: {
+          phase: "wal_insert",
+          systemId: routeSystemId,
+          reason: walError instanceof Error ? walError.message : String(walError),
         },
       });
     }
@@ -218,6 +268,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
         fsSync,
       });
     } catch (error) {
+      markPendingOpAbandoned();
       return failJson(c, 500, {
         code: "design_system.cleanup_failed",
         userMessage: "Failed to reset global documentation artifacts after removing the last design system.",
@@ -236,7 +287,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   if (db) {
     if (normalizedFigmaFileId) {
       try {
-        const linkedConsumers = preflightConsumers;
+        const linkedConsumers = Array.isArray(preflightConsumers) ? preflightConsumers : [];
         const consumerNameById = new Map(
           linkedConsumers.map((consumer) => [consumer.id, consumer.consumer_name]),
         );
@@ -246,6 +297,7 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
         // unknown IDs are returned as raw IDs in the response.
         deletedConsumerNames = result.deletedConsumerIds.map((id) => consumerNameById.get(id) ?? id);
       } catch (dbError) {
+        markPendingOpAbandoned();
         console.warn("[handleDeleteDesignSystemRoute] DB cascade delete failed:", dbError);
         return failJson(c, 500, {
           code: "design_system.consumer_cleanup_failed",
@@ -271,6 +323,9 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
   }
 
   designSystemRepository.saveConfig(nextConfig);
+
+  // Mark pending operation as completed
+  markPendingOpCompleted();
 
   return c.json(
     buildDeleteDesignSystemSuccessPayload({
