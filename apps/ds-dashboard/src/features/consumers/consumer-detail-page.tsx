@@ -459,10 +459,8 @@ export function ConsumerDetailPage() {
                   const isSingleVariant = group.variants.length === 1;
                   const variant = group.variants[0];
                   const displayParentName = group.parentName || "(unnamed component)";
-
-                  // Slug lookup uses parentName (not full variant name)
                   const parentNameKey = normalizeLookupKey(group.parentName);
-                  const componentSlug = parentNameKey && componentSlugByLookup[parentNameKey];
+                  const componentSlug = parentNameKey ? componentSlugByLookup[parentNameKey] : undefined;
 
                   if (isSingleVariant) {
                     // Single variant: render as flat row
@@ -518,6 +516,7 @@ export function ConsumerDetailPage() {
 
                   // Multi-variant: render as expandable group (S-05)
                   const isExpanded = expandedGroups.has(group.parentName);
+                  const hasComponentSetRoute = group.parentName.trim().length > 0;
                   return (
                     <Fragment key={group.parentName}>
                       <tr className="border-b border-border/50">
@@ -536,9 +535,10 @@ export function ConsumerDetailPage() {
                                 <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                               )}
                             </button>
-                            {componentSlug ? (
+                            {hasComponentSetRoute ? (
                               <Link
-                                to={`/components/${encodeURIComponent(componentSlug)}`}
+                                to={`/component-sets/${encodeURIComponent(group.parentName)}`}
+                                state={{ fromConsumerId: consumerId }}
                                 className="font-medium text-app-accent hover:underline"
                               >
                                 {displayParentName}

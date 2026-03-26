@@ -56,10 +56,10 @@ export interface ConsumerComponent {
 }
 
 /**
- * Split Figma component name into parent and variant parts
- * Only the first "/" is the separator
+ * Split a component name into parent and variant parts.
+ * Supports both slash and comma-based variant naming conventions.
  */
-function splitVariantName(componentName: string): { parentName: string; variantLabel: string } {
+export function splitVariantName(componentName: string): { parentName: string; variantLabel: string } {
   const normalized = String(componentName || "").trim();
 
   // Canonical Figma naming: "Button/Size=Large,State=Hover"
@@ -90,9 +90,13 @@ function splitVariantName(componentName: string): { parentName: string; variantL
  * Group component variants by parent component name
  *
  * @param components - Array of component usage records
+ * @param filterZeroInstances - If true (default), hide variants with 0 instances for this consumer
  * @returns Grouped components sorted by worst impact (more severe first: CRITICAL → LOW), then total instances desc
  */
-export function groupByParentComponent(components: ReadonlyArray<ConsumerComponent>): ComponentGroup[] {
+export function groupByParentComponent(
+  components: ReadonlyArray<ConsumerComponent>,
+  filterZeroInstances: boolean = true
+): ComponentGroup[] {
   if (components.length === 0) {
     return [];
   }
@@ -101,6 +105,11 @@ export function groupByParentComponent(components: ReadonlyArray<ConsumerCompone
   const variantsByParent = new Map<string, ComponentVariant[]>();
 
   for (const comp of components) {
+    // Filter out variants with 0 instances if requested
+    if (filterZeroInstances && comp.instances === 0) {
+      continue;
+    }
+
     const { parentName, variantLabel } = splitVariantName(comp.componentName);
 
     const variant: ComponentVariant = {

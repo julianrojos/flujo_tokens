@@ -30,7 +30,7 @@ describe("component-grouping", () => {
     it("groups atomic component (no slash) as single group", () => {
       const components = [createComponent("Button", 5)];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result.length, 1);
       assert.strictEqual(result[0].parentName, "Button");
       assert.strictEqual(result[0].variants.length, 1);
@@ -44,7 +44,7 @@ describe("component-grouping", () => {
         createComponent("Button/Size=Small", 5),
       ];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result.length, 1);
       assert.strictEqual(result[0].parentName, "Button");
       assert.strictEqual(result[0].variants.length, 2);
@@ -54,7 +54,7 @@ describe("component-grouping", () => {
     it("extracts variantLabel correctly (only first slash is separator)", () => {
       const components = [createComponent("Icon/Arrow/Filled", 3)];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result.length, 1);
       assert.strictEqual(result[0].parentName, "Icon");
       assert.strictEqual(result[0].variants[0].variantLabel, "Arrow/Filled");
@@ -104,7 +104,7 @@ describe("component-grouping", () => {
     it("handles name starting with slash (empty parentName)", () => {
       const components = [createComponent("/Button", 2)];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result.length, 1);
       assert.strictEqual(result[0].parentName, "");
       assert.strictEqual(result[0].variants[0].variantLabel, "Button");
@@ -116,7 +116,7 @@ describe("component-grouping", () => {
         createComponent("Input/Text", 5),
       ];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result.length, 2);
       assert.strictEqual(result[0].parentName, "Button");
       assert.strictEqual(result[1].parentName, "Input");
@@ -129,7 +129,7 @@ describe("component-grouping", () => {
         createComponent("Button/Medium", 3),
       ];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result[0].totalInstances, 18);
     });
 
@@ -140,7 +140,7 @@ describe("component-grouping", () => {
         createComponent("Button/High", 2, "HIGH"),
       ];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result[0].worstImpactLevel.level, "CRITICAL");
     });
 
@@ -151,7 +151,7 @@ describe("component-grouping", () => {
         createComponent("Button/Small", 3, "LOW", [sharedLink, "link-2"]),
       ];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result[0].sampleLinks.length, 3);
       assert.ok(result[0].sampleLinks.includes(sharedLink));
       assert.ok(result[0].sampleLinks.includes("link-1"));
@@ -165,7 +165,7 @@ describe("component-grouping", () => {
         createComponent("Card/High", 8, "HIGH"),
       ];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result[0].parentName, "Button");
       assert.strictEqual(result[1].parentName, "Card");
       assert.strictEqual(result[2].parentName, "Input");
@@ -178,7 +178,7 @@ describe("component-grouping", () => {
         createComponent("Card/Low", 3, "LOW"),
       ];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result[0].parentName, "Input");
       assert.strictEqual(result[1].parentName, "Button");
       assert.strictEqual(result[2].parentName, "Card");
@@ -192,7 +192,7 @@ describe("component-grouping", () => {
         createComponent("Button/Low-Less", 5, "LOW"),
       ];
       const result = groupByParentComponent(components);
-      
+
       const variants = result[0].variants;
       // First by impact: HIGH before LOW
       // Then by instances: more before less
@@ -208,17 +208,50 @@ describe("component-grouping", () => {
         createComponent("Button/Small", 3, "LOW", []),
       ];
       const result = groupByParentComponent(components);
-      
+
       assert.deepStrictEqual(result[0].sampleLinks, []);
     });
 
     it("handles component with empty variantLabel (single variant group)", () => {
       const components = [createComponent("AtomicComponent", 7)];
       const result = groupByParentComponent(components);
-      
+
       assert.strictEqual(result.length, 1);
       assert.strictEqual(result[0].variants.length, 1);
       assert.strictEqual(result[0].variants[0].variantLabel, "");
+    });
+
+    it("filters out variants with 0 instances by default", () => {
+      const components = [
+        createComponent("Button/Used", 5, "LOW"),
+        createComponent("Button/Unused", 0, "LOW"),
+        createComponent("Card/Used", 3, "LOW"),
+      ];
+      const result = groupByParentComponent(components);
+
+      // Should have 2 groups (Button, Card), each with only 1 variant (the used one)
+      assert.strictEqual(result.length, 2);
+      assert.strictEqual(result[0].variants.length, 1);
+      assert.strictEqual(result[0].variants[0].componentName, "Button/Used");
+      assert.strictEqual(result[1].variants.length, 1);
+      assert.strictEqual(result[1].variants[0].componentName, "Card/Used");
+    });
+
+    it("includes variants with 0 instances when filterZeroInstances=false", () => {
+      const components = [
+        createComponent("Button/Used", 5, "LOW"),
+        createComponent("Button/Unused", 0, "LOW"),
+        createComponent("Card/Used", 3, "LOW"),
+      ];
+      const result = groupByParentComponent(components, false);
+
+      // Should have 2 groups, Button with 2 variants, Card with 1 variant
+      assert.strictEqual(result.length, 2);
+      const buttonGroup = result.find((g) => g.parentName === "Button");
+      assert.ok(buttonGroup);
+      assert.strictEqual(buttonGroup!.variants.length, 2);
+      assert.strictEqual(buttonGroup!.variants[0].componentName, "Button/Used");
+      assert.strictEqual(buttonGroup!.variants[1].componentName, "Button/Unused");
     });
   });
 });
