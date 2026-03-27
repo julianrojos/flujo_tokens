@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { PageHeader } from "@/components/composites/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { ArrowLeft, ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
@@ -15,15 +16,15 @@ import {
   fetchComponentRegistry,
   fetchTokenRegistry,
 } from "@/lib/api";
-import { ImpactLevelBadge } from "./components/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./components/consumer-sync-status-badge";
 import { AdoptionBar } from "./components/adoption-bar";
 import { buildDimensionAdoptionState } from "./lib/adoption-metrics";
-import { groupByParentComponent, IMPACT_SORT_ORDER } from "./lib/component-grouping";
-import { buildComponentLookupMap, resolveKnownComponentSlug } from "./lib/component-lookup";
-import { useDsFileKey } from "./hooks/use-ds-file-key";
+import { groupByParentComponent } from "./lib/component-grouping";
+import { buildComponentLookupMap, resolveKnownComponentSlug } from "@/lib/component-identity";
+import { useDsFileKey } from "@/hooks/use-ds-file-key";
 import { writeCachedConsumerLabel } from "@/lib/consumer-label-cache";
-import { formatSyncedAt } from "./lib/format-synced-at";
+import { formatSyncedAt } from "@/lib/format-synced-at";
+import { IMPACT_SORT_ORDER } from "@/lib/impact-level";
 import type {
   DsConsumer,
   DsSyncRun,

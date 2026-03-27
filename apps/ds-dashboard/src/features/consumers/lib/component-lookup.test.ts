@@ -7,7 +7,7 @@ import {
   extractComponentParentAlias,
   normalizeComponentLookupKey,
   resolveKnownComponentSlug,
-} from "./component-lookup.js";
+} from "@/lib/component-identity";
 
 describe("component-lookup", () => {
   it("normalizes lookup keys accent-insensitively", () => {

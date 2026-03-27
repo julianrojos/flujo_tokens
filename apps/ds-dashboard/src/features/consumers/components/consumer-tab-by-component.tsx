@@ -5,10 +5,10 @@ import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/composites/empty-state";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByComponent } from "@/lib/api";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
-import { ImpactLevelBadge } from "./impact-level-badge";
 import { Network } from "lucide-react";
 import type { ComponentUsageReport, ImpactLevel } from "@/types/consumers";
 

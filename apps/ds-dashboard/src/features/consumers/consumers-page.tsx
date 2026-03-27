@@ -9,7 +9,7 @@ import { ConsumerTabByFile } from "./components/consumer-tab-by-file";
 import { ConsumerTabByComponent } from "./components/consumer-tab-by-component";
 import { ConsumerTabByVariable } from "./components/consumer-tab-by-variable";
 import { AddConsumerModal } from "./components/add-consumer-modal";
-import { useDsFileKey } from "./hooks/use-ds-file-key";
+import { useDsFileKey } from "@/hooks/use-ds-file-key";
 
 type TabKey = "by-file" | "by-component" | "by-variable";
 const TAB_KEYS: TabKey[] = ["by-file", "by-component", "by-variable"];

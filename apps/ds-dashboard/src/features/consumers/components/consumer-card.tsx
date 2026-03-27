@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { ConsumerSyncStatusBadge } from "./consumer-sync-status-badge";
-import { ImpactLevelBadge } from "./impact-level-badge";
 import type { DsConsumer, DsSyncRun, ImpactLevel } from "@/types/consumers";
 
 interface ConsumerCardBaseProps {

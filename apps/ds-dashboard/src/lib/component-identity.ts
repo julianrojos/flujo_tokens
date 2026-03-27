@@ -1,3 +1,11 @@
+/**
+ * Component Identity Utilities
+ *
+ * Shared functions for component name parsing, slug resolution, and lookup.
+ * Extracted from features/consumers/lib/component-lookup.ts to enable
+ * cross-feature usage (e.g., features/components).
+ */
+
 export interface ComponentLookupRegistryItem {
   display_name: string;
   slug: string;
@@ -8,6 +16,9 @@ type ComponentLookupMapWithAmbiguity = Record<string, string | null>;
 const VARIANT_ASSIGNMENT_SEQUENCE_RE =
   /^[^,\s=]+=[^,]+(?:\s*,\s*[^,\s=]+=[^,]+)*$/;
 
+/**
+ * Normalize a string for case-insensitive, diacritic-insensitive comparison.
+ */
 export function normalizeComponentLookupKey(value: string): string {
   return String(value || "")
     .trim()
@@ -16,6 +27,9 @@ export function normalizeComponentLookupKey(value: string): string {
     .replace(/\p{M}+/gu, "");
 }
 
+/**
+ * Build a slug fallback from a display name.
+ */
 export function buildComponentSlugFallback(value: string): string {
   return String(value || "")
     .trim()
@@ -27,6 +41,10 @@ export function buildComponentSlugFallback(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
+/**
+ * Extract parent component alias from a full component name.
+ * Handles both slash and comma-based variant naming conventions.
+ */
 export function extractComponentParentAlias(value: string): string {
   const normalized = String(value || "").trim();
   if (!normalized) return "";
@@ -47,6 +65,35 @@ export function extractComponentParentAlias(value: string): string {
   return normalized;
 }
 
+/**
+ * Split a component name into parent and variant parts.
+ * Supports both slash and comma-based variant naming conventions.
+ */
+export function splitComponentName(componentName: string): { parentName: string; variantLabel: string } {
+  const normalized = String(componentName || "").trim();
+
+  // Canonical Figma naming: "Button/Size=Large,State=Hover"
+  const slashIdx = normalized.indexOf("/");
+  if (slashIdx !== -1) {
+    return {
+      parentName: normalized.slice(0, slashIdx),
+      variantLabel: normalized.slice(slashIdx + 1),
+    };
+  }
+
+  // Alternate naming: "Button, Size=Large, State=Hover"
+  const commaIdx = normalized.indexOf(",");
+  const afterComma = commaIdx !== -1 ? normalized.slice(commaIdx + 1).trim() : "";
+  if (commaIdx !== -1 && VARIANT_ASSIGNMENT_SEQUENCE_RE.test(afterComma)) {
+    return {
+      parentName: normalized.slice(0, commaIdx).trim(),
+      variantLabel: afterComma,
+    };
+  }
+
+  return { parentName: normalized, variantLabel: "" };
+}
+
 function addLookupValue(
   target: ComponentLookupMapWithAmbiguity,
   key: string,
@@ -62,6 +109,9 @@ function addLookupValue(
   }
 }
 
+/**
+ * Build a lookup map from registry items for slug resolution.
+ */
 export function buildComponentLookupMap(
   items: ReadonlyArray<ComponentLookupRegistryItem>,
 ): Record<string, string> {
@@ -95,6 +145,9 @@ export function buildComponentLookupMap(
   );
 }
 
+/**
+ * Resolve a known component slug from a parent/variant name pair.
+ */
 export function resolveKnownComponentSlug(args: {
   lookup: Record<string, string>;
   parentName: string;

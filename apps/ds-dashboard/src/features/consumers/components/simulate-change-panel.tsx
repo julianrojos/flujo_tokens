@@ -9,9 +9,9 @@ import {
   ModalHeader,
 } from "@/components/ui/overlay";
 import { ApiErrorMessage } from "@/components/api-error-message";
+import { ImpactLevelBadge } from "@/components/ui/impact-level-badge";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { simulateVariableChange } from "@/lib/api";
-import { ImpactLevelBadge } from "./impact-level-badge";
 import { X } from "lucide-react";
 import type { SimulationResult } from "@/types/consumers";
 import { runSimulateChange } from "../lib/simulate-change-logic";

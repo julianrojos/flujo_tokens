@@ -6,19 +6,8 @@
  */
 
 import type { ImpactLevel } from "@/types/consumers";
-
-const VARIANT_ASSIGNMENT_SEQUENCE_RE =
-  /^[^,\s=]+=[^,]+(?:\s*,\s*[^,\s=]+=[^,]+)*$/;
-
-/**
- * Impact severity ordering (lower = more severe)
- */
-export const IMPACT_SORT_ORDER: Record<ImpactLevel, number> = {
-  CRITICAL: 0,
-  HIGH: 1,
-  MEDIUM: 2,
-  LOW: 3,
-};
+import { IMPACT_SORT_ORDER } from "@/lib/impact-level";
+import { splitComponentName } from "@/lib/component-identity";
 
 /**
  * Internal component variant representation
@@ -56,37 +45,6 @@ export interface ConsumerComponent {
 }
 
 /**
- * Split Figma component name into parent and variant parts.
- * Supports both slash and comma-based variant naming conventions.
- */
-function splitVariantName(componentName: string): { parentName: string; variantLabel: string } {
-  const normalized = String(componentName || "").trim();
-
-  // Canonical Figma naming: "Button/Size=Large,State=Hover"
-  const slashIdx = normalized.indexOf("/");
-  if (slashIdx !== -1) {
-    return {
-      parentName: normalized.slice(0, slashIdx),
-      variantLabel: normalized.slice(slashIdx + 1),
-    };
-  }
-
-  // Alternate naming seen in some exports: "Button, Size=Large, State=Hover"
-  // Only treat comma as variant separator when the first segment after comma
-  // looks like a variant assignment (key=value).
-  const commaIdx = normalized.indexOf(",");
-  const afterComma = commaIdx !== -1 ? normalized.slice(commaIdx + 1).trim() : "";
-  if (commaIdx !== -1 && VARIANT_ASSIGNMENT_SEQUENCE_RE.test(afterComma)) {
-    return {
-      parentName: normalized.slice(0, commaIdx).trim(),
-      variantLabel: afterComma,
-    };
-  }
-
-  return { parentName: normalized, variantLabel: "" };
-}
-
-/**
  * Group component variants by parent component name
  *
  * @param components - Array of component usage records
@@ -110,7 +68,7 @@ export function groupByParentComponent(
       continue;
     }
 
-    const { parentName, variantLabel } = splitVariantName(comp.componentName);
+    const { parentName, variantLabel } = splitComponentName(comp.componentName);
 
     const variant: ComponentVariant = {
       componentKey: comp.componentKey,
