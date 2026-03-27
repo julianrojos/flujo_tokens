@@ -118,6 +118,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   let tokenRepo!: TokenRepository;
   let resumeTimer: NodeJS.Timeout | undefined;
   let designSystemRepositoryDisposed = false;
+  const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
 
   try {
     db = bootstrapDatabase({ dbPath });
@@ -138,26 +139,36 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       }
     }, 0);
 
-    // Try to rebuild token cache from JSON files only if DB is empty (cold start)
-    const generatedDir = path.join(repoRoot, 'docs/_generated');
-    const jsonPaths = {
-      tokenRegistry: path.join(generatedDir, 'token-registry.json'),
-      tokenUsageIndex: path.join(generatedDir, 'token-usage-index.json'),
-      figmaAliasGraph: path.join(generatedDir, 'figma-alias-graph.json'),
-    };
+    // Try to rebuild token cache from JSON files only if DB is empty (cold start).
+    // Use canonical system context (default system) instead of global docs/_generated.
+    let generatedDir: string | null = null;
+    try {
+      const sysCtx = designSystemRepository.resolveDashboardSystemContext('');
+      generatedDir = sysCtx.genDir;
+    } catch {
+      console.log('[Server] Skipping token cache rebuild: no default system configured');
+    }
 
-    // Check if DB already has data before rebuilding
-    const existingMetadata = tokenRepo.getLastRebuildMetadata();
-    if (existingMetadata) {
-      console.log(`[Server] Token cache already populated (last rebuild: ${new Date(existingMetadata.timestamp!).toISOString()})`);
-    } else {
-      console.log('[Server] Token cache empty, rebuilding from JSON files...');
-      const rebuildResult = tokenRepo.rebuildFromJsonFiles(jsonPaths);
-      if (rebuildResult.warnings.length > 0) {
-        console.log('[Server] Token cache rebuild warnings:', rebuildResult.warnings);
-      }
-      if (rebuildResult.tokensLoaded > 0) {
-        console.log(`[Server] Token cache rebuilt: ${rebuildResult.tokensLoaded} tokens loaded`);
+    if (generatedDir) {
+      const jsonPaths = {
+        tokenRegistry: path.join(generatedDir, 'token-registry.json'),
+        tokenUsageIndex: path.join(generatedDir, 'token-usage-index.json'),
+        figmaAliasGraph: path.join(generatedDir, 'figma-alias-graph.json'),
+      };
+
+      // Check if DB already has data before rebuilding
+      const existingMetadata = tokenRepo.getLastRebuildMetadata();
+      if (existingMetadata) {
+        console.log(`[Server] Token cache already populated (last rebuild: ${new Date(existingMetadata.timestamp!).toISOString()})`);
+      } else {
+        console.log('[Server] Token cache empty, rebuilding from JSON files...');
+        const rebuildResult = tokenRepo.rebuildFromJsonFiles(jsonPaths);
+        if (rebuildResult.warnings.length > 0) {
+          console.log('[Server] Token cache rebuild warnings:', rebuildResult.warnings);
+        }
+        if (rebuildResult.tokensLoaded > 0) {
+          console.log(`[Server] Token cache rebuilt: ${rebuildResult.tokensLoaded} tokens loaded`);
+        }
       }
     }
   } catch (error) {
@@ -180,8 +191,6 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
 
     throw error;
   }
-
-  const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
 
   // Reconcile incomplete delete operations from previous server runs
   try {

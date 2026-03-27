@@ -193,17 +193,19 @@ export function TokenGraphViewer(props: {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span>Wheel to zoom · drag to pan · dblclick to reset</span>
-          <Link
-            to={{
-              pathname: "/file",
-              search: new URLSearchParams({
-                path: props.graphFilePath || "docs/_generated/token-graph.viz.json",
-              }).toString(),
-            }}
-            className="hover:text-primary hover:underline"
-          >
-            Open JSON
-          </Link>
+          {props.graphFilePath && (
+            <Link
+              to={{
+                pathname: "/file",
+                search: new URLSearchParams({
+                  path: props.graphFilePath,
+                }).toString(),
+              }}
+              className="hover:text-primary hover:underline"
+            >
+              Open JSON
+            </Link>
+          )}
         </div>
       </div>
 

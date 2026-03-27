@@ -167,6 +167,25 @@ test('token-graph-routes: /api/token-graph-query returns resolved graph payload'
     });
 });
 
+test('token-graph-routes: /api/token-graph returns 404 when artifact missing (no fallback)', async () => {
+    await withTempDir(async (dir) => {
+        const missingPath = path.join(dir, 'docs', '_generated', 'token-graph-missing.viz.json');
+        const app = createTestApp({
+            tokenUsageIndexPath: path.join(dir, 'token-usage-index.json'),
+            tokenGraphVizPath: missingPath,
+            tokenRegistryPath: '',
+            tokenHealthPath: '',
+            componentRegistryPath: '',
+            wcagPairsPath: '',
+        });
+
+        const res = await app.request('/api/token-graph');
+        assert.equal(res.status, 404);
+        const payload = await res.json() as { code: string };
+        assert.equal(payload.code, 'file.not_found');
+    });
+});
+
 test('token-graph-routes: /api/token-usage-index bypasses DB cache for multi-system paths', async () => {
     await withTempDir(async (dir) => {
         const usageIndexPath = path.join(
@@ -259,7 +278,7 @@ test('token-graph-routes: /api/token-usage-index bypasses DB cache for multi-sys
     });
 });
 
-test('token-graph-routes: /api/token-usage-index prefers JSON over DB for docs/_generated paths', async () => {
+test('token-graph-routes: /api/token-usage-index prefers JSON artifact over DB cache', async () => {
     await withTempDir(async (dir) => {
         const usageIndexPath = path.join(dir, 'docs', '_generated', 'token-usage-index.json');
         await fs.mkdir(path.dirname(usageIndexPath), { recursive: true });

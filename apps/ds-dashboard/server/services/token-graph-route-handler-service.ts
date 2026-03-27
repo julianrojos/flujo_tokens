@@ -257,12 +257,13 @@ export async function handleTokenUsageIndexRoute(
 ): Promise<unknown> {
     const { failJson, getSystemContext, tokenRepo } = deps;
     const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '') as SystemContext;
+    const tokenUsageIndexPath = sysCtx.tokenUsageIndexPath;
 
     // JSON-first: usage index is system-scoped; DB cache is global and can be stale across systems/imports.
     const loaded = await loadArtifactOrFail(
         c,
         {
-            filePath: sysCtx.tokenUsageIndexPath,
+            filePath: tokenUsageIndexPath,
             artifactName: 'token usage index',
             allowMissing: true,
             missingValue: null,
@@ -290,7 +291,7 @@ export async function handleTokenUsageIndexRoute(
     const strictLoaded = await loadArtifactOrFail(
         c,
         {
-            filePath: sysCtx.tokenUsageIndexPath,
+            filePath: tokenUsageIndexPath,
             artifactName: 'token usage index',
         },
         failJson,
@@ -306,10 +307,11 @@ export async function handleTokenGraphRoute(
 ): Promise<unknown> {
     const { failJson, getSystemContext } = deps;
     const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '') as SystemContext;
+    const tokenGraphVizPath = sysCtx.tokenGraphVizPath;
     const loaded = await loadArtifactOrFail(
         c,
         {
-            filePath: sysCtx.tokenGraphVizPath,
+            filePath: tokenGraphVizPath,
             artifactName: 'token graph',
         },
         failJson,
@@ -336,10 +338,11 @@ export async function handleTokenGraphQueryRoute(
 
     const direction = normalizeTokenGraphDirection(c.req.query('direction'));
     const depth = normalizeTokenGraphDepth(c.req.query('depth'));
+    const tokenGraphVizPath = sysCtx.tokenGraphVizPath;
     const loaded = await loadArtifactOrFail(
         c,
         {
-            filePath: sysCtx.tokenGraphVizPath,
+            filePath: tokenGraphVizPath,
             artifactName: 'token graph',
         },
         failJson,

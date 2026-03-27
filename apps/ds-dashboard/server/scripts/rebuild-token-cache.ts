@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import { bootstrapDatabase } from '../db/db-service.js';
 import { TokenRepository } from '../db/token-repository.js';
+import { createDesignSystemRepository } from '../system-repository.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '../../../..');
@@ -32,18 +33,37 @@ function parseArgs(): RebuildOptions {
     return { system };
 }
 
-function getGeneratedDir(system?: string): string {
-    if (system) {
-        // Multi-system: docs/{system}/_generated
-        return path.join(projectRoot, `docs/${system}/_generated`);
+function getGeneratedDirFromSystemConfig(system?: string): string {
+    const designSystemRepository = createDesignSystemRepository({ repoRoot: projectRoot, watch: false });
+
+    try {
+        if (system) {
+            const sysCtx = designSystemRepository.resolveSystemContext(system);
+            return sysCtx.paths.generated;
+        } else {
+            const sysCtx = designSystemRepository.resolveDashboardSystemContext('');
+            return sysCtx.genDir;
+        }
+    } catch (error) {
+        if (system) {
+            throw new Error(`System "${system}" not found in design-systems.json`);
+        } else {
+            throw new Error('No default system configured in design-systems.json');
+        }
     }
-    // Default: docs/_generated
-    return path.join(projectRoot, 'docs/_generated');
 }
 
 async function main(): Promise<void> {
     const { system } = parseArgs();
-    const generatedDir = getGeneratedDir(system);
+
+    let generatedDir: string;
+    try {
+        generatedDir = getGeneratedDirFromSystemConfig(system);
+    } catch (error) {
+        console.error('❌ Failed to resolve generated directory:');
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exit(1);
+    }
 
     console.log('=== Rebuild Token Cache ===');
     console.log(`Generated directory: ${generatedDir}`);

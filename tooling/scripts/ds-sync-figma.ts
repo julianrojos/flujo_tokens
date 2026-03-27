@@ -16,6 +16,8 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import * as fsSync from 'node:fs';
 
+import { createDesignSystemRepository } from './lib/system-repository.mjs';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');
 
@@ -153,7 +155,23 @@ function runCommand(command: string[], system: string | null): CommandResult {
  */
 async function main(): Promise<void> {
     const { system } = parseArgs();
-    const generatedDir = path.join(projectRoot, 'docs/_generated');
+
+    // Resolve generatedDir from canonical system config
+    const designSystemRepository = createDesignSystemRepository({ repoRoot: projectRoot, watch: false });
+    let generatedDir: string;
+    try {
+        if (system) {
+            const sysCtx = designSystemRepository.resolveSystemContext(system);
+            generatedDir = sysCtx.paths.generated;
+        } else {
+            const sysCtx = designSystemRepository.resolveDashboardSystemContext('');
+            generatedDir = sysCtx.genDir;
+        }
+    } catch (error) {
+        console.error('❌ Failed to resolve generated directory from design-systems.json:');
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exit(1);
+    }
 
     console.log('=== DS Sync Figma Pipeline ===');
     if (system) {

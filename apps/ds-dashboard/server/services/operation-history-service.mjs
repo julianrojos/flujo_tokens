@@ -6,7 +6,6 @@ export function createOperationHistoryService(config) {
   const {
     repoRoot,
     designSystemRepository,
-    normalizeSystemId,
     writeStructuredLog,
     nowIso,
     createOperationEventId,
@@ -24,8 +23,8 @@ export function createOperationHistoryService(config) {
       const ctx = designSystemRepository.resolveSystemContext(systemId);
       return path.join(ctx.paths.output, ".ops");
     } catch {
-      const fallbackId = normalizeSystemId(systemId) || "_unknown";
-      return path.join(repoRoot, "output", fallbackId, ".ops");
+      // Skip write when system context cannot be resolved — no legacy fallback.
+      return null;
     }
   }
 
@@ -93,6 +92,20 @@ export function createOperationHistoryService(config) {
     const timestamp = String(entry?.timestamp || nowIso());
     const datePart = timestamp.slice(0, 10);
     const logDir = resolveOpsLogDir(entry?.systemId);
+
+    // Skip write when system context cannot be resolved — no legacy fallback.
+    if (!logDir) {
+      if (typeof writeStructuredLog === "function") {
+        writeStructuredLog("warn", {
+          event: "operations.history_write_skipped",
+          systemId: entry?.systemId ? String(entry.systemId) : null,
+          operation: entry?.operation ? String(entry.operation) : null,
+          message: "System context not resolved; skipping operation history write",
+        });
+      }
+      return;
+    }
+
     const normalized = {
       id: createOperationEventId(),
       timestamp,

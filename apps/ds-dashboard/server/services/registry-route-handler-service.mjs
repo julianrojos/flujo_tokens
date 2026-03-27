@@ -18,10 +18,11 @@ async function loadArtifactOrFail(c, args, failJson) {
 export async function handleComponentRegistryRoute(c, deps) {
   const { failJson, getSystemContext } = deps;
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const componentRegistryPath = sysCtx.componentRegistryPath;
   const loaded = await loadArtifactOrFail(
     c,
     {
-      filePath: sysCtx.componentRegistryPath,
+      filePath: componentRegistryPath,
       artifactName: "component registry",
     },
     failJson,
@@ -33,10 +34,11 @@ export async function handleComponentRegistryRoute(c, deps) {
 export async function handleComponentUsageIndexRoute(c, deps) {
   const { failJson, getSystemContext } = deps;
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const componentRegistryPath = sysCtx.componentRegistryPath;
   const loaded = await loadArtifactOrFail(
     c,
     {
-      filePath: sysCtx.componentRegistryPath,
+      filePath: componentRegistryPath,
       artifactName: "component registry",
     },
     failJson,
@@ -50,10 +52,11 @@ export async function handleComponentUsageIndexRoute(c, deps) {
 export async function handleTokenRegistryRoute(c, deps) {
   const { failJson, getSystemContext } = deps;
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const tokenRegistryPath = sysCtx.tokenRegistryPath;
   const loaded = await loadArtifactOrFail(
     c,
     {
-      filePath: sysCtx.tokenRegistryPath,
+      filePath: tokenRegistryPath,
       artifactName: "token registry",
     },
     failJson,
@@ -65,10 +68,11 @@ export async function handleTokenRegistryRoute(c, deps) {
 export async function handleTokenCollectionTreesRoute(c, deps) {
   const { failJson, getSystemContext } = deps;
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
+  const tokenRegistryPath = sysCtx.tokenRegistryPath;
   const loaded = await loadArtifactOrFail(
     c,
     {
-      filePath: sysCtx.tokenRegistryPath,
+      filePath: tokenRegistryPath,
       artifactName: "token registry",
     },
     failJson,

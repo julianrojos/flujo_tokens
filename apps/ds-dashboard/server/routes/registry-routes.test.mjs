@@ -134,3 +134,69 @@ test("registry-routes: /api/token-registry returns not found for missing artifac
   const payload = await res.json();
   assert.equal(payload.code, "file.not_found");
 });
+
+test("registry-routes: /api/component-registry returns not found when artifact missing (no fallback)", async () => {
+  const fixture = await createFixtureFiles();
+  const missingPath = path.join(fixture.root, "docs/_generated/component-registry-not-found.json");
+  const app = createApp({
+    repoRoot: fixture.root,
+    componentRegistryPath: missingPath,
+    tokenRegistryPath: fixture.tokenRegistryPath,
+  });
+
+  const res = await app.request("/api/component-registry");
+  assert.equal(res.status, 404);
+  const payload = await res.json();
+  assert.equal(payload.code, "file.not_found");
+});
+
+test("registry-routes: /api/component-registry returns not found when file is missing but directory exists", async () => {
+  const fixture = await createFixtureFiles();
+  const generatedDir = path.join(fixture.root, "docs/_generated");
+  await fs.mkdir(generatedDir, { recursive: true });
+  const missingPath = path.join(generatedDir, "component-registry-missing.json");
+  const app = createApp({
+    repoRoot: fixture.root,
+    componentRegistryPath: missingPath,
+    tokenRegistryPath: fixture.tokenRegistryPath,
+  });
+
+  const res = await app.request("/api/component-registry");
+  assert.equal(res.status, 404);
+  const payload = await res.json();
+  assert.equal(payload.code, "file.not_found");
+});
+
+test("registry-routes: /api/component-registry returns invalid_json when artifact is malformed", async () => {
+  const fixture = await createFixtureFiles();
+  const malformedPath = path.join(fixture.root, "docs/_generated/component-registry-malformed.json");
+  await fs.writeFile(malformedPath, "{ invalid-json", "utf8");
+  const app = createApp({
+    repoRoot: fixture.root,
+    componentRegistryPath: malformedPath,
+    tokenRegistryPath: fixture.tokenRegistryPath,
+  });
+
+  const res = await app.request("/api/component-registry");
+  assert.equal(res.status, 500);
+  const payload = await res.json();
+  assert.equal(payload.code, "internal.unexpected_error");
+  assert.match(String(payload.message || ""), /not valid JSON/i);
+});
+
+test("registry-routes: /api/component-registry returns empty when artifact file is blank", async () => {
+  const fixture = await createFixtureFiles();
+  const emptyPath = path.join(fixture.root, "docs/_generated/component-registry-empty.json");
+  await fs.writeFile(emptyPath, "   \n", "utf8");
+  const app = createApp({
+    repoRoot: fixture.root,
+    componentRegistryPath: emptyPath,
+    tokenRegistryPath: fixture.tokenRegistryPath,
+  });
+
+  const res = await app.request("/api/component-registry");
+  assert.equal(res.status, 500);
+  const payload = await res.json();
+  assert.equal(payload.code, "internal.unexpected_error");
+  assert.match(String(payload.message || ""), /artifact is empty/i);
+});
