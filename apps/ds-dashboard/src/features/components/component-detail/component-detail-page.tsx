@@ -7,12 +7,16 @@ import { useParams } from "react-router-dom";
 import { PageHeader } from "@/components/composites";
 import { StatusAlert } from "@/components/ui/status-alert";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { FigmaCaptureModal } from "./figma-capture-modal";
 import { useComponentDetail } from "./hooks/use-component-detail";
 import { ComponentNavBar } from "./components/component-nav-bar";
 import { ComponentPipelineSection } from "./components/component-pipeline-section";
 import { ComponentVisualProofSection } from "./components/component-visual-proof-section";
 import { ComponentSpecSection } from "./components/component-spec-section";
+import { ComponentGraphSection } from "./components/component-graph-section";
+import { ComponentAdoptionSection } from "./components/component-adoption-section";
+import { STAGE_LABELS } from "./lib/component-detail-transforms";
 
 const SpecEditorDrawer = lazy(() => import("./spec-editor-drawer").then(m => ({ default: m.SpecEditorDrawer })));
 const ComponentDocsModal = lazy(() => import("./component-docs-modal").then(m => ({ default: m.ComponentDocsModal })));
@@ -25,6 +29,8 @@ export function ComponentDetailPage() {
     loading,
     error,
     item,
+    usage,
+    allItems,
     spec,
     specRaw,
     specRawHash,
@@ -70,12 +76,30 @@ export function ComponentDetailPage() {
     );
   }
 
+  const variantsCount =
+    item.visual_proof.variants_count ??
+    item.visual_proof.variants?.length ??
+    0;
+
   return (
     <div className="space-y-5">
       <PageHeader
         title={item.display_name}
         description={item.slug}
       />
+
+      {/* Stats pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        {variantsCount > 0 && (
+          <Badge variant="neutral">
+            {variantsCount} variant{variantsCount !== 1 ? "s" : ""}
+          </Badge>
+        )}
+        <Badge variant="neutral">{STAGE_LABELS[item.pipeline_stage]}</Badge>
+        {item.ready_for_publish && (
+          <Badge variant="success">Ready to publish</Badge>
+        )}
+      </div>
 
       <ComponentNavBar
         previousItem={previousItem}
@@ -94,6 +118,10 @@ export function ComponentDetailPage() {
         onOpenSpec={() => setSpecEditorOpen(true)}
         onOpenDocs={openDocsModal}
       />
+
+      <ComponentGraphSection usage={usage} allItems={allItems} />
+
+      {slug && <ComponentAdoptionSection slug={slug} allItems={allItems} />}
 
       <ComponentVisualProofSection
         item={item}
