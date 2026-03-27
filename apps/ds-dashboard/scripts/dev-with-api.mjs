@@ -1,10 +1,11 @@
-import { spawn } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import net from "node:net";
 
 const processes = [];
 let shuttingDown = false;
 const DEFAULT_API_HOST = "127.0.0.1";
 const DEFAULT_API_PORT = 8787;
+const DEFAULT_RESTART_EXISTING_API = true;
 
 function parsePort(value, fallback) {
   const parsed = Number.parseInt(String(value ?? ""), 10);
@@ -150,6 +151,79 @@ function sleep(ms) {
   });
 }
 
+function shouldRestartExistingApi(env = process.env) {
+  const raw = String(env.DS_DASHBOARD_RESTART_API ?? "").trim().toLowerCase();
+  if (raw === "0" || raw === "false" || raw === "no" || raw === "off") return false;
+  if (raw === "1" || raw === "true" || raw === "yes" || raw === "on") return true;
+  return DEFAULT_RESTART_EXISTING_API;
+}
+
+function execFileAsync(file, args) {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, { encoding: "utf8" }, (error, stdout, stderr) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+async function listListeningPids(port) {
+  try {
+    const { stdout } = await execFileAsync("lsof", [
+      "-t",
+      `-iTCP:${port}`,
+      "-sTCP:LISTEN",
+    ]);
+    return String(stdout || "")
+      .split(/\s+/)
+      .map((row) => row.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function terminatePids(pids, signal, waitMs = 0) {
+  for (const pid of pids) {
+    const numericPid = Number.parseInt(String(pid), 10);
+    if (!Number.isFinite(numericPid) || numericPid <= 0) continue;
+    try {
+      process.kill(numericPid, signal);
+    } catch {
+      // Ignore dead or inaccessible processes.
+    }
+  }
+  if (waitMs > 0) {
+    await sleep(waitMs);
+  }
+}
+
+async function restartExistingDashboardApiIfNeeded(runtimeConfig) {
+  if (!shouldRestartExistingApi(process.env)) return true;
+  const pids = await listListeningPids(runtimeConfig.port);
+  if (pids.length === 0) return true;
+
+  console.log(
+    `[dev-with-api] Restarting existing dashboard API on port ${runtimeConfig.port} (PIDs: ${pids.join(", ")}).`,
+  );
+  await terminatePids(pids, "SIGTERM", 600);
+  const remaining = await listListeningPids(runtimeConfig.port);
+  if (remaining.length > 0) {
+    await terminatePids(remaining, "SIGKILL", 250);
+  }
+  const stillOccupied = !(await isPortAvailable(runtimeConfig.port, runtimeConfig.host));
+  if (stillOccupied) {
+    console.error(
+      `[dev-with-api] Could not restart API on port ${runtimeConfig.port}. Stop the process manually or set DS_DASHBOARD_API_PORT to another port.`,
+    );
+    return false;
+  }
+  return true;
+}
+
 async function waitForServer(url, timeoutMs = 10_000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
@@ -174,13 +248,20 @@ async function main() {
   try {
     const runtimeConfig = resolveApiRuntimeConfig(process.env);
     const portStatus = await classifyApiPort(runtimeConfig);
+    const restartExistingApi = shouldRestartExistingApi(process.env);
 
     if (portStatus.kind === "already-running") {
-      console.log(
-        `[dev-with-api] Dashboard API is already running at ${runtimeConfig.apiBaseUrl}.`,
-      );
-      startScript("dev:vite", runtimeConfig);
-      return;
+      if (!restartExistingApi) {
+        console.log(
+          `[dev-with-api] Dashboard API is already running at ${runtimeConfig.apiBaseUrl}. Reusing it for Vite.`,
+        );
+        startScript("dev:vite", runtimeConfig);
+        return;
+      }
+      const restarted = await restartExistingDashboardApiIfNeeded(runtimeConfig);
+      if (!restarted) {
+        process.exit(1);
+      }
     }
 
     if (portStatus.kind === "occupied") {
