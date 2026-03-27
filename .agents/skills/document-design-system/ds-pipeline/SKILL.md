@@ -18,13 +18,9 @@ inputs:
     required: false
     description: "Optional component slug to process individually (e.g. alert). If omitted, processes all components."
   - name: from-step
-    type: "enum(spec,markdown,figma,visual-proof,render,proof)"
+    type: "enum(spec,markdown)"
     required: false
-    description: "Optional phase to start from. Canonical: spec | markdown | figma | visual-proof. Legacy aliases: render=figma, proof=visual-proof."
-  - name: render-figma
-    type: boolean
-    required: false
-    description: "True to actively push markdown docs back to Figma"
+    description: "Optional phase to start from. Supported: spec | markdown."
   - name: dry-run
     type: boolean
     required: false
@@ -57,9 +53,7 @@ This skill orchestrates the entire Design System documentation pipeline. Instead
    - **Stage A (Tokens)**: Sync tokens and update registry.
    - **Stage B (Spec)**: Generate spec from Figma if missing.
    - **Stage C (Markdown)**: Generate docs from spec.
-   - **Stage D (Figma)**: Push markdown changes to Figma (if `--render-figma`).
-   - **Stage E (Visual Proof)**: Capture visual proof.
-   - **Stage F (Gate)**: Global validation & consistency audit.
+   - **Stage D (Gate)**: Global validation & consistency audit.
 3. **REPORT**: Summarizes actions taken, skipped components, errors, and orphans.
 
 ## Best Practices

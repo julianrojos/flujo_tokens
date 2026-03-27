@@ -16,28 +16,11 @@ Crear un skill de auditoría que:
 - Compare propiedades del spec YAML vs propiedades reales del `COMPONENT_SET` en Figma.
 - Genere un reporte de cobertura y discrepancias.
 
-### 5. Mejoras al parser Markdown -> Figma
-
-**Problema**  
-En el pipeline de render:
-
-- El formato inline (`bold`, `italic`, `code`) se pierde completamente.
-- Los code blocks se renderizan como placeholder `[code block omitted]`.
-- No hay soporte para imágenes, links visuales ni badges de estado.
-
-**Propuesta**  
-Evolucionar `markdown_to_doc_model.mjs` y `build_figma_execute_code.mjs` para:
-
-- Preservar marcas inline como anotaciones del modelo (ej.: `[{ text: "bold text", bold: true }]`).
-- Aplicarlas como `TextSublayer` con `fontWeight` / `fontStyle` en Figma.
-- Renderizar code blocks con fondo monospace en lugar de omitirlos.
-- Soportar badges de estado (`draft` / `ready`) como chips coloreados.
-
 ## COMPILACIÓN DE TOKENS
 
 ### **Testing para scripts/pipeline**
 
-Falta una regla que obligue a tests en el pipeline `markdown -> doc model -> figma execute` (casos felices, edge cases y regresiones).  
+Falta una regla que obligue a tests en el pipeline de documentación (`spec -> markdown -> visual-proof`) con casos felices, edge cases y regresiones.  
  Fuente: <https://raw.githubusercontent.com/mondaycom/vibe/master/.cursor/rules/300_testing.mdc>
 
 ### **Error handling y códigos de salida en CLI**

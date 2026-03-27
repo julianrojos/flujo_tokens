@@ -336,6 +336,7 @@ Migration notes (legacy cleanup):
 
 - Pipeline steps `render/proof` were removed from `ds:pipeline` (canonical flow is now `spec -> markdown`).
 - Visual proof capture remains available as a standalone command: `npm run ds:capture-visual-proof`.
+- `ds-component-orchestrator` now defaults `capture_visual_proof=true` (previously `false`). Pass `capture_visual_proof=false` to keep spec+markdown-only runs.
 - Removed scripts: `npm run ds:active-md-to-figma` and `npm run ds:render-figma:all`.
   - Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
 - Plugin bridge default transport is now `direct` (`DEFAULT_WS_CONFIG.transportMode = 'direct'`).
@@ -714,7 +715,6 @@ Useful flags:
 - `--registry <path>` (default: `docs/_generated/component-registry.json`)
 - `--spec-root <path>` (default: `docs/_spec/components`)
 - `--docs-root <path>` (default: `docs/components`)
-- `--render-dir <path>` (default: `docs/_generated/figma_doc_models`)
 - `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
 - `--dry-run true` (supported by `ds:registry:sync` and `ds:registry:overview`)
 
@@ -770,37 +770,3 @@ Consistency audit examples:
 
 - `npm run ds:audit-consistency` -> audit all detected component pairs
 - `npm run ds:audit-consistency -- --component-name Button` -> audit one component pair
-
-Internally, this command runs a two-step generation flow:
-
-- Markdown -> doc model JSON
-- Doc model + theme (`docs/_spec/figma_doc_theme.yml`) -> Figma execute script
-
-Generated files are written to:
-
-- `docs/_generated/figma_doc_models/`
-
-Useful flags:
-
-- `--markdown <path>`
-- `--component-name <Name>`
-- `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
-- `--component-set-id <figma-node-id>`
-- `--generated-dir <path>` (default: `docs/_generated/figma_doc_models`)
-- `--theme <path>` (default: `docs/_spec/figma_doc_theme.yml`)
-- `--token-registry <path>` (default: `docs/_generated/token-registry.json`)
-- `--offset-x <number>` (default: `200`)
-- `--capture-proof <true|false>` (default: `true`)
-- `--capture-proof-strict <true|false>` (default: `false`)
-- `--force true` (ignore incremental cache and always rebuild + re-render)
-- `--agent <codex|claude|gemini>`
-
-If `--component-set-id` conflicts with `spec.figma.component_set_node_id`, the command fails unless `--force true` is provided.
-
-Theme color values can be:
-
-- direct hex values (for example `#FFFFFF`)
-- local color aliases under `theme.colors`
-- token paths resolved through the token registry (for example `Color/BW/White`, `_primitives/BW/White`)
-
-Theme radius values can also use token paths from the registry (for example `Dimension/Border/Radius/200`).

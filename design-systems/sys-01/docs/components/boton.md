@@ -7,6 +7,12 @@ figma:
   component: Boton
   component_set_node_id: 1:23
   last_verified: TBD
+pipeline:
+  ds_component_doc:
+    contract_version: '1'
+    spec_sha256: e3924f3cd4f6390a92dcfa93f83109450a3fb5f72a6165673e8eaa883050bb42
+    token_registry_sha256: 1a773a12e76d7b30306dc82ad2b838888cfca8f408f2dfcef6049153f2b36054
+    generator_script_sha256: a76a99f010d13a911e723ab243f10953a604ff553b6d48faa3a1bdc584ee8a0d
 ---
 
 # Boton
@@ -79,11 +85,7 @@ Auto-generated component documentation from Figma capture.
 
 ## Related Components
 
-- [TBD](tbd.md): TBD
-
-## Gaps / TBD
-
-- [ ] [CONTENT_UNKNOWN] Complete usage, accessibility, and token mapping details with product evidence.
+- None.
 
 <!-- AUTO-GENERATED-ANATOMY:START -->
 <!--

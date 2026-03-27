@@ -1,4 +1,9 @@
 name: boton
+status: draft
+summary:
+  purpose: Text button component with Default and Accent visual variants.
+  when_to_use: Use for short, high-priority actions inside compact interfaces.
+  when_not_to_use: Avoid for long-form text actions or when icon-only controls are required.
 figma:
   component_set_node_id: '1:23'
 anatomy:
@@ -36,6 +41,39 @@ properties:
     default: Default
     variant: false
     required: true
+content_guidelines:
+  rules:
+    - Keep labels concise and action-oriented.
+    - Use sentence case for the visible text.
+best_practices:
+  do:
+    - Use semantic foreground/background tokens for each variant.
+    - Keep button labels to one or two words.
+  dont:
+    - Do not overload this component with tertiary icon behavior.
+    - Do not introduce custom colors outside token mapping.
+accessibility:
+  role: button
+  focus:
+    tokens:
+      inner: semanticos.color.foreground.accent
+      outer: semanticos.color.background.accent
+  hit_area:
+    desktop_token: primitivos.tamano.14
+    mobile_token: primitivos.tamano.14
+  labeling:
+    rules:
+      - Provide an explicit action label.
+token_mapping:
+  container.background:
+    Variant=Default: semanticos.color.background.default
+    Variant=Accent: semanticos.color.background.accent
+  text.color:
+    Variant=Default: semanticos.color.foreground.default
+    Variant=Accent: semanticos.color.foreground.accent
+qa:
+  - Variant property exposes Default and Accent values.
+  - Text contrast remains readable in both variants.
 variants: []
 layout:
   - node: botón

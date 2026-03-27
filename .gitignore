@@ -44,3 +44,4 @@ PLAN_MEJORA_MCP
 QWEN.md
 .refactor-pending/
 tooling/.tmp/
+.tmp-tests/

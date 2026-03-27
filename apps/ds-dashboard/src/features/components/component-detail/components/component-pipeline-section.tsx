@@ -4,6 +4,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StatusAlert } from "@/components/ui/status-alert";
 import type { PipelineStage } from "@/types/component-registry";
 import { STAGE_LABELS, PIPELINE_STAGES } from "../lib/component-detail-transforms";
 
@@ -26,18 +27,55 @@ export function ComponentPipelineSection({
 }: ComponentPipelineSectionProps) {
   const stages = PIPELINE_STAGES;
   const currentIdx = currentStage ? stages.indexOf(currentStage) : -1;
+  const nextStage =
+    currentIdx >= 0 && currentIdx < stages.length - 1
+      ? stages[currentIdx + 1]
+      : null;
 
   const cta = (() => {
     if (!currentStage) return null;
     if (currentStage === "missing-spec") return { label: "Create spec", onClick: onOpenSpec };
     if (currentStage === "spec") return { label: "Edit spec", onClick: onOpenSpec };
-    if (currentStage === "markdown" || currentStage === "render") {
+    if (currentStage === "markdown") {
       if (!hasFigmaUrl) return null;
       return { label: "Capture visual proof", onClick: onCapture };
     }
     if (currentStage === "visual-proof" && hasDocs) {
       return { label: "Open docs", onClick: onOpenDocs };
     }
+    return null;
+  })();
+
+  const guidance = (() => {
+    if (!currentStage) return null;
+
+    if (currentStage === "markdown") {
+      if (!hasFigmaUrl) {
+        return {
+          variant: "warning" as const,
+          title: "Add a Figma URL to continue",
+          description:
+            "Documentation is generated, but visual proof cannot be captured until the component has a linked Figma source.",
+        };
+      }
+
+      return {
+        variant: "info" as const,
+        title: "Ready for visual proof",
+        description:
+          "The markdown stage is complete. Capture visual proof to finish the component documentation pipeline.",
+      };
+    }
+
+    if (currentStage === "visual-proof") {
+      return {
+        variant: "success" as const,
+        title: "Pipeline complete",
+        description:
+          "Visual proof is available. Open docs to review and finalize publication status.",
+      };
+    }
+
     return null;
   })();
 
@@ -48,6 +86,16 @@ export function ComponentPipelineSection({
         <CardDescription>Component documentation progress</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">
+            Current: {currentStage ? STAGE_LABELS[currentStage] : "Unknown"}
+          </span>
+          {nextStage ? (
+            <span className="ml-2">
+              · Next: <span className="font-medium text-foreground">{STAGE_LABELS[nextStage]}</span>
+            </span>
+          ) : null}
+        </div>
         <div className="flex items-center gap-2">
           {stages.map((stage, idx) => {
             const isDone = idx < currentIdx;
@@ -72,15 +120,17 @@ export function ComponentPipelineSection({
             );
           })}
         </div>
+        {guidance ? (
+          <StatusAlert
+            variant={guidance.variant}
+            title={guidance.title}
+            description={guidance.description}
+          />
+        ) : null}
         {cta && (
           <Button onClick={cta.onClick} size="sm">
             {cta.label}
           </Button>
-        )}
-        {!cta && (currentStage === "markdown" || currentStage === "render") && !hasFigmaUrl && (
-          <p className="text-sm text-muted-foreground">
-            Add a Figma URL to capture visual proof.
-          </p>
         )}
       </CardContent>
     </Card>
