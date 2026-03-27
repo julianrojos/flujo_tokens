@@ -21,7 +21,6 @@ export function finalizeSpecResult({
     docsDir: path.join(docsRootDir, "components"),
     overviewPath,
     proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
-    renderDir: path.join(docsRootDir, "_generated", "figma_doc_models"),
     registryPath: registryIndexPath,
   });
 

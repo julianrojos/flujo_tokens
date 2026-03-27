@@ -41,11 +41,6 @@ const CLI_CONFIG = {
       defaultValue: 'docs/components',
     },
     {
-      name: '--render-dir',
-      description: 'Directory for markdown->Figma render payload files.',
-      defaultValue: 'docs/_generated/figma_doc_models',
-    },
-    {
       name: '--proof-dir',
       description: 'Directory for visual proof metadata files.',
       defaultValue: 'docs/_generated/visual-proofs',
@@ -96,7 +91,6 @@ export async function runRegistryRefresh(args: string[] = []): Promise<void> {
       overviewPath: path.resolve(String(getStringArg(parsed, 'overview') || path.join(ctx.paths.docs, 'overview.md'))),
       specsDir: path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs)),
       docsDir: path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs)),
-      renderDir: path.resolve(String(getStringArg(parsed, 'render-dir') || path.join(ctx.paths.generated, 'figma_doc_models'))),
       proofsDir: path.resolve(String(getStringArg(parsed, 'proof-dir') || path.join(ctx.paths.generated, 'visual-proofs'))),
       dryRun,
     });

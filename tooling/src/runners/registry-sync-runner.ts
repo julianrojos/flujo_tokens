@@ -18,7 +18,7 @@ import { syncComponentRegistry } from '../services/component-registry-index.js';
 const CLI_CONFIG = {
   command: 'ds:registry:sync [options]',
   description:
-    'Build and sync docs/_generated/component-registry.json from specs/docs/render/proof artifacts.',
+    'Build and sync docs/_generated/component-registry.json from specs/docs/proof artifacts.',
   options: [
     {
       name: '--registry',
@@ -34,11 +34,6 @@ const CLI_CONFIG = {
       name: '--docs-root',
       description: 'Component docs directory.',
       defaultValue: 'docs/components',
-    },
-    {
-      name: '--render-dir',
-      description: 'Directory for markdown->Figma render payload files.',
-      defaultValue: 'docs/_generated/figma_doc_models',
     },
     {
       name: '--proof-dir',
@@ -90,7 +85,6 @@ export async function runRegistrySync(args: string[] = []): Promise<void> {
       registryPath: path.resolve(String(getStringArg(parsed, 'registry') || ctx.paths.registry)),
       specsDir: path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs)),
       docsDir: path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs)),
-      renderDir: path.resolve(String(getStringArg(parsed, 'render-dir') || path.join(ctx.paths.generated, 'figma_doc_models'))),
       proofsDir: path.resolve(String(getStringArg(parsed, 'proof-dir') || path.join(ctx.paths.generated, 'visual-proofs'))),
       dryRun,
     });

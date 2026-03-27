@@ -12,7 +12,6 @@ import {
   DEFAULT_COMPONENT_OVERVIEW_PATH,
   DEFAULT_COMPONENT_REGISTRY_PATH,
   DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_RENDER_PAYLOADS_DIR,
   DEFAULT_VISUAL_PROOFS_DIR,
 } from './component-registry-constants.js';
 import { syncComponentRegistry } from './component-registry-sync.js';
@@ -39,7 +38,6 @@ export function syncDocumentationIndices(
     specsDir?: string;
     docsDir?: string;
     proofsDir?: string;
-    renderDir?: string;
     dryRun?: boolean;
   } = {},
 ): SyncIndicesResult {
@@ -49,16 +47,14 @@ export function syncDocumentationIndices(
     specsDir = DEFAULT_COMPONENT_SPECS_DIR,
     docsDir = DEFAULT_COMPONENT_DOCS_DIR,
     proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
-    renderDir = DEFAULT_RENDER_PAYLOADS_DIR,
     dryRun = false,
   } = options;
-  
+
   const resolvedRegistryPath = path.resolve(registryPath);
   const resolvedOverviewPath = path.resolve(overviewPath);
   const resolvedSpecsDir = path.resolve(specsDir);
   const resolvedDocsDir = path.resolve(docsDir);
   const resolvedProofsDir = path.resolve(proofsDir);
-  const resolvedRenderDir = path.resolve(renderDir);
 
   const registrySnapshot = captureFileSnapshot(resolvedRegistryPath);
   const overviewSnapshot = captureFileSnapshot(resolvedOverviewPath);
@@ -66,25 +62,23 @@ export function syncDocumentationIndices(
   try {
     const expectedRegistry: ComponentRegistry | null = dryRun
       ? {
-          schema_version: 1,
-          components: [],
-          summary: {
-            total_components: 0,
-            with_spec: 0,
-            with_doc: 0,
-            with_render_payload: 0,
-            with_visual_proof: 0,
-            ready_for_publish: 0,
-            by_pipeline_stage: {
-              'missing-spec': 0,
-              'spec': 0,
-              'markdown': 0,
-              'render': 0,
-              'visual-proof': 0,
-            },
+        schema_version: 1,
+        components: [],
+        summary: {
+          total_components: 0,
+          with_spec: 0,
+          with_doc: 0,
+          with_visual_proof: 0,
+          ready_for_publish: 0,
+          by_pipeline_stage: {
+            'missing-spec': 0,
+            'spec': 0,
+            'markdown': 0,
+            'visual-proof': 0,
           },
-          fingerprint_sha256: '',
-        }
+        },
+        fingerprint_sha256: '',
+      }
       : null;
 
     const registry = syncComponentRegistry({
@@ -92,7 +86,6 @@ export function syncDocumentationIndices(
       specsDir: resolvedSpecsDir,
       docsDir: resolvedDocsDir,
       proofsDir: resolvedProofsDir,
-      renderDir: resolvedRenderDir,
       dryRun,
     });
 
@@ -119,8 +112,8 @@ export function syncDocumentationIndices(
     }
     throw new Error(
       'Atomic documentation index refresh failed.\n' +
-        `Rollback applied: ${dryRun ? 'no (dry-run)' : 'yes'}.\n` +
-        `Reason: ${summarizeError(error)}`,
+      `Rollback applied: ${dryRun ? 'no (dry-run)' : 'yes'}.\n` +
+      `Reason: ${summarizeError(error)}`,
     );
   }
 }

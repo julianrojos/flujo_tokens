@@ -123,7 +123,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
 
   const nextStep = useMemo<PipelineStage | null>(() => {
     if (!item?.pipeline_stage) return null;
-    const stages: PipelineStage[] = ["missing-spec", "spec", "markdown", "render", "visual-proof"];
+    const stages: PipelineStage[] = ["missing-spec", "spec", "markdown", "visual-proof"];
     const idx = stages.indexOf(item.pipeline_stage);
     return idx < stages.length - 1 ? stages[idx + 1] : null;
   }, [item?.pipeline_stage]);

@@ -13,7 +13,6 @@ export const COMPONENT_REGISTRY_SCHEMA_VERSION = 1;
 export const DEFAULT_COMPONENT_SPECS_DIR = path.join(PROJECT_ROOT, 'docs/_spec/components');
 export const DEFAULT_COMPONENT_DOCS_DIR = path.join(PROJECT_ROOT, 'docs/components');
 export const DEFAULT_VISUAL_PROOFS_DIR = path.join(PROJECT_ROOT, 'docs/_generated/visual-proofs');
-export const DEFAULT_RENDER_PAYLOADS_DIR = path.join(PROJECT_ROOT, 'docs/_generated/figma_doc_models');
 export const DEFAULT_COMPONENT_REGISTRY_PATH = path.join(PROJECT_ROOT, 'docs/_generated/component-registry.json');
 export const DEFAULT_COMPONENT_OVERVIEW_PATH = path.join(PROJECT_ROOT, 'docs/components/overview.md');
 

@@ -123,12 +123,6 @@ rules:
     applies_to: [spec, markdown, pipeline]
     blocking: true
     layer: core
-  - id: figma-rendering
-    file: figma-rendering.mdc
-    owner: docs-governance
-    applies_to: [markdown, pipeline]
-    blocking: true
-    layer: stage
   - id: frontmatter-contract
     file: frontmatter-contract.mdc
     owner: docs-governance
@@ -326,7 +320,7 @@ checks:
   DEP01:
     rule_ids: [docs-governance-ops]
     blocking: true
-    description: "Detects references to deprecated rule IDs in skill metadata."
+    description: 'Detects references to deprecated rule IDs in skill metadata.'
   SLOT01:
     rule_ids: [skill-input-output-contract, skill-versioning]
     blocking: true
@@ -452,7 +446,6 @@ matrix:
         general-programming-principles,
         git-constraints,
       ]
-    figma: [figma-rendering]
     visual-proof: [component-figma-traceability]
     pipeline:
       [

@@ -42,7 +42,7 @@ type SortField =
   | "ready_for_publish";
 
 function stageBadge(stage: string) {
-  if (stage === "render" || stage === "visual-proof") return "success" as const;
+  if (stage === "visual-proof") return "success" as const;
   if (stage === "markdown") return "warning" as const;
   return "neutral" as const;
 }
@@ -221,7 +221,6 @@ export function ComponentsPage() {
               <option value="missing-spec">missing-spec</option>
               <option value="spec">spec</option>
               <option value="markdown">markdown</option>
-              <option value="render">render</option>
               <option value="visual-proof">visual-proof</option>
             </Select>
             <Select

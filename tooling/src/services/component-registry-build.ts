@@ -1,7 +1,7 @@
 /**
  * Component Registry Builder
  *
- * Builds component registry from spec, doc, render, and visual proof sources.
+ * Builds component registry from spec, doc, and visual proof sources.
  */
 
 import * as fs from 'node:fs';
@@ -18,7 +18,6 @@ import type {
   ComponentRegistryEntry,
   ComponentSpecState,
   ComponentDocState,
-  ComponentRenderState,
   ComponentVisualProofState,
   VisualProofVariant,
   PipelineStage,
@@ -30,7 +29,6 @@ import {
   COMPONENT_REGISTRY_SCHEMA_VERSION,
   DEFAULT_COMPONENT_DOCS_DIR,
   DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_RENDER_PAYLOADS_DIR,
   DEFAULT_VISUAL_PROOFS_DIR,
   PIPELINE_STAGE_ORDER,
 } from './component-registry-constants.js';
@@ -46,7 +44,6 @@ import {
 
 const SPEC_STATUS = new Set(['draft', 'ready']);
 const DOC_STATUS = new Set(['draft', 'ready', 'needs-review']);
-const RENDER_PAYLOAD_SUFFIX = '.render-payload.json';
 
 /**
  * List files by extension in a directory.
@@ -65,7 +62,7 @@ function listFilesByExtension(directoryPath: string, extension: string): string[
  */
 function listSpecSlugs(specsDir: string): string[] {
   const SLUG_REGEX = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
-  
+
   return listFilesByExtension(specsDir, '.yml')
     .map((filePath) => path.basename(filePath, '.yml'))
     .filter((slug) => {
@@ -128,7 +125,7 @@ function collectVariantComponentNodeIds(specsDir: string): Set<string> {
  */
 function listDocSlugs(docsDir: string): string[] {
   const SLUG_REGEX = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/;
-  
+
   return listFilesByExtension(docsDir, '.md')
     .map((filePath) => path.basename(filePath, '.md'))
     .filter((slug) => {
@@ -147,16 +144,6 @@ function listProofSlugs(proofsDir: string): string[] {
   return listFilesByExtension(proofsDir, '.json').map((filePath) =>
     path.basename(filePath, '.json'),
   );
-}
-
-/**
- * List render slugs from directory.
- */
-function listRenderSlugs(renderDir: string): string[] {
-  return listFilesByExtension(renderDir, '.json')
-    .map((filePath) => path.basename(filePath))
-    .filter((fileName) => fileName.endsWith(RENDER_PAYLOAD_SUFFIX))
-    .map((fileName) => fileName.slice(0, fileName.length - RENDER_PAYLOAD_SUFFIX.length));
 }
 
 /**
@@ -243,31 +230,6 @@ function readDocState(docPath: string): ComponentDocState {
     title: extractMarkdownH1(content),
     figmaFileUrl,
     componentSetNodeId,
-  };
-}
-
-/**
- * Read render state from file.
- */
-function readRenderState(renderPath: string): ComponentRenderState {
-  if (!fileExists(renderPath)) {
-    return {
-      exists: false,
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(renderPath, 'utf8'));
-    if (!isPlainObject(parsed) && !Array.isArray(parsed)) {
-      throw new Error('render payload must be an object or array.');
-    }
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid render payload JSON (${renderPath}): ${reason}`);
-  }
-
-  return {
-    exists: true,
   };
 }
 
@@ -420,15 +382,15 @@ function readVisualProofState(proofPath: string): ComponentVisualProofState {
   const nodeId = isValidNodeId(rawNodeId) ? rawNodeId : null;
   const variants = Array.isArray(parsedObj.variants)
     ? parsedObj.variants
-        .map((variant) => normalizeVisualVariant(variant, { relativeBaseDirs }))
-        .filter((v): v is VisualProofVariant => v !== null)
-        .sort((a, b) =>
-          `${a.name}|${a.node_id || ''}`.localeCompare(
-            `${b.name}|${b.node_id || ''}`,
-            'en',
-            { sensitivity: 'base' },
-          ),
-        )
+      .map((variant) => normalizeVisualVariant(variant, { relativeBaseDirs }))
+      .filter((v): v is VisualProofVariant => v !== null)
+      .sort((a, b) =>
+        `${a.name}|${a.node_id || ''}`.localeCompare(
+          `${b.name}|${b.node_id || ''}`,
+          'en',
+          { sensitivity: 'base' },
+        ),
+      )
     : [];
 
   const image = parsedObj.image as Record<string, unknown> | undefined;
@@ -462,12 +424,10 @@ function readVisualProofState(proofPath: string): ComponentVisualProofState {
 function inferPipelineStage(states: {
   spec: ComponentSpecState;
   doc: ComponentDocState;
-  render: ComponentRenderState;
   visualProof: ComponentVisualProofState;
 }): PipelineStage {
-  const { spec, doc, render, visualProof } = states;
+  const { spec, doc, visualProof } = states;
   if (visualProof.exists && hasVisualProofAsset(visualProof)) return 'visual-proof';
-  if (render.exists) return 'render';
   if (doc.exists) return 'markdown';
   if (spec.exists) return 'spec';
   return 'missing-spec';
@@ -480,13 +440,11 @@ function collectSlugs(dirs: {
   specsDir: string;
   docsDir: string;
   proofsDir: string;
-  renderDir: string;
 }): string[] {
   const slugs = new Set<string>();
   for (const slug of listSpecSlugs(dirs.specsDir)) slugs.add(slug);
   for (const slug of listDocSlugs(dirs.docsDir)) slugs.add(slug);
   for (const slug of listProofSlugs(dirs.proofsDir)) slugs.add(slug);
-  for (const slug of listRenderSlugs(dirs.renderDir)) slugs.add(slug);
 
   return Array.from(slugs)
     .map((slug) => componentNameToSnakeCase(slug))
@@ -516,17 +474,14 @@ function buildComponentEntry(params: {
   specsDir: string;
   docsDir: string;
   proofsDir: string;
-  renderDir: string;
 }): ComponentRegistryEntry {
-  const { slug, specsDir, docsDir, proofsDir, renderDir } = params;
+  const { slug, specsDir, docsDir, proofsDir } = params;
   const specPath = path.join(specsDir, `${slug}.yml`);
   const docPath = path.join(docsDir, `${slug}.md`);
   const proofPath = path.join(proofsDir, `${slug}.json`);
-  const renderPath = path.join(renderDir, `${slug}${RENDER_PAYLOAD_SUFFIX}`);
 
   const spec = readSpecState(specPath);
   const doc = readDocState(docPath);
-  const render = readRenderState(renderPath);
   const visualProof = readVisualProofState(proofPath);
 
   const componentSetNodeId =
@@ -536,7 +491,7 @@ function buildComponentEntry(params: {
     null;
 
   const figmaUrl = doc.figmaFileUrl || visualProof.sourceUrl || null;
-  const stage = inferPipelineStage({ spec, doc, render, visualProof });
+  const stage = inferPipelineStage({ spec, doc, visualProof });
   const readyForPublish =
     spec.status === 'ready' &&
     doc.status === 'ready' &&
@@ -552,7 +507,6 @@ function buildComponentEntry(params: {
     paths: {
       spec: toProjectRelativePath(specPath),
       doc: toProjectRelativePath(docPath),
-      render_payload: toProjectRelativePath(renderPath),
       visual_proof: toProjectRelativePath(proofPath),
     },
     spec: {
@@ -571,9 +525,6 @@ function buildComponentEntry(params: {
     figma: {
       file_url: figmaUrl,
       component_set_node_id: componentSetNodeId,
-    },
-    render: {
-      exists: render.exists,
     },
     visual_proof: {
       exists: visualProof.exists,
@@ -607,7 +558,6 @@ function buildSummary(components: ComponentRegistryEntry[]): ComponentRegistry['
     'missing-spec': 0,
     'spec': 0,
     'markdown': 0,
-    'render': 0,
     'visual-proof': 0,
   };
 
@@ -622,8 +572,6 @@ function buildSummary(components: ComponentRegistryEntry[]): ComponentRegistry['
     total_components: components.length,
     with_spec: components.filter((component) => component.spec.exists).length,
     with_doc: components.filter((component) => component.doc.exists).length,
-    with_render_payload: components.filter((component) => component.render.exists)
-      .length,
     with_visual_proof: components.filter(
       (component) =>
         component.visual_proof.exists &&
@@ -646,14 +594,12 @@ export function buildComponentRegistry(
     specsDir = DEFAULT_COMPONENT_SPECS_DIR,
     docsDir = DEFAULT_COMPONENT_DOCS_DIR,
     proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
-    renderDir = DEFAULT_RENDER_PAYLOADS_DIR,
   } = options;
 
   const slugs = collectSlugs({
     specsDir: path.resolve(specsDir),
     docsDir: path.resolve(docsDir),
     proofsDir: path.resolve(proofsDir),
-    renderDir: path.resolve(renderDir),
   });
 
   const components = slugs
@@ -663,7 +609,6 @@ export function buildComponentRegistry(
         specsDir: path.resolve(specsDir),
         docsDir: path.resolve(docsDir),
         proofsDir: path.resolve(proofsDir),
-        renderDir: path.resolve(renderDir),
       }),
     )
     .sort((a, b) => {

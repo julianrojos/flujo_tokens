@@ -13,7 +13,6 @@ export const PIPELINE_STAGES: PipelineStage[] = [
   "missing-spec",
   "spec",
   "markdown",
-  "render",
   "visual-proof",
 ];
 
@@ -24,7 +23,6 @@ export const STAGE_LABELS: Record<PipelineStage, string> = {
   "missing-spec": "Missing spec",
   spec: "Spec",
   markdown: "Markdown",
-  render: "Render",
   "visual-proof": "Visual proof",
 };
 
@@ -39,7 +37,7 @@ export function stageIndex(stage: PipelineStage): number {
  * Get badge variant for a pipeline stage
  */
 export function stageBadge(stage: PipelineStage): "success" | "warning" | "neutral" {
-  if (stage === "render" || stage === "visual-proof") return "success" as const;
+  if (stage === "visual-proof") return "success" as const;
   if (stage === "markdown") return "warning" as const;
   return "neutral" as const;
 }

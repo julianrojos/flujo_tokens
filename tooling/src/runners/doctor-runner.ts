@@ -36,7 +36,6 @@ const CLI_CONFIG = {
     { name: '--spec-root', description: 'Root directory for component specs' },
     { name: '--registry', description: 'Path to token registry JSON' },
     { name: '--component-registry', description: 'Path to component registry JSON' },
-    { name: '--render-dir', description: 'Directory for Figma render payloads' },
     { name: '--proof-dir', description: 'Directory for visual proof files' },
     { name: '--manifest', description: 'Path to rules manifest YAML' },
     { name: '--component-name', description: 'Check specific component by name' },

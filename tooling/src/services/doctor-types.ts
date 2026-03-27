@@ -165,8 +165,6 @@ export interface DoctorConfig {
   componentRegistryPath: string;
   /** Path to rules manifest YAML */
   manifestPath: string;
-  /** Directory for Figma render payloads */
-  renderPayloadDir: string;
   /** Directory for visual proof files */
   visualProofDir: string;
   /** Optional: specific component to check */

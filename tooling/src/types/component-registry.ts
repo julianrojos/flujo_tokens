@@ -14,7 +14,6 @@ export const PIPELINE_STAGE_ORDER = [
   "missing-spec",
   "spec",
   "markdown",
-  "render",
   "visual-proof",
 ] as const;
 
@@ -52,13 +51,6 @@ export interface ComponentDocState {
   title: string;
   figmaFileUrl: string | null;
   componentSetNodeId: string | null;
-}
-
-/**
- * Component render state.
- */
-export interface ComponentRenderState {
-  exists: boolean;
 }
 
 /**
@@ -101,7 +93,6 @@ export interface ComponentVisualProofState {
 export interface ComponentRegistryPaths {
   spec: string;
   doc: string;
-  render_payload: string;
   visual_proof: string;
 }
 
@@ -118,7 +109,6 @@ export interface ComponentRegistryEntry {
     file_url: string | null;
     component_set_node_id: string | null;
   };
-  render: ComponentRenderState;
   visual_proof: {
     exists: boolean;
     screenshot_url: string | null;
@@ -145,7 +135,6 @@ export interface ComponentRegistrySummary {
   total_components: number;
   with_spec: number;
   with_doc: number;
-  with_render_payload: number;
   with_visual_proof: number;
   ready_for_publish: number;
   by_pipeline_stage: Record<PipelineStage, number>;
@@ -185,7 +174,6 @@ export interface BuildRegistryOptions {
   specsDir?: string;
   docsDir?: string;
   proofsDir?: string;
-  renderDir?: string;
 }
 
 /**

@@ -1,7 +1,7 @@
 /**
  * Component Registry Sync
  *
- * Syncs component registry with source files (specs, docs, proofs, renders).
+ * Syncs component registry with source files (specs, docs, proofs).
  */
 
 import * as fs from 'node:fs';
@@ -11,7 +11,6 @@ import {
   DEFAULT_COMPONENT_DOCS_DIR,
   DEFAULT_COMPONENT_REGISTRY_PATH,
   DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_RENDER_PAYLOADS_DIR,
   DEFAULT_VISUAL_PROOFS_DIR,
 } from './component-registry-constants.js';
 import { buildComponentRegistry } from './component-registry-build.js';
@@ -41,7 +40,7 @@ export function readComponentRegistry(
 ): ReadRegistryResult {
   const { allowMissing = false } = options;
   const resolvedPath = path.resolve(registryPath);
-  
+
   if (!fileExists(resolvedPath)) {
     if (allowMissing) {
       return {
@@ -63,7 +62,7 @@ export function readComponentRegistry(
 
   // For now, assume valid if it parses (full validation in validate.mjs)
   const validation = { ok: true, errors: [] };
-  
+
   return {
     exists: true,
     registry: parsed as ComponentRegistry,
@@ -79,23 +78,20 @@ export function buildExpectedComponentRegistry(
     specsDir?: string;
     docsDir?: string;
     proofsDir?: string;
-    renderDir?: string;
   } = {},
 ): ComponentRegistry {
   const {
     specsDir = DEFAULT_COMPONENT_SPECS_DIR,
     docsDir = DEFAULT_COMPONENT_DOCS_DIR,
     proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
-    renderDir = DEFAULT_RENDER_PAYLOADS_DIR,
   } = options;
-  
+
   const expected = buildComponentRegistry({
     specsDir,
     docsDir,
     proofsDir,
-    renderDir,
   });
-  
+
   // Validation would go here (currently passes through)
   return expected;
 }
@@ -109,14 +105,13 @@ export function compareComponentRegistryToSources(
     specsDir?: string;
     docsDir?: string;
     proofsDir?: string;
-    renderDir?: string;
   } = {},
 ): CompareRegistryResult {
   const {
     registryPath = DEFAULT_COMPONENT_REGISTRY_PATH,
     ...buildOptions
   } = options;
-  
+
   const expected = buildExpectedComponentRegistry(buildOptions);
   const current = readComponentRegistry(registryPath, { allowMissing: true });
   const expectedJson = normalizeJson(expected);
@@ -141,7 +136,6 @@ export function syncComponentRegistry(
     specsDir?: string;
     docsDir?: string;
     proofsDir?: string;
-    renderDir?: string;
   } = {},
 ): SyncRegistryResult {
   const {
@@ -149,7 +143,7 @@ export function syncComponentRegistry(
     dryRun = false,
     ...buildOptions
   } = options;
-  
+
   const resolvedPath = path.resolve(registryPath);
   const expected = buildExpectedComponentRegistry(buildOptions);
 

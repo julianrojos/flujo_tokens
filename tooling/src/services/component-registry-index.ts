@@ -11,7 +11,6 @@ export type {
   ComponentDocState,
   ComponentRegistry,
   ComponentRegistryEntry,
-  ComponentRenderState,
   ComponentSpecState,
   ComponentVisualProofState,
   DocStatus,
@@ -37,7 +36,6 @@ export {
   DEFAULT_COMPONENT_SPECS_DIR,
   DEFAULT_COMPONENT_DOCS_DIR,
   DEFAULT_VISUAL_PROOFS_DIR,
-  DEFAULT_RENDER_PAYLOADS_DIR,
   DEFAULT_COMPONENT_REGISTRY_PATH,
   DEFAULT_COMPONENT_OVERVIEW_PATH,
 } from './component-registry-constants.js';

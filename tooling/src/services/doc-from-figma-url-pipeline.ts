@@ -173,7 +173,6 @@ export async function runDocGenerationPipeline(
     overviewPath: ctx.overviewPath,
     specsDir: ctx.specComponentsDir,
     proofsDir: ctx.visualProofDir,
-    renderDir: path.join(ctx.docsRootDir, '_generated', 'figma_doc_models'),
     registryPath: ctx.registryIndexPath,
   });
   runOrThrow(process.execPath, [

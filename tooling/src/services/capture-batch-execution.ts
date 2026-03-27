@@ -450,7 +450,6 @@ export function executeCaptureBatchAndRefresh(params: {
     const generatedDir = path.join(resolvedDocsRootDir, '_generated');
     const registryPath = path.join(generatedDir, 'component-registry.json');
     const overviewPath = path.join(docsDir, 'overview.md');
-    const renderDir = path.join(generatedDir, 'figma_doc_models');
     const proofsDir = proofDir;
 
     const refreshArgs = ['--system', systemId];
@@ -483,7 +482,6 @@ export function executeCaptureBatchAndRefresh(params: {
           specsDir,
           docsDir,
           proofsDir,
-          renderDir,
           dryRun: false,
         });
         report.indices_refreshed = fallbackResult.ok;

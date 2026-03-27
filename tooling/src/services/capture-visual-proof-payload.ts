@@ -150,7 +150,6 @@ export function writeProofArtifacts(
       overviewPath: path.join(ctx.componentDocsDir, 'overview.md'),
       specsDir: path.dirname(ctx.specPath),
       proofsDir: ctx.proofDir,
-      renderDir: path.join(ctx.docsRootDir, '_generated', 'figma_doc_models'),
       registryPath: path.join(ctx.docsRootDir, '_generated', 'component-registry.json'),
     });
   }

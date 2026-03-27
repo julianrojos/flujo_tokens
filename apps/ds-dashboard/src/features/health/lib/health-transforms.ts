@@ -32,8 +32,7 @@ export function stageOrder(stage: string): number {
     "missing-spec": 0,
     spec: 1,
     markdown: 2,
-    render: 3,
-    "visual-proof": 4,
+    "visual-proof": 3,
   };
   return order[stage] ?? 99;
 }

@@ -24,14 +24,12 @@ export interface ComponentsHealthRow {
   ready_for_publish: boolean;
   spec_exists: boolean;
   doc_exists: boolean;
-  render_exists: boolean;
   visual_proof_exists: boolean;
   doc_status: string;
   spec_status: string;
   paths: {
     spec?: string;
     doc?: string;
-    render_payload?: string;
     visual_proof?: string;
   };
 }
@@ -50,4 +48,3 @@ export interface ComponentsHealthReport {
   components: ComponentsHealthRow[];
   fingerprint_sha256: string;
 }
-

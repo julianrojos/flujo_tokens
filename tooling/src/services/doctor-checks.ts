@@ -36,7 +36,6 @@ export interface DoctorContext {
   specRoot: string;
   registryPath: string;
   componentRegistryPath: string;
-  renderPayloadDir: string;
   visualProofDir: string;
   manifestPath: string;
   rawComponentName: string;
@@ -76,9 +75,6 @@ export function resolveDoctorContext(
   const componentRegistryPath = path.resolve(
     String(parsed['component-registry'] ?? systemCtx.paths.registry),
   );
-  const renderPayloadDir = path.resolve(
-    String(parsed['render-dir'] ?? path.join(systemCtx.paths.generated, 'figma_doc_models')),
-  );
   const visualProofDir = path.resolve(
     String(parsed['proof-dir'] ?? path.join(systemCtx.paths.generated, 'visual-proofs')),
   );
@@ -94,7 +90,6 @@ export function resolveDoctorContext(
     specRoot,
     registryPath,
     componentRegistryPath,
-    renderPayloadDir,
     visualProofDir,
     manifestPath,
     rawComponentName,
@@ -590,7 +585,6 @@ export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
       registryPath: ctx.componentRegistryPath,
       specsDir: ctx.specRoot,
       docsDir: ctx.docsRoot,
-      renderDir: ctx.renderPayloadDir,
       proofsDir: ctx.visualProofDir,
     });
 
@@ -613,7 +607,7 @@ export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
           id: 'COMPONENT_REGISTRY',
           status: 'fail',
           message: componentRegistryCheck.exists
-            ? 'Component registry is out of sync with docs/spec/render/proof artifacts.'
+            ? 'Component registry is out of sync with docs/spec/proof artifacts.'
             : 'Component registry is missing.',
           details: {
             componentRegistryPath: ctx.componentRegistryPath,

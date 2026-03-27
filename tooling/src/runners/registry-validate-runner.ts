@@ -17,7 +17,6 @@ import {
   DEFAULT_COMPONENT_DOCS_DIR,
   DEFAULT_COMPONENT_REGISTRY_PATH,
   DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_RENDER_PAYLOADS_DIR,
   DEFAULT_VISUAL_PROOFS_DIR,
 } from '../services/component-registry-index.js';
 
@@ -40,11 +39,6 @@ const CLI_CONFIG = {
       name: '--docs-root',
       description: 'Component docs directory.',
       defaultValue: 'docs/components',
-    },
-    {
-      name: '--render-dir',
-      description: 'Directory for markdown->Figma render payload files.',
-      defaultValue: 'docs/_generated/figma_doc_models',
     },
     {
       name: '--proof-dir',
@@ -91,7 +85,6 @@ export async function runRegistryValidate(args: string[] = []): Promise<void> {
       registryPath: path.resolve(String(parsed.registry || DEFAULT_COMPONENT_REGISTRY_PATH)),
       specsDir: path.resolve(String(parsed['spec-root'] || DEFAULT_COMPONENT_SPECS_DIR)),
       docsDir: path.resolve(String(parsed['docs-root'] || DEFAULT_COMPONENT_DOCS_DIR)),
-      renderDir: path.resolve(String(parsed['render-dir'] || DEFAULT_RENDER_PAYLOADS_DIR)),
       proofsDir: path.resolve(String(parsed['proof-dir'] || DEFAULT_VISUAL_PROOFS_DIR)),
     });
 

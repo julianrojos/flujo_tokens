@@ -148,7 +148,7 @@ export function buildAliasChain(registry: TokenRegistry | null, token: TokenEntr
  * Get badge variant for a pipeline stage
  */
 export function stageBadge(stage: PipelineStage): "success" | "warning" | "neutral" {
-  if (stage === "render" || stage === "visual-proof") return "success";
+  if (stage === "visual-proof") return "success";
   if (stage === "markdown") return "warning";
   return "neutral";
 }
@@ -243,6 +243,5 @@ export const COMPONENT_STAGE_LABELS: Record<PipelineStage, string> = {
   "missing-spec": "Missing spec",
   spec: "Spec",
   markdown: "Markdown",
-  render: "Render",
   "visual-proof": "Visual proof",
 };

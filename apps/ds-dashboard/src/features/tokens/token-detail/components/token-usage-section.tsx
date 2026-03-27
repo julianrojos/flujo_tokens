@@ -238,7 +238,7 @@ export function TokenUsageSection({
               {filteredComponentUsages.map((usage) => (
                 <TableRow key={usage.slug}>
                   <TableCell className="font-medium">{usage.displayName}</TableCell>
-                  <TableCell><Badge variant={usage.pipelineStage === "render" || usage.pipelineStage === "visual-proof" ? "success" : "neutral"}>{usage.pipelineStage ?? "—"}</Badge></TableCell>
+                  <TableCell><Badge variant={usage.pipelineStage === "visual-proof" ? "success" : "neutral"}>{usage.pipelineStage ?? "—"}</Badge></TableCell>
                   <TableCell><Badge variant={usage.mode === "direct" ? "success" : "neutral"}>{usage.mode}</Badge></TableCell>
                   <TableCell>{usage.occurrences}</TableCell>
                   <TableCell className="max-w-xs truncate text-xs">{usage.slots.join(", ") || "—"}</TableCell>
