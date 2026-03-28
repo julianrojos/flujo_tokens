@@ -20,7 +20,6 @@ test("create-server-app: boots health routes and supports idempotent dispose", a
         FIGMA_MCP_COMMAND: "__ds_dashboard_test_invalid_mcp_command__",
       },
       repoRoot,
-      watch: false,
     });
 
     assert.equal(port, 9991);
@@ -77,7 +76,6 @@ test("create-server-app: brackets IPv6 host in DS_DASHBOARD_INTERNAL_URL", () =>
         FIGMA_MCP_COMMAND: "__ds_dashboard_test_invalid_mcp_command__",
       },
       repoRoot,
-      watch: false,
     });
 
     assert.equal(host, "::1");

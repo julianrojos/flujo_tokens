@@ -135,7 +135,7 @@ describe('create-server-runtime-services', () => {
         runSpawnWithCaptureFn: () => Promise.resolve({ ok: true, exitCode: 0, stdout: '', stderr: '', parsedJson: null, summary: 'test', jsonParseError: null, spawnError: null }),
         toQueueSummaryFromPayloadFn: () => 'summary',
         createSnippetBuilderFn: () => () => ({ targetLine: 1, startLine: 1, endLine: 1, snippet: '' }),
-        computeNamingDebtReportFn: async () => ({ tokenRegistry: {}, tokenUsageIndex: {}, tokenGraph: {}, config: {} }),
+        computeNamingDebtReportFromDataFn: async () => ({ tokenRegistry: {}, tokenUsageIndex: {}, tokenGraph: {}, config: {} }),
         createDevRuntimeCheckerFn: () => () => true,
         createSha256TextHasherFn: () => () => 'hash',
         createSystemContextResolverFn: () => () => ({ systemId: 'core', header: 'core' }),

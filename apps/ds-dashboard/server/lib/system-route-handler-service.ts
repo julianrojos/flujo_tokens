@@ -8,12 +8,6 @@
 import path from "node:path";
 import fsSync from "node:fs";
 
-import {
-  createEmptyComponentRegistry,
-  createEmptyTokenUsageIndex,
-  createEmptyTokenRegistry,
-} from "./registry-seed-service.mjs";
-
 // ---------------------------------------------------------------------------
 // Type Definitions
 // ---------------------------------------------------------------------------
@@ -65,9 +59,6 @@ export interface DesignSystemsConfig {
 export interface ScaffoldResult {
   docsDir: string;
   generatedDir: string;
-  componentRegistryPath: string;
-  tokenRegistryPath: string;
-  tokenUsageIndexPath: string;
   createdPaths: string[];
 }
 
@@ -75,9 +66,6 @@ export interface ScaffoldResult {
  * Result of reset global artifacts operation.
  */
 export interface ResetGlobalArtifactsResult {
-  componentRegistryPath: string;
-  tokenRegistryPath: string;
-  tokenUsageIndexPath: string;
   componentsIndexPath: string;
   touchedPaths: string[];
 }
@@ -403,10 +391,10 @@ doc_status: ready
 
 # Design System Components Index
 
-Source registry: \`docs/_generated/component-registry.json\`
+Source: SQLite component registry projection
 Registry fingerprint: \`n/a\`
 
-This file is generated from the component registry projection and should not be edited manually.
+This file is generated from database data and should not be edited manually.
 
 ## Summary
 
@@ -425,19 +413,6 @@ No components available.
 }
 
 /**
- * Write JSON file if it doesn't exist.
- * @param filePath - File path
- * @param payload - JSON payload
- * @param fs - Synchronous filesystem operations
- * @returns True if file was created, false if it already existed
- */
-function writeJsonIfMissing(filePath: string, payload: Record<string, unknown>, fs: FsSync): boolean {
-  if (fs.existsSync(filePath)) return false;
-  fs.writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
-  return true;
-}
-
-/**
  * Ensure filesystem scaffold for a design system.
  * Creates required directories and seed files.
  * @param options - Scaffold options
@@ -452,16 +427,14 @@ export function ensureSystemFilesystemScaffold({
   repoRoot: string;
   fsSync: FsSync;
 }): ScaffoldResult {
-  const inputDir = path.resolve(repoRoot, String(nextSystem?.inputDir || ""));
-  const outputDir = path.resolve(repoRoot, String(nextSystem?.outputDir || ""));
-  const docsDir = path.resolve(repoRoot, String(nextSystem?.docsDir || ""));
+  const paths = resolveSystemPaths(nextSystem.id, repoRoot);
+  const inputDir = paths.inputDir;
+  const outputDir = paths.outputDir;
+  const docsDir = paths.docsDir;
   const generatedDir = path.join(docsDir, "_generated");
   const specsDir = path.join(docsDir, "_spec", "components");
   const componentsDir = path.join(docsDir, "components");
   const overviewPath = path.join(componentsDir, "overview.md");
-  const componentRegistryPath = path.join(generatedDir, "component-registry.json");
-  const tokenRegistryPath = path.join(generatedDir, "token-registry.json");
-  const tokenUsageIndexPath = path.join(generatedDir, "token-usage-index.json");
 
   const createdPaths: string[] = [];
   for (const dirPath of [inputDir, outputDir, docsDir, generatedDir, specsDir, componentsDir]) {
@@ -475,24 +448,9 @@ export function ensureSystemFilesystemScaffold({
     createdPaths.push(overviewPath);
   }
 
-  if (writeJsonIfMissing(componentRegistryPath, createEmptyComponentRegistry(), fs)) {
-    createdPaths.push(componentRegistryPath);
-  }
-
-  if (writeJsonIfMissing(tokenRegistryPath, createEmptyTokenRegistry(), fs)) {
-    createdPaths.push(tokenRegistryPath);
-  }
-
-  if (writeJsonIfMissing(tokenUsageIndexPath, createEmptyTokenUsageIndex(), fs)) {
-    createdPaths.push(tokenUsageIndexPath);
-  }
-
   return {
     docsDir,
     generatedDir,
-    componentRegistryPath,
-    tokenRegistryPath,
-    tokenUsageIndexPath,
     createdPaths,
   };
 }
@@ -511,47 +469,19 @@ export function resetGlobalArtifactsForNoSystems({
   fsSync: FsSync;
 }): ResetGlobalArtifactsResult {
   const docsDir = path.resolve(repoRoot, "docs");
-  const generatedDir = path.join(docsDir, "_generated");
-  const componentRegistryPath = path.join(generatedDir, "component-registry.json");
-  const tokenRegistryPath = path.join(generatedDir, "token-registry.json");
-  const tokenUsageIndexPath = path.join(generatedDir, "token-usage-index.json");
   const componentsIndexPath = path.join(docsDir, "COMPONENTS_INDEX.md");
 
   const touchedPaths: string[] = [];
-  for (const dirPath of [docsDir, generatedDir]) {
+  for (const dirPath of [docsDir]) {
     if (fs.existsSync(dirPath)) continue;
     fs.mkdirSync(dirPath, { recursive: true });
     touchedPaths.push(dirPath);
   }
 
-  fs.writeFileSync(
-    componentRegistryPath,
-    `${JSON.stringify(createEmptyComponentRegistry(), null, 2)}\n`,
-    "utf8",
-  );
-  touchedPaths.push(componentRegistryPath);
-
-  fs.writeFileSync(
-    tokenRegistryPath,
-    `${JSON.stringify(createEmptyTokenRegistry(), null, 2)}\n`,
-    "utf8",
-  );
-  touchedPaths.push(tokenRegistryPath);
-
-  fs.writeFileSync(
-    tokenUsageIndexPath,
-    `${JSON.stringify(createEmptyTokenUsageIndex(), null, 2)}\n`,
-    "utf8",
-  );
-  touchedPaths.push(tokenUsageIndexPath);
-
   fs.writeFileSync(componentsIndexPath, buildEmptyComponentsIndexSeed(), "utf8");
   touchedPaths.push(componentsIndexPath);
 
   return {
-    componentRegistryPath,
-    tokenRegistryPath,
-    tokenUsageIndexPath,
     componentsIndexPath,
     touchedPaths,
   };

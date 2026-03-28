@@ -25,77 +25,42 @@ test("component-spec-service: sanitizeComponentSlug enforces expected pattern", 
   assert.equal(sanitizeComponentSlug("../badge"), null);
 });
 
-test("component-spec-service: resolveComponentSpecTarget resolves valid registry entry", async () => {
-  const registry = {
-    components: [
-      {
-        slug: "button",
-        paths: { spec: "docs/_spec/components/button.yml" },
-      },
-    ],
-  };
-
+test("component-spec-service: resolveComponentSpecTarget resolves target from docsDir", async () => {
   const result = await resolveComponentSpecTarget(
     {
       repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
+      docsDir: "/repo/design-systems/sys-01/docs",
       slug: "button",
     },
     {
-      readFileFn: async () => JSON.stringify(registry),
       resolveRepoFilePathFn: (_repoRoot, relPath) => `/repo/${relPath}`,
     },
   );
 
   assert.equal(result.ok, true);
-  assert.equal(result.specRelPath, "docs/_spec/components/button.yml");
-  assert.equal(result.specAbsPath, "/repo/docs/_spec/components/button.yml");
+  assert.equal(result.specRelPath, "design-systems/sys-01/docs/_spec/components/button.yml");
+  assert.equal(result.specAbsPath, "/repo/design-systems/sys-01/docs/_spec/components/button.yml");
 });
 
 test("component-spec-service: resolveComponentSpecTarget reports missing/invalid target", async () => {
-  const registry = {
-    components: [{ slug: "button", paths: {} }],
-  };
-
-  const missingComponent = await resolveComponentSpecTarget(
+  const missingDocsDir = await resolveComponentSpecTarget(
     {
       repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
-      slug: "badge",
-    },
-    {
-      readFileFn: async () => JSON.stringify(registry),
-      resolveRepoFilePathFn: () => "/repo/docs/_spec/components/badge.yml",
-    },
-  );
-  assert.equal(missingComponent.ok, false);
-  assert.match(missingComponent.message, /not found/i);
-
-  const missingSpecPath = await resolveComponentSpecTarget(
-    {
-      repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
+      docsDir: "",
       slug: "button",
     },
-    {
-      readFileFn: async () => JSON.stringify(registry),
-      resolveRepoFilePathFn: () => "/repo/docs/_spec/components/button.yml",
-    },
+    { resolveRepoFilePathFn: () => "/repo/design-systems/sys-01/docs/_spec/components/button.yml" },
   );
-  assert.equal(missingSpecPath.ok, false);
-  assert.match(missingSpecPath.message, /does not define a spec path/i);
+  assert.equal(missingDocsDir.ok, false);
+  assert.match(missingDocsDir.message, /docs directory.*not configured/i);
 
   const outsideRepo = await resolveComponentSpecTarget(
     {
       repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
+      docsDir: "/repo/design-systems/sys-01/docs",
       slug: "button",
     },
     {
-      readFileFn: async () =>
-        JSON.stringify({
-          components: [{ slug: "button", paths: { spec: "../outside.yml" } }],
-        }),
       resolveRepoFilePathFn: () => null,
     },
   );

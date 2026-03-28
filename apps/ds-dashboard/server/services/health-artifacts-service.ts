@@ -6,15 +6,12 @@
  */
 
 export interface EmptyTokenHealthReportArgs {
-  tokenRegistryPath: string;
-  tokenUsageIndexPath: string;
-  tokenGraphVizPath: string;
-  wcagPairsPath: string;
+  systemId: string;
   reason?: string;
 }
 
 export interface EmptyComponentsHealthReportArgs {
-  componentRegistryPath: string;
+  systemId: string;
 }
 
 export interface TokenHealthReport {
@@ -139,10 +136,10 @@ export function buildEmptyTokenHealthReport(args: EmptyTokenHealthReportArgs): T
     schema_version: 1,
     generated_at: new Date().toISOString(),
     source: {
-      registry_path: args.tokenRegistryPath,
-      usage_index_path: args.tokenUsageIndexPath,
-      graph_viz_path: args.tokenGraphVizPath,
-      wcag_pairs_path: args.wcagPairsPath,
+      registry_path: `db://tokens/${args.systemId}`,
+      usage_index_path: `db://token_usage_occurrences/${args.systemId}`,
+      graph_viz_path: `db://token_graph/${args.systemId}`,
+      wcag_pairs_path: 'config://tooling/config/wcag-pairs.json',
     },
     thresholds: {
       high_usage_threshold: 25,
@@ -184,7 +181,7 @@ export function buildEmptyComponentsHealthReport(args: EmptyComponentsHealthRepo
     bootstrapped: true,
     schema_version: 1,
     source: {
-      registry_path: args.componentRegistryPath,
+      registry_path: `db://components/${args.systemId}`,
     },
     summary: {
       total_components: 0,

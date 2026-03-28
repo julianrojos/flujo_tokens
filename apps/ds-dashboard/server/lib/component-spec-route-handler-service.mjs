@@ -23,7 +23,6 @@ export function buildValidateComponentSpecRouteArgs({
   slug,
   specRelPath,
   specAbsPath,
-  tokenRegistryPath,
   maxBytes,
   body,
 }) {
@@ -32,7 +31,6 @@ export function buildValidateComponentSpecRouteArgs({
     path: specRelPath,
     raw: String(body?.raw ?? ""),
     specAbsPath,
-    tokenRegistryPath,
     maxBytes,
   };
 }
@@ -48,7 +46,6 @@ export function buildSaveComponentSpecRouteArgs({
   specAbsPath,
   specBackupsDirPath,
   repoRoot,
-  tokenRegistryPath,
   maxBytes,
   body,
 }) {
@@ -59,7 +56,6 @@ export function buildSaveComponentSpecRouteArgs({
     specAbsPath,
     specBackupsDirPath,
     repoRoot,
-    tokenRegistryPath,
     expectedHash: normalizeExpectedHash(body?.expectedHash),
     confirmRiskyChanges: body?.confirmRiskyChanges === true,
     refreshRegistryAfterSave: body?.refreshRegistry !== false,

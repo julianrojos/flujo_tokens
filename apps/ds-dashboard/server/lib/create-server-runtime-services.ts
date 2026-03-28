@@ -6,7 +6,7 @@
  */
 
 import { createCommandExecutionService } from '../services/command-execution-service.mjs';
-import { computeNamingDebtReport } from '../services/analysis-artifacts-service.mjs';
+import { computeNamingDebtReportFromData } from '../services/analysis-artifacts-service.mjs';
 import { createOperationHistoryService } from '../services/operation-history-service.mjs';
 import { createQueueEngineService } from '../services/queue-engine-service.mjs';
 import { createQueueJobFactoryService } from '../services/queue-job-factory-service.mjs';
@@ -64,6 +64,7 @@ export interface CreateServerRuntimeServicesConfig {
   opsLogFileRegex: RegExp;
   replayableNpmScripts: Set<string>;
   supportedReplayOperations: Set<string>;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
   normalizeSystemId: (value: string) => string;
   writeStructuredLog: (level: string, payload: Record<string, unknown>) => void;
   nowIso: () => string;
@@ -75,7 +76,7 @@ export interface CreateServerRuntimeServicesConfig {
   runSpawnWithCaptureFn?: (...args: any[]) => unknown;
   toQueueSummaryFromPayloadFn?: (...args: any[]) => unknown;
   createSnippetBuilderFn?: (...args: any[]) => unknown;
-  computeNamingDebtReportFn?: (...args: any[]) => unknown;
+  computeNamingDebtReportFromDataFn?: (...args: any[]) => unknown;
   createDevRuntimeCheckerFn?: (...args: any[]) => unknown;
   createSha256TextHasherFn?: (...args: any[]) => unknown;
   createSystemContextResolverFn?: (...args: any[]) => unknown;
@@ -122,6 +123,7 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     opsLogFileRegex,
     replayableNpmScripts,
     supportedReplayOperations,
+    tokenRepo,
     normalizeSystemId,
     writeStructuredLog,
     nowIso,
@@ -133,7 +135,7 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     runSpawnWithCaptureFn = runSpawnWithCapture,
     toQueueSummaryFromPayloadFn = toQueueSummaryFromPayload,
     createSnippetBuilderFn = createSnippetBuilder,
-    computeNamingDebtReportFn = computeNamingDebtReport,
+    computeNamingDebtReportFromDataFn = computeNamingDebtReportFromData,
     createDevRuntimeCheckerFn = createDevRuntimeChecker,
     createSha256TextHasherFn = createSha256TextHasher,
     createSystemContextResolverFn = createSystemContextResolver,
@@ -192,7 +194,8 @@ export function createServerRuntimeServices(config: CreateServerRuntimeServicesC
     enqueueQueueJob,
     runQueuedSpawnCommand,
     sha256Text,
-    computeNamingDebtReport: computeNamingDebtReportFn,
+    computeNamingDebtReportFromData: computeNamingDebtReportFromDataFn,
+    tokenRepo,
     replayableNpmScripts,
     supportedReplayOperations,
   });

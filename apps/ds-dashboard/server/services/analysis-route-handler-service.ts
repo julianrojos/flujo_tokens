@@ -5,42 +5,107 @@
  * Migrated from apps/ds-dashboard/server/services/analysis-route-handler-service.mjs
  */
 
-import fs from 'node:fs/promises';
-import path from 'node:path';
-
 import { computeImpactReport } from '../../src/lib/impact.ts';
 import {
   buildImpactFailure,
-  loadImpactArtifacts,
   parseImpactRequest,
-  parseRefreshQuery,
   type SystemContext,
 } from '../lib/analysis-route-service.ts';
 import {
-  computeNamingDebtReport,
+  computeNamingDebtReportFromData,
   normalizeImpactWcagPairs,
 } from './analysis-artifacts-service.ts';
-import {
-  artifactReadFailureToApiError,
-  readJsonArtifact,
-} from './registry-artifacts-service.mjs';
 
 export interface AnalysisRouteHandlerDeps {
   failJson: (c: any, statusCode: number, args: Record<string, unknown>) => any;
-  getSystemContext: (systemHeader: string) => SystemContext & {
-    namingDebtCachePath: string;
-    namingDebtConfigPath: string;
-    systemId: string;
+  getSystemContext: (systemHeader: string) => Pick<SystemContext, 'systemId'> & {
+    wcagPairs?: Record<string, unknown>;
+    namingDebtConfig?: Record<string, unknown>;
+  };
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
+}
+
+function buildFallbackTokenGraph(
+  tokenRegistry: { entries?: Array<{ path?: string; slashPath?: string; cssVar?: string; type?: string; collection?: string; resolvedValue?: string }> },
+): Record<string, unknown> {
+  const rawEntries = Array.isArray(tokenRegistry.entries) ? tokenRegistry.entries : [];
+  const cssVarToNodeId = new Map<string, string>();
+  for (let index = 0; index < rawEntries.length; index += 1) {
+    const entry = rawEntries[index] || {};
+    const cssVar = String(entry.cssVar || '').trim();
+    const nodeId = `path:${String(entry.path || entry.slashPath || entry.cssVar || index)}`;
+    if (cssVar) cssVarToNodeId.set(cssVar, nodeId);
+  }
+  const edges: Array<{ source: string; target: string; type: string }> = [];
+  const aliasRefRegex = /^var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]+)?\)\s*$/i;
+  for (let index = 0; index < rawEntries.length; index += 1) {
+    const entry = rawEntries[index] || {};
+    const sourceNodeId = `path:${String(entry.path || entry.slashPath || entry.cssVar || index)}`;
+    const resolvedValue = String(entry.resolvedValue || '').trim();
+    const match = resolvedValue.match(aliasRefRegex);
+    if (!match) continue;
+    const targetCssVar = String(match[1] || '').trim();
+    if (!targetCssVar) continue;
+    const targetNodeId = cssVarToNodeId.get(targetCssVar);
+    if (!targetNodeId) continue;
+    edges.push({
+      source: sourceNodeId,
+      target: targetNodeId,
+      type: 'alias',
+    });
+  }
+  return {
+    ok: true,
+    source: {
+      registry_path: 'db://tokens',
+      graph_viz_path: 'db://token_graph',
+    },
+    summary: {
+      nodes: rawEntries.length,
+      edges: edges.length,
+      cycles: 0,
+      cycle_nodes: 0,
+      unresolved_css_var_refs_total: 0,
+      ambiguous_css_vars_total: 0,
+      graph_collisions: 0,
+    },
+    nodes: rawEntries.map((entry, index) => ({
+      id: `path:${String(entry.path || entry.slashPath || entry.cssVar || index)}`,
+      path: String(entry.path || ''),
+      slashPath: String(entry.slashPath || ''),
+      cssVar: String(entry.cssVar || ''),
+      type: String(entry.type || ''),
+      collection: String(entry.collection || ''),
+      resolvedValue: String(entry.resolvedValue || ''),
+      inDegree: 0,
+      outDegree: 0,
+      isCycleMember: false,
+    })),
+    edges,
+    cycles: [],
+    cycle_node_ids: [],
+    fingerprint: 'fallback:token-graph-missing',
   };
 }
 
-async function loadArtifactOrFail(c: any, args: any, failJson: any) {
-  const loaded = await readJsonArtifact(args);
-  if (loaded.ok) return loaded;
-  const failure = artifactReadFailureToApiError(loaded.error);
+function buildDbImpactArtifacts(
+  dsId: string,
+  deps: Pick<AnalysisRouteHandlerDeps, 'tokenRepo' | 'healthRepo'>,
+) {
+  if (!deps.tokenRepo) {
+    throw new Error('Token repository is not initialized.');
+  }
+  const tokenRegistry = deps.tokenRepo.getTokenRegistry(dsId);
+  const tokenUsageIndex = deps.tokenRepo.getTokenUsageIndex(dsId);
+  const tokenGraph = deps.tokenRepo.getTokenGraph(dsId) ?? buildFallbackTokenGraph(tokenRegistry);
+  const tokenHealth = deps.healthRepo?.getSnapshot(dsId, 'tokens')?.snapshotJson ?? null;
   return {
-    ok: false,
-    response: failJson(c, failure.statusCode, failure.args),
+    tokenRegistry,
+    tokenGraph,
+    tokenUsageIndex,
+    tokenHealth,
+    componentRegistry: null,
   };
 }
 
@@ -48,34 +113,28 @@ async function loadArtifactOrFail(c: any, args: any, failJson: any) {
  * Handle naming debt route.
  */
 export async function handleNamingDebtRoute(c: any, deps: AnalysisRouteHandlerDeps): Promise<any> {
-  const { failJson, getSystemContext } = deps;
-  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const refresh = parseRefreshQuery(c.req.query('refresh'));
-  if (!refresh) {
-    const loaded = await loadArtifactOrFail(
-      c,
-      {
-        filePath: sysCtx.namingDebtCachePath,
-        artifactName: 'naming debt cache',
-        allowMissing: true,
-        missingValue: null,
-      },
-      failJson
-    );
-    if (!loaded.ok) return loaded.response;
-    if (loaded.value && typeof loaded.value === 'object') {
-      return c.json(loaded.value);
-    }
+  const { failJson, getSystemContext, tokenRepo } = deps;
+  if (!tokenRepo) {
+    return failJson(c, 500, {
+      code: 'internal.token_repo_missing',
+      userMessage: 'Token repository is not initialized.',
+      recoverable: false,
+    });
   }
+  const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
+  const wcagPairs = normalizeImpactWcagPairs(sysCtx.wcagPairs ?? { pairs: [] });
 
-  const report = await computeNamingDebtReport({
-    tokenRegistryPath: sysCtx.tokenRegistryPath,
-    tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
-    tokenGraphVizPath: sysCtx.tokenGraphVizPath,
-    namingDebtConfigPath: sysCtx.namingDebtConfigPath,
+  const report = await computeNamingDebtReportFromData({
+    tokenRegistry: tokenRepo.getTokenRegistry(sysCtx.systemId),
+    tokenUsageIndex: tokenRepo.getTokenUsageIndex(sysCtx.systemId),
+    tokenGraph:
+      tokenRepo.getTokenGraph(sysCtx.systemId) ??
+      buildFallbackTokenGraph(tokenRepo.getTokenRegistry(sysCtx.systemId)),
+    config: {
+      ...((sysCtx.namingDebtConfig && typeof sysCtx.namingDebtConfig === 'object') ? sysCtx.namingDebtConfig : {}),
+      wcagPairs,
+    },
   });
-  await fs.mkdir(path.dirname(sysCtx.namingDebtCachePath), { recursive: true });
-  await fs.writeFile(sysCtx.namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   return c.json(report);
 }
 
@@ -96,18 +155,22 @@ export async function handleImpactRoute(c: any, deps: AnalysisRouteHandlerDeps):
   const { tokenPath, newValue, depth } = parsedRequest.payload;
 
   try {
-    const impactArtifacts = await loadImpactArtifacts(sysCtx, {
-      readFileFn: async (filePath: string, encoding: BufferEncoding) => await fs.readFile(filePath, encoding),
-      normalizeImpactWcagPairsFn: normalizeImpactWcagPairs,
-    });
+    const impactArtifacts = buildDbImpactArtifacts(sysCtx.systemId, deps);
+    const wcagPairs = normalizeImpactWcagPairs(sysCtx.wcagPairs ?? { pairs: [] });
     const report = computeImpactReport({
       tokenPath,
       newValue,
       depth,
       ...(impactArtifacts as unknown as Record<string, unknown>),
+      wcagPairs,
     } as Parameters<typeof computeImpactReport>[0]);
     return c.json(report);
   } catch (error) {
+    console.error('[analysis] impact computation failed', {
+      systemId: sysCtx.systemId,
+      tokenPath,
+      reason: error instanceof Error ? error.message : String(error),
+    });
     const failure = buildImpactFailure(tokenPath, error);
     return failJson(c, failure.statusCode, failure.errorArgs);
   }

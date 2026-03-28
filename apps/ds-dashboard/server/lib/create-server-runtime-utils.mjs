@@ -14,6 +14,10 @@ export function createSha256TextHasher() {
 
 export function createSystemContextResolver(designSystemRepository) {
   return function getSystemContext(systemHeader) {
-    return designSystemRepository.resolveDashboardSystemContext(systemHeader);
+    const context = designSystemRepository.resolveDashboardSystemContext(systemHeader);
+    return {
+      header: systemHeader,
+      ...context,
+    };
   };
 }

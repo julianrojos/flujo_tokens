@@ -9,7 +9,7 @@ export interface CreateServerRouteDepsConfig {
   buildHealthPayload: () => unknown;
   failJson: (...args: unknown[]) => unknown;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
-  designSystemRepository: Record<string, unknown>;
+  designSystemRepository: import('../db/design-system-repository.js').DesignSystemRepository;
   normalizeSystemId: (value: string) => string;
   ensureRelativeDir: (...args: unknown[]) => string;
   normalizeFigmaApiTokenRef: (token: string) => string;

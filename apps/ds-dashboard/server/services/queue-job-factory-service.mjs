@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 
 export function createQueueJobFactoryService(config) {
@@ -7,7 +6,8 @@ export function createQueueJobFactoryService(config) {
     enqueueQueueJob,
     runQueuedSpawnCommand,
     sha256Text,
-    computeNamingDebtReport,
+    computeNamingDebtReportFromData,
+    tokenRepo,
     replayableNpmScripts,
     supportedReplayOperations,
   } = config;
@@ -107,24 +107,33 @@ export function createQueueJobFactoryService(config) {
         }),
       ),
       execute: async ({ emitChunk }) => {
+        if (!tokenRepo) {
+          throw new Error("Token repository is not initialized.");
+        }
         emitChunk("system", "Computing naming debt report...");
-        const report = await computeNamingDebtReport({
-          tokenRegistryPath: sysCtx.tokenRegistryPath,
-          tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
-          tokenGraphVizPath: sysCtx.tokenGraphVizPath,
-          namingDebtConfigPath: sysCtx.namingDebtConfigPath,
+        const wcagPairs = sysCtx.wcagPairs && typeof sysCtx.wcagPairs === "object" ? sysCtx.wcagPairs : { pairs: [] };
+        const namingDebtConfig =
+          sysCtx.namingDebtConfig && typeof sysCtx.namingDebtConfig === "object" ? sysCtx.namingDebtConfig : {};
+        const report = await computeNamingDebtReportFromData({
+          tokenRegistry: tokenRepo.getTokenRegistry(sysCtx.systemId),
+          tokenUsageIndex: tokenRepo.getTokenUsageIndex(sysCtx.systemId),
+          tokenGraph: tokenRepo.getTokenGraph(sysCtx.systemId),
+          config: {
+            ...namingDebtConfig,
+            wcagPairs,
+          },
         });
-        await fs.mkdir(path.dirname(sysCtx.namingDebtCachePath), { recursive: true });
-        await fs.writeFile(sysCtx.namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+        const reportAny = report || {};
+        const summary = reportAny.summary || {};
         return {
           ok: true,
           code: 0,
           summary: "Naming debt refreshed.",
           payload: {
             ok: true,
-            generatedAt: report.generatedAt,
-            totalViolations: report.summary.totalViolations,
-            overallScore: report.summary.overallScore,
+            generatedAt: reportAny.generatedAt || new Date().toISOString(),
+            totalViolations: Number(summary.totalViolations || 0),
+            overallScore: Number(summary.overallScore || 0),
           },
         };
       },

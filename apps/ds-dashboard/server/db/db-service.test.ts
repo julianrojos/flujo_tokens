@@ -107,7 +107,6 @@ describe('db-service', () => {
                 'schema_migrations',
                 'db_meta',
                 'tokens',
-                'token_usage',
                 'figma_aliases',
                 'ai_jobs',
                 'job_events',
@@ -128,12 +127,10 @@ describe('db-service', () => {
 
             const expectedIndexes = [
                 'idx_db_meta_key',
-                'idx_tokens_slash_path',
-                'idx_tokens_css_var',
+                'idx_tokens_ds_slash_path',
+                'idx_tokens_ds_css_var',
                 'idx_tokens_collection',
                 'idx_tokens_type',
-                'idx_token_usage_token_path',
-                'idx_token_usage_kind',
                 'idx_figma_aliases_from',
                 'idx_figma_aliases_to',
                 'idx_ai_jobs_status',

@@ -127,16 +127,12 @@ function ensureCommandRoutesDeps(deps: ReturnType<typeof buildAllRouteDeps>['com
   };
 }
 
-type DesignSystemConfigShape = {
-  systems?: Array<{ figmaFileId?: unknown; figmaApiToken?: unknown }>;
+type DbDesignSystemRepoShape = {
+  getAll?: () => Array<{ figmaFileId?: unknown; figmaApiToken?: unknown }>;
 };
 
-type ReadConfigRepoShape = {
-  readConfig?: () => DesignSystemConfigShape;
-};
-
-function hasReadConfigRepo(value: unknown): value is ReadConfigRepoShape {
-  return typeof value === 'object' && value !== null && typeof (value as ReadConfigRepoShape).readConfig === 'function';
+function hasDbDesignSystemRepo(value: unknown): value is DbDesignSystemRepoShape {
+  return typeof value === 'object' && value !== null && typeof (value as DbDesignSystemRepoShape).getAll === 'function';
 }
 
 export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
@@ -144,10 +140,9 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
   const resolveFigmaTokenRefByDsFileKey = (dsFileKey: string): string => {
     const normalizedDsFileKey = String(dsFileKey || '').trim();
     if (!normalizedDsFileKey) return '';
-    if (!hasReadConfigRepo(deps.designSystemRepository)) return '';
+    if (!hasDbDesignSystemRepo(deps.designSystemRepository)) return '';
     try {
-      const config = deps.designSystemRepository.readConfig();
-      const systems = Array.isArray(config?.systems) ? config.systems : [];
+      const systems = deps.designSystemRepository.getAll() || [];
       const matchedSystem = systems.find(
         (system) => String(system?.figmaFileId || '').trim() === normalizedDsFileKey,
       );
@@ -163,10 +158,14 @@ export function registerAllRoutes(app: Hono, deps: ServerDeps): void {
 
   registerSystemRoutes(app, routeDeps.systemDeps);
   registerOperationsRoutes(app, routeDeps.operationsDeps);
-  registerRegistryRoutes(app, routeDeps.registryDeps);
-  registerTokenGraphRoutes(app, routeDeps.tokenGraphDeps);
-  registerHealthRoutes(app, routeDeps.healthDeps);
-  registerAnalysisRoutes(app, routeDeps.analysisDeps);
+  registerRegistryRoutes(app, { ...routeDeps.registryDeps, componentRepo: routeDeps.componentRepo, tokenRepo: routeDeps.tokenRepo });
+  registerTokenGraphRoutes(app, { ...routeDeps.tokenGraphDeps, tokenRepo: routeDeps.tokenRepo });
+  registerHealthRoutes(app, { ...routeDeps.healthDeps, healthRepo: routeDeps.healthRepo });
+  registerAnalysisRoutes(app, {
+    ...routeDeps.analysisDeps,
+    tokenRepo: routeDeps.tokenRepo,
+    healthRepo: routeDeps.healthRepo,
+  });
   registerComponentSpecRoutes(app, routeDeps.componentSpecDeps);
   registerFileRoutes(app, routeDeps.fileDeps);
   registerJobRoutes(app, routeDeps.jobDeps);

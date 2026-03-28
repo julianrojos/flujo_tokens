@@ -1,4 +1,4 @@
-import { computeNamingDebtReport } from "../services/analysis-artifacts-service.mjs";
+import { computeNamingDebtReportFromData } from "../services/analysis-artifacts-service.mjs";
 import { createCommandExecutionService } from "../services/command-execution-service.mjs";
 import { createDevRuntimeChecker, createSha256TextHasher, createSystemContextResolver } from "./create-server-runtime-utils.mjs";
 import { createOperationHistoryService } from "../services/operation-history-service.mjs";
@@ -26,6 +26,7 @@ export function createServerRuntimeServices(config) {
     opsLogFileRegex,
     replayableNpmScripts,
     supportedReplayOperations,
+    tokenRepo,
     normalizeSystemId,
     writeStructuredLog,
     nowIso,
@@ -37,7 +38,7 @@ export function createServerRuntimeServices(config) {
     runSpawnWithCaptureFn = runSpawnWithCapture,
     toQueueSummaryFromPayloadFn = toQueueSummaryFromPayload,
     createSnippetBuilderFn = createSnippetBuilder,
-    computeNamingDebtReportFn = computeNamingDebtReport,
+    computeNamingDebtReportFromDataFn = computeNamingDebtReportFromData,
     createDevRuntimeCheckerFn = createDevRuntimeChecker,
     createSha256TextHasherFn = createSha256TextHasher,
     createSystemContextResolverFn = createSystemContextResolver,
@@ -94,7 +95,8 @@ export function createServerRuntimeServices(config) {
     enqueueQueueJob,
     runQueuedSpawnCommand,
     sha256Text,
-    computeNamingDebtReport: computeNamingDebtReportFn,
+    computeNamingDebtReportFromData: computeNamingDebtReportFromDataFn,
+    tokenRepo,
     replayableNpmScripts,
     supportedReplayOperations,
   });

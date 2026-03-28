@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  computeNamingDebtReport,
+  computeNamingDebtReportFromData,
   normalizeImpactWcagPairs,
   runNodeJsonCommandOnce,
   validateGitRef,
@@ -40,27 +40,16 @@ describe('analysis-artifacts-service', () => {
     });
   });
 
-  describe('computeNamingDebtReport()', () => {
-    it('reads artifacts and delegates analysis', async () => {
-      const files = new Map([
-        ['/tmp/registry.json', '{"entries":[1]}' ],
-        ['/tmp/usage.json', '{"usage":[2]}' ],
-        ['/tmp/graph.json', '{"nodes":[3]}' ],
-        ['/tmp/config.json', '{"threshold":1}' ],
-      ]);
-
-      const report = await computeNamingDebtReport(
+  describe('computeNamingDebtReportFromData()', () => {
+    it('delegates analysis with in-memory artifacts', async () => {
+      const report = await computeNamingDebtReportFromData(
         {
-          tokenRegistryPath: '/tmp/registry.json',
-          tokenUsageIndexPath: '/tmp/usage.json',
-          tokenGraphVizPath: '/tmp/graph.json',
-          namingDebtConfigPath: '/tmp/config.json',
+          tokenRegistry: { entries: [1] },
+          tokenUsageIndex: { usage: [2] },
+          tokenGraph: { nodes: [3] },
+          config: { threshold: 1 },
         },
         {
-          readFileFn: async (filePath: string) => {
-            if (!files.has(filePath)) throw new Error('missing');
-            return files.get(filePath) as string;
-          },
           analyzeNamingDebtFn: ({ tokenRegistry, tokenUsageIndex, tokenGraph, config }) =>
             Promise.resolve({
               tokenRegistry,
@@ -68,7 +57,7 @@ describe('analysis-artifacts-service', () => {
               tokenGraph,
               config,
             }),
-        }
+        },
       );
 
       assert.deepEqual(report, {

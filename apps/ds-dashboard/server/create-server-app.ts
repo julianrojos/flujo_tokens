@@ -14,17 +14,18 @@ import type { Hono } from 'hono';
 import type { StructuredLogPayload } from './lib/api-response-service.js';
 import type { BuildApiErrorPayloadOptions } from './lib/api-response-service.js';
 
+import { DesignSystemRepository } from './db/design-system-repository.js';
+import { ComponentRepository } from './db/component-repository.js';
+import { HealthRepository } from './db/health-repository.js';
 import {
-  createDesignSystemRepository,
-  ensureRelativeDir,
+  normalizeSystemId,
   normalizeCollectionList,
   normalizeFigmaApiTokenRef,
-  normalizeSystemId,
+  ensureRelativeDir,
   resolveSafeSystemPathsForDeletion,
   summarizeDesignSystemsConfig,
-} from './system-repository.ts';
+} from './lib/system-utils.ts';
 import {
-  computeNamingDebtReport,
   validateGitRef,
 } from './services/analysis-artifacts-service.ts';
 import {
@@ -67,7 +68,6 @@ import { TokenRepository } from './db/token-repository.js';
 export interface CreateServerAppOptions {
   env?: NodeJS.ProcessEnv;
   repoRoot?: string;
-  watch?: boolean;
 }
 
 export interface ServerApp {
@@ -108,7 +108,6 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   const {
     env = process.env,
     repoRoot = defaultRepoRoot(),
-    watch = true,
   } = options;
 
   // Initialize SQLite database
@@ -116,12 +115,17 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   let db: import('better-sqlite3').Database | undefined;
   let aiJobsStore!: AiJobsStoreWithPersistence;
   let tokenRepo!: TokenRepository;
+  let componentRepo!: ComponentRepository;
+  let healthRepo!: HealthRepository;
   let resumeTimer: NodeJS.Timeout | undefined;
   let designSystemRepositoryDisposed = false;
-  const designSystemRepository = createDesignSystemRepository({ repoRoot, watch });
+  let designSystemRepository: DesignSystemRepository | null = null;
 
   try {
     db = bootstrapDatabase({ dbPath });
+    designSystemRepository = new DesignSystemRepository(db, { repoRoot });
+    componentRepo = new ComponentRepository(db);
+    healthRepo = new HealthRepository(db);
     aiJobsStore = new AiJobsStoreWithPersistence({ db });
     tokenRepo = new TokenRepository(db);
 
@@ -138,39 +142,6 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
         aiJobsStore.resumeRecoveredQueue();
       }
     }, 0);
-
-    // Try to rebuild token cache from JSON files only if DB is empty (cold start).
-    // Use canonical system context (default system) instead of global docs/_generated.
-    let generatedDir: string | null = null;
-    try {
-      const sysCtx = designSystemRepository.resolveDashboardSystemContext('');
-      generatedDir = sysCtx.genDir;
-    } catch {
-      console.log('[Server] Skipping token cache rebuild: no default system configured');
-    }
-
-    if (generatedDir) {
-      const jsonPaths = {
-        tokenRegistry: path.join(generatedDir, 'token-registry.json'),
-        tokenUsageIndex: path.join(generatedDir, 'token-usage-index.json'),
-        figmaAliasGraph: path.join(generatedDir, 'figma-alias-graph.json'),
-      };
-
-      // Check if DB already has data before rebuilding
-      const existingMetadata = tokenRepo.getLastRebuildMetadata();
-      if (existingMetadata) {
-        console.log(`[Server] Token cache already populated (last rebuild: ${new Date(existingMetadata.timestamp!).toISOString()})`);
-      } else {
-        console.log('[Server] Token cache empty, rebuilding from JSON files...');
-        const rebuildResult = tokenRepo.rebuildFromJsonFiles(jsonPaths);
-        if (rebuildResult.warnings.length > 0) {
-          console.log('[Server] Token cache rebuild warnings:', rebuildResult.warnings);
-        }
-        if (rebuildResult.tokensLoaded > 0) {
-          console.log(`[Server] Token cache rebuilt: ${rebuildResult.tokensLoaded} tokens loaded`);
-        }
-      }
-    }
   } catch (error) {
     console.error('[Server] Failed to initialize SQLite database:', error instanceof Error ? error.message : String(error));
 
@@ -226,7 +197,9 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       aiJobsStore.stopCleanup();
     }
 
-    designSystemRepository.dispose();
+    if (designSystemRepository) {
+      designSystemRepository.dispose();
+    }
     disposeFigmaMcpPingService();
     // Close database connection
     try {
@@ -262,38 +235,6 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     SUPPORTED_REPLAY_OPERATIONS,
   } = createServerConfig(env);
 
-  // Adapter for createServerRuntimeServices compatibility.
-  // Preserve all original context properties to avoid regressions.
-  const designSystemRepositoryAdapter: import('./lib/create-server-runtime-utils.js').DesignSystemRepository = {
-    resolveDashboardSystemContext: (systemHeader: string) => {
-      const context = designSystemRepository.resolveDashboardSystemContext(systemHeader);
-
-      // Runtime guardrail to catch invalid context early.
-      if (!context || !context.systemId) {
-        throw new Error(`Invalid system context for header: ${systemHeader}`);
-      }
-
-      // Preserve all context properties (not just systemId/header)
-      // to avoid breaking consumers that rely on additional fields.
-      const result = {
-        header: systemHeader,
-        // Full spread preserves additional properties (including systemId).
-        ...context,
-      };
-
-      // Debug logging for adapter compatibility checks.
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('DesignSystemRepositoryAdapter: context mapping', {
-          inputHeader: systemHeader,
-          outputSystemId: result.systemId,
-          preservedProperties: Object.keys(context).length,
-        });
-      }
-
-      return result;
-    },
-  };
-
   const {
     toFiniteTimestamp,
     readOperationHistory,
@@ -315,7 +256,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   } = createServerRuntimeServices({
     repoRoot,
     env,
-    designSystemRepository: designSystemRepositoryAdapter,
+    designSystemRepository,
     maxOutputBytes: MAX_OUTPUT_BYTES,
     maxSnippetLines: MAX_SNIPPET_LINES,
     jobQueueConcurrency: JOB_QUEUE_CONCURRENCY,
@@ -333,10 +274,10 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     writeStructuredLog: writeStructuredLog as (level: string, payload: Record<string, unknown>) => void,
     nowIso,
     createOperationEventId,
-    computeNamingDebtReportFn: computeNamingDebtReport,
+    tokenRepo,
   });
 
-  // Type adapters for createServerHttpApp compatibility
+  // Adapt helper signatures to createServerHttpApp contracts.
   const buildApiErrorPayloadAdapter = (...args: unknown[]): Record<string, unknown> => {
     return buildApiErrorPayload(args[0] as BuildApiErrorPayloadOptions, createApiRequestId);
   };
@@ -353,7 +294,10 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
     writeStructuredLog: writeStructuredLogAdapter,
     routeDeps: buildCreateServerAppRouteDeps({
       readJsonBody: readJsonBody as (c: unknown) => Promise<Record<string, unknown>>,
-      designSystemRepository: designSystemRepository as unknown as Record<string, unknown>,
+      designSystemRepository,
+      componentRepo,
+      tokenRepo,
+      healthRepo,
       normalizeSystemId: normalizeSystemId as (...args: unknown[]) => string,
       ensureRelativeDir: ensureRelativeDir as unknown as (...args: unknown[]) => string,
       normalizeFigmaApiTokenRef: normalizeFigmaApiTokenRef as (...args: unknown[]) => string,
@@ -401,7 +345,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
       validateGitRef,
       tokenRepo: db ? tokenRepo : undefined,
       db,
-    }) as unknown as Record<string, unknown>,
+    }),
   });
 
   // Advertise the server's internal URL to child processes spawned from this

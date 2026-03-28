@@ -75,7 +75,6 @@ export async function handleCreateDesignSystemRoute(c, deps) {
       recoverable: true,
       context: {
         systemId: nextSystem.id,
-        docsDir: nextSystem.docsDir,
         reason: error instanceof Error ? error.message : String(error),
       },
     });
@@ -98,7 +97,16 @@ export async function handleCreateDesignSystemRoute(c, deps) {
     }
   }
 
-  designSystemRepository.saveConfig(nextConfig);
+  designSystemRepository.create({
+    id: nextSystem.id,
+    name: nextSystem.name,
+    appName: nextSystem.appName,
+    figmaFileId: nextSystem.figmaFileId,
+    figmaApiToken: nextSystem.figmaApiToken,
+    collections: nextSystem.collections,
+    compileVariablesOnCapture: nextSystem.compileVariablesOnCapture,
+  });
+  designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
   return c.json(
     buildCreateDesignSystemSuccessPayload({
       nextSystem,
@@ -136,7 +144,15 @@ export async function handleUpdateDesignSystemRoute(c, deps) {
     return failJson(c, mutation.error.status, mutation.error.payload);
   }
   const { updated, nextConfig } = mutation;
-  designSystemRepository.saveConfig(nextConfig);
+  designSystemRepository.update(routeSystemId, {
+    name: updated.name,
+    appName: updated.appName,
+    figmaFileId: updated.figmaFileId,
+    figmaApiToken: updated.figmaApiToken,
+    collections: updated.collections,
+    compileVariablesOnCapture: updated.compileVariablesOnCapture,
+  });
+  designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
   return c.json(
     buildUpdateDesignSystemSuccessPayload({
       routeSystemId,
@@ -322,7 +338,8 @@ export async function handleDeleteDesignSystemRoute(c, deps) {
     }
   }
 
-  designSystemRepository.saveConfig(nextConfig);
+  designSystemRepository.delete(routeSystemId);
+  designSystemRepository.setDefaultSystemId(nextConfig.defaultSystem || null);
 
   // Mark pending operation as completed
   markPendingOpCompleted();
