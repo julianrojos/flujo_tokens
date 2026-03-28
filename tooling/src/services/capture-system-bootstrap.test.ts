@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 import {
   bootstrapInputJsonFromFigmaVariables,
   ensureCollectionsConfigured,
+  getSystemRepository,
   runTokensCompileIfNeeded,
 } from './capture-system-bootstrap.js';
 import type { SyncFigmaTokensToInputOptions } from './figma-token-sync.js';
@@ -145,39 +146,22 @@ describe('capture-system-bootstrap', () => {
   it('does not inject fallback collections when input directory has no JSON files', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-empty-'));
     try {
-      fs.mkdirSync(path.join(repoRoot, 'tooling', 'config'), { recursive: true });
-      fs.mkdirSync(path.join(repoRoot, 'input', 'demo'), { recursive: true });
-      fs.writeFileSync(
-        path.join(repoRoot, 'tooling', 'config', 'design-systems.json'),
-        JSON.stringify(
-          {
-            systems: [
-              {
-                id: 'demo',
-                name: 'Demo',
-                inputDir: 'design-systems/demo/input',
-                outputDir: 'design-systems/demo/output',
-                docsDir: 'design-systems/demo/docs',
-                collections: [],
-              },
-            ],
-            defaultSystem: 'demo',
-          },
-          null,
-          2,
-        ),
-        'utf8',
-      );
+      fs.mkdirSync(path.join(repoRoot, 'design-systems', 'demo', 'input'), { recursive: true });
+      const repository = getSystemRepository(repoRoot);
+      repository.create({
+        id: 'demo',
+        name: 'Demo',
+        collections: [],
+      });
+      repository.setDefaultSystemId('demo');
 
       ensureCollectionsConfigured({
         repoRoot,
         systemId: 'demo',
       });
 
-      const nextConfig = JSON.parse(
-        fs.readFileSync(path.join(repoRoot, 'tooling', 'config', 'design-systems.json'), 'utf8'),
-      ) as { systems: Array<{ collections?: string[] }> };
-      assert.deepEqual(nextConfig.systems[0]?.collections ?? [], []);
+      const system = repository.getById('demo');
+      assert.deepEqual(system?.collections ?? [], []);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
     }
@@ -186,41 +170,24 @@ describe('capture-system-bootstrap', () => {
   it('infers collections from input JSON filenames when available', () => {
     const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'capture-bootstrap-collections-infer-'));
     try {
-      fs.mkdirSync(path.join(repoRoot, 'tooling', 'config'), { recursive: true });
       fs.mkdirSync(path.join(repoRoot, 'design-systems', 'demo', 'input'), { recursive: true });
       fs.writeFileSync(path.join(repoRoot, 'design-systems', 'demo', 'input', 'primitives.json'), '{}', 'utf8');
       fs.writeFileSync(path.join(repoRoot, 'design-systems', 'demo', 'input', 'theme-semantic.json'), '{}', 'utf8');
-      fs.writeFileSync(
-        path.join(repoRoot, 'tooling', 'config', 'design-systems.json'),
-        JSON.stringify(
-          {
-            systems: [
-              {
-                id: 'demo',
-                name: 'Demo',
-                inputDir: 'design-systems/demo/input',
-                outputDir: 'design-systems/demo/output',
-                docsDir: 'design-systems/demo/docs',
-                collections: [],
-              },
-            ],
-            defaultSystem: 'demo',
-          },
-          null,
-          2,
-        ),
-        'utf8',
-      );
+      const repository = getSystemRepository(repoRoot);
+      repository.create({
+        id: 'demo',
+        name: 'Demo',
+        collections: [],
+      });
+      repository.setDefaultSystemId('demo');
 
       ensureCollectionsConfigured({
         repoRoot,
         systemId: 'demo',
       });
 
-      const nextConfig = JSON.parse(
-        fs.readFileSync(path.join(repoRoot, 'tooling', 'config', 'design-systems.json'), 'utf8'),
-      ) as { systems: Array<{ collections?: string[] }> };
-      const collections = [...(nextConfig.systems[0]?.collections ?? [])].sort((a, b) =>
+      const system = repository.getById('demo');
+      const collections = [...(system?.collections ?? [])].sort((a, b) =>
         a.localeCompare(b),
       );
       assert.deepEqual(collections, ['Primitives', 'Theme Semantic']);

@@ -26,6 +26,7 @@ import { loadTokenRegistry } from './token-registry.js';
 import { commandExists } from '../utils/command-exists.js';
 import { compareComponentRegistryToSources } from './component-registry-index.js';
 import { componentNameToSnakeCase } from '../utils/component-name.js';
+import { createDesignSystemRepository } from '../../scripts/lib/system-repository.mjs';
 
 // ============================================================================
 // Type Definitions
@@ -46,15 +47,6 @@ export interface DoctorContext {
 export interface DoctorCheckResult {
   checks: DoctorCheck[];
   manifest?: ManifestDocument | null;
-}
-
-interface DesignSystemsFile {
-  systems?: Array<{
-    id?: unknown;
-    inputDir?: unknown;
-    outputDir?: unknown;
-    docsDir?: unknown;
-  }>;
 }
 
 // ============================================================================
@@ -259,65 +251,50 @@ export function checkPaths(ctx: DoctorContext): DoctorCheck[] {
  */
 export function checkSystemPathAlignment(
   projectRoot: string,
-  options?: { configPath?: string },
+  _options?: { configPath?: string },
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
-  const configPath = path.resolve(
-    options?.configPath || path.join(projectRoot, 'tooling', 'config', 'design-systems.json'),
-  );
-
-  if (!fs.existsSync(configPath)) {
-    checks.push(
-      createCheck({
-        id: 'SYSTEM_PATH_ALIGNMENT',
-        status: 'fail',
-        message: 'Design systems config file is missing.',
-        details: { configPath },
-      }),
-    );
-    return checks;
-  }
-
-  let parsed: DesignSystemsFile;
+  const repository = createDesignSystemRepository({ repoRoot: projectRoot });
+  let systems: Array<{ id: string }> = [];
   try {
-    parsed = JSON.parse(fs.readFileSync(configPath, 'utf8')) as DesignSystemsFile;
+    systems = repository.getAll().map((row) => ({ id: String(row.id || '').trim() })).filter((row) => row.id);
   } catch (error) {
     checks.push(
       createCheck({
         id: 'SYSTEM_PATH_ALIGNMENT',
         status: 'fail',
-        message: 'Design systems config file is invalid JSON.',
+        message: 'Failed to load design systems from SQLite.',
         details: {
-          configPath,
+          source: 'sqlite://design_systems',
           error: error instanceof Error ? error.message : String(error),
         },
       }),
     );
+    repository.dispose();
     return checks;
   }
+  repository.dispose();
 
-  const systems = Array.isArray(parsed.systems) ? parsed.systems : [];
   if (systems.length === 0) {
     checks.push(
       createCheck({
         id: 'SYSTEM_PATH_ALIGNMENT',
         status: 'warn',
         message: 'No design systems configured; path alignment check skipped.',
-        details: { configPath, systems: 0 },
+        details: { source: 'sqlite://design_systems', systems: 0 },
       }),
     );
     return checks;
   }
 
   const missing: string[] = [];
-  const nonCanonical: string[] = [];
 
   for (const row of systems) {
     const id = String(row?.id || '').trim() || '(unknown)';
     const dirs = [
-      ['inputDir', String(row?.inputDir || '').trim()],
-      ['outputDir', String(row?.outputDir || '').trim()],
-      ['docsDir', String(row?.docsDir || '').trim()],
+      ['inputDir', path.join('design-systems', id, 'input')],
+      ['outputDir', path.join('design-systems', id, 'output')],
+      ['docsDir', path.join('design-systems', id, 'docs')],
     ] as const;
 
     for (const [field, relDir] of dirs) {
@@ -332,7 +309,7 @@ export function checkSystemPathAlignment(
             status: 'fail',
             message: `Configured ${field} for system "${id}" contains path traversal pattern.`,
             details: {
-              configPath,
+              source: 'sqlite://design_systems',
               systemId: id,
               field,
               relDir,
@@ -343,9 +320,6 @@ export function checkSystemPathAlignment(
         return checks;
       }
 
-      if (!relDir.startsWith('design-systems/')) {
-        nonCanonical.push(`${id}:${field}:${relDir}`);
-      }
       const absoluteDir = path.resolve(projectRoot, relDir);
       if (!fs.existsSync(absoluteDir)) {
         missing.push(`${id}:${field}:${relDir}`);
@@ -360,27 +334,9 @@ export function checkSystemPathAlignment(
         status: 'fail',
         message: 'Some configured system directories do not exist.',
         details: {
-          configPath,
+          source: 'sqlite://design_systems',
           missingCount: missing.length,
           missing,
-          nonCanonicalCount: nonCanonical.length,
-          nonCanonical,
-        },
-      }),
-    );
-    return checks;
-  }
-
-  if (nonCanonical.length > 0) {
-    checks.push(
-      createCheck({
-        id: 'SYSTEM_PATH_ALIGNMENT',
-        status: 'fail',
-        message: 'Some systems use non-canonical layout. All paths must start with design-systems/.',
-        details: {
-          configPath,
-          nonCanonicalCount: nonCanonical.length,
-          nonCanonical,
         },
       }),
     );
@@ -393,7 +349,7 @@ export function checkSystemPathAlignment(
       status: 'pass',
       message: 'All configured system directories exist and use canonical layout.',
       details: {
-        configPath,
+        source: 'sqlite://design_systems',
         systems: systems.length,
       },
     }),
@@ -407,12 +363,9 @@ export function checkSystemPathAlignment(
  */
 export function checkOrphanedSystemDirectories(
   projectRoot: string,
-  options?: { configPath?: string },
+  _options?: { configPath?: string },
 ): DoctorCheck[] {
   const checks: DoctorCheck[] = [];
-  const configPath = path.resolve(
-    options?.configPath || path.join(projectRoot, 'tooling', 'config', 'design-systems.json'),
-  );
 
   // Scan for legacy root-level directories
   const orphaned: string[] = [];

@@ -8,7 +8,7 @@
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PROJECT_ROOT } from '../utils/index.js';
+import { PROJECT_ROOT } from '../utils/system-context.js';
 import { componentNameToSnakeCase } from '../utils/component-name.js';
 import { runAgentPrompt, type AgentType, type AgentPromptResult } from './agent-runner.js';
 import { SPEC_TOP_LEVEL_ORDER } from './spec-normalizer.js';

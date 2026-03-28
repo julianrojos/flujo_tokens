@@ -311,7 +311,7 @@ export function buildFilesMapFromVariables(meta) {
  *
  * @param {object} opts
  * @param {string}  opts.repoRoot
- * @param {object}  opts.system          - System config entry from design-systems.json
+ * @param {object}  opts.system          - System config entry resolved from SQLite
  * @param {string}  opts.fileKey         - Figma file key
  * @param {string}  opts.figmaToken      - Figma PAT
  * @param {boolean} [opts.force=false]   - Overwrite existing input JSONs

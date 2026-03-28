@@ -14,7 +14,6 @@ import {
   syncFigmaTokensToInput,
 } from './figma-token-sync.js';
 import type { FigmaVariableSource } from './figma-token-sync.js';
-import type { DesignSystemConfigEntry } from '../../scripts/lib/system-repository.mjs';
 
 /**
  * Convert raw value to collection label (title case).
@@ -76,24 +75,15 @@ export function ensureCollectionsConfigured(params: {
   if (!systemId) return;
 
   const repository = getSystemRepository(repoRoot);
-  const config = repository.getConfig();
-
-  if (!config || typeof config !== 'object' || !Array.isArray(config.systems)) return;
-
-  const targetIndex = config.systems.findIndex(
-    (item) => String((item as { id?: unknown })?.id || '').trim() === systemId,
-  );
-  if (targetIndex < 0) return;
-
-  const target = config.systems[targetIndex] as DesignSystemConfigEntry;
+  const target = repository.getById(systemId);
+  if (!target) return;
   if (Array.isArray(target.collections) && target.collections.length > 0) return;
 
-  const inferred = inferCollectionsFromInputDir(repoRoot, target.inputDir);
+  const systemContext = repository.resolveSystemContext(systemId);
+  const inferred = inferCollectionsFromInputDir(repoRoot, systemContext.paths.input);
   if (inferred.length === 0) return;
 
-  target.collections = inferred;
-  config.systems[targetIndex] = target;
-  repository.saveConfig(config);
+  repository.update(systemId, { collections: inferred });
 }
 
 /**
