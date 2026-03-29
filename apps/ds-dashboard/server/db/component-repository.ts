@@ -378,4 +378,28 @@ export class ComponentRepository {
         const result = stmt.run(dsId);
         return result.changes;
     }
+
+    /**
+     * Mark components as missing if they exist in DB but not in provided slugs
+     */
+    markMissingComponents(dsId: string, existingSlugs: string[]): number {
+        if (existingSlugs.length === 0) {
+            const stmt = this.db.prepare(`
+                UPDATE components
+                SET status = 'missing', updated_at = strftime('%s', 'now')
+                WHERE ds_id = ? AND status != 'missing'
+            `);
+            const result = stmt.run(dsId);
+            return result.changes;
+        }
+
+        const placeholders = existingSlugs.map(() => '?').join(', ');
+        const stmt = this.db.prepare(`
+            UPDATE components
+            SET status = 'missing', updated_at = strftime('%s', 'now')
+            WHERE ds_id = ? AND slug NOT IN (${placeholders}) AND status != 'missing'
+        `);
+        const result = stmt.run(dsId, ...existingSlugs);
+        return result.changes;
+    }
 }

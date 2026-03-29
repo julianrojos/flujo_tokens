@@ -71,24 +71,30 @@ export class TokenRepository {
     const rows = this.db
       .prepare(
         `
-        SELECT t.id, t.slash_path, t.css_var, t.type, t.collection, tmv.resolved_value
+        WITH ranked_mode_values AS (
+          SELECT
+            tmv.ds_id,
+            tmv.token_path,
+            tmv.resolved_value,
+            ROW_NUMBER() OVER (
+              PARTITION BY tmv.ds_id, tmv.token_path
+              ORDER BY
+                CASE
+                  WHEN tmv.mode = 'Default' THEN 0
+                  WHEN lower(tmv.mode) = 'default' THEN 1
+                  ELSE 2
+                END,
+                tmv.mode COLLATE NOCASE,
+                tmv.id
+            ) AS rn
+          FROM token_mode_values tmv
+        )
+        SELECT t.id, t.slash_path, t.css_var, t.type, t.collection, ranked_mode_values.resolved_value, t.raw_value
         FROM tokens t
-        LEFT JOIN token_mode_values tmv
-          ON tmv.id = (
-            SELECT tmv2.id
-            FROM token_mode_values tmv2
-            WHERE tmv2.ds_id = t.ds_id
-              AND tmv2.token_path = t.id
-            ORDER BY
-              CASE
-                WHEN tmv2.mode = 'Default' THEN 0
-                WHEN lower(tmv2.mode) = 'default' THEN 1
-                ELSE 2
-              END,
-              tmv2.mode COLLATE NOCASE,
-              tmv2.id
-            LIMIT 1
-          )
+        LEFT JOIN ranked_mode_values
+          ON ranked_mode_values.ds_id = t.ds_id
+         AND ranked_mode_values.token_path = t.id
+         AND ranked_mode_values.rn = 1
         WHERE t.ds_id = ?
         ORDER BY t.id
       `,
@@ -100,6 +106,7 @@ export class TokenRepository {
       type: string;
       collection: string;
       resolved_value: string | null;
+      raw_value: string;
     }>;
 
     const entries = rows.map((row) => ({
@@ -107,7 +114,8 @@ export class TokenRepository {
       slashPath: row.slash_path,
       cssVar: row.css_var,
       type: row.type,
-      resolvedValue: row.resolved_value ?? '',
+      // Fallback to raw_value when mode rows are missing to avoid masking data with empty strings.
+      resolvedValue: row.resolved_value ?? row.raw_value,
       collection: row.collection,
     }));
 

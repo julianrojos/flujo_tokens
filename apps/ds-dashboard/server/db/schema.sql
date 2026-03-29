@@ -218,6 +218,7 @@ CREATE INDEX IF NOT EXISTS idx_token_usage_occurrences_ds_id ON token_usage_occu
 CREATE INDEX IF NOT EXISTS idx_token_usage_occurrences_token_id ON token_usage_occurrences(token_id);
 CREATE INDEX IF NOT EXISTS idx_token_usage_occurrences_kind ON token_usage_occurrences(kind);
 CREATE INDEX IF NOT EXISTS idx_token_usage_occurrences_ds_token ON token_usage_occurrences(ds_id, token_id);
+CREATE INDEX IF NOT EXISTS idx_token_usage_occurrences_ds_token_kind ON token_usage_occurrences(ds_id, token_id, kind);
 
 -- ============================================================================
 -- token_graph: Token dependency graph (Migration 007)

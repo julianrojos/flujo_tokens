@@ -45,6 +45,54 @@ describe('token-repository', () => {
     assert.equal(payload.byPath['color.primary'].cssVar, '--color-primary');
   });
 
+  it('getTokenRegistry falls back to raw_value when mode values are missing', () => {
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run(
+      'spacing.sm',
+      'sys-01',
+      'spacing/sm',
+      '--spacing-sm',
+      'dimension',
+      'Core',
+      '{"value":"8px","type":"dimension"}',
+    );
+
+    const payload = repo.getTokenRegistry('sys-01');
+    assert.equal(payload.entries.length, 1);
+    assert.equal(payload.entries[0].resolvedValue, '{"value":"8px","type":"dimension"}');
+  });
+
+  it('getTokenRegistry prefers exact Default mode over other default-like mode names', () => {
+    db.prepare(
+      `
+      INSERT INTO tokens (id, ds_id, slash_path, css_var, type, collection, raw_value)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `,
+    ).run('color.primary', 'sys-01', 'color/primary', '--color-primary', 'color', 'Core', '{}');
+
+    db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'default', '#111111');
+
+    db.prepare(
+      `
+      INSERT INTO token_mode_values (ds_id, token_path, mode, resolved_value)
+      VALUES (?, ?, ?, ?)
+    `,
+    ).run('sys-01', 'color.primary', 'Default', '#ffffff');
+
+    const payload = repo.getTokenRegistry('sys-01');
+    assert.equal(payload.entries.length, 1);
+    assert.equal(payload.entries[0].resolvedValue, '#ffffff');
+  });
+
   it('getTokenUsageIndex aggregates occurrences by token and kind', () => {
     db.prepare(
       `

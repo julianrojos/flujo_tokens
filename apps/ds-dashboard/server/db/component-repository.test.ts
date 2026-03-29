@@ -231,4 +231,28 @@ describe('ComponentRepository', () => {
             assert.strictEqual(proofsAfter.count, 0);
         });
     });
+
+    describe('markMissingComponents', () => {
+        it('marks all non-missing components when existingSlugs is empty', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('missing-all-sys', 'Missing All Test')");
+            repo.upsertFromRegistry('missing-all-sys', [
+                { slug: 'button', name: 'Button', status: 'ready' },
+                { slug: 'card', name: 'Card', status: 'draft' },
+            ]);
+
+            const changed = repo.markMissingComponents('missing-all-sys', []);
+            assert.strictEqual(changed, 2);
+
+            const rows = db.prepare(`
+                SELECT slug, status
+                FROM components
+                WHERE ds_id = ?
+                ORDER BY slug
+            `).all('missing-all-sys') as Array<{ slug: string; status: string }>;
+            assert.deepStrictEqual(rows, [
+                { slug: 'button', status: 'missing' },
+                { slug: 'card', status: 'missing' },
+            ]);
+        });
+    });
 });
