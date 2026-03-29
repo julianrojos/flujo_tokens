@@ -335,7 +335,12 @@ export async function syncFigmaTokensToInput({
     return { attempted: false, reason: "figma-file-key-missing" };
   }
 
-  const existingJsonFiles = hasInputJsonFiles(repoRoot, system.inputDir);
+  const inputDirValue = String(system.inputDir || system?.paths?.input || "").trim();
+  if (!inputDirValue) {
+    return { attempted: false, reason: "system-input-dir-missing" };
+  }
+
+  const existingJsonFiles = hasInputJsonFiles(repoRoot, inputDirValue);
   if (existingJsonFiles && !force) {
     return { attempted: false, reason: "input-json-exists", hint: "Use --force true to re-sync." };
   }
@@ -363,7 +368,7 @@ export async function syncFigmaTokensToInput({
     return { attempted: true, reason: "variables-empty" };
   }
 
-  const inputDir = path.resolve(repoRoot, String(system.inputDir || ""));
+  const inputDir = path.resolve(repoRoot, inputDirValue);
 
   // Build preview / dry-run result
   const plannedFiles = Array.from(filesMap.keys()).map((stem) =>
@@ -444,12 +449,16 @@ export async function syncFigmaTokensToInput({
 export function runTokensCompile({ repoRoot, system }) {
   if (!system) return { attempted: false, reason: "system-missing" };
 
-  const inputDir = path.resolve(repoRoot, String(system.inputDir || ""));
-  const outputDir = path.resolve(repoRoot, String(system.outputDir || ""));
-  const docsDir = path.resolve(repoRoot, String(system.docsDir || ""));
+  const inputDirValue = String(system.inputDir || system?.paths?.input || "").trim();
+  if (!inputDirValue) {
+    return { attempted: false, reason: "system-input-dir-missing" };
+  }
+  const inputDir = path.resolve(repoRoot, inputDirValue);
+  const outputDir = path.resolve(repoRoot, String(system.outputDir || system?.paths?.output || ""));
+  const docsDir = path.resolve(repoRoot, String(system.docsDir || system?.paths?.docs || ""));
   const tokenRegistryPath = path.join(docsDir, "_generated", "token-registry.json");
 
-  if (!hasInputJsonFiles(repoRoot, system.inputDir)) {
+  if (!hasInputJsonFiles(repoRoot, inputDirValue)) {
     return { attempted: false, reason: "input-json-missing" };
   }
 

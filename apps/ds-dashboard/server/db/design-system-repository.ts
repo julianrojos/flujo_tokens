@@ -58,6 +58,7 @@ export interface DesignSystemsConfig {
 
 export interface DashboardSystemContext {
     systemId: string;
+    figmaFileId?: string;
     repoRoot: string;
     docsDir: string;
     genDir: string;
@@ -65,8 +66,6 @@ export interface DashboardSystemContext {
     specBackupsDirPath: string;
     wcagPairs: Record<string, unknown>;
     healthSnapshotScriptPath: string;
-    captureFromFigmaUrlScriptPath: string;
-    tokensFromFigmaScriptPath: string;
     figmaApiToken?: string;
 }
 
@@ -77,8 +76,6 @@ export interface ScriptSystemContext extends DesignSystemEntry {
         generated: string;
         specs: string;
         docs: string;
-        registry: string;
-        tokenRegistry: string;
     };
 }
 
@@ -322,8 +319,6 @@ export class DesignSystemRepository {
                 generated: paths.generatedDir,
                 specs: paths.specsDir,
                 docs: paths.componentsDir,
-                registry: path.join(paths.generatedDir, 'component-registry.json'),
-                tokenRegistry: path.join(paths.generatedDir, 'token-registry.json'),
             },
         };
     }
@@ -345,6 +340,7 @@ export class DesignSystemRepository {
         const paths = resolveSystemPaths(target.id, this.repoRoot);
         return {
             systemId: target.id,
+            figmaFileId: target.figmaFileId,
             repoRoot: this.repoRoot,
             docsDir: paths.docsDir,
             genDir: paths.generatedDir,
@@ -352,8 +348,6 @@ export class DesignSystemRepository {
             specBackupsDirPath: path.join(paths.generatedDir, 'spec-backups'),
             wcagPairs: this.getJsonAppSetting('wcag_pairs', { pairs: [] }),
             healthSnapshotScriptPath: path.join(this.repoRoot, 'tooling', 'scripts', 'ds-health-snapshot.mjs'),
-            captureFromFigmaUrlScriptPath: path.join(this.repoRoot, 'tooling', 'scripts', 'ds-capture-from-figma-url.mjs'),
-            tokensFromFigmaScriptPath: path.join(this.repoRoot, 'tooling', 'scripts', 'ds-tokens-from-figma.mjs'),
             figmaApiToken: target.figmaApiToken,
         };
     }

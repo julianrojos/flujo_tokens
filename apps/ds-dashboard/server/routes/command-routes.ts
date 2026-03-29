@@ -26,8 +26,8 @@ export interface CommandRoutesDeps {
   getSystemContext: (systemHeader: string) => {
     repoRoot: string;
     systemId: string;
+    figmaFileId?: string;
     healthSnapshotScriptPath: string;
-    tokensFromFigmaScriptPath: string;
     captureFromFigmaUrlScriptPath: string;
   };
   queueJobAcceptedPayload: (job: { id: string }) => { ok: boolean; jobId: string };
@@ -37,6 +37,8 @@ export interface CommandRoutesDeps {
   queueNpmScript: (args: unknown) => { id: string };
   enqueueRefreshNamingDebtJob: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  db?: import('better-sqlite3').Database;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
@@ -87,6 +89,8 @@ function toCommandRouteHandlerDeps(deps: CommandRoutesDeps): CommandRouteHandler
     queueNpmScript: (args) => assertJobWithId(deps.queueNpmScript(args), 'queueNpmScript'),
     enqueueRefreshNamingDebtJob: (args) => assertJobWithId(deps.enqueueRefreshNamingDebtJob(args), 'enqueueRefreshNamingDebtJob'),
     queueNodeJsonCommand: (args) => assertJobWithId(deps.queueNodeJsonCommand(args), 'queueNodeJsonCommand'),
+    componentRepo: deps.componentRepo,
+    db: deps.db,
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,
     validateGitRef: deps.validateGitRef,

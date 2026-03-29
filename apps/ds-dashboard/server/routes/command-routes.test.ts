@@ -269,16 +269,15 @@ describe('command-routes', () => {
       assert.equal((payload as any).code, 'validation.invalid_tokens_source');
     });
 
-    it('returns 500 for unexpected builder failure', async () => {
+    it('returns 500 when sync repositories are missing', async () => {
       const app = createTestApp({
-        toBooleanString: () => {
-          throw new Error('unexpected builder failure');
-        },
+        db: undefined,
+        componentRepo: undefined,
       });
       const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
       assert.equal(res.status, 500);
       const payload = await res.json();
-      assert.equal((payload as any).code, 'internal.command_build_failed');
+      assert.equal((payload as any).code, 'internal.sync_dependencies_missing');
     });
   });
 });

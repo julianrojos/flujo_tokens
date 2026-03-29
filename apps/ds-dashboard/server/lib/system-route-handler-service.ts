@@ -7,6 +7,7 @@
 
 import path from "node:path";
 import fsSync from "node:fs";
+import { resolveSystemPaths } from "../db/design-system-repository.js";
 
 // ---------------------------------------------------------------------------
 // Type Definitions

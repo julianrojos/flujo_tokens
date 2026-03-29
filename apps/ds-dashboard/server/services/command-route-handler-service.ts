@@ -12,16 +12,15 @@ import {
   buildHealthSnapshotCommandConfig,
   isInvalidTokensSourceError,
   buildRunScriptCommandArgs,
-  buildSyncFigmaTokensCommandConfig,
 } from '../lib/command-route-service.ts';
 import {
   buildCaptureFigmaScreenshotQueueArgs,
   buildHealthSnapshotQueueArgs,
   buildRefreshScriptQueueArgs,
   buildRunScriptQueueConfig,
-  buildSyncFigmaTokensQueueArgs,
   parseScriptNameFromRoute,
 } from '../lib/command-route-enqueue-service.ts';
+import { resolveFileKeyForSystem, syncDesignSystemFromPlugin } from './figma-db-sync-service.ts';
 
 // ---------------------------------------------------------------------------
 // Alias resolution helpers
@@ -86,8 +85,8 @@ export interface CommandRouteHandlerDeps {
   getSystemContext: (systemHeader: string) => {
     repoRoot: string;
     systemId: string;
+    figmaFileId?: string;
     healthSnapshotScriptPath: string;
-    tokensFromFigmaScriptPath: string;
     captureFromFigmaUrlScriptPath: string;
   };
   queueNpmScript: (args: unknown) => { id: string };
@@ -104,6 +103,8 @@ export interface CommandRouteHandlerDeps {
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
   enqueueRefreshNamingDebtJob: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  db?: import('better-sqlite3').Database;
   validateGitRef: (value: string) => string | null;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
@@ -366,7 +367,10 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
     getSystemContext,
     readJsonBody,
     toBooleanString,
-    queueNodeJsonCommand,
+    enqueueQueueJob,
+    sha256Text,
+    componentRepo,
+    db,
     queueJobAcceptedPayload,
     failJson,
   } = deps;
@@ -374,24 +378,75 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
   const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
-
-  let parsed;
-  try {
-    parsed = buildSyncFigmaTokensCommandConfig({
-      body,
-      toBooleanString,
-    });
-  } catch (error) {
-    return failBuildCommandConfig(c, deps, requestId, error);
-  }
-  if (!parsed.ok) {
+  const tokensSource = String(body.tokensSource ?? body.tokens_source ?? body['tokens-source'] ?? 'mcp')
+    .trim()
+    .toLowerCase();
+  if (tokensSource && tokensSource !== 'mcp') {
     return failJson(c, 400, {
-      ...parsed.errorArgs,
+      code: 'validation.invalid_tokens_source',
+      userMessage: 'Only plugin-based sync is supported (tokensSource=mcp).',
+      recoverable: true,
+      context: { field: 'tokensSource' },
       requestId,
     });
   }
 
-  const job = queueNodeJsonCommand(buildSyncFigmaTokensQueueArgs({ sysCtx, requestId, parsed }));
+  if (!db || !componentRepo) {
+    return failJson(c, 500, {
+      code: 'internal.sync_dependencies_missing',
+      userMessage: 'Sync dependencies are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  const figmaFileId = resolveFileKeyForSystem(sysCtx.figmaFileId, body);
+  if (!figmaFileId) {
+    return failJson(c, 400, {
+      code: 'validation.figma_file_key_missing',
+      userMessage: 'Missing Figma file key. Configure figmaFileId on the system or pass url/fileKey.',
+      recoverable: true,
+      requestId,
+    });
+  }
+  const dryRun = toBooleanString(body.dryRun, false) === 'true';
+  const includeComponents = toBooleanString(body.includeComponents, true) === 'true';
+
+  const job = enqueueQueueJob({
+    label: 'sync figma (plugin→db)',
+    systemId: sysCtx.systemId,
+    operationName: 'sync:figma-db',
+    requestId,
+    inputHash: sha256Text(
+      JSON.stringify({
+        systemId: sysCtx.systemId,
+        figmaFileId,
+        dryRun,
+        includeComponents,
+      }),
+    ),
+    execute: async ({ emitChunk }: { emitChunk: (kind: string, message: string) => void }) => {
+      emitChunk('system', `Syncing "${sysCtx.systemId}" from plugin...`);
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: sysCtx.systemId,
+        figmaFileId,
+        dryRun,
+        includeComponents,
+      });
+      if (result.componentsTruncated) {
+        emitChunk('warning', 'Component list was truncated by the plugin search limit; missing-component reconciliation may be partial.');
+      }
+      emitChunk('result', `Imported ${result.tokens} tokens and ${result.components} components.`);
+      return {
+        ok: true,
+        code: 0,
+        summary: 'Sync completed.',
+        payload: result,
+      };
+    },
+  });
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 

@@ -142,7 +142,7 @@ export async function bootstrapInputJsonFromFigmaVariables(params: {
     return { attempted: false, created: false, reason: 'system-missing' };
   }
 
-  const inputDir = String(system.inputDir || '').trim();
+  const inputDir = String(system.inputDir || (system as { paths?: { input?: string } })?.paths?.input || '').trim();
   if (!inputDir) {
     return { attempted: false, created: false, reason: 'system-input-dir-missing' };
   }

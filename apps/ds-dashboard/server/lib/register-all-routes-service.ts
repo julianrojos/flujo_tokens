@@ -85,6 +85,8 @@ export interface CommandDeps {
   queueNpmScript: (args: unknown) => unknown;
   enqueueRefreshNamingDebtJob: (args: unknown) => unknown;
   queueNodeJsonCommand: (args: unknown) => unknown;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  db?: import('better-sqlite3').Database;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
@@ -260,6 +262,8 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       queueNpmScript: deps.queueNpmScript,
       enqueueRefreshNamingDebtJob: deps.enqueueRefreshNamingDebtJob,
       queueNodeJsonCommand: deps.queueNodeJsonCommand,
+      componentRepo: deps.componentRepo,
+      db: deps.db,
       toBooleanString: deps.toBooleanString,
       toNumberString: deps.toNumberString,
       validateGitRef: deps.validateGitRef,
