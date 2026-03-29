@@ -5,10 +5,10 @@ doc_status: ready
 
 # Design System Components Index
 
-Source registry: `docs/_generated/component-registry.json`
+Source: SQLite component registry projection
 Registry fingerprint: `n/a`
 
-This file is generated from the component registry projection and should not be edited manually.
+This file is generated from database data and should not be edited manually.
 
 ## Summary
 
