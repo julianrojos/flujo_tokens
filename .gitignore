@@ -42,6 +42,7 @@ apps/ds-dashboard/.env.*
 # Local scratch docs
 PLAN_MEJORA_MCP
 QWEN.md
+.qwen/
 .refactor-pending/
 tooling/.tmp/
 .tmp-tests/
