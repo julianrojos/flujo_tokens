@@ -1,9 +1,13 @@
 import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type Database from 'better-sqlite3';
 import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
 import type { FigmaVariable, FigmaVariableCollection, FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
+import { buildAliasChains, extractCssReferences, extractSpecReferences, generateUsageIndex } from '../../../../tooling/src/services/token-usage-index.js';
 import { fetchVariablesDirect, searchComponentsDirect } from './figma-direct-bridge-service.ts';
 import type { ComponentRepository } from '../db/component-repository.js';
+import { resolveSystemPaths } from '../db/design-system-repository.js';
 
 type TokenRow = {
   id: string;
@@ -259,6 +263,9 @@ export interface SyncFromPluginOptions {
     truncated?: boolean;
   }>;
   createRunId?: () => string;
+  repoRoot?: string;
+  reindexUsageFromFilesystem?: boolean;
+  usageReindexStrict?: boolean;
 }
 
 export interface SyncFromPluginResult {
@@ -269,7 +276,96 @@ export interface SyncFromPluginResult {
   componentsTruncated: boolean;
   usageRestored: number;
   usageDropped: number;
+  usageReindexed: number;
+  usageReindexStatus: 'not_requested' | 'ok' | 'failed';
+  usageReindexReason: 'none' | 'missing_repo_root' | 'no_sources' | 'runtime_error';
+  usageReindexWarnings: string[];
   dryRun: boolean;
+}
+
+type UsageOccurrenceRow = {
+  tokenId: string;
+  kind: string;
+  source: string;
+  owner: string;
+  detail: string;
+};
+
+function buildTokenUsageRowsFromFilesystem(options: {
+  dsId: string;
+  repoRoot: string;
+  tokenRegistry: {
+    entries: Array<{
+      id: string;
+      path: string;
+      $value: string;
+      type: string;
+      collection: string;
+      cssVar: string;
+    }>;
+  };
+  aliases: AliasRow[];
+}): { rows: UsageOccurrenceRow[]; warnings: string[]; noSources: boolean } {
+  const { dsId, repoRoot, tokenRegistry, aliases } = options;
+  const paths = resolveSystemPaths(dsId, repoRoot);
+  const warnings: string[] = [];
+  const rows: UsageOccurrenceRow[] = [];
+
+  const cssFiles = [
+    path.join(paths.outputDir, 'primitives.css'),
+    path.join(paths.outputDir, 'tokens.css'),
+  ];
+  const existingCssFiles = cssFiles.filter((filePath) => {
+    const exists = fs.existsSync(filePath);
+    if (!exists) warnings.push(`Missing CSS source for usage scan: ${filePath}`);
+    return exists;
+  });
+  const specsDirExists = fs.existsSync(paths.specsDir);
+  if (!specsDirExists) {
+    warnings.push(`Missing specs directory for usage scan: ${paths.specsDir}`);
+  }
+  if (!specsDirExists && existingCssFiles.length === 0) {
+    return {
+      rows: [],
+      warnings,
+      noSources: true,
+    };
+  }
+
+  let specRefs: ReturnType<typeof extractSpecReferences> = [];
+  try {
+    specRefs = extractSpecReferences(paths.specsDir, tokenRegistry);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    warnings.push(`Spec usage scan failed for ${paths.specsDir}: ${reason}`);
+  }
+  const cssRefs = extractCssReferences(existingCssFiles, tokenRegistry);
+  const aliasChains = buildAliasChains(existingCssFiles, tokenRegistry);
+  const usageIndex = generateUsageIndex(tokenRegistry, specRefs, cssRefs, aliasChains);
+
+  for (const entry of usageIndex.entries) {
+    for (const usage of entry.usedIn) {
+      rows.push({
+        tokenId: entry.path,
+        kind: usage.kind,
+        source: usage.source,
+        owner: usage.owner,
+        detail: usage.detail ?? '',
+      });
+    }
+  }
+
+  for (const alias of aliases) {
+    rows.push({
+      tokenId: alias.toPath,
+      kind: 'figma-alias',
+      source: 'figma-variables',
+      owner: alias.fromPath,
+      detail: JSON.stringify(alias.modes || []),
+    });
+  }
+
+  return { rows, warnings, noSources: false };
 }
 
 export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions): Promise<SyncFromPluginResult> {
@@ -283,7 +379,15 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     fetchVariables = fetchVariablesDirect,
     searchComponents = searchComponentsDirect,
     createRunId = randomUUID,
+    repoRoot,
+    reindexUsageFromFilesystem = false,
+    usageReindexStrict = true,
   } = options;
+  const willRunReindex = reindexUsageFromFilesystem && Boolean(repoRoot);
+
+  if (reindexUsageFromFilesystem && !repoRoot && usageReindexStrict) {
+    throw new Error('Token usage reindex failed: Token usage reindex requested but repoRoot is missing.');
+  }
 
   const variablesResponse = await fetchVariables(figmaFileId);
   const { tokens, modeValues, aliases, graphJson } = buildTokenRows(variablesResponse.meta);
@@ -336,6 +440,51 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     }>;
     let usageRestored = 0;
     let usageDropped = 0;
+    let usageReindexed = 0;
+    let usageReindexStatus: SyncFromPluginResult['usageReindexStatus'] = 'not_requested';
+    let usageReindexReason: SyncFromPluginResult['usageReindexReason'] = 'none';
+    let usageReindexWarnings: string[] = [];
+    let reindexUsageRows: UsageOccurrenceRow[] = [];
+
+    const nextTokenRegistry = {
+      entries: tokens.map((token) => ({
+        id: token.id,
+        path: token.id,
+        $value: token.rawValue,
+        type: token.type,
+        collection: token.collection,
+        cssVar: token.cssVar,
+      })),
+    };
+
+    if (willRunReindex) {
+      try {
+        const usageBuild = buildTokenUsageRowsFromFilesystem({
+          dsId,
+          repoRoot: String(repoRoot),
+          tokenRegistry: nextTokenRegistry,
+          aliases,
+        });
+        usageReindexWarnings = usageBuild.warnings;
+        if (usageBuild.noSources) {
+          usageReindexStatus = 'failed';
+          usageReindexReason = 'no_sources';
+        } else {
+          usageReindexStatus = 'ok';
+          usageReindexReason = 'none';
+          reindexUsageRows = usageBuild.rows;
+        }
+      } catch (error) {
+        usageReindexStatus = 'failed';
+        usageReindexReason = 'runtime_error';
+        const reason = error instanceof Error ? error.message : String(error);
+        if (usageReindexStrict) {
+          throw new Error(`Token usage reindex failed: ${reason}`);
+        }
+        usageReindexWarnings = [...usageReindexWarnings, reason];
+        console.warn(`[syncDesignSystemFromPlugin] Token usage reindex failed (non-strict mode): ${reason}`);
+      }
+    }
 
     // Stage
     db.transaction(() => {
@@ -441,23 +590,42 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         FROM figma_aliases_staging WHERE run_id = ? AND ds_id = ?
       `).run(runId, dsId);
 
-      const tokenRows = db.prepare(`
-        SELECT id
-        FROM tokens
-        WHERE ds_id = ?
-      `).all(dsId) as Array<{ id: string }>;
-      const existingTokenIds = new Set(tokenRows.map((row) => row.id));
-      const restoreUsageStmt = db.prepare(`
-        INSERT OR IGNORE INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `);
-      for (const usage of usageRows) {
-        if (!existingTokenIds.has(usage.token_id)) {
-          usageDropped += 1;
-          continue;
+      if (willRunReindex && usageReindexStatus === 'ok') {
+        db.prepare('DELETE FROM token_usage_occurrences WHERE ds_id = ?').run(dsId);
+        const reindexUsageStmt = db.prepare(`
+          INSERT OR IGNORE INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        for (const usage of reindexUsageRows) {
+          const result = reindexUsageStmt.run(
+            dsId,
+            usage.tokenId,
+            usage.kind,
+            usage.source,
+            usage.owner,
+            usage.detail,
+          );
+          usageReindexed += Number(result.changes || 0);
         }
-        restoreUsageStmt.run(dsId, usage.token_id, usage.kind, usage.source, usage.owner, usage.detail);
-        usageRestored += 1;
+      } else {
+        const tokenRows = db.prepare(`
+          SELECT id
+          FROM tokens
+          WHERE ds_id = ?
+        `).all(dsId) as Array<{ id: string }>;
+        const existingTokenIds = new Set(tokenRows.map((row) => row.id));
+        const restoreUsageStmt = db.prepare(`
+          INSERT OR IGNORE INTO token_usage_occurrences (ds_id, token_id, kind, source, owner, detail)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        for (const usage of usageRows) {
+          if (!existingTokenIds.has(usage.token_id)) {
+            usageDropped += 1;
+            continue;
+          }
+          restoreUsageStmt.run(dsId, usage.token_id, usage.kind, usage.source, usage.owner, usage.detail);
+          usageRestored += 1;
+        }
       }
 
       db.prepare(`
@@ -469,6 +637,14 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       db.prepare('DELETE FROM token_mode_values_staging WHERE run_id = ? AND ds_id = ?').run(runId, dsId);
       db.prepare('DELETE FROM figma_aliases_staging WHERE run_id = ? AND ds_id = ?').run(runId, dsId);
     })();
+
+    if (reindexUsageFromFilesystem && !repoRoot) {
+      usageReindexStatus = 'failed';
+      usageReindexReason = 'missing_repo_root';
+      const reason = 'Token usage reindex requested but repoRoot is missing.';
+      usageReindexWarnings = [...usageReindexWarnings, reason];
+      console.warn(`[syncDesignSystemFromPlugin] ${reason}`);
+    }
 
     if (includeComponents) {
       componentRepo.upsertFromRegistry(dsId, componentEntries);
@@ -495,6 +671,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       componentsTruncated,
       usageRestored,
       usageDropped,
+      usageReindexed,
+      usageReindexStatus,
+      usageReindexReason,
+      usageReindexWarnings,
       dryRun,
     };
   }
@@ -507,6 +687,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     componentsTruncated,
     usageRestored: 0,
     usageDropped: 0,
+    usageReindexed: 0,
+    usageReindexStatus: 'not_requested',
+    usageReindexReason: 'none',
+    usageReindexWarnings: [],
     dryRun,
   };
 }
