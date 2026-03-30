@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
-import { fetchFileSnippet, type FileSnippetPayload } from "@/lib/api";
+import { ApiError, fetchFileSnippet, type FileSnippetPayload } from "@/lib/api";
 import type { TokenEntry } from "@/types/token-registry";
 import type { TokenUsageOccurrence } from "@/types/token-usage-index";
 import {
@@ -76,6 +76,23 @@ function UsageGroup({
     return rows;
   }, [occurrences, sort]);
 
+  const isFileSource = useCallback((value: string) => {
+    const source = String(value || "").trim();
+    if (!source) return false;
+    const nonFileSources = new Set(["component-spec", "css-alias", "alias-chain", "figma-variables"]);
+    if (nonFileSources.has(source)) return false;
+    return source.includes("/") || source.includes("\\");
+  }, []);
+
+  const toSnippetErrorMessage = useCallback((cause: unknown) => {
+    if (cause instanceof ApiError) {
+      if (cause.code === "file.not_found") return "Source file no longer exists in this workspace.";
+      if (cause.code === "file.query_not_found") return "Token text was not found in the referenced file.";
+      return `${cause.message} (${cause.code})`;
+    }
+    return cause instanceof Error ? cause.message : String(cause);
+  }, []);
+
   const openSnippet = useCallback(async (key: string, occ: TokenUsageOccurrence) => {
     let shouldFetch = true;
     setSnippets((current) => {
@@ -108,10 +125,10 @@ function UsageGroup({
     } catch (cause) {
       setSnippets((current) => ({
         ...current,
-        [key]: { open: true, error: cause instanceof Error ? cause.message : String(cause) },
+        [key]: { open: true, error: toSnippetErrorMessage(cause) },
       }));
     }
-  }, [queryHints]);
+  }, [queryHints, toSnippetErrorMessage]);
 
   useEffect(() => {
     if (autoExpanded.current || sortedOccurrences.length === 0) return;
@@ -142,7 +159,7 @@ function UsageGroup({
             const file = String(occ.source || "").trim();
             const line = extractLineNumber(occ.detail || "");
             const fileLabel = file ? (line ? `${file}:${line}` : file) : "—";
-            const canOpenSnippet = Boolean(file);
+            const canOpenSnippet = isFileSource(file);
             return (
               <Fragment key={key}>
                 <TableRow>
