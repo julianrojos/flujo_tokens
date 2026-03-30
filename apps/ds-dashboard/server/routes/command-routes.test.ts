@@ -279,5 +279,48 @@ describe('command-routes', () => {
       const payload = await res.json();
       assert.equal((payload as any).code, 'internal.sync_dependencies_missing');
     });
+
+    it('emits usageReindexReason warning chunk when sync reports failed reindex status', async () => {
+      const enqueued: any[] = [];
+      const app = createTestApp({
+        readJsonBody: async () => ({ fileKey: 'figma_file_123' }),
+        db: {} as any,
+        componentRepo: {} as any,
+        enqueueQueueJob: (args: any) => {
+          enqueued.push(args);
+          return { id: 'sync_job_1' };
+        },
+        syncDesignSystemFromPluginFn: async () => ({
+          tokens: 10,
+          tokenModeValues: 12,
+          aliases: 2,
+          components: 3,
+          componentsTruncated: false,
+          usageRestored: 0,
+          usageDropped: 0,
+          usageReindexed: 0,
+          usageReindexStatus: 'failed' as const,
+          usageReindexReason: 'missing_repo_root' as const,
+          usageReindexWarnings: ['Token usage reindex requested but repoRoot is missing.'],
+          dryRun: false,
+        }),
+      });
+
+      const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(enqueued.length, 1);
+
+      const chunks: Array<{ kind: string; text: string }> = [];
+      const runResult = await enqueued[0].execute({
+        emitChunk: (kind: string, text: string) => chunks.push({ kind, text }),
+      });
+
+      assert.equal(runResult.ok, true);
+      assert.ok(
+        chunks.some((chunk) =>
+          chunk.kind === 'warning' && chunk.text.includes('missing_repo_root')
+        )
+      );
+    });
   });
 });

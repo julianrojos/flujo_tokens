@@ -105,6 +105,7 @@ export interface CommandRouteHandlerDeps {
   queueNodeJsonCommand: (args: unknown) => { id: string };
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('better-sqlite3').Database;
+  syncDesignSystemFromPluginFn?: typeof syncDesignSystemFromPlugin;
   validateGitRef: (value: string) => string | null;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
@@ -371,6 +372,7 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
     sha256Text,
     componentRepo,
     db,
+    syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
     queueJobAcceptedPayload,
     failJson,
   } = deps;
@@ -427,16 +429,30 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
     ),
     execute: async ({ emitChunk }: { emitChunk: (kind: string, message: string) => void }) => {
       emitChunk('system', `Syncing "${sysCtx.systemId}" from plugin...`);
-      const result = await syncDesignSystemFromPlugin({
+      const result = await syncDesignSystemFromPluginFn({
         db,
         componentRepo,
         dsId: sysCtx.systemId,
         figmaFileId,
         dryRun,
         includeComponents,
+        repoRoot: sysCtx.repoRoot,
+        reindexUsageFromFilesystem: !dryRun,
+        usageReindexStrict: true,
       });
       if (result.componentsTruncated) {
         emitChunk('warning', 'Component list was truncated by the plugin search limit; missing-component reconciliation may be partial.');
+      }
+      if (result.usageReindexed > 0) {
+        emitChunk('result', `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`);
+      }
+      if (result.usageReindexWarnings.length > 0) {
+        for (const warning of result.usageReindexWarnings) {
+          emitChunk('warning', warning);
+        }
+      }
+      if (result.usageReindexStatus === 'failed' && result.usageReindexReason !== 'none') {
+        emitChunk('warning', `Token usage reindex status: failed (${result.usageReindexReason}).`);
       }
       emitChunk('result', `Imported ${result.tokens} tokens and ${result.components} components.`);
       return {
