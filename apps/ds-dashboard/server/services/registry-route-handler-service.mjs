@@ -2,6 +2,20 @@ import {
   buildComponentUsageIndex,
   buildTokenCollectionTrees,
 } from "./registry-artifacts-service.mjs";
+import fs from "node:fs/promises";
+import { resolveRepoFilePath } from "../lib/request-file-helpers.mjs";
+
+async function fileExistsWithinRepo(repoRoot, relativePath, cache) {
+  const resolved = resolveRepoFilePath(repoRoot, relativePath);
+  if (!resolved) return false;
+  if (cache.has(resolved)) return cache.get(resolved);
+  const exists = await fs
+    .access(resolved)
+    .then(() => true)
+    .catch(() => false);
+  cache.set(resolved, exists);
+  return exists;
+}
 
 function createPipelineStage(item) {
   if (!item.spec.exists) return "missing-spec";
@@ -21,23 +35,34 @@ export async function handleComponentRegistryRoute(c, deps) {
   }
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const rows = componentRepo.getAll(sysCtx.systemId);
-  const components = rows.map((row) => {
+  const existsCache = new Map();
+  const components = await Promise.all(rows.map(async (row) => {
     const specEntry = Array.isArray(row.specs) && row.specs.length > 0 ? row.specs[0] : null;
     const proofEntry = Array.isArray(row.visualProofs) && row.visualProofs.length > 0 ? row.visualProofs[0] : null;
+    const docPath = specEntry?.markdownPath || `design-systems/${sysCtx.systemId}/docs/components/${row.slug}.md`;
+    const specPath = `design-systems/${sysCtx.systemId}/docs/_spec/components/${row.slug}.yml`;
+    const visualProofPath = proofEntry?.imagePath || null;
+    const [docExists, specExists, visualProofExists] = await Promise.all([
+      fileExistsWithinRepo(sysCtx.repoRoot, docPath, existsCache),
+      fileExistsWithinRepo(sysCtx.repoRoot, specPath, existsCache),
+      visualProofPath
+        ? fileExistsWithinRepo(sysCtx.repoRoot, visualProofPath, existsCache)
+        : Promise.resolve(false),
+    ]);
     const component = {
       slug: row.slug,
       display_name: row.name,
       paths: {
-        spec: `design-systems/${sysCtx.systemId}/docs/_spec/components/${row.slug}.yml`,
-        doc: specEntry?.markdownPath || `design-systems/${sysCtx.systemId}/docs/components/${row.slug}.md`,
+        spec: specPath,
+        doc: docPath,
         visual_proof: proofEntry?.imagePath || null,
       },
       spec: {
-        exists: Boolean(specEntry),
+        exists: specExists,
         status: row.status || "draft",
       },
       doc: {
-        exists: Boolean(specEntry),
+        exists: docExists,
         status: specEntry?.docStatus || "draft",
       },
       figma: {
@@ -45,9 +70,9 @@ export async function handleComponentRegistryRoute(c, deps) {
         component_set_node_id: row.figmaComponentSetNodeId || null,
       },
       visual_proof: {
-        exists: Boolean(proofEntry),
+        exists: visualProofExists,
         screenshot_url: proofEntry?.screenshotUrl || null,
-        image_path: proofEntry?.imagePath || null,
+        image_path: visualProofPath,
       },
       pipeline_stage: "missing-spec",
       ready_for_publish: false,
@@ -55,7 +80,7 @@ export async function handleComponentRegistryRoute(c, deps) {
     component.pipeline_stage = createPipelineStage(component);
     component.ready_for_publish = component.pipeline_stage === "visual-proof";
     return component;
-  });
+  }));
   const summary = {
     total_components: 0,
     with_spec: 0,
