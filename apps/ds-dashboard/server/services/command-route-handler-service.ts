@@ -89,7 +89,6 @@ export interface CommandRouteHandlerDeps {
     systemId: string;
     figmaFileId?: string;
     healthSnapshotScriptPath: string;
-    tokensFromFigmaScriptPath: string;
     captureFromFigmaUrlScriptPath: string;
   };
   queueNpmScript: (args: unknown) => { id: string };

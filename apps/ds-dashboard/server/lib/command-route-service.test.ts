@@ -10,7 +10,6 @@ import {
   buildCaptureFigmaScreenshotCommandConfig,
   buildHealthSnapshotCommandConfig,
   buildRunScriptCommandArgs,
-  buildSyncFigmaTokensCommandConfig,
 } from './command-route-service.js';
 
 describe('command-route-service', () => {
@@ -121,72 +120,6 @@ describe('command-route-service', () => {
       });
       assert.equal(valid.ok, true);
       assert.ok((valid as any).commandLabel.includes('--before-ref HEAD~2'));
-    });
-  });
-
-  describe('buildSyncFigmaTokensCommandConfig()', () => {
-    it('moves figma token to command env', () => {
-      const payload = buildSyncFigmaTokensCommandConfig({
-        body: {
-          figmaUrl: 'https://www.figma.com/file/abc/xyz',
-          figmaToken: 'secret',
-          dryRun: false,
-        },
-        toBooleanString: (value: unknown, fallback: boolean) =>
-          value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
-      });
-      assert.equal(payload.ok, true);
-      // Test case: commandArgs should never be undefined in successful responses
-      assert.ok(payload.commandArgs, 'commandArgs should be defined for ok responses');
-      assert.ok(!payload.commandArgs.includes('secret'));
-      assert.deepEqual(payload.commandEnv, { FIGMA_TOKEN: 'secret' });
-      assert.ok(payload.commandArgs.includes('--source'));
-      assert.ok(payload.commandArgs.includes('mcp'));
-    });
-
-    it('handles commandArgs undefined case explicitly', () => {
-      // Test explícito para el caso commandArgs === undefined (R-003)
-      // En respuestas ok, commandArgs siempre debe estar definido
-      // Este test documenta el comportamiento esperado
-      const payload = buildSyncFigmaTokensCommandConfig({
-        body: {
-          figmaUrl: 'https://www.figma.com/file/abc/xyz',
-          figmaToken: 'secret',
-          dryRun: false,
-        },
-        toBooleanString: (value: unknown, fallback: boolean) =>
-          value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
-      });
-      // Aserción explícita: ok=true implica commandArgs definido
-      if (payload.ok) {
-        assert.ok(payload.commandArgs, 'commandArgs must be defined when ok=true');
-      }
-    });
-
-    it('supports explicit MCP source', () => {
-      const payload = buildSyncFigmaTokensCommandConfig({
-        body: {
-          tokensSource: 'mcp',
-        },
-        toBooleanString: (value: unknown, fallback: boolean) =>
-          value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
-      });
-      assert.equal(payload.ok, true);
-      const sourceIdx = payload.commandArgs?.indexOf('--source') ?? -1;
-      assert.ok(sourceIdx >= 0);
-      assert.equal(payload.commandArgs?.[sourceIdx + 1], 'mcp');
-    });
-
-    it('returns typed error on invalid tokensSource value', () => {
-      const payload = buildSyncFigmaTokensCommandConfig({
-        body: {
-          tokensSource: 'ftp',
-        },
-        toBooleanString: (value: unknown, fallback: boolean) =>
-          value === undefined ? (fallback ? 'true' : 'false') : String(!!value),
-      });
-      assert.equal(payload.ok, false);
-      assert.equal(payload.errorArgs?.code, 'validation.invalid_tokens_source');
     });
   });
 

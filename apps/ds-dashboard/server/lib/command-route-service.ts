@@ -74,34 +74,6 @@ export type HealthSnapshotCommandConfigResult =
   | HealthSnapshotCommandConfigSuccess
   | CommandConfigError;
 
-export interface SyncFigmaTokensCommandConfigOptions {
-  body: {
-    url?: string;
-    figmaUrl?: string;
-    figmaToken?: string;
-    force?: boolean;
-    merge?: boolean;
-    compile?: boolean;
-    dryRun?: boolean;
-    tokensSource?: string;
-    tokens_source?: string;
-    ['tokens-source']?: string;
-    [key: string]: unknown;
-  };
-  toBooleanString: (value: unknown, fallback: boolean) => string;
-}
-
-type SyncFigmaTokensCommandConfigSuccess = {
-  ok: true;
-  commandArgs: string[];
-  commandDisplayArgs: string[];
-  commandEnv?: Record<string, string>;
-};
-
-export type SyncFigmaTokensCommandConfigResult =
-  | SyncFigmaTokensCommandConfigSuccess
-  | CommandConfigError;
-
 export interface CaptureFigmaScreenshotCommandConfigOptions {
   body: {
     figmaUrl?: string;
@@ -234,64 +206,6 @@ export function buildHealthSnapshotCommandConfig(
       '--format',
       'json',
     ],
-  };
-}
-
-/**
- * Build command config for syncing Figma tokens.
- */
-export function buildSyncFigmaTokensCommandConfig(
-  options: SyncFigmaTokensCommandConfigOptions
-): SyncFigmaTokensCommandConfigResult {
-  const { body, toBooleanString } = options;
-
-  const figmaUrl = toTrimmed(body.url ?? body.figmaUrl);
-  const figmaToken = toTrimmed(body.figmaToken);
-  const force = toBooleanString(body.force, false);
-  const merge = toBooleanString(body.merge, false);
-  const compile = toBooleanString(body.compile, true);
-  const dryRun = toBooleanString(body.dryRun, true);
-  let tokensSource: 'auto' | 'mcp' | 'rest';
-  try {
-    tokensSource = normalizeTokensSource(
-      body.tokensSource ?? body.tokens_source ?? body['tokens-source'],
-    );
-  } catch (error) {
-    if (isInvalidTokensSourceError(error)) {
-      return {
-        ok: false,
-        errorArgs: {
-          code: 'validation.invalid_tokens_source',
-          userMessage: error instanceof Error ? error.message : String(error),
-          recoverable: true,
-          context: { field: 'tokensSource' },
-        },
-      };
-    }
-    throw error;
-  }
-
-  const commandArgs = [
-    '--force',
-    force,
-    '--merge',
-    merge,
-    '--compile',
-    compile,
-    '--dry-run',
-    dryRun,
-    // Note: tokens-from-figma-runner.ts expects --source (not --tokens-source)
-    '--source',
-    tokensSource,
-  ];
-  if (figmaUrl) commandArgs.push('--url', figmaUrl);
-  const commandEnv = figmaToken ? { FIGMA_TOKEN: figmaToken } : undefined;
-
-  return {
-    ok: true,
-    commandArgs,
-    commandDisplayArgs: redactFigmaToken(commandArgs),
-    commandEnv,
   };
 }
 

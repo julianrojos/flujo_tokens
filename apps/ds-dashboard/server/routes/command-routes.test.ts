@@ -40,7 +40,6 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
       repoRoot: '/repo',
       systemId: 'core',
       healthSnapshotScriptPath: 'tooling/scripts/ds-health-snapshot.mjs',
-      tokensFromFigmaScriptPath: 'tooling/scripts/ds-tokens-from-figma.mjs',
       captureFromFigmaUrlScriptPath: 'tooling/scripts/ds-capture-from-figma-url.mjs',
     }),
     queueJobAcceptedPayload: (job: { id: string }) => ({ ok: true, jobId: job.id }),
