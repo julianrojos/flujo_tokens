@@ -10,7 +10,6 @@ import * as path from 'node:path';
 import type {
   LocalImageInfo,
   VisualProofVariant,
-  VisualProofPayload,
   CaptureVisualProofReport,
 } from '../types/capture-visual-proof.js';
 import type { MainCaptureResult } from './capture-visual-proof-image.js';
@@ -155,7 +154,7 @@ export function buildCaptureReport(
   localImageInfo: LocalImageInfo,
   variantProofs: VisualProofVariant[],
   capturedAt: string,
-  proofRecordPath: string,
+  proofImagesSlugPath: string,
   deletedStaleImages: string[],
 ): CaptureVisualProofReport {
   return {
@@ -164,7 +163,7 @@ export function buildCaptureReport(
     component: ctx.componentSlug,
     markdownPath: ctx.markdownPath,
     specPath: ctx.specPath,
-    proofRecordPath,
+    proofImagesSlugPath,
     localImagePath: localImageInfo.path,
     screenshotUrl: mainResult.imageUrlRaw,
     nodeId: mainResult.normalizedNodeId,
@@ -180,69 +179,6 @@ export function buildCaptureReport(
     variants: variantProofs,
     mainCaptureMode: mainResult.captureSource === 'REST' ? 'rest' : 'agent',
     deletedStaleImages,
-  };
-}
-
-/**
- * Build visual proof payload.
- */
-export function buildProofPayload({
-  componentSlug,
-  markdownPath,
-  specPath,
-  figmaUrl,
-  mainResult,
-  localImageInfo,
-  variantProofs,
-  capturedAt,
-  format,
-  scale,
-  docsRootDir,
-}: {
-  componentSlug: string;
-  markdownPath: string;
-  specPath: string;
-  figmaUrl: string;
-  mainResult: MainCaptureResult;
-  localImageInfo: LocalImageInfo;
-  variantProofs: VisualProofVariant[];
-  capturedAt: string;
-  format: string;
-  scale: number;
-  docsRootDir: string;
-}): VisualProofPayload {
-  const localImagePathForJson = localImageInfo.path
-    ? path.relative(docsRootDir, localImageInfo.path).split(path.sep).join('/')
-    : null;
-
-  return {
-    component: componentSlug || path.basename(markdownPath, path.extname(markdownPath)),
-    markdown_path: markdownPath,
-    spec_path: specPath,
-    source_url: figmaUrl || undefined,
-    node_id: mainResult.normalizedNodeId,
-    format,
-    scale,
-    screenshot_url: mainResult.imageUrlRaw,
-    image_url: mainResult.imageUrlRaw,
-    image_path: localImagePathForJson,
-    image_sha256: localImageInfo.sha256,
-    image_bytes: localImageInfo.bytes,
-    image_content_type: localImageInfo.contentType,
-    image_width: localImageInfo.width,
-    image_height: localImageInfo.height,
-    captured_at: capturedAt,
-    captured_with: 'figma_take_screenshot',
-    image: {
-      path: localImagePathForJson,
-      sha256: localImageInfo.sha256,
-      bytes: localImageInfo.bytes,
-      content_type: localImageInfo.contentType,
-      width: localImageInfo.width,
-      height: localImageInfo.height,
-    },
-    variants_count: variantProofs.length,
-    variants: variantProofs,
   };
 }
 

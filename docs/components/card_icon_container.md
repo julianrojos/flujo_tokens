@@ -39,7 +39,6 @@ Source: [Card-Icon-Container in Figma](https://www.figma.com/design/3hGC1ju0d5AK
 - Source node: `2053:7862`
 - Image hash: `24eda7362b4193d85778248d1a4f97744d8ce0a998b7faac4e6b8b5564c2d43e`
 - Variants captured: `6`
-- Artifact: `../_generated/visual-proofs/card_icon_container.json`
 
 ## Anatomy
 

@@ -40,7 +40,6 @@ Source: [Illustration-Block in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 - Source node: `2049:7813`
 - Image hash: `6405f3c7af3bc5bd3a74c6ca7f79b2e3674900cce14f46669d9c25beedc86dd0`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/illustration_block.json`
 
 ## Anatomy
 

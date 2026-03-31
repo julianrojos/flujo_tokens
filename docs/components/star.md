@@ -38,7 +38,6 @@ Source: [Star in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB-
 - Source node: `683:239`
 - Image hash: `645dcc5407933343c695cb0b589348371df8e93941dd1edf58f80361b25ad6b6`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/star.json`
 
 ## Anatomy
 

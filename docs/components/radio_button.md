@@ -33,7 +33,6 @@ The **Radio Button** component represents one mutually exclusive selection contr
 - Source node: `2304:1971`
 - Image hash: `46d3aebb56f22b9da60cbd1be3a12ecdafa8a4783260ef35c77d845ed2ea4606`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/radio_button.json`
 
 ## Anatomy
 

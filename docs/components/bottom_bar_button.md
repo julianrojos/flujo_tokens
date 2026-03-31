@@ -37,7 +37,6 @@ Source: [Bottom_Bar_Button in Figma](https://www.figma.com/design/3hGC1ju0d5AKza
 - Source node: `694:170`
 - Image hash: `6aa9b379aac06728c09a4523181e8208465da185aaff517ba765deaf83d0f19c`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/bottom_bar_button.json`
 
 ## Anatomy
 

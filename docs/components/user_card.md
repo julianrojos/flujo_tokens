@@ -42,7 +42,6 @@ Source: [User-Card in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu
 - Source node: `2046:7286`
 - Image hash: `ff3613ebef0b86f854f05ab3e2f64ff7f41af058e14764a7fc3e846c2fb3fdfb`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/user_card.json`
 
 ## Anatomy
 

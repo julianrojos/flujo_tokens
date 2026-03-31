@@ -62,39 +62,6 @@ export interface LocalImageInfo {
 }
 
 /**
- * Visual proof payload for JSON export.
- */
-export interface VisualProofPayload {
-  component: string;
-  markdown_path: string;
-  spec_path: string;
-  source_url?: string;
-  node_id: string;
-  format: string;
-  scale: number;
-  screenshot_url: string;
-  image_url: string;
-  image_path: string | null;
-  image_sha256: string | null;
-  image_bytes: number | null;
-  image_content_type: string | null;
-  image_width: number | null;
-  image_height: number | null;
-  captured_at: string;
-  captured_with: string;
-  image: {
-    path: string | null;
-    sha256: string | null;
-    bytes: number | null;
-    content_type: string | null;
-    width: number | null;
-    height: number | null;
-  };
-  variants_count: number;
-  variants: VisualProofVariant[];
-}
-
-/**
  * Visual proof capture report.
  */
 export interface CaptureVisualProofReport {
@@ -103,7 +70,7 @@ export interface CaptureVisualProofReport {
   component: string;
   markdownPath: string;
   specPath: string;
-  proofRecordPath: string;
+  proofImagesSlugPath: string;
   localImagePath: string | null;
   screenshotUrl: string;
   nodeId: string;

@@ -33,7 +33,6 @@ The **Text Input** component captures single-line textual data with optional lab
 - Source node: `204:483`
 - Image hash: `770b100e74c938dba04ea05f4562fdc72703bb6f44498cbf4e0d3247c28995f1`
 - Variants captured: `4`
-- Artifact: `../_generated/visual-proofs/text_input.json`
 
 ## Anatomy
 

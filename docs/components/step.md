@@ -33,7 +33,6 @@ The **Step** component represents one progress item in a multi-step flow.
 - Source node: `2282:1793`
 - Image hash: `f52f4bef69c48dc916c46a2452bf1f3419083b47b15ca09116f083e92c3e2266`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/step.json`
 
 ## Anatomy
 

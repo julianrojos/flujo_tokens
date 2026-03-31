@@ -52,7 +52,6 @@ export interface CaptureResult {
   slug: string;
   node_id: string;
   markdown_path: string;
-  proof_record_path: string | null;
   screenshot_url: string | null;
   local_image_path: string | null;
   variants_count: number;
@@ -172,7 +171,6 @@ export function runCaptureBatch(options: RunCaptureBatchOptions): {
         slug: target.slug,
         node_id: target.nodeId,
         markdown_path: path.relative(repoRoot, target.markdownPath),
-        proof_record_path: captureResult.proofRecordPath || null,
         screenshot_url: captureResult.screenshotUrl || null,
         local_image_path: captureResult.localImagePath || null,
         variants_count: Number.isFinite(Number(captureResult.variantsCount)) ? Number(captureResult.variantsCount) : 0,

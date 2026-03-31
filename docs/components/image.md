@@ -35,7 +35,6 @@ Source: [Image in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB
 - Source node: `668:57`
 - Image hash: `11447eaade151d5687d198ef3f70234b9b100620406286e5e6fafaa040d54434`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/image.json`
 
 ## Anatomy
 

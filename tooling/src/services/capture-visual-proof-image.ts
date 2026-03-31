@@ -390,9 +390,10 @@ export async function downloadAndStoreMainImage(
 
 /**
  * Load previous proof image paths from existing payload.
+ * @param proofImagesSlugPath - Slug-based path hint (e.g. `<proofDir>/<slug>`), not a directory
  */
 export async function loadPreviousProofImagePaths(
-  proofRecordPath: string,
+  proofImagesSlugPath: string,
   docsRootDir: string,
   dryRun: boolean,
 ): Promise<string[]> {
@@ -400,10 +401,12 @@ export async function loadPreviousProofImagePaths(
     return [];
   }
 
-  const proofDir = path.dirname(path.resolve(proofRecordPath));
+  // `proofImagesSlugPath` is a slug hint path (e.g. `<proofDir>/<slug>`), not a real directory.
+  // Keep lookup rooted at the actual proof directory to match where images are written.
+  const proofDir = path.dirname(path.resolve(proofImagesSlugPath));
   const proofImageDir = path.join(proofDir, 'images');
   const variantsDir = path.join(proofImageDir, 'variants');
-  const slug = path.basename(proofRecordPath, path.extname(proofRecordPath)).trim();
+  const slug = path.basename(proofImagesSlugPath).trim();
   if (!slug) return [];
 
   const paths: string[] = [];
@@ -425,10 +428,10 @@ export async function loadPreviousProofImagePaths(
   }
 
   const resolvedDocsRoot = path.resolve(docsRootDir);
-  const rootWithSep = resolvedDocsRoot.endsWith(path.sep)
-    ? resolvedDocsRoot
-    : `${resolvedDocsRoot}${path.sep}`;
   return paths
     .map((candidate) => path.resolve(candidate))
-    .filter((candidate) => candidate === resolvedDocsRoot || candidate.startsWith(rootWithSep));
+    .filter((candidate) => {
+      const rel = path.relative(resolvedDocsRoot, candidate);
+      return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+    });
 }

@@ -39,7 +39,6 @@ Source: [Status-Bar in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIy
 - Source node: `713:202`
 - Image hash: `4576067bbd9b29573dcb4a2fc69ffc4217c9a84472a58feeaadd91197ec4c639`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/status_bar.json`
 
 ## Anatomy
 

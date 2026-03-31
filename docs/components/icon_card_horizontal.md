@@ -39,7 +39,6 @@ Source: [Icon-Card-Horizontal in Figma](https://www.figma.com/design/3hGC1ju0d5A
 - Source node: `2097:613`
 - Image hash: `c1659855665707566eabf32f3987859932d25bf246eaea7090abe652bd52cb50`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/icon_card_horizontal.json`
 
 ## Anatomy
 

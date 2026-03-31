@@ -33,7 +33,6 @@ The **Text Area** component captures multi-line textual input with optional labe
 - Source node: `225:420`
 - Image hash: `867cb7a6e41972ab61a1561a5b46f9160035e514396b75f89768563f069b9e9a`
 - Variants captured: `4`
-- Artifact: `../_generated/visual-proofs/text_area.json`
 
 ## Anatomy
 

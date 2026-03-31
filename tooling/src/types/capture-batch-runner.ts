@@ -11,7 +11,6 @@ export interface RunScriptJsonFn {
     scriptPath: string;
     scriptArgs: string[];
   }): {
-    proofRecordPath?: string;
     screenshotUrl?: string;
     localImagePath?: string;
     variantsCount?: number;

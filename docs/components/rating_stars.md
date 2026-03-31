@@ -38,7 +38,6 @@ Source: [Rating_Stars in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pK
 - Source node: `683:264`
 - Image hash: `e2e4bb2acd1f57abb331876fbf39222e81c5d9cc2014be456fcca93d3e409b6d`
 - Variants captured: `6`
-- Artifact: `../_generated/visual-proofs/rating_stars.json`
 
 ## Anatomy
 

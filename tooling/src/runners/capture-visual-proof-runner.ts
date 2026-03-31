@@ -181,15 +181,23 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
 
   // 3. Download and store local image
   const capturedAt = new Date().toISOString();
-  const proofRecordPath = path.join(
+  const proofImagesSlugPath = path.join(
+    ctx.proofDir,
+    ctx.componentSlug || 'component',
+  );
+  const localImageInfo = await downloadAndStoreMainImage(ctx, mainResult);
+  const legacyProofRecordPath = path.join(
     ctx.proofDir,
     `${ctx.componentSlug || 'component'}.proof`,
   );
-  const localImageInfo = await downloadAndStoreMainImage(ctx, mainResult);
+  if (!ctx.dryRun && fs.existsSync(legacyProofRecordPath)) {
+    fs.rmSync(legacyProofRecordPath, { recursive: true, force: true });
+    logger.info(`Cleaned up legacy proof artifact: ${legacyProofRecordPath}`);
+  }
 
   // 4. Load previous proof image paths for cleanup
   const previousProofImagePaths = await loadPreviousProofImagePaths(
-    proofRecordPath,
+    proofImagesSlugPath,
     ctx.docsRootDir,
     ctx.dryRun,
   );
@@ -313,7 +321,7 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     localImageInfo,
     variantProofs,
     capturedAt,
-    proofRecordPath,
+    proofImagesSlugPath,
     deletedStaleImages,
   );
   if (dbPersistence) {

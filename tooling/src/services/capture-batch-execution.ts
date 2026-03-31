@@ -19,8 +19,6 @@ export interface CapturedComponent {
   node_id: string;
   /** Markdown file path (relative). */
   markdown_path: string;
-  /** Logical proof record path in generated metadata folder. */
-  proof_record_path: string | null;
   /** Screenshot URL. */
   screenshot_url: string | null;
   /** Local image path. */
@@ -240,7 +238,6 @@ export function runCaptureBatch(options: CaptureBatchOptions): CaptureBatchResul
         slug: target.slug,
         node_id: target.nodeId,
         markdown_path: path.relative(repoRoot, target.markdownPath),
-        proof_record_path: (captureResult.proofRecordPath as string) || null,
         screenshot_url: (captureResult.screenshotUrl as string) || null,
         local_image_path: (captureResult.localImagePath as string) || null,
         variants_count: Number(captureResult.variantsCount || 0),

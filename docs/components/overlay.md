@@ -38,7 +38,6 @@ Source: [Overlay in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/P
 - Source node: `4584:8670`
 - Image hash: `c019eecb3890691d8dbebba054ece7be9ab363a536064bc902668c564add9fc4`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/overlay.json`
 
 ## Anatomy
 

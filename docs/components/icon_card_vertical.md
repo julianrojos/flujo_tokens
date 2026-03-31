@@ -41,7 +41,6 @@ Source: [Icon-Card-Vertical in Figma](https://www.figma.com/design/3hGC1ju0d5AKz
 - Source node: `2168:1387`
 - Image hash: `381dda19495e8c38d2c50d225e5125cc0dc7971e1da525a20ead1e132d5e1fd5`
 - Variants captured: `6`
-- Artifact: `../_generated/visual-proofs/icon_card_vertical.json`
 
 ## Anatomy
 

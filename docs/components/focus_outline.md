@@ -38,7 +38,6 @@ Source: [Focus-Outline in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9p
 - Source node: `4562:6483`
 - Image hash: `477abcbdcffaa4192a6cb0625dd1a7d46fb0fcbbebf27d697e7b27e4235ea6a0`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/focus_outline.json`
 
 ## Anatomy
 

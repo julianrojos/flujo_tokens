@@ -36,7 +36,6 @@ Source: [Tag in Figma](https://www.figma.com/design/3hGC1ju0d5AKzaoI9pKIyu/PFB--
 - Source node: `2018:271`
 - Image hash: `a0606bfd668098805a7f174fb2990569848959eab0bb2a2d88506ae612547cac`
 - Variants captured: `2`
-- Artifact: `../_generated/visual-proofs/tag.json`
 
 ## Anatomy
 
