@@ -4,6 +4,7 @@ import {
 } from "./registry-artifacts-service.mjs";
 import fs from "node:fs/promises";
 import { resolveRepoFilePath } from "../lib/request-file-helpers.mjs";
+import { normalizeVisualProofFromRepositoryEntry } from "../lib/visual-proof-normalizer.ts";
 
 async function fileExistsWithinRepo(repoRoot, relativePath, cache) {
   const resolved = resolveRepoFilePath(repoRoot, relativePath);
@@ -24,6 +25,23 @@ function createPipelineStage(item) {
   return "visual-proof";
 }
 
+function emptyVisualProof() {
+  return {
+    exists: false,
+    screenshot_url: null,
+    image_path: null,
+    captured_at: null,
+    node_id: null,
+    image_sha256: null,
+    image_bytes: null,
+    image_content_type: null,
+    image_width: null,
+    image_height: null,
+    variants_count: 0,
+    variants: [],
+  };
+}
+
 export async function handleComponentRegistryRoute(c, deps) {
   const { failJson, getSystemContext, componentRepo } = deps;
   if (!componentRepo) {
@@ -41,7 +59,11 @@ export async function handleComponentRegistryRoute(c, deps) {
     const proofEntry = Array.isArray(row.visualProofs) && row.visualProofs.length > 0 ? row.visualProofs[0] : null;
     const docPath = specEntry?.markdownPath || `design-systems/${sysCtx.systemId}/docs/components/${row.slug}.md`;
     const specPath = `design-systems/${sysCtx.systemId}/docs/_spec/components/${row.slug}.yml`;
-    const visualProofPath = proofEntry?.imagePath || null;
+    const visualProofFromDb = normalizeVisualProofFromRepositoryEntry(proofEntry) || emptyVisualProof();
+    const visualProofPath =
+      typeof visualProofFromDb.image_path === "string" && visualProofFromDb.image_path
+        ? visualProofFromDb.image_path
+        : null;
     const [docExists, specExists, visualProofExists] = await Promise.all([
       fileExistsWithinRepo(sysCtx.repoRoot, docPath, existsCache),
       fileExistsWithinRepo(sysCtx.repoRoot, specPath, existsCache),
@@ -49,13 +71,21 @@ export async function handleComponentRegistryRoute(c, deps) {
         ? fileExistsWithinRepo(sysCtx.repoRoot, visualProofPath, existsCache)
         : Promise.resolve(false),
     ]);
+    const visualProof = {
+      ...visualProofFromDb,
+      exists: visualProofPath
+        ? visualProofExists
+        : Boolean(visualProofFromDb.screenshot_url) ||
+          Number(visualProofFromDb.variants_count || 0) > 0 ||
+          (Array.isArray(visualProofFromDb.variants) && visualProofFromDb.variants.length > 0),
+    };
     const component = {
       slug: row.slug,
       display_name: row.name,
       paths: {
         spec: specPath,
         doc: docPath,
-        visual_proof: proofEntry?.imagePath || null,
+        visual_proof: visualProofPath,
       },
       spec: {
         exists: specExists,
@@ -69,11 +99,7 @@ export async function handleComponentRegistryRoute(c, deps) {
         file_url: row.figmaFileUrl || null,
         component_set_node_id: row.figmaComponentSetNodeId || null,
       },
-      visual_proof: {
-        exists: visualProofExists,
-        screenshot_url: proofEntry?.screenshotUrl || null,
-        image_path: visualProofPath,
-      },
+      visual_proof: visualProof,
       pipeline_stage: "missing-spec",
       ready_for_publish: false,
     };

@@ -349,7 +349,7 @@ export function buildCaptureFigmaScreenshotCommandConfig(
   const includeVariants = toBooleanString(body.includeVariants, false);
   const requireExistingDoc = toBooleanString(body.requireExistingDoc, true);
   const continueOnError = toBooleanString(body.continueOnError, true);
-  const refreshIndices = toBooleanString(body.refreshIndices, true);
+  const refreshIndices = toBooleanString(body.refreshIndices, false);
   const dryRun = toBooleanString(body.dryRun, false);
   const injectDocSpecs = toBooleanString(body.injectDocSpecs, false);
   const variantLimit = toNumberString(body.variantLimit, 6, 20);
@@ -404,6 +404,8 @@ export function buildCaptureFigmaScreenshotCommandConfig(
     tokensSource,
     '--component-kind',
     componentKind,
+    '--skip-db-persistence',
+    'true',
   ];
   if (componentSlug) commandArgs.push('--component-slug', componentSlug);
   const commandEnv = figmaToken ? { FIGMA_TOKEN: figmaToken } : undefined;

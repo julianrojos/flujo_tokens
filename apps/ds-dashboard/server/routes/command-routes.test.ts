@@ -271,6 +271,58 @@ describe('command-routes', () => {
       const payload = await res.json();
       assert.equal((payload as any).code, 'internal.command_build_failed');
     });
+
+    it('attaches DB persistence hook to capture jobs', async () => {
+      let queuedArgs: any = null;
+      const upsertCalls: Array<{ dsId: string; entries: unknown[] }> = [];
+      const componentRepo = {
+        getBySlug: () => ({
+          name: 'Button',
+          figmaFileUrl: 'https://www.figma.com/design/OLD',
+          figmaComponentSetNodeId: '1:1',
+          specs: [{ markdownPath: 'design-systems/core/docs/components/button.md', docStatus: 'draft', coverage: 0 }],
+        }),
+        upsertFromRegistry: (dsId: string, entries: unknown[]) => {
+          upsertCalls.push({ dsId, entries });
+          return entries.length;
+        },
+      } as any;
+
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123?node-id=1-2',
+        }),
+        componentRepo,
+        queueNodeJsonCommand: (args: any) => {
+          queuedArgs = args;
+          return { id: 'node_job_capture' };
+        },
+      });
+
+      const res = await app.request('/api/capture-figma-screenshot', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(typeof queuedArgs?.onSuccess, 'function');
+
+      await queuedArgs.onSuccess({
+        payload: {
+          source: { file_key: 'abc123' },
+          captured: [
+            {
+              slug: 'button',
+              node_id: '1:2',
+              markdown_path: 'design-systems/core/docs/components/button.md',
+              local_image_path: '/repo/design-systems/core/docs/_generated/visual-proofs/images/button.png',
+              screenshot_url: 'https://cdn.example.com/button.png',
+              variants_count: 2,
+            },
+          ],
+        },
+        emitChunk: () => {},
+      });
+
+      assert.equal(upsertCalls.length, 1);
+      assert.equal(upsertCalls[0]?.dsId, 'core');
+    });
   });
 
   describe('/api/sync-figma-tokens', () => {

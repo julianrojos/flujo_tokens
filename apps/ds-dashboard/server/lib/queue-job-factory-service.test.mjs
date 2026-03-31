@@ -84,6 +84,61 @@ test("queue-job-factory: queueNodeJsonCommand configures JSON parsing", async ()
   assert.deepEqual(runCalls[0].commandEnv, { FIGMA_TOKEN: "secret" });
 });
 
+test("queue-job-factory: queueNodeJsonCommand runs onSuccess post-processing hook", async () => {
+  let hookPayload = null;
+  const { service, enqueued } = createFactory({
+    async runQueuedSpawnCommand() {
+      return { ok: true, code: 0, summary: "ok", payload: { ok: true, captured: [] } };
+    },
+  });
+
+  service.queueNodeJsonCommand({
+    repoRoot: "/repo",
+    commandLabel: "node capture.mjs",
+    scriptPath: "tooling/scripts/capture.mjs",
+    scriptArgs: [],
+    systemId: "core",
+    onSuccess: async ({ payload }) => {
+      hookPayload = payload;
+    },
+  });
+
+  const result = await enqueued[0].execute({ emitChunk() {}, setProcess() {} });
+  assert.equal(result.ok, true);
+  assert.deepEqual(hookPayload, { ok: true, captured: [] });
+});
+
+test("queue-job-factory: queueNodeJsonCommand fails when onSuccess hook throws", async () => {
+  const emitted = [];
+  const { service, enqueued } = createFactory({
+    async runQueuedSpawnCommand() {
+      return { ok: true, code: 0, summary: "ok", payload: { ok: true } };
+    },
+  });
+
+  service.queueNodeJsonCommand({
+    repoRoot: "/repo",
+    commandLabel: "node capture.mjs",
+    scriptPath: "tooling/scripts/capture.mjs",
+    scriptArgs: [],
+    systemId: "core",
+    onSuccess: async () => {
+      throw new Error("db write failed");
+    },
+  });
+
+  const result = await enqueued[0].execute({
+    emitChunk(kind, text) {
+      emitted.push({ kind, text });
+    },
+    setProcess() {},
+  });
+
+  assert.equal(result.ok, false);
+  assert.match(String(result.summary || ""), /Post-processing failed/i);
+  assert.ok(emitted.some((entry) => entry.kind === "error" && /db write failed/i.test(String(entry.text))));
+});
+
 test("queue-job-factory: replay handles run: operations", () => {
   const { service, enqueued } = createFactory({
     supportedReplayOperations: new Set(["run:ds:pipeline"]),

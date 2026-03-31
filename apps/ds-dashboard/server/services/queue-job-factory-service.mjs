@@ -57,6 +57,7 @@ export function createQueueJobFactoryService(config) {
     allowNonZeroJson,
     requestId,
     sourceEventId,
+    onSuccess,
   }) {
     const finalArgs = [...scriptArgs];
     if (systemId) finalArgs.push("--system", systemId);
@@ -79,17 +80,52 @@ export function createQueueJobFactoryService(config) {
         }),
       ),
       execute: async ({ emitChunk, setProcess }) =>
-        await runQueuedSpawnCommand({
-          cwd: repoRoot,
-          command: "node",
-          commandArgs,
-          commandEnv,
-          emitChunk,
-          registerProcess: setProcess,
-          commandLabel,
-          parseJsonStdout: true,
-          allowNonZeroJson: allowNonZeroJson === true,
-        }),
+        await (async () => {
+          const result = await runQueuedSpawnCommand({
+            cwd: repoRoot,
+            command: "node",
+            commandArgs,
+            commandEnv,
+            emitChunk,
+            registerProcess: setProcess,
+            commandLabel,
+            parseJsonStdout: true,
+            allowNonZeroJson: allowNonZeroJson === true,
+          });
+
+          if (!result?.ok || typeof onSuccess !== "function") {
+            return result;
+          }
+
+          try {
+            await onSuccess({
+              payload: result.payload,
+              result,
+              emitChunk,
+              repoRoot,
+              systemId,
+              scriptPath,
+              commandLabel,
+            });
+            return result;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            emitChunk("error", message);
+            const payloadBase =
+              result?.payload && typeof result.payload === "object" ? result.payload : {};
+            return {
+              ...result,
+              ok: false,
+              code: 1,
+              summary: `Post-processing failed: ${message}`,
+              payload: {
+                ...payloadBase,
+                ok: false,
+                post_process_error: message,
+              },
+            };
+          }
+        })(),
     });
   }
 

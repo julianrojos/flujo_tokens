@@ -22,6 +22,7 @@ import {
 } from '../lib/command-route-enqueue-service.ts';
 import { resolveFileKeyForSystem, syncDesignSystemFromPlugin } from './figma-db-sync-service.ts';
 import { getPluginConnectionManager } from './plugin-connection-manager.ts';
+import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
 
 // ---------------------------------------------------------------------------
 // Alias resolution helpers
@@ -88,6 +89,7 @@ export interface CommandRouteHandlerDeps {
     systemId: string;
     figmaFileId?: string;
     healthSnapshotScriptPath: string;
+    tokensFromFigmaScriptPath: string;
     captureFromFigmaUrlScriptPath: string;
   };
   queueNpmScript: (args: unknown) => { id: string };
@@ -508,6 +510,7 @@ export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: Comman
     toNumberString,
     queueNodeJsonCommand,
     queueJobAcceptedPayload,
+    componentRepo,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -530,7 +533,41 @@ export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: Comman
       requestId,
     });
   }
+  if (!componentRepo) {
+    return failJson(c, 500, {
+      code: 'internal.component_repo_missing',
+      userMessage: 'Component repository is not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
 
-  const job = queueNodeJsonCommand(buildCaptureFigmaScreenshotQueueArgs({ sysCtx, requestId, parsed }));
+  const queueArgs = buildCaptureFigmaScreenshotQueueArgs({ sysCtx, requestId, parsed });
+  const job = queueNodeJsonCommand({
+    ...queueArgs,
+    onSuccess: async ({
+      payload,
+      emitChunk,
+    }: {
+      payload: unknown;
+      emitChunk: (kind: string, text: string) => void;
+    }) => {
+      const persisted = persistCapturePayloadToComponentRepo({
+        payload,
+        componentRepo,
+        systemId: sysCtx.systemId,
+        repoRoot: sysCtx.repoRoot,
+      });
+      if (persisted.upserted > 0) {
+        emitChunk('result', `Persisted ${persisted.upserted} captured component proof(s) to DB.`);
+      }
+      if (persisted.skipped > 0) {
+        emitChunk(
+          'warning',
+          `Skipped ${persisted.skipped} captured component proof(s) without a local image path.`,
+        );
+      }
+    },
+  });
   return c.json(queueJobAcceptedPayload(job), 202);
 }

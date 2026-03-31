@@ -246,6 +246,44 @@ function uniqueSlug(baseSlug: string, used: Set<string>): string {
   return next;
 }
 
+type SyncComponentEntry = {
+  slug: string;
+  name: string;
+  status: 'draft';
+  docType: 'component';
+  figma: { fileUrl: string; componentSetNodeId: string };
+  specs?: Array<{
+    markdownPath: string;
+    docStatus?: 'draft' | 'ready' | 'needs-review';
+    coverage?: number;
+  }>;
+  visualProofs?: Array<{
+    imagePath: string;
+    screenshotUrl?: string;
+    caption?: string;
+    capturedAt?: string;
+    nodeId?: string;
+    imageSha256?: string;
+    imageBytes?: number;
+    imageContentType?: string;
+    imageWidth?: number;
+    imageHeight?: number;
+    variantsCount?: number;
+    variants?: Array<{
+      name: string;
+      node_id?: string | null;
+      screenshot_url?: string | null;
+      image_path?: string | null;
+      captured_at?: string | null;
+      image_sha256?: string | null;
+      image_bytes?: number | null;
+      image_content_type?: string | null;
+      image_width?: number | null;
+      image_height?: number | null;
+    }>;
+  }>;
+};
+
 export interface SyncFromPluginOptions {
   db: Database.Database;
   componentRepo: ComponentRepository;
@@ -444,13 +482,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   }
   const { tokens, modeValues, aliases, graphJson } = buildTokenRows(variablesResponse.meta);
 
-  let componentEntries: Array<{
-    slug: string;
-    name: string;
-    status: 'draft';
-    docType: 'component';
-    figma: { fileUrl: string; componentSetNodeId: string };
-  }> = [];
+  let componentEntries: SyncComponentEntry[] = [];
   let componentsTruncated = false;
 
   if (includeComponents) {

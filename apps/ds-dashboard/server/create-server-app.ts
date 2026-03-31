@@ -78,6 +78,23 @@ export interface ServerApp {
   disposeDesignSystemRepository: () => void;
 }
 
+function resolveDashboardDbPath(repoRoot: string, env: NodeJS.ProcessEnv): string {
+  const fromEnv = String(env.DS_DASHBOARD_DB_PATH || '').trim();
+  if (fromEnv) {
+    if (!path.isAbsolute(fromEnv)) {
+      throw new Error('DS_DASHBOARD_DB_PATH must be an absolute path.');
+    }
+    const resolved = path.resolve(fromEnv);
+    const parentDir = path.dirname(resolved);
+    if (!fsSync.existsSync(parentDir)) {
+      throw new Error(`DS_DASHBOARD_DB_PATH parent directory does not exist: ${parentDir}`);
+    }
+    fsSync.accessSync(parentDir, fsSync.constants.R_OK | fsSync.constants.W_OK);
+    return resolved;
+  }
+  return path.join(repoRoot, 'apps/ds-dashboard/server/db/ds-dashboard.db');
+}
+
 function defaultRepoRoot(): string {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
@@ -111,7 +128,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   } = options;
 
   // Initialize SQLite database
-  const dbPath = path.join(repoRoot, 'apps/ds-dashboard/server/db/ds-dashboard.db');
+  let dbPath = '';
   let db: import('better-sqlite3').Database | undefined;
   let aiJobsStore!: AiJobsStoreWithPersistence;
   let tokenRepo!: TokenRepository;
@@ -122,6 +139,7 @@ export function createServerApp(options: CreateServerAppOptions = {}): ServerApp
   let designSystemRepository: DesignSystemRepository | null = null;
 
   try {
+    dbPath = resolveDashboardDbPath(repoRoot, env);
     db = bootstrapDatabase({ dbPath });
     designSystemRepository = new DesignSystemRepository(db, { repoRoot });
     componentRepo = new ComponentRepository(db);

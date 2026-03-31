@@ -28,3 +28,14 @@ DS_DASHBOARD_API_HOST=0.0.0.0
 ```
 
 You can place it in `apps/ds-dashboard/.env` or export it before starting `dev:api`.
+
+## Database path override (tooling persistence)
+
+Tooling commands that persist capture/registry data to SQLite can override the DB location with:
+
+```bash
+DS_DASHBOARD_DB_PATH=/absolute/path/to/ds-dashboard.db
+```
+
+If not set, tooling uses:
+`apps/ds-dashboard/server/db/ds-dashboard.db` (relative to repository root).

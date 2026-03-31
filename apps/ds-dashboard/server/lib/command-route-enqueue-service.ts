@@ -9,6 +9,7 @@ export interface SystemContext {
   repoRoot: string;
   systemId: string;
   healthSnapshotScriptPath: string;
+  tokensFromFigmaScriptPath: string;
   captureFromFigmaUrlScriptPath: string;
 }
 
@@ -75,6 +76,17 @@ export interface HealthSnapshotQueueArgs {
 
 
 export interface CaptureFigmaScreenshotQueueArgs {
+  repoRoot: string;
+  commandLabel: string;
+  scriptPath: string;
+  systemId: string;
+  requestId: string;
+  scriptArgs: string[];
+  commandEnv?: Record<string, string>;
+  allowNonZeroJson: boolean;
+}
+
+export interface SyncFigmaTokensQueueArgs {
   repoRoot: string;
   commandLabel: string;
   scriptPath: string;
@@ -188,6 +200,27 @@ export function buildHealthSnapshotQueueArgs(options: {
     requestId,
     scriptArgs: parsed.scriptArgs,
     commandEnv: parsed.commandEnv,
+  };
+}
+
+/**
+ * Build queue args for syncing Figma tokens.
+ */
+export function buildSyncFigmaTokensQueueArgs(options: {
+  sysCtx: SystemContext;
+  requestId: string;
+  parsed: ParsedNodeJsonCommandConfig;
+}): SyncFigmaTokensQueueArgs {
+  const { sysCtx, requestId, parsed } = options;
+  return {
+    repoRoot: sysCtx.repoRoot,
+    commandLabel: `node tooling/scripts/ds-tokens-from-figma.mjs ${parsed.commandDisplayArgs.join(' ')}`,
+    scriptPath: sysCtx.tokensFromFigmaScriptPath,
+    systemId: sysCtx.systemId,
+    requestId,
+    scriptArgs: parsed.commandArgs,
+    commandEnv: parsed.commandEnv,
+    allowNonZeroJson: true,
   };
 }
 
