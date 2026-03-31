@@ -6,7 +6,7 @@
  *
  * Extracted from ds-capture-from-figma-url.mjs so it can be used by:
  * - ds-capture-from-figma-url.mjs (existing — bootstrap on first capture)
- * - ds-tokens-from-figma.mjs     (new — standalone re-sync at any time)
+ * - tooling/src/runners/tokens-from-figma-runner.ts (standalone re-sync at any time)
  */
 
 import fs from "node:fs";

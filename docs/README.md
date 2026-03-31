@@ -45,11 +45,9 @@ design-systems/
 
 ## ¿Cuándo usar docs/ raíz vs docs/ por sistema?
 
-| Tipo de contenido | Ubicación | Ejemplo |
-|------------------|-----------|---------|
-| Índice global de componentes | `docs/components/` | `docs/components/overview.md` |
-| Documentación de componente específico | `design-systems/<id>/docs/components/` | `design-systems/sys-01/docs/components/boton.md` |
-| Registry global | `docs/_generated/` | `docs/_generated/component-registry.json` |
-| Registry por sistema | `design-systems/<id>/docs/_generated/` | `design-systems/sys-01/docs/_generated/component-registry.json` |
-| Especificación de componente | `design-systems/<id>/docs/_spec/` | `design-systems/sys-01/docs/_spec/components/boton.yml` |
-| Decisiones arquitectónicas | `docs/adr/` | `docs/adr/0001-token-format.md` |
+| Tipo de contenido                      | Ubicación                              | Ejemplo                                                 |
+| -------------------------------------- | -------------------------------------- | ------------------------------------------------------- |
+| Índice global de componentes           | `docs/components/`                     | `docs/components/overview.md`                           |
+| Documentación de componente específico | `design-systems/<id>/docs/components/` | `design-systems/sys-01/docs/components/boton.md`        |
+| Especificación de componente           | `design-systems/<id>/docs/_spec/`      | `design-systems/sys-01/docs/_spec/components/boton.yml` |
+| Decisiones arquitectónicas             | `docs/adr/`                            | `docs/adr/0001-token-format.md`                         |
