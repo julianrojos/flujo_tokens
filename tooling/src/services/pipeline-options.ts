@@ -32,6 +32,7 @@ export interface PipelineFlags {
   force: boolean;
   skipValidation: boolean;
   allowNonEvidenceUpdates: boolean;
+  skipDbPersistence: boolean;
 }
 
 export interface PipelineOptionsArgs {
@@ -53,6 +54,7 @@ export interface PipelineOptionsArgs {
   force?: string | boolean;
   'skip-validation'?: string | boolean;
   'allow-non-evidence-updates'?: string | boolean;
+  'skip-db-persistence'?: string | boolean;
   [key: string]: unknown;
 }
 
@@ -69,7 +71,7 @@ export function parsePipelineOptions(args: PipelineOptionsArgs): PipelineFlags {
     includeVariants: parseBooleanOption(args['include-variants'], '--include-variants', true),
     requireExistingDoc: parseBooleanOption(args['require-existing-doc'], '--require-existing-doc', true),
     continueOnError: parseBooleanOption(args['continue-on-error'], '--continue-on-error', true),
-    refreshIndices: parseBooleanOption(args['refresh-indices'], '--refresh-indices', true),
+    refreshIndices: parseBooleanOption(args['refresh-indices'], '--refresh-indices', false),
     dryRun: parseBooleanOption(args['dry-run'], '--dry-run', false),
     injectDocSpecs: parseBooleanOption(args['inject-doc-specs'], '--inject-doc-specs', false),
     includeSpecExhibits: parseBooleanOption(args['include-spec-exhibits'], '--include-spec-exhibits', true),
@@ -82,5 +84,6 @@ export function parsePipelineOptions(args: PipelineOptionsArgs): PipelineFlags {
     force: String(args.force || 'false') === 'true',
     skipValidation: String(args['skip-validation'] || 'false') === 'true',
     allowNonEvidenceUpdates: String(args['allow-non-evidence-updates'] || 'false') === 'true',
+    skipDbPersistence: parseBooleanOption(args['skip-db-persistence'], '--skip-db-persistence', false),
   };
 }

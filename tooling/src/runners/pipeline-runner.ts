@@ -8,10 +8,9 @@
  */
 
 import fs from 'node:fs';
-import path from 'node:path';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
 import { runDoctor } from './doctor-runner.js';
 import { createPlan } from '../services/pipeline-plan.js';
@@ -89,9 +88,13 @@ async function runPreflight(options: PipelineOptions): Promise<boolean> {
       : ['PATH_DOCS', 'PATH_SPECS', 'TOKEN_REGISTRY', 'COMPONENT_REGISTRY'],
   );
 
-  const registryExists = fs.existsSync(
-    path.join(PROJECT_ROOT, 'docs', '_generated', 'component-registry.json'),
-  );
+  let registryExists = false;
+  try {
+    const systemCtx = resolveSystemContextSafe({ system });
+    registryExists = fs.existsSync(systemCtx.paths.registry);
+  } catch {
+    registryExists = false;
+  }
 
   if (!options['status-only'] || !registryExists) {
     if (!json) {

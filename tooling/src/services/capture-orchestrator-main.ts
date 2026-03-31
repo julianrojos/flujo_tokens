@@ -215,7 +215,6 @@ export async function runCaptureFromFigmaUrl(
     componentDocsDir,
     proofDir,
     proofImageDir,
-    registryIndexPath,
     resolvedSpecRoot,
   } = paths;
 
@@ -234,6 +233,7 @@ export async function runCaptureFromFigmaUrl(
     format,
     agent,
     mainCaptureMode,
+    skipDbPersistence,
   } = flags;
 
   phase = 'parse_descriptor';
@@ -339,7 +339,6 @@ export async function runCaptureFromFigmaUrl(
   const applySlugOverride = Boolean(componentSlugOverride && hasNodeIdFromUrl);
 
   const captureScriptPath = path.join(projectRoot, 'tooling', 'scripts', 'ds-capture-visual-proof.mjs');
-  const registryRefreshScriptPath = path.join(projectRoot, 'tooling', 'scripts', 'ds-registry-refresh.mjs');
 
   let targets: CaptureTarget[];
   let skipped: unknown[];
@@ -434,6 +433,7 @@ export async function runCaptureFromFigmaUrl(
       agent,
       mainCaptureMode,
       refreshIndices,
+      skipDbPersistence,
     });
   } catch (error) {
     throwWithPipelinePhase(error, phase);

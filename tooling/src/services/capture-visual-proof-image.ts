@@ -23,7 +23,6 @@ import {
   extractImageDimensions,
   writeBufferAtomic,
   sha256Hex,
-  collectProofImagePaths,
 } from './capture-visual-proof-io.js';
 import {
   extractVariantNodes,
@@ -393,7 +392,7 @@ export async function downloadAndStoreMainImage(
  * Load previous proof image paths from existing payload.
  */
 export async function loadPreviousProofImagePaths(
-  proofFilePath: string,
+  proofRecordPath: string,
   docsRootDir: string,
   dryRun: boolean,
 ): Promise<string[]> {
@@ -401,17 +400,35 @@ export async function loadPreviousProofImagePaths(
     return [];
   }
 
-  if (!fs.existsSync(proofFilePath)) {
-    return [];
+  const proofDir = path.dirname(path.resolve(proofRecordPath));
+  const proofImageDir = path.join(proofDir, 'images');
+  const variantsDir = path.join(proofImageDir, 'variants');
+  const slug = path.basename(proofRecordPath, path.extname(proofRecordPath)).trim();
+  if (!slug) return [];
+
+  const paths: string[] = [];
+  if (fs.existsSync(proofImageDir)) {
+    for (const entry of fs.readdirSync(proofImageDir, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const name = String(entry.name || '');
+      if (!name.startsWith(`${slug}.`)) continue;
+      paths.push(path.join(proofImageDir, name));
+    }
+  }
+  if (fs.existsSync(variantsDir)) {
+    for (const entry of fs.readdirSync(variantsDir, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const name = String(entry.name || '');
+      if (!name.startsWith(`${slug}__`)) continue;
+      paths.push(path.join(variantsDir, name));
+    }
   }
 
-  try {
-    const previousPayload = JSON.parse(fs.readFileSync(proofFilePath, 'utf8'));
-    return collectProofImagePaths({
-      proofPayload: previousPayload,
-      docsRootDir,
-    });
-  } catch {
-    return [];
-  }
+  const resolvedDocsRoot = path.resolve(docsRootDir);
+  const rootWithSep = resolvedDocsRoot.endsWith(path.sep)
+    ? resolvedDocsRoot
+    : `${resolvedDocsRoot}${path.sep}`;
+  return paths
+    .map((candidate) => path.resolve(candidate))
+    .filter((candidate) => candidate === resolvedDocsRoot || candidate.startsWith(rootWithSep));
 }

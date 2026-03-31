@@ -26,7 +26,7 @@ export interface CaptureVisualProofArgs {
   'include-variants'?: string;
   'variant-limit'?: string;
   'dry-run'?: string;
-  'skip-index-sync'?: string;
+  'skip-db-persistence'?: string;
   system?: string;
   'docs-root'?: string;
   'spec-root'?: string;
@@ -103,17 +103,29 @@ export interface CaptureVisualProofReport {
   component: string;
   markdownPath: string;
   specPath: string;
-  proofFilePath: string;
+  proofRecordPath: string;
   localImagePath: string | null;
   screenshotUrl: string;
   nodeId: string;
+  capturedAt: string;
   format: string;
   scale: number;
   imageSha256: string | null;
+  imageBytes: number | null;
+  imageContentType: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
   variantsCount: number;
+  variants: VisualProofVariant[];
   mainCaptureMode: string;
-  indexSyncSkipped: boolean;
   deletedStaleImages: string[];
+  db_persistence?: {
+    ok: boolean;
+    attempted?: number;
+    upserted?: number;
+    skipped?: number;
+    error?: string;
+  };
 }
 
 /**

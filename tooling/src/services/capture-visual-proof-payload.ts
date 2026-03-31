@@ -19,7 +19,6 @@ import {
   resolveProofImageAbsolutePath,
   removeEmptyParentDirs,
 } from './capture-visual-proof-io.js';
-import { syncDocumentationIndices } from './component-registry-index.js';
 
 /**
  * Upsert visual proof section in markdown overview.
@@ -89,11 +88,8 @@ export function writeProofArtifacts(
     docsRootDir: string;
     componentDocsDir: string;
     specPath: string;
-    skipIndexSync: boolean;
     dryRun: boolean;
   },
-  proofFilePath: string,
-  proofPayload: VisualProofPayload,
   markdownPath: string,
   frontmatterRaw: string,
   nextContent: string,
@@ -108,10 +104,6 @@ export function writeProofArtifacts(
   }
 
   fs.mkdirSync(ctx.proofDir, { recursive: true });
-  writeTextAtomic(
-    proofFilePath,
-    `${JSON.stringify(proofPayload, null, 2)}\n`,
-  );
   const markdownPrefix = frontmatterRaw
     ? `${frontmatterRaw}\n`
     : '';
@@ -144,16 +136,6 @@ export function writeProofArtifacts(
     }
   }
 
-  if (!ctx.skipIndexSync) {
-    syncDocumentationIndices({
-      docsDir: ctx.componentDocsDir,
-      overviewPath: path.join(ctx.componentDocsDir, 'overview.md'),
-      specsDir: path.dirname(ctx.specPath),
-      proofsDir: ctx.proofDir,
-      registryPath: path.join(ctx.docsRootDir, '_generated', 'component-registry.json'),
-    });
-  }
-
   return deletedStaleImages;
 }
 
@@ -166,14 +148,14 @@ export function buildCaptureReport(
     componentSlug: string;
     markdownPath: string;
     specPath: string;
-    skipIndexSync: boolean;
     format: string;
     scale: number;
   },
   mainResult: MainCaptureResult,
   localImageInfo: LocalImageInfo,
   variantProofs: VisualProofVariant[],
-  proofFilePath: string,
+  capturedAt: string,
+  proofRecordPath: string,
   deletedStaleImages: string[],
 ): CaptureVisualProofReport {
   return {
@@ -182,16 +164,21 @@ export function buildCaptureReport(
     component: ctx.componentSlug,
     markdownPath: ctx.markdownPath,
     specPath: ctx.specPath,
-    proofFilePath,
+    proofRecordPath,
     localImagePath: localImageInfo.path,
     screenshotUrl: mainResult.imageUrlRaw,
     nodeId: mainResult.normalizedNodeId,
+    capturedAt,
     format: ctx.format,
     scale: ctx.scale,
     imageSha256: localImageInfo.sha256,
+    imageBytes: localImageInfo.bytes,
+    imageContentType: localImageInfo.contentType,
+    imageWidth: localImageInfo.width,
+    imageHeight: localImageInfo.height,
     variantsCount: variantProofs.length,
+    variants: variantProofs,
     mainCaptureMode: mainResult.captureSource === 'REST' ? 'rest' : 'agent',
-    indexSyncSkipped: ctx.skipIndexSync,
     deletedStaleImages,
   };
 }
@@ -267,14 +254,12 @@ export function buildVisualSectionLines({
   localImageInfo,
   variantProofs,
   capturedAt,
-  artifactPathForMarkdown,
   markdownPath,
 }: {
   mainResult: MainCaptureResult;
   localImageInfo: LocalImageInfo;
   variantProofs: VisualProofVariant[];
   capturedAt: string;
-  artifactPathForMarkdown: string;
   markdownPath: string;
 }): string[] {
   const capturedDate = capturedAt.slice(0, 10);
@@ -296,6 +281,5 @@ export function buildVisualSectionLines({
     ...(variantProofs.length > 0
       ? [`- Variants captured: \`${variantProofs.length}\``]
       : []),
-    `- Artifact: \`${artifactPathForMarkdown}\``,
   ];
 }

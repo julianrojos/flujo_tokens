@@ -28,6 +28,7 @@ import {
  * Resolved capture context.
  */
 export interface CaptureVisualProofContext {
+  systemId: string;
   componentSlug: string;
   componentDocsDir: string;
   docsRootDir: string;
@@ -43,7 +44,7 @@ export interface CaptureVisualProofContext {
   agent: string;
   mainCaptureMode: 'auto' | 'agent' | 'rest';
   dryRun: boolean;
-  skipIndexSync: boolean;
+  skipDbPersistence: boolean;
   storeLocalImage: boolean;
   requireLocalImage: boolean;
   downloadTimeoutMs: number;
@@ -152,9 +153,9 @@ export function prepareCaptureContext(args: CaptureVisualProofArgs): CaptureVisu
   const agent = String(args.agent || process.env.DS_AGENT || 'auto');
   const mainCaptureMode = parseMainCaptureMode(String(args['main-capture-mode'] || 'auto'));
   const dryRun = parseBooleanOption(args['dry-run'], '--dry-run', false);
-  const skipIndexSync = parseBooleanOption(
-    args['skip-index-sync'],
-    '--skip-index-sync',
+  const skipDbPersistence = parseBooleanOption(
+    args['skip-db-persistence'],
+    '--skip-db-persistence',
     false,
   );
   const storeLocalImage = parseBooleanOption(
@@ -202,6 +203,7 @@ export function prepareCaptureContext(args: CaptureVisualProofArgs): CaptureVisu
   });
 
   return {
+    systemId: ctx.id,
     componentSlug,
     componentDocsDir,
     docsRootDir,
@@ -217,7 +219,7 @@ export function prepareCaptureContext(args: CaptureVisualProofArgs): CaptureVisu
     agent,
     mainCaptureMode,
     dryRun,
-    skipIndexSync,
+    skipDbPersistence,
     storeLocalImage,
     requireLocalImage,
     downloadTimeoutMs,
