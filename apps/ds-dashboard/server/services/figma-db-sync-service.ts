@@ -291,6 +291,50 @@ type UsageOccurrenceRow = {
   detail: string;
 };
 
+function mapPluginBridgeError(error: unknown, args: {
+  figmaFileId: string;
+  operation: 'variables' | 'components';
+}): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  const wrapWithCause = (userMessage: string): Error => {
+    const cause = error instanceof Error ? error : new Error(message);
+    return new Error(userMessage, { cause });
+  };
+  const action = args.operation === 'variables' ? 'read variables' : 'read components';
+  if (message.includes('ws.request.no_socket_for_file')) {
+    return wrapWithCause(
+      `Cannot ${action} from Figma file "${args.figmaFileId}" because no plugin socket is connected for that file. ` +
+      'Open that exact file in Figma Desktop, run the Figma Desktop Bridge plugin, and retry.',
+    );
+  }
+  if (message.includes('ws.request.timeout')) {
+    return wrapWithCause(
+      `Timeout while trying to ${action} from Figma file "${args.figmaFileId}". ` +
+      'Ensure the Figma Desktop Bridge plugin is running and responsive, then retry.',
+    );
+  }
+  if (message.includes('ws.request.socket_not_open') || message.includes('ws.connection.closed')) {
+    return wrapWithCause(
+      `Plugin connection was lost while trying to ${action} from Figma file "${args.figmaFileId}". ` +
+      'Reopen the file in Figma Desktop, restart the Figma Desktop Bridge plugin, and retry.',
+    );
+  }
+  if (message.includes('ws.request.no_connection') || message.includes('ws.request.send_failed')) {
+    return wrapWithCause(
+      `Plugin bridge is unavailable while trying to ${action} from Figma file "${args.figmaFileId}". ` +
+      'Restart the Figma Desktop Bridge plugin and retry.',
+    );
+  }
+  if (message.includes('ws.response.error:')) {
+    return wrapWithCause(
+      `Plugin reported an error while trying to ${action} from Figma file "${args.figmaFileId}". ` +
+      'Check the Figma Desktop Bridge plugin console for details and retry.',
+    );
+  }
+  // Unmapped error: wrap with original as cause if it's an Error
+  return error instanceof Error ? error : new Error(message);
+}
+
 function buildTokenUsageRowsFromFilesystem(options: {
   dsId: string;
   repoRoot: string;
@@ -389,7 +433,15 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     throw new Error('Token usage reindex failed: Token usage reindex requested but repoRoot is missing.');
   }
 
-  const variablesResponse = await fetchVariables(figmaFileId);
+  let variablesResponse: FigmaVariablesResponse;
+  try {
+    variablesResponse = await fetchVariables(figmaFileId);
+  } catch (error) {
+    throw mapPluginBridgeError(error, {
+      figmaFileId,
+      operation: 'variables',
+    });
+  }
   const { tokens, modeValues, aliases, graphJson } = buildTokenRows(variablesResponse.meta);
 
   let componentEntries: Array<{
@@ -402,11 +454,19 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   let componentsTruncated = false;
 
   if (includeComponents) {
-    const componentsResult = await searchComponents(figmaFileId, {
-      includeVariants: false,
-      compact: true,
-      limit: 200,
-    });
+    let componentsResult: Awaited<ReturnType<typeof searchComponents>>;
+    try {
+      componentsResult = await searchComponents(figmaFileId, {
+        includeVariants: false,
+        compact: true,
+        limit: 200,
+      });
+    } catch (error) {
+      throw mapPluginBridgeError(error, {
+        figmaFileId,
+        operation: 'components',
+      });
+    }
     componentsTruncated = componentsResult.truncated === true;
     const usedSlugs = new Set<string>();
     const figmaFileUrl = `https://www.figma.com/design/${encodeURIComponent(figmaFileId)}`;

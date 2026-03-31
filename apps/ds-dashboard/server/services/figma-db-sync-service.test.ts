@@ -128,6 +128,122 @@ function buildVariablesPayload(input: {
 }
 
 describe('figma-db-sync-service', () => {
+  const baseVariablesPayload = buildVariablesPayload({
+    collections: {
+      col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+    },
+    variables: {
+      v1: {
+        id: 'v1',
+        name: 'color/ok',
+        variableCollectionId: 'col1',
+        resolvedType: 'COLOR',
+        valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+      },
+    },
+  });
+
+  const bridgeErrorCases: Array<{
+    name: string;
+    runId: string;
+    figmaFileId: string;
+    thrownMessage: string;
+    expectedMessageIncludes: string;
+    expectedCauseIncludes: string;
+    operation: 'variables' | 'components';
+  }> = [
+    {
+      name: 'maps no-socket bridge errors to an actionable import message',
+      runId: 'run-no-socket',
+      figmaFileId: 'FILE_ABC123',
+      thrownMessage: 'ws.request.no_socket_for_file:GET_VARIABLES_DATA',
+      expectedMessageIncludes: 'no plugin socket is connected for that file',
+      expectedCauseIncludes: 'ws.request.no_socket_for_file',
+      operation: 'variables',
+    },
+    {
+      name: 'maps timeout bridge errors to an actionable import message',
+      runId: 'run-timeout',
+      figmaFileId: 'FILE_TIMEOUT',
+      thrownMessage: 'ws.request.timeout:GET_VARIABLES_DATA',
+      expectedMessageIncludes: 'Timeout while trying to read variables',
+      expectedCauseIncludes: 'ws.request.timeout',
+      operation: 'variables',
+    },
+    {
+      name: 'maps unavailable-bridge errors to an actionable import message',
+      runId: 'run-unavailable-bridge',
+      figmaFileId: 'FILE_UNAVAILABLE',
+      thrownMessage: 'ws.request.no_connection:GET_VARIABLES_DATA',
+      expectedMessageIncludes: 'Plugin bridge is unavailable while trying to read variables',
+      expectedCauseIncludes: 'ws.request.no_connection',
+      operation: 'variables',
+    },
+    {
+      name: 'maps plugin response errors to an actionable import message',
+      runId: 'run-response-error',
+      figmaFileId: 'FILE_RESPONSE_ERROR',
+      thrownMessage: 'ws.response.error:GET_VARIABLES_DATA:permission_denied',
+      expectedMessageIncludes: 'Plugin reported an error while trying to read variables',
+      expectedCauseIncludes: 'ws.response.error:',
+      operation: 'variables',
+    },
+    {
+      name: 'maps component bridge errors to an actionable import message',
+      runId: 'run-components-socket',
+      figmaFileId: 'FILE_COMPONENTS',
+      thrownMessage: 'ws.request.socket_not_open:SEARCH_COMPONENTS',
+      expectedMessageIncludes: 'Plugin connection was lost while trying to read components',
+      expectedCauseIncludes: 'ws.request.socket_not_open',
+      operation: 'components',
+    },
+  ];
+
+  for (const testCase of bridgeErrorCases) {
+    it(testCase.name, async () => {
+      const db = createTestDb();
+      try {
+        const fetchVariables = async (): Promise<FigmaVariablesResponse> => {
+          if (testCase.operation === 'variables') {
+            throw new Error(testCase.thrownMessage);
+          }
+          return baseVariablesPayload;
+        };
+        const searchComponents = async () => {
+          if (testCase.operation === 'components') {
+            throw new Error(testCase.thrownMessage);
+          }
+          return {
+            components: [] as Array<{ nodeId: string; name: string }>,
+            truncated: false,
+          };
+        };
+
+        await assert.rejects(
+          () =>
+            syncDesignSystemFromPlugin({
+              db,
+              componentRepo: makeComponentRepoStub(),
+              dsId: 'sys-01',
+              figmaFileId: testCase.figmaFileId,
+              includeComponents: testCase.operation === 'components',
+              dryRun: false,
+              createRunId: () => testCase.runId,
+              fetchVariables,
+              searchComponents,
+            }),
+          (err: Error) => {
+            if (!err.message.includes(testCase.expectedMessageIncludes)) return false;
+            if (!(err.cause instanceof Error)) return false;
+            return err.cause.message.includes(testCase.expectedCauseIncludes);
+          },
+        );
+      } finally {
+        db.close();
+      }
+    });
+  }
+
   it('fails fast when staging ends up empty (no token rows)', async () => {
     const db = createTestDb();
     try {
