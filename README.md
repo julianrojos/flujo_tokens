@@ -347,17 +347,17 @@ Migration notes (legacy cleanup):
 - **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
 - **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
-- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata JSON + local image) by default. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it atomically refreshes component indices (`component-registry.json` + `overview.md`) and regenerates `docs/_generated/token-usage-index.json`.
+- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata + local image) by default. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it syncs component indices to the dashboard SQLite DB and refreshes `docs/components/overview.md`, then regenerates `docs/_generated/token-usage-index.json`.
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation (outside `ds:pipeline`).
-- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`).
+- **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage + token graph refresh).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
-- **`npm run ds:registry:sync`**: Builds or updates `docs/_generated/component-registry.json` as the deterministic single index for component docs/spec status.
-- **`npm run ds:registry:refresh`**: Atomically refreshes `docs/_generated/component-registry.json` and `docs/components/overview.md` together (rollback on failure).
-- **`npm run ds:registry:validate`**: Validates component registry schema and checks drift between registry content and current source artifacts.
-- **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from the component registry in canonical sorted format.
+- **`npm run ds:registry:sync`**: Syncs component metadata from docs/spec sources into the dashboard SQLite DB and refreshes overview.
+- **`npm run ds:registry:refresh`**: Refreshes DB-backed component index state and `docs/components/overview.md` together (rollback on overview write failure).
+- **`npm run ds:registry:validate`**: Validates DB-backed component registry consistency and checks drift against current source artifacts.
+- **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from DB-backed component state.
 - **`npm run ds:registry:report`**: Generates read-only registry projections (`docs/COMPONENTS_INDEX.md` and `docs/_generated/components-health.json`) without scanning specs/docs again.
 - **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
-- **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
+- **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry DB presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
 - **`npm run dashboard:dev`**: Starts a local React dashboard (Vite) to explore component and token artifacts from local generated files.
 - **`npm run dashboard:build`**: Builds the local dashboard app.
@@ -372,7 +372,7 @@ Migration notes (legacy cleanup):
 - `docs/components/`: component documentation pages (e.g. `alert.md`)
 - `docs/_spec/`: documentation specs and visual theme contract
 - `docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
-- `docs/_generated/component-registry.json`: generated component registry (single source index for status and traceability pointers)
+- `apps/ds-dashboard/server/db/ds-dashboard.db`: operational storage for component registry state (override with `DS_DASHBOARD_DB_PATH`)
 - `docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
 - `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
 - `docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
@@ -382,7 +382,7 @@ Migration notes (legacy cleanup):
 The repository includes a local dashboard app under `apps/ds-dashboard` with two left sidebar sections:
 
 - `Tokens & Properties` (custom properties + token inventory from `docs/_generated/token-registry.json`, plus `Used In` from `docs/_generated/token-usage-index.json`)
-- `Componentes` (component pipeline state from `docs/_generated/component-registry.json`)
+- `Componentes` (component pipeline state from the dashboard SQLite DB via the local API)
 
 No external server is required. The dashboard runs locally and reads local repository artifacts via a Vite local API.
 
@@ -476,7 +476,7 @@ Component pages are governed by rules in `.agents/rules/` and must include:
   - optional spec `related_components` is validated:
     - values must be `snake_case` slugs, unique, and must not self-reference
     - in `ready` specs, every entry must resolve to an existing component spec YAML
-  - component index artifacts must be refreshed atomically (`docs/_generated/component-registry.json` + `docs/components/overview.md`)
+  - component index state must be refreshed coherently (dashboard SQLite DB + `docs/components/overview.md`)
   - validation is a gate after spec and markdown generation
   - see `.agents/rules/docs-pipeline-contract.mdc` for the full stage contract
 - `## Gaps / TBD` contract is enforced:
@@ -712,7 +712,7 @@ npm run ds:registry:report
 
 Useful flags:
 
-- `--registry <path>` (default: `docs/_generated/component-registry.json`)
+- `--registry <path>` (default: `apps/ds-dashboard/server/db/ds-dashboard.db`)
 - `--spec-root <path>` (default: `docs/_spec/components`)
 - `--docs-root <path>` (default: `docs/components`)
 - `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
