@@ -110,18 +110,18 @@ export function checkWcagPairs(
     actualLevel: 'AA' | 'AAA' | 'fail';
   }> = [];
 
-  // WCAG contrast calculation not implemented yet.
-  // Returns empty array - no failures reported until implementation is complete.
-  // TODO: Implement color parsing and contrast ratio calculation per WCAG 2.1
-  // See: https://www.w3.org/WAI/GL/wiki/Relative_luminance
-  // See: https://www.w3.org/WAI/GL/wiki/Contrast_ratio
+  // WCAG contrast calculation is intentionally not implemented in this service yet.
+  // For now we return no failures and delegate contrast validation elsewhere.
+  // Reference formulas:
+  // https://www.w3.org/WAI/GL/wiki/Relative_luminance
+  // https://www.w3.org/WAI/GL/wiki/Contrast_ratio
 
   return failures;
 }
 
 /**
  * Find high coupling tokens by usage count
- * Supports both new format (entries) and legacy format (usage) for backward compatibility
+ * Uses usageIndex.entries (indexed format)
  */
 export function findHighUsageTokens(
   usageIndex: any,
@@ -137,26 +137,13 @@ export function findHighUsageTokens(
     usageCount: number;
   }> = [];
 
-  // New format: usageIndex.entries (preferred)
   if (usageIndex && usageIndex.entries && Array.isArray(usageIndex.entries)) {
     for (const entry of usageIndex.entries) {
       if (entry.usageCount >= threshold) {
         highUsage.push({
-          tokenId: entry.path, // Use path as tokenId in new format
+          tokenId: entry.path,
           tokenPath: entry.path,
           usageCount: entry.usageCount,
-        });
-      }
-    }
-  }
-  // Legacy format: usageIndex.usage (fallback for backward compatibility)
-  else if (usageIndex && usageIndex.usage && Array.isArray(usageIndex.usage)) {
-    for (const usage of usageIndex.usage) {
-      if (usage.usageCount >= threshold) {
-        highUsage.push({
-          tokenId: usage.tokenId,
-          tokenPath: usage.tokenPath,
-          usageCount: usage.usageCount,
         });
       }
     }

@@ -74,6 +74,12 @@ const PROJECT_ROOT = process.cwd();
 const RULE_MANIFEST_PATH = path.join(PROJECT_ROOT, '.agents', 'rules', '_manifest.yml');
 const TOKEN_LIKE_CODE_SPAN_RE = /`[^`\n]*(?:[A-Za-z][A-Za-z0-9-]*(?:[./][A-Za-z0-9-]+)+)[^`\n]*`/;
 
+type IndexedRegistryShape = {
+  entries: unknown[];
+  byPath: Record<string, unknown>;
+  bySlashPath?: Record<string, unknown>;
+};
+
 function resolveDocsValidatorDefaults() {
   try {
     const ctx = resolveSystemContextSafe();
@@ -89,6 +95,28 @@ function resolveDocsValidatorDefaults() {
       registryPath: path.join(PROJECT_ROOT, 'docs', '_generated', 'token-registry.json'),
     };
   }
+}
+
+function isIndexedRegistryShape(parsed: unknown): parsed is IndexedRegistryShape {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return false;
+  const candidate = parsed as Record<string, unknown>;
+  if (!Array.isArray(candidate.entries)) return false;
+  if (!candidate.entries.every((entry) => entry && typeof entry === 'object' && !Array.isArray(entry))) {
+    return false;
+  }
+  if (!candidate.byPath || typeof candidate.byPath !== 'object' || Array.isArray(candidate.byPath)) {
+    return false;
+  }
+  if (candidate.bySlashPath !== undefined) {
+    if (
+      !candidate.bySlashPath ||
+      typeof candidate.bySlashPath !== 'object' ||
+      Array.isArray(candidate.bySlashPath)
+    ) {
+      return false;
+    }
+  }
+  return true;
 }
 
 // ============================================================================
@@ -130,33 +158,13 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
   try {
     const raw = fs.readFileSync(registryPath, 'utf8');
     const parsed = JSON.parse(raw);
-    
-    // Normalize registry structure: support both legacy and new indexed format
-    // New format: { entries: [...], byPath: {...}, bySlashPath: {...} }
-    // Legacy format: [{ path, ... }, ...] or direct Record<string, entry>
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      if (Array.isArray(parsed.entries) && parsed.byPath) {
-        // New indexed format: merge byPath and bySlashPath
-        registry = { ...parsed.byPath, ...parsed.bySlashPath };
-      } else {
-        // Already a Record or legacy format
-        registry = parsed as Record<string, unknown>;
-      }
-    } else if (Array.isArray(parsed)) {
-      // Legacy array format: convert to Record
-      registry = Object.fromEntries(
-        parsed
-          .filter((entry: Record<string, unknown>) => entry && typeof entry === 'object')
-          .map((entry: Record<string, unknown>) => {
-            const pathKey = String(entry.path || '').trim();
-            const slashKey = String(entry.slashPath || '').trim();
-            return pathKey ? [pathKey, entry] : slashKey ? [slashKey, entry] : null;
-          })
-          .filter(Boolean) as Array<[string, Record<string, unknown>]>
-      );
-    } else {
-      registry = parsed as Record<string, unknown>;
+
+    // Indexed format: { entries: [...], byPath: {...}, bySlashPath: {...} }
+    if (!isIndexedRegistryShape(parsed)) {
+      throw new Error('Invalid format: expected { entries, byPath, bySlashPath }. Regenerate it with: npm run generate:registry');
     }
+
+    registry = { ...parsed.byPath, ...(parsed.bySlashPath ?? {}) };
   } catch (error) {
     report.errors.push({
       code: 'REG01',

@@ -299,21 +299,6 @@ describe('token-health', () => {
       assert.strictEqual(highUsage[1].usageCount, 50);
     });
 
-    it('finds high usage tokens from legacy format (usage)', () => {
-      const usageIndex = {
-        usage: [
-          { tokenId: '1', tokenPath: 'color.primary', usageCount: 50 },
-          { tokenId: '2', tokenPath: 'color.secondary', usageCount: 5 },
-        ],
-      };
-
-      const highUsage = findHighUsageTokens(usageIndex, 10);
-
-      assert.strictEqual(highUsage.length, 1);
-      assert.strictEqual(highUsage[0].tokenId, '1');
-      assert.strictEqual(highUsage[0].usageCount, 50);
-    });
-
     it('returns empty array for null usageIndex', () => {
       const highUsage = findHighUsageTokens(null as any, 10);
       assert.strictEqual(highUsage.length, 0);
