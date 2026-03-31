@@ -98,27 +98,69 @@ type ComparableRegistryEntry = {
   }>;
 };
 
+/**
+ * Normalize spec metadata into a stable comparable representation.
+ */
+function toComparableSpec(
+  spec: {
+    markdownPath?: unknown;
+    docStatus?: unknown;
+    coverage?: unknown;
+  },
+): ComparableRegistryEntry['specs'][number] {
+  return {
+    markdownPath: String(spec.markdownPath || '').trim(),
+    docStatus: (spec.docStatus === 'ready' || spec.docStatus === 'needs-review'
+      ? spec.docStatus
+      : 'draft') as 'draft' | 'ready' | 'needs-review',
+    coverage: Number.isFinite(Number(spec.coverage)) ? Number(spec.coverage) : 0,
+  };
+}
+
+/**
+ * Normalize registry entry fields into a stable comparable representation.
+ */
+function toComparableEntry(input: {
+  slug: unknown;
+  name: unknown;
+  status: unknown;
+  docType: unknown;
+  figmaFileUrl: unknown;
+  figmaComponentSetNodeId: unknown;
+  specs?: Array<{
+    markdownPath?: unknown;
+    docStatus?: unknown;
+    coverage?: unknown;
+  }>;
+}): ComparableRegistryEntry {
+  return {
+    slug: String(input.slug || '').trim(),
+    name: String(input.name || '').trim(),
+    status: String(input.status || '').trim(),
+    docType: String(input.docType || '').trim(),
+    figmaFileUrl: String(input.figmaFileUrl || '').trim(),
+    figmaComponentSetNodeId: String(input.figmaComponentSetNodeId || '').trim(),
+    specs: Array.isArray(input.specs)
+      ? input.specs
+        .map((spec) => toComparableSpec(spec))
+        .sort((a, b) => a.markdownPath.localeCompare(b.markdownPath, 'en', { sensitivity: 'base' }))
+      : [],
+  };
+}
+
 function toComparableTargetEntries(entries: DbComponentRegistryEntry[]): ComparableRegistryEntry[] {
   return entries
-    .map((entry) => ({
-      slug: entry.slug,
-      name: entry.name,
-      status: entry.status,
-      docType: entry.docType,
-      figmaFileUrl: String(entry.figma?.fileUrl || '').trim(),
-      figmaComponentSetNodeId: String(entry.figma?.componentSetNodeId || '').trim(),
-      specs: Array.isArray(entry.specs)
-        ? entry.specs
-          .map((spec) => ({
-            markdownPath: String(spec.markdownPath || '').trim(),
-            docStatus: spec.docStatus === 'ready' || spec.docStatus === 'needs-review'
-              ? spec.docStatus
-              : 'draft',
-            coverage: Number.isFinite(Number(spec.coverage)) ? Number(spec.coverage) : 0,
-          }))
-          .sort((a, b) => a.markdownPath.localeCompare(b.markdownPath, 'en', { sensitivity: 'base' }))
-        : [],
-    }))
+    .map((entry) =>
+      toComparableEntry({
+        slug: entry.slug,
+        name: entry.name,
+        status: entry.status,
+        docType: entry.docType,
+        figmaFileUrl: entry.figma?.fileUrl,
+        figmaComponentSetNodeId: entry.figma?.componentSetNodeId,
+        specs: entry.specs,
+      }),
+    )
     .sort((a, b) => a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' }));
 }
 
@@ -130,25 +172,17 @@ function toComparableCurrentEntries(dbPath: string, systemId: string): Comparabl
     return repo
       .getAll(systemId)
       .filter((entry) => entry.status !== 'missing')
-      .map((entry) => ({
-        slug: entry.slug,
-        name: entry.name,
-        status: entry.status,
-        docType: entry.docType,
-        figmaFileUrl: String(entry.figmaFileUrl || '').trim(),
-        figmaComponentSetNodeId: String(entry.figmaComponentSetNodeId || '').trim(),
-        specs: Array.isArray(entry.specs)
-          ? entry.specs
-            .map((spec) => ({
-              markdownPath: String(spec.markdownPath || '').trim(),
-              docStatus: spec.docStatus === 'ready' || spec.docStatus === 'needs-review'
-                ? spec.docStatus
-                : 'draft',
-              coverage: Number.isFinite(Number(spec.coverage)) ? Number(spec.coverage) : 0,
-            }))
-            .sort((a, b) => a.markdownPath.localeCompare(b.markdownPath, 'en', { sensitivity: 'base' }))
-          : [],
-      }))
+      .map((entry) =>
+        toComparableEntry({
+          slug: entry.slug,
+          name: entry.name,
+          status: entry.status,
+          docType: entry.docType,
+          figmaFileUrl: entry.figmaFileUrl,
+          figmaComponentSetNodeId: entry.figmaComponentSetNodeId,
+          specs: entry.specs,
+        }),
+      )
       .sort((a, b) => a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' }));
   } finally {
     db.close();

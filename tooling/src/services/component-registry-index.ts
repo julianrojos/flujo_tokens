@@ -66,7 +66,6 @@ export {
 export {
   stableHash,
   normalizeSortKey,
-  writeJsonAtomic,
   toProjectRelativePath,
   fileExists,
   normalizeDisplayLabel,
