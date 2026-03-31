@@ -195,9 +195,23 @@ CREATE TABLE IF NOT EXISTS component_visual_proofs (
   image_path      TEXT NOT NULL,                  -- Relative path to image file
   screenshot_url  TEXT,
   caption         TEXT,
+  captured_at     TEXT,
+  captured_at_epoch INTEGER,
+  node_id         TEXT,
+  image_sha256    TEXT,
+  image_bytes     INTEGER,
+  image_content_type TEXT,
+  image_width     INTEGER,
+  image_height    INTEGER,
+  variants_count  INTEGER,
+  variants_json   TEXT,
   created_at      INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
   UNIQUE(component_id, image_path)
 );
+CREATE INDEX IF NOT EXISTS idx_component_visual_proofs_component_id
+  ON component_visual_proofs(component_id);
+CREATE INDEX IF NOT EXISTS idx_component_visual_proofs_component_captured
+  ON component_visual_proofs(component_id, captured_at_epoch DESC, captured_at DESC);
 
 -- ============================================================================
 -- token_usage_occurrences: Atomic token usage tracking (Migration 007)

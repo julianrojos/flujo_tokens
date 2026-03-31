@@ -5,6 +5,7 @@
  */
 
 import Database from 'better-sqlite3';
+import { normalizeVisualProofVariants } from '../lib/visual-proof-normalizer.js';
 
 /**
  * Component entry for public API
@@ -42,6 +43,27 @@ export interface ComponentVisualProofEntry {
     imagePath: string;
     screenshotUrl?: string;
     caption?: string;
+    capturedAt?: string;
+    capturedAtEpoch?: number;
+    nodeId?: string;
+    imageSha256?: string;
+    imageBytes?: number;
+    imageContentType?: string;
+    imageWidth?: number;
+    imageHeight?: number;
+    variantsCount?: number;
+    variants?: Array<{
+        name: string;
+        node_id?: string | null;
+        screenshot_url?: string | null;
+        image_path?: string | null;
+        captured_at?: string | null;
+        image_sha256?: string | null;
+        image_bytes?: number | null;
+        image_content_type?: string | null;
+        image_width?: number | null;
+        image_height?: number | null;
+    }>;
 }
 
 /**
@@ -61,6 +83,27 @@ export interface ComponentRegistryEntry {
         imagePath: string;
         screenshotUrl?: string;
         caption?: string;
+        capturedAt?: string;
+        capturedAtEpoch?: number;
+        nodeId?: string;
+        imageSha256?: string;
+        imageBytes?: number;
+        imageContentType?: string;
+        imageWidth?: number;
+        imageHeight?: number;
+        variantsCount?: number;
+        variants?: Array<{
+            name: string;
+            node_id?: string | null;
+            screenshot_url?: string | null;
+            image_path?: string | null;
+            captured_at?: string | null;
+            image_sha256?: string | null;
+            image_bytes?: number | null;
+            image_content_type?: string | null;
+            image_width?: number | null;
+            image_height?: number | null;
+        }>;
     }>;
     figma?: {
         fileUrl?: string;
@@ -73,10 +116,46 @@ export interface ComponentRegistryEntry {
  */
 export class ComponentRepository {
     private db: Database.Database;
+    /**
+     * Keep batched `IN (...)` queries comfortably below SQLite's host-parameter limit
+     * while still reducing roundtrips for large registries. Default SQLite host parameter
+     * limit is high, but this keeps each generated IN list and query payload conservative.
+     */
     private static readonly IN_BATCH_SIZE = 500;
 
     constructor(db: Database.Database) {
         this.db = db;
+    }
+
+    private static parseVariantsJson(
+        variantsJson: string | null,
+        rowId: number,
+        componentId: number,
+    ): ComponentVisualProofEntry['variants'] {
+        if (!variantsJson) return undefined;
+        try {
+            const parsed = JSON.parse(variantsJson);
+            if (!Array.isArray(parsed)) return undefined;
+            return normalizeVisualProofVariants(parsed);
+        } catch (error) {
+            console.warn(
+                `[component-repository] Invalid variants_json in component_visual_proofs id=${rowId} component_id=${componentId}: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            );
+            return undefined;
+        }
+    }
+
+    private static toCapturedAtEpoch(capturedAt: string | undefined, fallback: number | undefined): number | null {
+        if (Number.isFinite(Number(fallback))) {
+            return Number(fallback);
+        }
+        const normalized = String(capturedAt || '').trim();
+        if (!normalized) return null;
+        const epochMs = new Date(normalized).getTime();
+        if (!Number.isFinite(epochMs)) return null;
+        return Math.floor(epochMs / 1000);
     }
 
     /**
@@ -118,6 +197,16 @@ export class ComponentRepository {
             image_path: string;
             screenshot_url: string | null;
             caption: string | null;
+            captured_at: string | null;
+            captured_at_epoch: number | null;
+            node_id: string | null;
+            image_sha256: string | null;
+            image_bytes: number | null;
+            image_content_type: string | null;
+            image_width: number | null;
+            image_height: number | null;
+            variants_count: number | null;
+            variants_json: string | null;
         }> = [];
 
         for (let i = 0; i < componentIds.length; i += ComponentRepository.IN_BATCH_SIZE) {
@@ -138,15 +227,26 @@ export class ComponentRepository {
             }>);
 
             proofRows.push(...this.db.prepare(`
-                SELECT id, component_id, image_path, screenshot_url, caption
+                SELECT id, component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json
                 FROM component_visual_proofs
                 WHERE component_id IN (${placeholders})
+                ORDER BY captured_at_epoch DESC, captured_at DESC, id DESC
             `).all(...batch) as Array<{
                 id: number;
                 component_id: number;
                 image_path: string;
                 screenshot_url: string | null;
                 caption: string | null;
+                captured_at: string | null;
+                captured_at_epoch: number | null;
+                node_id: string | null;
+                image_sha256: string | null;
+                image_bytes: number | null;
+                image_content_type: string | null;
+                image_width: number | null;
+                image_height: number | null;
+                variants_count: number | null;
+                variants_json: string | null;
             }>);
         }
 
@@ -172,6 +272,20 @@ export class ComponentRepository {
                 imagePath: row.image_path,
                 screenshotUrl: row.screenshot_url ?? undefined,
                 caption: row.caption ?? undefined,
+                capturedAt: row.captured_at ?? undefined,
+                capturedAtEpoch: row.captured_at_epoch ?? undefined,
+                nodeId: row.node_id ?? undefined,
+                imageSha256: row.image_sha256 ?? undefined,
+                imageBytes: row.image_bytes ?? undefined,
+                imageContentType: row.image_content_type ?? undefined,
+                imageWidth: row.image_width ?? undefined,
+                imageHeight: row.image_height ?? undefined,
+                variantsCount: row.variants_count ?? undefined,
+                variants: ComponentRepository.parseVariantsJson(
+                    row.variants_json,
+                    row.id,
+                    row.component_id,
+                ),
             });
             proofsByComponentId.set(row.component_id, prev);
         }
@@ -257,9 +371,10 @@ export class ComponentRepository {
      */
     private getVisualProofs(componentId: number): ComponentVisualProofEntry[] {
         const stmt = this.db.prepare(`
-            SELECT id, component_id, image_path, screenshot_url, caption
+            SELECT id, component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json
             FROM component_visual_proofs
             WHERE component_id = ?
+            ORDER BY captured_at_epoch DESC, captured_at DESC, id DESC
         `);
         const rows = stmt.all(componentId) as Array<{
             id: number;
@@ -267,6 +382,16 @@ export class ComponentRepository {
             image_path: string;
             screenshot_url: string | null;
             caption: string | null;
+            captured_at: string | null;
+            captured_at_epoch: number | null;
+            node_id: string | null;
+            image_sha256: string | null;
+            image_bytes: number | null;
+            image_content_type: string | null;
+            image_width: number | null;
+            image_height: number | null;
+            variants_count: number | null;
+            variants_json: string | null;
         }>;
 
         return rows.map((row) => ({
@@ -275,6 +400,20 @@ export class ComponentRepository {
             imagePath: row.image_path,
             screenshotUrl: row.screenshot_url ?? undefined,
             caption: row.caption ?? undefined,
+            capturedAt: row.captured_at ?? undefined,
+            capturedAtEpoch: row.captured_at_epoch ?? undefined,
+            nodeId: row.node_id ?? undefined,
+            imageSha256: row.image_sha256 ?? undefined,
+            imageBytes: row.image_bytes ?? undefined,
+            imageContentType: row.image_content_type ?? undefined,
+            imageWidth: row.image_width ?? undefined,
+            imageHeight: row.image_height ?? undefined,
+            variantsCount: row.variants_count ?? undefined,
+            variants: ComponentRepository.parseVariantsJson(
+                row.variants_json,
+                row.id,
+                row.component_id,
+            ),
         }));
     }
 
@@ -316,45 +455,77 @@ export class ComponentRepository {
                 const componentId = row.id;
                 upsertedCount++;
 
-                // Upsert specs if provided
-                if (entry.specs && entry.specs.length > 0) {
-                    const specStmt = this.db.prepare(`
-                        INSERT INTO component_specs (component_id, markdown_path, doc_status, coverage, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        ON CONFLICT(component_id, markdown_path) DO UPDATE SET
-                            doc_status = excluded.doc_status,
-                            coverage = excluded.coverage,
-                            updated_at = excluded.updated_at
-                    `);
+                // Replace specs when explicitly provided (including empty array to clear stale rows)
+                if (Array.isArray(entry.specs)) {
+                    this.db.prepare(`
+                        DELETE FROM component_specs
+                        WHERE component_id = ?
+                    `).run(componentId);
 
-                    for (const spec of entry.specs) {
-                        specStmt.run(
-                            componentId,
-                            spec.markdownPath,
-                            spec.docStatus ?? 'draft',
-                            spec.coverage ?? 0,
-                            now,
-                            now
-                        );
+                    if (entry.specs.length > 0) {
+                        const specStmt = this.db.prepare(`
+                            INSERT INTO component_specs (component_id, markdown_path, doc_status, coverage, created_at, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(component_id, markdown_path) DO UPDATE SET
+                                doc_status = excluded.doc_status,
+                                coverage = excluded.coverage,
+                                updated_at = excluded.updated_at
+                        `);
+
+                        for (const spec of entry.specs) {
+                            specStmt.run(
+                                componentId,
+                                spec.markdownPath,
+                                spec.docStatus ?? 'draft',
+                                spec.coverage ?? 0,
+                                now,
+                                now
+                            );
+                        }
                     }
                 }
 
                 // Upsert visual proofs if provided
                 if (entry.visualProofs && entry.visualProofs.length > 0) {
                     const proofStmt = this.db.prepare(`
-                        INSERT INTO component_visual_proofs (component_id, image_path, screenshot_url, caption, created_at)
-                        VALUES (?, ?, ?, ?, ?)
+                        INSERT INTO component_visual_proofs (component_id, image_path, screenshot_url, caption, captured_at, captured_at_epoch, node_id, image_sha256, image_bytes, image_content_type, image_width, image_height, variants_count, variants_json, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(component_id, image_path) DO UPDATE SET
                             screenshot_url = excluded.screenshot_url,
-                            caption = excluded.caption
+                            caption = excluded.caption,
+                            captured_at = excluded.captured_at,
+                            captured_at_epoch = excluded.captured_at_epoch,
+                            node_id = excluded.node_id,
+                            image_sha256 = excluded.image_sha256,
+                            image_bytes = excluded.image_bytes,
+                            image_content_type = excluded.image_content_type,
+                            image_width = excluded.image_width,
+                            image_height = excluded.image_height,
+                            variants_count = excluded.variants_count,
+                            variants_json = excluded.variants_json
                     `);
 
                     for (const proof of entry.visualProofs) {
+                        const capturedAt = proof.capturedAt ?? null;
+                        const capturedAtEpoch = ComponentRepository.toCapturedAtEpoch(
+                            proof.capturedAt,
+                            proof.capturedAtEpoch,
+                        );
                         proofStmt.run(
                             componentId,
                             proof.imagePath,
                             proof.screenshotUrl ?? null,
                             proof.caption ?? null,
+                            capturedAt,
+                            capturedAtEpoch,
+                            proof.nodeId ?? null,
+                            proof.imageSha256 ?? null,
+                            proof.imageBytes ?? null,
+                            proof.imageContentType ?? null,
+                            proof.imageWidth ?? null,
+                            proof.imageHeight ?? null,
+                            proof.variantsCount ?? null,
+                            Array.isArray(proof.variants) ? JSON.stringify(proof.variants) : null,
                             now
                         );
                     }
@@ -393,13 +564,32 @@ export class ComponentRepository {
             return result.changes;
         }
 
-        const placeholders = existingSlugs.map(() => '?').join(', ');
-        const stmt = this.db.prepare(`
-            UPDATE components
-            SET status = 'missing', updated_at = strftime('%s', 'now')
-            WHERE ds_id = ? AND slug NOT IN (${placeholders}) AND status != 'missing'
-        `);
-        const result = stmt.run(dsId, ...existingSlugs);
-        return result.changes;
+        const existingSlugSet = new Set(existingSlugs);
+        const activeRows = this.db.prepare(`
+            SELECT slug
+            FROM components
+            WHERE ds_id = ? AND status != 'missing'
+        `).all(dsId) as Array<{ slug: string }>;
+
+        const missingSlugs = activeRows
+            .map((row) => row.slug)
+            .filter((slug) => !existingSlugSet.has(slug));
+        if (missingSlugs.length === 0) {
+            return 0;
+        }
+
+        let changed = 0;
+        for (let i = 0; i < missingSlugs.length; i += ComponentRepository.IN_BATCH_SIZE) {
+            const batch = missingSlugs.slice(i, i + ComponentRepository.IN_BATCH_SIZE);
+            const placeholders = batch.map(() => '?').join(', ');
+            const stmt = this.db.prepare(`
+                UPDATE components
+                SET status = 'missing', updated_at = strftime('%s', 'now')
+                WHERE ds_id = ? AND slug IN (${placeholders}) AND status != 'missing'
+            `);
+            const result = stmt.run(dsId, ...batch);
+            changed += result.changes;
+        }
+        return changed;
     }
 }

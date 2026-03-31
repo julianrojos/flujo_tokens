@@ -53,6 +53,16 @@ function createTestDb(): Database.Database {
             image_path TEXT NOT NULL,
             screenshot_url TEXT,
             caption TEXT,
+            captured_at TEXT,
+            captured_at_epoch INTEGER,
+            node_id TEXT,
+            image_sha256 TEXT,
+            image_bytes INTEGER,
+            image_content_type TEXT,
+            image_width INTEGER,
+            image_height INTEGER,
+            variants_count INTEGER,
+            variants_json TEXT,
             created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
             UNIQUE(component_id, image_path)
         );
@@ -95,7 +105,14 @@ describe('ComponentRepository', () => {
                     visualProofs: [
                         {
                             imagePath: 'images/button.png',
+                            screenshotUrl: 'https://example.com/button.png',
                             caption: 'Button component',
+                            capturedAt: '2026-03-31T10:00:00.000Z',
+                            variantsCount: 2,
+                            variants: [
+                                { name: 'Variant=Default', image_path: 'images/button-default.png' },
+                                { name: 'Variant=Accent', image_path: 'images/button-accent.png' },
+                            ],
                         },
                     ],
                 },
@@ -116,6 +133,11 @@ describe('ComponentRepository', () => {
             assert.ok(button.visualProofs);
             assert.strictEqual(button.visualProofs.length, 1);
             assert.strictEqual(button.visualProofs[0].imagePath, 'images/button.png');
+            assert.strictEqual(button.visualProofs[0].screenshotUrl, 'https://example.com/button.png');
+            assert.strictEqual(button.visualProofs[0].capturedAt, '2026-03-31T10:00:00.000Z');
+            assert.strictEqual(button.visualProofs[0].variantsCount, 2);
+            assert.ok(Array.isArray(button.visualProofs[0].variants));
+            assert.strictEqual(button.visualProofs[0].variants?.length, 2);
         });
 
         it('is idempotent - updating existing components', () => {
@@ -181,6 +203,26 @@ describe('ComponentRepository', () => {
         it('returns empty array for design system with no components', () => {
             const components = repo.getAll('non-existent-sys');
             assert.deepStrictEqual(components, []);
+        });
+
+        it('handles malformed variants_json gracefully', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('malformed-json-sys', 'Malformed Json Test')");
+            db.prepare(`
+                INSERT INTO components (ds_id, slug, name, status, doc_type)
+                VALUES (?, ?, ?, ?, ?)
+            `).run('malformed-json-sys', 'badge', 'Badge', 'draft', 'component');
+            const componentRow = db
+                .prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?')
+                .get('malformed-json-sys', 'badge') as { id: number };
+            db.prepare(`
+                INSERT INTO component_visual_proofs (component_id, image_path, variants_json)
+                VALUES (?, ?, ?)
+            `).run(componentRow.id, 'images/badge.png', '{not valid json');
+
+            const components = repo.getAll('malformed-json-sys');
+            assert.strictEqual(components.length, 1);
+            assert.ok(Array.isArray(components[0].visualProofs));
+            assert.strictEqual(components[0].visualProofs?.[0]?.variants, undefined);
         });
     });
 
@@ -253,6 +295,29 @@ describe('ComponentRepository', () => {
                 { slug: 'button', status: 'missing' },
                 { slug: 'card', status: 'missing' },
             ]);
+        });
+
+        it('marks only missing slugs when existingSlugs exceeds batch size', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('missing-batch-sys', 'Missing Batch Test')");
+            const componentEntries = Array.from({ length: 620 }, (_, index) => ({
+                slug: `component-${String(index + 1).padStart(3, '0')}`,
+                name: `Component ${index + 1}`,
+                status: 'ready',
+            }));
+            repo.upsertFromRegistry('missing-batch-sys', componentEntries);
+
+            const keepSlugs = componentEntries
+                .slice(0, 10)
+                .map((entry) => entry.slug);
+            const changed = repo.markMissingComponents('missing-batch-sys', keepSlugs);
+            assert.strictEqual(changed, 610);
+
+            const keptCount = db.prepare(`
+                SELECT COUNT(*) as count
+                FROM components
+                WHERE ds_id = ? AND status != 'missing'
+            `).get('missing-batch-sys') as { count: number };
+            assert.strictEqual(keptCount.count, 10);
         });
     });
 });
