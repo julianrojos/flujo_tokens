@@ -52,7 +52,7 @@ describe('spec-orchestrator', () => {
                 docs: '/tmp/docs',
                 generated: '/tmp/docs/_generated',
                 specs: '/tmp/specs',
-                registry: '/tmp/docs/_generated/component-registry.json',
+                registry: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
                 tokenRegistry: '/tmp/docs/_generated/token-registry.json',
               },
             },
@@ -66,7 +66,7 @@ describe('spec-orchestrator', () => {
               templatePath: '/tmp/_template.yml',
               tokenRegistryPath: '/tmp/docs/_generated/token-registry.json',
               overviewPath: '/tmp/docs/overview.md',
-              registryIndexPath: '/tmp/docs/_generated/component-registry.json',
+              registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
             },
             flags: {
               componentSlugOverride: '',
@@ -130,7 +130,7 @@ describe('spec-orchestrator', () => {
             changed: [],
             written: [],
             registry: {
-              registryPath: '/tmp/docs/_generated/component-registry.json',
+              registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
               fingerprint: 'abc',
             },
             overview: {

@@ -63,10 +63,10 @@ describe('spec-characterization', () => {
         errors: [],
       }) as any,
       syncDocumentationIndicesFn: () => ({
-        changed: ['/mock/repo/docs/_generated/component-registry.json'],
-        written: ['/mock/repo/docs/_generated/component-registry.json'],
+        changed: ['/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db'],
+        written: ['/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db'],
         registry: {
-          registryPath: '/mock/repo/docs/_generated/component-registry.json',
+          registryDbPath: '/mock/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
           fingerprint: 'abcd',
         },
         overview: {

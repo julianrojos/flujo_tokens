@@ -3,9 +3,12 @@
  *
  * Create execution plan for documentation pipeline.
  */
+import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { componentNameToSnakeCase } from '../utils/component-name.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
+import { PROJECT_ROOT, resolveSystemContextSafe } from '../utils/system-context.js';
+import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
+import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 
 /**
  * Minimal interface for registry entries.
@@ -22,11 +25,6 @@ interface RegistryEntry {
 /**
  * Registry contents structure.
  */
-interface RegistryContents {
-  components?: RegistryEntry[];
-  [key: string]: unknown;
-}
-
 export interface PipelineStep {
   id: string;
   desc: string;
@@ -74,6 +72,22 @@ const STEP_ALIASES: Record<string, string> = Object.freeze({
   markdown: 'markdown',
 });
 
+function hasExistingMarkdown(markdownPath: string | undefined, docsDir?: string): boolean {
+  const normalized = String(markdownPath || '').trim();
+  if (!normalized) return false;
+  if (path.isAbsolute(normalized)) {
+    return fs.existsSync(path.resolve(normalized));
+  }
+
+  const docsBase = String(docsDir || '').trim();
+  const candidates = [
+    docsBase ? path.resolve(docsBase, normalized) : '',
+    path.resolve(PROJECT_ROOT, normalized),
+  ].filter(Boolean);
+
+  return candidates.some((candidate) => fs.existsSync(candidate));
+}
+
 /**
  * Normalize step argument to canonical step ID.
  */
@@ -118,16 +132,37 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
   };
 
   const ctx = options.dsContext || resolveSystemContextSafe({});
-  const registryPath = ctx.paths.registry;
-  let registryContents: RegistryContents;
+  const dbPath = path.resolve(ctx.paths.registry);
+  const systemId = ctx.id;
+  let allComponents: RegistryEntry[] = [];
 
   try {
-    registryContents = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    const db = bootstrapDatabase({ dbPath });
+    try {
+      const repo = new ComponentRepository(db);
+      const rows = repo.getAll(systemId);
+      allComponents = rows.map((row) => {
+        const spec = row.specs?.[0];
+        const proof = row.visualProofs?.[0];
+        const hasSpec = Boolean(spec?.markdownPath);
+        const hasDoc = hasExistingMarkdown(spec?.markdownPath, ctx.docsDir);
+        const hasVisualProof = Boolean(proof?.imagePath || proof?.screenshotUrl);
+        return {
+          slug: row.slug,
+          spec: { exists: hasSpec },
+          doc: { exists: hasDoc, status: spec?.docStatus || 'draft' },
+          figma: { component_set_node_id: row.figmaComponentSetNodeId || '' },
+          visual_proof: { exists: hasVisualProof },
+        };
+      });
+    } finally {
+      db.close();
+    }
   } catch (err) {
     if (options.allowMissingRegistry) {
       plan.summary = {
         warning:
-          `Component registry unavailable at ${registryPath}. ` +
+          `Component registry unavailable in DB at ${dbPath}. ` +
           'Returning empty plan (dry-run/status-only fallback).',
       };
       return plan;
@@ -135,12 +170,9 @@ export function createPlan(options: PipelinePlanOptions = {}): PipelinePlan {
 
     const reason = err instanceof Error ? err.message : String(err);
     throw new Error(
-      `[Plan] Fatal: Cannot read component-registry at ${registryPath}: ${reason}`
+      `[Plan] Fatal: Cannot read component registry from DB at ${dbPath}: ${reason}`
     );
   }
-
-  // Identify all possible components
-  const allComponents = registryContents.components || [];
 
   let targetComponents = allComponents;
   if (options.component) {

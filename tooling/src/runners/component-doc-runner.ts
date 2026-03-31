@@ -36,7 +36,7 @@ import { TRACEABILITY_CONTRACT_VERSION } from '../utils/docs-config.js';
 import { captureFileSnapshot, restoreFileSnapshot } from '../services/file-snapshot.js';
 import { assertDocStatusStable, assertEvidenceGatedScalarChanges } from '../services/evidence-gated-mutations.js';
 import { assertScopedWritePolicy, captureScopedWriteSnapshot } from '../services/scoped-write-guard.js';
-import { syncDocumentationIndices } from '../services/component-registry-index.js';
+import { syncDocumentationState } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 
 const USAGE = {
@@ -273,12 +273,13 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
 
   // Sync documentation indices
   if (!dryRun) {
-    syncDocumentationIndices({
-      registryPath: ctx.paths.registry,
+    syncDocumentationState({
+      dbPath: ctx.paths.registry,
       overviewPath: path.join(ctx.paths.docs, 'overview.md'),
       specsDir: ctx.paths.specs,
       docsDir: ctx.paths.docs,
       dryRun: false,
+      systemId: ctx.id,
     });
   }
 

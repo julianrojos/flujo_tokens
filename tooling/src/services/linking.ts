@@ -140,6 +140,7 @@ export function validateOverviewLinks(options: ValidateOverviewLinksOptions): vo
   }
 
   if (entries.length === 0) {
+    if (componentFiles.length === 0) return;
     report.errors.push({
       code: 'LINK02',
       file: overviewPath,

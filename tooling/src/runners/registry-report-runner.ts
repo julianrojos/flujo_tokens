@@ -1,37 +1,27 @@
 #!/usr/bin/env node
 
 /**
- * Registry Report Runner
+ * Registry Report Runner (DB-only)
  *
- * Builds read-only component status projections from component-registry.json.
+ * Builds read-only component status projections from SQLite-backed component state.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import { PROJECT_ROOT, resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
-
-// Import from existing lib during migration period
-import {
-  DEFAULT_COMPONENT_REGISTRY_PATH,
-  readComponentRegistry,
-} from '../services/component-registry-index.js';
-import { normalizeSortKey, stableHash } from '../services/component-registry-index.js';
+import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
+import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 
 const REPORT_SCHEMA_VERSION = 1;
 
 const CLI_CONFIG = {
   command: 'ds:registry:report [options]',
   description:
-    'Build read-only component status projections from docs/_generated/component-registry.json.',
+    'Build read-only component status projections from DB-backed component registry.',
   options: [
-    {
-      name: '--registry',
-      description: 'Component registry input path.',
-      defaultValue: 'docs/_generated/component-registry.json',
-    },
     {
       name: '--out-md',
       description: 'Markdown index output path.',
@@ -106,26 +96,31 @@ function parseIntegerOption(
   return Math.max(minValue, Math.floor(parsed));
 }
 
-function assertPathInsideProject(rawPath: string | undefined | null, label: string): string {
-  if (!rawPath) return '';
-  const resolved = path.resolve(rawPath);
-  const rootWithSep = PROJECT_ROOT.endsWith(path.sep)
-    ? PROJECT_ROOT
-    : `${PROJECT_ROOT}${path.sep}`;
-  if (resolved !== PROJECT_ROOT && !resolved.startsWith(rootWithSep)) {
-    throw new Error(`${label} must be inside the project root: ${resolved}`);
-  }
-  return resolved;
-}
-
 function writeTextIfChanged(filePath: string, content: string, dryRun: boolean): boolean {
   const resolved = path.resolve(filePath);
   const current = fs.existsSync(resolved) ? fs.readFileSync(resolved, 'utf8') : null;
   if (current === content) return false;
   if (!dryRun) {
+    fs.mkdirSync(path.dirname(resolved), { recursive: true });
     fs.writeFileSync(resolved, content, 'utf8');
   }
   return true;
+}
+
+function hasExistingMarkdown(markdownPath: string | undefined, docsDir?: string): boolean {
+  const normalized = String(markdownPath || '').trim();
+  if (!normalized) return false;
+  if (path.isAbsolute(normalized)) {
+    return fs.existsSync(path.resolve(normalized));
+  }
+
+  const docsBase = String(docsDir || '').trim();
+  const candidates = [
+    docsBase ? path.resolve(docsBase, normalized) : '',
+    path.resolve(PROJECT_ROOT, normalized),
+  ].filter(Boolean);
+
+  return candidates.some((candidate) => fs.existsSync(candidate));
 }
 
 interface ComponentSummary {
@@ -142,7 +137,7 @@ interface ComponentSummary {
 interface RegistryReport {
   schemaVersion: number;
   generatedAt: string;
-  registryPath: string;
+  registryDbPath: string;
   totalComponents: number;
   byStatus: Record<string, number>;
   byStage: Record<string, number>;
@@ -155,43 +150,44 @@ interface RegistryReport {
   components: ComponentSummary[];
 }
 
-function buildReport(registry: any, maxFilterItems: number): RegistryReport {
-  const components = (registry.components || []).map((c: any) => ({
-    slug: c.slug,
-    name: c.name || c.slug,
-    status: c.doc?.status || 'unknown',
-    inFigma: !!c.figma?.component_set_node_id,
-    hasSpec: c.spec?.exists === true,
-    hasDoc: c.doc?.exists === true,
-    hasVisualProof: !!c.visual_proof?.node_id,
-    needsReview: c.doc?.status === 'needs-review',
-  }));
-
+function buildReport(
+  components: ComponentSummary[],
+  dbPath: string,
+  maxFilterItems: number,
+): RegistryReport {
   const byStatus: Record<string, number> = {};
   const byStage: Record<string, number> = {};
 
-  for (const comp of components) {
-    byStatus[comp.status] = (byStatus[comp.status] || 0) + 1;
-    const stage = comp.inFigma && comp.hasSpec && comp.hasDoc ? 'complete' : 'incomplete';
+  for (const component of components) {
+    byStatus[component.status] = (byStatus[component.status] || 0) + 1;
+    const stage =
+      component.inFigma && component.hasSpec && component.hasDoc && component.hasVisualProof
+        ? 'visual-proof'
+        : component.inFigma && component.hasSpec && component.hasDoc
+          ? 'markdown'
+          : component.inFigma && component.hasSpec
+            ? 'spec'
+            : 'missing-spec';
     byStage[stage] = (byStage[stage] || 0) + 1;
   }
-
-  const quickFilters = {
-    needsReview: components.filter((c: any) => c.needsReview).slice(0, maxFilterItems).map((c: any) => c.slug),
-    draft: components.filter((c: any) => c.status === 'draft').slice(0, maxFilterItems).map((c: any) => c.slug),
-    ready: components.filter((c: any) => c.status === 'ready').slice(0, maxFilterItems).map((c: any) => c.slug),
-    inFigmaOnly: components.filter((c: any) => c.inFigma && !c.hasSpec && !c.hasDoc).slice(0, maxFilterItems).map((c: any) => c.slug),
-  };
 
   return {
     schemaVersion: REPORT_SCHEMA_VERSION,
     generatedAt: new Date().toISOString(),
-    registryPath: registry.path || '',
+    registryDbPath: dbPath,
     totalComponents: components.length,
     byStatus,
     byStage,
-    quickFilters,
-    components: components.sort((a: any, b: any) => a.slug.localeCompare(b.slug)),
+    quickFilters: {
+      needsReview: components.filter((c) => c.needsReview).slice(0, maxFilterItems).map((c) => c.slug),
+      draft: components.filter((c) => c.status === 'draft').slice(0, maxFilterItems).map((c) => c.slug),
+      ready: components.filter((c) => c.status === 'ready').slice(0, maxFilterItems).map((c) => c.slug),
+      inFigmaOnly: components
+        .filter((c) => c.inFigma && !c.hasSpec && !c.hasDoc)
+        .slice(0, maxFilterItems)
+        .map((c) => c.slug),
+    },
+    components: components.sort((a, b) => a.slug.localeCompare(b.slug, 'en', { sensitivity: 'base' })),
   };
 }
 
@@ -211,24 +207,16 @@ function generateMarkdown(report: RegistryReport): string {
     lines.push(`- **${stage}:** ${count}`);
   }
 
-  lines.push('\n## Quick Filters\n');
-  if (report.quickFilters.needsReview.length > 0) {
-    lines.push(`### Needs Review (${report.quickFilters.needsReview.length})\n`);
-    for (const slug of report.quickFilters.needsReview) {
-      lines.push(`- ${slug}`);
-    }
-  }
-
   lines.push('\n## All Components\n');
   lines.push('| Slug | Status | In Figma | Has Spec | Has Doc | Visual Proof |');
   lines.push('|------|--------|----------|----------|---------|--------------|');
-  for (const comp of report.components) {
+  for (const component of report.components) {
     lines.push(
-      `| ${comp.slug} | ${comp.status} | ${comp.inFigma ? '✅' : '❌'} | ${comp.hasSpec ? '✅' : '❌'} | ${comp.hasDoc ? '✅' : '❌'} | ${comp.hasVisualProof ? '✅' : '❌'} |`,
+      `| ${component.slug} | ${component.status} | ${component.inFigma ? 'yes' : 'no'} | ${component.hasSpec ? 'yes' : 'no'} | ${component.hasDoc ? 'yes' : 'no'} | ${component.hasVisualProof ? 'yes' : 'no'} |`,
     );
   }
 
-  return lines.join('\n');
+  return `${lines.join('\n')}\n`;
 }
 
 export async function runRegistryReport(args: string[] = []): Promise<void> {
@@ -240,22 +228,39 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
   }
 
   const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
-  const registryPath = path.resolve(String(getStringArg(parsed, 'registry') || DEFAULT_COMPONENT_REGISTRY_PATH));
-  const outMd = assertPathInsideProject(String(getStringArg(parsed, 'out-md') || 'docs/COMPONENTS_INDEX.md'), '--out-md');
-  const outJson = assertPathInsideProject(String(getStringArg(parsed, 'out-json') || 'docs/_generated/components-health.json'), '--out-json');
+  const dbPath = path.resolve(ctx.paths.registry);
+  const outMd = path.resolve(String(getStringArg(parsed, 'out-md') || 'docs/COMPONENTS_INDEX.md'));
+  const outJson = path.resolve(String(getStringArg(parsed, 'out-json') || 'docs/_generated/components-health.json'));
   const format = String(getStringArg(parsed, 'format') || 'json');
   const maxFilterItems = parseIntegerOption(String(parsed['max-filter-items']), '--max-filter-items', 20, 1);
   const skipMd = parseBooleanOption(parsed['no-md'], '--no-md', false);
   const skipJson = parseBooleanOption(parsed['no-json'], '--no-json', false);
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
 
-  // Load registry
-  const registry = readComponentRegistry(registryPath);
+  const db = bootstrapDatabase({ dbPath });
+  let report: RegistryReport;
+  try {
+    const repo = new ComponentRepository(db);
+    const rows = repo.getAll(ctx.id);
+    const components: ComponentSummary[] = rows.map((row) => {
+      const spec = row.specs?.[0];
+      const proof = row.visualProofs?.[0];
+      return {
+        slug: row.slug,
+        name: row.name || row.slug,
+        status: row.status || 'draft',
+        inFigma: Boolean(row.figmaComponentSetNodeId),
+        hasSpec: Boolean(spec?.markdownPath),
+        hasDoc: hasExistingMarkdown(spec?.markdownPath, ctx.docsDir),
+        hasVisualProof: Boolean(proof?.imagePath || proof?.screenshotUrl),
+        needsReview: spec?.docStatus === 'needs-review',
+      };
+    });
+    report = buildReport(components, dbPath, maxFilterItems);
+  } finally {
+    db.close();
+  }
 
-  // Build report
-  const report = buildReport(registry, maxFilterItems);
-
-  // Output to stdout
   if (format === 'json') {
     console.log(JSON.stringify(report, null, 2));
   } else {
@@ -265,25 +270,23 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
     console.log(`By Stage: ${JSON.stringify(report.byStage)}`);
   }
 
-  // Write output files
-  if (!skipMd && outMd) {
-    const mdContent = generateMarkdown(report);
-    const written = writeTextIfChanged(outMd, mdContent, dryRun);
-    if (written && !dryRun) {
+  if (!skipMd) {
+    const markdown = generateMarkdown(report);
+    const wrote = writeTextIfChanged(outMd, markdown, dryRun);
+    if (wrote && !dryRun) {
       logger.info(`Markdown report written to ${outMd}`);
     }
   }
 
-  if (!skipJson && outJson) {
-    const jsonContent = JSON.stringify(report, null, 2);
-    const written = writeTextIfChanged(outJson, jsonContent, dryRun);
-    if (written && !dryRun) {
+  if (!skipJson) {
+    const json = `${JSON.stringify(report, null, 2)}\n`;
+    const wrote = writeTextIfChanged(outJson, json, dryRun);
+    if (wrote && !dryRun) {
       logger.info(`JSON report written to ${outJson}`);
     }
   }
 }
 
-// CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runRegistryReport(process.argv.slice(2)).catch((error) => {
     const errorMessage = error instanceof Error ? error.message : String(error);

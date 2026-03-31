@@ -38,8 +38,8 @@ export function createSpecRunContext({ context, args }) {
   assertOutputPath(outputPath);
 
   const overviewPath = context.paths.overviewPath;
-  const registryIndexPath = context.paths.registryIndexPath;
-  const allowedWritePaths = [outputPath, overviewPath, registryIndexPath];
+  const registryDbPath = context.paths.registryDbPath;
+  const allowedWritePaths = [outputPath, overviewPath, registryDbPath];
 
   return {
     figmaUrl,
@@ -57,7 +57,7 @@ export function createSpecRunContext({ context, args }) {
     nodeId,
     outputPath,
     overviewPath,
-    registryIndexPath,
+    registryDbPath,
     allowedWritePaths,
   };
 }

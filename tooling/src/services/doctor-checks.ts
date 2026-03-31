@@ -33,6 +33,7 @@ import { createDesignSystemRepository } from '../../scripts/lib/system-repositor
 // ============================================================================
 
 export interface DoctorContext {
+  systemId: string;
   docsRoot: string;
   specRoot: string;
   registryPath: string;
@@ -58,7 +59,10 @@ export interface DoctorCheckResult {
  */
 export function resolveDoctorContext(
   parsed: Record<string, unknown>,
-  systemCtx: { paths: { docs: string; specs: string; tokenRegistry: string; registry: string; generated: string } },
+  systemCtx: {
+    id: string;
+    paths: { docs: string; specs: string; tokenRegistry: string; registry: string; generated: string };
+  },
   projectRoot: string,
 ): DoctorContext {
   const docsRoot = path.resolve(String(parsed['docs-root'] ?? systemCtx.paths.docs));
@@ -78,6 +82,7 @@ export function resolveDoctorContext(
   const skillsRoot = path.join(projectRoot, '.agents', 'skills');
 
   return {
+    systemId: String(systemCtx.id || '').trim() || 'sys-01',
     docsRoot,
     specRoot,
     registryPath,
@@ -535,7 +540,8 @@ export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
 
   try {
     const componentRegistryCheck = compareComponentRegistryToSources({
-      registryPath: ctx.componentRegistryPath,
+      dbPath: ctx.componentRegistryPath,
+      systemId: ctx.systemId,
       specsDir: ctx.specRoot,
       docsDir: ctx.docsRoot,
       proofsDir: ctx.visualProofDir,
@@ -565,7 +571,7 @@ export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
           details: {
             componentRegistryPath: ctx.componentRegistryPath,
             exists: componentRegistryCheck.exists,
-            hint: 'Run `npm run ds:registry:sync`.',
+            hint: 'Run `npm run ds:registry:refresh`.',
           },
         }),
       );
@@ -579,7 +585,7 @@ export function checkComponentRegistry(ctx: DoctorContext): DoctorCheck[] {
         details: {
           componentRegistryPath: ctx.componentRegistryPath,
           error: error instanceof Error ? error.message : String(error),
-          hint: 'Run `npm run ds:registry:sync` to regenerate a valid registry.',
+          hint: 'Run `npm run ds:registry:refresh` to regenerate DB state.',
         },
       }),
     );

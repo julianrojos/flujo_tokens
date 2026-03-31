@@ -53,6 +53,12 @@ export interface DesignSystemsFile {
 
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");
 
+function resolveDashboardDbPath(projectRoot: string): string {
+  const envPath = String(process.env.DS_DASHBOARD_DB_PATH || '').trim();
+  if (envPath) return path.resolve(envPath);
+  return path.resolve(projectRoot, "apps", "ds-dashboard", "server", "db", "ds-dashboard.db");
+}
+
 export interface ScriptSystemContext {
   id: string;
   name: string;
@@ -84,7 +90,7 @@ function systemContext(system: DesignSystemConfig): ScriptSystemContext {
       generated: path.resolve(docsDir, "_generated"),
       specs: path.resolve(docsDir, "_spec/components"),
       docs: path.resolve(docsDir, "components"),
-      registry: path.resolve(docsDir, "_generated/component-registry.json"),
+      registry: resolveDashboardDbPath(PROJECT_ROOT),
       tokenRegistry: path.resolve(docsDir, "_generated/token-registry.json"),
       figmaAliasGraph: path.resolve(docsDir, "_generated/figma-alias-graph.json"),
     },

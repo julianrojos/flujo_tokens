@@ -10,18 +10,19 @@ describe('doctor-checks', () => {
       'docs-root': './tmp/docs/components',
       'spec-root': './tmp/docs/_spec/components',
       registry: './tmp/docs/_generated/token-registry.json',
-      'component-registry': './tmp/docs/_generated/component-registry.json',
+      'component-registry': './tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
       'proof-dir': './tmp/docs/_generated/visual-proofs',
       'component-name': 'Button',
       'skip-validate': 'true',
     };
 
     const systemCtx = {
+      id: 'sys-01',
       paths: {
         docs: '/fallback/docs',
         specs: '/fallback/specs',
         tokenRegistry: '/fallback/token-registry.json',
-        registry: '/fallback/component-registry.json',
+        registry: '/fallback/ds-dashboard.db',
         generated: '/fallback/generated',
       },
     };
@@ -38,11 +39,12 @@ describe('doctor-checks', () => {
   it('resolveDoctorContext falls back to generated/visual-proofs when proof-dir is missing', () => {
     const parsed = {};
     const systemCtx = {
+      id: 'sys-01',
       paths: {
         docs: '/system/docs/components',
         specs: '/system/docs/_spec/components',
         tokenRegistry: '/system/docs/_generated/token-registry.json',
-        registry: '/system/docs/_generated/component-registry.json',
+        registry: '/system/apps/ds-dashboard/server/db/ds-dashboard.db',
         generated: '/system/docs/_generated',
       },
     };

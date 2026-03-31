@@ -7,6 +7,7 @@
 // Re-export types
 export type {
   BuildRegistryOptions,
+  ComponentOverviewListState,
   CompareRegistryResult,
   ComponentDocState,
   ComponentRegistry,
@@ -53,7 +54,7 @@ export {
 } from './component-registry-sync.js';
 
 export {
-  syncDocumentationIndices,
+  syncDocumentationState,
 } from './component-registry-refresh.js';
 
 export {

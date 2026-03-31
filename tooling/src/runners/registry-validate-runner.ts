@@ -1,35 +1,23 @@
 #!/usr/bin/env node
 
 /**
- * Registry Validate Runner
+ * Registry Validate Runner (DB-only)
  *
- * Validates component-registry.json schema and verifies it matches current source artifacts.
+ * Validates that DB-backed component registry can be projected from sources.
  */
 
 import * as path from 'node:path';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { logger } from '../utils/logger.js';
-
-// Import from existing lib during migration period
-import {
-  compareComponentRegistryToSources,
-  DEFAULT_COMPONENT_DOCS_DIR,
-  DEFAULT_COMPONENT_REGISTRY_PATH,
-  DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_VISUAL_PROOFS_DIR,
-} from '../services/component-registry-index.js';
+import { resolveSystemContextSafe } from '../utils/system-context.js';
+import { compareComponentRegistryToSources } from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {
   command: 'ds:registry:validate [options]',
   description:
-    'Validate component-registry.json schema and verify it matches current source artifacts.',
+    'Validate DB-backed component registry consistency against source artifacts.',
   options: [
-    {
-      name: '--registry',
-      description: 'Component registry path.',
-      defaultValue: 'docs/_generated/component-registry.json',
-    },
     {
       name: '--spec-root',
       description: 'Component spec directory.',
@@ -42,13 +30,17 @@ const CLI_CONFIG = {
     },
     {
       name: '--proof-dir',
-      description: 'Directory for visual proof metadata files.',
+      description: 'Visual proof assets directory.',
       defaultValue: 'docs/_generated/visual-proofs',
     },
     {
       name: '--strict',
-      description: 'Fail on drift (default true).',
+      description: 'Fail on detected drift (default true).',
       defaultValue: 'true',
+    },
+    {
+      name: '--system',
+      description: 'Target design system context.',
     },
     {
       name: '--help',
@@ -79,29 +71,31 @@ export async function runRegistryValidate(args: string[] = []): Promise<void> {
   }
 
   const strict = parseBooleanOption(parsed.strict, '--strict', true);
+  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
 
   try {
     const comparison = compareComponentRegistryToSources({
-      registryPath: path.resolve(String(parsed.registry || DEFAULT_COMPONENT_REGISTRY_PATH)),
-      specsDir: path.resolve(String(parsed['spec-root'] || DEFAULT_COMPONENT_SPECS_DIR)),
-      docsDir: path.resolve(String(parsed['docs-root'] || DEFAULT_COMPONENT_DOCS_DIR)),
-      proofsDir: path.resolve(String(parsed['proof-dir'] || DEFAULT_VISUAL_PROOFS_DIR)),
+      dbPath: ctx.paths.registry,
+      systemId: ctx.id,
+      specsDir: path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs)),
+      docsDir: path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs)),
+      proofsDir: path.resolve(String(getStringArg(parsed, 'proof-dir') || path.join(ctx.paths.generated, 'visual-proofs'))),
     });
 
     const report = {
       ok: comparison.exists && comparison.matches,
       exists: comparison.exists,
       strict,
-      registryPath: path.resolve(String(parsed.registry || DEFAULT_COMPONENT_REGISTRY_PATH)),
+      registryDbPath: path.resolve(String(ctx.paths.registry)),
       expectedFingerprint: comparison.expected.fingerprint_sha256,
-      currentFingerprint: (comparison.current as any)?.fingerprint_sha256 || null,
+      currentFingerprint: comparison.current?.fingerprint_sha256 || null,
       summary: comparison.expected.summary,
       drift: comparison.exists ? !comparison.matches : true,
       hint: comparison.exists
         ? comparison.matches
-          ? 'Registry is synchronized.'
-          : 'Run `npm run ds:registry:sync` to update the registry.'
-        : 'Run `npm run ds:registry:sync` to create the registry.',
+          ? 'DB registry is synchronized.'
+          : 'Run `npm run ds:registry:refresh` to sync DB-backed registry.'
+        : 'Run `npm run ds:registry:refresh` to initialize DB-backed registry.',
     };
 
     console.log(JSON.stringify(report, null, 2));
@@ -116,7 +110,6 @@ export async function runRegistryValidate(args: string[] = []): Promise<void> {
   }
 }
 
-// CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runRegistryValidate(process.argv.slice(2)).catch((error) => {
     const errorMessage = error instanceof Error ? error.message : String(error);

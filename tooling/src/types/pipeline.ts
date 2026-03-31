@@ -13,7 +13,7 @@ export interface PipelinePaths {
     componentDocsDir: string;
     proofDir: string;
     proofImageDir: string;
-    registryIndexPath: string;
+    registryDbPath: string;
     tokenRegistryPath: string;
     resolvedSpecRoot: string;
     templatePath: string;
@@ -39,6 +39,7 @@ export interface PipelineFlags {
     force: boolean;
     skipValidation: boolean;
     allowNonEvidenceUpdates: boolean;
+    skipDbPersistence: boolean;
 }
 
 export interface PipelineContext extends PipelineIdentity {
@@ -64,6 +65,6 @@ export interface SpecRunContext {
     nodeId: string;
     outputPath: string;
     overviewPath: string;
-    registryIndexPath: string;
+    registryDbPath: string;
     allowedWritePaths: string[];
 }

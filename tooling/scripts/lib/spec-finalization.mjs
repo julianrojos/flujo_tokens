@@ -13,7 +13,8 @@ export function finalizeSpecResult({
   resolvedSpecRoot,
   docsRootDir,
   overviewPath,
-  registryIndexPath,
+  registryDbPath,
+  systemId,
   syncDocumentationIndicesFn,
 }) {
   const indicesSync = syncDocumentationIndicesFn({
@@ -21,7 +22,8 @@ export function finalizeSpecResult({
     docsDir: path.join(docsRootDir, "components"),
     overviewPath,
     proofsDir: path.join(docsRootDir, "_generated", "visual-proofs"),
-    registryPath: registryIndexPath,
+    dbPath: registryDbPath,
+    systemId,
   });
 
   return buildSpecGenerationResult({

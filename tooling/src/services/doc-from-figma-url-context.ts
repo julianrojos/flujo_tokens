@@ -103,14 +103,14 @@ export interface DocGenerationContext {
   outputSlug: string;
   specComponentsDir: string;
   overviewPath: string;
-  registryIndexPath: string;
+  registryDbPath: string;
   tokenUsageIndexPath: string;
   tokenRegistryPath: string;
   tokenUsageScriptPath: string;
   captureVisualProofScriptPath: string;
   visualProofDir: string;
   visualProofImageDir: string;
-  visualProofPath: string;
+  proofRecordPath: string;
   visualProofImagePath: string;
   skeletonPath: string;
   styleReferencePath: string;
@@ -122,6 +122,7 @@ export interface DocGenerationContext {
   figmaToken: string;
   figmaMapOutPath: string;
   componentNodeId: string;
+  systemId: string;
   agent: 'codex' | 'claude' | 'gemini' | 'auto';
   componentName: string;
   componentSlug: string;
@@ -164,6 +165,8 @@ export async function resolveDocContext(
   figmaMapOutPath: string,
   docsRootDir: string,
   componentDocsDir: string,
+  registryDbPath: string,
+  systemId: string,
   tempArtifacts: TempArtifactManager,
   deps: ResolveDocContextDeps = {},
 ): Promise<DocGenerationContext> {
@@ -216,11 +219,6 @@ export async function resolveDocContext(
 
   const specComponentsDir = path.join(docsRootDir, '_spec', 'components');
   const overviewPath = path.join(componentDocsDir, 'overview.md');
-  const registryIndexPath = path.join(
-    docsRootDir,
-    '_generated',
-    'component-registry.json',
-  );
   const tokenUsageIndexPath = path.join(
     docsRootDir,
     '_generated',
@@ -245,21 +243,20 @@ export async function resolveDocContext(
   );
   const visualProofDir = path.join(docsRootDir, '_generated', 'visual-proofs');
   const visualProofImageDir = path.join(visualProofDir, 'images');
-  const visualProofPath = path.join(visualProofDir, `${outputSlug}.json`);
+  const proofRecordPath = path.join(visualProofDir, `${outputSlug}.proof`);
   const visualProofImagePath = path.join(visualProofImageDir, `${outputSlug}.png`);
 
   const scopeSnapshot = captureScopedWriteSnapshot({
     directories: [componentDocsDir, specComponentsDir],
-    files: [registryIndexPath, tokenUsageIndexPath],
+    files: [tokenUsageIndexPath],
     extensions: ['.md', '.yml', '.json'],
   });
   const allowedWritePaths = [
     outputPath,
     overviewPath,
-    registryIndexPath,
     tokenUsageIndexPath,
     figmaMapOutPath,
-    visualProofPath,
+    proofRecordPath,
     visualProofImagePath,
   ];
 
@@ -337,14 +334,14 @@ export async function resolveDocContext(
     outputSlug,
     specComponentsDir,
     overviewPath,
-    registryIndexPath,
+    registryDbPath: path.resolve(registryDbPath),
     tokenUsageIndexPath,
     tokenRegistryPath,
     tokenUsageScriptPath,
     captureVisualProofScriptPath,
     visualProofDir,
     visualProofImageDir,
-    visualProofPath,
+    proofRecordPath,
     visualProofImagePath,
     skeletonPath,
     styleReferencePath,
@@ -356,6 +353,7 @@ export async function resolveDocContext(
     figmaToken,
     figmaMapOutPath,
     componentNodeId,
+    systemId,
     agent,
     componentName,
     componentSlug,

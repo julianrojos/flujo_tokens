@@ -6,7 +6,7 @@ export function runSpecWithGuards({
   outputPath,
   resolvedSpecRoot,
   docsPath,
-  registryIndexPath,
+  registryDbPath,
   allowedWritePaths,
   run,
   label = "ds-spec-from-figma",
@@ -23,7 +23,7 @@ export function runSpecWithGuards({
   
   const scopeSnapshot = captureScopedWriteSnapshotFn({
     directories: [resolvedSpecRoot, docsPath],
-    files: [registryIndexPath],
+    files: [registryDbPath],
     extensions: [".yml", ".md", ".json"],
   });
 

@@ -23,7 +23,7 @@ describe('spec-runner', () => {
         outputPath: '/tmp/alert.yml',
         resolvedSpecRoot: '/tmp/specs',
         docsPath: '/tmp/docs',
-        registryIndexPath: '/tmp/docs/_generated/component-registry.json',
+        registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
         allowedWritePaths: ['/tmp/alert.yml'],
         run: ({ existingSpec }) => {
           assert.deepEqual(existingSpec, { name: 'Alert' });
@@ -61,7 +61,7 @@ describe('spec-runner', () => {
             outputPath: '/tmp/alert.yml',
             resolvedSpecRoot: '/tmp/specs',
             docsPath: '/tmp/docs',
-            registryIndexPath: '/tmp/docs/_generated/component-registry.json',
+            registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
             allowedWritePaths: ['/tmp/alert.yml'],
             run: () => {
               throw new Error('run failed');

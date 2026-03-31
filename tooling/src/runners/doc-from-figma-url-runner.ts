@@ -235,6 +235,8 @@ export async function runDocFromFigmaUrl(
     figmaMapOutPath,
     docsRootDir,
     componentDocsDir,
+    systemCtx.paths.registry,
+    systemCtx.id,
     tempArtifacts,
   );
 

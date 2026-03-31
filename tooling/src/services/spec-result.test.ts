@@ -29,7 +29,7 @@ describe('spec-result', () => {
           changed: ['/repo/docs/components/overview.md'],
           written: ['/repo/docs/components/overview.md'],
           registry: {
-            registryPath: '/repo/docs/_generated/component-registry.json',
+            registryDbPath: '/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
             fingerprint: 'abc123',
           },
           overview: {
@@ -53,7 +53,7 @@ describe('spec-result', () => {
         documentationIndices: {
           changed: ['/repo/docs/components/overview.md'],
           written: ['/repo/docs/components/overview.md'],
-          registryPath: '/repo/docs/_generated/component-registry.json',
+          registryDbPath: '/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
           registryFingerprint: 'abc123',
           overviewPath: '/repo/docs/components/overview.md',
         },
@@ -73,7 +73,7 @@ describe('spec-result', () => {
           changed: [],
           written: [],
           registry: {
-            registryPath: '/repo/docs/_generated/component-registry.json',
+            registryDbPath: '/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
             fingerprint: 'fp',
           },
           overview: {

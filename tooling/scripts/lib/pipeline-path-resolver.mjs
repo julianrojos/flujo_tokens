@@ -32,7 +32,7 @@ export function resolvePipelinePaths(args, systemContext) {
     componentDocsDir,
     proofDir,
     proofImageDir,
-    registryIndexPath: path.join(docsRootDir, "_generated", "component-registry.json"),
+    registryDbPath: path.resolve(systemContext.paths.registry),
     tokenRegistryPath: path.resolve(args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, "_generated", "token-registry.json")),
     resolvedSpecRoot,
     templatePath: path.resolve(args.template || path.join(resolvedSpecRoot, "_template.yml")),

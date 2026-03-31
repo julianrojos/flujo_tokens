@@ -47,7 +47,7 @@ describe('ds-spec-from-figma integration', () => {
     const outputPath = path.join(specsDir, 'alert.yml');
     const templatePath = path.join(specsDir, '_template.yml');
     const registryPath = path.join(generatedDir, 'token-registry.json');
-    const registryIndexPath = path.join(generatedDir, 'component-registry.json');
+    const registryDbPath = path.join(tmpDir, 'apps', 'ds-dashboard', 'server', 'db', 'ds-dashboard.db');
 
     // Setup template
     fs.writeFileSync(
@@ -66,9 +66,8 @@ describe('ds-spec-from-figma integration', () => {
       'utf8'
     );
 
-    // Setup empty registries
+    // Setup token registry
     fs.writeFileSync(registryPath, '{}', 'utf8');
-    fs.writeFileSync(registryIndexPath, '{}', 'utf8');
 
     const result = await runSpecFromFigma(
       {
@@ -95,7 +94,7 @@ describe('ds-spec-from-figma integration', () => {
               docs: docsComponentsDir,
               generated: generatedDir,
               specs: specsDir,
-              registry: registryIndexPath,
+              registry: registryDbPath,
               tokenRegistry: registryPath,
             },
           },
@@ -109,7 +108,7 @@ describe('ds-spec-from-figma integration', () => {
             templatePath: templatePath,
             tokenRegistryPath: registryPath,
             overviewPath: path.join(docsComponentsDir, 'overview.md'),
-            registryIndexPath: registryIndexPath,
+            registryDbPath: registryDbPath,
           },
           flags: {
             componentSlugOverride: '',
@@ -188,7 +187,7 @@ describe('ds-spec-from-figma integration', () => {
           changed: [],
           written: [],
           registry: {
-            registryPath: registryIndexPath,
+            registryDbPath: registryDbPath,
             fingerprint: 'test-fingerprint',
           },
           overview: {
@@ -214,7 +213,7 @@ describe('ds-spec-from-figma integration', () => {
       documentationIndices: {
         changed: [],
         written: [],
-        registryPath: registryIndexPath,
+        registryDbPath: registryDbPath,
         registryFingerprint: 'test-fingerprint',
         overviewPath: path.join(docsComponentsDir, 'overview.md'),
       },
