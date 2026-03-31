@@ -40,6 +40,7 @@ export interface CommandRoutesDeps {
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('better-sqlite3').Database;
   syncDesignSystemFromPluginFn?: CommandRouteHandlerDeps['syncDesignSystemFromPluginFn'];
+  hasPluginSocketForFile?: CommandRouteHandlerDeps['hasPluginSocketForFile'];
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
@@ -93,6 +94,7 @@ function toCommandRouteHandlerDeps(deps: CommandRoutesDeps): CommandRouteHandler
     componentRepo: deps.componentRepo,
     db: deps.db,
     syncDesignSystemFromPluginFn: deps.syncDesignSystemFromPluginFn,
+    hasPluginSocketForFile: deps.hasPluginSocketForFile,
     toBooleanString: deps.toBooleanString,
     toNumberString: deps.toNumberString,
     validateGitRef: deps.validateGitRef,

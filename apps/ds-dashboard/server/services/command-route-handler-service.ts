@@ -21,6 +21,7 @@ import {
   parseScriptNameFromRoute,
 } from '../lib/command-route-enqueue-service.ts';
 import { resolveFileKeyForSystem, syncDesignSystemFromPlugin } from './figma-db-sync-service.ts';
+import { getPluginConnectionManager } from './plugin-connection-manager.ts';
 
 // ---------------------------------------------------------------------------
 // Alias resolution helpers
@@ -106,6 +107,7 @@ export interface CommandRouteHandlerDeps {
   componentRepo?: import('../db/component-repository.js').ComponentRepository;
   db?: import('better-sqlite3').Database;
   syncDesignSystemFromPluginFn?: typeof syncDesignSystemFromPlugin;
+  hasPluginSocketForFile?: (fileKey: string) => boolean;
   validateGitRef: (value: string) => string | null;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
@@ -373,6 +375,7 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
     componentRepo,
     db,
     syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
+    hasPluginSocketForFile,
     queueJobAcceptedPayload,
     failJson,
   } = deps;
@@ -411,6 +414,35 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
       requestId,
     });
   }
+
+  const canUsePluginSocket =
+    typeof hasPluginSocketForFile === 'function'
+      ? hasPluginSocketForFile(figmaFileId)
+      : (() => {
+          const manager = getPluginConnectionManager();
+          // Best-effort precheck:
+          // 1) Prefer an OPEN socket bound to this exact file key.
+          // 2) Fallback only when there is exactly one OPEN unkeyed socket (Draft file).
+          // The socket can still disconnect before sync starts; service-level error mapping
+          // provides the user-facing message in that case.
+          if (manager.getPreferredSocketId(figmaFileId)) return true;
+          return manager.getConnectionCount() === 1 && manager.getActiveFileKeys().length === 0;
+        })();
+  if (!canUsePluginSocket) {
+    console.warn(`[handleSyncFigmaTokensRoute] No plugin socket available for file: ${figmaFileId}`);
+    return failJson(c, 409, {
+      code: 'sync.no_plugin_socket_for_file',
+      userMessage:
+        `No plugin connection is available for Figma file "${figmaFileId}". ` +
+        'Open that exact file in Figma Desktop, run the Figma Desktop Bridge plugin, and retry.',
+      recoverable: true,
+      requestId,
+      context: {
+        figmaFileId,
+      },
+    });
+  }
+
   const dryRun = toBooleanString(body.dryRun, false) === 'true';
   const includeComponents = toBooleanString(body.includeComponents, true) === 'true';
 
