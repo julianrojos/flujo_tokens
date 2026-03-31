@@ -25,7 +25,7 @@ export function OpsActionsSections({ onRunSuccess }: OpsActionsSectionsProps) {
           Regenera los índices y artefactos derivados de tokens y componentes.
         </p>
         <div className="space-y-2">
-          <OperationRow id="refresh-registry" label="Refresh Component Registry" description="Reconstruye component-registry.json escaneando specs y docs locales." endpoint="/api/refresh-registry" onRunSuccess={onRunSuccess} />
+          <OperationRow id="refresh-registry" label="Refresh Component Registry" description="Sincroniza metadatos de componentes en DB escaneando specs y docs locales." endpoint="/api/refresh-registry" onRunSuccess={onRunSuccess} />
           <OperationRow id="usage-index" label="Rebuild Usage Index" description="Indexa referencias en specs y CSS para trazar dónde se usa cada token." endpoint="/api/refresh-token-usage-index" onRunSuccess={onRunSuccess} />
           <OperationRow id="token-health" label="Recompute Token Health" description="Analiza salud de tokens: aliases rotos, tokens sin uso, estado de resolución." endpoint="/api/refresh-token-health" onRunSuccess={onRunSuccess} />
           <OperationRow id="health-snapshot" label="Capture Health Snapshot" description="Guarda el estado actual de salud en el historial de tendencias." endpoint="/api/capture-health-snapshot" onRunSuccess={onRunSuccess} />

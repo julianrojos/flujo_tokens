@@ -158,10 +158,10 @@ export function useComponentDetail(): ComponentDetailViewModel {
   }, [navigate]);
 
   const openDocsModal = useCallback(() => {
-    if (item?.doc?.exists && item?.paths?.doc) {
+    if (item?.doc?.exists) {
       setDocsModalOpen(true);
     }
-  }, [item?.doc?.exists, item?.paths?.doc]);
+  }, [item?.doc?.exists]);
 
   return {
     loading,
