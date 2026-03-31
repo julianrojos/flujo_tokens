@@ -188,6 +188,13 @@ export async function runDocGenerationPipeline(
   assertScopedWritePolicy({
     snapshot: ctx.scopeSnapshot,
     allowedPaths: ctx.allowedWritePaths,
+    allowedPathPrefixes: ctx.allowedWritePathPrefixes,
     label: 'ds-doc-from-figma-url',
+  });
+  assertScopedWritePolicy({
+    snapshot: ctx.proofScopeSnapshot,
+    allowedPaths: ctx.allowedWritePaths,
+    allowedPathPrefixes: ctx.allowedWritePathPrefixes,
+    label: 'ds-doc-from-figma-url (proof images)',
   });
 }

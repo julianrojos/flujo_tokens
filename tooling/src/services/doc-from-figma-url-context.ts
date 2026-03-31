@@ -110,7 +110,7 @@ export interface DocGenerationContext {
   captureVisualProofScriptPath: string;
   visualProofDir: string;
   visualProofImageDir: string;
-  proofRecordPath: string;
+  proofImagesSlugPath: string;
   visualProofImagePath: string;
   skeletonPath: string;
   styleReferencePath: string;
@@ -135,7 +135,9 @@ export interface DocGenerationContext {
 
   // Snapshots
   scopeSnapshot: ReturnType<typeof captureScopedWriteSnapshot>;
+  proofScopeSnapshot: ReturnType<typeof captureScopedWriteSnapshot>;
   allowedWritePaths: string[];
+  allowedWritePathPrefixes: string[];
 }
 
 /**
@@ -180,11 +182,11 @@ export async function resolveDocContext(
   const force = String(args.force || 'false') === 'true';
   const allowDocStatusChange =
     String(args['allow-doc-status-change'] || 'false') === 'true';
-  
+
   // CI detection: accept common truthy values (true, 1, yes, on)
   const ciValue = String(ci || '').trim().toLowerCase();
   const isCI = ciValue === 'true' || ciValue === '1' || ciValue === 'yes' || ciValue === 'on';
-  
+
   const strictStyleReference = parseBooleanOption(
     args['strict-style-reference'],
     '--strict-style-reference',
@@ -243,22 +245,31 @@ export async function resolveDocContext(
   );
   const visualProofDir = path.join(docsRootDir, '_generated', 'visual-proofs');
   const visualProofImageDir = path.join(visualProofDir, 'images');
-  const proofRecordPath = path.join(visualProofDir, `${outputSlug}.proof`);
+  const visualProofVariantsDir = path.join(visualProofImageDir, 'variants');
+  const proofImagesSlugPath = path.join(visualProofDir, outputSlug);
   const visualProofImagePath = path.join(visualProofImageDir, `${outputSlug}.png`);
+  const visualProofVariantPrefix = path.join(visualProofVariantsDir, `${outputSlug}__`);
 
   const scopeSnapshot = captureScopedWriteSnapshot({
     directories: [componentDocsDir, specComponentsDir],
     files: [tokenUsageIndexPath],
     extensions: ['.md', '.yml', '.json'],
   });
+  const proofScopeSnapshot = captureScopedWriteSnapshot({
+    directories: [visualProofVariantsDir],
+    files: [visualProofImagePath],
+    extensions: ['.png'],
+    fileNamePrefixes: [`${outputSlug}__`],
+    maxDepth: 0,
+  });
   const allowedWritePaths = [
     outputPath,
     overviewPath,
     tokenUsageIndexPath,
     figmaMapOutPath,
-    proofRecordPath,
     visualProofImagePath,
   ];
+  const allowedWritePathPrefixes = [`${visualProofVariantPrefix}*`];
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   const skeletonPath = writeComponentDocSkeleton({
@@ -341,7 +352,7 @@ export async function resolveDocContext(
     captureVisualProofScriptPath,
     visualProofDir,
     visualProofImageDir,
-    proofRecordPath,
+    proofImagesSlugPath,
     visualProofImagePath,
     skeletonPath,
     styleReferencePath,
@@ -366,7 +377,9 @@ export async function resolveDocContext(
 
     // Snapshots
     scopeSnapshot,
+    proofScopeSnapshot,
     allowedWritePaths,
+    allowedWritePathPrefixes,
   };
 }
 
