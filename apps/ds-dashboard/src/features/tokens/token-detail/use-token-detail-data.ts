@@ -17,11 +17,8 @@ import type { VariableUsageReport } from "@/types/consumers";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenGraphQueryResult } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
-import type { TokenUsageEntry, TokenUsageIndex, TokenUsageOccurrence } from "@/types/token-usage-index";
-import {
-  buildTokenUsageTargets,
-  variableReportMatchesTokenTargets,
-} from "./lib/token-detail-transforms";
+import type { TokenUsageEntry, TokenUsageIndex } from "@/types/token-usage-index";
+import { buildFigmaConsumerUsageOccurrences } from "./lib/token-detail-usage-derivation";
 
 const EMPTY_BY_PATH: Record<string, TokenUsageEntry> = {};
 
@@ -33,8 +30,6 @@ type TokenDetailQueryData = {
   graphQuery: TokenGraphQueryResult | null;
   componentRegistry: ComponentRegistry | null;
 };
-
-const PARENT_CONSUMER_ID_PREFIX = "parent:" as const;
 
 export const tokenDetailQueryKey = (tokenPath: string, systemId: string) =>
   ["token-detail", systemId, tokenPath] as const;
@@ -122,77 +117,6 @@ export function useTokenUsageIndexQuery(systemId: string, enabled = true) {
   });
 }
 
-function resolveTokenTargets(tokenPath: string, registry: TokenRegistry | null): Set<string> {
-  const token = registry?.byPath?.[tokenPath] ?? null;
-  return buildTokenUsageTargets(token);
-}
-
-function buildFigmaConsumerUsageOccurrences(args: {
-  targets: Set<string>;
-  consumerVariableReports: VariableUsageReport[] | null;
-}): {
-  parentCount: number;
-  parentOccurrences: TokenUsageOccurrence[];
-  consumerCount: number;
-  consumerOccurrences: TokenUsageOccurrence[];
-} {
-  const reports = args.consumerVariableReports ?? [];
-
-  const matched = reports.filter((report) =>
-    variableReportMatchesTokenTargets(report, args.targets),
-  );
-
-  if (matched.length === 0) {
-    return {
-      parentCount: 0,
-      parentOccurrences: [],
-      consumerCount: 0,
-      consumerOccurrences: [],
-    };
-  }
-
-  return buildOccurrencesFromReports(matched);
-}
-
-function buildOccurrencesFromReports(reports: VariableUsageReport[]): {
-  parentCount: number;
-  parentOccurrences: TokenUsageOccurrence[];
-  consumerCount: number;
-  consumerOccurrences: TokenUsageOccurrence[];
-} {
-  const parentOccurrences: TokenUsageOccurrence[] = [];
-  const consumerOccurrences: TokenUsageOccurrence[] = [];
-  let parentCount = 0;
-  let consumerCount = 0;
-
-  for (const report of reports) {
-    for (const consumer of report.consumers ?? []) {
-      const nodeCount = Number.isFinite(consumer.nodeCount)
-        ? Math.max(0, Number(consumer.nodeCount))
-        : 0;
-      const isParent = String(consumer.consumerId || "").startsWith(PARENT_CONSUMER_ID_PREFIX);
-      if (isParent) {
-        parentCount += nodeCount;
-        parentOccurrences.push({
-          kind: "figma-applied",
-          source: "",
-          owner: consumer.consumerName || "Parent file",
-          detail: `${report.variableName} · ${consumer.consumerFileKey} · nodes:${nodeCount}`,
-        });
-      } else {
-        consumerCount += nodeCount;
-        consumerOccurrences.push({
-          kind: "figma-consumer-applied",
-          source: "",
-          owner: consumer.consumerName || consumer.consumerFileKey || "consumer",
-          detail: `${report.variableName} · ${consumer.consumerFileKey} · nodes:${nodeCount}`,
-        });
-      }
-    }
-  }
-
-  return { parentCount, parentOccurrences, consumerCount, consumerOccurrences };
-}
 
 function buildMergedUsageEntry(args: {
   tokenPath: string;
@@ -202,9 +126,9 @@ function buildMergedUsageEntry(args: {
   const token = args.registry?.byPath?.[args.tokenPath] ?? null;
   if (!token) return null;
 
-  const targets = resolveTokenTargets(args.tokenPath, args.registry);
   const consumerUsage = buildFigmaConsumerUsageOccurrences({
-    targets,
+    tokenPath: args.tokenPath,
+    registry: args.registry,
     consumerVariableReports: args.consumerVariableReports,
   });
 

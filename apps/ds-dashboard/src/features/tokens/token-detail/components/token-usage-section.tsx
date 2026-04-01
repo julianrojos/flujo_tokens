@@ -151,7 +151,16 @@ export function TokenUsageSection({
                 <TableRow key={usage.slug}>
                   <TableCell className="font-medium">{usage.displayName}</TableCell>
                   <TableCell><Badge variant={usage.pipelineStage === "visual-proof" ? "success" : "neutral"}>{usage.pipelineStage ?? "—"}</Badge></TableCell>
-                  <TableCell><Badge variant={usage.mode === "direct" ? "success" : "neutral"}>{usage.mode}</Badge></TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap items-center gap-1">
+                      {(usage.mode === "direct" || usage.mode === "both") && (
+                        <Badge variant="success">direct ({usage.directOccurrences})</Badge>
+                      )}
+                      {(usage.mode === "via_alias" || usage.mode === "both") && (
+                        <Badge variant="neutral">via_alias ({usage.viaAliasOccurrences})</Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{usage.occurrences}</TableCell>
                   <TableCell className="max-w-xs truncate text-xs">{usage.slots.join(", ") || "—"}</TableCell>
                 </TableRow>
