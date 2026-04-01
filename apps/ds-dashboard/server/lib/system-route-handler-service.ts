@@ -65,9 +65,9 @@ export interface ScaffoldResult {
 
 /**
  * Result of reset global artifacts operation.
+ * Tracks only the directories created/touched during reset.
  */
 export interface ResetGlobalArtifactsResult {
-  componentsIndexPath: string;
   touchedPaths: string[];
 }
 
@@ -381,39 +381,6 @@ doc_status: draft
 }
 
 /**
- * Build COMPONENTS_INDEX.md seed content.
- * @returns Markdown content string
- */
-function buildEmptyComponentsIndexSeed(): string {
-  return `---
-doc_type: workflow
-doc_status: ready
----
-
-# Design System Components Index
-
-Source: SQLite component registry projection
-Registry fingerprint: \`n/a\`
-
-This file is generated from database data and should not be edited manually.
-
-## Summary
-
-- Total components: 0
-- Ready: 0
-- Needs review: 0
-- Draft: 0
-- Missing: 0
-- With visual proof: 0
-- Average coverage: 0%
-
-## Components
-
-No components available.
-`;
-}
-
-/**
  * Ensure filesystem scaffold for a design system.
  * Creates required directories and seed files.
  * @param options - Scaffold options
@@ -458,7 +425,7 @@ export function ensureSystemFilesystemScaffold({
 
 /**
  * Reset global artifacts when no systems remain.
- * Creates empty registry files and index.
+ * Ensures the global docs directory exists for non-system project documentation.
  * @param options - Reset options
  * @returns Result with touched paths
  */
@@ -470,7 +437,6 @@ export function resetGlobalArtifactsForNoSystems({
   fsSync: FsSync;
 }): ResetGlobalArtifactsResult {
   const docsDir = path.resolve(repoRoot, "docs");
-  const componentsIndexPath = path.join(docsDir, "COMPONENTS_INDEX.md");
 
   const touchedPaths: string[] = [];
   for (const dirPath of [docsDir]) {
@@ -479,11 +445,7 @@ export function resetGlobalArtifactsForNoSystems({
     touchedPaths.push(dirPath);
   }
 
-  fs.writeFileSync(componentsIndexPath, buildEmptyComponentsIndexSeed(), "utf8");
-  touchedPaths.push(componentsIndexPath);
-
   return {
-    componentsIndexPath,
     touchedPaths,
   };
 }
