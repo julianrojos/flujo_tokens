@@ -463,6 +463,12 @@ describe('command-routes', () => {
           usageReindexStatus: 'failed' as const,
           usageReindexReason: 'missing_repo_root' as const,
           usageReindexWarnings: ['Token usage reindex requested but repoRoot is missing.'],
+          specYamlGenerated: 0,
+          specYamlSkipped: 0,
+          specYamlFailed: 0,
+          specYamlWarnings: [],
+          specsEnriched: 0,
+          proofsEnriched: 0,
           dryRun: false,
         }),
       });

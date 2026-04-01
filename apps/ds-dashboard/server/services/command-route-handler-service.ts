@@ -470,6 +470,7 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
         dryRun,
         includeComponents,
         captureComponentProofs: includeComponents && !dryRun,
+        captureComponentSpecYaml: includeComponents && !dryRun,
         captureComponentProofVariants: includeComponents && !dryRun,
         repoRoot: sysCtx.repoRoot,
         reindexUsageFromFilesystem: !dryRun,
@@ -488,6 +489,17 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
       }
       if (result.usageReindexStatus === 'failed' && result.usageReindexReason !== 'none') {
         emitChunk('warning', `Token usage reindex status: failed (${result.usageReindexReason}).`);
+      }
+      if (result.specYamlWarnings.length > 0) {
+        for (const warning of result.specYamlWarnings) {
+          emitChunk('warning', warning);
+        }
+      }
+      if (result.specYamlGenerated > 0 || result.specYamlSkipped > 0 || result.specYamlFailed > 0) {
+        emitChunk(
+          'result',
+          `Spec YAML capture: generated ${result.specYamlGenerated}, skipped ${result.specYamlSkipped}, failed ${result.specYamlFailed}.`,
+        );
       }
       emitChunk('result', `Imported ${result.tokens} tokens and ${result.components} components.`);
       return {

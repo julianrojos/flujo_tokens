@@ -333,6 +333,316 @@ function ensureComponentDocTemplates(options: {
   }
 }
 
+type SpecLayerNode = {
+  id: string;
+  name: string;
+  type: string;
+  children?: SpecLayerNode[];
+};
+
+type FullComponentSpecResult = {
+  success: true;
+  nodeId: string;
+  name: string;
+  type: string;
+  description: string | null;
+  anatomy: SpecLayerNode;
+  variants?: Array<{ key: string; nodeId: string; name: string; variantProperties: Record<string, string> }>;
+  variantAxes?: Array<{ name: string; values: string[] }>;
+  props: Array<{ name: string; type: string; defaultValue: unknown }>;
+  states: string[];
+  tokenBindings: Array<{ nodeId: string; nodeName: string; field: string; variableId: string }>;
+};
+
+type FetchFullComponentSpecFn = (
+  fileKey: string | null,
+  params: { nodeId: string; depth?: number; compact?: boolean },
+) => Promise<FullComponentSpecResult>;
+
+type SpecYamlCaptureSummary = {
+  generated: number;
+  skipped: number;
+  failed: number;
+  warnings: string[];
+};
+
+const SPEC_ANATOMY_CHILD_LIMIT = 50;
+
+function toSnakeCaseId(value: string, fallback = 'part'): string {
+  const normalized = stripDiacritics(String(value || '').trim())
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized || fallback;
+}
+
+function mapFigmaPropertyType(value: string): 'enum' | 'text' | 'boolean' | 'instance_swap' {
+  const type = String(value || '').trim().toUpperCase();
+  if (type === 'VARIANT') return 'enum';
+  if (type === 'BOOLEAN') return 'boolean';
+  if (type === 'INSTANCE_SWAP') return 'instance_swap';
+  return 'text';
+}
+
+function normalizeVariantAxisValues(specData: FullComponentSpecResult | null, propName: string): string[] {
+  const name = String(propName || '').trim().toLowerCase();
+  if (!name) return [];
+  const directAxis = (specData?.variantAxes || []).find(
+    (axis) => String(axis?.name || '').trim().toLowerCase() === name,
+  );
+  const directValues = Array.from(
+    new Set(
+      (directAxis?.values || [])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean),
+    ),
+  );
+  if (directValues.length > 0) return directValues;
+  const fromVariants = Array.from(
+    new Set(
+      (specData?.variants || [])
+        .map((variant) => String(variant?.variantProperties?.[propName] || '').trim())
+        .filter(Boolean),
+    ),
+  );
+  return fromVariants;
+}
+
+function yamlBooleanOrString(value: unknown, fallback: boolean): string {
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  const normalized = String(value ?? '').trim().toLowerCase();
+  if (normalized === 'true') return 'true';
+  if (normalized === 'false') return 'false';
+  return fallback ? 'true' : 'false';
+}
+
+function buildComponentSpecYaml(args: {
+  slug: string;
+  componentSetNodeId: string;
+  specData: FullComponentSpecResult | null;
+  componentName: string;
+  figmaFileUrl: string;
+}): { yaml: string; warnings: string[] } {
+  const { slug, componentSetNodeId, specData, componentName, figmaFileUrl } = args;
+  const warnings: string[] = [];
+  const safeComponentSetNodeId = String(componentSetNodeId || '').trim() || 'TBD';
+  const figmaFileKey = parseFileKey(figmaFileUrl) || 'TBD';
+  const safeComponentSetName = String(specData?.name || componentName || slug).trim() || slug;
+  const purpose = specData?.description
+    ? String(specData.description).trim().replace(/[\r\n]+/g, ' ')
+    : `${String(componentName || slug).trim()} component.`;
+
+  const anatomyChildren = specData?.anatomy?.children ?? [];
+  const propsArr = (specData?.props ?? []).map((prop) => {
+    const name = String(prop?.name || '').trim();
+    const type = mapFigmaPropertyType(String(prop?.type || ''));
+    const normalized: {
+      name: string;
+      type: 'enum' | 'text' | 'boolean' | 'instance_swap';
+      values?: string[];
+      defaultValue: unknown;
+      required: boolean;
+    } = {
+      name,
+      type,
+      defaultValue: prop?.defaultValue,
+      required: type === 'enum',
+    };
+    if (type === 'enum') {
+      const values = normalizeVariantAxisValues(specData, name);
+      const defaultAsText = String(prop?.defaultValue ?? '').trim();
+      const ensuredValues = values.length > 0
+        ? values
+        : defaultAsText
+          ? [defaultAsText]
+          : ['TBD'];
+      normalized.values = ensuredValues;
+      if (!defaultAsText) {
+        normalized.defaultValue = ensuredValues[0] || 'TBD';
+      }
+    }
+    return normalized;
+  });
+  const propertyTypeOrder = {
+    enum: 0,
+    text: 1,
+    boolean: 2,
+    instance_swap: 3,
+  } as const;
+  propsArr.sort((a, b) => {
+    const typeDelta = propertyTypeOrder[a.type] - propertyTypeOrder[b.type];
+    if (typeDelta !== 0) return typeDelta;
+    return a.name.localeCompare(b.name);
+  });
+
+  const lines: string[] = [];
+
+  lines.push(`name: ${toYamlScalar(safeComponentSetName)}`);
+  lines.push('status: draft');
+  lines.push('figma:');
+  lines.push(`  file: ${toYamlScalar(figmaFileKey)}`);
+  lines.push('  page: "TBD"');
+  lines.push(`  component_set: ${toYamlScalar(safeComponentSetName)}`);
+  lines.push(`  component_set_node_id: ${toYamlScalar(safeComponentSetNodeId)}`);
+  lines.push('summary:');
+  lines.push(`  purpose: ${toYamlScalar(purpose)}`);
+  lines.push('  when_to_use: "TBD"');
+  lines.push('  when_not_to_use: "TBD"');
+  lines.push('anatomy:');
+  if (anatomyChildren.length === 0) {
+    lines.push('  - id: container');
+    lines.push('    description: "TBD"');
+  } else {
+    if (anatomyChildren.length > SPEC_ANATOMY_CHILD_LIMIT) {
+      warnings.push(
+        `Anatomy for "${slug}" has ${anatomyChildren.length} nodes; truncated to ${SPEC_ANATOMY_CHILD_LIMIT}.`,
+      );
+    }
+    for (const child of anatomyChildren.slice(0, SPEC_ANATOMY_CHILD_LIMIT)) {
+      const childName = String(child.name || child.id || '').trim();
+      lines.push(`  - id: ${toYamlScalar(toSnakeCaseId(childName || 'part', 'part'))}`);
+      lines.push('    description: "TBD"');
+    }
+  }
+  lines.push('properties:');
+  if (propsArr.length === 0) {
+    lines.push('  []');
+  } else {
+    for (const prop of propsArr) {
+      lines.push(`  - name: ${toYamlScalar(String(prop.name || 'TBD'))}`);
+      lines.push(`    type: ${prop.type}`);
+      if (prop.type === 'enum') {
+        const values = Array.isArray(prop.values) && prop.values.length > 0 ? prop.values : ['TBD'];
+        lines.push(`    values: [${values.map((value) => toYamlScalar(value)).join(', ')}]`);
+      }
+      if (prop.type === 'boolean') {
+        lines.push(`    default: ${yamlBooleanOrString(prop.defaultValue, false)}`);
+      } else {
+        const defaultVal = prop.defaultValue !== undefined && prop.defaultValue !== null
+          ? toYamlScalar(String(prop.defaultValue))
+          : '"TBD"';
+        lines.push(`    default: ${defaultVal}`);
+      }
+      lines.push(`    required: ${prop.required ? 'true' : 'false'}`);
+      lines.push('    description: "TBD"');
+    }
+  }
+  lines.push('content_guidelines:');
+  lines.push('  rules:');
+  lines.push('    - "TBD"');
+  lines.push('best_practices:');
+  lines.push('  do:');
+  lines.push('    - "TBD"');
+  lines.push('  dont:');
+  lines.push('    - "TBD"');
+  lines.push('accessibility:');
+  lines.push('  role: "TBD"');
+  lines.push('  focus:');
+  lines.push('    tokens:');
+  lines.push('      inner: "Semantic.Color.Focus-Outline.Inner"');
+  lines.push('      outer: "Semantic.Color.Focus-Outline.Outer"');
+  lines.push('  hit_area:');
+  lines.push('    desktop_token: "A11y.A11y.Dimension.Min-Hit-Area"');
+  lines.push('    mobile_token: "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA"');
+  lines.push('  labeling:');
+  lines.push('    rules:');
+  lines.push('      - "TBD"');
+  lines.push('token_mapping:');
+  lines.push('  container.background:');
+  lines.push('    "state=default": "TBD"');
+  lines.push('qa:');
+  lines.push('  - "Properties match the Figma component set."');
+  lines.push('  - "Token mapping uses real token keys."');
+  lines.push('related_components: []');
+  lines.push('');
+
+  return {
+    yaml: lines.join('\n'),
+    warnings,
+  };
+}
+
+async function captureComponentSpecYamlFiles(options: {
+  entries: SyncComponentEntry[];
+  repoRoot: string;
+  dsId: string;
+  figmaFileId: string | null;
+  fetchFullComponentSpec: FetchFullComponentSpecFn;
+}): Promise<SpecYamlCaptureSummary> {
+  const { entries, repoRoot, dsId, figmaFileId, fetchFullComponentSpec } = options;
+  const paths = resolveSystemPaths(dsId, repoRoot);
+  let generated = 0;
+  let skipped = 0;
+  let failed = 0;
+  const warnings: string[] = [];
+  try {
+    fs.mkdirSync(paths.specsDir, { recursive: true });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    warnings.push(`[captureComponentSpecYamlFiles] Failed to create specs directory ${paths.specsDir}: ${reason}`);
+  }
+
+  for (const entry of entries) {
+    const targetPath = path.join(paths.specsDir, `${entry.slug}.yml`);
+    if (fs.existsSync(targetPath)) {
+      skipped += 1;
+      continue;
+    }
+
+    const componentNodeId = String(entry.figma.componentSetNodeId || '').trim();
+    let specData: FullComponentSpecResult | null = null;
+    if (componentNodeId) {
+      try {
+        specData = (await fetchFullComponentSpec(figmaFileId, {
+          nodeId: componentNodeId,
+          depth: 3,
+          compact: false,
+        })) as FullComponentSpecResult;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        warnings.push(
+          `[captureComponentSpecYamlFiles] Failed fetching full spec for slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`,
+        );
+        console.warn(
+          `[captureComponentSpecYamlFiles] Failed fetching full spec for slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`,
+        );
+        specData = null;
+      }
+    }
+
+    const specYaml = buildComponentSpecYaml({
+      slug: entry.slug,
+      componentSetNodeId: componentNodeId,
+      specData,
+      componentName: entry.name,
+      figmaFileUrl: entry.figma.fileUrl,
+    });
+    warnings.push(...specYaml.warnings);
+
+    try {
+      fs.writeFileSync(targetPath, specYaml.yaml, 'utf8');
+      generated += 1;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      failed += 1;
+      warnings.push(
+        `[captureComponentSpecYamlFiles] Failed writing spec for slug=${entry.slug} path=${targetPath}: ${reason}`,
+      );
+      console.warn(
+        `[captureComponentSpecYamlFiles] Failed writing spec for slug=${entry.slug} path=${targetPath}: ${reason}`,
+      );
+    }
+  }
+
+  return {
+    generated,
+    skipped,
+    failed,
+    warnings,
+  };
+}
+
 function extensionFromFormat(format: string): string {
   const normalized = String(format || '').trim().toUpperCase();
   if (normalized === 'JPG' || normalized === 'JPEG') return 'jpg';
@@ -900,7 +1210,9 @@ export interface SyncFromPluginOptions {
   }>;
   fetchComponentImages?: FetchComponentImagesFn;
   fetchComponentSpec?: FetchComponentSpecFn;
+  fetchFullComponentSpec?: FetchFullComponentSpecFn;
   captureComponentProofs?: boolean;
+  captureComponentSpecYaml?: boolean;
   captureComponentProofVariants?: boolean;
   captureComponentProofVariantLimit?: number;
   imageBatchSize?: number;
@@ -924,6 +1236,10 @@ export interface SyncFromPluginResult {
   usageReindexStatus: 'not_requested' | 'ok' | 'failed';
   usageReindexReason: 'none' | 'missing_repo_root' | 'no_sources' | 'runtime_error';
   usageReindexWarnings: string[];
+  specYamlGenerated: number;
+  specYamlSkipped: number;
+  specYamlFailed: number;
+  specYamlWarnings: string[];
   specsEnriched: number;
   proofsEnriched: number;
   dryRun: boolean;
@@ -1070,7 +1386,9 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     searchComponents = searchComponentsDirect,
     fetchComponentImages = getComponentImageDirect,
     fetchComponentSpec = getComponentSpecDirect,
+    fetchFullComponentSpec = getComponentSpecDirect as FetchFullComponentSpecFn,
     captureComponentProofs = false,
+    captureComponentSpecYaml = false,
     captureComponentProofVariants = false,
     captureComponentProofVariantLimit = 8,
     imageBatchSize = DEFAULT_IMAGE_BATCH_SIZE,
@@ -1126,6 +1444,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   let componentsTruncated = false;
   let specsEnriched = 0;
   let proofsEnriched = 0;
+  let specYamlGenerated = 0;
+  let specYamlSkipped = 0;
+  let specYamlFailed = 0;
+  let specYamlWarnings: string[] = [];
 
   if (includeComponents) {
     let componentsResult: Awaited<ReturnType<typeof searchComponents>>;
@@ -1164,6 +1486,30 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         repoRoot,
         dsId,
       });
+      if (captureComponentSpecYaml) {
+        try {
+          const specYamlSummary = await captureComponentSpecYamlFiles({
+            entries: componentEntries,
+            repoRoot,
+            dsId,
+            figmaFileId,
+            fetchFullComponentSpec,
+          });
+          specYamlGenerated = specYamlSummary.generated;
+          specYamlSkipped = specYamlSummary.skipped;
+          specYamlFailed = specYamlSummary.failed;
+          specYamlWarnings = specYamlSummary.warnings;
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          specYamlWarnings = [
+            ...specYamlWarnings,
+            `[syncDesignSystemFromPlugin] Component spec YAML capture failed: ${reason}`,
+          ];
+          console.warn(
+            `[syncDesignSystemFromPlugin] Component spec YAML capture failed (continuing import): ${reason}`,
+          );
+        }
+      }
       if (captureComponentProofs) {
         try {
           await captureComponentMainProofImages({
@@ -1474,6 +1820,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       usageReindexStatus,
       usageReindexReason,
       usageReindexWarnings,
+      specYamlGenerated,
+      specYamlSkipped,
+      specYamlFailed,
+      specYamlWarnings,
       specsEnriched,
       proofsEnriched,
       dryRun,
@@ -1492,6 +1842,10 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     usageReindexStatus: 'not_requested',
     usageReindexReason: 'none',
     usageReindexWarnings: [],
+    specYamlGenerated,
+    specYamlSkipped,
+    specYamlFailed,
+    specYamlWarnings,
     specsEnriched,
     proofsEnriched,
     dryRun,
