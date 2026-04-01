@@ -42,6 +42,19 @@ function emptyVisualProof() {
   };
 }
 
+function buildAssetUrlFromPath(imagePath) {
+  const value = String(imagePath || "").trim();
+  if (!value) return null;
+  return `/api/asset?path=${encodeURIComponent(value)}`;
+}
+
+function computeVisualProofExists(path, pathExists, dbRecord) {
+  if (path) return Boolean(pathExists);
+  return Boolean(dbRecord.screenshot_url) ||
+    Number(dbRecord.variants_count || 0) > 0 ||
+    (Array.isArray(dbRecord.variants) && dbRecord.variants.length > 0);
+}
+
 export async function handleComponentRegistryRoute(c, deps) {
   const { failJson, getSystemContext, componentRepo } = deps;
   if (!componentRepo) {
@@ -71,13 +84,31 @@ export async function handleComponentRegistryRoute(c, deps) {
         ? fileExistsWithinRepo(sysCtx.repoRoot, visualProofPath, existsCache)
         : Promise.resolve(false),
     ]);
+    const derivedScreenshotUrl =
+      visualProofFromDb.screenshot_url ||
+      (visualProofPath && visualProofExists ? buildAssetUrlFromPath(visualProofPath) : null);
+    const derivedVariants = Array.isArray(visualProofFromDb.variants)
+      ? await Promise.all(
+          visualProofFromDb.variants.map(async (variant) => {
+            const variantImagePath =
+              typeof variant.image_path === "string" && variant.image_path ? variant.image_path : null;
+            const variantImageExists = variantImagePath
+              ? await fileExistsWithinRepo(sysCtx.repoRoot, variantImagePath, existsCache)
+              : false;
+            return {
+              ...variant,
+              screenshot_url:
+                variant.screenshot_url ||
+                (variantImagePath && variantImageExists ? buildAssetUrlFromPath(variantImagePath) : null),
+            };
+          }),
+        )
+      : [];
     const visualProof = {
       ...visualProofFromDb,
-      exists: visualProofPath
-        ? visualProofExists
-        : Boolean(visualProofFromDb.screenshot_url) ||
-          Number(visualProofFromDb.variants_count || 0) > 0 ||
-          (Array.isArray(visualProofFromDb.variants) && visualProofFromDb.variants.length > 0),
+      screenshot_url: derivedScreenshotUrl,
+      variants: derivedVariants,
+      exists: computeVisualProofExists(visualProofPath, visualProofExists, visualProofFromDb),
     };
     const component = {
       slug: row.slug,

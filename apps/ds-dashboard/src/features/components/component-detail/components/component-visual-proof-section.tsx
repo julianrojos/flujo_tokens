@@ -6,6 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Camera } from "lucide-react";
 import type { ComponentRegistryItem } from "@/types/component-registry";
+import { buildAssetUrl } from "../lib/component-detail-transforms";
+import { useEffect, useMemo, useState } from "react";
 
 interface ComponentVisualProofSectionProps {
   item: ComponentRegistryItem | null;
@@ -30,30 +32,60 @@ function formatCapturedAt(value: string | null | undefined): string | null {
 }
 
 export function ComponentVisualProofSection({ item, captureSummary, onOpenCapture }: ComponentVisualProofSectionProps) {
-  if (!item) return null;
-  const proof = item.visual_proof;
-  const screenshotUrl = proof.screenshot_url;
-  const capturedAt = formatCapturedAt(proof.captured_at);
-  const imageBytes = formatBytes(proof.image_bytes);
+  const proof = item?.visual_proof;
+  const screenshotUrl = proof?.screenshot_url || buildAssetUrl(proof?.image_path || null);
+  const [mainImageFailed, setMainImageFailed] = useState(false);
+  const [failedVariantKeys, setFailedVariantKeys] = useState<Set<string>>(new Set());
+  const capturedAt = formatCapturedAt(proof?.captured_at);
+  const imageBytes = formatBytes(proof?.image_bytes);
   const imageDimensions =
-    Number.isFinite(Number(proof.image_width)) && Number.isFinite(Number(proof.image_height))
-      ? `${proof.image_width} × ${proof.image_height}`
+    Number.isFinite(Number(proof?.image_width)) && Number.isFinite(Number(proof?.image_height))
+      ? `${proof?.image_width} × ${proof?.image_height}`
       : null;
-  const variantsCount = Number.isFinite(Number(proof.variants_count))
-    ? Number(proof.variants_count)
-    : Array.isArray(proof.variants)
+  const variantsCount = Number.isFinite(Number(proof?.variants_count))
+    ? Number(proof?.variants_count)
+    : Array.isArray(proof?.variants)
       ? proof.variants.length
       : 0;
-  const variantNames = Array.isArray(proof.variants)
+  const variantNames = Array.isArray(proof?.variants)
     ? proof.variants.map((variant) => String(variant.name || "").trim()).filter(Boolean)
     : [];
+  const variantPreviews = useMemo(
+    () =>
+      Array.isArray(proof?.variants)
+        ? proof.variants
+            .map((variant, index) => {
+              const name = String(variant.name || "").trim() || `Variant ${index + 1}`;
+              const previewUrl =
+                String(variant.screenshot_url || "").trim() || buildAssetUrl(variant.image_path || null);
+              return {
+                key: `${name}::${previewUrl || "no-preview"}::${index}`,
+                name,
+                previewUrl,
+              };
+            })
+            .filter((variant) => Boolean(variant.previewUrl))
+        : [],
+    [proof?.variants],
+  );
+  useEffect(() => {
+    setMainImageFailed(false);
+  }, [screenshotUrl]);
+  useEffect(() => {
+    setFailedVariantKeys(new Set());
+  }, [variantPreviews]);
+  const visibleVariantPreviews = useMemo(
+    () => variantPreviews.filter((variant) => !failedVariantKeys.has(variant.key)),
+    [failedVariantKeys, variantPreviews],
+  );
   const hasTechnicalEvidence =
-    Boolean(proof.exists) ||
+    Boolean(proof?.exists) ||
     Boolean(capturedAt) ||
     Boolean(imageBytes) ||
     Boolean(imageDimensions) ||
-    Boolean(proof.image_sha256) ||
+    Boolean(proof?.image_sha256) ||
     Number(variantsCount) > 0;
+  if (!item || !proof) return null;
 
   return (
     <Card>
@@ -82,10 +114,39 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
             )}
           </div>
         )}
-        {screenshotUrl && (
+        {screenshotUrl && !mainImageFailed && (
           <div>
             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Screenshot</h4>
-            <img src={screenshotUrl} alt={`${item.display_name} screenshot`} className="max-h-64 rounded-lg border border-border object-contain" />
+            <img
+              src={screenshotUrl}
+              alt={`${item.display_name} screenshot`}
+              className="max-h-64 rounded-lg border border-border object-contain"
+              onError={() => setMainImageFailed(true)}
+            />
+          </div>
+        )}
+        {visibleVariantPreviews.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Variants</h4>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleVariantPreviews.map((variant) => (
+                <figure key={variant.key} className="space-y-1">
+                  <img
+                    src={variant.previewUrl || undefined}
+                    alt={`${item.display_name} ${variant.name}`}
+                    className="max-h-40 w-full rounded-lg border border-border object-contain"
+                    onError={() =>
+                      setFailedVariantKeys((prev) => {
+                        const next = new Set(prev);
+                        next.add(variant.key);
+                        return next;
+                      })
+                    }
+                  />
+                  <figcaption className="text-xs text-muted-foreground">{variant.name}</figcaption>
+                </figure>
+              ))}
+            </div>
           </div>
         )}
         {captureSummary && (
@@ -94,7 +155,7 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
             <pre className="whitespace-pre-wrap text-xs">{captureSummary}</pre>
           </div>
         )}
-        {!screenshotUrl && (
+        {(!screenshotUrl || mainImageFailed) && visibleVariantPreviews.length === 0 && (
           <p className="text-sm text-muted-foreground">No visual assets captured yet.</p>
         )}
       </CardContent>
