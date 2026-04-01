@@ -7,6 +7,8 @@ Canonical sequence:
 1. `spec` -> create/update `design-systems/<system-id>/docs/_spec/components/<snake_case>.yml`
 2. `markdown` -> generate/update `design-systems/<system-id>/docs/components/<snake_case>.md`
 
+Global legacy roots (`docs/components/*` and `docs/_spec/components/*`) are not part of this workflow.
+
 ## Prerequisites
 
 - Token registry available in system docs: `design-systems/<system-id>/docs/_generated/token-registry.json`

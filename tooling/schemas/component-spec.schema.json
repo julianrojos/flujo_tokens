@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "component-spec",
   "title": "Component Specification Schema",
-  "description": "JSON Schema for component spec YAML files (docs/_spec/components/*.yml). This is the canonical structural specification that formalizes component-spec-yaml.mdc and component-spec-properties-order.mdc. All other rules and scripts must reference this schema instead of duplicating the constraints.",
+  "description": "JSON Schema for component spec YAML files (design-systems/<id>/docs/_spec/components/*.yml). This is the canonical structural specification that formalizes component-spec-yaml.mdc and component-spec-properties-order.mdc. All other rules and scripts must reference this schema instead of duplicating the constraints.",
   "$comment": "Thin-rule companion: .agents/rules/component-spec-yaml.mdc. Canonical machine-readable companions: tooling/lib/property-type-map.json (type mapping + ordering groups), tooling/scripts/ds-sort-spec.mjs (deterministic property order), tooling/scripts/lib/name.mjs (name/slug normalization). ready specs require concrete defaults and deterministic figma.component_set_node_id.",
   "version": "1.0.0",
   "source_of_truth_for": [

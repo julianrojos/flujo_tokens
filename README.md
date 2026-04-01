@@ -69,7 +69,7 @@ Note: `--system` is strict; empty values and invalid IDs are rejected (allowed c
 - **`npm run ds:tokens-sync`**: Incremental token sync (change detection). Skips regeneration when input JSONs and relevant flags are unchanged. Use `--force true` to rebuild.
 - **`npm run ds:tokens-from-figma`**: Imports local Figma variables into the system `inputDir` and can compile them to CSS in one step. Supports `--source auto|mcp|rest`, `--force`, `--merge`, `--compile`, and `--dry-run`.
 - **`npm run ds:token-graph`**: Builds a token dependency graph from `docs/_generated/token-registry.json`, detects cycles, highlights high-indirection chains, reports unused primitive terminal tokens, and flags unresolved/colliding references.
-- **`npm run ds:token-usage-index`**: Builds `docs/_generated/token-usage-index.json` from component specs (`docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
+- **`npm run ds:token-usage-index`**: Builds `design-systems/<id>/docs/_generated/token-usage-index.json` from component specs (`design-systems/<id>/docs/_spec/components/*.yml`) plus CSS alias chains (`output/primitives.css`, `output/tokens.css`) to expose where each token/custom property is used.
 - **`npm run ds:token-health`**: Builds `docs/_generated/token-health.json` by combining the token registry, usage index, and token graph, plus optional WCAG contrast checks configured in `tooling/config/wcag-pairs.json`.
 - **`npm run ds:health-snapshot`**: Captures one historical KPI snapshot into `docs/_generated/health-history.json` (breaking changes, WCAG failures, coverage average, unresolved refs, etc.) for dashboard trends.
 - **`npm run ds:health:record`**: Convenience command that regenerates token/component health artifacts and immediately captures a new historical snapshot.
@@ -359,6 +359,7 @@ Migration notes (legacy cleanup):
 - Removed scripts: `npm run ds:active-md-to-figma` and `npm run ds:render-figma:all`.
   - Use `npm run ds:pipeline` and `npm run ds:capture-visual-proof` instead.
 - Plugin bridge default transport is now `direct` (`DEFAULT_WS_CONFIG.transportMode = 'direct'`).
+- Global component docs/spec roots (`docs/components/*`, `docs/_spec/components/*`) are deprecated and no longer used at runtime.
 
 ### Documentation Scripts
 
@@ -382,7 +383,7 @@ System context (DB-backed):
 - **`npm run ds:registry:refresh`**: Refreshes DB-backed component index state and `design-systems/<id>/docs/components/overview.md` together (rollback on overview write failure).
 - **`npm run ds:registry:validate`**: Validates DB-backed component registry consistency and checks drift against current source artifacts.
 - **`npm run ds:registry:overview`**: Regenerates `design-systems/<id>/docs/components/overview.md` component list from DB-backed component state.
-- **`npm run ds:registry:report`**: Generates read-only registry projections (`docs/COMPONENTS_INDEX.md` and `docs/_generated/components-health.json`) without scanning specs/docs again.
+- **`npm run ds:registry:report`**: Generates read-only registry projections in active system docs (`design-systems/<id>/docs/_generated/components-index.md` and `design-systems/<id>/docs/_generated/components-health.json`) without scanning specs/docs again.
 - **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
 - **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry DB presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
 - **`npm run ds:audit-consistency`**: Audits consistency for spec ↔ markdown ↔ token-registry checks and prints a per-component JSON report with suggested fix commands.
@@ -401,8 +402,8 @@ System context (DB-backed):
 - `design-systems/<id>/docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
 - `apps/ds-dashboard/server/db/ds-dashboard.db`: operational storage for component registry state (override with `DS_DASHBOARD_DB_PATH`)
 - `design-systems/<id>/docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
-- `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
-- `docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
+- `design-systems/<id>/docs/_generated/components-index.md`: generated component index projection for human scanning
+- `design-systems/<id>/docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
 
 ### Local dashboard (React, local-only)
 
@@ -503,7 +504,7 @@ Component pages are governed by rules in `.agents/rules/` and must include:
   - optional spec `related_components` is validated:
     - values must be `snake_case` slugs, unique, and must not self-reference
     - in `ready` specs, every entry must resolve to an existing component spec YAML
-  - component index state must be refreshed coherently (dashboard SQLite DB + `docs/components/overview.md`)
+  - component index state must be refreshed coherently (dashboard SQLite DB + `design-systems/<id>/docs/components/overview.md`)
   - validation is a gate after spec and markdown generation
   - see `.agents/rules/docs-pipeline-contract.mdc` for the full stage contract
 - `## Gaps / TBD` contract is enforced:
@@ -525,7 +526,7 @@ Component pages are governed by rules in `.agents/rules/` and must include:
 - Workflow pattern docs are supported as a workflow subtype:
   - recommended path: `docs/workflows/patterns/*.md`
   - expected focus: problem, decision guide, composition, behavior, accessibility, i18n, governance, and metrics
-  - component APIs remain canonical in `docs/components/*.md` and should be linked, not duplicated
+  - component APIs remain canonical in `design-systems/<id>/docs/components/*.md` and should be linked, not duplicated
 - Governance workflow docs should explicitly define:
   - ownership model, review cadence, and contribution/review path
   - deprecation policy with replacement and migration window
@@ -756,8 +757,8 @@ Useful flags:
 
 Registry report specific flags:
 
-- `--out-md <path>` (default: `docs/COMPONENTS_INDEX.md`)
-- `--out-json <path>` (default: `docs/_generated/components-health.json`)
+- `--out-md <path>` (default from active system context: `design-systems/<id>/docs/_generated/components-index.md`)
+- `--out-json <path>` (default from active system context: `design-systems/<id>/docs/_generated/components-health.json`)
 - `--format <json|text>` (default: `json`)
 - `--max-filter-items <number>` (default: `20`)
 - `--no-md true` / `--no-json true`

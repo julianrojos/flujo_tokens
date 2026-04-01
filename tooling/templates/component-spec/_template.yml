@@ -2,7 +2,7 @@
 # Component spec template - governed by .agents/rules/component-spec-yaml.mdc
 # -----------------------------------------------------------------------------
 # Usage:
-#   1. Copy this file to docs/_spec/components/<snake_case>.yml
+#   1. Copy this file to design-systems/<id>/docs/_spec/components/<snake_case>.yml
 #   2. Replace every TBD with a real value sourced from Figma.
 #   3. Do NOT omit any field; keep TBD until the value is confirmed.
 #   4. Delete these header comments from the copied file.
