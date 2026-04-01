@@ -5,7 +5,6 @@
  * Runs comprehensive audits on coverage, freshness, completeness, and integrity.
  */
 
-import { spawnSync } from 'node:child_process';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +16,7 @@ import { logger } from '../utils/logger.js';
 import { runQaAudit } from '../services/qa-audit.js';
 import { formatAuditReport } from '../services/qa-audit-formatter.js';
 import type { QaAuditOptions } from '../types/qa-audit.js';
+import { resolveSystemContextSafe } from '../utils/system-context.js';
 
 /**
  * Check if script is run directly (not imported).
@@ -91,7 +91,7 @@ Usage:
 
 Options:
   --help, -h              Show this help message
-  --output-report         Write JSON report to docs/_generated/qa-report.json
+  --output-report         Write JSON report to design-systems/<id>/docs/_generated/qa-report.json
   --stale-threshold <N>   Days threshold for stale file detection (default: 30)
 
 Audit Categories:
@@ -123,6 +123,12 @@ export async function runQaAuditRunner(args: string[] = []): Promise<void> {
   const options = parseArgs(args);
 
   try {
+    const systemCtx = resolveSystemContextSafe();
+    options.specsDir = options.specsDir || systemCtx.paths.specs;
+    options.componentsDir = options.componentsDir || systemCtx.paths.docs;
+    options.generatedDir = options.generatedDir || systemCtx.paths.generated;
+    options.tokenRegistryPath = options.tokenRegistryPath || systemCtx.paths.tokenRegistry;
+
     const result = runQaAudit(options);
 
     // Print formatted report
@@ -138,7 +144,13 @@ export async function runQaAuditRunner(args: string[] = []): Promise<void> {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    logger.error(`QA audit failed: ${message}`);
+    const shouldShowContextGuidance =
+      message.includes('No systems configured') ||
+      message.includes('Cannot load design systems from SQLite');
+    const contextGuidance = shouldShowContextGuidance
+      ? '\nResolve by configuring a design system and retrying: `npm run ds:doctor -- --system <id>`.'
+      : '';
+    logger.error(`QA audit failed: ${message}${contextGuidance}`);
     process.exitCode = 1;
   }
 }

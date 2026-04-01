@@ -5,20 +5,24 @@ import {
   fetchTokenGraphQuery,
   fetchTokenHealth,
   fetchTokenRegistry,
+  fetchTokenUsageIndex,
   getActiveSystemId,
 } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { QUERY_DEFAULTS } from "@/lib/query-client";
 import type { ComponentRegistry } from "@/types/component-registry";
 import type { VariableUsageReport } from "@/types/consumers";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenGraphQueryResult } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
-import type { TokenUsageEntry, TokenUsageOccurrence } from "@/types/token-usage-index";
+import type { TokenUsageEntry, TokenUsageIndex, TokenUsageOccurrence } from "@/types/token-usage-index";
 import {
   buildTokenUsageTargets,
   variableReportMatchesTokenTargets,
 } from "./lib/token-detail-transforms";
+
+const EMPTY_BY_PATH: Record<string, TokenUsageEntry> = {};
 
 type TokenDetailQueryData = {
   dsFileKey: string | null;
@@ -87,6 +91,29 @@ export function useVariableReportsQuery(dsFileKey: string | null) {
       return fetchReportByVariable(dsFileKey)
         .then((payload) => payload.data ?? null)
         .catch(() => null);
+    },
+  });
+}
+
+export const tokenUsageIndexQueryKey = (systemId: string) => ["token-usage-index", systemId] as const;
+
+/**
+ * Fetch token usage index with per-system cache scoping.
+ * Keeps usage data isolated when switching active design systems.
+ */
+export function useTokenUsageIndexQuery(systemId: string) {
+  return useQuery<{ index: TokenUsageIndex | null; hasError: boolean }>({
+    queryKey: tokenUsageIndexQueryKey(systemId),
+    ...QUERY_DEFAULTS,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      try {
+        const index = await fetchTokenUsageIndex();
+        return { index, hasError: false };
+      } catch (error) {
+        console.warn("[useTokenUsageIndexQuery] Failed to fetch token usage index", error);
+        return { index: null, hasError: true };
+      }
     },
   });
 }
@@ -209,8 +236,10 @@ function buildMergedUsageEntry(args: {
 }
 
 export function useTokenDetailData(tokenPath: string) {
+  const activeSystemId = getActiveSystemId() || "";
   const query = useTokenDetailQuery(tokenPath);
   const variableReportsQuery = useVariableReportsQuery(query.data?.dsFileKey ?? null);
+  const usageIndexQuery = useTokenUsageIndexQuery(activeSystemId);
 
   const error = query.error
     ? query.error instanceof Error
@@ -223,19 +252,37 @@ export function useTokenDetailData(tokenPath: string) {
       : null;
   const registry = query.data?.registry ?? null;
   const token = registry?.byPath[tokenPath] ?? null;
-  const mergedUsage = buildMergedUsageEntry({
-    tokenPath,
-    registry,
-    consumerVariableReports: variableReportsQuery.data ?? null,
-  });
-  const usage = mergedUsage;
-  const usageByPath = usage ? { [tokenPath]: usage } : {};
+
+  // usageByPath: primary source is full index (contains component-spec)
+  const usageByPath = usageIndexQuery.data?.index?.byPath ?? EMPTY_BY_PATH;
+
+  // usage for current token: merge index entry + figma occurrences
+  const indexEntry = usageByPath[tokenPath] ?? null;
+  const usage = useMemo((): TokenUsageEntry | null => {
+    const figmaEntry = buildMergedUsageEntry({
+      tokenPath,
+      registry,
+      consumerVariableReports: variableReportsQuery.data ?? null,
+    });
+
+    if (!indexEntry && !figmaEntry) return null;
+    if (!figmaEntry) return indexEntry;
+    if (!indexEntry) return figmaEntry;
+
+    return {
+      ...indexEntry,
+      usageCount: indexEntry.usageCount + figmaEntry.usageCount,
+      usedIn: [...indexEntry.usedIn, ...figmaEntry.usedIn],
+      usageByKind: mergeUsageByKind(indexEntry.usageByKind, figmaEntry.usageByKind),
+    };
+  }, [indexEntry, tokenPath, registry, variableReportsQuery.data]);
+
   const tokenHealth = query.data?.tokenHealth ?? null;
   const graphQuery = query.data?.graphQuery ?? null;
   const components = query.data?.componentRegistry?.components ?? [];
 
   return {
-    loading: query.isLoading || variableReportsQuery.isLoading,
+    loading: query.isLoading || variableReportsQuery.isLoading || usageIndexQuery.isLoading,
     error,
     registry,
     token,
@@ -244,5 +291,17 @@ export function useTokenDetailData(tokenPath: string) {
     tokenHealth,
     graphQuery,
     components,
+    usageIndexHasError: usageIndexQuery.data?.hasError ?? false,
   };
+}
+
+function mergeUsageByKind(
+  base: Record<string, number>,
+  extra: Record<string, number>,
+): Record<string, number> {
+  const result = { ...base };
+  for (const [k, v] of Object.entries(extra)) {
+    result[k] = (result[k] ?? 0) + v;
+  }
+  return result;
 }

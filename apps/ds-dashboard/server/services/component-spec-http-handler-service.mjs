@@ -10,7 +10,6 @@ import {
 import { resolveComponentSpecRequestContext } from "../lib/component-spec-route-service.mjs";
 import {
   MAX_COMPONENT_SPEC_BYTES,
-  loadTokenRegistry,
   parseYamlSafely,
   persistSpecWithBackup,
   readLatestSpecBackup,
@@ -76,6 +75,13 @@ export async function handleGetComponentSpecRoute(c, deps) {
 
 export async function handleValidateComponentSpecRoute(c, deps) {
   const { readJsonBody, sha256Text, failJson } = deps;
+  if (!deps.tokenRepo) {
+    return failJson(c, 500, {
+      code: "internal.token_repo_missing",
+      userMessage: "Token repository is not initialized.",
+      recoverable: false,
+    });
+  }
   return withResolvedComponentSpecContext(c, deps, true, async ({ sysCtx, slug, target }) => {
     return withStatusCodeErrorMapping(c, failJson, async () => {
       const body = await readJsonBody(c);
@@ -83,7 +89,6 @@ export async function handleValidateComponentSpecRoute(c, deps) {
         slug,
         specRelPath: target.specRelPath,
         specAbsPath: target.specAbsPath,
-        tokenRegistryPath: sysCtx.tokenRegistryPath,
         maxBytes: MAX_COMPONENT_SPEC_BYTES,
         body,
       });
@@ -91,7 +96,7 @@ export async function handleValidateComponentSpecRoute(c, deps) {
         validationArgs,
         {
           readTextFileIfExistsFn: readTextFileIfExists,
-          loadTokenRegistryFn: loadTokenRegistry,
+          loadTokenRegistryFn: async () => deps.tokenRepo.getTokenRegistry(sysCtx.systemId),
           validateComponentSpecFn: validateComponentSpec,
           buildSpecDiffFn: buildSpecDiff,
           sha256TextFn: sha256Text,
@@ -104,6 +109,13 @@ export async function handleValidateComponentSpecRoute(c, deps) {
 
 export async function handleSaveComponentSpecRoute(c, deps) {
   const { readJsonBody, sha256Text, failJson } = deps;
+  if (!deps.tokenRepo) {
+    return failJson(c, 500, {
+      code: "internal.token_repo_missing",
+      userMessage: "Token repository is not initialized.",
+      recoverable: false,
+    });
+  }
   return withResolvedComponentSpecContext(c, deps, true, async ({ sysCtx, slug, target }) => {
     return withStatusCodeErrorMapping(c, failJson, async () => {
       const body = await readJsonBody(c);
@@ -113,7 +125,6 @@ export async function handleSaveComponentSpecRoute(c, deps) {
         specAbsPath: target.specAbsPath,
         specBackupsDirPath: sysCtx.specBackupsDirPath,
         repoRoot: sysCtx.repoRoot,
-        tokenRegistryPath: sysCtx.tokenRegistryPath,
         maxBytes: MAX_COMPONENT_SPEC_BYTES,
         body,
       });
@@ -121,7 +132,7 @@ export async function handleSaveComponentSpecRoute(c, deps) {
         saveArgs,
         {
           readTextFileIfExistsFn: readTextFileIfExists,
-          loadTokenRegistryFn: loadTokenRegistry,
+          loadTokenRegistryFn: async () => deps.tokenRepo.getTokenRegistry(sysCtx.systemId),
           validateComponentSpecFn: validateComponentSpec,
           buildSpecDiffFn: buildSpecDiff,
           sha256TextFn: sha256Text,

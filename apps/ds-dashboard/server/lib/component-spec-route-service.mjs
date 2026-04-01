@@ -43,7 +43,7 @@ export async function resolveComponentSpecRequestContext({
   const target = await resolveComponentSpecTargetFn(
     {
       repoRoot: sysCtx.repoRoot,
-      componentRegistryPath: sysCtx.componentRegistryPath,
+      docsDir: sysCtx.docsDir,
       slug,
     },
     { resolveRepoFilePathFn },

@@ -1,38 +1,35 @@
 #!/usr/bin/env node
 
 /**
- * Registry Overview Runner
+ * Registry Overview Runner (DB-only)
  *
- * Regenerates docs/components/overview.md from component registry.
+ * Regenerates design-systems/<id>/docs/components/overview.md from DB-backed component state.
  */
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { logger } from '../utils/logger.js';
-
-// Import from existing lib during migration period
-import {
-  DEFAULT_COMPONENT_OVERVIEW_PATH,
-  DEFAULT_COMPONENT_REGISTRY_PATH,
-  syncComponentOverview,
-} from '../services/component-registry-index.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
+import { syncDocumentationState } from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {
   command: 'ds:registry:overview [options]',
   description:
-    'Regenerate docs/components/overview.md component list from the component registry.',
+    'Regenerate overview markdown from DB-backed component state.',
   options: [
     {
-      name: '--registry',
-      description: 'Component registry path.',
-      defaultValue: 'docs/_generated/component-registry.json',
+      name: '--overview',
+      description: 'Overview markdown path (resolves from system context if not provided).',
     },
     {
-      name: '--overview',
-      description: 'Overview markdown path.',
-      defaultValue: 'docs/components/overview.md',
+      name: '--spec-root',
+      description: 'Component spec directory (resolves from system context if not provided).',
+    },
+    {
+      name: '--docs-root',
+      description: 'Component docs directory (resolves from system context if not provided).',
     },
     {
       name: '--dry-run',
@@ -40,7 +37,7 @@ const CLI_CONFIG = {
       defaultValue: 'false',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -63,6 +60,27 @@ function parseBooleanOption(
   );
 }
 
+function assertExistingDirectory(options: {
+  dirPath: string;
+  label: string;
+  systemId: string;
+  cliFlag: string;
+}): void {
+  const { dirPath, label, systemId, cliFlag } = options;
+  if (!fs.existsSync(dirPath)) {
+    throw new Error(
+      `Missing ${label} directory for system "${systemId}": ${dirPath}. ` +
+      `Pass --${cliFlag} <path> or fix the system docs configuration.`,
+    );
+  }
+  const stats = fs.statSync(dirPath);
+  if (!stats.isDirectory()) {
+    throw new Error(
+      `Invalid ${label} path for system "${systemId}" (expected directory): ${dirPath}.`,
+    );
+  }
+}
+
 export async function runRegistryOverview(args: string[] = []): Promise<void> {
   const parsed = parseArgs(args);
 
@@ -72,21 +90,38 @@ export async function runRegistryOverview(args: string[] = []): Promise<void> {
   }
 
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
-  const registryPath = path.resolve(String(parsed.registry || DEFAULT_COMPONENT_REGISTRY_PATH));
-  const overviewPath = path.resolve(String(parsed.overview || DEFAULT_COMPONENT_OVERVIEW_PATH));
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
+  const resolvedOverviewPath = path.resolve(
+    String(getStringArg(parsed, 'overview') || path.join(ctx.paths.docs, 'overview.md')),
+  );
+  const resolvedSpecsDir = path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs));
+  const resolvedDocsDir = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs));
+  const resolvedProofsDir = path.resolve(path.join(ctx.paths.generated, 'visual-proofs'));
 
-  if (!fs.existsSync(overviewPath)) {
-    console.error(`Overview file not found: ${overviewPath}`);
-    process.exit(1);
-  }
+  assertExistingDirectory({
+    dirPath: resolvedDocsDir,
+    label: 'docs root',
+    systemId: ctx.id,
+    cliFlag: 'docs-root',
+  });
+  assertExistingDirectory({
+    dirPath: resolvedSpecsDir,
+    label: 'spec root',
+    systemId: ctx.id,
+    cliFlag: 'spec-root',
+  });
 
   try {
-    const report = syncComponentOverview({
-      registryPath,
-      overviewPath,
+    const report = syncDocumentationState({
+      dbPath: path.resolve(String(ctx.paths.registry)),
+      overviewPath: resolvedOverviewPath,
+      specsDir: resolvedSpecsDir,
+      docsDir: resolvedDocsDir,
+      proofsDir: resolvedProofsDir,
       dryRun,
+      systemId: ctx.id,
     });
-    console.log(JSON.stringify(report, null, 2));
+    console.log(JSON.stringify(report.overview, null, 2));
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`Registry overview failed: ${errorMessage}`);
@@ -94,7 +129,6 @@ export async function runRegistryOverview(args: string[] = []): Promise<void> {
   }
 }
 
-// CLI entry point
 if (import.meta.url === `file://${process.argv[1]}`) {
   runRegistryOverview(process.argv.slice(2)).catch((error) => {
     const errorMessage = error instanceof Error ? error.message : String(error);

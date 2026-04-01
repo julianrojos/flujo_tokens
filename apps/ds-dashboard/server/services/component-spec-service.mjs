@@ -210,37 +210,34 @@ export function sanitizeComponentSlug(raw) {
 }
 
 export async function resolveComponentSpecTarget(
-  { repoRoot, componentRegistryPath, slug },
+  { repoRoot, docsDir, slug },
   deps = {},
 ) {
-  const readFileFn = deps.readFileFn || fs.readFile;
   const resolveRepoFilePathFn = deps.resolveRepoFilePathFn;
   if (typeof resolveRepoFilePathFn !== "function") {
     throw new Error("resolveRepoFilePathFn is required");
   }
-
-  const registryRaw = await readFileFn(componentRegistryPath, "utf8");
-  const registry = JSON.parse(registryRaw);
-  const component = (registry.components ?? []).find(
-    (candidate) => String(candidate.slug ?? "").trim().toLowerCase() === slug,
-  );
-  if (!component) {
-    return { ok: false, message: `Component '${slug}' not found.` };
+  const normalizedDocsDir = String(docsDir || "").trim();
+  if (!normalizedDocsDir) {
+    return { ok: false, message: "System docs directory is not configured." };
   }
-
-  const specRelPath = String(component?.paths?.spec ?? "").trim();
-  if (!specRelPath) {
-    return { ok: false, message: `Component '${slug}' does not define a spec path.` };
-  }
+  const specRelPath = path.join(path.relative(repoRoot, normalizedDocsDir), "_spec", "components", `${slug}.yml`);
 
   const specAbsPath = resolveRepoFilePathFn(repoRoot, specRelPath);
   if (!specAbsPath) {
     return { ok: false, message: `Spec path for '${slug}' is outside repository root.` };
   }
 
+  const docRelPath = path.join(path.relative(repoRoot, normalizedDocsDir), "components", `${slug}.md`);
   return {
     ok: true,
-    component,
+    component: {
+      slug,
+      paths: {
+        spec: specRelPath,
+        doc: docRelPath,
+      },
+    },
     specRelPath,
     specAbsPath,
   };
@@ -350,6 +347,7 @@ export async function readTextFileIfExists(filePath, deps = {}) {
 
 export async function loadTokenRegistry(filePath, deps = {}) {
   const readFileFn = deps.readFileFn || fs.readFile;
+  if (!filePath) return null;
   const raw = await readFileFn(filePath, "utf8").catch(() => "");
   if (!raw) return null;
   return JSON.parse(raw);
@@ -531,7 +529,6 @@ export async function validateComponentSpecRaw(args, deps = {}) {
     path: specRelPath,
     raw,
     specAbsPath,
-    tokenRegistryPath,
     maxBytes = MAX_COMPONENT_SPEC_BYTES,
   } = args;
   const {
@@ -567,7 +564,7 @@ export async function validateComponentSpecRaw(args, deps = {}) {
   const currentLoaded = await readTextFileIfExistsFn(specAbsPath);
   const currentRaw = currentLoaded.raw;
   const baselineParsed = parseYamlSafelyFn(currentRaw).parsed;
-  const tokenRegistry = await loadTokenRegistryFn(tokenRegistryPath);
+  const tokenRegistry = await loadTokenRegistryFn();
 
   return buildSpecValidationPayloadFn(
     {
@@ -593,7 +590,6 @@ export async function saveComponentSpecRaw(args, deps = {}) {
     specAbsPath,
     specBackupsDirPath,
     repoRoot,
-    tokenRegistryPath,
     expectedHash,
     confirmRiskyChanges,
     refreshRegistryAfterSave,
@@ -661,7 +657,7 @@ export async function saveComponentSpecRaw(args, deps = {}) {
   }
 
   const baselineParsed = parseYamlSafelyFn(currentRaw).parsed;
-  const tokenRegistry = await loadTokenRegistryFn(tokenRegistryPath);
+  const tokenRegistry = await loadTokenRegistryFn();
   const validationPayload = buildSpecValidationPayloadFn(
     {
       slug,

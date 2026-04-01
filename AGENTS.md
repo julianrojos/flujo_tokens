@@ -44,6 +44,7 @@ Applies when instructions conflict (high → low):
 
 ## Repo Conventions
 
-- Canonical component docs directory: `docs/components`.
-- Treat `docs/_generated/**` as generated artifacts; modify via scripts/workflows,
-  not manual editing.
+- Canonical component docs directories are system-scoped:
+  `design-systems/<id>/docs/components` and `design-systems/<id>/docs/_spec/components`.
+- Treat `design-systems/<id>/docs/_generated/**` as generated artifacts; modify via
+  scripts/workflows, not manual editing.

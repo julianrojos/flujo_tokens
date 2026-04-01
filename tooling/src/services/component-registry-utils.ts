@@ -44,18 +44,6 @@ export const stableHash: StableHashFn = (value: unknown): string => {
 };
 
 /**
- * Write JSON to file atomically using temp file + rename.
- */
-export function writeJsonAtomic(filePath: string, payload: unknown): void {
-  const resolved = path.resolve(filePath);
-  fs.mkdirSync(path.dirname(resolved), { recursive: true });
-  const uniqueId = crypto.randomBytes(4).toString('hex');
-  const tempPath = `${resolved}.${process.pid}.${Date.now()}.${uniqueId}.tmp`;
-  fs.writeFileSync(tempPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
-  fs.renameSync(tempPath, resolved);
-}
-
-/**
  * Convert absolute file path to project-relative path.
  */
 export function toProjectRelativePath(filePath: string): string {

@@ -5,6 +5,7 @@
  */
 import * as path from 'node:path';
 import type { ScriptSystemContext } from '../utils/system-context.js';
+import { PROJECT_ROOT } from '../utils/system-context.js';
 
 export interface PipelinePaths {
   docsRootOverride: string | null;
@@ -12,7 +13,7 @@ export interface PipelinePaths {
   componentDocsDir: string;
   proofDir: string;
   proofImageDir: string;
-  registryIndexPath: string;
+  registryDbPath: string;
   tokenRegistryPath: string;
   resolvedSpecRoot: string;
   templatePath: string;
@@ -60,8 +61,14 @@ export function resolvePipelinePaths(
     args['proof-image-dir'] || path.join(systemContext.paths.generated, 'visual-proofs', 'images')
   );
 
-  const specRoot = args['spec-root'] || systemContext.paths.specs || path.join(docsRootDir, '_spec', 'components');
+  const specRoot = args['spec-root'] || systemContext.paths.specs;
   const resolvedSpecRoot = path.resolve(specRoot);
+
+  // Template lives in tooling/templates/component-spec/_template.yml
+  const defaultTemplatePath = path.resolve(
+    PROJECT_ROOT,
+    'tooling/templates/component-spec/_template.yml',
+  );
 
   return {
     docsRootOverride,
@@ -69,12 +76,12 @@ export function resolvePipelinePaths(
     componentDocsDir,
     proofDir,
     proofImageDir,
-    registryIndexPath: path.join(docsRootDir, '_generated', 'component-registry.json'),
+    registryDbPath: path.resolve(systemContext.paths.registry),
     tokenRegistryPath: path.resolve(
       args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, '_generated', 'token-registry.json')
     ),
     resolvedSpecRoot,
-    templatePath: path.resolve(args.template || path.join(resolvedSpecRoot, '_template.yml')),
+    templatePath: path.resolve(args.template || defaultTemplatePath),
     overviewPath: path.resolve(path.join(docsRootDir, 'overview.md')),
   };
 }

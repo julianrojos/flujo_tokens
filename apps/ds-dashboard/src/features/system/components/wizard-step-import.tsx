@@ -151,11 +151,11 @@ export function WizardStepImport({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Importing from Figma</CardTitle>
-        <CardDescription>{statusText || "Capturing components and tokens"}</CardDescription>
-      </CardHeader>
+      <Card>
+        <CardHeader>
+          <CardTitle>Importing from Figma</CardTitle>
+          <CardDescription>{statusText || "Syncing components and tokens"}</CardDescription>
+        </CardHeader>
       <CardContent className="space-y-4">
         {showStatsWhileImporting ? renderImportStats() : null}
         {sourceUrl ? (

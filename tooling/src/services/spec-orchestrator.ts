@@ -27,10 +27,7 @@ import {
     buildSpecPromptWithRegistry,
 } from './spec-registry-prompt.js';
 
-// Import syncDocumentationIndices with type safety from component-registry-index
-import { syncDocumentationIndices as syncDocumentationIndicesJs } from '../services/component-registry-index.js';
-
-const syncDocumentationIndices: typeof syncDocumentationIndicesJs = syncDocumentationIndicesJs;
+import { syncDocumentationState } from '../services/component-registry-index.js';
 
 const SPEC_EVIDENCE_BACKED_PREFIXES = Object.freeze([
     'name',
@@ -54,10 +51,19 @@ export interface SpecOrchestratorDeps {
     runSpecGenerationPromptFn?: typeof runSpecGenerationPrompt;
     runSpecRepairPromptFn?: typeof runSpecRepairPrompt;
     validateGeneratedSpecFn?: typeof validateGeneratedSpec;
-    syncDocumentationIndicesFn?: typeof syncDocumentationIndices;
+    syncDocumentationIndicesFn?: typeof syncDocumentationState;
     runSpecWithGuardsFn?: typeof runSpecWithGuards;
     createPipelineContextFn?: typeof createPipelineContext;
     writeSpecWithSnapshotGuardFn?: typeof writeSpecWithSnapshotGuard;
+}
+
+function withSpecStage<T>(stage: string, run: () => T): T {
+    try {
+        return run();
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`[spec-orchestrator:${stage}] ${message}`);
+    }
 }
 
 /**
@@ -74,15 +80,15 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
         runSpecGenerationPromptFn = runSpecGenerationPrompt,
         runSpecRepairPromptFn = runSpecRepairPrompt,
         validateGeneratedSpecFn = validateGeneratedSpec,
-        syncDocumentationIndicesFn = syncDocumentationIndicesJs,
+        syncDocumentationIndicesFn = syncDocumentationState,
         runSpecWithGuardsFn = runSpecWithGuards,
         createPipelineContextFn = createPipelineContext,
         writeSpecWithSnapshotGuardFn = writeSpecWithSnapshotGuard,
     } = deps;
 
-    const context = createPipelineContextFn(args);
+    const context = withSpecStage('create-pipeline-context', () => createPipelineContextFn(args));
 
-    const runCtx = createSpecRunContext({ context, args });
+    const runCtx = withSpecStage('create-run-context', () => createSpecRunContext({ context, args }));
     const {
         figmaUrl,
         componentName,
@@ -97,80 +103,95 @@ export async function runSpecFromFigma(args: Record<string, any>, deps: SpecOrch
         nodeId,
         outputPath,
         overviewPath,
-        registryIndexPath,
+        registryDbPath,
         allowedWritePaths,
     } = runCtx;
 
-    return runSpecWithGuardsFn({
+    return withSpecStage('run-with-guards', () => runSpecWithGuardsFn({
         outputPath,
         resolvedSpecRoot,
         docsPath: context.system.paths.docs,
-        registryIndexPath,
+        registryDbPath,
         allowedWritePaths,
         run: ({ existingSpec }) => {
-            ensureSpecTemplateExistsFn(templatePath);
+            withSpecStage('ensure-template', () => ensureSpecTemplateExistsFn(templatePath));
 
-            const registryIndex = loadRegistryOrThrowFn(registryPath);
+            const registryIndex = withSpecStage(
+                'load-token-registry',
+                () => loadRegistryOrThrowFn(registryPath),
+            );
 
-            const prompt = buildSpecPromptWithRegistry({
-                figmaUrl,
-                nodeId,
-                componentName,
-                componentSlug,
-                outputPath,
-                templatePath,
-                registryPath,
-                fileKeyFromUrl,
-                registryIndex,
-            });
+            const prompt = withSpecStage('build-prompt', () =>
+                buildSpecPromptWithRegistry({
+                    figmaUrl,
+                    nodeId,
+                    componentName,
+                    componentSlug,
+                    outputPath,
+                    templatePath,
+                    registryPath,
+                    fileKeyFromUrl,
+                    registryIndex,
+                }),
+            );
 
-            ensureSpecOutputDirectoryFn(outputPath);
+            withSpecStage('ensure-output-dir', () => ensureSpecOutputDirectoryFn(outputPath));
 
-            const { normalizedSpec, prefilledCount, validationReport } = runSpecGenerationFlow({
-                prompt,
-                agent: agent as AgentType | undefined,
-                componentName,
-                nodeId,
-                skipValidation,
-                outputPath,
-                registryPath,
-                runSpecGenerationPromptFn,
-                runSpecRepairPromptFn,
-                validateGeneratedSpecFn,
-                materializeGeneratedSpec: () => {
-                    const result = materializeSpecFn({
-                        outputPath,
-                        templatePath,
-                        registryIndex,
+            const { normalizedSpec, prefilledCount, validationReport } = withSpecStage(
+                'generate-and-validate-spec',
+                () =>
+                    runSpecGenerationFlow({
+                        prompt,
+                        agent: agent as AgentType | undefined,
                         componentName,
                         nodeId,
-                        fileKeyFromUrl,
-                        existingSpec,
-                        allowNonEvidenceUpdates: runCtx.allowNonEvidenceUpdates,
-                        evidenceGate: assertEvidenceGatedScalarChangesFn,
-                        evidenceBackedPrefixes: [...SPEC_EVIDENCE_BACKED_PREFIXES],
-                    });
-                    writeSpecWithSnapshotGuardFn({
+                        skipValidation,
                         outputPath,
-                        normalizedSpec: result.normalizedSpec,
-                    });
-                    return result;
-                },
-            });
+                        registryPath,
+                        runSpecGenerationPromptFn,
+                        runSpecRepairPromptFn,
+                        validateGeneratedSpecFn,
+                        materializeGeneratedSpec: () =>
+                            withSpecStage('materialize-spec', () => {
+                                const result = materializeSpecFn({
+                                    outputPath,
+                                    templatePath,
+                                    registryIndex,
+                                    componentName,
+                                    nodeId,
+                                    fileKeyFromUrl,
+                                    existingSpec,
+                                    allowNonEvidenceUpdates: runCtx.allowNonEvidenceUpdates,
+                                    evidenceGate: assertEvidenceGatedScalarChangesFn,
+                                    evidenceBackedPrefixes: [...SPEC_EVIDENCE_BACKED_PREFIXES],
+                                });
+                                withSpecStage('write-spec-snapshot-guard', () =>
+                                    writeSpecWithSnapshotGuardFn({
+                                        outputPath,
+                                        normalizedSpec: result.normalizedSpec,
+                                    }),
+                                );
+                                return result;
+                            }),
+                    }),
+            );
 
-            return finalizeSpecResult({
-                outputPath,
-                normalizedSpec,
-                componentName,
-                nodeId,
-                prefilledCount,
-                validationReport,
-                resolvedSpecRoot,
-                docsRootDir,
-                overviewPath,
-                registryIndexPath,
-                syncDocumentationIndicesFn,
-            });
+            return withSpecStage('finalize-result', () =>
+                finalizeSpecResult({
+                    outputPath,
+                    normalizedSpec,
+                    componentName,
+                    nodeId,
+                    prefilledCount,
+                    validationReport,
+                    resolvedSpecRoot,
+                    docsRootDir,
+                    overviewPath,
+                    registryDbPath,
+                    systemId: context.system.id,
+                    syncDocumentationIndicesFn,
+                }),
+            );
         },
-    });
+    }));
 }

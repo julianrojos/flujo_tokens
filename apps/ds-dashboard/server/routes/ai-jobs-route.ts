@@ -25,7 +25,11 @@ const __dirname = path.dirname(__filename);
 // Get repo root (this file is in apps/ds-dashboard/server/routes/)
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const REPO_ROOT_WITH_SEP = REPO_ROOT.endsWith(path.sep) ? REPO_ROOT : `${REPO_ROOT}${path.sep}`;
-const GLOBAL_DOCS_COMPONENTS_DIR = path.resolve(REPO_ROOT, 'docs/components');
+
+function isPathWithinDirectory(targetPath: string, baseDir: string): boolean {
+    const relative = path.relative(path.resolve(baseDir), path.resolve(targetPath));
+    return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
+}
 
 interface SystemContextLike {
     systemId?: unknown;
@@ -34,7 +38,7 @@ interface SystemContextLike {
 
 interface AiJobsRouteDeps {
     internalToken?: string;
-    getSystemContext?: (systemHeader: string) => unknown;
+    getSystemContext: (systemHeader: string) => unknown;
 }
 const VALID_PROVIDERS = ['anthropic', 'openai', 'ollama', 'gemini'] as const;
 const SSE_POLL_INTERVAL_MS = 1000;
@@ -59,8 +63,7 @@ function normalizeHeaderValue(value: string | undefined): string {
 
 /**
  * Resolves the documentation context used by AI job endpoints.
- * Chooses a system-scoped docs directory when system context is available,
- * otherwise falls back to the global docs/components directory.
+ * Requires a system-scoped docs directory from system context.
  */
 function resolveDocsContext(
     deps: AiJobsRouteDeps,
@@ -69,10 +72,6 @@ function resolveDocsContext(
         preferredSystemId?: string;
     }
 ): ResolveDocsContextResult {
-    if (!deps.getSystemContext) {
-        return { ok: true, docsComponentsDir: GLOBAL_DOCS_COMPONENTS_DIR };
-    }
-
     const preferredSystemId = normalizeHeaderValue(options.preferredSystemId);
     const requestSystemHeader = normalizeHeaderValue(options.requestSystemHeader);
     const targetSystemHeader = preferredSystemId || requestSystemHeader || '';
@@ -613,10 +612,8 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
 
         // Security: ensure path starts with allowed base
         const allowedBase = docsContext.docsComponentsDir;
-        // Use startsWith with path separator to prevent prefix attacks (e.g., docs/components-evil)
         const resolvedPath = path.resolve(filePath);
-        const allowedBaseWithSep = allowedBase + path.sep;
-        if (resolvedPath !== allowedBase && !resolvedPath.startsWith(allowedBaseWithSep)) {
+        if (!isPathWithinDirectory(resolvedPath, allowedBase)) {
             return c.json(errorResponse('ai.apply.path_blocked', 'Path outside allowed directory'), 403);
         }
 

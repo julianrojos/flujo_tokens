@@ -13,6 +13,7 @@ import * as yaml from 'js-yaml';
 import { parseArgs, printUsage, isMain } from '../utils/index.js';
 import { injectSpecZones, isSpecInput } from '../utils/index.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 const CLI_CONFIG = {
   command: 'npm run ds:spec-to-markdown -- --slug alert',
@@ -25,13 +26,13 @@ const CLI_CONFIG = {
     },
     {
       name: '--spec-dir <path>',
-      description: 'Spec components directory.',
-      defaultValue: 'docs/_spec/components',
+      description:
+        'Spec components directory (defaults to active system context).',
     },
     {
       name: '--md-dir <path>',
-      description: 'Markdown documentation directory.',
-      defaultValue: 'docs/components',
+      description:
+        'Markdown documentation directory (defaults to active system context).',
     },
     {
       name: '--check <true|false>',
@@ -42,6 +43,10 @@ const CLI_CONFIG = {
       name: '--dry-run <true|false>',
       description: 'Console report what would change without touching disk',
       defaultValue: 'false',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--help',
@@ -116,13 +121,16 @@ export async function runSpecToMarkdown(args: string[] = []): Promise<void> {
     process.exit(1);
   }
 
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const specDir = path.resolve(
-    process.cwd(),
-    String(parsed['spec-dir'] || 'docs/_spec/components'),
+    typeof parsed['spec-dir'] === 'string' && parsed['spec-dir'].trim()
+      ? parsed['spec-dir']
+      : ctx.paths.specs,
   );
   const mdDir = path.resolve(
-    process.cwd(),
-    String(parsed['md-dir'] || 'docs/components'),
+    typeof parsed['md-dir'] === 'string' && parsed['md-dir'].trim()
+      ? parsed['md-dir']
+      : ctx.paths.docs,
   );
 
   const isCheck = String(parsed.check || 'false') === 'true';

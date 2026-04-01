@@ -32,18 +32,17 @@ const CLI_CONFIG = {
     },
     {
       name: '--docs-root <path>',
-      description: 'Docs root or docs/components directory.',
-      defaultValue: 'docs/components',
+      description: 'Docs root or docs/components directory for the active system context.',
     },
     {
       name: '--proof-dir <path>',
-      description: 'Visual proof JSON output directory.',
-      defaultValue: 'docs/_generated/visual-proofs',
+      description: 'Visual proof assets directory.',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs',
     },
     {
       name: '--proof-image-dir <path>',
       description: 'Visual proof images output directory.',
-      defaultValue: 'docs/_generated/visual-proofs/images',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs/images',
     },
     {
       name: '--component-slug <slug>',
@@ -105,8 +104,8 @@ const CLI_CONFIG = {
     {
       name: '--refresh-indices <true|false>',
       description:
-        'Refresh component registry + overview once after batch capture.',
-      defaultValue: 'true',
+        'Refresh component metadata in DB + overview once after batch capture.',
+      defaultValue: 'false',
     },
     {
       name: '--dry-run <true|false>',

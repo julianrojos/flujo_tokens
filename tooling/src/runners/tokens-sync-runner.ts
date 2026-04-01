@@ -11,8 +11,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
-import { PROJECT_ROOT, resolveSystemContextSafe } from '../utils/system-context.js';
+import { PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import {
   computeFingerprint,
   shouldSkipTask,
@@ -54,7 +55,7 @@ const CLI_CONFIG = {
     {
       name: '--registry-output',
       description: 'Output path for token registry JSON.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--mode',
@@ -79,6 +80,10 @@ const CLI_CONFIG = {
     {
       name: '--sync-state',
       description: 'Path to sync state JSON file.',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--help',
@@ -116,8 +121,7 @@ export async function runTokensSync(args: string[] = []): Promise<void> {
 
   const force = parseBooleanOption(parsed.force, false);
   const syncStatePath = parsed['sync-state'] ? path.resolve(String(parsed['sync-state'])) : undefined;
-  const system = String(parsed.system || '').trim();
-  const ctx = resolveSystemContextSafe({ system: system || undefined });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   const inputDir = path.resolve(String(parsed.input || ctx.paths.input));
   const split = parseBooleanOption(parsed.single, false) !== true;

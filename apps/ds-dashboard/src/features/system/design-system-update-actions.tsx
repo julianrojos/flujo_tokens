@@ -187,7 +187,7 @@ export function DesignSystemUpdateActions({
         <section className="rounded-md border border-border bg-card p-3">
           <h4 className="text-sm font-semibold">Update Figma variables</h4>
           <p className="mt-1 text-xs text-muted-foreground">
-            Download variables and compile CSS custom properties for this system.
+            Sync variables (and optional components) from the plugin into the database.
           </p>
 
           <div className="mt-3 space-y-2">

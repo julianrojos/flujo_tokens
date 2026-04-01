@@ -9,10 +9,10 @@ import { Modal, ModalContent, ModalFooter, ModalHeader } from "@/components/ui/o
 import { ApiErrorMessage } from "@/components/api-error-message";
 import { toApiErrorDisplay } from "@/lib/api-error-ux";
 import { fetchReportByFile, removeConsumer, syncConsumers } from "@/lib/api";
+import { formatSyncedAt } from "@/lib/format-synced-at";
 import { cn } from "@/lib/utils";
 import { Info, Network } from "lucide-react";
 import { useConsumerFilterParams } from "../hooks/use-consumer-filter-params";
-import { formatSyncedAt } from "../lib/format-synced-at";
 import { buildAggregateAdoptionState } from "../lib/adoption-metrics";
 import type { FileReport, DsSyncRun } from "@/types/consumers";
 import type { SyncStatusFilter } from "../lib/consumer-filter-query";

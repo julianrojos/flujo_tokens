@@ -12,7 +12,7 @@ import * as path from 'node:path';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { isMain } from '../utils/is-main.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 import {
   buildAgentPrompt,
@@ -32,7 +32,7 @@ import { parseBooleanOption } from '../utils/parse-options.js';
 
 const USAGE = {
   command:
-    'npm run ds:doc-from-figma-url -- --url "https://www.figma.com/design/..." [--component-name Button] [--output docs/components/button.md] [--agent codex]',
+    'npm run ds:doc-from-figma-url -- --url "https://www.figma.com/design/..." [--component-name Button] [--output design-systems/<id>/docs/components/button.md] [--agent codex]',
   description:
     'Generate one component markdown from a Figma URL using an agent CLI.',
   options: [
@@ -69,8 +69,11 @@ const USAGE = {
     },
     {
       name: '--docs-root <path>',
-      description: 'Docs root or docs/components directory.',
-      defaultValue: 'docs/components',
+      description: 'Docs root or docs/components directory for the active system context.',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--agent <codex|claude|gemini|auto>',
@@ -174,9 +177,15 @@ export async function runDocFromFigmaUrl(
     true,
   );
 
-  const systemCtx = resolveSystemContextSafe({ system: args.system });
+  const systemCtx = resolveRunnerSystemContextOrExit({
+    parsedArgs: args as Record<string, string | boolean>,
+    logger,
+  });
 
-  const docsRoot = args['docs-root'] || systemCtx.paths.docs;
+  const docsRoot =
+    typeof args['docs-root'] === 'string' && args['docs-root'].trim()
+      ? args['docs-root']
+      : systemCtx.paths.docs;
   const docsRootResolved = path.resolve(docsRoot);
   const componentDocsDir =
     path.basename(docsRootResolved) === 'components'
@@ -235,6 +244,8 @@ export async function runDocFromFigmaUrl(
     figmaMapOutPath,
     docsRootDir,
     componentDocsDir,
+    systemCtx.paths.registry,
+    systemCtx.id,
     tempArtifacts,
   );
 
@@ -288,7 +299,14 @@ export async function runDocFromFigmaUrl(
       assertScopedWritePolicy({
         snapshot: ctx.scopeSnapshot,
         allowedPaths: ctx.allowedWritePaths,
+        allowedPathPrefixes: ctx.allowedWritePathPrefixes,
         label: 'ds-doc-from-figma-url',
+      });
+      assertScopedWritePolicy({
+        snapshot: ctx.proofScopeSnapshot,
+        allowedPaths: ctx.allowedWritePaths,
+        allowedPathPrefixes: ctx.allowedWritePathPrefixes,
+        label: 'ds-doc-from-figma-url (proof images)',
       });
     } catch (scopeError) {
       scopeMessage = `\n${scopeError instanceof Error ? scopeError.message : String(scopeError)}`;

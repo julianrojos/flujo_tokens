@@ -62,11 +62,11 @@ describe("new-system import success summary", () => {
   it("falls back to targets length and tokens_written when totals are missing", () => {
     const summary = buildImportSuccessSummary({
       targets: [
-        { slug: "one", node_id: "1", markdown_path: "docs/components/one.md" },
-        { slug: "two", node_id: "2", markdown_path: "docs/components/two.md" },
-        { slug: "three", node_id: "3", markdown_path: "docs/components/three.md" },
+        { slug: "one", node_id: "1", markdown_path: "design-systems/sys-01/docs/components/one.md" },
+        { slug: "two", node_id: "2", markdown_path: "design-systems/sys-01/docs/components/two.md" },
+        { slug: "three", node_id: "3", markdown_path: "design-systems/sys-01/docs/components/three.md" },
       ],
-      captured: [{ slug: "one", node_id: "1", markdown_path: "docs/components/one.md" }],
+      captured: [{ slug: "one", node_id: "1", markdown_path: "design-systems/sys-01/docs/components/one.md" }],
       tokens_bootstrap: {
         attempted: true,
         files_written: 1,
@@ -95,7 +95,7 @@ describe("new-system import success summary", () => {
   it("falls back to files_written when collections array is missing or empty", () => {
     const summaryWithoutCollections = buildImportSuccessSummary({
       targets_total: 2,
-      captured: [{ slug: "one", node_id: "1", markdown_path: "docs/components/one.md" }],
+      captured: [{ slug: "one", node_id: "1", markdown_path: "design-systems/sys-01/docs/components/one.md" }],
       targets: [],
       tokens_bootstrap: {
         attempted: true,
@@ -107,7 +107,7 @@ describe("new-system import success summary", () => {
 
     const summaryWithEmptyCollections = buildImportSuccessSummary({
       targets_total: 2,
-      captured: [{ slug: "one", node_id: "1", markdown_path: "docs/components/one.md" }],
+      captured: [{ slug: "one", node_id: "1", markdown_path: "design-systems/sys-01/docs/components/one.md" }],
       targets: [],
       tokens_bootstrap: {
         attempted: true,

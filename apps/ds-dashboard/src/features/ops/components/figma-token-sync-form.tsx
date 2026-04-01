@@ -37,9 +37,7 @@ export function FigmaTokenSyncForm({
   const [figmaUrl, setFigmaUrl] = useState("");
   const [figmaToken, setFigmaToken] = useState("");
   const [autoTriggerToken, setAutoTriggerToken] = useState(0);
-  const [force, setForce] = useState(false);
-  const [merge, setMerge] = useState(false);
-  const [compile, setCompile] = useState(true);
+  const [includeComponents, setIncludeComponents] = useState(true);
   const [dryRun, setDryRun] = useState(true); // Safe default: dry-run ON
   const [designContext, setDesignContext] = useState<FigmaMcpDesignContextCompactResponse | null>(null);
   const [acknowledgeContextRisk, setAcknowledgeContextRisk] = useState(false);
@@ -50,14 +48,13 @@ export function FigmaTokenSyncForm({
   const handleRun = useCallback(async () => {
     const params: Record<string, unknown> = {
       dryRun,
-      force,
-      merge,
-      compile,
+      includeComponents,
+      tokensSource: "mcp",
     };
     if (figmaUrl.trim()) params.url = figmaUrl.trim();
     if (figmaToken.trim()) params.figmaToken = figmaToken.trim();
     await run(params);
-  }, [run, figmaUrl, figmaToken, dryRun, force, merge, compile]);
+  }, [run, figmaUrl, figmaToken, dryRun, includeComponents]);
 
   const handleClear = useCallback(() => clearLogs(), [clearLogs]);
   const handleContextChange = useCallback((payload: FigmaMcpDesignContextCompactResponse | null) => {
@@ -108,14 +105,9 @@ export function FigmaTokenSyncForm({
                   DRY RUN
                 </span>
               )}
-              {force && !merge && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-status-warning-bg/15 text-status-warning font-medium">
-                  FORCE
-                </span>
-              )}
-              {merge && (
+              {includeComponents && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/15 text-accent font-medium">
-                  MERGE
+                  COMPONENTS
                 </span>
               )}
             </div>
@@ -147,15 +139,14 @@ export function FigmaTokenSyncForm({
       {isOpen && (
         <div className="border-t border-border/50 p-4 bg-background space-y-5">
           {/* ── Dry-run warning ── */}
-          {!dryRun && force && !merge && (
+          {!dryRun ? (
             <div className="flex items-start gap-2 rounded-md border border-status-warning-border/30 bg-status-warning-bg/10 p-3 text-xs text-status-warning">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>
-                <strong>Force sin merge:</strong> los JSON existentes en{" "}
-                <code className="font-mono">input/</code> serán reemplazados (se crea un .bak automático).
+                Se escribirá en base de datos y se reemplazarán los datos importados para este sistema.
               </span>
             </div>
-          )}
+          ) : null}
 
           {/* ── Figma URL ── */}
           <div>
@@ -230,56 +221,17 @@ export function FigmaTokenSyncForm({
             <label className="flex items-start gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={compile}
-                onChange={(e) => setCompile(e.target.checked)}
-                disabled={isRunning || dryRun}
-                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-ring"
-              />
-              <div>
-                <span className={cn("text-sm font-medium", (isRunning || dryRun) && "opacity-50")}>
-                  Compilar a CSS
-                </span>
-                <p className="text-[11px] text-muted-foreground/70">
-                  Ejecuta ds-tokens-sync al finalizar y regenera las custom properties.
-                </p>
-              </div>
-            </label>
-
-            <label className="flex items-start gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={force}
-                onChange={(e) => {
-                  setForce(e.target.checked);
-                  if (!e.target.checked) setMerge(false);
-                }}
+                checked={includeComponents}
+                onChange={(e) => setIncludeComponents(e.target.checked)}
                 disabled={isRunning}
                 className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-ring"
               />
               <div>
                 <span className={cn("text-sm font-medium", isRunning && "opacity-50")}>
-                  Forzar re-sync
+                  Incluir componentes
                 </span>
                 <p className="text-[11px] text-muted-foreground/70">
-                  Sobreescribe los JSON aunque ya existan (guarda .bak).
-                </p>
-              </div>
-            </label>
-
-            <label className={cn("flex items-start gap-2 cursor-pointer select-none", !force && "opacity-40 pointer-events-none")}>
-              <input
-                type="checkbox"
-                checked={merge}
-                onChange={(e) => setMerge(e.target.checked)}
-                disabled={isRunning || !force}
-                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-ring"
-              />
-              <div>
-                <span className={cn("text-sm font-medium", (isRunning || !force) && "opacity-50")}>
-                  Merge (preserva tokens manuales)
-                </span>
-                <p className="text-[11px] text-muted-foreground/70">
-                  Deep-merge en vez de reemplazar. Requiere «Forzar».
+                  Actualiza también el registro de componentes desde el plugin.
                 </p>
               </div>
             </label>

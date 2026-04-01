@@ -16,7 +16,7 @@ export interface RunSpecWithGuardsOptions {
     outputPath: string;
     resolvedSpecRoot: string;
     docsPath: string;
-    registryIndexPath: string;
+    registryDbPath: string;
     allowedWritePaths: string[];
     run: (opts: { existingSpec: any }) => any;
     label?: string;
@@ -35,7 +35,7 @@ export function runSpecWithGuards(options: RunSpecWithGuardsOptions): any {
         outputPath,
         resolvedSpecRoot,
         docsPath,
-        registryIndexPath,
+        registryDbPath,
         allowedWritePaths,
         run,
         label = 'ds-spec-from-figma',
@@ -51,7 +51,7 @@ export function runSpecWithGuards(options: RunSpecWithGuardsOptions): any {
 
     const scopeSnapshot = captureScopedWriteSnapshotFn({
         directories: [resolvedSpecRoot, docsPath],
-        files: [registryIndexPath],
+        files: [registryDbPath],
         extensions: ['.yml', '.md', '.json'],
     });
 

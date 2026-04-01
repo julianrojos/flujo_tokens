@@ -7,9 +7,9 @@
 
 import type { Database } from 'better-sqlite3';
 
-import type { DesignSystemsConfig } from '../services/system-config-schema.js';
 import { PendingOperationsRepository } from '../db/pending-operations-repository.js';
 import { DependencyRepository } from '../db/dependency-repository.js';
+import type { DesignSystemsConfig } from '../db/design-system-repository.js';
 
 /**
  * Reconcile result
@@ -28,7 +28,8 @@ export interface ReconcileDeleteDsOpsArgs {
   pendingOpsRepo: PendingOperationsRepository;
   designSystemRepository: {
     getConfig(): DesignSystemsConfig;
-    saveConfig(config: DesignSystemsConfig): void;
+    delete(id: string): boolean;
+    setDefaultSystemId(id: string | null): void;
   };
   dependencyRepo?: Pick<DependencyRepository, 'listConsumers' | 'removeAllByDsFileKey'>;
 }
@@ -41,7 +42,7 @@ export interface ReconcileDeleteDsOpsArgs {
  *
  * Four possible states:
  * - configHasDS=Y, dbHasConsumers=Y → abandoned (crash pre-FS, nothing was touched)
- * - configHasDS=Y, dbHasConsumers=N → saveConfig(without DS) + complete (the gap we want to cover)
+ * - configHasDS=Y, dbHasConsumers=N → delete DS + set default + complete (the gap we want to cover)
  * - configHasDS=N, dbHasConsumers=Y → cascade delete + complete (defensive for original bug)
  * - configHasDS=N, dbHasConsumers=N → complete (already finished)
  */
@@ -95,16 +96,16 @@ export function reconcileDeleteDesignSystemOps(args: ReconcileDeleteDsOpsArgs): 
         pendingOpsRepo.abandon(op.id);
         result.abandoned.push(op.id);
       } else if (configHasDS && !dbHasConsumers) {
-        // Y+N: Consumers deleted but config intact - this is the gap we want to cover
-        const nextConfig: DesignSystemsConfig = {
-          ...config,
-          systems: config.systems.filter((s) => s.id !== systemId),
-          defaultSystem: config.defaultSystem === systemId ? '' : config.defaultSystem,
-        };
-        designSystemRepository.saveConfig(nextConfig);
+        // Y+N: Consumers deleted but DS still exists - remove it and repair default.
+        designSystemRepository.delete(systemId);
+        const nextSystems = config.systems.filter((s) => s.id !== systemId);
+        const nextDefault = config.defaultSystem === systemId
+          ? (nextSystems[0]?.id ?? null)
+          : (config.defaultSystem || nextSystems[0]?.id || null);
+        designSystemRepository.setDefaultSystemId(nextDefault);
         pendingOpsRepo.complete(op.id);
         result.completed.push(op.id);
-        console.log(`[Reconcile] Op ${op.id}: Completed - removed DS ${systemId} from config`);
+        console.log(`[Reconcile] Op ${op.id}: Completed - removed DS ${systemId}`);
       } else if (!configHasDS && dbHasConsumers) {
         // N+Y: Config cleaned but consumers remain - defensive cleanup
         try {

@@ -12,7 +12,7 @@ describe('spec-result', () => {
   describe('buildSpecGenerationResult()', () => {
     it('builds stable JSON payload for CLI stdout', () => {
       const result = buildSpecGenerationResult({
-        outputPath: '/repo/docs/_spec/components/alert.yml',
+        outputPath: '/repo/design-systems/sys-01/docs/_spec/components/alert.yml',
         normalizedSpec: { name: 'Alert' },
         componentName: 'Alert',
         nodeId: '123:456',
@@ -26,21 +26,21 @@ describe('spec-result', () => {
           },
         },
         indicesSync: {
-          changed: ['/repo/docs/components/overview.md'],
-          written: ['/repo/docs/components/overview.md'],
+          changed: ['/repo/design-systems/sys-01/docs/components/overview.md'],
+          written: ['/repo/design-systems/sys-01/docs/components/overview.md'],
           registry: {
-            registryPath: '/repo/docs/_generated/component-registry.json',
+            registryDbPath: '/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
             fingerprint: 'abc123',
           },
           overview: {
-            overviewPath: '/repo/docs/components/overview.md',
+            overviewPath: '/repo/design-systems/sys-01/docs/components/overview.md',
           },
         },
       });
 
       assert.deepEqual(result, {
         ok: true,
-        outputPath: '/repo/docs/_spec/components/alert.yml',
+        outputPath: '/repo/design-systems/sys-01/docs/_spec/components/alert.yml',
         componentName: 'Alert',
         componentSetNodeId: '123:456',
         tokenPrefilled: 2,
@@ -51,18 +51,18 @@ describe('spec-result', () => {
           warnings: 1,
         },
         documentationIndices: {
-          changed: ['/repo/docs/components/overview.md'],
-          written: ['/repo/docs/components/overview.md'],
-          registryPath: '/repo/docs/_generated/component-registry.json',
+          changed: ['/repo/design-systems/sys-01/docs/components/overview.md'],
+          written: ['/repo/design-systems/sys-01/docs/components/overview.md'],
+          registryDbPath: '/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
           registryFingerprint: 'abc123',
-          overviewPath: '/repo/docs/components/overview.md',
+          overviewPath: '/repo/design-systems/sys-01/docs/components/overview.md',
         },
       });
     });
 
     it('returns skipped validation payload when report is not provided', () => {
       const result = buildSpecGenerationResult({
-        outputPath: '/repo/docs/_spec/components/alert.yml',
+        outputPath: '/repo/design-systems/sys-01/docs/_spec/components/alert.yml',
         normalizedSpec: {},
         componentName: '',
         nodeId: '',
@@ -73,11 +73,11 @@ describe('spec-result', () => {
           changed: [],
           written: [],
           registry: {
-            registryPath: '/repo/docs/_generated/component-registry.json',
+            registryDbPath: '/repo/apps/ds-dashboard/server/db/ds-dashboard.db',
             fingerprint: 'fp',
           },
           overview: {
-            overviewPath: '/repo/docs/components/overview.md',
+            overviewPath: '/repo/design-systems/sys-01/docs/components/overview.md',
           },
         },
       });

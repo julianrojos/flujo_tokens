@@ -25,77 +25,42 @@ test("component-spec-service: sanitizeComponentSlug enforces expected pattern", 
   assert.equal(sanitizeComponentSlug("../badge"), null);
 });
 
-test("component-spec-service: resolveComponentSpecTarget resolves valid registry entry", async () => {
-  const registry = {
-    components: [
-      {
-        slug: "button",
-        paths: { spec: "docs/_spec/components/button.yml" },
-      },
-    ],
-  };
-
+test("component-spec-service: resolveComponentSpecTarget resolves target from docsDir", async () => {
   const result = await resolveComponentSpecTarget(
     {
       repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
+      docsDir: "/repo/design-systems/sys-01/docs",
       slug: "button",
     },
     {
-      readFileFn: async () => JSON.stringify(registry),
       resolveRepoFilePathFn: (_repoRoot, relPath) => `/repo/${relPath}`,
     },
   );
 
   assert.equal(result.ok, true);
-  assert.equal(result.specRelPath, "docs/_spec/components/button.yml");
-  assert.equal(result.specAbsPath, "/repo/docs/_spec/components/button.yml");
+  assert.equal(result.specRelPath, "design-systems/sys-01/docs/_spec/components/button.yml");
+  assert.equal(result.specAbsPath, "/repo/design-systems/sys-01/docs/_spec/components/button.yml");
 });
 
 test("component-spec-service: resolveComponentSpecTarget reports missing/invalid target", async () => {
-  const registry = {
-    components: [{ slug: "button", paths: {} }],
-  };
-
-  const missingComponent = await resolveComponentSpecTarget(
+  const missingDocsDir = await resolveComponentSpecTarget(
     {
       repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
-      slug: "badge",
-    },
-    {
-      readFileFn: async () => JSON.stringify(registry),
-      resolveRepoFilePathFn: () => "/repo/docs/_spec/components/badge.yml",
-    },
-  );
-  assert.equal(missingComponent.ok, false);
-  assert.match(missingComponent.message, /not found/i);
-
-  const missingSpecPath = await resolveComponentSpecTarget(
-    {
-      repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
+      docsDir: "",
       slug: "button",
     },
-    {
-      readFileFn: async () => JSON.stringify(registry),
-      resolveRepoFilePathFn: () => "/repo/docs/_spec/components/button.yml",
-    },
+    { resolveRepoFilePathFn: () => "/repo/design-systems/sys-01/docs/_spec/components/button.yml" },
   );
-  assert.equal(missingSpecPath.ok, false);
-  assert.match(missingSpecPath.message, /does not define a spec path/i);
+  assert.equal(missingDocsDir.ok, false);
+  assert.match(missingDocsDir.message, /docs directory.*not configured/i);
 
   const outsideRepo = await resolveComponentSpecTarget(
     {
       repoRoot: "/repo",
-      componentRegistryPath: "/repo/docs/_generated/component-registry.json",
+      docsDir: "/repo/design-systems/sys-01/docs",
       slug: "button",
     },
     {
-      readFileFn: async () =>
-        JSON.stringify({
-          components: [{ slug: "button", paths: { spec: "../outside.yml" } }],
-        }),
       resolveRepoFilePathFn: () => null,
     },
   );
@@ -118,7 +83,7 @@ test("component-spec-service: buildSpecValidationPayload delegates validation an
   const payload = buildSpecValidationPayload(
     {
       slug: "button",
-      path: "docs/_spec/components/button.yml",
+      path: "design-systems/sys-01/docs/_spec/components/button.yml",
       raw: "name: button\nstatus: draft\n",
       baselineParsed: { name: "button", status: "draft" },
       tokenRegistry: { tokens: [] },
@@ -150,7 +115,7 @@ test("component-spec-service: buildSpecValidationPayload returns parse error pay
   const payload = buildSpecValidationPayload(
     {
       slug: "button",
-      path: "docs/_spec/components/button.yml",
+      path: "design-systems/sys-01/docs/_spec/components/button.yml",
       raw: "name: [",
       baselineParsed: null,
       tokenRegistry: null,
@@ -243,7 +208,7 @@ test("component-spec-service: persistSpecWithBackup writes backup and next conte
 
   const persisted = await persistSpecWithBackup(
     {
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
       specBackupsDirPath: "/repo/docs/_spec/.backups",
       slug: "button",
       currentRaw: "name: button\n",
@@ -270,11 +235,11 @@ test("component-spec-service: persistSpecWithBackup writes backup and next conte
   assert.match(persisted.backupTimestampPath, /button\.2026-02-24T10-30-00-000Z\.yml$/);
   assert.equal(writes.get(persisted.backupLatestPath), "name: button\n");
   assert.equal(
-    writes.get("/repo/docs/_spec/components/button.yml.tmp-123"),
+    writes.get("/repo/design-systems/sys-01/docs/_spec/components/button.yml.tmp-123"),
     "name: button\nstatus: ready\n",
   );
   assert.deepEqual(renamed, [
-    ["/repo/docs/_spec/components/button.yml.tmp-123", "/repo/docs/_spec/components/button.yml"],
+    ["/repo/design-systems/sys-01/docs/_spec/components/button.yml.tmp-123", "/repo/design-systems/sys-01/docs/_spec/components/button.yml"],
   ]);
 });
 
@@ -296,7 +261,7 @@ test("component-spec-service: readLatestSpecBackup and restoreSpecFromRaw pipeli
   const renames = [];
   await restoreSpecFromRaw(
     {
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
       raw: backup.raw,
     },
     {
@@ -312,12 +277,12 @@ test("component-spec-service: readLatestSpecBackup and restoreSpecFromRaw pipeli
   );
 
   assert.deepEqual(writes, [
-    ["/repo/docs/_spec/components/button.yml.tmp-restore-777", "name: button\nstatus: draft\n"],
+    ["/repo/design-systems/sys-01/docs/_spec/components/button.yml.tmp-restore-777", "name: button\nstatus: draft\n"],
   ]);
   assert.deepEqual(renames, [
     [
-      "/repo/docs/_spec/components/button.yml.tmp-restore-777",
-      "/repo/docs/_spec/components/button.yml",
+      "/repo/design-systems/sys-01/docs/_spec/components/button.yml.tmp-restore-777",
+      "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
     ],
   ]);
 });
@@ -326,8 +291,8 @@ test("component-spec-service: restoreComponentSpecFromLatestBackup handles missi
   const payload = await restoreComponentSpecFromLatestBackup(
     {
       slug: "button",
-      specRelPath: "docs/_spec/components/button.yml",
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specRelPath: "design-systems/sys-01/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
       repoRoot: "/repo",
       specBackupsDirPath: "/repo/docs/_spec/.backups",
       refreshRegistryAfterRestore: true,
@@ -355,8 +320,8 @@ test("component-spec-service: restoreComponentSpecFromLatestBackup restores and 
   const payload = await restoreComponentSpecFromLatestBackup(
     {
       slug: "button",
-      specRelPath: "docs/_spec/components/button.yml",
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specRelPath: "design-systems/sys-01/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
       repoRoot: "/repo",
       specBackupsDirPath: "/repo/docs/_spec/.backups",
       refreshRegistryAfterRestore: true,
@@ -385,7 +350,7 @@ test("component-spec-service: restoreComponentSpecFromLatestBackup restores and 
   assert.equal(payload.refreshOutput, "ok");
   assert.deepEqual(restoredCalls, [
     {
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
       raw: "name: Button\nstatus: draft\n",
     },
   ]);
@@ -402,9 +367,9 @@ test("component-spec-service: validateComponentSpecRaw returns empty payload for
   const payload = await validateComponentSpecRaw(
     {
       slug: "button",
-      path: "docs/_spec/components/button.yml",
+      path: "design-systems/sys-01/docs/_spec/components/button.yml",
       raw: "",
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
       tokenRegistryPath: "/repo/docs/_generated/token-registry.json",
       maxBytes: 10,
     },
@@ -428,9 +393,9 @@ test("component-spec-service: saveComponentSpecRaw returns conflict on hash mism
   const payload = await saveComponentSpecRaw(
     {
       slug: "button",
-      path: "docs/_spec/components/button.yml",
+      path: "design-systems/sys-01/docs/_spec/components/button.yml",
       raw: "name: Button\nstatus: ready\n",
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
       specBackupsDirPath: "/repo/docs/_spec/.backups",
       repoRoot: "/repo",
       tokenRegistryPath: "/repo/docs/_generated/token-registry.json",
@@ -464,7 +429,7 @@ test("component-spec-service: saveEditorialSpecFields persists allowed editorial
   const payload = await saveEditorialSpecFields(
     {
       slug: "button",
-      path: "docs/_spec/components/button.yml",
+      path: "design-systems/sys-01/docs/_spec/components/button.yml",
       body: {
         expectedHash: null,
         fields: {
@@ -475,7 +440,7 @@ test("component-spec-service: saveEditorialSpecFields persists allowed editorial
           },
         },
       },
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
       specBackupsDirPath: "/repo/docs/_spec/.backups",
       repoRoot: "/repo",
     },
@@ -503,7 +468,7 @@ test("component-spec-service: saveEditorialSpecFields persists allowed editorial
 
   assert.equal(payload.ok, true);
   assert.equal(payload.slug, "button");
-  assert.equal(payload.path, "docs/_spec/components/button.yml");
+  assert.equal(payload.path, "design-systems/sys-01/docs/_spec/components/button.yml");
   assert.equal(payload.savedKeys.length, 1);
   assert.equal(payload.savedKeys[0], "summary");
   assert.equal(payload.backupPath, "docs/_spec/.backups/button.last.yml");
@@ -517,13 +482,13 @@ test("component-spec-service: saveEditorialSpecFields rejects capture keys", asy
       saveEditorialSpecFields(
         {
           slug: "button",
-          path: "docs/_spec/components/button.yml",
+          path: "design-systems/sys-01/docs/_spec/components/button.yml",
           body: {
             fields: {
               anatomy: [],
             },
           },
-          specAbsPath: "/repo/docs/_spec/components/button.yml",
+          specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
           specBackupsDirPath: "/repo/docs/_spec/.backups",
           repoRoot: "/repo",
         },
@@ -541,7 +506,7 @@ test("component-spec-service: saveEditorialSpecFields rejects hash mismatch", as
       saveEditorialSpecFields(
         {
           slug: "button",
-          path: "docs/_spec/components/button.yml",
+          path: "design-systems/sys-01/docs/_spec/components/button.yml",
           body: {
             expectedHash: "hash:old",
             fields: {
@@ -552,7 +517,7 @@ test("component-spec-service: saveEditorialSpecFields rejects hash mismatch", as
               },
             },
           },
-          specAbsPath: "/repo/docs/_spec/components/button.yml",
+          specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
           specBackupsDirPath: "/repo/docs/_spec/.backups",
           repoRoot: "/repo",
         },
@@ -574,7 +539,7 @@ test("component-spec-service: saveEditorialSpecFields rejects partial replacemen
       saveEditorialSpecFields(
         {
           slug: "button",
-          path: "docs/_spec/components/button.yml",
+          path: "design-systems/sys-01/docs/_spec/components/button.yml",
           body: {
             expectedHash: null,
             fields: {
@@ -583,7 +548,7 @@ test("component-spec-service: saveEditorialSpecFields rejects partial replacemen
               },
             },
           },
-          specAbsPath: "/repo/docs/_spec/components/button.yml",
+          specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
           specBackupsDirPath: "/repo/docs/_spec/.backups",
           repoRoot: "/repo",
         },
@@ -605,13 +570,13 @@ test("component-spec-service: saveEditorialSpecFields rejects partial replacemen
 
 test("component-spec-service: saveEditorialSpecFields syncs markdown summary and normalizes multiline purpose", async () => {
   const writes = [];
-  const specAbsPath = "/repo/docs/_spec/components/button.yml";
-  const markdownAbsPath = "/repo/docs/components/button.md";
+  const specAbsPath = "/repo/design-systems/sys-01/docs/_spec/components/button.yml";
+  const markdownAbsPath = "/repo/design-systems/sys-01/docs/components/button.md";
 
   const payload = await saveEditorialSpecFields(
     {
       slug: "button",
-      path: "docs/_spec/components/button.yml",
+      path: "design-systems/sys-01/docs/_spec/components/button.yml",
       body: {
         expectedHash: null,
         fields: {
@@ -624,7 +589,7 @@ test("component-spec-service: saveEditorialSpecFields syncs markdown summary and
       },
       specAbsPath,
       markdownAbsPath,
-      markdownRelPath: "docs/components/button.md",
+      markdownRelPath: "design-systems/sys-01/docs/components/button.md",
       specBackupsDirPath: "/repo/docs/_spec/.backups",
       repoRoot: "/repo",
     },
@@ -701,13 +666,13 @@ test("component-spec-service: saveEditorialSpecFields syncs markdown summary and
 
 test("component-spec-service: saveEditorialSpecFields reports markdown summary sections missing", async () => {
   const writes = [];
-  const specAbsPath = "/repo/docs/_spec/components/button.yml";
-  const markdownAbsPath = "/repo/docs/components/button.md";
+  const specAbsPath = "/repo/design-systems/sys-01/docs/_spec/components/button.yml";
+  const markdownAbsPath = "/repo/design-systems/sys-01/docs/components/button.md";
 
   const payload = await saveEditorialSpecFields(
     {
       slug: "button",
-      path: "docs/_spec/components/button.yml",
+      path: "design-systems/sys-01/docs/_spec/components/button.yml",
       body: {
         expectedHash: null,
         fields: {
@@ -720,7 +685,7 @@ test("component-spec-service: saveEditorialSpecFields reports markdown summary s
       },
       specAbsPath,
       markdownAbsPath,
-      markdownRelPath: "docs/components/button.md",
+      markdownRelPath: "design-systems/sys-01/docs/components/button.md",
       specBackupsDirPath: "/repo/docs/_spec/.backups",
       repoRoot: "/repo",
     },
@@ -774,13 +739,13 @@ test("component-spec-service: saveEditorialSpecFields reports markdown summary s
 
 test("component-spec-service: saveEditorialSpecFields reports markdown summary sync incomplete when one section is missing", async () => {
   const writes = [];
-  const specAbsPath = "/repo/docs/_spec/components/button.yml";
-  const markdownAbsPath = "/repo/docs/components/button.md";
+  const specAbsPath = "/repo/design-systems/sys-01/docs/_spec/components/button.yml";
+  const markdownAbsPath = "/repo/design-systems/sys-01/docs/components/button.md";
 
   const payload = await saveEditorialSpecFields(
     {
       slug: "button",
-      path: "docs/_spec/components/button.yml",
+      path: "design-systems/sys-01/docs/_spec/components/button.yml",
       body: {
         expectedHash: null,
         fields: {
@@ -793,7 +758,7 @@ test("component-spec-service: saveEditorialSpecFields reports markdown summary s
       },
       specAbsPath,
       markdownAbsPath,
-      markdownRelPath: "docs/components/button.md",
+      markdownRelPath: "design-systems/sys-01/docs/components/button.md",
       specBackupsDirPath: "/repo/docs/_spec/.backups",
       repoRoot: "/repo",
     },

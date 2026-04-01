@@ -1,8 +1,8 @@
 /**
  * Token Registry Loader
- * 
+ *
  * Loads and indexes token registry from JSON file.
- * Supports both new indexed format and legacy array format.
+ * Expects indexed format: { entries: [...], byPath: {...}, bySlashPath: {...} }
  */
 
 import * as fs from "node:fs";
@@ -24,18 +24,19 @@ export const DEFAULT_TOKEN_REGISTRY_PATH = path.resolve(
   "token-registry.json",
 );
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 /**
  * Load token registry from JSON file.
- * 
- * Supports two formats:
- * 1. New indexed format: { entries: [...], byPath: {...}, bySlashPath: {...} }
- * 2. Legacy array format: [{ path, slashPath, ... }, ...]
- * 
+ *
+ * Expects indexed format: { entries: [...], byPath: {...}, bySlashPath: {...} }
  * Returns an indexed object mapped by path and slashPath keys.
  */
 export function loadTokenRegistry(registryPath: string = DEFAULT_TOKEN_REGISTRY_PATH): TokenRegistryIndex {
   const absolutePath = path.resolve(registryPath);
-  
+
   if (!fs.existsSync(absolutePath)) {
     throw new Error(`Token registry not found: ${absolutePath}`);
   }
@@ -56,17 +57,24 @@ export function loadTokenRegistry(registryPath: string = DEFAULT_TOKEN_REGISTRY_
     throw new Error(`Invalid token registry JSON at ${absolutePath}: ${message}`);
   }
 
-  // New indexed format: { entries: [...], byPath: {...}, bySlashPath: {...} }
-  if (
-    parsed &&
-    typeof parsed === "object" &&
-    !Array.isArray(parsed) &&
-    Array.isArray((parsed as IndexedTokenRegistry).entries)
-  ) {
+  // Indexed format: { entries: [...], byPath: {...}, bySlashPath: {...} }
+  if (isRecord(parsed) && Array.isArray((parsed as IndexedTokenRegistry).entries)) {
     const registry = parsed as IndexedTokenRegistry;
+    if (!isRecord(registry.byPath)) {
+      throw new Error(
+        `Invalid token registry format at ${absolutePath}: missing object field "byPath".\n` +
+          'Regenerate it with: npm run generate:registry',
+      );
+    }
+    if (registry.bySlashPath !== undefined && !isRecord(registry.bySlashPath)) {
+      throw new Error(
+        `Invalid token registry format at ${absolutePath}: field "bySlashPath" must be an object when present.\n` +
+          'Regenerate it with: npm run generate:registry',
+      );
+    }
     const index: TokenRegistryIndex = Object.create(null);
-    
-    for (const key of Object.keys(registry.byPath || {})) {
+
+    for (const key of Object.keys(registry.byPath)) {
       index[key] = registry.byPath![key];
     }
     for (const key of Object.keys(registry.bySlashPath || {})) {
@@ -77,23 +85,15 @@ export function loadTokenRegistry(registryPath: string = DEFAULT_TOKEN_REGISTRY_
     return index;
   }
 
-  // Legacy array format (backward compat)
   if (Array.isArray(parsed)) {
-    const index: TokenRegistryIndex = Object.create(null);
-    for (const entry of parsed) {
-      if (!entry || typeof entry !== "object") continue;
-      const entryObj = entry as TokenRegistryEntry;
-      const pathKey = typeof entryObj.path === "string" ? entryObj.path.trim() : "";
-      const slashKey = typeof entryObj.slashPath === "string" ? entryObj.slashPath.trim() : "";
-      if (pathKey && index[pathKey] === undefined) index[pathKey] = entryObj;
-      if (slashKey && index[slashKey] === undefined) index[slashKey] = entryObj;
-    }
-    return index;
+    throw new Error(
+      `Legacy token registry format detected at ${absolutePath}: expected { entries, byPath, bySlashPath }.\n` +
+        'Regenerate it with: npm run generate:registry',
+    );
   }
 
-  if (parsed == null || typeof parsed !== "object") {
-    throw new Error(`Token registry must be an object or array at top level: ${absolutePath}`);
-  }
-
-  return parsed as TokenRegistryIndex;
+  throw new Error(
+    `Invalid token registry format at ${absolutePath}: expected { entries, byPath, bySlashPath }.\n` +
+      'Regenerate it with: npm run generate:registry',
+  );
 }

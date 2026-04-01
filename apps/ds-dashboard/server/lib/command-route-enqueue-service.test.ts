@@ -11,7 +11,6 @@ import {
   buildHealthSnapshotQueueArgs,
   buildRefreshScriptQueueArgs,
   buildRunScriptQueueConfig,
-  buildSyncFigmaTokensQueueArgs,
   parseScriptNameFromRoute,
 } from './command-route-enqueue-service.js';
 
@@ -20,7 +19,6 @@ function createSysCtx() {
     repoRoot: '/repo',
     systemId: 'core',
     healthSnapshotScriptPath: 'tooling/scripts/ds-health-snapshot.mjs',
-    tokensFromFigmaScriptPath: 'tooling/scripts/ds-tokens-from-figma.mjs',
     captureFromFigmaUrlScriptPath: 'tooling/scripts/ds-capture-from-figma-url.mjs',
   };
 }
@@ -71,7 +69,7 @@ describe('command-route-enqueue-service', () => {
     });
   });
 
-  describe('build node queue args for health/sync/capture', () => {
+  describe('build node queue args for health/capture', () => {
     const sysCtx = createSysCtx();
     const requestId = 'req_1';
     const parsed = {
@@ -85,14 +83,6 @@ describe('command-route-enqueue-service', () => {
     it('buildHealthSnapshotQueueArgs', () => {
       const health = buildHealthSnapshotQueueArgs({ sysCtx, requestId, parsed });
       assert.equal(health.scriptPath, sysCtx.healthSnapshotScriptPath);
-    });
-
-    it('buildSyncFigmaTokensQueueArgs', () => {
-      const sync = buildSyncFigmaTokensQueueArgs({ sysCtx, requestId, parsed });
-      assert.equal(sync.allowNonZeroJson, true);
-      assert.match(sync.commandLabel, /ds-tokens-from-figma\.mjs/);
-      assert.deepEqual(sync.commandEnv, { FIGMA_TOKEN: 'secret' });
-      assert.ok(!sync.scriptArgs.includes('secret'));
     });
 
     it('buildCaptureFigmaScreenshotQueueArgs', () => {

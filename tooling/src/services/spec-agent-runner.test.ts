@@ -19,8 +19,8 @@ describe('spec-agent-runner', () => {
         figmaUrl: 'https://www.figma.com/design/abc/file?node-id=1-2',
         nodeId: '1:2',
         componentName: 'Alert',
-        outputPath: '/repo/docs/_spec/components/alert.yml',
-        templatePath: '/repo/docs/_spec/components/_template.yml',
+        outputPath: '/repo/design-systems/sys-01/docs/_spec/components/alert.yml',
+        templatePath: '/repo/design-systems/sys-01/docs/_spec/components/_template.yml',
         registryPath: '/repo/docs/_generated/token-registry.json',
         fileKeyFromUrl: 'abc',
         tokenMenuLines: ['components/alert/background (color: #fff)'],
@@ -41,7 +41,7 @@ describe('spec-agent-runner', () => {
     it('appends actionable validation details', () => {
       const feedback = buildSpecValidationFeedbackPrompt({
         basePrompt: 'Context\n- test',
-        outputPath: '/repo/docs/_spec/components/alert.yml',
+        outputPath: '/repo/design-systems/sys-01/docs/_spec/components/alert.yml',
         validationErrors: [{ code: 'SPEC01', message: 'invalid type' }],
       });
 

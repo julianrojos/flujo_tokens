@@ -11,6 +11,7 @@ import { componentNameToSnakeCase } from '../utils/component-name.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { normalizeNodeId } from '../utils/figma-node-id.js';
 import { PROJECT_ROOT } from '../utils/system-context.js';
+import { requireNonEmptyPathOption } from '../utils/path-guards.js';
 import { parseMarkdownFrontmatter, parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { isTbdMarker } from '../utils/tbd.js';
 import type {
@@ -19,7 +20,6 @@ import type {
   ComponentSpecState,
   ComponentDocState,
   ComponentVisualProofState,
-  VisualProofVariant,
   PipelineStage,
   BuildRegistryOptions,
   SpecStatus,
@@ -27,9 +27,6 @@ import type {
 } from '../types/component-registry.js';
 import {
   COMPONENT_REGISTRY_SCHEMA_VERSION,
-  DEFAULT_COMPONENT_DOCS_DIR,
-  DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_VISUAL_PROOFS_DIR,
   PIPELINE_STAGE_ORDER,
 } from './component-registry-constants.js';
 import {
@@ -137,13 +134,22 @@ function listDocSlugs(docsDir: string): string[] {
     });
 }
 
+const PROOF_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'];
+
 /**
- * List proof slugs from directory.
+ * List proof slugs from image assets directory.
  */
 function listProofSlugs(proofsDir: string): string[] {
-  return listFilesByExtension(proofsDir, '.json').map((filePath) =>
-    path.basename(filePath, '.json'),
-  );
+  if (!fs.existsSync(proofsDir)) return [];
+  return fs
+    .readdirSync(proofsDir, { withFileTypes: true })
+    .filter((entry) => {
+      if (!entry.isFile()) return false;
+      const ext = path.extname(entry.name).toLowerCase();
+      return PROOF_IMAGE_EXTENSIONS.includes(ext);
+    })
+    .map((entry) => path.basename(entry.name, path.extname(entry.name)))
+    .sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
 }
 
 /**
@@ -234,17 +240,6 @@ function readDocState(docPath: string): ComponentDocState {
 }
 
 /**
- * Normalize optional ISO date string.
- */
-function normalizeOptionalIsoDate(rawValue: unknown): string | null {
-  const value = String(rawValue || '').trim();
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
-}
-
-/**
  * Normalize proof image path to project-relative path.
  */
 function normalizeProofImagePath(
@@ -291,50 +286,19 @@ function hasVisualProofAsset(visualProof: ComponentVisualProofState): boolean {
   return Boolean(visualProof.screenshotUrl || visualProof.imagePath);
 }
 
-/**
- * Normalize visual variant from raw object.
- */
-function normalizeVisualVariant(
-  rawVariant: unknown,
-  options: { relativeBaseDirs?: string[] } = {},
-): VisualProofVariant | null {
-  if (!isPlainObject(rawVariant)) return null;
-  const variant = rawVariant as Record<string, unknown>;
-
-  const nodeIdRaw = normalizeNodeId(String(variant.node_id || '').trim());
-  const nodeId = isValidNodeId(nodeIdRaw) ? nodeIdRaw : null;
-  const screenshotRaw = String(variant.screenshot_url || '').trim();
-  const screenshotUrl = isValidHttpUrl(screenshotRaw) ? screenshotRaw : null;
-  const imagePath = normalizeProofImagePath(String(variant.image_path || ''), options);
-  const capturedAt = normalizeOptionalIsoDate(variant.captured_at);
-  const name = String(variant.name || '').trim() || nodeId || 'Variant';
-
-  return {
-    name,
-    node_id: nodeId,
-    screenshot_url: screenshotUrl,
-    image_path: imagePath,
-    captured_at: capturedAt,
-    image_sha256: String(variant.image_sha256 || '').trim() || null,
-    image_bytes: Number.isFinite(Number(variant.image_bytes))
-      ? Number(variant.image_bytes)
-      : null,
-    image_content_type:
-      String(variant.image_content_type || '').trim() || null,
-    image_width: Number.isFinite(Number(variant.image_width))
-      ? Number(variant.image_width)
-      : null,
-    image_height: Number.isFinite(Number(variant.image_height))
-      ? Number(variant.image_height)
-      : null,
-  };
+function resolveProofImagePath(slug: string, proofsDir: string): string | null {
+  for (const ext of PROOF_IMAGE_EXTENSIONS) {
+    const candidate = path.join(proofsDir, `${slug}${ext}`);
+    if (fileExists(candidate)) return candidate;
+  }
+  return null;
 }
 
 /**
- * Read visual proof state from file.
+ * Read visual proof state from image asset.
  */
-function readVisualProofState(proofPath: string): ComponentVisualProofState {
-  if (!fileExists(proofPath)) {
+function readVisualProofState(proofImagePath: string | null): ComponentVisualProofState {
+  if (!proofImagePath || !fileExists(proofImagePath)) {
     return {
       exists: false,
       screenshotUrl: null,
@@ -351,70 +315,28 @@ function readVisualProofState(proofPath: string): ComponentVisualProofState {
     };
   }
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(fs.readFileSync(proofPath, 'utf8'));
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid visual proof JSON (${proofPath}): ${reason}`);
-  }
-
-  if (!isPlainObject(parsed)) {
-    throw new Error(`Invalid visual proof JSON (${proofPath}): top-level object required.`);
-  }
-
-  const parsedObj = parsed as Record<string, unknown>;
-  const screenshotRaw = String(
-    parsedObj.screenshot_url || (parsedObj as any).image_url || (parsedObj as any).url || '',
-  ).trim();
-  const screenshotUrl = isValidHttpUrl(screenshotRaw) ? screenshotRaw : null;
-  const docsRootDir = path.resolve(path.dirname(proofPath), '..', '..');
-  const relativeBaseDirs = [docsRootDir];
-  const imagePath = normalizeProofImagePath(
-    String((parsedObj.image as Record<string, unknown>)?.path || parsedObj.image_path || ''),
-    { relativeBaseDirs },
-  );
-
-  const sourceRaw = String((parsedObj as any).source_url || '').trim();
-  const sourceUrl = isValidHttpUrl(sourceRaw) ? sourceRaw : null;
-
-  const rawNodeId = normalizeNodeId(String(parsedObj.node_id || '').trim());
-  const nodeId = isValidNodeId(rawNodeId) ? rawNodeId : null;
-  const variants = Array.isArray(parsedObj.variants)
-    ? parsedObj.variants
-      .map((variant) => normalizeVisualVariant(variant, { relativeBaseDirs }))
-      .filter((v): v is VisualProofVariant => v !== null)
-      .sort((a, b) =>
-        `${a.name}|${a.node_id || ''}`.localeCompare(
-          `${b.name}|${b.node_id || ''}`,
-          'en',
-          { sensitivity: 'base' },
-        ),
-      )
-    : [];
-
-  const image = parsedObj.image as Record<string, unknown> | undefined;
+  const imagePath = normalizeProofImagePath(proofImagePath);
+  const stats = fs.statSync(proofImagePath);
+  const contentType =
+    path.extname(proofImagePath).toLowerCase() === '.png'
+      ? 'image/png'
+      : path.extname(proofImagePath).toLowerCase() === '.webp'
+        ? 'image/webp'
+        : 'image/jpeg';
 
   return {
     exists: true,
-    screenshotUrl,
+    screenshotUrl: null,
     imagePath,
-    sourceUrl,
-    nodeId,
-    capturedAt: normalizeOptionalIsoDate(parsedObj.captured_at),
-    imageSha256: String(image?.sha256 || parsedObj.image_sha256 || '').trim() || null,
-    imageBytes: Number.isFinite(Number(image?.bytes || parsedObj.image_bytes))
-      ? Number(image?.bytes || parsedObj.image_bytes)
-      : null,
-    imageContentType:
-      String(image?.content_type || parsedObj.image_content_type || '').trim() || null,
-    imageWidth: Number.isFinite(Number(image?.width || parsedObj.image_width))
-      ? Number(image?.width || parsedObj.image_width)
-      : null,
-    imageHeight: Number.isFinite(Number(image?.height || parsedObj.image_height))
-      ? Number(image?.height || parsedObj.image_height)
-      : null,
-    variants,
+    sourceUrl: null,
+    nodeId: null,
+    capturedAt: new Date(stats.mtimeMs).toISOString(),
+    imageSha256: null,
+    imageBytes: Number.isFinite(Number(stats.size)) ? Number(stats.size) : null,
+    imageContentType: contentType,
+    imageWidth: null,
+    imageHeight: null,
+    variants: [],
   };
 }
 
@@ -440,11 +362,14 @@ function collectSlugs(dirs: {
   specsDir: string;
   docsDir: string;
   proofsDir: string;
+  includeVisualProofFiles: boolean;
 }): string[] {
   const slugs = new Set<string>();
   for (const slug of listSpecSlugs(dirs.specsDir)) slugs.add(slug);
   for (const slug of listDocSlugs(dirs.docsDir)) slugs.add(slug);
-  for (const slug of listProofSlugs(dirs.proofsDir)) slugs.add(slug);
+  if (dirs.includeVisualProofFiles) {
+    for (const slug of listProofSlugs(dirs.proofsDir)) slugs.add(slug);
+  }
 
   return Array.from(slugs)
     .map((slug) => componentNameToSnakeCase(slug))
@@ -474,15 +399,32 @@ function buildComponentEntry(params: {
   specsDir: string;
   docsDir: string;
   proofsDir: string;
+  includeVisualProofFiles: boolean;
 }): ComponentRegistryEntry {
-  const { slug, specsDir, docsDir, proofsDir } = params;
+  const { slug, specsDir, docsDir, proofsDir, includeVisualProofFiles } = params;
   const specPath = path.join(specsDir, `${slug}.yml`);
   const docPath = path.join(docsDir, `${slug}.md`);
-  const proofPath = path.join(proofsDir, `${slug}.json`);
+  const proofImagePath = resolveProofImagePath(slug, proofsDir);
+  const defaultProofPath = path.join(proofsDir, `${slug}.png`);
 
   const spec = readSpecState(specPath);
   const doc = readDocState(docPath);
-  const visualProof = readVisualProofState(proofPath);
+  const visualProof = includeVisualProofFiles
+    ? readVisualProofState(proofImagePath)
+    : {
+      exists: false,
+      screenshotUrl: null,
+      imagePath: null,
+      sourceUrl: null,
+      nodeId: null,
+      capturedAt: null,
+      imageSha256: null,
+      imageBytes: null,
+      imageContentType: null,
+      imageWidth: null,
+      imageHeight: null,
+      variants: [],
+    };
 
   const componentSetNodeId =
     spec.componentSetNodeId ||
@@ -507,7 +449,7 @@ function buildComponentEntry(params: {
     paths: {
       spec: toProjectRelativePath(specPath),
       doc: toProjectRelativePath(docPath),
-      visual_proof: toProjectRelativePath(proofPath),
+      visual_proof: toProjectRelativePath(proofImagePath || defaultProofPath),
     },
     spec: {
       exists: spec.exists,
@@ -591,24 +533,32 @@ export function buildComponentRegistry(
   options: BuildRegistryOptions = {},
 ): ComponentRegistry {
   const {
-    specsDir = DEFAULT_COMPONENT_SPECS_DIR,
-    docsDir = DEFAULT_COMPONENT_DOCS_DIR,
-    proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
+    specsDir,
+    docsDir,
+    proofsDir,
+    includeVisualProofFiles = false,
   } = options;
+  const resolvedSpecsDir = path.resolve(requireNonEmptyPathOption(specsDir, 'specsDir'));
+  const resolvedDocsDir = path.resolve(requireNonEmptyPathOption(docsDir, 'docsDir'));
+  const resolvedProofsDir = path.resolve(
+    String(proofsDir || path.join(path.dirname(resolvedDocsDir), '_generated', 'visual-proofs')),
+  );
 
   const slugs = collectSlugs({
-    specsDir: path.resolve(specsDir),
-    docsDir: path.resolve(docsDir),
-    proofsDir: path.resolve(proofsDir),
+    specsDir: resolvedSpecsDir,
+    docsDir: resolvedDocsDir,
+    proofsDir: resolvedProofsDir,
+    includeVisualProofFiles,
   });
 
   const components = slugs
     .map((slug) =>
       buildComponentEntry({
         slug,
-        specsDir: path.resolve(specsDir),
-        docsDir: path.resolve(docsDir),
-        proofsDir: path.resolve(proofsDir),
+        specsDir: resolvedSpecsDir,
+        docsDir: resolvedDocsDir,
+        proofsDir: resolvedProofsDir,
+        includeVisualProofFiles,
       }),
     )
     .sort((a, b) => {
@@ -622,7 +572,7 @@ export function buildComponentRegistry(
     });
 
   const variantComponentNodeIds = collectVariantComponentNodeIds(
-    path.resolve(specsDir),
+    resolvedSpecsDir,
   );
   const canonicalComponents = components.filter((component) => {
     const nodeId = normalizeNodeId(

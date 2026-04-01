@@ -115,7 +115,6 @@ export function TokenDetailPage() {
       )}
 
       <TokenUsageSection
-        token={token}
         filteredComponentUsages={filteredComponentUsages}
         componentUsageSummary={componentUsageSummary}
         occurrencesByKind={occurrencesByKind}

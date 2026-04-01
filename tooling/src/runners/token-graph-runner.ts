@@ -10,8 +10,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 import { loadTokenRegistry } from '../services/token-utils.js';
 import { generateGraphReport, buildTokenGraph } from '../services/token-graph.js';
@@ -24,27 +24,27 @@ const CLI_CONFIG = {
     {
       name: '--registry',
       description: 'Token registry input path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--out-json',
       description: 'JSON report output path.',
-      defaultValue: 'docs/_generated/token-graph.json',
+      defaultValue: '<active-system-docs>/_generated/token-graph.json',
     },
     {
       name: '--out-viz-json',
       description: 'JSON graph output optimized for UI visualization.',
-      defaultValue: 'docs/_generated/token-graph.viz.json',
+      defaultValue: '<active-system-docs>/_generated/token-graph.viz.json',
     },
     {
       name: '--out-md',
       description: 'Markdown report output path.',
-      defaultValue: 'docs/_generated/token-graph.md',
+      defaultValue: '<active-system-docs>/_generated/token-graph.md',
     },
     {
       name: '--out-mermaid',
       description: 'Mermaid graph output path.',
-      defaultValue: 'docs/_generated/token-graph.mmd',
+      defaultValue: '<active-system-docs>/_generated/token-graph.mmd',
     },
     {
       name: '--format',
@@ -92,7 +92,7 @@ const CLI_CONFIG = {
       defaultValue: 'false',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -138,7 +138,7 @@ export async function runTokenGraph(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   const registryPath = path.resolve(
     String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),

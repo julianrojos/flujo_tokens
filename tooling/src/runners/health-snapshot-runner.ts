@@ -11,30 +11,31 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import { PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 const DEFAULT_RETENTION_DAYS = 120;
 
 const CLI_CONFIG = {
   command: 'ds:health-snapshot [options]',
   description:
-    'Capture a historical health snapshot (breaking/WCAG/coverage/unresolved) into docs/_generated/health-history.json.',
+    'Capture a historical health snapshot (breaking/WCAG/coverage/unresolved) into the active system _generated health-history file.',
   options: [
     {
       name: '--token-health',
       description: 'Token health JSON input path.',
-      defaultValue: 'docs/_generated/token-health.json',
+      defaultValue: '<active-system-docs>/_generated/token-health.json',
     },
     {
       name: '--components-health',
       description: 'Components health JSON input path.',
-      defaultValue: 'docs/_generated/components-health.json',
+      defaultValue: '<active-system-docs>/_generated/components-health.json',
     },
     {
       name: '--token-usage-index',
       description: 'Token usage index JSON input path.',
-      defaultValue: 'docs/_generated/token-usage-index.json',
+      defaultValue: '<active-system-docs>/_generated/token-usage-index.json',
     },
     {
       name: '--before-ref',
@@ -59,7 +60,7 @@ const CLI_CONFIG = {
     {
       name: '--out',
       description: 'Output health history JSON path.',
-      defaultValue: 'docs/_generated/health-history.json',
+      defaultValue: '<active-system-docs>/_generated/health-history.json',
     },
     {
       name: '--format',
@@ -250,7 +251,7 @@ export async function runHealthSnapshot(args: string[] = []): Promise<void> {
   );
   const beforeRef = String(getStringArg(parsed, 'before-ref') || 'HEAD~1').trim();
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const genDir = ctx.paths.generated;
 
   const tokenHealthPath = resolveSafePath(

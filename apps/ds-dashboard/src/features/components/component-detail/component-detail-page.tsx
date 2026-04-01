@@ -113,7 +113,7 @@ export function ComponentDetailPage() {
       <ComponentPipelineSection
         currentStage={item.pipeline_stage}
         hasFigmaUrl={Boolean(item.figma.file_url)}
-        hasDocs={Boolean(docsFilePath)}
+        hasDocs={item.doc.exists}
         onCapture={() => setCaptureModalOpen(true)}
         onOpenSpec={() => setSpecEditorOpen(true)}
         onOpenDocs={openDocsModal}
@@ -131,7 +131,7 @@ export function ComponentDetailPage() {
 
       <ComponentSpecSection
         spec={spec}
-        hasDocs={Boolean(docsFilePath)}
+        hasDocs={item.doc.exists}
         onOpenSpecEditor={() => setSpecEditorOpen(true)}
         onOpenDocs={openDocsModal}
         onOpenEditorial={() => setEditorialEditorOpen(true)}

@@ -49,6 +49,7 @@ export interface ComponentSpecDeps extends SharedSystemContextDeps {
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
 }
 
 export interface FileDeps extends SharedSystemContextDeps {
@@ -84,6 +85,8 @@ export interface CommandDeps {
   queueNpmScript: (args: unknown) => unknown;
   enqueueRefreshNamingDebtJob: (args: unknown) => unknown;
   queueNodeJsonCommand: (args: unknown) => unknown;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  db?: import('better-sqlite3').Database;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
@@ -98,8 +101,11 @@ export interface AllRouteDeps {
   systemDeps: SystemDeps;
   operationsDeps: OperationsDeps;
   registryDeps: SharedSystemContextDeps;
-  tokenGraphDeps: SharedSystemContextDeps & { tokenRepo?: import('../db/token-repository.js').TokenRepository };
+  tokenGraphDeps: SharedSystemContextDeps;
   healthDeps: SharedSystemContextDeps;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
   analysisDeps: SharedSystemContextDeps;
   componentSpecDeps: ComponentSpecDeps;
   fileDeps: FileDeps;
@@ -114,6 +120,9 @@ export interface ServerDeps {
   buildHealthPayload: (args: unknown) => unknown;
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
   designSystemRepository: unknown;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
   normalizeSystemId: (id: string) => string;
   ensureRelativeDir: (path: string) => string;
   normalizeFigmaApiTokenRef: (token: string) => string;
@@ -207,8 +216,11 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       queueJobAcceptedPayload: deps.queueJobAcceptedPayload,
     },
     registryDeps: sharedSystemContextDeps,
-    tokenGraphDeps: { ...sharedSystemContextDeps, tokenRepo: deps.tokenRepo },
+    tokenGraphDeps: sharedSystemContextDeps,
     healthDeps: sharedSystemContextDeps,
+    componentRepo: deps.componentRepo,
+    tokenRepo: deps.tokenRepo,
+    healthRepo: deps.healthRepo,
     analysisDeps: sharedSystemContextDeps,
     componentSpecDeps: {
       ...sharedSystemContextDeps,
@@ -216,6 +228,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       readJsonBody: deps.readJsonBody,
       resolveRepoFilePath: deps.resolveRepoFilePath,
       sha256Text: deps.sha256Text,
+      tokenRepo: deps.tokenRepo,
     },
     fileDeps: {
       ...sharedSystemContextDeps,
@@ -249,6 +262,8 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       queueNpmScript: deps.queueNpmScript,
       enqueueRefreshNamingDebtJob: deps.enqueueRefreshNamingDebtJob,
       queueNodeJsonCommand: deps.queueNodeJsonCommand,
+      componentRepo: deps.componentRepo,
+      db: deps.db,
       toBooleanString: deps.toBooleanString,
       toNumberString: deps.toNumberString,
       validateGitRef: deps.validateGitRef,

@@ -9,15 +9,12 @@ import { Modal, ModalContent } from "@/components/ui/overlay/modal";
 import {
   ApiError,
   cancelQueueJob,
-  captureFigmaScreenshot,
+  syncFigmaTokens,
   syncConsumers,
-  type CaptureFigmaScreenshotArgs,
   type CaptureFigmaErrorDetail,
-  type CaptureFigmaScreenshotResult,
   type TokensBootstrapResult,
   type TokensCompileResult,
 } from "@/lib/api";
-import { buildImportSuccessSummary } from "./new-system-import-summary";
 import { useNewSystemWizard } from "./hooks/use-new-system-wizard";
 import { WizardStepBasics } from "./components/wizard-step-basics";
 import { WizardStepImport } from "./components/wizard-step-import";
@@ -27,7 +24,6 @@ import {
 } from "./new-system-import-errors";
 import {
   getImportErrorHint,
-  hasNoCaptureTargets,
   isCriticalTokensBootstrapFailure,
   toNonEmptyString,
   toRecord,
@@ -61,16 +57,6 @@ function extractPipelinePhase(error: unknown): string {
   if (!(error instanceof ApiError)) return "";
   const payload = toRecord(error.payload);
   return toNonEmptyString(payload?.pipeline_phase);
-}
-
-function ensureImportSuccess(result: CaptureFigmaScreenshotResult): CaptureFigmaScreenshotResult {
-  if (result.ok) return result;
-  const message =
-    toNonEmptyString(result.error) ||
-    toNonEmptyString(result.message) ||
-    toNonEmptyString(result.stderr) ||
-    "Import failed";
-  throw new Error(message);
 }
 
 export function NewSystemPage() {
@@ -195,50 +181,39 @@ export function NewSystemPage() {
     setImportTokensCompile(null);
     void (async () => {
       try {
-        const baseRequest: CaptureFigmaScreenshotArgs = {
-          figmaUrl: sourceUrl,
-          figmaToken: form.figmaAccessToken.trim() || undefined,
-          tokensSource: "mcp",
-          includeVariants: true,
-          requireExistingDoc: false,
-          continueOnError: true,
-          refreshIndices: true,
-          injectDocSpecs: true,
-          componentKind: "component_set",
-        };
-        let request = { ...baseRequest };
-
-        const preview = await captureFigmaScreenshot(
+        const result = await syncFigmaTokens(
           {
-            ...request,
-            dryRun: true,
-            refreshIndices: false,
+            url: sourceUrl,
+            tokensSource: "mcp",
+            includeComponents: true,
+            dryRun: false,
+            figmaToken: form.figmaAccessToken.trim() || undefined,
           },
-          { systemId },
+          {
+            systemId,
+            onProgress: (progress) => {
+              if (stopped) return;
+              if (typeof progress.jobId === "string" && progress.jobId.trim()) {
+                activeQueueJobIdRef.current = progress.jobId.trim();
+              }
+              updateImportProgress(progress);
+            },
+          },
         );
-
-        if (hasNoCaptureTargets(preview)) {
-          request = { ...baseRequest, componentKind: "component" };
-        }
-
-        const result = await captureFigmaScreenshot(request, {
-          systemId,
-          onProgress: (progress) => {
-            if (stopped) return;
-            if (typeof progress.jobId === "string" && progress.jobId.trim()) {
-              activeQueueJobIdRef.current = progress.jobId.trim();
-            }
-            updateImportProgress(progress);
-          },
-        });
         if (stopped) return;
         activeQueueJobIdRef.current = "";
-        setImportTokensBootstrap(result.tokens_bootstrap || null);
-        setImportTokensCompile(result.tokens_compile || null);
-        const success = ensureImportSuccess(result);
+        setImportTokensBootstrap(null);
+        setImportTokensCompile(null);
+
+        const importedComponents = Math.max(0, Number(result.components || 0));
+        const importedTokens = Math.max(0, Number(result.tokens || 0));
+        if (result.componentsTruncated) {
+          console.warn('[NewSystemPage] Component list truncated during sync; reconciliation may be partial.');
+        }
+        if (stopped) return;
         const sourceFileKey = importState.sourceFileKey;
-        // Persist parent-file variable usage snapshot in DB using the same import context.
         if (sourceFileKey) {
+          if (stopped) return;
           await syncConsumers({
             dsFileKey: sourceFileKey,
             force: true,
@@ -248,7 +223,18 @@ export function NewSystemPage() {
             console.warn('[NewSystemPage] Parent usage capture failed:', err);
           });
         }
-        completeImport(buildImportSuccessSummary(success));
+
+        if (stopped) return;
+        completeImport({
+          elementsImported: importedComponents,
+          elementsTotal: importedComponents,
+          collectionsImported: null,
+          collectionsTotal: null,
+          variablesImported: importedTokens,
+          variablesTotal: importedTokens,
+          tokensCompiled: null,
+          compileReason: null,
+        });
       } catch (error) {
         if (stopped) return;
         activeQueueJobIdRef.current = "";

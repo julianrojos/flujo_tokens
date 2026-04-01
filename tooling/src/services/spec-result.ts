@@ -8,7 +8,7 @@ export interface IndexSyncResult {
     changed: string[];
     written: string[];
     registry: {
-        registryPath: string;
+        registryDbPath: string;
         fingerprint: string;
     };
     overview: {
@@ -32,7 +32,7 @@ export interface SpecGenerationResult {
     documentationIndices: {
         changed: string[];
         written: string[];
-        registryPath: string;
+        registryDbPath: string;
         registryFingerprint: string;
         overviewPath: string;
     };
@@ -81,7 +81,7 @@ export function buildSpecGenerationResult(options: BuildSpecResultOptions): Spec
         documentationIndices: {
             changed: indicesSync.changed,
             written: indicesSync.written,
-            registryPath: indicesSync.registry.registryPath,
+            registryDbPath: indicesSync.registry.registryDbPath,
             registryFingerprint: indicesSync.registry.fingerprint,
             overviewPath: indicesSync.overview.overviewPath,
         },

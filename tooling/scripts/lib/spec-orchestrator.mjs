@@ -65,7 +65,7 @@ export function runSpecFromFigma(args, deps = {}) {
     nodeId,
     outputPath,
     overviewPath,
-    registryIndexPath,
+    registryDbPath,
     allowedWritePaths,
   } = runCtx;
 
@@ -73,7 +73,7 @@ export function runSpecFromFigma(args, deps = {}) {
     outputPath,
     resolvedSpecRoot,
     docsPath: context.system.paths.docs,
-    registryIndexPath,
+    registryDbPath,
     allowedWritePaths,
     captureScopedWriteSnapshotFn,
     assertScopedWritePolicyFn,
@@ -143,7 +143,8 @@ export function runSpecFromFigma(args, deps = {}) {
         resolvedSpecRoot,
         docsRootDir,
         overviewPath,
-        registryIndexPath,
+        registryDbPath,
+        systemId: context.system.id,
         syncDocumentationIndicesFn,
       });
     },

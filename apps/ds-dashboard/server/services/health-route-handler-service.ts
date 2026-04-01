@@ -1,128 +1,80 @@
-/**
- * Health Route Handler Service
- *
- * Handles health-related API routes.
- * Migrated from apps/ds-dashboard/server/services/health-route-handler-service.mjs
- */
-
 import type { Context } from 'hono';
 
-import {
-  artifactReadFailureToApiError,
-  readJsonArtifact,
-} from './registry-artifacts-service.mjs';
 import {
   buildEmptyComponentsHealthReport,
   buildEmptyTokenHealthReport,
   filterSnapshotsByRange,
-  normalizeHealthHistoryPayload,
   normalizeHealthHistoryRange,
 } from './health-artifacts-service.ts';
 
+type SystemContext = {
+  systemId: string;
+};
+
 export interface HealthRouteHandlerDeps {
   failJson: (c: Context, statusCode: number, args: Record<string, unknown>) => any;
-  getSystemContext: (systemHeader: string) => {
-    tokenHealthPath: string;
-    tokenRegistryPath: string;
-    tokenUsageIndexPath: string;
-    tokenGraphVizPath: string;
-    wcagPairsPath: string;
-    componentsHealthPath: string;
-    healthHistoryPath: string;
-    componentRegistryPath: string;
-  };
+  getSystemContext: (systemHeader: string) => SystemContext;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
 }
 
-async function loadArtifactOrFail(c: Context, args: any, failJson: any) {
-  const loaded = await readJsonArtifact(args);
-  if (loaded.ok) return loaded;
-  const failure = artifactReadFailureToApiError(loaded.error);
-  return {
-    ok: false,
-    response: failJson(c, failure.statusCode, failure.args),
-  };
+function buildMissingRepoError(c: Context, deps: HealthRouteHandlerDeps) {
+  return deps.failJson(c, 500, {
+    code: 'internal.health_repo_missing',
+    userMessage: 'Health repository is not initialized.',
+    recoverable: false,
+  });
 }
 
-/**
- * Handle token health route.
- */
 export async function handleTokenHealthRoute(c: Context, deps: HealthRouteHandlerDeps): Promise<any> {
-  const { failJson, getSystemContext } = deps;
+  const { getSystemContext, healthRepo } = deps;
+  if (!healthRepo) return buildMissingRepoError(c, deps);
   const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const loaded = await loadArtifactOrFail(
-    c,
-    {
-      filePath: sysCtx.tokenHealthPath,
-      artifactName: 'token health',
-      allowMissing: true,
-      missingValue: null,
-    },
-    failJson
-  );
-  if (!loaded.ok) return loaded.response;
-  if (loaded.value !== null) return c.json(loaded.value);
+  const snapshot = healthRepo.getSnapshot(sysCtx.systemId, 'tokens');
+  if (snapshot) return c.json(snapshot.snapshotJson);
   return c.json(
     buildEmptyTokenHealthReport({
-      tokenRegistryPath: sysCtx.tokenRegistryPath,
-      tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
-      tokenGraphVizPath: sysCtx.tokenGraphVizPath,
-      wcagPairsPath: sysCtx.wcagPairsPath,
-      reason: 'Token health artifact not found. Run the pipeline or capture components first.',
-    })
+      systemId: sysCtx.systemId,
+      reason: 'Token health snapshot not found in database. Run refresh-token-health first.',
+    }),
   );
 }
 
-/**
- * Handle components health route.
- */
 export async function handleComponentsHealthRoute(c: Context, deps: HealthRouteHandlerDeps): Promise<any> {
-  const { failJson, getSystemContext } = deps;
+  const { getSystemContext, healthRepo } = deps;
+  if (!healthRepo) return buildMissingRepoError(c, deps);
   const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
-  const loaded = await loadArtifactOrFail(
-    c,
-    {
-      filePath: sysCtx.componentsHealthPath,
-      artifactName: 'components health',
-      allowMissing: true,
-      missingValue: null,
-    },
-    failJson
-  );
-  if (!loaded.ok) return loaded.response;
-  if (loaded.value !== null) return c.json(loaded.value);
+  const snapshot = healthRepo.getSnapshot(sysCtx.systemId, 'components');
+  if (snapshot) return c.json(snapshot.snapshotJson);
   return c.json(
     buildEmptyComponentsHealthReport({
-      componentRegistryPath: sysCtx.componentRegistryPath,
-    })
+      systemId: sysCtx.systemId,
+    }),
   );
 }
 
-/**
- * Handle health history route.
- */
 export async function handleHealthHistoryRoute(c: Context, deps: HealthRouteHandlerDeps): Promise<any> {
-  const { failJson, getSystemContext } = deps;
+  const { getSystemContext, healthRepo } = deps;
+  if (!healthRepo) return buildMissingRepoError(c, deps);
   const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const range = normalizeHealthHistoryRange(c.req.query('range'));
-  const loaded = await loadArtifactOrFail(
-    c,
-    {
-      filePath: sysCtx.healthHistoryPath,
-      artifactName: 'health history',
-      allowMissing: true,
-      missingValue: null,
-    },
-    failJson
-  );
-  if (!loaded.ok) return loaded.response;
-  const parsed = normalizeHealthHistoryPayload(loaded.value);
-  const snapshots = filterSnapshotsByRange(parsed.snapshots, range);
+
+  const rows = healthRepo.getHistory(sysCtx.systemId, undefined, 500);
+  const snapshots = rows
+    .map((row) => row.entryJson)
+    .filter((entry) => Boolean(entry && typeof entry === 'object' && 'captured_at' in entry)) as Array<Record<string, unknown>>;
+  const filtered = filterSnapshotsByRange(snapshots as never, range);
+
   return c.json({
-    ...parsed,
-    snapshots,
+    ok: true,
+    schema_version: 1,
+    generated_at: new Date().toISOString(),
+    retention_days: 90,
+    snapshots: filtered,
     summary: {
-      snapshots_total: snapshots.length,
-      latest_at: snapshots.length ? snapshots[snapshots.length - 1].captured_at : null,
+      snapshots_total: filtered.length,
+      latest_at: filtered.length
+        ? String((filtered[filtered.length - 1] as Record<string, unknown>).captured_at || null)
+        : null,
     },
     range,
   });

@@ -159,7 +159,6 @@ export function FigmaMcpConnectionTestButton({
     const pair = `${normalizedUrl}\0${normalizedToken}`;
     if (pair === lastTestedPairRef.current) return;
     void handleTest();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoTriggerToken]);
   // Auto-trigger fires only when counter increments; guards use closure values
   // which are always fresh because the effect runs after the render that updated them.

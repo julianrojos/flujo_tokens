@@ -23,7 +23,7 @@ describe('spec-runner', () => {
         outputPath: '/tmp/alert.yml',
         resolvedSpecRoot: '/tmp/specs',
         docsPath: '/tmp/docs',
-        registryIndexPath: '/tmp/docs/_generated/component-registry.json',
+        registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
         allowedWritePaths: ['/tmp/alert.yml'],
         run: ({ existingSpec }) => {
           assert.deepEqual(existingSpec, { name: 'Alert' });
@@ -39,7 +39,7 @@ describe('spec-runner', () => {
             },
             captureScopedWriteSnapshotFn: () => {
               calls.captureScope += 1;
-              return { directories: [], files: [], extensions: [], entries: new Map() };
+              return { directories: [], files: [], extensions: [], fileNamePrefixes: [], entries: new Map() };
             },
         assertScopedWritePolicyFn: () => {
           calls.assertScope += 1;
@@ -61,14 +61,14 @@ describe('spec-runner', () => {
             outputPath: '/tmp/alert.yml',
             resolvedSpecRoot: '/tmp/specs',
             docsPath: '/tmp/docs',
-            registryIndexPath: '/tmp/docs/_generated/component-registry.json',
+            registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
             allowedWritePaths: ['/tmp/alert.yml'],
             run: () => {
               throw new Error('run failed');
             },
             captureFileSnapshotFn: () => ({ exists: true, content: 'x' }),
             parseExistingSpecFromSnapshotFn: () => ({}),
-            captureScopedWriteSnapshotFn: () => ({ directories: [], files: [], extensions: [], entries: new Map() }),
+            captureScopedWriteSnapshotFn: () => ({ directories: [], files: [], extensions: [], fileNamePrefixes: [], entries: new Map() }),
             assertScopedWritePolicyFn: () => {
               throw new Error('scope failed');
             },

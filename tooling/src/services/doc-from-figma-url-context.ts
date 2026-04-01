@@ -103,14 +103,14 @@ export interface DocGenerationContext {
   outputSlug: string;
   specComponentsDir: string;
   overviewPath: string;
-  registryIndexPath: string;
+  registryDbPath: string;
   tokenUsageIndexPath: string;
   tokenRegistryPath: string;
   tokenUsageScriptPath: string;
   captureVisualProofScriptPath: string;
   visualProofDir: string;
   visualProofImageDir: string;
-  visualProofPath: string;
+  proofImagesSlugPath: string;
   visualProofImagePath: string;
   skeletonPath: string;
   styleReferencePath: string;
@@ -122,6 +122,7 @@ export interface DocGenerationContext {
   figmaToken: string;
   figmaMapOutPath: string;
   componentNodeId: string;
+  systemId: string;
   agent: 'codex' | 'claude' | 'gemini' | 'auto';
   componentName: string;
   componentSlug: string;
@@ -134,7 +135,9 @@ export interface DocGenerationContext {
 
   // Snapshots
   scopeSnapshot: ReturnType<typeof captureScopedWriteSnapshot>;
+  proofScopeSnapshot: ReturnType<typeof captureScopedWriteSnapshot>;
   allowedWritePaths: string[];
+  allowedWritePathPrefixes: string[];
 }
 
 /**
@@ -164,6 +167,8 @@ export async function resolveDocContext(
   figmaMapOutPath: string,
   docsRootDir: string,
   componentDocsDir: string,
+  registryDbPath: string,
+  systemId: string,
   tempArtifacts: TempArtifactManager,
   deps: ResolveDocContextDeps = {},
 ): Promise<DocGenerationContext> {
@@ -177,11 +182,11 @@ export async function resolveDocContext(
   const force = String(args.force || 'false') === 'true';
   const allowDocStatusChange =
     String(args['allow-doc-status-change'] || 'false') === 'true';
-  
+
   // CI detection: accept common truthy values (true, 1, yes, on)
   const ciValue = String(ci || '').trim().toLowerCase();
   const isCI = ciValue === 'true' || ciValue === '1' || ciValue === 'yes' || ciValue === 'on';
-  
+
   const strictStyleReference = parseBooleanOption(
     args['strict-style-reference'],
     '--strict-style-reference',
@@ -203,7 +208,7 @@ export async function resolveDocContext(
   if (!outputPath) {
     throw new Error(
       'Missing deterministic output path.\n' +
-      'Provide --output <path>, or pass --component-name so the script can derive docs/components/<snake_case>.md.',
+      'Provide --output <path>, or pass --component-name so the script can derive design-systems/<id>/docs/components/<snake_case>.md.',
     );
   }
 
@@ -216,11 +221,6 @@ export async function resolveDocContext(
 
   const specComponentsDir = path.join(docsRootDir, '_spec', 'components');
   const overviewPath = path.join(componentDocsDir, 'overview.md');
-  const registryIndexPath = path.join(
-    docsRootDir,
-    '_generated',
-    'component-registry.json',
-  );
   const tokenUsageIndexPath = path.join(
     docsRootDir,
     '_generated',
@@ -245,23 +245,31 @@ export async function resolveDocContext(
   );
   const visualProofDir = path.join(docsRootDir, '_generated', 'visual-proofs');
   const visualProofImageDir = path.join(visualProofDir, 'images');
-  const visualProofPath = path.join(visualProofDir, `${outputSlug}.json`);
+  const visualProofVariantsDir = path.join(visualProofImageDir, 'variants');
+  const proofImagesSlugPath = path.join(visualProofDir, outputSlug);
   const visualProofImagePath = path.join(visualProofImageDir, `${outputSlug}.png`);
+  const visualProofVariantPrefix = path.join(visualProofVariantsDir, `${outputSlug}__`);
 
   const scopeSnapshot = captureScopedWriteSnapshot({
     directories: [componentDocsDir, specComponentsDir],
-    files: [registryIndexPath, tokenUsageIndexPath],
+    files: [tokenUsageIndexPath],
     extensions: ['.md', '.yml', '.json'],
+  });
+  const proofScopeSnapshot = captureScopedWriteSnapshot({
+    directories: [visualProofVariantsDir],
+    files: [visualProofImagePath],
+    extensions: ['.png'],
+    fileNamePrefixes: [`${outputSlug}__`],
+    maxDepth: 0,
   });
   const allowedWritePaths = [
     outputPath,
     overviewPath,
-    registryIndexPath,
     tokenUsageIndexPath,
     figmaMapOutPath,
-    visualProofPath,
     visualProofImagePath,
   ];
+  const allowedWritePathPrefixes = [`${visualProofVariantPrefix}*`];
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   const skeletonPath = writeComponentDocSkeleton({
@@ -337,14 +345,14 @@ export async function resolveDocContext(
     outputSlug,
     specComponentsDir,
     overviewPath,
-    registryIndexPath,
+    registryDbPath: path.resolve(registryDbPath),
     tokenUsageIndexPath,
     tokenRegistryPath,
     tokenUsageScriptPath,
     captureVisualProofScriptPath,
     visualProofDir,
     visualProofImageDir,
-    visualProofPath,
+    proofImagesSlugPath,
     visualProofImagePath,
     skeletonPath,
     styleReferencePath,
@@ -356,6 +364,7 @@ export async function resolveDocContext(
     figmaToken,
     figmaMapOutPath,
     componentNodeId,
+    systemId,
     agent,
     componentName,
     componentSlug,
@@ -368,7 +377,9 @@ export async function resolveDocContext(
 
     // Snapshots
     scopeSnapshot,
+    proofScopeSnapshot,
     allowedWritePaths,
+    allowedWritePathPrefixes,
   };
 }
 

@@ -6,7 +6,7 @@
  *
  * Extracted from ds-capture-from-figma-url.mjs so it can be used by:
  * - ds-capture-from-figma-url.mjs (existing — bootstrap on first capture)
- * - ds-tokens-from-figma.mjs     (new — standalone re-sync at any time)
+ * - tooling/src/runners/tokens-from-figma-runner.ts (standalone re-sync at any time)
  */
 
 import fs from "node:fs";
@@ -311,7 +311,7 @@ export function buildFilesMapFromVariables(meta) {
  *
  * @param {object} opts
  * @param {string}  opts.repoRoot
- * @param {object}  opts.system          - System config entry from design-systems.json
+ * @param {object}  opts.system          - System config entry resolved from SQLite
  * @param {string}  opts.fileKey         - Figma file key
  * @param {string}  opts.figmaToken      - Figma PAT
  * @param {boolean} [opts.force=false]   - Overwrite existing input JSONs
@@ -335,7 +335,12 @@ export async function syncFigmaTokensToInput({
     return { attempted: false, reason: "figma-file-key-missing" };
   }
 
-  const existingJsonFiles = hasInputJsonFiles(repoRoot, system.inputDir);
+  const inputDirValue = String(system.inputDir || system?.paths?.input || "").trim();
+  if (!inputDirValue) {
+    return { attempted: false, reason: "system-input-dir-missing" };
+  }
+
+  const existingJsonFiles = hasInputJsonFiles(repoRoot, inputDirValue);
   if (existingJsonFiles && !force) {
     return { attempted: false, reason: "input-json-exists", hint: "Use --force true to re-sync." };
   }
@@ -363,7 +368,7 @@ export async function syncFigmaTokensToInput({
     return { attempted: true, reason: "variables-empty" };
   }
 
-  const inputDir = path.resolve(repoRoot, String(system.inputDir || ""));
+  const inputDir = path.resolve(repoRoot, inputDirValue);
 
   // Build preview / dry-run result
   const plannedFiles = Array.from(filesMap.keys()).map((stem) =>
@@ -444,12 +449,16 @@ export async function syncFigmaTokensToInput({
 export function runTokensCompile({ repoRoot, system }) {
   if (!system) return { attempted: false, reason: "system-missing" };
 
-  const inputDir = path.resolve(repoRoot, String(system.inputDir || ""));
-  const outputDir = path.resolve(repoRoot, String(system.outputDir || ""));
-  const docsDir = path.resolve(repoRoot, String(system.docsDir || ""));
+  const inputDirValue = String(system.inputDir || system?.paths?.input || "").trim();
+  if (!inputDirValue) {
+    return { attempted: false, reason: "system-input-dir-missing" };
+  }
+  const inputDir = path.resolve(repoRoot, inputDirValue);
+  const outputDir = path.resolve(repoRoot, String(system.outputDir || system?.paths?.output || ""));
+  const docsDir = path.resolve(repoRoot, String(system.docsDir || system?.paths?.docs || ""));
   const tokenRegistryPath = path.join(docsDir, "_generated", "token-registry.json");
 
-  if (!hasInputJsonFiles(repoRoot, system.inputDir)) {
+  if (!hasInputJsonFiles(repoRoot, inputDirValue)) {
     return { attempted: false, reason: "input-json-missing" };
   }
 

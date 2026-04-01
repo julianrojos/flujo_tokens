@@ -8,6 +8,8 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 
+import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
+import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 import { runJsonCommand } from '../utils/exec.js';
 import { fetchFigmaFile, fetchFigmaImages, fetchFigmaNodes } from '../utils/figma-api.js';
 import { writeTextAtomic, buildMarkdownSeed } from './capture-doc-scaffold.js';
@@ -44,13 +46,25 @@ export function createCaptureServices(params: { context: PipelineContext }): Cap
 
   return {
     readComponentRegistry: () => {
-      const p = context.paths.registryIndexPath;
-      if (!fs.existsSync(p)) return [];
+      const dbPath = path.resolve(context.paths.registryDbPath);
+      if (!fs.existsSync(dbPath)) return [];
+      const db = bootstrapDatabase({ dbPath });
       try {
-        const parsed = JSON.parse(fs.readFileSync(p, 'utf8'));
-        return Array.isArray(parsed?.components) ? parsed.components : [];
-      } catch {
-        return [];
+        const repo = new ComponentRepository(db);
+        const entries = repo.getAll(context.system.id);
+        return entries.map((entry) => ({
+          slug: entry.slug,
+          figma: {
+            component_set_node_id: entry.figmaComponentSetNodeId || null,
+          },
+        }));
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `[capture-services] Failed to read component registry from DB at ${dbPath} for system "${context.system.id}": ${reason}`,
+        );
+      } finally {
+        db.close();
       }
     },
     readSpecContents: () => {

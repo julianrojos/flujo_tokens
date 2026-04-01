@@ -7,6 +7,7 @@
 // Re-export types
 export type {
   BuildRegistryOptions,
+  ComponentOverviewListState,
   CompareRegistryResult,
   ComponentDocState,
   ComponentRegistry,
@@ -33,11 +34,7 @@ export type {
 export {
   COMPONENT_REGISTRY_SCHEMA_VERSION,
   PIPELINE_STAGE_ORDER,
-  DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_COMPONENT_DOCS_DIR,
-  DEFAULT_VISUAL_PROOFS_DIR,
   DEFAULT_COMPONENT_REGISTRY_PATH,
-  DEFAULT_COMPONENT_OVERVIEW_PATH,
 } from './component-registry-constants.js';
 
 // Export from TypeScript modules
@@ -53,7 +50,7 @@ export {
 } from './component-registry-sync.js';
 
 export {
-  syncDocumentationIndices,
+  syncDocumentationState,
 } from './component-registry-refresh.js';
 
 export {
@@ -65,7 +62,6 @@ export {
 export {
   stableHash,
   normalizeSortKey,
-  writeJsonAtomic,
   toProjectRelativePath,
   fileExists,
   normalizeDisplayLabel,

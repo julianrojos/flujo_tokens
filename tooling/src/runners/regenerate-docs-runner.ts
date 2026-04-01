@@ -12,7 +12,9 @@ import * as path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import { PROJECT_ROOT } from '../utils/system-context.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
+import { logger } from '../utils/logger.js';
 import { componentNameToSnakeCase } from '../utils/component-name.js';
 
 const COMPONENT_DOC_SCRIPT_PATH = path.join(
@@ -35,7 +37,7 @@ const CLI_CONFIG = {
     { name: '--skip-validation', description: 'Skip validate:docs check' },
     { name: '--dry-run', description: 'Show commands without executing' },
     { name: '--continue-on-error', description: 'Continue on error (default: false)' },
-    { name: '--system', description: 'Target design system context' },
+    { name: '--system <id>', description: 'Target design system context' },
     { name: '--help', description: 'Show help' },
   ],
 };
@@ -97,7 +99,7 @@ export async function runRegenerateDocs(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const docsRootInput = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs));
   const componentDocsDir =
     path.basename(docsRootInput) === 'components'

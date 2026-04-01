@@ -12,7 +12,7 @@ import {
 test("component-spec-route-handler-service: buildComponentSpecGetPayload keeps response shape", () => {
   const payload = buildComponentSpecGetPayload({
     slug: "button",
-    specRelPath: "docs/_spec/components/button.yml",
+    specRelPath: "design-systems/sys-01/docs/_spec/components/button.yml",
     exists: true,
     raw: "name: button\nstatus: draft\n",
     parseYamlSafelyFn: () => ({ parsed: { name: "button" }, parseError: null }),
@@ -20,7 +20,7 @@ test("component-spec-route-handler-service: buildComponentSpecGetPayload keeps r
   });
   assert.equal(payload.ok, true);
   assert.equal(payload.slug, "button");
-  assert.equal(payload.path, "docs/_spec/components/button.yml");
+  assert.equal(payload.path, "design-systems/sys-01/docs/_spec/components/button.yml");
   assert.equal(payload.rawHash, "hash");
   assert.deepEqual(payload.parsed, { name: "button" });
 });
@@ -28,8 +28,8 @@ test("component-spec-route-handler-service: buildComponentSpecGetPayload keeps r
 test("component-spec-route-handler-service: validate args normalize raw", () => {
   const args = buildValidateComponentSpecRouteArgs({
     slug: "button",
-    specRelPath: "docs/_spec/components/button.yml",
-    specAbsPath: "/repo/docs/_spec/components/button.yml",
+    specRelPath: "design-systems/sys-01/docs/_spec/components/button.yml",
+    specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
     tokenRegistryPath: "/repo/docs/_generated/token-registry.json",
     maxBytes: 500_000,
     body: {},
@@ -41,8 +41,8 @@ test("component-spec-route-handler-service: validate args normalize raw", () => 
 test("component-spec-route-handler-service: save args normalize flags and expectedHash", () => {
   const args = buildSaveComponentSpecRouteArgs({
     slug: "button",
-    specRelPath: "docs/_spec/components/button.yml",
-    specAbsPath: "/repo/docs/_spec/components/button.yml",
+    specRelPath: "design-systems/sys-01/docs/_spec/components/button.yml",
+    specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
     specBackupsDirPath: "/repo/docs/_generated/spec-backups",
     repoRoot: "/repo",
     tokenRegistryPath: "/repo/docs/_generated/token-registry.json",
@@ -63,10 +63,10 @@ test("component-spec-route-handler-service: save args normalize flags and expect
 test("component-spec-route-handler-service: patch editorial args normalize payload", () => {
   const args = buildPatchEditorialSpecRouteArgs({
     slug: "button",
-    specRelPath: "docs/_spec/components/button.yml",
-    specAbsPath: "/repo/docs/_spec/components/button.yml",
-    markdownAbsPath: "/repo/docs/components/button.md",
-    markdownRelPath: "docs/components/button.md",
+    specRelPath: "design-systems/sys-01/docs/_spec/components/button.yml",
+    specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
+    markdownAbsPath: "/repo/design-systems/sys-01/docs/components/button.md",
+    markdownRelPath: "design-systems/sys-01/docs/components/button.md",
     specBackupsDirPath: "/repo/docs/_generated/spec-backups",
     repoRoot: "/repo",
     body: {
@@ -75,9 +75,9 @@ test("component-spec-route-handler-service: patch editorial args normalize paylo
     },
   });
   assert.equal(args.slug, "button");
-  assert.equal(args.path, "docs/_spec/components/button.yml");
-  assert.equal(args.markdownAbsPath, "/repo/docs/components/button.md");
-  assert.equal(args.markdownRelPath, "docs/components/button.md");
+  assert.equal(args.path, "design-systems/sys-01/docs/_spec/components/button.yml");
+  assert.equal(args.markdownAbsPath, "/repo/design-systems/sys-01/docs/components/button.md");
+  assert.equal(args.markdownRelPath, "design-systems/sys-01/docs/components/button.md");
   assert.equal(args.body.expectedHash, null);
   assert.deepEqual(args.body.fields, { summary: { purpose: "x" } });
 });
@@ -85,8 +85,8 @@ test("component-spec-route-handler-service: patch editorial args normalize paylo
 test("component-spec-route-handler-service: restore args normalize refresh flag", () => {
   const args = buildRestoreComponentSpecRouteArgs({
     slug: "button",
-    specRelPath: "docs/_spec/components/button.yml",
-    specAbsPath: "/repo/docs/_spec/components/button.yml",
+    specRelPath: "design-systems/sys-01/docs/_spec/components/button.yml",
+    specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
     repoRoot: "/repo",
     specBackupsDirPath: "/repo/docs/_generated/spec-backups",
     body: {},

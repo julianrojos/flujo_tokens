@@ -14,6 +14,7 @@ import {
   type DesignSystemConfig,
 } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { resolveEnvRef } from '../utils/env-ref.js';
 import type { FigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
@@ -35,8 +36,8 @@ const CLI_CONFIG = {
     'Imports Figma local variables into design-token JSON files and optionally compiles them to CSS custom properties.',
   options: [
     {
-      name: '--system',
-      description: 'Design system identifier (from design-systems.json).',
+      name: '--system <id>',
+      description: 'Design system identifier (from SQLite design_systems).',
       required: true,
     },
     {
@@ -54,7 +55,7 @@ const CLI_CONFIG = {
     {
       name: '--source',
       description: 'Variables source: auto, mcp or rest.',
-      defaultValue: 'mcp',
+      defaultValue: 'auto',
     },
     {
       name: '--force',
@@ -130,19 +131,21 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   }
 
   // ── Resolve system ───────────────────────────────────────────────────────
-  const systemId = String(parsed.system || '').trim();
-  if (!systemId) {
+  const hasExplicitSystem = Object.prototype.hasOwnProperty.call(parsed, 'system');
+  if (!hasExplicitSystem) {
     console.error('[ds:tokens-from-figma] --system is required.');
     printUsage(CLI_CONFIG);
     process.exit(1);
   }
+  const systemCtx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
+  const systemId = systemCtx.id;
 
   let system: DesignSystemConfig;
   try {
     const config = loadDesignSystemsConfig();
     const resolved = config.systems.find((entry) => String(entry.id || '').trim() === systemId);
     if (!resolved) {
-      throw new Error(`System "${systemId}" not found in tooling/config/design-systems.json`);
+      throw new Error(`System "${systemId}" not found in SQLite design_systems table`);
     }
     system = resolved;
   } catch (err) {
@@ -153,7 +156,8 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   // ── Resolve Figma file key ───────────────────────────────────────────────
   const fileKeyFromUrl = extractFileKeyFromUrl(parsed.url);
   const fileKeyFromArg = String(parsed['file-key'] || '').trim() || null;
-  const fileKey = fileKeyFromArg || fileKeyFromUrl;
+  const fileKeyFromSystem = String(system.figmaFileId || '').trim() || null;
+  const fileKey = fileKeyFromArg || fileKeyFromUrl || fileKeyFromSystem;
 
   if (!fileKey) {
     console.error(
@@ -170,7 +174,7 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
 
   // ── Resolve source mode ──────────────────────────────────────────────────
   const source = parseFigmaVariableSource(parsed.source, {
-    defaultValue: 'mcp',
+    defaultValue: 'auto',
     optionName: '--source',
   });
 
@@ -232,8 +236,6 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
         dryRun,
         system: systemId,
         fileKey,
-        // Note: variablesImported is deprecated, use tokensImported instead
-        variablesImported: syncResult.tokens_written || 0,  // Deprecated but kept for backward compatibility
         tokensImported: syncResult.tokens_written || 0,
         sourceRequested: source,
         sourceUsed: resolveReportedSourceUsed(source, syncResult.source_used),

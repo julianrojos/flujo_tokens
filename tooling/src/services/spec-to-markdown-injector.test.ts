@@ -68,7 +68,10 @@ Trailing prose.
 
       assert.ok(result.includes('1. **Container**'), 'Must inject new anatomy');
       assert.ok(result.includes('⚠️ AUTO-GENERATED: DO NOT EDIT'), 'Must include generation header');
-      assert.ok(result.includes('Source: docs/_spec/components/alert.yml'), 'Must include source doc slug');
+      assert.ok(
+        result.includes('Source: <active-system-docs>/docs/_spec/components/alert.yml'),
+        'Must include source doc slug',
+      );
     });
 
     it('preserves manual variant data in rendered output', () => {

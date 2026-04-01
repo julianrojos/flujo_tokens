@@ -23,7 +23,6 @@ import {
   extractImageDimensions,
   writeBufferAtomic,
   sha256Hex,
-  collectProofImagePaths,
 } from './capture-visual-proof-io.js';
 import {
   extractVariantNodes,
@@ -391,9 +390,10 @@ export async function downloadAndStoreMainImage(
 
 /**
  * Load previous proof image paths from existing payload.
+ * @param proofImagesSlugPath - Slug-based path hint (e.g. `<proofDir>/<slug>`), not a directory
  */
 export async function loadPreviousProofImagePaths(
-  proofFilePath: string,
+  proofImagesSlugPath: string,
   docsRootDir: string,
   dryRun: boolean,
 ): Promise<string[]> {
@@ -401,17 +401,37 @@ export async function loadPreviousProofImagePaths(
     return [];
   }
 
-  if (!fs.existsSync(proofFilePath)) {
-    return [];
+  // `proofImagesSlugPath` is a slug hint path (e.g. `<proofDir>/<slug>`), not a real directory.
+  // Keep lookup rooted at the actual proof directory to match where images are written.
+  const proofDir = path.dirname(path.resolve(proofImagesSlugPath));
+  const proofImageDir = path.join(proofDir, 'images');
+  const variantsDir = path.join(proofImageDir, 'variants');
+  const slug = path.basename(proofImagesSlugPath).trim();
+  if (!slug) return [];
+
+  const paths: string[] = [];
+  if (fs.existsSync(proofImageDir)) {
+    for (const entry of fs.readdirSync(proofImageDir, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const name = String(entry.name || '');
+      if (!name.startsWith(`${slug}.`)) continue;
+      paths.push(path.join(proofImageDir, name));
+    }
+  }
+  if (fs.existsSync(variantsDir)) {
+    for (const entry of fs.readdirSync(variantsDir, { withFileTypes: true })) {
+      if (!entry.isFile()) continue;
+      const name = String(entry.name || '');
+      if (!name.startsWith(`${slug}__`)) continue;
+      paths.push(path.join(variantsDir, name));
+    }
   }
 
-  try {
-    const previousPayload = JSON.parse(fs.readFileSync(proofFilePath, 'utf8'));
-    return collectProofImagePaths({
-      proofPayload: previousPayload,
-      docsRootDir,
+  const resolvedDocsRoot = path.resolve(docsRootDir);
+  return paths
+    .map((candidate) => path.resolve(candidate))
+    .filter((candidate) => {
+      const rel = path.relative(resolvedDocsRoot, candidate);
+      return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
     });
-  } catch {
-    return [];
-  }
 }

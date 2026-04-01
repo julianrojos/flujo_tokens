@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 
 export function createQueueJobFactoryService(config) {
@@ -7,7 +6,8 @@ export function createQueueJobFactoryService(config) {
     enqueueQueueJob,
     runQueuedSpawnCommand,
     sha256Text,
-    computeNamingDebtReport,
+    computeNamingDebtReportFromData,
+    tokenRepo,
     replayableNpmScripts,
     supportedReplayOperations,
   } = config;
@@ -57,6 +57,7 @@ export function createQueueJobFactoryService(config) {
     allowNonZeroJson,
     requestId,
     sourceEventId,
+    onSuccess,
   }) {
     const finalArgs = [...scriptArgs];
     if (systemId) finalArgs.push("--system", systemId);
@@ -79,17 +80,52 @@ export function createQueueJobFactoryService(config) {
         }),
       ),
       execute: async ({ emitChunk, setProcess }) =>
-        await runQueuedSpawnCommand({
-          cwd: repoRoot,
-          command: "node",
-          commandArgs,
-          commandEnv,
-          emitChunk,
-          registerProcess: setProcess,
-          commandLabel,
-          parseJsonStdout: true,
-          allowNonZeroJson: allowNonZeroJson === true,
-        }),
+        await (async () => {
+          const result = await runQueuedSpawnCommand({
+            cwd: repoRoot,
+            command: "node",
+            commandArgs,
+            commandEnv,
+            emitChunk,
+            registerProcess: setProcess,
+            commandLabel,
+            parseJsonStdout: true,
+            allowNonZeroJson: allowNonZeroJson === true,
+          });
+
+          if (!result?.ok || typeof onSuccess !== "function") {
+            return result;
+          }
+
+          try {
+            await onSuccess({
+              payload: result.payload,
+              result,
+              emitChunk,
+              repoRoot,
+              systemId,
+              scriptPath,
+              commandLabel,
+            });
+            return result;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            emitChunk("error", message);
+            const payloadBase =
+              result?.payload && typeof result.payload === "object" ? result.payload : {};
+            return {
+              ...result,
+              ok: false,
+              code: 1,
+              summary: `Post-processing failed: ${message}`,
+              payload: {
+                ...payloadBase,
+                ok: false,
+                post_process_error: message,
+              },
+            };
+          }
+        })(),
     });
   }
 
@@ -107,24 +143,33 @@ export function createQueueJobFactoryService(config) {
         }),
       ),
       execute: async ({ emitChunk }) => {
+        if (!tokenRepo) {
+          throw new Error("Token repository is not initialized.");
+        }
         emitChunk("system", "Computing naming debt report...");
-        const report = await computeNamingDebtReport({
-          tokenRegistryPath: sysCtx.tokenRegistryPath,
-          tokenUsageIndexPath: sysCtx.tokenUsageIndexPath,
-          tokenGraphVizPath: sysCtx.tokenGraphVizPath,
-          namingDebtConfigPath: sysCtx.namingDebtConfigPath,
+        const wcagPairs = sysCtx.wcagPairs && typeof sysCtx.wcagPairs === "object" ? sysCtx.wcagPairs : { pairs: [] };
+        const namingDebtConfig =
+          sysCtx.namingDebtConfig && typeof sysCtx.namingDebtConfig === "object" ? sysCtx.namingDebtConfig : {};
+        const report = await computeNamingDebtReportFromData({
+          tokenRegistry: tokenRepo.getTokenRegistry(sysCtx.systemId),
+          tokenUsageIndex: tokenRepo.getTokenUsageIndex(sysCtx.systemId),
+          tokenGraph: tokenRepo.getTokenGraph(sysCtx.systemId),
+          config: {
+            ...namingDebtConfig,
+            wcagPairs,
+          },
         });
-        await fs.mkdir(path.dirname(sysCtx.namingDebtCachePath), { recursive: true });
-        await fs.writeFile(sysCtx.namingDebtCachePath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+        const reportAny = report || {};
+        const summary = reportAny.summary || {};
         return {
           ok: true,
           code: 0,
           summary: "Naming debt refreshed.",
           payload: {
             ok: true,
-            generatedAt: report.generatedAt,
-            totalViolations: report.summary.totalViolations,
-            overallScore: report.summary.overallScore,
+            generatedAt: reportAny.generatedAt || new Date().toISOString(),
+            totalViolations: Number(summary.totalViolations || 0),
+            overallScore: Number(summary.overallScore || 0),
           },
         };
       },

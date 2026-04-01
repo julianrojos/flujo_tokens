@@ -12,16 +12,17 @@ import {
   buildHealthSnapshotCommandConfig,
   isInvalidTokensSourceError,
   buildRunScriptCommandArgs,
-  buildSyncFigmaTokensCommandConfig,
 } from '../lib/command-route-service.ts';
 import {
   buildCaptureFigmaScreenshotQueueArgs,
   buildHealthSnapshotQueueArgs,
   buildRefreshScriptQueueArgs,
   buildRunScriptQueueConfig,
-  buildSyncFigmaTokensQueueArgs,
   parseScriptNameFromRoute,
 } from '../lib/command-route-enqueue-service.ts';
+import { resolveFileKeyForSystem, syncDesignSystemFromPlugin } from './figma-db-sync-service.ts';
+import { getPluginConnectionManager } from './plugin-connection-manager.ts';
+import { persistCapturePayloadToComponentRepo } from './capture-db-persistence-service.ts';
 
 // ---------------------------------------------------------------------------
 // Alias resolution helpers
@@ -86,8 +87,8 @@ export interface CommandRouteHandlerDeps {
   getSystemContext: (systemHeader: string) => {
     repoRoot: string;
     systemId: string;
+    figmaFileId?: string;
     healthSnapshotScriptPath: string;
-    tokensFromFigmaScriptPath: string;
     captureFromFigmaUrlScriptPath: string;
   };
   queueNpmScript: (args: unknown) => { id: string };
@@ -104,6 +105,10 @@ export interface CommandRouteHandlerDeps {
   runQueuedSpawnCommand: (options: unknown) => Promise<{ ok: boolean }>;
   enqueueRefreshNamingDebtJob: (args: unknown) => { id: string };
   queueNodeJsonCommand: (args: unknown) => { id: string };
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  db?: import('better-sqlite3').Database;
+  syncDesignSystemFromPluginFn?: typeof syncDesignSystemFromPlugin;
+  hasPluginSocketForFile?: (fileKey: string) => boolean;
   validateGitRef: (value: string) => string | null;
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
@@ -366,7 +371,12 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
     getSystemContext,
     readJsonBody,
     toBooleanString,
-    queueNodeJsonCommand,
+    enqueueQueueJob,
+    sha256Text,
+    componentRepo,
+    db,
+    syncDesignSystemFromPluginFn = syncDesignSystemFromPlugin,
+    hasPluginSocketForFile,
     queueJobAcceptedPayload,
     failJson,
   } = deps;
@@ -374,24 +384,132 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
   const requestId = createApiRequestId();
   const sysCtx = getSystemContext(c.req.header('x-ds-system') ?? '');
   const body = await readJsonBody(c);
-
-  let parsed;
-  try {
-    parsed = buildSyncFigmaTokensCommandConfig({
-      body,
-      toBooleanString,
-    });
-  } catch (error) {
-    return failBuildCommandConfig(c, deps, requestId, error);
-  }
-  if (!parsed.ok) {
+  const tokensSource = String(body.tokensSource ?? body.tokens_source ?? body['tokens-source'] ?? 'mcp')
+    .trim()
+    .toLowerCase();
+  if (tokensSource && tokensSource !== 'mcp') {
     return failJson(c, 400, {
-      ...parsed.errorArgs,
+      code: 'validation.invalid_tokens_source',
+      userMessage: 'Only plugin-based sync is supported (tokensSource=mcp).',
+      recoverable: true,
+      context: { field: 'tokensSource' },
       requestId,
     });
   }
 
-  const job = queueNodeJsonCommand(buildSyncFigmaTokensQueueArgs({ sysCtx, requestId, parsed }));
+  if (!db || !componentRepo) {
+    return failJson(c, 500, {
+      code: 'internal.sync_dependencies_missing',
+      userMessage: 'Sync dependencies are not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
+
+  const figmaFileId = resolveFileKeyForSystem(sysCtx.figmaFileId, body);
+  if (!figmaFileId) {
+    return failJson(c, 400, {
+      code: 'validation.figma_file_key_missing',
+      userMessage: 'Missing Figma file key. Configure figmaFileId on the system or pass url/fileKey.',
+      recoverable: true,
+      requestId,
+    });
+  }
+
+  const canUsePluginSocket =
+    typeof hasPluginSocketForFile === 'function'
+      ? hasPluginSocketForFile(figmaFileId)
+      : (() => {
+          const manager = getPluginConnectionManager();
+          // Best-effort precheck:
+          // 1) Prefer an OPEN socket bound to this exact file key.
+          // 2) Fallback only when there is exactly one OPEN unkeyed socket (Draft file).
+          // The socket can still disconnect before sync starts; service-level error mapping
+          // provides the user-facing message in that case.
+          if (manager.getPreferredSocketId(figmaFileId)) return true;
+          return manager.getConnectionCount() === 1 && manager.getActiveFileKeys().length === 0;
+        })();
+  if (!canUsePluginSocket) {
+    console.warn(`[handleSyncFigmaTokensRoute] No plugin socket available for file: ${figmaFileId}`);
+    return failJson(c, 409, {
+      code: 'sync.no_plugin_socket_for_file',
+      userMessage:
+        `No plugin connection is available for Figma file "${figmaFileId}". ` +
+        'Open that exact file in Figma Desktop, run the Figma Desktop Bridge plugin, and retry.',
+      recoverable: true,
+      requestId,
+      context: {
+        figmaFileId,
+      },
+    });
+  }
+
+  const dryRun = toBooleanString(body.dryRun, false) === 'true';
+  const includeComponents = toBooleanString(body.includeComponents, true) === 'true';
+
+  const job = enqueueQueueJob({
+    label: 'sync figma (plugin→db)',
+    systemId: sysCtx.systemId,
+    operationName: 'sync:figma-db',
+    requestId,
+    inputHash: sha256Text(
+      JSON.stringify({
+        systemId: sysCtx.systemId,
+        figmaFileId,
+        dryRun,
+        includeComponents,
+      }),
+    ),
+    execute: async ({ emitChunk }: { emitChunk: (kind: string, message: string) => void }) => {
+      emitChunk('system', `Syncing "${sysCtx.systemId}" from plugin...`);
+      const result = await syncDesignSystemFromPluginFn({
+        db,
+        componentRepo,
+        dsId: sysCtx.systemId,
+        figmaFileId,
+        dryRun,
+        includeComponents,
+        captureComponentProofs: includeComponents && !dryRun,
+        captureComponentSpecYaml: includeComponents && !dryRun,
+        captureComponentProofVariants: includeComponents && !dryRun,
+        repoRoot: sysCtx.repoRoot,
+        reindexUsageFromFilesystem: !dryRun,
+        usageReindexStrict: true,
+      });
+      if (result.componentsTruncated) {
+        emitChunk('warning', 'Component list was truncated by the plugin search limit; missing-component reconciliation may be partial.');
+      }
+      if (result.usageReindexed > 0) {
+        emitChunk('result', `Reindexed ${result.usageReindexed} token usage occurrence(s) from current filesystem sources.`);
+      }
+      if (result.usageReindexWarnings.length > 0) {
+        for (const warning of result.usageReindexWarnings) {
+          emitChunk('warning', warning);
+        }
+      }
+      if (result.usageReindexStatus === 'failed' && result.usageReindexReason !== 'none') {
+        emitChunk('warning', `Token usage reindex status: failed (${result.usageReindexReason}).`);
+      }
+      if (result.specYamlWarnings.length > 0) {
+        for (const warning of result.specYamlWarnings) {
+          emitChunk('warning', warning);
+        }
+      }
+      if (result.specYamlGenerated > 0 || result.specYamlSkipped > 0 || result.specYamlFailed > 0) {
+        emitChunk(
+          'result',
+          `Spec YAML capture: generated ${result.specYamlGenerated}, skipped ${result.specYamlSkipped}, failed ${result.specYamlFailed}.`,
+        );
+      }
+      emitChunk('result', `Imported ${result.tokens} tokens and ${result.components} components.`);
+      return {
+        ok: true,
+        code: 0,
+        summary: 'Sync completed.',
+        payload: result,
+      };
+    },
+  });
   return c.json(queueJobAcceptedPayload(job), 202);
 }
 
@@ -405,6 +523,7 @@ export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: Comman
     toNumberString,
     queueNodeJsonCommand,
     queueJobAcceptedPayload,
+    componentRepo,
   } = deps;
 
   const requestId = createApiRequestId();
@@ -427,7 +546,41 @@ export async function handleCaptureFigmaScreenshotRoute(c: Context, deps: Comman
       requestId,
     });
   }
+  if (!componentRepo) {
+    return failJson(c, 500, {
+      code: 'internal.component_repo_missing',
+      userMessage: 'Component repository is not initialized.',
+      recoverable: false,
+      requestId,
+    });
+  }
 
-  const job = queueNodeJsonCommand(buildCaptureFigmaScreenshotQueueArgs({ sysCtx, requestId, parsed }));
+  const queueArgs = buildCaptureFigmaScreenshotQueueArgs({ sysCtx, requestId, parsed });
+  const job = queueNodeJsonCommand({
+    ...queueArgs,
+    onSuccess: async ({
+      payload,
+      emitChunk,
+    }: {
+      payload: unknown;
+      emitChunk: (kind: string, text: string) => void;
+    }) => {
+      const persisted = persistCapturePayloadToComponentRepo({
+        payload,
+        componentRepo,
+        systemId: sysCtx.systemId,
+        repoRoot: sysCtx.repoRoot,
+      });
+      if (persisted.upserted > 0) {
+        emitChunk('result', `Persisted ${persisted.upserted} captured component proof(s) to DB.`);
+      }
+      if (persisted.skipped > 0) {
+        emitChunk(
+          'warning',
+          `Skipped ${persisted.skipped} captured component proof(s) without a local image path.`,
+        );
+      }
+    },
+  });
   return c.json(queueJobAcceptedPayload(job), 202);
 }

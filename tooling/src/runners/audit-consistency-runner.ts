@@ -10,8 +10,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { parseArgs, printUsage, isMain } from '../utils/index.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import type { RegistryEntry, RegistryLookup } from '../types/registry.js';
 import {
   checkSpecMarkdownConsistency,
@@ -67,25 +67,22 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--docs-root',
-      description: 'Component docs root directory.',
-      defaultValue: 'docs/components',
+      description: 'Component docs root directory (resolves from system context if not provided).',
     },
     {
       name: '--spec-root',
-      description: 'Component spec directory.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Component spec directory (resolves from system context if not provided).',
     },
     {
       name: '--registry',
-      description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      description: 'Token registry JSON path (resolves from system context if not provided).',
     },
     {
       name: '--component-name',
       description: 'Audit specific component by name.',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -193,9 +190,7 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
     return;
   }
 
-  const ctx = resolveSystemContextSafe({
-    system: String(parsed.system || '').trim(),
-  });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const docsRoot = path.resolve(
     typeof parsed['docs-root'] === 'string'
       ? parsed['docs-root']
@@ -261,12 +256,12 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
     const problems: unknown[] = [];
     if (!pair.markdownPath || !fs.existsSync(pair.markdownPath)) {
       problems.push(
-        `Missing markdown file: ${pair.markdownPath || `<docs/components/${pair.slug}.md>`}`,
+        `Missing markdown file: ${pair.markdownPath || `<design-systems/<id>/docs/components/${pair.slug}.md>`}`,
       );
     }
     if (!pair.specPath || !fs.existsSync(pair.specPath)) {
       problems.push(
-        `Missing spec file: ${pair.specPath || `<docs/_spec/components/${pair.slug}.yml>`}`,
+        `Missing spec file: ${pair.specPath || `<design-systems/<id>/docs/_spec/components/${pair.slug}.yml>`}`,
       );
     }
 

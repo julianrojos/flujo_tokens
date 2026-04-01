@@ -20,7 +20,7 @@ export interface CreateServerHttpAppConfig {
   createApiRequestId: () => string;
   buildApiErrorPayload: (...args: unknown[]) => Record<string, unknown>;
   writeStructuredLog: (level: string, payload: Record<string, unknown>) => void;
-  routeDeps: Record<string, unknown>;
+  routeDeps: Omit<CreateServerRouteDepsConfig, 'buildHealthPayload' | 'failJson'>;
   registerAllRoutesFn?: typeof registerAllRoutes;
   createFailJsonFn?: typeof createFailJson;
   createHealthPayloadBuilderFn?: typeof createHealthPayloadBuilder;
@@ -79,9 +79,8 @@ export function createServerHttpApp(config: CreateServerHttpAppConfig): CreateSe
 
   const failJsonForRoutes = failJson as unknown as CreateServerRouteDepsConfig['failJson'];
 
-  const routeDepsBase = routeDeps as Omit<CreateServerRouteDepsConfig, 'buildHealthPayload' | 'failJson'>;
   const routeDepsConfig: CreateServerRouteDepsConfig = {
-    ...routeDepsBase,
+    ...routeDeps,
     buildHealthPayload,
     failJson: failJsonForRoutes,
   };

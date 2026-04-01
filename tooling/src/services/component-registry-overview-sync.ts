@@ -7,16 +7,17 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import {
-  DEFAULT_COMPONENT_OVERVIEW_PATH,
-  DEFAULT_COMPONENT_REGISTRY_PATH,
-} from './component-registry-constants.js';
-import { readComponentRegistry } from './component-registry-sync.js';
 import { normalizeSortKey } from './component-registry-utils.js';
 import type {
+  ComponentOverviewListState,
   ComponentRegistry,
   SyncOverviewResult,
 } from '../types/component-registry.js';
+
+export const OVERVIEW_EMPTY_STATE_LINE =
+  '_No component docs are registered yet for this design system._';
+export const OVERVIEW_NOT_IMPORTED_STATE_LINE =
+  '_No design system has been imported yet. Import one to populate this list._';
 
 /**
  * Build markdown list lines from component entries.
@@ -44,6 +45,19 @@ export function buildComponentListLines(
     });
 
   return entries.map((entry) => `- [${entry.displayName}](${entry.target})`);
+}
+
+function buildComponentListSectionLines(
+  componentListLines: string[],
+  listState: ComponentOverviewListState,
+): string[] {
+  if (componentListLines.length > 0) {
+    return componentListLines;
+  }
+  if (listState === 'not-imported') {
+    return [OVERVIEW_NOT_IMPORTED_STATE_LINE];
+  }
+  return [OVERVIEW_EMPTY_STATE_LINE];
 }
 
 /**
@@ -81,37 +95,36 @@ export function upsertComponentList(markdown: string, componentListLines: string
  */
 export function syncComponentOverview(
   options: {
-    registryPath?: string;
     overviewPath?: string;
     dryRun?: boolean;
-    registry?: ComponentRegistry | null;
-  } = {},
+    registry: ComponentRegistry;
+    listState?: ComponentOverviewListState;
+  },
 ): SyncOverviewResult {
   const {
-    registryPath = DEFAULT_COMPONENT_REGISTRY_PATH,
-    overviewPath = DEFAULT_COMPONENT_OVERVIEW_PATH,
     dryRun = false,
-    registry = null,
   } = options;
-  
-  const resolvedRegistryPath = path.resolve(registryPath);
+  const overviewPath = String(options.overviewPath || '').trim();
+  if (!overviewPath) {
+    throw new Error('overviewPath is required. Resolve it from the active design system context.');
+  }
+
   const resolvedOverviewPath = path.resolve(overviewPath);
 
   if (!fs.existsSync(resolvedOverviewPath)) {
     throw new Error(`Overview file not found: ${resolvedOverviewPath}`);
   }
 
-  const registryPayload =
-    registry && typeof registry === 'object'
-      ? registry
-      : readComponentRegistry(resolvedRegistryPath).registry!;
+  const registryPayload = options.registry;
       
   const componentListLines = buildComponentListLines(
     registryPayload.components || [],
   );
+  const resolvedListState = options.listState || (componentListLines.length > 0 ? 'ready' : 'empty');
+  const componentListSectionLines = buildComponentListSectionLines(componentListLines, resolvedListState);
 
   const currentMarkdown = fs.readFileSync(resolvedOverviewPath, 'utf8');
-  const nextMarkdown = upsertComponentList(currentMarkdown, componentListLines);
+  const nextMarkdown = upsertComponentList(currentMarkdown, componentListSectionLines);
   const changed = nextMarkdown !== currentMarkdown;
 
   if (changed && !dryRun) {
@@ -124,7 +137,8 @@ export function syncComponentOverview(
     changed,
     written: changed && !dryRun,
     overviewPath: resolvedOverviewPath,
-    registryPath: resolvedRegistryPath,
+    registryDbPath: 'db://component-registry',
     componentCount: componentListLines.length,
+    listState: resolvedListState,
   };
 }

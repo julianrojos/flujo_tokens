@@ -5,7 +5,6 @@
  * Migrated from apps/ds-dashboard/server/services/analysis-artifacts-service.mjs
  */
 
-import fs from 'node:fs/promises';
 import { runSpawnWithCapture, type RunSpawnWithCaptureResult } from '../lib/spawn-runner.ts';
 
 const DEFAULT_MAX_OUTPUT_BYTES = 2 * 1024 * 1024; // 2MB
@@ -28,8 +27,7 @@ export interface NamingDebtReport {
   config: unknown | null;
 }
 
-export interface ComputeNamingDebtReportDeps {
-  readFileFn?: (filePath: string, encoding: string) => Promise<string>;
+export interface ComputeNamingDebtReportFromDataDeps {
   analyzeNamingDebtFn?: (args: {
     tokenRegistry: unknown;
     tokenUsageIndex: unknown | null;
@@ -94,40 +92,23 @@ export function normalizeImpactWcagPairs(raw: unknown): WcagPair[] {
   return pairs;
 }
 
-/**
- * Compute naming debt report from artifact files.
- */
-export async function computeNamingDebtReport(
+export async function computeNamingDebtReportFromData(
   args: {
-    tokenRegistryPath: string;
-    tokenUsageIndexPath: string;
-    tokenGraphVizPath: string;
-    namingDebtConfigPath: string;
+    tokenRegistry: unknown;
+    tokenUsageIndex: unknown | null;
+    tokenGraph: unknown | null;
+    config: unknown | null;
   },
-  deps: ComputeNamingDebtReportDeps = {}
+  deps: ComputeNamingDebtReportFromDataDeps = {}
 ): Promise<NamingDebtReport> {
-  const readFileFn = deps.readFileFn || fs.readFile;
   const analyzeNamingDebtFn =
     deps.analyzeNamingDebtFn ||
     (await import('../../src/lib/naming-debt.ts')).analyzeNamingDebt;
-
-  const [tokenRegistryRaw, tokenUsageRaw, tokenGraphRaw, namingConfigRaw] = await Promise.all([
-    readFileFn(args.tokenRegistryPath, 'utf8'),
-    readFileFn(args.tokenUsageIndexPath, 'utf8').catch(() => 'null'),
-    readFileFn(args.tokenGraphVizPath, 'utf8').catch(() => 'null'),
-    readFileFn(args.namingDebtConfigPath, 'utf8').catch(() => 'null'),
-  ]);
-
-  const tokenRegistry = JSON.parse(tokenRegistryRaw);
-  const tokenUsageIndex = tokenUsageRaw ? JSON.parse(tokenUsageRaw) : null;
-  const tokenGraph = tokenGraphRaw ? JSON.parse(tokenGraphRaw) : null;
-  const config = namingConfigRaw ? JSON.parse(namingConfigRaw) : null;
-
   return (await analyzeNamingDebtFn({
-    tokenRegistry,
-    tokenUsageIndex,
-    tokenGraph,
-    config,
+    tokenRegistry: args.tokenRegistry,
+    tokenUsageIndex: args.tokenUsageIndex,
+    tokenGraph: args.tokenGraph,
+    config: args.config,
   })) as NamingDebtReport;
 }
 

@@ -1182,6 +1182,28 @@ export interface CaptureFigmaProgress {
   message?: string;
 }
 
+export interface SyncFigmaTokensArgs {
+  url?: string;
+  fileKey?: string;
+  figmaToken?: string;
+  tokensSource?: "mcp";
+  includeComponents?: boolean;
+  dryRun?: boolean;
+}
+
+export interface SyncFigmaTokensResult {
+  ok: boolean;
+  jobId?: string;
+  tokens: number;
+  tokenModeValues: number;
+  aliases: number;
+  components: number;
+  componentsTruncated: boolean;
+  usageRestored: number;
+  usageDropped: number;
+  dryRun: boolean;
+}
+
 export interface FigmaMcpPingResult {
   ok: boolean;
   connected: boolean;
@@ -1653,6 +1675,101 @@ export async function captureFigmaScreenshot(
   }
 
   return accepted;
+}
+
+function toSyncFigmaTokensResult(
+  value: unknown,
+  fallbackJobId?: string,
+): SyncFigmaTokensResult {
+  const payload = toRecord(value) || {};
+  const toNonNegativeInt = (input: unknown): number => {
+    const parsed = Number(input);
+    if (!Number.isFinite(parsed) || parsed < 0) return 0;
+    return Math.floor(parsed);
+  };
+  return {
+    ok: true,
+    jobId: toNonEmptyString(payload.jobId) || fallbackJobId,
+    tokens: toNonNegativeInt(payload.tokens),
+    tokenModeValues: toNonNegativeInt(payload.tokenModeValues),
+    aliases: toNonNegativeInt(payload.aliases),
+    components: toNonNegativeInt(payload.components),
+    componentsTruncated: payload.componentsTruncated === true,
+    usageRestored: toNonNegativeInt(payload.usageRestored),
+    usageDropped: toNonNegativeInt(payload.usageDropped),
+    dryRun: payload.dryRun === true,
+  };
+}
+
+export async function syncFigmaTokens(
+  args: SyncFigmaTokensArgs,
+  options?: {
+    systemId?: string;
+    onProgress?: (progress: CaptureFigmaProgress) => void;
+  },
+): Promise<SyncFigmaTokensResult> {
+  const accepted = await getJson<QueuedRefreshAcceptedPayload>("/api/sync-figma-tokens", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options?.systemId ? { "x-ds-system": options.systemId } : {}),
+    },
+    body: JSON.stringify(args),
+  });
+
+  const statusUrl = toQueuedStatusUrl(accepted);
+  if (!statusUrl) {
+    return toSyncFigmaTokensResult(accepted);
+  }
+
+  const onProgress = options?.onProgress;
+  const acceptedJobId = toNonEmptyString((accepted as { jobId?: unknown }).jobId) || undefined;
+
+  onProgress?.({
+    jobId: acceptedJobId,
+    status: "queued",
+    completed: 0,
+    total: 0,
+    remaining: 0,
+    message: "Queued",
+  });
+
+  const finalState = await waitForQueuedJob(statusUrl, {
+    onPoll: (payload) => {
+      const job = toRecord(payload.job);
+      const statusRaw = toNonEmptyString(job?.status).toLowerCase();
+      const status: CaptureFigmaProgress["status"] =
+        statusRaw === "running"
+          ? "running"
+          : statusRaw === "success"
+            ? "success"
+            : statusRaw === "error"
+              ? "error"
+              : statusRaw === "cancelled"
+                ? "cancelled"
+                : "queued";
+      onProgress?.({
+        jobId: toNonEmptyString(job?.id) || acceptedJobId,
+        status,
+        completed: 0,
+        total: 0,
+        remaining: 0,
+      });
+    },
+  });
+
+  const job = toRecord(finalState.job);
+  const result = toRecord(job?.result);
+  const payload = toRecord(result?.payload);
+  const typed = toSyncFigmaTokensResult(payload || {}, toNonEmptyString(job?.id) || acceptedJobId);
+  onProgress?.({
+    jobId: typed.jobId,
+    status: "success",
+    completed: typed.components,
+    total: typed.components,
+    remaining: 0,
+  });
+  return typed;
 }
 
 // ============================================================================

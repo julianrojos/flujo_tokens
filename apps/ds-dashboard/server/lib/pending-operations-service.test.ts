@@ -18,7 +18,8 @@ interface TestContext {
   config: { systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string };
   designSystemRepository: {
     getConfig(): { systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string };
-    saveConfig(config: { systems: Array<{ id: string; name: string; figmaFileId: string }>; defaultSystem: string }): void;
+    delete(id: string): boolean;
+    setDefaultSystemId(id: string | null): void;
   };
 }
 
@@ -37,9 +38,13 @@ function createTestContext(): TestContext {
     config,
     designSystemRepository: {
       getConfig: () => ({ ...config }),
-      saveConfig: (newConfig) => {
-        config.systems = newConfig.systems;
-        config.defaultSystem = newConfig.defaultSystem;
+      delete: (id) => {
+        const before = config.systems.length;
+        config.systems = config.systems.filter((system) => system.id !== id);
+        return config.systems.length < before;
+      },
+      setDefaultSystemId: (id) => {
+        config.defaultSystem = id ?? '';
       },
     },
   };
@@ -269,7 +274,7 @@ test('reconcileDeleteDesignSystemOps: empty figmaFileId → abandon', () => {
   }
 });
 
-test('reconcileDeleteDesignSystemOps: error in saveConfig → push to errors, continue', () => {
+test('reconcileDeleteDesignSystemOps: error in repository delete → push to errors, continue', () => {
   const ctx = createTestContext();
   try {
     // Setup: consumers deleted (Y+N case)
@@ -288,12 +293,13 @@ test('reconcileDeleteDesignSystemOps: error in saveConfig → push to errors, co
       payload: { systemId: 'test-ds', figmaFileId: 'figma123' },
     });
 
-    // Mock saveConfig to throw
+    // Mock delete to throw
     const erroringRepo: TestContext['designSystemRepository'] = {
       getConfig: () => ctx.config,
-      saveConfig: () => {
-        throw new Error('save failed');
+      delete: () => {
+        throw new Error('delete failed');
       },
+      setDefaultSystemId: () => {},
     };
 
     // Reconcile
@@ -305,7 +311,7 @@ test('reconcileDeleteDesignSystemOps: error in saveConfig → push to errors, co
 
     assert.equal(result.errors.length, 1);
     assert.equal(result.errors[0].id, 'op-1');
-    assert.ok(result.errors[0].error.includes('save failed'));
+    assert.ok(result.errors[0].error.includes('delete failed'));
   } finally {
     ctx.db.close();
   }

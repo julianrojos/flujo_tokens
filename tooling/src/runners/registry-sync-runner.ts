@@ -3,42 +3,34 @@
 /**
  * Registry Sync Runner
  *
- * I/O operations and CLI entry point for component registry sync.
+ * DB-only synchronization for component metadata and overview markdown.
  */
 
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
-// Import from existing lib during migration period
-import { syncComponentRegistry } from '../services/component-registry-index.js';
+import { syncDocumentationState } from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {
   command: 'ds:registry:sync [options]',
   description:
-    'Build and sync docs/_generated/component-registry.json from specs/docs/proof artifacts.',
+    'Sync component metadata from specs/docs into DB and refresh components overview markdown.',
   options: [
     {
-      name: '--registry',
-      description: 'Output path for the generated component registry JSON.',
-      defaultValue: 'docs/_generated/component-registry.json',
+      name: '--overview',
+      description: 'Component overview markdown path (resolves from system context if not provided).',
     },
     {
       name: '--spec-root',
-      description: 'Component spec directory.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Component spec directory (resolves from system context if not provided).',
     },
     {
       name: '--docs-root',
-      description: 'Component docs directory.',
-      defaultValue: 'docs/components',
-    },
-    {
-      name: '--proof-dir',
-      description: 'Directory for visual proof metadata files.',
-      defaultValue: 'docs/_generated/visual-proofs',
+      description: 'Component docs directory (resolves from system context if not provided).',
     },
     {
       name: '--dry-run',
@@ -46,7 +38,7 @@ const CLI_CONFIG = {
       defaultValue: 'false',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -69,6 +61,27 @@ function parseBooleanOption(
   );
 }
 
+function assertExistingDirectory(options: {
+  dirPath: string;
+  label: string;
+  systemId: string;
+  cliFlag: string;
+}): void {
+  const { dirPath, label, systemId, cliFlag } = options;
+  if (!fs.existsSync(dirPath)) {
+    throw new Error(
+      `Missing ${label} directory for system "${systemId}": ${dirPath}. ` +
+      `Pass --${cliFlag} <path> or fix the system docs configuration.`,
+    );
+  }
+  const stats = fs.statSync(dirPath);
+  if (!stats.isDirectory()) {
+    throw new Error(
+      `Invalid ${label} path for system "${systemId}" (expected directory): ${dirPath}.`,
+    );
+  }
+}
+
 export async function runRegistrySync(args: string[] = []): Promise<void> {
   const parsed = parseArgs(args);
 
@@ -78,15 +91,36 @@ export async function runRegistrySync(args: string[] = []): Promise<void> {
   }
 
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
+  const resolvedOverviewPath = path.resolve(
+    String(getStringArg(parsed, 'overview') || path.join(ctx.paths.docs, 'overview.md')),
+  );
+  const resolvedSpecsDir = path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs));
+  const resolvedDocsDir = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs));
+  const resolvedProofsDir = path.resolve(path.join(ctx.paths.generated, 'visual-proofs'));
+
+  assertExistingDirectory({
+    dirPath: resolvedDocsDir,
+    label: 'docs root',
+    systemId: ctx.id,
+    cliFlag: 'docs-root',
+  });
+  assertExistingDirectory({
+    dirPath: resolvedSpecsDir,
+    label: 'spec root',
+    systemId: ctx.id,
+    cliFlag: 'spec-root',
+  });
 
   try {
-    const report = syncComponentRegistry({
-      registryPath: path.resolve(String(getStringArg(parsed, 'registry') || ctx.paths.registry)),
-      specsDir: path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs)),
-      docsDir: path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs)),
-      proofsDir: path.resolve(String(getStringArg(parsed, 'proof-dir') || path.join(ctx.paths.generated, 'visual-proofs'))),
+    const report = syncDocumentationState({
+      dbPath: path.resolve(String(ctx.paths.registry)),
+      overviewPath: resolvedOverviewPath,
+      specsDir: resolvedSpecsDir,
+      docsDir: resolvedDocsDir,
+      proofsDir: resolvedProofsDir,
       dryRun,
+      systemId: ctx.id,
     });
 
     console.log(JSON.stringify(report, null, 2));

@@ -491,6 +491,11 @@ export interface SyncFigmaTokensToInputOptions {
     inputDir?: string;
     outputDir?: string;
     docsDir?: string;
+    paths?: {
+      input?: string;
+      output?: string;
+      docs?: string;
+    };
   } | null;
   fileKey: string;
   figmaToken?: string;
@@ -675,7 +680,7 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
     return { attempted: false, reason: 'figma-file-key-missing' };
   }
   // Validate inputDir is not empty to prevent writing to repo root
-  const inputDir = String(system.inputDir || '').trim();
+  const inputDir = String(system.inputDir || system.paths?.input || '').trim();
   if (!inputDir) {
     return { attempted: false, reason: 'system-input-dir-missing' };
   }
@@ -783,8 +788,9 @@ export async function syncFigmaTokensToInput(options: SyncFigmaTokensToInputOpti
   }
 
   // Write figma-alias-graph.json if we have a docsDir
-  if (system.docsDir) {
-    writeFigmaAliasGraph(filesMap, path.resolve(repoRoot, system.docsDir));
+  const docsDir = String(system.docsDir || system.paths?.docs || '').trim();
+  if (docsDir) {
+    writeFigmaAliasGraph(filesMap, path.resolve(repoRoot, docsDir));
   }
 
   return {
@@ -812,6 +818,11 @@ export interface RunTokensCompileOptions {
     inputDir?: string;
     outputDir?: string;
     docsDir?: string;
+    paths?: {
+      input?: string;
+      output?: string;
+      docs?: string;
+    };
   } | null;
 }
 
@@ -836,14 +847,14 @@ export function runTokensCompile(options: RunTokensCompileOptions): RunTokensCom
   if (!system) return { attempted: false, reason: 'system-missing' };
 
   // Validate inputDir is not empty
-  const inputDir = String(system.inputDir || '').trim();
+  const inputDir = String(system.inputDir || system.paths?.input || '').trim();
   if (!inputDir) {
     return { attempted: false, reason: 'system-input-dir-missing' };
   }
 
   const inputDirPath = path.resolve(repoRoot, inputDir);
-  const outputDir = path.resolve(repoRoot, String(system.outputDir || ''));
-  const docsDir = path.resolve(repoRoot, String(system.docsDir || ''));
+  const outputDir = path.resolve(repoRoot, String(system.outputDir || system.paths?.output || ''));
+  const docsDir = path.resolve(repoRoot, String(system.docsDir || system.paths?.docs || ''));
   const tokenRegistryPath = path.join(docsDir, '_generated', 'token-registry.json');
 
   if (!hasInputJsonFiles(repoRoot, inputDir)) {

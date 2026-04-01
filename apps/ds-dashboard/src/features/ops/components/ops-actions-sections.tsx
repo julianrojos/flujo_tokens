@@ -25,7 +25,7 @@ export function OpsActionsSections({ onRunSuccess }: OpsActionsSectionsProps) {
           Regenera los índices y artefactos derivados de tokens y componentes.
         </p>
         <div className="space-y-2">
-          <OperationRow id="refresh-registry" label="Refresh Component Registry" description="Reconstruye component-registry.json escaneando specs y docs locales." endpoint="/api/refresh-registry" onRunSuccess={onRunSuccess} />
+          <OperationRow id="refresh-registry" label="Refresh Component Registry" description="Sincroniza metadatos de componentes en DB escaneando specs y docs locales." endpoint="/api/refresh-registry" onRunSuccess={onRunSuccess} />
           <OperationRow id="usage-index" label="Rebuild Usage Index" description="Indexa referencias en specs y CSS para trazar dónde se usa cada token." endpoint="/api/refresh-token-usage-index" onRunSuccess={onRunSuccess} />
           <OperationRow id="token-health" label="Recompute Token Health" description="Analiza salud de tokens: aliases rotos, tokens sin uso, estado de resolución." endpoint="/api/refresh-token-health" onRunSuccess={onRunSuccess} />
           <OperationRow id="health-snapshot" label="Capture Health Snapshot" description="Guarda el estado actual de salud en el historial de tendencias." endpoint="/api/capture-health-snapshot" onRunSuccess={onRunSuccess} />
@@ -59,7 +59,7 @@ export function OpsActionsSections({ onRunSuccess }: OpsActionsSectionsProps) {
         </p>
         <PipelineForm id="ds-pipeline" label="Run Component Pipeline" description="Orquesta el pipeline completo: Spec → Markdown." endpoint="/api/run/ds:pipeline" onRunSuccess={onRunSuccess} />
         <CaptureForm id="capture-figma" label="Capture Figma Screenshot" description="Captura la visual proof de un nodo Figma por URL y la asocia al componente." endpoint="/api/capture-figma-screenshot" onRunSuccess={onRunSuccess} />
-        <FigmaTokenSyncForm id="figma-token-sync" label="Sync Figma Variables → Tokens" description="Importa variables locales de Figma, escribe los JSON en input/ y compila a CSS custom properties." endpoint="/api/sync-figma-tokens" onRunSuccess={onRunSuccess} />
+        <FigmaTokenSyncForm id="figma-token-sync" label="Sync Figma Variables → Tokens" description="Importa variables locales desde el plugin y actualiza la base de datos (sin artefactos JSON)." endpoint="/api/sync-figma-tokens" onRunSuccess={onRunSuccess} />
       </section>
     </>
   );

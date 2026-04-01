@@ -10,8 +10,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 const CLI_CONFIG = {
   command: 'ds:foundations:sync [options]',
@@ -20,18 +20,15 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--docs-root',
-      description: 'Docs root path.',
-      defaultValue: 'docs',
+      description: 'Docs root path (defaults to active system context).',
     },
     {
       name: '--foundations-root',
-      description: 'Foundations docs directory.',
-      defaultValue: 'docs/foundations',
+      description: 'Foundations docs directory (defaults to active system context).',
     },
     {
       name: '--registry',
-      description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      description: 'Token registry JSON path (defaults to active system context).',
     },
     {
       name: '--status',
@@ -52,6 +49,10 @@ const CLI_CONFIG = {
       name: '--dry-run',
       description: 'Report changes without writing files.',
       defaultValue: 'false',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--help',
@@ -84,8 +85,8 @@ export async function runFoundationsSync(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
-  const docsRoot = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs));
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
+  const docsRoot = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.docsDir));
   const foundationsRoot = path.resolve(
     String(getStringArg(parsed, 'foundations-root') || path.join(docsRoot, 'foundations')),
   );

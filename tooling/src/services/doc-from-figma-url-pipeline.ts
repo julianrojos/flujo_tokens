@@ -20,7 +20,7 @@ import {
 } from '../services/evidence-gated-mutations.js';
 import { assertScopedWritePolicy } from '../services/scoped-write-guard.js';
 import { runOrThrow } from '../utils/exec.js';
-import { syncDocumentationIndices } from '../services/component-registry-index.js';
+import { syncDocumentationState } from '../services/component-registry-index.js';
 import { runAgentPrompt } from '../services/agent-runner.js';
 import { logger } from '../utils/logger.js';
 import type { DocGenerationContext } from './doc-from-figma-url-context.js';
@@ -168,12 +168,13 @@ export async function runDocGenerationPipeline(
     }
   }
 
-  syncDocumentationIndices({
+  syncDocumentationState({
     docsDir: ctx.componentDocsDir,
     overviewPath: ctx.overviewPath,
     specsDir: ctx.specComponentsDir,
     proofsDir: ctx.visualProofDir,
-    registryPath: ctx.registryIndexPath,
+    dbPath: ctx.registryDbPath,
+    systemId: ctx.systemId,
   });
   runOrThrow(process.execPath, [
     ctx.tokenUsageScriptPath,
@@ -187,6 +188,13 @@ export async function runDocGenerationPipeline(
   assertScopedWritePolicy({
     snapshot: ctx.scopeSnapshot,
     allowedPaths: ctx.allowedWritePaths,
+    allowedPathPrefixes: ctx.allowedWritePathPrefixes,
     label: 'ds-doc-from-figma-url',
+  });
+  assertScopedWritePolicy({
+    snapshot: ctx.proofScopeSnapshot,
+    allowedPaths: ctx.allowedWritePaths,
+    allowedPathPrefixes: ctx.allowedWritePathPrefixes,
+    label: 'ds-doc-from-figma-url (proof images)',
   });
 }

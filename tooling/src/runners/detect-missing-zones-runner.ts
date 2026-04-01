@@ -11,6 +11,7 @@ import * as path from 'node:path';
 
 import { parseArgs, printUsage, isMain } from '../utils/index.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 export const ZONES = ['ANATOMY', 'PROPERTIES', 'VISUALS', 'VARIANTS'];
 
@@ -21,8 +22,12 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--docs-dir',
-      description: 'Component docs directory.',
-      defaultValue: 'docs/components',
+      description:
+        'Component docs directory (defaults to active system context).',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--help',
@@ -41,10 +46,11 @@ export async function runDetectMissingZones(
     process.exit(0);
   }
 
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const mdDir = path.resolve(
-    typeof parsed['docs-dir'] === 'string'
+    typeof parsed['docs-dir'] === 'string' && parsed['docs-dir'].trim()
       ? parsed['docs-dir']
-      : 'docs/components',
+      : ctx.paths.docs,
   );
 
   try {

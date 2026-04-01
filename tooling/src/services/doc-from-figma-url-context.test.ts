@@ -54,6 +54,8 @@ describe('doc-from-figma-url-context', () => {
       path.join(docsRootDir, '_generated', 'component-map.json'),
       docsRootDir,
       componentDocsDir,
+      path.join(root, 'apps', 'ds-dashboard', 'server', 'db', 'ds-dashboard.db'),
+      'sys-test',
       new TempArtifactManager(),
       {
         importStyleReferenceModule: async () => ({}),
@@ -90,6 +92,8 @@ describe('doc-from-figma-url-context', () => {
           path.join(docsRootDir, '_generated', 'component-map.json'),
           docsRootDir,
           componentDocsDir,
+          path.join(root, 'apps', 'ds-dashboard', 'server', 'db', 'ds-dashboard.db'),
+          'sys-test',
           new TempArtifactManager(),
           {
             importStyleReferenceModule: async () => ({}),

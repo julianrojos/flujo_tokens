@@ -7,7 +7,7 @@
 
 export interface CreateServerAppRouteDepsConfig {
   readJsonBody: (c: unknown) => Promise<Record<string, unknown>>;
-  designSystemRepository: Record<string, unknown>;
+  designSystemRepository: import('../db/design-system-repository.js').DesignSystemRepository;
   normalizeSystemId: (value: string) => string;
   ensureRelativeDir: (...args: unknown[]) => string;
   normalizeFigmaApiTokenRef: (...args: unknown[]) => unknown;
@@ -53,6 +53,8 @@ export interface CreateServerAppRouteDepsConfig {
   toBooleanString: (value: unknown, fallback: boolean) => string;
   toNumberString: (value: unknown, fallback: number, max: number) => string;
   validateGitRef: (value: string) => string | null;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
+  healthRepo?: import('../db/health-repository.js').HealthRepository;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
   db?: import('better-sqlite3').Database;
 }
@@ -111,6 +113,8 @@ export function buildCreateServerAppRouteDeps(config: CreateServerAppRouteDepsCo
     toBooleanString: config.toBooleanString,
     toNumberString: config.toNumberString,
     validateGitRef: config.validateGitRef,
+    componentRepo: config.componentRepo,
+    healthRepo: config.healthRepo,
     tokenRepo: config.tokenRepo,
     db: config.db,
   };

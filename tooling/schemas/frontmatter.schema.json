@@ -164,7 +164,7 @@
     "component_page": {
       "type": "object",
       "title": "Component page frontmatter",
-      "description": "Frontmatter for docs/components/*.md (excluding overview.md). doc_type must be 'component'.",
+      "description": "Frontmatter for design-systems/<id>/docs/components/*.md (excluding overview.md). doc_type must be 'component'.",
       "required": ["doc_type", "doc_status", "figma"],
       "additionalProperties": false,
       "properties": {
@@ -205,7 +205,7 @@
     "overview_page": {
       "type": "object",
       "title": "Overview page frontmatter",
-      "description": "Frontmatter for docs/components/overview.md and similar index pages. doc_type must be 'overview'.",
+      "description": "Frontmatter for design-systems/<id>/docs/components/overview.md and similar index pages. doc_type must be 'overview'.",
       "required": ["doc_type", "doc_status"],
       "additionalProperties": false,
       "properties": {

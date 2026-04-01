@@ -9,8 +9,8 @@
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 // Import from existing lib during migration
 import { validateDocs } from '../services/docs-validator.js';
@@ -24,13 +24,12 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--docs-root',
-      description: 'Component docs root directory.',
-      defaultValue: 'docs/components',
+      description: 'Component docs root directory (resolves from system context if not provided).',
     },
     {
       name: '--registry',
       description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--file',
@@ -65,7 +64,7 @@ const CLI_CONFIG = {
       description: 'Focused validation check (e.g., token-registry).',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -128,7 +127,7 @@ export async function runValidateDocs(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   const docsRoot = String(getStringArg(parsed, 'docs-root') || ctx.paths.docs);
   const registryPath = String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry);

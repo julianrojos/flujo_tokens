@@ -52,21 +52,21 @@ describe('spec-orchestrator', () => {
                 docs: '/tmp/docs',
                 generated: '/tmp/docs/_generated',
                 specs: '/tmp/specs',
-                registry: '/tmp/docs/_generated/component-registry.json',
+                registry: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
                 tokenRegistry: '/tmp/docs/_generated/token-registry.json',
               },
             },
             paths: {
               docsRootOverride: null,
               docsRootDir: '/tmp/docs',
-              componentDocsDir: '/tmp/docs/components',
+              componentDocsDir: '/tmp/design-systems/sys-01/docs/components',
               proofDir: '/tmp/docs/_generated/visual-proofs',
               proofImageDir: '/tmp/docs/_generated/visual-proofs/images',
               resolvedSpecRoot: '/tmp/specs',
               templatePath: '/tmp/_template.yml',
               tokenRegistryPath: '/tmp/docs/_generated/token-registry.json',
               overviewPath: '/tmp/docs/overview.md',
-              registryIndexPath: '/tmp/docs/_generated/component-registry.json',
+              registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
             },
             flags: {
               componentSlugOverride: '',
@@ -130,7 +130,7 @@ describe('spec-orchestrator', () => {
             changed: [],
             written: [],
             registry: {
-              registryPath: '/tmp/docs/_generated/component-registry.json',
+              registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
               fingerprint: 'abc',
             },
             overview: {

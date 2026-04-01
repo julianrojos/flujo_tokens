@@ -174,6 +174,7 @@ export interface BuildRegistryOptions {
   specsDir?: string;
   docsDir?: string;
   proofsDir?: string;
+  includeVisualProofFiles?: boolean;
 }
 
 /**
@@ -181,6 +182,10 @@ export interface BuildRegistryOptions {
  */
 export interface ReadRegistryOptions {
   allowMissing?: boolean;
+  dbPath?: string;
+  systemId?: string;
+  specsDir?: string;
+  docsDir?: string;
 }
 
 /**
@@ -219,11 +224,13 @@ export interface SyncRegistryResult {
   dryRun: boolean;
   changed: boolean;
   written: boolean;
-  registryPath: string;
+  registryDbPath: string;
   schemaVersion: number;
   summary: ComponentRegistrySummary;
   fingerprint: string;
 }
+
+export type ComponentOverviewListState = 'ready' | 'empty' | 'not-imported';
 
 /**
  * Result of syncing component overview.
@@ -234,8 +241,9 @@ export interface SyncOverviewResult {
   changed: boolean;
   written: boolean;
   overviewPath: string;
-  registryPath: string;
+  registryDbPath: string;
   componentCount: number;
+  listState: ComponentOverviewListState;
 }
 
 /**

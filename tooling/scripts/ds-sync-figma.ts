@@ -1,120 +1,43 @@
 #!/usr/bin/env node
 
 /**
- * DS Sync Figma - Orchestrator Script
+ * DS Sync Figma - Plugin Sync via Server
  *
- * Runs the complete Figma token sync pipeline:
- * 1. ds:tokens-from-figma - Import tokens from Figma
- * 2. generate:registry - Generate token registry
- * 3. ds:token-usage-index - Generate usage index
+ * Calls the dashboard server's plugin-based sync endpoint.
+ * Variables and components are imported directly from the Figma plugin
+ * into SQLite — no JSON intermediaries.
  *
- * This script properly propagates the --system argument to all subcommands.
+ * Requires: dashboard server running + Figma plugin open in Figma.
+ * Usage: ds:sync-figma --system <id> [--port <port>]
  */
 
-import { spawnSync } from 'child_process';
-import { fileURLToPath } from 'url';
 import path from 'path';
-import * as fsSync from 'node:fs';
-
-import { createDesignSystemRepository } from './lib/system-repository.mjs';
+import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.join(__dirname, '..');
-
-interface CommandResult {
-    ok: boolean;
-    code: number;
-}
+const projectRoot = path.resolve(__dirname, '../..');
 
 interface ParsedArgs {
     system: string | null;
+    port: number;
+    timeoutMs: number;
 }
 
-interface CheckpointState {
-    jsonFiles: Array<{ path: string; backupPath: string; existedBefore: boolean }>;
-}
-
-/**
- * Create checkpoint of JSON files before modification
- */
-function createCheckpoint(generatedDir: string): CheckpointState {
-    // Checkpoint files that are modified by the pipeline
-    // Note: All three JSON files are consumed by the DB rebuild in step 4
-    const jsonFiles = [
-        { path: path.join(generatedDir, 'token-registry.json'), backupPath: '', existedBefore: false },
-        { path: path.join(generatedDir, 'token-usage-index.json'), backupPath: '', existedBefore: false },
-        { path: path.join(generatedDir, 'figma-alias-graph.json'), backupPath: '', existedBefore: false },
-    ];
-
-    for (const file of jsonFiles) {
-        file.existedBefore = fsSync.existsSync(file.path);
-        if (file.existedBefore) {
-            file.backupPath = `${file.path}.checkpoint-${Date.now()}`;
-            fsSync.copyFileSync(file.path, file.backupPath);
-        }
-    }
-
-    return { jsonFiles };
-}
-
-/**
- * Rollback to checkpoint if step fails
- */
-function rollbackCheckpoint(checkpoint: CheckpointState): void {
-    for (const file of checkpoint.jsonFiles) {
-        // If file existed before, restore from backup
-        if (file.existedBefore && file.backupPath && fsSync.existsSync(file.backupPath)) {
-            try {
-                fsSync.copyFileSync(file.backupPath, file.path);
-                console.log(`  Restored: ${path.basename(file.path)}`);
-            } catch (error) {
-                console.warn(`  Failed to restore ${path.basename(file.path)}:`, error instanceof Error ? error.message : String(error));
-            }
-        } else if (!file.existedBefore && fsSync.existsSync(file.path)) {
-            // If file didn't exist before but exists now, delete it
-            try {
-                fsSync.unlinkSync(file.path);
-                console.log(`  Removed: ${path.basename(file.path)} (did not exist before checkpoint)`);
-            } catch (error) {
-                console.warn(`  Failed to remove ${path.basename(file.path)}:`, error instanceof Error ? error.message : String(error));
-            }
-        }
-    }
-}
-
-/**
- * Clean up checkpoint files
- */
-function cleanupCheckpoint(checkpoint: CheckpointState): void {
-    for (const file of checkpoint.jsonFiles) {
-        // Only cleanup backup files that were actually created (file existed before)
-        if (file.existedBefore && file.backupPath && fsSync.existsSync(file.backupPath)) {
-            try {
-                fsSync.unlinkSync(file.backupPath);
-            } catch {
-                // Ignore cleanup errors
-            }
-        }
-    }
-}
-
-/**
- * Parse CLI arguments
- */
 function parseArgs(): ParsedArgs {
     const args = process.argv.slice(2);
 
-    // Handle --help
     if (args.includes('--help') || args.includes('-h')) {
         console.log(`
 Usage: ds:sync-figma [options]
 
 Options:
-  --system <id>    Specify the design system ID to sync
-  --help, -h       Show this help message
+  --system <id>    Design system ID to sync (required)
+  --port <port>    Dashboard server port (default: DS_SERVER_PORT or 3333)
+  --timeout-ms <n> Maximum wait time in milliseconds (default: 240000)
+  --help, -h       Show this help
 
 Example:
-  ds:sync-figma --system my-system
+  ds:sync-figma --system sys-01
 `);
         process.exit(0);
     }
@@ -122,126 +45,161 @@ Example:
     const systemIndex = args.indexOf('--system');
     const system = systemIndex !== -1 && args[systemIndex + 1] ? args[systemIndex + 1] : null;
 
-    return { system };
+    const portIndex = args.indexOf('--port');
+    const portArg = portIndex !== -1 && args[portIndex + 1] ? parseInt(args[portIndex + 1], 10) : null;
+    const port = portArg || (process.env.DS_SERVER_PORT ? parseInt(process.env.DS_SERVER_PORT, 10) : 3333);
+
+    const timeoutIndex = args.indexOf('--timeout-ms');
+    const timeoutArg = timeoutIndex !== -1 && args[timeoutIndex + 1] ? parseInt(args[timeoutIndex + 1], 10) : null;
+    const timeoutMs = timeoutArg || (process.env.DS_SYNC_TIMEOUT_MS ? parseInt(process.env.DS_SYNC_TIMEOUT_MS, 10) : 240000);
+
+    return { system, port, timeoutMs };
 }
 
-/**
- * Run a command with optional --system propagation
- */
-function runCommand(command: string[], system: string | null): CommandResult {
-    const cmdArgs = [...command];
-    if (system) {
-        const isNpmRun = cmdArgs[0] === 'npm' && cmdArgs[1] === 'run';
-        if (isNpmRun) {
-            cmdArgs.push('--', '--system', system);
-        } else {
-            cmdArgs.push('--system', system);
+async function pollJobStatus(baseUrl: string, jobId: string, systemId: string, timeoutMs: number): Promise<void> {
+    const pollIntervalMs = 2000;
+    const maxAttempts = Math.max(1, Math.ceil(timeoutMs / pollIntervalMs));
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+        attempts += 1;
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+
+        let response: Response;
+        try {
+            response = await fetch(`${baseUrl}/api/jobs/${jobId}`, {
+                headers: { 'x-ds-system': systemId },
+            });
+        } catch (err) {
+            console.error(`  Poll attempt ${attempts}: network error — ${err instanceof Error ? err.message : String(err)}`);
+            continue;
+        }
+
+        if (!response.ok) {
+            throw new Error(`Job status check failed: HTTP ${response.status}`);
+        }
+
+        const data = await response.json() as Record<string, unknown>;
+
+        // API returns: { ok: true, job: {...}, done: boolean, events: [...], nextCursor: number }
+        const done = data.done === true;
+        const job = toRecord(data.job);
+        const status = String(job?.status || data.status || '').toLowerCase();
+        const jobResult = toRecord(job?.result);
+        const resultPayload = toRecord(jobResult?.payload);
+        const dataPayload = toRecord(data.payload);
+        const summary = String(
+            jobResult?.summary
+            || resultPayload?.summary
+            || data.summary
+            || dataPayload?.summary
+            || '',
+        );
+
+        if (status === 'failed' || status === 'error' || status === 'cancelled') {
+            throw new Error(`Sync job failed: ${summary || status}`);
+        }
+
+        if (done || status === 'success') {
+            if (resultPayload) {
+                console.log(`✓ Sync completed:`);
+                console.log(`  Tokens:        ${resultPayload.tokens ?? '?'}`);
+                console.log(`  Mode vals:     ${resultPayload.tokenModeValues ?? '?'}`);
+                console.log(`  Aliases:       ${resultPayload.aliases ?? '?'}`);
+                console.log(`  Components:    ${resultPayload.components ?? '?'}`);
+                if (typeof resultPayload.usageRestored === 'number' || typeof resultPayload.usageDropped === 'number') {
+                    console.log(`  Usage kept:    ${resultPayload.usageRestored ?? '?'}`);
+                    console.log(`  Usage dropped: ${resultPayload.usageDropped ?? '?'}`);
+                }
+            } else {
+                console.log('✓ Sync completed.');
+            }
+            return;
+        }
+
+        if (status === 'running' || status === 'queued' || status === 'pending') {
+            if (summary) console.log(`  [${status}] ${summary}`);
         }
     }
 
-    console.log(`\n▶ Running: ${cmdArgs.join(' ')}\n`);
-
-    const result = spawnSync(cmdArgs[0], cmdArgs.slice(1), {
-        stdio: 'inherit',
-        cwd: projectRoot,
-    });
-
-    const code = result.status ?? 1;
-    return { ok: code === 0, code };
+    throw new Error(`Sync timed out after waiting ${(timeoutMs / 1000).toFixed(0)} seconds.`);
 }
 
-/**
- * Main entry point
- */
+function toRecord(value: unknown): Record<string, unknown> | null {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+    return value as Record<string, unknown>;
+}
+
 async function main(): Promise<void> {
-    const { system } = parseArgs();
+    const { system, port, timeoutMs } = parseArgs();
 
-    // Resolve generatedDir from canonical system config
-    const designSystemRepository = createDesignSystemRepository({ repoRoot: projectRoot, watch: false });
-    let generatedDir: string;
-    try {
-        if (system) {
-            const sysCtx = designSystemRepository.resolveSystemContext(system);
-            generatedDir = sysCtx.paths.generated;
-        } else {
-            const sysCtx = designSystemRepository.resolveDashboardSystemContext('');
-            generatedDir = sysCtx.genDir;
-        }
-    } catch (error) {
-        console.error('❌ Failed to resolve generated directory from design-systems.json:');
-        console.error(error instanceof Error ? error.message : String(error));
-        process.exit(1);
+    if (!system) {
+        console.error('❌ --system is required.');
+        console.error('   Example: ds:sync-figma --system sys-01');
+        process.exitCode = 1;
+        return;
     }
 
-    console.log('=== DS Sync Figma Pipeline ===');
-    if (system) {
-        console.log(`System: ${system}`);
-    }
+    const baseUrl = `http://localhost:${port}`;
+    console.log(`=== DS Sync Figma (Plugin → DB) ===`);
+    console.log(`System: ${system}`);
+    console.log(`Server: ${baseUrl}`);
     console.log('');
 
-    // Create checkpoint for transactional rollback
-    console.log('Creating checkpoint of JSON files...');
-    const checkpoint = createCheckpoint(generatedDir);
-    let checkpointCleaned = false;
+    // Trigger sync
+    console.log('Triggering plugin sync...');
+    let response: Response;
+    try {
+        response = await fetch(`${baseUrl}/api/sync-figma-tokens`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-ds-system': system,
+            },
+            body: JSON.stringify({ tokensSource: 'mcp', includeComponents: true }),
+        });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`❌ Could not reach dashboard server at ${baseUrl}: ${message}`);
+        console.error('   Make sure the dashboard server is running.');
+        process.exitCode = 1;
+        return;
+    }
+
+    if (!response.ok) {
+        let errorBody = '';
+        try { errorBody = await response.text(); } catch { /* ignore */ }
+        console.error(`❌ Sync request failed: HTTP ${response.status}`);
+        if (errorBody) console.error(`   ${errorBody.slice(0, 500)}`);
+        process.exitCode = 1;
+        return;
+    }
+
+    const data = await response.json() as Record<string, unknown>;
+    const jobId = String(data.jobId || data.id || '');
+    if (!jobId) {
+        console.error('❌ Server did not return a job ID.');
+        process.exitCode = 1;
+        return;
+    }
+
+    console.log(`✓ Sync job queued: ${jobId}`);
+    console.log('Waiting for completion...');
 
     try {
-        // Step 1: Import tokens from Figma
-        console.log('Step 1/4: Importing tokens from Figma...');
-        const tokensResult = runCommand(['npm', 'run', 'ds:tokens-from-figma'], system);
-        if (!tokensResult.ok) {
-            throw new Error(`Failed at step 1 (ds:tokens-from-figma): exit code ${tokensResult.code}`);
-        }
-        console.log('✓ Tokens imported successfully');
-
-        // Step 2: Generate registry
-        console.log('\nStep 2/4: Generating token registry...');
-        const registryResult = runCommand(['npm', 'run', 'generate:registry'], system);
-        if (!registryResult.ok) {
-            throw new Error(`Failed at step 2 (generate:registry): exit code ${registryResult.code}`);
-        }
-        console.log('✓ Registry generated successfully');
-
-        // Step 3: Generate usage index
-        console.log('\nStep 3/4: Generating token usage index...');
-        const usageResult = runCommand(['npm', 'run', 'ds:token-usage-index'], system);
-        if (!usageResult.ok) {
-            throw new Error(`Failed at step 3 (ds:token-usage-index): exit code ${usageResult.code}`);
-        }
-        console.log('✓ Usage index generated successfully');
-
-        // Step 4: Rebuild token cache in DB (transactional)
-        console.log('\nStep 4/4: Rebuilding token cache in database...');
-        const dbRebuildResult = runCommand(['npm', 'run', 'ds:rebuild-token-cache'], system);
-        if (!dbRebuildResult.ok) {
-            throw new Error(`Failed at step 4 (ds:rebuild-token-cache): exit code ${dbRebuildResult.code}`);
-        }
-        console.log('✓ Token cache rebuilt in database successfully');
-
-        // Success - cleanup checkpoint
-        cleanupCheckpoint(checkpoint);
-        checkpointCleaned = true;
-
-        console.log('\n=== ✅ Pipeline completed successfully ===');
-        process.exit(0);
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`\n❌ Pipeline failed: ${errorMessage}`);
-
-        // Rollback if checkpoint exists and wasn't cleaned
-        if (!checkpointCleaned) {
-            console.error('\n🔄 Rolling back to checkpoint...');
-            rollbackCheckpoint(checkpoint);
-            console.error('✓ Rollback completed - JSON files restored to pre-sync state');
-        } else {
-            console.error('⚠️  Checkpoint already cleaned - JSON files may be partially updated');
-        }
-
-        console.error('\n=== ❌ Pipeline failed ===');
-        process.exit(1);
+        await pollJobStatus(baseUrl, jobId, system, timeoutMs);
+        console.log('');
+        console.log('=== ✅ Sync completed successfully ===');
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`❌ ${message}`);
+        console.error('');
+        console.error('=== ❌ Sync failed ===');
+        process.exitCode = 1;
     }
 }
 
 main().catch((err) => {
-    console.error('Unexpected error:', err);
-    process.exit(1);
+    console.error('Unexpected error:', err instanceof Error ? err.message : String(err));
+    process.exitCode = 1;
 });

@@ -10,8 +10,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 import {
   generateUsageIndexFromFile,
@@ -30,13 +30,11 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--registry',
-      description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      description: 'Token registry JSON path (resolves from system context if not provided).',
     },
     {
       name: '--spec-root',
-      description: 'Directory containing component spec YAML files.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Directory containing component spec YAML files (resolves from system context if not provided).',
     },
     {
       name: '--css-files',
@@ -50,7 +48,7 @@ const CLI_CONFIG = {
     {
       name: '--out',
       description: 'Output JSON file path.',
-      defaultValue: 'docs/_generated/token-usage-index.json',
+      defaultValue: '<active-system-docs>/_generated/token-usage-index.json',
     },
     {
       name: '--format',
@@ -68,7 +66,7 @@ const CLI_CONFIG = {
       defaultValue: 'false',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -99,7 +97,7 @@ export async function runTokenUsageIndex(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   const registryPath = path.resolve(
     String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),

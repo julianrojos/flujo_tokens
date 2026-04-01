@@ -12,7 +12,7 @@ export interface Env {
 }
 
 export interface DesignSystemRepository {
-  resolveDashboardSystemContext: (systemHeader: string) => { systemId: string; header: string };
+  resolveDashboardSystemContext: (systemHeader: string) => { systemId: string; [key: string]: unknown };
 }
 
 /**
@@ -40,6 +40,10 @@ export function createSystemContextResolver(
   designSystemRepository: DesignSystemRepository
 ): (systemHeader: string) => { systemId: string; header: string } {
   return function getSystemContext(systemHeader: string): { systemId: string; header: string } {
-    return designSystemRepository.resolveDashboardSystemContext(systemHeader);
+    const context = designSystemRepository.resolveDashboardSystemContext(systemHeader);
+    return {
+      header: systemHeader,
+      ...context,
+    };
   };
 }

@@ -13,8 +13,8 @@ import * as path from 'node:path';
 import * as yaml from 'js-yaml';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 // Import from existing libs during migration
 import { runAgentPrompt, type AgentType } from '../services/agent-runner.js';
@@ -36,11 +36,11 @@ import { TRACEABILITY_CONTRACT_VERSION } from '../utils/docs-config.js';
 import { captureFileSnapshot, restoreFileSnapshot } from '../services/file-snapshot.js';
 import { assertDocStatusStable, assertEvidenceGatedScalarChanges } from '../services/evidence-gated-mutations.js';
 import { assertScopedWritePolicy, captureScopedWriteSnapshot } from '../services/scoped-write-guard.js';
-import { syncDocumentationIndices } from '../services/component-registry-index.js';
+import { syncDocumentationState } from '../services/component-registry-index.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 
 const USAGE = {
-  command: 'npm run ds:component-doc -- --component-name Alert [--agent codex] [--output docs/components/alert.md]',
+  command: 'npm run ds:component-doc -- --component-name Alert [--agent codex] [--output design-systems/<id>/docs/components/alert.md]',
   description: 'Generate or update one component markdown from a component spec YAML.',
   options: [
     {
@@ -58,7 +58,7 @@ const USAGE = {
     {
       name: '--registry',
       description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--agent',
@@ -79,6 +79,10 @@ const USAGE = {
       name: '--dry-run',
       description: 'Generate but do not write files.',
       defaultValue: 'false',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--help',
@@ -102,7 +106,7 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: typeof parsed.system === 'string' ? parsed.system : undefined });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const parsedArgs = parsed as Record<string, string | boolean>;
   const componentName = String(parsedArgs['component-name'] || '').trim();
   const specFile = parsedArgs['spec-file'] && typeof parsedArgs['spec-file'] === 'string'
@@ -273,12 +277,13 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
 
   // Sync documentation indices
   if (!dryRun) {
-    syncDocumentationIndices({
-      registryPath: ctx.paths.registry,
+    syncDocumentationState({
+      dbPath: ctx.paths.registry,
       overviewPath: path.join(ctx.paths.docs, 'overview.md'),
       specsDir: ctx.paths.specs,
       docsDir: ctx.paths.docs,
       dryRun: false,
+      systemId: ctx.id,
     });
   }
 

@@ -6,21 +6,34 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = path.resolve(__dirname, "../../..");
 
 const systemRepository = createDesignSystemRepository({ repoRoot: PROJECT_ROOT });
+let disposed = false;
 
-function loadDesignSystems() {
+function disposeSystemRepository() {
+  if (disposed) return;
+  disposed = true;
   try {
-    return systemRepository.getConfig();
-  } catch (err) {
-    const configPath = path.join(PROJECT_ROOT, "tooling/config/design-systems.json");
-    throw new Error(
-      `Cannot load design-systems.json at ${configPath}: ${err.message}`
-    );
+    systemRepository.dispose();
+  } catch {
+    // Ignore shutdown dispose errors.
   }
 }
 
+process.once("exit", disposeSystemRepository);
+process.once("SIGINT", () => {
+  disposeSystemRepository();
+  process.exit(130);
+});
+process.once("SIGTERM", () => {
+  disposeSystemRepository();
+  process.exit(143);
+});
+
 export function resolveSystemContext(opts) {
-  loadDesignSystems();
-  return systemRepository.resolveSystemContext(opts?.system);
+  try {
+    return systemRepository.resolveSystemContext(opts?.system);
+  } catch (err) {
+    throw new Error(`Cannot resolve design system context from SQLite: ${err.message}`);
+  }
 }
 
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");

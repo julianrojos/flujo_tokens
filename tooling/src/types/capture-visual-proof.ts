@@ -26,7 +26,7 @@ export interface CaptureVisualProofArgs {
   'include-variants'?: string;
   'variant-limit'?: string;
   'dry-run'?: string;
-  'skip-index-sync'?: string;
+  'skip-db-persistence'?: string;
   system?: string;
   'docs-root'?: string;
   'spec-root'?: string;
@@ -62,39 +62,6 @@ export interface LocalImageInfo {
 }
 
 /**
- * Visual proof payload for JSON export.
- */
-export interface VisualProofPayload {
-  component: string;
-  markdown_path: string;
-  spec_path: string;
-  source_url?: string;
-  node_id: string;
-  format: string;
-  scale: number;
-  screenshot_url: string;
-  image_url: string;
-  image_path: string | null;
-  image_sha256: string | null;
-  image_bytes: number | null;
-  image_content_type: string | null;
-  image_width: number | null;
-  image_height: number | null;
-  captured_at: string;
-  captured_with: string;
-  image: {
-    path: string | null;
-    sha256: string | null;
-    bytes: number | null;
-    content_type: string | null;
-    width: number | null;
-    height: number | null;
-  };
-  variants_count: number;
-  variants: VisualProofVariant[];
-}
-
-/**
  * Visual proof capture report.
  */
 export interface CaptureVisualProofReport {
@@ -103,17 +70,29 @@ export interface CaptureVisualProofReport {
   component: string;
   markdownPath: string;
   specPath: string;
-  proofFilePath: string;
+  proofImagesSlugPath: string;
   localImagePath: string | null;
   screenshotUrl: string;
   nodeId: string;
+  capturedAt: string;
   format: string;
   scale: number;
   imageSha256: string | null;
+  imageBytes: number | null;
+  imageContentType: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
   variantsCount: number;
+  variants: VisualProofVariant[];
   mainCaptureMode: string;
-  indexSyncSkipped: boolean;
   deletedStaleImages: string[];
+  db_persistence?: {
+    ok: boolean;
+    attempted?: number;
+    upserted?: number;
+    skipped?: number;
+    error?: string;
+  };
 }
 
 /**

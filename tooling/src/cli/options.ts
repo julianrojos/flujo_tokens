@@ -1,8 +1,8 @@
-import fs from 'fs';
 import path from 'path';
 
 import { formatDiagnostic } from '../utils/logging.js';
 import type { PipelinePhase } from '../runtime/pipeline-cache.js';
+import { createDesignSystemRepository } from '../../scripts/lib/system-repository.mjs';
 
 export type CliOptions = {
     inputDir: string;
@@ -80,22 +80,29 @@ function resolveSystemOverride(argv: string[]): string | null | undefined {
 }
 
 function getSystemPaths(rootDir: string, systemId?: string) {
-    const configRaw = fs.readFileSync(path.join(rootDir, 'tooling/config/design-systems.json'), 'utf8');
-    const config = JSON.parse(configRaw);
-    const sid = systemId || config.defaultSystem;
-    const sys = config.systems.find((s: any) => s.id === sid);
+    const repository = createDesignSystemRepository({ repoRoot: rootDir });
+    const systems = repository.getAll();
+    const configuredDefault = repository.getDefaultSystemId();
+    const sid = String(systemId || configuredDefault || systems[0]?.id || '').trim();
+    if (!sid) {
+        repository.dispose();
+        throw new Error('No active design system. Configure one in the SQLite database or pass --system <id>.');
+    }
+    const sys = repository.getById(sid);
     if (!sys) {
-        if (!sid) {
-            throw new Error('No active design system. Configure defaultSystem or pass --system <id>.');
-        }
+        repository.dispose();
         throw new Error(`Unknown system: ${sid}`);
     }
+    repository.dispose();
+    const baseDir = path.join('design-systems', sid);
+    const outputDir = path.join(baseDir, 'output');
+    const docsDir = path.join(baseDir, 'docs');
     return {
-        inputDir: path.resolve(rootDir, sys.inputDir),
-        outputPrimitives: path.resolve(rootDir, sys.outputDir, 'primitives.css'),
-        outputTokens: path.resolve(rootDir, sys.outputDir, 'tokens.css'),
-        outputFile: path.resolve(rootDir, sys.outputDir, 'custom-properties.css'),
-        registryOutput: path.resolve(rootDir, sys.docsDir, '_generated/token-registry.json'),
+        inputDir: path.resolve(rootDir, baseDir, 'input'),
+        outputPrimitives: path.resolve(rootDir, outputDir, 'primitives.css'),
+        outputTokens: path.resolve(rootDir, outputDir, 'tokens.css'),
+        outputFile: path.resolve(rootDir, outputDir, 'custom-properties.css'),
+        registryOutput: path.resolve(rootDir, docsDir, '_generated/token-registry.json'),
     };
 }
 

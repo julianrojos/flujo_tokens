@@ -39,4 +39,11 @@ describe('doctor-runner', () => {
       process.exit = originalExit;
     }
   });
+
+  it('fails fast when --system is provided without a valid value', async () => {
+    await assert.rejects(
+      () => runDoctor(['--system=']),
+      /Design system context is required\./,
+    );
+  });
 });

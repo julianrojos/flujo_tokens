@@ -16,8 +16,8 @@ function baseArgs(overrides = {}) {
     sanitizeComponentSlugFn: (value) => String(value || "").trim(),
     resolveComponentSpecTargetFn: async () => ({
       ok: true,
-      specRelPath: "docs/_spec/components/button.yml",
-      specAbsPath: "/repo/docs/_spec/components/button.yml",
+      specRelPath: "design-systems/sys-01/docs/_spec/components/button.yml",
+      specAbsPath: "/repo/design-systems/sys-01/docs/_spec/components/button.yml",
     }),
     resolveRepoFilePathFn: (value) => value,
     ...overrides,
@@ -71,5 +71,5 @@ test("component-spec-route-service: returns resolved context on success", async 
   const result = await resolveComponentSpecRequestContext(baseArgs());
   assert.equal(result.ok, true);
   assert.equal(result.slug, "button");
-  assert.equal(result.target?.specRelPath, "docs/_spec/components/button.yml");
+  assert.equal(result.target?.specRelPath, "design-systems/sys-01/docs/_spec/components/button.yml");
 });

@@ -30,7 +30,7 @@ describe('spec-run-context', () => {
             templatePath: '/tmp/specs/_template.yml',
             tokenRegistryPath: '/tmp/docs/_generated/token-registry.json',
             overviewPath: '/tmp/docs/overview.md',
-            registryIndexPath: '/tmp/docs/_generated/component-registry.json',
+            registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
           },
           flags: {
             force: true,
@@ -68,7 +68,7 @@ describe('spec-run-context', () => {
               templatePath: '/tmp/specs/_template.yml',
               tokenRegistryPath: '/tmp/docs/_generated/token-registry.json',
               overviewPath: '/tmp/docs/overview.md',
-              registryIndexPath: '/tmp/docs/_generated/component-registry.json',
+              registryDbPath: '/tmp/apps/ds-dashboard/server/db/ds-dashboard.db',
             },
             flags: {
               force: false,

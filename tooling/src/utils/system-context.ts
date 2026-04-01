@@ -1,9 +1,31 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import * as fs from "node:fs";
+import { createDesignSystemRepository } from "../../scripts/lib/system-repository.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const PROJECT_ROOT = path.resolve(__dirname, "../../..");
+const systemRepository = createDesignSystemRepository({ repoRoot: PROJECT_ROOT });
+let repositoryDisposed = false;
+
+function disposeSystemRepository(): void {
+  if (repositoryDisposed) return;
+  repositoryDisposed = true;
+  try {
+    systemRepository.dispose();
+  } catch {
+    // Ignore shutdown dispose errors.
+  }
+}
+
+process.once("exit", disposeSystemRepository);
+process.once("SIGINT", () => {
+  disposeSystemRepository();
+  process.exit(130);
+});
+process.once("SIGTERM", () => {
+  disposeSystemRepository();
+  process.exit(143);
+});
 
 /**
  * Design system configuration structure.
@@ -30,6 +52,12 @@ export interface DesignSystemsFile {
 }
 
 export const DEFAULT_THEME_PATH = path.resolve(PROJECT_ROOT, "tooling/figma-doc-theme.yml");
+
+function resolveDashboardDbPath(projectRoot: string): string {
+  const envPath = String(process.env.DS_DASHBOARD_DB_PATH || '').trim();
+  if (envPath) return path.resolve(envPath);
+  return path.resolve(projectRoot, "apps", "ds-dashboard", "server", "db", "ds-dashboard.db");
+}
 
 export interface ScriptSystemContext {
   id: string;
@@ -62,7 +90,7 @@ function systemContext(system: DesignSystemConfig): ScriptSystemContext {
       generated: path.resolve(docsDir, "_generated"),
       specs: path.resolve(docsDir, "_spec/components"),
       docs: path.resolve(docsDir, "components"),
-      registry: path.resolve(docsDir, "_generated/component-registry.json"),
+      registry: resolveDashboardDbPath(PROJECT_ROOT),
       tokenRegistry: path.resolve(docsDir, "_generated/token-registry.json"),
       figmaAliasGraph: path.resolve(docsDir, "_generated/figma-alias-graph.json"),
     },
@@ -70,16 +98,54 @@ function systemContext(system: DesignSystemConfig): ScriptSystemContext {
 }
 
 /**
- * Load design systems configuration from the central config file.
+ * Resolve canonical design-system directories by convention.
+ */
+function deriveSystemDirs(systemId: string): { inputDir: string; outputDir: string; docsDir: string } {
+  const baseDir = path.join("design-systems", systemId);
+  return {
+    inputDir: path.join(baseDir, "input"),
+    outputDir: path.join(baseDir, "output"),
+    docsDir: path.join(baseDir, "docs"),
+  };
+}
+
+function toDesignSystemConfig(system: {
+  id: string;
+  name: string;
+  appName?: string;
+  figmaFileId?: string;
+  figmaApiToken?: string;
+  collections?: string[];
+  compileVariablesOnCapture?: boolean;
+}): DesignSystemConfig {
+  const dirs = deriveSystemDirs(system.id);
+  return {
+    id: system.id,
+    name: system.name,
+    appName: system.appName,
+    figmaFileId: system.figmaFileId,
+    figmaApiToken: system.figmaApiToken,
+    inputDir: dirs.inputDir,
+    outputDir: dirs.outputDir,
+    docsDir: dirs.docsDir,
+    collections: Array.isArray(system.collections) ? system.collections : [],
+    compileVariablesOnCapture: system.compileVariablesOnCapture !== false,
+  };
+}
+
+/**
+ * Load design systems configuration from SQLite (single source of truth).
  */
 export function loadDesignSystemsConfig(): DesignSystemsFile {
-  const configPath = path.join(PROJECT_ROOT, "tooling/config/design-systems.json");
   try {
-    const configRaw = fs.readFileSync(configPath, "utf8");
-    return JSON.parse(configRaw) as DesignSystemsFile;
+    const systems = systemRepository.getAll().map(toDesignSystemConfig);
+    const defaultSystem =
+      systemRepository.getDefaultSystemId() ||
+      (systems.length > 0 ? systems[0].id : undefined);
+    return { systems, defaultSystem };
   } catch (err) {
     throw new Error(
-      `Cannot load design-systems.json at ${configPath}: ${err instanceof Error ? err.message : String(err)}`
+      `Cannot load design systems from SQLite: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 }

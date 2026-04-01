@@ -9,6 +9,7 @@ import { describe, it } from 'node:test';
 import { Hono } from 'hono';
 
 import { registerCommandRoutes } from './command-routes.js';
+import { getPluginConnectionManager, resetPluginConnectionManager, type PluginWebSocket } from '../services/plugin-connection-manager.js';
 
 function createFailJson() {
   return (c: any, statusCode: number, args: Record<string, unknown>) => {
@@ -39,7 +40,6 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
       repoRoot: '/repo',
       systemId: 'core',
       healthSnapshotScriptPath: 'tooling/scripts/ds-health-snapshot.mjs',
-      tokensFromFigmaScriptPath: 'tooling/scripts/ds-tokens-from-figma.mjs',
       captureFromFigmaUrlScriptPath: 'tooling/scripts/ds-capture-from-figma-url.mjs',
     }),
     queueJobAcceptedPayload: (job: { id: string }) => ({ ok: true, jobId: job.id }),
@@ -49,6 +49,7 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     queueNpmScript: () => ({ id: 'npm_job' }),
     enqueueRefreshNamingDebtJob: () => ({ id: 'naming_job' }),
     queueNodeJsonCommand: () => ({ id: 'node_job' }),
+    hasPluginSocketForFile: () => true,
     toBooleanString: (value: unknown, fallback: boolean) => {
       if (typeof value === 'boolean') return value ? 'true' : 'false';
       return fallback ? 'true' : 'false';
@@ -75,6 +76,21 @@ function createTestApp(depsOverrides: Record<string, unknown> = {}) {
   const app = new Hono();
   registerCommandRoutes(app, createBaseDeps(depsOverrides));
   return app;
+}
+
+function makeSocket(onSend: (data: string) => void): PluginWebSocket {
+  return {
+    readyState: 1,
+    protocol: '',
+    send(data: string) {
+      onSend(data);
+    },
+    close() { },
+    onopen: null,
+    onclose: null,
+    onerror: null,
+    onmessage: null,
+  };
 }
 
 describe('command-routes', () => {
@@ -254,6 +270,58 @@ describe('command-routes', () => {
       const payload = await res.json();
       assert.equal((payload as any).code, 'internal.command_build_failed');
     });
+
+    it('attaches DB persistence hook to capture jobs', async () => {
+      let queuedArgs: any = null;
+      const upsertCalls: Array<{ dsId: string; entries: unknown[] }> = [];
+      const componentRepo = {
+        getBySlug: () => ({
+          name: 'Button',
+          figmaFileUrl: 'https://www.figma.com/design/OLD',
+          figmaComponentSetNodeId: '1:1',
+          specs: [{ markdownPath: 'design-systems/core/docs/components/button.md', docStatus: 'draft', coverage: 0 }],
+        }),
+        upsertFromRegistry: (dsId: string, entries: unknown[]) => {
+          upsertCalls.push({ dsId, entries });
+          return entries.length;
+        },
+      } as any;
+
+      const app = createTestApp({
+        readJsonBody: async () => ({
+          figmaUrl: 'https://www.figma.com/design/abc123?node-id=1-2',
+        }),
+        componentRepo,
+        queueNodeJsonCommand: (args: any) => {
+          queuedArgs = args;
+          return { id: 'node_job_capture' };
+        },
+      });
+
+      const res = await app.request('/api/capture-figma-screenshot', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(typeof queuedArgs?.onSuccess, 'function');
+
+      await queuedArgs.onSuccess({
+        payload: {
+          source: { file_key: 'abc123' },
+          captured: [
+            {
+              slug: 'button',
+              node_id: '1:2',
+              markdown_path: 'design-systems/core/docs/components/button.md',
+              local_image_path: '/repo/design-systems/core/docs/_generated/visual-proofs/images/button.png',
+              screenshot_url: 'https://cdn.example.com/button.png',
+              variants_count: 2,
+            },
+          ],
+        },
+        emitChunk: () => {},
+      });
+
+      assert.equal(upsertCalls.length, 1);
+      assert.equal(upsertCalls[0]?.dsId, 'core');
+    });
   });
 
   describe('/api/sync-figma-tokens', () => {
@@ -269,16 +337,157 @@ describe('command-routes', () => {
       assert.equal((payload as any).code, 'validation.invalid_tokens_source');
     });
 
-    it('returns 500 for unexpected builder failure', async () => {
+    it('returns 500 when sync repositories are missing', async () => {
       const app = createTestApp({
-        toBooleanString: () => {
-          throw new Error('unexpected builder failure');
-        },
+        db: undefined,
+        componentRepo: undefined,
       });
       const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
       assert.equal(res.status, 500);
       const payload = await res.json();
-      assert.equal((payload as any).code, 'internal.command_build_failed');
+      assert.equal((payload as any).code, 'internal.sync_dependencies_missing');
+    });
+
+    it('returns 409 when there is no plugin socket for the requested Figma file', async () => {
+      const app = createTestApp({
+        readJsonBody: async () => ({ fileKey: 'figma_file_123' }),
+        db: {} as any,
+        componentRepo: {} as any,
+        hasPluginSocketForFile: () => false,
+      });
+      const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+      assert.equal(res.status, 409);
+      const payload = await res.json();
+      assert.equal((payload as any).code, 'sync.no_plugin_socket_for_file');
+      assert.match(String((payload as any).message || ''), /figma_file_123/);
+    });
+
+    it('uses plugin manager fallback path when socket checker is not injected', async () => {
+      resetPluginConnectionManager();
+      const manager = getPluginConnectionManager();
+      let socketId = '';
+      const socket = makeSocket((data) => {
+        const request = JSON.parse(data) as { id: string };
+        manager.handleMessage(
+          socketId,
+          JSON.stringify({
+            id: request.id,
+            result: {
+              success: true,
+              timestamp: Date.now(),
+              fileKey: null,
+              variables: [],
+              variableCollections: [],
+            },
+          }),
+        );
+      });
+      socketId = manager.register(socket, {
+        fileKey: null,
+        docName: 'Draft file',
+        pluginVersion: '1.0.0',
+        pluginBuild: 'test',
+        timestamp: Date.now(),
+      });
+      assert.equal(manager.getConnectionCount(), 1);
+      assert.deepEqual(manager.getActiveFileKeys(), []);
+
+      try {
+        const app = createTestApp({
+          readJsonBody: async () => ({ fileKey: 'figma_file_123' }),
+          db: {} as any,
+          componentRepo: {} as any,
+          hasPluginSocketForFile: undefined,
+          enqueueQueueJob: () => ({ id: 'sync_job_preflight_fallback' }),
+        });
+        const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+        assert.equal(res.status, 202);
+      } finally {
+        manager.unregister(socketId, 'test-cleanup');
+        assert.equal(manager.getConnectionCount(), 0);
+        resetPluginConnectionManager();
+      }
+    });
+
+    it('rejects sync when only a different file socket is connected', async () => {
+      resetPluginConnectionManager();
+      const manager = getPluginConnectionManager();
+      const socket = makeSocket(() => {
+        // No request expected: precheck should reject before enqueue/execute.
+      });
+      const socketId = manager.register(socket, {
+        fileKey: 'other_file_999',
+        docName: 'Other file',
+        pluginVersion: '1.0.0',
+        pluginBuild: 'test',
+        timestamp: Date.now(),
+      });
+
+      try {
+        const app = createTestApp({
+          readJsonBody: async () => ({ fileKey: 'figma_file_123' }),
+          db: {} as any,
+          componentRepo: {} as any,
+          hasPluginSocketForFile: undefined,
+        });
+        const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+        assert.equal(res.status, 409);
+        const payload = await res.json();
+        assert.equal((payload as any).code, 'sync.no_plugin_socket_for_file');
+      } finally {
+        manager.unregister(socketId, 'test-cleanup');
+        resetPluginConnectionManager();
+      }
+    });
+
+    it('emits usageReindexReason warning chunk when sync reports failed reindex status', async () => {
+      const enqueued: any[] = [];
+      const app = createTestApp({
+        readJsonBody: async () => ({ fileKey: 'figma_file_123' }),
+        db: {} as any,
+        componentRepo: {} as any,
+        hasPluginSocketForFile: () => true,
+        enqueueQueueJob: (args: any) => {
+          enqueued.push(args);
+          return { id: 'sync_job_1' };
+        },
+        syncDesignSystemFromPluginFn: async () => ({
+          tokens: 10,
+          tokenModeValues: 12,
+          aliases: 2,
+          components: 3,
+          componentsTruncated: false,
+          usageRestored: 0,
+          usageDropped: 0,
+          usageReindexed: 0,
+          usageReindexStatus: 'failed' as const,
+          usageReindexReason: 'missing_repo_root' as const,
+          usageReindexWarnings: ['Token usage reindex requested but repoRoot is missing.'],
+          specYamlGenerated: 0,
+          specYamlSkipped: 0,
+          specYamlFailed: 0,
+          specYamlWarnings: [],
+          specsEnriched: 0,
+          proofsEnriched: 0,
+          dryRun: false,
+        }),
+      });
+
+      const res = await app.request('/api/sync-figma-tokens', { method: 'POST' });
+      assert.equal(res.status, 202);
+      assert.equal(enqueued.length, 1);
+
+      const chunks: Array<{ kind: string; text: string }> = [];
+      const runResult = await enqueued[0].execute({
+        emitChunk: (kind: string, text: string) => chunks.push({ kind, text }),
+      });
+
+      assert.equal(runResult.ok, true);
+      assert.ok(
+        chunks.some((chunk) =>
+          chunk.kind === 'warning' && chunk.text.includes('missing_repo_root')
+        )
+      );
     });
   });
 });
