@@ -27,7 +27,7 @@ describe('AiDocDiffViewer Logic', () => {
     it('should identify modified file scenario correctly', () => {
         const mockDiff = {
             hasPrevious: true,
-            previousPath: 'docs/components/test-component.md',
+            previousPath: 'design-systems/sys-01/docs/components/test-component.md',
             diff: '--- original\n+++ generated\n@@ -1,3 +1,4 @@\n # Test Component\n \n+This is new content\n Some existing content',
             stats: {
                 added: 1,
@@ -48,7 +48,7 @@ describe('AiDocDiffViewer Logic', () => {
     it('should handle identical content correctly', () => {
         const mockDiff = {
             hasPrevious: true,
-            previousPath: 'docs/components/test-component.md',
+            previousPath: 'design-systems/sys-01/docs/components/test-component.md',
             diff: '',
             stats: {
                 added: 0,

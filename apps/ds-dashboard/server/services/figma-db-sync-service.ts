@@ -979,6 +979,16 @@ function walkFiles(dirPath: string, options: {
     for (const entry of entries) {
       const absolute = path.join(current.path, entry.name);
       if (entry.isDirectory()) {
+        // Skip common non-content folders to avoid wasteful traversal.
+        if (
+          entry.name === 'node_modules' ||
+          entry.name === '.git' ||
+          entry.name === '.svn' ||
+          entry.name === '.hg' ||
+          entry.name.startsWith('.')
+        ) {
+          continue;
+        }
         stack.push({ path: absolute, depth: current.depth + 1 });
         continue;
       }

@@ -79,7 +79,7 @@ describe("component-spec-editor behavior helpers", () => {
           return {
             ok: true,
             slug: "button",
-            path: "docs/_spec/components/button.yml",
+            path: "design-systems/sys-01/docs/_spec/components/button.yml",
             rawHash: "new-hash",
             backupPath: "docs/_generated/spec-backups/button.last.yml",
             savedKeys: ["summary"],
@@ -126,7 +126,7 @@ describe("component-spec-editor behavior helpers", () => {
             patchEditorialSpecFn: async () => ({
               ok: false,
               slug: "button",
-              path: "docs/_spec/components/button.yml",
+              path: "design-systems/sys-01/docs/_spec/components/button.yml",
               rawHash: null,
               backupPath: null,
               savedKeys: [],

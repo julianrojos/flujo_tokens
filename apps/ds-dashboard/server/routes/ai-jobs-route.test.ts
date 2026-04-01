@@ -13,10 +13,17 @@ import { getAiJobsStore, initializeAiJobsStore, AiJobsStore } from '../services/
 
 // Helper to create test app
 function createTestApp(options?: { getSystemContext?: (systemHeader: string) => unknown }) {
+    const defaultGetSystemContext = (systemHeader: string) => {
+        const systemId = String(systemHeader || '').trim() || 'sys-test';
+        return {
+            systemId,
+            docsDir: path.join(REPO_ROOT, 'design-systems', systemId, 'docs'),
+        };
+    };
     const app = new Hono();
     registerAiJobsRoutes(app, {
         internalToken: 'test-token',
-        getSystemContext: options?.getSystemContext,
+        getSystemContext: options?.getSystemContext || defaultGetSystemContext,
     });
     return app;
 }
@@ -492,12 +499,56 @@ describe('ai-jobs-route', () => {
             assert.equal(json.code, 'ai.apply.path_blocked');
         });
 
+        it('should block sibling directory prefix attacks near docs/components', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'anthropic',
+                componentId: '68:4097',
+                dryRun: true,
+            });
+
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '68:4097',
+                title: 'Test Component',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+            }, {
+                promptTokens: 100,
+                completionTokens: 50,
+                durationMs: 1000,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+                body: JSON.stringify({
+                    outputPath: 'design-systems/sys-test/docs/components-evil',
+                }),
+            });
+
+            assert.equal(res.status, 403);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.apply.path_blocked');
+        });
+
         it('should return 409 when file exists and overwrite=false', async () => {
             cleanupStore();
             const app = createTestApp();
             const store = getAiJobsStore();
             const title = 'Existing File Case';
-            const filePath = path.join(REPO_ROOT, 'docs/components/existing-file-case.md');
+            const filePath = path.join(
+                REPO_ROOT,
+                'design-systems/sys-test/docs/components/existing-file-case.md',
+            );
 
             await createTestFile(filePath, '# existing');
 
@@ -542,7 +593,10 @@ describe('ai-jobs-route', () => {
             const app = createTestApp();
             const store = getAiJobsStore();
             const title = 'Overwrite File Case';
-            const filePath = path.join(REPO_ROOT, 'docs/components/overwrite-file-case.md');
+            const filePath = path.join(
+                REPO_ROOT,
+                'design-systems/sys-test/docs/components/overwrite-file-case.md',
+            );
 
             // Clean up any residual file from previous runs
             await fs.rm(filePath, { force: true });

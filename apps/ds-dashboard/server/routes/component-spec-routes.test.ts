@@ -88,7 +88,7 @@ test("component-spec-routes: patch editorial is blocked outside development", as
 
 test("component-spec-routes: get returns current spec document payload", async () => {
   await withTempDir(async (dir) => {
-    const specRelPath = "docs/_spec/components/button.yml";
+    const specRelPath = "design-systems/sys-01/docs/_spec/components/button.yml";
     const specAbsPath = path.join(dir, specRelPath);
     await fs.mkdir(path.dirname(specAbsPath), { recursive: true });
     await fs.writeFile(specAbsPath, "name: button\nstatus: draft\n", "utf8");
@@ -97,8 +97,11 @@ test("component-spec-routes: get returns current spec document payload", async (
       getSystemContext: () => ({
         repoRoot: dir,
         systemId: "sys-01",
-        docsDir: path.join(dir, "docs"),
-        specBackupsDirPath: path.join(dir, "docs/_generated/spec-backups"),
+        docsDir: path.join(dir, "design-systems/sys-01/docs"),
+        specBackupsDirPath: path.join(
+          dir,
+          "design-systems/sys-01/docs/_generated/spec-backups",
+        ),
       }),
     });
 
@@ -115,8 +118,8 @@ test("component-spec-routes: get returns current spec document payload", async (
 
 test("component-spec-routes: patch editorial updates allowed fields", async () => {
   await withTempDir(async (dir) => {
-    const specRelPath = "docs/_spec/components/button.yml";
-    const docRelPath = "docs/components/button.md";
+    const specRelPath = "design-systems/sys-01/docs/_spec/components/button.yml";
+    const docRelPath = "design-systems/sys-01/docs/components/button.md";
     const specAbsPath = path.join(dir, specRelPath);
     const docAbsPath = path.join(dir, docRelPath);
     await fs.mkdir(path.dirname(specAbsPath), { recursive: true });
@@ -171,8 +174,11 @@ test("component-spec-routes: patch editorial updates allowed fields", async () =
       getSystemContext: () => ({
         repoRoot: dir,
         systemId: "sys-01",
-        docsDir: path.join(dir, "docs"),
-        specBackupsDirPath: path.join(dir, "docs/_generated/spec-backups"),
+        docsDir: path.join(dir, "design-systems/sys-01/docs"),
+        specBackupsDirPath: path.join(
+          dir,
+          "design-systems/sys-01/docs/_generated/spec-backups",
+        ),
       }),
     });
 
