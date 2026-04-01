@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import yaml from 'js-yaml';
 
 import type { ComponentRepository } from '../db/component-repository.js';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
@@ -489,7 +490,7 @@ describe('figma-db-sync-service', () => {
           },
         });
 
-      await syncDesignSystemFromPlugin({
+      const result = await syncDesignSystemFromPlugin({
         db,
         componentRepo: makeComponentRepoStub(),
         dsId: 'sys-01',
@@ -1065,7 +1066,7 @@ describe('figma-db-sync-service', () => {
           },
         });
 
-      await syncDesignSystemFromPlugin({
+      const result = await syncDesignSystemFromPlugin({
         db,
         componentRepo: makeComponentRepoStub(),
         dsId: 'sys-01',
@@ -1296,6 +1297,172 @@ describe('figma-db-sync-service', () => {
       assert.equal(result.usageReindexStatus, 'ok');
       assert.equal(result.usageReindexReason, 'none');
       assert.ok(result.usageReindexed > 0);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('generates component spec YAML files in _spec/components/ when captureComponentSpecYaml is enabled', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-spec-yaml-'));
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button' }],
+        truncated: false,
+      });
+
+      const fetchFullComponentSpec = async () => ({
+        success: true as const,
+        nodeId: '10:1',
+        name: 'Button',
+        type: 'COMPONENT_SET',
+        description: 'A reusable button component.',
+        anatomy: {
+          id: '10:1',
+          name: 'Button',
+          type: 'COMPONENT_SET',
+          children: [
+            { id: '10:2', name: 'Variant=Default', type: 'COMPONENT' },
+            { id: '10:3', name: 'Variant=Accent', type: 'COMPONENT' },
+          ],
+        },
+        variants: [],
+        variantAxes: [{ name: 'Variant', values: ['Default', 'Accent'] }],
+        props: [
+          { name: 'Variant', type: 'VARIANT', defaultValue: 'Default' },
+          { name: 'Disabled', type: 'BOOLEAN', defaultValue: false },
+        ],
+        states: [],
+        tokenBindings: [],
+      });
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: makeComponentRepoStub(),
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        captureComponentSpecYaml: true,
+        createRunId: () => 'run-spec-yaml',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        repoRoot,
+      });
+
+      const paths = resolveSystemPaths('sys-01', repoRoot);
+      const specPath = path.join(paths.specsDir, 'button.yml');
+      assert.ok(fs.existsSync(specPath), 'spec YAML file should be created');
+
+      const raw = fs.readFileSync(specPath, 'utf8');
+      const parsed = yaml.load(raw) as Record<string, unknown>;
+      const figma = parsed.figma as Record<string, unknown>;
+      const summary = parsed.summary as Record<string, unknown>;
+      const anatomy = parsed.anatomy as Array<Record<string, unknown>>;
+      const properties = parsed.properties as Array<Record<string, unknown>>;
+      const variantProp = properties.find((item) => item.name === 'Variant');
+      const disabledProp = properties.find((item) => item.name === 'Disabled');
+
+      assert.equal(parsed.name, 'Button');
+      assert.equal(parsed.status, 'draft');
+      assert.equal(summary.purpose, 'A reusable button component.');
+      assert.equal(figma.file, 'file_123');
+      assert.equal(figma.component_set, 'Button');
+      assert.equal(figma.component_set_node_id, '10:1');
+      assert.ok(Array.isArray(anatomy) && anatomy.length > 0);
+      assert.equal(anatomy[0].id, 'variant_default');
+      assert.equal(variantProp?.type, 'enum');
+      assert.deepEqual(variantProp?.values, ['Default', 'Accent']);
+      assert.equal(variantProp?.default, 'Default');
+      assert.equal(disabledProp?.type, 'boolean');
+      assert.equal(disabledProp?.default, false);
+      assert.equal(result.specYamlGenerated, 1);
+      assert.equal(result.specYamlSkipped, 0);
+      assert.equal(result.specYamlFailed, 0);
+      assert.equal(result.specYamlWarnings.length, 0);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('generates component spec YAML with placeholder content when plugin spec fetch fails', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-spec-yaml-fallback-'));
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button' }],
+        truncated: false,
+      });
+
+      // Plugin spec fetch throws
+      const fetchFullComponentSpec = async () => { throw new Error('ws.request.no_socket_for_file'); };
+
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo: makeComponentRepoStub(),
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        captureComponentSpecYaml: true,
+        createRunId: () => 'run-spec-yaml-fallback',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        repoRoot,
+      });
+
+      const paths = resolveSystemPaths('sys-01', repoRoot);
+      const specPath = path.join(paths.specsDir, 'button.yml');
+      assert.ok(fs.existsSync(specPath), 'spec YAML file should be created even when plugin fetch fails');
+
+      const raw = fs.readFileSync(specPath, 'utf8');
+      const parsed = yaml.load(raw) as Record<string, unknown>;
+      const figma = parsed.figma as Record<string, unknown>;
+      const summary = parsed.summary as Record<string, unknown>;
+      assert.equal(parsed.status, 'draft');
+      assert.equal(figma.component_set_node_id, '10:1');
+      assert.equal(summary.purpose, 'Button component.');
+      assert.equal(result.specYamlGenerated, 1);
+      assert.equal(result.specYamlFailed, 0);
+      assert.ok(
+        result.specYamlWarnings.some((warning) => warning.includes('Failed fetching full spec for slug=button nodeId=10:1')),
+      );
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
       db.close();
