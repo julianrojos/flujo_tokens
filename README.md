@@ -43,6 +43,24 @@ npm run ci:preflight
 
 Then run the needed root test/typecheck scripts (for example `npm run typecheck:plugin`, `npm run test:tooling`, `npm run test:plugin:bridge`).
 
+### SQLite Bootstrap (Design System Context)
+
+Component tooling resolves system context from SQLite (`apps/ds-dashboard/server/db/ds-dashboard.db` by default, override with `DS_DASHBOARD_DB_PATH`).
+
+Bootstrap checklist:
+
+1. Ensure the DB path exists and is writable for your user/process.
+2. Create at least one design system (recommended via Dashboard Systems UI).
+3. Set a default system (or pass `--system <id>` explicitly in CLI commands).
+4. Verify context health:
+
+```bash
+npm run ds:doctor -- --system <id>
+```
+
+If you get `Cannot load design systems from SQLite` or `No systems configured`, complete steps 2-3 first.
+Note: `--system` is strict; empty values and invalid IDs are rejected (allowed chars: letters, numbers, `.`, `_`, `-`).
+
 ### Token Compilation Scripts
 
 - **`npm run generate`**: Executes the full pipeline (Ingest -> Indexing -> Analysis -> Emission). By default it generates split outputs: `output/primitives.css` + `output/tokens.css`.
@@ -344,18 +362,26 @@ Migration notes (legacy cleanup):
 
 ### Documentation Scripts
 
+System context (DB-backed):
+
+- Component/docs runners resolve default paths from the active design system in SQLite.
+- Canonical docs/spec roots are `design-systems/<id>/docs/components` and `design-systems/<id>/docs/_spec/components`.
+- Use `--system <id>` to target a specific system explicitly.
+- If `--system` is omitted, the default configured system is used.
+- `--system` without value (for example `--system ""`) is rejected.
+
 - **`npm run ds:component-doc`**: Generates one component markdown page from a spec YAML with incremental change detection (spec hash -> markdown). Use `--force true` to regenerate.
 - **`npm run ds:regenerate-docs`**: Regenerates markdown docs in batch from spec YAML files (operational task to refresh traceability hashes after tooling updates).
 - **`npm run ds:figma-component-map`**: Extracts all `COMPONENT` / `COMPONENT_SET` nodes from a full Figma file URL (all pages), emits per-node Figma URLs, and records nesting + instance dependency relations for downstream automation.
-- **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `docs/_spec/components/` (prefills token mappings from `docs/_generated/token-registry.json`).
-- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata + local image) by default. Without `node-id` (file URL), it auto-generates `docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it syncs component indices to the dashboard SQLite DB and refreshes `docs/components/overview.md`, then regenerates `docs/_generated/token-usage-index.json`.
+- **`npm run ds:spec-from-figma`**: Connects to a Figma component set and generates one spec YAML in `design-systems/<id>/docs/_spec/components/` (prefills token mappings from `design-systems/<id>/docs/_generated/token-registry.json`).
+- **`npm run ds:doc-from-figma-url`**: Connects to a Figma URL. With `node-id`, it writes one component markdown page in `design-systems/<id>/docs/components/` through an agent + MCP workflow and then auto-captures visual proof (metadata + local image) by default. Without `node-id` (file URL), it auto-generates `design-systems/<id>/docs/_generated/figma-component-map/<fileKey>.json` with all component node URLs and exits with guided next steps. In component mode, on success it syncs component indices to the dashboard SQLite DB and refreshes `design-systems/<id>/docs/components/overview.md`, then regenerates `design-systems/<id>/docs/_generated/token-usage-index.json`.
 - **`npm run ds:capture-visual-proof`**: Captures screenshot evidence for one component and upserts `### Visual Proof` in markdown as a standalone operation (outside `ds:pipeline`).
 - **`npm run ds:capture-from-url`**: Captures visual proof from a Figma URL and updates matching component docs. Optional `--inject-doc-specs true` refreshes `## Anatomy`, `## Component API`, and `## Visual Specifications` in existing markdown files from live Figma node data before proof capture. By default it also appends Specs exhibits (`Anatomy`, `Properties`, `Layout and spacing`) when available; disable with `--include-spec-exhibits false`. Variable bootstrap source is configurable via `--tokens-source auto|mcp|rest` (default: `auto`). `--refresh-indices` defaults to `false` (set `--refresh-indices true` to trigger post-capture token usage + token graph refresh).
 - **`npm run ds:foundations:sync`**: Generates `docs/foundations/*.md` + `docs/foundations/overview.md` deterministically from `docs/_generated/token-registry.json`.
 - **`npm run ds:registry:sync`**: Syncs component metadata from docs/spec sources into the dashboard SQLite DB and refreshes overview.
-- **`npm run ds:registry:refresh`**: Refreshes DB-backed component index state and `docs/components/overview.md` together (rollback on overview write failure).
+- **`npm run ds:registry:refresh`**: Refreshes DB-backed component index state and `design-systems/<id>/docs/components/overview.md` together (rollback on overview write failure).
 - **`npm run ds:registry:validate`**: Validates DB-backed component registry consistency and checks drift against current source artifacts.
-- **`npm run ds:registry:overview`**: Regenerates `docs/components/overview.md` component list from DB-backed component state.
+- **`npm run ds:registry:overview`**: Regenerates `design-systems/<id>/docs/components/overview.md` component list from DB-backed component state.
 - **`npm run ds:registry:report`**: Generates read-only registry projections (`docs/COMPONENTS_INDEX.md` and `docs/_generated/components-health.json`) without scanning specs/docs again.
 - **`npm run ds:mark-needs-review`**: Auto-marks component docs as `needs-review` when traceability drift is detected (`spec_sha256` / `token_registry_sha256` mismatch or missing traceability block).
 - **`npm run ds:doctor`**: Runs pipeline precondition checks (paths, token registry, component registry DB presence + sync drift, rule manifest readability + manifest coverage vs on-disk `.mdc` files, available agent CLIs, optional component-level file pair, and full `validate:docs` health gate).
@@ -370,11 +396,11 @@ Migration notes (legacy cleanup):
 
 ### Documentation folders
 
-- `docs/components/`: component documentation pages (e.g. `alert.md`)
-- `docs/_spec/`: documentation specs and visual theme contract
-- `docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
+- `design-systems/<id>/docs/components/`: component documentation pages (e.g. `alert.md`)
+- `design-systems/<id>/docs/_spec/`: component specs and visual theme contract
+- `design-systems/<id>/docs/_generated/figma-component-map/`: generated file-level component maps from Figma URLs (all component node URLs + hierarchy/dependency graph)
 - `apps/ds-dashboard/server/db/ds-dashboard.db`: operational storage for component registry state (override with `DS_DASHBOARD_DB_PATH`)
-- `docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
+- `design-systems/<id>/docs/_generated/token-usage-index.json`: generated token usage registry (where each token/custom property is referenced)
 - `docs/COMPONENTS_INDEX.md`: generated component index projection for human scanning
 - `docs/_generated/components-health.json`: generated machine-readable projection for dashboards and CI
 
@@ -535,17 +561,19 @@ Generate/update one component markdown page from a Figma URL:
 
 ```bash
 npm run ds:doc-from-figma-url -- \
+  --system my-system \
   --url "https://www.figma.com/design/<file>?node-id=<node>" \
   --component-name Alert \
-  --output docs/components/alert.md \
+  --output design-systems/my-system/docs/components/alert.md \
   --agent codex
 ```
 
 Useful flags:
 
-- `--docs-root docs/components` (default)
+- `--system <id>` (recommended in multi-system repos)
+- `--docs-root <path>` (default resolved from active system context: `design-systems/<id>/docs/components`)
 - `--component-name <Name>`
-- `--output <path/to/component.md>` (default inferred as `docs/components/<snake_case>.md`)
+- `--output <path/to/component.md>` (default inferred from active system context as `design-systems/<id>/docs/components/<snake_case>.md`)
 - `--figma-token <token>` (or `FIGMA_TOKEN` env var; required for file URL discovery mode)
 - `--auto-component-map <true|false>` (default: `true`)
 - `--component-map-out <path/to/map.json>` (only for file URL discovery mode)
@@ -569,19 +597,21 @@ Generate/update one component markdown page from a local spec YAML:
 
 ```bash
 npm run ds:component-doc -- \
+  --system my-system \
   --component-name Alert \
-  --spec-file docs/_spec/components/alert.yml \
-  --output docs/components/alert.md \
+  --spec-file design-systems/my-system/docs/_spec/components/alert.yml \
+  --output design-systems/my-system/docs/components/alert.md \
   --agent codex
 ```
 
 Useful flags:
 
 - `--component-name <Name>`
-- `--spec-file <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
-- `--output <path/to/component.md>` (default: `docs/components/<snake_case>.md`)
-- `--docs-root <path>` (default: `docs`)
-- `--registry <path>` (default: `docs/_generated/token-registry.json`)
+- `--system <id>` (recommended in multi-system repos)
+- `--spec-file <path/to/spec.yml>` (default from active system context: `design-systems/<id>/docs/_spec/components/<snake_case>.yml`)
+- `--output <path/to/component.md>` (default from active system context: `design-systems/<id>/docs/components/<snake_case>.md`)
+- `--docs-root <path>` (default from active system context)
+- `--registry <path>` (default from active system context: `design-systems/<id>/docs/_generated/token-registry.json`)
 - `--skip-validation true`
 - `--force true` (ignore incremental cache)
 - `--allow-doc-status-change true` (exceptional override; requires `--force true`)
@@ -605,9 +635,10 @@ npm run ds:regenerate-docs -- --agent codex
 Useful flags:
 
 - `--component <Name|snake_case>` (regenerate one component only)
-- `--registry <path>` (default: `docs/_generated/token-registry.json`)
-- `--spec-root <path>` (default: `docs/_spec/components`)
-- `--docs-root <path>` (default: `docs/components`)
+- `--system <id>` (recommended in multi-system repos)
+- `--registry <path>` (default from active system context)
+- `--spec-root <path>` (default from active system context: `design-systems/<id>/docs/_spec/components`)
+- `--docs-root <path>` (default from active system context: `design-systems/<id>/docs/components`)
 - `--skip-validation true` (passes through to `ds:component-doc`)
 - `--continue-on-error true` (process remaining components)
 - `--dry-run true` (print commands without executing)
@@ -618,9 +649,10 @@ Generate/update one component spec YAML from Figma:
 
 ```bash
 npm run ds:spec-from-figma -- \
+  --system my-system \
   --url "https://www.figma.com/design/<file>?node-id=<node>" \
   --component-name Alert \
-  --output docs/_spec/components/alert.yml \
+  --output design-systems/my-system/docs/_spec/components/alert.yml \
   --agent codex
 ```
 
@@ -629,10 +661,11 @@ Useful flags:
 - `--url <figma-url>`
 - `--component-set-node-id <figma-node-id>` (deterministic fallback when URL is not used)
 - `--component-name <Name>`
-- `--output <path/to/spec.yml>` (default: `docs/_spec/components/<snake_case>.yml`)
-- `--spec-root <path>` (default: `docs/_spec/components`)
-- `--template <path>` (default: `docs/_spec/components/_template.yml`)
-- `--registry <path>` (default: `docs/_generated/token-registry.json`)
+- `--system <id>` (recommended in multi-system repos)
+- `--output <path/to/spec.yml>` (default from active system context: `design-systems/<id>/docs/_spec/components/<snake_case>.yml`)
+- `--spec-root <path>` (default from active system context)
+- `--template <path>` (default from active system context)
+- `--registry <path>` (default from active system context)
 - `--skip-validation true`
 - `--force true` (required when using `--skip-validation true`)
 - `--allow-non-evidence-updates true` (exceptional override; requires `--force true`)
@@ -698,6 +731,7 @@ npm run ds:mark-needs-review
 
 Useful flags:
 
+- `--system <id>` (recommended in multi-system repos)
 - `--file <path/to/component.md>` (single file mode)
 - `--spec-file <path/to/spec.yml>` (single file mode)
 - `--dry-run true`
@@ -714,9 +748,10 @@ npm run ds:registry:report
 Useful flags:
 
 - `--registry <path>` (default: `apps/ds-dashboard/server/db/ds-dashboard.db`)
-- `--spec-root <path>` (default: `docs/_spec/components`)
-- `--docs-root <path>` (default: `docs/components`)
-- `--proof-dir <path>` (default: `docs/_generated/visual-proofs`)
+- `--system <id>` (recommended in multi-system repos)
+- `--spec-root <path>` (default from active system context)
+- `--docs-root <path>` (default from active system context)
+- `--proof-dir <path>` (default from active system context: `design-systems/<id>/docs/_generated/visual-proofs`)
 - `--dry-run true` (supported by `ds:registry:sync` and `ds:registry:overview`)
 
 Registry report specific flags:
@@ -736,9 +771,10 @@ npm run ds:foundations:sync -- --create-root true
 
 Useful flags:
 
-- `--docs-root <path>` (default: `docs`)
-- `--foundations-root <path>` (default: `docs/foundations`)
-- `--registry <path>` (default: `docs/_generated/token-registry.json`)
+- `--system <id>` (recommended in multi-system repos)
+- `--docs-root <path>` (default from active system context)
+- `--foundations-root <path>` (default from active system context)
+- `--registry <path>` (default from active system context)
 - `--status <draft|ready|needs-review>` (default: `draft`)
 - `--max-samples <number>` (default: `2`)
 - `--create-root <true|false>` (default: `false`)
@@ -756,8 +792,8 @@ Validation command options:
 
 - `npm run validate:docs` -> full docs + specs + overview checks
 - `npm run validate:docs -- --check token-registry` -> token-registry-focused report (codes: `TOKEN_MISSING` / `TOKEN_AMBIGUOUS` / `TOKEN_DEPRECATED`, mapped from validator findings)
-- `npm run validate:docs -- --file docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
-- `npm run validate:docs -- --spec-file docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
+- `npm run validate:docs -- --system my-system --file design-systems/my-system/docs/components/alert.md --no-overview true --no-specs true` -> validate one markdown file only
+- `npm run validate:docs -- --system my-system --spec-file design-systems/my-system/docs/_spec/components/alert.yml --no-overview true` -> validate one spec file only
 - `npm run validate:docs -- --allow-extra-h2 true` -> temporary transition mode (downgrades unauthorized H2 from error to warning)
 - validation output includes `rule_ids` per finding when mapped in `.agents/rules/_manifest.yml`
 
