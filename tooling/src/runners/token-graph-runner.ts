@@ -24,27 +24,27 @@ const CLI_CONFIG = {
     {
       name: '--registry',
       description: 'Token registry input path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--out-json',
       description: 'JSON report output path.',
-      defaultValue: 'docs/_generated/token-graph.json',
+      defaultValue: '<active-system-docs>/_generated/token-graph.json',
     },
     {
       name: '--out-viz-json',
       description: 'JSON graph output optimized for UI visualization.',
-      defaultValue: 'docs/_generated/token-graph.viz.json',
+      defaultValue: '<active-system-docs>/_generated/token-graph.viz.json',
     },
     {
       name: '--out-md',
       description: 'Markdown report output path.',
-      defaultValue: 'docs/_generated/token-graph.md',
+      defaultValue: '<active-system-docs>/_generated/token-graph.md',
     },
     {
       name: '--out-mermaid',
       description: 'Mermaid graph output path.',
-      defaultValue: 'docs/_generated/token-graph.mmd',
+      defaultValue: '<active-system-docs>/_generated/token-graph.mmd',
     },
     {
       name: '--format',

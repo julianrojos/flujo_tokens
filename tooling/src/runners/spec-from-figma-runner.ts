@@ -33,18 +33,17 @@ const CLI_CONFIG = {
     },
     {
       name: '--spec-root <path>',
-      description: 'Spec components directory.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Spec components directory (resolves from system context if not provided).',
     },
     {
       name: '--template <path>',
-      description: 'Spec template path.',
-      defaultValue: 'docs/_spec/components/_template.yml',
+      description: 'Spec template path (defaults to tooling/templates/component-spec/_template.yml).',
+      defaultValue: 'tooling/templates/component-spec/_template.yml',
     },
     {
       name: '--registry <path>',
       description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--agent <codex|claude|gemini|auto>',

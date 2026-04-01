@@ -25,13 +25,11 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--out-md',
-      description: 'Markdown index output path.',
-      defaultValue: 'docs/COMPONENTS_INDEX.md',
+      description: 'Markdown index output path (defaults to active system docs/_generated/components-index.md).',
     },
     {
       name: '--out-json',
-      description: 'JSON health projection output path.',
-      defaultValue: 'docs/_generated/components-health.json',
+      description: 'JSON health projection output path (defaults to active system docs/_generated/components-health.json).',
     },
     {
       name: '--format',
@@ -230,13 +228,24 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
 
   const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const dbPath = path.resolve(ctx.paths.registry);
-  const outMd = path.resolve(String(getStringArg(parsed, 'out-md') || 'docs/COMPONENTS_INDEX.md'));
-  const outJson = path.resolve(String(getStringArg(parsed, 'out-json') || 'docs/_generated/components-health.json'));
+  const defaultOutMd = path.join(ctx.docsDir, '_generated', 'components-index.md');
+  const defaultOutJson = path.join(ctx.docsDir, '_generated', 'components-health.json');
+  const outMdArg = getStringArg(parsed, 'out-md');
+  const outJsonArg = getStringArg(parsed, 'out-json');
+  const outMd = path.resolve(String(outMdArg || defaultOutMd));
+  const outJson = path.resolve(String(outJsonArg || defaultOutJson));
   const format = String(getStringArg(parsed, 'format') || 'json');
   const maxFilterItems = parseIntegerOption(String(parsed['max-filter-items']), '--max-filter-items', 20, 1);
   const skipMd = parseBooleanOption(parsed['no-md'], '--no-md', false);
   const skipJson = parseBooleanOption(parsed['no-json'], '--no-json', false);
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
+
+  if (!outMdArg || !outJsonArg) {
+    logger.info(
+      `Using system-scoped defaults for registry report outputs (system=${ctx.id}). ` +
+      `Set --out-md/--out-json to override explicitly.`,
+    );
+  }
 
   const db = bootstrapDatabase({ dbPath });
   let report: RegistryReport;

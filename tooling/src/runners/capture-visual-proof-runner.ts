@@ -49,11 +49,11 @@ const USAGE = {
     },
     {
       name: '--markdown <path>',
-      description: 'Explicit markdown path (defaults to docs/components/<slug>.md).',
+      description: 'Explicit markdown path (defaults to <active-system-docs>/docs/components/<slug>.md).',
     },
     {
       name: '--spec-file <path>',
-      description: 'Explicit spec path (defaults to docs/_spec/components/<slug>.yml).',
+      description: 'Explicit spec path (defaults to <active-system-docs>/docs/_spec/components/<slug>.yml).',
     },
     {
       name: '--component-set-id <node-id>',
@@ -92,13 +92,13 @@ const USAGE = {
     {
       name: '--proof-dir <path>',
       description: 'Base directory for visual proof assets.',
-      defaultValue: 'docs/_generated/visual-proofs',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs',
     },
     {
       name: '--proof-image-dir <path>',
       description:
         'Output directory for local visual proof images.',
-      defaultValue: 'docs/_generated/visual-proofs/images',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs/images',
     },
     {
       name: '--store-local-image <true|false>',
@@ -186,15 +186,6 @@ export async function runCaptureVisualProof(args: CaptureVisualProofArgs = {}): 
     ctx.componentSlug || 'component',
   );
   const localImageInfo = await downloadAndStoreMainImage(ctx, mainResult);
-  const legacyProofRecordPath = path.join(
-    ctx.proofDir,
-    `${ctx.componentSlug || 'component'}.proof`,
-  );
-  if (!ctx.dryRun && fs.existsSync(legacyProofRecordPath)) {
-    fs.rmSync(legacyProofRecordPath, { recursive: true, force: true });
-    logger.info(`Cleaned up legacy proof artifact: ${legacyProofRecordPath}`);
-  }
-
   // 4. Load previous proof image paths for cleanup
   const previousProofImagePaths = await loadPreviousProofImagePaths(
     proofImagesSlugPath,

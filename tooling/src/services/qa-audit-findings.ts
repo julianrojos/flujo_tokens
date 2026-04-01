@@ -36,7 +36,7 @@ export function buildFindings(
       category: 'coverage',
       severity: 'error',
       title: 'Spec without markdown',
-      location: `docs/_spec/components/${spec}.yml`,
+      location: `<active-system-docs>/docs/_spec/components/${spec}.yml`,
       message: `Spec YAML exists but no corresponding markdown file`,
       suggestion: `Run ds-spec-to-markdown to generate markdown from spec`,
     });
@@ -48,7 +48,7 @@ export function buildFindings(
       category: 'coverage',
       severity: 'warning',
       title: 'Markdown without spec',
-      location: `docs/components/${md}.md`,
+      location: `<active-system-docs>/docs/components/${md}.md`,
       message: `Markdown file exists but no corresponding spec YAML`,
       suggestion: `Create spec YAML or regenerate markdown from Figma`,
     });
@@ -61,7 +61,7 @@ export function buildFindings(
       category: 'coverage',
       severity: 'error',
       title: 'Broken overview link',
-      location: 'docs/components/overview.md',
+      location: '<active-system-docs>/docs/components/overview.md',
       message: `Overview links to non-existent file: ${link}`,
       suggestion: `Remove broken link or restore the missing file`,
     });
@@ -155,7 +155,7 @@ export function buildFindings(
       category: 'integrity',
       severity: 'error',
       title: 'Overview link mismatch',
-      location: 'docs/components/overview.md',
+      location: '<active-system-docs>/docs/components/overview.md',
       message: `Overview link "${linkText}" -> ${linkPath}: ${issue}`,
       suggestion: 'Fix or remove broken link',
     });

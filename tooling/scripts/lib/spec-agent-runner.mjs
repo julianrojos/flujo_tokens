@@ -35,7 +35,7 @@ export function buildSpecPrompt({
             ...tokenMenuLines,
           ]
         : []),
-      "Existing spec reference: docs/_spec/components/alert.yml",
+      "Existing spec reference: <active-system-docs>/docs/_spec/components/alert.yml",
       `Output path (required): ${outputPath}`,
     ],
     constraints: [

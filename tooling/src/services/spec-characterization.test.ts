@@ -83,8 +83,8 @@ describe('spec-characterization', () => {
         'component-name': 'Example Button',
         system: 'system',
         force: 'true',
-        'spec-root': '/mock/repo/docs/_spec/components',
-        template: '/mock/repo/docs/_spec/components/_template.yml',
+        'spec-root': '/mock/repo/design-systems/sys-01/docs/_spec/components',
+        template: '/mock/repo/design-systems/sys-01/docs/_spec/components/_template.yml',
         registry: '/mock/repo/docs/_generated/token-registry.json',
       },
       mockDeps,
@@ -94,7 +94,7 @@ describe('spec-characterization', () => {
     assert.equal(report.componentSetNodeId, '100:200');
     assert.equal(
       writtenOutputPath,
-      path.join('/mock/repo/docs/_spec/components/example_button.yml'),
+      path.join('/mock/repo/design-systems/sys-01/docs/_spec/components/example_button.yml'),
     );
     assert.equal(writtenYamlContent, goldenSpecRaw, 'Spec does not match golden text');
   });

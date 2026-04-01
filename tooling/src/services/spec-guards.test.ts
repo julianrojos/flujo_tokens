@@ -86,7 +86,7 @@ describe('assertFigmaSourceProvided', () => {
 describe('assertOutputPath', () => {
   it('does not throw when outputPath is provided', () => {
     assert.doesNotThrow(() => {
-      assertOutputPath('docs/_spec/components/button.yml');
+      assertOutputPath('design-systems/sys-01/docs/_spec/components/button.yml');
     });
   });
 

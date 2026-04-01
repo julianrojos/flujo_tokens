@@ -25,18 +25,15 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--docs-root',
-      description: 'Component docs directory or a parent docs directory.',
-      defaultValue: 'docs/components',
+      description: 'Component docs directory (resolves from system context if not provided).',
     },
     {
       name: '--spec-root',
-      description: 'Component spec directory.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Component spec directory (resolves from system context if not provided).',
     },
     {
       name: '--registry',
-      description: 'Token registry JSON path used for traceability checks.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      description: 'Token registry JSON path (resolves from system context if not provided).',
     },
     {
       name: '--file',

@@ -12,16 +12,13 @@ import type { ComponentRegistryEntry as DbComponentRegistryEntry } from '../../.
 import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
 import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 import { PROJECT_ROOT } from '../utils/system-context.js';
+import { requireNonEmptyPathOption } from '../utils/path-guards.js';
 import { buildComponentRegistry } from './component-registry-build.js';
 import { syncComponentOverview } from './component-registry-overview-sync.js';
 import { captureFileSnapshot, restoreFileSnapshot } from './file-snapshot.js';
 import { persistRegistryEntriesToDb } from './capture-db-persistence.js';
 import {
-  DEFAULT_COMPONENT_DOCS_DIR,
-  DEFAULT_COMPONENT_OVERVIEW_PATH,
   DEFAULT_COMPONENT_REGISTRY_PATH,
-  DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_VISUAL_PROOFS_DIR,
 } from './component-registry-constants.js';
 import type {
   ComponentOverviewListState,
@@ -304,19 +301,20 @@ export function syncDocumentationState(
 ): SyncIndicesResult {
   const {
     dbPath = DEFAULT_COMPONENT_REGISTRY_PATH,
-    overviewPath = DEFAULT_COMPONENT_OVERVIEW_PATH,
-    specsDir = DEFAULT_COMPONENT_SPECS_DIR,
-    docsDir = DEFAULT_COMPONENT_DOCS_DIR,
-    proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
+    overviewPath,
+    specsDir,
+    docsDir,
+    proofsDir,
     dryRun = false,
     systemId,
     projectRoot = PROJECT_ROOT,
   } = options;
-
-  const resolvedOverviewPath = path.resolve(overviewPath);
-  const resolvedSpecsDir = path.resolve(specsDir);
-  const resolvedDocsDir = path.resolve(docsDir);
-  const resolvedProofsDir = path.resolve(proofsDir);
+  const resolvedOverviewPath = path.resolve(requireNonEmptyPathOption(overviewPath, 'overviewPath'));
+  const resolvedSpecsDir = path.resolve(requireNonEmptyPathOption(specsDir, 'specsDir'));
+  const resolvedDocsDir = path.resolve(requireNonEmptyPathOption(docsDir, 'docsDir'));
+  const resolvedProofsDir = path.resolve(
+    String(proofsDir || path.join(path.dirname(resolvedDocsDir), '_generated', 'visual-proofs')),
+  );
 
   const resolvedSystemId =
     String(systemId || '').trim() ||

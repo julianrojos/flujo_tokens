@@ -416,7 +416,7 @@ export function Button() {}
       writeAgentOutputErrorReport({
         outputPath,
         componentSlug: "test-component",
-        markdownPath: "docs/components/test-component.md",
+        markdownPath: "design-systems/sys-01/docs/components/test-component.md",
         scriptName: "custom-script-name",
         errors: [{ code: "ERR1", message: "Test error" }],
         rawOutput: "raw content",
@@ -428,7 +428,7 @@ export function Button() {}
       const report = JSON.parse(content);
 
       assert.strictEqual(report.componentSlug, "test-component");
-      assert.strictEqual(report.markdownPath, "docs/components/test-component.md");
+      assert.strictEqual(report.markdownPath, "design-systems/sys-01/docs/components/test-component.md");
       assert.strictEqual(report.scriptName, "custom-script-name");
       assert.deepStrictEqual(report.errors, [{ code: "ERR1", message: "Test error" }]);
 

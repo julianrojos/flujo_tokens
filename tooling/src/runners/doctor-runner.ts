@@ -7,8 +7,6 @@
  * Orchestrates check functions and outputs JSON report.
  */
 
-import path from 'node:path';
-
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
@@ -19,7 +17,6 @@ import {
   resolveDoctorContext,
   checkPaths,
   checkSystemPathAlignment,
-  checkOrphanedSystemDirectories,
   checkRuleManifest,
   checkTokenRegistry,
   checkComponentRegistry,
@@ -64,60 +61,23 @@ export async function runDoctor(args: string[] = []): Promise<DoctorRunnerResult
     return { ok: true, reason: 'help' };
   }
 
-  const hasExplicitSystem = Object.prototype.hasOwnProperty.call(parsed, 'system');
   let systemCtx: ReturnType<typeof resolveSystemContextSafe>;
-  if (hasExplicitSystem) {
-    try {
-      systemCtx = resolveRunnerSystemContext({ parsedArgs: parsed });
-    } catch (error) {
-      throw new Error(
-        `Invalid --system value. ${error instanceof Error ? error.message : String(error)} ` +
-        'Use `npm run ds:doctor -- --system <id>` with a valid design system id.',
-      );
-    }
-  } else {
-    try {
-      systemCtx = resolveRunnerSystemContext({ parsedArgs: parsed });
-    } catch {
-      logger.warn(
-        'No active design system context found in SQLite; running doctor in global fallback mode.',
-      );
-      // Doctor can run in global docs mode even when no systems are configured.
-      systemCtx = {
-        id: 'global',
-        name: 'Global Docs',
-        docsDir: path.join(PROJECT_ROOT, 'docs'),
-        paths: {
-          input: path.join(PROJECT_ROOT, 'docs', '_generated'),
-          output: path.join(PROJECT_ROOT, 'docs', '_generated'),
-          generated: path.join(PROJECT_ROOT, 'docs', '_generated'),
-          specs: path.join(PROJECT_ROOT, 'docs', '_spec', 'components'),
-          docs: path.join(PROJECT_ROOT, 'docs', 'components'),
-          registry: path.join(
-            PROJECT_ROOT,
-            'apps',
-            'ds-dashboard',
-            'server',
-            'db',
-            'ds-dashboard.db',
-          ),
-          tokenRegistry: path.join(PROJECT_ROOT, 'docs', '_generated', 'token-registry.json'),
-          figmaAliasGraph: path.join(
-            PROJECT_ROOT,
-            'docs',
-            '_generated',
-            'figma-alias-graph.json',
-          ),
-        },
-      };
-    }
+  try {
+    systemCtx = resolveRunnerSystemContext({ parsedArgs: parsed });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Design system context is required.\n` +
+      `Reason: ${reason}\n` +
+      `Next step: run \`npm run ds:doctor -- --system <id>\` with a valid system id.\n` +
+      `If this is a fresh environment, create/import a design system first and retry.`,
+    );
   }
   const ctx = resolveDoctorContext(parsed, systemCtx, PROJECT_ROOT);
 
   const checks: DoctorCheck[] = [
     ...checkPaths(ctx),
     ...checkSystemPathAlignment(PROJECT_ROOT),
-    ...checkOrphanedSystemDirectories(PROJECT_ROOT),
   ];
 
   // Check RULE_MANIFEST (need manifest for downstream checks)

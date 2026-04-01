@@ -10,11 +10,6 @@ import * as fs from 'node:fs';
 
 import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
 import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
-import {
-  DEFAULT_COMPONENT_DOCS_DIR,
-  DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_VISUAL_PROOFS_DIR,
-} from './component-registry-constants.js';
 import { buildComponentRegistry } from './component-registry-build.js';
 import { normalizeSortKey, stableHash } from './component-registry-utils.js';
 import { syncDocumentationState } from './component-registry-refresh.js';
@@ -29,6 +24,11 @@ import type {
   PipelineStage,
 } from '../types/component-registry.js';
 import { PROJECT_ROOT } from '../utils/system-context.js';
+import { requireNonEmptyPathOption } from '../utils/path-guards.js';
+
+function resolveDefaultVisualProofsDir(docsDir: string): string {
+  return path.join(path.dirname(path.resolve(docsDir)), '_generated', 'visual-proofs');
+}
 
 function inferSystemId(candidates: string[]): string {
   for (const value of candidates) {
@@ -282,15 +282,16 @@ export function buildExpectedComponentRegistry(
   } = {},
 ): ComponentRegistry {
   const {
-    specsDir = DEFAULT_COMPONENT_SPECS_DIR,
-    docsDir = DEFAULT_COMPONENT_DOCS_DIR,
-    proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
-  } = options;
-
-  return buildComponentRegistry({
     specsDir,
     docsDir,
     proofsDir,
+  } = options;
+  const resolvedDocsDir = requireNonEmptyPathOption(docsDir, 'docsDir');
+
+  return buildComponentRegistry({
+    specsDir: requireNonEmptyPathOption(specsDir, 'specsDir'),
+    docsDir: resolvedDocsDir,
+    proofsDir: String(proofsDir || '').trim() || resolveDefaultVisualProofsDir(resolvedDocsDir),
     includeVisualProofFiles: false,
   });
 }
@@ -310,21 +311,29 @@ export function compareComponentRegistryToSources(
   const {
     dbPath,
     systemId,
-    specsDir = DEFAULT_COMPONENT_SPECS_DIR,
-    docsDir = DEFAULT_COMPONENT_DOCS_DIR,
-    proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
+    specsDir,
+    docsDir,
+    proofsDir,
   } = options;
+  const resolvedSpecsDir = requireNonEmptyPathOption(specsDir, 'specsDir');
+  const resolvedDocsDir = requireNonEmptyPathOption(docsDir, 'docsDir');
+  const resolvedProofsDir =
+    String(proofsDir || '').trim() || resolveDefaultVisualProofsDir(resolvedDocsDir);
 
-  const expected = buildExpectedComponentRegistry({ specsDir, docsDir, proofsDir });
+  const expected = buildExpectedComponentRegistry({
+    specsDir: resolvedSpecsDir,
+    docsDir: resolvedDocsDir,
+    proofsDir: resolvedProofsDir,
+  });
   const resolvedDbPath = resolveDbPath(dbPath);
   const resolvedSystemId =
     String(systemId || '').trim() ||
-    inferSystemId([specsDir, docsDir, proofsDir, resolvedDbPath]);
+    inferSystemId([resolvedSpecsDir, resolvedDocsDir, resolvedProofsDir, resolvedDbPath]);
   const currentResult = readComponentRegistry(resolvedDbPath, {
     allowMissing: true,
     systemId: resolvedSystemId,
-    specsDir,
-    docsDir,
+    specsDir: resolvedSpecsDir,
+    docsDir: resolvedDocsDir,
   });
   const current = currentResult.registry;
 
@@ -384,25 +393,34 @@ export function syncComponentRegistry(
     specsDir?: string;
     docsDir?: string;
     proofsDir?: string;
+    overviewPath?: string;
   } = {},
 ): SyncRegistryResult {
   const {
     dbPath,
     systemId,
-    specsDir = DEFAULT_COMPONENT_SPECS_DIR,
-    docsDir = DEFAULT_COMPONENT_DOCS_DIR,
-    proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
-    dryRun = false,
-  } = options;
-
-  const resolvedSystemId =
-    String(systemId || '').trim() ||
-    inferSystemId([specsDir, docsDir, proofsDir]);
-  const sync = syncDocumentationState({
-    dbPath,
     specsDir,
     docsDir,
     proofsDir,
+    overviewPath,
+    dryRun = false,
+  } = options;
+  const resolvedSpecsDir = requireNonEmptyPathOption(specsDir, 'specsDir');
+  const resolvedDocsDir = requireNonEmptyPathOption(docsDir, 'docsDir');
+  const resolvedProofsDir =
+    String(proofsDir || '').trim() || resolveDefaultVisualProofsDir(resolvedDocsDir);
+  const resolvedOverviewPath =
+    String(overviewPath || '').trim() || path.join(path.resolve(resolvedDocsDir), 'overview.md');
+
+  const resolvedSystemId =
+    String(systemId || '').trim() ||
+    inferSystemId([resolvedSpecsDir, resolvedDocsDir, resolvedProofsDir]);
+  const sync = syncDocumentationState({
+    dbPath,
+    overviewPath: resolvedOverviewPath,
+    specsDir: resolvedSpecsDir,
+    docsDir: resolvedDocsDir,
+    proofsDir: resolvedProofsDir,
     dryRun,
     systemId: resolvedSystemId,
   });

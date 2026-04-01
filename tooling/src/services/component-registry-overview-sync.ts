@@ -7,9 +7,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-import {
-  DEFAULT_COMPONENT_OVERVIEW_PATH,
-} from './component-registry-constants.js';
 import { normalizeSortKey } from './component-registry-utils.js';
 import type {
   ComponentOverviewListState,
@@ -105,9 +102,12 @@ export function syncComponentOverview(
   },
 ): SyncOverviewResult {
   const {
-    overviewPath = DEFAULT_COMPONENT_OVERVIEW_PATH,
     dryRun = false,
   } = options;
+  const overviewPath = String(options.overviewPath || '').trim();
+  if (!overviewPath) {
+    throw new Error('overviewPath is required. Resolve it from the active design system context.');
+  }
 
   const resolvedOverviewPath = path.resolve(overviewPath);
 

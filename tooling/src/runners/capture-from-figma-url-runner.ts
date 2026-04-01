@@ -32,18 +32,17 @@ const CLI_CONFIG = {
     },
     {
       name: '--docs-root <path>',
-      description: 'Docs root or docs/components directory.',
-      defaultValue: 'docs/components',
+      description: 'Docs root or docs/components directory for the active system context.',
     },
     {
       name: '--proof-dir <path>',
       description: 'Visual proof assets directory.',
-      defaultValue: 'docs/_generated/visual-proofs',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs',
     },
     {
       name: '--proof-image-dir <path>',
       description: 'Visual proof images output directory.',
-      defaultValue: 'docs/_generated/visual-proofs/images',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs/images',
     },
     {
       name: '--component-slug <slug>',

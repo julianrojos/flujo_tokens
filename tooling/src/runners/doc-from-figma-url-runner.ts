@@ -32,7 +32,7 @@ import { parseBooleanOption } from '../utils/parse-options.js';
 
 const USAGE = {
   command:
-    'npm run ds:doc-from-figma-url -- --url "https://www.figma.com/design/..." [--component-name Button] [--output docs/components/button.md] [--agent codex]',
+    'npm run ds:doc-from-figma-url -- --url "https://www.figma.com/design/..." [--component-name Button] [--output design-systems/<id>/docs/components/button.md] [--agent codex]',
   description:
     'Generate one component markdown from a Figma URL using an agent CLI.',
   options: [
@@ -69,8 +69,7 @@ const USAGE = {
     },
     {
       name: '--docs-root <path>',
-      description: 'Docs root or docs/components directory.',
-      defaultValue: 'docs/components',
+      description: 'Docs root or docs/components directory for the active system context.',
     },
     {
       name: '--system <id>',

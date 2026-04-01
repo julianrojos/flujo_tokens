@@ -24,13 +24,12 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--docs-root',
-      description: 'Component docs root directory.',
-      defaultValue: 'docs/components',
+      description: 'Component docs root directory (resolves from system context if not provided).',
     },
     {
       name: '--registry',
       description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--file',

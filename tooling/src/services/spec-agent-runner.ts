@@ -13,10 +13,10 @@ import { componentNameToSnakeCase } from '../utils/component-name.js';
 import { runAgentPrompt, type AgentType, type AgentPromptResult } from './agent-runner.js';
 import { SPEC_TOP_LEVEL_ORDER } from './spec-normalizer.js';
 
-// Constants (mirrored from lib/ docs)
+// Constants (template path)
 export const GOLDEN_COMPONENT_SPEC_SAMPLE_PATH = path.resolve(
   PROJECT_ROOT,
-  'docs/_spec/components/_template.yml',
+  'tooling/templates/component-spec/_template.yml',
 );
 
 export const SPEC_REQUIRED_TOP_LEVEL_FIELDS = [
@@ -99,7 +99,7 @@ export function buildSpecPrompt(options: BuildSpecPromptOptions): string {
         ...tokenMenuLines,
       ]
       : []),
-    'Existing spec reference: docs/_spec/components/alert.yml',
+    'Existing spec reference: <active-system-docs>/docs/_spec/components/alert.yml',
     `Output path (required): ${outputPath}`,
   ];
 

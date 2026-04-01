@@ -5,52 +5,118 @@
  * Ensures the TypeScript implementation maintains behavioral compatibility.
  */
 
-import { describe, it } from 'node:test';
+import { afterEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import fs from 'node:fs';
+import os from 'node:os';
 import { validateDocs } from './docs-validator.js';
 import { resolveSystemContextSafe } from '../utils/system-context.js';
+
+type ValidationRoots = {
+    docsRoot: string;
+    specRoot: string;
+    registryPath: string;
+};
+
+let fallbackRoots: ValidationRoots | null = null;
+let fallbackTempRoot: string | null = null;
+
+function createFallbackValidationRoots(): ValidationRoots {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'docs-validator-fallback-'));
+  fallbackTempRoot = tempRoot;
+    const docsRoot = path.join(tempRoot, 'design-systems', 'sys-test', 'docs', 'components');
+    const specRoot = path.join(tempRoot, 'design-systems', 'sys-test', 'docs', '_spec', 'components');
+    const registryPath = path.join(
+        tempRoot,
+        'design-systems',
+        'sys-test',
+        'docs',
+        '_generated',
+        'token-registry.json',
+    );
+
+    fs.mkdirSync(docsRoot, { recursive: true });
+    fs.mkdirSync(specRoot, { recursive: true });
+    fs.mkdirSync(path.dirname(registryPath), { recursive: true });
+    fs.writeFileSync(
+        path.join(docsRoot, 'button.md'),
+        [
+            '---',
+            'doc_type: component',
+            'title: Button',
+            'component: button',
+            'status: draft',
+            '---',
+            '',
+            '# Button',
+            '',
+            '## Overview',
+            '',
+            'Token ref: `color.primary`',
+            '',
+        ].join('\n'),
+        'utf8',
+    );
+    fs.writeFileSync(
+        path.join(specRoot, 'button.yml'),
+        [
+            'name: button',
+            'status: draft',
+            'description: Button component',
+        ].join('\n'),
+        'utf8',
+    );
+    fs.writeFileSync(
+        registryPath,
+        JSON.stringify(
+            {
+                entries: [{ path: 'color.primary', slashPath: 'color/primary' }],
+                byPath: { 'color.primary': { value: '#000000' } },
+                bySlashPath: { 'color/primary': { value: '#000000' } },
+            },
+            null,
+            2,
+        ),
+        'utf8',
+    );
+
+    return { docsRoot, specRoot, registryPath };
+}
+
+afterEach(() => {
+  if (!fallbackTempRoot) return;
+  fs.rmSync(fallbackTempRoot, { recursive: true, force: true });
+  fallbackTempRoot = null;
+  fallbackRoots = null;
+});
 
 function resolveValidationRoots(): {
     docsRoot: string;
     specRoot: string;
     registryPath: string;
 } {
-    const ctx = resolveSystemContextSafe();
-    const cwd = process.cwd();
-    const fallback = {
-        docsRoot: path.join(cwd, 'docs', 'components'),
-        specRoot: path.join(cwd, 'docs', '_spec', 'components'),
-        registryPath: path.join(cwd, 'docs', '_generated', 'token-registry.json'),
-    };
-
-    const hasMarkdownFiles = (dirPath: string): boolean => {
-        if (!fs.existsSync(dirPath)) return false;
-        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-        for (const entry of entries) {
-            const absolutePath = path.join(dirPath, entry.name);
-            if (entry.isDirectory() && hasMarkdownFiles(absolutePath)) return true;
-            if (entry.isFile() && entry.name.endsWith('.md')) return true;
-        }
-        return false;
-    };
-
-    const docsRoot = hasMarkdownFiles(ctx.paths.docs) ? ctx.paths.docs : fallback.docsRoot;
-    const specRoot = fs.existsSync(ctx.paths.specs) ? ctx.paths.specs : fallback.specRoot;
-    const registryPath = fs.existsSync(ctx.paths.tokenRegistry) ? ctx.paths.tokenRegistry : fallback.registryPath;
-
-    return { docsRoot, specRoot, registryPath };
+    try {
+        const ctx = resolveSystemContextSafe();
+        return {
+            docsRoot: ctx.paths.docs,
+            specRoot: ctx.paths.specs,
+            registryPath: ctx.paths.tokenRegistry,
+        };
+    } catch {
+        if (!fallbackRoots) fallbackRoots = createFallbackValidationRoots();
+        return fallbackRoots;
+    }
 }
 
 describe('docs-validator', () => {
     describe('validateDocs()', () => {
         it('should return a stable report shape', () => {
-            const ctx = resolveSystemContextSafe();
+            const roots = resolveValidationRoots();
             const report = validateDocs({
-                docsRoot: ctx.paths.docs,
-                specRoot: ctx.paths.specs,
-                registryPath: ctx.paths.tokenRegistry,
+                docsRoot: roots.docsRoot,
+                specRoot: roots.specRoot,
+                registryPath: roots.registryPath,
                 checkPairing: false,
                 checkSpecs: false,
                 checkOverview: false,
@@ -71,9 +137,10 @@ describe('docs-validator', () => {
         });
 
         it('should return REG01 when token registry path is invalid', () => {
-            const ctx = resolveSystemContextSafe();
+            const roots = resolveValidationRoots();
             const report = validateDocs({
-                docsRoot: ctx.paths.docs,
+                docsRoot: roots.docsRoot,
+                specRoot: roots.specRoot,
                 registryPath: path.join(process.cwd(), '__nonexistent__', 'token-registry.json'),
             });
 
@@ -84,14 +151,30 @@ describe('docs-validator', () => {
         it('should use context-aware default paths when no options provided', () => {
             // This test ensures the migration maintains context-aware defaults
             // rather than hardcoded paths
-            const ctx = resolveSystemContextSafe();
+            const roots = resolveValidationRoots();
             const report = validateDocs();
+            const hasSystemContext = (() => {
+                try {
+                    resolveSystemContextSafe();
+                    return true;
+                } catch {
+                    return false;
+                }
+            })();
+
+            if (!hasSystemContext) {
+                assert.ok(
+                    report.errors.some((e) => e.code === 'DOC01'),
+                    'Should report DOC01 when no system context is available and no explicit paths are provided.',
+                );
+                return;
+            }
 
             // Context-aware defaults should report REG01 only when registry is unusable
             // (missing/unreadable OR empty), and otherwise remain clean.
             const reg01Errors = report.errors.filter((e) => e.code === 'REG01');
 
-            if (!fs.existsSync(ctx.paths.tokenRegistry)) {
+            if (!fs.existsSync(roots.registryPath)) {
                 assert.ok(
                     reg01Errors.length > 0,
                     'Should report REG01 when context registry path does not exist.'
@@ -101,7 +184,7 @@ describe('docs-validator', () => {
 
             let registryEmpty = false;
             try {
-                const raw = fs.readFileSync(ctx.paths.tokenRegistry, 'utf8');
+                const raw = fs.readFileSync(roots.registryPath, 'utf8');
                 const parsed = JSON.parse(raw);
                 const byPath =
                     parsed && typeof parsed === 'object' && !Array.isArray(parsed)
@@ -148,16 +231,32 @@ describe('docs-validator', () => {
                 assert.ok(report.summary.filesChecked > 0, 'Should check at least 1 file');
             }
         });
+
+        it('does not require spec-root when spec checks and pairing are disabled', () => {
+            const roots = resolveValidationRoots();
+            const report = validateDocs({
+                docsRoot: roots.docsRoot,
+                registryPath: roots.registryPath,
+                checkSpecs: false,
+                checkPairing: false,
+                checkOverview: false,
+            });
+
+            assert.ok(
+                !report.errors.some((e) => e.code === 'DOC01'),
+                'Should not require spec-root when spec checks and pairing are disabled.',
+            );
+        });
     });
 
     describe('DocsValidatorIssue type', () => {
         it('should support string[] for expected and actual fields', () => {
             // This test ensures the type fix for GAP01 validation
-            const ctx = resolveSystemContextSafe();
+            const roots = resolveValidationRoots();
             const report = validateDocs({
-                docsRoot: ctx.paths.docs,
-                specRoot: ctx.paths.specs,
-                registryPath: ctx.paths.tokenRegistry,
+                docsRoot: roots.docsRoot,
+                specRoot: roots.specRoot,
+                registryPath: roots.registryPath,
             });
 
             // Check that any GAP01 errors have proper array types
@@ -182,19 +281,17 @@ describe('docs-validator', () => {
 
     describe('Context resolution (system-agnostic)', () => {
         it('should resolve a context with a stable path structure', () => {
-            const ctx = resolveSystemContextSafe();
+            const roots = resolveValidationRoots();
 
-            assert.ok(typeof ctx.id === 'string' && ctx.id.length > 0, 'Context id should be non-empty');
-            assert.ok(path.isAbsolute(ctx.docsDir), 'docsDir should be absolute');
-            assert.ok(path.isAbsolute(ctx.paths.docs), 'paths.docs should be absolute');
-            assert.ok(path.isAbsolute(ctx.paths.specs), 'paths.specs should be absolute');
-            assert.ok(path.isAbsolute(ctx.paths.tokenRegistry), 'paths.tokenRegistry should be absolute');
+            assert.ok(path.isAbsolute(roots.docsRoot), 'docsRoot should be absolute');
+            assert.ok(path.isAbsolute(roots.specRoot), 'specRoot should be absolute');
+            assert.ok(path.isAbsolute(roots.registryPath), 'registryPath should be absolute');
 
-            assert.equal(path.basename(ctx.paths.docs), 'components');
-            assert.equal(path.basename(ctx.paths.specs), 'components');
-            assert.equal(path.basename(path.dirname(ctx.paths.specs)), '_spec');
-            assert.equal(path.basename(ctx.paths.tokenRegistry), 'token-registry.json');
-            assert.equal(path.basename(path.dirname(ctx.paths.tokenRegistry)), '_generated');
+            assert.equal(path.basename(roots.docsRoot), 'components');
+            assert.equal(path.basename(roots.specRoot), 'components');
+            assert.equal(path.basename(path.dirname(roots.specRoot)), '_spec');
+            assert.equal(path.basename(roots.registryPath), 'token-registry.json');
+            assert.equal(path.basename(path.dirname(roots.registryPath)), '_generated');
         });
     });
 });

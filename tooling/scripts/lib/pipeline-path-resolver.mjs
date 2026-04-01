@@ -1,4 +1,8 @@
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = path.resolve(__dirname, "../../..");
 
 export function resolvePipelinePaths(args, systemContext) {
   const docsRootOverride = args["docs-root"] ? String(args["docs-root"]).trim() : null;
@@ -25,6 +29,10 @@ export function resolvePipelinePaths(args, systemContext) {
 
   const specRoot = args["spec-root"] || systemContext.paths.specs || path.join(docsRootDir, "_spec", "components");
   const resolvedSpecRoot = path.resolve(specRoot);
+  const defaultTemplatePath = path.resolve(
+    PROJECT_ROOT,
+    "tooling/templates/component-spec/_template.yml",
+  );
 
   return {
     docsRootOverride,
@@ -35,7 +43,7 @@ export function resolvePipelinePaths(args, systemContext) {
     registryDbPath: path.resolve(systemContext.paths.registry),
     tokenRegistryPath: path.resolve(args.registry || systemContext.paths.tokenRegistry || path.join(docsRootDir, "_generated", "token-registry.json")),
     resolvedSpecRoot,
-    templatePath: path.resolve(args.template || path.join(resolvedSpecRoot, "_template.yml")),
+    templatePath: path.resolve(args.template || defaultTemplatePath),
     overviewPath: path.resolve(path.join(docsRootDir, "overview.md")),
   };
 }

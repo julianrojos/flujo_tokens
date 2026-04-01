@@ -59,7 +59,7 @@ describe('spec-orchestrator', () => {
             paths: {
               docsRootOverride: null,
               docsRootDir: '/tmp/docs',
-              componentDocsDir: '/tmp/docs/components',
+              componentDocsDir: '/tmp/design-systems/sys-01/docs/components',
               proofDir: '/tmp/docs/_generated/visual-proofs',
               proofImageDir: '/tmp/docs/_generated/visual-proofs/images',
               resolvedSpecRoot: '/tmp/specs',

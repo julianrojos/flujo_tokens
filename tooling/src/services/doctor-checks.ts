@@ -364,63 +364,6 @@ export function checkSystemPathAlignment(
 }
 
 /**
- * Check for orphaned system directories in filesystem that have no config entry.
- */
-export function checkOrphanedSystemDirectories(
-  projectRoot: string,
-  _options?: { configPath?: string },
-): DoctorCheck[] {
-  const checks: DoctorCheck[] = [];
-
-  // Scan for legacy root-level directories
-  const orphaned: string[] = [];
-  const legacyRoots = ['input', 'output', 'docs'];
-
-  for (const root of legacyRoots) {
-    const rootPath = path.join(projectRoot, root);
-    if (!fs.existsSync(rootPath) || !fs.statSync(rootPath).isDirectory()) continue;
-
-    const entries = fs.readdirSync(rootPath, { withFileTypes: true });
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (entry.name.startsWith('.')) continue;
-      // docs/ is a valid global documentation root; only treat legacy system shards
-      // (docs/sys-*) as orphaned system directories.
-      if (root === 'docs' && !entry.name.startsWith('sys-')) continue;
-
-      const legacyPath = `${root}/${entry.name}`;
-      orphaned.push(legacyPath);
-    }
-  }
-
-  if (orphaned.length > 0) {
-    checks.push(
-      createCheck({
-        id: 'ORPHANED_SYSTEM_DIRECTORIES',
-        status: 'warn',
-        message: 'Found system directories without configuration entries.',
-        details: {
-          orphanedCount: orphaned.length,
-          orphaned,
-          suggested: 'Migrate to design-systems/<id>/{input,output,docs} or remove if unused.',
-        },
-      }),
-    );
-  } else {
-    checks.push(
-      createCheck({
-        id: 'ORPHANED_SYSTEM_DIRECTORIES',
-        status: 'pass',
-        message: 'No orphaned system directories detected.',
-        details: { orphanedCount: 0 },
-      }),
-    );
-  }
-
-  return checks;
-}
-
-/**
  * Check RULE_MANIFEST and RULE_MANIFEST_COVERAGE
  */
 export function checkRuleManifest(ctx: DoctorContext): DoctorCheckResult {

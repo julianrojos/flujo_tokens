@@ -20,18 +20,16 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--spec-root',
-      description: 'Component spec directory.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Component spec directory (resolves from system context if not provided).',
     },
     {
       name: '--docs-root',
-      description: 'Component docs directory.',
-      defaultValue: 'docs/components',
+      description: 'Component docs directory (resolves from system context if not provided).',
     },
     {
       name: '--proof-dir',
       description: 'Visual proof assets directory.',
-      defaultValue: 'docs/_generated/visual-proofs',
+      defaultValue: '<active-system-docs>/_generated/visual-proofs',
     },
     {
       name: '--strict',

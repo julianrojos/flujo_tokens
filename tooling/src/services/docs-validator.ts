@@ -87,12 +87,17 @@ function resolveDocsValidatorDefaults() {
       docsRoot: ctx.paths.docs,
       specRoot: ctx.paths.specs,
       registryPath: ctx.paths.tokenRegistry,
+      contextError: null as string | null,
     };
-  } catch {
+  } catch (error) {
     return {
-      docsRoot: path.join(PROJECT_ROOT, 'docs', 'components'),
-      specRoot: path.join(PROJECT_ROOT, 'docs', '_spec', 'components'),
-      registryPath: path.join(PROJECT_ROOT, 'docs', '_generated', 'token-registry.json'),
+      docsRoot: '',
+      specRoot: '',
+      registryPath: '',
+      contextError:
+        error instanceof Error
+          ? error.message
+          : 'Unable to resolve design system context.',
     };
   }
 }
@@ -131,16 +136,49 @@ function isIndexedRegistryShape(parsed: unknown): parsed is IndexedRegistryShape
  */
 export function validateDocs(options: DocsValidatorOptions = {}): DocsValidationReport {
   const defaults = resolveDocsValidatorDefaults();
-  const docsRoot = path.resolve(options.docsRoot || defaults.docsRoot);
-  const specRoot = path.resolve(options.specRoot || defaults.specRoot);
-  const explicitSpecFilePath = options.specFilePath ? path.resolve(options.specFilePath) : null;
-  const registryPath = path.resolve(options.registryPath || defaults.registryPath);
-  const explicitFilePath = options.filePath ? path.resolve(options.filePath) : null;
-  const allowExtraH2 = options.allowExtraH2 === true;
+  const explicitDocsRoot = String(options.docsRoot || '').trim();
+  const explicitSpecRoot = String(options.specRoot || '').trim();
+  const explicitRegistryPath = String(options.registryPath || '').trim();
+  const explicitFilePath = String(options.filePath || '').trim();
+  const explicitSpecFilePath = String(options.specFilePath || '').trim();
   const checkPairing = options.checkPairing !== false;
   const checkOverview = explicitFilePath ? false : options.checkOverview !== false;
   const checkSpecs =
     options.checkSpecs !== false && (!explicitFilePath || Boolean(explicitSpecFilePath));
+  const needsSpecRoot = checkPairing || checkSpecs;
+  const hasRequiredExplicitPaths =
+    Boolean(explicitDocsRoot) &&
+    Boolean(explicitRegistryPath) &&
+    (!needsSpecRoot || Boolean(explicitSpecRoot));
+
+  if (defaults.contextError && !hasRequiredExplicitPaths) {
+    const report = createBaseReport({ manifestPath: RULE_MANIFEST_PATH });
+    report.ok = false;
+    const missing: string[] = [];
+    if (!explicitDocsRoot) missing.push('--docs-root');
+    if (!explicitRegistryPath) missing.push('--registry');
+    if (needsSpecRoot && !explicitSpecRoot) missing.push('--spec-root');
+    report.errors.push({
+      code: 'DOC01',
+      file: 'design-system-context',
+      message:
+        `Design system context is required when docs/spec/registry paths are not provided. ${defaults.contextError}`,
+      suggested:
+        missing.length > 0
+          ? `Pass --system <id> or provide ${missing.join(', ')} explicitly. ` +
+            'To verify context: `npm run ds:doctor -- --system <id>`.'
+          : 'Pass --system <id> or provide required path flags explicitly. ' +
+            'To verify context: `npm run ds:doctor -- --system <id>`.',
+    });
+    report.summary.errors = report.errors.length;
+    return report;
+  }
+  const docsRoot = path.resolve(options.docsRoot || defaults.docsRoot);
+  const specRoot = path.resolve(options.specRoot || defaults.specRoot);
+  const resolvedSpecFilePath = options.specFilePath ? path.resolve(options.specFilePath) : null;
+  const registryPath = path.resolve(options.registryPath || defaults.registryPath);
+  const resolvedFilePath = options.filePath ? path.resolve(options.filePath) : null;
+  const allowExtraH2 = options.allowExtraH2 === true;
 
   const report = createBaseReport({ manifestPath: RULE_MANIFEST_PATH });
   const manifestInfo = loadRuleManifest(options.manifestPath || RULE_MANIFEST_PATH);
@@ -193,12 +231,12 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
   }
 
   const registryIndexes = buildRegistryIndexes(registry);
-  const markdownFiles = collectMarkdownFiles(docsRoot, explicitFilePath);
+  const markdownFiles = collectMarkdownFiles(docsRoot, resolvedFilePath);
   const componentFiles: string[] = [];
   let componentFilesWithTokenLikeSpans = 0;
 
   const specResolution: { specFilePath?: string } =
-    explicitFilePath && explicitSpecFilePath ? { specFilePath: explicitSpecFilePath } : {};
+    resolvedFilePath && resolvedSpecFilePath ? { specFilePath: resolvedSpecFilePath } : {};
 
   // Process each markdown file
   for (const filePath of markdownFiles) {
@@ -364,8 +402,8 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
       docsRoot,
       specRoot,
       checkSpecs,
-      explicitSpecFilePath,
-      explicitFilePath,
+      explicitSpecFilePath: resolvedSpecFilePath,
+      explicitFilePath: resolvedFilePath,
       report,
     });
   }
@@ -375,7 +413,7 @@ export function validateDocs(options: DocsValidatorOptions = {}): DocsValidation
     validateSpecYamlFiles({
       specRoot,
       report,
-      explicitSpecFilePath,
+      explicitSpecFilePath: resolvedSpecFilePath,
       collectSpecFiles,
     });
   }

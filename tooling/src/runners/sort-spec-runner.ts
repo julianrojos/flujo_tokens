@@ -27,7 +27,7 @@ const CLI_CONFIG = {
   description: 'Sort properties in component spec YAML files to canonical order.',
   options: [
     { name: '--file', description: 'Spec YAML file to sort (may be repeated)' },
-    { name: '--all', description: 'Sort all files in docs/_spec/components/*.yml' },
+    { name: '--all', description: 'Sort all files in <active-system-docs>/docs/_spec/components/*.yml' },
     { name: '--check', description: 'Dry-run: report unsorted files, exit 1 if any found' },
     { name: '--json', description: 'Output JSON result' },
     { name: '--system <id>', description: 'Target design system context' },

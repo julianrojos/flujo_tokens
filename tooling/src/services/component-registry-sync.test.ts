@@ -114,12 +114,14 @@ describe('component-registry-sync', () => {
     const docsDir = path.join(root, 'docs');
     const proofsDir = path.join(root, 'proofs');
     const dbPath = path.join(root, 'registry.db');
+    const overviewPath = path.join(docsDir, 'overview.md');
 
     writeFile(path.join(specsDir, 'alert.yml'), 'name: alert\nstatus: draft\n');
     writeFile(
       path.join(docsDir, 'alert.md'),
       ['---', 'doc_status: draft', '---', '', '# Alert', ''].join('\n'),
     );
+    writeFile(overviewPath, '# Components\n\n## Component list\n\n');
 
     const db = bootstrapDatabase({ dbPath });
     try {
@@ -134,6 +136,7 @@ describe('component-registry-sync', () => {
       specsDir,
       docsDir,
       proofsDir,
+      overviewPath,
     });
 
     const first = compareComponentRegistryToSources({
@@ -153,6 +156,7 @@ describe('component-registry-sync', () => {
       specsDir,
       docsDir,
       proofsDir,
+      overviewPath,
     });
 
     const second = compareComponentRegistryToSources({

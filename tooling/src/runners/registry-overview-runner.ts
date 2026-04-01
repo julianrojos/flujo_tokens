@@ -3,7 +3,7 @@
 /**
  * Registry Overview Runner (DB-only)
  *
- * Regenerates docs/components/overview.md from DB-backed component state.
+ * Regenerates design-systems/<id>/docs/components/overview.md from DB-backed component state.
  */
 
 import * as path from 'node:path';
@@ -17,22 +17,19 @@ import { syncDocumentationState } from '../services/component-registry-index.js'
 const CLI_CONFIG = {
   command: 'ds:registry:overview [options]',
   description:
-    'Regenerate docs/components/overview.md from DB-backed component state.',
+    'Regenerate overview markdown from DB-backed component state.',
   options: [
     {
       name: '--overview',
-      description: 'Overview markdown path.',
-      defaultValue: 'docs/components/overview.md',
+      description: 'Overview markdown path (resolves from system context if not provided).',
     },
     {
       name: '--spec-root',
-      description: 'Component spec directory.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Component spec directory (resolves from system context if not provided).',
     },
     {
       name: '--docs-root',
-      description: 'Component docs directory.',
-      defaultValue: 'docs/components',
+      description: 'Component docs directory (resolves from system context if not provided).',
     },
     {
       name: '--dry-run',

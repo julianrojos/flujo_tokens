@@ -11,6 +11,7 @@ import { componentNameToSnakeCase } from '../utils/component-name.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { normalizeNodeId } from '../utils/figma-node-id.js';
 import { PROJECT_ROOT } from '../utils/system-context.js';
+import { requireNonEmptyPathOption } from '../utils/path-guards.js';
 import { parseMarkdownFrontmatter, parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { isTbdMarker } from '../utils/tbd.js';
 import type {
@@ -26,9 +27,6 @@ import type {
 } from '../types/component-registry.js';
 import {
   COMPONENT_REGISTRY_SCHEMA_VERSION,
-  DEFAULT_COMPONENT_DOCS_DIR,
-  DEFAULT_COMPONENT_SPECS_DIR,
-  DEFAULT_VISUAL_PROOFS_DIR,
   PIPELINE_STAGE_ORDER,
 } from './component-registry-constants.js';
 import {
@@ -535,16 +533,21 @@ export function buildComponentRegistry(
   options: BuildRegistryOptions = {},
 ): ComponentRegistry {
   const {
-    specsDir = DEFAULT_COMPONENT_SPECS_DIR,
-    docsDir = DEFAULT_COMPONENT_DOCS_DIR,
-    proofsDir = DEFAULT_VISUAL_PROOFS_DIR,
+    specsDir,
+    docsDir,
+    proofsDir,
     includeVisualProofFiles = false,
   } = options;
+  const resolvedSpecsDir = path.resolve(requireNonEmptyPathOption(specsDir, 'specsDir'));
+  const resolvedDocsDir = path.resolve(requireNonEmptyPathOption(docsDir, 'docsDir'));
+  const resolvedProofsDir = path.resolve(
+    String(proofsDir || path.join(path.dirname(resolvedDocsDir), '_generated', 'visual-proofs')),
+  );
 
   const slugs = collectSlugs({
-    specsDir: path.resolve(specsDir),
-    docsDir: path.resolve(docsDir),
-    proofsDir: path.resolve(proofsDir),
+    specsDir: resolvedSpecsDir,
+    docsDir: resolvedDocsDir,
+    proofsDir: resolvedProofsDir,
     includeVisualProofFiles,
   });
 
@@ -552,9 +555,9 @@ export function buildComponentRegistry(
     .map((slug) =>
       buildComponentEntry({
         slug,
-        specsDir: path.resolve(specsDir),
-        docsDir: path.resolve(docsDir),
-        proofsDir: path.resolve(proofsDir),
+        specsDir: resolvedSpecsDir,
+        docsDir: resolvedDocsDir,
+        proofsDir: resolvedProofsDir,
         includeVisualProofFiles,
       }),
     )
@@ -569,7 +572,7 @@ export function buildComponentRegistry(
     });
 
   const variantComponentNodeIds = collectVariantComponentNodeIds(
-    path.resolve(specsDir),
+    resolvedSpecsDir,
   );
   const canonicalComponents = components.filter((component) => {
     const nodeId = normalizeNodeId(

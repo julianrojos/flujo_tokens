@@ -8,6 +8,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { logger } from '../utils/logger.js';
+import { requireNonEmptyPathOption } from '../utils/path-guards.js';
 import { parseMarkdownFrontmatter, parseYamlDocument } from '../utils/parse-frontmatter.js';
 import { isPlainObject } from '../utils/is-plain-object.js';
 import { buildFindings } from './qa-audit-findings.js';
@@ -414,24 +415,37 @@ function auditIntegrity(
  */
 export function runQaAudit(options: QaAuditOptions = {}): QaAuditResult {
   const {
-    projectRoot = process.cwd(),
-    specsDir = path.join(projectRoot, 'docs/_spec/components'),
-    componentsDir = path.join(projectRoot, 'docs/components'),
-    generatedDir = path.join(projectRoot, 'docs/_generated'),
-    tokenRegistryPath = path.join(generatedDir, 'token-registry.json'),
+    specsDir,
+    componentsDir,
+    generatedDir,
+    tokenRegistryPath,
     staleThresholdDays = 30,
     outputReport = false,
   } = options;
+  const resolvedSpecsDir = path.resolve(requireNonEmptyPathOption(specsDir, 'specsDir'));
+  const resolvedComponentsDir = path.resolve(requireNonEmptyPathOption(componentsDir, 'componentsDir'));
+  const resolvedGeneratedDir = path.resolve(requireNonEmptyPathOption(generatedDir, 'generatedDir'));
+  const resolvedTokenRegistryPath = path.resolve(
+    String(tokenRegistryPath || path.join(resolvedGeneratedDir, 'token-registry.json')),
+  );
 
   logger.info('Running QA audit...');
 
   // Run audits
-  const specVsMarkdown = auditSpecVsMarkdown(specsDir, componentsDir);
-  const markdownVsOverview = auditMarkdownVsOverview(componentsDir);
-  const tokenPaths = auditTokenPaths(specsDir, componentsDir, tokenRegistryPath);
-  const freshness = auditFreshness(specsDir, componentsDir, staleThresholdDays);
-  const completeness = auditCompleteness(specsDir, componentsDir);
-  const integrity = auditIntegrity(specsDir, componentsDir, tokenRegistryPath);
+  const specVsMarkdown = auditSpecVsMarkdown(resolvedSpecsDir, resolvedComponentsDir);
+  const markdownVsOverview = auditMarkdownVsOverview(resolvedComponentsDir);
+  const tokenPaths = auditTokenPaths(
+    resolvedSpecsDir,
+    resolvedComponentsDir,
+    resolvedTokenRegistryPath,
+  );
+  const freshness = auditFreshness(resolvedSpecsDir, resolvedComponentsDir, staleThresholdDays);
+  const completeness = auditCompleteness(resolvedSpecsDir, resolvedComponentsDir);
+  const integrity = auditIntegrity(
+    resolvedSpecsDir,
+    resolvedComponentsDir,
+    resolvedTokenRegistryPath,
+  );
 
   const coverage = {
     specVsMarkdown,
@@ -464,8 +478,8 @@ export function runQaAudit(options: QaAuditOptions = {}): QaAuditResult {
 
   // Output JSON report if requested
   if (outputReport) {
-    const reportPath = path.join(generatedDir, 'qa-report.json');
-    fs.mkdirSync(generatedDir, { recursive: true });
+    const reportPath = path.join(resolvedGeneratedDir, 'qa-report.json');
+    fs.mkdirSync(resolvedGeneratedDir, { recursive: true });
     fs.writeFileSync(reportPath, JSON.stringify(result, null, 2) + '\n', 'utf8');
     logger.info(`QA report written to ${reportPath}`);
   }

@@ -30,13 +30,11 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--registry',
-      description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      description: 'Token registry JSON path (resolves from system context if not provided).',
     },
     {
       name: '--spec-root',
-      description: 'Directory containing component spec YAML files.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Directory containing component spec YAML files (resolves from system context if not provided).',
     },
     {
       name: '--css-files',
@@ -50,7 +48,7 @@ const CLI_CONFIG = {
     {
       name: '--out',
       description: 'Output JSON file path.',
-      defaultValue: 'docs/_generated/token-usage-index.json',
+      defaultValue: '<active-system-docs>/_generated/token-usage-index.json',
     },
     {
       name: '--format',

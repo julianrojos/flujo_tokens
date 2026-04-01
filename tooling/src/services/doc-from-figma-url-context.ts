@@ -208,7 +208,7 @@ export async function resolveDocContext(
   if (!outputPath) {
     throw new Error(
       'Missing deterministic output path.\n' +
-      'Provide --output <path>, or pass --component-name so the script can derive docs/components/<snake_case>.md.',
+      'Provide --output <path>, or pass --component-name so the script can derive design-systems/<id>/docs/components/<snake_case>.md.',
     );
   }
 

@@ -22,18 +22,15 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--overview',
-      description: 'Component overview markdown path.',
-      defaultValue: 'docs/components/overview.md',
+      description: 'Component overview markdown path (resolves from system context if not provided).',
     },
     {
       name: '--spec-root',
-      description: 'Component spec directory.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Component spec directory (resolves from system context if not provided).',
     },
     {
       name: '--docs-root',
-      description: 'Component docs directory.',
-      defaultValue: 'docs/components',
+      description: 'Component docs directory (resolves from system context if not provided).',
     },
     {
       name: '--dry-run',

@@ -40,7 +40,7 @@ import { syncDocumentationState } from '../services/component-registry-index.js'
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 
 const USAGE = {
-  command: 'npm run ds:component-doc -- --component-name Alert [--agent codex] [--output docs/components/alert.md]',
+  command: 'npm run ds:component-doc -- --component-name Alert [--agent codex] [--output design-systems/<id>/docs/components/alert.md]',
   description: 'Generate or update one component markdown from a component spec YAML.',
   options: [
     {
@@ -58,7 +58,7 @@ const USAGE = {
     {
       name: '--registry',
       description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--agent',

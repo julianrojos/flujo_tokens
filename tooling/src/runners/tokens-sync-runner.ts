@@ -55,7 +55,7 @@ const CLI_CONFIG = {
     {
       name: '--registry-output',
       description: 'Output path for token registry JSON.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--mode',

@@ -24,17 +24,17 @@ const CLI_CONFIG = {
     {
       name: '--registry',
       description: 'Token registry input path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      defaultValue: '<active-system-docs>/_generated/token-registry.json',
     },
     {
       name: '--usage-index',
       description: 'Token usage index input path.',
-      defaultValue: 'docs/_generated/token-usage-index.json',
+      defaultValue: '<active-system-docs>/_generated/token-usage-index.json',
     },
     {
       name: '--graph-viz',
       description: 'Token graph viz input path.',
-      defaultValue: 'docs/_generated/token-graph.viz.json',
+      defaultValue: '<active-system-docs>/_generated/token-graph.viz.json',
     },
     {
       name: '--wcag-pairs',
@@ -44,7 +44,7 @@ const CLI_CONFIG = {
     {
       name: '--out-json',
       description: 'Output JSON path.',
-      defaultValue: 'docs/_generated/token-health.json',
+      defaultValue: '<active-system-docs>/_generated/token-health.json',
     },
     {
       name: '--format',

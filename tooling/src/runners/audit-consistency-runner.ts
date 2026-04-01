@@ -67,18 +67,15 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--docs-root',
-      description: 'Component docs root directory.',
-      defaultValue: 'docs/components',
+      description: 'Component docs root directory (resolves from system context if not provided).',
     },
     {
       name: '--spec-root',
-      description: 'Component spec directory.',
-      defaultValue: 'docs/_spec/components',
+      description: 'Component spec directory (resolves from system context if not provided).',
     },
     {
       name: '--registry',
-      description: 'Token registry JSON path.',
-      defaultValue: 'docs/_generated/token-registry.json',
+      description: 'Token registry JSON path (resolves from system context if not provided).',
     },
     {
       name: '--component-name',
@@ -259,12 +256,12 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
     const problems: unknown[] = [];
     if (!pair.markdownPath || !fs.existsSync(pair.markdownPath)) {
       problems.push(
-        `Missing markdown file: ${pair.markdownPath || `<docs/components/${pair.slug}.md>`}`,
+        `Missing markdown file: ${pair.markdownPath || `<design-systems/<id>/docs/components/${pair.slug}.md>`}`,
       );
     }
     if (!pair.specPath || !fs.existsSync(pair.specPath)) {
       problems.push(
-        `Missing spec file: ${pair.specPath || `<docs/_spec/components/${pair.slug}.yml>`}`,
+        `Missing spec file: ${pair.specPath || `<design-systems/<id>/docs/_spec/components/${pair.slug}.yml>`}`,
       );
     }
 

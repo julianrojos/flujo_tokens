@@ -11,8 +11,8 @@ describe('spec-paths', () => {
   describe('buildSpecOutputPath()', () => {
     it('explicit output wins over inferred output', () => {
       const output = buildSpecOutputPath(
-        { output: 'docs/_spec/components/custom.yml' },
-        'docs/_spec/components',
+        { output: 'design-systems/sys-01/docs/_spec/components/custom.yml' },
+        'design-systems/sys-01/docs/_spec/components',
         'alert',
         '1:2'
       );
@@ -22,7 +22,7 @@ describe('spec-paths', () => {
     it('component slug creates deterministic yml path', () => {
       const output = buildSpecOutputPath(
         {},
-        'docs/_spec/components',
+        'design-systems/sys-01/docs/_spec/components',
         'alert_banner',
         ''
       );
@@ -30,7 +30,7 @@ describe('spec-paths', () => {
     });
 
     it('fallback uses node id when slug is not available', () => {
-      const output = buildSpecOutputPath({}, 'docs/_spec/components', '', '12:34');
+      const output = buildSpecOutputPath({}, 'design-systems/sys-01/docs/_spec/components', '', '12:34');
       assert.match(output, /component_12_34\.yml$/);
     });
   });
