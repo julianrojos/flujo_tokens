@@ -469,6 +469,8 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
         figmaFileId,
         dryRun,
         includeComponents,
+        captureComponentProofs: includeComponents && !dryRun,
+        captureComponentProofVariants: includeComponents && !dryRun,
         repoRoot: sysCtx.repoRoot,
         reindexUsageFromFilesystem: !dryRun,
         usageReindexStrict: true,

@@ -8,6 +8,7 @@ import path from 'node:path';
 import type { ComponentRepository } from '../db/component-repository.js';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
 import type { FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
+import { parseMarkdownFrontmatter } from '../../../../tooling/src/utils/parse-frontmatter.js';
 import { syncDesignSystemFromPlugin } from './figma-db-sync-service.ts';
 
 function createTestDb(): Database.Database {
@@ -583,6 +584,404 @@ describe('figma-db-sync-service', () => {
       assert.equal(upsertCalls, 1);
       assert.equal(markMissingCalls, 1);
     } finally {
+      db.close();
+    }
+  });
+
+  it('enriches with empty result when docs dirs do not exist', async () => {
+    const db = createTestDb();
+    let receivedEntries: Array<Record<string, unknown>> = [];
+    let result: Awaited<ReturnType<typeof syncDesignSystemFromPlugin>> | undefined;
+    try {
+      const componentRepo = {
+        deleteAll: () => 0,
+        upsertFromRegistry: (_systemId: string, entries: Array<Record<string, unknown>>) => {
+          receivedEntries = entries;
+          return entries.length;
+        },
+        markMissingComponents: () => 0,
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button' }],
+        truncated: false,
+      });
+
+      result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-empty-fs',
+        fetchVariables,
+        searchComponents,
+      });
+
+      assert.equal(receivedEntries.length, 1);
+      const button = receivedEntries[0] as Record<string, unknown>;
+      const specs = button.specs;
+      const visualProofs = button.visualProofs;
+      assert.ok(specs === undefined || (Array.isArray(specs) && specs.length === 0));
+      assert.ok(visualProofs === undefined || (Array.isArray(visualProofs) && visualProofs.length === 0));
+      assert.equal(result?.specsEnriched, 0);
+      assert.equal(result?.proofsEnriched, 0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('enriches component entries with markdown specs and visual proofs discovered on disk', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-enrich-'));
+    let receivedEntries: Array<Record<string, unknown>> = [];
+    let result: Awaited<ReturnType<typeof syncDesignSystemFromPlugin>> | undefined;
+    try {
+      const paths = resolveSystemPaths('sys-01', repoRoot);
+      fs.mkdirSync(paths.componentsDir, { recursive: true });
+      fs.mkdirSync(path.join(paths.generatedDir, 'visual-proofs', 'images', 'variants'), { recursive: true });
+      fs.writeFileSync(path.join(paths.componentsDir, 'button.md'), '# Button\n', 'utf8');
+      fs.writeFileSync(path.join(paths.generatedDir, 'visual-proofs', 'images', 'button.png'), 'png', 'utf8');
+      fs.writeFileSync(
+        path.join(paths.generatedDir, 'visual-proofs', 'images', 'variants', 'button__01__primary.png'),
+        'png-variant',
+        'utf8',
+      );
+
+      const componentRepo = {
+        deleteAll: () => 0,
+        upsertFromRegistry: (_systemId: string, entries: Array<Record<string, unknown>>) => {
+          receivedEntries = entries;
+          return entries.length;
+        },
+        markMissingComponents: () => 0,
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button' }],
+        truncated: false,
+      });
+
+      result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-components-enriched',
+        fetchVariables,
+        searchComponents,
+        repoRoot,
+      });
+
+      assert.ok(result != null);
+      assert.equal(receivedEntries.length, 1);
+      const button = receivedEntries[0] as Record<string, unknown>;
+      const specs = button.specs as Array<{ markdownPath: string; docStatus?: string; coverage?: number }>;
+      const visualProofs = button.visualProofs as Array<{
+        imagePath: string;
+        variantsCount?: number;
+        variants?: Array<{ name: string; image_path?: string | null }>;
+      }>;
+      assert.ok(Array.isArray(specs));
+      assert.equal(specs.length, 1);
+      assert.equal(specs[0].markdownPath, 'design-systems/sys-01/docs/components/button.md');
+      assert.equal(specs[0].docStatus, 'draft');
+      assert.equal(specs[0].coverage, 0);
+      assert.ok(Array.isArray(visualProofs));
+      assert.equal(visualProofs.length, 1);
+      assert.equal(visualProofs[0].imagePath, 'design-systems/sys-01/docs/_generated/visual-proofs/images/button.png');
+      assert.equal(visualProofs[0].variantsCount, 1);
+      assert.ok(Array.isArray(visualProofs[0].variants));
+      assert.equal(visualProofs[0].variants?.[0].name, '01 primary');
+      assert.equal(
+        visualProofs[0].variants?.[0].image_path,
+        'design-systems/sys-01/docs/_generated/visual-proofs/images/variants/button__01__primary.png',
+      );
+      assert.equal(result?.specsEnriched, 1);
+      assert.equal(result?.proofsEnriched, 1);
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('creates component doc templates and captures main proof images during component import', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-complete-'));
+    let receivedEntries: Array<Record<string, unknown>> = [];
+    try {
+      const componentRepo = {
+        deleteAll: () => 0,
+        upsertFromRegistry: (_systemId: string, entries: Array<Record<string, unknown>>) => {
+          receivedEntries = entries;
+          return entries.length;
+        },
+        markMissingComponents: () => 0,
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button Primary' }],
+        truncated: false,
+      });
+
+      const fetchComponentImages = async () => ({
+        success: true,
+        images: [
+          {
+            nodeId: '10:1',
+            base64: Buffer.from('fake-png-bytes').toString('base64'),
+            format: 'PNG',
+          },
+        ],
+        count: 1,
+        errors: 0,
+      });
+
+      await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        captureComponentProofs: true,
+        dryRun: false,
+        createRunId: () => 'run-components-complete',
+        fetchVariables,
+        searchComponents,
+        fetchComponentImages,
+        repoRoot,
+      });
+
+      const paths = resolveSystemPaths('sys-01', repoRoot);
+      const markdownPath = path.join(paths.componentsDir, 'button-primary.md');
+      const proofPath = path.join(paths.generatedDir, 'visual-proofs', 'images', 'button-primary.png');
+      assert.equal(fs.existsSync(markdownPath), true);
+      assert.equal(fs.existsSync(proofPath), true);
+
+      assert.equal(receivedEntries.length, 1);
+      const button = receivedEntries[0] as Record<string, unknown>;
+      const specs = button.specs as Array<{ markdownPath: string }>;
+      const visualProofs = button.visualProofs as Array<{ imagePath: string }>;
+      assert.ok(Array.isArray(specs));
+      assert.equal(specs[0].markdownPath, 'design-systems/sys-01/docs/components/button-primary.md');
+      assert.ok(Array.isArray(visualProofs));
+      assert.equal(
+        visualProofs[0].imagePath,
+        'design-systems/sys-01/docs/_generated/visual-proofs/images/button-primary.png',
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('writes YAML-safe component names in generated doc frontmatter', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-safe-frontmatter-'));
+    try {
+      const componentRepo = {
+        deleteAll: () => 0,
+        upsertFromRegistry: () => 0,
+        markMissingComponents: () => 0,
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button: Primary [v2]' }],
+        truncated: false,
+      });
+
+      await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        createRunId: () => 'run-yaml-safe-frontmatter',
+        fetchVariables,
+        searchComponents,
+        repoRoot,
+      });
+
+      const paths = resolveSystemPaths('sys-01', repoRoot);
+      const markdownPath = path.join(paths.componentsDir, 'button-primary-v2.md');
+      const markdown = fs.readFileSync(markdownPath, 'utf8');
+      const parsed = parseMarkdownFrontmatter<Record<string, unknown>>(markdown);
+      const figma = parsed.frontmatter.figma as Record<string, unknown>;
+      assert.equal(typeof figma.component, 'string');
+      assert.equal(String(figma.component), 'Button: Primary [v2]');
+      assert.equal(String(figma.node_id), '10:1');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('captures component variant proof images during component import when enabled', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-complete-variants-'));
+    let receivedEntries: Array<Record<string, unknown>> = [];
+    try {
+      const componentRepo = {
+        deleteAll: () => 0,
+        upsertFromRegistry: (_systemId: string, entries: Array<Record<string, unknown>>) => {
+          receivedEntries = entries;
+          return entries.length;
+        },
+        markMissingComponents: () => 0,
+      } as unknown as ComponentRepository;
+
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button Primary' }],
+        truncated: false,
+      });
+
+      const fetchComponentSpec = async () => ({
+        success: true as const,
+        variants: [
+          { nodeId: '10:2', name: 'Size=Sm, State=Default' },
+          { nodeId: '10:3', name: 'Size=Lg, State=Hover' },
+        ],
+      });
+
+      const fetchComponentImages = async (
+        _fileKey: string | null,
+        params: { nodeIds: string[]; format?: 'PNG' | 'JPG' | 'SVG'; scale?: number },
+      ) => {
+        const images = params.nodeIds.map((nodeId) => ({
+          nodeId,
+          base64: Buffer.from(`png-${nodeId}`).toString('base64'),
+          format: 'PNG',
+        }));
+        return {
+          success: true,
+          images,
+          count: images.length,
+          errors: 0,
+        };
+      };
+
+      await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        captureComponentProofs: true,
+        captureComponentProofVariants: true,
+        dryRun: false,
+        createRunId: () => 'run-components-complete-variants',
+        fetchVariables,
+        searchComponents,
+        fetchComponentSpec,
+        fetchComponentImages,
+        repoRoot,
+      });
+
+      const paths = resolveSystemPaths('sys-01', repoRoot);
+      const variantDir = path.join(paths.generatedDir, 'visual-proofs', 'images', 'variants');
+      const variantFiles = fs.readdirSync(variantDir).filter((name) => name.startsWith('button-primary__'));
+      assert.equal(variantFiles.length, 2);
+
+      const button = receivedEntries[0] as Record<string, unknown>;
+      const visualProofs = button.visualProofs as Array<{
+        variantsCount?: number;
+        variants?: Array<{ name?: string; image_path?: string | null }>;
+      }>;
+      assert.ok(Array.isArray(visualProofs));
+      assert.equal(visualProofs[0].variantsCount, 2);
+      assert.ok(Array.isArray(visualProofs[0].variants));
+      assert.equal(visualProofs[0].variants?.length, 2);
+      assert.ok(
+        String(visualProofs[0].variants?.[0].image_path || '').includes(
+          'design-systems/sys-01/docs/_generated/visual-proofs/images/variants/button-primary__',
+        ),
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
       db.close();
     }
   });

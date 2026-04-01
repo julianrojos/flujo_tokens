@@ -5,7 +5,7 @@ import type Database from 'better-sqlite3';
 import { stripDiacritics } from '../../../../tooling/src/utils/strip-diacritics.js';
 import type { FigmaVariable, FigmaVariableCollection, FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
 import { buildAliasChains, extractCssReferences, extractSpecReferences, generateUsageIndex } from '../../../../tooling/src/services/token-usage-index.js';
-import { fetchVariablesDirect, searchComponentsDirect } from './figma-direct-bridge-service.ts';
+import { fetchVariablesDirect, getComponentImageDirect, getComponentSpecDirect, searchComponentsDirect } from './figma-direct-bridge-service.ts';
 import type { ComponentRepository } from '../db/component-repository.js';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
 
@@ -246,6 +246,603 @@ function uniqueSlug(baseSlug: string, used: Set<string>): string {
   return next;
 }
 
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toYamlScalar(value: string): string {
+  return JSON.stringify(String(value || ''));
+}
+
+function buildComponentDocTemplate(args: {
+  componentName: string;
+  figmaFileUrl: string;
+  componentNodeId: string;
+}): string {
+  const { componentName, figmaFileUrl, componentNodeId } = args;
+  const safeName = String(componentName || 'Component').trim() || 'Component';
+  return [
+    '---',
+    'doc_type: component',
+    'doc_status: draft',
+    'figma:',
+    `  file_url: ${toYamlScalar(figmaFileUrl || 'https://www.figma.com/design/')}`,
+    '  page: TBD',
+    `  component: ${toYamlScalar(safeName)}`,
+    `  node_id: ${toYamlScalar(componentNodeId || 'TBD')}`,
+    `  last_verified: ${todayIsoDate()}`,
+    '---',
+    '',
+    `# ${safeName}`,
+    '',
+    '## Overview',
+    '',
+    '_TBD_',
+    '',
+    '### Visual Proof',
+    '',
+    '- Screenshot: _TBD_',
+    `- Source node: \`${componentNodeId || 'TBD'}\``,
+    '- Metadata source: component registry (database-backed)',
+    '',
+    '## Anatomy',
+    '',
+    '_TBD_',
+    '',
+    '## Component API',
+    '',
+    '### Properties',
+    '',
+    '_TBD_',
+    '',
+    '## Usage Guidelines',
+    '',
+    '_TBD_',
+    '',
+    '## Accessibility',
+    '',
+    '_TBD_',
+    '',
+  ].join('\n');
+}
+
+function ensureComponentDocTemplates(options: {
+  entries: SyncComponentEntry[];
+  repoRoot: string;
+  dsId: string;
+}): void {
+  const { entries, repoRoot, dsId } = options;
+  const paths = resolveSystemPaths(dsId, repoRoot);
+  fs.mkdirSync(paths.componentsDir, { recursive: true });
+  for (const entry of entries) {
+    const targetPath = path.join(paths.componentsDir, `${entry.slug}.md`);
+    if (fs.existsSync(targetPath)) continue;
+    const markdown = buildComponentDocTemplate({
+      componentName: entry.name,
+      figmaFileUrl: entry.figma.fileUrl,
+      componentNodeId: entry.figma.componentSetNodeId,
+    });
+    try {
+      fs.writeFileSync(targetPath, markdown, 'utf8');
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[ensureComponentDocTemplates] Failed writing template for slug=${entry.slug} path=${targetPath}: ${reason}`,
+      );
+    }
+  }
+}
+
+function extensionFromFormat(format: string): string {
+  const normalized = String(format || '').trim().toUpperCase();
+  if (normalized === 'JPG' || normalized === 'JPEG') return 'jpg';
+  if (normalized === 'SVG') return 'svg';
+  return 'png';
+}
+
+type FetchComponentImagesFn = (
+  fileKey: string | null,
+  params: {
+    nodeIds: string[];
+    format?: 'PNG' | 'JPG' | 'SVG';
+    scale?: number;
+  },
+) => Promise<{
+  success: boolean;
+  images: Array<{
+    nodeId: string;
+    base64?: string;
+    format: string;
+    byteLength?: number;
+    error?: string;
+  }>;
+  count: number;
+  errors: number;
+}>;
+
+type FetchComponentSpecFn = (
+  fileKey: string | null,
+  params: {
+    nodeId: string;
+    depth?: number;
+    compact?: boolean;
+  },
+) => Promise<{
+  success: true;
+  variants?: Array<{
+    nodeId: string;
+    name: string;
+  }>;
+}>;
+
+const DEFAULT_IMAGE_BATCH_SIZE = 20;
+const DEFAULT_IMAGE_FETCH_CONCURRENCY = 4;
+const DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
+const MAX_IMAGE_BATCH_SIZE = 100;
+const MAX_IMAGE_FETCH_CONCURRENCY = 16;
+const MAX_CAPTURED_IMAGE_BYTES = 50 * 1024 * 1024; // 50MB
+const MAX_VARIANT_LIMIT_PER_COMPONENT = 50;
+
+function normalizeBoundedInt(value: number, fallback: number, min: number, max: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  const rounded = Math.floor(numeric);
+  return Math.min(max, Math.max(min, rounded));
+}
+
+function sanitizeFileSegment(value: string): string {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+async function mapWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  const queue = [...items];
+  const safeConcurrency = Math.max(1, Math.floor(concurrency));
+  const workers = Array.from(
+    { length: Math.min(safeConcurrency, queue.length) },
+    async () => {
+      while (queue.length > 0) {
+        const next = queue.shift();
+        if (next === undefined) return;
+        await worker(next);
+      }
+    },
+  );
+  await Promise.all(workers);
+}
+
+async function captureComponentMainProofImages(options: {
+  entries: SyncComponentEntry[];
+  repoRoot: string;
+  dsId: string;
+  figmaFileId: string | null;
+  fetchComponentImages: FetchComponentImagesFn;
+  imageBatchSize: number;
+  imageFetchConcurrency: number;
+  maxImageBytes: number;
+}): Promise<void> {
+  const {
+    entries,
+    repoRoot,
+    dsId,
+    figmaFileId,
+    fetchComponentImages,
+    imageBatchSize,
+    imageFetchConcurrency,
+    maxImageBytes,
+  } = options;
+  const paths = resolveSystemPaths(dsId, repoRoot);
+  const proofImageDir = path.join(paths.generatedDir, 'visual-proofs', 'images');
+  fs.mkdirSync(proofImageDir, { recursive: true });
+
+  const nodeIdToEntry = new Map<string, SyncComponentEntry>();
+  for (const entry of entries) {
+    const nodeId = String(entry.figma.componentSetNodeId || '').trim();
+    if (!nodeId) continue;
+    nodeIdToEntry.set(nodeId, entry);
+  }
+  const nodeIds = Array.from(nodeIdToEntry.keys());
+  if (nodeIds.length === 0) return;
+
+  const batchSize = Math.max(1, Math.floor(imageBatchSize));
+  const batches: string[][] = [];
+  for (let i = 0; i < nodeIds.length; i += batchSize) {
+    batches.push(nodeIds.slice(i, i + batchSize));
+  }
+
+  await mapWithConcurrency(batches, imageFetchConcurrency, async (batch) => {
+    const result = await fetchComponentImages(figmaFileId, {
+      nodeIds: batch,
+      format: 'PNG',
+      scale: 2,
+    });
+    for (const image of result.images || []) {
+      const nodeId = String(image.nodeId || '').trim();
+      const entry = nodeIdToEntry.get(nodeId);
+      if (!entry) continue;
+      const encoded = String(image.base64 || '').trim();
+      if (!encoded) continue;
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(encoded, 'base64');
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[captureComponentMainProofImages] Invalid base64 for slug=${entry.slug} nodeId=${nodeId}: ${reason}`,
+        );
+        continue;
+      }
+      if (!buffer.length) continue;
+      if (buffer.length > maxImageBytes) {
+        console.warn(
+          `[captureComponentMainProofImages] Skipping oversized image for slug=${entry.slug} nodeId=${nodeId}: ${buffer.length} bytes (limit=${maxImageBytes}).`,
+        );
+        continue;
+      }
+      const ext = extensionFromFormat(image.format);
+      const outPath = path.join(proofImageDir, `${entry.slug}.${ext}`);
+      try {
+        await fs.promises.writeFile(outPath, buffer);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[captureComponentMainProofImages] Failed writing image for slug=${entry.slug} nodeId=${nodeId} path=${outPath}: ${reason}`,
+        );
+        continue;
+      }
+    }
+  });
+}
+
+async function captureComponentVariantProofImages(options: {
+  entries: SyncComponentEntry[];
+  repoRoot: string;
+  dsId: string;
+  figmaFileId: string | null;
+  fetchComponentSpec: FetchComponentSpecFn;
+  fetchComponentImages: FetchComponentImagesFn;
+  variantLimitPerComponent: number;
+  imageBatchSize: number;
+  imageFetchConcurrency: number;
+  maxImageBytes: number;
+}): Promise<void> {
+  const {
+    entries,
+    repoRoot,
+    dsId,
+    figmaFileId,
+    fetchComponentSpec,
+    fetchComponentImages,
+    variantLimitPerComponent,
+    imageBatchSize,
+    imageFetchConcurrency,
+    maxImageBytes,
+  } = options;
+  const paths = resolveSystemPaths(dsId, repoRoot);
+  const variantsDir = path.join(paths.generatedDir, 'visual-proofs', 'images', 'variants');
+  fs.mkdirSync(variantsDir, { recursive: true });
+
+  const processEntry = async (entry: SyncComponentEntry): Promise<void> => {
+    const componentNodeId = String(entry.figma.componentSetNodeId || '').trim();
+    if (!componentNodeId) return;
+    let spec;
+    try {
+      spec = await fetchComponentSpec(figmaFileId, {
+        nodeId: componentNodeId,
+        depth: 2,
+        compact: true,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[captureComponentVariantProofImages] Failed to fetch spec for slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`,
+      );
+      return;
+    }
+    const variants = Array.isArray(spec?.variants) ? spec.variants.slice(0, variantLimitPerComponent) : [];
+    if (variants.length === 0) return;
+    const nodeIds = [
+      ...new Set(
+        variants
+          .map((variant) => String(variant.nodeId || '').trim())
+          .filter(Boolean),
+      ),
+    ];
+    if (nodeIds.length === 0) return;
+    const byNode = new Map<string, { nodeId: string; base64?: string; format: string; byteLength?: number; error?: string }>();
+    const batchSize = Math.max(1, Math.floor(imageBatchSize));
+    for (let i = 0; i < nodeIds.length; i += batchSize) {
+      const batch = nodeIds.slice(i, i + batchSize);
+      let imageResult;
+      try {
+        imageResult = await fetchComponentImages(figmaFileId, {
+          nodeIds: batch,
+          format: 'PNG',
+          scale: 2,
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[captureComponentVariantProofImages] Failed to fetch images for slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`,
+        );
+        continue;
+      }
+      for (const item of imageResult.images || []) {
+        const itemNodeId = String(item.nodeId || '').trim();
+        if (!itemNodeId) continue;
+        byNode.set(itemNodeId, item);
+      }
+    }
+    for (let i = 0; i < variants.length; i += 1) {
+      const variant = variants[i];
+      const nodeId = String(variant.nodeId || '').trim();
+      const image = byNode.get(nodeId);
+      const encoded = String(image?.base64 || '').trim();
+      if (!encoded) continue;
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(encoded, 'base64');
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[captureComponentVariantProofImages] Invalid base64 for slug=${entry.slug} variantNodeId=${nodeId}: ${reason}`,
+        );
+        continue;
+      }
+      if (!buffer.length) continue;
+      if (buffer.length > maxImageBytes) {
+        console.warn(
+          `[captureComponentVariantProofImages] Skipping oversized variant image for slug=${entry.slug} variantNodeId=${nodeId}: ${buffer.length} bytes (limit=${maxImageBytes}).`,
+        );
+        continue;
+      }
+      const ext = extensionFromFormat(image?.format || 'PNG');
+      const variantName = sanitizeFileSegment(String(variant.name || 'variant')) || 'variant';
+      const outName = `${entry.slug}__${String(i + 1).padStart(2, '0')}__${variantName}.${ext}`;
+      const outPath = path.join(variantsDir, outName);
+      try {
+        await fs.promises.writeFile(outPath, buffer);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[captureComponentVariantProofImages] Failed writing variant image for slug=${entry.slug} variantNodeId=${nodeId} path=${outPath}: ${reason}`,
+        );
+        continue;
+      }
+    }
+  };
+
+  await mapWithConcurrency(entries, imageFetchConcurrency, processEntry);
+}
+
+const IMAGE_EXTENSION_TO_CONTENT_TYPE: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+};
+
+function isImageFile(fileName: string): boolean {
+  const ext = path.extname(String(fileName || '').toLowerCase());
+  return Object.prototype.hasOwnProperty.call(IMAGE_EXTENSION_TO_CONTENT_TYPE, ext);
+}
+
+function toRepoRelativePath(repoRoot: string, absolutePath: string): string | null {
+  const relative = path.relative(path.resolve(repoRoot), path.resolve(absolutePath));
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) return null;
+  return relative.split(path.sep).join('/');
+}
+
+function walkFiles(dirPath: string, options: {
+  maxDepth?: number;
+  maxFiles?: number;
+} = {}): { files: string[]; truncated: boolean } {
+  const { maxDepth = 6, maxFiles = 10_000 } = options;
+  if (!fs.existsSync(dirPath)) return { files: [], truncated: false };
+  const out: string[] = [];
+  let truncated = false;
+  const stack: Array<{ path: string; depth: number }> = [{ path: dirPath, depth: 0 }];
+  while (stack.length > 0) {
+    if (out.length >= maxFiles) {
+      truncated = true;
+      break;
+    }
+    const current = stack.pop() as { path: string; depth: number };
+    if (current.depth > maxDepth) continue;
+    let entries: fs.Dirent[] = [];
+    try {
+      entries = fs.readdirSync(current.path, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      const absolute = path.join(current.path, entry.name);
+      if (entry.isDirectory()) {
+        stack.push({ path: absolute, depth: current.depth + 1 });
+        continue;
+      }
+      if (entry.isFile()) out.push(absolute);
+    }
+  }
+  return { files: out, truncated };
+}
+
+function deriveVariantName(fileStem: string, slug: string): string {
+  const normalizedSlug = String(slug || '').trim().toLowerCase();
+  const normalizedStem = String(fileStem || '').trim();
+  if (!normalizedStem) return 'Variant';
+  if (normalizedStem.includes('__')) {
+    const [, ...rest] = normalizedStem.split('__');
+    const candidate = rest.join(' ').replace(/[_-]+/g, ' ').trim();
+    return candidate || 'Variant';
+  }
+  if (normalizedSlug && normalizedStem.toLowerCase().startsWith(`${normalizedSlug}-`)) {
+    const candidate = normalizedStem.slice(normalizedSlug.length + 1).replace(/[_-]+/g, ' ').trim();
+    return candidate || 'Variant';
+  }
+  return normalizedStem.replace(/[_-]+/g, ' ').trim() || 'Variant';
+}
+
+function discoverComponentSpecsFromFilesystem(options: {
+  entries: SyncComponentEntry[];
+  repoRoot: string;
+  componentsDir: string;
+}): Map<string, SyncComponentEntry['specs']> {
+  const { entries, repoRoot, componentsDir } = options;
+  const bySlug = new Map<string, SyncComponentEntry['specs']>();
+  if (!fs.existsSync(componentsDir)) return bySlug;
+  const knownSlugs = new Set(entries.map((entry) => entry.slug));
+  let files: fs.Dirent[] = [];
+  try {
+    files = fs.readdirSync(componentsDir, { withFileTypes: true });
+  } catch {
+    return bySlug;
+  }
+  for (const file of files) {
+    if (!file.isFile() || !file.name.toLowerCase().endsWith('.md')) continue;
+    const fileStem = file.name.slice(0, -3);
+    const slug = slugifyComponentName(fileStem);
+    if (!knownSlugs.has(slug)) continue;
+    const absolutePath = path.join(componentsDir, file.name);
+    const markdownPath = toRepoRelativePath(repoRoot, absolutePath);
+    if (!markdownPath) continue;
+    bySlug.set(slug, [{
+      markdownPath,
+      docStatus: 'draft',
+      coverage: 0,
+    }]);
+  }
+  return bySlug;
+}
+
+function discoverComponentVisualProofsFromFilesystem(options: {
+  entries: SyncComponentEntry[];
+  repoRoot: string;
+  generatedDir: string;
+}): Map<string, SyncComponentEntry['visualProofs']> {
+  const { entries, repoRoot, generatedDir } = options;
+  const bySlug = new Map<string, SyncComponentEntry['visualProofs']>();
+  const knownSlugs = new Set(entries.map((entry) => entry.slug));
+  const mainImageDir = path.join(generatedDir, 'visual-proofs', 'images');
+  const variantsDir = path.join(mainImageDir, 'variants');
+  if (!fs.existsSync(mainImageDir)) return bySlug;
+
+  const variantRowsBySlug = new Map<string, Array<{
+    name: string;
+    image_path?: string | null;
+    captured_at?: string | null;
+    image_bytes?: number | null;
+    image_content_type?: string | null;
+  }>>();
+
+  const variantWalk = walkFiles(variantsDir);
+  if (variantWalk.truncated) {
+    console.warn(
+      `[discoverComponentVisualProofsFromFilesystem] Variant scan truncated at ${variantWalk.files.length} files for ${variantsDir}.`,
+    );
+  }
+  for (const absolutePath of variantWalk.files) {
+    const fileName = path.basename(absolutePath);
+    if (!isImageFile(fileName)) continue;
+    const fileStem = path.basename(fileName, path.extname(fileName));
+    const slugRaw = fileStem.includes('__') ? fileStem.split('__')[0] : fileStem.split('.')[0];
+    const slug = slugifyComponentName(slugRaw);
+    if (!knownSlugs.has(slug)) continue;
+    const relPath = toRepoRelativePath(repoRoot, absolutePath);
+    if (!relPath) continue;
+    let stats: fs.Stats | null = null;
+    try {
+      stats = fs.statSync(absolutePath);
+    } catch {
+      stats = null;
+    }
+    const variantRows = variantRowsBySlug.get(slug) || [];
+    variantRows.push({
+      name: deriveVariantName(fileStem, slug),
+      image_path: relPath,
+      captured_at: stats ? new Date(stats.mtimeMs).toISOString() : null,
+      image_bytes: stats ? stats.size : null,
+      image_content_type: IMAGE_EXTENSION_TO_CONTENT_TYPE[path.extname(fileName).toLowerCase()] || null,
+    });
+    variantRowsBySlug.set(slug, variantRows);
+  }
+
+  let files: fs.Dirent[] = [];
+  try {
+    files = fs.readdirSync(mainImageDir, { withFileTypes: true });
+  } catch {
+    files = [];
+  }
+
+  for (const file of files) {
+    if (!file.isFile() || !isImageFile(file.name)) continue;
+    const slug = slugifyComponentName(path.basename(file.name, path.extname(file.name)));
+    if (!knownSlugs.has(slug)) continue;
+    const absolutePath = path.join(mainImageDir, file.name);
+    const imagePath = toRepoRelativePath(repoRoot, absolutePath);
+    if (!imagePath) continue;
+    let stats: fs.Stats | null = null;
+    try {
+      stats = fs.statSync(absolutePath);
+    } catch {
+      stats = null;
+    }
+    const variants = variantRowsBySlug.get(slug) || [];
+    bySlug.set(slug, [{
+      imagePath,
+      capturedAt: stats ? new Date(stats.mtimeMs).toISOString() : undefined,
+      capturedAtEpoch: stats ? Math.floor(stats.mtimeMs / 1000) : undefined,
+      imageBytes: stats ? stats.size : undefined,
+      imageContentType: IMAGE_EXTENSION_TO_CONTENT_TYPE[path.extname(file.name).toLowerCase()],
+      variantsCount: variants.length,
+      variants,
+    }]);
+  }
+
+  return bySlug;
+}
+
+function enrichComponentEntriesFromFilesystem(options: {
+  entries: SyncComponentEntry[];
+  repoRoot: string;
+  dsId: string;
+}): SyncComponentEntry[] {
+  const { entries, repoRoot, dsId } = options;
+  const systemPaths = resolveSystemPaths(dsId, repoRoot);
+  const specsBySlug = discoverComponentSpecsFromFilesystem({
+    entries,
+    repoRoot,
+    componentsDir: systemPaths.componentsDir,
+  });
+  const proofsBySlug = discoverComponentVisualProofsFromFilesystem({
+    entries,
+    repoRoot,
+    generatedDir: systemPaths.generatedDir,
+  });
+
+  return entries.map((entry) => {
+    const specs = specsBySlug.get(entry.slug);
+    const visualProofs = proofsBySlug.get(entry.slug);
+    return {
+      ...entry,
+      specs: specs && specs.length > 0 ? specs : entry.specs,
+      visualProofs:
+        visualProofs && visualProofs.length > 0 ? visualProofs : entry.visualProofs,
+    };
+  });
+}
+
 type SyncComponentEntry = {
   slug: string;
   name: string;
@@ -262,6 +859,7 @@ type SyncComponentEntry = {
     screenshotUrl?: string;
     caption?: string;
     capturedAt?: string;
+    capturedAtEpoch?: number;
     nodeId?: string;
     imageSha256?: string;
     imageBytes?: number;
@@ -300,6 +898,14 @@ export interface SyncFromPluginOptions {
     components: Array<{ nodeId: string; name: string }>;
     truncated?: boolean;
   }>;
+  fetchComponentImages?: FetchComponentImagesFn;
+  fetchComponentSpec?: FetchComponentSpecFn;
+  captureComponentProofs?: boolean;
+  captureComponentProofVariants?: boolean;
+  captureComponentProofVariantLimit?: number;
+  imageBatchSize?: number;
+  imageFetchConcurrency?: number;
+  maxCapturedImageBytes?: number;
   createRunId?: () => string;
   repoRoot?: string;
   reindexUsageFromFilesystem?: boolean;
@@ -318,6 +924,8 @@ export interface SyncFromPluginResult {
   usageReindexStatus: 'not_requested' | 'ok' | 'failed';
   usageReindexReason: 'none' | 'missing_repo_root' | 'no_sources' | 'runtime_error';
   usageReindexWarnings: string[];
+  specsEnriched: number;
+  proofsEnriched: number;
   dryRun: boolean;
 }
 
@@ -460,11 +1068,43 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     dryRun = false,
     fetchVariables = fetchVariablesDirect,
     searchComponents = searchComponentsDirect,
+    fetchComponentImages = getComponentImageDirect,
+    fetchComponentSpec = getComponentSpecDirect,
+    captureComponentProofs = false,
+    captureComponentProofVariants = false,
+    captureComponentProofVariantLimit = 8,
+    imageBatchSize = DEFAULT_IMAGE_BATCH_SIZE,
+    imageFetchConcurrency = DEFAULT_IMAGE_FETCH_CONCURRENCY,
+    maxCapturedImageBytes = DEFAULT_MAX_IMAGE_BYTES,
     createRunId = randomUUID,
     repoRoot,
     reindexUsageFromFilesystem = false,
     usageReindexStrict = true,
   } = options;
+  const safeVariantLimitPerComponent = normalizeBoundedInt(
+    captureComponentProofVariantLimit,
+    8,
+    0,
+    MAX_VARIANT_LIMIT_PER_COMPONENT,
+  );
+  const safeImageBatchSize = normalizeBoundedInt(
+    imageBatchSize,
+    DEFAULT_IMAGE_BATCH_SIZE,
+    1,
+    MAX_IMAGE_BATCH_SIZE,
+  );
+  const safeImageFetchConcurrency = normalizeBoundedInt(
+    imageFetchConcurrency,
+    DEFAULT_IMAGE_FETCH_CONCURRENCY,
+    1,
+    MAX_IMAGE_FETCH_CONCURRENCY,
+  );
+  const safeMaxCapturedImageBytes = normalizeBoundedInt(
+    maxCapturedImageBytes,
+    DEFAULT_MAX_IMAGE_BYTES,
+    1,
+    MAX_CAPTURED_IMAGE_BYTES,
+  );
   const willRunReindex = reindexUsageFromFilesystem && Boolean(repoRoot);
 
   if (reindexUsageFromFilesystem && !repoRoot && usageReindexStrict) {
@@ -484,6 +1124,8 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
 
   let componentEntries: SyncComponentEntry[] = [];
   let componentsTruncated = false;
+  let specsEnriched = 0;
+  let proofsEnriched = 0;
 
   if (includeComponents) {
     let componentsResult: Awaited<ReturnType<typeof searchComponents>>;
@@ -515,6 +1157,71 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         },
       };
     });
+
+    if (!dryRun && componentEntries.length > 0 && repoRoot) {
+      ensureComponentDocTemplates({
+        entries: componentEntries,
+        repoRoot,
+        dsId,
+      });
+      if (captureComponentProofs) {
+        try {
+          await captureComponentMainProofImages({
+            entries: componentEntries,
+            repoRoot,
+            dsId,
+            figmaFileId,
+            fetchComponentImages,
+            imageBatchSize: safeImageBatchSize,
+            imageFetchConcurrency: safeImageFetchConcurrency,
+            maxImageBytes: safeMaxCapturedImageBytes,
+          });
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.warn(
+            `[syncDesignSystemFromPlugin] Component proof capture failed (continuing import): ${reason}`,
+          );
+        }
+      }
+      if (captureComponentProofs && captureComponentProofVariants) {
+        try {
+          await captureComponentVariantProofImages({
+            entries: componentEntries,
+            repoRoot,
+            dsId,
+            figmaFileId,
+            fetchComponentSpec,
+            fetchComponentImages,
+            variantLimitPerComponent: safeVariantLimitPerComponent,
+            imageBatchSize: safeImageBatchSize,
+            imageFetchConcurrency: safeImageFetchConcurrency,
+            maxImageBytes: safeMaxCapturedImageBytes,
+          });
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.warn(
+            `[syncDesignSystemFromPlugin] Component variant proof capture failed (continuing import): ${reason}`,
+          );
+        }
+      }
+    }
+
+    if (componentEntries.length > 0 && repoRoot) {
+      try {
+        componentEntries = enrichComponentEntriesFromFilesystem({
+          entries: componentEntries,
+          repoRoot,
+          dsId,
+        });
+        specsEnriched = componentEntries.filter(e => Array.isArray(e.specs) && e.specs.length > 0).length;
+        proofsEnriched = componentEntries.filter(e => Array.isArray(e.visualProofs) && e.visualProofs.length > 0).length;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(
+          `[syncDesignSystemFromPlugin] Component filesystem enrichment failed: ${reason}`,
+        );
+      }
+    }
   }
 
   if (!dryRun) {
@@ -767,6 +1474,8 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       usageReindexStatus,
       usageReindexReason,
       usageReindexWarnings,
+      specsEnriched,
+      proofsEnriched,
       dryRun,
     };
   }
@@ -783,6 +1492,8 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     usageReindexStatus: 'not_requested',
     usageReindexReason: 'none',
     usageReindexWarnings: [],
+    specsEnriched,
+    proofsEnriched,
     dryRun,
   };
 }
