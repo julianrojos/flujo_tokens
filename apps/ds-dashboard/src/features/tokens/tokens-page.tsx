@@ -7,16 +7,19 @@ import {
 } from "lucide-react";
 
 import {
+  fetchDesignSystemsConfig,
+  fetchReportByVariable,
   fetchTokenCollectionTrees,
   fetchTokenRegistry,
-  fetchTokenUsageIndex,
-  refreshTokenUsageIndex,
+  getActiveSystemId,
 } from "@/lib/api";
+import { resolveDesignSystemContext } from "@/lib/design-system-keys";
 import { type ApiErrorDisplay, toApiErrorDisplay } from "@/lib/api-error-ux";
 import { useSortState } from "@/lib/use-sort-state";
 import type { TokenCollectionTreeIndex } from "@/types/token-tree";
 import type { TokenEntry } from "@/types/token-registry";
-import type { TokenUsageEntry, TokenUsageIndexSummary } from "@/types/token-usage-index";
+import type { TokenUsageEntry } from "@/types/token-usage-index";
+import type { VariableUsageReport } from "@/types/consumers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FilterBar, PageHeader } from "@/components/composites";
@@ -42,6 +45,10 @@ import { ContrastCheckerModal } from "./accessibility/contrast-checker-modal";
 import { buildSemanticColorOptions } from "./accessibility/semantic-color-options";
 import { useContrastChecker } from "./accessibility/use-contrast-checker";
 import { TokenTreeModal } from "./token-tree/token-tree-modal";
+import {
+  buildTokenUsageTargets,
+  variableReportMatchesTokenTargets,
+} from "./token-detail/lib/token-detail-transforms";
 
 function resolveColorSwatch(value: string): string | null {
   const raw = String(value || "").trim();
@@ -59,6 +66,73 @@ function dedupeColorOptionsByPath<T extends { tokenPath: string }>(items: T[]): 
   return Array.from(map.values());
 }
 
+function splitReportNodeCounts(report: VariableUsageReport): { parent: number; consumer: number } {
+  let parent = 0;
+  let consumer = 0;
+  for (const entry of report.consumers ?? []) {
+    const nodeCount = Number.isFinite(entry.nodeCount) ? Math.max(0, Number(entry.nodeCount)) : 0;
+    if (String(entry.consumerId || "").startsWith("parent:")) {
+      parent += nodeCount;
+    } else {
+      consumer += nodeCount;
+    }
+  }
+  return { parent, consumer };
+}
+
+function buildMergedUsageByPath(args: {
+  entries: TokenEntry[];
+  variableReports: VariableUsageReport[];
+}): Record<string, TokenUsageEntry> {
+  const merged: Record<string, TokenUsageEntry> = {};
+  if (!Array.isArray(args.entries) || args.entries.length === 0) return merged;
+  if (!Array.isArray(args.variableReports) || args.variableReports.length === 0) return merged;
+
+  for (const token of args.entries) {
+    const targets = buildTokenUsageTargets(token);
+    let figmaParentCount = 0;
+    let figmaConsumerCount = 0;
+
+    for (const report of args.variableReports) {
+      if (!variableReportMatchesTokenTargets(report, targets)) continue;
+      const split = splitReportNodeCounts(report);
+      figmaParentCount += split.parent;
+      figmaConsumerCount += split.consumer;
+    }
+
+    if (figmaParentCount <= 0 && figmaConsumerCount <= 0) continue;
+
+    const base = merged[token.path] ?? {
+      path: token.path,
+      slashPath: token.slashPath,
+      cssVar: token.cssVar,
+      type: token.type,
+      collection: token.collection,
+      usageCount: 0,
+      usageByKind: {},
+      usedIn: [],
+    };
+    const baseUsageByKind = base.usageByKind ?? {};
+    const nextUsageByKind = { ...baseUsageByKind };
+    if (figmaParentCount > 0) {
+      nextUsageByKind["figma-applied"] = (nextUsageByKind["figma-applied"] ?? 0) + figmaParentCount;
+    }
+    if (figmaConsumerCount > 0) {
+      nextUsageByKind["figma-consumer-applied"] =
+        (nextUsageByKind["figma-consumer-applied"] ?? 0) + figmaConsumerCount;
+    }
+
+    merged[token.path] = {
+      ...base,
+      usageCount: (Number(base.usageCount) || 0) + figmaParentCount + figmaConsumerCount,
+      usageByKind: nextUsageByKind,
+      usedIn: Array.isArray(base.usedIn) ? base.usedIn : [],
+    };
+  }
+
+  return merged;
+}
+
 type SortField =
   | "path"
   | "collection"
@@ -70,7 +144,6 @@ type SortField =
 export function TokensPage() {
   const [entries, setEntries] = useState<TokenEntry[]>([]);
   const [usageByPath, setUsageByPath] = useState<Record<string, TokenUsageEntry>>({});
-  const [usageSummary, setUsageSummary] = useState<TokenUsageIndexSummary | null>(null);
   const [search, setSearch] = useState("");
   const [collection, setCollection] = useState("all");
   const [type, setType] = useState("all");
@@ -91,26 +164,29 @@ export function TokensPage() {
       setError(null);
       setUsageError(null);
       try {
-        const [registryPayload, usagePayload] = await Promise.all([
+        const [configPayload, registryPayload] = await Promise.all([
+          fetchDesignSystemsConfig().catch(() => null),
           fetchTokenRegistry(),
-          fetchTokenUsageIndex().catch((cause) => {
-            setUsageError(
-              toApiErrorDisplay(cause, {
-                fallbackTitle: "Usage index unavailable",
-                fallbackMessage: "Run `npm run ds:token-usage-index` and retry.",
-              }),
-            );
-            return null;
-          }),
         ]);
+        const { dsFileKey } = resolveDesignSystemContext(
+          configPayload,
+          String(getActiveSystemId() || "").trim(),
+        );
+        const variableReports = dsFileKey
+          ? await fetchReportByVariable(dsFileKey)
+              .then((payload) => payload.data ?? [])
+              .catch((cause) => {
+                console.warn("[tokens-page] Failed to fetch variable usage reports", cause);
+                return [] as VariableUsageReport[];
+              })
+          : [];
+
         setEntries(registryPayload.entries ?? []);
-        if (usagePayload) {
-          setUsageByPath(usagePayload.byPath ?? {});
-          setUsageSummary(usagePayload.summary ?? null);
-        } else {
-          setUsageByPath({});
-          setUsageSummary(null);
-        }
+        const mergedUsageByPath = buildMergedUsageByPath({
+          entries: registryPayload.entries ?? [],
+          variableReports,
+        });
+        setUsageByPath(mergedUsageByPath);
       } catch (cause) {
         setError(
           toApiErrorDisplay(cause, {
@@ -245,15 +321,29 @@ export function TokensPage() {
     setUsageSyncing(true);
     setUsageError(null);
     try {
-      await refreshTokenUsageIndex();
-      const payload = await fetchTokenUsageIndex();
-      setUsageByPath(payload.byPath ?? {});
-      setUsageSummary(payload.summary ?? null);
+      const config = await fetchDesignSystemsConfig().catch(() => null);
+      const { dsFileKey } = resolveDesignSystemContext(
+        config,
+        String(getActiveSystemId() || "").trim(),
+      );
+      const variableReports = dsFileKey
+        ? await fetchReportByVariable(dsFileKey)
+            .then((res) => res.data ?? [])
+            .catch((cause) => {
+              console.warn("[tokens-page] Failed to fetch variable usage reports during refresh", cause);
+              return [] as VariableUsageReport[];
+            })
+        : [];
+      const mergedUsageByPath = buildMergedUsageByPath({
+        entries,
+        variableReports,
+      });
+      setUsageByPath(mergedUsageByPath);
     } catch (cause) {
       setUsageError(
         toApiErrorDisplay(cause, {
           fallbackTitle: "Usage sync failed",
-          fallbackMessage: "Unable to refresh token usage index.",
+          fallbackMessage: "Unable to refresh DS/consumer usage data.",
         }),
       );
     } finally {
@@ -301,7 +391,7 @@ export function TokensPage() {
             </Link>
             <Button variant="outline" onClick={refreshUsage} disabled={usageSyncing}>
               <RefreshCcw className="mr-2 h-4 w-4" />
-              {usageSyncing ? "Syncing usage..." : "Sync Usage Index"}
+              {usageSyncing ? "Syncing usage..." : "Sync DS Usage"}
             </Button>
             <Button
               variant="outline"
@@ -449,8 +539,6 @@ export function TokensPage() {
                     const swatch = resolveColorSwatch(entry.resolvedValue);
                     const usage = usageByPath[entry.path];
                     const usageCount = usage?.usageCount ?? 0;
-                    const specCount = usage?.usageByKind?.["component-spec"] ?? 0;
-                    const cssAliasCount = usage?.usageByKind?.["css-alias"] ?? 0;
                     const usageOwners =
                       usage?.usedIn
                         ?.map((item) => item.owner)
@@ -508,11 +596,6 @@ export function TokensPage() {
                         <TableCell>
                           <div className="space-y-1">
                             <Badge variant="neutral">{usageCount} refs</Badge>
-                            {usageSummary ? (
-                              <div className="text-xs text-muted-foreground">
-                                specs {specCount} · css {cssAliasCount}
-                              </div>
-                            ) : null}
                             {usageOwners.length > 0 ? (
                               <div className="font-mono text-xs text-muted-foreground">
                                 {usageOwners.join(", ")}

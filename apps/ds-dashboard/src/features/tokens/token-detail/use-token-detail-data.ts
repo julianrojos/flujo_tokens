@@ -8,6 +8,7 @@ import {
   fetchTokenUsageIndex,
   getActiveSystemId,
 } from "@/lib/api";
+import { resolveDesignSystemContext } from "@/lib/design-system-keys";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { QUERY_DEFAULTS } from "@/lib/query-client";
@@ -25,6 +26,7 @@ import {
 const EMPTY_BY_PATH: Record<string, TokenUsageEntry> = {};
 
 type TokenDetailQueryData = {
+  systemId: string;
   dsFileKey: string | null;
   registry: TokenRegistry;
   tokenHealth: TokenHealthReport | null;
@@ -48,10 +50,10 @@ export function useTokenDetailQuery(tokenPath: string) {
     ...QUERY_DEFAULTS,
     queryFn: async () => {
       const config = await fetchDesignSystemsConfig().catch(() => null);
-      const system = activeSystemId
-        ? (config?.systems ?? []).find((item) => item.id === activeSystemId)
-        : null;
-      const dsFileKey = String(system?.figmaFileId ?? "").trim() || null;
+      const { systemId: resolvedSystemId, dsFileKey } = resolveDesignSystemContext(
+        config,
+        activeSystemId,
+      );
 
       const [registry, tokenHealth, graphQuery, componentRegistry] =
         await Promise.all([
@@ -66,6 +68,7 @@ export function useTokenDetailQuery(tokenPath: string) {
         ]);
 
       return {
+        systemId: resolvedSystemId,
         dsFileKey,
         registry,
         tokenHealth,
@@ -101,14 +104,15 @@ export const tokenUsageIndexQueryKey = (systemId: string) => ["token-usage-index
  * Fetch token usage index with per-system cache scoping.
  * Keeps usage data isolated when switching active design systems.
  */
-export function useTokenUsageIndexQuery(systemId: string) {
+export function useTokenUsageIndexQuery(systemId: string, enabled = true) {
   return useQuery<{ index: TokenUsageIndex | null; hasError: boolean }>({
     queryKey: tokenUsageIndexQueryKey(systemId),
+    enabled,
     ...QUERY_DEFAULTS,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
       try {
-        const index = await fetchTokenUsageIndex();
+        const index = await fetchTokenUsageIndex(systemId);
         return { index, hasError: false };
       } catch (error) {
         console.warn("[useTokenUsageIndexQuery] Failed to fetch token usage index", error);
@@ -239,9 +243,17 @@ export function useTokenDetailData(tokenPath: string) {
   const activeSystemId = getActiveSystemId() || "";
   const query = useTokenDetailQuery(tokenPath);
   const variableReportsQuery = useVariableReportsQuery(query.data?.dsFileKey ?? null);
-  const usageIndexQuery = useTokenUsageIndexQuery(activeSystemId);
+  const effectiveSystemId = String(query.data?.systemId || activeSystemId || "").trim();
+  const hasSystemContext = Boolean(effectiveSystemId);
+  const usageIndexQuery = useTokenUsageIndexQuery(effectiveSystemId, hasSystemContext);
+  const missingSystemContextError =
+    !query.isLoading && !hasSystemContext
+      ? "No design system context available. Configure or select an active design system."
+      : null;
 
-  const error = query.error
+  const error = missingSystemContextError
+    ? missingSystemContextError
+    : query.error
     ? query.error instanceof Error
       ? query.error.message
       : String(query.error)
@@ -253,29 +265,19 @@ export function useTokenDetailData(tokenPath: string) {
   const registry = query.data?.registry ?? null;
   const token = registry?.byPath[tokenPath] ?? null;
 
-  // usageByPath: primary source is full index (contains component-spec)
+  // usageByPath is still exposed for compatibility, but token counts are derived from
+  // Figma/consumer reports (figma-applied + figma-consumer-applied), not spec occurrences.
   const usageByPath = usageIndexQuery.data?.index?.byPath ?? EMPTY_BY_PATH;
 
-  // usage for current token: merge index entry + figma occurrences
-  const indexEntry = usageByPath[tokenPath] ?? null;
+  // Canonical usage for token detail: only DS + consumer occurrences from reports.
   const usage = useMemo((): TokenUsageEntry | null => {
     const figmaEntry = buildMergedUsageEntry({
       tokenPath,
       registry,
       consumerVariableReports: variableReportsQuery.data ?? null,
     });
-
-    if (!indexEntry && !figmaEntry) return null;
-    if (!figmaEntry) return indexEntry;
-    if (!indexEntry) return figmaEntry;
-
-    return {
-      ...indexEntry,
-      usageCount: indexEntry.usageCount + figmaEntry.usageCount,
-      usedIn: [...indexEntry.usedIn, ...figmaEntry.usedIn],
-      usageByKind: mergeUsageByKind(indexEntry.usageByKind, figmaEntry.usageByKind),
-    };
-  }, [indexEntry, tokenPath, registry, variableReportsQuery.data]);
+    return figmaEntry;
+  }, [tokenPath, registry, variableReportsQuery.data]);
 
   const tokenHealth = query.data?.tokenHealth ?? null;
   const graphQuery = query.data?.graphQuery ?? null;
@@ -293,15 +295,4 @@ export function useTokenDetailData(tokenPath: string) {
     components,
     usageIndexHasError: usageIndexQuery.data?.hasError ?? false,
   };
-}
-
-function mergeUsageByKind(
-  base: Record<string, number>,
-  extra: Record<string, number>,
-): Record<string, number> {
-  const result = { ...base };
-  for (const [k, v] of Object.entries(extra)) {
-    result[k] = (result[k] ?? 0) + v;
-  }
-  return result;
 }

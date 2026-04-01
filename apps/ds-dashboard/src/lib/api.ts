@@ -346,8 +346,11 @@ export function fetchTokenCollectionTrees() {
   return getJson<TokenCollectionTreeIndex>("/api/token-collection-trees");
 }
 
-export function fetchTokenUsageIndex() {
-  return getJson<TokenUsageIndex>("/api/token-usage-index");
+export function fetchTokenUsageIndex(systemId?: string) {
+  const normalizedSystemId = String(systemId || "").trim();
+  return getJson<TokenUsageIndex>("/api/token-usage-index", {
+    headers: normalizedSystemId ? { "x-ds-system": normalizedSystemId } : undefined,
+  });
 }
 
 export function fetchTokenGraph() {

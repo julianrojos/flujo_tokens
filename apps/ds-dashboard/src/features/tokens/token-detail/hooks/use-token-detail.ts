@@ -14,7 +14,6 @@ import {
   resolveAliasTarget,
   parseDimensionPreview,
   buildAliasChain,
-  parseComponentUsageDetail,
   tokenMatchesRef,
 } from "../lib/token-detail-transforms";
 
@@ -80,7 +79,6 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     registry,
     token,
     usage,
-    usageByPath,
     tokenHealth,
     graphQuery,
     components,
@@ -189,7 +187,7 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
 
   // Component usages
   const componentUsages = useMemo(() => {
-    if (!token) return [] as ComponentTokenUsage[];
+    if (!token || !usage?.usedIn?.length) return [] as ComponentTokenUsage[];
 
     const rows = new Map<
       string,
@@ -207,8 +205,8 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
       }
     >();
 
-    const ensureRow = (slug: string) => {
-      const trimmed = String(slug || "").trim();
+    const ensureRow = (owner: string) => {
+      const trimmed = String(owner || "").trim();
       if (!trimmed) return null;
       const component = componentBySlug[trimmed];
       const existing = rows.get(trimmed);
@@ -219,7 +217,7 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
         pipelineStage: component?.pipeline_stage ?? null,
         figmaUrl: component?.figma?.file_url ?? null,
         figmaNodeId: component?.figma?.component_set_node_id ?? null,
-        mode: "via_alias" as const,
+        mode: "direct" as const,
         occurrences: 0,
         slotSet: new Set<string>(),
         conditionSet: new Set<string>(),
@@ -232,40 +230,19 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     const registerOccurrence = (
       occ: TokenUsageOccurrence,
       mode: "direct" | "via_alias",
-      aliasChain: string[] | null,
     ) => {
-      if (occ.kind !== "component-spec") return;
+      if (occ.kind !== "figma-applied" && occ.kind !== "figma-consumer-applied") return;
       const row = ensureRow(occ.owner);
       if (!row) return;
 
-      row.occurrences += 1;
-      const parsed = parseComponentUsageDetail(occ.detail || "");
-      if (parsed.slot) row.slotSet.add(parsed.slot);
-      if (parsed.condition) row.conditionSet.add(parsed.condition);
-
-      if (mode === "direct") {
-        row.mode = "direct";
-        row.aliasChainMap.clear();
-      } else if (row.mode !== "direct" && aliasChain && aliasChain.length > 1) {
-        const signature = aliasChain.join(" -> ");
-        if (!row.aliasChainMap.has(signature)) {
-          row.aliasChainMap.set(signature, aliasChain);
-        }
-      }
+      const countMatch = String(occ.detail || "").match(/\bnodes:(\d+)\b/i);
+      const nodeCount = countMatch ? Number.parseInt(countMatch[1], 10) : 0;
+      row.occurrences += Number.isFinite(nodeCount) && nodeCount > 0 ? nodeCount : 1;
+      row.mode = mode;
     };
 
-    const directUsage = usageByPath[token.path];
-    for (const occ of directUsage?.usedIn ?? []) {
-      registerOccurrence(occ, "direct" as const, null);
-    }
-
-    for (const [aliasPath, chain] of aliasDescendantChains) {
-      const aliasUsage = usageByPath[aliasPath];
-      if (!aliasUsage) continue;
-      const chainPaths = chain.map((entry) => entry.path);
-      for (const occ of aliasUsage.usedIn ?? []) {
-        registerOccurrence(occ, "via_alias" as const, chainPaths);
-      }
+    for (const occ of usage.usedIn ?? []) {
+      registerOccurrence(occ, "direct" as const);
     }
 
     return Array.from(rows.values())
@@ -282,7 +259,7 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
         aliasChains: Array.from(row.aliasChainMap.values()),
       }))
       .sort((left, right) => left.displayName.localeCompare(right.displayName));
-  }, [aliasDescendantChains, componentBySlug, token, usageByPath]);
+  }, [componentBySlug, token, usage]);
 
   const filteredComponentUsages = useMemo(() => {
     return componentUsages.filter((entry) => {

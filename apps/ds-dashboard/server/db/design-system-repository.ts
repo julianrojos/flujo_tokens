@@ -79,11 +79,25 @@ export interface ScriptSystemContext extends DesignSystemEntry {
     };
 }
 
+const SYSTEM_ID_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,63})$/;
+
+export function isValidSystemId(dsId: string): boolean {
+    const normalized = String(dsId || '').trim();
+    if (!normalized) return false;
+    if (!SYSTEM_ID_PATTERN.test(normalized)) return false;
+    if (normalized.includes('..')) return false;
+    if (normalized.includes('/') || normalized.includes('\\')) return false;
+    return true;
+}
+
 /**
  * Pure function to derive system paths from ds_id
  * No DB access - testable in isolation
  */
 export function resolveSystemPaths(dsId: string, repoRoot: string): SystemPaths {
+    if (!isValidSystemId(dsId)) {
+        throw new Error(`Invalid system ID: ${dsId}`);
+    }
     const docsDir = path.join(repoRoot, 'design-systems', dsId, 'docs');
     return {
         inputDir: path.join(repoRoot, 'design-systems', dsId, 'input'),

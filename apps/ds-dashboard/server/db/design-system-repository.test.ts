@@ -9,7 +9,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { DesignSystemRepository, resolveSystemPaths } from './design-system-repository.js';
+import { DesignSystemRepository, isValidSystemId, resolveSystemPaths } from './design-system-repository.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -76,6 +76,16 @@ describe('DesignSystemRepository', () => {
             assert.strictEqual(paths.generatedDir, '/project/design-systems/sys-01/docs/_generated');
             assert.strictEqual(paths.specsDir, '/project/design-systems/sys-01/docs/_spec/components');
             assert.strictEqual(paths.componentsDir, '/project/design-systems/sys-01/docs/components');
+        });
+
+        it('rejects invalid system ids', () => {
+            assert.strictEqual(isValidSystemId('sys-01'), true);
+            assert.strictEqual(isValidSystemId('sys_01'), true);
+            assert.strictEqual(isValidSystemId(''), false);
+            assert.strictEqual(isValidSystemId('../escape'), false);
+            assert.strictEqual(isValidSystemId('sys/01'), false);
+            assert.strictEqual(isValidSystemId('sys\\01'), false);
+            assert.throws(() => resolveSystemPaths('../escape', '/project'), /Invalid system ID/);
         });
     });
 
