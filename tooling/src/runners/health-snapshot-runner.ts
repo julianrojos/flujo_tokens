@@ -11,8 +11,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import { PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 const DEFAULT_RETENTION_DAYS = 120;
 
@@ -250,7 +251,7 @@ export async function runHealthSnapshot(args: string[] = []): Promise<void> {
   );
   const beforeRef = String(getStringArg(parsed, 'before-ref') || 'HEAD~1').trim();
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const genDir = ctx.paths.generated;
 
   const tokenHealthPath = resolveSafePath(

@@ -11,7 +11,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe, PROJECT_ROOT } from '../utils/system-context.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
+import { logger } from '../utils/logger.js';
 
 import {
   parseSpec,
@@ -29,7 +30,7 @@ const CLI_CONFIG = {
     { name: '--all', description: 'Sort all files in docs/_spec/components/*.yml' },
     { name: '--check', description: 'Dry-run: report unsorted files, exit 1 if any found' },
     { name: '--json', description: 'Output JSON result' },
-    { name: '--system', description: 'Target design system context' },
+    { name: '--system <id>', description: 'Target design system context' },
     { name: '--help', description: 'Show help' },
   ],
 };
@@ -135,7 +136,7 @@ export async function runSortSpec(args: string[] = []): Promise<void> {
   // Resolve list of files
   let files: string[] = [];
   if (hasAll) {
-    const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+    const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
     const specDir = ctx.paths.specs;
 
     if (!fs.existsSync(specDir)) {

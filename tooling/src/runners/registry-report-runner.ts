@@ -10,8 +10,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { PROJECT_ROOT, resolveSystemContextSafe } from '../utils/system-context.js';
+import { PROJECT_ROOT } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
 import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
 
@@ -58,7 +59,7 @@ const CLI_CONFIG = {
       defaultValue: 'false',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -227,7 +228,7 @@ export async function runRegistryReport(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const dbPath = path.resolve(ctx.paths.registry);
   const outMd = path.resolve(String(getStringArg(parsed, 'out-md') || 'docs/COMPONENTS_INDEX.md'));
   const outJson = path.resolve(String(getStringArg(parsed, 'out-json') || 'docs/_generated/components-health.json'));

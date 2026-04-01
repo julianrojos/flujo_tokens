@@ -12,7 +12,8 @@ import * as path from 'node:path';
 import * as yaml from 'js-yaml';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
+import { logger } from '../utils/logger.js';
 import { parseMarkdownFrontmatter } from '../utils/parse-frontmatter.js';
 
 const HASH_RE = /^[a-f0-9]{64}$/i;
@@ -51,7 +52,7 @@ const CLI_CONFIG = {
       defaultValue: 'false',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -208,7 +209,7 @@ export async function runMarkNeedsReview(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   const docsRootInput = path.resolve(String(getStringArg(parsed, 'docs-root') || ctx.paths.docs));
   const specRoot = path.resolve(String(getStringArg(parsed, 'spec-root') || ctx.paths.specs));

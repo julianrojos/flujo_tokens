@@ -19,10 +19,10 @@ import {
   buildFigmaComponentMap,
   buildFigmaComponentMapSummary,
   renderFigmaComponentMapText,
-  resolveSystemContextSafe,
   PROJECT_ROOT,
 } from '../utils/index.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -46,6 +46,10 @@ const CLI_CONFIG = {
       name: '--out <path>',
       description:
         'Output JSON path. Default: docs/_generated/figma-component-map/<fileKey>.json',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--depth <number>',
@@ -195,14 +199,6 @@ function parseFormat(rawValue: unknown): 'json' | 'text' {
 }
 
 /**
- * Get default output directory.
- */
-function getDefaultOutputDir(): string {
-  const ctx = resolveSystemContextSafe();
-  return path.join(ctx.paths.generated, 'figma-component-map');
-}
-
-/**
  * Main runner function.
  */
 export async function runFigmaComponentMap(
@@ -214,6 +210,7 @@ export async function runFigmaComponentMap(
     printUsage(CLI_CONFIG);
     process.exit(0);
   }
+  const systemCtx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   const figmaUrl = String(parsed.url || '').trim();
   if (!figmaUrl) {
@@ -257,7 +254,7 @@ export async function runFigmaComponentMap(
   const depth = parsePositiveInteger(parsed.depth, '--depth', undefined);
 
   const defaultOutputPath = path.join(
-    getDefaultOutputDir(),
+    path.join(systemCtx.paths.generated, 'figma-component-map'),
     `${parsedUrl.fileKey}.json`,
   );
   const outputPath = resolveSafePath(

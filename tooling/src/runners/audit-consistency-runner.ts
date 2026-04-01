@@ -10,8 +10,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { parseArgs, printUsage, isMain } from '../utils/index.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import type { RegistryEntry, RegistryLookup } from '../types/registry.js';
 import {
   checkSpecMarkdownConsistency,
@@ -85,7 +85,7 @@ const CLI_CONFIG = {
       description: 'Audit specific component by name.',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -193,9 +193,7 @@ export async function runAuditConsistency(args: string[] = []): Promise<void> {
     return;
   }
 
-  const ctx = resolveSystemContextSafe({
-    system: String(parsed.system || '').trim(),
-  });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const docsRoot = path.resolve(
     typeof parsed['docs-root'] === 'string'
       ? parsed['docs-root']

@@ -12,7 +12,7 @@ import * as path from 'node:path';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
 import { isMain } from '../utils/is-main.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { TempArtifactManager } from '../services/temp-artifacts.js';
 import {
   buildAgentPrompt,
@@ -71,6 +71,10 @@ const USAGE = {
       name: '--docs-root <path>',
       description: 'Docs root or docs/components directory.',
       defaultValue: 'docs/components',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--agent <codex|claude|gemini|auto>',
@@ -174,9 +178,15 @@ export async function runDocFromFigmaUrl(
     true,
   );
 
-  const systemCtx = resolveSystemContextSafe({ system: args.system });
+  const systemCtx = resolveRunnerSystemContextOrExit({
+    parsedArgs: args as Record<string, string | boolean>,
+    logger,
+  });
 
-  const docsRoot = args['docs-root'] || systemCtx.paths.docs;
+  const docsRoot =
+    typeof args['docs-root'] === 'string' && args['docs-root'].trim()
+      ? args['docs-root']
+      : systemCtx.paths.docs;
   const docsRootResolved = path.resolve(docsRoot);
   const componentDocsDir =
     path.basename(docsRootResolved) === 'components'

@@ -10,8 +10,8 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 import { syncDocumentationState } from '../services/component-registry-index.js';
 
@@ -41,7 +41,7 @@ const CLI_CONFIG = {
       defaultValue: 'false',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -94,7 +94,7 @@ export async function runRegistrySync(args: string[] = []): Promise<void> {
   }
 
   const dryRun = parseBooleanOption(parsed['dry-run'], '--dry-run', false);
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const resolvedOverviewPath = path.resolve(
     String(getStringArg(parsed, 'overview') || path.join(ctx.paths.docs, 'overview.md')),
   );

@@ -13,8 +13,8 @@ import * as path from 'node:path';
 import * as yaml from 'js-yaml';
 
 import { parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 // Import from existing libs during migration
 import { runAgentPrompt, type AgentType } from '../services/agent-runner.js';
@@ -81,6 +81,10 @@ const USAGE = {
       defaultValue: 'false',
     },
     {
+      name: '--system <id>',
+      description: 'Target design system context.',
+    },
+    {
       name: '--help',
       description: 'Show this help message.',
     },
@@ -102,7 +106,7 @@ export async function runComponentDoc(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: typeof parsed.system === 'string' ? parsed.system : undefined });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const parsedArgs = parsed as Record<string, string | boolean>;
   const componentName = String(parsedArgs['component-name'] || '').trim();
   const specFile = parsedArgs['spec-file'] && typeof parsedArgs['spec-file'] === 'string'

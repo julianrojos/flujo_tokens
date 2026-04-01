@@ -14,6 +14,7 @@ import {
   type DesignSystemConfig,
 } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { resolveEnvRef } from '../utils/env-ref.js';
 import type { FigmaVariableSource } from 'ds-types';
 import { resolveParseFigmaVariableSource } from '../utils/figma-variable-source.js';
@@ -35,7 +36,7 @@ const CLI_CONFIG = {
     'Imports Figma local variables into design-token JSON files and optionally compiles them to CSS custom properties.',
   options: [
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Design system identifier (from SQLite design_systems).',
       required: true,
     },
@@ -130,12 +131,14 @@ export async function runTokensFromFigma(args: string[] = []): Promise<void> {
   }
 
   // ── Resolve system ───────────────────────────────────────────────────────
-  const systemId = String(parsed.system || '').trim();
-  if (!systemId) {
+  const hasExplicitSystem = Object.prototype.hasOwnProperty.call(parsed, 'system');
+  if (!hasExplicitSystem) {
     console.error('[ds:tokens-from-figma] --system is required.');
     printUsage(CLI_CONFIG);
     process.exit(1);
   }
+  const systemCtx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
+  const systemId = systemCtx.id;
 
   let system: DesignSystemConfig;
   try {

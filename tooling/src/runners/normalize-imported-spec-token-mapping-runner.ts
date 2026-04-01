@@ -12,7 +12,8 @@ import * as path from 'node:path';
 import * as yaml from 'js-yaml';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
+import { logger } from '../utils/logger.js';
 
 interface RegistryEntry {
   path?: string;
@@ -57,7 +58,7 @@ const CLI_CONFIG = {
   description:
     'Canonicalize token_mapping refs and infer missing fill mappings from imported anatomy.',
   options: [
-    { name: '--system', description: 'Target design system context.' },
+    { name: '--system <id>', description: 'Target design system context.' },
     { name: '--spec-root', description: 'Spec directory. Defaults to system docs/_spec/components.' },
     { name: '--registry', description: 'Token registry path. Defaults to system docs/_generated/token-registry.json.' },
     { name: '--file', description: 'Single spec YAML file path to process.' },
@@ -431,7 +432,7 @@ export async function runNormalizeImportedSpecTokenMapping(args: string[] = []):
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const specRoot = path.resolve(
     String(getStringArg(parsed, 'spec-root') || ctx.paths.specs),
   );

@@ -10,8 +10,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 import { loadTokenRegistry } from '../services/token-utils.js';
 import { generateHealthReport } from '../services/token-health.js';
@@ -72,7 +72,7 @@ const CLI_CONFIG = {
       defaultValue: 'false',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -118,7 +118,7 @@ export async function runTokenHealth(args: string[] = []): Promise<void> {
     process.exit(0);
   }
 
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   const registryPath = path.resolve(
     String(getStringArg(parsed, 'registry') || ctx.paths.tokenRegistry),

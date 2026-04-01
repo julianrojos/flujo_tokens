@@ -10,7 +10,7 @@ import * as path from 'node:path';
 
 import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { logger } from '../utils/logger.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { compareComponentRegistryToSources } from '../services/component-registry-index.js';
 
 const CLI_CONFIG = {
@@ -39,7 +39,7 @@ const CLI_CONFIG = {
       defaultValue: 'true',
     },
     {
-      name: '--system',
+      name: '--system <id>',
       description: 'Target design system context.',
     },
     {
@@ -71,7 +71,7 @@ export async function runRegistryValidate(args: string[] = []): Promise<void> {
   }
 
   const strict = parseBooleanOption(parsed.strict, '--strict', true);
-  const ctx = resolveSystemContextSafe({ system: getStringArg(parsed, 'system') });
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
 
   try {
     const comparison = compareComponentRegistryToSources({

@@ -11,6 +11,7 @@ import * as path from 'node:path';
 
 import { parseArgs, printUsage, isMain } from '../utils/index.js';
 import { logger } from '../utils/logger.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 
 /**
  * Zone configuration for migration.
@@ -149,8 +150,8 @@ const CLI_CONFIG = {
   options: [
     {
       name: '--docs-dir',
-      description: 'Component docs directory.',
-      defaultValue: 'docs/components',
+      description:
+        'Component docs directory (defaults to active system context).',
     },
     {
       name: '--dry-run',
@@ -161,6 +162,10 @@ const CLI_CONFIG = {
       name: '--format',
       description: 'Output format (text|json).',
       defaultValue: 'text',
+    },
+    {
+      name: '--system <id>',
+      description: 'Target design system context.',
     },
     {
       name: '--help',
@@ -249,11 +254,12 @@ export async function runMigrateMarkdownZones(
   // If a zone pattern is invalid, the script threw during initialization,
   // before this function was called.
 
+  const ctx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
   const format = String(parsed.format || 'text').toLowerCase();
   const mdDir = path.resolve(
-    typeof parsed['docs-dir'] === 'string'
+    typeof parsed['docs-dir'] === 'string' && parsed['docs-dir'].trim()
       ? parsed['docs-dir']
-      : 'docs/components',
+      : ctx.paths.docs,
   );
   const dryRun = parseBooleanOption(parsed['dry-run'], false);
 
@@ -263,7 +269,6 @@ export async function runMigrateMarkdownZones(
   } catch (error) {
     logger.error(`Docs directory not found: ${mdDir}`);
     process.exit(1);
-    return;
   }
 
   const mdFiles = files.filter((f) => f.endsWith('.md') && !f.startsWith('_'));

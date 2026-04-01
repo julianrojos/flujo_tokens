@@ -9,9 +9,10 @@
 
 import fs from 'node:fs';
 
-import { parseArgs, printUsage } from '../utils/parse-args.js';
-import { resolveSystemContextSafe } from '../utils/system-context.js';
+import { getStringArg, parseArgs, printUsage } from '../utils/parse-args.js';
 import { logger } from '../utils/logger.js';
+import type { ScriptSystemContext } from '../utils/system-context.js';
+import { resolveRunnerSystemContextOrExit } from '../utils/runner-system-context.js';
 import { runDoctor } from './doctor-runner.js';
 import { createPlan } from '../services/pipeline-plan.js';
 import {
@@ -64,7 +65,7 @@ const CLI_CONFIG = {
     { name: '--dry-run', description: 'Plan but do not execute' },
     { name: '--status-only', description: 'Only show plan and orphan status' },
     { name: '--strict', description: 'Fail on first error' },
-    { name: '--system', description: 'Target design system (default: iter)' },
+    { name: '--system <id>', description: 'Target design system context' },
     { name: '--json', description: 'Output silent JSON' },
     { name: '--help', description: 'Show help' },
   ],
@@ -79,7 +80,7 @@ const CLI_CONFIG = {
  * @param options - Pipeline options including the target system and JSON output flag.
  * @returns A promise resolving to true if preflight passes, false otherwise.
  */
-async function runPreflight(options: PipelineOptions): Promise<boolean> {
+async function runPreflight(options: InternalPipelineOptions): Promise<boolean> {
   const { json, system } = options;
   const isPlanningOnly = options['dry-run'] || options['status-only'];
   const FATAL_PREFLIGHT_CHECKS = new Set(
@@ -88,13 +89,9 @@ async function runPreflight(options: PipelineOptions): Promise<boolean> {
       : ['PATH_DOCS', 'PATH_SPECS', 'TOKEN_REGISTRY', 'COMPONENT_REGISTRY'],
   );
 
-  let registryExists = false;
-  try {
-    const systemCtx = resolveSystemContextSafe({ system });
-    registryExists = fs.existsSync(systemCtx.paths.registry);
-  } catch {
-    registryExists = false;
-  }
+  const registryExists = Boolean(
+    options.systemCtx && fs.existsSync(options.systemCtx.paths.registry),
+  );
 
   if (!options['status-only'] || !registryExists) {
     if (!json) {
@@ -176,6 +173,10 @@ export interface PipelineReport {
   meta?: { hasFailures: boolean; failedComponents: string[] };
 }
 
+interface InternalPipelineOptions extends PipelineOptions {
+  systemCtx: ScriptSystemContext;
+}
+
 /**
  * Main runner function - returns report for testability
  */
@@ -187,7 +188,9 @@ export async function runPipeline(args: string[] = []): Promise<PipelineReport> 
     return { ok: true, reason: 'help' };
   }
 
-  const options: PipelineOptions = {
+  const systemCtx = resolveRunnerSystemContextOrExit({ parsedArgs: parsed, logger });
+
+  const options: InternalPipelineOptions = {
     component: parsed.component ? String(parsed.component) : undefined,
     all: parsed.all === 'true' || !!parsed.all,
     'from-step': parsed['from-step'] ? String(parsed['from-step']) : undefined,
@@ -195,8 +198,9 @@ export async function runPipeline(args: string[] = []): Promise<PipelineReport> 
     'dry-run': parsed['dry-run'] === 'true' || !!parsed['dry-run'],
     'status-only': parsed['status-only'] === 'true' || !!parsed['status-only'],
     strict: parsed.strict === 'true' || !!parsed.strict,
-    system: parsed.system ? String(parsed.system) : undefined,
+    system: getStringArg(parsed, 'system') ? String(getStringArg(parsed, 'system')) : systemCtx.id,
     json: parsed.json === 'true' || !!parsed.json,
+    systemCtx,
   };
 
   const { json } = options;
@@ -242,7 +246,7 @@ export async function runPipeline(args: string[] = []): Promise<PipelineReport> 
     components: {},
   };
 
-  const sysArgs = options.system ? ['--', '--system', options.system] : [];
+  const sysArgs = ['--', '--system', options.systemCtx.id];
 
   // Stage A: Sync Token Registry
   const tokensOk = runGlobalCommand(
@@ -322,7 +326,7 @@ export async function runPipeline(args: string[] = []): Promise<PipelineReport> 
 function printReport(
   plan: ReturnType<typeof createPlan>,
   executionState: PipelineExecutionState,
-  options: PipelineOptions,
+  options: InternalPipelineOptions,
   meta: { hasFailures: boolean; failedComponents: string[] },
 ): void {
   const { json } = options;
@@ -370,7 +374,7 @@ function printReport(
 
   // Write report file
   if (!isDryRun) {
-    const reportDir = resolveSystemContextSafe({ system: options.system }).paths.generated;
+    const reportDir = options.systemCtx.paths.generated;
     const reportData = buildReportData(plan, executionState, {
       json,
       'dry-run': options['dry-run'],
