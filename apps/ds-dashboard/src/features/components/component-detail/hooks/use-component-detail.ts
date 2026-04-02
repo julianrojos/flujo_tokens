@@ -2,7 +2,7 @@
  * Hook for component-detail page.
  */
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   fetchComponentRegistry,
@@ -14,11 +14,8 @@ import {
 import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
 import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component-usage-index";
 import type { PartialComponentSpec } from "ds-types";
-import type { MergedComponentSpec } from "../lib/merge-spec-structured-data";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
-import { buildSpecTemplate } from "../lib/component-detail-transforms";
-import { mergeSpecWithStructuredData } from "../lib/merge-spec-structured-data";
 
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
@@ -30,16 +27,13 @@ interface ComponentDetailViewModel {
   usage: ComponentUsageEntry | null;
   allItems: ComponentRegistryItem[];
   spec: PartialComponentSpec | null;
-  mergedSpec: MergedComponentSpec | null;
-  specRaw: string;
-  specRawHash: string | null;
+  specUpdatedAt: number | null;
   tokenRegistry: TokenRegistry | null;
   tokenUsageIndex: TokenUsageIndex | null;
 
   // UI state
   captureModalOpen: boolean;
   docsModalOpen: boolean;
-  specEditorOpen: boolean;
   editorialEditorOpen: boolean;
   captureSummary: string | null;
   reloadNonce: number;
@@ -55,10 +49,8 @@ interface ComponentDetailViewModel {
   // Handlers
   setCaptureModalOpen: (open: boolean) => void;
   setDocsModalOpen: (open: boolean) => void;
-  setSpecEditorOpen: (open: boolean) => void;
   setEditorialEditorOpen: (open: boolean) => void;
   setCaptureSummary: (summary: string | null) => void;
-  handleSpecSaved: (raw: string, rawHash: string | null) => void;
   handleReload: () => void;
   handleNavigate: (slug: string) => void;
   handleBack: () => void;
@@ -73,13 +65,11 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [usage, setUsage] = useState<ComponentUsageEntry | null>(null);
   const [allItems, setAllItems] = useState<ComponentRegistryItem[]>([]);
   const [spec, setSpec] = useState<PartialComponentSpec | null>(null);
-  const [specRaw, setSpecRaw] = useState("");
-  const [specRawHash, setSpecRawHash] = useState<string | null>(null);
+  const [specUpdatedAt, setSpecUpdatedAt] = useState<number | null>(null);
   const [tokenRegistry, setTokenRegistry] = useState<TokenRegistry | null>(null);
   const [tokenUsageIndex, setTokenUsageIndex] = useState<TokenUsageIndex | null>(null);
   const [captureModalOpen, setCaptureModalOpen] = useState(false);
   const [docsModalOpen, setDocsModalOpen] = useState(false);
-  const [specEditorOpen, setSpecEditorOpen] = useState(false);
   const [editorialEditorOpen, setEditorialEditorOpen] = useState(false);
   const [captureSummary, setCaptureSummary] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -109,12 +99,15 @@ export function useComponentDetail(): ComponentDetailViewModel {
         setItem(found);
         setAllItems(registry.components);
         setUsage(usageIndex.by_slug[slug] ?? null);
-        const hasSpec = Boolean(specPayload?.ok && specPayload.exists);
-        const parsedSpecForMergeData =
-          hasSpec && specPayload?.parsed ? (specPayload.parsed as PartialComponentSpec) : null;
-        setSpec(parsedSpecForMergeData);
-        setSpecRawHash(specPayload?.rawHash ?? null);
-        setSpecRaw(hasSpec ? specPayload?.raw ?? "" : found ? buildSpecTemplate(found) : "");
+
+        // Spec comes complete from API (DB-first, no merge needed)
+        if (specPayload?.ok) {
+          setSpec(specPayload.spec ?? null);
+          setSpecUpdatedAt(specPayload.updatedAt ?? null);
+        } else {
+          setSpec(null);
+          setSpecUpdatedAt(null);
+        }
 
         setTokenRegistry(tokenRegistryPayload);
         setTokenUsageIndex(tokenUsagePayload);
@@ -126,11 +119,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
     };
     load();
   }, [slug, reloadNonce]);
-
-  // Memoized merge of structured DB data + YAML spec (DB-first precedence)
-  const mergedSpec = useMemo<MergedComponentSpec | null>(() => {
-    return mergeSpecWithStructuredData(spec, item);
-  }, [spec, item]);
 
   const nextStep = useMemo<PipelineStage | null>(() => {
     if (!item?.pipeline_stage) return null;
@@ -148,13 +136,6 @@ export function useComponentDetail(): ComponentDetailViewModel {
       totalItems: allItems.length,
     };
   }, [allItems, slug]);
-
-  const handleSpecSaved = useCallback((raw: string, rawHash: string | null) => {
-    setSpecRaw(raw);
-    setSpecRawHash(rawHash);
-    setSpecEditorOpen(false);
-    setReloadNonce((n) => n + 1);
-  }, []);
 
   const handleReload = useCallback(() => {
     setReloadNonce((n) => n + 1);
@@ -181,14 +162,11 @@ export function useComponentDetail(): ComponentDetailViewModel {
     usage,
     allItems,
     spec,
-    mergedSpec,
-    specRaw,
-    specRawHash,
+    specUpdatedAt,
     tokenRegistry,
     tokenUsageIndex,
     captureModalOpen,
     docsModalOpen,
-    specEditorOpen,
     editorialEditorOpen,
     captureSummary,
     reloadNonce,
@@ -200,10 +178,8 @@ export function useComponentDetail(): ComponentDetailViewModel {
     totalItems,
     setCaptureModalOpen,
     setDocsModalOpen,
-    setSpecEditorOpen,
     setEditorialEditorOpen,
     setCaptureSummary,
-    handleSpecSaved,
     handleReload,
     handleNavigate,
     handleBack,

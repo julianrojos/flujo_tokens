@@ -188,7 +188,7 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
   }, [reverseAliasMap, token]);
 
   // Component usages
-  const componentUsages = useMemo(() => {
+  const componentUsages = useMemo<ComponentTokenUsage[]>(() => {
     if (!token || !usage?.usedIn?.length) return [] as ComponentTokenUsage[];
 
     const rows = new Map<
@@ -270,20 +270,27 @@ export function useTokenDetail(tokenPath?: string): TokenDetailViewModel {
     }
 
     return Array.from(rows.values())
-      .map((row) => ({
+      .map((row): ComponentTokenUsage => {
+        const mode: ComponentTokenUsage["mode"] = row.hasDirect && row.hasViaAlias
+          ? "both"
+          : row.hasViaAlias
+            ? "via_alias"
+            : "direct";
+        return {
         slug: row.slug,
         displayName: row.displayName,
         pipelineStage: row.pipelineStage,
         figmaUrl: row.figmaUrl,
         figmaNodeId: row.figmaNodeId,
-        mode: row.hasDirect && row.hasViaAlias ? "both" : row.hasViaAlias ? "via_alias" : "direct",
+        mode,
         occurrences: row.occurrences,
         directOccurrences: row.directOccurrences,
         viaAliasOccurrences: row.viaAliasOccurrences,
         slots: Array.from(row.slotSet).sort((a, b) => a.localeCompare(b)),
         conditions: Array.from(row.conditionSet).sort((a, b) => a.localeCompare(b)),
         aliasChains: Array.from(row.aliasChainMap.values()),
-      }))
+        };
+      })
       .sort((left, right) => left.displayName.localeCompare(right.displayName));
   }, [aliasDescendantChains, componentBySlug, token, usage]);
 

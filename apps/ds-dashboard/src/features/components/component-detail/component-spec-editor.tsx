@@ -32,8 +32,8 @@ interface ComponentSpecEditorProps {
   open: boolean;
   slug: string;
   spec: PartialComponentSpec | null;
-  expectedHash: string | null;
-  onSaved: (result: { message: string; rawHash: string | null }) => void;
+  expectedUpdatedAt: number | null;
+  onSaved: (result: { message: string; updatedAt: number | null }) => void;
   onCancel: () => void;
 }
 
@@ -41,7 +41,7 @@ export function ComponentSpecEditor({
   open,
   slug,
   spec,
-  expectedHash,
+  expectedUpdatedAt,
   onSaved,
   onCancel,
 }: ComponentSpecEditorProps) {
@@ -79,7 +79,7 @@ export function ComponentSpecEditor({
       const saved = await persistSummaryEditorial(
         {
           slug,
-          expectedHash,
+          expectedUpdatedAt,
           summary,
         },
         {
@@ -88,7 +88,7 @@ export function ComponentSpecEditor({
       );
       onSaved({
         message: saved.message,
-        rawHash: saved.rawHash,
+        updatedAt: saved.updatedAt,
       });
 
       // Check if markdown sync was successful

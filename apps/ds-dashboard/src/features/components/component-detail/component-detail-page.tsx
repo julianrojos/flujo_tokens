@@ -18,7 +18,6 @@ import { ComponentGraphSection } from "./components/component-graph-section";
 import { ComponentAdoptionSection } from "./components/component-adoption-section";
 import { STAGE_LABELS } from "./lib/component-detail-transforms";
 
-const SpecEditorDrawer = lazy(() => import("./spec-editor-drawer").then(m => ({ default: m.SpecEditorDrawer })));
 const ComponentDocsModal = lazy(() => import("./component-docs-modal").then(m => ({ default: m.ComponentDocsModal })));
 const ComponentSpecEditor = lazy(() => import("./component-spec-editor").then(m => ({ default: m.ComponentSpecEditor })));
 
@@ -32,13 +31,10 @@ export function ComponentDetailPage() {
     usage,
     allItems,
     spec,
-    mergedSpec,
-    specRaw,
-    specRawHash,
+    specUpdatedAt,
     tokenRegistry,
     captureModalOpen,
     docsModalOpen,
-    specEditorOpen,
     editorialEditorOpen,
     captureSummary,
     docsFilePath,
@@ -48,10 +44,8 @@ export function ComponentDetailPage() {
     totalItems,
     setCaptureModalOpen,
     setDocsModalOpen,
-    setSpecEditorOpen,
     setEditorialEditorOpen,
     setCaptureSummary,
-    handleSpecSaved,
     handleReload,
     handleNavigate,
     handleBack,
@@ -116,7 +110,7 @@ export function ComponentDetailPage() {
         hasFigmaUrl={Boolean(item.figma.file_url)}
         hasDocs={item.doc.exists}
         onCapture={() => setCaptureModalOpen(true)}
-        onOpenSpec={() => setSpecEditorOpen(true)}
+        onOpenEditorial={() => setEditorialEditorOpen(true)}
         onOpenDocs={openDocsModal}
       />
 
@@ -128,39 +122,18 @@ export function ComponentDetailPage() {
         item={item}
         captureSummary={captureSummary}
         onOpenCapture={() => setCaptureModalOpen(true)}
-        variantVisuals={mergedSpec?.variant_visuals}
+        variantVisuals={spec?.variant_visuals}
       />
 
       <ComponentSpecSection
         spec={spec}
-        mergedSpec={mergedSpec}
         hasDocs={item.doc.exists}
-        onOpenSpecEditor={() => setSpecEditorOpen(true)}
         onOpenDocs={openDocsModal}
         onOpenEditorial={() => setEditorialEditorOpen(true)}
         selfSlug={item.slug}
       />
 
       <Suspense fallback={<div className="text-sm text-muted-foreground">Loading editor…</div>}>
-        {specEditorOpen && (
-          <SpecEditorDrawer
-            slug={slug!}
-            open={specEditorOpen}
-            displayName={item.display_name}
-            specPath={item.paths.spec}
-            initialRaw={specRaw}
-            initialHash={specRawHash}
-            tokenRegistry={tokenRegistry}
-            onClose={() => setSpecEditorOpen(false)}
-            onSaved={({ raw, rawHash }) => {
-              if (raw !== undefined) {
-                handleSpecSaved(raw, rawHash ?? null);
-              } else {
-                handleReload();
-              }
-            }}
-          />
-        )}
         {docsModalOpen && docsFilePath && (
           <ComponentDocsModal
             open={docsModalOpen}
@@ -174,7 +147,7 @@ export function ComponentDetailPage() {
             open={editorialEditorOpen}
             slug={slug!}
             spec={spec}
-            expectedHash={specRawHash}
+            expectedUpdatedAt={specUpdatedAt}
             onSaved={() => {
               setEditorialEditorOpen(false);
               handleReload();

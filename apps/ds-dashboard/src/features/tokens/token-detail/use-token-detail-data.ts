@@ -17,7 +17,7 @@ import type { VariableUsageReport } from "@/types/consumers";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenGraphQueryResult } from "@/types/token-graph";
 import type { TokenHealthReport } from "@/types/token-health";
-import type { TokenUsageEntry, TokenUsageIndex } from "@/types/token-usage-index";
+import type { TokenUsageEntry, TokenUsageIndex, TokenUsageOccurrence } from "@/types/token-usage-index";
 import { buildFigmaConsumerUsageOccurrences } from "./lib/token-detail-usage-derivation";
 
 const EMPTY_BY_PATH: Record<string, TokenUsageEntry> = {};

@@ -13,7 +13,7 @@ interface ComponentPipelineSectionProps {
   hasFigmaUrl: boolean;
   hasDocs: boolean;
   onCapture: () => void;
-  onOpenSpec: () => void;
+  onOpenEditorial: () => void;
   onOpenDocs: () => void;
 }
 
@@ -22,7 +22,7 @@ export function ComponentPipelineSection({
   hasFigmaUrl,
   hasDocs,
   onCapture,
-  onOpenSpec,
+  onOpenEditorial,
   onOpenDocs,
 }: ComponentPipelineSectionProps) {
   const stages = PIPELINE_STAGES;
@@ -34,8 +34,8 @@ export function ComponentPipelineSection({
 
   const cta = (() => {
     if (!currentStage) return null;
-    if (currentStage === "missing-spec") return { label: "Create spec", onClick: onOpenSpec };
-    if (currentStage === "spec") return { label: "Edit spec", onClick: onOpenSpec };
+    if (currentStage === "missing-spec") return { label: "Add spec", onClick: onOpenEditorial };
+    if (currentStage === "spec") return { label: "Edit spec", onClick: onOpenEditorial };
     if (currentStage === "markdown") {
       if (!hasFigmaUrl) return null;
       return { label: "Capture visual proof", onClick: onCapture };

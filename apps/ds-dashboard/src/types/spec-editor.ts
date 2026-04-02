@@ -1,4 +1,9 @@
-import type { ComponentSpec } from "ds-types";
+/**
+ * Component Spec Editor Types (DB-first)
+ * 
+ * Editorial fields are stored in component_editorial table.
+ * Structural fields (anatomy, properties) are stored in component_figma_anatomy table.
+ */
 
 export type SpecValidationSeverity = "error" | "warning";
 
@@ -17,14 +22,20 @@ export interface SpecValidationResult {
   issues: SpecValidationIssue[];
 }
 
-export type SpecDiffKind = "added" | "removed" | "changed";
+/**
+ * Response from PATCH /api/component-spec/:slug/editorial
+ */
+export interface ComponentSpecPatchEditorialResponse {
+  ok: boolean;
+  slug: string;
+  exists: boolean;
+  updatedAt: number | null;
+  savedKeys: string[];
+  markdownSynced?: boolean;
+  message?: string;
+}
 
-export interface SpecDiffEntry {
-  kind: SpecDiffKind;
-  path: string;
-  beforeValue: string | null;
-  afterValue: string | null;
-  category:
+export type SpecDiffCategory =
   | "metadata"
   | "figma"
   | "summary"
@@ -36,59 +47,15 @@ export interface SpecDiffEntry {
   | "qa"
   | "related_components"
   | "other";
-  risk: "low" | "medium" | "high";
-}
 
-export interface ComponentSpecValidateResponse {
-  ok: true;
-  slug: string;
-  path: string;
-  rawHash: string | null;
-  parsed: ComponentSpec | null;
-  validation: SpecValidationResult;
-  diff: SpecDiffEntry[];
-}
+export type SpecDiffRisk = "high" | "medium" | "low";
+export type SpecDiffKind = "added" | "removed" | "changed";
 
-export interface ComponentSpecSaveResponse {
-  ok: boolean;
-  slug: string;
+export interface SpecDiffEntry {
+  kind: SpecDiffKind;
   path: string;
-  rawHash: string | null;
-  backupPath: string | null;
-  parsed: ComponentSpec | null;
-  validation: SpecValidationResult;
-  diff: SpecDiffEntry[];
-  requiresConfirmation?: boolean;
-  refreshed?: boolean;
-  refreshOutput?: string;
-  message?: string;
-}
-
-export interface ComponentSpecRestoreResponse {
-  ok: boolean;
-  slug: string;
-  path: string;
-  restoredFrom: string | null;
-  rawHash: string | null;
-  refreshed?: boolean;
-  refreshOutput?: string;
-  message?: string;
-}
-
-export interface ComponentSpecPatchEditorialResponse {
-  ok: boolean;
-  slug: string;
-  path: string;
-  rawHash: string | null;
-  backupPath: string | null;
-  savedKeys: string[];
-  markdownPath?: string | null;
-  markdownSynced?: boolean;
-  markdownSyncError?: string | null;
-  markdownSectionsFound?: {
-    purpose: boolean;
-    whenToUse: boolean;
-    whenNotToUse: boolean;
-  } | null;
-  message?: string;
+  beforeValue: string | null;
+  afterValue: string | null;
+  category: SpecDiffCategory;
+  risk: SpecDiffRisk;
 }

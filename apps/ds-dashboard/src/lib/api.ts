@@ -16,9 +16,6 @@ import type {
 } from "@/types/health-history";
 import type {
   ComponentSpecPatchEditorialResponse,
-  ComponentSpecRestoreResponse,
-  ComponentSpecSaveResponse,
-  ComponentSpecValidateResponse,
 } from "@/types/spec-editor";
 import type {
   DsConsumer,
@@ -560,12 +557,12 @@ export function fetchImpact(args: {
 export interface ComponentSpecPayload {
   ok: boolean;
   slug: string;
-  path: string;
   exists: boolean;
-  raw: string;
-  rawHash: string | null;
-  parsed: unknown;
-  parseError?: string | null;
+  spec: unknown;
+  updatedAt: number | null;
+  savedKeys?: string[];
+  message?: string;
+  markdownSynced?: boolean;
 }
 
 export function fetchComponentSpec(slug: string) {
@@ -574,71 +571,16 @@ export function fetchComponentSpec(slug: string) {
   );
 }
 
-export function validateComponentSpecInput(args: { slug: string; raw: string }) {
-  return getJson<ComponentSpecValidateResponse>(
-    `/api/component-spec/${encodeURIComponent(args.slug)}/validate`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ raw: args.raw }),
-    },
-  );
-}
-
-export function saveComponentSpec(args: {
-  slug: string;
-  raw: string;
-  expectedHash?: string | null;
-  refreshRegistry?: boolean;
-  confirmRiskyChanges?: boolean;
-}) {
-  return getJson<ComponentSpecSaveResponse>(
-    `/api/component-spec/${encodeURIComponent(args.slug)}/save`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        raw: args.raw,
-        expectedHash: args.expectedHash ?? null,
-        refreshRegistry: args.refreshRegistry !== false,
-        confirmRiskyChanges: args.confirmRiskyChanges === true,
-      }),
-    },
-  );
-}
-
-export function restoreComponentSpecBackup(args: {
-  slug: string;
-  refreshRegistry?: boolean;
-}) {
-  return getJson<ComponentSpecRestoreResponse>(
-    `/api/component-spec/${encodeURIComponent(args.slug)}/restore-backup`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        refreshRegistry: args.refreshRegistry !== false,
-      }),
-    },
-  );
-}
-
 export function patchEditorialSpec(args: {
   slug: string;
-  expectedHash?: string | null;
+  expectedUpdatedAt?: number | null;
   fields: Record<string, unknown>;
-}) {
+}): Promise<ComponentSpecPatchEditorialResponse> {
   const timeoutMs = 15_000;
   const controller = new AbortController();
   const timeoutId = globalThis.setTimeout(() => controller.abort(), timeoutMs);
 
-  return getJson<ComponentSpecPatchEditorialResponse>(
+  return getJson<ComponentSpecPayload>(
     `/api/component-spec/${encodeURIComponent(args.slug)}/editorial`,
     {
       method: "PATCH",
@@ -647,11 +589,21 @@ export function patchEditorialSpec(args: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        expectedHash: args.expectedHash ?? null,
+        expectedUpdatedAt: args.expectedUpdatedAt ?? null,
         fields: args.fields,
       }),
     },
   )
+    .then((payload) => ({
+      ok: Boolean(payload.ok),
+      slug: payload.slug,
+      exists: Boolean(payload.exists),
+      updatedAt: payload.updatedAt,
+      savedKeys: Array.isArray(payload.savedKeys) ? payload.savedKeys : Object.keys(args.fields),
+      // DB-first flow no longer depends on markdown regeneration.
+      markdownSynced: payload.markdownSynced ?? true,
+      message: payload.message || "Editorial fields saved successfully.",
+    }))
     .catch((error) => {
       const isAbortError =
         (typeof DOMException !== "undefined" &&
@@ -1979,11 +1931,11 @@ export function updateConsumer(consumerId: string, payload: Partial<{ enabled: b
   return requestJson<{ ok: boolean; data: unknown }>(
     `/api/figma-mcp/dependencies/consumers/${encodeURIComponent(consumerId)}`,
     {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
   ).then((response) => {
     const normalized = normalizeDsConsumerRecord(response.data);

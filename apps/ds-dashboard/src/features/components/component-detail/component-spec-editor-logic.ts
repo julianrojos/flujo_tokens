@@ -28,18 +28,18 @@ export function resolveCancelIntent(isDirty: boolean): "confirm" | "close" {
 
 interface PersistSummaryEditorialArgs {
   slug: string;
-  expectedHash: string | null;
+  expectedUpdatedAt: number | null;
   summary: SummaryFields;
 }
 
 interface PersistSummaryEditorialDeps {
   patchEditorialSpecFn: (args: {
     slug: string;
-    expectedHash?: string | null;
+    expectedUpdatedAt?: number | null;
     fields: Record<string, unknown>;
   }) => Promise<{
     ok: boolean;
-    rawHash: string | null;
+    updatedAt: number | null;
     message?: string;
     markdownSynced?: boolean;
   }>;
@@ -48,11 +48,11 @@ interface PersistSummaryEditorialDeps {
 export async function persistSummaryEditorial(
   args: PersistSummaryEditorialArgs,
   deps: PersistSummaryEditorialDeps,
-): Promise<{ message: string; rawHash: string | null; markdownSynced: boolean }> {
+): Promise<{ message: string; updatedAt: number | null; markdownSynced: boolean }> {
   const { patchEditorialSpecFn } = deps;
   const payload = await patchEditorialSpecFn({
     slug: args.slug,
-    expectedHash: args.expectedHash,
+    expectedUpdatedAt: args.expectedUpdatedAt,
     fields: { summary: args.summary },
   });
   if (!payload.ok) {
@@ -60,7 +60,7 @@ export async function persistSummaryEditorial(
   }
   return {
     message: payload.message || "Editorial fields saved successfully.",
-    rawHash: payload.rawHash,
+    updatedAt: payload.updatedAt,
     markdownSynced: payload.markdownSynced === true,
   };
 }
