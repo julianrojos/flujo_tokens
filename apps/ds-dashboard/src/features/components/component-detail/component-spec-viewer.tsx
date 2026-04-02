@@ -1,5 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from "react";
-import type { PartialComponentSpec, SpecProperty } from "ds-types";
+import type { PartialComponentSpec, SpecProperty, SpecLayoutItem } from "ds-types";
 import type { TokenEntry } from "@/types/token-registry";
 import { Badge } from "@/components/ui/badge";
 import { SortableTableHead } from "@/components/ui/sortable-table-head";
@@ -7,10 +7,16 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
 import { Link } from "react-router-dom";
+import {
+  deduplicateRelated,
+  slugToComponentRouteSlug,
+  slugToDisplayName,
+} from "../lib/spec-viewer-utils";
 
 const SummaryMarkdownPreview = lazy(() =>
   import("@/components/markdown/markdown-preview").then((module) => ({
@@ -72,6 +78,7 @@ function PropertyRow({ prop }: { prop: SpecProperty }) {
 interface ComponentSpecViewerProps {
   spec: PartialComponentSpec;
   resolveToken?: (tokenRef: string) => { token: TokenEntry | null; usageCount: number | null };
+  selfSlug?: string;
 }
 
 type PropertySortField = "name" | "type" | "values" | "default" | "required" | "description";
@@ -94,7 +101,17 @@ const TOKEN_MAPPING_SORT_COLUMNS: Array<{ field: TokenMappingSortField; label: s
   { field: "refs", label: "Refs" },
 ];
 
-export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerProps) {
+const LAYOUT_COLUMNS = [
+  "Node",
+  "Direction",
+  "H Sizing",
+  "V Sizing",
+  "Alignment",
+  "Item Spacing",
+  "Padding",
+] as const;
+
+export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentSpecViewerProps) {
   const summary = spec.summary ?? {
     purpose: "",
     when_to_use: "",
@@ -186,6 +203,10 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
       </Suspense>
     );
   };
+  const dedupedRelated = useMemo(
+    () => deduplicateRelated(spec.related_components ?? [], selfSlug ?? ""),
+    [spec.related_components, selfSlug],
+  );
 
   return (
     <div className="space-y-6">
@@ -397,6 +418,81 @@ export function ComponentSpecViewer({ spec, resolveToken }: ComponentSpecViewerP
                 ))}
               </ul>
             </div>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Content Guidelines */}
+      {spec.content_guidelines?.rules?.length ? (
+        <section>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Content Guidelines
+          </h4>
+          <ul className="list-inside list-disc space-y-1 text-sm text-muted-foreground">
+            {spec.content_guidelines.rules.map((rule, i) => (
+              <li key={i}>{rule}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {/* Layout */}
+      {spec.layout?.length ? (
+        <section>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Layout
+          </h4>
+          <div className="max-h-96 overflow-x-auto overflow-y-auto rounded-md border border-border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {LAYOUT_COLUMNS.map((col) => (
+                    <TableHead key={col}>{col}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {spec.layout.map((row: SpecLayoutItem, i) => (
+                  <TableRow key={`${row.node}-${i}`}>
+                    <TableCell className="font-mono text-xs">{row.node ?? "—"}</TableCell>
+                    <TableCell>{row.direction ?? "—"}</TableCell>
+                    <TableCell>{row.hSizing ?? "—"}</TableCell>
+                    <TableCell>{row.vSizing ?? "—"}</TableCell>
+                    <TableCell>{row.alignment ?? "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">
+                      {row.itemSpacing === undefined || row.itemSpacing === null
+                        ? "—"
+                        : String(row.itemSpacing)}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs" title="Top/Right/Bottom/Left">
+                      {row.padding
+                        ? `${row.padding.top}/${row.padding.right}/${row.padding.bottom}/${row.padding.left}`
+                        : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      ) : null}
+
+      {/* Related Components */}
+      {dedupedRelated.length > 0 ? (
+        <section>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Related Components
+          </h4>
+          <div className="flex flex-wrap gap-2">
+            {dedupedRelated.map((slug) => (
+              <Link
+                key={slug}
+                to={`/components/${encodeURIComponent(slugToComponentRouteSlug(slug))}`}
+                className="inline-flex items-center rounded border border-border px-2.5 py-1 text-xs hover:bg-muted"
+              >
+                {slugToDisplayName(slug)}
+              </Link>
+            ))}
           </div>
         </section>
       ) : null}

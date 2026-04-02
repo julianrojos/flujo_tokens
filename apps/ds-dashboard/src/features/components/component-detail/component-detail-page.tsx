@@ -127,6 +127,7 @@ export function ComponentDetailPage() {
         item={item}
         captureSummary={captureSummary}
         onOpenCapture={() => setCaptureModalOpen(true)}
+        variantVisuals={spec?.variant_visuals}
       />
 
       <ComponentSpecSection
@@ -135,6 +136,7 @@ export function ComponentDetailPage() {
         onOpenSpecEditor={() => setSpecEditorOpen(true)}
         onOpenDocs={openDocsModal}
         onOpenEditorial={() => setEditorialEditorOpen(true)}
+        selfSlug={item.slug}
       />
 
       <Suspense fallback={<div className="text-sm text-muted-foreground">Loading editor…</div>}>

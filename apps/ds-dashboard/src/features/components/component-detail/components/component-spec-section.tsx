@@ -14,6 +14,7 @@ interface ComponentSpecSectionProps {
   onOpenSpecEditor: () => void;
   onOpenDocs: () => void;
   onOpenEditorial: () => void;
+  selfSlug?: string;
 }
 
 export function ComponentSpecSection({
@@ -22,6 +23,7 @@ export function ComponentSpecSection({
   onOpenSpecEditor,
   onOpenDocs,
   onOpenEditorial,
+  selfSlug,
 }: ComponentSpecSectionProps) {
   return (
     <Card>
@@ -50,7 +52,7 @@ export function ComponentSpecSection({
       </CardHeader>
       <CardContent>
         {spec ? (
-          <ComponentSpecViewer spec={spec} />
+          <ComponentSpecViewer spec={spec} selfSlug={selfSlug} />
         ) : (
           <div className="rounded-lg border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
             No specification yet. Click "Create" to add one.
