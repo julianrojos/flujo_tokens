@@ -6,13 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Camera } from "lucide-react";
 import type { ComponentRegistryItem } from "@/types/component-registry";
+import type { SpecVariantVisual } from "ds-types";
 import { buildAssetUrl } from "../lib/component-detail-transforms";
 import { useEffect, useMemo, useState } from "react";
+import { normalizeVariantName } from "../lib/spec-viewer-utils";
 
 interface ComponentVisualProofSectionProps {
   item: ComponentRegistryItem | null;
   captureSummary: string | null;
   onOpenCapture: () => void;
+  variantVisuals?: SpecVariantVisual[];
 }
 
 function formatBytes(value: number | null | undefined): string | null {
@@ -31,7 +34,7 @@ function formatCapturedAt(value: string | null | undefined): string | null {
   return date.toLocaleString();
 }
 
-export function ComponentVisualProofSection({ item, captureSummary, onOpenCapture }: ComponentVisualProofSectionProps) {
+export function ComponentVisualProofSection({ item, captureSummary, onOpenCapture, variantVisuals }: ComponentVisualProofSectionProps) {
   const proof = item?.visual_proof;
   const screenshotUrl = proof?.screenshot_url || buildAssetUrl(proof?.image_path || null);
   const [mainImageFailed, setMainImageFailed] = useState(false);
@@ -68,6 +71,24 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
         : [],
     [proof?.variants],
   );
+
+  const variantVisualMap = useMemo(() => {
+    const map = new Map<string, SpecVariantVisual>();
+    for (const visual of variantVisuals ?? []) {
+      const normalizedName = normalizeVariantName(visual.name);
+      if (!normalizedName) continue;
+      if (import.meta.env.DEV && map.has(normalizedName)) {
+        console.warn(
+          "[variant_visuals] duplicate normalized name; using last entry:",
+          normalizedName,
+          "from",
+          visual.name,
+        );
+      }
+      map.set(normalizedName, visual);
+    }
+    return map;
+  }, [variantVisuals]);
   useEffect(() => {
     setMainImageFailed(false);
   }, [screenshotUrl]);
@@ -129,23 +150,46 @@ export function ComponentVisualProofSection({ item, captureSummary, onOpenCaptur
           <div className="space-y-2">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Variants</h4>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleVariantPreviews.map((variant) => (
-                <figure key={variant.key} className="space-y-1">
-                  <img
-                    src={variant.previewUrl || undefined}
-                    alt={`${item.display_name} ${variant.name}`}
-                    className="max-h-40 w-full rounded-lg border border-border object-contain"
-                    onError={() =>
-                      setFailedVariantKeys((prev) => {
-                        const next = new Set(prev);
-                        next.add(variant.key);
-                        return next;
-                      })
-                    }
-                  />
-                  <figcaption className="text-xs text-muted-foreground">{variant.name}</figcaption>
-                </figure>
-              ))}
+              {visibleVariantPreviews.map((variant) => {
+                const matched = variantVisualMap.get(normalizeVariantName(variant.name));
+                if (import.meta.env.DEV && !matched) {
+                  console.debug("[variant_visuals] no match for variant:", variant.name);
+                }
+                return (
+                  <figure key={variant.key} className="space-y-1">
+                    <img
+                      src={variant.previewUrl || undefined}
+                      alt={`${item.display_name} ${variant.name}`}
+                      className="max-h-40 w-full rounded-lg border border-border object-contain"
+                      onError={() =>
+                        setFailedVariantKeys((prev) => {
+                          const next = new Set(prev);
+                          next.add(variant.key);
+                          return next;
+                        })
+                      }
+                    />
+                    <figcaption className="text-xs text-muted-foreground">{variant.name}</figcaption>
+                    {matched && Object.keys(matched.properties).length > 0 && (
+                      <div
+                        role="group"
+                        aria-label={`${variant.name} variant properties`}
+                        className="mt-1 flex flex-wrap gap-1"
+                      >
+                        {Object.entries(matched.properties).map(([k, v]) => (
+                          <span
+                            key={k}
+                            aria-label={`${variant.name}: ${k} property set to ${String(v)}`}
+                            className="inline-flex rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground"
+                          >
+                            {k}={v}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </figure>
+                );
+              })}
             </div>
           </div>
         )}
