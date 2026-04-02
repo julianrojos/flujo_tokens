@@ -7,84 +7,32 @@ import assert from 'node:assert';
 import Database from 'better-sqlite3';
 
 import { ComponentRepository } from './component-repository.js';
+import { createInMemoryDbFromSchema } from './test-db-helpers.ts';
 
 /**
  * Create in-memory test database with required schema
  */
 function createTestDb(): Database.Database {
-    const db = new Database(':memory:');
-    db.pragma('foreign_keys = ON');
-
-    // Create minimal schema needed for tests
-    db.exec(`
-        CREATE TABLE design_systems (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL
-        );
-
-        CREATE TABLE components (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            ds_id TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,
-            slug TEXT NOT NULL,
-            name TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'ready', 'needs-review', 'missing')),
-            doc_type TEXT NOT NULL DEFAULT 'component' CHECK (doc_type IN ('component', 'pattern', 'guideline')),
-            figma_file_url TEXT,
-            figma_component_set_node_id TEXT,
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            UNIQUE(ds_id, slug)
-        );
-
-        CREATE TABLE component_specs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            component_id INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
-            markdown_path TEXT NOT NULL,
-            doc_status TEXT NOT NULL DEFAULT 'draft' CHECK (doc_status IN ('draft', 'ready', 'needs-review')),
-            coverage REAL DEFAULT 0,
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            UNIQUE(component_id, markdown_path)
-        );
-
-        CREATE TABLE component_visual_proofs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            component_id INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
-            image_path TEXT NOT NULL,
-            screenshot_url TEXT,
-            caption TEXT,
-            captured_at TEXT,
-            captured_at_epoch INTEGER,
-            node_id TEXT,
-            image_sha256 TEXT,
-            image_bytes INTEGER,
-            image_content_type TEXT,
-            image_width INTEGER,
-            image_height INTEGER,
-            variants_count INTEGER,
-            variants_json TEXT,
-            created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
-            UNIQUE(component_id, image_path)
-        );
-    `);
-
-    // Insert test design system
-    db.exec("INSERT INTO design_systems (id, name) VALUES ('test-sys', 'Test System')");
-
-    return db;
+    return createInMemoryDbFromSchema({
+        designSystems: [{ id: 'test-sys', name: 'Test System' }],
+    });
 }
 
 describe('ComponentRepository', () => {
     let db: Database.Database;
     let repo: ComponentRepository;
+    let originalConsoleWarn: typeof console.warn;
 
     before(() => {
+        originalConsoleWarn = console.warn;
+        console.warn = () => {};
         db = createTestDb();
         repo = new ComponentRepository(db);
     });
 
     after(() => {
         if (db) db.close();
+        console.warn = originalConsoleWarn;
     });
 
     describe('upsertFromRegistry', () => {
@@ -223,6 +171,152 @@ describe('ComponentRepository', () => {
             assert.strictEqual(components.length, 1);
             assert.ok(Array.isArray(components[0].visualProofs));
             assert.strictEqual(components[0].visualProofs?.[0]?.variants, undefined);
+        });
+
+        it('parses structured Figma data from structured child tables', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('structured-sys', 'Structured Data Test')");
+            repo.upsertFromRegistry('structured-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    figma: {
+                        pageName: 'Components',
+                        variants: [
+                            { name: 'default', properties: { state: 'default', size: 'md' }, nodeId: '10:2' },
+                            { name: 'hover', properties: { state: 'hover', size: 'md' }, nodeId: '10:3' },
+                        ],
+                        tokenBindings: [
+                            {
+                                nodeId: '10:2',
+                                nodeName: 'Button',
+                                field: 'fills',
+                                variableId: '123:456',
+                                tokenPath: 'primitives.blue.500',
+                                mode: 'Default',
+                            },
+                        ],
+                        layout: [
+                            {
+                                nodeId: '10:2',
+                                nodeName: 'Button',
+                                depth: 0,
+                                direction: 'Horizontal',
+                                hSizing: 'fill',
+                                vSizing: 'hug',
+                                alignmentH: 'center',
+                                alignmentV: 'center',
+                                itemSpacing: 8,
+                                padding: { top: 4, right: 8, bottom: 4, left: 8 },
+                            },
+                        ],
+                    },
+                },
+            ]);
+
+            const component = repo.getBySlug('structured-sys', 'button');
+            assert.ok(component);
+            assert.strictEqual(component.figma?.pageName, 'Components');
+            assert.strictEqual(component.figma?.variants?.length, 2);
+            assert.strictEqual(component.figma?.variants?.[0]?.name, 'default');
+            assert.strictEqual(component.figma?.variants?.[0]?.nodeId, '10:2');
+            assert.strictEqual(component.figma?.tokenBindings?.length, 1);
+            assert.strictEqual(component.figma?.tokenBindings?.[0]?.nodeId, '10:2');
+            assert.strictEqual(component.figma?.tokenBindings?.[0]?.nodeName, 'Button');
+            assert.strictEqual(component.figma?.tokenBindings?.[0]?.field, 'fills');
+            assert.strictEqual(component.figma?.tokenBindings?.[0]?.variableId, '123:456');
+            assert.strictEqual(component.figma?.tokenBindings?.[0]?.tokenPath, 'primitives.blue.500');
+            assert.strictEqual(component.figma?.tokenBindings?.[0]?.mode, 'Default');
+            assert.ok(Number.isFinite(component.figma?.tokenBindings?.[0]?.capturedAtEpoch));
+            assert.strictEqual(component.figma?.tokenBindings?.[0]?.schemaVersion, 1);
+            assert.strictEqual(component.figma?.layout?.length, 1);
+            assert.strictEqual(component.figma?.layout?.[0]?.direction, 'Horizontal');
+            assert.strictEqual(component.figma?.layout?.[0]?.itemSpacing, 8);
+        });
+
+        it('handles missing structured Figma data gracefully', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('no-structured-sys', 'No Structured Data Test')");
+            repo.upsertFromRegistry('no-structured-sys', [
+                { slug: 'card', name: 'Card' },
+            ]);
+
+            const component = repo.getBySlug('no-structured-sys', 'card');
+            assert.ok(component);
+            assert.strictEqual(component.figma, undefined);
+        });
+
+        it('preserves existing structured child rows when capture status is failed', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('preserve-structured-sys', 'Preserve Structured Data Test')");
+
+            repo.upsertFromRegistry('preserve-structured-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    figma: {
+                        structuredCaptureStatus: 'ok',
+                        variants: [
+                            { name: 'default', properties: { state: 'default' }, nodeId: '10:2' },
+                        ],
+                        tokenBindings: [
+                            {
+                                nodeId: '10:2',
+                                nodeName: 'Button',
+                                field: 'fills',
+                                variableId: '123:456',
+                                tokenPath: 'primitives.blue.500',
+                            },
+                        ],
+                        layout: [
+                            {
+                                nodeId: '10:2',
+                                nodeName: 'Button',
+                                depth: 0,
+                                direction: 'Horizontal',
+                            },
+                        ],
+                    },
+                },
+            ]);
+
+            const component = repo.getBySlug('preserve-structured-sys', 'button');
+            assert.ok(component);
+            const componentId = component.id;
+
+            const variantsBefore = db.prepare(
+                'SELECT COUNT(*) AS count FROM component_figma_variants WHERE component_id = ?',
+            ).get(componentId) as { count: number };
+            const bindingsBefore = db.prepare(
+                'SELECT COUNT(*) AS count FROM component_figma_token_bindings WHERE component_id = ?',
+            ).get(componentId) as { count: number };
+            const layoutBefore = db.prepare(
+                'SELECT COUNT(*) AS count FROM component_figma_layout_rows WHERE component_id = ?',
+            ).get(componentId) as { count: number };
+            assert.strictEqual(variantsBefore.count, 1);
+            assert.strictEqual(bindingsBefore.count, 1);
+            assert.strictEqual(layoutBefore.count, 1);
+
+            repo.upsertFromRegistry('preserve-structured-sys', [
+                {
+                    slug: 'button',
+                    name: 'Button',
+                    figma: {
+                        pageName: 'Components',
+                        structuredCaptureStatus: 'failed',
+                    },
+                },
+            ]);
+
+            const variantsAfter = db.prepare(
+                'SELECT COUNT(*) AS count FROM component_figma_variants WHERE component_id = ?',
+            ).get(componentId) as { count: number };
+            const bindingsAfter = db.prepare(
+                'SELECT COUNT(*) AS count FROM component_figma_token_bindings WHERE component_id = ?',
+            ).get(componentId) as { count: number };
+            const layoutAfter = db.prepare(
+                'SELECT COUNT(*) AS count FROM component_figma_layout_rows WHERE component_id = ?',
+            ).get(componentId) as { count: number };
+            assert.strictEqual(variantsAfter.count, 1);
+            assert.strictEqual(bindingsAfter.count, 1);
+            assert.strictEqual(layoutAfter.count, 1);
         });
     });
 

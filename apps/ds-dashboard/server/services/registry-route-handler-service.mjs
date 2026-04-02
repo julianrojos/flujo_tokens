@@ -55,6 +55,55 @@ function computeVisualProofExists(path, pathExists, dbRecord) {
     (Array.isArray(dbRecord.variants) && dbRecord.variants.length > 0);
 }
 
+function normalizeFigmaVariantsForApi(variants) {
+  if (!Array.isArray(variants) || variants.length === 0) return undefined;
+  return variants.map((variant) => ({
+    name: String(variant?.name || "").trim() || "Variant",
+    properties: variant?.properties && typeof variant.properties === "object" ? variant.properties : {},
+    node_id: String(variant?.nodeId || "").trim() || undefined,
+  }));
+}
+
+function normalizeFigmaTokenBindingsForApi(tokenBindings) {
+  if (!Array.isArray(tokenBindings) || tokenBindings.length === 0) return undefined;
+  return tokenBindings
+    .map((binding) => ({
+      node_id: String(binding?.nodeId || "").trim(),
+      node_name: String(binding?.nodeName || "").trim(),
+      field: String(binding?.field || "").trim(),
+      variable_id: String(binding?.variableId || "").trim(),
+      token_path: String(binding?.tokenPath || "").trim() || undefined,
+      mode: String(binding?.mode || "").trim() || undefined,
+    }))
+    .filter((binding) => binding.node_id && binding.node_name && binding.field && binding.variable_id);
+}
+
+function normalizeFigmaLayoutForApi(layoutRows) {
+  if (!Array.isArray(layoutRows) || layoutRows.length === 0) return undefined;
+  const normalizedRows = [];
+  for (const row of layoutRows) {
+    const nodeId = String(row?.nodeId || "").trim();
+    const nodeName = String(row?.nodeName || "").trim();
+    if (!nodeId || !nodeName) continue;
+    const parsedDepth = Number(row?.depth);
+    normalizedRows.push({
+      node_id: nodeId,
+      node_name: nodeName,
+      depth: Number.isFinite(parsedDepth) ? Math.max(0, Math.floor(parsedDepth)) : 0,
+      direction: String(row?.direction || "").trim() || undefined,
+      h_sizing: String(row?.hSizing || "").trim() || undefined,
+      v_sizing: String(row?.vSizing || "").trim() || undefined,
+      alignment_h: String(row?.alignmentH || "").trim() || undefined,
+      alignment_v: String(row?.alignmentV || "").trim() || undefined,
+      item_spacing: Number.isFinite(Number(row?.itemSpacing))
+        ? Number(row.itemSpacing)
+        : undefined,
+      padding: row?.padding || undefined,
+    });
+  }
+  return normalizedRows.length > 0 ? normalizedRows : undefined;
+}
+
 export async function handleComponentRegistryRoute(c, deps) {
   const { failJson, getSystemContext, componentRepo } = deps;
   if (!componentRepo) {
@@ -129,6 +178,10 @@ export async function handleComponentRegistryRoute(c, deps) {
       figma: {
         file_url: row.figmaFileUrl || null,
         component_set_node_id: row.figmaComponentSetNodeId || null,
+        page_name: row.figma?.pageName || null,
+        variants: normalizeFigmaVariantsForApi(row.figma?.variants),
+        token_bindings: normalizeFigmaTokenBindingsForApi(row.figma?.tokenBindings),
+        layout: normalizeFigmaLayoutForApi(row.figma?.layout),
       },
       visual_proof: visualProof,
       pipeline_stage: "missing-spec",

@@ -807,7 +807,7 @@ export async function handleSearchComponents(
     }
 
     // Helper to extract compact component data
-    function extractCompact(node: ComponentNode | ComponentSetNode): CompactComponentResult {
+    function extractCompact(node: ComponentNode | ComponentSetNode, pageName?: string): CompactComponentResult {
       if (node.type === 'COMPONENT_SET') {
         return {
           key: node.key,
@@ -815,6 +815,7 @@ export async function handleSearchComponents(
           name: node.name,
           type: 'COMPONENT_SET',
           variantCount: node.children.length,
+          pageName,
         };
       }
       return {
@@ -822,6 +823,7 @@ export async function handleSearchComponents(
         nodeId: node.id,
         name: node.name,
         type: 'COMPONENT',
+        pageName,
       };
     }
 
@@ -830,16 +832,19 @@ export async function handleSearchComponents(
     // The Figma plugin API does not support partial page loads.
     // Early-exit at limit only stops BFS traversal, NOT the page loading.
     await figma.loadAllPagesAsync();
-    const queue: BaseNode[] = [...figma.root.children];
+    const queue: Array<{ node: BaseNode; pageName: string }> = figma.root.children.map(page => ({
+      node: page,
+      pageName: page.name,
+    }));
     let didHitLimit = false;
 
     while (queue.length > 0 && count < limit) {
-      const node = queue.shift()!;
+      const { node, pageName } = queue.shift()!;
 
       if (node.type === 'COMPONENT_SET') {
         const componentSet = node as ComponentSetNode;
         if (passesNameFilter(componentSet)) {
-          components.push(extractCompact(componentSet));
+          components.push(extractCompact(componentSet, pageName));
           count++;
 
           // Include variants if requested
@@ -852,6 +857,7 @@ export async function handleSearchComponents(
                     nodeId: child.id,
                     name: child.name,
                     type: 'COMPONENT',
+                    pageName,
                   });
                   count++;
                 }
@@ -868,7 +874,7 @@ export async function handleSearchComponents(
         // Only add standalone components (not variants inside component sets)
         if (!component.parent || component.parent.type !== 'COMPONENT_SET') {
           if (passesNameFilter(component)) {
-            components.push(extractCompact(component));
+            components.push(extractCompact(component, pageName));
             count++;
           }
         }
@@ -877,7 +883,7 @@ export async function handleSearchComponents(
       // Add children to queue
       if ('children' in node) {
         for (const child of node.children) {
-          queue.push(child);
+          queue.push({ node: child, pageName });
         }
       }
     }
@@ -950,6 +956,45 @@ async function buildAnatomy(
     if (Object.keys(boundVarsRecord).length > 0) {
       result.boundVariables = boundVarsRecord;
     }
+  }
+
+  // Extract layout metadata (SC-05)
+  if ('layoutMode' in node && node.layoutMode) {
+    const layoutMode = node.layoutMode as 'HORIZONTAL' | 'VERTICAL' | 'NONE';
+    const spacing = 'itemSpacing' in node ? (node.itemSpacing as number) : undefined;
+    const paddingTop = 'paddingTop' in node ? (node.paddingTop as number) : undefined;
+    const paddingRight = 'paddingRight' in node ? (node.paddingRight as number) : undefined;
+    const paddingBottom = 'paddingBottom' in node ? (node.paddingBottom as number) : undefined;
+    const paddingLeft = 'paddingLeft' in node ? (node.paddingLeft as number) : undefined;
+    const alignmentHorizontal = 'primaryAxisAlignItems' in node ? (node.primaryAxisAlignItems as string) : undefined;
+    const alignmentVertical = 'counterAxisAlignItems' in node ? (node.counterAxisAlignItems as string) : undefined;
+    const sizingHorizontal = 'primaryAxisSizingMode' in node ? (node.primaryAxisSizingMode as string) : undefined;
+    const sizingVertical = 'counterAxisSizingMode' in node ? (node.counterAxisSizingMode as string) : undefined;
+
+    result.layout = {
+      mode: layoutMode === 'HORIZONTAL' ? 'horizontal' : layoutMode === 'VERTICAL' ? 'vertical' : 'none',
+      spacing,
+      padding: (paddingTop !== undefined || paddingRight !== undefined || paddingBottom !== undefined || paddingLeft !== undefined)
+        ? {
+          top: paddingTop ?? 0,
+          right: paddingRight ?? 0,
+          bottom: paddingBottom ?? 0,
+          left: paddingLeft ?? 0,
+        }
+        : undefined,
+      alignment: (alignmentHorizontal || alignmentVertical)
+        ? {
+          horizontal: alignmentHorizontal ?? 'min',
+          vertical: alignmentVertical ?? 'min',
+        }
+        : undefined,
+      sizing: (sizingHorizontal || sizingVertical)
+        ? {
+          horizontal: sizingHorizontal ?? 'fixed',
+          vertical: sizingVertical ?? 'fixed',
+        }
+        : undefined,
+    };
   }
 
   // Recurse into children if depth allows

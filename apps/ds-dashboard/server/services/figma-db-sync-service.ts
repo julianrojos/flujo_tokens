@@ -563,6 +563,230 @@ function buildComponentSpecYaml(args: {
   };
 }
 
+function buildVariableIdToTokenPathMap(meta: FigmaVariablesResponse['meta']): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const variable of Object.values(meta?.variables || {})) {
+    const variableId = String(variable?.id || '').trim();
+    if (!variableId) continue;
+    const { path } = toTokenPaths(String(variable?.name || ''));
+    if (!path) continue;
+    out.set(variableId, path);
+  }
+  return out;
+}
+
+function toLayoutRowsFromAnatomy(root: SpecLayerNode | null | undefined): Array<{
+  nodeId: string;
+  nodeName: string;
+  depth: number;
+  direction?: 'Horizontal' | 'Vertical' | '—';
+  hSizing?: string;
+  vSizing?: string;
+  alignmentH?: string;
+  alignmentV?: string;
+  itemSpacing?: number;
+  padding?: { top: number; right: number; bottom: number; left: number };
+}> {
+  if (!root) return [];
+  const queue: Array<{ node: SpecLayerNode; depth: number }> = [{ node: root, depth: 0 }];
+  const out: Array<{
+    nodeId: string;
+    nodeName: string;
+    depth: number;
+    direction?: 'Horizontal' | 'Vertical' | '—';
+    hSizing?: string;
+    vSizing?: string;
+    alignmentH?: string;
+    alignmentV?: string;
+    itemSpacing?: number;
+    padding?: { top: number; right: number; bottom: number; left: number };
+  }> = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current) break;
+    const node = current.node;
+    const layoutMeta = (node as SpecLayerNode & {
+      layout?: {
+        mode?: 'horizontal' | 'vertical' | 'none';
+        spacing?: number;
+        padding?: { top: number; right: number; bottom: number; left: number };
+        alignment?: { horizontal: string; vertical: string };
+        sizing?: { horizontal: string; vertical: string };
+      };
+    }).layout;
+    if (layoutMeta) {
+      const mode = String(layoutMeta.mode || '').trim().toLowerCase();
+      const direction: 'Horizontal' | 'Vertical' | '—' | undefined =
+        mode === 'horizontal' ? 'Horizontal' : mode === 'vertical' ? 'Vertical' : mode ? '—' : undefined;
+      out.push({
+        nodeId: String(node.id || '').trim(),
+        nodeName: String(node.name || '').trim(),
+        depth: Math.max(0, current.depth),
+        direction,
+        hSizing: String(layoutMeta.sizing?.horizontal || '').trim() || undefined,
+        vSizing: String(layoutMeta.sizing?.vertical || '').trim() || undefined,
+        alignmentH: String(layoutMeta.alignment?.horizontal || '').trim() || undefined,
+        alignmentV: String(layoutMeta.alignment?.vertical || '').trim() || undefined,
+        itemSpacing: Number.isFinite(Number(layoutMeta.spacing)) ? Number(layoutMeta.spacing) : undefined,
+        padding: layoutMeta.padding,
+      });
+    }
+
+    for (const child of node.children || []) {
+      queue.push({ node: child, depth: current.depth + 1 });
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Extract structured Figma data from spec result (SC-04)
+ */
+function extractStructuredFigmaData(args: {
+  specData: FullComponentSpecResult | null;
+  variableIdToTokenPath: Map<string, string>;
+}): {
+  variants?: SyncComponentEntry['figma']['variants'];
+  tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
+  layout?: SyncComponentEntry['figma']['layout'];
+  unresolvedVariableIds: string[];
+} {
+  const { specData, variableIdToTokenPath } = args;
+  if (!specData) return { unresolvedVariableIds: [] };
+
+  const result: {
+    variants?: SyncComponentEntry['figma']['variants'];
+    tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
+    layout?: SyncComponentEntry['figma']['layout'];
+    unresolvedVariableIds: string[];
+  } = {
+    unresolvedVariableIds: [],
+  };
+
+  // Extract variants from variantAxes + variantProperties
+  if (specData.variants && specData.variants.length > 0) {
+    result.variants = specData.variants.map((v) => ({
+      name: v.name,
+      properties: v.variantProperties,
+      nodeId: v.nodeId,
+    }));
+  }
+
+  // Extract token bindings (crude, not curated - for evidence only)
+  if (specData.tokenBindings && specData.tokenBindings.length > 0) {
+    result.tokenBindings = [];
+    for (const binding of specData.tokenBindings) {
+      const nodeId = String(binding.nodeId || '').trim();
+      const nodeName = String(binding.nodeName || '').trim();
+      const field = String(binding.field || '').trim();
+      const variableId = String(binding.variableId || '').trim();
+      if (!nodeId || !nodeName || !field || !variableId) continue;
+      const tokenPath = variableIdToTokenPath.get(variableId);
+      if (!tokenPath) {
+        result.unresolvedVariableIds.push(variableId);
+      }
+      result.tokenBindings.push({
+        nodeId,
+        nodeName,
+        field,
+        variableId,
+        tokenPath,
+      });
+    }
+  }
+
+  // Extract flattened layout rows from anatomy tree (SC-05)
+  const layoutRows = toLayoutRowsFromAnatomy(specData.anatomy || null);
+  if (layoutRows.length > 0) {
+    result.layout = layoutRows;
+  }
+
+  return result;
+}
+
+/**
+ * Enrich component entries with structured Figma data (SC-04)
+ * This runs independently of YAML capture to ensure DB persistence
+ */
+async function enrichComponentEntriesWithStructuredData(options: {
+  entries: SyncComponentEntry[];
+  figmaFileId: string | null;
+  fetchFullComponentSpec: FetchFullComponentSpecFn;
+  variableIdToTokenPath: Map<string, string>;
+  concurrency: number;
+  warningSink?: string[];
+}): Promise<{ attempted: number; failed: number }> {
+  const {
+    entries,
+    figmaFileId,
+    fetchFullComponentSpec,
+    variableIdToTokenPath,
+    concurrency,
+    warningSink,
+  } = options;
+  let attempted = 0;
+  let failed = 0;
+  const failureMessages: string[] = [];
+
+  await mapWithConcurrency(entries, concurrency, async (entry) => {
+    const componentNodeId = String(entry.figma.componentSetNodeId || '').trim();
+    if (!componentNodeId) return;
+    attempted += 1;
+
+    let specData: FullComponentSpecResult | null = null;
+    try {
+      specData = (await fetchFullComponentSpec(figmaFileId, {
+        nodeId: componentNodeId,
+        depth: 3,
+        compact: false,
+      })) as FullComponentSpecResult;
+    } catch (error) {
+      entry.figma.structuredCaptureStatus = 'failed';
+      failed += 1;
+      const reason = error instanceof Error ? error.message : String(error);
+      const failureMessage = `slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`;
+      failureMessages.push(failureMessage);
+      console.warn(`[enrichComponentEntriesWithStructuredData] Failed fetching spec for ${failureMessage}`);
+      return; // Skip this component, continue with others
+    }
+
+    // Extract and attach structured Figma data
+    const structuredData = extractStructuredFigmaData({
+      specData,
+      variableIdToTokenPath,
+    });
+    if (structuredData.variants) entry.figma.variants = structuredData.variants;
+    if (structuredData.tokenBindings) entry.figma.tokenBindings = structuredData.tokenBindings;
+    if (structuredData.layout) entry.figma.layout = structuredData.layout;
+    entry.figma.structuredCaptureStatus = 'ok';
+    if (warningSink && structuredData.unresolvedVariableIds.length > 0) {
+      const unresolved = Array.from(new Set(structuredData.unresolvedVariableIds));
+      warningSink.push(
+        `[enrichComponentEntriesWithStructuredData] Unresolved token binding variable IDs for slug=${entry.slug}: ${unresolved.join(', ')}`,
+      );
+    }
+  });
+
+  if (warningSink && attempted > 0 && failed > 0) {
+    warningSink.push(
+      `[enrichComponentEntriesWithStructuredData] Failed fetching structured component specs for ${failed}/${attempted} components.`,
+    );
+    const sampleFailures = failureMessages.slice(0, 3);
+    for (const message of sampleFailures) {
+      warningSink.push(`[enrichComponentEntriesWithStructuredData] ${message}`);
+    }
+    if (failureMessages.length > sampleFailures.length) {
+      warningSink.push(
+        `[enrichComponentEntriesWithStructuredData] ...and ${failureMessages.length - sampleFailures.length} additional failures.`,
+      );
+    }
+  }
+
+  return { attempted, failed };
+}
+
 async function captureComponentSpecYamlFiles(options: {
   entries: SyncComponentEntry[];
   repoRoot: string;
@@ -610,6 +834,9 @@ async function captureComponentSpecYamlFiles(options: {
         specData = null;
       }
     }
+
+    // Note: Structured data already attached by enrichComponentEntriesWithStructuredData
+    // This function only generates YAML files
 
     const specYaml = buildComponentSpecYaml({
       slug: entry.slug,
@@ -687,6 +914,8 @@ type FetchComponentSpecFn = (
 
 const DEFAULT_IMAGE_BATCH_SIZE = 20;
 const DEFAULT_IMAGE_FETCH_CONCURRENCY = 4;
+const DEFAULT_ENRICH_COMPONENT_SPEC_CONCURRENCY = 6;
+const MAX_ENRICH_COMPONENT_SPEC_CONCURRENCY = 32;
 const DEFAULT_MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
 const MAX_IMAGE_BATCH_SIZE = 100;
 const MAX_IMAGE_FETCH_CONCURRENCY = 16;
@@ -715,15 +944,18 @@ async function mapWithConcurrency<T>(
   concurrency: number,
   worker: (item: T) => Promise<void>,
 ): Promise<void> {
-  const queue = [...items];
+  if (items.length === 0) return;
+
   const safeConcurrency = Math.max(1, Math.floor(concurrency));
+  let nextIndex = 0;
   const workers = Array.from(
-    { length: Math.min(safeConcurrency, queue.length) },
+    { length: Math.min(safeConcurrency, items.length) },
     async () => {
-      while (queue.length > 0) {
-        const next = queue.shift();
-        if (next === undefined) return;
-        await worker(next);
+      while (true) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        if (currentIndex >= items.length) return;
+        await worker(items[currentIndex] as T);
       }
     },
   );
@@ -1168,7 +1400,40 @@ type SyncComponentEntry = {
   name: string;
   status: 'draft';
   docType: 'component';
-  figma: { fileUrl: string; componentSetNodeId: string };
+  figma: {
+    fileUrl: string;
+    componentSetNodeId: string;
+    pageName?: string;
+    runId?: string;
+    capturedAtEpoch?: number;
+    schemaVersion?: number;
+    structuredCaptureStatus?: 'ok' | 'failed';
+    variants?: Array<{
+      name: string;
+      properties: Record<string, string>;
+      nodeId?: string;
+    }>;
+    tokenBindings?: Array<{
+      nodeId: string;
+      nodeName: string;
+      field: string;
+      variableId: string;
+      tokenPath?: string;
+      mode?: string;
+    }>;
+    layout?: Array<{
+      nodeId: string;
+      nodeName: string;
+      depth: number;
+      direction?: 'Horizontal' | 'Vertical' | '—';
+      hSizing?: string;
+      vSizing?: string;
+      alignmentH?: string;
+      alignmentV?: string;
+      itemSpacing?: number;
+      padding?: { top: number; right: number; bottom: number; left: number };
+    }>;
+  };
   specs?: Array<{
     markdownPath: string;
     docStatus?: 'draft' | 'ready' | 'needs-review';
@@ -1215,7 +1480,7 @@ export interface SyncFromPluginOptions {
     compact?: boolean;
     limit?: number;
   }) => Promise<{
-    components: Array<{ nodeId: string; name: string }>;
+    components: Array<{ nodeId: string; name: string; pageName?: string }>;
     truncated?: boolean;
   }>;
   fetchComponentImages?: FetchComponentImagesFn;
@@ -1228,6 +1493,7 @@ export interface SyncFromPluginOptions {
   imageBatchSize?: number;
   imageFetchConcurrency?: number;
   maxCapturedImageBytes?: number;
+  enrichComponentSpecConcurrency?: number;
   createRunId?: () => string;
   repoRoot?: string;
   reindexUsageFromFilesystem?: boolean;
@@ -1404,6 +1670,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     imageBatchSize = DEFAULT_IMAGE_BATCH_SIZE,
     imageFetchConcurrency = DEFAULT_IMAGE_FETCH_CONCURRENCY,
     maxCapturedImageBytes = DEFAULT_MAX_IMAGE_BYTES,
+    enrichComponentSpecConcurrency = DEFAULT_ENRICH_COMPONENT_SPEC_CONCURRENCY,
     createRunId = randomUUID,
     repoRoot,
     reindexUsageFromFilesystem = false,
@@ -1433,7 +1700,16 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     1,
     MAX_CAPTURED_IMAGE_BYTES,
   );
+  const safeEnrichComponentSpecConcurrency = normalizeBoundedInt(
+    enrichComponentSpecConcurrency,
+    DEFAULT_ENRICH_COMPONENT_SPEC_CONCURRENCY,
+    1,
+    MAX_ENRICH_COMPONENT_SPEC_CONCURRENCY,
+  );
   const willRunReindex = reindexUsageFromFilesystem && Boolean(repoRoot);
+  const syncRunId = createRunId();
+  const syncCapturedAtEpoch = Math.floor(Date.now() / 1000);
+  const structuredSchemaVersion = 1;
 
   if (reindexUsageFromFilesystem && !repoRoot && usageReindexStrict) {
     throw new Error('Token usage reindex failed: Token usage reindex requested but repoRoot is missing.');
@@ -1449,6 +1725,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     });
   }
   const { tokens, modeValues, aliases, graphJson } = buildTokenRows(variablesResponse.meta);
+  const variableIdToTokenPath = buildVariableIdToTokenPathMap(variablesResponse.meta);
 
   let componentEntries: SyncComponentEntry[] = [];
   let componentsTruncated = false;
@@ -1458,6 +1735,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   let specYamlSkipped = 0;
   let specYamlFailed = 0;
   let specYamlWarnings: string[] = [];
+  const structuredDataWarnings: string[] = [];
 
   if (includeComponents) {
     let componentsResult: Awaited<ReturnType<typeof searchComponents>>;
@@ -1486,9 +1764,37 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         figma: {
           fileUrl: figmaFileUrl,
           componentSetNodeId: String(entry.nodeId || '').trim(),
+          pageName: entry.pageName,
+          runId: syncRunId,
+          capturedAtEpoch: syncCapturedAtEpoch,
+          schemaVersion: structuredSchemaVersion,
+          structuredCaptureStatus: 'failed',
         },
       };
     });
+
+    if (!dryRun && componentEntries.length > 0) {
+      // Capture structured Figma data (always, independent of YAML capture/filesystem paths)
+      // This persists pageName, variants, tokenBindings, and layout to DB.
+      try {
+        await enrichComponentEntriesWithStructuredData({
+          entries: componentEntries,
+          figmaFileId,
+          fetchFullComponentSpec,
+          variableIdToTokenPath,
+          concurrency: safeEnrichComponentSpecConcurrency,
+          warningSink: structuredDataWarnings,
+        });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        structuredDataWarnings.push(
+          `[syncDesignSystemFromPlugin] Structured data capture failed: ${reason}`,
+        );
+        console.warn(
+          `[syncDesignSystemFromPlugin] Structured data capture failed (continuing import): ${reason}`,
+        );
+      }
+    }
 
     if (!dryRun && componentEntries.length > 0 && repoRoot) {
       ensureComponentDocTemplates({
@@ -1496,6 +1802,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         repoRoot,
         dsId,
       });
+
       if (captureComponentSpecYaml) {
         try {
           const specYamlSummary = await captureComponentSpecYamlFiles({
@@ -1581,7 +1888,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   }
 
   if (!dryRun) {
-    const runId = createRunId();
+    const runId = syncRunId;
     const usageRows = db.prepare(`
       SELECT token_id, kind, source, owner, detail
       FROM token_usage_occurrences
@@ -1833,7 +2140,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       specYamlGenerated,
       specYamlSkipped,
       specYamlFailed,
-      specYamlWarnings,
+      specYamlWarnings: [...specYamlWarnings, ...structuredDataWarnings],
       specsEnriched,
       proofsEnriched,
       dryRun,
@@ -1855,7 +2162,7 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     specYamlGenerated,
     specYamlSkipped,
     specYamlFailed,
-    specYamlWarnings,
+    specYamlWarnings: [...specYamlWarnings, ...structuredDataWarnings],
     specsEnriched,
     proofsEnriched,
     dryRun,

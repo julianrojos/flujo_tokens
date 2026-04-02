@@ -735,6 +735,7 @@ export interface CompactComponentResult {
   name: string;
   type: 'COMPONENT' | 'COMPONENT_SET';
   variantCount?: number;
+  pageName?: string;  // Figma page containing the component
 }
 
 export interface SearchComponentsResult {
@@ -757,6 +758,14 @@ export interface SpecLayerNode {
   type: string;
   children?: SpecLayerNode[];
   boundVariables?: Record<string, Array<{ variableId: string }>>;
+  // Layout metadata (SC-05)
+  layout?: {
+    mode?: 'horizontal' | 'vertical' | 'none';
+    spacing?: number;
+    padding?: { top: number; right: number; bottom: number; left: number };
+    alignment?: { horizontal: string; vertical: string };
+    sizing?: { horizontal: string; vertical: string };
+  };
 }
 
 export interface VariantSpec {

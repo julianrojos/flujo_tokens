@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { after, before, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
@@ -7,100 +7,17 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 
 import type { ComponentRepository } from '../db/component-repository.js';
+import { ComponentRepository as ComponentRepositoryClass } from '../db/component-repository.js';
+import { createInMemoryDbFromSchema } from '../db/test-db-helpers.ts';
 import { resolveSystemPaths } from '../db/design-system-repository.js';
 import type { FigmaVariablesResponse } from '../../../../tooling/src/utils/figma.ts';
 import { parseMarkdownFrontmatter } from '../../../../tooling/src/utils/parse-frontmatter.js';
 import { syncDesignSystemFromPlugin } from './figma-db-sync-service.ts';
 
 function createTestDb(): Database.Database {
-  const db = new Database(':memory:');
-  db.pragma('foreign_keys = ON');
-  db.exec(`
-    CREATE TABLE design_systems (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL
-    );
-
-    CREATE TABLE tokens (
-      id TEXT NOT NULL,
-      ds_id TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,
-      slash_path TEXT NOT NULL,
-      css_var TEXT NOT NULL,
-      type TEXT NOT NULL,
-      collection TEXT NOT NULL,
-      raw_value TEXT NOT NULL,
-      PRIMARY KEY (ds_id, id)
-    );
-
-    CREATE TABLE token_mode_values (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      ds_id TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,
-      token_path TEXT NOT NULL,
-      mode TEXT NOT NULL,
-      resolved_value TEXT NOT NULL
-    );
-
-    CREATE TABLE figma_aliases (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      ds_id TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,
-      from_path TEXT NOT NULL,
-      to_path TEXT NOT NULL,
-      modes TEXT NOT NULL,
-      UNIQUE(ds_id, from_path, to_path)
-    );
-
-    CREATE TABLE token_graph (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      ds_id TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,
-      graph_json TEXT NOT NULL,
-      generated_at INTEGER NOT NULL,
-      UNIQUE(ds_id)
-    );
-
-    CREATE TABLE token_usage_occurrences (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      ds_id TEXT NOT NULL REFERENCES design_systems(id) ON DELETE CASCADE,
-      token_id TEXT NOT NULL,
-      kind TEXT NOT NULL,
-      source TEXT NOT NULL,
-      owner TEXT NOT NULL,
-      detail TEXT NOT NULL,
-      UNIQUE(ds_id, token_id, kind, source, owner, detail),
-      FOREIGN KEY (ds_id, token_id) REFERENCES tokens(ds_id, id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE tokens_staging (
-      id TEXT NOT NULL,
-      run_id TEXT NOT NULL,
-      ds_id TEXT NOT NULL,
-      slash_path TEXT NOT NULL,
-      css_var TEXT NOT NULL,
-      type TEXT NOT NULL,
-      collection TEXT NOT NULL,
-      raw_value TEXT NOT NULL,
-      PRIMARY KEY (id, run_id)
-    );
-
-    CREATE TABLE token_mode_values_staging (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      run_id TEXT NOT NULL,
-      ds_id TEXT NOT NULL,
-      token_path TEXT NOT NULL,
-      mode TEXT NOT NULL,
-      resolved_value TEXT NOT NULL
-    );
-
-    CREATE TABLE figma_aliases_staging (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      run_id TEXT NOT NULL,
-      ds_id TEXT NOT NULL,
-      from_path TEXT NOT NULL,
-      to_path TEXT NOT NULL,
-      modes TEXT NOT NULL
-    );
-  `);
-  db.prepare(`INSERT INTO design_systems (id, name) VALUES (?, ?)`).run('sys-01', 'System 01');
-  return db;
+  return createInMemoryDbFromSchema({
+    designSystems: [{ id: 'sys-01', name: 'System 01' }],
+  });
 }
 
 function makeComponentRepoStub(): ComponentRepository {
@@ -130,6 +47,17 @@ function buildVariablesPayload(input: {
 }
 
 describe('figma-db-sync-service', () => {
+  let originalConsoleWarn: typeof console.warn;
+
+  before(() => {
+    originalConsoleWarn = console.warn;
+    console.warn = () => {};
+  });
+
+  after(() => {
+    console.warn = originalConsoleWarn;
+  });
+
   const baseVariablesPayload = buildVariablesPayload({
     collections: {
       col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
@@ -154,52 +82,52 @@ describe('figma-db-sync-service', () => {
     expectedCauseIncludes: string;
     operation: 'variables' | 'components';
   }> = [
-    {
-      name: 'maps no-socket bridge errors to an actionable import message',
-      runId: 'run-no-socket',
-      figmaFileId: 'FILE_ABC123',
-      thrownMessage: 'ws.request.no_socket_for_file:GET_VARIABLES_DATA',
-      expectedMessageIncludes: 'no plugin socket is connected for that file',
-      expectedCauseIncludes: 'ws.request.no_socket_for_file',
-      operation: 'variables',
-    },
-    {
-      name: 'maps timeout bridge errors to an actionable import message',
-      runId: 'run-timeout',
-      figmaFileId: 'FILE_TIMEOUT',
-      thrownMessage: 'ws.request.timeout:GET_VARIABLES_DATA',
-      expectedMessageIncludes: 'Timeout while trying to read variables',
-      expectedCauseIncludes: 'ws.request.timeout',
-      operation: 'variables',
-    },
-    {
-      name: 'maps unavailable-bridge errors to an actionable import message',
-      runId: 'run-unavailable-bridge',
-      figmaFileId: 'FILE_UNAVAILABLE',
-      thrownMessage: 'ws.request.no_connection:GET_VARIABLES_DATA',
-      expectedMessageIncludes: 'Plugin bridge is unavailable while trying to read variables',
-      expectedCauseIncludes: 'ws.request.no_connection',
-      operation: 'variables',
-    },
-    {
-      name: 'maps plugin response errors to an actionable import message',
-      runId: 'run-response-error',
-      figmaFileId: 'FILE_RESPONSE_ERROR',
-      thrownMessage: 'ws.response.error:GET_VARIABLES_DATA:permission_denied',
-      expectedMessageIncludes: 'Plugin reported an error while trying to read variables',
-      expectedCauseIncludes: 'ws.response.error:',
-      operation: 'variables',
-    },
-    {
-      name: 'maps component bridge errors to an actionable import message',
-      runId: 'run-components-socket',
-      figmaFileId: 'FILE_COMPONENTS',
-      thrownMessage: 'ws.request.socket_not_open:SEARCH_COMPONENTS',
-      expectedMessageIncludes: 'Plugin connection was lost while trying to read components',
-      expectedCauseIncludes: 'ws.request.socket_not_open',
-      operation: 'components',
-    },
-  ];
+      {
+        name: 'maps no-socket bridge errors to an actionable import message',
+        runId: 'run-no-socket',
+        figmaFileId: 'FILE_ABC123',
+        thrownMessage: 'ws.request.no_socket_for_file:GET_VARIABLES_DATA',
+        expectedMessageIncludes: 'no plugin socket is connected for that file',
+        expectedCauseIncludes: 'ws.request.no_socket_for_file',
+        operation: 'variables',
+      },
+      {
+        name: 'maps timeout bridge errors to an actionable import message',
+        runId: 'run-timeout',
+        figmaFileId: 'FILE_TIMEOUT',
+        thrownMessage: 'ws.request.timeout:GET_VARIABLES_DATA',
+        expectedMessageIncludes: 'Timeout while trying to read variables',
+        expectedCauseIncludes: 'ws.request.timeout',
+        operation: 'variables',
+      },
+      {
+        name: 'maps unavailable-bridge errors to an actionable import message',
+        runId: 'run-unavailable-bridge',
+        figmaFileId: 'FILE_UNAVAILABLE',
+        thrownMessage: 'ws.request.no_connection:GET_VARIABLES_DATA',
+        expectedMessageIncludes: 'Plugin bridge is unavailable while trying to read variables',
+        expectedCauseIncludes: 'ws.request.no_connection',
+        operation: 'variables',
+      },
+      {
+        name: 'maps plugin response errors to an actionable import message',
+        runId: 'run-response-error',
+        figmaFileId: 'FILE_RESPONSE_ERROR',
+        thrownMessage: 'ws.response.error:GET_VARIABLES_DATA:permission_denied',
+        expectedMessageIncludes: 'Plugin reported an error while trying to read variables',
+        expectedCauseIncludes: 'ws.response.error:',
+        operation: 'variables',
+      },
+      {
+        name: 'maps component bridge errors to an actionable import message',
+        runId: 'run-components-socket',
+        figmaFileId: 'FILE_COMPONENTS',
+        thrownMessage: 'ws.request.socket_not_open:SEARCH_COMPONENTS',
+        expectedMessageIncludes: 'Plugin connection was lost while trying to read components',
+        expectedCauseIncludes: 'ws.request.socket_not_open',
+        operation: 'components',
+      },
+    ];
 
   for (const testCase of bridgeErrorCases) {
     it(testCase.name, async () => {
@@ -1463,6 +1391,381 @@ describe('figma-db-sync-service', () => {
       assert.ok(
         result.specYamlWarnings.some((warning) => warning.includes('Failed fetching full spec for slug=button nodeId=10:1')),
       );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('persists structured Figma data (pageName, layout, variants, tokenBindings) to DB', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-structured-'));
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            v1: {
+              id: 'v1',
+              name: 'color/base',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+        truncated: false,
+      });
+
+      const fetchFullComponentSpec = async () => ({
+        success: true as const,
+        nodeId: '10:1',
+        name: 'Button',
+        type: 'COMPONENT_SET',
+        description: 'A reusable button component.',
+        anatomy: {
+          id: '10:1',
+          name: 'Button',
+          type: 'COMPONENT_SET',
+          layout: {
+            mode: 'horizontal' as const,
+            spacing: 8,
+            padding: { top: 4, right: 12, bottom: 4, left: 12 },
+            alignment: { horizontal: 'center', vertical: 'center' },
+            sizing: { horizontal: 'fixed', vertical: 'auto' },
+          },
+          children: [],
+        },
+        variants: [
+          { key: 'v1', nodeId: '10:2', name: 'default', variantProperties: { state: 'default' } },
+          { key: 'v2', nodeId: '10:3', name: 'hover', variantProperties: { state: 'hover' } },
+        ],
+        variantAxes: [
+          { name: 'state', values: ['default', 'hover'] },
+        ],
+        props: [],
+        states: [],
+        tokenBindings: [
+          { nodeId: '10:2', nodeName: 'Button', field: 'fills', variableId: 'v1' },
+        ],
+      });
+
+      const componentRepo = new ComponentRepositoryClass(db);
+      await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        captureComponentSpecYaml: false, // Test: structured data persists even without YAML
+        createRunId: () => 'run-structured',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        repoRoot,
+      });
+
+      // Verify pageName persisted
+      const pageNameRow = db.prepare('SELECT figma_page_name FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'button') as { figma_page_name: string | null };
+      assert.equal(pageNameRow.figma_page_name, 'Components', 'pageName should be persisted');
+
+      const componentRow = db
+        .prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?')
+        .get('sys-01', 'button') as { id: number };
+      const componentId = componentRow.id;
+
+      // Verify layout persisted in child table
+      const layoutRows = db.prepare(`
+        SELECT node_id, node_name, depth, direction, h_sizing, v_sizing, alignment_h, alignment_v, item_spacing, padding_top, padding_right, padding_bottom, padding_left
+        FROM component_figma_layout_rows
+        WHERE component_id = ?
+      `).all(componentId) as Array<{
+        node_id: string;
+        node_name: string;
+        depth: number;
+        direction: string | null;
+        h_sizing: string | null;
+        v_sizing: string | null;
+        alignment_h: string | null;
+        alignment_v: string | null;
+        item_spacing: number | null;
+        padding_top: number | null;
+        padding_right: number | null;
+        padding_bottom: number | null;
+        padding_left: number | null;
+      }>;
+      assert.equal(layoutRows.length, 1, 'layout rows should be persisted');
+      assert.equal(layoutRows[0].direction, 'Horizontal');
+      assert.equal(layoutRows[0].item_spacing, 8);
+      assert.deepEqual(
+        [layoutRows[0].padding_top, layoutRows[0].padding_right, layoutRows[0].padding_bottom, layoutRows[0].padding_left],
+        [4, 12, 4, 12],
+      );
+
+      // Verify variants persisted in child table
+      const variantRows = db.prepare(`
+        SELECT variant_name, node_id, properties_json
+        FROM component_figma_variants
+        WHERE component_id = ?
+        ORDER BY id ASC
+      `).all(componentId) as Array<{ variant_name: string; node_id: string; properties_json: string }>;
+      assert.equal(variantRows.length, 2, 'variants should be persisted');
+      assert.equal(variantRows[0].variant_name, 'default');
+      assert.deepEqual(JSON.parse(variantRows[0].properties_json), { state: 'default' });
+
+      // Verify tokenBindings persisted in child table with resolved token path
+      const bindingRows = db.prepare(`
+        SELECT node_id, node_name, field, variable_id, token_path
+        FROM component_figma_token_bindings
+        WHERE component_id = ?
+      `).all(componentId) as Array<{
+        node_id: string;
+        node_name: string;
+        field: string;
+        variable_id: string;
+        token_path: string | null;
+      }>;
+      assert.equal(bindingRows.length, 1, 'token binding should be persisted');
+      assert.equal(bindingRows[0].variable_id, 'v1');
+      assert.equal(bindingRows[0].token_path, 'color.base');
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('reports unresolved token binding variable IDs in specYamlWarnings', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-unresolved-bindings-'));
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            known: {
+              id: 'known',
+              name: 'color/known',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+        truncated: false,
+      });
+
+      const fetchFullComponentSpec = async () => ({
+        success: true as const,
+        nodeId: '10:1',
+        name: 'Button',
+        type: 'COMPONENT_SET',
+        description: 'Button',
+        anatomy: { id: '10:1', name: 'Button', type: 'COMPONENT_SET', children: [] },
+        variants: [],
+        variantAxes: [],
+        props: [],
+        states: [],
+        tokenBindings: [
+          { nodeId: '10:2', nodeName: 'Button', field: 'fills', variableId: 'missing-var' },
+        ],
+      });
+
+      const componentRepo = new ComponentRepositoryClass(db);
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        captureComponentSpecYaml: false,
+        createRunId: () => 'run-unresolved',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        repoRoot,
+      });
+
+      assert.ok(
+        result.specYamlWarnings.some((warning) =>
+          warning.includes('Unresolved token binding variable IDs for slug=button: missing-var'),
+        ),
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('reports structured enrichment fetch failures in specYamlWarnings without aborting sync', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-structured-failure-'));
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            known: {
+              id: 'known',
+              name: 'color/known',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+        truncated: false,
+      });
+
+      const fetchFullComponentSpec = async () => {
+        throw new Error('ws.request.no_socket_for_file:GET_COMPONENT_SPEC');
+      };
+
+      const componentRepo = new ComponentRepositoryClass(db);
+      const result = await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        captureComponentSpecYaml: false,
+        createRunId: () => 'run-structured-failure',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec,
+        repoRoot,
+      });
+
+      assert.ok(
+        result.specYamlWarnings.some((warning) =>
+          warning.includes('Failed fetching structured component specs for 1/1 components'),
+        ),
+      );
+      assert.ok(
+        result.specYamlWarnings.some((warning) =>
+          warning.includes('slug=button nodeId=10:1: ws.request.no_socket_for_file:GET_COMPONENT_SPEC'),
+        ),
+      );
+    } finally {
+      fs.rmSync(repoRoot, { recursive: true, force: true });
+      db.close();
+    }
+  });
+
+  it('does not clear previously captured structured child rows when a later enrichment fetch fails', async () => {
+    const db = createTestDb();
+    const repoRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-sync-structured-preserve-'));
+    try {
+      const fetchVariables = async (): Promise<FigmaVariablesResponse> =>
+        buildVariablesPayload({
+          collections: {
+            col1: { id: 'col1', name: 'Primitives', modes: [{ modeId: 'm1', name: 'Default' }] },
+          },
+          variables: {
+            known: {
+              id: 'known',
+              name: 'color/known',
+              variableCollectionId: 'col1',
+              resolvedType: 'COLOR',
+              valuesByMode: { m1: { r: 1, g: 1, b: 1, a: 1 } },
+            },
+          },
+        });
+
+      const searchComponents = async () => ({
+        components: [{ nodeId: '10:1', name: 'Button', pageName: 'Components' }],
+        truncated: false,
+      });
+
+      const fetchFullComponentSpecOk = async () => ({
+        success: true as const,
+        nodeId: '10:1',
+        name: 'Button',
+        type: 'COMPONENT_SET',
+        description: 'Button',
+        anatomy: { id: '10:1', name: 'Button', type: 'COMPONENT_SET', children: [] },
+        variants: [{ key: 'v1', nodeId: '10:2', name: 'default', variantProperties: { state: 'default' } }],
+        variantAxes: [],
+        props: [],
+        states: [],
+        tokenBindings: [{ nodeId: '10:2', nodeName: 'Button', field: 'fills', variableId: 'known' }],
+      });
+
+      const componentRepo = new ComponentRepositoryClass(db);
+
+      await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        captureComponentSpecYaml: false,
+        createRunId: () => 'run-structured-preserve-1',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec: fetchFullComponentSpecOk,
+        repoRoot,
+      });
+
+      const componentRow = db
+        .prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?')
+        .get('sys-01', 'button') as { id: number };
+      const componentId = componentRow.id;
+
+      const variantsBefore = db.prepare(
+        'SELECT COUNT(*) AS count FROM component_figma_variants WHERE component_id = ?',
+      ).get(componentId) as { count: number };
+      const bindingsBefore = db.prepare(
+        'SELECT COUNT(*) AS count FROM component_figma_token_bindings WHERE component_id = ?',
+      ).get(componentId) as { count: number };
+      assert.equal(variantsBefore.count, 1);
+      assert.equal(bindingsBefore.count, 1);
+
+      const fetchFullComponentSpecFail = async () => {
+        throw new Error('ws.request.no_socket_for_file:GET_COMPONENT_SPEC');
+      };
+
+      await syncDesignSystemFromPlugin({
+        db,
+        componentRepo,
+        dsId: 'sys-01',
+        figmaFileId: 'file_123',
+        includeComponents: true,
+        dryRun: false,
+        captureComponentSpecYaml: false,
+        createRunId: () => 'run-structured-preserve-2',
+        fetchVariables,
+        searchComponents,
+        fetchFullComponentSpec: fetchFullComponentSpecFail,
+        repoRoot,
+      });
+
+      const variantsAfter = db.prepare(
+        'SELECT COUNT(*) AS count FROM component_figma_variants WHERE component_id = ?',
+      ).get(componentId) as { count: number };
+      const bindingsAfter = db.prepare(
+        'SELECT COUNT(*) AS count FROM component_figma_token_bindings WHERE component_id = ?',
+      ).get(componentId) as { count: number };
+      assert.equal(variantsAfter.count, 1);
+      assert.equal(bindingsAfter.count, 1);
     } finally {
       fs.rmSync(repoRoot, { recursive: true, force: true });
       db.close();

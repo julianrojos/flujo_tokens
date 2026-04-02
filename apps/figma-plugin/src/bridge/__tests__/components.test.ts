@@ -529,6 +529,40 @@ describe('components handlers', () => {
       ]);
     });
 
+    it('includes pageName in search results (SC-03)', async () => {
+      const page1 = {
+        id: 'page-1',
+        name: 'Components',
+        type: 'PAGE' as const,
+        children: [
+          { id: 'comp-1', key: 'k1', name: 'Button', type: 'COMPONENT' as const, description: '', width: 100, height: 40, componentPropertyDefinitions: {}, parent: null as unknown },
+        ],
+      };
+
+      const page2 = {
+        id: 'page-2',
+        name: 'Patterns',
+        type: 'PAGE' as const,
+        children: [
+          { id: 'comp-2', key: 'k2', name: 'Card', type: 'COMPONENT' as const, description: '', width: 200, height: 150, componentPropertyDefinitions: {}, parent: null as unknown },
+        ],
+      };
+
+      setMockFigma({
+        root: { name: 'Test', children: [page1, page2] },
+        fileKey: 'file-key',
+        loadAllPagesAsync: async () => undefined,
+      });
+
+      const result = await handleSearchComponents({});
+      const typed = result as { success: boolean; components: Array<{ name: string; pageName: string }>; count: number };
+
+      expect(typed.success).toBe(true);
+      expect(typed.count).toBe(2);
+      expect(typed.components[0]?.pageName).toBe('Components');
+      expect(typed.components[1]?.pageName).toBe('Patterns');
+    });
+
     it('includes variants when includeVariants=true', async () => {
       const variant1 = {
         id: 'var-1',
@@ -728,6 +762,54 @@ describe('components handlers', () => {
       const typedDepthUnlimited = resultDepthUnlimited as { anatomy: { id: string; children: unknown[] } };
 
       expect(typedDepthUnlimited.anatomy.children).toHaveLength(1);
+    });
+
+    it('extracts layout metadata from anatomy (SC-05)', async () => {
+      const component = {
+        id: 'comp-1',
+        name: 'Button',
+        type: 'COMPONENT' as const,
+        description: 'Test button',
+        boundVariables: {},
+        componentPropertyDefinitions: {},
+        children: [],
+        // Auto-layout properties
+        layoutMode: 'HORIZONTAL' as const,
+        itemSpacing: 8,
+        paddingTop: 4,
+        paddingRight: 12,
+        paddingBottom: 4,
+        paddingLeft: 12,
+        primaryAxisAlignItems: 'center' as const,
+        counterAxisAlignItems: 'center' as const,
+        primaryAxisSizingMode: 'fixed' as const,
+        counterAxisSizingMode: 'auto' as const,
+      };
+
+      setMockFigma({
+        getNodeByIdAsync: async (id: string) => (id === 'comp-1' ? component : null),
+      });
+
+      const result = await handleGetComponentSpec({ nodeId: 'comp-1', depth: 0 });
+      const typed = result as {
+        anatomy: {
+          id: string;
+          layout?: {
+            mode?: string;
+            spacing?: number;
+            padding?: { top: number; right: number; bottom: number; left: number };
+            alignment?: { horizontal: string; vertical: string };
+            sizing?: { horizontal: string; vertical: string };
+          };
+        };
+      };
+
+      expect(typed.anatomy.id).toBe('comp-1');
+      expect(typed.anatomy.layout?.mode).toBe('horizontal');
+      expect(typed.anatomy.layout?.spacing).toBe(8);
+      expect(typed.anatomy.layout?.padding).toEqual({ top: 4, right: 12, bottom: 4, left: 12 });
+      expect(typed.anatomy.layout?.alignment).toEqual({ horizontal: 'center', vertical: 'center' });
+      expect(typed.anatomy.layout?.sizing).toEqual({ horizontal: 'fixed', vertical: 'auto' });
     });
   });
 

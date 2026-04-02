@@ -287,3 +287,117 @@ test('e2e: component-registry keeps visual_proof.exists=false when screenshot_ur
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 });
+
+test('e2e: /api/component-registry exposes structured Figma data (pageName, layout, variants, tokenBindings)', async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-structured-'));
+  const systemId = 'sys-e2e-structured';
+
+  const dbPath = path.join(
+    tmpRoot,
+    'apps',
+    'ds-dashboard',
+    'server',
+    'db',
+    'ds-dashboard.db',
+  );
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  const db = bootstrapDatabase({ dbPath });
+
+  try {
+    db.prepare(
+      `INSERT INTO design_systems (id, name, collections) VALUES (?, ?, ?)`,
+    ).run(systemId, 'E2E Structured System', '[]');
+
+    const componentRepo = new ComponentRepository(db);
+
+    // Upsert component with structured Figma data
+    componentRepo.upsertFromRegistry(systemId, [
+      {
+        slug: 'button',
+        name: 'Button',
+        status: 'ready',
+        figma: {
+          fileUrl: 'https://figma.com/file/ABC123',
+          componentSetNodeId: '1:1',
+          pageName: 'Components',
+          variants: [
+            { name: 'default', properties: { state: 'default' }, nodeId: '1:2' },
+            { name: 'hover', properties: { state: 'hover' }, nodeId: '1:3' },
+          ],
+          tokenBindings: [
+            {
+              nodeId: '1:2',
+              nodeName: 'Button',
+              field: 'fills',
+              variableId: 'var-123',
+              tokenPath: 'blue.500',
+              mode: 'Default',
+            },
+          ],
+          layout: [
+            {
+              nodeId: '1:2',
+              nodeName: 'Button',
+              depth: 0,
+              direction: 'Horizontal',
+              hSizing: 'fixed',
+              vSizing: 'auto',
+              alignmentH: 'center',
+              alignmentV: 'center',
+              itemSpacing: 8,
+              padding: { top: 4, right: 12, bottom: 4, left: 12 },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const app = new Hono();
+    app.get('/api/component-registry', (c) =>
+      handleComponentRegistryRoute(c, {
+        failJson: (ctx: any, status: number, payload: unknown) => ctx.json(payload, status),
+        getSystemContext: () => ({ systemId, repoRoot: tmpRoot }),
+        componentRepo,
+      } as any),
+    );
+
+    const res = await app.request('http://localhost/api/component-registry');
+    assert.equal(res.status, 200);
+    const payload = (await res.json()) as any;
+    const button = Array.isArray(payload.components)
+      ? payload.components.find((entry: any) => entry.slug === 'button')
+      : null;
+
+    assert.ok(button, 'button component should exist in registry');
+
+    // Verify structured Figma data exposed
+    assert.ok(button.figma, 'figma object should be present');
+    assert.equal(button.figma.page_name, 'Components', 'page_name should be exposed');
+
+    // Verify variants
+    assert.ok(Array.isArray(button.figma.variants), 'variants should be an array');
+    assert.equal(button.figma.variants.length, 2, 'should have 2 variants');
+    assert.equal(button.figma.variants[0].name, 'default');
+    assert.deepEqual(button.figma.variants[0].properties, { state: 'default' });
+
+    // Verify tokenBindings
+    assert.ok(Array.isArray(button.figma.token_bindings), 'token_bindings should be an array');
+    assert.equal(button.figma.token_bindings.length, 1, 'should have 1 token binding');
+    assert.equal(button.figma.token_bindings[0].variable_id, 'var-123');
+    assert.equal(button.figma.token_bindings[0].token_path, 'blue.500');
+
+    // Verify layout
+    assert.ok(Array.isArray(button.figma.layout), 'layout should be an array');
+    assert.equal(button.figma.layout.length, 1, 'should have 1 layout row');
+    assert.equal(button.figma.layout[0].direction, 'Horizontal');
+    assert.equal(button.figma.layout[0].item_spacing, 8);
+    assert.deepEqual(button.figma.layout[0].padding, { top: 4, right: 12, bottom: 4, left: 12 });
+  } finally {
+    try {
+      db.close();
+    } catch {
+      // ignore close errors in test cleanup
+    }
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
