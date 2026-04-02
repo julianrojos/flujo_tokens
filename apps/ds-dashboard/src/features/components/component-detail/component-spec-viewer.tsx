@@ -16,7 +16,7 @@ import {
   deduplicateRelated,
   slugToComponentRouteSlug,
   slugToDisplayName,
-} from "../lib/spec-viewer-utils";
+} from "./lib/spec-viewer-utils";
 
 const SummaryMarkdownPreview = lazy(() =>
   import("@/components/markdown/markdown-preview").then((module) => ({
