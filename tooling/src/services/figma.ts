@@ -19,6 +19,9 @@ import { escapeRegex, getH2SectionRange, findDiscrepancyStatuses, extractVisualP
 import { toCliPath, buildTraceabilityRegenerationCommand } from './traceability-command.js';
 import type { FigmaNode } from '../types/figma.js';
 import { readComponentSpecByDocPath, type ComponentSpec, type SpecResolution } from './spec-loader.js';
+import { bootstrapDatabase } from '../../../apps/ds-dashboard/server/db/db-service.js';
+import { ComponentRepository } from '../../../apps/ds-dashboard/server/db/component-repository.js';
+import { PROJECT_ROOT, loadDesignSystemsConfig, resolveSystemContextSafe } from '../utils/system-context.js';
 import {
   extractGapsFromSpec,
   buildGapsChecklistLines,
@@ -41,6 +44,108 @@ import type { DocsValidationReport } from './docs-validator-types.js';
 // ============================================================================
 
 const HASH_RE = /^[a-f0-9]{64}$/i;
+const dbSpecSnapshotBySystemAndSlugCache = new Map<string, Map<string, DbSpecSnapshot>>();
+const systemIdBySpecRootCache = new Map<string, string | null>();
+const dbSnapshotLoadErrorBySystem = new Map<string, string>();
+
+type DbSpecSnapshot = {
+  existsInDb: boolean;
+  slug: string;
+  componentSetNodeIdRaw: string;
+  componentSetNodeId: string;
+  componentStatus: string;
+  editorialExists: boolean;
+};
+
+function loadDbSpecSnapshotBySlug(systemId: string): void {
+  if (dbSpecSnapshotBySystemAndSlugCache.has(systemId)) return;
+  try {
+    const ctx = resolveSystemContextSafe({ system: systemId });
+    const db = bootstrapDatabase({ dbPath: ctx.paths.registry });
+    try {
+      const repo = new ComponentRepository(db);
+      const rows = repo.getAll(ctx.id);
+      const bySlug = new Map<string, DbSpecSnapshot>();
+      for (const row of rows) {
+        const slug = String(row.slug || '').trim();
+        if (!slug) continue;
+        const componentSetNodeIdRaw = String(row.figmaComponentSetNodeId || '').trim();
+        bySlug.set(slug, {
+          existsInDb: true,
+          slug,
+          componentSetNodeIdRaw,
+          componentSetNodeId: normalizeNodeId(componentSetNodeIdRaw),
+          componentStatus: String(row.status || '').trim().toLowerCase(),
+          editorialExists: Boolean(row.editorialExists),
+        });
+      }
+      dbSpecSnapshotBySystemAndSlugCache.set(systemId, bySlug);
+      dbSnapshotLoadErrorBySystem.delete(systemId);
+    } finally {
+      db.close();
+    }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    dbSnapshotLoadErrorBySystem.set(systemId, reason);
+  }
+}
+
+type DbSnapshotLookupResult = {
+  snapshot: DbSpecSnapshot | null;
+  dbUnavailableReason?: string;
+};
+
+function resolveSystemIdFromSpecRoot(specRoot?: string): string | null {
+  const normalizedRoot = String(specRoot || "").trim();
+  if (!normalizedRoot) return null;
+  const absoluteSpecRoot = path.resolve(normalizedRoot);
+  if (systemIdBySpecRootCache.has(absoluteSpecRoot)) {
+    return systemIdBySpecRootCache.get(absoluteSpecRoot) || null;
+  }
+  try {
+    const config = loadDesignSystemsConfig();
+    for (const system of config.systems || []) {
+      const candidateSpecRoot = path.resolve(PROJECT_ROOT, system.docsDir, "_spec", "components");
+      if (candidateSpecRoot === absoluteSpecRoot) {
+        systemIdBySpecRootCache.set(absoluteSpecRoot, system.id);
+        return system.id;
+      }
+    }
+  } catch {
+    // Best-effort lookup; fall back to default system context.
+  }
+  systemIdBySpecRootCache.set(absoluteSpecRoot, null);
+  return null;
+}
+
+function getDbSpecSnapshotByDocPath(componentDocPath: string, specRoot?: string): DbSnapshotLookupResult {
+  const explicitSpecRoot = String(specRoot || "").trim();
+  let systemId = resolveSystemIdFromSpecRoot(specRoot) || "";
+  if (explicitSpecRoot && !systemId) {
+    return {
+      snapshot: null,
+      dbUnavailableReason: `Spec root is not mapped to a configured design system: ${path.resolve(explicitSpecRoot)}`,
+    };
+  }
+  try {
+    if (!systemId) {
+      const ctx = resolveSystemContextSafe();
+      systemId = String(ctx.id || "").trim();
+    }
+  } catch {
+    return { snapshot: null, dbUnavailableReason: "Unable to resolve system context." };
+  }
+  if (!systemId) return { snapshot: null, dbUnavailableReason: "System context is empty." };
+  loadDbSpecSnapshotBySlug(systemId);
+  const dbUnavailableReason = dbSnapshotLoadErrorBySystem.get(systemId);
+  if (dbUnavailableReason) {
+    return { snapshot: null, dbUnavailableReason };
+  }
+  const slug = path.basename(componentDocPath, path.extname(componentDocPath));
+  const normalized = String(slug || '').trim();
+  if (!normalized) return { snapshot: null };
+  return { snapshot: dbSpecSnapshotBySystemAndSlugCache.get(systemId)?.get(normalized) || null };
+}
 
 // ============================================================================
 // Public API - Figma Traceability Validators
@@ -81,13 +186,46 @@ export function validateMarkdownTraceabilityNodeId(
 
   const spec = readComponentSpecByDocPath(filePath, specRoot, specResolution);
   if (!spec.exists) {
-    report.errors.push({
-      code: 'TRACE01',
-      file: filePath,
-      message:
-        'Traceability mismatch: markdown declares figma.component_set_node_id but linked spec file is missing.',
-      suggested: path.relative(process.cwd(), spec.specPath),
-    });
+    const lookup = getDbSpecSnapshotByDocPath(filePath, specRoot);
+    const dbSpec = lookup.snapshot;
+    if (lookup.dbUnavailableReason) {
+      report.errors.push({
+        code: 'TRACE01',
+        file: filePath,
+        message:
+          `Traceability check requires DB snapshot but it is unavailable: ${lookup.dbUnavailableReason}`,
+      });
+      return;
+    }
+    if (!dbSpec?.existsInDb) {
+      report.errors.push({
+        code: 'TRACE01',
+        file: filePath,
+        message:
+          'Traceability mismatch: markdown declares figma.component_set_node_id but no DB component entry was found.',
+      });
+      return;
+    }
+
+    if (!dbSpec.componentSetNodeIdRaw || isTbdMarker(dbSpec.componentSetNodeIdRaw)) {
+      report.errors.push({
+        code: 'TRACE01',
+        file: filePath,
+        message:
+          'Traceability mismatch: markdown declares figma.component_set_node_id but DB component has no concrete figma_component_set_node_id.',
+      });
+      return;
+    }
+
+    if (dbSpec.componentSetNodeId !== markdownNodeId) {
+      report.errors.push({
+        code: 'TRACE01',
+        file: filePath,
+        message:
+          `Traceability mismatch: markdown figma.component_set_node_id (${markdownNodeId}) ` +
+          `differs from DB value (${dbSpec.componentSetNodeId}).`,
+      });
+    }
     return;
   }
 
@@ -440,15 +578,34 @@ export function validateReadyLifecycleConsistency(
 
   if (docStatus === 'ready') {
     if (!spec.exists) {
-      report.errors.push({
-        code: 'READY01',
-        file: filePath,
-        message: 'Component markdown is `ready` but linked spec file is missing.',
-        suggested: path.relative(process.cwd(), spec.specPath),
-      });
-      return;
+      const lookup = getDbSpecSnapshotByDocPath(filePath, specRoot);
+      const dbSpec = lookup.snapshot;
+      if (lookup.dbUnavailableReason) {
+        report.errors.push({
+          code: 'READY01',
+          file: filePath,
+          message:
+            `Lifecycle validation requires DB snapshot but it is unavailable: ${lookup.dbUnavailableReason}`,
+        });
+        return;
+      }
+      if (!dbSpec?.existsInDb) {
+        report.errors.push({
+          code: 'READY01',
+          file: filePath,
+          message:
+            'Component markdown is `ready` but no DB component entry was found for lifecycle validation.',
+        });
+      } else if (dbSpec.componentStatus !== 'ready') {
+        report.errors.push({
+          code: 'READY01',
+          file: filePath,
+          message:
+            `Component markdown is \`ready\` but DB component status is \`${dbSpec.componentStatus || 'missing'}\`.`,
+        });
+      }
     }
-    if (spec.parseError) {
+    if (spec.exists && spec.parseError) {
       report.errors.push({
         code: 'READY01',
         file: filePath,
@@ -457,7 +614,7 @@ export function validateReadyLifecycleConsistency(
       });
       return;
     }
-    if (specStatus !== 'ready') {
+    if (spec.exists && specStatus !== 'ready') {
       report.errors.push({
         code: 'READY01',
         file: filePath,
