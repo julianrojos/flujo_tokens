@@ -359,13 +359,6 @@ type FetchFullComponentSpecFn = (
   params: { nodeId: string; depth?: number; compact?: boolean },
 ) => Promise<FullComponentSpecResult>;
 
-type SpecYamlCaptureSummary = {
-  generated: number;
-  skipped: number;
-  failed: number;
-  warnings: string[];
-};
-
 const SPEC_ANATOMY_CHILD_LIMIT = 50;
 
 function toSnakeCaseId(value: string, fallback = 'part'): string {
@@ -415,152 +408,6 @@ function yamlBooleanOrString(value: unknown, fallback: boolean): string {
   if (normalized === 'true') return 'true';
   if (normalized === 'false') return 'false';
   return fallback ? 'true' : 'false';
-}
-
-function buildComponentSpecYaml(args: {
-  slug: string;
-  componentSetNodeId: string;
-  specData: FullComponentSpecResult | null;
-  componentName: string;
-  figmaFileUrl: string;
-}): { yaml: string; warnings: string[] } {
-  const { slug, componentSetNodeId, specData, componentName, figmaFileUrl } = args;
-  const warnings: string[] = [];
-  const safeComponentSetNodeId = String(componentSetNodeId || '').trim() || 'TBD';
-  const figmaFileKey = parseFileKey(figmaFileUrl) || 'TBD';
-  const safeComponentSetName = String(specData?.name || componentName || slug).trim() || slug;
-  const purpose = specData?.description
-    ? String(specData.description).trim().replace(/[\r\n]+/g, ' ')
-    : `${String(componentName || slug).trim()} component.`;
-
-  const anatomyChildren = specData?.anatomy?.children ?? [];
-  const propsArr = (specData?.props ?? []).map((prop) => {
-    const name = String(prop?.name || '').trim();
-    const type = mapFigmaPropertyType(String(prop?.type || ''));
-    const normalized: {
-      name: string;
-      type: 'enum' | 'text' | 'boolean' | 'instance_swap';
-      values?: string[];
-      defaultValue: unknown;
-      required: boolean;
-    } = {
-      name,
-      type,
-      defaultValue: prop?.defaultValue,
-      required: type === 'enum',
-    };
-    if (type === 'enum') {
-      const values = normalizeVariantAxisValues(specData, name);
-      const defaultAsText = String(prop?.defaultValue ?? '').trim();
-      const ensuredValues = values.length > 0
-        ? values
-        : defaultAsText
-          ? [defaultAsText]
-          : ['TBD'];
-      normalized.values = ensuredValues;
-      if (!defaultAsText) {
-        normalized.defaultValue = ensuredValues[0] || 'TBD';
-      }
-    }
-    return normalized;
-  });
-  const propertyTypeOrder = {
-    enum: 0,
-    text: 1,
-    boolean: 2,
-    instance_swap: 3,
-  } as const;
-  propsArr.sort((a, b) => {
-    const typeDelta = propertyTypeOrder[a.type] - propertyTypeOrder[b.type];
-    if (typeDelta !== 0) return typeDelta;
-    return a.name.localeCompare(b.name);
-  });
-
-  const lines: string[] = [];
-
-  lines.push(`name: ${toYamlScalar(safeComponentSetName)}`);
-  lines.push('status: draft');
-  lines.push('figma:');
-  lines.push(`  file: ${toYamlScalar(figmaFileKey)}`);
-  lines.push('  page: "TBD"');
-  lines.push(`  component_set: ${toYamlScalar(safeComponentSetName)}`);
-  lines.push(`  component_set_node_id: ${toYamlScalar(safeComponentSetNodeId)}`);
-  lines.push('summary:');
-  lines.push(`  purpose: ${toYamlScalar(purpose)}`);
-  lines.push('  when_to_use: "TBD"');
-  lines.push('  when_not_to_use: "TBD"');
-  lines.push('anatomy:');
-  if (anatomyChildren.length === 0) {
-    lines.push('  - id: container');
-    lines.push('    description: "TBD"');
-  } else {
-    if (anatomyChildren.length > SPEC_ANATOMY_CHILD_LIMIT) {
-      warnings.push(
-        `Anatomy for "${slug}" has ${anatomyChildren.length} nodes; truncated to ${SPEC_ANATOMY_CHILD_LIMIT}.`,
-      );
-    }
-    for (const child of anatomyChildren.slice(0, SPEC_ANATOMY_CHILD_LIMIT)) {
-      const childName = String(child.name || child.id || '').trim();
-      lines.push(`  - id: ${toYamlScalar(toSnakeCaseId(childName || 'part', 'part'))}`);
-      lines.push('    description: "TBD"');
-    }
-  }
-  lines.push('properties:');
-  if (propsArr.length === 0) {
-    lines.push('  []');
-  } else {
-    for (const prop of propsArr) {
-      lines.push(`  - name: ${toYamlScalar(String(prop.name || 'TBD'))}`);
-      lines.push(`    type: ${prop.type}`);
-      if (prop.type === 'enum') {
-        const values = Array.isArray(prop.values) && prop.values.length > 0 ? prop.values : ['TBD'];
-        lines.push(`    values: [${values.map((value) => toYamlScalar(value)).join(', ')}]`);
-      }
-      if (prop.type === 'boolean') {
-        lines.push(`    default: ${yamlBooleanOrString(prop.defaultValue, false)}`);
-      } else {
-        const defaultVal = prop.defaultValue !== undefined && prop.defaultValue !== null
-          ? toYamlScalar(String(prop.defaultValue))
-          : '"TBD"';
-        lines.push(`    default: ${defaultVal}`);
-      }
-      lines.push(`    required: ${prop.required ? 'true' : 'false'}`);
-      lines.push('    description: "TBD"');
-    }
-  }
-  lines.push('content_guidelines:');
-  lines.push('  rules:');
-  lines.push('    - "TBD"');
-  lines.push('best_practices:');
-  lines.push('  do:');
-  lines.push('    - "TBD"');
-  lines.push('  dont:');
-  lines.push('    - "TBD"');
-  lines.push('accessibility:');
-  lines.push('  role: "TBD"');
-  lines.push('  focus:');
-  lines.push('    tokens:');
-  lines.push('      inner: "Semantic.Color.Focus-Outline.Inner"');
-  lines.push('      outer: "Semantic.Color.Focus-Outline.Outer"');
-  lines.push('  hit_area:');
-  lines.push('    desktop_token: "A11y.A11y.Dimension.Min-Hit-Area"');
-  lines.push('    mobile_token: "Primitives.Dimension.A11y.Min-Hit-Area-Mobile-AAA"');
-  lines.push('  labeling:');
-  lines.push('    rules:');
-  lines.push('      - "TBD"');
-  lines.push('token_mapping:');
-  lines.push('  container.background:');
-  lines.push('    "state=default": "TBD"');
-  lines.push('qa:');
-  lines.push('  - "Properties match the Figma component set."');
-  lines.push('  - "Token mapping uses real token keys."');
-  lines.push('related_components: []');
-  lines.push('');
-
-  return {
-    yaml: lines.join('\n'),
-    warnings,
-  };
 }
 
 function buildVariableIdToTokenPathMap(meta: FigmaVariablesResponse['meta']): Map<string, string> {
@@ -643,6 +490,7 @@ function toLayoutRowsFromAnatomy(root: SpecLayerNode | null | undefined): Array<
 
 /**
  * Extract structured Figma data from spec result (SC-04)
+ * Returns variants, tokenBindings, layout, anatomy, properties, and unresolved variable IDs
  */
 function extractStructuredFigmaData(args: {
   specData: FullComponentSpecResult | null;
@@ -651,6 +499,8 @@ function extractStructuredFigmaData(args: {
   variants?: SyncComponentEntry['figma']['variants'];
   tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
   layout?: SyncComponentEntry['figma']['layout'];
+  anatomy?: Array<unknown>;
+  properties?: Array<unknown>;
   unresolvedVariableIds: string[];
 } {
   const { specData, variableIdToTokenPath } = args;
@@ -660,6 +510,8 @@ function extractStructuredFigmaData(args: {
     variants?: SyncComponentEntry['figma']['variants'];
     tokenBindings?: SyncComponentEntry['figma']['tokenBindings'];
     layout?: SyncComponentEntry['figma']['layout'];
+    anatomy?: Array<unknown>;
+    properties?: Array<unknown>;
     unresolvedVariableIds: string[];
   } = {
     unresolvedVariableIds: [],
@@ -703,27 +555,52 @@ function extractStructuredFigmaData(args: {
     result.layout = layoutRows;
   }
 
+  // Extract anatomy children (for persistence in component_figma_anatomy)
+  if (specData.anatomy?.children && specData.anatomy.children.length > 0) {
+    result.anatomy = specData.anatomy.children.map((child) => ({
+      id: child.id,
+      name: child.name,
+      type: child.type,
+    }));
+  }
+
+  // Extract properties (for persistence in component_figma_anatomy)
+  if (specData.props && specData.props.length > 0) {
+    result.properties = specData.props.map((prop) => ({
+      name: prop.name,
+      type: mapFigmaPropertyType(prop.type),
+      defaultValue: prop.defaultValue,
+    }));
+  }
+
   return result;
 }
 
 /**
  * Enrich component entries with structured Figma data (SC-04)
  * This runs independently of YAML capture to ensure DB persistence
+ * Persists variants, tokenBindings, layout to child tables AND anatomy+properties to component_figma_anatomy
  */
 async function enrichComponentEntriesWithStructuredData(options: {
   entries: SyncComponentEntry[];
+  dsId: string;
   figmaFileId: string | null;
   fetchFullComponentSpec: FetchFullComponentSpecFn;
   variableIdToTokenPath: Map<string, string>;
   concurrency: number;
+  componentRepo: ComponentRepository;
+  runId: string;
   warningSink?: string[];
 }): Promise<{ attempted: number; failed: number }> {
   const {
     entries,
+    dsId,
     figmaFileId,
     fetchFullComponentSpec,
     variableIdToTokenPath,
     concurrency,
+    componentRepo,
+    runId,
     warningSink,
   } = options;
   let attempted = 0;
@@ -760,6 +637,26 @@ async function enrichComponentEntriesWithStructuredData(options: {
     if (structuredData.variants) entry.figma.variants = structuredData.variants;
     if (structuredData.tokenBindings) entry.figma.tokenBindings = structuredData.tokenBindings;
     if (structuredData.layout) entry.figma.layout = structuredData.layout;
+
+    // Persist anatomy + properties to component_figma_anatomy table
+    // Look up component ID by slug since entries don't have IDs populated
+    if (structuredData.anatomy && structuredData.properties) {
+      try {
+        const component = componentRepo.getBySlug(dsId, entry.slug);
+        if (component && component.id) {
+          componentRepo.upsertAnatomySpec(
+            component.id,
+            structuredData.anatomy,
+            structuredData.properties,
+            runId,
+          );
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        console.warn(`[enrichComponentEntriesWithStructuredData] Failed persisting anatomy for slug=${entry.slug}: ${reason}`);
+      }
+    }
+
     entry.figma.structuredCaptureStatus = 'ok';
     if (warningSink && structuredData.unresolvedVariableIds.length > 0) {
       const unresolved = Array.from(new Set(structuredData.unresolvedVariableIds));
@@ -785,89 +682,6 @@ async function enrichComponentEntriesWithStructuredData(options: {
   }
 
   return { attempted, failed };
-}
-
-async function captureComponentSpecYamlFiles(options: {
-  entries: SyncComponentEntry[];
-  repoRoot: string;
-  dsId: string;
-  figmaFileId: string | null;
-  fetchFullComponentSpec: FetchFullComponentSpecFn;
-}): Promise<SpecYamlCaptureSummary> {
-  const { entries, repoRoot, dsId, figmaFileId, fetchFullComponentSpec } = options;
-  const paths = resolveSystemPaths(dsId, repoRoot);
-  let generated = 0;
-  let skipped = 0;
-  let failed = 0;
-  const warnings: string[] = [];
-  try {
-    fs.mkdirSync(paths.specsDir, { recursive: true });
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    warnings.push(`[captureComponentSpecYamlFiles] Failed to create specs directory ${paths.specsDir}: ${reason}`);
-  }
-
-  for (const entry of entries) {
-    const targetPath = path.join(paths.specsDir, `${entry.slug}.yml`);
-    if (fs.existsSync(targetPath)) {
-      skipped += 1;
-      continue;
-    }
-
-    const componentNodeId = String(entry.figma.componentSetNodeId || '').trim();
-    let specData: FullComponentSpecResult | null = null;
-    if (componentNodeId) {
-      try {
-        specData = (await fetchFullComponentSpec(figmaFileId, {
-          nodeId: componentNodeId,
-          depth: 3,
-          compact: false,
-        })) as FullComponentSpecResult;
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        warnings.push(
-          `[captureComponentSpecYamlFiles] Failed fetching full spec for slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`,
-        );
-        console.warn(
-          `[captureComponentSpecYamlFiles] Failed fetching full spec for slug=${entry.slug} nodeId=${componentNodeId}: ${reason}`,
-        );
-        specData = null;
-      }
-    }
-
-    // Note: Structured data already attached by enrichComponentEntriesWithStructuredData
-    // This function only generates YAML files
-
-    const specYaml = buildComponentSpecYaml({
-      slug: entry.slug,
-      componentSetNodeId: componentNodeId,
-      specData,
-      componentName: entry.name,
-      figmaFileUrl: entry.figma.fileUrl,
-    });
-    warnings.push(...specYaml.warnings);
-
-    try {
-      fs.writeFileSync(targetPath, specYaml.yaml, 'utf8');
-      generated += 1;
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      failed += 1;
-      warnings.push(
-        `[captureComponentSpecYamlFiles] Failed writing spec for slug=${entry.slug} path=${targetPath}: ${reason}`,
-      );
-      console.warn(
-        `[captureComponentSpecYamlFiles] Failed writing spec for slug=${entry.slug} path=${targetPath}: ${reason}`,
-      );
-    }
-  }
-
-  return {
-    generated,
-    skipped,
-    failed,
-    warnings,
-  };
 }
 
 function extensionFromFormat(format: string): string {
@@ -1487,7 +1301,6 @@ export interface SyncFromPluginOptions {
   fetchComponentSpec?: FetchComponentSpecFn;
   fetchFullComponentSpec?: FetchFullComponentSpecFn;
   captureComponentProofs?: boolean;
-  captureComponentSpecYaml?: boolean;
   captureComponentProofVariants?: boolean;
   captureComponentProofVariantLimit?: number;
   imageBatchSize?: number;
@@ -1512,10 +1325,6 @@ export interface SyncFromPluginResult {
   usageReindexStatus: 'not_requested' | 'ok' | 'failed';
   usageReindexReason: 'none' | 'missing_repo_root' | 'no_sources' | 'runtime_error';
   usageReindexWarnings: string[];
-  specYamlGenerated: number;
-  specYamlSkipped: number;
-  specYamlFailed: number;
-  specYamlWarnings: string[];
   specsEnriched: number;
   proofsEnriched: number;
   dryRun: boolean;
@@ -1664,7 +1473,6 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     fetchComponentSpec = getComponentSpecDirect,
     fetchFullComponentSpec = getComponentSpecDirect as FetchFullComponentSpecFn,
     captureComponentProofs = false,
-    captureComponentSpecYaml = false,
     captureComponentProofVariants = false,
     captureComponentProofVariantLimit = 8,
     imageBatchSize = DEFAULT_IMAGE_BATCH_SIZE,
@@ -1731,10 +1539,6 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
   let componentsTruncated = false;
   let specsEnriched = 0;
   let proofsEnriched = 0;
-  let specYamlGenerated = 0;
-  let specYamlSkipped = 0;
-  let specYamlFailed = 0;
-  let specYamlWarnings: string[] = [];
   const structuredDataWarnings: string[] = [];
 
   if (includeComponents) {
@@ -1773,29 +1577,6 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       };
     });
 
-    if (!dryRun && componentEntries.length > 0) {
-      // Capture structured Figma data (always, independent of YAML capture/filesystem paths)
-      // This persists pageName, variants, tokenBindings, and layout to DB.
-      try {
-        await enrichComponentEntriesWithStructuredData({
-          entries: componentEntries,
-          figmaFileId,
-          fetchFullComponentSpec,
-          variableIdToTokenPath,
-          concurrency: safeEnrichComponentSpecConcurrency,
-          warningSink: structuredDataWarnings,
-        });
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        structuredDataWarnings.push(
-          `[syncDesignSystemFromPlugin] Structured data capture failed: ${reason}`,
-        );
-        console.warn(
-          `[syncDesignSystemFromPlugin] Structured data capture failed (continuing import): ${reason}`,
-        );
-      }
-    }
-
     if (!dryRun && componentEntries.length > 0 && repoRoot) {
       ensureComponentDocTemplates({
         entries: componentEntries,
@@ -1803,30 +1584,6 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
         dsId,
       });
 
-      if (captureComponentSpecYaml) {
-        try {
-          const specYamlSummary = await captureComponentSpecYamlFiles({
-            entries: componentEntries,
-            repoRoot,
-            dsId,
-            figmaFileId,
-            fetchFullComponentSpec,
-          });
-          specYamlGenerated = specYamlSummary.generated;
-          specYamlSkipped = specYamlSummary.skipped;
-          specYamlFailed = specYamlSummary.failed;
-          specYamlWarnings = specYamlSummary.warnings;
-        } catch (error) {
-          const reason = error instanceof Error ? error.message : String(error);
-          specYamlWarnings = [
-            ...specYamlWarnings,
-            `[syncDesignSystemFromPlugin] Component spec YAML capture failed: ${reason}`,
-          ];
-          console.warn(
-            `[syncDesignSystemFromPlugin] Component spec YAML capture failed (continuing import): ${reason}`,
-          );
-        }
-      }
       if (captureComponentProofs) {
         try {
           await captureComponentMainProofImages({
@@ -2110,6 +1867,32 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
 
     if (includeComponents) {
       componentRepo.upsertFromRegistry(dsId, componentEntries);
+
+      // Capture structured Figma data AFTER upsertFromRegistry so component IDs exist
+      if (!dryRun && componentEntries.length > 0) {
+        try {
+          await enrichComponentEntriesWithStructuredData({
+            entries: componentEntries,
+            figmaFileId,
+            fetchFullComponentSpec,
+            variableIdToTokenPath,
+            concurrency: safeEnrichComponentSpecConcurrency,
+            componentRepo,
+            runId,
+            warningSink: structuredDataWarnings,
+            dsId,
+          });
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          structuredDataWarnings.push(
+            `[syncDesignSystemFromPlugin] Structured data capture failed: ${reason}`,
+          );
+          console.warn(
+            `[syncDesignSystemFromPlugin] Structured data capture failed (continuing import): ${reason}`,
+          );
+        }
+      }
+
       // Only mark missing when the component list is complete.
       // If truncated, marking missing would create false positives for components not fetched yet.
       if (!componentsTruncated) {
@@ -2137,10 +1920,6 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
       usageReindexStatus,
       usageReindexReason,
       usageReindexWarnings,
-      specYamlGenerated,
-      specYamlSkipped,
-      specYamlFailed,
-      specYamlWarnings: [...specYamlWarnings, ...structuredDataWarnings],
       specsEnriched,
       proofsEnriched,
       dryRun,
@@ -2159,10 +1938,6 @@ export async function syncDesignSystemFromPlugin(options: SyncFromPluginOptions)
     usageReindexStatus: 'not_requested',
     usageReindexReason: 'none',
     usageReindexWarnings: [],
-    specYamlGenerated,
-    specYamlSkipped,
-    specYamlFailed,
-    specYamlWarnings: [...specYamlWarnings, ...structuredDataWarnings],
     specsEnriched,
     proofsEnriched,
     dryRun,

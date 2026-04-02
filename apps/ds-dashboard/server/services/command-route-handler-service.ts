@@ -420,15 +420,15 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
     typeof hasPluginSocketForFile === 'function'
       ? hasPluginSocketForFile(figmaFileId)
       : (() => {
-          const manager = getPluginConnectionManager();
-          // Best-effort precheck:
-          // 1) Prefer an OPEN socket bound to this exact file key.
-          // 2) Fallback only when there is exactly one OPEN unkeyed socket (Draft file).
-          // The socket can still disconnect before sync starts; service-level error mapping
-          // provides the user-facing message in that case.
-          if (manager.getPreferredSocketId(figmaFileId)) return true;
-          return manager.getConnectionCount() === 1 && manager.getActiveFileKeys().length === 0;
-        })();
+        const manager = getPluginConnectionManager();
+        // Best-effort precheck:
+        // 1) Prefer an OPEN socket bound to this exact file key.
+        // 2) Fallback only when there is exactly one OPEN unkeyed socket (Draft file).
+        // The socket can still disconnect before sync starts; service-level error mapping
+        // provides the user-facing message in that case.
+        if (manager.getPreferredSocketId(figmaFileId)) return true;
+        return manager.getConnectionCount() === 1 && manager.getActiveFileKeys().length === 0;
+      })();
   if (!canUsePluginSocket) {
     console.warn(`[handleSyncFigmaTokensRoute] No plugin socket available for file: ${figmaFileId}`);
     return failJson(c, 409, {
@@ -470,7 +470,6 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
         dryRun,
         includeComponents,
         captureComponentProofs: includeComponents && !dryRun,
-        captureComponentSpecYaml: includeComponents && !dryRun,
         captureComponentProofVariants: includeComponents && !dryRun,
         repoRoot: sysCtx.repoRoot,
         reindexUsageFromFilesystem: !dryRun,
@@ -489,17 +488,6 @@ export async function handleSyncFigmaTokensRoute(c: Context, deps: CommandRouteH
       }
       if (result.usageReindexStatus === 'failed' && result.usageReindexReason !== 'none') {
         emitChunk('warning', `Token usage reindex status: failed (${result.usageReindexReason}).`);
-      }
-      if (result.specYamlWarnings.length > 0) {
-        for (const warning of result.specYamlWarnings) {
-          emitChunk('warning', warning);
-        }
-      }
-      if (result.specYamlGenerated > 0 || result.specYamlSkipped > 0 || result.specYamlFailed > 0) {
-        emitChunk(
-          'result',
-          `Spec YAML capture: generated ${result.specYamlGenerated}, skipped ${result.specYamlSkipped}, failed ${result.specYamlFailed}.`,
-        );
       }
       emitChunk('result', `Imported ${result.tokens} tokens and ${result.components} components.`);
       return {

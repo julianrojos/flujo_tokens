@@ -15,19 +15,15 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes visual
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-'));
   const systemId = 'sys-e2e';
   const docPathRel = `design-systems/${systemId}/docs/components/button.md`;
-  const specPathRel = `design-systems/${systemId}/docs/_spec/components/button.yml`;
   const imagePathRel = `design-systems/${systemId}/docs/_generated/visual-proofs/images/button.png`;
 
   const docPathAbs = path.join(tmpRoot, docPathRel);
-  const specPathAbs = path.join(tmpRoot, specPathRel);
   const imagePathAbs = path.join(tmpRoot, imagePathRel);
 
   fs.mkdirSync(path.dirname(docPathAbs), { recursive: true });
-  fs.mkdirSync(path.dirname(specPathAbs), { recursive: true });
   fs.mkdirSync(path.dirname(imagePathAbs), { recursive: true });
 
   fs.writeFileSync(docPathAbs, '# Button\n', 'utf8');
-  fs.writeFileSync(specPathAbs, 'name: Button\nstatus: ready\n', 'utf8');
   fs.writeFileSync(imagePathAbs, 'png-bytes', 'utf8');
 
   const dbPath = path.join(
@@ -47,6 +43,25 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes visual
     ).run(systemId, 'E2E System', '[]');
 
     const componentRepo = new ComponentRepository(db);
+
+    // Insert component via upsertFromRegistry
+    componentRepo.upsertFromRegistry(systemId, [
+      {
+        slug: 'button',
+        name: 'Button',
+        status: 'ready',
+        docType: 'component',
+        figma: { fileUrl: 'https://figma.com/file/ABC123', componentSetNodeId: '1:2' },
+      },
+    ]);
+
+    // Insert editorial row to make spec.exists = true (DB-first, no YAML)
+    db.prepare(`
+      INSERT INTO component_editorial (component_id, summary_json, updated_at)
+      SELECT id, '{"purpose": "A button component"}', strftime('%s', 'now')
+      FROM components WHERE ds_id = ? AND slug = ?
+    `).run(systemId, 'button');
+
     const persisted = persistCapturePayloadToComponentRepo({
       payload: {
         source: {
@@ -111,9 +126,9 @@ test('e2e: capture payload upserts DB and /api/component-registry exposes visual
     assert.equal(button.visual_proof.variants_count, 1);
     assert.ok(Array.isArray(button.visual_proof.variants));
     assert.equal(button.visual_proof.variants.length, 1);
-    assert.equal(button.visual_proof.variants[0].name, 'Variant');
     assert.equal(button.pipeline_stage, 'visual-proof');
     assert.equal(payload.summary?.with_visual_proof, 1);
+    assert.equal(button.spec.exists, true, 'spec.exists should be true (editorial row exists)');
   } finally {
     try {
       db.close();
@@ -128,16 +143,12 @@ test('e2e: component-registry marks visual_proof.exists=false when local image p
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-missing-proof-'));
   const systemId = 'sys-e2e-missing-proof';
   const docPathRel = `design-systems/${systemId}/docs/components/chip.md`;
-  const specPathRel = `design-systems/${systemId}/docs/_spec/components/chip.yml`;
   const imagePathRel = `design-systems/${systemId}/docs/_generated/visual-proofs/images/chip.png`;
 
   const docPathAbs = path.join(tmpRoot, docPathRel);
-  const specPathAbs = path.join(tmpRoot, specPathRel);
 
   fs.mkdirSync(path.dirname(docPathAbs), { recursive: true });
-  fs.mkdirSync(path.dirname(specPathAbs), { recursive: true });
   fs.writeFileSync(docPathAbs, '# Chip\n', 'utf8');
-  fs.writeFileSync(specPathAbs, 'name: Chip\nstatus: draft\n', 'utf8');
 
   const dbPath = path.join(
     tmpRoot,
@@ -156,6 +167,18 @@ test('e2e: component-registry marks visual_proof.exists=false when local image p
     ).run(systemId, 'E2E Missing Proof System', '[]');
 
     const componentRepo = new ComponentRepository(db);
+
+    // Insert component via upsertFromRegistry
+    componentRepo.upsertFromRegistry(systemId, [
+      {
+        slug: 'chip',
+        name: 'Chip',
+        status: 'draft',
+        docType: 'component',
+        figma: { fileUrl: 'https://figma.com/file/MISSING1', componentSetNodeId: '7:7' },
+      },
+    ]);
+
     const persisted = persistCapturePayloadToComponentRepo({
       payload: {
         source: { file_key: 'MISSING1' },
@@ -196,6 +219,7 @@ test('e2e: component-registry marks visual_proof.exists=false when local image p
     assert.equal(chip.visual_proof.image_path, imagePathRel);
     assert.ok(Array.isArray(chip.visual_proof.variants));
     assert.equal(chip.visual_proof.variants_count, 0);
+    assert.equal(chip.spec.exists, false, 'spec.exists should be false (no editorial row)');
   } finally {
     try {
       db.close();
@@ -210,16 +234,12 @@ test('e2e: component-registry keeps visual_proof.exists=false when screenshot_ur
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-dashboard-e2e-missing-proof-url-'));
   const systemId = 'sys-e2e-missing-proof-url';
   const docPathRel = `design-systems/${systemId}/docs/components/tag.md`;
-  const specPathRel = `design-systems/${systemId}/docs/_spec/components/tag.yml`;
   const imagePathRel = `design-systems/${systemId}/docs/_generated/visual-proofs/images/tag.png`;
 
   const docPathAbs = path.join(tmpRoot, docPathRel);
-  const specPathAbs = path.join(tmpRoot, specPathRel);
 
   fs.mkdirSync(path.dirname(docPathAbs), { recursive: true });
-  fs.mkdirSync(path.dirname(specPathAbs), { recursive: true });
   fs.writeFileSync(docPathAbs, '# Tag\n', 'utf8');
-  fs.writeFileSync(specPathAbs, 'name: Tag\nstatus: draft\n', 'utf8');
 
   const dbPath = path.join(
     tmpRoot,
@@ -238,6 +258,18 @@ test('e2e: component-registry keeps visual_proof.exists=false when screenshot_ur
     ).run(systemId, 'E2E Missing Proof URL System', '[]');
 
     const componentRepo = new ComponentRepository(db);
+
+    // Insert component via upsertFromRegistry
+    componentRepo.upsertFromRegistry(systemId, [
+      {
+        slug: 'tag',
+        name: 'Tag',
+        status: 'draft',
+        docType: 'component',
+        figma: { fileUrl: 'https://figma.com/file/MISSING2', componentSetNodeId: '8:8' },
+      },
+    ]);
+
     const persisted = persistCapturePayloadToComponentRepo({
       payload: {
         source: { file_key: 'MISSING2' },

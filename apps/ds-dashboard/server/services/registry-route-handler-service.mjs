@@ -120,15 +120,13 @@ export async function handleComponentRegistryRoute(c, deps) {
     const specEntry = Array.isArray(row.specs) && row.specs.length > 0 ? row.specs[0] : null;
     const proofEntry = Array.isArray(row.visualProofs) && row.visualProofs.length > 0 ? row.visualProofs[0] : null;
     const docPath = specEntry?.markdownPath || `design-systems/${sysCtx.systemId}/docs/components/${row.slug}.md`;
-    const specPath = `design-systems/${sysCtx.systemId}/docs/_spec/components/${row.slug}.yml`;
     const visualProofFromDb = normalizeVisualProofFromRepositoryEntry(proofEntry) || emptyVisualProof();
     const visualProofPath =
       typeof visualProofFromDb.image_path === "string" && visualProofFromDb.image_path
         ? visualProofFromDb.image_path
         : null;
-    const [docExists, specExists, visualProofExists] = await Promise.all([
+    const [docExists, visualProofExists] = await Promise.all([
       fileExistsWithinRepo(sysCtx.repoRoot, docPath, existsCache),
-      fileExistsWithinRepo(sysCtx.repoRoot, specPath, existsCache),
       visualProofPath
         ? fileExistsWithinRepo(sysCtx.repoRoot, visualProofPath, existsCache)
         : Promise.resolve(false),
@@ -163,12 +161,12 @@ export async function handleComponentRegistryRoute(c, deps) {
       slug: row.slug,
       display_name: row.name,
       paths: {
-        spec: specPath,
+        spec: `db://component_editorial/${row.id}`,
         doc: docPath,
         visual_proof: visualProofPath,
       },
       spec: {
-        exists: specExists,
+        exists: row.editorialExists,
         status: row.status || "draft",
       },
       doc: {
@@ -230,13 +228,24 @@ export async function handleComponentUsageIndexRoute(c, deps) {
   }
   const sysCtx = getSystemContext(c.req.header("x-ds-system"));
   const rows = componentRepo.getAll(sysCtx.systemId);
+  const componentIds = rows.map((row) => row.id);
+  const editorialById = componentRepo.getEditorialByComponentIds(componentIds);
+  const anatomyById = componentRepo.getAnatomySpecsByComponentIds(componentIds);
   const registry = {
-    components: rows.map((row) => ({
-      slug: row.slug,
-      paths: {
-        spec: `design-systems/${sysCtx.systemId}/docs/_spec/components/${row.slug}.yml`,
-      },
-    })),
+    components: rows.map((row) => {
+      const editorial = editorialById.get(row.id) || null;
+      const anatomy = anatomyById.get(row.id) || null;
+      return {
+        slug: row.slug,
+        paths: {
+          spec: `db://component_editorial/${row.id}`,
+        },
+        related_components: Array.isArray(editorial?.relatedComponents)
+          ? editorial.relatedComponents.filter((item) => typeof item === "string")
+          : [],
+        anatomy: Array.isArray(anatomy?.anatomy) ? anatomy.anatomy : [],
+      };
+    }),
   };
   return c.json(buildComponentUsageIndex(registry.components, sysCtx.repoRoot));
 }
