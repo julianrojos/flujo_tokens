@@ -14,9 +14,11 @@ import {
 import type { ComponentRegistryItem, PipelineStage } from "@/types/component-registry";
 import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component-usage-index";
 import type { PartialComponentSpec } from "ds-types";
+import type { MergedComponentSpec } from "../lib/merge-spec-structured-data";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
 import { buildSpecTemplate } from "../lib/component-detail-transforms";
+import { mergeSpecWithStructuredData } from "../lib/merge-spec-structured-data";
 
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
 
@@ -28,6 +30,7 @@ interface ComponentDetailViewModel {
   usage: ComponentUsageEntry | null;
   allItems: ComponentRegistryItem[];
   spec: PartialComponentSpec | null;
+  mergedSpec: MergedComponentSpec | null;
   specRaw: string;
   specRawHash: string | null;
   tokenRegistry: TokenRegistry | null;
@@ -107,9 +110,12 @@ export function useComponentDetail(): ComponentDetailViewModel {
         setAllItems(registry.components);
         setUsage(usageIndex.by_slug[slug] ?? null);
         const hasSpec = Boolean(specPayload?.ok && specPayload.exists);
-        setSpec(hasSpec && specPayload?.parsed ? (specPayload.parsed as PartialComponentSpec) : null);
+        const parsedSpecForMergeData =
+          hasSpec && specPayload?.parsed ? (specPayload.parsed as PartialComponentSpec) : null;
+        setSpec(parsedSpecForMergeData);
         setSpecRawHash(specPayload?.rawHash ?? null);
         setSpecRaw(hasSpec ? specPayload?.raw ?? "" : found ? buildSpecTemplate(found) : "");
+
         setTokenRegistry(tokenRegistryPayload);
         setTokenUsageIndex(tokenUsagePayload);
       } catch (cause) {
@@ -120,6 +126,11 @@ export function useComponentDetail(): ComponentDetailViewModel {
     };
     load();
   }, [slug, reloadNonce]);
+
+  // Memoized merge of structured DB data + YAML spec (DB-first precedence)
+  const mergedSpec = useMemo<MergedComponentSpec | null>(() => {
+    return mergeSpecWithStructuredData(spec, item);
+  }, [spec, item]);
 
   const nextStep = useMemo<PipelineStage | null>(() => {
     if (!item?.pipeline_stage) return null;
@@ -170,6 +181,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     usage,
     allItems,
     spec,
+    mergedSpec,
     specRaw,
     specRawHash,
     tokenRegistry,

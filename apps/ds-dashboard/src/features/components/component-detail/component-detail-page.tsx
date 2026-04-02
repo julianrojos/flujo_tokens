@@ -32,6 +32,7 @@ export function ComponentDetailPage() {
     usage,
     allItems,
     spec,
+    mergedSpec,
     specRaw,
     specRawHash,
     tokenRegistry,
@@ -127,11 +128,12 @@ export function ComponentDetailPage() {
         item={item}
         captureSummary={captureSummary}
         onOpenCapture={() => setCaptureModalOpen(true)}
-        variantVisuals={spec?.variant_visuals}
+        variantVisuals={mergedSpec?.variant_visuals}
       />
 
       <ComponentSpecSection
         spec={spec}
+        mergedSpec={mergedSpec}
         hasDocs={item.doc.exists}
         onOpenSpecEditor={() => setSpecEditorOpen(true)}
         onOpenDocs={openDocsModal}

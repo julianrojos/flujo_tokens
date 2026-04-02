@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { FilePenLine } from "lucide-react";
 import type { PartialComponentSpec } from "ds-types";
 import { ComponentSpecViewer } from "../component-spec-viewer";
+import type { MergedComponentSpec } from "../lib/merge-spec-structured-data";
 
 interface ComponentSpecSectionProps {
   spec: PartialComponentSpec | null;
+  mergedSpec: MergedComponentSpec | null;
   hasDocs: boolean;
   onOpenSpecEditor: () => void;
   onOpenDocs: () => void;
@@ -19,6 +21,7 @@ interface ComponentSpecSectionProps {
 
 export function ComponentSpecSection({
   spec,
+  mergedSpec,
   hasDocs,
   onOpenSpecEditor,
   onOpenDocs,
@@ -51,8 +54,8 @@ export function ComponentSpecSection({
         </div>
       </CardHeader>
       <CardContent>
-        {spec ? (
-          <ComponentSpecViewer spec={spec} selfSlug={selfSlug} />
+        {mergedSpec ? (
+          <ComponentSpecViewer spec={mergedSpec} selfSlug={selfSlug} />
         ) : (
           <div className="rounded-lg border border-border bg-muted p-6 text-center text-sm text-muted-foreground">
             No specification yet. Click "Create" to add one.
