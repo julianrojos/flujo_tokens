@@ -62,7 +62,7 @@ export function ComponentDocsModal({
 
   return (
     <Modal open={open} onClose={onClose} zIndex={1003}>
-      <ModalContent className="max-h-[92vh] w-[min(1040px,96vw)] overflow-hidden">
+      <ModalContent size="lg" className="max-h-[92vh] overflow-hidden">
         <ModalHeader>
           <div>
             <h3 id="component-docs-modal-title" className="text-lg font-semibold">

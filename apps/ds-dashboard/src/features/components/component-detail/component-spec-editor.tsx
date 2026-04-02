@@ -125,7 +125,7 @@ export function ComponentSpecEditor({
 
   return (
     <Modal open={open} onClose={handleCancel} zIndex={1102}>
-      <ModalContent className="w-[min(760px,96vw)]">
+      <ModalContent size="lg">
         <ModalHeader>
           <div>
             <h3 id="summary-editor-modal-title" className="text-lg font-semibold">

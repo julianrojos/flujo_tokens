@@ -12,7 +12,7 @@ const modalVariants = cva(
       size: {
         sm: "max-w-[400px]",
         md: "max-w-[560px]",
-        lg: "max-w-[720px]",
+        lg: "max-w-[800px]",
         full: "max-w-[min(920px,96vw)]",
       },
     },

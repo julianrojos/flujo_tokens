@@ -573,7 +573,7 @@ export function DesignSystemsAdminPage() {
           setDeletePreviewLoading(false);
         }}
       >
-        <ModalContent size="lg">
+        <ModalContent size="md">
           {deleteModalTarget ? (
             <div className="p-5">
               <h2 className="mb-2 text-lg font-serif font-semibold">

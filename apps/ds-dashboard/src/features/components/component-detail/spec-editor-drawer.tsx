@@ -236,7 +236,10 @@ export function SpecEditorDrawer({
 
   return (
     <Modal open={open} onClose={onClose} zIndex={1100}>
-      <ModalContent className="h-[90vh] w-[70vw] overflow-hidden p-0">
+      <ModalContent
+        size="lg"
+        className="h-[90vh] w-full overflow-hidden p-0"
+      >
         <div className="flex h-full flex-col">
           <header className="flex items-start justify-between border-b border-border/70 px-5 py-4">
             <div>
