@@ -50,6 +50,7 @@ export interface ComponentSpecDeps extends SharedSystemContextDeps {
   resolveRepoFilePath: (root: string, requestedPath: string) => string | null;
   sha256Text: (value: string) => string;
   tokenRepo?: import('../db/token-repository.js').TokenRepository;
+  componentRepo?: import('../db/component-repository.js').ComponentRepository;
 }
 
 export interface FileDeps extends SharedSystemContextDeps {
@@ -229,6 +230,7 @@ export function buildAllRouteDeps(deps: ServerDeps): AllRouteDeps {
       resolveRepoFilePath: deps.resolveRepoFilePath,
       sha256Text: deps.sha256Text,
       tokenRepo: deps.tokenRepo,
+      componentRepo: deps.componentRepo,
     },
     fileDeps: {
       ...sharedSystemContextDeps,

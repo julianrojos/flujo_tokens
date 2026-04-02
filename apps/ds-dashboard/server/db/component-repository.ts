@@ -70,6 +70,7 @@ export interface ComponentEntry {
   figma?: StructuredFigmaData;
   specs?: ComponentSpecEntry[];
   visualProofs?: ComponentVisualProofEntry[];
+  editorialExists: boolean;
 }
 
 /**
@@ -191,11 +192,78 @@ export interface ComponentRegistryEntry {
 }
 
 /**
+ * Editorial data (human-authored component spec fields)
+ */
+export interface EditorialEntry {
+  componentId: number;
+  summary?: Record<string, unknown> | null;
+  bestPractices?: Record<string, unknown> | null;
+  accessibility?: Record<string, unknown> | null;
+  contentGuidelines?: Record<string, unknown> | null;
+  relatedComponents?: Array<unknown> | null;
+  tokenMapping?: Record<string, unknown> | null;
+  qa?: Array<unknown> | null;
+  updatedAt: number;
+}
+
+/**
+ * Figma anatomy + properties (structural data from plugin)
+ */
+export interface AnatomySpecEntry {
+  componentId: number;
+  anatomy: Array<unknown>;
+  properties: Array<unknown>;
+  runId?: string | null;
+  capturedAt: number;
+  schemaVersion: number;
+}
+
+/**
+ * Allowed keys for editorial upsert (validation allowlist)
+ */
+export const EDITORIAL_ALLOWED_KEYS = [
+  'summary',
+  'best_practices',
+  'accessibility',
+  'content_guidelines',
+  'related_components',
+  'token_mapping',
+  'qa',
+] as const;
+
+/**
  * Component Repository for SQLite-backed storage
  */
 export class ComponentRepository {
   private db: Database.Database;
   private static readonly IN_BATCH_SIZE = 500;
+  private static toJsonColumnValue(value: unknown): string | null {
+    if (value === undefined || value === null) return null;
+    try {
+      return JSON.stringify(value, (_key, currentValue) => {
+        if (typeof currentValue === 'number' && !Number.isFinite(currentValue)) {
+          throw new Error('Invalid numeric value in editorial payload: NaN/Infinity are not allowed');
+        }
+        return currentValue;
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`[component-repository] Failed to serialize editorial JSON value: ${reason}`);
+    }
+  }
+  private static parseJsonColumnValue<T>(
+    value: string | null,
+    context: string,
+  ): T | null {
+    if (!value) return null;
+    try {
+      return JSON.parse(value) as T;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(`[component-repository] Invalid JSON in ${context}: ${reason}`);
+      return null;
+    }
+  }
   private static readonly MAX_VARIANT_PROPERTIES_JSON_BYTES = 64 * 1024;
 
   constructor(db: Database.Database) {
@@ -213,10 +281,9 @@ export class ComponentRepository {
       if (!Array.isArray(parsed)) return undefined;
       return normalizeVisualProofVariants(parsed);
     } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
       console.warn(
-        `[component-repository] Invalid variants_json in component_visual_proofs id=${rowId} component_id=${componentId}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `[component-repository] Invalid variants_json in component_visual_proofs id=${rowId} component_id=${componentId}: ${reason}`,
       );
       return undefined;
     }
@@ -238,10 +305,9 @@ export class ComponentRepository {
       }
       return out;
     } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
       console.warn(
-        `[component-repository] Invalid properties_json for component_id=${componentId} variant="${variantName}": ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `[component-repository] Invalid properties_json for component_id=${componentId} variant="${variantName}": ${reason}`,
       );
       return {};
     }
@@ -300,14 +366,14 @@ export class ComponentRepository {
           ORDER BY id ASC
         `)
         .all(...batch) as Array<{
-        component_id: number;
-        variant_name: string;
-        node_id: string;
-        properties_json: string;
-        run_id: string | null;
-        captured_at: number;
-        schema_version: number;
-      }>;
+          component_id: number;
+          variant_name: string;
+          node_id: string;
+          properties_json: string;
+          run_id: string | null;
+          captured_at: number;
+          schema_version: number;
+        }>;
 
       for (const row of variantRows) {
         const current = out.get(row.component_id) || {};
@@ -336,17 +402,17 @@ export class ComponentRepository {
           ORDER BY id ASC
         `)
         .all(...batch) as Array<{
-        component_id: number;
-        node_id: string;
-        node_name: string;
-        field: string;
-        variable_id: string;
-        token_path: string | null;
-        mode: string;
-        run_id: string | null;
-        captured_at: number;
-        schema_version: number;
-      }>;
+          component_id: number;
+          node_id: string;
+          node_name: string;
+          field: string;
+          variable_id: string;
+          token_path: string | null;
+          mode: string;
+          run_id: string | null;
+          captured_at: number;
+          schema_version: number;
+        }>;
 
       for (const row of bindingRows) {
         const current = out.get(row.component_id) || {};
@@ -375,24 +441,24 @@ export class ComponentRepository {
           ORDER BY depth ASC, id ASC
         `)
         .all(...batch) as Array<{
-        component_id: number;
-        node_id: string;
-        node_name: string;
-        depth: number;
-        direction: string | null;
-        h_sizing: string | null;
-        v_sizing: string | null;
-        alignment_h: string | null;
-        alignment_v: string | null;
-        item_spacing: number | null;
-        padding_top: number | null;
-        padding_right: number | null;
-        padding_bottom: number | null;
-        padding_left: number | null;
-        run_id: string | null;
-        captured_at: number;
-        schema_version: number;
-      }>;
+          component_id: number;
+          node_id: string;
+          node_name: string;
+          depth: number;
+          direction: string | null;
+          h_sizing: string | null;
+          v_sizing: string | null;
+          alignment_h: string | null;
+          alignment_v: string | null;
+          item_spacing: number | null;
+          padding_top: number | null;
+          padding_right: number | null;
+          padding_bottom: number | null;
+          padding_left: number | null;
+          run_id: string | null;
+          captured_at: number;
+          schema_version: number;
+        }>;
 
       for (const row of layoutRows) {
         const current = out.get(row.component_id) || {};
@@ -442,27 +508,353 @@ export class ComponentRepository {
   }
 
   /**
+   * Get editorial data for a component (human-authored fields)
+   */
+  getEditorial(componentId: number): EditorialEntry | null {
+    const row = this.db
+      .prepare(`
+        SELECT component_id, summary_json, best_practices_json, accessibility_json,
+               content_guidelines_json, related_components_json, token_mapping_json, qa_json, updated_at
+        FROM component_editorial
+        WHERE component_id = ?
+      `)
+      .get(componentId) as Array<{
+        component_id: number;
+        summary_json: string | null;
+        best_practices_json: string | null;
+        accessibility_json: string | null;
+        content_guidelines_json: string | null;
+        related_components_json: string | null;
+        token_mapping_json: string | null;
+        qa_json: string | null;
+        updated_at: number;
+      }>[0];
+
+    if (!row) return null;
+
+    return {
+      componentId: row.component_id,
+      summary: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.summary_json, 'component_editorial.summary_json'),
+      bestPractices: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.best_practices_json, 'component_editorial.best_practices_json'),
+      accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, 'component_editorial.accessibility_json'),
+      contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, 'component_editorial.content_guidelines_json'),
+      relatedComponents: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.related_components_json, 'component_editorial.related_components_json'),
+      tokenMapping: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.token_mapping_json, 'component_editorial.token_mapping_json'),
+      qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, 'component_editorial.qa_json'),
+      updatedAt: row.updated_at,
+    };
+  }
+
+  /**
+   * Batch editorial lookup by component ids.
+   */
+  getEditorialByComponentIds(componentIds: number[]): Map<number, EditorialEntry> {
+    const out = new Map<number, EditorialEntry>();
+    if (!Array.isArray(componentIds) || componentIds.length === 0) return out;
+
+    for (let i = 0; i < componentIds.length; i += ComponentRepository.IN_BATCH_SIZE) {
+      const batch = componentIds.slice(i, i + ComponentRepository.IN_BATCH_SIZE);
+      const placeholders = batch.map(() => "?").join(", ");
+      const rows = this.db
+        .prepare(`
+          SELECT component_id, summary_json, best_practices_json, accessibility_json,
+                 content_guidelines_json, related_components_json, token_mapping_json, qa_json, updated_at
+          FROM component_editorial
+          WHERE component_id IN (${placeholders})
+        `)
+        .all(...batch) as Array<{
+          component_id: number;
+          summary_json: string | null;
+          best_practices_json: string | null;
+          accessibility_json: string | null;
+          content_guidelines_json: string | null;
+          related_components_json: string | null;
+          token_mapping_json: string | null;
+          qa_json: string | null;
+          updated_at: number;
+        }>;
+
+      for (const row of rows) {
+        out.set(row.component_id, {
+          componentId: row.component_id,
+          summary: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.summary_json, "component_editorial.summary_json"),
+          bestPractices: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.best_practices_json, "component_editorial.best_practices_json"),
+          accessibility: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.accessibility_json, "component_editorial.accessibility_json"),
+          contentGuidelines: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.content_guidelines_json, "component_editorial.content_guidelines_json"),
+          relatedComponents: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.related_components_json, "component_editorial.related_components_json"),
+          tokenMapping: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.token_mapping_json, "component_editorial.token_mapping_json"),
+          qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, "component_editorial.qa_json"),
+          updatedAt: row.updated_at,
+        });
+      }
+    }
+
+    return out;
+  }
+
+  /**
+   * Upsert editorial data with optimistic locking via updated_at
+   * If expectedUpdatedAt is null/undefined and no row exists → INSERT
+   * If expectedUpdatedAt matches existing row → UPDATE
+   * expectedUpdatedAt is required for UPDATE calls from all consumers.
+   * If expectedUpdatedAt doesn't match → throw { statusCode: 409 }
+   */
+  upsertEditorial(
+    componentId: number,
+    fields: Partial<Omit<EditorialEntry, 'componentId' | 'updatedAt'>>,
+    expectedUpdatedAt?: number | null,
+  ): EditorialEntry {
+    const expectedLockValue = expectedUpdatedAt ?? null;
+    const tx = this.db.transaction(() => {
+      const existing = this.getEditorial(componentId);
+
+      if (!existing) {
+        // INSERT: only allowed if expectedUpdatedAt is null/undefined (first create)
+        if (expectedLockValue !== null) {
+          throw { statusCode: 409, message: 'Optimistic lock failed: row does not exist but expectedUpdatedAt was provided' };
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+        const insertResult = this.db.prepare(`
+          INSERT OR IGNORE INTO component_editorial (
+            component_id, summary_json, best_practices_json, accessibility_json,
+            content_guidelines_json, related_components_json, token_mapping_json, qa_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          componentId,
+          ComponentRepository.toJsonColumnValue(fields.summary),
+          ComponentRepository.toJsonColumnValue(fields.bestPractices),
+          ComponentRepository.toJsonColumnValue(fields.accessibility),
+          ComponentRepository.toJsonColumnValue(fields.contentGuidelines),
+          ComponentRepository.toJsonColumnValue(fields.relatedComponents),
+          ComponentRepository.toJsonColumnValue(fields.tokenMapping),
+          ComponentRepository.toJsonColumnValue(fields.qa),
+          now,
+        );
+
+        if ((insertResult.changes ?? 0) === 0) {
+          throw { statusCode: 409, message: 'Optimistic lock failed: concurrent editorial creation detected' };
+        }
+
+        return { componentId, ...fields, updatedAt: now };
+      }
+
+      // UPDATE: check optimistic lock
+      if (expectedLockValue === null) {
+        throw { statusCode: 400, message: 'expectedUpdatedAt is required for updates' };
+      }
+      if (expectedLockValue !== existing.updatedAt) {
+        throw { statusCode: 409, message: `Optimistic lock failed: expected ${expectedLockValue} but found ${existing.updatedAt}` };
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      this.db.prepare(`
+        UPDATE component_editorial SET
+          summary_json = COALESCE(?, summary_json),
+          best_practices_json = COALESCE(?, best_practices_json),
+          accessibility_json = COALESCE(?, accessibility_json),
+          content_guidelines_json = COALESCE(?, content_guidelines_json),
+          related_components_json = COALESCE(?, related_components_json),
+          token_mapping_json = COALESCE(?, token_mapping_json),
+          qa_json = COALESCE(?, qa_json),
+          updated_at = ?
+        WHERE component_id = ?
+      `).run(
+        fields.summary !== undefined ? ComponentRepository.toJsonColumnValue(fields.summary) : null,
+        fields.bestPractices !== undefined ? ComponentRepository.toJsonColumnValue(fields.bestPractices) : null,
+        fields.accessibility !== undefined ? ComponentRepository.toJsonColumnValue(fields.accessibility) : null,
+        fields.contentGuidelines !== undefined ? ComponentRepository.toJsonColumnValue(fields.contentGuidelines) : null,
+        fields.relatedComponents !== undefined ? ComponentRepository.toJsonColumnValue(fields.relatedComponents) : null,
+        fields.tokenMapping !== undefined ? ComponentRepository.toJsonColumnValue(fields.tokenMapping) : null,
+        fields.qa !== undefined ? ComponentRepository.toJsonColumnValue(fields.qa) : null,
+        now,
+        componentId,
+      );
+
+      return { ...existing, ...fields, updatedAt: now };
+    });
+
+    return tx();
+  }
+
+  /**
+   * Get anatomy + properties for a component (structural Figma data)
+   */
+  getAnatomySpec(componentId: number): AnatomySpecEntry | null {
+    const row = this.db
+      .prepare(`
+        SELECT component_id, anatomy_json, properties_json, run_id, captured_at, schema_version
+        FROM component_figma_anatomy
+        WHERE component_id = ?
+      `)
+      .get(componentId) as Array<{
+        component_id: number;
+        anatomy_json: string;
+        properties_json: string;
+        run_id: string | null;
+        captured_at: number;
+        schema_version: number;
+      }>[0];
+
+    if (!row) return null;
+
+    try {
+      const anatomy = JSON.parse(row.anatomy_json);
+      const properties = JSON.parse(row.properties_json);
+      return {
+        componentId: row.component_id,
+        anatomy: Array.isArray(anatomy) ? anatomy : [],
+        properties: Array.isArray(properties) ? properties : [],
+        runId: row.run_id || undefined,
+        capturedAt: row.captured_at,
+        schemaVersion: row.schema_version,
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `[component-repository] Failed to parse anatomy JSON for component_id=${row.component_id}: ${reason}`,
+      );
+      return {
+        componentId: row.component_id,
+        anatomy: [],
+        properties: [],
+        runId: row.run_id || undefined,
+        capturedAt: row.captured_at,
+        schemaVersion: row.schema_version,
+      };
+    }
+  }
+
+  /**
+   * Batch anatomy lookup by component ids.
+   */
+  getAnatomySpecsByComponentIds(componentIds: number[]): Map<number, AnatomySpecEntry> {
+    const out = new Map<number, AnatomySpecEntry>();
+    if (!Array.isArray(componentIds) || componentIds.length === 0) return out;
+
+    for (let i = 0; i < componentIds.length; i += ComponentRepository.IN_BATCH_SIZE) {
+      const batch = componentIds.slice(i, i + ComponentRepository.IN_BATCH_SIZE);
+      const placeholders = batch.map(() => "?").join(", ");
+      const rows = this.db
+        .prepare(`
+          SELECT component_id, anatomy_json, properties_json, run_id, captured_at, schema_version
+          FROM component_figma_anatomy
+          WHERE component_id IN (${placeholders})
+        `)
+        .all(...batch) as Array<{
+          component_id: number;
+          anatomy_json: string;
+          properties_json: string;
+          run_id: string | null;
+          captured_at: number;
+          schema_version: number;
+        }>;
+
+      for (const row of rows) {
+        let anatomy: Array<unknown> = [];
+        let properties: Array<unknown> = [];
+        try {
+          const parsedAnatomy = JSON.parse(row.anatomy_json);
+          const parsedProperties = JSON.parse(row.properties_json);
+          anatomy = Array.isArray(parsedAnatomy) ? parsedAnatomy : [];
+          properties = Array.isArray(parsedProperties) ? parsedProperties : [];
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          console.warn(
+            `[component-repository] Failed to parse anatomy JSON for component_id=${row.component_id}: ${reason}`,
+          );
+        }
+
+        out.set(row.component_id, {
+          componentId: row.component_id,
+          anatomy,
+          properties,
+          runId: row.run_id || undefined,
+          capturedAt: row.captured_at,
+          schemaVersion: row.schema_version,
+        });
+      }
+    }
+
+    return out;
+  }
+
+  /**
+   * Upsert anatomy + properties with anti-borrado protection
+   * If row exists and incoming arrays are empty → NO-OP (prevent accidental data loss)
+   */
+  upsertAnatomySpec(
+    componentId: number,
+    anatomy: Array<unknown>,
+    properties: Array<unknown>,
+    runId?: string | null,
+  ): AnatomySpecEntry {
+    const tx = this.db.transaction(() => {
+      const existing = this.getAnatomySpec(componentId);
+
+      // Anti-borrado: if row exists and incoming data is empty, skip
+      if (existing && anatomy.length === 0 && properties.length === 0) {
+        return existing;
+      }
+
+      const resolvedAnatomy = anatomy.length > 0
+        ? anatomy
+        : (existing?.anatomy ?? []);
+      const resolvedProperties = properties.length > 0
+        ? properties
+        : (existing?.properties ?? []);
+
+      const now = Math.floor(Date.now() / 1000);
+      this.db.prepare(`
+        INSERT OR REPLACE INTO component_figma_anatomy (
+          component_id, anatomy_json, properties_json, run_id, captured_at, schema_version
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        componentId,
+        JSON.stringify(resolvedAnatomy),
+        JSON.stringify(resolvedProperties),
+        runId || null,
+        now,
+        1,
+      );
+
+      return {
+        componentId,
+        anatomy: resolvedAnatomy,
+        properties: resolvedProperties,
+        runId: runId || undefined,
+        capturedAt: now,
+        schemaVersion: 1,
+      };
+    });
+
+    return tx();
+  }
+
+  /**
    * Get all components for a design system
    */
   getAll(dsId: string): ComponentEntry[] {
     const rows = this.db
       .prepare(`
-        SELECT c.id, c.ds_id, c.slug, c.name, c.status, c.doc_type, c.figma_file_url, c.figma_component_set_node_id, c.figma_page_name
+        SELECT c.id, c.ds_id, c.slug, c.name, c.status, c.doc_type, c.figma_file_url, c.figma_component_set_node_id, c.figma_page_name,
+               (SELECT 1 FROM component_editorial ce WHERE ce.component_id = c.id) AS has_editorial
         FROM components c
         WHERE c.ds_id = ?
         ORDER BY c.name
       `)
       .all(dsId) as Array<{
-      id: number;
-      ds_id: string;
-      slug: string;
-      name: string;
-      status: string;
-      doc_type: string;
-      figma_file_url: string | null;
-      figma_component_set_node_id: string | null;
-      figma_page_name: string | null;
-    }>;
+        id: number;
+        ds_id: string;
+        slug: string;
+        name: string;
+        status: string;
+        doc_type: string;
+        figma_file_url: string | null;
+        figma_component_set_node_id: string | null;
+        figma_page_name: string | null;
+        has_editorial: number | null;
+      }>;
 
     if (rows.length === 0) {
       return [];
@@ -507,12 +899,12 @@ export class ComponentRepository {
             WHERE component_id IN (${placeholders})
           `)
           .all(...batch) as Array<{
-          id: number;
-          component_id: number;
-          markdown_path: string;
-          doc_status: string;
-          coverage: number;
-        }>,
+            id: number;
+            component_id: number;
+            markdown_path: string;
+            doc_status: string;
+            coverage: number;
+          }>,
       );
 
       proofRows.push(
@@ -524,22 +916,22 @@ export class ComponentRepository {
             ORDER BY captured_at_epoch DESC, captured_at DESC, id DESC
           `)
           .all(...batch) as Array<{
-          id: number;
-          component_id: number;
-          image_path: string;
-          screenshot_url: string | null;
-          caption: string | null;
-          captured_at: string | null;
-          captured_at_epoch: number | null;
-          node_id: string | null;
-          image_sha256: string | null;
-          image_bytes: number | null;
-          image_content_type: string | null;
-          image_width: number | null;
-          image_height: number | null;
-          variants_count: number | null;
-          variants_json: string | null;
-        }>,
+            id: number;
+            component_id: number;
+            image_path: string;
+            screenshot_url: string | null;
+            caption: string | null;
+            captured_at: string | null;
+            captured_at_epoch: number | null;
+            node_id: string | null;
+            image_sha256: string | null;
+            image_bytes: number | null;
+            image_content_type: string | null;
+            image_width: number | null;
+            image_height: number | null;
+            variants_count: number | null;
+            variants_json: string | null;
+          }>,
       );
     }
 
@@ -596,6 +988,7 @@ export class ComponentRepository {
       ),
       specs: specsByComponentId.get(row.id) || [],
       visualProofs: proofsByComponentId.get(row.id) || [],
+      editorialExists: Boolean(row.has_editorial),
     }));
   }
 
@@ -605,22 +998,24 @@ export class ComponentRepository {
   getBySlug(dsId: string, slug: string): ComponentEntry | null {
     const row = this.db
       .prepare(`
-        SELECT c.id, c.ds_id, c.slug, c.name, c.status, c.doc_type, c.figma_file_url, c.figma_component_set_node_id, c.figma_page_name
+        SELECT c.id, c.ds_id, c.slug, c.name, c.status, c.doc_type, c.figma_file_url, c.figma_component_set_node_id, c.figma_page_name,
+               (SELECT 1 FROM component_editorial ce WHERE ce.component_id = c.id) AS has_editorial
         FROM components c
         WHERE c.ds_id = ? AND c.slug = ?
       `)
       .get(dsId, slug) as
       | {
-          id: number;
-          ds_id: string;
-          slug: string;
-          name: string;
-          status: string;
-          doc_type: string;
-          figma_file_url: string | null;
-          figma_component_set_node_id: string | null;
-          figma_page_name: string | null;
-        }
+        id: number;
+        ds_id: string;
+        slug: string;
+        name: string;
+        status: string;
+        doc_type: string;
+        figma_file_url: string | null;
+        figma_component_set_node_id: string | null;
+        figma_page_name: string | null;
+        has_editorial: number | null;
+      }
       | undefined;
 
     if (!row) return null;
@@ -639,6 +1034,7 @@ export class ComponentRepository {
       figma: ComponentRepository.buildFigmaData(row.figma_page_name, structured),
       specs: this.getSpecs(row.id),
       visualProofs: this.getVisualProofs(row.id),
+      editorialExists: Boolean(row.has_editorial),
     };
   }
 
@@ -653,12 +1049,12 @@ export class ComponentRepository {
         WHERE component_id = ?
       `)
       .all(componentId) as Array<{
-      id: number;
-      component_id: number;
-      markdown_path: string;
-      doc_status: string;
-      coverage: number;
-    }>;
+        id: number;
+        component_id: number;
+        markdown_path: string;
+        doc_status: string;
+        coverage: number;
+      }>;
 
     return rows.map((row) => ({
       id: row.id,
@@ -681,22 +1077,22 @@ export class ComponentRepository {
         ORDER BY captured_at_epoch DESC, captured_at DESC, id DESC
       `)
       .all(componentId) as Array<{
-      id: number;
-      component_id: number;
-      image_path: string;
-      screenshot_url: string | null;
-      caption: string | null;
-      captured_at: string | null;
-      captured_at_epoch: number | null;
-      node_id: string | null;
-      image_sha256: string | null;
-      image_bytes: number | null;
-      image_content_type: string | null;
-      image_width: number | null;
-      image_height: number | null;
-      variants_count: number | null;
-      variants_json: string | null;
-    }>;
+        id: number;
+        component_id: number;
+        image_path: string;
+        screenshot_url: string | null;
+        caption: string | null;
+        captured_at: string | null;
+        captured_at_epoch: number | null;
+        node_id: string | null;
+        image_sha256: string | null;
+        image_bytes: number | null;
+        image_content_type: string | null;
+        image_width: number | null;
+        image_height: number | null;
+        variants_count: number | null;
+        variants_json: string | null;
+      }>;
 
     return rows.map((row) => ({
       id: row.id,

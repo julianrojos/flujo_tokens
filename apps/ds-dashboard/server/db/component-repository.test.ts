@@ -25,7 +25,7 @@ describe('ComponentRepository', () => {
 
     before(() => {
         originalConsoleWarn = console.warn;
-        console.warn = () => {};
+        console.warn = () => { };
         db = createTestDb();
         repo = new ComponentRepository(db);
     });
@@ -413,5 +413,138 @@ describe('ComponentRepository', () => {
             `).get('missing-batch-sys') as { count: number };
             assert.strictEqual(keptCount.count, 10);
         });
+    });
+
+    describe('editorial and anatomy contracts', () => {
+        let testComponentId: number;
+
+        before(() => {
+            // Create a test component to reference
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('editorial-test-sys', 'Editorial Test')");
+            const result = db.prepare(`
+                INSERT INTO components (ds_id, slug, name, status, doc_type)
+                VALUES ('editorial-test-sys', 'test-comp', 'Test Component', 'draft', 'component')
+            `).run();
+            testComponentId = result.lastInsertRowid as number;
+        });
+
+        it('Contract 1: getEditorial returns null when no row exists; getAnatomySpec returns row when data exists', () => {
+            // Editorial should be null initially
+            const editorial = repo.getEditorial(testComponentId);
+            assert.strictEqual(editorial, null, 'getEditorial should return null when no row exists');
+
+            // Insert anatomy data
+            const anatomy = [{ id: 'node-1', name: 'Root', type: 'FRAME' }];
+            const properties = [{ name: 'Variant', type: 'VARIANT', defaultValue: 'default' }];
+            const result = repo.upsertAnatomySpec(testComponentId, anatomy, properties, 'test-run-1');
+
+            assert.strictEqual(result.componentId, testComponentId);
+            assert.deepStrictEqual(result.anatomy, anatomy);
+            assert.deepStrictEqual(result.properties, properties);
+
+            // Retrieve anatomy
+            const retrieved = repo.getAnatomySpec(testComponentId);
+            assert.ok(retrieved, 'getAnatomySpec should return row when data exists');
+            assert.deepStrictEqual(retrieved.anatomy, anatomy);
+            assert.deepStrictEqual(retrieved.properties, properties);
+        });
+
+        it('Contract 2: upsertEditorial does not modify component_figma_anatomy', () => {
+            // Get anatomy before
+            const anatomyBefore = repo.getAnatomySpec(testComponentId);
+            assert.ok(anatomyBefore, 'Anatomy should exist before editorial upsert');
+
+            // Upsert editorial
+            const editorialFields = {
+                summary: { purpose: 'Test component' },
+                bestPractices: { usage: 'Use in forms' },
+            };
+            const editorial = repo.upsertEditorial(testComponentId, editorialFields, null);
+
+            assert.strictEqual(editorial.componentId, testComponentId);
+            assert.deepStrictEqual(editorial.summary, editorialFields.summary);
+
+            // Verify anatomy unchanged
+            const anatomyAfter = repo.getAnatomySpec(testComponentId);
+            assert.ok(anatomyAfter, 'Anatomy should still exist after editorial upsert');
+            assert.deepStrictEqual(anatomyAfter.anatomy, anatomyBefore.anatomy, 'Anatomy should not be modified');
+            assert.deepStrictEqual(anatomyAfter.properties, anatomyBefore.properties, 'Properties should not be modified');
+        });
+
+        it('Contract 3: Optimistic locking - upsertEditorial with incorrect expectedUpdatedAt throws statusCode 409', () => {
+            const wrongUpdatedAt = 999999;
+
+            assert.throws(
+                () => repo.upsertEditorial(testComponentId, { summary: { updated: 'data' } }, wrongUpdatedAt),
+                (err: any) => {
+                    assert.strictEqual(err.statusCode, 409, 'Error should have statusCode 409');
+                    return true;
+                },
+                'Should throw with statusCode 409 for optimistic lock failure',
+            );
+        });
+
+        it('requires expectedUpdatedAt for updates and throws statusCode 400 when omitted', () => {
+            assert.throws(
+                () =>
+                    repo.upsertEditorial(
+                        testComponentId,
+                        { summary: { purpose: 'Undefined lock value update' } },
+                        undefined,
+                    ),
+                (err: any) => {
+                    assert.strictEqual(err.statusCode, 400, 'Error should have statusCode 400');
+                    return true;
+                },
+                'Should throw with statusCode 400 when expectedUpdatedAt is omitted for update',
+            );
+        });
+
+        it('rejects non-finite numeric values in editorial payload', () => {
+            assert.throws(
+                () =>
+                    repo.upsertEditorial(
+                        testComponentId,
+                        { tokenMapping: { surface: { default: Number.NaN } } as unknown as Record<string, unknown> },
+                        repo.getEditorial(testComponentId)?.updatedAt ?? null,
+                    ),
+                /NaN\/Infinity are not allowed/,
+            );
+        });
+
+        it('Contract 4: upsertAnatomySpec with empty arrays when row exists is NO-OP (anti-deletion)', () => {
+            // Get current anatomy
+            const before = repo.getAnatomySpec(testComponentId);
+            assert.ok(before, 'Anatomy should exist');
+            assert.ok(before.anatomy.length > 0, 'Anatomy should have data');
+
+            // Attempt to upsert with empty arrays
+            const result = repo.upsertAnatomySpec(testComponentId, [], [], 'test-run-2');
+
+            // Should return existing data unchanged (NO-OP)
+            assert.deepStrictEqual(result.anatomy, before.anatomy, 'Anatomy should be unchanged (anti-deletion)');
+            assert.deepStrictEqual(result.properties, before.properties, 'Properties should be unchanged (anti-deletion)');
+
+            // Verify in DB
+            const after = repo.getAnatomySpec(testComponentId);
+            assert.deepStrictEqual(after?.anatomy, before.anatomy, 'DB should reflect no change');
+        });
+
+        it('preserves existing side when only one structured array is provided', () => {
+            const before = repo.getAnatomySpec(testComponentId);
+            assert.ok(before, 'Anatomy should exist');
+
+            const updatedProperties = [{ name: 'State', type: 'enum', values: ['default', 'hover'] }];
+            const result = repo.upsertAnatomySpec(testComponentId, [], updatedProperties, 'test-run-3');
+
+            assert.deepStrictEqual(result.anatomy, before.anatomy, 'Anatomy should be preserved when incoming anatomy is empty');
+            assert.deepStrictEqual(result.properties, updatedProperties, 'Properties should be updated');
+
+            const persisted = repo.getAnatomySpec(testComponentId);
+            assert.ok(persisted);
+            assert.deepStrictEqual(persisted.anatomy, before.anatomy, 'Persisted anatomy should remain unchanged');
+            assert.deepStrictEqual(persisted.properties, updatedProperties, 'Persisted properties should match update');
+        });
+
     });
 });
