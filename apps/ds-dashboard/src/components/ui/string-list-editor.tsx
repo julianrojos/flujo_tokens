@@ -141,4 +141,4 @@ const StringListEditor = React.forwardRef<HTMLDivElement, StringListEditorProps>
 );
 StringListEditor.displayName = "StringListEditor";
 
-export { StringListEditor };
+export { StringListEditor, stringListEditorVariants };

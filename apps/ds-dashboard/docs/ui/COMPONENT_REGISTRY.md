@@ -149,6 +149,32 @@ Renders markdown content with `react-markdown` + `remark-gfm`. Dark prose styles
 
 ---
 
+### StringListEditor
+
+**Path:** `src/components/ui/string-list-editor.tsx`
+**Import:** `import { StringListEditor, stringListEditorVariants } from "@/components/ui/string-list-editor"`
+
+| Size | Use case |
+|------|---------|
+| `sm` | Dense forms with compact spacing |
+| `md` | Default list editing |
+| `lg` | Spacious layouts with larger vertical rhythm |
+
+**Props:** `value`, `onChange`, `placeholder?`, `label?`, `disabled?`, `size?`, `className`
+**Use:** Editing short string lists (best practices, content rules, accessibility labeling guidance)
+**Don't use:** Rich-text content, key/value mapping, or single-value fields
+
+```tsx
+<StringListEditor
+  value={rules}
+  onChange={setRules}
+  label="Labeling rules"
+  placeholder="e.g., Label must include component name"
+/>
+```
+
+---
+
 ### Modal
 
 **Path:** `src/components/ui/overlay/modal.tsx`
