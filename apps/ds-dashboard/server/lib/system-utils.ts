@@ -62,6 +62,7 @@ export function resolveSafeSystemPathsForDeletion(
   if (!system?.id) return [];
   
   const systemId = system.id;
+  const systemDir = path.join(repoRoot, 'design-systems', systemId);
   const paths = {
     inputDir: path.join(repoRoot, 'design-systems', systemId, 'input'),
     outputDir: path.join(repoRoot, 'design-systems', systemId, 'output'),
@@ -80,7 +81,7 @@ export function resolveSafeSystemPathsForDeletion(
   );
   
   const safePaths: string[] = [];
-  for (const candidate of [paths.inputDir, paths.outputDir, paths.docsDir]) {
+  for (const candidate of [systemDir, paths.inputDir, paths.outputDir, paths.docsDir]) {
     if (survivingDirs.has(candidate)) continue;
     safePaths.push(candidate);
   }
