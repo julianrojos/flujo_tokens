@@ -4,13 +4,13 @@ import { X } from "lucide-react";
 import type { PartialComponentSpec } from "ds-types";
 import { patchEditorialSpec } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { StatusAlert } from "@/components/ui/status-alert";
+import { Select } from "@/components/ui/select";
 import { StringListEditor } from "@/components/ui/string-list-editor";
 import {
   Modal,
   ModalContent,
   ModalHeader,
+  ModalFooter,
 } from "@/components/ui/overlay";
 import {
   isSummaryDirty,
@@ -34,6 +34,94 @@ const SummaryMarkdownEditor = lazy(() =>
     default: module.SummaryMarkdownEditor,
   })),
 );
+
+const ARIA_ROLE_OPTIONS = [
+  "alert",
+  "alertdialog",
+  "application",
+  "article",
+  "banner",
+  "blockquote",
+  "button",
+  "caption",
+  "cell",
+  "checkbox",
+  "code",
+  "columnheader",
+  "combobox",
+  "complementary",
+  "contentinfo",
+  "definition",
+  "deletion",
+  "dialog",
+  "directory",
+  "document",
+  "emphasis",
+  "feed",
+  "figure",
+  "form",
+  "generic",
+  "grid",
+  "gridcell",
+  "group",
+  "heading",
+  "img",
+  "insertion",
+  "link",
+  "list",
+  "listbox",
+  "listitem",
+  "log",
+  "main",
+  "mark",
+  "marquee",
+  "math",
+  "menu",
+  "menubar",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "meter",
+  "navigation",
+  "none",
+  "note",
+  "option",
+  "paragraph",
+  "presentation",
+  "progressbar",
+  "radio",
+  "radiogroup",
+  "region",
+  "row",
+  "rowgroup",
+  "rowheader",
+  "scrollbar",
+  "search",
+  "searchbox",
+  "separator",
+  "slider",
+  "spinbutton",
+  "status",
+  "strong",
+  "subscript",
+  "superscript",
+  "switch",
+  "tab",
+  "table",
+  "tablist",
+  "tabpanel",
+  "term",
+  "textbox",
+  "time",
+  "timer",
+  "toolbar",
+  "tooltip",
+  "tree",
+  "treegrid",
+  "treeitem",
+] as const;
+
+const ARIA_ROLE_SET = new Set<string>(ARIA_ROLE_OPTIONS);
 
 function SummaryEditorLoadingFallback() {
   return <div className="min-h-[80px] animate-pulse rounded-md border border-border bg-muted/30" />;
@@ -72,6 +160,22 @@ export function ComponentSpecEditor({
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [savedWithMarkdownSync, setSavedWithMarkdownSync] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const hasCustomAccessibilityRole = useMemo(
+    () => accessibility.role.trim().length > 0 && !ARIA_ROLE_SET.has(accessibility.role),
+    [accessibility.role],
+  );
+  const footerStatus = useMemo(() => {
+    if (error) {
+      return { message: error, tone: "error" as const };
+    }
+    if (warningMessage) {
+      return { message: warningMessage, tone: "warning" as const };
+    }
+    if (successMessage) {
+      return { message: successMessage, tone: "success" as const };
+    }
+    return null;
+  }, [error, warningMessage, successMessage]);
 
   const summaryIsDirty = useMemo(
     () => isSummaryDirty(summary, baselineSummary),
@@ -175,7 +279,7 @@ export function ComponentSpecEditor({
 
   return (
     <Modal open={open} onClose={handleCancel} zIndex={1102}>
-      <ModalContent size="lg">
+      <ModalContent size="lg" className="flex max-h-[92vh] flex-col overflow-hidden md:max-h-[85vh]">
         <ModalHeader>
           <div>
             <h3 id="spec-editor-modal-title" className="text-lg font-semibold">
@@ -190,7 +294,7 @@ export function ComponentSpecEditor({
           </Button>
         </ModalHeader>
 
-        <div className="max-h-[60vh] space-y-5 overflow-y-auto overscroll-contain p-5">
+        <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
           {/* Summary section */}
           <section>
             <h4 className="mb-3 text-sm font-semibold">Summary</h4>
@@ -303,15 +407,32 @@ export function ComponentSpecEditor({
                 >
                   ARIA Role
                 </label>
-                <Input
+                <Select
                   id="accessibility-role"
                   value={accessibility.role}
                   onChange={(e) => {
                     markUnsaved();
                     setAccessibility((current) => ({ ...current, role: e.target.value }));
                   }}
-                  placeholder="e.g., dialog, button, navigation"
-                />
+                  className="w-full"
+                >
+                  {hasCustomAccessibilityRole ? (
+                    <option value={accessibility.role}>
+                      {`Current custom role: ${accessibility.role}`}
+                    </option>
+                  ) : null}
+                  <option value="">No role selected</option>
+                  {ARIA_ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
+                </Select>
+                {hasCustomAccessibilityRole ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    This role is not in the curated list, but it is preserved.
+                  </p>
+                ) : null}
               </div>
               <StringListEditor
                 value={accessibility.labelingRules}
@@ -325,16 +446,36 @@ export function ComponentSpecEditor({
             </div>
           </section>
 
-          {/* Status messages */}
-          {isDirty ? (
-            <StatusAlert variant="warning" description="You have unsaved changes." />
-          ) : null}
-          {confirmDiscardOpen ? (
-            <div className="mt-3 rounded-md border border-border/70 bg-muted/30 p-3">
-              <p className="text-xs text-muted-foreground">
+        </div>
+
+        <ModalFooter className="justify-between">
+          <div className="flex min-h-9 flex-col justify-center gap-1">
+            {confirmDiscardOpen ? (
+              <p className="text-sm text-muted-foreground">
                 You have unsaved changes. Do you want to discard them?
               </p>
-              <div className="mt-2 flex items-center gap-2">
+            ) : isDirty ? (
+              <p className="text-sm text-muted-foreground">You have unsaved changes.</p>
+            ) : null}
+            {footerStatus ? (
+              <p
+                className={
+                  footerStatus.tone === "error"
+                    ? "text-xs text-status-error"
+                    : footerStatus.tone === "warning"
+                      ? "text-xs text-status-warning"
+                      : "text-xs text-status-success"
+                }
+                role={footerStatus.tone === "error" ? "alert" : "status"}
+                aria-live={footerStatus.tone === "error" ? "assertive" : "polite"}
+              >
+                {footerStatus.message}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            {confirmDiscardOpen ? (
+              <>
                 <Button
                   variant="outline"
                   size="sm"
@@ -346,30 +487,19 @@ export function ComponentSpecEditor({
                 <Button size="sm" onClick={onCancel} disabled={isSaving}>
                   Discard changes
                 </Button>
-              </div>
-            </div>
-          ) : null}
-
-          {successMessage ? (
-            <StatusAlert variant="success" description={successMessage} />
-          ) : null}
-          {warningMessage ? (
-            <StatusAlert variant="warning" description={warningMessage} />
-          ) : null}
-          {error ? (
-            <StatusAlert variant="error" description={error} />
-          ) : null}
-
-          {/* Actions */}
-          <div className="mt-4 flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
-              {savedWithMarkdownSync ? "Ok, close" : "Cancel"}
-            </Button>
-            <Button size="sm" onClick={handleSave} disabled={isSaving || !isDirty}>
-              {isSaving ? "Saving..." : "Save spec details"}
-            </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
+                  {savedWithMarkdownSync ? "Ok, close" : "Cancel"}
+                </Button>
+                <Button size="sm" onClick={handleSave} disabled={isSaving || !isDirty}>
+                  {isSaving ? "Saving..." : "Save spec details"}
+                </Button>
+              </>
+            )}
           </div>
-        </div>
+        </ModalFooter>
       </ModalContent>
     </Modal>
   );
