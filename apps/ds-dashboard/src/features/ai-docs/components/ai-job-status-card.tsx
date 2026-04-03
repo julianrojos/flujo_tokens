@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAiJobStatus } from '../hooks/use-ai-job-status';
-import { cancelAiJob, applyAiJob } from '../lib/ai-jobs-api';
+import { cancelAiJob } from '../lib/ai-jobs-api';
 import { AiDocPreview, formatJobEvent, formatRelativeTime } from './ai-doc-preview';
 import type { AiJobStatus, AiJobResponse, AiJobInput } from '@/types/ai-jobs';
 

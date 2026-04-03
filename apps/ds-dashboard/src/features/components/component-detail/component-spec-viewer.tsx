@@ -391,6 +391,18 @@ export function ComponentSpecViewer({ spec, resolveToken, selfSlug }: ComponentS
                 </dd>
               </div>
             ) : null}
+            {spec.accessibility.notes?.length ? (
+              <div>
+                <dt className="font-medium">Notes</dt>
+                <dd>
+                  <ul className="mt-1 list-inside list-disc space-y-0.5 text-muted-foreground">
+                    {spec.accessibility.notes.map((note, i) => (
+                      <li key={i}>{note}</li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </section>
       ) : null}

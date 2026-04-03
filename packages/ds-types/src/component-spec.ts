@@ -66,6 +66,7 @@ export interface ComponentSpec {
         focus?: { tokens?: { inner?: string; outer?: string } };
         hit_area?: { desktop_token?: string; mobile_token?: string };
         labeling?: { rules?: string[] };
+        notes?: string[];
     };
     token_mapping: Record<string, Record<string, string>>;
     qa: string[];

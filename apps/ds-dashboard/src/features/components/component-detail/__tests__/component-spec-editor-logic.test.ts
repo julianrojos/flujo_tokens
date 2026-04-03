@@ -32,8 +32,8 @@ function makeBaseline(overrides?: {
     baselineBestPractices: { do: [], dont: [] },
     contentGuidelines: { rules: [] },
     baselineContentGuidelines: { rules: [] },
-    accessibility: { role: "", labelingRules: [] },
-    baselineAccessibility: { role: "", labelingRules: [] },
+    accessibility: { role: "", labelingRules: [], notes: [] },
+    baselineAccessibility: { role: "", labelingRules: [], notes: [] },
     spec: null as PartialComponentSpec | null,
     ...overrides,
   };
@@ -117,8 +117,8 @@ describe("buildEditorialPayload", () => {
     };
     const args = makeBaseline({
       spec,
-      accessibility: { role: "dialog", labelingRules: ["new rule"] },
-      baselineAccessibility: { role: "button", labelingRules: ["old rule"] },
+      accessibility: { role: "dialog", labelingRules: ["new rule"], notes: [] },
+      baselineAccessibility: { role: "button", labelingRules: ["old rule"], notes: [] },
     });
     const result = buildEditorialPayload(args);
     assert.ok("accessibility" in result);
@@ -145,8 +145,8 @@ describe("buildEditorialPayload", () => {
     };
     const args = makeBaseline({
       spec,
-      accessibility: { role: "dialog", labelingRules: ["new rule"] },
-      baselineAccessibility: { role: "button", labelingRules: ["old rule"] },
+      accessibility: { role: "dialog", labelingRules: ["new rule"], notes: [] },
+      baselineAccessibility: { role: "button", labelingRules: ["old rule"], notes: [] },
     });
     const result = buildEditorialPayload(args);
     const acc = result.accessibility as Record<string, unknown>;
@@ -165,8 +165,8 @@ describe("buildEditorialPayload", () => {
     };
     const args = makeBaseline({
       spec,
-      accessibility: { role: "dialog", labelingRules: ["new"] },
-      baselineAccessibility: { role: "button", labelingRules: ["old"] },
+      accessibility: { role: "dialog", labelingRules: ["new"], notes: [] },
+      baselineAccessibility: { role: "button", labelingRules: ["old"], notes: [] },
     });
     const result = buildEditorialPayload(args);
     const acc = result.accessibility as Record<string, unknown>;
@@ -183,8 +183,8 @@ describe("buildEditorialPayload", () => {
     };
     const args = makeBaseline({
       spec,
-      accessibility: { role: "main", labelingRules: [] },
-      baselineAccessibility: { role: "button", labelingRules: [] },
+      accessibility: { role: "main", labelingRules: [], notes: [] },
+      baselineAccessibility: { role: "button", labelingRules: [], notes: [] },
     });
     const result = buildEditorialPayload(args);
     assert.ok("accessibility" in result);
@@ -213,8 +213,8 @@ describe("buildEditorialPayload", () => {
 
     const args = makeBaseline({
       spec: specWithServerFields,
-      accessibility: { role: "dialog", labelingRules: ["new"] },
-      baselineAccessibility: { role: "button", labelingRules: ["old"] },
+      accessibility: { role: "dialog", labelingRules: ["new"], notes: [] },
+      baselineAccessibility: { role: "button", labelingRules: ["old"], notes: [] },
     });
     const result = buildEditorialPayload(args);
     const acc = result.accessibility as Record<string, unknown>;
@@ -288,27 +288,27 @@ describe("isContentGuidelinesDirty", () => {
 });
 
 describe("isAccessibilityDirty", () => {
-  it("returns false when role and labelingRules match baseline", () => {
-    const a = { role: "button", labelingRules: ["rule1"] };
-    const b = { role: "button", labelingRules: ["rule1"] };
+  it("returns false when role, labelingRules, and notes match baseline", () => {
+    const a = { role: "button", labelingRules: ["rule1"], notes: [] };
+    const b = { role: "button", labelingRules: ["rule1"], notes: [] };
     assert.strictEqual(isAccessibilityDirty(a, b), false);
   });
 
   it("returns true when role changes", () => {
-    const a = { role: "dialog", labelingRules: [] };
-    const b = { role: "button", labelingRules: [] };
+    const a = { role: "dialog", labelingRules: [], notes: [] };
+    const b = { role: "button", labelingRules: [], notes: [] };
     assert.strictEqual(isAccessibilityDirty(a, b), true);
   });
 
   it("returns true when labelingRules change", () => {
-    const a = { role: "", labelingRules: ["new"] };
-    const b = { role: "", labelingRules: ["old"] };
+    const a = { role: "", labelingRules: ["new"], notes: [] };
+    const b = { role: "", labelingRules: ["old"], notes: [] };
     assert.strictEqual(isAccessibilityDirty(a, b), true);
   });
 
   it("returns false for whitespace-only role differences", () => {
-    const a = { role: "  button  ", labelingRules: [] };
-    const b = { role: "button", labelingRules: [] };
+    const a = { role: "  button  ", labelingRules: [], notes: [] };
+    const b = { role: "button", labelingRules: [], notes: [] };
     assert.strictEqual(isAccessibilityDirty(a, b), false);
   });
 });
@@ -337,18 +337,19 @@ describe("to* extractors", () => {
 
   it("toAccessibility returns defaults when spec has no accessibility", () => {
     const result = toAccessibility(null);
-    assert.deepStrictEqual(result, { role: "", labelingRules: [] });
+    assert.deepStrictEqual(result, { role: "", labelingRules: [], notes: [] });
   });
 
-  it("toAccessibility extracts role and labeling.rules", () => {
+  it("toAccessibility extracts role, labeling.rules, and notes", () => {
     const spec: PartialComponentSpec = {
       accessibility: {
         role: "dialog",
         labeling: { rules: ["label1", "label2"] },
+        notes: ["Test with VoiceOver"],
       },
     };
     const result = toAccessibility(spec);
-    assert.deepStrictEqual(result, { role: "dialog", labelingRules: ["label1", "label2"] });
+    assert.deepStrictEqual(result, { role: "dialog", labelingRules: ["label1", "label2"], notes: ["Test with VoiceOver"] });
   });
 });
 
@@ -422,8 +423,8 @@ describe("persistEditorial", () => {
         baselineBestPractices: { do: [], dont: [] },
         contentGuidelines: { rules: [] },
         baselineContentGuidelines: { rules: [] },
-        accessibility: { role: "", labelingRules: [] },
-        baselineAccessibility: { role: "", labelingRules: [] },
+        accessibility: { role: "", labelingRules: [], notes: [] },
+        baselineAccessibility: { role: "", labelingRules: [], notes: [] },
         spec: null,
       },
       {
@@ -452,8 +453,8 @@ describe("persistEditorial", () => {
             baselineBestPractices: { do: [], dont: [] },
             contentGuidelines: { rules: [] },
             baselineContentGuidelines: { rules: [] },
-            accessibility: { role: "", labelingRules: [] },
-            baselineAccessibility: { role: "", labelingRules: [] },
+            accessibility: { role: "", labelingRules: [], notes: [] },
+            baselineAccessibility: { role: "", labelingRules: [], notes: [] },
             spec: null,
           },
           {
@@ -481,8 +482,8 @@ describe("persistEditorial", () => {
         baselineBestPractices: { do: [], dont: [] },
         contentGuidelines: { rules: [] },
         baselineContentGuidelines: { rules: [] },
-        accessibility: { role: "", labelingRules: [] },
-        baselineAccessibility: { role: "", labelingRules: [] },
+        accessibility: { role: "", labelingRules: [], notes: [] },
+        baselineAccessibility: { role: "", labelingRules: [], notes: [] },
         spec: null,
       },
       {

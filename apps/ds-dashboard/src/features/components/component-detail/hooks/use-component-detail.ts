@@ -16,8 +16,17 @@ import type { ComponentUsageEntry, ComponentUsageIndex } from "@/types/component
 import type { PartialComponentSpec } from "ds-types";
 import type { TokenRegistry } from "@/types/token-registry";
 import type { TokenUsageIndex } from "@/types/token-usage-index";
+import {
+  fetchEditorialSuggestion,
+  discardEditorialSuggestion,
+} from "../lib/component-spec-api";
 
 const EMPTY_COMPONENT_USAGE_INDEX: ComponentUsageIndex = { by_slug: {} };
+
+interface EditorialSuggestion {
+  id: number;
+  patch: Record<string, unknown>;
+}
 
 interface ComponentDetailViewModel {
   // Data
@@ -30,6 +39,8 @@ interface ComponentDetailViewModel {
   specUpdatedAt: number | null;
   tokenRegistry: TokenRegistry | null;
   tokenUsageIndex: TokenUsageIndex | null;
+  suggestion: EditorialSuggestion | null;
+  suggestionLoading: boolean;
 
   // UI state
   captureModalOpen: boolean;
@@ -55,6 +66,8 @@ interface ComponentDetailViewModel {
   handleNavigate: (slug: string) => void;
   handleBack: () => void;
   openDocsModal: () => void;
+  consumeSuggestion: () => void;
+  discardSuggestion: () => void;
 }
 
 export function useComponentDetail(): ComponentDetailViewModel {
@@ -75,11 +88,38 @@ export function useComponentDetail(): ComponentDetailViewModel {
   const [reloadNonce, setReloadNonce] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<EditorialSuggestion | null>(null);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
 
   useEffect(() => {
     setCaptureSummary(null);
     setEditorialEditorOpen(false);
+    setSuggestion(null);
+    setSuggestionLoading(false);
   }, [slug]);
+
+  // Load pending suggestion when editorial editor opens
+  useEffect(() => {
+    if (!editorialEditorOpen || !slug) return;
+    let cancelled = false;
+    setSuggestionLoading(true);
+    setSuggestion(null);
+    fetchEditorialSuggestion(slug)
+      .then((data) => {
+        if (cancelled) return;
+        setSuggestion(data);
+      })
+      .catch(() => {
+        // Silently ignore — suggestion loading is non-blocking
+        if (!cancelled) setSuggestion(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSuggestionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editorialEditorOpen, slug]);
 
   useEffect(() => {
     if (!slug) return;
@@ -155,6 +195,21 @@ export function useComponentDetail(): ComponentDetailViewModel {
     }
   }, [item?.doc?.exists]);
 
+  const consumeSuggestion = useCallback(() => {
+    setSuggestion(null);
+  }, []);
+
+  const discardSuggestion = useCallback(() => {
+    if (!slug) return;
+    discardEditorialSuggestion(slug)
+      .then(() => {
+        setSuggestion(null);
+      })
+      .catch((error) => {
+        console.warn("[component-detail] Failed to discard suggestion; keeping it visible for retry.", error);
+      });
+  }, [slug]);
+
   return {
     loading,
     error,
@@ -165,6 +220,8 @@ export function useComponentDetail(): ComponentDetailViewModel {
     specUpdatedAt,
     tokenRegistry,
     tokenUsageIndex,
+    suggestion,
+    suggestionLoading,
     captureModalOpen,
     docsModalOpen,
     editorialEditorOpen,
@@ -184,5 +241,7 @@ export function useComponentDetail(): ComponentDetailViewModel {
     handleNavigate,
     handleBack,
     openDocsModal,
+    consumeSuggestion,
+    discardSuggestion,
   };
 }

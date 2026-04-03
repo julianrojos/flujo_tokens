@@ -42,6 +42,8 @@ export function ComponentDetailPage() {
     nextItem,
     currentIndex,
     totalItems,
+    suggestion,
+    suggestionLoading,
     setCaptureModalOpen,
     setDocsModalOpen,
     setEditorialEditorOpen,
@@ -50,6 +52,8 @@ export function ComponentDetailPage() {
     handleNavigate,
     handleBack,
     openDocsModal,
+    consumeSuggestion,
+    discardSuggestion,
   } = useComponentDetail();
 
   if (loading) {
@@ -153,6 +157,13 @@ export function ComponentDetailPage() {
               handleReload();
             }}
             onCancel={() => setEditorialEditorOpen(false)}
+            suggestion={suggestion}
+            suggestionLoading={suggestionLoading}
+            onApplySuggestion={() => {
+              // The editor consumes patch data via props and asks the hook to clear local cache.
+              consumeSuggestion();
+            }}
+            onDiscardSuggestion={discardSuggestion}
           />
         )}
       </Suspense>

@@ -28,6 +28,7 @@ import {
   type ContentGuidelinesFields,
   type AccessibilityFields,
 } from "./component-spec-editor-logic";
+import { markEditorialSuggestionApplied } from "./lib/component-spec-api";
 
 const SummaryMarkdownEditor = lazy(() =>
   import("@/components/rich-text-editor/summary-markdown-editor").then((module) => ({
@@ -134,6 +135,10 @@ interface ComponentSpecEditorProps {
   expectedUpdatedAt: number | null;
   onSaved: (result: { message: string; updatedAt: number | null }) => void;
   onCancel: () => void;
+  suggestion?: { id: number; patch: Record<string, unknown> } | null;
+  suggestionLoading?: boolean;
+  onApplySuggestion?: () => void;
+  onDiscardSuggestion?: () => void;
 }
 
 export function ComponentSpecEditor({
@@ -143,6 +148,10 @@ export function ComponentSpecEditor({
   expectedUpdatedAt,
   onSaved,
   onCancel,
+  suggestion: externalSuggestion,
+  suggestionLoading: externalSuggestionLoading,
+  onApplySuggestion,
+  onDiscardSuggestion,
 }: ComponentSpecEditorProps) {
   const baselineSummary = useMemo(() => toSummary(spec), [spec]);
   const baselineBestPractices = useMemo(() => toBestPractices(spec), [spec]);
@@ -160,6 +169,14 @@ export function ComponentSpecEditor({
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [savedWithMarkdownSync, setSavedWithMarkdownSync] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+
+  // Track which suggestion was applied so we can mark it after save,
+  // even if the banner has been dismissed.
+  const [appliedSuggestionId, setAppliedSuggestionId] = useState<number | null>(null);
+
+  const suggestion = externalSuggestion;
+  const suggestionLoading = externalSuggestionLoading ?? false;
+
   const hasCustomAccessibilityRole = useMemo(
     () => accessibility.role.trim().length > 0 && !ARIA_ROLE_SET.has(accessibility.role),
     [accessibility.role],
@@ -205,6 +222,7 @@ export function ComponentSpecEditor({
     setWarningMessage(null);
     setSavedWithMarkdownSync(false);
     setConfirmDiscardOpen(false);
+    setAppliedSuggestionId(null);
   }, [open, slug]);
 
   useEffect(() => {
@@ -214,6 +232,63 @@ export function ComponentSpecEditor({
     setContentGuidelines(toContentGuidelines(spec));
     setAccessibility(toAccessibility(spec));
   }, [open, slug, spec]);
+
+  const applySuggestion = () => {
+    if (!suggestion) return;
+    const patch = suggestion.patch;
+
+    // Remember which suggestion was applied so we can mark it after save.
+    setAppliedSuggestionId(suggestion.id);
+
+    if (patch.summary && typeof patch.summary === "object") {
+      const s = patch.summary as Record<string, string>;
+      setSummary((prev) => ({
+        purpose: s.purpose ?? prev.purpose,
+        when_to_use: s.when_to_use ?? prev.when_to_use,
+        when_not_to_use: s.when_not_to_use ?? prev.when_not_to_use,
+      }));
+    } else if (patch.summary !== undefined) {
+      console.warn("[spec-editor] Ignored malformed summary in AI patch", patch.summary);
+    }
+    if (patch.best_practices && typeof patch.best_practices === "object") {
+      const bp = patch.best_practices as Record<string, string[]>;
+      setBestPractices((prev) => ({
+        do: bp.do ?? prev.do,
+        dont: bp.dont ?? prev.dont,
+      }));
+    } else if (patch.best_practices !== undefined) {
+      console.warn("[spec-editor] Ignored malformed best_practices in AI patch", patch.best_practices);
+    }
+    if (patch.content_guidelines && typeof patch.content_guidelines === "object") {
+      const cg = patch.content_guidelines as { rules?: string[] };
+      if (cg.rules) setContentGuidelines({ rules: cg.rules });
+    } else if (patch.content_guidelines !== undefined) {
+      console.warn("[spec-editor] Ignored malformed content_guidelines in AI patch", patch.content_guidelines);
+    }
+    if (patch.accessibility && typeof patch.accessibility === "object") {
+      const acc = patch.accessibility as Record<string, unknown>;
+      setAccessibility((prev) => ({
+        role: typeof acc.role === "string" ? acc.role : prev.role,
+        labelingRules: Array.isArray((acc.labeling as { rules?: string[] })?.rules)
+          ? (acc.labeling as { rules: string[] }).rules
+          : prev.labelingRules,
+        notes: Array.isArray(acc.notes) ? (acc.notes as string[]) : prev.notes,
+      }));
+    } else if (patch.accessibility !== undefined) {
+      console.warn("[spec-editor] Ignored malformed accessibility in AI patch", patch.accessibility);
+    }
+    setSavedWithMarkdownSync(false);
+    onApplySuggestion?.();
+  };
+
+  const discardSuggestion = () => {
+    if (onDiscardSuggestion) {
+      onDiscardSuggestion();
+      return;
+    }
+    console.warn("[spec-editor] discardSuggestion called without onDiscardSuggestion prop");
+    setAppliedSuggestionId(null);
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -250,6 +325,16 @@ export function ComponentSpecEditor({
         setSuccessMessage(saved.message || "Editorial fields saved successfully.");
       }
       setSavedWithMarkdownSync(saved.markdownSynced === true);
+
+      // Mark the applied suggestion as such (bookkeeping) without blocking save success.
+      if (appliedSuggestionId !== null) {
+        try {
+          await markEditorialSuggestionApplied(slug, appliedSuggestionId);
+        } catch (markAppliedError) {
+          console.warn("[spec-editor] mark-applied failed, suggestion will reappear:", markAppliedError);
+        }
+        setAppliedSuggestionId(null);
+      }
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : String(cause);
       setError(message);
@@ -295,6 +380,32 @@ export function ComponentSpecEditor({
         </ModalHeader>
 
         <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
+          {/* AI suggestion banner */}
+          {suggestionLoading ? (
+            <div className="rounded-md border border-border/70 bg-muted/30 p-3">
+              <p className="text-sm text-muted-foreground">Loading AI suggestion…</p>
+            </div>
+          ) : suggestion ? (
+            <div className="rounded-md border border-border/70 bg-muted/30 p-3">
+              <p className="text-sm text-muted-foreground">
+                AI has suggested editorial improvements. Review and apply them, or discard.
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={discardSuggestion}
+                  disabled={isSaving}
+                >
+                  Discard
+                </Button>
+                <Button size="sm" onClick={applySuggestion} disabled={isSaving}>
+                  Use AI suggestion
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           {/* Summary section */}
           <section>
             <h4 className="mb-3 text-sm font-semibold">Summary</h4>
@@ -442,6 +553,15 @@ export function ComponentSpecEditor({
                 }}
                 label="Labeling rules"
                 placeholder="e.g., Label must include component name"
+              />
+              <StringListEditor
+                value={accessibility.notes}
+                onChange={(notes) => {
+                  markUnsaved();
+                  setAccessibility((current) => ({ ...current, notes }));
+                }}
+                label="Notes"
+                placeholder="e.g., Test with VoiceOver on macOS"
               />
             </div>
           </section>

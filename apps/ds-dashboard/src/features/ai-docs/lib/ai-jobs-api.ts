@@ -9,8 +9,6 @@ import type {
     AiJobResponse,
     CreateAiJobRequest,
     CreateAiJobResponse,
-    ApplyAiJobRequest,
-    ApplyAiJobResponse,
     AiDocStatusResponse,
     DiffResult,
 } from '@/types/ai-jobs';
@@ -36,19 +34,6 @@ export async function getAiJob(jobId: string): Promise<AiJobResponse> {
 }
 
 /**
- * Apply generated documentation (write to file)
- */
-export async function applyAiJob(jobId: string, opts: ApplyAiJobRequest = {}): Promise<ApplyAiJobResponse> {
-    return requestJson<ApplyAiJobResponse>(`/api/ai/jobs/${jobId}/apply`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(opts),
-    });
-}
-
-/**
  * Cancel a queued or running job
  */
 export async function cancelAiJob(jobId: string): Promise<{ ok: boolean }> {
@@ -69,6 +54,20 @@ export async function getAiDocStatus(): Promise<AiDocStatusResponse> {
  */
 export async function getAiJobDiff(jobId: string): Promise<DiffResult> {
     return requestJson<DiffResult>(`/api/ai/jobs/${jobId}/diff`);
+}
+
+/**
+ * Apply editorial patch from a completed job — creates a pending suggestion in DB
+ */
+export async function applyAiJobEditorial(jobId: string): Promise<{
+    ok: boolean;
+    suggestionId: number;
+    status: string;
+    createdAt: number;
+}> {
+    return requestJson(`/api/ai/jobs/${jobId}/apply-editorial`, {
+        method: 'POST',
+    });
 }
 
 /**

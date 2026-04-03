@@ -19,11 +19,11 @@ export function toSummary(spec: PartialComponentSpec | null): SummaryFields {
 export function isSummaryDirty(summary: SummaryFields, baselineSummary: SummaryFields): boolean {
   return (
     normalizeSummaryMarkdownForDirty(summary.purpose) !==
-      normalizeSummaryMarkdownForDirty(baselineSummary.purpose) ||
+    normalizeSummaryMarkdownForDirty(baselineSummary.purpose) ||
     normalizeSummaryMarkdownForDirty(summary.when_to_use) !==
-      normalizeSummaryMarkdownForDirty(baselineSummary.when_to_use) ||
+    normalizeSummaryMarkdownForDirty(baselineSummary.when_to_use) ||
     normalizeSummaryMarkdownForDirty(summary.when_not_to_use) !==
-      normalizeSummaryMarkdownForDirty(baselineSummary.when_not_to_use)
+    normalizeSummaryMarkdownForDirty(baselineSummary.when_not_to_use)
   );
 }
 
@@ -78,6 +78,7 @@ export function isContentGuidelinesDirty(
 export interface AccessibilityFields {
   role: string;
   labelingRules: string[];
+  notes: string[];
 }
 
 export function toAccessibility(spec: PartialComponentSpec | null): AccessibilityFields {
@@ -85,6 +86,7 @@ export function toAccessibility(spec: PartialComponentSpec | null): Accessibilit
   return {
     role: String(acc?.role || ""),
     labelingRules: Array.isArray(acc?.labeling?.rules) ? [...acc.labeling.rules] : [],
+    notes: Array.isArray(acc?.notes) ? [...acc.notes] : [],
   };
 }
 
@@ -96,6 +98,10 @@ export function isAccessibilityDirty(
     !normalizedListEquals(
       normalizeStringList(current.labelingRules),
       normalizeStringList(baseline.labelingRules),
+    ) ||
+    !normalizedListEquals(
+      normalizeStringList(current.notes),
+      normalizeStringList(baseline.notes),
     );
 }
 
@@ -170,10 +176,12 @@ export function buildEditorialPayload(
   if (accDirty) {
     const roleTrimmed = args.accessibility.role.trim();
     const normalizedLabelingRules = normalizeStringList(args.accessibility.labelingRules);
+    const normalizedNotes = normalizeStringList(args.accessibility.notes);
     const hasRole = roleTrimmed.length > 0;
     const hasLabelingRules = normalizedLabelingRules.length > 0;
+    const hasNotes = normalizedNotes.length > 0;
 
-    if (hasRole || hasLabelingRules) {
+    if (hasRole || hasLabelingRules || hasNotes) {
       const baseA = (args.spec?.accessibility as Record<string, unknown> | undefined) ?? {};
       const baseLabeling =
         typeof baseA.labeling === "object" && baseA.labeling !== null
@@ -186,6 +194,7 @@ export function buildEditorialPayload(
           ...baseLabeling,
           rules: normalizedLabelingRules,
         },
+        notes: normalizedNotes,
       };
     }
   }

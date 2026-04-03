@@ -6,8 +6,9 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { StatusAlert } from '@/components/ui/status-alert';
 import { useAiJobDiff } from '../hooks/use-ai-job-diff';
-import { applyAiJob } from '../lib/ai-jobs-api';
+import { applyAiJobEditorial } from '../lib/ai-jobs-api';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DiffResult } from '@/types/ai-jobs';
 
@@ -20,23 +21,23 @@ interface AiDocDiffViewerProps {
 export function AiDocDiffViewer({ jobId, onApply, onCancel }: AiDocDiffViewerProps) {
     const { diff, isLoading, error, invalidateDiff } = useAiJobDiff({ jobId });
     const [isApplying, setIsApplying] = useState(false);
-    const [applyResult, setApplyResult] = useState<{ path: string; checksum: string } | null>(null);
+    const [applyResult, setApplyResult] = useState<{ suggestionId: number; status: string } | null>(null);
     const queryClient = useQueryClient();
 
-    const handleApply = async () => {
+    const handleCreateSuggestion = async () => {
         setIsApplying(true);
         try {
-            const result = await applyAiJob(jobId, { overwrite: true });
-            setApplyResult({ path: result.path, checksum: result.checksum });
-            
+            const result = await applyAiJobEditorial(jobId);
+            setApplyResult({ suggestionId: result.suggestionId, status: result.status });
+
             // Invalidate related queries after successful apply
             queryClient.invalidateQueries({ queryKey: ['ai-doc-status'] });
             queryClient.invalidateQueries({ queryKey: ['ai-job', jobId] });
-            invalidateDiff(); // Invalidate current diff
-            
+            invalidateDiff();
+
             onApply?.(jobId);
         } catch (err) {
-            console.error('Failed to apply:', err);
+            console.error('Failed to apply editorial suggestion:', err);
         } finally {
             setIsApplying(false);
         }
@@ -74,15 +75,11 @@ export function AiDocDiffViewer({ jobId, onApply, onCancel }: AiDocDiffViewerPro
 
     if (applyResult) {
         return (
-            <Card className="border-status-success-border">
-                <CardHeader>
-                    <CardTitle className="text-status-success">Applied Successfully</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm">File: {applyResult.path}</p>
-                    <p className="text-xs text-muted-foreground font-mono">Checksum: {applyResult.checksum}</p>
-                </CardContent>
-            </Card>
+            <StatusAlert
+                variant="success"
+                title="Editorial suggestion created"
+                description={`Suggestion #${applyResult.suggestionId} is pending. Open the component spec editor to review and apply it.`}
+            />
         );
     }
 
@@ -98,8 +95,8 @@ export function AiDocDiffViewer({ jobId, onApply, onCancel }: AiDocDiffViewerPro
                         This will create a new documentation file. No previous version exists.
                     </p>
                     <div className="flex gap-2">
-                        <Button onClick={handleApply} disabled={isApplying}>
-                            {isApplying ? 'Applying...' : 'Confirm & Apply'}
+                        <Button onClick={handleCreateSuggestion} disabled={isApplying}>
+                            {isApplying ? 'Applying...' : 'Create editorial suggestion'}
                         </Button>
                         {onCancel && (
                             <Button variant="outline" onClick={onCancel}>
@@ -131,8 +128,8 @@ export function AiDocDiffViewer({ jobId, onApply, onCancel }: AiDocDiffViewerPro
                 </div>
 
                 <div className="flex gap-2 mt-4">
-                    <Button onClick={handleApply} disabled={isApplying}>
-                        {isApplying ? 'Applying...' : 'Confirm & Apply'}
+                    <Button onClick={handleCreateSuggestion} disabled={isApplying}>
+                        {isApplying ? 'Applying...' : 'Create editorial suggestion'}
                     </Button>
                     {onCancel && (
                         <Button variant="outline" onClick={onCancel}>

@@ -191,23 +191,6 @@ export interface CreateAiJobResponse {
     status: AiJobStatus;
 }
 
-/**
- * Apply job request body
- */
-export interface ApplyAiJobRequest {
-    outputPath?: string;
-    overwrite?: boolean;
-}
-
-/**
- * Apply job response
- */
-export interface ApplyAiJobResponse {
-    ok: boolean;
-    path: string;
-    checksum: string;
-}
-
 // ============================================================================
 // Staleness Types
 // ============================================================================
