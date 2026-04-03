@@ -314,6 +314,38 @@ Location: `apps/ds-dashboard/src/components/ui/`
 
 ---
 
+### StringListEditor
+
+**Path:** `ui/string-list-editor.tsx`
+
+**Sizes:** `sm`, `md`, `lg`
+
+**Props:**
+
+| Prop          | Type                        | Required | Description                            |
+| ------------- | --------------------------- | -------- | -------------------------------------- |
+| `value`       | `string[]`                  | ✅       | Controlled array of string items       |
+| `onChange`    | `(value: string[]) => void` | ✅       | Callback with updated array            |
+| `placeholder` | `string`                    | —        | Placeholder text for input fields      |
+| `label`       | `string`                    | —        | Section label displayed above the list |
+| `className`   | `string`                    | —        | Applied to outer container             |
+| `disabled`    | `boolean`                   | —        | Disables all interactions              |
+| `size`        | `"sm" \| "md" \| "lg"`      | —        | Spacing density (default: `md`)        |
+
+```tsx
+<StringListEditor
+  value={rules}
+  onChange={setRules}
+  label="Labeling rules"
+  placeholder="Enter rule..."
+/>
+```
+
+**When to use:** Editing ordered or unordered lists of short strings — best practices, guidelines, accessibility rules, tags.
+**When NOT to use:** Rich text editing (use markdown editor), single value input (use Input), key-value pairs (use dedicated key-value editor).
+
+---
+
 ## Tier 1.5 — Composites
 
 Location: `apps/ds-dashboard/src/components/composites/`
