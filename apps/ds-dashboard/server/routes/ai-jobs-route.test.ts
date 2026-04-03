@@ -12,7 +12,10 @@ import { registerAiJobsRoutes } from './ai-jobs-route.js';
 import { getAiJobsStore, initializeAiJobsStore, AiJobsStore } from '../services/ai-jobs-store.js';
 
 // Helper to create test app
-function createTestApp(options?: { getSystemContext?: (systemHeader: string) => unknown }) {
+function createTestApp(options?: {
+    getSystemContext?: (systemHeader: string) => unknown;
+    componentRepo?: any;
+}) {
     const defaultGetSystemContext = (systemHeader: string) => {
         const systemId = String(systemHeader || '').trim() || 'sys-test';
         return {
@@ -24,6 +27,7 @@ function createTestApp(options?: { getSystemContext?: (systemHeader: string) => 
     registerAiJobsRoutes(app, {
         internalToken: 'test-token',
         getSystemContext: options?.getSystemContext || defaultGetSystemContext,
+        componentRepo: options?.componentRepo,
     });
     return app;
 }
@@ -959,7 +963,7 @@ describe('ai-jobs-route', () => {
     });
 
     describe('GET /api/ai/docs/status', () => {
-        it('returns doc status with connected: false when plugin not connected', async () => {
+        it('returns 503 when component repository is not available', async () => {
             cleanupStore();
             const app = createTestApp();
 
@@ -968,10 +972,9 @@ describe('ai-jobs-route', () => {
                 headers: { 'x-forwarded-for': '127.0.0.1' },
             });
 
-            assert.equal(res.status, 200);
+            assert.equal(res.status, 503);
             const json = await res.json();
-            assert.equal(json.connected, false);
-            assert.ok(Array.isArray(json.components));
+            assert.equal(json.code, 'ai.status.unavailable');
         });
 
         it('rejects unauthorized requests from non-loopback', async () => {
@@ -1237,6 +1240,268 @@ describe('ai-jobs-route', () => {
             assert.ok('stats' in json, 'Response should have stats field');
             assert.ok(typeof json.hasPrevious === 'boolean', 'hasPrevious should be boolean');
             assert.ok(typeof json.stats === 'object', 'stats should be an object');
+        });
+    });
+
+    describe('POST /api/ai/jobs/:id/apply-editorial', () => {
+        it('should reject unauthorized requests', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'ollama',
+                model: 'test-model',
+                componentId: '1',
+                systemId: 'sys-test',
+            });
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '1',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            }, {
+                schemaVersion: 1,
+                summary: { purpose: 'AI suggested purpose' },
+                best_practices: { do: ['Do this'], dont: [] },
+            });
+
+            // Use non-loopback IP to trigger auth check
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply-editorial`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '10.0.0.1' },
+            });
+
+            assert.equal(res.status, 401);
+        });
+
+        it('should reject jobs without editorialPatch', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'ollama',
+                model: 'test-model',
+                componentId: '1',
+                systemId: 'sys-test',
+            });
+            // Complete without editorialPatch
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '1',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply-editorial`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 400);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.job.no_editorial_patch');
+        });
+
+        it('should reject non-completed jobs', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'ollama',
+                model: 'test-model',
+                componentId: '1',
+                systemId: 'sys-test',
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply-editorial`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 409);
+        });
+
+        it('returns 503 when component repository is unavailable', async () => {
+            cleanupStore();
+            const app = createTestApp();
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'ollama',
+                model: 'test-model',
+                componentId: '68:4097',
+                systemId: 'sys-test',
+            });
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '68:4097',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            }, {
+                schemaVersion: 1,
+                summary: { purpose: 'AI suggested purpose' },
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply-editorial`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 503);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.repo.unavailable');
+        });
+
+        it('returns 404 when component is not found for figma node id', async () => {
+            cleanupStore();
+            const componentRepo = {
+                getComponentByFigmaNodeId: () => null,
+                upsertEditorialSuggestion: () => {
+                    throw new Error('should not be called');
+                },
+            };
+            const app = createTestApp({ componentRepo });
+            const store = getAiJobsStore();
+
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'ollama',
+                model: 'test-model',
+                componentId: '68:4097',
+                systemId: 'sys-test',
+            });
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '68:4097',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            }, {
+                schemaVersion: 1,
+                summary: { purpose: 'AI suggested purpose' },
+            });
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply-editorial`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 404);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.component.not_found');
+        });
+
+        it('creates pending suggestion using repository-resolved component id', async () => {
+            cleanupStore();
+            let receivedComponentId: number | null = null;
+            let receivedPatchJson: string | null = null;
+            const componentRepo = {
+                getComponentByFigmaNodeId: (nodeId: string, dsId?: string) => {
+                    assert.equal(nodeId, '68:4097');
+                    assert.equal(dsId, 'sys-test');
+                    return { id: 123, slug: 'button' };
+                },
+                upsertEditorialSuggestion: (
+                    componentId: number,
+                    jobId: string,
+                    patchJson: string,
+                    provider: string,
+                    model: string,
+                ) => {
+                    receivedComponentId = componentId;
+                    receivedPatchJson = patchJson;
+                    assert.equal(typeof jobId, 'string');
+                    assert.equal(provider, 'ollama');
+                    assert.equal(model, 'test-model');
+                    return { id: 77, status: 'pending', createdAt: 1700000000 };
+                },
+            };
+            const app = createTestApp({ componentRepo });
+            const store = getAiJobsStore();
+
+            const editorialPatch = {
+                schemaVersion: 1 as const,
+                summary: { purpose: 'AI suggested purpose' },
+            };
+            const job = store.enqueue({
+                type: 'GENERATE_COMPONENT_DOC',
+                provider: 'ollama',
+                model: 'test-model',
+                componentId: '68:4097',
+                systemId: 'sys-test',
+            });
+            store.complete(job.id, {
+                schemaVersion: 1,
+                componentId: '68:4097',
+                title: 'Test',
+                summary: 'Test',
+                anatomy: [],
+                variants: [],
+                tokens: [],
+                accessibilityNotes: [],
+                markdown: '# Test',
+            }, {
+                promptTokens: 10,
+                completionTokens: 5,
+                durationMs: 100,
+            }, editorialPatch);
+
+            const res = await app.request(`/api/ai/jobs/${job.id}/apply-editorial`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            assert.equal(receivedComponentId, 123);
+            assert.deepStrictEqual(JSON.parse(receivedPatchJson || '{}'), editorialPatch);
+
+            const json = await res.json();
+            assert.equal(json.ok, true);
+            assert.equal(json.suggestionId, 77);
+            assert.equal(json.status, 'pending');
+            assert.equal(json.createdAt, 1700000000);
         });
     });
 

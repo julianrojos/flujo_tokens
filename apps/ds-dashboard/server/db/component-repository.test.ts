@@ -547,4 +547,156 @@ describe('ComponentRepository', () => {
         });
 
     });
+
+    describe('editorial suggestions', () => {
+        let testComponentId: number;
+
+        before(() => {
+            repo.upsertFromRegistry('test-sys', [{
+                slug: 'test-comp-sug',
+                name: 'Test Component Suggestions',
+                status: 'draft',
+                docType: 'component',
+                figma: { componentSetNodeId: '68:4097' },
+                specs: [],
+                visualProofs: [],
+            }]);
+            const row = repo.db.prepare("SELECT id FROM components WHERE slug = 'test-comp-sug'").get() as { id: number } | undefined;
+            testComponentId = row!.id;
+        });
+
+        it('upserts and retrieves a pending suggestion', () => {
+            const result = repo.upsertEditorialSuggestion(testComponentId, 'job-sug-1', JSON.stringify({ schemaVersion: 1 }));
+            assert.strictEqual(result.status, 'pending');
+
+            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
+            assert.ok(suggestion);
+            assert.strictEqual(suggestion!.jobId, 'job-sug-1');
+            assert.deepStrictEqual(JSON.parse(suggestion!.patchJson), { schemaVersion: 1 });
+        });
+
+        it('is idempotent — upserting same job_id updates, does not duplicate', () => {
+            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-1', JSON.stringify({ schemaVersion: 1, summary: { purpose: 'updated' } }));
+            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
+            assert.ok(suggestion);
+            assert.deepStrictEqual(JSON.parse(suggestion!.patchJson), { schemaVersion: 1, summary: { purpose: 'updated' } });
+        });
+
+        it('keeps one pending suggestion per component by discarding previous pending from a different job', () => {
+            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-A', JSON.stringify({ schemaVersion: 1, summary: { purpose: 'A' } }));
+            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-B', JSON.stringify({ schemaVersion: 1, summary: { purpose: 'B' } }));
+            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
+            assert.ok(suggestion);
+            assert.strictEqual(suggestion!.jobId, 'job-sug-B');
+        });
+
+        it('marks suggestion as applied', () => {
+            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
+            assert.ok(suggestion, 'Should have a pending suggestion');
+
+            repo.markSuggestionStatus(suggestion!.id, 'applied');
+            const after = repo.getLatestEditorialSuggestion(testComponentId);
+            assert.strictEqual(after, null, 'Applied suggestion should not be returned as pending');
+        });
+
+        it('markSuggestionStatus is idempotent when called repeatedly with the same status', () => {
+            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-idempotent', JSON.stringify({ schemaVersion: 1 }));
+            const suggestion = repo.getLatestEditorialSuggestion(testComponentId);
+            assert.ok(suggestion);
+            repo.markSuggestionStatus(suggestion!.id, 'applied');
+            assert.doesNotThrow(() => repo.markSuggestionStatus(suggestion!.id, 'applied'));
+        });
+
+        it('marks suggestion as discarded', () => {
+            repo.upsertEditorialSuggestion(testComponentId, 'job-sug-2', JSON.stringify({ schemaVersion: 1 }));
+            const before = repo.getLatestEditorialSuggestion(testComponentId);
+            assert.ok(before, 'Should have a pending suggestion');
+
+            repo.markSuggestionStatus(before!.id, 'discarded');
+            const after = repo.getLatestEditorialSuggestion(testComponentId);
+            assert.strictEqual(after, null, 'Discarded suggestion should not be returned as pending');
+        });
+
+        it('throws when marking non-existent suggestion', () => {
+            let thrown: unknown;
+            try {
+                repo.markSuggestionStatus(99999, 'applied');
+            } catch (e) {
+                thrown = e;
+            }
+            assert.ok(thrown, 'Should have thrown');
+            assert.ok(thrown instanceof Error, 'Should throw an Error');
+            assert.match((thrown as Error).message, /Suggestion not found/);
+        });
+
+        it('returns null for component with no suggestions', () => {
+            const suggestion = repo.getLatestEditorialSuggestion(99999);
+            assert.strictEqual(suggestion, null);
+        });
+
+        it('resolves component by figma node id with design-system scope', () => {
+            const found = repo.getComponentByFigmaNodeId('68:4097', 'test-sys');
+            assert.ok(found);
+            assert.strictEqual(found?.id, testComponentId);
+            assert.strictEqual(found?.slug, 'test-comp-sug');
+        });
+
+        it('returns null when figma node id is unknown', () => {
+            const found = repo.getComponentByFigmaNodeId('missing-node', 'test-sys');
+            assert.strictEqual(found, null);
+        });
+
+        it('getComponentIdBySlug respects design system scope', () => {
+            db.exec("INSERT INTO design_systems (id, name) VALUES ('sys-02', 'Second System')");
+            repo.upsertFromRegistry('sys-02', [
+                { slug: 'test-comp-sug', name: 'Shadow Copy', status: 'draft', docType: 'component' },
+            ]);
+
+            const scoped = repo.getComponentIdBySlug('test-comp-sug', 'test-sys');
+            const other = repo.getComponentIdBySlug('test-comp-sug', 'sys-02');
+            assert.strictEqual(scoped, testComponentId);
+            assert.ok(other && other !== testComponentId);
+        });
+    });
+
+    describe('doc staleness timestamps', () => {
+        it('returns millisecond timestamps consistently', () => {
+            repo.upsertFromRegistry('test-sys', [{
+                slug: 'staleness-comp',
+                name: 'Staleness Component',
+                status: 'draft',
+                docType: 'component',
+                figma: { componentSetNodeId: '68:5000' },
+                specs: [],
+                visualProofs: [],
+            }]);
+            const row = repo.db.prepare("SELECT id FROM components WHERE slug = 'staleness-comp'").get() as { id: number };
+            const componentId = row.id;
+
+            repo.upsertEditorial(componentId, {
+                summary: { purpose: 'x', when_to_use: '', when_not_to_use: '' },
+            });
+
+            const staleness = repo.getComponentDocStaleness(componentId);
+            assert.ok(
+                staleness.editorialUpdatedAt === null || staleness.editorialUpdatedAt > 1_000_000_000_000,
+                'editorialUpdatedAt must be in milliseconds',
+            );
+            assert.ok(
+                staleness.capturedAt === null || staleness.capturedAt > 1_000_000_000_000,
+                'capturedAt must be in milliseconds',
+            );
+        });
+
+        it('lists staleness in batch scoped by design system', () => {
+            db.exec("INSERT OR IGNORE INTO design_systems (id, name) VALUES ('sys-batch', 'Batch System')");
+            repo.upsertFromRegistry('sys-batch', [
+                { slug: 'batch-a', name: 'Batch A', status: 'draft', docType: 'component', figma: { componentSetNodeId: '68:5100' } },
+            ]);
+
+            const scopedRows = repo.listComponentDocStaleness('sys-batch');
+            assert.ok(scopedRows.some((item) => item.slug === 'batch-a'));
+            assert.ok(scopedRows.every((item) => item.id > 0));
+        });
+    });
 });

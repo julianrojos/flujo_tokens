@@ -17,6 +17,8 @@ import {
     COMPONENT_DOC_JSON_SCHEMA,
     AI_ERROR_CODES,
 } from './ai-component-doc-schema.js';
+import type { EditorialPatch } from './ai-editorial-patch-schema.js';
+import { validateEditorialPatch, EDITORIAL_PATCH_JSON_SCHEMA } from './ai-editorial-patch-schema.js';
 import { renderComponentDoc } from './ai-component-doc-renderer.js';
 import type { AiJobsStore } from './ai-jobs-store.js';
 import { getComponentSpecDirect } from './figma-direct-bridge-service.js';
@@ -241,18 +243,24 @@ IMPORTANT:
  * Build user prompt with component spec
  * @param spec - Pruned Figma component spec
  * @param componentId - Figma component ID
+ * @param existingEditorial - Optional existing editorial data to preserve/enhance
  * @returns User prompt string
  */
 export function buildUserPrompt(
     spec: Record<string, unknown>,
-    componentId: string
+    componentId: string,
+    existingEditorial?: Record<string, unknown> | null,
 ): string {
+    const editorialContext = existingEditorial && Object.keys(existingEditorial).length > 0
+        ? `\n\nEXISTING EDITORIAL DATA (preserve and enhance these fields in your output):\n\`\`\`json\n${stringifyJsonForPrompt(existingEditorial, 4000)}\n\`\`\``
+        : '';
+
     return `Generate component documentation for Figma component ID: ${componentId}
 
 Component Specification:
 \`\`\`json
 ${JSON.stringify(spec, null, 2)}
-\`\`\`
+\`\`\`${editorialContext}
 
 Please generate the documentation following the schema provided in the system prompt.`;
 }
@@ -273,6 +281,90 @@ export function resolveAdapter(provider: AiProviderName): AiProvider {
         return createGeminiAdapter();
     }
     return createOpenAiAdapter();
+}
+
+/**
+ * Build editorial patch prompt for the 2nd LLM call.
+ * Takes the generated ComponentDocOutput and existing editorial data,
+ * asks the LLM to produce a structured EditorialPatch suggestion.
+ */
+function buildEditorialPatchPrompt(
+    docOutput: ComponentDocOutput,
+    existingEditorial: Record<string, unknown> | null,
+): string {
+    const existingContext = existingEditorial
+        ? `\n\nEXISTING EDITORIAL DATA (preserve or improve):\n${stringifyJsonForPrompt(existingEditorial, 4000)}`
+        : '';
+
+    return `You are an expert design system editor. Based on the generated component documentation below, produce a structured EDITORIAL PATCH that suggests improvements to the human-authored editorial fields.
+
+The patch should include:
+- summary: purpose, when_to_use, when_not_to_use (if the docs suggest good editorial content)
+- best_practices: do/dont lists (practical guidance for using this component)
+- content_guidelines: rules for content that appears in/with this component
+- accessibility: role (ARIA), labeling rules, and notes (accessibility observations)
+- related_components: component slugs that are commonly used together
+- qa: quality assurance checklist items specific to this component
+
+Rules:
+- Only include sections where you have concrete, useful content
+- Keep items concise (1 sentence each)
+- Do NOT repeat what's already in the existing editorial unless improving it
+- Focus on insights from the Figma spec and generated docs
+
+COMPONENT DOCUMENTATION:${existingContext}
+
+${stringifyJsonForPrompt({
+        title: docOutput.title,
+        summary: docOutput.summary,
+        anatomy: docOutput.anatomy?.slice(0, 10),
+        variants: docOutput.variants?.slice(0, 5),
+        tokens: docOutput.tokens?.slice(0, 10),
+        accessibilityNotes: docOutput.accessibilityNotes,
+    }, 8000)}
+
+Respond with a valid JSON object matching the EditorialPatch schema exactly.`;
+}
+
+function stringifyJsonForPrompt(value: unknown, maxChars: number): string {
+    const serialized = JSON.stringify(value, null, 2);
+    if (serialized.length <= maxChars) {
+        return serialized;
+    }
+
+    // Keep the original JSON shape and truncate only string values.
+    // This avoids introducing metadata fields that can be misread as editorial data.
+    const limits = [800, 400, 200, 120, 80, 40];
+    for (const maxStringLength of limits) {
+        const truncated = truncateJsonStringValues(value, maxStringLength);
+        const candidate = JSON.stringify(truncated, null, 2);
+        if (candidate.length <= maxChars) {
+            return candidate;
+        }
+    }
+
+    // Fall back to a heavily truncated, still-shape-preserving payload.
+    return JSON.stringify(truncateJsonStringValues(value, 20), null, 2);
+}
+
+function truncateJsonStringValues(value: unknown, maxStringLength: number): unknown {
+    if (typeof value === 'string') {
+        if (value.length <= maxStringLength) return value;
+        const cutAt = value.lastIndexOf(' ', maxStringLength);
+        const safeEnd = cutAt > 0 ? cutAt : maxStringLength;
+        return `${value.slice(0, safeEnd)}...`;
+    }
+    if (Array.isArray(value)) {
+        return value.map((item) => truncateJsonStringValues(item, maxStringLength));
+    }
+    if (value && typeof value === 'object') {
+        const result: Record<string, unknown> = {};
+        for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+            result[key] = truncateJsonStringValues(nestedValue, maxStringLength);
+        }
+        return result;
+    }
+    return value;
 }
 
 /**
@@ -306,11 +398,62 @@ function createDryRunOutput(componentId: string, name?: string): ComponentDocOut
  * @param adapterOverride - Optional adapter override for testing
  * @param getSpecOverride - Optional spec fetcher override for testing
  */
+
+/**
+ * Generate an EditorialPatch via a 2nd LLM call.
+ * Fail-open: callers catch errors and continue without the patch.
+ */
+async function generateEditorialPatch(
+    job: AiJobState,
+    docOutput: ComponentDocOutput,
+    store: AiJobsStore,
+    adapterOverride?: { generate: (input: unknown) => Promise<unknown> },
+    existingEditorial?: Record<string, unknown> | null,
+): Promise<EditorialPatch | undefined> {
+    const patchTimeout = Math.min(getJobTimeout(job.input.provider), 30000);
+
+    store.pushEvent(job.id, 'editorial.patch_calling', { timeoutMs: patchTimeout });
+
+    const adapter = adapterOverride ?? resolveAdapter(job.input.provider);
+    const userPrompt = buildEditorialPatchPrompt(docOutput, existingEditorial ?? null);
+
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = globalThis.setTimeout(() => reject(new Error('Editorial patch LLM call timed out')), patchTimeout);
+    });
+
+    const result = await Promise.race([
+        adapter.generate({
+            systemPrompt: 'You are a JSON-only assistant. Respond with valid JSON matching the schema exactly. No explanations.',
+            userPrompt,
+            jsonSchema: EDITORIAL_PATCH_JSON_SCHEMA as Record<string, unknown>,
+            model: job.input.model,
+            timeoutMs: patchTimeout,
+        }),
+        timeoutPromise,
+    ]).finally(() => {
+        if (timeoutId) globalThis.clearTimeout(timeoutId);
+    }) as AiProviderResult;
+
+    store.pushEvent(job.id, 'editorial.patch_received', {
+        durationMs: result.usage.durationMs,
+    });
+
+    const validated = validateEditorialPatch(result.parsedJson);
+    if (!validated.valid) {
+        throw new Error(`Editorial patch validation failed: ${validated.errors.map((e) => `${e.path}: ${e.message}`).join(', ')}`);
+    }
+
+    store.pushEvent(job.id, 'editorial.patch_validated', {});
+    return validated.patch;
+}
+
 export async function runGenerateComponentDoc(
     job: AiJobState,
     store: AiJobsStore,
     adapterOverride?: { generate: (input: any) => Promise<any> },
-    getSpecOverride?: (fileKey: string | null, nodeId: string) => Promise<Record<string, unknown>>
+    getSpecOverride?: (fileKey: string | null, nodeId: string) => Promise<Record<string, unknown>>,
+    getExistingEditorialOverride?: () => Promise<Record<string, unknown> | null>
 ): Promise<void> {
     const jobTimeout = getJobTimeout(job.input.provider);
 
@@ -358,8 +501,12 @@ export async function runGenerateComponentDoc(
         }
 
         // Step 3: Build prompts
+        let existingEditorial: Record<string, unknown> | null = null;
+        if (getExistingEditorialOverride) {
+            existingEditorial = await getExistingEditorialOverride();
+        }
         const systemPrompt = buildSystemPrompt();
-        const userPrompt = buildUserPrompt(pruned, job.input.componentId);
+        const userPrompt = buildUserPrompt(pruned, job.input.componentId, existingEditorial);
 
         // Store redacted prompt (no secrets)
         store.setPrompt(job.id, userPrompt.slice(0, 500) + '...');
@@ -391,6 +538,7 @@ export async function runGenerateComponentDoc(
                         userPrompt,
                         jsonSchema: COMPONENT_DOC_JSON_SCHEMA as Record<string, unknown>,
                         model: job.input.model,
+                        timeoutMs: jobTimeout,
                     }) as Promise<AiProviderResult>,
                     timeoutPromise,
                 ]).finally(() => {
@@ -453,9 +601,21 @@ export async function runGenerateComponentDoc(
         output.markdown = rendered;
         store.pushEvent(job.id, 'render.completed', { charCount: rendered.length });
 
-        // Step 7: Complete with usage metrics
-        store.complete(job.id, output, usage);
-        store.pushEvent(job.id, 'job.completed', { hasOutput: !!output, usage });
+        // Step 6b: Generate editorial patch (fail-open — does not block job completion)
+        let editorialPatch: EditorialPatch | undefined;
+        if (!job.input.dryRun) {
+            try {
+                editorialPatch = await generateEditorialPatch(job, output, store, adapterOverride, existingEditorial);
+            } catch (patchError) {
+                // Fail-open: log but do not block job completion
+                const msg = patchError instanceof Error ? patchError.message : String(patchError);
+                store.pushEvent(job.id, 'editorial.patch_failed', { reason: msg });
+            }
+        }
+
+        // Step 7: Complete with usage metrics and optional editorial patch
+        store.complete(job.id, output, usage, editorialPatch);
+        store.pushEvent(job.id, 'job.completed', { hasOutput: !!output, usage, hasEditorialPatch: !!editorialPatch });
     } catch (error) {
         // Classify error
         const err = error as { code?: string; message?: string; retryable?: boolean };

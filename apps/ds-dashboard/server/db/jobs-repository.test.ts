@@ -309,4 +309,87 @@ describe('jobs-repository', () => {
             repo.upsertJob = originalUpsert;
         });
     });
+
+    describe('editorialPatch persistence', () => {
+        it('persists and rehydrates editorialPatch on completed job', () => {
+            const patch = {
+                schemaVersion: 1,
+                summary: { purpose: 'AI suggested purpose' },
+                best_practices: { do: ['Do this'], dont: ['Do that'] },
+            };
+
+            const job = createTestJob({
+                status: 'completed',
+                output: {
+                    schemaVersion: 1,
+                    componentId: 'comp-789',
+                    title: 'Test',
+                    summary: 'Test',
+                    anatomy: [],
+                    variants: [],
+                    tokens: [],
+                    accessibilityNotes: [],
+                    markdown: '# Test',
+                },
+                editorialPatch: patch,
+            });
+
+            repo.upsertJob(job);
+
+            const retrieved = repo.getJob(job.id);
+            assert.ok(retrieved);
+            assert.deepStrictEqual(retrieved.editorialPatch, patch);
+        });
+
+        it('returns undefined editorialPatch when not set', () => {
+            const job = createTestJob({
+                status: 'completed',
+                output: {
+                    schemaVersion: 1,
+                    componentId: 'comp-789',
+                    title: 'Test',
+                    summary: 'Test',
+                    anatomy: [],
+                    variants: [],
+                    tokens: [],
+                    accessibilityNotes: [],
+                    markdown: '# Test',
+                },
+            });
+
+            repo.upsertJob(job);
+
+            const retrieved = repo.getJob(job.id);
+            assert.ok(retrieved);
+            assert.strictEqual(retrieved.editorialPatch, undefined);
+        });
+
+        it('updates editorialPatch on subsequent upsert', () => {
+            const job = createTestJob({
+                status: 'completed',
+                output: {
+                    schemaVersion: 1,
+                    componentId: 'comp-789',
+                    title: 'Test',
+                    summary: 'Test',
+                    anatomy: [],
+                    variants: [],
+                    tokens: [],
+                    accessibilityNotes: [],
+                    markdown: '# Test',
+                },
+                editorialPatch: { schemaVersion: 1, summary: { purpose: 'v1' } },
+            });
+
+            repo.upsertJob(job);
+
+            // Update with new patch
+            job.editorialPatch = { schemaVersion: 1, summary: { purpose: 'v2' } };
+            repo.upsertJob(job);
+
+            const retrieved = repo.getJob(job.id);
+            assert.ok(retrieved);
+            assert.deepStrictEqual(retrieved.editorialPatch, { schemaVersion: 1, summary: { purpose: 'v2' } });
+        });
+    });
 });

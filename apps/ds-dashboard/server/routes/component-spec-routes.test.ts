@@ -301,4 +301,138 @@ describe('component-spec-routes (DB-first)', () => {
     const payload = await res.json();
     assert.equal(payload.code, 'invalid.expected_updated_at');
   });
+
+  it('PATCH /editorial stores accessibility.notes only in accessibility_notes_json', async () => {
+    repo.upsertFromRegistry('sys-01', [
+      { slug: 'a11y-notes', name: 'A11y Notes', status: 'draft', docType: 'component' },
+    ]);
+
+    const res = await app.request('/api/component-spec/a11y-notes/editorial', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        expectedUpdatedAt: null,
+        fields: {
+          accessibility: {
+            role: 'button',
+            labeling: { rules: ['Rule 1'] },
+            notes: ['Screen reader validated'],
+          },
+        },
+      }),
+    });
+
+    assert.equal(res.status, 200);
+    const row = db.prepare(`
+      SELECT accessibility_json, accessibility_notes_json
+      FROM component_editorial e
+      JOIN components c ON c.id = e.component_id
+      WHERE c.ds_id = ? AND c.slug = ?
+    `).get('sys-01', 'a11y-notes') as {
+      accessibility_json: string | null;
+      accessibility_notes_json: string | null;
+    };
+
+    assert.ok(row.accessibility_json);
+    const accessibilityJson = JSON.parse(row.accessibility_json as string) as Record<string, unknown>;
+    assert.equal('notes' in accessibilityJson, false);
+    assert.deepEqual(JSON.parse(row.accessibility_notes_json as string), ['Screen reader validated']);
+  });
+
+  describe('editorial suggestions', () => {
+    before(() => {
+      repo.upsertFromRegistry('sys-01', [
+        { slug: 'suggestion-test', name: 'Suggestion Test', status: 'draft', docType: 'component' },
+      ]);
+      const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'suggestion-test') as { id: number };
+      db.prepare(`
+        INSERT INTO component_editorial_suggestions (component_id, job_id, patch_json, created_at)
+        VALUES (?, 'job-sug-test', ?, strftime('%s', 'now'))
+      `).run(component.id, JSON.stringify({ schemaVersion: 1, summary: { purpose: 'AI suggested' } }));
+    });
+
+    it('GET /editorial-suggestion returns pending suggestion', async () => {
+      const res = await app.request('/api/component-spec/suggestion-test/editorial-suggestion');
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal(payload.ok, true);
+      assert.ok(payload.suggestion);
+      assert.equal(payload.suggestion.jobId, 'job-sug-test');
+      assert.equal(payload.suggestion.patch.summary.purpose, 'AI suggested');
+    });
+
+    it('GET /editorial-suggestion returns null when no suggestion', async () => {
+      // Use a component that exists but has no suggestion
+      repo.upsertFromRegistry('sys-01', [
+        { slug: 'no-suggestion', name: 'No Suggestion', status: 'draft', docType: 'component' },
+      ]);
+      const res = await app.request('/api/component-spec/no-suggestion/editorial-suggestion');
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal(payload.ok, true);
+      assert.equal(payload.suggestion, null);
+    });
+
+    it('POST /editorial-suggestion/discard marks suggestion as discarded', async () => {
+      const res = await app.request('/api/component-spec/suggestion-test/editorial-suggestion/discard', {
+        method: 'POST',
+      });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal(payload.ok, true);
+      assert.equal(payload.message, 'Suggestion discarded');
+
+      // Verify it's no longer returned as pending
+      const getRes = await app.request('/api/component-spec/suggestion-test/editorial-suggestion');
+      const getPayload = await getRes.json();
+      assert.equal(getPayload.suggestion, null);
+    });
+
+    it('POST /editorial-suggestion/mark-applied marks suggestion as applied', async () => {
+      // Re-insert a suggestion
+      const component = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'suggestion-test') as { id: number };
+      db.prepare(`
+        INSERT INTO component_editorial_suggestions (component_id, job_id, patch_json, created_at)
+        VALUES (?, 'job-sug-apply', ?, strftime('%s', 'now'))
+      `).run(component.id, JSON.stringify({ schemaVersion: 1 }));
+
+      const res = await app.request('/api/component-spec/suggestion-test/editorial-suggestion/mark-applied', {
+        method: 'POST',
+      });
+      assert.equal(res.status, 200);
+      const payload = await res.json();
+      assert.equal(payload.ok, true);
+      assert.equal(payload.message, 'Suggestion marked as applied');
+
+      // Verify it's no longer returned as pending
+      const getRes = await app.request('/api/component-spec/suggestion-test/editorial-suggestion');
+      const getPayload = await getRes.json();
+      assert.equal(getPayload.suggestion, null);
+    });
+
+    it('POST /editorial-suggestion/mark-applied rejects suggestionId from another component', async () => {
+      repo.upsertFromRegistry('sys-01', [
+        { slug: 'suggestion-test-2', name: 'Suggestion Test 2', status: 'draft', docType: 'component' },
+      ]);
+      const otherComponent = db.prepare('SELECT id FROM components WHERE ds_id = ? AND slug = ?').get('sys-01', 'suggestion-test-2') as { id: number };
+      db.prepare(`
+        INSERT INTO component_editorial_suggestions (component_id, job_id, patch_json, created_at)
+        VALUES (?, 'job-sug-other', ?, strftime('%s', 'now'))
+      `).run(otherComponent.id, JSON.stringify({ schemaVersion: 1, summary: { purpose: 'other' } }));
+
+      const otherSuggestion = db.prepare(`
+        SELECT id
+        FROM component_editorial_suggestions
+        WHERE component_id = ? AND job_id = 'job-sug-other'
+        LIMIT 1
+      `).get(otherComponent.id) as { id: number };
+
+      const res = await app.request('/api/component-spec/suggestion-test/editorial-suggestion/mark-applied', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestionId: otherSuggestion.id }),
+      });
+      assert.equal(res.status, 403);
+    });
+  });
 });

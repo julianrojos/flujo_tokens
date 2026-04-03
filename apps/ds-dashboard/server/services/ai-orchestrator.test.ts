@@ -65,6 +65,34 @@ describe('ai-orchestrator prompts', () => {
     assert.match(prompt, /68:4097/);
     assert.match(prompt, /```json/);
   });
+
+  it('user prompt includes existing editorial context when provided', () => {
+    const prompt = buildUserPrompt(
+      { name: 'Button' },
+      '68:4097',
+      { summary: { purpose: 'Existing purpose' } },
+    );
+    assert.match(prompt, /EXISTING EDITORIAL DATA/);
+    assert.match(prompt, /Existing purpose/);
+  });
+
+  it('user prompt truncation preserves editorial JSON shape without metadata wrapper', () => {
+    const prompt = buildUserPrompt(
+      { name: 'Button' },
+      '68:4097',
+      {
+        summary: {
+          purpose: 'A'.repeat(10_000),
+          when_to_use: 'B'.repeat(10_000),
+          when_not_to_use: 'C'.repeat(10_000),
+        },
+      },
+    );
+    assert.match(prompt, /EXISTING EDITORIAL DATA/);
+    assert.match(prompt, /"summary"/);
+    assert.doesNotMatch(prompt, /"truncated"\s*:\s*true/);
+    assert.doesNotMatch(prompt, /"preview"\s*:/);
+  });
 });
 
 describe('ai-orchestrator pipeline', () => {
@@ -355,5 +383,65 @@ describe('ai-orchestrator pipeline', () => {
 
     assert.equal(store.findById(job1.id)?.status, 'completed');
     assert.equal(store.findById(job2.id)?.status, 'completed');
+  });
+
+  it('loads existing editorial once and reuses the same snapshot in the pipeline', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    let editorialCalls = 0;
+    let adapterCalls = 0;
+    const adapter = {
+      generate: async () => {
+        adapterCalls += 1;
+        if (adapterCalls === 1) {
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 1,
+              componentId: '68:4097',
+              title: 'Button',
+              summary: 'Summary',
+              anatomy: [],
+              variants: [],
+              tokens: [],
+              accessibilityNotes: [],
+              markdown: '',
+            },
+            usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+          };
+        }
+        return {
+          rawText: '{...}',
+          parsedJson: { schemaVersion: 1, summary: { purpose: 'Enhanced summary' } },
+          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+        };
+      },
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      adapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' }),
+      async () => {
+        editorialCalls += 1;
+        return { summary: { purpose: 'Existing summary' } };
+      },
+    );
+
+    assert.equal(store.findById(job.id)?.status, 'completed');
+    assert.equal(editorialCalls, 1);
+    assert.equal(adapterCalls, 2);
+    assert.ok(store.findById(job.id)?.editorialPatch, 'editorialPatch should be set after pipeline');
+    assert.equal(store.findById(job.id)?.editorialPatch?.summary?.purpose, 'Enhanced summary');
   });
 });

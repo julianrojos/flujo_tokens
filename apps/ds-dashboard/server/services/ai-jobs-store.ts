@@ -11,6 +11,7 @@ import type {
     ComponentDocOutput,
     AiUsageMetrics,
 } from './ai-component-doc-schema.js';
+import type { EditorialPatch } from './ai-editorial-patch-schema.js';
 import type { AiProviderName } from './ai-provider.js';
 
 /**
@@ -272,7 +273,7 @@ export class AiJobsStore {
      * @param output - Generated output
      * @param usage - Usage metrics
      */
-    complete(jobId: string, output: ComponentDocOutput, usage: AiUsageMetrics): void {
+    complete(jobId: string, output: ComponentDocOutput, usage: AiUsageMetrics, editorialPatch?: EditorialPatch): void {
         const job = this.jobs.get(jobId);
         if (!job) {
             return;
@@ -281,11 +282,13 @@ export class AiJobsStore {
         job.status = 'completed';
         job.output = output;
         job.usage = usage;
+        job.editorialPatch = editorialPatch;
         job.updatedAt = Date.now();
 
         this.pushEvent(job.id, 'job.completed', {
             hasOutput: !!output,
             usage,
+            hasEditorialPatch: !!editorialPatch,
         });
     }
 

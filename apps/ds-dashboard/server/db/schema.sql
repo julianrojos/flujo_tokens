@@ -84,7 +84,10 @@ CREATE TABLE IF NOT EXISTS ai_jobs (
   error_code      TEXT,                                -- Error code (when failed)
   retryable       INTEGER,                             -- 1 if retryable, 0 if not (when failed)
   created_at      INTEGER NOT NULL,                    -- Created timestamp (ms since epoch)
-  updated_at      INTEGER NOT NULL                     -- Updated timestamp (ms since epoch)
+  updated_at      INTEGER NOT NULL,                    -- Updated timestamp (ms since epoch)
+  editorial_patch_json TEXT CHECK(
+    editorial_patch_json IS NULL OR (json_valid(editorial_patch_json) AND json_type(editorial_patch_json) = 'object')
+  )                                                     -- JSON: EditorialPatch (structured AI suggestion)
 );
 
 -- Indexes for job queries
@@ -266,6 +269,7 @@ CREATE TABLE IF NOT EXISTS component_editorial (
   related_components_json TEXT CHECK(related_components_json IS NULL OR (json_valid(related_components_json) AND json_type(related_components_json) = 'array')),
   token_mapping_json      TEXT CHECK(token_mapping_json IS NULL OR (json_valid(token_mapping_json) AND json_type(token_mapping_json) = 'object')),
   qa_json                 TEXT CHECK(qa_json IS NULL OR (json_valid(qa_json) AND json_type(qa_json) = 'array')),
+  accessibility_notes_json TEXT CHECK(accessibility_notes_json IS NULL OR (json_valid(accessibility_notes_json) AND json_type(accessibility_notes_json) = 'array')),
   updated_at              INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
 
@@ -290,6 +294,31 @@ CREATE INDEX IF NOT EXISTS idx_component_figma_anatomy_component_id
 
 CREATE INDEX IF NOT EXISTS idx_component_figma_anatomy_run
   ON component_figma_anatomy(run_id);
+
+-- ============================================================================
+-- component_editorial_suggestions: AI-generated editorial suggestions (Migration 022)
+-- Created when AI job completes with a valid editorialPatch.
+-- Only one pending suggestion per component at a time.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS component_editorial_suggestions (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  component_id  INTEGER NOT NULL REFERENCES components(id) ON DELETE CASCADE,
+  job_id        TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'applied', 'discarded')),
+  patch_json    TEXT NOT NULL CHECK(json_valid(patch_json) AND json_type(patch_json) = 'object'),
+  provider      TEXT,
+  model         TEXT,
+  created_at    INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+  applied_at    INTEGER,
+  UNIQUE(component_id, job_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_editorial_suggestions_component_status
+  ON component_editorial_suggestions(component_id, status, created_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_editorial_suggestions_one_pending
+  ON component_editorial_suggestions(component_id)
+  WHERE status = 'pending';
 
 -- ============================================================================
 -- component_specs: Component specification metadata (Migration 007)

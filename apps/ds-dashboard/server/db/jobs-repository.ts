@@ -16,6 +16,7 @@ import Database from 'better-sqlite3';
 import type { AiJobState, AiJobEvent, AiJobInput, AiJobStatus } from '../services/ai-component-doc-schema.js';
 import type { ComponentDocOutput } from '../services/ai-component-doc-schema.js';
 import type { AiUsageMetrics } from '../services/ai-component-doc-schema.js';
+import type { EditorialPatch } from '../services/ai-editorial-patch-schema.js';
 
 /**
  * Database row type for ai_jobs table
@@ -28,6 +29,7 @@ interface AiJobRow {
     input_json: string;
     output_json: string | null;
     usage_json: string | null;
+    editorial_patch_json: string | null;
     error: string | null;
     error_code: string | null;
     retryable: number | null;
@@ -53,10 +55,10 @@ export class JobsRepository {
         const stmt = this.db.prepare(`
             INSERT INTO ai_jobs (
                 id, idempotency_key, status, provider,
-                input_json, output_json, usage_json,
+                input_json, output_json, usage_json, editorial_patch_json,
                 error, error_code, retryable,
                 created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 idempotency_key = excluded.idempotency_key,
                 status = excluded.status,
@@ -64,6 +66,7 @@ export class JobsRepository {
                 input_json = excluded.input_json,
                 output_json = excluded.output_json,
                 usage_json = excluded.usage_json,
+                editorial_patch_json = excluded.editorial_patch_json,
                 error = excluded.error,
                 error_code = excluded.error_code,
                 retryable = excluded.retryable,
@@ -78,6 +81,7 @@ export class JobsRepository {
             JSON.stringify(job.input),
             job.output ? JSON.stringify(job.output) : null,
             job.usage ? JSON.stringify(job.usage) : null,
+            job.editorialPatch ? JSON.stringify(job.editorialPatch) : null,
             job.error ?? null,
             job.errorCode ?? null,
             job.retryable !== undefined ? (job.retryable ? 1 : 0) : null,
@@ -240,6 +244,9 @@ export class JobsRepository {
             events,
             output: row.output_json ? JSON.parse(row.output_json) as ComponentDocOutput : undefined,
             usage: row.usage_json ? JSON.parse(row.usage_json) as AiUsageMetrics : undefined,
+            editorialPatch: row.editorial_patch_json
+                ? JSON.parse(row.editorial_patch_json) as EditorialPatch
+                : undefined,
             error: row.error ?? undefined,
             errorCode: row.error_code ?? undefined,
             retryable: row.retryable !== null ? row.retryable === 1 : undefined,

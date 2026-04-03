@@ -12,7 +12,7 @@ import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
 import { createComponentSlug } from '../services/ai-component-doc-renderer.js';
 import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
 import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
-import { computeDocStatuses } from '../services/ai-doc-status-service.js';
+import { computeDocStatusesDbFromSnapshots } from '../services/ai-doc-status-service.js';
 import { computeDocDiff } from '../services/ai-diff-utils.js';
 import path from 'path';
 import fs from 'fs/promises';
@@ -39,6 +39,7 @@ interface SystemContextLike {
 interface AiJobsRouteDeps {
     internalToken?: string;
     getSystemContext: (systemHeader: string) => unknown;
+    componentRepo?: import('../db/component-repository.js').ComponentRepository;
 }
 const VALID_PROVIDERS = ['anthropic', 'openai', 'ollama', 'gemini'] as const;
 const SSE_POLL_INTERVAL_MS = 1000;
@@ -59,6 +60,28 @@ type ResolveDocsContextResult =
 
 function normalizeHeaderValue(value: string | undefined): string {
     return String(value || '').trim();
+}
+
+function editorialToPromptContext(editorial: {
+    summary?: unknown;
+    bestPractices?: unknown;
+    accessibility?: unknown;
+    contentGuidelines?: unknown;
+    relatedComponents?: unknown;
+    tokenMapping?: unknown;
+    qa?: unknown;
+    accessibilityNotes?: unknown;
+}): Record<string, unknown> | null {
+    const result: Record<string, unknown> = {};
+    if (editorial.summary) result.summary = editorial.summary;
+    if (editorial.bestPractices) result.best_practices = editorial.bestPractices;
+    if (editorial.accessibility) result.accessibility = editorial.accessibility;
+    if (editorial.contentGuidelines) result.content_guidelines = editorial.contentGuidelines;
+    if (editorial.relatedComponents) result.related_components = editorial.relatedComponents;
+    if (editorial.tokenMapping) result.token_mapping = editorial.tokenMapping;
+    if (editorial.qa) result.qa = editorial.qa;
+    if (editorial.accessibilityNotes) result.accessibility_notes = editorial.accessibilityNotes;
+    return Object.keys(result).length > 0 ? result : null;
 }
 
 /**
@@ -208,7 +231,31 @@ function errorResponse(code: string, message: string, retryable = false) {
 export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
     const store = getAiJobsStore();
     store.setOnJobStarted((job) => {
-        runGenerateComponentDoc(job, store).catch((err) => {
+        const getExistingEditorial = deps.componentRepo
+            ? async () => {
+                try {
+                    const figmaNodeId = job.input.componentId;
+                    if (!figmaNodeId) return null;
+                    const component = deps.componentRepo!.getComponentByFigmaNodeId(
+                        figmaNodeId,
+                        job.input.systemId,
+                    );
+                    if (!component) return null;
+                    const editorial = deps.componentRepo!.getEditorial(component.id);
+                    if (!editorial) return null;
+                    return editorialToPromptContext(editorial);
+                } catch (error) {
+                    console.warn('[ai-jobs-route] Failed to load existing editorial context', {
+                        jobId: job.id,
+                        componentId: job.input.componentId,
+                        error,
+                    });
+                    return null;
+                }
+            }
+            : undefined;
+
+        runGenerateComponentDoc(job, store, undefined, undefined, getExistingEditorial).catch((err) => {
             console.error('Job pipeline error:', err);
         });
     });
@@ -367,7 +414,13 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         }
 
         try {
-            const result = await computeDocStatuses(docsContext.docsComponentsDir);
+            // DB-first staleness
+            if (!deps.componentRepo) {
+                return c.json(errorResponse('ai.status.unavailable', 'Component repository not available'), 503);
+            }
+            const repo = deps.componentRepo;
+            const snapshots = repo.listComponentDocStaleness(docsContext.systemId);
+            const result = computeDocStatusesDbFromSnapshots(snapshots);
             return c.json(result);
         } catch (error) {
             console.error('Error computing doc statuses:', error);
@@ -668,6 +721,84 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
             overwritten,
             checksum,
         });
+    });
+
+    // POST /api/ai/jobs/:id/apply-editorial - Create editorial suggestion in DB
+    app.post('/api/ai/jobs/:id/apply-editorial', async (c) => {
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+        }
+
+        const jobId = c.req.param('id');
+        const job = store.findById(jobId);
+
+        if (!job) {
+            return c.json(errorResponse('ai.job.not_found', 'Job not found'), 404);
+        }
+
+        if (job.status !== 'completed') {
+            return c.json(
+                errorResponse('ai.job.not_completed', 'Job must be completed to apply editorial'),
+                409
+            );
+        }
+
+        if (!job.editorialPatch) {
+            return c.json(
+                errorResponse('ai.job.no_editorial_patch', 'Job has no editorial patch to apply'),
+                400
+            );
+        }
+
+        if (!deps.componentRepo) {
+            return c.json(
+                errorResponse('ai.repo.unavailable', 'Component repository is not available'),
+                503,
+            );
+        }
+
+        // Resolve component from job input (componentId is Figma node id)
+        const figmaNodeId = job.input.componentId;
+        if (!figmaNodeId) {
+            return c.json(
+                errorResponse('ai.input.invalid', 'Job has no component ID'),
+                400
+            );
+        }
+
+        const component = deps.componentRepo.getComponentByFigmaNodeId(
+            figmaNodeId,
+            job.input.systemId,
+        );
+        if (!component) {
+            return c.json(
+                errorResponse(
+                    'ai.component.not_found',
+                    `Component not found for Figma node ID "${figmaNodeId}"`,
+                ),
+                404,
+            );
+        }
+
+        try {
+            const suggestion = deps.componentRepo.upsertEditorialSuggestion(
+                component.id,
+                jobId,
+                JSON.stringify(job.editorialPatch),
+                job.input.provider,
+                job.input.model,
+            );
+
+            return c.json({
+                ok: true,
+                suggestionId: suggestion.id,
+                status: suggestion.status,
+                createdAt: suggestion.createdAt,
+            });
+        } catch (error) {
+            const reason = error instanceof Error ? error.message : String(error);
+            return c.json(errorResponse('internal.error', `Failed to create suggestion: ${reason}`), 500);
+        }
     });
 
     // GET /api/ai/jobs/:id/diff - Get diff between generated and existing doc

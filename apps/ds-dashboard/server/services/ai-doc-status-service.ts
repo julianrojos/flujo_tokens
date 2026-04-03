@@ -232,3 +232,30 @@ function getComponentsFromChanges(documentChanges: Array<{ changedNodeIds?: stri
 
     return components;
 }
+
+// ─── DB-first staleness (no filesystem dependency) ────────────────────────
+
+export function computeDocStatusesDbFromSnapshots(
+    snapshots: Array<{
+        id: number;
+        slug: string;
+        status: 'fresh' | 'stale' | 'missing';
+        editorialUpdatedAt: number | null;
+        capturedAt: number | null;
+    }>,
+): DocStatusResult {
+    return {
+        connected: true,
+        sourceScope: 'docs_plus_recent_changes',
+        components: snapshots.map((snapshot) => ({
+            componentId: String(snapshot.id),
+            slug: snapshot.slug,
+            status: snapshot.status,
+            generatedAt: snapshot.editorialUpdatedAt
+                ? new Date(snapshot.editorialUpdatedAt).toISOString()
+                : undefined,
+            lastChangeAt: snapshot.capturedAt ?? undefined,
+            origin: 'from_doc',
+        })),
+    };
+}

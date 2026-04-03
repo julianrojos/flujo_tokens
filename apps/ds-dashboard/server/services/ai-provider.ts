@@ -22,6 +22,8 @@ export interface AiProviderInput {
     jsonSchema: Record<string, unknown>;
     /** Optional model override */
     model?: string;
+    /** Optional timeout in milliseconds for this call */
+    timeoutMs?: number;
 }
 
 /**

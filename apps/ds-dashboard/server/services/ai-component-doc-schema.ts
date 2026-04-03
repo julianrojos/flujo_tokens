@@ -3,6 +3,8 @@
  * This defines the structured JSON output contract for AI-generated component documentation.
  */
 
+import type { EditorialPatch } from './ai-editorial-patch-schema.js';
+
 // Type for Figma component spec (used in orchestrator but schema doesn't need to import it)
 export type FigmaComponentSpec = Record<string, unknown>;
 
@@ -161,6 +163,8 @@ export interface AiJobState {
     output?: ComponentDocOutput;
     /** Usage metrics (when completed) */
     usage?: AiUsageMetrics;
+    /** Structured editorial suggestion from LLM */
+    editorialPatch?: EditorialPatch;
     /** Error information (when failed) */
     error?: string;
     /** Error code (when failed) */

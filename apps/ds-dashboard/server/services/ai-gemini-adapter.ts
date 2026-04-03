@@ -38,30 +38,60 @@ export class GeminiAdapter implements AiProvider {
         const model = resolveModel('gemini', input.model);
         const startTime = Date.now();
         const endpoint = `${this.baseUrl}/models/${encodeURIComponent(model)}:generateContent`;
+        const deadline = Date.now() + (input.timeoutMs ?? 90_000);
 
         try {
-            const response = await fetch(endpoint, {
+            const requestWithSchema = {
+                systemInstruction: {
+                    parts: [{ text: input.systemPrompt }],
+                },
+                contents: [
+                    {
+                        role: 'user',
+                        parts: [{ text: input.userPrompt }],
+                    },
+                ],
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                    // Best-effort schema constraint; some models/runtimes may not support it.
+                    responseSchema: input.jsonSchema,
+                },
+            };
+
+            const requestJsonOnly = {
+                ...requestWithSchema,
+                generationConfig: {
+                    responseMimeType: 'application/json',
+                },
+            };
+
+            const remainingMs = Math.max(1, deadline - Date.now());
+            let response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'x-goog-api-key': this.apiKey,
                 },
-                body: JSON.stringify({
-                    systemInstruction: {
-                        parts: [{ text: input.systemPrompt }],
-                    },
-                    contents: [
-                        {
-                            role: 'user',
-                            parts: [{ text: input.userPrompt }],
-                        },
-                    ],
-                    generationConfig: {
-                        responseMimeType: 'application/json',
-                    },
-                }),
-                signal: AbortSignal.timeout(90_000),
+                body: JSON.stringify(requestWithSchema),
+                signal: AbortSignal.timeout(remainingMs),
             });
+            // Fallback for providers/models that ignore or reject responseSchema.
+            if (response.status === 400 || response.status === 422) {
+                console.warn('[gemini-adapter] responseSchema rejected, falling back to JSON-only', {
+                    model,
+                    status: response.status,
+                });
+                const fallbackMs = Math.max(1, deadline - Date.now());
+                response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': this.apiKey,
+                    },
+                    body: JSON.stringify(requestJsonOnly),
+                    signal: AbortSignal.timeout(fallbackMs),
+                });
+            }
 
             if (!response.ok) {
                 const message = await response.text().catch(() => '');
@@ -138,4 +168,3 @@ export class GeminiAdapter implements AiProvider {
 export function createGeminiAdapter(apiKey?: string): GeminiAdapter {
     return new GeminiAdapter(apiKey);
 }
-

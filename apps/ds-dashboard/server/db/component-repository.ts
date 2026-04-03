@@ -203,6 +203,7 @@ export interface EditorialEntry {
   relatedComponents?: Array<unknown> | null;
   tokenMapping?: Record<string, unknown> | null;
   qa?: Array<unknown> | null;
+  accessibilityNotes?: string[] | null;
   updatedAt: number;
 }
 
@@ -514,7 +515,8 @@ export class ComponentRepository {
     const row = this.db
       .prepare(`
         SELECT component_id, summary_json, best_practices_json, accessibility_json,
-               content_guidelines_json, related_components_json, token_mapping_json, qa_json, updated_at
+               content_guidelines_json, related_components_json, token_mapping_json, qa_json,
+               accessibility_notes_json, updated_at
         FROM component_editorial
         WHERE component_id = ?
       `)
@@ -527,6 +529,7 @@ export class ComponentRepository {
         related_components_json: string | null;
         token_mapping_json: string | null;
         qa_json: string | null;
+        accessibility_notes_json: string | null;
         updated_at: number;
       }>[0];
 
@@ -541,6 +544,7 @@ export class ComponentRepository {
       relatedComponents: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.related_components_json, 'component_editorial.related_components_json'),
       tokenMapping: ComponentRepository.parseJsonColumnValue<Record<string, unknown>>(row.token_mapping_json, 'component_editorial.token_mapping_json'),
       qa: ComponentRepository.parseJsonColumnValue<Array<unknown>>(row.qa_json, 'component_editorial.qa_json'),
+      accessibilityNotes: ComponentRepository.parseJsonColumnValue<string[]>(row.accessibility_notes_json, 'component_editorial.accessibility_notes_json'),
       updatedAt: row.updated_at,
     };
   }
@@ -618,8 +622,9 @@ export class ComponentRepository {
         const insertResult = this.db.prepare(`
           INSERT OR IGNORE INTO component_editorial (
             component_id, summary_json, best_practices_json, accessibility_json,
-            content_guidelines_json, related_components_json, token_mapping_json, qa_json, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            content_guidelines_json, related_components_json, token_mapping_json, qa_json,
+            accessibility_notes_json, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
           componentId,
           ComponentRepository.toJsonColumnValue(fields.summary),
@@ -629,6 +634,7 @@ export class ComponentRepository {
           ComponentRepository.toJsonColumnValue(fields.relatedComponents),
           ComponentRepository.toJsonColumnValue(fields.tokenMapping),
           ComponentRepository.toJsonColumnValue(fields.qa),
+          ComponentRepository.toJsonColumnValue(fields.accessibilityNotes),
           now,
         );
 
@@ -657,6 +663,7 @@ export class ComponentRepository {
           related_components_json = COALESCE(?, related_components_json),
           token_mapping_json = COALESCE(?, token_mapping_json),
           qa_json = COALESCE(?, qa_json),
+          accessibility_notes_json = COALESCE(?, accessibility_notes_json),
           updated_at = ?
         WHERE component_id = ?
       `).run(
@@ -667,6 +674,7 @@ export class ComponentRepository {
         fields.relatedComponents !== undefined ? ComponentRepository.toJsonColumnValue(fields.relatedComponents) : null,
         fields.tokenMapping !== undefined ? ComponentRepository.toJsonColumnValue(fields.tokenMapping) : null,
         fields.qa !== undefined ? ComponentRepository.toJsonColumnValue(fields.qa) : null,
+        fields.accessibilityNotes !== undefined ? ComponentRepository.toJsonColumnValue(fields.accessibilityNotes) : null,
         now,
         componentId,
       );
@@ -1403,5 +1411,347 @@ export class ComponentRepository {
       changed += result.changes;
     }
     return changed;
+  }
+
+  // ─── Editorial Suggestions ─────────────────────────────────────────────
+
+  /**
+   * Upsert an editorial suggestion. If a suggestion already exists for
+   * (component_id, job_id), update it; otherwise insert.
+   */
+  upsertEditorialSuggestion(
+    componentId: number,
+    jobId: string,
+    patchJson: string,
+    provider?: string,
+    model?: string,
+  ): { id: number; status: string; createdAt: number } {
+    const tx = this.db.transaction(() => {
+      // Keep at most one pending suggestion per component, but allow idempotent upsert for same job.
+      this.db.prepare(`
+        UPDATE component_editorial_suggestions
+        SET status = 'discarded', applied_at = NULL
+        WHERE component_id = ? AND status = 'pending' AND job_id != ?
+      `).run(componentId, jobId);
+
+      this.db.prepare(`
+        INSERT INTO component_editorial_suggestions
+          (component_id, job_id, patch_json, provider, model, created_at)
+        VALUES (?, ?, ?, ?, ?, strftime('%s', 'now'))
+        ON CONFLICT(component_id, job_id) DO UPDATE SET
+          patch_json = excluded.patch_json,
+          provider = excluded.provider,
+          model = excluded.model,
+          status = 'pending',
+          applied_at = NULL
+      `).run(componentId, jobId, patchJson, provider ?? null, model ?? null);
+    });
+    tx();
+    const row = this.db.prepare(`
+      SELECT id, status, created_at
+      FROM component_editorial_suggestions
+      WHERE component_id = ? AND job_id = ?
+      LIMIT 1
+    `).get(componentId, jobId) as {
+      id: number;
+      status: string;
+      created_at: number;
+    } | undefined;
+
+    if (!row) {
+      throw new Error('Failed to load editorial suggestion after upsert');
+    }
+    return {
+      id: row.id,
+      status: row.status,
+      createdAt: row.created_at,
+    };
+  }
+
+  /**
+   * Get the latest pending suggestion for a component.
+   */
+  getLatestEditorialSuggestion(componentId: number): {
+    id: number;
+    componentId: number;
+    jobId: string;
+    patchJson: string;
+    provider: string | null;
+    model: string | null;
+    status: string;
+    createdAt: number;
+  } | null {
+    const stmt = this.db.prepare(`
+      SELECT id, component_id, job_id, patch_json, provider, model, status, created_at
+      FROM component_editorial_suggestions
+      WHERE component_id = ? AND status = 'pending'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+    const row = stmt.get(componentId) as {
+      id: number;
+      component_id: number;
+      job_id: string;
+      patch_json: string;
+      provider: string | null;
+      model: string | null;
+      status: string;
+      created_at: number;
+    } | undefined;
+
+    if (!row) return null;
+    return {
+      id: row.id,
+      componentId: row.component_id,
+      jobId: row.job_id,
+      patchJson: row.patch_json,
+      provider: row.provider,
+      model: row.model,
+      status: row.status,
+      createdAt: row.created_at,
+    };
+  }
+
+  /**
+   * Get editorial suggestion by its id.
+   */
+  getEditorialSuggestionById(suggestionId: number): {
+    id: number;
+    componentId: number;
+    jobId: string;
+    patchJson: string;
+    provider: string | null;
+    model: string | null;
+    status: 'pending' | 'applied' | 'discarded';
+    createdAt: number;
+  } | null {
+    const row = this.db.prepare(`
+      SELECT id, component_id, job_id, patch_json, provider, model, status, created_at
+      FROM component_editorial_suggestions
+      WHERE id = ?
+      LIMIT 1
+    `).get(suggestionId) as {
+      id: number;
+      component_id: number;
+      job_id: string;
+      patch_json: string;
+      provider: string | null;
+      model: string | null;
+      status: 'pending' | 'applied' | 'discarded';
+      created_at: number;
+    } | undefined;
+
+    if (!row) return null;
+    return {
+      id: row.id,
+      componentId: row.component_id,
+      jobId: row.job_id,
+      patchJson: row.patch_json,
+      provider: row.provider,
+      model: row.model,
+      status: row.status,
+      createdAt: row.created_at,
+    };
+  }
+
+  /**
+   * Mark a suggestion as applied or discarded.
+   */
+  markSuggestionStatus(suggestionId: number, status: 'applied' | 'discarded'): void {
+    const current = this.db.prepare(`
+      SELECT status
+      FROM component_editorial_suggestions
+      WHERE id = ?
+      LIMIT 1
+    `).get(suggestionId) as { status: 'pending' | 'applied' | 'discarded' } | undefined;
+
+    if (!current) {
+      const err = new Error('Suggestion not found');
+      (err as Error & { statusCode?: number }).statusCode = 404;
+      throw err;
+    }
+
+    // Idempotent: if already in the target status, treat as success.
+    if (current.status === status) {
+      return;
+    }
+    // Only allow transitions from pending.
+    if (current.status !== 'pending') {
+      const err = new Error(`Suggestion is already ${current.status}`);
+      (err as Error & { statusCode?: number }).statusCode = 409;
+      throw err;
+    }
+
+    const stmt = this.db.prepare(`
+      UPDATE component_editorial_suggestions
+      SET status = ?,
+          applied_at = CASE
+            WHEN ? = 'applied' THEN COALESCE(applied_at, strftime('%s', 'now'))
+            ELSE NULL
+          END
+      WHERE id = ? AND status = 'pending'
+    `);
+    const result = stmt.run(status, status, suggestionId);
+    if (result.changes === 0) {
+      const err = new Error('Suggestion not found or not pending');
+      (err as Error & { statusCode?: number }).statusCode = 404;
+      throw err;
+    }
+  }
+
+  /**
+   * Resolve component ID from slug (scoped to active system).
+   */
+  getComponentIdBySlug(slug: string, dsId?: string): number | null {
+    const row = dsId
+      ? this.db.prepare(`
+      SELECT id FROM components WHERE ds_id = ? AND slug = ? LIMIT 1
+    `).get(dsId, slug) as { id: number } | undefined
+      : this.db.prepare(`
+      SELECT id FROM components WHERE slug = ? ORDER BY updated_at DESC LIMIT 1
+    `).get(slug) as { id: number } | undefined;
+    return row?.id ?? null;
+  }
+
+  /**
+   * Resolve component by Figma component set node id.
+   * If dsId is provided, resolution is scoped to that design system.
+   */
+  getComponentByFigmaNodeId(
+    figmaComponentSetNodeId: string,
+    dsId?: string,
+  ): { id: number; slug: string } | null {
+    if (dsId) {
+      const row = this.db.prepare(`
+        SELECT id, slug
+        FROM components
+        WHERE ds_id = ? AND figma_component_set_node_id = ? AND status != 'missing'
+        LIMIT 1
+      `).get(dsId, figmaComponentSetNodeId) as { id: number; slug: string } | undefined;
+      return row ?? null;
+    }
+
+    const row = this.db.prepare(`
+      SELECT id, slug
+      FROM components
+      WHERE figma_component_set_node_id = ? AND status != 'missing'
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `).get(figmaComponentSetNodeId) as { id: number; slug: string } | undefined;
+    return row ?? null;
+  }
+
+  /**
+   * Compute DB-based staleness for a component.
+   * Compares component_editorial.updated_at vs component_figma_anatomy.captured_at.
+   * Returns 'fresh', 'stale', or 'missing'.
+   */
+  getComponentDocStaleness(componentId: number): {
+    status: 'fresh' | 'stale' | 'missing';
+    editorialUpdatedAt: number | null;
+    capturedAt: number | null;
+  } {
+    const stmt = this.db.prepare(`
+      SELECT
+        e.updated_at AS editorial_updated_at,
+        a.captured_at AS captured_at
+      FROM components c
+      LEFT JOIN component_editorial e ON e.component_id = c.id
+      LEFT JOIN component_figma_anatomy a ON a.component_id = c.id
+      WHERE c.id = ?
+    `);
+    const row = stmt.get(componentId) as {
+      editorial_updated_at: number | null;
+      captured_at: number | null;
+    } | undefined;
+
+    if (!row) {
+      return { status: 'missing', editorialUpdatedAt: null, capturedAt: null };
+    }
+
+    const editorialUpdatedAt = row.editorial_updated_at ?? null;
+    const capturedAt = row.captured_at ?? null;
+    const editorialUpdatedAtMs = editorialUpdatedAt ? editorialUpdatedAt * 1000 : null;
+    const capturedAtMs = capturedAt ? capturedAt * 1000 : null;
+
+    if (!capturedAt) {
+      return { status: 'fresh', editorialUpdatedAt: editorialUpdatedAtMs, capturedAt: null };
+    }
+
+    if (!editorialUpdatedAt) {
+      return { status: 'missing', editorialUpdatedAt: null, capturedAt: capturedAtMs };
+    }
+
+    // Both are in seconds (strftime('%s', 'now'))
+    return {
+      status: editorialUpdatedAt >= capturedAt ? 'fresh' : 'stale',
+      editorialUpdatedAt: editorialUpdatedAtMs,
+      capturedAt: capturedAtMs,
+    };
+  }
+
+  /**
+   * Compute DB-based staleness for all components in a single query.
+   * Optionally scoped to a design system id.
+   */
+  listComponentDocStaleness(dsId?: string): Array<{
+    id: number;
+    slug: string;
+    status: 'fresh' | 'stale' | 'missing';
+    editorialUpdatedAt: number | null;
+    capturedAt: number | null;
+  }> {
+    const rows = (dsId
+      ? this.db.prepare(`
+      SELECT
+        c.id,
+        c.slug,
+        e.updated_at AS editorial_updated_at,
+        a.captured_at AS captured_at
+      FROM components c
+      LEFT JOIN component_editorial e ON e.component_id = c.id
+      LEFT JOIN component_figma_anatomy a ON a.component_id = c.id
+      WHERE c.status != 'missing' AND c.ds_id = ?
+    `).all(dsId)
+      : this.db.prepare(`
+      SELECT
+        c.id,
+        c.slug,
+        e.updated_at AS editorial_updated_at,
+        a.captured_at AS captured_at
+      FROM components c
+      LEFT JOIN component_editorial e ON e.component_id = c.id
+      LEFT JOIN component_figma_anatomy a ON a.component_id = c.id
+      WHERE c.status != 'missing'
+    `).all()) as Array<{
+        id: number;
+        slug: string;
+        editorial_updated_at: number | null;
+        captured_at: number | null;
+      }>;
+
+    return rows.map((row) => {
+      const editorialUpdatedAtMs = row.editorial_updated_at
+        ? row.editorial_updated_at * 1000
+        : null;
+      const capturedAtMs = row.captured_at ? row.captured_at * 1000 : null;
+
+      let status: 'fresh' | 'stale' | 'missing';
+      if (!row.captured_at) {
+        status = 'fresh';
+      } else if (!row.editorial_updated_at) {
+        status = 'missing';
+      } else {
+        status = row.editorial_updated_at >= row.captured_at ? 'fresh' : 'stale';
+      }
+
+      return {
+        id: row.id,
+        slug: row.slug,
+        status,
+        editorialUpdatedAt: editorialUpdatedAtMs,
+        capturedAt: capturedAtMs,
+      };
+    });
   }
 }
