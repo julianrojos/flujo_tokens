@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { AiJobsStore } from './ai-jobs-store.js';
@@ -9,6 +9,7 @@ import {
   runGenerateComponentDoc,
 } from './ai-orchestrator.js';
 import { AI_ERROR_CODES } from './ai-component-doc-schema.js';
+import { resetPromptPolicyCacheForTests } from './ai-prompt-policy.js';
 
 describe('ai-orchestrator preprocessing', () => {
   it('limits variants to 20 before truncation', () => {
@@ -465,5 +466,300 @@ describe('ai-orchestrator pipeline', () => {
     assert.equal(adapterCalls, 2);
     assert.ok(store.findById(job.id)?.editorialPatch, 'editorialPatch should be set after pipeline');
     assert.equal(store.findById(job.id)?.editorialPatch?.summary?.purpose, 'Enhanced summary');
+  });
+});
+
+describe('ai-orchestrator policyContext', () => {
+  beforeEach(() => {
+    resetPromptPolicyCacheForTests();
+  });
+
+  it('buildSystemPrompt without policyContext returns base prompt (backwards-compatible)', () => {
+    const prompt = buildSystemPrompt();
+    assert.match(prompt, /JSON object/);
+    assert.doesNotMatch(prompt, /Editorial Style Guidelines/);
+  });
+
+  it('buildSystemPrompt with policyContext appends Editorial Style Guidelines section', () => {
+    const policyContext = '[source: tone > Tone policy]\nUse technical, prescriptive tone.';
+    const prompt = buildSystemPrompt(policyContext);
+    assert.match(prompt, /Editorial Style Guidelines/);
+    assert.ok(prompt.includes('Use technical, prescriptive tone.'));
+    assert.ok(prompt.includes('[source: tone > Tone policy]'));
+  });
+
+  it('buildSystemPrompt with empty string returns base prompt', () => {
+    const prompt = buildSystemPrompt('');
+    assert.doesNotMatch(prompt, /Editorial Style Guidelines/);
+  });
+
+  it('editorial patch prompt includes EDITORIAL STYLE GUIDELINES when policyContext is present', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+    });
+
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    let editorialPatchPrompt: string | undefined;
+    let adapterCalls = 0;
+
+    const adapter = {
+      generate: async (input: { systemPrompt: string; userPrompt: string; jsonSchema?: Record<string, unknown> }) => {
+        adapterCalls += 1;
+        const schemaProperties = (
+          (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
+        ) ?? {};
+        const isEditorialPatchCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
+        if (isEditorialPatchCall) {
+          // Editorial patch prompt call
+          editorialPatchPrompt = input.userPrompt;
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 1,
+              summary: { purpose: 'Enhanced purpose' },
+            },
+            usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+          };
+        }
+        return {
+          rawText: '{...}',
+          parsedJson: {
+            schemaVersion: 1,
+            componentId: '68:4097',
+            title: 'Button',
+            summary: 'Summary',
+            anatomy: [],
+            variants: [],
+            tokens: [],
+            accessibilityNotes: [],
+            markdown: '',
+          },
+          usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+        };
+      },
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      adapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' }),
+      undefined,
+      async () => '[source: test > Tone policy]\nUse technical, prescriptive tone.',
+    );
+
+    assert.equal(store.findById(job.id)?.status, 'completed');
+    assert.ok(adapterCalls >= 2, 'Pipeline should perform at least generation + editorial patch calls');
+    assert.ok(editorialPatchPrompt, 'Editorial patch prompt should have been captured');
+    assert.match(editorialPatchPrompt!, /EDITORIAL STYLE GUIDELINES/);
+    assert.ok(
+      editorialPatchPrompt!.includes('[source:'),
+      'Editorial patch prompt should include source markers from policyContext',
+    );
+  });
+
+  it('appends policyContext to custom systemPrompt in generation call', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+      systemPrompt: 'Custom system prompt for controlled generation.',
+    });
+
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    let generationSystemPrompt: string | undefined;
+    const adapter = {
+      generate: async (input: { systemPrompt: string; jsonSchema?: Record<string, unknown> }) => {
+        const schemaProperties = (
+          (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
+        ) ?? {};
+        const isEditorialPatchCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
+        if (!isEditorialPatchCall) {
+          generationSystemPrompt = input.systemPrompt;
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 1,
+              componentId: '68:4097',
+              title: 'Button',
+              summary: 'Summary',
+              anatomy: [],
+              variants: [],
+              tokens: [],
+              accessibilityNotes: [],
+              markdown: '',
+            },
+            usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+          };
+        }
+        return {
+          rawText: '{...}',
+          parsedJson: {
+            schemaVersion: 1,
+            summary: { purpose: 'Enhanced purpose' },
+          },
+          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+        };
+      },
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      adapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' }),
+      undefined,
+      async () => '[source: test > Tone policy]\nUse technical, prescriptive tone.',
+    );
+
+    assert.equal(store.findById(job.id)?.status, 'completed');
+    assert.ok(generationSystemPrompt, 'Generation system prompt should be captured');
+    assert.ok(
+      generationSystemPrompt!.includes('Custom system prompt for controlled generation.'),
+      'Custom system prompt content should be preserved',
+    );
+    assert.match(generationSystemPrompt!, /Editorial Style Guidelines/);
+    assert.ok(generationSystemPrompt!.includes('[source: test > Tone policy]'));
+  });
+
+  it('does not duplicate Editorial Style Guidelines when custom systemPrompt already includes it', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+      systemPrompt: 'Custom header\n\n## Editorial Style Guidelines\n\nAlready present',
+    });
+
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    let generationSystemPrompt: string | undefined;
+    const adapter = {
+      generate: async (input: { systemPrompt: string; jsonSchema?: Record<string, unknown> }) => {
+        const schemaProperties = (
+          (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
+        ) ?? {};
+        const isEditorialPatchCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
+        if (!isEditorialPatchCall) {
+          generationSystemPrompt = input.systemPrompt;
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 1,
+              componentId: '68:4097',
+              title: 'Button',
+              summary: 'Summary',
+              anatomy: [],
+              variants: [],
+              tokens: [],
+              accessibilityNotes: [],
+              markdown: '',
+            },
+            usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+          };
+        }
+        return {
+          rawText: '{...}',
+          parsedJson: {
+            schemaVersion: 1,
+            summary: { purpose: 'Enhanced purpose' },
+          },
+          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+        };
+      },
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      adapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' }),
+      undefined,
+      async () => '[source: test > Tone policy]\nUse technical, prescriptive tone.',
+    );
+
+    assert.equal(store.findById(job.id)?.status, 'completed');
+    assert.ok(generationSystemPrompt);
+    assert.ok(generationSystemPrompt!.includes('Already present'));
+    assert.doesNotMatch(generationSystemPrompt!, /\[source: test > Tone policy\]/);
+    const occurrences = generationSystemPrompt!.split('## Editorial Style Guidelines').length - 1;
+    assert.equal(occurrences, 1, 'Editorial guidelines heading should not be duplicated');
+  });
+
+  it('does not treat unrelated [source: text as existing policy markers', async () => {
+    const store = new AiJobsStore();
+    const job = store.enqueue({
+      type: 'GENERATE_COMPONENT_DOC',
+      provider: 'anthropic',
+      componentId: '68:4097',
+      dryRun: false,
+      systemPrompt: 'Custom notes: [source: Figma Token] should remain plain text.',
+    });
+
+    const dequeued = store.tryDequeue('anthropic');
+    assert.ok(dequeued);
+
+    let generationSystemPrompt: string | undefined;
+    const adapter = {
+      generate: async (input: { systemPrompt: string; jsonSchema?: Record<string, unknown> }) => {
+        const schemaProperties = (
+          (input.jsonSchema as { properties?: Record<string, unknown> } | undefined)?.properties
+        ) ?? {};
+        const isEditorialPatchCall = 'related_components' in schemaProperties && 'qa' in schemaProperties;
+        if (!isEditorialPatchCall) {
+          generationSystemPrompt = input.systemPrompt;
+          return {
+            rawText: '{...}',
+            parsedJson: {
+              schemaVersion: 1,
+              componentId: '68:4097',
+              title: 'Button',
+              summary: 'Summary',
+              anatomy: [],
+              variants: [],
+              tokens: [],
+              accessibilityNotes: [],
+              markdown: '',
+            },
+            usage: { promptTokens: 12, completionTokens: 7, durationMs: 40 },
+          };
+        }
+        return {
+          rawText: '{...}',
+          parsedJson: {
+            schemaVersion: 1,
+            summary: { purpose: 'Enhanced purpose' },
+          },
+          usage: { promptTokens: 4, completionTokens: 3, durationMs: 20 },
+        };
+      },
+    };
+
+    await runGenerateComponentDoc(
+      job,
+      store,
+      adapter,
+      async () => ({ name: 'Button', type: 'COMPONENT_SET' }),
+      undefined,
+      async () => '[source: test > Tone policy]\nUse technical, prescriptive tone.',
+    );
+
+    assert.equal(store.findById(job.id)?.status, 'completed');
+    assert.ok(generationSystemPrompt);
+    assert.ok(generationSystemPrompt!.includes('Custom notes: [source: Figma Token]'));
+    assert.ok(generationSystemPrompt!.includes('[source: test > Tone policy]'));
+    assert.match(generationSystemPrompt!, /Editorial Style Guidelines/);
   });
 });

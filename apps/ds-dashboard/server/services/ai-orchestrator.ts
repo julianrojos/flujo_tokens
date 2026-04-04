@@ -3,6 +3,9 @@
  * Implements the deterministic pipeline for generating component documentation
  */
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import type { AiProvider, AiProviderResult, AiProviderName } from './ai-provider.js';
 import { createAnthropicAdapter } from './ai-anthropic-adapter.js';
 import { createOpenAiAdapter } from './ai-openai-adapter.js';
@@ -22,6 +25,14 @@ import { validateEditorialPatch, EDITORIAL_PATCH_JSON_SCHEMA } from './ai-editor
 import { renderComponentDoc } from './ai-component-doc-renderer.js';
 import type { AiJobsStore } from './ai-jobs-store.js';
 import { getComponentSpecDirect } from './figma-direct-bridge-service.js';
+import { buildPromptPolicyContext } from './ai-prompt-policy.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const REPO_ROOT = path.resolve(__dirname, '../../../..');
+if (!fs.existsSync(path.join(REPO_ROOT, '.agents', 'rules'))) {
+    console.warn('[ai-orchestrator] REPO_ROOT may be incorrect: .agents/rules not found at', REPO_ROOT);
+}
 
 /**
  * Maximum prompt characters (approximately 8k tokens)
@@ -37,6 +48,7 @@ const DEFAULT_JOB_TIMEOUT_MS = 90000;
  * Default Ollama job timeout in milliseconds (120 seconds)
  */
 const DEFAULT_OLLAMA_TIMEOUT_MS = 120000;
+const EDITORIAL_GUIDELINES_HEADING = '## Editorial Style Guidelines';
 
 const DEFAULT_USER_PROMPT_TEMPLATE = `Generate component documentation for Figma component ID: {{componentId}}
 
@@ -211,10 +223,11 @@ function pruneAnatomyDepth(
 
 /**
  * Build system prompt for component documentation
+ * @param policyContext - Optional editorial policy context from .mdc rules
  * @returns System prompt string
  */
-export function buildSystemPrompt(): string {
-    return `You are an expert design system documentation assistant. Your task is to generate structured component documentation based on Figma component specifications.
+export function buildSystemPrompt(policyContext?: string): string {
+    const prompt = `You are an expert design system documentation assistant. Your task is to generate structured component documentation based on Figma component specifications.
 
 Generate a JSON object that matches the provided schema exactly. Follow these guidelines:
 
@@ -247,6 +260,19 @@ IMPORTANT:
 - Keep descriptions concise but informative
 - The "markdown" field should be empty string - it will be filled by a renderer
 - Ensure JSON is valid and matches the schema exactly`;
+
+    return appendPolicyContext(prompt, policyContext);
+}
+
+function appendPolicyContext(prompt: string, policyContext?: string): string {
+    if (!policyContext || policyContext.length === 0) {
+        return prompt;
+    }
+    const hasExistingPolicyMarkers = prompt.includes('[source: ') && prompt.includes('] > ');
+    if (prompt.includes(EDITORIAL_GUIDELINES_HEADING) || hasExistingPolicyMarkers) {
+        return prompt;
+    }
+    return `${prompt}\n\n---\n${EDITORIAL_GUIDELINES_HEADING}\n\n${policyContext}`;
 }
 
 export function buildDefaultUserPromptTemplate(): string {
@@ -326,12 +352,16 @@ export function resolveAdapter(provider: AiProviderName): AiProvider {
 function buildEditorialPatchPrompt(
     docOutput: ComponentDocOutput,
     existingEditorial: Record<string, unknown> | null,
+    policyContext?: string,
 ): string {
+    const policyGuidance = policyContext && policyContext.length > 0
+        ? `\n\nEDITORIAL STYLE GUIDELINES (apply to all output):\n${policyContext}`
+        : '';
     const existingContext = existingEditorial
         ? `\n\nEXISTING EDITORIAL DATA (preserve or improve):\n${stringifyJsonForPrompt(existingEditorial, 4000)}`
         : '';
 
-    return `You are an expert design system editor. Based on the generated component documentation below, produce a structured EDITORIAL PATCH that suggests improvements to the human-authored editorial fields.
+    return `You are an expert design system editor. Based on the generated component documentation below, produce a structured EDITORIAL PATCH that suggests improvements to the human-authored editorial fields.${policyGuidance}
 
 The patch should include:
 - summary: purpose, when_to_use, when_not_to_use (if the docs suggest good editorial content)
@@ -444,13 +474,14 @@ async function generateEditorialPatch(
     store: AiJobsStore,
     adapterOverride?: { generate: (input: unknown) => Promise<unknown> },
     existingEditorial?: Record<string, unknown> | null,
+    policyContext?: string,
 ): Promise<EditorialPatch | undefined> {
     const patchTimeout = Math.min(getJobTimeout(job.input.provider), 30000);
 
     store.pushEvent(job.id, 'editorial.patch_calling', { timeoutMs: patchTimeout });
 
     const adapter = adapterOverride ?? resolveAdapter(job.input.provider);
-    const userPrompt = buildEditorialPatchPrompt(docOutput, existingEditorial ?? null);
+    const userPrompt = buildEditorialPatchPrompt(docOutput, existingEditorial ?? null, policyContext);
 
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
@@ -488,7 +519,8 @@ export async function runGenerateComponentDoc(
     store: AiJobsStore,
     adapterOverride?: { generate: (input: any) => Promise<any> },
     getSpecOverride?: (fileKey: string | null, nodeId: string) => Promise<Record<string, unknown>>,
-    getExistingEditorialOverride?: () => Promise<Record<string, unknown> | null>
+    getExistingEditorialOverride?: () => Promise<Record<string, unknown> | null>,
+    getPolicyContextOverride?: () => Promise<string>,
 ): Promise<void> {
     const jobTimeout = getJobTimeout(job.input.provider);
 
@@ -540,7 +572,13 @@ export async function runGenerateComponentDoc(
         if (getExistingEditorialOverride) {
             existingEditorial = await getExistingEditorialOverride();
         }
-        const systemPrompt = String(job.input.systemPrompt || '').trim() || buildSystemPrompt();
+        const policyContext = getPolicyContextOverride
+            ? await getPolicyContextOverride()
+            : await buildPromptPolicyContext(REPO_ROOT);
+        const customSystemPrompt = String(job.input.systemPrompt || '').trim();
+        const systemPrompt = customSystemPrompt.length > 0
+            ? appendPolicyContext(customSystemPrompt, policyContext)
+            : buildSystemPrompt(policyContext);
         const userPrompt = buildUserPrompt(
             pruned,
             job.input.componentId,
@@ -645,7 +683,7 @@ export async function runGenerateComponentDoc(
         let editorialPatch: EditorialPatch | undefined;
         if (!job.input.dryRun) {
             try {
-                editorialPatch = await generateEditorialPatch(job, output, store, adapterOverride, existingEditorial);
+                editorialPatch = await generateEditorialPatch(job, output, store, adapterOverride, existingEditorial, policyContext);
             } catch (patchError) {
                 // Fail-open: log but do not block job completion
                 const msg = patchError instanceof Error ? patchError.message : String(patchError);
