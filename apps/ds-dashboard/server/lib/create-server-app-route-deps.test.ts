@@ -53,7 +53,6 @@ function createConfig() {
     enqueueQueueJob: fn,
     runQueuedSpawnCommand: fn,
     queueNpmScript: fn,
-    enqueueRefreshNamingDebtJob: fn,
     queueNodeJsonCommand: fn,
     toBooleanString: fn,
     toNumberString: fn,

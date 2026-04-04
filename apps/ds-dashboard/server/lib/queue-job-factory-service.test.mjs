@@ -14,7 +14,6 @@ function createFactory(overrides = {}) {
         systemId: "core",
         healthSnapshotScriptPath: "tooling/scripts/ds-health-snapshot.mjs",
         wcagPairs: { pairs: [{ foreground: "text.primary", background: "bg.canvas", level: "AA", textSize: "normal" }] },
-        namingDebtConfig: { threshold: 2 },
       },
     ],
   ]);
@@ -36,14 +35,8 @@ function createFactory(overrides = {}) {
     sha256Text(value) {
       return `hash:${String(value).length}`;
     },
-    async computeNamingDebtReportFromData() {
-      return {
-        generatedAt: "2026-02-24T00:00:00.000Z",
-        summary: { totalViolations: 0, overallScore: 100 },
-      };
-    },
     replayableNpmScripts: new Set(["ds:registry:refresh"]),
-    supportedReplayOperations: new Set(["refresh:naming-debt", "script:ds-health-snapshot.mjs", "script:ds:registry:refresh"]),
+    supportedReplayOperations: new Set(["script:ds-health-snapshot.mjs", "script:ds:registry:refresh"]),
     ...overrides,
   });
 
@@ -158,7 +151,7 @@ test("queue-job-factory: replay handles run: operations", () => {
 
 test("queue-job-factory: replay rejects unsupported operations", () => {
   const { service } = createFactory({
-    supportedReplayOperations: new Set(["refresh:naming-debt"]),
+    supportedReplayOperations: new Set(["script:ds-health-snapshot.mjs"]),
   });
 
   assert.throws(
@@ -169,39 +162,4 @@ test("queue-job-factory: replay rejects unsupported operations", () => {
       }),
     /requires parameters and cannot be replayed automatically/,
   );
-});
-
-test("queue-job-factory: refresh naming debt uses context wcag/config objects", async () => {
-  const calls = [];
-  const { service, enqueued } = createFactory({
-    async computeNamingDebtReportFromData(args) {
-      calls.push(args);
-      return {
-        generatedAt: "2026-02-24T00:00:00.000Z",
-        summary: { totalViolations: 1, overallScore: 87 },
-      };
-    },
-    tokenRepo: {
-      getTokenRegistry: () => ({ entries: [] }),
-      getTokenUsageIndex: () => ({ entries: [], byPath: {}, bySlashPath: {}, byCssVar: {}, summary: {} }),
-      getTokenGraph: () => ({ nodes: [], edges: [], cycles: [], cycle_node_ids: [], summary: {} }),
-    },
-  });
-
-  service.enqueueReplayJobFromOperation({
-    operation: "refresh:naming-debt",
-    systemId: "core",
-    requestId: "req_3",
-  });
-
-  assert.equal(enqueued.length, 1);
-  const result = await enqueued[0].execute({ emitChunk() {}, setProcess() {} });
-  assert.equal(result.ok, true);
-  assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].config, {
-    threshold: 2,
-    wcagPairs: {
-      pairs: [{ foreground: "text.primary", background: "bg.canvas", level: "AA", textSize: "normal" }],
-    },
-  });
 });

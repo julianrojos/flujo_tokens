@@ -9,7 +9,7 @@ import { describe, it } from 'node:test';
 import { buildCreateServerRouteDeps } from './create-server-route-deps.js';
 
 function createDeps() {
-  const fn = () => {};
+  const fn = () => { };
   return {
     buildHealthPayload: fn,
     failJson: fn,
@@ -55,7 +55,6 @@ function createDeps() {
     enqueueQueueJob: fn,
     runQueuedSpawnCommand: fn,
     queueNpmScript: fn,
-    enqueueRefreshNamingDebtJob: fn,
     queueNodeJsonCommand: fn,
     toBooleanString: fn,
     toNumberString: fn,

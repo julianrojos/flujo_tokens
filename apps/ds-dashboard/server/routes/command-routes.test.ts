@@ -47,7 +47,6 @@ function createBaseDeps(overrides: Record<string, unknown> = {}) {
     sha256Text: () => 'hash',
     runQueuedSpawnCommand: async () => ({ ok: true }),
     queueNpmScript: () => ({ id: 'npm_job' }),
-    enqueueRefreshNamingDebtJob: () => ({ id: 'naming_job' }),
     queueNodeJsonCommand: () => ({ id: 'node_job' }),
     hasPluginSocketForFile: () => true,
     toBooleanString: (value: unknown, fallback: boolean) => {
@@ -316,7 +315,7 @@ describe('command-routes', () => {
             },
           ],
         },
-        emitChunk: () => {},
+        emitChunk: () => { },
       });
 
       assert.equal(upsertCalls.length, 1);

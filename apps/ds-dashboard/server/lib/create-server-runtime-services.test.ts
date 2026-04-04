@@ -90,8 +90,7 @@ describe('create-server-runtime-services', () => {
       const queueJobFactoryService = {
         queueNpmScript: () => ({ id: 'job_2' }),
         queueNodeJsonCommand: () => ({ id: 'job_3' }),
-        enqueueRefreshNamingDebtJob: () => ({ id: 'job_4' }),
-        enqueueReplayJobFromOperation: () => ({ id: 'job_5' }),
+        enqueueReplayJobFromOperation: () => ({ id: 'job_4' }),
       };
 
       const runtime = createServerRuntimeServices({
@@ -110,7 +109,7 @@ describe('create-server-runtime-services', () => {
         opsHistoryMaxLimit: 500,
         opsLogFileRegex: /ops/,
         replayableNpmScripts: new Set(['ds:registry:refresh']),
-        supportedReplayOperations: new Set(['refresh:naming-debt']),
+        supportedReplayOperations: new Set(['script:ds-health-snapshot.mjs']),
         normalizeSystemId: (value: string) => String(value || ''),
         writeStructuredLog: () => { },
         nowIso: () => '2026-01-01T00:00:00.000Z',
@@ -135,7 +134,6 @@ describe('create-server-runtime-services', () => {
         runSpawnWithCaptureFn: () => Promise.resolve({ ok: true, exitCode: 0, stdout: '', stderr: '', parsedJson: null, summary: 'test', jsonParseError: null, spawnError: null }),
         toQueueSummaryFromPayloadFn: () => 'summary',
         createSnippetBuilderFn: () => () => ({ targetLine: 1, startLine: 1, endLine: 1, snippet: '' }),
-        computeNamingDebtReportFromDataFn: async () => ({ tokenRegistry: {}, tokenUsageIndex: {}, tokenGraph: {}, config: {} }),
         createDevRuntimeCheckerFn: () => () => true,
         createSha256TextHasherFn: () => () => 'hash',
         createSystemContextResolverFn: () => () => ({ systemId: 'core', header: 'core' }),
@@ -153,7 +151,6 @@ describe('create-server-runtime-services', () => {
       assert.equal(runtime.runQueuedSpawnCommand, commandExecutionService.runQueuedSpawnCommand);
       assert.equal(runtime.queueNpmScript, queueJobFactoryService.queueNpmScript);
       assert.equal(runtime.queueNodeJsonCommand, queueJobFactoryService.queueNodeJsonCommand);
-      assert.equal(runtime.enqueueRefreshNamingDebtJob, queueJobFactoryService.enqueueRefreshNamingDebtJob);
       assert.equal(runtime.enqueueReplayJobFromOperation, queueJobFactoryService.enqueueReplayJobFromOperation);
       assert.equal(runtime.isDevRuntime(), true);
       assert.equal(runtime.sha256Text('anything'), 'hash');

@@ -115,7 +115,6 @@ function createServerDepsForRouteWiring(): ServerDeps {
     enqueueQueueJob: () => ({}),
     runQueuedSpawnCommand: async () => ({}),
     queueNpmScript: () => ({}),
-    enqueueRefreshNamingDebtJob: () => ({}),
     queueNodeJsonCommand: () => ({}),
     toBooleanString: () => 'false',
     toNumberString: () => '0',
@@ -182,7 +181,7 @@ function createTestApp(options?: { internalToken?: string; nodeEnv?: string }) {
   const originalNodeEnv = process.env.NODE_ENV;
   const hadToken = originalToken !== undefined;
   const hadNodeEnv = originalNodeEnv !== undefined;
-  
+
   process.env.DS_DASHBOARD_INTERNAL_TOKEN = internalToken;
   process.env.NODE_ENV = nodeEnv;
 

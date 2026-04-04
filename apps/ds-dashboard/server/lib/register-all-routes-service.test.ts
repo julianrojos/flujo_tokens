@@ -53,7 +53,6 @@ function createDeps(): ServerDeps {
     enqueueQueueJob: () => ({}),
     runQueuedSpawnCommand: async () => ({}),
     queueNpmScript: () => ({}),
-    enqueueRefreshNamingDebtJob: () => ({}),
     queueNodeJsonCommand: () => ({}),
     toBooleanString: () => 'false',
     toNumberString: () => '0',

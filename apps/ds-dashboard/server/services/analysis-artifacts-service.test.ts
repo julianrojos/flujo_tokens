@@ -7,7 +7,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
-  computeNamingDebtReportFromData,
   normalizeImpactWcagPairs,
   runNodeJsonCommandOnce,
   validateGitRef,
@@ -37,35 +36,6 @@ describe('analysis-artifacts-service', () => {
         { foreground: 'a', background: 'b', level: 'AAA', textSize: 'large' },
         { foreground: 'x', background: 'y', level: 'AA', textSize: 'normal' },
       ]);
-    });
-  });
-
-  describe('computeNamingDebtReportFromData()', () => {
-    it('delegates analysis with in-memory artifacts', async () => {
-      const report = await computeNamingDebtReportFromData(
-        {
-          tokenRegistry: { entries: [1] },
-          tokenUsageIndex: { usage: [2] },
-          tokenGraph: { nodes: [3] },
-          config: { threshold: 1 },
-        },
-        {
-          analyzeNamingDebtFn: ({ tokenRegistry, tokenUsageIndex, tokenGraph, config }) =>
-            Promise.resolve({
-              tokenRegistry,
-              tokenUsageIndex,
-              tokenGraph,
-              config,
-            }),
-        },
-      );
-
-      assert.deepEqual(report, {
-        tokenRegistry: { entries: [1] },
-        tokenUsageIndex: { usage: [2] },
-        tokenGraph: { nodes: [3] },
-        config: { threshold: 1 },
-      });
     });
   });
 
