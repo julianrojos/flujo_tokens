@@ -1,7 +1,7 @@
 ---
 name: ds-migrate-legacy-component
 description: Migrate legacy component documentation into the canonical spec + markdown pipeline with deterministic validation gates.
-version: "1.1.1"
+version: "1.1.2"
 context:
   doc_type: component
   stage: markdown
@@ -38,6 +38,11 @@ inputs:
     required: false
     default: false
     description: "When true, overwrites existing spec/markdown files even if they already exist."
+derived:
+  - name: component_name_snake_case
+    from: component_name
+    transform: snake_case
+    description: "Snake-case slug used to resolve canonical spec and markdown output paths."
 outputs:
   - name: spec_file
     type: path
@@ -89,6 +94,9 @@ Migration output must comply with:
 - Detect whether spec YAML exists.
 - Extract any existing Figma source traceability from frontmatter/prose.
 - Identify hardcoded visual values and token candidates.
+- Pre-flight overwrite guard:
+  - If target spec/markdown already exist and `force` is `false`, report file conflicts and stop without writing.
+  - If `force` is `true`, continue and explicitly note overwrite intent in the output report.
 
 2. **Create or repair spec YAML**
 - Target path: `docs/_spec/components/<snake_case>.yml`.
@@ -105,12 +113,16 @@ Migration output must comply with:
 4. **Token normalization**
 - Replace hardcoded values with canonical token references when inferable.
 - Keep fallback values in prose/tables as required by rules.
-- Reject unresolved `VariableID:*` tokens.
+- Handle unresolved `VariableID:*` tokens deterministically:
+  - Leave original unresolved value unchanged (do not invent substitutions).
+  - Add a warning entry to `validation_errors_remaining` in the output report.
+  - Continue migration unless another blocking validation error requires failure.
 
 5. **Validate and synchronize**
 - Run docs validation gate.
 - Fix blocking errors.
 - Ensure `docs/components/overview.md` includes canonical entry.
+- If `validate:docs` is unavailable in the workspace, record it under `next_actions` and continue with the best-effort report.
 
 ## Recommended commands
 
@@ -121,7 +133,7 @@ npm run generate:registry
 # 2) Generate/repair markdown from spec
 npm run ds:component-doc -- --component-name "<DisplayName>" --force true
 
-# 3) Validate migrated output
+# 3) Validate migrated output (if script exists)
 npm run validate:docs -- --file "docs/components/<snake_case>.md" --no-overview true
 
 # 4) Full audit (optional, recommended before ready)
