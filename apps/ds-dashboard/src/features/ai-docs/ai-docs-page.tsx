@@ -14,9 +14,11 @@ import { AiJobCreateForm } from './components/ai-job-create-form';
 import { AiJobStatusCard } from './components/ai-job-status-card';
 import { AiDocDiffViewer } from './components/ai-doc-diff-viewer';
 import { AiDocStalenessBadge } from './components/ai-doc-staleness-badge';
+import { AiPromptEditorCard } from './components/ai-prompt-editor-card';
 import { useAiDocStatus } from './hooks/use-ai-doc-status';
 import { useAiJobEvents } from './hooks/use-ai-job-events';
 import { fetchComponentRegistry } from '@/lib/api';
+import { getAiPromptDefaults } from './lib/ai-jobs-api';
 import type { AiJobStatus, AiJobInput, AiProviderName } from '@/types/ai-jobs';
 
 function parseStatusFilter(value: string): 'all' | 'stale-missing' {
@@ -32,6 +34,9 @@ export function AiDocsPage() {
     const [prefillModel, setPrefillModel] = useState<string | undefined>(undefined);
     const [showDiff, setShowDiff] = useState(false);
     const [statusFilter, setStatusFilter] = useState<'all' | 'stale-missing'>('all');
+    const [systemPrompt, setSystemPrompt] = useState('');
+    const [userPrompt, setUserPrompt] = useState('');
+    const [promptsInitialized, setPromptsInitialized] = useState(false);
 
     // Keep ref in sync with activeJobId state
     useEffect(() => {
@@ -45,6 +50,19 @@ export function AiDocsPage() {
         queryFn: fetchComponentRegistry,
         staleTime: 60_000,
     });
+    const { data: promptDefaults, isLoading: isLoadingPromptDefaults, error: promptDefaultsError } = useQuery({
+        queryKey: ['ai-prompt-defaults'],
+        queryFn: getAiPromptDefaults,
+        staleTime: 60_000,
+    });
+
+    useEffect(() => {
+        if (!promptDefaults) return;
+        if (promptsInitialized) return;
+        setSystemPrompt(promptDefaults.systemPrompt);
+        setUserPrompt(promptDefaults.userPrompt);
+        setPromptsInitialized(true);
+    }, [promptDefaults, promptsInitialized]);
     const componentOptions = useMemo(
         () =>
             (componentRegistry?.components ?? [])
@@ -192,12 +210,38 @@ export function AiDocsPage() {
                             componentOptions={componentOptions}
                             initialProvider={prefillProvider}
                             initialModel={prefillModel}
+                            systemPrompt={systemPrompt}
+                            userPrompt={userPrompt}
                             onJobCreated={handleJobCreated}
                         />
                     </CardContent>
                 </Card>
 
-                {/* Right column: Job status */}
+                <div className="space-y-4">
+                    {promptDefaultsError ? (
+                        <StatusAlert
+                            variant="warning"
+                            title="Unable to load prompt defaults"
+                            description="Prompt defaults could not be loaded. If these fields stay empty, backend defaults will be used at generation time."
+                        />
+                    ) : null}
+                    <AiPromptEditorCard
+                        systemPrompt={systemPrompt}
+                        userPrompt={userPrompt}
+                        placeholders={promptDefaults?.placeholders ?? []}
+                        disabled={isLoadingPromptDefaults}
+                        onSystemPromptChange={setSystemPrompt}
+                        onUserPromptChange={setUserPrompt}
+                        onResetDefaults={() => {
+                            if (!promptDefaults) return;
+                            setSystemPrompt(promptDefaults.systemPrompt);
+                            setUserPrompt(promptDefaults.userPrompt);
+                        }}
+                    />
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>Job Status</CardTitle>
@@ -225,7 +269,6 @@ export function AiDocsPage() {
                         )}
                     </CardContent>
                 </Card>
-            </div>
 
             {/* Staleness section */}
             <Card>
@@ -330,6 +373,7 @@ export function AiDocsPage() {
                     )}
                 </CardContent>
             </Card>
+            </div>
         </div>
     );
 }

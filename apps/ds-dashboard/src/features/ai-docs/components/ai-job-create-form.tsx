@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { StatusAlert } from '@/components/ui/status-alert';
-import { getAiConfiguredProviders } from '../lib/ai-jobs-api';
+import { Modal, ModalContent, ModalHeader } from '@/components/ui/overlay';
+import { getAiConfiguredProviders, previewAiPrompts } from '../lib/ai-jobs-api';
 import { useAiJobCreate } from '../hooks/use-ai-job-create';
 import { useAiProviderHealth } from '../hooks/use-ai-provider-health';
-import type { AiHealthStatus, AiProviderName } from '@/types/ai-jobs';
+import type { AiHealthStatus, AiPromptPreviewResponse, AiProviderName } from '@/types/ai-jobs';
 import { AI_PROVIDER_LABELS, AI_PROVIDER_ORDER } from '@/types/ai-provider-catalog';
 
 export interface AiJobComponentOption {
@@ -30,6 +31,10 @@ interface AiJobCreateFormProps {
     initialProvider?: AiProviderName;
     /** Optional pre-filled model */
     initialModel?: string;
+    /** Optional system prompt override */
+    systemPrompt?: string;
+    /** Optional user prompt override */
+    userPrompt?: string;
     /** Callback when job is created */
     onJobCreated?: (jobId: string) => void;
 }
@@ -60,6 +65,8 @@ export function AiJobCreateForm({
     componentOptions = [],
     initialProvider, 
     initialModel, 
+    systemPrompt,
+    userPrompt,
     onJobCreated 
 }: AiJobCreateFormProps) {
     const [provider, setProvider] = useState<AiProviderName>(initialProvider || 'ollama');
@@ -70,6 +77,10 @@ export function AiJobCreateForm({
     const [showAdvanced, setShowAdvanced] = useState(false);
     const [providerTouched, setProviderTouched] = useState(false);
     const [manualComponentIdOverride, setManualComponentIdOverride] = useState(false);
+    const [showPromptPreview, setShowPromptPreview] = useState(false);
+    const [previewPending, setPreviewPending] = useState(false);
+    const [promptPreview, setPromptPreview] = useState<AiPromptPreviewResponse | null>(null);
+    const [promptPreviewError, setPromptPreviewError] = useState<string | null>(null);
 
     const { data: configuredProviders, isFetched: configuredProvidersLoaded } = useQuery({
         queryKey: ['ai-configured-providers'],
@@ -140,8 +151,34 @@ export function AiJobCreateForm({
             componentId: componentId.trim(),
             model: model.trim() || undefined,
             figmaUrl: figmaUrl.trim() || undefined,
+            systemPrompt: systemPrompt && systemPrompt.trim().length > 0 ? systemPrompt : undefined,
+            userPrompt: userPrompt && userPrompt.trim().length > 0 ? userPrompt : undefined,
             dryRun,
         });
+    };
+
+    const handleShowPromptPreview = async () => {
+        const trimmedComponentId = componentId.trim();
+        if (!trimmedComponentId) return;
+
+        setPromptPreview(null);
+        setShowPromptPreview(false);
+        setPromptPreviewError(null);
+        setPreviewPending(true);
+        try {
+            const preview = await previewAiPrompts({
+                componentId: trimmedComponentId,
+                figmaUrl: figmaUrl.trim() || undefined,
+                systemPrompt: systemPrompt && systemPrompt.trim().length > 0 ? systemPrompt : undefined,
+                userPrompt: userPrompt && userPrompt.trim().length > 0 ? userPrompt : undefined,
+            });
+            setPromptPreview(preview);
+            setShowPromptPreview(true);
+        } catch (error) {
+            setPromptPreviewError(error instanceof Error ? error.message : 'Unable to preview prompts');
+        } finally {
+            setPreviewPending(false);
+        }
     };
 
     const isValid = componentId.trim().length > 0 && !isPending;
@@ -373,10 +410,84 @@ export function AiJobCreateForm({
                 />
             )}
 
+            {promptPreviewError ? (
+                <StatusAlert
+                    variant="warning"
+                    title="Unable to preview prompts"
+                    description={promptPreviewError}
+                />
+            ) : null}
+
             {/* Submit Button */}
-            <Button type="submit" disabled={!isValid} className="w-full">
-                {isPending ? 'Creating Job...' : 'Generate Documentation'}
-            </Button>
+            <div className="flex flex-col gap-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                        void handleShowPromptPreview();
+                    }}
+                    disabled={componentId.trim().length === 0 || previewPending || isPending}
+                    className="w-full"
+                >
+                    {previewPending ? 'Rendering Prompt...' : 'Show rendered prompt preview'}
+                </Button>
+
+                <Button type="submit" disabled={!isValid} className="w-full">
+                    {isPending ? 'Creating Job...' : 'Generate Documentation'}
+                </Button>
+            </div>
+
+            <Modal
+                open={showPromptPreview}
+                onClose={() => setShowPromptPreview(false)}
+                aria-labelledby="ai-prompt-preview-title"
+                zIndex={1200}
+            >
+                <ModalContent size="lg" className="flex max-h-[85vh] flex-col overflow-hidden">
+                    <ModalHeader>
+                        <div>
+                            <h3 id="ai-prompt-preview-title" className="text-lg font-semibold">
+                                Rendered Prompt Preview
+                            </h3>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Interpolated prompts for component <span className="font-mono">{componentId.trim()}</span>.
+                            </p>
+                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setShowPromptPreview(false)}>
+                            Close
+                        </Button>
+                    </ModalHeader>
+                    <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-4">
+                        {promptPreview?.warning ? (
+                            <StatusAlert
+                                variant="warning"
+                                description={promptPreview.warning}
+                            />
+                        ) : null}
+                        {promptPreview ? (
+                            <>
+                                <p className="text-xs text-muted-foreground">
+                                    Spec source: <span className="font-mono">{promptPreview.specSource}</span>
+                                </p>
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">System prompt</p>
+                                    <pre className="max-h-56 overflow-auto rounded-md border border-border/70 bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+                                        {promptPreview.systemPrompt}
+                                    </pre>
+                                </div>
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">User prompt</p>
+                                    <pre className="max-h-[40vh] overflow-auto rounded-md border border-border/70 bg-muted/30 p-3 text-xs whitespace-pre-wrap">
+                                        {promptPreview.userPrompt}
+                                    </pre>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">No preview available.</p>
+                        )}
+                    </div>
+                </ModalContent>
+            </Modal>
         </form>
     );
 }

@@ -17,6 +17,8 @@ export interface UseAiJobCreateInput {
     componentId: string;
     model?: string;
     figmaUrl?: string;
+    systemPrompt?: string;
+    userPrompt?: string;
     dryRun?: boolean;
 }
 
@@ -31,6 +33,8 @@ export function useAiJobCreate(options?: UseAiJobCreateOptions) {
                 componentId: input.componentId,
                 model: input.model,
                 figmaUrl: input.figmaUrl,
+                systemPrompt: input.systemPrompt,
+                userPrompt: input.userPrompt,
                 dryRun: input.dryRun,
             };
 

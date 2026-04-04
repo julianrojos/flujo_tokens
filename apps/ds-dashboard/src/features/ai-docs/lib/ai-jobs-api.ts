@@ -14,6 +14,8 @@ import type {
     AiProviderHealthResponse,
     AiProviderConfiguredResponse,
     AiProviderName,
+    AiPromptDefaultsResponse,
+    AiPromptPreviewResponse,
 } from '@/types/ai-jobs';
 
 /**
@@ -87,6 +89,25 @@ export async function getAiProviderHealth(params: {
 
 export async function getAiConfiguredProviders(): Promise<AiProviderConfiguredResponse> {
     return requestJson<AiProviderConfiguredResponse>('/api/ai/providers/configured');
+}
+
+export async function getAiPromptDefaults(): Promise<AiPromptDefaultsResponse> {
+    return requestJson<AiPromptDefaultsResponse>('/api/ai/prompts/defaults');
+}
+
+export async function previewAiPrompts(params: {
+    componentId: string;
+    figmaUrl?: string;
+    systemPrompt?: string;
+    userPrompt?: string;
+}): Promise<AiPromptPreviewResponse> {
+    return requestJson<AiPromptPreviewResponse>('/api/ai/prompts/preview', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+    });
 }
 
 /**

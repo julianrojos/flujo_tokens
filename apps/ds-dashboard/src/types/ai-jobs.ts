@@ -61,6 +61,10 @@ export interface AiJobInput {
     figmaUrl?: string;
     /** Optional model override */
     model?: string;
+    /** Optional system prompt override */
+    systemPrompt?: string;
+    /** Optional user prompt override (supports placeholders) */
+    userPrompt?: string;
     /** Run without making actual LLM call */
     dryRun?: boolean;
     /** Explicit idempotency key */
@@ -178,6 +182,8 @@ export interface CreateAiJobRequest {
     componentId: string;
     figmaUrl?: string;
     model?: string;
+    systemPrompt?: string;
+    userPrompt?: string;
     dryRun?: boolean;
     idempotencyKey?: string;
 }
@@ -220,6 +226,22 @@ export interface AiProviderHealthResponse {
     };
     overallReady: boolean;
     checkedAt: number;
+}
+
+export interface AiPromptDefaultsResponse {
+    ok: boolean;
+    systemPrompt: string;
+    userPrompt: string;
+    placeholders: string[];
+}
+
+export interface AiPromptPreviewResponse {
+    ok: boolean;
+    systemPrompt: string;
+    userPrompt: string;
+    componentId: string;
+    specSource: 'figma' | 'fallback';
+    warning?: string;
 }
 
 // ============================================================================
