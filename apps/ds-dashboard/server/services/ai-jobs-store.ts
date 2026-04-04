@@ -38,6 +38,7 @@ const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
  * Maximum number of events retained per job (ring-buffer behavior)
  */
 const MAX_EVENTS_PER_JOB = 100;
+const IDEMPOTENCY_HASH_VERSION = 2;
 
 /**
  * AI Jobs Store class
@@ -94,12 +95,16 @@ export class AiJobsStore {
         }
 
         const data = {
+            hashVersion: IDEMPOTENCY_HASH_VERSION,
             type: input.type,
             provider: input.provider,
             systemId: input.systemId || '',
             componentId: input.componentId,
             figmaUrl: input.figmaUrl || '',
             model: input.model || '',
+            systemPrompt: String(input.systemPrompt || '').trim(),
+            userPrompt: String(input.userPrompt || '').trim(),
+            dryRun: Boolean(input.dryRun),
         };
 
         return crypto

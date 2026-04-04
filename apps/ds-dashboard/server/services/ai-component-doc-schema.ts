@@ -139,6 +139,10 @@ export interface AiJobInput {
     figmaUrl?: string;
     /** Optional model override */
     model?: string;
+    /** Optional system prompt override */
+    systemPrompt?: string;
+    /** Optional user prompt override (supports placeholders) */
+    userPrompt?: string;
     /** Run without making actual LLM call */
     dryRun?: boolean;
     /** Explicit idempotency key */

@@ -6,7 +6,13 @@
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { getAiJobsStore } from '../services/ai-jobs-store.js';
-import { runGenerateComponentDoc } from '../services/ai-orchestrator.js';
+import {
+    buildDefaultUserPromptTemplate,
+    buildSystemPrompt,
+    buildUserPrompt,
+    pruneSpecForPrompt,
+    runGenerateComponentDoc,
+} from '../services/ai-orchestrator.js';
 import { hasApiKey, resolveProviderConfig } from '../services/ai-provider.js';
 import type { AiProviderName } from '../services/ai-provider.js';
 import { OllamaAdapter } from '../services/ai-ollama-adapter.js';
@@ -15,6 +21,7 @@ import { AI_ERROR_CODES } from '../services/ai-component-doc-schema.js';
 import { resolveFileKeyFromManager } from '../lib/filekey-utils.ts';
 import { computeDocStatusesDbFromSnapshots } from '../services/ai-doc-status-service.js';
 import { computeDocDiff } from '../services/ai-diff-utils.js';
+import { getComponentSpecDirect } from '../services/figma-direct-bridge-service.js';
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
@@ -47,6 +54,36 @@ const VALID_PROVIDERS: readonly AiProviderName[] = ['anthropic', 'openai', 'olla
 const SSE_POLL_INTERVAL_MS = 1000;
 const SSE_KEEPALIVE_INTERVAL_MS = 15000;
 const SSE_MAX_POLL_DURATION_MS = 30 * 60 * 1000;
+const PROMPT_PREVIEW_CACHE_TTL_MS = 60_000;
+const PROMPT_PREVIEW_CACHE_MAX_ENTRIES = 50;
+
+const promptPreviewSpecCache = new Map<string, {
+    expiresAt: number;
+    prunedSpec: Record<string, unknown>;
+}>();
+
+function sweepExpiredPromptPreviewCache(now: number): void {
+    for (const [key, entry] of promptPreviewSpecCache.entries()) {
+        if (entry.expiresAt <= now) {
+            promptPreviewSpecCache.delete(key);
+        }
+    }
+}
+
+function setPromptPreviewCacheEntry(
+    cacheKey: string,
+    entry: { expiresAt: number; prunedSpec: Record<string, unknown> },
+): void {
+    if (promptPreviewSpecCache.has(cacheKey)) {
+        promptPreviewSpecCache.delete(cacheKey);
+    } else if (promptPreviewSpecCache.size >= PROMPT_PREVIEW_CACHE_MAX_ENTRIES) {
+        const oldestKey = promptPreviewSpecCache.keys().next().value;
+        if (oldestKey) {
+            promptPreviewSpecCache.delete(oldestKey);
+        }
+    }
+    promptPreviewSpecCache.set(cacheKey, entry);
+}
 
 type ResolveDocsContextResult =
     | {
@@ -181,6 +218,8 @@ interface CreateJobRequest {
     componentId: string;
     figmaUrl?: string;
     model?: string;
+    systemPrompt?: string;
+    userPrompt?: string;
     dryRun?: boolean;
     idempotencyKey?: string;
 }
@@ -191,6 +230,13 @@ interface CreateJobRequest {
 interface ApplyJobRequest {
     outputPath?: string;
     overwrite?: boolean;
+}
+
+interface PromptPreviewRequest {
+    componentId?: string;
+    figmaUrl?: string;
+    systemPrompt?: string;
+    userPrompt?: string;
 }
 
 type ProviderHealthStatus = 'ready' | 'warning' | 'error';
@@ -511,6 +557,119 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
         });
     });
 
+    // GET /api/ai/prompts/defaults - Default prompts for AI docs generation
+    app.get('/api/ai/prompts/defaults', async (c) => {
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+        }
+
+        return c.json({
+            ok: true,
+            systemPrompt: buildSystemPrompt(),
+            userPrompt: buildDefaultUserPromptTemplate(),
+            placeholders: ['{{componentId}}', '{{componentSpecJson}}', '{{existingEditorialJsonBlock}}'],
+        });
+    });
+
+    // POST /api/ai/prompts/preview - Build rendered prompts before creating a job
+    app.post('/api/ai/prompts/preview', async (c) => {
+        if (!checkAuth(c, deps.internalToken)) {
+            return c.json(errorResponse('ai.input.invalid', 'Unauthorized'), 401);
+        }
+
+        let body: PromptPreviewRequest;
+        try {
+            body = await c.req.json();
+        } catch {
+            return c.json(errorResponse('ai.input.invalid', 'Invalid JSON body'), 400);
+        }
+
+        const componentId = String(body.componentId || '').trim();
+        if (!componentId) {
+            return c.json(errorResponse('ai.input.invalid', 'componentId is required'), 400);
+        }
+
+        const figmaUrl = String(body.figmaUrl || '').trim();
+        const resolvedFigmaUrl = figmaUrl.length > 0 ? figmaUrl : undefined;
+        const systemPrompt = String(body.systemPrompt || '').trim() || buildSystemPrompt();
+
+        let promptSpec: Record<string, unknown> = {
+            componentId,
+            name: 'Component',
+            type: 'COMPONENT_SET',
+        };
+        let specSource: 'figma' | 'fallback' = 'fallback';
+        let warning: string | undefined;
+
+        const resolved = resolveFileKeyFromManager(resolvedFigmaUrl, {
+            ambiguous: AI_ERROR_CODES.FIGMA_NO_CONNECTION.code,
+            noSocket: AI_ERROR_CODES.FIGMA_NO_CONNECTION.code,
+            ambiguousMessage: 'Multiple plugin connections detected. Provide figmaUrl to disambiguate.',
+            noSocketMessage: 'No plugin WebSocket connection available.',
+        });
+
+        if ('fileKey' in resolved && resolved.fileKey) {
+            try {
+                const cacheKey = `${resolved.fileKey}:${componentId}`;
+                const now = Date.now();
+                sweepExpiredPromptPreviewCache(now);
+                const cached = promptPreviewSpecCache.get(cacheKey);
+                if (cached && cached.expiresAt > now) {
+                    promptSpec = cached.prunedSpec;
+                } else {
+                    const rawSpec = await getComponentSpecDirect(resolved.fileKey, {
+                        nodeId: componentId,
+                        depth: 4,
+                    });
+                    const { pruned } = pruneSpecForPrompt(rawSpec);
+                    promptSpec = pruned;
+                    setPromptPreviewCacheEntry(cacheKey, {
+                        expiresAt: now + PROMPT_PREVIEW_CACHE_TTL_MS,
+                        prunedSpec: pruned,
+                    });
+                }
+                specSource = 'figma';
+            } catch (error) {
+                warning = `Could not fetch Figma spec for preview: ${error instanceof Error ? error.message : String(error)}`;
+            }
+        } else if (resolvedFigmaUrl) {
+            return c.json(
+                errorResponse(resolved.code, resolved.message, AI_ERROR_CODES.FIGMA_NO_CONNECTION.retryable),
+                503,
+            );
+        } else if (!('fileKey' in resolved)) {
+            warning = `${resolved.message} Using fallback preview spec.`;
+        }
+
+        let userPrompt: string;
+        try {
+            userPrompt = buildUserPrompt(
+                promptSpec,
+                componentId,
+                null,
+                String(body.userPrompt || '').trim() || undefined,
+            );
+        } catch (error) {
+            return c.json(
+                errorResponse(
+                    AI_ERROR_CODES.INPUT_INVALID.code,
+                    error instanceof Error ? error.message : 'Invalid prompt template',
+                    AI_ERROR_CODES.INPUT_INVALID.retryable,
+                ),
+                400,
+            );
+        }
+
+        return c.json({
+            ok: true,
+            systemPrompt,
+            userPrompt,
+            componentId,
+            specSource,
+            warning,
+        });
+    });
+
     // POST /api/ai/jobs - Create a new job
     app.post('/api/ai/jobs', async (c) => {
         // Auth check
@@ -607,6 +766,8 @@ export function registerAiJobsRoutes(app: Hono, deps: AiJobsRouteDeps) {
                 fileKey,
                 figmaUrl,
                 model: body.model,
+                systemPrompt: typeof body.systemPrompt === 'string' ? body.systemPrompt : undefined,
+                userPrompt: typeof body.userPrompt === 'string' ? body.userPrompt : undefined,
                 dryRun: body.dryRun,
                 idempotencyKey: body.idempotencyKey,
             });

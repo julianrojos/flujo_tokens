@@ -93,6 +93,28 @@ describe('ai-orchestrator prompts', () => {
     assert.doesNotMatch(prompt, /"truncated"\s*:\s*true/);
     assert.doesNotMatch(prompt, /"preview"\s*:/);
   });
+
+  it('throws when custom user prompt template omits required componentSpecJson placeholder', () => {
+    assert.throws(() => {
+      buildUserPrompt(
+        { name: 'Button' },
+        '68:4097',
+        null,
+        'Generate docs for {{componentId}} without component spec placeholder.',
+      );
+    }, /must include \{\{componentSpecJson\}\}/);
+  });
+
+  it('throws when custom user prompt template omits required componentId placeholder', () => {
+    assert.throws(() => {
+      buildUserPrompt(
+        { name: 'Button' },
+        '68:4097',
+        null,
+        'Generate docs from this spec only:\n{{componentSpecJson}}',
+      );
+    }, /must include \{\{componentId\}\}/);
+  });
 });
 
 describe('ai-orchestrator pipeline', () => {

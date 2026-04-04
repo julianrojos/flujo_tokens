@@ -100,6 +100,17 @@ describe('ai-jobs-store', () => {
       assert.equal(key1.length, 16, 'Key should be 16 characters (64-bit hash)');
     });
 
+    it('should produce a versioned hash value for the current algorithm', () => {
+      const input = makeInput({
+        componentId: '68:1',
+        figmaUrl: 'https://figma.com/file/abc',
+        model: 'claude-sonnet-4-20250514',
+      });
+      const key = store.computeIdempotencyKey(input);
+
+      assert.equal(key, '6a3703caf20e1735');
+    });
+
     it('should produce different hash for different input', () => {
       const input1 = makeInput({ componentId: '68:1' });
       const input2 = makeInput({ componentId: '68:2' });
@@ -118,6 +129,22 @@ describe('ai-jobs-store', () => {
       const key2 = store.computeIdempotencyKey(input2);
 
       assert.notEqual(key1, key2, 'Different systems should not share idempotency keys');
+    });
+
+    it('should normalize prompt whitespace in hash input', () => {
+      const input1 = makeInput({
+        systemPrompt: 'System prompt',
+        userPrompt: 'User prompt',
+      });
+      const input2 = makeInput({
+        systemPrompt: '  System prompt  \n',
+        userPrompt: '\nUser prompt   ',
+      });
+
+      const key1 = store.computeIdempotencyKey(input1);
+      const key2 = store.computeIdempotencyKey(input2);
+
+      assert.equal(key1, key2, 'Whitespace-only prompt differences should not change idempotency');
     });
   });
 

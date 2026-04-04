@@ -38,6 +38,16 @@ const DEFAULT_JOB_TIMEOUT_MS = 90000;
  */
 const DEFAULT_OLLAMA_TIMEOUT_MS = 120000;
 
+const DEFAULT_USER_PROMPT_TEMPLATE = `Generate component documentation for Figma component ID: {{componentId}}
+
+Component Specification:
+\`\`\`json
+{{componentSpecJson}}
+\`\`\`
+{{existingEditorialJsonBlock}}
+
+Please generate the documentation following the schema provided in the system prompt.`;
+
 /**
  * Get job timeout from environment based on provider
  * @param provider - Provider name
@@ -239,6 +249,33 @@ IMPORTANT:
 - Ensure JSON is valid and matches the schema exactly`;
 }
 
+export function buildDefaultUserPromptTemplate(): string {
+    return DEFAULT_USER_PROMPT_TEMPLATE;
+}
+
+interface UserPromptTemplateContext {
+    componentId: string;
+    componentSpecJson: string;
+    existingEditorialJsonBlock: string;
+}
+
+const REQUIRED_USER_PROMPT_PLACEHOLDERS = ['{{componentId}}', '{{componentSpecJson}}'] as const;
+
+function renderUserPromptTemplate(
+    template: string,
+    context: UserPromptTemplateContext,
+): string {
+    for (const placeholder of REQUIRED_USER_PROMPT_PLACEHOLDERS) {
+        if (!template.includes(placeholder)) {
+            throw new Error(`Custom prompt template must include ${placeholder}`);
+        }
+    }
+    return template
+        .split('{{componentId}}').join(context.componentId)
+        .split('{{componentSpecJson}}').join(context.componentSpecJson)
+        .split('{{existingEditorialJsonBlock}}').join(context.existingEditorialJsonBlock);
+}
+
 /**
  * Build user prompt with component spec
  * @param spec - Pruned Figma component spec
@@ -250,19 +287,17 @@ export function buildUserPrompt(
     spec: Record<string, unknown>,
     componentId: string,
     existingEditorial?: Record<string, unknown> | null,
+    userPromptOverride?: string,
 ): string {
     const editorialContext = existingEditorial && Object.keys(existingEditorial).length > 0
         ? `\n\nEXISTING EDITORIAL DATA (preserve and enhance these fields in your output):\n\`\`\`json\n${stringifyJsonForPrompt(existingEditorial, 4000)}\n\`\`\``
         : '';
-
-    return `Generate component documentation for Figma component ID: ${componentId}
-
-Component Specification:
-\`\`\`json
-${JSON.stringify(spec, null, 2)}
-\`\`\`${editorialContext}
-
-Please generate the documentation following the schema provided in the system prompt.`;
+    const selectedTemplate = String(userPromptOverride || '').trim() || buildDefaultUserPromptTemplate();
+    return renderUserPromptTemplate(selectedTemplate, {
+        componentId,
+        componentSpecJson: JSON.stringify(spec, null, 2),
+        existingEditorialJsonBlock: editorialContext,
+    });
 }
 
 /**
@@ -505,8 +540,13 @@ export async function runGenerateComponentDoc(
         if (getExistingEditorialOverride) {
             existingEditorial = await getExistingEditorialOverride();
         }
-        const systemPrompt = buildSystemPrompt();
-        const userPrompt = buildUserPrompt(pruned, job.input.componentId, existingEditorial);
+        const systemPrompt = String(job.input.systemPrompt || '').trim() || buildSystemPrompt();
+        const userPrompt = buildUserPrompt(
+            pruned,
+            job.input.componentId,
+            existingEditorial,
+            job.input.userPrompt,
+        );
 
         // Store redacted prompt (no secrets)
         store.setPrompt(job.id, userPrompt.slice(0, 500) + '...');

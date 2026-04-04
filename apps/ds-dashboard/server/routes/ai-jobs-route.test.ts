@@ -1238,6 +1238,88 @@ describe('ai-jobs-route', () => {
         });
     });
 
+    describe('GET /api/ai/prompts/defaults', () => {
+        it('returns default system/user prompts with placeholder list', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/prompts/defaults', {
+                method: 'GET',
+                headers: { 'x-forwarded-for': '127.0.0.1' },
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.ok, true);
+            assert.equal(typeof json.systemPrompt, 'string');
+            assert.equal(typeof json.userPrompt, 'string');
+            assert.deepEqual(json.placeholders, [
+                '{{componentId}}',
+                '{{componentSpecJson}}',
+                '{{existingEditorialJsonBlock}}',
+            ]);
+            assert.match(json.systemPrompt, /JSON object/);
+            assert.match(json.userPrompt, /\{\{componentId\}\}/);
+        });
+    });
+
+    describe('POST /api/ai/prompts/preview', () => {
+        it('returns 400 when componentId is missing', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/prompts/preview', {
+                method: 'POST',
+                headers: { 'x-forwarded-for': '127.0.0.1', 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+
+            assert.equal(res.status, 400);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.input.invalid');
+        });
+
+        it('returns rendered preview using fallback spec when plugin is disconnected', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/prompts/preview', {
+                method: 'POST',
+                headers: { 'x-forwarded-for': '127.0.0.1', 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    componentId: '68:4097',
+                }),
+            });
+
+            assert.equal(res.status, 200);
+            const json = await res.json();
+            assert.equal(json.ok, true);
+            assert.equal(json.specSource, 'fallback');
+            assert.equal(typeof json.systemPrompt, 'string');
+            assert.equal(typeof json.userPrompt, 'string');
+            assert.match(json.userPrompt, /68:4097/);
+        });
+
+        it('returns 400 when custom user prompt template omits required componentSpecJson placeholder', async () => {
+            cleanupStore();
+            const app = createTestApp();
+
+            const res = await app.request('/api/ai/prompts/preview', {
+                method: 'POST',
+                headers: { 'x-forwarded-for': '127.0.0.1', 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    componentId: '68:4097',
+                    userPrompt: 'Generate docs for {{componentId}} only.',
+                }),
+            });
+
+            assert.equal(res.status, 400);
+            const json = await res.json();
+            assert.equal(json.code, 'ai.input.invalid');
+            assert.match(String(json.message || ''), /\{\{componentSpecJson\}\}/);
+        });
+    });
+
     describe('GET /api/ai/docs/status', () => {
         it('returns 503 when component repository is not available', async () => {
             cleanupStore();
