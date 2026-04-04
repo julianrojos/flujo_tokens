@@ -448,6 +448,7 @@ The dashboard also exposes a `Sync Usage Index` action in the Tokens page that r
 
 Markdown regeneration from the dashboard (`Edit summary (markdown)` -> save) runs `ds:component-doc` under the API process.
 That specific action requires an AI CLI available to the API runtime (`codex`, `claude`, or `gemini`).
+For AI provider-based doc generation in Dashboard (`/ai-docs`), Ollama is also supported.
 
 Agent configuration for dashboard API:
 
@@ -543,6 +544,7 @@ For markdown rendered to Figma, prefer the supported subset:
 ### Requirements
 
 - A compatible agent CLI installed: `codex`, `claude`, or `gemini`
+- For Dashboard AI provider flows (`/ai-docs`), `ollama` is also supported as a model provider.
 - Figma MCP configured for the selected agent
 - For Figma write operations, Figma Desktop + MCP Management running
 
