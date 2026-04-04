@@ -57,6 +57,29 @@ describe('ai-jobs-store-with-persistence', () => {
             assert.strictEqual(events.length, 1);
             assert.strictEqual(events[0].event, 'job.queued');
         });
+
+        it('reuses persistent job when DB idempotency key already exists', () => {
+            const now = Date.now();
+            const jobsRepo = (store as any).jobsRepo;
+
+            jobsRepo.upsertJob({
+                id: 'persisted-job',
+                idempotencyKey: 'existing-key',
+                input: createTestInput({ idempotencyKey: 'existing-key' }),
+                status: 'completed',
+                events: [{ seq: 1, ts: now, event: 'job.completed' }],
+                createdAt: now,
+                updatedAt: now,
+            });
+
+            const job = store.enqueue(createTestInput({ idempotencyKey: 'existing-key' }));
+
+            assert.strictEqual(job.id, 'persisted-job');
+            assert.strictEqual(job.status, 'completed');
+            assert.ok(store.findById('persisted-job'));
+            assert.deepStrictEqual(store.getQueueStatus('anthropic'), { queued: 0, running: 0 });
+            assert.strictEqual(store.tryDequeue('anthropic'), null);
+        });
     });
 
     describe('pushEvent()', () => {

@@ -416,6 +416,42 @@ export class AiJobsStore {
     }
 
     /**
+     * Remove a job from in-memory structures (jobs/index/queues/seq/prompts).
+     * Intended for subclass recovery paths when enqueue partially succeeds.
+     */
+    protected removeJobFromMemory(jobId: string): void {
+        const job = this.jobs.get(jobId);
+        if (!job) return;
+
+        // Remove from queue if queued/pending.
+        if (job.status === 'queued' || job.status === 'pending') {
+            const queue = this.queues.get(job.input.provider);
+            if (queue) {
+                const index = queue.indexOf(jobId);
+                if (index !== -1) {
+                    queue.splice(index, 1);
+                }
+            }
+        }
+
+        // Keep running counters consistent when removing a running job.
+        if (job.status === 'running') {
+            const running = this.runningCount.get(job.input.provider) || 0;
+            this.runningCount.set(job.input.provider, Math.max(0, running - 1));
+        }
+
+        // Remove idempotency key only if it still points to this job.
+        const mappedJobId = this.idempotencyIndex.get(job.idempotencyKey);
+        if (mappedJobId === jobId) {
+            this.idempotencyIndex.delete(job.idempotencyKey);
+        }
+
+        this.prompts.delete(jobId);
+        this.nextEventSeq.delete(jobId);
+        this.jobs.delete(jobId);
+    }
+
+    /**
      * Get max concurrent jobs per provider (protected for subclass access)
      */
     protected getMaxConcurrentPerProvider(): number {

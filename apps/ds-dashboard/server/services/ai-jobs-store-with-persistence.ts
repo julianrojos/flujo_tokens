@@ -9,6 +9,7 @@ import Database from 'better-sqlite3';
 
 import { AiJobsStore } from './ai-jobs-store.js';
 import type {
+    AiJobInput,
     AiJobState,
 } from './ai-component-doc-schema.js';
 import type { AiProviderName } from './ai-provider.js';
@@ -44,6 +45,59 @@ export class AiJobsStoreWithPersistence extends AiJobsStore {
         const marked = this.jobsRepo.markStaleRunningJobsAsFailed(staleThresholdMs);
         if (marked > 0) {
             console.log(`[AiJobsStore] Marked ${marked} stale running job(s) as failed`);
+        }
+    }
+
+    private isIdempotencyUniqueConstraintError(error: unknown): boolean {
+        const message = error instanceof Error ? error.message : String(error);
+        return message.includes('UNIQUE constraint failed: ai_jobs.idempotency_key');
+    }
+
+    private rehydratePersistentJobIfMissing(job: AiJobState): AiJobState {
+        const existing = this.findById(job.id);
+        if (existing) return existing;
+
+        this.loadJobIntoMemory(job);
+        const maxSeq = this.jobsRepo.getMaxEventSeq(job.id);
+        this.setNextEventSeq(job.id, maxSeq + 1);
+
+        if (job.status === 'queued') {
+            this.addToQueue(job.input.provider, job.id);
+        } else if (job.status === 'running') {
+            this.incrementRunningCount(job.input.provider);
+        }
+
+        return this.findById(job.id) ?? job;
+    }
+
+    /**
+     * Override enqueue to recover gracefully from DB idempotency uniqueness conflicts.
+     * This can happen after restarts when memory index is cold but DB already has the key.
+     */
+    override enqueue(input: AiJobInput): AiJobState {
+        const idempotencyKey = this.computeIdempotencyKey(input);
+
+        try {
+            return super.enqueue(input);
+        } catch (error) {
+            if (!this.isIdempotencyUniqueConstraintError(error)) {
+                throw error;
+            }
+
+            const persistent = this.getJobByIdempotencyKeyPersistent(idempotencyKey);
+            if (!persistent) {
+                throw error;
+            }
+
+            // super.enqueue may have already inserted an in-memory queued job
+            // before DB persistence failed with UNIQUE(idempotency_key). Remove
+            // that orphan to avoid duplicate dequeues/executions.
+            const orphan = this.findByIdempotencyKey(idempotencyKey);
+            if (orphan && orphan.id !== persistent.id) {
+                this.removeJobFromMemory(orphan.id);
+            }
+
+            return this.rehydratePersistentJobIfMissing(persistent);
         }
     }
 
